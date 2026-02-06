@@ -23,7 +23,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: jefflinse/pr-semver-bump@v1.7.3
+      - uses: jefflinse/pr-semver-bump@v1.7.4
         id: bump
         name: Bump and Tag Version
         with:

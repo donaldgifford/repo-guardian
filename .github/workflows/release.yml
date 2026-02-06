@@ -19,7 +19,7 @@ jobs:
       tag: ${{ steps.bump.outputs.version }}
       skipped: ${{ steps.bump.outputs.skipped }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -43,7 +43,7 @@ jobs:
     needs: bump-version
     if: needs.bump-version.outputs.skipped != 'true'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ needs.bump-version.outputs.tag }}

@@ -1,0 +1,7 @@
+[tools]
+go = "1.25.4"
+markdownlint-cli2 = "0.18.1"
+yamlfmt = "0.20.0"
+yamllint = "1.37.1"
+yq = "4.48.1"
+prettier = "3.7.4"

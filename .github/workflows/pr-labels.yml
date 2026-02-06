@@ -1,0 +1,27 @@
+name: PR Label Check
+on:
+  pull_request:
+    types: [opened, labeled, unlabeled, synchronize]
+permissions:
+  pull-requests: write
+  issues: write
+jobs:
+  check-labels:
+    name: Check Required Labels
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for semver label
+        uses: mheap/github-action-required-labels@v5
+        with:
+          mode: exactly
+          count: 1
+          labels: "major, minor, patch, dont-release"
+          add_comment: true
+          message: |-
+            This PR requires exactly one of the following labels for semver versioning:
+            - `major` - Breaking changes (1.x.x -> 2.0.0)
+            - `minor` - New features (1.2.x -> 1.3.0)
+            - `patch` - Bug fixes (1.2.3 -> 1.2.4)
+            - `dont-release` - No release needed
+
+            Please add one of these labels to proceed.

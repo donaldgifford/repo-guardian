@@ -1,0 +1,275 @@
+---
+# golangci-lint configuration based on Uber's Go Style Guide
+# https://github.com/uber-go/guide/blob/master/style.md
+
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  relative-path-mode: wd
+  allow-parallel-runners: true
+
+output:
+  formats:
+    tab:
+      path: stdout
+      colors: true
+
+linters:
+  default: none
+  enable:
+    # Error Handling (Critical for Uber style)
+    - errcheck  # Uber: Always check returned errors
+    - errorlint  # Uber: Proper error wrapping with %w
+    - errchkjson  # Check JSON marshal/unmarshal errors
+    - errname  # Error names should end with Error
+
+    # Code Quality & Simplification
+    - govet  # Uber: Standard Go static analysis
+    - staticcheck  # Uber: Comprehensive static analysis
+    # - gosimple # Uber: Simplify code
+    - unused  # Uber: Remove unused code
+    - ineffassign  # Catch ineffectual assignments
+    - unconvert  # Remove unnecessary type conversions
+
+    # Performance (Uber emphasis)
+    - prealloc  # Uber: Preallocate slices when size is known
+    - gocritic  # Performance and style checks
+    - nolintlint  # Ensure nolint directives are properly used
+
+    # Complexity & Maintainability
+    - gocyclo  # Uber: Limit cyclomatic complexity
+    - gocognit  # Cognitive complexity
+    - funlen  # Function length limits
+    - nestif  # Deep nesting detection
+
+    # Best Practices
+    - goconst  # Uber: Use constants for repeated strings
+    - misspell  # Catch spelling errors
+    - nakedret  # Uber: Avoid naked returns
+    - unparam  # Detect unused function parameters
+    - revive  # Comprehensive linting (replaces golint)
+
+    # Concurrency & Context (Uber emphasis)
+    - contextcheck  # Uber: Proper context usage
+    - noctx  # HTTP requests should use context
+
+    # Resource Management
+    - bodyclose  # Uber: Close HTTP response bodies
+    - sqlclosecheck  # Uber: Close SQL resources
+    - rowserrcheck  # Check sql.Rows.Err
+
+    # Nil & Pointer Safety
+    - nilerr  # Uber: Check returning nil explicitly
+    - nilnil  # Simultaneous nil return values
+    # - nilaway # Nil pointer dereference detection
+
+    # Testing
+    - testifylint  # Proper use of testify assertions
+    - thelper  # Test helper functions should call t.Helper()
+    - tparallel  # Proper use of t.Parallel()
+
+    # Security
+    - gosec  # Security issues
+
+    # Style & Conventions
+    # - stylecheck # Uber: Follow Go style conventions
+    - godot  # Comments should end with periods
+    - goheader  # License header
+
+  settings:
+    # Error handling
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+      exclude-functions:
+        - (io.Closer).Close  # Common pattern to defer close
+
+    errorlint:
+      errorf: true
+      asserts: true
+      comparison: true
+
+    # Complexity limits (Uber recommendations)
+    gocyclo:
+      min-complexity: 15  # Uber: Keep functions simple
+
+    gocognit:
+      min-complexity: 30
+
+    funlen:
+      lines: 100  # Uber: Prefer smaller functions
+      statements: 50
+
+    nestif:
+      min-complexity: 4  # Uber: Avoid deep nesting
+
+    # Code quality
+    goconst:
+      min-len: 3
+      min-occurrences: 3  # Uber: Extract repeated strings
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+        - experimental
+      disabled-checks:
+        - whyNoLint  # We prefer explicit nolint comments
+        - unnamedResult  # Sometimes okay for simple functions
+      settings:
+        hugeParam:
+          sizeThreshold: 80  # Uber: Pass large structs by pointer
+        rangeValCopy:
+          sizeThreshold: 128
+
+    # Testing
+    testifylint:
+      enable-all: true
+      disable:
+        - float-compare  # Sometimes we need exact float comparison
+
+    # Style
+    nakedret:
+      max-func-lines: 5  # Uber: Very limited naked returns
+
+    revive:
+      enable-all-rules: false
+      rules:
+        # Error handling
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+
+        # Naming conventions
+        - name: exported
+          arguments: ["disable-stuttering-check"]
+        - name: var-naming
+        - name: package-comments
+        - name: receiver-naming
+
+        # Code organization
+        - name: indent-error-flow  # Uber: Handle errors first
+        - name: early-return  # Uber: Early returns preferred
+        - name: blank-imports
+        - name: context-as-argument  # Uber: Context as first param
+        - name: context-keys-type  # Uber: Typed context keys
+        - name: dot-imports  # Uber: Avoid dot imports
+
+        # Best practices
+        - name: constant-logical-expr
+        - name: defer  # Uber: Proper defer usage
+        - name: empty-block
+        - name: identical-branches
+        - name: increment-decrement
+        - name: range
+        - name: range-val-in-closure
+        - name: range-val-address
+        - name: superfluous-else
+        - name: time-naming  # Uber: Duration variable names
+        - name: unreachable-code
+        - name: unused-parameter
+        - name: unused-receiver
+        - name: var-declaration
+
+        # Performance
+        - name: string-of-int  # Uber: Use strconv, not string()
+
+    # Resource management
+    nolintlint:
+      allow-unused: false
+      allow-no-explanation: []
+      require-explanation: true
+      require-specific: true
+
+  exclusions:
+    generated: lax
+    rules:
+      # Test files can be more lenient
+      - path: _test\.go
+        linters:
+          - errcheck
+          - funlen
+          - gocyclo
+          - gocognit
+          - goconst
+          - gosec
+          - dupl
+
+      # Main files often have init functions
+      - path: ./main.go
+        linters:
+          - gochecknoinits
+
+      # Generated files
+      - path: ".*\\.pb\\.go$"
+        linters:
+          - all
+
+      # Mock files
+      - path: mock_.*\.go$
+        linters:
+          - all
+
+      # Allow long lines in struct tags
+      - linters:
+          - lll
+        source: "^\\s*\\w+\\s+\\w+\\s+`.*`$"
+
+      - linters:
+          - gosec
+        text: "G306:"
+
+    paths:
+      - vendor
+      - third_party
+      - testdata
+      - examples
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new: false
+
+formatters:
+  enable:
+    # Formatting & Imports
+    - gofmt  # Uber: Always use gofmt
+    - goimports  # Uber: Group and format imports properly
+    - gci  # Uber: Deterministic import ordering
+    - gofumpt  # Stricter gofmt
+    - golines
+
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/donaldgifford/tflint-ruleset-terraform-style
+    golines:
+      max-len: 150
+    gci:
+      sections:
+        - standard  # Standard library
+        - default  # Default (third-party)
+        - prefix(github.com/donaldgifford)  # Local packages
+      custom-order: true
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+    # Uber emphasizes:
+    # 1. Always check errors
+    # 2. Use context properly
+    # 3. Close resources (defer close)
+    # 4. Keep functions small and simple
+    # 5. Avoid global mutable state
+    # 6. Use table-driven tests
+    # 7. Handle errors explicitly, wrap with %w
+    # 8. Prefer composition over inheritance
+    # 9. Use functional options for configs
+    # 10. Document exported functions and types

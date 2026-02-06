@@ -1,0 +1,11 @@
+---
+coverage:
+  status:
+    project:
+      default:
+        target: 60%
+        threshold: 40%
+ignore:
+  - "main.go"
+  - "docs"
+  - "scripts"

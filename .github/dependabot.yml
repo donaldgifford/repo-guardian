@@ -1,0 +1,35 @@
+---
+# To get started with Dependabot version updates, you'll need to specify which
+# package ecosystems to update and where the package manifests are located.
+# Please see the documentation for all configuration options:
+# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+
+version: 2
+updates:
+  # version updates: enabled
+  # security updates: enabled
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+  - package-ecosystem: "docker"
+    directory: "cicd"
+    schedule:
+      interval: "daily"
+    ignore:
+      - dependency-name: "golang"
+        update-types: ["version-update:semver-major"]
+    cooldown:
+      default-days: 7
+  # version updates: disabled
+  # security updates: enabled
+  # https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/configuring-dependabot-security-updates#overriding-the-default-behavior-with-a-configuration-file
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7

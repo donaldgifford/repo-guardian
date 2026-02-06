@@ -1,0 +1,82 @@
+---
+version: 2
+
+builds:
+  - id: repo-guardian
+    binary: repo-guardian
+    main: ./cmd/repo-guardian/main.go
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+
+archives:
+  - id: default
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    format: "tar.gz"
+    files:
+      - none*
+
+checksum:
+  name_template: 'checksums.txt'
+
+signs:
+  - artifacts: checksum
+    args:
+      - "--batch"
+      - "--local-user"
+      - "{{ .Env.GPG_FINGERPRINT }}"
+      - "--output"
+      - "${signature}"
+      - "--detach-sign"
+      - "${artifact}"
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: Features
+      regexp: "^feat:"
+      order: 0
+    - title: Bug Fixes
+      regexp: "^fix:"
+      order: 1
+    - title: Others
+      order: 999
+
+release:
+  github:
+    owner: donaldgifford
+    name: repo-guardian
+  draft: false
+  prerelease: auto
+  mode: prepend
+  header: |
+    ## Release {{ .Tag }} ({{ .Date }})
+
+    ### Installation
+
+    #### Linux/macOS (Manual)
+    ```bash
+    # Download the appropriate binary for your system
+    # Extract and move to your PATH
+    tar -xzf repo-guardian_*.tar.gz
+    ```
+
+  footer: |
+    ---
+    **Full Changelog**: https://github.com/donaldgifford/repo-guardian/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+snapshot:
+  version_template: "{{ .Tag }}-dev"

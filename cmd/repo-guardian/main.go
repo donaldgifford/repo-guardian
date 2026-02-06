@@ -2,3 +2,9 @@
 // manually as a cli application or set to run as a service in a docker
 // container or something similar.
 package repoguardian
+
+import "fmt"
+
+func main() {
+	fmt.Println("hi")
+}

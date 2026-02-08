@@ -277,7 +277,7 @@ Goal: Wire everything together in `main.go` with health checks, graceful shutdow
 - Health endpoints respond correctly.
 - SIGTERM triggers clean shutdown.
 
-### 3.2 Dockerfile
+### 3.2 Dockerfile ✅
 
 **File:** `Dockerfile`
 

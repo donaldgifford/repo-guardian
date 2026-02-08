@@ -1,0 +1,11 @@
+.git
+.github
+.claude
+build
+docs
+*.md
+Makefile
+.golangci.yml
+.goreleaser.yml
+mise.toml
+coverage.out

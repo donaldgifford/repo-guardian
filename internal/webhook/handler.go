@@ -8,6 +8,7 @@ import (
 	gh "github.com/google/go-github/v68/github"
 
 	"github.com/donaldgifford/repo-guardian/internal/checker"
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 )
 
 // Handler handles incoming GitHub webhook events and enqueues repo check jobs.
@@ -49,6 +50,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	eventType := gh.WebHookType(r)
+	metrics.WebhookReceivedTotal.WithLabelValues(eventType).Inc()
+
 	switch e := event.(type) {
 	case *gh.RepositoryEvent:
 		h.handleRepositoryEvent(e)
@@ -57,7 +61,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case *gh.InstallationEvent:
 		h.handleInstallationEvent(e)
 	default:
-		h.logger.Debug("ignoring unhandled event type", "type", gh.WebHookType(r))
+		h.logger.Debug("ignoring unhandled event type", "type", eventType)
 		w.WriteHeader(http.StatusNoContent)
 
 		return

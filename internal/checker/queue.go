@@ -8,6 +8,7 @@ import (
 	"time"
 
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 )
 
 // Trigger describes what initiated a repo check job.
@@ -162,13 +163,20 @@ func processJob(
 	installClient, err := ghClient.CreateInstallationClient(ctx, job.InstallationID)
 	if err != nil {
 		jobLog.Error("failed to create installation client", "error", err)
+		metrics.ErrorsTotal.WithLabelValues("create_install_client").Inc()
+
 		return
 	}
 
 	if err := engine.CheckRepo(ctx, installClient, job.Owner, job.Repo); err != nil {
 		jobLog.Error("job failed", "error", err, "duration", time.Since(start))
+		metrics.ErrorsTotal.WithLabelValues("check_repo").Inc()
+
 		return
 	}
 
-	jobLog.Info("job completed", "duration", time.Since(start))
+	duration := time.Since(start)
+	metrics.ReposCheckedTotal.WithLabelValues(string(job.Trigger)).Inc()
+	metrics.CheckDurationSeconds.Observe(duration.Seconds())
+	jobLog.Info("job completed", "duration", duration)
 }

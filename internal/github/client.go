@@ -9,6 +9,8 @@ import (
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	gh "github.com/google/go-github/v68/github"
+
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 )
 
 // GitHubClient implements the Client interface using the go-github library
@@ -346,6 +348,8 @@ func (c *GitHubClient) logRateLimit(resp *gh.Response) {
 	if resp == nil || resp.Rate.Limit == 0 {
 		return
 	}
+
+	metrics.GitHubRateRemaining.Set(float64(resp.Rate.Remaining))
 
 	c.logger.Debug("github api rate limit",
 		"remaining", resp.Rate.Remaining,

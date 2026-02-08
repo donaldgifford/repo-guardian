@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
 )
 
@@ -108,6 +109,7 @@ func (e *Engine) CheckRepo(ctx context.Context, client ghclient.Client, owner, r
 		}
 
 		ruleLog.Info("file missing, will add to PR")
+		metrics.FilesMissingTotal.WithLabelValues(rule.Name).Inc()
 		missing = append(missing, rule)
 	}
 
@@ -233,8 +235,10 @@ func (e *Engine) createOrUpdatePR(
 			return fmt.Errorf("creating PR: %w", err)
 		}
 
+		metrics.PRsCreatedTotal.Inc()
 		log.Info("created PR", "pr_number", pr.Number)
 	} else {
+		metrics.PRsUpdatedTotal.Inc()
 		log.Info("updated existing PR", "pr_number", existingPR.Number)
 	}
 

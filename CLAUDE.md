@@ -46,6 +46,7 @@ deploy/
 **Core flow:** GitHub webhook OR weekly scheduler → work queue (buffered channel) → checker engine → GitHub API (create PRs for missing files).
 
 **Key design patterns:**
+
 - **FileRule registry** — each rule defines paths to check, default templates, and PR detection logic. New rules are added without modifying core engine code.
 - **Deterministic branch naming** — single branch per repo (`repo-guardian/add-missing-files`) for idempotent PR creation.
 - **Work queue** with configurable concurrency (buffered channel + N worker goroutines) for rate-limit-safe GitHub API usage.
@@ -76,3 +77,20 @@ docker build -t repo-guardian:dev .   # Multi-stage: golang:1.25 builder + distr
 ## Release
 
 GoReleaser builds for linux/darwin on amd64/arm64 (CGO disabled). Releases are GPG-signed. Semantic versioning via PR labels (`major`, `minor`, `patch`).
+
+## Rules
+
+These rules must always be followed when working in this repository.
+
+1. **Use the `todo-comments` skill for code annotations.** All TODO, FIX, HACK,
+   WARN, PERF, NOTE, and TEST comments must follow the todo-comments format.
+   Respect and obey `CLAUDE` type directives — these are binding behavioral
+   instructions embedded in code.
+2. **Never commit directly to `main`.** All changes go through feature branches
+   and pull requests. Use the `git-workflow` skill (`/branch`) to create
+   branches with the correct type prefix (feat/, fix/, chore/, docs/, bug/).
+3. **Always look for enabled skills to use.** Check what skills are enabled for
+   the repo and use those as guiding tools for work.
+4. **Always check for make target for a command.** Check if there is an existing
+   make target for what you are trying to run. This helps with automating your
+   ability to run commands within the scope of safety we have defined.

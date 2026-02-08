@@ -108,6 +108,11 @@ func (q *Queue) Stop() {
 	q.logger.Info("work queue stopped")
 }
 
+// Len returns the number of pending items in the queue.
+func (q *Queue) Len() int {
+	return len(q.ch)
+}
+
 // Accepting returns true if the queue is accepting new jobs.
 func (q *Queue) Accepting() bool {
 	q.mu.Lock()

@@ -140,6 +140,27 @@ release-local: ## Test goreleaser without publishing
 	@ $(MAKE) --no-print-directory log-$@
 	goreleaser release --snapshot --clean --skip=publish --skip=sign
 
+###############
+##@ Docker
+
+.PHONY: docker-build docker-build-multiarch docker-bake-print docker-push
+
+docker-build: ## Build local dev image (single-arch)
+	@ $(MAKE) --no-print-directory log-$@
+	@docker buildx bake dev
+
+docker-build-multiarch: ## Validate multi-arch build (no push)
+	@ $(MAKE) --no-print-directory log-$@
+	@docker buildx bake ci
+
+docker-bake-print: ## Print resolved bake config (debug)
+	@ $(MAKE) --no-print-directory log-$@
+	@docker buildx bake --print dev
+
+docker-push: ## Build and push multi-arch image to registry
+	@ $(MAKE) --no-print-directory log-$@
+	@docker buildx bake release
+
 
 ########################################################################
 ## Self-Documenting Makefile Help                                     ##

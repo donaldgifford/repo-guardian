@@ -7,5 +7,6 @@ docs
 Makefile
 .golangci.yml
 .goreleaser.yml
+docker-bake.hcl
 mise.toml
 coverage.out

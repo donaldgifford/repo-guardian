@@ -8,7 +8,7 @@ Detailed phased implementation plan for repo-guardian, derived from [RFC.md](./R
 
 Goal: Buildable, testable core with GitHub client, rule registry, and checker engine — all backed by unit tests against mocked interfaces.
 
-### 1.1 Define interfaces and types
+### 1.1 Define interfaces and types ✅
 
 **Package:** `internal/github`
 
@@ -31,7 +31,7 @@ Goal: Buildable, testable core with GitHub client, rule registry, and checker en
 - Interface compiles, is documented with godoc comments.
 - No concrete implementation yet (that comes in 1.3).
 
-### 1.2 FileRule registry
+### 1.2 FileRule registry ✅
 
 **Package:** `internal/rules`
 
@@ -56,7 +56,7 @@ Goal: Buildable, testable core with GitHub client, rule registry, and checker en
 - `make lint` and `make test` pass.
 - Templates for codeowners, dependabot, renovate exist as `.tmpl` files.
 
-### 1.3 GitHub client implementation
+### 1.3 GitHub client implementation ✅
 
 **Package:** `internal/github`
 
@@ -81,7 +81,7 @@ Goal: Buildable, testable core with GitHub client, rule registry, and checker en
 - Concrete client satisfies the `Client` interface.
 - Tests pass against httptest mocks.
 
-### 1.4 Configuration
+### 1.4 Configuration ✅
 
 **Package:** `internal/config`
 
@@ -99,7 +99,7 @@ Goal: Buildable, testable core with GitHub client, rule registry, and checker en
 - All 13 env vars from RFC are parsed.
 - `make test` passes.
 
-### 1.5 Checker engine
+### 1.5 Checker engine ✅
 
 **Package:** `internal/checker`
 
@@ -137,7 +137,7 @@ Goal: Buildable, testable core with GitHub client, rule registry, and checker en
 
 Goal: The app can receive GitHub webhooks and run scheduled reconciliation, dispatching work through a concurrent queue.
 
-### 2.1 Work queue
+### 2.1 Work queue ✅
 
 **Package:** `internal/checker`
 
@@ -158,7 +158,7 @@ Goal: The app can receive GitHub webhooks and run scheduled reconciliation, disp
 - Queue handles concurrent access safely (race detector passes).
 - Graceful shutdown works.
 
-### 2.2 Webhook handler
+### 2.2 Webhook handler ✅
 
 **Package:** `internal/webhook`
 
@@ -188,7 +188,7 @@ Goal: The app can receive GitHub webhooks and run scheduled reconciliation, disp
 - Signature validation rejects bad payloads.
 - All three webhook event types correctly enqueue jobs.
 
-### 2.3 Scheduler
+### 2.3 Scheduler ✅
 
 **Package:** `internal/scheduler`
 
@@ -214,7 +214,7 @@ Goal: The app can receive GitHub webhooks and run scheduled reconciliation, disp
 - Scheduler runs reconciliation on startup and on interval.
 - Graceful shutdown via context cancellation.
 
-### 2.4 Observability
+### 2.4 Observability ✅
 
 **Packages:** Integrated across all packages, metrics registered in `cmd/repo-guardian/main.go`.
 
@@ -245,7 +245,7 @@ Goal: The app can receive GitHub webhooks and run scheduled reconciliation, disp
 
 Goal: Wire everything together in `main.go` with health checks, graceful shutdown, and a working binary.
 
-### 3.1 Main entrypoint
+### 3.1 Main entrypoint ✅
 
 **File:** `cmd/repo-guardian/main.go`
 

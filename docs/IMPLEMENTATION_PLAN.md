@@ -299,7 +299,7 @@ Goal: Wire everything together in `main.go` with health checks, graceful shutdow
 
 Goal: Deploy to EKS dev cluster, validate end-to-end with dry-run mode.
 
-### 4.1 Kubernetes manifests
+### 4.1 Kubernetes manifests ✅
 
 **Directory:** `deploy/`
 

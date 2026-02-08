@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: repo-guardian
+  labels:
+    app: repo-guardian
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: repo-guardian
+  template:
+    metadata:
+      labels:
+        app: repo-guardian
+    spec:
+      serviceAccountName: repo-guardian
+      containers:
+        - name: repo-guardian
+          image: repo-guardian:latest
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 9090
+              name: metrics
+          env:
+            - name: GITHUB_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: repo-guardian-github
+                  key: app-id
+            - name: GITHUB_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: repo-guardian-github
+                  key: webhook-secret
+            - name: GITHUB_PRIVATE_KEY_PATH
+              value: /etc/repo-guardian/private-key/private-key.pem
+            - name: TEMPLATE_DIR
+              value: /etc/repo-guardian/templates
+          volumeMounts:
+            - name: github-private-key
+              mountPath: /etc/repo-guardian/private-key
+              readOnly: true
+            - name: templates
+              mountPath: /etc/repo-guardian/templates
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: github-private-key
+          secret:
+            secretName: repo-guardian-github
+            items:
+              - key: private-key
+                path: private-key.pem
+        - name: templates
+          configMap:
+            name: repo-guardian-templates

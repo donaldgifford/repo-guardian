@@ -64,10 +64,13 @@ target "ci" {
   cache-to   = ["type=gha,mode=max"]
 }
 
+// Populated by docker/metadata-action in CI with computed tags and labels.
+target "docker-metadata-action" {}
+
 // Release build — multi-arch, pushes to registry.
 // In CI, docker/metadata-action overrides tags via the bake file merge pattern.
 target "release" {
-  inherits  = ["_common"]
+  inherits  = ["_common", "docker-metadata-action"]
   tags      = tags(VERSION)
   platforms = ["linux/amd64", "linux/arm64"]
   output    = ["type=registry"]

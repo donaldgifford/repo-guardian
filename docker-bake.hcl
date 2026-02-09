@@ -65,13 +65,15 @@ target "ci" {
 }
 
 // Populated by docker/metadata-action in CI with computed tags and labels.
-target "docker-metadata-action" {}
+// Default tags are used for local `make docker-push`; CI overrides via bake file merge.
+target "docker-metadata-action" {
+  tags = tags(VERSION)
+}
 
 // Release build — multi-arch, pushes to registry.
-// In CI, docker/metadata-action overrides tags via the bake file merge pattern.
+// Tags are inherited from docker-metadata-action (overridden by metadata-action in CI).
 target "release" {
   inherits  = ["_common", "docker-metadata-action"]
-  tags      = tags(VERSION)
   platforms = ["linux/amd64", "linux/arm64"]
   output    = ["type=registry"]
   cache-from = ["type=gha"]

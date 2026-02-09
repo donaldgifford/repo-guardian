@@ -58,6 +58,35 @@ jobs:
           slug: donaldgifford/repo-guardian
         continue-on-error: true
 
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Run govulncheck
+        uses: donaldgifford/govulncheck-action@v1
+        with:
+          go-version-file: go.mod
+          go-package: ./...
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -91,6 +120,6 @@ jobs:
         uses: docker/bake-action@v6
         with:
           targets: ci
-          set: |
+          set: |-
             *.cache-from=type=gha
             *.cache-to=type=gha,mode=max

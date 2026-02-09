@@ -73,7 +73,8 @@ jobs:
           go-version-file: go.mod
 
       - name: Run govulncheck
-        uses: golang/govulncheck-action@v1
+        # uses: golang/govulncheck-action@v1
+        uses: donaldgifford/govulncheck-action@v1
         with:
           go-version-file: go.mod
           go-package: ./...

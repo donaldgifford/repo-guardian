@@ -120,6 +120,7 @@ jobs:
         uses: docker/bake-action@v6
         with:
           targets: ci
+          source: .
           set: |-
             *.cache-from=type=gha
             *.cache-to=type=gha,mode=max

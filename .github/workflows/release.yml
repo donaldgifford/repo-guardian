@@ -106,6 +106,7 @@ jobs:
         uses: docker/bake-action@v6
         with:
           targets: release
+          source: .
           files: |
             docker-bake.hcl
             ${{ steps.meta.outputs.bake-file-tags }}

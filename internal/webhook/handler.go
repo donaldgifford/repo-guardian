@@ -30,11 +30,6 @@ func NewHandler(webhookSecret string, queue *checker.Queue, logger *slog.Logger)
 
 // ServeHTTP implements http.Handler for GitHub webhook events.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	payload, err := gh.ValidatePayload(r, h.webhookSecret)
 	if err != nil {
 		h.logger.Warn("invalid webhook payload", "error", err)

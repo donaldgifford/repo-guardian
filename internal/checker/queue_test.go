@@ -3,7 +3,6 @@ package checker
 import (
 	"context"
 	"log/slog"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -63,9 +62,6 @@ func TestWorkers_ProcessJobs(t *testing.T) {
 		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
 	}
 
-	var processed atomic.Int32
-
-	// Wrap engine to count processed jobs.
 	q := NewQueue(100, slog.Default())
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -84,17 +80,25 @@ func TestWorkers_ProcessJobs(t *testing.T) {
 		if err := q.Enqueue(job); err != nil {
 			t.Fatalf("Enqueue job %d: %v", i, err)
 		}
-
-		processed.Add(1)
 	}
 
-	// Give workers time to process.
-	time.Sleep(500 * time.Millisecond)
+	// Wait for all jobs to be processed before stopping. Stop cancels
+	// the worker context, so we must let workers finish first.
+	deadline := time.After(5 * time.Second)
+	for client.processedJobs.Load() < int32(jobCount) {
+		select {
+		case <-deadline:
+			t.Fatalf("timed out waiting for jobs: processed %d of %d",
+				client.processedJobs.Load(), jobCount)
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
 
 	q.Stop()
 
-	if got := processed.Load(); got != int32(jobCount) {
-		t.Errorf("expected %d jobs enqueued, got %d", jobCount, got)
+	if got := client.processedJobs.Load(); got != int32(jobCount) {
+		t.Errorf("expected %d jobs processed, got %d", jobCount, got)
 	}
 }
 

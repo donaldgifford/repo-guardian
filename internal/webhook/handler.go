@@ -4,6 +4,7 @@ package webhook
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 
 	gh "github.com/google/go-github/v68/github"
 
@@ -143,11 +144,6 @@ func (h *Handler) enqueue(owner, repo string, installationID int64) {
 
 // extractOwner gets the owner from a "owner/repo" full name string.
 func extractOwner(fullName string) string {
-	for i, c := range fullName {
-		if c == '/' {
-			return fullName[:i]
-		}
-	}
-
-	return fullName
+	owner, _, _ := strings.Cut(fullName, "/")
+	return owner
 }

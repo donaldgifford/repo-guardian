@@ -55,11 +55,11 @@ func NewQueue(size int, logger *slog.Logger) *Queue {
 // Enqueue adds a job to the queue. Returns an error if the queue is full.
 func (q *Queue) Enqueue(job RepoJob) error {
 	q.mu.Lock()
+	defer q.mu.Unlock()
+
 	if q.stopped {
-		q.mu.Unlock()
 		return fmt.Errorf("queue is stopped")
 	}
-	q.mu.Unlock()
 
 	select {
 	case q.ch <- job:
@@ -102,8 +102,8 @@ func (q *Queue) Stop() {
 		q.cancelFn()
 	}
 
-	q.mu.Unlock()
 	close(q.ch)
+	q.mu.Unlock()
 	q.wg.Wait()
 
 	q.logger.Info("work queue stopped")

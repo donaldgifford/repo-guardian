@@ -53,6 +53,10 @@ func (t *rateLimitTransport) RoundTrip(req *http.Request) (*http.Response, error
 		return resp, nil
 	}
 
+	// Close the first response body before retrying. Drain errors are
+	// not actionable here — we're about to retry the request.
+	_ = resp.Body.Close()
+
 	// Rate limited — compute delay and retry once.
 	delay := t.rateLimitDelay(resp)
 	reason := t.rateLimitReason(resp)

@@ -196,6 +196,22 @@ func TestLoadInvalidRateLimitThreshold(t *testing.T) {
 	}
 }
 
+func TestLoadInvalidBool(t *testing.T) {
+	t.Setenv("GITHUB_APP_ID", "123")
+	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/key.pem")
+	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
+	t.Setenv("SKIP_FORKS", "yes")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error for invalid SKIP_FORKS")
+	}
+
+	if !strings.Contains(err.Error(), "SKIP_FORKS") {
+		t.Errorf("error should mention SKIP_FORKS: %v", err)
+	}
+}
+
 func TestLoadInvalidScheduleInterval(t *testing.T) {
 	t.Setenv("GITHUB_APP_ID", "123")
 	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/key.pem")

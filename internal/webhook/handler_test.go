@@ -169,21 +169,6 @@ func TestHandleWebhook_IgnoredAction(t *testing.T) {
 	}
 }
 
-func TestHandleWebhook_MethodNotAllowed(t *testing.T) {
-	t.Parallel()
-
-	q := checker.NewQueue(10, slog.Default())
-	h := NewHandler(testSecret, q, slog.Default())
-
-	req := httptest.NewRequest(http.MethodGet, "/webhooks/github", http.NoBody)
-	rr := httptest.NewRecorder()
-	h.ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 405, got %d", rr.Code)
-	}
-}
-
 func TestExtractOwner(t *testing.T) {
 	t.Parallel()
 

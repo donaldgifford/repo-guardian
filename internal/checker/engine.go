@@ -61,13 +61,13 @@ func (e *Engine) CheckRepo(ctx context.Context, client ghclient.Client, owner, r
 		return fmt.Errorf("getting repository info: %w", err)
 	}
 
-	// Skip archived repos.
+	// Authoritative skip checks — the scheduler pre-filters as an
+	// optimization, but the engine is the single source of truth.
 	if e.skipArchived && repoInfo.Archived {
 		log.Info("skipping archived repository")
 		return nil
 	}
 
-	// Skip forks.
 	if e.skipForks && repoInfo.Fork {
 		log.Info("skipping forked repository")
 		return nil

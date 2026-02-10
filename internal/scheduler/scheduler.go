@@ -88,6 +88,10 @@ func (s *Scheduler) reconcileAll(ctx context.Context) {
 		}
 
 		for _, repo := range repos {
+			// Pre-filter archived and forked repos to avoid enqueuing work
+			// that the engine would skip anyway. The engine performs the
+			// authoritative check — this is an optimization to reduce
+			// unnecessary GitHub API calls during reconciliation.
 			if s.skipArchived && repo.Archived {
 				continue
 			}

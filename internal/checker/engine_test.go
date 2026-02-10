@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
@@ -23,6 +24,7 @@ type mockClient struct {
 	createdPR       *ghclient.PullRequest
 	installations   []*ghclient.Installation
 	installRepos    map[int64][]*ghclient.Repository
+	processedJobs   atomic.Int32
 
 	getRepoErr      error
 	getContentsErr  error
@@ -64,6 +66,8 @@ func (m *mockClient) GetRepository(_ context.Context, _, _ string) (*ghclient.Re
 	if m.getRepoErr != nil {
 		return nil, m.getRepoErr
 	}
+
+	m.processedJobs.Add(1)
 
 	return m.repo, nil
 }

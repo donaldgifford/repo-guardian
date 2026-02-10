@@ -133,6 +133,7 @@ jobs:
         with:
           targets: ci
           source: .
+          files: docker-bake.hcl
           set: |
             *.cache-from=type=gha
             *.cache-to=type=gha,mode=max
@@ -144,6 +145,7 @@ jobs:
         with:
           targets: ci
           source: .
+          files: docker-bake.hcl
           set: |
             *.cache-from=type=gha
             *.cache-to=type=gha,mode=max

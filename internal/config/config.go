@@ -50,6 +50,10 @@ type Config struct {
 
 	// LogLevel controls log verbosity (debug, info, warn, error).
 	LogLevel string
+
+	// RateLimitThreshold is the fraction of remaining rate limit budget
+	// at which pre-emptive throttling begins (e.g., 0.10 = 10%).
+	RateLimitThreshold float64
 }
 
 // Load reads configuration from environment variables and applies defaults.
@@ -96,6 +100,13 @@ func Load() (*Config, error) {
 	}
 
 	cfg.ScheduleInterval = interval
+
+	rateLimitThreshold, err := envOrDefaultFloat("RATE_LIMIT_THRESHOLD", 0.10)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.RateLimitThreshold = rateLimitThreshold
 
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -157,6 +168,20 @@ func envOrDefaultInt(key string, defaultVal int) (int, error) {
 	}
 
 	return n, nil
+}
+
+func envOrDefaultFloat(key string, defaultVal float64) (float64, error) {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultVal, nil
+	}
+
+	f, err := strconv.ParseFloat(val, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parsing %s %q: %w", key, val, err)
+	}
+
+	return f, nil
 }
 
 func envOrDefaultDuration(key string, defaultVal time.Duration) (time.Duration, error) {

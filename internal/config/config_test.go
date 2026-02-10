@@ -52,6 +52,10 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.LogLevel != "info" {
 		t.Errorf("LogLevel = %q, want info", cfg.LogLevel)
 	}
+
+	if cfg.RateLimitThreshold != 0.10 {
+		t.Errorf("RateLimitThreshold = %f, want 0.10", cfg.RateLimitThreshold)
+	}
 }
 
 func TestLoadRequired_Missing(t *testing.T) {
@@ -93,6 +97,7 @@ func TestLoadOverrides(t *testing.T) {
 	t.Setenv("SKIP_ARCHIVED", "false")
 	t.Setenv("DRY_RUN", "true")
 	t.Setenv("LOG_LEVEL", "debug")
+	t.Setenv("RATE_LIMIT_THRESHOLD", "0.25")
 
 	cfg, err := Load()
 	if err != nil {
@@ -150,6 +155,10 @@ func TestLoadOverrides(t *testing.T) {
 	if cfg.LogLevel != "debug" {
 		t.Errorf("LogLevel = %q, want debug", cfg.LogLevel)
 	}
+
+	if cfg.RateLimitThreshold != 0.25 {
+		t.Errorf("RateLimitThreshold = %f, want 0.25", cfg.RateLimitThreshold)
+	}
 }
 
 func TestLoadInvalidAppID(t *testing.T) {
@@ -172,6 +181,18 @@ func TestLoadInvalidWorkerCount(t *testing.T) {
 	_, err := Load()
 	if err == nil {
 		t.Fatal("expected error for invalid WORKER_COUNT")
+	}
+}
+
+func TestLoadInvalidRateLimitThreshold(t *testing.T) {
+	t.Setenv("GITHUB_APP_ID", "123")
+	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/key.pem")
+	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
+	t.Setenv("RATE_LIMIT_THRESHOLD", "not-a-float")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error for invalid RATE_LIMIT_THRESHOLD")
 	}
 }
 

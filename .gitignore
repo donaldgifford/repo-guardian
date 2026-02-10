@@ -34,3 +34,7 @@ go.work.sum
 # Build directories
 build/
 dist/
+
+# Keys and certs
+*.pem
+*.cert

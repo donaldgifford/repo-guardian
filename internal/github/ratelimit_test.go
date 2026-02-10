@@ -3,10 +3,12 @@ package github
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -311,4 +313,86 @@ func TestRateLimitTransport_RetryExhausted(t *testing.T) {
 	if callCount != 2 {
 		t.Errorf("expected exactly 2 server calls, got %d", callCount)
 	}
+}
+
+// trackingReadCloser wraps an io.ReadCloser and records whether Close was called.
+type trackingReadCloser struct {
+	io.ReadCloser
+	closed atomic.Bool
+}
+
+func (t *trackingReadCloser) Close() error {
+	t.closed.Store(true)
+	return t.ReadCloser.Close()
+}
+
+func TestRateLimitTransport_ResponseBodyClosed(t *testing.T) {
+	t.Parallel()
+
+	var firstBody *trackingReadCloser
+	callCount := 0
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		callCount++
+		if callCount == 1 {
+			w.Header().Set("Retry-After", "1")
+			withRateLimitHeaders(w, 100, 5000, time.Now().Add(time.Hour))
+			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprintln(w, `{"message": "secondary rate limit"}`)
+
+			return
+		}
+
+		withRateLimitHeaders(w, 4999, 5000, time.Now().Add(time.Hour))
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, `{"ok": true}`)
+	}))
+	defer server.Close()
+
+	// Wrap the default transport to intercept and track the first response body.
+	wrapping := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		resp, err := http.DefaultTransport.RoundTrip(req)
+		if err != nil {
+			return nil, err
+		}
+
+		if firstBody == nil {
+			tracker := &trackingReadCloser{ReadCloser: resp.Body}
+			firstBody = tracker
+			resp.Body = tracker
+		}
+
+		return resp, err
+	})
+
+	transport := newRateLimitTransport(wrapping, slog.Default(), 0.10)
+
+	client := &http.Client{Transport: transport}
+
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL, http.NoBody)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if firstBody == nil {
+		t.Fatal("expected first response body to be tracked")
+	}
+
+	if !firstBody.closed.Load() {
+		t.Error("first response body was not closed before retry")
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected 200 after retry, got %d", resp.StatusCode)
+	}
+}
+
+// roundTripFunc adapts a function to the http.RoundTripper interface.
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }

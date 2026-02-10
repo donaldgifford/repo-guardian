@@ -280,14 +280,10 @@ func (c *GitHubClient) CreateInstallationClient(_ context.Context, installationI
 	}
 
 	return &GitHubClient{
-		appTransport:       c.appTransport,
-		appClient:          c.appClient,
-		logger:             c.logger.With("installation_id", installationID),
-		rateLimitThreshold: c.rateLimitThreshold,
-		installClients:     c.installClients,
-		installationID:     installationID,
-		scopedGHClient:     ghClient,
-		mu:                 sync.Mutex{},
+		appClient:      c.appClient,
+		logger:         c.logger.With("installation_id", installationID),
+		installationID: installationID,
+		scopedGHClient: ghClient,
 	}, nil
 }
 

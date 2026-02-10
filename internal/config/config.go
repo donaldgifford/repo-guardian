@@ -58,13 +58,28 @@ type Config struct {
 
 // Load reads configuration from environment variables and applies defaults.
 func Load() (*Config, error) {
+	skipForks, err := envOrDefaultBool("SKIP_FORKS", true)
+	if err != nil {
+		return nil, err
+	}
+
+	skipArchived, err := envOrDefaultBool("SKIP_ARCHIVED", true)
+	if err != nil {
+		return nil, err
+	}
+
+	dryRun, err := envOrDefaultBool("DRY_RUN", false)
+	if err != nil {
+		return nil, err
+	}
+
 	cfg := &Config{
 		ListenAddr:           envOrDefault("LISTEN_ADDR", ":8080"),
 		MetricsAddr:          envOrDefault("METRICS_ADDR", ":9090"),
 		TemplateDir:          envOrDefault("TEMPLATE_DIR", "/etc/repo-guardian/templates"),
-		SkipForks:            envOrDefaultBool("SKIP_FORKS", true),
-		SkipArchived:         envOrDefaultBool("SKIP_ARCHIVED", true),
-		DryRun:               envOrDefaultBool("DRY_RUN", false),
+		SkipForks:            skipForks,
+		SkipArchived:         skipArchived,
+		DryRun:               dryRun,
 		LogLevel:             envOrDefault("LOG_LEVEL", "info"),
 		GitHubPrivateKeyPath: os.Getenv("GITHUB_PRIVATE_KEY_PATH"),
 		GitHubWebhookSecret:  os.Getenv("GITHUB_WEBHOOK_SECRET"),
@@ -142,18 +157,18 @@ func envOrDefault(key, defaultVal string) string {
 	return defaultVal
 }
 
-func envOrDefaultBool(key string, defaultVal bool) bool {
+func envOrDefaultBool(key string, defaultVal bool) (bool, error) {
 	val := os.Getenv(key)
 	if val == "" {
-		return defaultVal
+		return defaultVal, nil
 	}
 
 	b, err := strconv.ParseBool(val)
 	if err != nil {
-		return defaultVal
+		return false, fmt.Errorf("parsing %s %q: %w", key, val, err)
 	}
 
-	return b
+	return b, nil
 }
 
 func envOrDefaultInt(key string, defaultVal int) (int, error) {

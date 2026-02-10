@@ -56,4 +56,17 @@ var (
 		Name: "repo_guardian_github_rate_remaining",
 		Help: "GitHub API rate limit remaining.",
 	})
+
+	// GitHubRateLimitWaitsTotal counts rate limit waits by reason.
+	GitHubRateLimitWaitsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_github_rate_limit_waits_total",
+		Help: "Total rate limit waits by reason.",
+	}, []string{"reason"})
+
+	// GitHubRateLimitWaitSeconds records the duration of rate limit waits.
+	GitHubRateLimitWaitSeconds = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "repo_guardian_github_rate_limit_wait_seconds",
+		Help:    "Duration of rate limit waits in seconds.",
+		Buckets: []float64{0.1, 0.5, 1, 5, 10, 30, 60, 120, 300},
+	})
 )

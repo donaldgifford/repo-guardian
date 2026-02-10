@@ -8,5 +8,8 @@ Makefile
 .golangci.yml
 .goreleaser.yml
 docker-bake.hcl
+compose.yaml
+.env
+.env.example
 mise.toml
 coverage.out

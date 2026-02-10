@@ -1,0 +1,32 @@
+services:
+  repo-guardian:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    environment:
+      GITHUB_APP_ID: ${GITHUB_APP_ID:?required}
+      GITHUB_PRIVATE_KEY_PATH: /secrets/private-key.pem
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:?required}
+      DRY_RUN: ${DRY_RUN:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      SKIP_FORKS: "true"
+      SKIP_ARCHIVED: "true"
+      WORKER_COUNT: "2"
+      QUEUE_SIZE: "100"
+      SCHEDULE_INTERVAL: ${SCHEDULE_INTERVAL:-8760h}
+    volumes:
+      - ${GITHUB_PRIVATE_KEY_FILE:?required}:/secrets/private-key.pem:ro
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    command: http http://localhost:8080 --log stdout
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:?Get from https://dashboard.ngrok.com/get-started/your-authtoken}
+    network_mode: service:repo-guardian
+    depends_on:
+      - repo-guardian
+    profiles:
+      - tunnel

@@ -161,6 +161,27 @@ docker-push: ## Build and push multi-arch image to registry
 	@ $(MAKE) --no-print-directory log-$@
 	@docker buildx bake release
 
+###############
+##@ Compose
+
+.PHONY: compose-up compose-up-tunnel compose-down compose-logs
+
+compose-up: ## Start repo-guardian locally (dry-run mode)
+	@ $(MAKE) --no-print-directory log-$@
+	@docker compose up --build -d
+
+compose-up-tunnel: ## Start repo-guardian with ngrok tunnel (public webhook URL)
+	@ $(MAKE) --no-print-directory log-$@
+	@docker compose --profile tunnel up --build -d
+
+compose-down: ## Stop all local services
+	@ $(MAKE) --no-print-directory log-$@
+	@docker compose --profile tunnel down
+
+compose-logs: ## Tail logs from local services
+	@ $(MAKE) --no-print-directory log-$@
+	@docker compose logs -f
+
 
 ########################################################################
 ## Self-Documenting Makefile Help                                     ##

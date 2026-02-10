@@ -42,7 +42,7 @@ func main() {
 	)
 
 	// Initialize GitHub client.
-	client, err := ghclient.NewClient(cfg.GitHubAppID, cfg.GitHubPrivateKeyPath, logger)
+	client, err := ghclient.NewClient(cfg.GitHubAppID, cfg.GitHubPrivateKeyPath, logger, cfg.RateLimitThreshold)
 	if err != nil {
 		logger.Error("failed to create GitHub client", "error", err)
 		os.Exit(1)

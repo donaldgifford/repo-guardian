@@ -9,16 +9,15 @@ import (
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	gh "github.com/google/go-github/v68/github"
-
-	"github.com/donaldgifford/repo-guardian/internal/metrics"
 )
 
 // GitHubClient implements the Client interface using the go-github library
 // and GitHub App installation authentication.
 type GitHubClient struct {
-	appTransport *ghinstallation.AppsTransport
-	appClient    *gh.Client
-	logger       *slog.Logger
+	appTransport       *ghinstallation.AppsTransport
+	appClient          *gh.Client
+	logger             *slog.Logger
+	rateLimitThreshold float64
 
 	mu             sync.Mutex
 	installClients map[int64]*gh.Client
@@ -27,19 +26,21 @@ type GitHubClient struct {
 }
 
 // NewClient creates a new GitHubClient configured as a GitHub App.
-func NewClient(appID int64, privateKeyPath string, logger *slog.Logger) (*GitHubClient, error) {
+func NewClient(appID int64, privateKeyPath string, logger *slog.Logger, rateLimitThreshold float64) (*GitHubClient, error) {
 	transport, err := ghinstallation.NewAppsTransportKeyFromFile(http.DefaultTransport, appID, privateKeyPath)
 	if err != nil {
 		return nil, fmt.Errorf("creating GitHub App transport: %w", err)
 	}
 
-	appClient := gh.NewClient(&http.Client{Transport: transport})
+	rlTransport := newRateLimitTransport(transport, logger.With("component", "ratelimit"), rateLimitThreshold)
+	appClient := gh.NewClient(&http.Client{Transport: rlTransport})
 
 	return &GitHubClient{
-		appTransport:   transport,
-		appClient:      appClient,
-		logger:         logger,
-		installClients: make(map[int64]*gh.Client),
+		appTransport:       transport,
+		appClient:          appClient,
+		logger:             logger,
+		rateLimitThreshold: rateLimitThreshold,
+		installClients:     make(map[int64]*gh.Client),
 	}, nil
 }
 
@@ -57,10 +58,6 @@ func (c *GitHubClient) ghClient() *gh.Client {
 // GetContents checks whether a file exists at the given path in a repository.
 func (c *GitHubClient) GetContents(ctx context.Context, owner, repo, path string) (bool, error) {
 	_, _, resp, err := c.ghClient().Repositories.GetContents(ctx, owner, repo, path, nil)
-	if resp != nil {
-		c.logRateLimit(resp)
-	}
-
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			return false, nil
@@ -85,10 +82,6 @@ func (c *GitHubClient) ListOpenPullRequests(ctx context.Context, owner, repo str
 
 	for {
 		prs, resp, err := c.ghClient().PullRequests.List(ctx, owner, repo, opts)
-		if resp != nil {
-			c.logRateLimit(resp)
-		}
-
 		if err != nil {
 			return nil, fmt.Errorf("listing pull requests for %s/%s: %w", owner, repo, err)
 		}
@@ -114,11 +107,7 @@ func (c *GitHubClient) ListOpenPullRequests(ctx context.Context, owner, repo str
 
 // GetRepository returns repository metadata.
 func (c *GitHubClient) GetRepository(ctx context.Context, owner, repo string) (*Repository, error) {
-	r, resp, err := c.ghClient().Repositories.Get(ctx, owner, repo)
-	if resp != nil {
-		c.logRateLimit(resp)
-	}
-
+	r, _, err := c.ghClient().Repositories.Get(ctx, owner, repo)
 	if err != nil {
 		return nil, fmt.Errorf("getting repository %s/%s: %w", owner, repo, err)
 	}
@@ -136,10 +125,6 @@ func (c *GitHubClient) GetRepository(ctx context.Context, owner, repo string) (*
 // GetBranchSHA returns the commit SHA of the given branch, or empty string if the branch does not exist.
 func (c *GitHubClient) GetBranchSHA(ctx context.Context, owner, repo, branch string) (string, error) {
 	ref, resp, err := c.ghClient().Git.GetRef(ctx, owner, repo, "refs/heads/"+branch)
-	if resp != nil {
-		c.logRateLimit(resp)
-	}
-
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			return "", nil
@@ -160,11 +145,7 @@ func (c *GitHubClient) CreateBranch(ctx context.Context, owner, repo, branch, ba
 		},
 	}
 
-	_, resp, err := c.ghClient().Git.CreateRef(ctx, owner, repo, ref)
-	if resp != nil {
-		c.logRateLimit(resp)
-	}
-
+	_, _, err := c.ghClient().Git.CreateRef(ctx, owner, repo, ref)
 	if err != nil {
 		return fmt.Errorf("creating branch %s for %s/%s: %w", branch, owner, repo, err)
 	}
@@ -174,11 +155,7 @@ func (c *GitHubClient) CreateBranch(ctx context.Context, owner, repo, branch, ba
 
 // DeleteBranch deletes a branch from the repository.
 func (c *GitHubClient) DeleteBranch(ctx context.Context, owner, repo, branch string) error {
-	resp, err := c.ghClient().Git.DeleteRef(ctx, owner, repo, "refs/heads/"+branch)
-	if resp != nil {
-		c.logRateLimit(resp)
-	}
-
+	_, err := c.ghClient().Git.DeleteRef(ctx, owner, repo, "refs/heads/"+branch)
 	if err != nil {
 		return fmt.Errorf("deleting branch %s for %s/%s: %w", branch, owner, repo, err)
 	}
@@ -197,11 +174,7 @@ func (c *GitHubClient) CreateOrUpdateFile(
 		Branch:  gh.Ptr(branch),
 	}
 
-	_, resp, err := c.ghClient().Repositories.CreateFile(ctx, owner, repo, path, opts)
-	if resp != nil {
-		c.logRateLimit(resp)
-	}
-
+	_, _, err := c.ghClient().Repositories.CreateFile(ctx, owner, repo, path, opts)
 	if err != nil {
 		return fmt.Errorf("creating file %s in %s/%s: %w", path, owner, repo, err)
 	}
@@ -214,16 +187,12 @@ func (c *GitHubClient) CreatePullRequest(
 	ctx context.Context,
 	owner, repo, title, body, head, base string,
 ) (*PullRequest, error) {
-	pr, resp, err := c.ghClient().PullRequests.Create(ctx, owner, repo, &gh.NewPullRequest{
+	pr, _, err := c.ghClient().PullRequests.Create(ctx, owner, repo, &gh.NewPullRequest{
 		Title: gh.Ptr(title),
 		Body:  gh.Ptr(body),
 		Head:  gh.Ptr(head),
 		Base:  gh.Ptr(base),
 	})
-	if resp != nil {
-		c.logRateLimit(resp)
-	}
-
 	if err != nil {
 		return nil, fmt.Errorf("creating PR for %s/%s: %w", owner, repo, err)
 	}
@@ -244,10 +213,6 @@ func (c *GitHubClient) ListInstallations(ctx context.Context) ([]*Installation, 
 
 	for {
 		installs, resp, err := c.appClient.Apps.ListInstallations(ctx, opts)
-		if resp != nil {
-			c.logRateLimit(resp)
-		}
-
 		if err != nil {
 			return nil, fmt.Errorf("listing installations: %w", err)
 		}
@@ -282,10 +247,6 @@ func (c *GitHubClient) ListInstallationRepos(ctx context.Context, installationID
 
 	for {
 		result, resp, err := installClient.Apps.ListRepos(ctx, opts)
-		if resp != nil {
-			c.logRateLimit(resp)
-		}
-
 		if err != nil {
 			return nil, fmt.Errorf("listing repos for installation %d: %w", installationID, err)
 		}
@@ -319,13 +280,14 @@ func (c *GitHubClient) CreateInstallationClient(_ context.Context, installationI
 	}
 
 	return &GitHubClient{
-		appTransport:   c.appTransport,
-		appClient:      c.appClient,
-		logger:         c.logger.With("installation_id", installationID),
-		installClients: c.installClients,
-		installationID: installationID,
-		scopedGHClient: ghClient,
-		mu:             sync.Mutex{},
+		appTransport:       c.appTransport,
+		appClient:          c.appClient,
+		logger:             c.logger.With("installation_id", installationID),
+		rateLimitThreshold: c.rateLimitThreshold,
+		installClients:     c.installClients,
+		installationID:     installationID,
+		scopedGHClient:     ghClient,
+		mu:                 sync.Mutex{},
 	}, nil
 }
 
@@ -338,22 +300,13 @@ func (c *GitHubClient) getInstallClient(installationID int64) (*gh.Client, error
 	}
 
 	transport := ghinstallation.NewFromAppsTransport(c.appTransport, installationID)
-	client := gh.NewClient(&http.Client{Transport: transport})
+	rlTransport := newRateLimitTransport(
+		transport,
+		c.logger.With("component", "ratelimit", "installation_id", installationID),
+		c.rateLimitThreshold,
+	)
+	client := gh.NewClient(&http.Client{Transport: rlTransport})
 	c.installClients[installationID] = client
 
 	return client, nil
-}
-
-func (c *GitHubClient) logRateLimit(resp *gh.Response) {
-	if resp == nil || resp.Rate.Limit == 0 {
-		return
-	}
-
-	metrics.GitHubRateRemaining.Set(float64(resp.Rate.Remaining))
-
-	c.logger.Debug("github api rate limit",
-		"remaining", resp.Rate.Remaining,
-		"limit", resp.Rate.Limit,
-		"reset", resp.Rate.Reset,
-	)
 }

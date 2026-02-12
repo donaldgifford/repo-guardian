@@ -1,0 +1,187 @@
+# Prometheus alerting rules for repo-guardian.
+#
+# Usage:
+#   Add this file to your Prometheus rule_files configuration:
+#
+#   rule_files:
+#     - /etc/prometheus/rules/repo-guardian-alerts.yaml
+#
+#   Or if using the Prometheus Operator, create a PrometheusRule resource:
+#
+#   apiVersion: monitoring.coreos.com/v1
+#   kind: PrometheusRule
+#   metadata:
+#     name: repo-guardian
+#     namespace: platform-tools
+#     labels:
+#       release: kube-prometheus-stack   # match your Prometheus selector
+#   spec:
+#     groups:
+#       <paste the groups below here>
+
+groups:
+  - name: repo-guardian
+    rules:
+      # -------------------------------------------------------------------
+      # Availability
+      # -------------------------------------------------------------------
+
+      # The service has not checked any repositories in the last 2 hours.
+      # During normal operation the scheduler or webhooks should produce
+      # a steady stream of checks. A gap suggests the pod is down, the
+      # queue is stuck, or no webhooks are arriving.
+      - alert: RepoGuardianNoRepoChecks
+        expr: |
+          increase(repo_guardian_repos_checked_total[2h]) == 0
+        for: 30m
+        labels:
+          severity: warning
+          service: repo-guardian
+        annotations:
+          summary: "No repositories checked in the last 2 hours"
+          description: >-
+            repo-guardian has not processed any repository checks in the
+            last 2 hours. Verify the pod is running, the work queue is
+            not stuck, and GitHub webhooks are being delivered.
+
+      # -------------------------------------------------------------------
+      # Error rate
+      # -------------------------------------------------------------------
+
+      # The error rate exceeds 10% of total checks over the last 15 minutes.
+      - alert: RepoGuardianHighErrorRate
+        expr: |
+          (
+            sum(rate(repo_guardian_errors_total[15m]))
+            /
+            clamp_min(sum(rate(repo_guardian_repos_checked_total[15m])), 1)
+          ) > 0.10
+        for: 10m
+        labels:
+          severity: warning
+          service: repo-guardian
+        annotations:
+          summary: "Error rate above 10%"
+          description: >-
+            More than 10% of repo-guardian operations are failing.
+            Check the repo_guardian_errors_total metric by operation
+            label to identify the failing component.
+
+      # Sustained errors with no successful checks. This typically means
+      # the GitHub App credentials are invalid or the API is unreachable.
+      - alert: RepoGuardianAllChecksFailing
+        expr: |
+          (
+            sum(rate(repo_guardian_errors_total[30m])) > 0
+            and
+            sum(rate(repo_guardian_repos_checked_total[30m])) == 0
+          )
+        for: 15m
+        labels:
+          severity: critical
+          service: repo-guardian
+        annotations:
+          summary: "All repository checks are failing"
+          description: >-
+            repo-guardian is producing errors but has not completed a
+            single successful check in 30 minutes. This often indicates
+            invalid GitHub App credentials, an expired private key, or
+            GitHub API connectivity issues.
+
+      # -------------------------------------------------------------------
+      # GitHub API rate limiting
+      # -------------------------------------------------------------------
+
+      # Remaining API quota has dropped below 500.
+      - alert: RepoGuardianRateLimitLow
+        expr: |
+          repo_guardian_github_rate_remaining < 500
+        for: 5m
+        labels:
+          severity: warning
+          service: repo-guardian
+        annotations:
+          summary: "GitHub API rate limit running low"
+          description: >-
+            The GitHub API rate limit remaining is {{ $value }}. The
+            service will begin pre-emptive throttling. If quota reaches
+            zero, all checks will stall until the rate limit resets.
+
+      # Rate limit waits are increasing, indicating the service is
+      # actively being throttled by GitHub.
+      - alert: RepoGuardianRateLimitThrottling
+        expr: |
+          sum(rate(repo_guardian_github_rate_limit_waits_total[15m])) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          service: repo-guardian
+        annotations:
+          summary: "Service is being rate-limited by GitHub"
+          description: >-
+            repo-guardian is hitting GitHub rate limits and actively
+            waiting before retrying. Consider reducing WORKER_COUNT or
+            increasing RATE_LIMIT_THRESHOLD to throttle earlier.
+
+      # -------------------------------------------------------------------
+      # Check latency
+      # -------------------------------------------------------------------
+
+      # P99 check duration exceeds 30 seconds. Individual repo checks
+      # should normally complete in a few seconds.
+      - alert: RepoGuardianSlowChecks
+        expr: |
+          histogram_quantile(0.99, sum(rate(repo_guardian_check_duration_seconds_bucket[15m])) by (le)) > 30
+        for: 15m
+        labels:
+          severity: warning
+          service: repo-guardian
+        annotations:
+          summary: "Repository checks are slow (p99 > 30s)"
+          description: >-
+            The 99th percentile check duration is {{ $value | humanizeDuration }}.
+            This may indicate GitHub API latency or rate limit back-off.
+
+      # -------------------------------------------------------------------
+      # Webhook delivery
+      # -------------------------------------------------------------------
+
+      # No webhooks received in 24 hours. During normal org activity,
+      # at least some webhook events (pushes, PRs, etc.) should arrive.
+      # A complete gap usually means the webhook URL is misconfigured or
+      # the ingress is down.
+      - alert: RepoGuardianNoWebhooks
+        expr: |
+          increase(repo_guardian_webhook_received_total[24h]) == 0
+        for: 1h
+        labels:
+          severity: warning
+          service: repo-guardian
+        annotations:
+          summary: "No webhooks received in 24 hours"
+          description: >-
+            repo-guardian has not received any GitHub webhook events in
+            the last 24 hours. Verify the webhook URL is correctly
+            configured in the GitHub App settings and that the ingress
+            or load balancer is routing traffic to the service.
+
+      # -------------------------------------------------------------------
+      # PR creation
+      # -------------------------------------------------------------------
+
+      # A burst of PRs may indicate a misconfiguration or an unintended
+      # reconciliation against repos that should be excluded.
+      - alert: RepoGuardianPRBurst
+        expr: |
+          increase(repo_guardian_prs_created_total[1h]) > 50
+        for: 5m
+        labels:
+          severity: warning
+          service: repo-guardian
+        annotations:
+          summary: "Unusually high number of PRs created"
+          description: >-
+            repo-guardian created {{ $value }} PRs in the last hour.
+            This may be expected during initial rollout or after enabling
+            a new rule, but could also indicate a misconfiguration.
+            Review recent PRs and consider enabling DRY_RUN mode.

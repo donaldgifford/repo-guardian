@@ -133,15 +133,15 @@ values at startup. The feature is disabled when the value is empty (the default)
 
 ### Tasks
 
-- [ ] **`internal/config/config.go`**:
-  - [ ] Add `CustomPropertiesMode string` field to `Config` struct with comment documenting valid values (`""`, `"github-action"`, `"api"`)
-  - [ ] Load from env var `CUSTOM_PROPERTIES_MODE` using `envOrDefault("CUSTOM_PROPERTIES_MODE", "")` in `Load()`
-  - [ ] Add validation in `Validate()`: if value is non-empty and not `"github-action"` or `"api"`, append error `"CUSTOM_PROPERTIES_MODE must be \"\", \"github-action\", or \"api\""`
+- [x] **`internal/config/config.go`**:
+  - [x] Add `CustomPropertiesMode string` field to `Config` struct with comment documenting valid values (`""`, `"github-action"`, `"api"`)
+  - [x] Load from env var `CUSTOM_PROPERTIES_MODE` using `os.Getenv("CUSTOM_PROPERTIES_MODE")` in `Load()`
+  - [x] Add validation in `Validate()`: if value is non-empty and not `"github-action"` or `"api"`, append error `"CUSTOM_PROPERTIES_MODE must be \"\", \"github-action\", or \"api\""`
 
-- [ ] **`internal/config/config_test.go`**:
-  - [ ] Test valid values: `""`, `"github-action"`, `"api"` all pass validation
-  - [ ] Test invalid value: `"invalid"` fails validation with descriptive error
-  - [ ] Test default: when `CUSTOM_PROPERTIES_MODE` is unset, defaults to `""`
+- [x] **`internal/config/config_test.go`**:
+  - [x] Test valid values: `""`, `"github-action"`, `"api"` all pass validation
+  - [x] Test invalid value: `"invalid"` fails validation with descriptive error
+  - [x] Test default: when `CUSTOM_PROPERTIES_MODE` is unset, defaults to `""`
 
 ### Success Criteria
 

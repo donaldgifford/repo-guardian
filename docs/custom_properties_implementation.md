@@ -394,31 +394,31 @@ feature. This phase does not change application behavior.
 
 ### Tasks
 
-- [ ] **`docs/SUMMARY.md`** -- add section under "Security and Compliance":
-  - [ ] Custom properties sync for Wiz integration
-  - [ ] Backstage catalog-info.yaml as source of truth
-  - [ ] Two modes: `github-action` (default, least-privilege) and `api`
-  - [ ] `Unclassified` defaults for repos without catalog-info.yaml
+- [x] **`docs/SUMMARY.md`** -- add section under "Security and Compliance":
+  - [x] Custom properties sync for Wiz integration
+  - [x] Backstage catalog-info.yaml as source of truth
+  - [x] Two modes: `github-action` (default, least-privilege) and `api`
+  - [x] `Unclassified` defaults for repos without catalog-info.yaml
 
-- [ ] **`docs/ONE_PAGER.md`** -- add bullet under "Key Benefits > For security and compliance":
-  - [ ] Wiz integration via custom properties tagging
-  - [ ] Ownership attribution for security scanning
+- [x] **`docs/ONE_PAGER.md`** -- add bullet under "Key Benefits > For security and compliance":
+  - [x] Wiz integration via custom properties tagging
+  - [x] Ownership attribution for security scanning
 
-- [ ] **`docs/RFC.md`** (if exists) -- add appendix section for custom properties feature
+- [x] **`docs/RFC.md`** (if exists) -- skipped, RFC does not need appendix for this feature
 
-- [ ] **`contrib/grafana/repo-guardian-dashboard.json`** -- add panels for new metrics:
-  - [ ] "Properties Checked" stat panel
-  - [ ] "Properties PRs Created" stat panel
-  - [ ] "Properties Set via API" stat panel
-  - [ ] "Properties Already Correct" stat panel
+- [x] **`contrib/grafana/repo-guardian-dashboard.json`** -- add panels for new metrics:
+  - [x] "Properties Checked" stat panel
+  - [x] "Properties PRs Created" stat panel
+  - [x] "Properties Set via API" stat panel
+  - [x] "Properties Already Correct" stat panel
 
-- [ ] **`contrib/prometheus/alerts.yaml`** -- add optional properties alert:
-  - [ ] `RepoGuardianHighUnclassifiedRepos` (if applicable)
+- [x] **`contrib/prometheus/alerts.yaml`** -- add optional properties alert:
+  - [x] `RepoGuardianPropertiesPRBurst` -- alert on >50 properties PRs in 1 hour
 
-- [ ] **`CLAUDE.md`** -- update architecture section:
-  - [ ] Add `catalog/` package to the architecture tree
-  - [ ] Mention `CUSTOM_PROPERTIES_MODE` config option
-  - [ ] Update metric count (10 -> 14)
+- [x] **`CLAUDE.md`** -- update architecture section:
+  - [x] Add `catalog/` package to the architecture tree
+  - [x] Mention `CUSTOM_PROPERTIES_MODE` config option
+  - [x] Update metric count (8 -> 12)
 
 ### Success Criteria
 

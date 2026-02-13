@@ -166,6 +166,28 @@ groups:
             or load balancer is routing traffic to the service.
 
       # -------------------------------------------------------------------
+      # Custom properties
+      # -------------------------------------------------------------------
+
+      # A burst of properties PRs may indicate a misconfiguration or an
+      # unintended reconciliation. Similar to the file-rule PR burst alert.
+      - alert: RepoGuardianPropertiesPRBurst
+        expr: |
+          increase(repo_guardian_properties_prs_created_total[1h]) > 50
+        for: 5m
+        labels:
+          severity: warning
+          service: repo-guardian
+        annotations:
+          summary: "Unusually high number of properties PRs created"
+          description: >-
+            repo-guardian created {{ $value }} custom properties PRs in
+            the last hour. This may be expected during initial rollout
+            of CUSTOM_PROPERTIES_MODE, but could also indicate a
+            misconfiguration. Review recent PRs and consider enabling
+            DRY_RUN mode.
+
+      # -------------------------------------------------------------------
       # PR creation
       # -------------------------------------------------------------------
 

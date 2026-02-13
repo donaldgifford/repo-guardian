@@ -59,7 +59,9 @@ customize before merging.
 **For security and compliance:** CODEOWNERS ensures defined code ownership
 (supports SOC 2 access controls and review routing). Dependency automation
 configs ensure security patches flow as PRs automatically, addressing the most
-common vector for known-vulnerability exploitation.
+common vector for known-vulnerability exploitation. Custom properties sync
+enables Wiz security scanning attribution by tagging repositories with ownership
+metadata derived from Backstage catalog-info.yaml files.
 
 **For platform teams:** Prometheus metrics provide organization-wide visibility
 into compliance posture. Structured logs create an audit trail of every action.

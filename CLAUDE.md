@@ -31,13 +31,14 @@ Managed via `mise.toml`. Key tools: Go 1.25.4, golangci-lint v2.8.0, mockery v2,
 ```
 cmd/repo-guardian/main.go  → entrypoint (dual HTTP servers, graceful shutdown)
 internal/
+  catalog/    → Backstage catalog-info.yaml parser (gopkg.in/yaml.v3)
   config/     → configuration management (12-factor env vars)
   github/     → GitHub API client wrapper (go-github v68 + ghinstallation v2)
-  checker/    → core check-and-PR engine + work queue
+  checker/    → core check-and-PR engine + work queue + custom properties checker
   rules/      → FileRule registry + TemplateStore (embedded fallback templates)
   webhook/    → HTTP handler for GitHub webhook events (HMAC-validated)
   scheduler/  → in-process ticker for weekly reconciliation
-  metrics/    → Prometheus metrics (8 metrics total)
+  metrics/    → Prometheus metrics (12 metrics total)
 deploy/
   base/       → Kustomize base (deployment, service, configmap, serviceaccount)
   overlays/   → dev (dry-run, debug) and prod (live, info) overlays
@@ -51,6 +52,7 @@ deploy/
 - **Deterministic branch naming** — single branch per repo (`repo-guardian/add-missing-files`) for idempotent PR creation.
 - **Work queue** with configurable concurrency (buffered channel + N worker goroutines) for rate-limit-safe GitHub API usage.
 - **Installation-scoped clients** — each job creates a GitHub client scoped to the specific installation, with cached transport tokens.
+- **Custom properties checker** — reads Backstage `catalog-info.yaml`, diffs against current GitHub custom properties, and either creates a PR with a GHA workflow (`github-action` mode) or sets properties directly via API (`api` mode). Controlled by `CUSTOM_PROPERTIES_MODE` env var (empty = disabled).
 
 ## Docker
 

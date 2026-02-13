@@ -25,12 +25,13 @@ const (
 // Engine is the core checker that evaluates repositories against the rule
 // registry and creates PRs for missing files.
 type Engine struct {
-	registry     *rules.Registry
-	templates    *rules.TemplateStore
-	logger       *slog.Logger
-	skipForks    bool
-	skipArchived bool
-	dryRun       bool
+	registry             *rules.Registry
+	templates            *rules.TemplateStore
+	logger               *slog.Logger
+	skipForks            bool
+	skipArchived         bool
+	dryRun               bool
+	customPropertiesMode string
 }
 
 // NewEngine creates a new checker Engine.
@@ -39,14 +40,16 @@ func NewEngine(
 	templates *rules.TemplateStore,
 	logger *slog.Logger,
 	skipForks, skipArchived, dryRun bool,
+	customPropertiesMode string,
 ) *Engine {
 	return &Engine{
-		registry:     registry,
-		templates:    templates,
-		logger:       logger,
-		skipForks:    skipForks,
-		skipArchived: skipArchived,
-		dryRun:       dryRun,
+		registry:             registry,
+		templates:            templates,
+		logger:               logger,
+		skipForks:            skipForks,
+		skipArchived:         skipArchived,
+		dryRun:               dryRun,
+		customPropertiesMode: customPropertiesMode,
 	}
 }
 
@@ -63,38 +66,70 @@ func (e *Engine) CheckRepo(ctx context.Context, client ghclient.Client, owner, r
 
 	// Authoritative skip checks — the scheduler pre-filters as an
 	// optimization, but the engine is the single source of truth.
-	if e.skipArchived && repoInfo.Archived {
-		log.Info("skipping archived repository")
-		return nil
-	}
-
-	if e.skipForks && repoInfo.Fork {
-		log.Info("skipping forked repository")
-		return nil
-	}
-
-	// Skip empty repos (no default branch).
-	if !repoInfo.HasBranch || repoInfo.DefaultRef == "" {
-		log.Warn("skipping empty repository with no default branch")
+	if skip, reason := e.shouldSkip(repoInfo); skip {
+		log.Info(reason)
 		return nil
 	}
 
 	// Check each enabled rule.
-	enabledRules := e.registry.EnabledRules()
 	openPRs, err := client.ListOpenPullRequests(ctx, owner, repo)
 	if err != nil {
 		return fmt.Errorf("listing open PRs: %w", err)
 	}
 
+	missing, err := e.findMissingFiles(ctx, log, client, owner, repo, openPRs)
+	if err != nil {
+		return err
+	}
+
+	switch {
+	case len(missing) == 0:
+		log.Info("all required files present")
+	case e.dryRun:
+		log.Info("dry run: would create PR", "missing_files", ruleNames(missing))
+	default:
+		if err := e.createOrUpdatePR(ctx, client, owner, repo, repoInfo.DefaultRef, missing, openPRs); err != nil {
+			return err
+		}
+	}
+
+	return e.checkCustomPropertiesIfEnabled(ctx, log, client, owner, repo, repoInfo.DefaultRef, openPRs)
+}
+
+// shouldSkip returns true and a reason if the repository should be skipped.
+func (e *Engine) shouldSkip(repo *ghclient.Repository) (bool, string) {
+	if e.skipArchived && repo.Archived {
+		return true, "skipping archived repository"
+	}
+
+	if e.skipForks && repo.Fork {
+		return true, "skipping forked repository"
+	}
+
+	if !repo.HasBranch || repo.DefaultRef == "" {
+		return true, "skipping empty repository with no default branch"
+	}
+
+	return false, ""
+}
+
+// findMissingFiles checks each enabled rule and returns rules whose files are missing.
+func (e *Engine) findMissingFiles(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	owner, repo string,
+	openPRs []*ghclient.PullRequest,
+) ([]rules.FileRule, error) {
+	enabledRules := e.registry.EnabledRules()
 	missing := make([]rules.FileRule, 0, len(enabledRules))
 
 	for _, rule := range enabledRules {
 		ruleLog := log.With("rule", rule.Name)
 
-		// Check if any of the rule's paths exist.
 		exists, err := checkFileExists(ctx, client, owner, repo, &rule)
 		if err != nil {
-			return fmt.Errorf("checking file existence for rule %s: %w", rule.Name, err)
+			return nil, fmt.Errorf("checking file existence for rule %s: %w", rule.Name, err)
 		}
 
 		if exists {
@@ -102,7 +137,6 @@ func (e *Engine) CheckRepo(ctx context.Context, client ghclient.Client, owner, r
 			continue
 		}
 
-		// Check if there's already an open PR for this rule.
 		if hasExistingPR(openPRs, &rule) {
 			ruleLog.Info("existing PR found, skipping rule")
 			continue
@@ -113,17 +147,25 @@ func (e *Engine) CheckRepo(ctx context.Context, client ghclient.Client, owner, r
 		missing = append(missing, rule)
 	}
 
-	if len(missing) == 0 {
-		log.Info("all required files present")
+	return missing, nil
+}
+
+func (e *Engine) checkCustomPropertiesIfEnabled(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	owner, repo, defaultBranch string,
+	openPRs []*ghclient.PullRequest,
+) error {
+	if e.customPropertiesMode == "" {
 		return nil
 	}
 
-	if e.dryRun {
-		log.Info("dry run: would create PR", "missing_files", ruleNames(missing))
-		return nil
+	if err := e.CheckCustomProperties(ctx, client, owner, repo, defaultBranch, openPRs); err != nil {
+		log.Error("custom properties check failed", "error", err)
 	}
 
-	return e.createOrUpdatePR(ctx, client, owner, repo, repoInfo.DefaultRef, missing, openPRs)
+	return nil
 }
 
 func checkFileExists(

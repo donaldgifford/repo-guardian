@@ -69,4 +69,28 @@ var (
 		Help:    "Duration of rate limit waits in seconds.",
 		Buckets: []float64{0.1, 0.5, 1, 5, 10, 30, 60, 120, 300},
 	})
+
+	// PropertiesCheckedTotal counts repos where custom properties were evaluated.
+	PropertiesCheckedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "repo_guardian_properties_checked_total",
+		Help: "Total repositories where custom properties were evaluated.",
+	})
+
+	// PropertiesPRsCreatedTotal counts PRs created for custom properties.
+	PropertiesPRsCreatedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "repo_guardian_properties_prs_created_total",
+		Help: "Total pull requests created for custom properties.",
+	})
+
+	// PropertiesSetTotal counts repos where properties were set via API (api mode only).
+	PropertiesSetTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "repo_guardian_properties_set_total",
+		Help: "Total repositories where custom properties were set via API.",
+	})
+
+	// PropertiesAlreadyCorrectTotal counts repos where properties already matched.
+	PropertiesAlreadyCorrectTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "repo_guardian_properties_already_correct_total",
+		Help: "Total repositories where custom properties already matched desired values.",
+	})
 )

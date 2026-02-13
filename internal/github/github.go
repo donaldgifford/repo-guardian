@@ -30,6 +30,13 @@ type Repository struct {
 	DefaultRef string // Default branch name (e.g., "main").
 }
 
+// CustomPropertyValue represents a single custom property key-value pair
+// on a GitHub repository.
+type CustomPropertyValue struct {
+	PropertyName string
+	Value        string
+}
+
 // Client defines the GitHub operations that repo-guardian requires.
 // This interface is the primary mock boundary for unit tests.
 type Client interface {
@@ -66,4 +73,14 @@ type Client interface {
 	// CreateInstallationClient returns a Client scoped to a specific installation.
 	// This is needed because each installation has its own access token.
 	CreateInstallationClient(ctx context.Context, installationID int64) (Client, error)
+
+	// GetFileContent returns the decoded content of a file in a repository.
+	// Returns empty string and no error if the file does not exist.
+	GetFileContent(ctx context.Context, owner, repo, path string) (string, error)
+
+	// GetCustomPropertyValues returns all custom property values set on a repository.
+	GetCustomPropertyValues(ctx context.Context, owner, repo string) ([]*CustomPropertyValue, error)
+
+	// SetCustomPropertyValues creates or updates custom property values on a repository.
+	SetCustomPropertyValues(ctx context.Context, owner, repo string, properties []*CustomPropertyValue) error
 }

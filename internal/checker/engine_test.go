@@ -14,33 +14,41 @@ import (
 
 // mockClient implements ghclient.Client for testing.
 type mockClient struct {
-	contents        map[string]bool // "owner/repo/path" -> exists
-	openPRs         []*ghclient.PullRequest
-	repo            *ghclient.Repository
-	branchSHAs      map[string]string // "owner/repo/branch" -> sha
-	createdBranches []string
-	deletedBranches []string
-	createdFiles    []string
-	createdPR       *ghclient.PullRequest
-	installations   []*ghclient.Installation
-	installRepos    map[int64][]*ghclient.Repository
-	processedJobs   atomic.Int32
+	contents         map[string]bool                            // "owner/repo/path" -> exists
+	fileContents     map[string]string                          // "owner/repo/path" -> content
+	customProperties map[string][]*ghclient.CustomPropertyValue // "owner/repo" -> values
+	setProperties    []*ghclient.CustomPropertyValue            // records what was set
+	openPRs          []*ghclient.PullRequest
+	repo             *ghclient.Repository
+	branchSHAs       map[string]string // "owner/repo/branch" -> sha
+	createdBranches  []string
+	deletedBranches  []string
+	createdFiles     []string
+	createdPR        *ghclient.PullRequest
+	installations    []*ghclient.Installation
+	installRepos     map[int64][]*ghclient.Repository
+	processedJobs    atomic.Int32
 
-	getRepoErr      error
-	getContentsErr  error
-	listPRsErr      error
-	getBranchErr    error
-	createBranchErr error
-	deleteBranchErr error
-	createFileErr   error
-	createPRErr     error
+	getRepoErr        error
+	getContentsErr    error
+	getFileContentErr error
+	getCustomPropsErr error
+	setCustomPropsErr error
+	listPRsErr        error
+	getBranchErr      error
+	createBranchErr   error
+	deleteBranchErr   error
+	createFileErr     error
+	createPRErr       error
 }
 
 func newMockClient() *mockClient {
 	return &mockClient{
-		contents:     make(map[string]bool),
-		branchSHAs:   make(map[string]string),
-		installRepos: make(map[int64][]*ghclient.Repository),
+		contents:         make(map[string]bool),
+		fileContents:     make(map[string]string),
+		customProperties: make(map[string][]*ghclient.CustomPropertyValue),
+		branchSHAs:       make(map[string]string),
+		installRepos:     make(map[int64][]*ghclient.Repository),
 	}
 }
 
@@ -139,7 +147,41 @@ func (m *mockClient) CreateInstallationClient(_ context.Context, _ int64) (ghcli
 	return m, nil
 }
 
+func (m *mockClient) GetFileContent(_ context.Context, owner, repo, path string) (string, error) {
+	if m.getFileContentErr != nil {
+		return "", m.getFileContentErr
+	}
+
+	key := fmt.Sprintf("%s/%s/%s", owner, repo, path)
+
+	return m.fileContents[key], nil
+}
+
+func (m *mockClient) GetCustomPropertyValues(_ context.Context, owner, repo string) ([]*ghclient.CustomPropertyValue, error) {
+	if m.getCustomPropsErr != nil {
+		return nil, m.getCustomPropsErr
+	}
+
+	key := fmt.Sprintf("%s/%s", owner, repo)
+
+	return m.customProperties[key], nil
+}
+
+func (m *mockClient) SetCustomPropertyValues(_ context.Context, _, _ string, properties []*ghclient.CustomPropertyValue) error {
+	if m.setCustomPropsErr != nil {
+		return m.setCustomPropsErr
+	}
+
+	m.setProperties = append(m.setProperties, properties...)
+
+	return nil
+}
+
 func testEngine(dryRun bool) *Engine {
+	return testEngineWithMode(dryRun, "")
+}
+
+func testEngineWithMode(dryRun bool, customPropertiesMode string) *Engine {
 	reg := rules.NewRegistry(rules.DefaultRules)
 	ts := rules.NewTemplateStore()
 
@@ -147,7 +189,7 @@ func testEngine(dryRun bool) *Engine {
 		panic(err)
 	}
 
-	return NewEngine(reg, ts, slog.Default(), true, true, dryRun)
+	return NewEngine(reg, ts, slog.Default(), true, true, dryRun, customPropertiesMode)
 }
 
 func TestCheckRepo_AllFilesExist(t *testing.T) {

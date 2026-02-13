@@ -136,6 +136,16 @@ Template repos are opt-in; Repo Guardian is automatic.
   PRs. This is the single most effective measure against known-vulnerability
   exploitation (the majority of breaches involve known, patched CVEs in
   unpatched dependencies).
+- **Custom properties sync for Wiz integration**: Reads Backstage
+  `catalog-info.yaml` files to extract ownership and component metadata, then
+  syncs those values to GitHub repository custom properties (Owner, Component,
+  JiraProject, JiraLabel). These properties are consumed by Wiz for security
+  scanning attribution. Two operational modes: `github-action` (creates a PR
+  with a one-shot GitHub Actions workflow, requires no write permissions) and
+  `api` (sets properties directly via the GitHub API, also creates a
+  `catalog-info.yaml` PR if the file is missing). Repositories without a valid
+  catalog-info.yaml are tagged as `Unclassified` so they remain visible in
+  security dashboards.
 - **Organization-wide visibility**: Prometheus metrics expose compliance posture
   across all repositories -- how many repos are fully configured, how many
   missing files were detected, how many PRs were created. This data feeds

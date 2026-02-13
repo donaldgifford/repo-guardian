@@ -5,12 +5,15 @@
 Repo Guardian is a GitHub App that automatically detects when repositories
 across your GitHub organization are missing required configuration files --
 CODEOWNERS, Dependabot, Renovate -- and opens pull requests with sensible
-defaults. It works in real time (responding to new repo creation via webhooks)
-and on a configurable schedule (weekly reconciliation across all repositories).
+defaults. It also reads Backstage `catalog-info.yaml` files to sync ownership
+metadata to GitHub repository custom properties, enabling downstream security
+tools like Wiz to attribute findings to the correct team.
 
-The app requires a single externally accessible HTTPS endpoint for GitHub to
-deliver webhook events to. It runs as a lightweight service in Kubernetes (EKS)
-or any container environment.
+It works in real time (responding to new repo creation via webhooks) and on a
+configurable schedule (weekly reconciliation across all repositories). The app
+requires a single externally accessible HTTPS endpoint for GitHub to deliver
+webhook events to. It runs as a lightweight service in Kubernetes (EKS) or any
+container environment.
 
 ---
 
@@ -27,6 +30,10 @@ The result:
   silently.
 - **Inconsistent compliance posture**: Some repos are well-configured, others
   are not, and there is no visibility into which is which.
+- **No ownership attribution for security scanning**: Security tools like Wiz
+  need to know which team owns a repository to route findings. Without
+  structured metadata on every repo, security findings land in a backlog with
+  no clear owner, and remediation stalls.
 
 Manual enforcement does not scale. Slack reminders get ignored. Wiki pages go
 unread. The only reliable solution is automation that meets developers where
@@ -41,7 +48,12 @@ they work: in pull requests.
 2. Repo Guardian checks whether required configuration files exist.
 3. If files are missing and no one else has already opened a PR to add them,
    Repo Guardian creates a single pull request with default templates.
-4. A human reviews the PR, customizes the defaults for their team, and merges.
+4. If custom properties mode is enabled, it reads the repo's
+   `catalog-info.yaml` (Backstage Component entity), extracts ownership and
+   component metadata, and syncs those values to GitHub repository custom
+   properties (Owner, Component, JiraProject, JiraLabel). Repos without a
+   catalog-info.yaml are tagged as `Unclassified`.
+5. A human reviews the PR, customizes the defaults for their team, and merges.
 
 The app never auto-merges. It is additive, not gatekeeping -- it creates
 suggestions, not mandates.
@@ -100,6 +112,7 @@ Template repos are opt-in; Repo Guardian is automatic.
 |---|---|---|---|---|---|
 | Detects missing files | Yes | No | No | No | No |
 | Creates PRs for missing configs | Yes | No | No | No | No |
+| Syncs repo ownership metadata | Yes | No | No | No | No |
 | Works on existing repos | Yes | N/A | Yes | Yes | No |
 | Requires per-developer licensing | No | $1,000/dev/yr | No | No | No |
 | Enforces repo-level settings | No | No | Yes | Yes | No |
@@ -185,7 +198,7 @@ Template repos are opt-in; Repo Guardian is automatic.
 
 ## Current Status
 
-The application is feature-complete and production-ready. All five implementation
+The application is feature-complete and production-ready. All implementation
 phases are complete:
 
 1. Foundation (GitHub client, rule registry, checker engine)
@@ -193,6 +206,7 @@ phases are complete:
 3. Docker image, Kubernetes manifests (Kustomize), CI pipeline
 4. Production deployment configuration (dev and prod overlays)
 5. Extensibility (template overrides, configurable rules)
+6. Custom properties sync from Backstage catalog-info.yaml
 
 ### Built-in Rules
 
@@ -203,3 +217,15 @@ phases are complete:
 | Renovate | Defined (disabled by default) | Automated dependency updates (Mend/OSS) |
 
 New rules can be added with a single struct definition and a template file.
+
+### Custom Properties
+
+| Mode | Behavior | When to use |
+|---|---|---|
+| Disabled (default) | No custom properties sync | Initial rollout, file rules only |
+| `github-action` | Creates PR with one-shot GHA workflow | Least-privilege: no org-level write permissions needed |
+| `api` | Sets properties directly via API; creates catalog-info.yaml PR if missing | Full automation: requires `custom_properties:write` permission |
+
+Controlled by the `CUSTOM_PROPERTIES_MODE` environment variable. Properties
+synced: Owner, Component, JiraProject, JiraLabel. Source of truth:
+`catalog-info.yaml` (Backstage Component entity).

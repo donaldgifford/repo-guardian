@@ -110,8 +110,8 @@ Diff desired vs current
 1. **Least-privilege** -- the app never needs `custom_properties: write`.
 2. **Human review** -- property values go through the PR review process.
 3. **Auditability** -- the PR and workflow run create a clear audit trail.
-4. **No org-level secret dependency** -- though the GHA workflow does need a
-   token, the app itself only reads.
+4. **Standard token** -- the GHA workflow uses the built-in `GITHUB_TOKEN`,
+   no custom org secrets required. The app itself only reads.
 
 ### Mode: `api`
 
@@ -332,7 +332,7 @@ substituted before committing:
 # Prerequisites:
 #   - Org-level custom property schema must define: Owner, Component,
 #     JiraProject, JiraLabel
-#   - CUSTOM_PROPERTIES_TOKEN org secret with custom_properties:write
+#   - GITHUB_TOKEN must have custom_properties:write permission
 name: Set Custom Properties
 
 on:
@@ -349,7 +349,7 @@ jobs:
     steps:
       - name: Set repository custom properties
         env:
-          GH_TOKEN: ${{ secrets.CUSTOM_PROPERTIES_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh api \
             --method PATCH \
@@ -674,8 +674,8 @@ the two modes, and the Wiz tagging use case.
 | **Metadata** | Read | Existing -- required for all apps |
 | **Custom properties** | Read | **New** -- read current values to diff |
 
-The app only reads custom properties. The GHA workflow in the PR uses a
-separate token (`CUSTOM_PROPERTIES_TOKEN` org secret) with write permissions.
+The app only reads custom properties. The GHA workflow in the PR uses the
+standard `GITHUB_TOKEN` provided by GitHub Actions.
 
 ### `api` mode
 
@@ -776,9 +776,9 @@ duplicate. Multiple runs produce the same result.
 2. **Define custom property schema in GitHub org settings.** Create `Owner`
    (string), `Component` (string), `JiraProject` (string), `JiraLabel`
    (string). One-time org admin action.
-3. **Configure org secret.** Create `CUSTOM_PROPERTIES_TOKEN` containing a PAT
-   or app token with `custom_properties: write`. This is used by the GHA
-   workflow, not the app.
+3. **Verify `GITHUB_TOKEN` permissions.** The GHA workflow uses the standard
+   `GITHUB_TOKEN`. Ensure the org's default token permissions include
+   `custom_properties: write`, or configure this at the repo/workflow level.
 4. **Update GitHub App permissions.** Add `custom_properties: read`.
 5. **Deploy with `CUSTOM_PROPERTIES_MODE=github-action` and `DRY_RUN=true`.**
    Observe logs.

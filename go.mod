@@ -6,6 +6,7 @@ require (
 	github.com/bradleyfalzon/ghinstallation/v2 v2.17.0
 	github.com/google/go-github/v68 v68.0.0
 	github.com/prometheus/client_golang v1.23.2
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

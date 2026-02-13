@@ -32,14 +32,14 @@ isolation.
 
 ### Tasks
 
-- [ ] Add `gopkg.in/yaml.v3` as a direct dependency (`go get gopkg.in/yaml.v3`)
-- [ ] Create `internal/catalog/catalog.go` with:
-  - [ ] `Entity` struct with `yaml` struct tags (`APIVersion`, `Kind`, `Metadata`, `Spec`)
-  - [ ] `Metadata` struct with `Name string` and `Annotations map[string]string` (yaml tags)
-  - [ ] `Spec` struct with `Owner string` and other Backstage fields (yaml tags)
-  - [ ] `Properties` struct with `Owner`, `Component`, `JiraProject`, `JiraLabel` string fields
-  - [ ] Constants: `DefaultOwner = "Unclassified"`, `DefaultComponent = "Unclassified"`
-  - [ ] `Parse(content string) *Properties` function:
+- [x] Add `gopkg.in/yaml.v3` as a direct dependency (`go get gopkg.in/yaml.v3`)
+- [x] Create `internal/catalog/catalog.go` with:
+  - [x] `Entity` struct with `yaml` struct tags (`APIVersion`, `Kind`, `Metadata`, `Spec`)
+  - [x] `Metadata` struct with `Name string` and `Annotations map[string]string` (yaml tags)
+  - [x] `Spec` struct with `Owner string` and other Backstage fields (yaml tags)
+  - [x] `Properties` struct with `Owner`, `Component`, `JiraProject`, `JiraLabel` string fields
+  - [x] Constants: `DefaultOwner = "Unclassified"`, `DefaultComponent = "Unclassified"`
+  - [x] `Parse(content string) *Properties` function:
     - Unmarshal YAML into `Entity` using `yaml.v3`
     - Validate `apiVersion == "backstage.io/v1alpha1"` and `kind == "Component"`
     - Extract `Owner` from `spec.owner`, `Component` from `metadata.name`
@@ -47,17 +47,17 @@ isolation.
     - Extract `JiraLabel` from `metadata.annotations["jira/label"]`
     - Apply `Unclassified` defaults for empty `Owner` or `Component`
     - Return defaults for unparseable or non-Component entities
-  - [ ] Unexported `defaults()` helper returning `*Properties` with default values
-- [ ] Create `internal/catalog/catalog_test.go` with table-driven tests:
-  - [ ] All fields present (full catalog-info.yaml from `examples/`)
-  - [ ] Missing Jira annotations (Owner + Component set, Jira fields empty)
-  - [ ] Empty `spec.owner` (Owner = `Unclassified`)
-  - [ ] Empty `metadata.name` (Component = `Unclassified`)
-  - [ ] Wrong `kind` (e.g., `kind: API`) returns defaults
-  - [ ] Wrong `apiVersion` (e.g., `apiVersion: v2`) returns defaults
-  - [ ] Malformed YAML (`{{{`) returns defaults
-  - [ ] Empty string returns defaults
-  - [ ] Valid YAML but not a Backstage entity (random YAML doc) returns defaults
+  - [x] Unexported `defaults()` helper returning `*Properties` with default values
+- [x] Create `internal/catalog/catalog_test.go` with table-driven tests:
+  - [x] All fields present (full catalog-info.yaml from `examples/`)
+  - [x] Missing Jira annotations (Owner + Component set, Jira fields empty)
+  - [x] Empty `spec.owner` (Owner = `Unclassified`)
+  - [x] Empty `metadata.name` (Component = `Unclassified`)
+  - [x] Wrong `kind` (e.g., `kind: API`) returns defaults
+  - [x] Wrong `apiVersion` (e.g., `apiVersion: v2`) returns defaults
+  - [x] Malformed YAML (`{{{`) returns defaults
+  - [x] Empty string returns defaults
+  - [x] Valid YAML but not a Backstage entity (random YAML doc) returns defaults
 
 ### Success Criteria
 

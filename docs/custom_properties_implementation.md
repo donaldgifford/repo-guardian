@@ -161,14 +161,14 @@ for automatic registration.
 
 ### Tasks
 
-- [ ] **`internal/metrics/metrics.go`** -- add four new metrics:
-  - [ ] `PropertiesCheckedTotal` -- `Counter` named `repo_guardian_properties_checked_total`
+- [x] **`internal/metrics/metrics.go`** -- add four new metrics:
+  - [x] `PropertiesCheckedTotal` -- `Counter` named `repo_guardian_properties_checked_total`
     - Help: `"Total repositories where custom properties were evaluated."`
-  - [ ] `PropertiesPRsCreatedTotal` -- `Counter` named `repo_guardian_properties_prs_created_total`
+  - [x] `PropertiesPRsCreatedTotal` -- `Counter` named `repo_guardian_properties_prs_created_total`
     - Help: `"Total pull requests created for custom properties."`
-  - [ ] `PropertiesSetTotal` -- `Counter` named `repo_guardian_properties_set_total`
+  - [x] `PropertiesSetTotal` -- `Counter` named `repo_guardian_properties_set_total`
     - Help: `"Total repositories where custom properties were set via API."`
-  - [ ] `PropertiesAlreadyCorrectTotal` -- `Counter` named `repo_guardian_properties_already_correct_total`
+  - [x] `PropertiesAlreadyCorrectTotal` -- `Counter` named `repo_guardian_properties_already_correct_total`
     - Help: `"Total repositories where custom properties already matched desired values."`
 
 ### Success Criteria

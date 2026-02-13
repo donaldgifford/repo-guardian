@@ -178,6 +178,10 @@ func (m *mockClient) SetCustomPropertyValues(_ context.Context, _, _ string, pro
 }
 
 func testEngine(dryRun bool) *Engine {
+	return testEngineWithMode(dryRun, "")
+}
+
+func testEngineWithMode(dryRun bool, customPropertiesMode string) *Engine {
 	reg := rules.NewRegistry(rules.DefaultRules)
 	ts := rules.NewTemplateStore()
 
@@ -185,7 +189,7 @@ func testEngine(dryRun bool) *Engine {
 		panic(err)
 	}
 
-	return NewEngine(reg, ts, slog.Default(), true, true, dryRun)
+	return NewEngine(reg, ts, slog.Default(), true, true, dryRun, customPropertiesMode)
 }
 
 func TestCheckRepo_AllFilesExist(t *testing.T) {

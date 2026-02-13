@@ -39,6 +39,7 @@ func main() {
 		"metrics_addr", cfg.MetricsAddr,
 		"dry_run", cfg.DryRun,
 		"worker_count", cfg.WorkerCount,
+		"custom_properties_mode", cfg.CustomPropertiesMode,
 	)
 
 	// Initialize GitHub client.
@@ -65,6 +66,7 @@ func main() {
 		cfg.SkipForks,
 		cfg.SkipArchived,
 		cfg.DryRun,
+		cfg.CustomPropertiesMode,
 	)
 
 	// Initialize work queue.

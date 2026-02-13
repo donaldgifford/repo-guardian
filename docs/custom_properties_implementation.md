@@ -226,13 +226,13 @@ properties directly (api mode).
 
 ### Tasks
 
-- [ ] **`internal/checker/properties.go`** -- new file in existing package:
-  - [ ] Define constants:
+- [x] **`internal/checker/properties.go`** -- new file in existing package:
+  - [x] Define constants:
     - `PropertiesBranchName = "repo-guardian/set-custom-properties"` (github-action mode)
     - `CatalogInfoBranchName = "repo-guardian/add-catalog-info"` (api mode, catalog-info PR)
     - `PropertiesPRTitle = "chore: set repository custom properties"`
     - `CatalogInfoPRTitle = "chore: add catalog-info.yaml"`
-  - [ ] `CheckCustomProperties(ctx, client, owner, repo, defaultBranch string, openPRs []*ghclient.PullRequest) error` method on `*Engine`:
+  - [x] `CheckCustomProperties(ctx, client, owner, repo, defaultBranch string, openPRs []*ghclient.PullRequest) error` method on `*Engine`:
     - Increment `PropertiesCheckedTotal`
     - Read `catalog-info.yaml` via `client.GetFileContent()` (try `.yaml` then `.yml`)
     - Parse content with `catalog.Parse()` (returns defaults if empty/invalid)
@@ -241,14 +241,14 @@ properties directly (api mode).
     - If match: increment `PropertiesAlreadyCorrectTotal`, return
     - Branch to mode-specific logic (below)
 
-  - [ ] Stale branch cleanup (follows `findOurPR` pattern from `engine.go`):
-    - [ ] `findPropertiesPR(openPRs, branchName)` helper -- find open PR with matching head branch
-    - [ ] If our branch exists (via `GetBranchSHA`) but no open PR found, delete the stale branch
-    - [ ] After stale branch deletion, continue to create a new branch from current default branch HEAD and open a fresh PR
-    - [ ] Pattern must be consistent with `findOurPR` / `createOrUpdatePR` in `engine.go` so both can be refactored together later
-    - [ ] If an open PR is found for the branch, skip (no duplicate work)
+  - [x] Stale branch cleanup (follows `findOurPR` pattern from `engine.go`):
+    - [x] `findPropertiesPR(openPRs, branchName)` helper -- find open PR with matching head branch
+    - [x] If our branch exists (via `GetBranchSHA`) but no open PR found, delete the stale branch
+    - [x] After stale branch deletion, continue to create a new branch from current default branch HEAD and open a fresh PR
+    - [x] Pattern must be consistent with `findOurPR` / `createOrUpdatePR` in `engine.go` so both can be refactored together later
+    - [x] If an open PR is found for the branch, skip (no duplicate work)
 
-  - [ ] `github-action` mode flow:
+  - [x] `github-action` mode flow:
     - If dry-run: log what would happen, return
     - Handle stale branch cleanup for `PropertiesBranchName`
     - Render `set-custom-properties` template with actual values substituted for placeholders
@@ -257,12 +257,12 @@ properties directly (api mode).
     - Create PR with descriptive body explaining what properties will be set
     - Increment `PropertiesPRsCreatedTotal`
 
-  - [ ] `api` mode flow -- catalog-info.yaml found:
+  - [x] `api` mode flow -- catalog-info.yaml found:
     - If dry-run: log what would happen, return
     - Call `client.SetCustomPropertyValues()` with desired values
     - Increment `PropertiesSetTotal`
 
-  - [ ] `api` mode flow -- catalog-info.yaml NOT found:
+  - [x] `api` mode flow -- catalog-info.yaml NOT found:
     - Set `Owner=Unclassified`, `Component=Unclassified` via API (if not already set)
     - Increment `PropertiesSetTotal` (if values changed)
     - Handle stale branch cleanup for `CatalogInfoBranchName`
@@ -272,18 +272,18 @@ properties directly (api mode).
     - Create branch `repo-guardian/add-catalog-info`, commit template, create PR
     - Increment `PropertiesPRsCreatedTotal`
 
-  - [ ] Helper: `findPropertiesPR(openPRs []*ghclient.PullRequest, branchName string) *ghclient.PullRequest`
+  - [x] Helper: `findPropertiesPR(openPRs []*ghclient.PullRequest, branchName string) *ghclient.PullRequest`
     - Mirrors `findOurPR` from `engine.go` -- finds open PR whose Head matches the given branch name
     - Keeps pattern consistent so both can be unified later if needed
 
-  - [ ] Helper: `diffProperties(desired *catalog.Properties, current []*ghclient.CustomPropertyValue) bool`
+  - [x] Helper: `diffProperties(desired *catalog.Properties, current []*ghclient.CustomPropertyValue) bool`
     - Returns true if any desired property differs from current
     - Only compares Jira fields when desired value is non-empty
 
-  - [ ] Helper: `renderTemplate(templateContent string, replacements map[string]string) string`
+  - [x] Helper: `renderTemplate(templateContent string, replacements map[string]string) string`
     - Simple string replacement for template placeholders
 
-  - [ ] Helper: `buildPropertiesPRBody(props *catalog.Properties, mode string) string`
+  - [x] Helper: `buildPropertiesPRBody(props *catalog.Properties, mode string) string`
     - Generates markdown PR body explaining the properties being set
 
 ### Success Criteria
@@ -307,11 +307,11 @@ configuration from `main.go` through to the engine constructor.
 
 ### Tasks
 
-- [ ] **`internal/checker/engine.go`**:
-  - [ ] Add `customPropertiesMode string` field to `Engine` struct
-  - [ ] Update `NewEngine` signature to accept `customPropertiesMode string` parameter
-  - [ ] Store the mode on the engine struct
-  - [ ] Add `CheckCustomProperties` call at the end of `CheckRepo`, after file rule processing:
+- [x] **`internal/checker/engine.go`**:
+  - [x] Add `customPropertiesMode string` field to `Engine` struct
+  - [x] Update `NewEngine` signature to accept `customPropertiesMode string` parameter
+  - [x] Store the mode on the engine struct
+  - [x] Add `CheckCustomProperties` call at the end of `CheckRepo`, after file rule processing:
     ```go
     if e.customPropertiesMode != "" {
         if err := e.CheckCustomProperties(ctx, client, owner, repo, repoInfo.DefaultRef, openPRs); err != nil {
@@ -321,9 +321,9 @@ configuration from `main.go` through to the engine constructor.
     }
     ```
 
-- [ ] **`cmd/repo-guardian/main.go`**:
-  - [ ] Pass `cfg.CustomPropertiesMode` to `checker.NewEngine()` call
-  - [ ] Log the configured mode at startup: `logger.Info("custom properties mode", "mode", cfg.CustomPropertiesMode)`
+- [x] **`cmd/repo-guardian/main.go`**:
+  - [x] Pass `cfg.CustomPropertiesMode` to `checker.NewEngine()` call
+  - [x] Log the configured mode at startup: `logger.Info("custom properties mode", "mode", cfg.CustomPropertiesMode)`
 
 ### Success Criteria
 

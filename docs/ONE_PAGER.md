@@ -4,9 +4,10 @@
 
 When an engineer creates a new GitHub repository, they rarely remember to add
 baseline configuration files: CODEOWNERS for review routing, Dependabot or
-Renovate for automated dependency updates. Across an organization with hundreds
-of repositories, this leads to inconsistent code ownership, unpatched
-dependencies, and compliance drift. Manual enforcement -- wiki pages, Slack
+Renovate for automated dependency updates, or a `catalog-info.yaml` for service
+catalog registration. Across an organization with hundreds of repositories, this
+leads to inconsistent code ownership, unpatched dependencies, unattributed
+security findings, and compliance drift. Manual enforcement -- wiki pages, Slack
 reminders, quarterly audits -- does not scale and is routinely ignored.
 
 ## The Insight
@@ -21,8 +22,10 @@ suggestion -- not a gate, not a policy document, not a ticket.
 Repo Guardian is a GitHub App that monitors repository creation events and runs
 weekly reconciliation across all installed repositories. When it detects missing
 configuration files, it opens a single pull request with sensible default
-templates. A human reviews, customizes, and merges. The app never auto-merges
-and never blocks.
+templates. It also syncs ownership metadata from Backstage `catalog-info.yaml`
+files to GitHub repository custom properties, enabling security tools like Wiz
+to attribute findings to the correct team. A human reviews, customizes, and
+merges. The app never auto-merges and never blocks.
 
 **How it works:**
 
@@ -31,7 +34,12 @@ and never blocks.
    config, Renovate config).
 3. If a file is missing and no existing PR addresses it, the app creates a
    branch and opens a PR with default content.
-4. A weekly scheduled scan catches any repositories that were missed or that
+4. If custom properties mode is enabled, it reads the repo's
+   `catalog-info.yaml`, extracts ownership metadata (Owner, Component,
+   JiraProject, JiraLabel), and syncs to GitHub custom properties. Repos
+   without a catalog-info.yaml are tagged as `Unclassified` and receive a PR
+   with a template file.
+5. A weekly scheduled scan catches any repositories that were missed or that
    had their PRs closed without merging.
 
 The app requires a single externally accessible HTTPS endpoint for webhook
@@ -60,8 +68,12 @@ customize before merging.
 (supports SOC 2 access controls and review routing). Dependency automation
 configs ensure security patches flow as PRs automatically, addressing the most
 common vector for known-vulnerability exploitation. Custom properties sync
-enables Wiz security scanning attribution by tagging repositories with ownership
-metadata derived from Backstage catalog-info.yaml files.
+reads each repo's Backstage `catalog-info.yaml` and writes ownership metadata
+(Owner, Component, JiraProject, JiraLabel) to GitHub repository custom
+properties. Wiz consumes these properties to attribute security findings to the
+correct team. Repos without a catalog-info.yaml are tagged as `Unclassified` so
+they remain visible in security dashboards rather than falling through the
+cracks.
 
 **For platform teams:** Prometheus metrics provide organization-wide visibility
 into compliance posture. Structured logs create an audit trail of every action.
@@ -74,6 +86,7 @@ Dry-run mode enables safe validation before enabling PR creation.
 | Repositories checked per cycle | Coverage across the organization |
 | Missing files detected (by rule) | Compliance gap by file type |
 | PRs created | Volume of automated remediation |
+| Properties checked / set / already correct | Custom properties sync coverage and drift |
 | Check duration (p50/p99) | Operational health of the service |
 
 ## Cost and Operational Footprint
@@ -96,13 +109,18 @@ Dry-run mode enables safe validation before enabling PR creation.
 
 ## Current Status
 
-Production-ready. All implementation phases complete. Two rules enabled by
+Production-ready. All implementation phases complete. Two file rules enabled by
 default (CODEOWNERS, Dependabot), one additional rule defined and available
-(Renovate). Adding new rules requires a single struct definition and a template
-file -- no changes to the core engine.
+(Renovate). Custom properties sync from Backstage `catalog-info.yaml` is
+implemented with two operational modes (`github-action` for least-privilege,
+`api` for full automation) and is opt-in via the `CUSTOM_PROPERTIES_MODE`
+environment variable. Adding new file rules requires a single struct definition
+and a template file -- no changes to the core engine.
 
 ## Ask
 
 Deploy to the production EKS cluster and install on the GitHub organization.
 Begin in dry-run mode to validate behavior, then enable PR creation after one
-reconciliation cycle confirms expected results.
+reconciliation cycle confirms expected results. For custom properties, enable
+`CUSTOM_PROPERTIES_MODE=github-action` (or `api` if org-level write permissions
+are available) after validating the file-rule behavior.

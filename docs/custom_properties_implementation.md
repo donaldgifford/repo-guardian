@@ -344,31 +344,31 @@ error paths are covered.
 
 ### Tasks
 
-- [ ] **`internal/checker/properties_test.go`** -- new file (or add to `engine_test.go`):
+- [x] **`internal/checker/properties_test.go`** -- new file (or add to `engine_test.go`):
 
-  - [ ] `github-action` mode tests:
-    - [ ] `TestGHAMode_SetsFromCatalogInfo` -- catalog-info.yaml present, properties differ from current -> PR created with GHA workflow containing correct values
-    - [ ] `TestGHAMode_NoCatalogFile` -- no catalog-info.yaml -> PR with GHA workflow using Unclassified defaults
-    - [ ] `TestGHAMode_UnparseableFile` -- invalid YAML content -> PR with Unclassified defaults
-    - [ ] `TestGHAMode_NotBackstageComponent` -- `kind: API` -> PR with Unclassified defaults
-    - [ ] `TestGHAMode_AlreadyCorrect` -- properties already match -> no PR created, `PropertiesAlreadyCorrectTotal` incremented
-    - [ ] `TestGHAMode_PartialAnnotations` -- missing Jira annotations -> PR sets only Owner + Component
-    - [ ] `TestGHAMode_ExistingPR` -- PR already open with properties branch -> skipped
-    - [ ] `TestGHAMode_DryRun` -- dry-run enabled -> logged, no branch/PR/file created
-    - [ ] `TestGHAMode_StaleBranchCleanup` -- branch exists but no open PR -> stale branch deleted, new branch created from HEAD, fresh PR opened
+  - [x] `github-action` mode tests:
+    - [x] `TestGHAMode_SetsFromCatalogInfo` -- catalog-info.yaml present, properties differ from current -> PR created with GHA workflow containing correct values
+    - [x] `TestGHAMode_NoCatalogFile` -- no catalog-info.yaml -> PR with GHA workflow using Unclassified defaults
+    - [x] `TestGHAMode_UnparseableFile` -- invalid YAML content -> PR with Unclassified defaults
+    - [x] `TestGHAMode_NotBackstageComponent` -- `kind: API` -> PR with Unclassified defaults
+    - [x] `TestGHAMode_AlreadyCorrect` -- properties already match -> no PR created, `PropertiesAlreadyCorrectTotal` incremented
+    - [x] `TestGHAMode_PartialAnnotations` -- missing Jira annotations -> PR sets only Owner + Component
+    - [x] `TestGHAMode_ExistingPR` -- PR already open with properties branch -> skipped
+    - [x] `TestGHAMode_DryRun` -- dry-run enabled -> logged, no branch/PR/file created
+    - [x] `TestGHAMode_StaleBranchCleanup` -- branch exists but no open PR -> stale branch deleted, new branch created from HEAD, fresh PR opened
 
-  - [ ] `api` mode tests:
-    - [ ] `TestAPIMode_SetsFromCatalogInfo` -- catalog-info.yaml present, properties differ -> `SetCustomPropertyValues` called with correct values
-    - [ ] `TestAPIMode_NoCatalogFile` -- no catalog-info.yaml -> Unclassified set via API + PR with catalog-info.yaml template
-    - [ ] `TestAPIMode_AlreadyCorrect` -- properties match -> no API call, no PR
-    - [ ] `TestAPIMode_NoCatalog_ExistingPR` -- no file but catalog-info PR open -> API sets defaults, no duplicate PR
-    - [ ] `TestAPIMode_NoCatalog_StaleBranchCleanup` -- catalog-info branch exists but no open PR -> stale branch deleted, new branch + PR created
-    - [ ] `TestAPIMode_DryRun` -- dry-run enabled -> no API call, no PR
+  - [x] `api` mode tests:
+    - [x] `TestAPIMode_SetsFromCatalogInfo` -- catalog-info.yaml present, properties differ -> `SetCustomPropertyValues` called with correct values
+    - [x] `TestAPIMode_NoCatalogFile` -- no catalog-info.yaml -> Unclassified set via API + PR with catalog-info.yaml template
+    - [x] `TestAPIMode_AlreadyCorrect` -- properties match -> no API call, no PR
+    - [x] `TestAPIMode_NoCatalog_ExistingPR` -- no file but catalog-info PR open -> API sets defaults, no duplicate PR
+    - [x] `TestAPIMode_NoCatalog_StaleBranchCleanup` -- catalog-info branch exists but no open PR -> stale branch deleted, new branch + PR created
+    - [x] `TestAPIMode_DryRun` -- dry-run enabled -> no API call, no PR
 
-  - [ ] Disabled mode test:
-    - [ ] `TestCustomProperties_Disabled` -- `customPropertiesMode=""` -> `CheckCustomProperties` never called (verify via `CheckRepo`)
+  - [x] Disabled mode test:
+    - [x] `TestCustomProperties_Disabled` -- `customPropertiesMode=""` -> `CheckCustomProperties` never called (verify via `CheckRepo`)
 
-  - [ ] Each test verifies:
+  - [x] Each test verifies:
     - Correct branches created/not created
     - Correct files committed/not committed
     - Correct PRs created/not created

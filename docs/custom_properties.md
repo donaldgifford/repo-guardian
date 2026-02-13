@@ -2,11 +2,13 @@
 
 ## Goal
 
-Automatically set GitHub repository custom properties (`Owner`, `Component`,
-`JiraProject`, `JiraLabel`) by reading values from each repo's Backstage
-`catalog-info.yaml` file. This enables Wiz security scanning to tag
-repositories with ownership and project metadata, ensuring repos are assigned
-to the correct Wiz projects.
+Ensure every repository in the GitHub organization has four custom properties
+set (`Owner`, `Component`, `JiraProject`, `JiraLabel`) by reading values from
+each repo's Backstage `catalog-info.yaml` file. When properties are missing or
+stale, repo-guardian creates a PR containing a GitHub Actions workflow that
+sets them. This enables Wiz security scanning to tag repositories with
+ownership and project metadata, ensuring repos are assigned to the correct Wiz
+projects.
 
 ### Why This Matters
 
@@ -22,12 +24,22 @@ properties on every repo closes this gap:
 | `JiraProject` | `metadata.annotations["jira/project-key"]` | Maps to Jira project for issue routing |
 | `JiraLabel` | `metadata.annotations["jira/label"]` | Additional Jira label for filtering |
 
-### Source of Truth
+### Source of Truth and Defaults
 
-The `catalog-info.yaml` file (Backstage Component entity) is the source of
-truth. The engine should prioritize reading this file. If the file does not
-exist, the custom properties check is skipped for that repo (no PR is created
-for properties -- this is a direct API write, not a file-based rule).
+The `catalog-info.yaml` file (Backstage Component entity) is the preferred
+source of truth. The engine reads this file first and extracts values using
+struct-based YAML unmarshaling.
+
+**When catalog-info.yaml is missing or cannot be parsed:**
+
+- `Owner` = `Unclassified`
+- `Component` = `Unclassified`
+- `JiraProject` = `` (empty -- left unset)
+- `JiraLabel` = `` (empty -- left unset)
+
+This guarantees every repo gets at minimum an `Owner` and `Component` value.
+Repos without a catalog-info.yaml are explicitly tagged as `Unclassified` so
+they surface in Wiz as needing attention rather than silently going untagged.
 
 Example `catalog-info.yaml` (from `examples/catalog-info.yaml`):
 
@@ -53,6 +65,7 @@ spec:
 ```
 
 Extracted properties:
+
 - `Owner` = `donaldgifford` (from `spec.owner`)
 - `Component` = `repo-guardian` (from `metadata.name`)
 - `JiraProject` = `DON` (from `metadata.annotations["jira/project-key"]`)
@@ -60,18 +73,45 @@ Extracted properties:
 
 ---
 
-## Architecture Decision: Separate Concern from FileRules
+## Architecture Decision: PR with GHA Workflow, Not Direct API Write
 
-Custom properties are fundamentally different from file rules:
+Repo-guardian will **not** have write access to custom properties. The GitHub
+App permission for custom properties will be **Read only** (or possibly not
+granted at all). Instead of writing properties directly via the API, the app
+creates a PR containing a GitHub Actions workflow that sets the properties when
+merged.
 
-- **File rules** detect a missing file and create a PR for a human to review.
-- **Custom properties** read an existing file and write metadata via the GitHub
-  API. There is no PR involved -- the properties are set directly.
+This is the cleaner path because:
 
-This means custom properties should **not** be modeled as a `FileRule`. Instead,
-they should be a parallel subsystem in the checker engine that runs alongside
-file checks. The engine already has the `CheckRepo` method that is called for
-every repo -- the properties check slots in there.
+1. **Least-privilege** -- the app never needs `custom_properties: write`. The
+   GHA workflow runs with the repo's `GITHUB_TOKEN` or an org-level PAT
+   configured as a secret, which has the necessary permissions.
+2. **Human review** -- property values go through the same PR review process as
+   file changes. Teams see exactly what will be set before it takes effect.
+3. **Auditability** -- the PR and workflow run create a clear audit trail in
+   both GitHub and Wiz.
+4. **Consistency** -- the approach mirrors how repo-guardian handles missing
+   files: detect the gap, create a PR, let a human merge.
+
+### How It Works
+
+1. Engine reads the repo's `catalog-info.yaml` (if present) and extracts
+   property values. If the file is missing or unparseable, defaults to
+   `Unclassified` for Owner and Component.
+2. Engine reads the repo's current custom properties via the GitHub API (read
+   only).
+3. Engine diffs desired vs current values. If all properties are already
+   correct, no action.
+4. If properties need updating, the engine creates a PR containing:
+   - `.github/workflows/set-custom-properties.yml` -- a one-shot GHA workflow
+     that uses `gh api` to PATCH the repo's custom properties.
+   - The workflow is configured to run once on push to the PR branch (or on
+     merge to default branch) and then self-deletes or is manually removed.
+
+**Prerequisite:** The org-level custom property schema (`Owner`, `Component`,
+`JiraProject`, `JiraLabel`) must be created by an org admin before enabling
+this feature. Repo-guardian will never have permissions to modify the schema --
+only to read property values.
 
 ---
 
@@ -87,147 +127,282 @@ Add a `CustomPropertyValue` type and two new methods to the `Client` interface:
 // CustomPropertyValue represents a single custom property key-value pair.
 type CustomPropertyValue struct {
     PropertyName string
-    Value        interface{} // string, []string, or nil
+    Value        string
 }
 
 // Add to Client interface:
 
+// GetFileContent returns the decoded content of a file in a repository.
+// Returns empty string and no error if the file does not exist.
+GetFileContent(ctx context.Context, owner, repo, path string) (string, error)
+
 // GetCustomPropertyValues returns all custom property values set on a repository.
 GetCustomPropertyValues(ctx context.Context, owner, repo string) ([]*CustomPropertyValue, error)
-
-// SetCustomPropertyValues creates or updates custom property values on a repository.
-SetCustomPropertyValues(ctx context.Context, owner, repo string, properties []*CustomPropertyValue) error
 ```
+
+No `SetCustomPropertyValues` method needed -- the app does not write properties
+directly.
 
 **File: `internal/github/client.go`**
 
-Implement both methods using go-github v68's existing API support:
+Implement both methods:
 
-- `GetCustomPropertyValues` wraps `Repositories.GetAllCustomPropertyValues()`
-- `SetCustomPropertyValues` wraps `Repositories.CreateOrUpdateCustomProperties()`
+- `GetFileContent` wraps `Repositories.GetContents()` from go-github and
+  returns the decoded file content. Returns `("", nil)` if the file does not
+  exist (404). This is distinct from the existing `GetContents()` method which
+  only returns a boolean existence check.
+- `GetCustomPropertyValues` wraps
+  `Repositories.GetAllCustomPropertyValues()` from go-github v68
+  (`github/repos_properties.go`). Maps go-github's `CustomPropertyValue`
+  (which uses `interface{}` for Value) to our string-typed struct.
 
-go-github v68 already has full support for these endpoints (verified in
-`github/repos_properties.go`). The `CustomPropertyValue` type in go-github
-uses `interface{}` for the value (can be `string`, `[]string`, or `nil`).
+**GitHub App permission:** `custom_properties: read`. Read-only access to check
+current values. No write access needed since the actual property update happens
+via the GHA workflow in the PR.
 
-**GitHub App permission required:** The app needs the `custom_properties`
-repository permission set to **Read & Write** in the GitHub App settings.
-This is an additional permission that must be added to the app registration.
+### Phase 2: Backstage Catalog Parser (Struct Tags)
 
-### Phase 2: Backstage Catalog Parser
+**File: `internal/catalog/catalog.go`** (new package)
 
-**File: `internal/catalog/parser.go`** (new package)
-
-A small parser that reads a `catalog-info.yaml` file content string and
-extracts the four properties we care about:
+Parse `catalog-info.yaml` using Go struct tags for type-safe YAML unmarshaling.
+The Backstage entity format is well-defined, so struct-based parsing with tags
+gives us validation, clear field mapping, and compile-time safety.
 
 ```go
 package catalog
 
-// Properties holds the values extracted from a Backstage catalog-info.yaml.
-type Properties struct {
-    Owner       string // spec.owner
-    Component   string // metadata.name
-    JiraProject string // metadata.annotations["jira/project-key"]
-    JiraLabel   string // metadata.annotations["jira/label"]
+import "gopkg.in/yaml.v3"
+
+// Entity represents a Backstage catalog entity. Only the fields
+// relevant to custom property extraction are included.
+type Entity struct {
+    APIVersion string   `yaml:"apiVersion"`
+    Kind       string   `yaml:"kind"`
+    Metadata   Metadata `yaml:"metadata"`
+    Spec       Spec     `yaml:"spec"`
 }
 
-// Parse reads a catalog-info.yaml content string and extracts custom
-// property values. Returns an error if the content is not valid YAML
-// or is not a Backstage Component entity.
-func Parse(content string) (*Properties, error)
+// Metadata holds the metadata section of a Backstage entity.
+type Metadata struct {
+    Name        string            `yaml:"name"`
+    Annotations map[string]string `yaml:"annotations"`
+}
+
+// Spec holds the spec section of a Backstage Component entity.
+type Spec struct {
+    Owner     string `yaml:"owner"`
+    Lifecycle string `yaml:"lifecycle"`
+    Type      string `yaml:"type"`
+    System    string `yaml:"system"`
+}
+
+// Properties holds the extracted custom property values.
+type Properties struct {
+    Owner       string
+    Component   string
+    JiraProject string
+    JiraLabel   string
+}
+
+const (
+    DefaultOwner     = "Unclassified"
+    DefaultComponent = "Unclassified"
+)
+
+// Parse unmarshals a catalog-info.yaml content string into an Entity
+// and extracts custom property values. Returns default Properties
+// (Owner and Component set to "Unclassified") if the content cannot
+// be parsed or is not a Backstage Component entity.
+func Parse(content string) *Properties {
+    var entity Entity
+    if err := yaml.Unmarshal([]byte(content), &entity); err != nil {
+        return defaults()
+    }
+
+    if entity.APIVersion != "backstage.io/v1alpha1" || entity.Kind != "Component" {
+        return defaults()
+    }
+
+    p := &Properties{
+        Owner:       entity.Spec.Owner,
+        Component:   entity.Metadata.Name,
+        JiraProject: entity.Metadata.Annotations["jira/project-key"],
+        JiraLabel:   entity.Metadata.Annotations["jira/label"],
+    }
+
+    // Apply defaults for empty required fields.
+    if p.Owner == "" {
+        p.Owner = DefaultOwner
+    }
+    if p.Component == "" {
+        p.Component = DefaultComponent
+    }
+
+    return p
+}
+
+func defaults() *Properties {
+    return &Properties{
+        Owner:     DefaultOwner,
+        Component: DefaultComponent,
+    }
+}
 ```
 
-Implementation notes:
+The struct tag approach means:
 
-- Use `gopkg.in/yaml.v3` (or the stdlib-compatible option) for YAML parsing.
-  Check if an existing YAML dependency is already in `go.mod` -- if not, add
-  one. Alternatively, since the catalog-info structure is well-defined, a
-  minimal struct-based unmarshal is sufficient and avoids a new dependency.
-- Validate that `apiVersion` is `backstage.io/v1alpha1` and `kind` is
-  `Component`. Skip silently (return nil properties, no error) if the file
-  is not a Backstage Component -- repos may have other YAML files at this
-  path.
-- Return an error only for genuinely malformed YAML, not for missing optional
-  fields. If `jira/project-key` or `jira/label` annotations are absent,
-  those properties are simply empty strings and should not be set.
+- YAML field mapping is explicit and self-documenting.
+- Adding new fields in the future is a struct field + tag, not string
+  manipulation.
+- Invalid YAML fails at `yaml.Unmarshal`, giving a clear error.
+- The `Annotations` map handles arbitrary annotation keys without needing a
+  struct field per annotation.
 
-**File: `internal/catalog/parser_test.go`**
+**Dependency:** `gopkg.in/yaml.v3`. This is the standard Go YAML library.
+Check `go.mod` -- if not already present, add it via `go get`.
 
-Table-driven tests covering:
-- Valid catalog-info.yaml with all four fields
-- Missing annotations (jira fields absent)
-- Wrong `kind` (not Component) -- should return nil, nil
-- Wrong `apiVersion` -- should return nil, nil
-- Malformed YAML -- should return error
-- Empty `spec.owner` -- should still parse, Owner is empty string
+**File: `internal/catalog/catalog_test.go`**
 
-### Phase 3: Properties Checker in Engine
+Table-driven tests:
+
+| Test Case | Input | Expected |
+|---|---|---|
+| All fields present | Full catalog-info.yaml | All four properties populated |
+| Missing Jira annotations | No `jira/` annotations | Owner + Component set, JiraProject + JiraLabel empty |
+| Empty `spec.owner` | `owner: ""` | Owner = `Unclassified` |
+| Empty `metadata.name` | `name: ""` | Component = `Unclassified` |
+| Wrong `kind` (e.g., API) | `kind: API` | Defaults (Unclassified/Unclassified) |
+| Wrong `apiVersion` | `apiVersion: v2` | Defaults |
+| Malformed YAML | `{{{` | Defaults |
+| Empty string | `""` | Defaults |
+| Valid YAML, not Backstage | Random YAML doc | Defaults |
+
+### Phase 3: GHA Workflow Template
+
+**File: `internal/rules/templates/set-custom-properties.tmpl`**
+
+A GitHub Actions workflow template that sets custom properties on the repo.
+The template uses placeholder values that are replaced by the engine before
+committing:
+
+```yaml
+# This workflow was created by repo-guardian to set repository custom
+# properties. It runs once when merged, then can be safely deleted.
+#
+# Prerequisites:
+#   - Org-level custom property schema must define: Owner, Component,
+#     JiraProject, JiraLabel
+#   - The GITHUB_TOKEN must have custom_properties:write permission,
+#     or use a PAT/GitHub App token stored as a repository or org secret.
+name: Set Custom Properties
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  set-properties:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set repository custom properties
+        env:
+          GH_TOKEN: ${{ secrets.CUSTOM_PROPERTIES_TOKEN }}
+        run: |
+          gh api \
+            --method PATCH \
+            "repos/${{ github.repository }}/properties/values" \
+            -f 'properties[][property_name]=Owner' \
+            -f 'properties[][value]=OWNER_VALUE' \
+            -f 'properties[][property_name]=Component' \
+            -f 'properties[][value]=COMPONENT_VALUE' \
+            -f 'properties[][property_name]=JiraProject' \
+            -f 'properties[][value]=JIRA_PROJECT_VALUE' \
+            -f 'properties[][property_name]=JiraLabel' \
+            -f 'properties[][value]=JIRA_LABEL_VALUE'
+```
+
+The engine replaces `OWNER_VALUE`, `COMPONENT_VALUE`, `JIRA_PROJECT_VALUE`,
+and `JIRA_LABEL_VALUE` with actual values before committing. Empty values
+(JiraProject, JiraLabel when not available) are omitted from the API call --
+the template is rendered dynamically, not used as-is.
+
+**Note:** The exact `gh api` invocation and token setup (org secret vs repo
+secret vs GitHub App token) will depend on the org's auth strategy. The
+template provides a working starting point that the team customizes during PR
+review. The `CUSTOM_PROPERTIES_TOKEN` secret name is a placeholder.
+
+### Phase 4: Properties Checker in Engine
 
 **File: `internal/checker/properties.go`** (new file in existing package)
 
-A dedicated function that the engine calls after file rule checks:
-
 ```go
-// CheckCustomProperties reads the repo's catalog-info.yaml and sets
-// GitHub custom properties based on its contents. Returns nil if the
-// file does not exist or if all properties are already correct.
+// CheckCustomProperties reads the repo's catalog-info.yaml, extracts
+// desired custom property values, compares them against current values,
+// and creates a PR with a GHA workflow to set properties if they differ.
 func (e *Engine) CheckCustomProperties(
     ctx context.Context,
     client ghclient.Client,
-    owner, repo string,
+    owner, repo, defaultBranch string,
+    openPRs []*ghclient.PullRequest,
 ) error
 ```
 
 Flow:
 
-1. **Read `catalog-info.yaml`** -- call `client.GetContents()` to check if it
-   exists. Then call a new `GetFileContent()` client method (or reuse
-   `GetContents` with content retrieval) to get the file body. See note below.
-2. **Parse** the content using `catalog.Parse()`.
-3. If parse returns nil properties (not a Backstage Component), log and return.
-4. **Get current custom properties** via `client.GetCustomPropertyValues()`.
-5. **Diff** current vs desired. Build a list of properties that need updating.
-   Only set properties that are (a) non-empty in the catalog-info and (b)
-   different from the current value.
+1. **Check for existing properties PR** -- search `openPRs` for a PR with
+   branch `repo-guardian/set-custom-properties` or title containing "custom
+   properties". If found, skip (already in progress).
+2. **Try to read `catalog-info.yaml`** -- call `client.GetFileContent()` for
+   `catalog-info.yaml` then `catalog-info.yml`. If neither exists, use empty
+   string (which causes `catalog.Parse` to return defaults).
+3. **Parse** using `catalog.Parse(content)`. This always returns a non-nil
+   `*Properties` -- either extracted values or defaults.
+4. **Read current custom properties** via
+   `client.GetCustomPropertyValues()`. Build a map of current values.
+5. **Diff** desired vs current. Build list of properties that need updating.
+   Compare `Owner`, `Component` always. Compare `JiraProject`, `JiraLabel`
+   only if the desired value is non-empty (don't overwrite existing values
+   with empty).
 6. If no changes needed, log and return.
 7. If dry-run, log what would be set and return.
-8. **Set properties** via `client.SetCustomPropertyValues()`.
-9. Increment metrics.
+8. **Render the GHA workflow** with actual property values substituted.
+9. **Create PR** on branch `repo-guardian/set-custom-properties` with the
+   rendered workflow file at `.github/workflows/set-custom-properties.yml`.
+   Use a dedicated PR title (e.g., `chore: set repository custom properties`)
+   and body explaining the property values and their source.
+10. Increment metrics.
 
-**Note on reading file content:** The current `GetContents()` method only
-returns a boolean (exists/not-exists). For custom properties, we need the
-actual file content. Two options:
+**Branch naming:** Use a separate branch from file rules:
+`repo-guardian/set-custom-properties`. This keeps properties PRs independent
+from missing-file PRs, since they serve different purposes and may be reviewed
+by different people.
 
-- **Option A:** Add a `GetFileContent(ctx, owner, repo, path string) (string, error)`
-  method to the Client interface that returns the file body (base64-decoded).
-  This is the cleaner approach since `GetContents` was intentionally designed
-  as an existence check.
-- **Option B:** Modify `GetContents` to return content as well. This changes
-  the existing interface and all call sites.
-
-**Recommendation: Option A.** Add `GetFileContent` as a new method. The
-existing `GetContents` boolean check remains untouched. go-github's
-`Repositories.GetContents()` already returns the file content -- we just need
-to decode it.
-
-### Phase 4: Engine Integration
+### Phase 5: Engine Integration
 
 **File: `internal/checker/engine.go`**
 
+Add `enableCustomProperties bool` field to the `Engine` struct and update
+`NewEngine` to accept it.
+
 Modify `CheckRepo` to call `CheckCustomProperties` after the file rule loop.
-The properties check runs regardless of whether file rules found missing files
--- a repo can have all its config files but still be missing custom properties.
+Pass the already-fetched `openPRs`, `repoInfo.DefaultRef`, etc. to avoid
+duplicate API calls:
 
 ```go
 func (e *Engine) CheckRepo(ctx context.Context, client ghclient.Client, owner, repo string) error {
     // ... existing skip checks (archived, fork, empty) ...
-    // ... existing file rule loop ...
-    // ... existing PR creation ...
 
-    // Check and set custom properties from catalog-info.yaml.
+    openPRs, err := client.ListOpenPullRequests(ctx, owner, repo)
+    // ... existing file rule loop using openPRs ...
+    // ... existing PR creation for missing files ...
+
+    // Check and set custom properties.
     if e.enableCustomProperties {
-        if err := e.CheckCustomProperties(ctx, client, owner, repo); err != nil {
+        if err := e.CheckCustomProperties(ctx, client, owner, repo, repoInfo.DefaultRef, openPRs); err != nil {
             log.Error("custom properties check failed", "error", err)
             // Non-fatal: log and continue. File checks already succeeded.
         }
@@ -237,36 +412,32 @@ func (e *Engine) CheckRepo(ctx context.Context, client ghclient.Client, owner, r
 }
 ```
 
-Custom properties errors are logged but do not fail the overall check. This is
-intentional: a missing or unparseable catalog-info.yaml should not prevent
-file rule PRs from being created.
+Custom properties errors are logged but do not fail the overall check. A
+missing or unparseable catalog-info.yaml should not prevent file rule PRs from
+being created.
 
-**File: `internal/checker/engine.go`**
-
-Add `enableCustomProperties bool` field to the `Engine` struct and update
-`NewEngine` to accept it.
-
-### Phase 5: Configuration
+### Phase 6: Configuration
 
 **File: `internal/config/config.go`**
 
 Add a new config option:
 
 ```go
-EnableCustomProperties bool // Enable custom properties sync (default: false)
+EnableCustomProperties bool // Enable custom properties check (default: false)
 ```
 
 Environment variable: `ENABLE_CUSTOM_PROPERTIES` (default: `false`).
 
 Default is `false` so the feature is opt-in. Existing deployments are not
-affected until the operator explicitly enables it and adds the required GitHub
-App permission.
+affected until the operator explicitly enables it.
 
-### Phase 6: Metrics
+**File: `cmd/repo-guardian/main.go`**
+
+Pass `cfg.EnableCustomProperties` to `NewEngine`.
+
+### Phase 7: Metrics
 
 **File: `internal/metrics/metrics.go`**
-
-Add metrics for observability:
 
 ```go
 // PropertiesCheckedTotal counts repos where custom properties were evaluated.
@@ -275,67 +446,71 @@ PropertiesCheckedTotal = promauto.NewCounter(prometheus.CounterOpts{
     Help: "Total repositories where custom properties were evaluated.",
 })
 
-// PropertiesUpdatedTotal counts repos where custom properties were set/updated.
-PropertiesUpdatedTotal = promauto.NewCounter(prometheus.CounterOpts{
-    Name: "repo_guardian_properties_updated_total",
-    Help: "Total repositories where custom properties were updated.",
+// PropertiesPRsCreatedTotal counts PRs created to set custom properties.
+PropertiesPRsCreatedTotal = promauto.NewCounter(prometheus.CounterOpts{
+    Name: "repo_guardian_properties_prs_created_total",
+    Help: "Total pull requests created to set custom properties.",
 })
 
-// PropertiesSkippedTotal counts repos skipped (no catalog-info.yaml or not a Component).
-PropertiesSkippedTotal = promauto.NewCounter(prometheus.CounterOpts{
-    Name: "repo_guardian_properties_skipped_total",
-    Help: "Total repositories skipped for custom properties (no catalog-info.yaml).",
+// PropertiesAlreadyCorrectTotal counts repos where properties already matched.
+PropertiesAlreadyCorrectTotal = promauto.NewCounter(prometheus.CounterOpts{
+    Name: "repo_guardian_properties_already_correct_total",
+    Help: "Total repositories where custom properties already matched desired values.",
 })
 ```
 
-### Phase 7: Tests
+### Phase 8: Tests
 
 **File: `internal/checker/engine_test.go`**
 
 Update `mockClient` with:
-- `GetFileContent` mock method (returns configurable content)
-- `GetCustomPropertyValues` mock method (returns configurable current properties)
-- `SetCustomPropertyValues` mock method (records what was set)
+
+- `GetFileContent(ctx, owner, repo, path) (string, error)` -- returns
+  configurable content per path.
+- `GetCustomPropertyValues(ctx, owner, repo) ([]*CustomPropertyValue, error)` --
+  returns configurable current properties.
 
 Add test cases:
-- `TestCheckCustomProperties_SetsFromCatalogInfo` -- happy path, all four
-  properties extracted and set
-- `TestCheckCustomProperties_NoCatalogFile` -- file doesn't exist, skip
-- `TestCheckCustomProperties_NotBackstageComponent` -- file exists but wrong
-  kind, skip
-- `TestCheckCustomProperties_PropertiesAlreadyCorrect` -- no API call needed
-- `TestCheckCustomProperties_PartialAnnotations` -- only Owner and Component
-  set (missing Jira annotations)
-- `TestCheckCustomProperties_DryRun` -- logs but doesn't call SetCustomPropertyValues
-- `TestCheckCustomProperties_Disabled` -- engine with enableCustomProperties=false
-  does not call any properties methods
 
-**File: `internal/catalog/parser_test.go`**
+| Test | Scenario | Expected |
+|---|---|---|
+| `TestCheckCustomProperties_SetsFromCatalogInfo` | catalog-info.yaml present with all four fields, current properties differ | PR created with workflow containing correct values |
+| `TestCheckCustomProperties_NoCatalogFile` | No catalog-info.yaml | PR created with Unclassified defaults for Owner/Component |
+| `TestCheckCustomProperties_UnparseableFile` | catalog-info.yaml contains invalid YAML | PR created with Unclassified defaults |
+| `TestCheckCustomProperties_NotBackstageComponent` | Valid YAML but `kind: API` | PR created with Unclassified defaults |
+| `TestCheckCustomProperties_AlreadyCorrect` | Current properties match desired | No PR created |
+| `TestCheckCustomProperties_PartialAnnotations` | catalog-info.yaml missing Jira annotations | PR sets Owner + Component, omits Jira fields |
+| `TestCheckCustomProperties_ExistingPR` | Open PR for properties already exists | Skipped |
+| `TestCheckCustomProperties_DryRun` | Dry-run enabled | Logged but no PR created |
+| `TestCheckCustomProperties_Disabled` | `enableCustomProperties=false` | Not called |
+
+**File: `internal/catalog/catalog_test.go`**
 
 As described in Phase 2.
 
-### Phase 8: Documentation Updates
+### Phase 9: Documentation Updates
 
 **File: `docs/SUMMARY.md`**
 
 Add a section under "What It Brings to the Organization > Security and
-Compliance" covering the Wiz integration:
+Compliance" covering:
 
-- Custom properties sync enables Wiz to tag repositories with ownership
-  metadata, ensuring repos are assigned to the correct Wiz projects.
-- Properties are sourced from the existing Backstage catalog-info.yaml, so
-  there is no new data entry burden -- teams already maintain this file for
-  their service catalog.
+- Custom properties sync for Wiz integration -- repos are tagged with
+  ownership metadata so Wiz can assign them to the correct projects.
+- Properties sourced from Backstage catalog-info.yaml where available;
+  defaults to `Unclassified` otherwise, ensuring no repo goes untagged.
+- Delivered via PR with a GHA workflow, maintaining the human-review-first
+  approach.
 
 **File: `docs/ONE_PAGER.md`**
 
-Add a bullet under "Key Benefits > For security and compliance" about Wiz
-integration and custom properties.
+Add a bullet under "Key Benefits > For security and compliance" about the Wiz
+integration and custom properties tagging.
 
 **File: `docs/RFC.md`**
 
-Add a section (or appendix) documenting the custom properties feature,
-the Backstage integration, and the Wiz tagging use case.
+Add a section documenting the custom properties feature, Backstage integration,
+the GHA workflow approach, and the Wiz tagging use case.
 
 ---
 
@@ -343,50 +518,52 @@ the Backstage integration, and the Wiz tagging use case.
 
 | File | Change | Phase |
 |---|---|---|
-| `internal/github/github.go` | Add `CustomPropertyValue` type, `GetFileContent`, `GetCustomPropertyValues`, `SetCustomPropertyValues` to interface | 1 |
-| `internal/github/client.go` | Implement three new methods using go-github v68 | 1 |
+| `internal/github/github.go` | Add `CustomPropertyValue` type, `GetFileContent`, `GetCustomPropertyValues` to interface | 1 |
+| `internal/github/client.go` | Implement two new methods using go-github v68 | 1 |
 | `internal/github/client_test.go` | Add httptest cases for new methods | 1 |
-| `internal/catalog/parser.go` | New package: YAML parser for catalog-info.yaml | 2 |
-| `internal/catalog/parser_test.go` | Table-driven tests for parser | 2 |
-| `internal/checker/properties.go` | New file: `CheckCustomProperties` logic | 3 |
-| `internal/checker/engine.go` | Add `enableCustomProperties` field, call `CheckCustomProperties` in `CheckRepo` | 4 |
-| `internal/checker/engine_test.go` | Update mockClient, add properties test cases | 7 |
-| `internal/config/config.go` | Add `EnableCustomProperties` config option | 5 |
-| `internal/metrics/metrics.go` | Add 3 new properties metrics | 6 |
-| `cmd/repo-guardian/main.go` | Pass `EnableCustomProperties` to `NewEngine` | 4 |
-| `docs/SUMMARY.md` | Add Wiz/custom properties section | 8 |
-| `docs/ONE_PAGER.md` | Add Wiz/custom properties bullet | 8 |
-| `contrib/grafana/repo-guardian-dashboard.json` | Add properties panels | 8 |
-| `contrib/prometheus/alerts.yaml` | Add properties alert (optional) | 8 |
+| `internal/catalog/catalog.go` | New package: struct-tag-based YAML parser for catalog-info.yaml | 2 |
+| `internal/catalog/catalog_test.go` | Table-driven tests for parser | 2 |
+| `internal/rules/templates/set-custom-properties.tmpl` | GHA workflow template for setting properties | 3 |
+| `internal/checker/properties.go` | New file: `CheckCustomProperties` logic with diff + PR creation | 4 |
+| `internal/checker/engine.go` | Add `enableCustomProperties` field, call `CheckCustomProperties` in `CheckRepo` | 5 |
+| `internal/config/config.go` | Add `EnableCustomProperties` config option | 6 |
+| `cmd/repo-guardian/main.go` | Pass `EnableCustomProperties` to `NewEngine` | 6 |
+| `internal/metrics/metrics.go` | Add 3 new properties metrics | 7 |
+| `internal/checker/engine_test.go` | Update mockClient, add 9 properties test cases | 8 |
+| `internal/catalog/catalog_test.go` | Table-driven parser tests (9 cases) | 8 |
+| `docs/SUMMARY.md` | Add Wiz/custom properties section | 9 |
+| `docs/ONE_PAGER.md` | Add Wiz/custom properties bullet | 9 |
+| `docs/RFC.md` | Add custom properties appendix | 9 |
+| `contrib/grafana/repo-guardian-dashboard.json` | Add properties panels | 9 |
+| `contrib/prometheus/alerts.yaml` | Add properties alert (optional) | 9 |
 
 ---
 
 ## GitHub App Permission Change
 
-The app registration must be updated to include the `custom_properties`
-permission:
-
 | Permission | Access | Reason |
 |---|---|---|
-| **Contents** | Read & Write | Existing -- read files, create branches |
+| **Contents** | Read & Write | Existing -- read files, create branches, commit workflow |
 | **Pull Requests** | Read & Write | Existing -- check/create PRs |
 | **Metadata** | Read | Existing -- required for all apps |
-| **Custom properties** | Read & Write | **New** -- read and set repo custom properties |
+| **Custom properties** | Read | **New** -- read current property values to diff against desired |
 
-This is a one-time change in the GitHub App settings. Existing installations
-will receive a permission update request that org admins must approve.
+The app only needs read access to custom properties. The actual write happens
+via the GHA workflow using a token with write permissions (configured as an org
+or repo secret).
 
 ---
 
 ## Catalog-Info.yaml Paths to Check
 
-The parser should look for the catalog-info file at these paths (in order):
+The engine looks for the catalog-info file at these paths (in order):
 
 1. `catalog-info.yaml`
 2. `catalog-info.yml`
 
 Most Backstage setups use `catalog-info.yaml` at the repo root. The `.yml`
-variant is included for compatibility.
+variant is included for compatibility. If neither exists, the engine proceeds
+with default values (`Unclassified`).
 
 ---
 
@@ -394,41 +571,53 @@ variant is included for compatibility.
 
 ### What if catalog-info.yaml is missing?
 
-Skip the properties check for that repo. Do not create a PR to add
-catalog-info.yaml -- that is a Backstage concern, not repo-guardian's job.
-Increment `PropertiesSkippedTotal` metric.
+Proceed with defaults: `Owner=Unclassified`, `Component=Unclassified`,
+`JiraProject=""`, `JiraLabel=""`. Create a PR to set Owner and Component to
+`Unclassified` if they aren't already. This ensures every repo has at minimum
+an ownership tag in Wiz, even if it's a placeholder that signals "this repo
+needs attention."
 
-### What if a property value in catalog-info.yaml is empty?
+### What if catalog-info.yaml cannot be parsed?
 
-Do not set the property. Only set properties that have non-empty values in the
-source file. This avoids overwriting a manually set property with an empty
-string.
+Same as missing: use defaults. The YAML might be malformed or the file might
+not be a Backstage entity (wrong `apiVersion` or `kind`). In all cases, fall
+back to `Unclassified` defaults. The `catalog.Parse()` function always returns
+a non-nil `*Properties`.
+
+### What if JiraProject or JiraLabel annotations are missing?
+
+Leave them empty. Only `Owner` and `Component` get the `Unclassified` default.
+Jira-related properties are left unset (not included in the GHA workflow API
+call) since the correct default values are not yet determined.
 
 ### What if the org hasn't defined the custom property schema?
 
-The GitHub API returns a 422 error if you try to set a property that hasn't
-been defined at the org level. The engine should log this error and continue.
-The operator must create the property schema in the org settings (or via API)
-before enabling this feature.
+The GHA workflow will fail when it runs because the GitHub API returns 422 for
+undefined properties. This is an operator prerequisite: the org admin must
+create the property schema before enabling this feature. Document this in the
+deployment guide and the PR body.
 
-This could be documented as a prerequisite, or repo-guardian could optionally
-create the org-level schema (using the Organizations API). Recommendation:
-**do not auto-create the schema.** Property schema definition is an org admin
-concern and should be done once, manually or via IaC. The app should require
-the `organization_custom_properties` permission only if we decide to add
-schema management later.
+### What if current properties already match?
 
-### What if the current property value already matches?
+No PR is created. The diff step compares desired values against current values
+read via the API. If all properties already match, log it and move on.
+Increment `PropertiesAlreadyCorrectTotal` metric.
 
-Do not call the update API. The diff step (Phase 3, step 5) ensures we only
-make API calls when values actually change. This reduces unnecessary API usage
-and avoids creating noise in audit logs.
+### What about the GHA workflow file after merge?
+
+The workflow runs on push to `main` (when the PR is merged). After it runs
+successfully, it remains in the repo as a dormant file (it only triggers on
+push to main, and future pushes won't re-set properties unless the file
+changes). Teams can delete it after verifying properties are set, or it can be
+left in place as a record. A follow-up enhancement could have the workflow
+self-delete via a step that removes itself and commits.
 
 ### Idempotency
 
-The properties check is fully idempotent. Running it multiple times on the
-same repo with the same catalog-info.yaml produces no additional API calls
-after the first successful run (because the diff detects no changes).
+Fully idempotent. The engine diffs current vs desired properties on every run.
+If properties match, no PR. If a PR is already open, no duplicate. If the
+workflow has already run and properties are set, subsequent runs detect the
+match and skip.
 
 ---
 
@@ -438,12 +627,18 @@ after the first successful run (because the diff detects no changes).
    behavioral change to existing deployments.
 2. **Define custom property schema in GitHub org settings.** Create the four
    properties: `Owner` (string), `Component` (string), `JiraProject` (string),
-   `JiraLabel` (string).
-3. **Update GitHub App permissions.** Add `custom_properties: read & write`.
-   Org admins approve the permission request.
-4. **Deploy with `ENABLE_CUSTOM_PROPERTIES=true` and `DRY_RUN=true`.** Observe
-   logs to confirm correct property extraction from catalog-info.yaml files.
-5. **Disable dry-run.** Properties are now being set on repos. Monitor
-   `PropertiesUpdatedTotal` metric.
-6. **Verify in Wiz.** Confirm that scanned repos now have the expected tags
+   `JiraLabel` (string). This is a one-time org admin action.
+3. **Configure a token secret.** Create an org-level secret
+   (`CUSTOM_PROPERTIES_TOKEN`) containing a PAT or GitHub App token with
+   `custom_properties: write` permission. This is used by the GHA workflow in
+   the PRs.
+4. **Update GitHub App permissions.** Add `custom_properties: read` to the
+   repo-guardian app. Org admins approve the permission request.
+5. **Deploy with `ENABLE_CUSTOM_PROPERTIES=true` and `DRY_RUN=true`.** Observe
+   logs to confirm correct property extraction and diff logic.
+6. **Disable dry-run.** Properties PRs are now being created. Monitor
+   `PropertiesPRsCreatedTotal` metric.
+7. **Review and merge initial PRs.** Verify that the GHA workflow runs
+   successfully and properties appear in GitHub.
+8. **Verify in Wiz.** Confirm that scanned repos now have the expected tags
    derived from custom properties.

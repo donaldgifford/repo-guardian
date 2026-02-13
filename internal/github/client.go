@@ -287,6 +287,78 @@ func (c *GitHubClient) CreateInstallationClient(_ context.Context, installationI
 	}, nil
 }
 
+// GetFileContent returns the decoded content of a file in a repository.
+// Returns empty string and no error if the file does not exist.
+func (c *GitHubClient) GetFileContent(ctx context.Context, owner, repo, path string) (string, error) {
+	file, _, resp, err := c.ghClient().Repositories.GetContents(ctx, owner, repo, path, nil)
+	if err != nil {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			return "", nil
+		}
+
+		return "", fmt.Errorf("getting file content %s/%s/%s: %w", owner, repo, path, err)
+	}
+
+	if file == nil {
+		return "", nil
+	}
+
+	content, err := file.GetContent()
+	if err != nil {
+		return "", fmt.Errorf("decoding file content %s/%s/%s: %w", owner, repo, path, err)
+	}
+
+	return content, nil
+}
+
+// GetCustomPropertyValues returns all custom property values set on a repository.
+func (c *GitHubClient) GetCustomPropertyValues(
+	ctx context.Context,
+	owner, repo string,
+) ([]*CustomPropertyValue, error) {
+	ghProps, _, err := c.ghClient().Repositories.GetAllCustomPropertyValues(ctx, owner, repo)
+	if err != nil {
+		return nil, fmt.Errorf("getting custom properties for %s/%s: %w", owner, repo, err)
+	}
+
+	props := make([]*CustomPropertyValue, 0, len(ghProps))
+	for _, p := range ghProps {
+		value := ""
+		if p.Value != nil {
+			value = fmt.Sprintf("%v", p.Value)
+		}
+
+		props = append(props, &CustomPropertyValue{
+			PropertyName: p.PropertyName,
+			Value:        value,
+		})
+	}
+
+	return props, nil
+}
+
+// SetCustomPropertyValues creates or updates custom property values on a repository.
+func (c *GitHubClient) SetCustomPropertyValues(
+	ctx context.Context,
+	owner, repo string,
+	properties []*CustomPropertyValue,
+) error {
+	ghProps := make([]*gh.CustomPropertyValue, 0, len(properties))
+	for _, p := range properties {
+		ghProps = append(ghProps, &gh.CustomPropertyValue{
+			PropertyName: p.PropertyName,
+			Value:        p.Value,
+		})
+	}
+
+	_, err := c.ghClient().Repositories.CreateOrUpdateCustomProperties(ctx, owner, repo, ghProps)
+	if err != nil {
+		return fmt.Errorf("setting custom properties for %s/%s: %w", owner, repo, err)
+	}
+
+	return nil
+}
+
 func (c *GitHubClient) getInstallClient(installationID int64) (*gh.Client, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

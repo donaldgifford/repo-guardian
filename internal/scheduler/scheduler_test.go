@@ -78,6 +78,18 @@ func (*mockClient) CreateInstallationClient(_ context.Context, _ int64) (ghclien
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (*mockClient) GetFileContent(_ context.Context, _, _, _ string) (string, error) {
+	return "", fmt.Errorf("not implemented")
+}
+
+func (*mockClient) GetCustomPropertyValues(_ context.Context, _, _ string) ([]*ghclient.CustomPropertyValue, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (*mockClient) SetCustomPropertyValues(_ context.Context, _, _ string, _ []*ghclient.CustomPropertyValue) error {
+	return fmt.Errorf("not implemented")
+}
+
 func TestReconcileAll(t *testing.T) {
 	t.Parallel()
 

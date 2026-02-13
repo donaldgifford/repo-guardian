@@ -3,9 +3,11 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	gh "github.com/google/go-github/v68/github"
@@ -294,5 +296,153 @@ func TestGetBranchSHA_NotFound(t *testing.T) {
 
 	if sha != "" {
 		t.Errorf("expected empty SHA for nonexistent branch, got %q", sha)
+	}
+}
+
+func TestGetFileContent_Exists(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(
+		"GET /api/v3/repos/owner/repo/contents/catalog-info.yaml",
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+
+			resp := &gh.RepositoryContent{
+				Name:     gh.Ptr("catalog-info.yaml"),
+				Path:     gh.Ptr("catalog-info.yaml"),
+				Type:     gh.Ptr("file"),
+				Encoding: gh.Ptr("base64"),
+				Content:  gh.Ptr("YXBpVmVyc2lvbjogYmFja3N0YWdlLmlvL3YxYWxwaGEx"), // "apiVersion: backstage.io/v1alpha1"
+			}
+
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				t.Errorf("encoding response: %v", err)
+			}
+		},
+	)
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	content, err := client.GetFileContent(context.Background(), "owner", "repo", "catalog-info.yaml")
+	if err != nil {
+		t.Fatalf("GetFileContent: %v", err)
+	}
+
+	if content != "apiVersion: backstage.io/v1alpha1" {
+		t.Errorf("expected decoded content, got %q", content)
+	}
+}
+
+func TestGetFileContent_NotFound(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(
+		"GET /api/v3/repos/owner/repo/contents/catalog-info.yaml",
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+
+			resp := &gh.ErrorResponse{Message: "Not Found"}
+
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				t.Errorf("encoding response: %v", err)
+			}
+		},
+	)
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	content, err := client.GetFileContent(context.Background(), "owner", "repo", "catalog-info.yaml")
+	if err != nil {
+		t.Fatalf("GetFileContent: %v", err)
+	}
+
+	if content != "" {
+		t.Errorf("expected empty string for missing file, got %q", content)
+	}
+}
+
+func TestGetCustomPropertyValues(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(
+		"GET /api/v3/repos/owner/repo/properties/values",
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+
+			props := []*gh.CustomPropertyValue{
+				{PropertyName: "Owner", Value: "platform-team"},
+				{PropertyName: "Component", Value: "my-service"},
+			}
+
+			if err := json.NewEncoder(w).Encode(props); err != nil {
+				t.Errorf("encoding response: %v", err)
+			}
+		},
+	)
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	props, err := client.GetCustomPropertyValues(context.Background(), "owner", "repo")
+	if err != nil {
+		t.Fatalf("GetCustomPropertyValues: %v", err)
+	}
+
+	if len(props) != 2 {
+		t.Fatalf("expected 2 properties, got %d", len(props))
+	}
+
+	if props[0].PropertyName != "Owner" || props[0].Value != "platform-team" {
+		t.Errorf("unexpected first property: %+v", props[0])
+	}
+
+	if props[1].PropertyName != "Component" || props[1].Value != "my-service" {
+		t.Errorf("unexpected second property: %+v", props[1])
+	}
+}
+
+func TestSetCustomPropertyValues(t *testing.T) {
+	t.Parallel()
+
+	var receivedBody []byte
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(
+		"PATCH /api/v3/repos/owner/repo/properties/values",
+		func(w http.ResponseWriter, r *http.Request) {
+			var err error
+			receivedBody, err = io.ReadAll(r.Body)
+			if err != nil {
+				t.Errorf("reading request body: %v", err)
+			}
+
+			w.WriteHeader(http.StatusNoContent)
+		},
+	)
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	err := client.SetCustomPropertyValues(context.Background(), "owner", "repo", []*CustomPropertyValue{
+		{PropertyName: "Owner", Value: "platform-team"},
+		{PropertyName: "Component", Value: "my-service"},
+	})
+	if err != nil {
+		t.Fatalf("SetCustomPropertyValues: %v", err)
+	}
+
+	if len(receivedBody) == 0 {
+		t.Fatal("expected request body to be sent")
+	}
+
+	// Verify the body contains our property names.
+	bodyStr := string(receivedBody)
+	if !strings.Contains(bodyStr, "Owner") || !strings.Contains(bodyStr, "platform-team") {
+		t.Errorf("request body missing expected properties: %s", bodyStr)
 	}
 }

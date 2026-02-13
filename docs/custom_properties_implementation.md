@@ -77,42 +77,42 @@ properties. The write method is only used in `api` mode.
 
 ### Tasks
 
-- [ ] **`internal/github/github.go`** -- add types and interface methods:
-  - [ ] Add `CustomPropertyValue` struct:
+- [x] **`internal/github/github.go`** -- add types and interface methods:
+  - [x] Add `CustomPropertyValue` struct:
     ```go
     type CustomPropertyValue struct {
         PropertyName string
         Value        string
     }
     ```
-  - [ ] Add `GetFileContent(ctx, owner, repo, path string) (string, error)` to `Client` interface
+  - [x] Add `GetFileContent(ctx, owner, repo, path string) (string, error)` to `Client` interface
     - Returns decoded file content as string
     - Returns `("", nil)` if the file does not exist (404)
     - Distinct from existing `GetContents()` which returns `(bool, error)`
-  - [ ] Add `GetCustomPropertyValues(ctx, owner, repo string) ([]*CustomPropertyValue, error)` to `Client` interface
-  - [ ] Add `SetCustomPropertyValues(ctx, owner, repo string, properties []*CustomPropertyValue) error` to `Client` interface
+  - [x] Add `GetCustomPropertyValues(ctx, owner, repo string) ([]*CustomPropertyValue, error)` to `Client` interface
+  - [x] Add `SetCustomPropertyValues(ctx, owner, repo string, properties []*CustomPropertyValue) error` to `Client` interface
 
-- [ ] **`internal/github/client.go`** -- implement the three methods:
-  - [ ] `GetFileContent`: use `Repositories.GetContents()`, call `content.GetContent()` to decode Base64, return `("", nil)` on 404
-  - [ ] `GetCustomPropertyValues`: use `Repositories.GetAllCustomPropertyValues()` from go-github v68 (`repos_properties.go`), map `*github.CustomPropertyValue` (which uses `interface{}` for Value) to our string-typed `CustomPropertyValue`
-  - [ ] `SetCustomPropertyValues`: use `Repositories.CreateOrUpdateCustomProperties()` from go-github v68, convert our `CustomPropertyValue` slice to go-github's format
+- [x] **`internal/github/client.go`** -- implement the three methods:
+  - [x] `GetFileContent`: use `Repositories.GetContents()`, call `content.GetContent()` to decode Base64, return `("", nil)` on 404
+  - [x] `GetCustomPropertyValues`: use `Repositories.GetAllCustomPropertyValues()` from go-github v68 (`repos_properties.go`), map `*github.CustomPropertyValue` (which uses `interface{}` for Value) to our string-typed `CustomPropertyValue`
+  - [x] `SetCustomPropertyValues`: use `Repositories.CreateOrUpdateCustomProperties()` from go-github v68, convert our `CustomPropertyValue` slice to go-github's format
 
-- [ ] **`internal/github/client_test.go`** -- add httptest cases:
-  - [ ] `TestGetFileContent_Exists` -- mock 200 response with Base64-encoded content, verify decoded string
-  - [ ] `TestGetFileContent_NotFound` -- mock 404 response, verify returns `("", nil)`
-  - [ ] `TestGetCustomPropertyValues` -- mock response with property values, verify mapping
-  - [ ] `TestSetCustomPropertyValues` -- mock PATCH endpoint, verify request body contains correct properties
+- [x] **`internal/github/client_test.go`** -- add httptest cases:
+  - [x] `TestGetFileContent_Exists` -- mock 200 response with Base64-encoded content, verify decoded string
+  - [x] `TestGetFileContent_NotFound` -- mock 404 response, verify returns `("", nil)`
+  - [x] `TestGetCustomPropertyValues` -- mock response with property values, verify mapping
+  - [x] `TestSetCustomPropertyValues` -- mock PATCH endpoint, verify request body contains correct properties
 
-- [ ] **`internal/checker/engine_test.go`** -- add the three new methods to `mockClient`:
-  - [ ] `fileContents map[string]string` field (keyed by `"owner/repo/path"`)
-  - [ ] `customProperties map[string][]*ghclient.CustomPropertyValue` field (keyed by `"owner/repo"`)
-  - [ ] `setProperties []*ghclient.CustomPropertyValue` field (records what was set)
-  - [ ] `getFileContentErr error` field
-  - [ ] `getCustomPropsErr error` field
-  - [ ] `setCustomPropsErr error` field
-  - [ ] Implement `GetFileContent` -- return from `fileContents` map, `("", nil)` if missing
-  - [ ] Implement `GetCustomPropertyValues` -- return from `customProperties` map
-  - [ ] Implement `SetCustomPropertyValues` -- record in `setProperties`
+- [x] **`internal/checker/engine_test.go`** -- add the three new methods to `mockClient`:
+  - [x] `fileContents map[string]string` field (keyed by `"owner/repo/path"`)
+  - [x] `customProperties map[string][]*ghclient.CustomPropertyValue` field (keyed by `"owner/repo"`)
+  - [x] `setProperties []*ghclient.CustomPropertyValue` field (records what was set)
+  - [x] `getFileContentErr error` field
+  - [x] `getCustomPropsErr error` field
+  - [x] `setCustomPropsErr error` field
+  - [x] Implement `GetFileContent` -- return from `fileContents` map, `("", nil)` if missing
+  - [x] Implement `GetCustomPropertyValues` -- return from `customProperties` map
+  - [x] Implement `SetCustomPropertyValues` -- record in `setProperties`
 
 ### Success Criteria
 

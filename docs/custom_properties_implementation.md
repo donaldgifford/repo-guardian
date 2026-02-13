@@ -188,24 +188,24 @@ for `api` mode when the file is missing.
 
 ### Tasks
 
-- [ ] **`internal/rules/templates/set-custom-properties.tmpl`** -- GHA workflow template:
-  - [ ] `name: Set Custom Properties`
-  - [ ] Triggers on push to `main`
-  - [ ] Single job with `gh api --method PATCH repos/${{ github.repository }}/properties/values` step
-  - [ ] Uses `${{ secrets.GITHUB_TOKEN }}` (standard GHA token) for auth
-  - [ ] Placeholder values: `OWNER_VALUE`, `COMPONENT_VALUE`, `JIRA_PROJECT_VALUE`, `JIRA_LABEL_VALUE`
-  - [ ] Comments explaining prerequisites and cleanup
-  - [ ] `permissions: contents: read`
+- [x] **`internal/rules/templates/set-custom-properties.tmpl`** -- GHA workflow template:
+  - [x] `name: Set Custom Properties`
+  - [x] Triggers on push to `main`
+  - [x] Single job with `gh api --method PATCH repos/${{ github.repository }}/properties/values` step
+  - [x] Uses `${{ secrets.GITHUB_TOKEN }}` (standard GHA token) for auth
+  - [x] Placeholder values: `OWNER_VALUE`, `COMPONENT_VALUE`, `JIRA_PROJECT_VALUE`, `JIRA_LABEL_VALUE`
+  - [x] Comments explaining prerequisites and cleanup
+  - [x] `permissions: contents: read`
 
-- [ ] **`internal/rules/templates/catalog-info.tmpl`** -- default Backstage entity:
-  - [ ] `apiVersion: backstage.io/v1alpha1`, `kind: Component`
-  - [ ] Placeholder `REPO_NAME` for `metadata.name`
-  - [ ] Placeholder `ORG_NAME` in `backstage.io/source-location` annotation
-  - [ ] `TODO` placeholders for `description`, `jira/project-key`, `spec.owner`, `spec.system`
-  - [ ] Sensible defaults for `lifecycle: production`, `type: service`
+- [x] **`internal/rules/templates/catalog-info.tmpl`** -- default Backstage entity:
+  - [x] `apiVersion: backstage.io/v1alpha1`, `kind: Component`
+  - [x] Placeholder `REPO_NAME` for `metadata.name`
+  - [x] Placeholder `ORG_NAME` in `backstage.io/source-location` annotation
+  - [x] `TODO` placeholders for `description`, `jira/project-key`, `spec.owner`, `spec.system`
+  - [x] Sensible defaults for `lifecycle: production`, `type: service`
 
-- [ ] Verify templates are picked up by existing `//go:embed templates/*.tmpl` directive in `internal/rules/registry.go`
-- [ ] Verify `TemplateStore.Load()` correctly loads the new templates (no code change needed -- glob pattern handles it)
+- [x] Verify templates are picked up by existing `//go:embed templates/*.tmpl` directive in `internal/rules/registry.go`
+- [x] Verify `TemplateStore.Load()` correctly loads the new templates (no code change needed -- glob pattern handles it)
 
 ### Success Criteria
 

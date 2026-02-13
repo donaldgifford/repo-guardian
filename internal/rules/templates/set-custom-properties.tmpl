@@ -1,0 +1,36 @@
+# This workflow was created by repo-guardian to set repository custom
+# properties. It runs once when merged, then can be safely deleted.
+#
+# Prerequisites:
+#   - Org-level custom property schema must define: Owner, Component,
+#     JiraProject, JiraLabel
+#   - GITHUB_TOKEN must have custom_properties:write permission
+name: Set Custom Properties
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  set-properties:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set repository custom properties
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api \
+            --method PATCH \
+            "repos/${{ github.repository }}/properties/values" \
+            -f 'properties[][property_name]=Owner' \
+            -f 'properties[][value]=OWNER_VALUE' \
+            -f 'properties[][property_name]=Component' \
+            -f 'properties[][value]=COMPONENT_VALUE' \
+            -f 'properties[][property_name]=JiraProject' \
+            -f 'properties[][value]=JIRA_PROJECT_VALUE' \
+            -f 'properties[][property_name]=JiraLabel' \
+            -f 'properties[][value]=JIRA_LABEL_VALUE'

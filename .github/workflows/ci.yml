@@ -99,7 +99,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Verify builds for all platforms
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2"
           args: build --snapshot --clean

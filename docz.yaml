@@ -1,0 +1,89 @@
+---
+docs_dir: docs
+
+types:
+  rfc:
+    enabled: true
+    dir: rfc
+    template: ""
+    id_prefix: "RFC"
+    id_width: 4
+    statuses:
+      - Draft
+      - Proposed
+      - Accepted
+      - Rejected
+      - Superseded
+    status_field: "status"
+
+  adr:
+    enabled: true
+    dir: adr
+    template: ""
+    id_prefix: "ADR"
+    id_width: 4
+    statuses:
+      - Proposed
+      - Accepted
+      - Deprecated
+      - Superseded
+    status_field: "status"
+
+  design:
+    enabled: true
+    dir: design
+    template: ""
+    id_prefix: "DESIGN"
+    id_width: 4
+    statuses:
+      - Draft
+      - In Review
+      - Approved
+      - Implemented
+      - Abandoned
+    status_field: "status"
+
+  plan:
+    enabled: true
+    dir: plan
+    id_prefix: PLAN
+    id_width: 4
+    statuses:
+      - Draft
+      - In Progress
+      - Completed
+      - Cancelled
+
+  impl:
+    enabled: true
+    dir: impl
+    template: ""
+    id_prefix: "IMPL"
+    id_width: 4
+    statuses:
+      - Draft
+      - In Progress
+      - Completed
+      - Paused
+      - Cancelled
+    status_field: "status"
+
+  investigation:
+    enabled: true
+    dir: investigation
+    id_prefix: INV
+    id_width: 4
+    statuses:
+      - Open
+      - In Progress
+      - Concluded
+      - Inconclusive
+      - Abandoned
+
+index:
+  auto_update: true
+  preserve_header: true
+
+author:
+  from_git: true
+  default: ""

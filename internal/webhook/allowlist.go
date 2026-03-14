@@ -171,6 +171,17 @@ func (a *GitHubIPAllowlist) extractIP(r *http.Request) net.IP {
 // GitHub's webhook CIDR ranges.
 func (a *GitHubIPAllowlist) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// TODO(donaldgifford): remove after Tailscale Funnel IP investigation
+		headers := make(map[string]string, len(r.Header))
+		for k, v := range r.Header {
+			headers[k] = strings.Join(v, ", ")
+		}
+
+		a.logger.Debug("allowlist debug: incoming request",
+			"remote_addr", r.RemoteAddr,
+			"headers", headers,
+		)
+
 		ip := a.extractIP(r)
 		if ip == nil {
 			a.logger.Warn("could not extract IP from request",

@@ -56,6 +56,19 @@ types:
       - Cancelled
     status_field: "status"
 
+  investigation:
+    enabled: true
+    dir: investigation
+    template: ""
+    id_prefix: "INV"
+    id_width: 4
+    statuses:
+      - Open
+      - In Progress
+      - Concluded
+      - Abandoned
+    status_field: "status"
+
 index:
   auto_update: true
   preserve_header: true

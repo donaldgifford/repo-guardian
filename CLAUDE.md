@@ -41,7 +41,7 @@ internal/
   metrics/    → Prometheus metrics (15 metrics total)
 deploy/
   base/       → Kustomize base (deployment, service, configmap, serviceaccount)
-  overlays/   → dev (dry-run, debug), prod (live, info), tailscale (Funnel sidecar)
+  overlays/   → dev (dry-run, debug), prod (live, info), tailscale (Funnel sidecar, needs TRUST_PROXY_HEADERS=true)
 docs/
   rfc/        → High-level proposals (docz managed)
   design/     → Technical design documents (docz managed)
@@ -59,6 +59,8 @@ docs/
 - **Work queue** with configurable concurrency (buffered channel + N worker goroutines) for rate-limit-safe GitHub API usage.
 - **Installation-scoped clients** — each job creates a GitHub client scoped to the specific installation, with cached transport tokens.
 - **Custom properties checker** — reads Backstage `catalog-info.yaml`, diffs against current GitHub custom properties, and either creates a PR with a GHA workflow (`github-action` mode) or sets properties directly via API (`api` mode). Controlled by `CUSTOM_PROPERTIES_MODE` env var (empty = disabled).
+- **Webhook IP allowlist** — middleware wraps only the webhook route (not health/metrics). Two-layer defense: IP allowlist (403) then HMAC validation (401). See `SECURITY.md`.
+- **Tailscale Funnel** — forwards client IPs via `X-Forwarded-For` (RemoteAddr is `127.0.0.1`). Tailscale overlay requires `TRUST_PROXY_HEADERS=true`.
 
 ## Docker
 

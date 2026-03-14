@@ -5,7 +5,7 @@ image:
 
 command:
   - sleep
-  - infinity
+  - "900"
 
 config:
   appId: "12345"

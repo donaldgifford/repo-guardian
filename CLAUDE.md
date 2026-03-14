@@ -36,9 +36,9 @@ internal/
   github/     → GitHub API client wrapper (go-github v68 + ghinstallation v2)
   checker/    → core check-and-PR engine + work queue + custom properties checker
   rules/      → FileRule registry + TemplateStore (embedded fallback templates)
-  webhook/    → HTTP handler for GitHub webhook events (HMAC-validated)
+  webhook/    → HTTP handler for GitHub webhook events (HMAC-validated) + IP allowlist middleware
   scheduler/  → in-process ticker for weekly reconciliation
-  metrics/    → Prometheus metrics (12 metrics total)
+  metrics/    → Prometheus metrics (15 metrics total)
 deploy/
   base/       → Kustomize base (deployment, service, configmap, serviceaccount)
   overlays/   → dev (dry-run, debug), prod (live, info), tailscale (Funnel sidecar)

@@ -1,7 +1,7 @@
 ---
 id: IMPL-0003
 title: "GitHub Webhook IP Allowlist Middleware"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-03-14
 ---
@@ -9,7 +9,7 @@ created: 2026-03-14
 
 # IMPL 0003: GitHub Webhook IP Allowlist Middleware
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-03-14
 
@@ -269,12 +269,12 @@ Update documentation and observability assets.
 
 #### Tasks
 
-- [ ] **`CLAUDE.md`**: add `allowlist.go` to webhook package description,
+- [x] **`CLAUDE.md`**: add `allowlist.go` to webhook package description,
   update metric count
-- [ ] **Grafana dashboard** (`contrib/grafana/repo-guardian-dashboard.json`):
+- [x] **Grafana dashboard** (`contrib/grafana/repo-guardian-dashboard.json`):
   add "Webhook Rejected" stat panel
-- [ ] **DESIGN-0004**: update status from `Draft` to `Implemented`
-- [ ] **This doc (IMPL-0003)**: update status to `Completed`
+- [x] **DESIGN-0004**: update status from `Draft` to `Implemented`
+- [x] **This doc (IMPL-0003)**: update status to `Completed`
 
 #### Success Criteria
 

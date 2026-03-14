@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0004
 title: "GitHub Webhook IP Allowlist Middleware"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-03-14
 ---
@@ -9,7 +9,7 @@ created: 2026-03-14
 
 # DESIGN 0004: GitHub Webhook IP Allowlist Middleware
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-03-14
 

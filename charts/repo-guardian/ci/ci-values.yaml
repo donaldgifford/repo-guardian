@@ -3,6 +3,10 @@ image:
   repository: busybox
   tag: latest
 
+command:
+  - sleep
+  - infinity
+
 config:
   appId: "12345"
   dryRun: true
@@ -12,7 +16,7 @@ secrets:
   privateKey: "test-key"
   privateKeyAsFile: false
 
-livenessProbe: {}
-readinessProbe: {}
+livenessProbe: null
+readinessProbe: null
 
 resources: {}

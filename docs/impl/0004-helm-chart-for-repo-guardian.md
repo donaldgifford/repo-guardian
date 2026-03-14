@@ -139,10 +139,10 @@ Set up chart-testing configuration and CI values for kind cluster installs.
 
 #### Tasks
 
-- [ ] Create `charts/repo-guardian/ci/ci-values.yaml` (busybox image, disabled probes, test secrets)
-- [ ] Create `ct.yaml` (chart-dirs, target-branch, lint-conf)
-- [ ] Create `charts/.yamllint.yml` (chart-specific yamllint config)
-- [ ] Verify `ct lint --config ct.yaml --all` passes
+- [x] Create `charts/repo-guardian/ci/ci-values.yaml` (busybox image, disabled probes, test secrets)
+- [x] Create `ct.yaml` (chart-dirs, target-branch, lint-conf)
+- [x] Create `charts/.yamllint.yml` (chart-specific yamllint config)
+- [x] Verify `ct lint --config ct.yaml --all` passes
 
 #### Success Criteria
 

@@ -1,3 +1,4 @@
+---
 apiVersion: v2
 name: repo-guardian
 description: GitHub App that automates repository onboarding and compliance

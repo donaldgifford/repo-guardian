@@ -1,0 +1,18 @@
+---
+image:
+  repository: busybox
+  tag: latest
+
+config:
+  appId: "12345"
+  dryRun: true
+
+secrets:
+  webhookSecret: "test-secret"
+  privateKey: "test-key"
+  privateKeyAsFile: false
+
+livenessProbe: {}
+readinessProbe: {}
+
+resources: {}

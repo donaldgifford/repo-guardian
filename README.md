@@ -33,7 +33,8 @@ All configuration is via environment variables (12-factor):
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `GITHUB_APP_ID` | Yes | -- | GitHub App numeric ID |
-| `GITHUB_PRIVATE_KEY_PATH` | Yes | -- | Path to the App's PEM private key file |
+| `GITHUB_PRIVATE_KEY_PATH` | Yes* | -- | Path to the App's PEM private key file |
+| `GITHUB_PRIVATE_KEY` | Yes* | -- | Raw PEM private key content (mutually exclusive with path) |
 | `GITHUB_WEBHOOK_SECRET` | Yes | -- | HMAC secret for webhook payload validation |
 | `LISTEN_ADDR` | No | `:8080` | Webhook server listen address |
 | `METRICS_ADDR` | No | `:9090` | Prometheus metrics server listen address |
@@ -46,6 +47,12 @@ All configuration is via environment variables (12-factor):
 | `DRY_RUN` | No | `false` | Log actions without creating PRs |
 | `LOG_LEVEL` | No | `info` | Log verbosity: debug, info, warn, error |
 | `RATE_LIMIT_THRESHOLD` | No | `0.10` | Fraction of rate limit budget that triggers pre-emptive throttling |
+| `CUSTOM_PROPERTIES_MODE` | No | `""` | Custom properties mode: `""` (disabled), `github-action`, or `api` |
+| `WEBHOOK_IP_ALLOWLIST` | No | `true` | Enable GitHub webhook IP allowlist middleware |
+| `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN` | No | `false` | Allow requests when IP ranges are unavailable |
+| `TRUST_PROXY_HEADERS` | No | `false` | Read client IP from `X-Forwarded-For` header |
+
+*One of `GITHUB_PRIVATE_KEY_PATH` or `GITHUB_PRIVATE_KEY` is required (mutually exclusive).
 
 Boolean values accept Go's `strconv.ParseBool` formats: `1`, `t`, `TRUE`, `true`, `0`, `f`, `FALSE`, `false`. Invalid values (e.g., `yes`, `no`) will cause a startup error.
 
@@ -132,10 +139,12 @@ deploy/
     service.yaml               # ClusterIP: 80->8080 (http), 9090->9090 (metrics)
     configmap.yaml             # Default file templates (CODEOWNERS, Dependabot, Renovate)
     serviceaccount.yaml        # ServiceAccount for the pod
+    secret.yaml                # GitHub App credentials template
     kustomization.yaml         # Base kustomization (namespace: platform-tools)
   overlays/
     dev/                       # Dev overlay: DRY_RUN=true, LOG_LEVEL=debug, 24h schedule
     prod/                      # Prod overlay: DRY_RUN=false, LOG_LEVEL=info, 168h schedule
+    tailscale/                 # Tailscale Funnel sidecar for webhook delivery
 ```
 
 ### Prerequisites
@@ -172,6 +181,23 @@ The deployment configures Kubernetes probes against:
 
 The default file templates are stored in the `repo-guardian-templates` ConfigMap. To override them, edit `deploy/base/configmap.yaml` or provide a custom ConfigMap in your overlay. Templates use `.tmpl` extension and are mounted at `/etc/repo-guardian/templates`.
 
+### Tailscale Funnel (Dev/Test)
+
+The `tailscale` overlay adds a Tailscale Funnel sidecar for exposing the webhook endpoint via a stable `*.ts.net` URL with automatic TLS. This is useful for dev/test environments where you need GitHub to deliver webhooks without a public load balancer.
+
+```bash
+# Create the Tailscale auth key secret first
+kubectl -n platform-tools create secret generic tailscale-auth \
+  --from-literal=authkey='tskey-auth-XXXXX'
+
+# Deploy with Tailscale sidecar
+kubectl apply -k deploy/overlays/tailscale/
+```
+
+The sidecar uses userspace networking (no `CAP_NET_ADMIN` required) and proxies Funnel HTTPS (port 443) to the app on `127.0.0.1:8080`. Set `TRUST_PROXY_HEADERS=true` when using Funnel, as the sidecar forwards client IPs via `X-Forwarded-For`.
+
+For production, use a proper Ingress or LoadBalancer instead of Funnel.
+
 ### Exposing Webhooks
 
 The Service exposes port 80 (mapped to container port 8080). You'll need an Ingress or LoadBalancer to route external webhook traffic to `POST /webhooks/github`. Configure your GitHub App's webhook URL to point to this endpoint.
@@ -190,8 +216,15 @@ Available at `METRICS_ADDR` (default `:9090/metrics`):
 | `repo_guardian_files_missing_total` | Counter | `rule_name` | Missing files detected |
 | `repo_guardian_check_duration_seconds` | Histogram | -- | Check duration per repo |
 | `repo_guardian_webhook_received_total` | Counter | `event_type` | Webhooks received |
+| `repo_guardian_webhook_rejected_total` | Counter | `reason` | Webhooks rejected by IP allowlist |
 | `repo_guardian_errors_total` | Counter | `operation` | Errors by operation |
 | `repo_guardian_github_rate_remaining` | Gauge | -- | GitHub API rate limit remaining |
+| `repo_guardian_github_rate_limit_waits_total` | Counter | `reason` | Rate limit waits by reason |
+| `repo_guardian_github_rate_limit_wait_seconds` | Histogram | -- | Duration of rate limit waits |
+| `repo_guardian_properties_checked_total` | Counter | -- | Repos where custom properties were evaluated |
+| `repo_guardian_properties_prs_created_total` | Counter | -- | PRs created for custom properties |
+| `repo_guardian_properties_set_total` | Counter | -- | Properties set via API |
+| `repo_guardian_properties_already_correct_total` | Counter | -- | Properties already matching |
 
 ### Rate Limiting
 
@@ -201,21 +234,43 @@ repo-guardian includes a built-in rate limit transport that:
 - Automatically retries once on primary rate limits (403 + `X-RateLimit-Remaining: 0`)
 - Automatically retries once on secondary rate limits (403 + `Retry-After` header)
 
+## Security
+
+repo-guardian uses two layers of defense on the webhook endpoint:
+
+1. **IP Allowlist Middleware** -- rejects requests from IPs outside GitHub's published webhook CIDR ranges (fetched from the `/meta` API). Fail-closed by default.
+2. **HMAC Signature Validation** -- verifies the `X-Hub-Signature-256` header using a shared webhook secret. Ensures authenticity and integrity.
+
+See [SECURITY.md](SECURITY.md) for full details.
+
 ## Architecture
 
 ```
 cmd/repo-guardian/main.go  -> entrypoint (dual HTTP servers, graceful shutdown)
 internal/
+  catalog/    -> Backstage catalog-info.yaml parser
   config/     -> configuration (12-factor env vars, validated at startup)
   github/     -> GitHub API client (go-github v68, ghinstallation v2, rate limit transport)
-  checker/    -> check-and-PR engine + buffered work queue
+  checker/    -> check-and-PR engine + buffered work queue + custom properties checker
   rules/      -> FileRule registry + TemplateStore (embedded fallback templates)
-  webhook/    -> HTTP handler for GitHub webhook events (HMAC-validated)
+  webhook/    -> HTTP handler for GitHub webhook events (HMAC-validated) + IP allowlist middleware
   scheduler/  -> in-process ticker for periodic reconciliation
   metrics/    -> Prometheus metric definitions
 ```
 
 **Core flow:** GitHub webhook OR weekly scheduler -> work queue (buffered channel) -> checker engine -> GitHub API (create PRs for missing files).
+
+## Documentation
+
+Structured documentation is managed with [docz](https://github.com/donaldgifford/docz):
+
+| Type | Directory | Description |
+|------|-----------|-------------|
+| RFC | [`docs/rfc/`](docs/rfc/) | High-level proposals |
+| Design | [`docs/design/`](docs/design/) | Technical design documents |
+| Implementation | [`docs/impl/`](docs/impl/) | Phased implementation plans |
+| Investigation | [`docs/investigation/`](docs/investigation/) | Research and spike findings |
+| ADR | [`docs/adr/`](docs/adr/) | Architecture decision records |
 
 ## License
 

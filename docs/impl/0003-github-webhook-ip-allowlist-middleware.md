@@ -100,8 +100,8 @@ IP matching. This phase does not include the HTTP middleware.
 
 #### Tasks
 
-- [ ] **`internal/webhook/allowlist.go`** (new file):
-  - [ ] Define `GitHubIPAllowlist` struct with fields:
+- [x] **`internal/webhook/allowlist.go`** (new file):
+  - [x] Define `GitHubIPAllowlist` struct with fields:
     - `mu sync.RWMutex` for thread-safe access
     - `networks []*net.IPNet` for parsed CIDR ranges
     - `loaded bool` to track whether initial fetch succeeded
@@ -110,29 +110,29 @@ IP matching. This phase does not include the HTTP middleware.
     - `logger *slog.Logger`
     - `metaURL string` (defaults to `https://api.github.com/meta`, overridable
       for tests)
-  - [ ] Define `metaResponse` struct for JSON unmarshaling:
+  - [x] Define `metaResponse` struct for JSON unmarshaling:
     - `Hooks []string \`json:"hooks"\``
-  - [ ] Constructor: `NewGitHubIPAllowlist(failOpen, trustProxy bool,
+  - [x] Constructor: `NewGitHubIPAllowlist(failOpen, trustProxy bool,
     logger *slog.Logger) *GitHubIPAllowlist`
-  - [ ] `fetchRanges(ctx context.Context) ([]*net.IPNet, error)`:
+  - [x] `fetchRanges(ctx context.Context) ([]*net.IPNet, error)`:
     - HTTP GET to `metaURL` with 10s timeout
     - Parse JSON, extract `hooks` field
     - Parse each CIDR via `net.ParseCIDR`, skip invalid with warning log
     - Return parsed networks
-  - [ ] `Refresh(ctx context.Context) error`:
+  - [x] `Refresh(ctx context.Context) error`:
     - Call `fetchRanges`
     - On success: write-lock, update `networks`, set `loaded = true`
     - On failure: log error, keep previous ranges intact
-  - [ ] `StartRefresh(ctx context.Context)`:
+  - [x] `StartRefresh(ctx context.Context)`:
     - Call `Refresh` once synchronously (startup fetch)
     - Launch background goroutine with 24h ticker for periodic refresh
     - Respect `ctx.Done()` for shutdown
-  - [ ] `IsAllowed(ip net.IP) bool`:
+  - [x] `IsAllowed(ip net.IP) bool`:
     - Read-lock
     - If not loaded: return `failOpen` value
     - Iterate networks, return `true` on match
     - Return `false` if no match
-  - [ ] `extractIP(r *http.Request) net.IP`:
+  - [x] `extractIP(r *http.Request) net.IP`:
     - If `trustProxy` and `X-Forwarded-For` present: parse leftmost IP
     - Otherwise: parse from `r.RemoteAddr` via `net.SplitHostPort`
     - Return `nil` on parse failure
@@ -153,8 +153,8 @@ Add the `Middleware` method that wraps an `http.Handler`.
 
 #### Tasks
 
-- [ ] **`internal/webhook/allowlist.go`** (add to existing file):
-  - [ ] `Middleware(next http.Handler) http.Handler`:
+- [x] **`internal/webhook/allowlist.go`** (add to existing file):
+  - [x] `Middleware(next http.Handler) http.Handler`:
     - Extract IP via `extractIP(r)`
     - If IP is nil: log warning, increment
       `WebhookRejectedTotal("ip_not_allowed")`, return 403

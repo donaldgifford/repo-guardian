@@ -55,7 +55,7 @@ Kubernetes resource templates.
 
 - [ ] Create `charts/repo-guardian/Chart.yaml` (apiVersion v2, type application)
 - [ ] Create `charts/repo-guardian/.helmignore`
-- [ ] Create `charts/repo-guardian/values.yaml` with helm-docs annotations
+- [ ] Create `charts/repo-guardian/values.yaml` with helm-docs annotations (include all config env vars from Kustomize overlays: scheduleInterval, skipForks, skipArchived, etc.)
 - [ ] Create `charts/repo-guardian/templates/_helpers.tpl` (name, fullname, labels, selectorLabels, serviceAccountName, secretName)
 - [ ] Create `charts/repo-guardian/templates/deployment.yaml` (app container, env vars from config/secrets, volume mounts, probes)
 - [ ] Create `charts/repo-guardian/templates/service.yaml` (ClusterIP, http + metrics ports)
@@ -225,6 +225,35 @@ Update project documentation and verify everything is consistent.
 - All CI checks pass (Go + Helm)
 
 ---
+
+## Open Questions
+
+1. **Schedule interval in values.yaml** -- The current Kustomize overlays patch
+   `SCHEDULE_INTERVAL` per environment (dev=24h, prod=168h). Should
+   `config.scheduleInterval` be a values field, or should users set it via
+   `extraEnv`? Adding it as a first-class field is cleaner but adds another
+   config knob. Leaning toward first-class field since it's a common override.
+
+2. **Tailscale state persistence** -- The current overlay uses `emptyDir` for
+   Tailscale state (`/var/lib/tailscale`), which means Tailscale re-authenticates
+   on every pod restart. The RBAC for `TS_KUBE_SECRET` is already in the overlay
+   but not wired up. Should the Helm chart support `tailscale.stateStorage`
+   toggling between `emptyDir` (default) and `kubeSecret`? Or keep `emptyDir`
+   and defer persistent state to a future iteration?
+
+3. **Extra env vars and volumes** -- Should the chart include `extraEnv`,
+   `extraVolumes`, and `extraVolumeMounts` escape hatches for values not
+   explicitly modeled? This is common in Helm charts and avoids needing to
+   update the chart for every new env var, but adds complexity to the templates.
+
+4. **Namespace** -- The Kustomize base uses `platform-tools` namespace. Should
+   the Helm chart set a default namespace in `values.yaml`, or leave it to the
+   user via `helm install --namespace`? Helm convention is to not set namespace
+   in templates and let the release namespace handle it.
+
+5. **`appVersion` tracking** -- DESIGN-0005 sets `appVersion: "0.6.0"`. How
+   should this stay in sync with the Go binary version? Manual bump on release,
+   or derive from git tag in CI?
 
 ## File Changes
 

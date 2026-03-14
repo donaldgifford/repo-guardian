@@ -1,0 +1,215 @@
+suite: deployment
+templates:
+  - templates/deployment.yaml
+set:
+  config:
+    appId: "12345"
+  secrets:
+    webhookSecret: "test-secret"
+    privateKey: "test-key"
+tests:
+  - it: should set replica count
+    set:
+      replicaCount: 3
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 3
+
+  - it: should use default image tag from appVersion
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].image
+          pattern: "ghcr.io/donaldgifford/repo-guardian:0\\.6\\.0"
+
+  - it: should use custom image tag when set
+    set:
+      image:
+        tag: "v1.0.0"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "ghcr.io/donaldgifford/repo-guardian:v1.0.0"
+
+  - it: should set environment variables from config
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOG_LEVEL
+            value: "info"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DRY_RUN
+            value: "false"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SCHEDULE_INTERVAL
+            value: "168h"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SKIP_FORKS
+            value: "true"
+
+  - it: should mount private key as file by default
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GITHUB_PRIVATE_KEY_PATH
+            value: /etc/repo-guardian/private-key/private-key.pem
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: github-private-key
+            mountPath: /etc/repo-guardian/private-key
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: github-private-key
+            secret:
+              secretName: RELEASE-NAME-repo-guardian
+              items:
+                - key: private-key
+                  path: private-key.pem
+
+  - it: should use env var for private key when privateKeyAsFile is false
+    set:
+      secrets:
+        privateKeyAsFile: false
+        webhookSecret: "test-secret"
+        privateKey: "test-key"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GITHUB_PRIVATE_KEY
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-repo-guardian
+                key: private-key
+      - notContains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: github-private-key
+          any: true
+
+  - it: should set webhook IP allowlist env vars
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: WEBHOOK_IP_ALLOWLIST
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: WEBHOOK_IP_ALLOWLIST_FAIL_OPEN
+            value: "false"
+
+  - it: should override proxy headers when Tailscale is enabled
+    set:
+      tailscale:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TRUST_PROXY_HEADERS
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: WEBHOOK_IP_ALLOWLIST_FAIL_OPEN
+            value: "true"
+
+  - it: should inject Tailscale sidecar when enabled
+    set:
+      tailscale:
+        enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].name
+          value: tailscale
+      - equal:
+          path: spec.template.spec.containers[1].image
+          value: "ghcr.io/tailscale/tailscale:latest"
+
+  - it: should not inject Tailscale sidecar when disabled
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 1
+
+  - it: should set liveness and readiness probes
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.path
+          value: /healthz
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.path
+          value: /readyz
+
+  - it: should set security context
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsUser
+          value: 65534
+
+  - it: should set resource limits
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: 100m
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: 256Mi
+
+  - it: should support extraEnv
+    set:
+      extraEnv:
+        - name: CUSTOM_VAR
+          value: custom-value
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CUSTOM_VAR
+            value: custom-value
+
+  - it: should support extraVolumes and extraVolumeMounts
+    set:
+      extraVolumes:
+        - name: extra-vol
+          emptyDir: {}
+      extraVolumeMounts:
+        - name: extra-vol
+          mountPath: /extra
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: extra-vol
+            emptyDir: {}
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: extra-vol
+            mountPath: /extra
+
+  - it: should support nodeSelector
+    set:
+      nodeSelector:
+        kubernetes.io/arch: amd64
+    asserts:
+      - equal:
+          path: spec.template.spec.nodeSelector
+          value:
+            kubernetes.io/arch: amd64

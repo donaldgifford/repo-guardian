@@ -1,0 +1,38 @@
+suite: configmap
+templates:
+  - templates/configmap.yaml
+tests:
+  - it: should create configmap with templates suffix
+    asserts:
+      - hasDocuments:
+          count: 1
+      - matchRegex:
+          path: metadata.name
+          pattern: ".*-templates$"
+
+  - it: should include custom codeowners template when set
+    set:
+      templates:
+        codeowners: "* @my-org/my-team"
+    asserts:
+      - isNotEmpty:
+          path: data
+
+  - it: should include custom dependabot template when set
+    set:
+      templates:
+        dependabot: |
+          version: 2
+          updates: []
+    asserts:
+      - isNotEmpty:
+          path: data
+
+  - it: should include custom renovate template when set
+    set:
+      templates:
+        renovate: |
+          { "$schema": "https://docs.renovatebot.com/renovate-schema.json" }
+    asserts:
+      - isNotEmpty:
+          path: data

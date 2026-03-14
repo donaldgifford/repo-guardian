@@ -35,4 +35,5 @@ docz create impl "Your Implementation Title"
 | IMPL-0001 | Repo Guardian Implementation Plan | Completed | 2026-02-06 | Donald Gifford | [0001-repo-guardian-implementation-plan.md](0001-repo-guardian-implementation-plan.md) |
 | IMPL-0002 | Custom Properties Implementation Plan | Completed | 2026-03-01 | Donald Gifford | [0002-custom-properties-implementation-plan.md](0002-custom-properties-implementation-plan.md) |
 | IMPL-0003 | GitHub Webhook IP Allowlist Middleware | Completed | 2026-03-14 | Donald Gifford | [0003-github-webhook-ip-allowlist-middleware.md](0003-github-webhook-ip-allowlist-middleware.md) |
+| IMPL-0004 | Helm Chart for repo-guardian | Completed | 2026-03-14 | Donald Gifford | [0004-helm-chart-for-repo-guardian.md](0004-helm-chart-for-repo-guardian.md) |
 <!-- END DOCZ AUTO-GENERATED -->

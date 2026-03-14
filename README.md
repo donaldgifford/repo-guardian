@@ -128,37 +128,49 @@ The Dockerfile uses a multi-stage build: `golang:1.25` builder + `distroless/sta
 
 ## Kubernetes Deployment
 
-repo-guardian ships with [Kustomize](https://kustomize.io/) manifests for deployment to Kubernetes (designed for EKS).
+### Helm Chart (Recommended)
 
-### Directory Structure
+repo-guardian ships with a Helm chart at `charts/repo-guardian/`. See the [chart README](charts/repo-guardian/README.md) for the full values reference.
 
-```
-deploy/
-  base/                        # Shared base manifests
-    deployment.yaml            # Pod spec, probes, volume mounts
-    service.yaml               # ClusterIP: 80->8080 (http), 9090->9090 (metrics)
-    configmap.yaml             # Default file templates (CODEOWNERS, Dependabot, Renovate)
-    serviceaccount.yaml        # ServiceAccount for the pod
-    secret.yaml                # GitHub App credentials template
-    kustomization.yaml         # Base kustomization (namespace: platform-tools)
-  overlays/
-    dev/                       # Dev overlay: DRY_RUN=true, LOG_LEVEL=debug, 24h schedule
-    prod/                      # Prod overlay: DRY_RUN=false, LOG_LEVEL=info, 168h schedule
-    tailscale/                 # Tailscale Funnel sidecar for webhook delivery
-```
-
-### Prerequisites
-
-Before deploying, create a Kubernetes Secret with the GitHub App credentials:
+**Quick install:**
 
 ```bash
-kubectl -n platform-tools create secret generic repo-guardian-github \
-  --from-literal=app-id=YOUR_APP_ID \
-  --from-literal=webhook-secret=YOUR_WEBHOOK_SECRET \
-  --from-file=private-key=path/to/private-key.pem
+helm repo add repo-guardian https://donaldgifford.github.io/repo-guardian
+helm repo update
+helm install repo-guardian repo-guardian/repo-guardian \
+  --namespace platform-tools \
+  --create-namespace \
+  -f values.yaml
 ```
 
-### Deploy
+**Minimal values.yaml:**
+
+```yaml
+config:
+  appId: "YOUR_APP_ID"
+  dryRun: true
+
+secrets:
+  webhookSecret: "YOUR_WEBHOOK_SECRET"
+  privateKey: |
+    -----BEGIN RSA PRIVATE KEY-----
+    YOUR_PRIVATE_KEY
+    -----END RSA PRIVATE KEY-----
+```
+
+**Tailscale Funnel sidecar:**
+
+```bash
+helm install repo-guardian repo-guardian/repo-guardian \
+  --set tailscale.enabled=true \
+  -f values.yaml
+```
+
+When Tailscale is enabled, `TRUST_PROXY_HEADERS` and `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN` are automatically set to `true`.
+
+### Kustomize (Deprecated)
+
+> **Note:** Kustomize manifests in `deploy/` are deprecated in favor of the Helm chart above. They will be removed in a future release.
 
 ```bash
 # Dev (dry-run mode, debug logging, 24h reconciliation)
@@ -170,33 +182,10 @@ kubectl apply -k deploy/overlays/prod/
 
 ### Health Checks
 
-The deployment configures Kubernetes probes against:
-
 | Endpoint | Purpose |
 |----------|---------|
 | `GET /healthz` | Liveness probe -- always returns 200 |
 | `GET /readyz` | Readiness probe -- returns 200 when the work queue is accepting jobs, 503 otherwise |
-
-### Customizing Templates
-
-The default file templates are stored in the `repo-guardian-templates` ConfigMap. To override them, edit `deploy/base/configmap.yaml` or provide a custom ConfigMap in your overlay. Templates use `.tmpl` extension and are mounted at `/etc/repo-guardian/templates`.
-
-### Tailscale Funnel (Dev/Test)
-
-The `tailscale` overlay adds a Tailscale Funnel sidecar for exposing the webhook endpoint via a stable `*.ts.net` URL with automatic TLS. This is useful for dev/test environments where you need GitHub to deliver webhooks without a public load balancer.
-
-```bash
-# Create the Tailscale auth key secret first
-kubectl -n platform-tools create secret generic tailscale-auth \
-  --from-literal=authkey='tskey-auth-XXXXX'
-
-# Deploy with Tailscale sidecar
-kubectl apply -k deploy/overlays/tailscale/
-```
-
-The sidecar uses userspace networking (no `CAP_NET_ADMIN` required) and proxies Funnel HTTPS (port 443) to the app on `127.0.0.1:8080`. Set `TRUST_PROXY_HEADERS=true` when using Funnel, as the sidecar forwards client IPs via `X-Forwarded-For`.
-
-For production, use a proper Ingress or LoadBalancer instead of Funnel.
 
 ### Exposing Webhooks
 

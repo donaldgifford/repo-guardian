@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0005
 title: "Helm Chart for repo-guardian"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-03-14
 ---
@@ -9,7 +9,7 @@ created: 2026-03-14
 
 # DESIGN 0005: Helm Chart for repo-guardian
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-03-14
 
@@ -195,6 +195,12 @@ config:
   workerCount: 5
   # -- Queue size for check queue
   queueSize: 100
+  # -- Reconciliation schedule interval (Go duration)
+  scheduleInterval: "168h"
+  # -- Skip forked repositories
+  skipForks: true
+  # -- Skip archived repositories
+  skipArchived: true
 
 # -- GitHub App secrets
 secrets:
@@ -251,6 +257,13 @@ serviceMonitor:
   # -- Additional labels for ServiceMonitor
   labels: {}
 
+# -- Additional environment variables
+extraEnv: []
+# -- Additional volumes
+extraVolumes: []
+# -- Additional volume mounts
+extraVolumeMounts: []
+
 # -- Node selector
 nodeSelector: {}
 # -- Tolerations
@@ -301,6 +314,84 @@ Standard helpers following the server-price-tracker pattern:
 | `repo-guardian.selectorLabels` | Selector labels (name + instance) |
 | `repo-guardian.serviceAccountName` | ServiceAccount name |
 | `repo-guardian.secretName` | Secret resource name |
+
+### OCI Registry Support
+
+In addition to the default GitHub Pages chart repository (via chart-releaser),
+the chart supports pushing to OCI-compliant registries such as Amazon ECR. This
+is useful for production environments where charts are consumed from a private
+registry rather than a public GitHub Pages endpoint.
+
+**Push workflow:**
+
+```bash
+# Login to ECR (or any OCI registry)
+aws ecr get-login-password --region us-east-1 | \
+  helm registry login --username AWS --password-stdin 123456789012.dkr.ecr.us-east-1.amazonaws.com
+
+# Package the chart
+helm package charts/repo-guardian
+
+# Push to OCI registry
+helm push repo-guardian-0.1.0.tgz oci://123456789012.dkr.ecr.us-east-1.amazonaws.com/helm-charts
+```
+
+**Install from OCI registry:**
+
+```bash
+helm install repo-guardian \
+  oci://123456789012.dkr.ecr.us-east-1.amazonaws.com/helm-charts/repo-guardian \
+  --version 0.1.0 \
+  -f values-prod.yaml
+```
+
+**Makefile targets:**
+
+| Target | Description |
+|--------|-------------|
+| `helm-push` | Push packaged chart to OCI registry (`HELM_REGISTRY` var) |
+
+**CI workflow (`.github/workflows/chart-release.yml` addition):**
+
+An optional job publishes the chart to an OCI registry after the GitHub Pages
+release succeeds. The registry URL is configured via the `HELM_OCI_REGISTRY`
+repository secret. When the secret is not set, the OCI push step is skipped.
+
+```yaml
+helm-oci-push:
+  name: Push to OCI Registry
+  needs: chart-release
+  if: vars.HELM_OCI_REGISTRY != ''
+  runs-on: ubuntu-latest
+  permissions:
+    id-token: write
+  steps:
+    - uses: actions/checkout@v6
+    - uses: azure/setup-helm@v4
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-arn: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: us-east-1
+    - name: Login to ECR
+      run: |
+        aws ecr get-login-password | \
+          helm registry login --username AWS --password-stdin "${{ vars.HELM_OCI_REGISTRY }}"
+    - name: Package and push
+      run: |
+        helm package charts/repo-guardian
+        helm push repo-guardian-*.tgz "oci://${{ vars.HELM_OCI_REGISTRY }}"
+```
+
+**ECR repository setup:**
+
+The ECR repository must be created before the first push. This is a one-time
+setup step:
+
+```bash
+aws ecr create-repository \
+  --repository-name helm-charts/repo-guardian \
+  --region us-east-1
+```
 
 ## Tooling Setup
 
@@ -353,8 +444,7 @@ ignore: |-
 
 ### Makefile Targets
 
-Add `scripts/makefiles/helm.mk` (or add to the existing Makefile) with targets
-matching the server-price-tracker pattern:
+Add targets to the existing Makefile matching the server-price-tracker pattern:
 
 | Target | Description |
 |--------|-------------|
@@ -370,6 +460,7 @@ matching the server-price-tracker pattern:
 | `helm-docs` | Generate chart README with helm-docs |
 | `helm-diff-check` | Show diff between installed release and local chart |
 | `helm-cr-package` | Package chart with chart-releaser |
+| `helm-push` | Push packaged chart to OCI registry (`HELM_REGISTRY` var) |
 
 ### CI Workflows
 
@@ -540,22 +631,22 @@ make helm-diff-check RELEASE=repo-guardian
 
 ## Open Questions
 
-1. **Kustomize removal timeline**: How long to keep both Kustomize and Helm in
-   the repo? Suggestion: keep Kustomize through one tagged release after the
-   Helm chart is validated on the Talos cluster.
+*All resolved.*
 
-2. **GitHub Pages for chart repo**: chart-releaser publishes to a `gh-pages`
-   branch. Is this acceptable, or should we use a separate chart repository?
+1. ~~**Kustomize removal timeline**~~: **Resolved.** Keep Kustomize alongside
+   Helm for now. Revisit removal after the Helm chart is validated on the Talos
+   cluster and at least one tagged release has shipped with it.
 
-3. **helm-unittest plugin installation**: The `d3adb5/helm-unittest-action@v2`
-   GitHub Action handles CI. For local development, developers need
-   `helm plugin install https://github.com/helm-unittest/helm-unittest`. Should
-   this be added to `mise.toml` or documented as a manual step?
+2. ~~**GitHub Pages for chart repo**~~: **Resolved.** Use `gh-pages` branch via
+   chart-releaser as the default. Additionally, support pushing charts to an
+   OCI-compliant registry (e.g., ECR) for production environments. See the
+   OCI Registry Support section under Detailed Design.
 
-4. **Makefile structure**: Should helm targets go in a separate
-   `scripts/makefiles/helm.mk` (matching server-price-tracker's modular
-   pattern) or stay in the existing single `Makefile`? The current repo uses a
-   single Makefile, while server-price-tracker uses modular includes.
+3. ~~**helm-unittest plugin installation**~~: **Resolved.** Already added to
+   `mise.toml`. Local developers get it automatically via `mise install`.
+
+4. ~~**Makefile structure**~~: **Resolved.** Keep helm targets in the existing
+   single `Makefile`. No modular split needed at this time.
 
 ## Decisions
 

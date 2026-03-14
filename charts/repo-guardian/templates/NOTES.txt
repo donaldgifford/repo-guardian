@@ -1,0 +1,28 @@
+repo-guardian has been deployed!
+
+Webhook endpoint: POST /webhooks/github
+Health check:     GET  /healthz
+Readiness check:  GET  /readyz
+Metrics:          GET  :{{ .Values.config.metricsPort }}/metrics
+
+{{- if .Values.config.dryRun }}
+
+NOTE: Dry run mode is ENABLED. No PRs will be created.
+Set config.dryRun=false to enable live mode.
+{{- end }}
+
+{{- if .Values.tailscale.enabled }}
+
+Tailscale Funnel is enabled. Your webhook URL will be:
+  https://{{ .Values.tailscale.hostname }}.<your-tailnet>.ts.net/webhooks/github
+
+Check Tailscale status:
+  kubectl exec -it deploy/{{ include "repo-guardian.fullname" . }} -c tailscale -- tailscale status
+{{- else }}
+
+To expose the webhook endpoint, configure an Ingress or LoadBalancer
+to route traffic to the {{ include "repo-guardian.fullname" . }} service on port {{ .Values.service.httpPort }}.
+{{- end }}
+
+Configure your GitHub App's webhook URL to point to:
+  https://<your-domain>/webhooks/github

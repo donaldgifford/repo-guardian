@@ -24,7 +24,7 @@ Run a single test: `go test -v -race -run TestName ./internal/package/...`
 
 ## Tool Versions
 
-Managed via `mise.toml`. Key tools: Go 1.25.4, golangci-lint v2.8.0, mockery v2, golines, yamlfmt, yamllint, yq.
+Managed via `mise.toml`. Key tools: Go 1.25.4, golangci-lint v2.8.0, mockery v2, golines, yamlfmt, yamllint, yq, helm 3.19, helm-cr, helm-ct, helm-diff, helm-docs, helm-unittest.
 
 ## Architecture
 
@@ -39,9 +39,11 @@ internal/
   webhook/    → HTTP handler for GitHub webhook events (HMAC-validated) + IP allowlist middleware
   scheduler/  → in-process ticker for weekly reconciliation
   metrics/    → Prometheus metrics (15 metrics total)
+charts/
+  repo-guardian/ → Helm chart (recommended deployment method)
 deploy/
-  base/       → Kustomize base (deployment, service, configmap, serviceaccount)
-  overlays/   → dev (dry-run, debug), prod (live, info), tailscale (Funnel sidecar, needs TRUST_PROXY_HEADERS=true)
+  base/       → Kustomize base (DEPRECATED — use Helm chart)
+  overlays/   → dev, prod, tailscale overlays (DEPRECATED)
 docs/
   rfc/        → High-level proposals (docz managed)
   design/     → Technical design documents (docz managed)

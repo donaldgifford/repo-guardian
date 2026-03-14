@@ -35,3 +35,10 @@ syft = "latest"
 
 # Compliance
 "go:github.com/google/go-licenses" = "latest"
+
+# helm
+helm = "3.19.0"
+helm-cr = "latest"
+helm-ct = "latest"
+helm-diff = "latest"
+helm-docs = "latest"

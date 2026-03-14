@@ -52,18 +52,18 @@ Add three new environment variables to the config package.
 
 #### Tasks
 
-- [ ] **`internal/config/config.go`**:
-  - [ ] Add `WebhookIPAllowlist bool` field
+- [x] **`internal/config/config.go`**:
+  - [x] Add `WebhookIPAllowlist bool` field
     - Env var: `WEBHOOK_IP_ALLOWLIST`, default: `true`
-  - [ ] Add `WebhookIPAllowlistFailOpen bool` field
+  - [x] Add `WebhookIPAllowlistFailOpen bool` field
     - Env var: `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN`, default: `false`
-  - [ ] Add `TrustProxyHeaders bool` field
+  - [x] Add `TrustProxyHeaders bool` field
     - Env var: `TRUST_PROXY_HEADERS`, default: `false`
-  - [ ] Load all three in `Load()` using existing `envOrDefaultBool` helper
-- [ ] **`internal/config/config_test.go`**:
-  - [ ] Test default values: allowlist=true, fail-open=false, trust-proxy=false
-  - [ ] Test env var overrides for each field
-  - [ ] Test invalid boolean values return parse errors
+  - [x] Load all three in `Load()` using existing `envOrDefaultBool` helper
+- [x] **`internal/config/config_test.go`**:
+  - [x] Test default values: allowlist=true, fail-open=false, trust-proxy=false
+  - [x] Test env var overrides for each field
+  - [x] Test invalid boolean values return parse errors
 
 #### Success Criteria
 

@@ -64,6 +64,15 @@ type Config struct {
 	// Valid values: "" (disabled), "github-action" (PR with GHA workflow),
 	// "api" (direct API write).
 	CustomPropertiesMode string
+
+	// WebhookIPAllowlist enables the GitHub webhook IP allowlist middleware.
+	WebhookIPAllowlist bool
+
+	// WebhookIPAllowlistFailOpen allows requests when the allowlist is unavailable.
+	WebhookIPAllowlistFailOpen bool
+
+	// TrustProxyHeaders reads client IP from X-Forwarded-For when true.
+	TrustProxyHeaders bool
 }
 
 // Load reads configuration from environment variables and applies defaults.
@@ -134,6 +143,27 @@ func Load() (*Config, error) {
 
 	cfg.RateLimitThreshold = rateLimitThreshold
 	cfg.CustomPropertiesMode = os.Getenv("CUSTOM_PROPERTIES_MODE")
+
+	webhookIPAllowlist, err := envOrDefaultBool("WEBHOOK_IP_ALLOWLIST", true)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.WebhookIPAllowlist = webhookIPAllowlist
+
+	webhookIPAllowlistFailOpen, err := envOrDefaultBool("WEBHOOK_IP_ALLOWLIST_FAIL_OPEN", false)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.WebhookIPAllowlistFailOpen = webhookIPAllowlistFailOpen
+
+	trustProxyHeaders, err := envOrDefaultBool("TRUST_PROXY_HEADERS", false)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.TrustProxyHeaders = trustProxyHeaders
 
 	if err := cfg.Validate(); err != nil {
 		return nil, err

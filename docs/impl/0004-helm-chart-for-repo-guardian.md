@@ -116,13 +116,13 @@ Write unit tests for all templates to validate rendering logic.
 
 #### Tasks
 
-- [ ] Create `charts/repo-guardian/tests/deployment_test.yaml` (replica count, image tag, env vars, volume mounts, Tailscale sidecar, probes)
-- [ ] Create `charts/repo-guardian/tests/service_test.yaml` (port mappings, service type)
-- [ ] Create `charts/repo-guardian/tests/configmap_test.yaml` (template content, custom overrides)
-- [ ] Create `charts/repo-guardian/tests/secret_test.yaml` (create vs existing, file mount vs env var)
-- [ ] Create `charts/repo-guardian/tests/serviceaccount_test.yaml` (conditional creation, annotations)
-- [ ] Create `charts/repo-guardian/tests/servicemonitor_test.yaml` (conditional creation, interval, labels)
-- [ ] Run `helm unittest charts/repo-guardian` and verify all tests pass
+- [x] Create `charts/repo-guardian/tests/deployment_test.yaml` (replica count, image tag, env vars, volume mounts, Tailscale sidecar, probes)
+- [x] Create `charts/repo-guardian/tests/service_test.yaml` (port mappings, service type)
+- [x] Create `charts/repo-guardian/tests/configmap_test.yaml` (template content, custom overrides)
+- [x] Create `charts/repo-guardian/tests/secret_test.yaml` (create vs existing, file mount vs env var)
+- [x] Create `charts/repo-guardian/tests/serviceaccount_test.yaml` (conditional creation, annotations)
+- [x] Create `charts/repo-guardian/tests/servicemonitor_test.yaml` (conditional creation, interval, labels)
+- [x] Run `helm unittest charts/repo-guardian` and verify all tests pass
 
 #### Success Criteria
 

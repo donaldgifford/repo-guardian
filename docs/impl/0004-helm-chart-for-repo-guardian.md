@@ -55,13 +55,24 @@ Kubernetes resource templates.
 
 - [ ] Create `charts/repo-guardian/Chart.yaml` (apiVersion v2, type application)
 - [ ] Create `charts/repo-guardian/.helmignore`
-- [ ] Create `charts/repo-guardian/values.yaml` with helm-docs annotations (include `config.scheduleInterval`, `config.skipForks`, `config.skipArchived`, `extraEnv`, `extraVolumes`, `extraVolumeMounts`)
+- [ ] Create `charts/repo-guardian/values.yaml` with helm-docs annotations covering all sections:
+  - `replicaCount`, `image`, `imagePullSecrets`, `nameOverride`, `fullnameOverride`
+  - `serviceAccount` (create, annotations, name)
+  - `podAnnotations`, `podLabels`, `podSecurityContext`, `securityContext`
+  - `service` (type, httpPort, metricsPort)
+  - `resources`, `livenessProbe`, `readinessProbe`
+  - `config` (appId, org, port, metricsPort, logLevel, dryRun, workerCount, queueSize, scheduleInterval, skipForks, skipArchived)
+  - `secrets` (create, existingSecret, webhookSecret, privateKey, privateKeyAsFile)
+  - `templates` (codeowners, dependabot, renovate)
+  - `webhookIPAllowlist` (enabled, failOpen, trustProxyHeaders)
+  - `nodeSelector`, `tolerations`, `affinity`
+  - `extraEnv`, `extraVolumes`, `extraVolumeMounts`
 - [ ] Create `charts/repo-guardian/templates/_helpers.tpl` (name, fullname, labels, selectorLabels, serviceAccountName, secretName)
-- [ ] Create `charts/repo-guardian/templates/deployment.yaml` (app container, env vars from config/secrets, volume mounts, probes, extraEnv/extraVolumes/extraVolumeMounts)
+- [ ] Create `charts/repo-guardian/templates/deployment.yaml` (app container, all config/secrets env vars, webhookIPAllowlist env vars, volume mounts, probes, nodeSelector, tolerations, affinity, extraEnv, extraVolumes, extraVolumeMounts)
 - [ ] Create `charts/repo-guardian/templates/service.yaml` (ClusterIP, http + metrics ports)
 - [ ] Create `charts/repo-guardian/templates/serviceaccount.yaml` (conditional on `serviceAccount.create`)
-- [ ] Create `charts/repo-guardian/templates/configmap.yaml` (template file overrides)
-- [ ] Create `charts/repo-guardian/templates/secret.yaml` (conditional on `secrets.create`, supports file mount and env var modes)
+- [ ] Create `charts/repo-guardian/templates/configmap.yaml` (template file overrides for CODEOWNERS, dependabot, renovate)
+- [ ] Create `charts/repo-guardian/templates/secret.yaml` (conditional on `secrets.create`, existingSecret reference when create=false, file mount and env var modes for private key)
 - [ ] Create `charts/repo-guardian/templates/NOTES.txt` (post-install instructions)
 - [ ] Verify `helm lint charts/repo-guardian` passes
 - [ ] Verify `helm template charts/repo-guardian` renders correctly
@@ -81,12 +92,12 @@ Add optional Tailscale Funnel sidecar injection and Prometheus ServiceMonitor.
 
 #### Tasks
 
-- [ ] Add Tailscale sidecar container to `deployment.yaml` (conditional on `tailscale.enabled`)
-- [ ] Create Tailscale Funnel serve config in `configmap.yaml` or separate template (conditional)
-- [ ] Add Tailscale state emptyDir volume
-- [ ] Add Tailscale RBAC (Role + RoleBinding) template (conditional on `tailscale.rbac.create`)
-- [ ] Set `TRUST_PROXY_HEADERS=true` when Tailscale is enabled
-- [ ] Create `charts/repo-guardian/templates/servicemonitor.yaml` (conditional on `serviceMonitor.enabled`)
+- [ ] Add Tailscale sidecar container to `deployment.yaml` (conditional on `tailscale.enabled`, using `tailscale.image`, `tailscale.hostname`, `tailscale.userspace`, `tailscale.authKeySecret`)
+- [ ] Create `charts/repo-guardian/templates/tailscale-configmap.yaml` with Funnel serve config (proxy 443 -> 127.0.0.1:8080, conditional on `tailscale.enabled`)
+- [ ] Add Tailscale state emptyDir volume and serve-config volume mount
+- [ ] Create `charts/repo-guardian/templates/tailscale-rbac.yaml` with Role + RoleBinding (conditional on `tailscale.enabled` and `tailscale.rbac.create`)
+- [ ] Set `TRUST_PROXY_HEADERS=true` and `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN=true` automatically when Tailscale is enabled
+- [ ] Create `charts/repo-guardian/templates/servicemonitor.yaml` (conditional on `serviceMonitor.enabled`, with `serviceMonitor.interval` and `serviceMonitor.labels`)
 - [ ] Verify Tailscale sidecar renders with `helm template --set tailscale.enabled=true`
 - [ ] Verify ServiceMonitor renders with `helm template --set serviceMonitor.enabled=true`
 
@@ -142,7 +153,8 @@ Set up chart-testing configuration and CI values for kind cluster installs.
 
 ### Phase 5: Makefile Targets
 
-Add helm-related targets to the Makefile.
+Add helm-related targets to the existing single Makefile (per DESIGN-0005 Q4
+decision — no modular split).
 
 #### Tasks
 

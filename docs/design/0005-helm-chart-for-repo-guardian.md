@@ -195,6 +195,12 @@ config:
   workerCount: 5
   # -- Queue size for check queue
   queueSize: 100
+  # -- Reconciliation schedule interval (Go duration)
+  scheduleInterval: "168h"
+  # -- Skip forked repositories
+  skipForks: true
+  # -- Skip archived repositories
+  skipArchived: true
 
 # -- GitHub App secrets
 secrets:
@@ -250,6 +256,13 @@ serviceMonitor:
   interval: 30s
   # -- Additional labels for ServiceMonitor
   labels: {}
+
+# -- Additional environment variables
+extraEnv: []
+# -- Additional volumes
+extraVolumes: []
+# -- Additional volume mounts
+extraVolumeMounts: []
 
 # -- Node selector
 nodeSelector: {}
@@ -431,8 +444,7 @@ ignore: |-
 
 ### Makefile Targets
 
-Add `scripts/makefiles/helm.mk` (or add to the existing Makefile) with targets
-matching the server-price-tracker pattern:
+Add targets to the existing Makefile matching the server-price-tracker pattern:
 
 | Target | Description |
 |--------|-------------|

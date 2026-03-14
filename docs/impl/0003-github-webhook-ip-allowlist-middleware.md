@@ -246,14 +246,14 @@ Determine how Tailscale Funnel forwards the original client IP. Resolves
 
 #### Tasks
 
-- [ ] Deploy to Talos cluster with middleware enabled and
+- [x] Deploy to Talos cluster with middleware enabled and
   `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN=true`
-- [ ] Add temporary debug logging in middleware to dump `RemoteAddr` and all
+- [x] Add temporary debug logging in middleware to dump `RemoteAddr` and all
   request headers
-- [ ] Trigger a GitHub webhook and inspect the logs
-- [ ] Determine correct `TRUST_PROXY_HEADERS` setting for Tailscale overlay
-- [ ] Update Tailscale overlay `deployment-patch.yaml` with the finding
-- [ ] Update DESIGN-0004 to close Open Question 1
+- [x] Trigger a GitHub webhook and inspect the logs
+- [x] Determine correct `TRUST_PROXY_HEADERS` setting for Tailscale overlay
+- [x] Update Tailscale overlay `deployment-patch.yaml` with the finding
+- [x] Update DESIGN-0004 to close Open Question 1
 
 #### Success Criteria
 

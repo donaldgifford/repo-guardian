@@ -1,0 +1,28 @@
+# ConfigMap containing the Tailscale serve configuration.
+# This tells Tailscale Funnel to proxy HTTPS traffic on port 443
+# to the repo-guardian app on localhost:8080.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tailscale-serve-config
+data:
+  serve-config.json: |
+    {
+      "TCP": {
+        "443": {
+          "HTTPS": true
+        }
+      },
+      "Web": {
+        "${TS_CERT_DOMAIN}:443": {
+          "Handlers": {
+            "/": {
+              "Proxy": "http://127.0.0.1:8080"
+            }
+          }
+        }
+      },
+      "AllowFunnel": {
+        "${TS_CERT_DOMAIN}:443": true
+      }
+    }

@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0005
 title: "Helm Chart for repo-guardian"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-03-14
 ---
@@ -9,7 +9,7 @@ created: 2026-03-14
 
 # DESIGN 0005: Helm Chart for repo-guardian
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-03-14
 

@@ -1,7 +1,7 @@
 ---
 id: IMPL-0004
 title: "Helm Chart for repo-guardian"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-03-14
 ---
@@ -9,7 +9,7 @@ created: 2026-03-14
 
 # IMPL 0004: Helm Chart for repo-guardian
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-03-14
 
@@ -224,11 +224,11 @@ Update project documentation and verify everything is consistent.
 
 #### Tasks
 
-- [ ] Update `README.md` with Helm deployment instructions
-- [ ] Mark `deploy/` Kustomize overlays as deprecated in docs
-- [ ] Update `CLAUDE.md` with Helm chart architecture notes
-- [ ] Verify `make ci` still passes (existing Go CI unaffected)
-- [ ] Verify `make helm-test` passes
+- [x] Update `README.md` with Helm deployment instructions
+- [x] Mark `deploy/` Kustomize overlays as deprecated in docs
+- [x] Update `CLAUDE.md` with Helm chart architecture notes
+- [x] Verify `make ci` still passes (existing Go CI unaffected)
+- [x] Verify `make helm-test` passes
 
 #### Success Criteria
 
@@ -287,11 +287,11 @@ Update project documentation and verify everything is consistent.
 
 ## Testing Plan
 
-- [ ] helm-unittest for all templates (conditional rendering, values overrides)
-- [ ] `ct lint` for YAML and Chart.yaml validation
-- [ ] `ct install` in kind cluster with CI values
-- [ ] `helm template` with default and custom values
-- [ ] `helm diff` for upgrade preview validation
+- [x] helm-unittest for all templates (conditional rendering, values overrides)
+- [x] `ct lint` for YAML and Chart.yaml validation
+- [ ] `ct install` in kind cluster with CI values (requires kind cluster)
+- [x] `helm template` with default and custom values
+- [ ] `helm diff` for upgrade preview validation (requires deployed release)
 
 ## Dependencies
 

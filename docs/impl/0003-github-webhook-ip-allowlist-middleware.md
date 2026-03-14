@@ -209,25 +209,25 @@ Comprehensive test coverage for the allowlist.
 
 #### Tasks
 
-- [ ] **`internal/webhook/allowlist_test.go`** (new file):
-  - [ ] `TestIsAllowed_GitHubIP` -- IP within range returns true
-  - [ ] `TestIsAllowed_NonGitHubIP` -- IP outside ranges returns false
-  - [ ] `TestIsAllowed_IPv6` -- IPv6 CIDR matching works
-  - [ ] `TestIsAllowed_NotLoaded_FailClosed` -- returns false when not loaded,
+- [x] **`internal/webhook/allowlist_test.go`** (new file):
+  - [x] `TestIsAllowed_GitHubIP` -- IP within range returns true
+  - [x] `TestIsAllowed_NonGitHubIP` -- IP outside ranges returns false
+  - [x] `TestIsAllowed_IPv6` -- IPv6 CIDR matching works
+  - [x] `TestIsAllowed_NotLoaded_FailClosed` -- returns false when not loaded,
     failOpen=false
-  - [ ] `TestIsAllowed_NotLoaded_FailOpen` -- returns true when not loaded,
+  - [x] `TestIsAllowed_NotLoaded_FailOpen` -- returns true when not loaded,
     failOpen=true
-  - [ ] `TestRefresh_Success` -- mock `/meta`, verify ranges loaded
-  - [ ] `TestRefresh_Failure_KeepsPrevious` -- failed refresh keeps old ranges
-  - [ ] `TestRefresh_InvalidCIDR_Skipped` -- invalid CIDRs logged and skipped
-  - [ ] `TestExtractIP_RemoteAddr` -- extracts IP from RemoteAddr
-  - [ ] `TestExtractIP_XForwardedFor` -- extracts leftmost IP when
+  - [x] `TestRefresh_Success` -- mock `/meta`, verify ranges loaded
+  - [x] `TestRefresh_Failure_KeepsPrevious` -- failed refresh keeps old ranges
+  - [x] `TestRefresh_InvalidCIDR_Skipped` -- invalid CIDRs logged and skipped
+  - [x] `TestExtractIP_RemoteAddr` -- extracts IP from RemoteAddr
+  - [x] `TestExtractIP_XForwardedFor` -- extracts leftmost IP when
     trustProxy=true
-  - [ ] `TestExtractIP_XForwardedFor_Ignored` -- uses RemoteAddr when
+  - [x] `TestExtractIP_XForwardedFor_Ignored` -- uses RemoteAddr when
     trustProxy=false
-  - [ ] `TestMiddleware_AllowedIP` -- 200 response for GitHub IP
-  - [ ] `TestMiddleware_BlockedIP` -- 403 response for non-GitHub IP
-  - [ ] `TestMiddleware_NotLoaded_FailClosed` -- 403 when ranges not loaded
+  - [x] `TestMiddleware_AllowedIP` -- 200 response for GitHub IP
+  - [x] `TestMiddleware_BlockedIP` -- 403 response for non-GitHub IP
+  - [x] `TestMiddleware_NotLoaded_FailClosed` -- 403 when ranges not loaded
 
 #### Success Criteria
 

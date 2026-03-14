@@ -1,0 +1,166 @@
+# -- Number of replicas
+replicaCount: 1
+
+image:
+  # -- Container image repository
+  repository: ghcr.io/donaldgifford/repo-guardian
+  # -- Image pull policy
+  pullPolicy: IfNotPresent
+  # -- Overrides the image tag (default: appVersion)
+  tag: ""
+
+# -- Image pull secrets
+imagePullSecrets: []
+# -- Override the chart name
+nameOverride: ""
+# -- Override the full release name
+fullnameOverride: ""
+
+serviceAccount:
+  # -- Create a ServiceAccount
+  create: true
+  # -- Annotations for the ServiceAccount
+  annotations: {}
+  # -- Override the ServiceAccount name
+  name: ""
+
+# -- Pod annotations
+podAnnotations: {}
+# -- Pod labels
+podLabels: {}
+
+# -- Pod security context
+podSecurityContext: {}
+
+# -- Container security context
+securityContext:
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+
+service:
+  # -- Service type
+  type: ClusterIP
+  # -- Webhook HTTP port
+  httpPort: 80
+  # -- Metrics port
+  metricsPort: 9090
+
+# -- Container resource requests and limits
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+livenessProbe:
+  # @default -- See values.yaml
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 15
+
+readinessProbe:
+  # @default -- See values.yaml
+  httpGet:
+    path: /readyz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+# -- repo-guardian application configuration (env vars)
+config:
+  # -- GitHub App ID
+  appId: ""
+  # -- GitHub organization name
+  org: ""
+  # -- Webhook listen port
+  port: 8080
+  # -- Metrics listen port
+  metricsPort: 9090
+  # -- Log level (debug, info, warn, error)
+  logLevel: "info"
+  # -- Dry run mode
+  dryRun: false
+  # -- Worker count for check queue
+  workerCount: 5
+  # -- Queue size for check queue
+  queueSize: 100
+  # -- Reconciliation schedule interval (Go duration)
+  scheduleInterval: "168h"
+  # -- Skip forked repositories
+  skipForks: true
+  # -- Skip archived repositories
+  skipArchived: true
+
+# -- GitHub App secrets
+secrets:
+  # -- Create secret resource (false = use existing secret)
+  create: true
+  # -- Name of existing secret (when create=false)
+  existingSecret: ""
+  # -- GitHub webhook secret
+  webhookSecret: ""
+  # -- GitHub App private key (PEM format)
+  privateKey: ""
+  # -- Mount private key as file (true) or env var (false)
+  privateKeyAsFile: true
+
+# -- Template overrides for CODEOWNERS, dependabot, renovate
+templates:
+  # -- Custom CODEOWNERS template (empty = use embedded default)
+  codeowners: ""
+  # -- Custom dependabot template
+  dependabot: ""
+  # -- Custom renovate template
+  renovate: ""
+
+# -- Webhook IP allowlist configuration
+webhookIPAllowlist:
+  # -- Enable GitHub IP allowlist middleware
+  enabled: true
+  # -- Allow requests when allowlist unavailable
+  failOpen: false
+  # -- Trust X-Forwarded-For proxy headers
+  trustProxyHeaders: false
+
+# -- Tailscale Funnel sidecar
+tailscale:
+  # -- Enable Tailscale sidecar container
+  enabled: false
+  # -- Tailscale container image
+  image: ghcr.io/tailscale/tailscale:latest
+  # -- Tailscale hostname (becomes <hostname>.<tailnet>.ts.net)
+  hostname: repo-guardian
+  # -- Use userspace networking (no CAP_NET_ADMIN needed)
+  userspace: true
+  # -- Name of existing secret containing 'authkey'
+  authKeySecret: tailscale-auth
+  # -- Create RBAC for Tailscale state management
+  rbac:
+    create: true
+
+serviceMonitor:
+  # -- Create Prometheus ServiceMonitor
+  enabled: false
+  # -- Scrape interval
+  interval: 30s
+  # -- Additional labels for ServiceMonitor
+  labels: {}
+
+# -- Additional environment variables
+extraEnv: []
+# -- Additional volumes
+extraVolumes: []
+# -- Additional volume mounts
+extraVolumeMounts: []
+
+# -- Node selector
+nodeSelector: {}
+# -- Tolerations
+tolerations: []
+# -- Affinity rules
+affinity: {}

@@ -1,0 +1,155 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "repo-guardian.fullname" . }}
+  labels:
+    {{- include "repo-guardian.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "repo-guardian.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "repo-guardian.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "repo-guardian.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.config.port }}
+              name: http
+              protocol: TCP
+            - containerPort: {{ .Values.config.metricsPort }}
+              name: metrics
+              protocol: TCP
+          env:
+            - name: GITHUB_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "repo-guardian.secretName" . }}
+                  key: app-id
+            - name: GITHUB_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "repo-guardian.secretName" . }}
+                  key: webhook-secret
+            {{- if .Values.secrets.privateKeyAsFile }}
+            - name: GITHUB_PRIVATE_KEY_PATH
+              value: /etc/repo-guardian/private-key/private-key.pem
+            {{- else }}
+            - name: GITHUB_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "repo-guardian.secretName" . }}
+                  key: private-key
+            {{- end }}
+            - name: LISTEN_ADDR
+              value: ":{{ .Values.config.port }}"
+            - name: METRICS_ADDR
+              value: ":{{ .Values.config.metricsPort }}"
+            - name: LOG_LEVEL
+              value: {{ .Values.config.logLevel | quote }}
+            - name: DRY_RUN
+              value: {{ .Values.config.dryRun | quote }}
+            - name: WORKER_COUNT
+              value: {{ .Values.config.workerCount | quote }}
+            - name: QUEUE_SIZE
+              value: {{ .Values.config.queueSize | quote }}
+            - name: SCHEDULE_INTERVAL
+              value: {{ .Values.config.scheduleInterval | quote }}
+            - name: SKIP_FORKS
+              value: {{ .Values.config.skipForks | quote }}
+            - name: SKIP_ARCHIVED
+              value: {{ .Values.config.skipArchived | quote }}
+            - name: TEMPLATE_DIR
+              value: /etc/repo-guardian/templates
+            - name: WEBHOOK_IP_ALLOWLIST
+              value: {{ .Values.webhookIPAllowlist.enabled | quote }}
+            {{- if .Values.tailscale.enabled }}
+            - name: WEBHOOK_IP_ALLOWLIST_FAIL_OPEN
+              value: "true"
+            - name: TRUST_PROXY_HEADERS
+              value: "true"
+            {{- else }}
+            - name: WEBHOOK_IP_ALLOWLIST_FAIL_OPEN
+              value: {{ .Values.webhookIPAllowlist.failOpen | quote }}
+            - name: TRUST_PROXY_HEADERS
+              value: {{ .Values.webhookIPAllowlist.trustProxyHeaders | quote }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            {{- if .Values.secrets.privateKeyAsFile }}
+            - name: github-private-key
+              mountPath: /etc/repo-guardian/private-key
+              readOnly: true
+            {{- end }}
+            - name: templates
+              mountPath: /etc/repo-guardian/templates
+              readOnly: true
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        {{- if .Values.secrets.privateKeyAsFile }}
+        - name: github-private-key
+          secret:
+            secretName: {{ include "repo-guardian.secretName" . }}
+            items:
+              - key: private-key
+                path: private-key.pem
+        {{- end }}
+        - name: templates
+          configMap:
+            name: {{ include "repo-guardian.fullname" . }}-templates
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -53,9 +53,9 @@ Kubernetes resource templates.
 
 #### Tasks
 
-- [ ] Create `charts/repo-guardian/Chart.yaml` (apiVersion v2, type application)
-- [ ] Create `charts/repo-guardian/.helmignore`
-- [ ] Create `charts/repo-guardian/values.yaml` with helm-docs annotations covering all sections:
+- [x] Create `charts/repo-guardian/Chart.yaml` (apiVersion v2, type application)
+- [x] Create `charts/repo-guardian/.helmignore`
+- [x] Create `charts/repo-guardian/values.yaml` with helm-docs annotations covering all sections:
   - `replicaCount`, `image`, `imagePullSecrets`, `nameOverride`, `fullnameOverride`
   - `serviceAccount` (create, annotations, name)
   - `podAnnotations`, `podLabels`, `podSecurityContext`, `securityContext`
@@ -67,15 +67,15 @@ Kubernetes resource templates.
   - `webhookIPAllowlist` (enabled, failOpen, trustProxyHeaders)
   - `nodeSelector`, `tolerations`, `affinity`
   - `extraEnv`, `extraVolumes`, `extraVolumeMounts`
-- [ ] Create `charts/repo-guardian/templates/_helpers.tpl` (name, fullname, labels, selectorLabels, serviceAccountName, secretName)
-- [ ] Create `charts/repo-guardian/templates/deployment.yaml` (app container, all config/secrets env vars, webhookIPAllowlist env vars, volume mounts, probes, nodeSelector, tolerations, affinity, extraEnv, extraVolumes, extraVolumeMounts)
-- [ ] Create `charts/repo-guardian/templates/service.yaml` (ClusterIP, http + metrics ports)
-- [ ] Create `charts/repo-guardian/templates/serviceaccount.yaml` (conditional on `serviceAccount.create`)
-- [ ] Create `charts/repo-guardian/templates/configmap.yaml` (template file overrides for CODEOWNERS, dependabot, renovate)
-- [ ] Create `charts/repo-guardian/templates/secret.yaml` (conditional on `secrets.create`, existingSecret reference when create=false, file mount and env var modes for private key)
-- [ ] Create `charts/repo-guardian/templates/NOTES.txt` (post-install instructions)
-- [ ] Verify `helm lint charts/repo-guardian` passes
-- [ ] Verify `helm template charts/repo-guardian` renders correctly
+- [x] Create `charts/repo-guardian/templates/_helpers.tpl` (name, fullname, labels, selectorLabels, serviceAccountName, secretName)
+- [x] Create `charts/repo-guardian/templates/deployment.yaml` (app container, all config/secrets env vars, webhookIPAllowlist env vars, volume mounts, probes, nodeSelector, tolerations, affinity, extraEnv, extraVolumes, extraVolumeMounts)
+- [x] Create `charts/repo-guardian/templates/service.yaml` (ClusterIP, http + metrics ports)
+- [x] Create `charts/repo-guardian/templates/serviceaccount.yaml` (conditional on `serviceAccount.create`)
+- [x] Create `charts/repo-guardian/templates/configmap.yaml` (template file overrides for CODEOWNERS, dependabot, renovate)
+- [x] Create `charts/repo-guardian/templates/secret.yaml` (conditional on `secrets.create`, existingSecret reference when create=false, file mount and env var modes for private key)
+- [x] Create `charts/repo-guardian/templates/NOTES.txt` (post-install instructions)
+- [x] Verify `helm lint charts/repo-guardian` passes
+- [x] Verify `helm template charts/repo-guardian` renders correctly
 
 #### Success Criteria
 

@@ -203,11 +203,11 @@ Add GitHub Actions workflows for chart linting, testing, and release.
 
 #### Tasks
 
-- [ ] Add helm-unittest job to `.github/workflows/ci.yml`
-- [ ] Add helm chart-testing job to `.github/workflows/ci.yml` (ct lint + ct install)
-- [ ] Add helm lint step to existing lint job in CI
-- [ ] Create `.github/workflows/chart-release.yml` (chart-releaser to GitHub Pages)
-- [ ] Add OCI registry push job to chart-release workflow (conditional on `HELM_OCI_REGISTRY` var)
+- [x] Add helm-unittest job to `.github/workflows/ci.yml`
+- [x] Add helm chart-testing job to `.github/workflows/ci.yml` (ct lint + ct install)
+- [x] Add helm lint step to existing lint job in CI
+- [x] Create `.github/workflows/chart-release.yml` (chart-releaser to GitHub Pages)
+- [x] Add OCI registry push job to chart-release workflow (conditional on `HELM_OCI_REGISTRY` var)
 
 #### Success Criteria
 

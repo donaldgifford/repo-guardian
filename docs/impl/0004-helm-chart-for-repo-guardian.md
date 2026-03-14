@@ -92,14 +92,14 @@ Add optional Tailscale Funnel sidecar injection and Prometheus ServiceMonitor.
 
 #### Tasks
 
-- [ ] Add Tailscale sidecar container to `deployment.yaml` (conditional on `tailscale.enabled`, using `tailscale.image`, `tailscale.hostname`, `tailscale.userspace`, `tailscale.authKeySecret`)
-- [ ] Create `charts/repo-guardian/templates/tailscale-configmap.yaml` with Funnel serve config (proxy 443 -> 127.0.0.1:8080, conditional on `tailscale.enabled`)
-- [ ] Add Tailscale state emptyDir volume and serve-config volume mount
-- [ ] Create `charts/repo-guardian/templates/tailscale-rbac.yaml` with Role + RoleBinding (conditional on `tailscale.enabled` and `tailscale.rbac.create`)
-- [ ] Set `TRUST_PROXY_HEADERS=true` and `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN=true` automatically when Tailscale is enabled
-- [ ] Create `charts/repo-guardian/templates/servicemonitor.yaml` (conditional on `serviceMonitor.enabled`, with `serviceMonitor.interval` and `serviceMonitor.labels`)
-- [ ] Verify Tailscale sidecar renders with `helm template --set tailscale.enabled=true`
-- [ ] Verify ServiceMonitor renders with `helm template --set serviceMonitor.enabled=true`
+- [x] Add Tailscale sidecar container to `deployment.yaml` (conditional on `tailscale.enabled`, using `tailscale.image`, `tailscale.hostname`, `tailscale.userspace`, `tailscale.authKeySecret`)
+- [x] Create `charts/repo-guardian/templates/tailscale-configmap.yaml` with Funnel serve config (proxy 443 -> 127.0.0.1:8080, conditional on `tailscale.enabled`)
+- [x] Add Tailscale state emptyDir volume and serve-config volume mount
+- [x] Create `charts/repo-guardian/templates/tailscale-rbac.yaml` with Role + RoleBinding (conditional on `tailscale.enabled` and `tailscale.rbac.create`)
+- [x] Set `TRUST_PROXY_HEADERS=true` and `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN=true` automatically when Tailscale is enabled
+- [x] Create `charts/repo-guardian/templates/servicemonitor.yaml` (conditional on `serviceMonitor.enabled`, with `serviceMonitor.interval` and `serviceMonitor.labels`)
+- [x] Verify Tailscale sidecar renders with `helm template --set tailscale.enabled=true`
+- [x] Verify ServiceMonitor renders with `helm template --set serviceMonitor.enabled=true`
 
 #### Success Criteria
 

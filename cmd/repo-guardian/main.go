@@ -73,7 +73,7 @@ func main() {
 	queue := checker.NewQueue(cfg.QueueSize, logger)
 
 	// Initialize webhook handler.
-	webhookHandler := webhook.NewHandler(cfg.GitHubWebhookSecret, queue, logger)
+	var webhookHandler http.Handler = webhook.NewHandler(cfg.GitHubWebhookSecret, queue, logger)
 
 	// Initialize scheduler.
 	sched := scheduler.NewScheduler(
@@ -88,6 +88,24 @@ func main() {
 	// Set up context for graceful shutdown.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// Wrap webhook handler with IP allowlist middleware if enabled.
+	if cfg.WebhookIPAllowlist {
+		allowlist := webhook.NewGitHubIPAllowlist(
+			cfg.WebhookIPAllowlistFailOpen,
+			cfg.TrustProxyHeaders,
+			logger,
+		)
+		allowlist.StartRefresh(ctx)
+		webhookHandler = allowlist.Middleware(webhookHandler)
+
+		logger.Info("webhook IP allowlist enabled",
+			"fail_open", cfg.WebhookIPAllowlistFailOpen,
+			"trust_proxy", cfg.TrustProxyHeaders,
+		)
+	} else {
+		logger.Info("webhook IP allowlist disabled")
+	}
 
 	// Start work queue workers.
 	queue.Start(ctx, cfg.WorkerCount, engine, client)

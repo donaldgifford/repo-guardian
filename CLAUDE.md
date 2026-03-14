@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-repo-guardian is a GitHub App (Go) that automates repository onboarding and compliance across a GitHub organization. It detects missing configuration files (CODEOWNERS, Dependabot, Renovate) and creates PRs with sensible defaults. Target deployment is Kubernetes (EKS). The RFC (`docs/RFC.md`) is the canonical design document; the implementation plan (`docs/IMPLEMENTATION_PLAN.md`) tracks build progress.
+repo-guardian is a GitHub App (Go) that automates repository onboarding and compliance across a GitHub organization. It detects missing configuration files (CODEOWNERS, Dependabot, Renovate) and creates PRs with sensible defaults. Deployment targets: Talos k8s cluster (dev/test) and EKS (production). Documentation is managed via docz — see `docs/rfc/`, `docs/design/`, `docs/impl/`, `docs/investigation/` for structured docs.
 
 ## Build & Development Commands
 
@@ -36,12 +36,18 @@ internal/
   github/     → GitHub API client wrapper (go-github v68 + ghinstallation v2)
   checker/    → core check-and-PR engine + work queue + custom properties checker
   rules/      → FileRule registry + TemplateStore (embedded fallback templates)
-  webhook/    → HTTP handler for GitHub webhook events (HMAC-validated)
+  webhook/    → HTTP handler for GitHub webhook events (HMAC-validated) + IP allowlist middleware
   scheduler/  → in-process ticker for weekly reconciliation
-  metrics/    → Prometheus metrics (12 metrics total)
+  metrics/    → Prometheus metrics (15 metrics total)
 deploy/
   base/       → Kustomize base (deployment, service, configmap, serviceaccount)
-  overlays/   → dev (dry-run, debug) and prod (live, info) overlays
+  overlays/   → dev (dry-run, debug), prod (live, info), tailscale (Funnel sidecar)
+docs/
+  rfc/        → High-level proposals (docz managed)
+  design/     → Technical design documents (docz managed)
+  impl/       → Implementation plans (docz managed)
+  investigation/ → Research and spike investigations (docz managed)
+  adr/        → Architecture decision records (docz managed)
 ```
 
 **Core flow:** GitHub webhook OR weekly scheduler → work queue (buffered channel) → checker engine → GitHub API (create PRs for missing files).
@@ -96,3 +102,7 @@ These rules must always be followed when working in this repository.
 4. **Always check for make target for a command.** Check if there is an existing
    make target for what you are trying to run. This helps with automating your
    ability to run commands within the scope of safety we have defined.
+5. **Use docz for all structured documentation.** When creating design docs,
+   investigations, implementation plans, RFCs, or ADRs, use the `docz` skill
+   (`docz create <type> "Title"`). Do not create raw markdown files in `docs/` —
+   use the docz types configured in `.docz.yaml`.

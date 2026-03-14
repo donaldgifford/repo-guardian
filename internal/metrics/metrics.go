@@ -93,4 +93,10 @@ var (
 		Name: "repo_guardian_properties_already_correct_total",
 		Help: "Total repositories where custom properties already matched desired values.",
 	})
+
+	// WebhookRejectedTotal counts webhook requests rejected by the IP allowlist.
+	WebhookRejectedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_webhook_rejected_total",
+		Help: "Webhook requests rejected by IP allowlist.",
+	}, []string{"reason"})
 )

@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0004
 title: "GitHub Webhook IP Allowlist Middleware"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-03-14
 ---
@@ -9,7 +9,7 @@ created: 2026-03-14
 
 # DESIGN 0004: GitHub Webhook IP Allowlist Middleware
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-03-14
 
@@ -185,10 +185,13 @@ in `main.go` when setting up the webhook route.
 
 ## Open Questions
 
-1. **Tailscale Funnel and source IP**: Does Funnel forward the original client
-   IP in a header, or does `RemoteAddr` show the Funnel proxy IP? This
-   determines whether we need `TRUST_PROXY_HEADERS=true` for the Tailscale
-   overlay. Unknown -- needs testing during implementation.
+*All resolved.*
+
+1. ~~**Tailscale Funnel and source IP**~~: **Resolved.** Funnel sets
+   `RemoteAddr` to `127.0.0.1` (sidecar localhost proxy) and forwards the
+   original client IP in the `X-Forwarded-For` header. It also sets
+   `Tailscale-Funnel-Request: ?1` to indicate traffic arrived via Funnel.
+   The Tailscale overlay requires `TRUST_PROXY_HEADERS=true`.
 
 ## Decisions
 

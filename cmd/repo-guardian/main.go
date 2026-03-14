@@ -43,7 +43,7 @@ func main() {
 	)
 
 	// Initialize GitHub client.
-	client, err := ghclient.NewClient(cfg.GitHubAppID, cfg.GitHubPrivateKeyPath, logger, cfg.RateLimitThreshold)
+	client, err := newGitHubClient(cfg, logger)
 	if err != nil {
 		logger.Error("failed to create GitHub client", "error", err)
 		os.Exit(1)
@@ -171,6 +171,17 @@ func gracefulShutdown(logger *slog.Logger, queue *checker.Queue, servers ...*htt
 
 	queue.Stop()
 	logger.Info("repo-guardian stopped")
+}
+
+func newGitHubClient(cfg *config.Config, logger *slog.Logger) (*ghclient.GitHubClient, error) {
+	if cfg.GitHubPrivateKey != "" {
+		logger.Info("using private key from environment variable")
+		return ghclient.NewClientFromKeyBytes(cfg.GitHubAppID, []byte(cfg.GitHubPrivateKey), logger, cfg.RateLimitThreshold)
+	}
+
+	logger.Info("using private key from file", "path", cfg.GitHubPrivateKeyPath)
+
+	return ghclient.NewClient(cfg.GitHubAppID, cfg.GitHubPrivateKeyPath, logger, cfg.RateLimitThreshold)
 }
 
 func initLogger(level string) *slog.Logger {

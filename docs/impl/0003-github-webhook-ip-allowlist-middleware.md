@@ -79,8 +79,8 @@ Add a Prometheus counter for rejected webhook requests.
 
 #### Tasks
 
-- [ ] **`internal/metrics/metrics.go`**:
-  - [ ] Add `WebhookRejectedTotal` counter vec with `reason` label
+- [x] **`internal/metrics/metrics.go`**:
+  - [x] Add `WebhookRejectedTotal` counter vec with `reason` label
     - Name: `repo_guardian_webhook_rejected_total`
     - Help: `"Webhook requests rejected by IP allowlist."`
     - Label values: `"ip_not_allowed"`, `"allowlist_unavailable"`

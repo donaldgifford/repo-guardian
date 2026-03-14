@@ -181,15 +181,15 @@ Wire the middleware into `main.go` on the webhook route only.
 
 #### Tasks
 
-- [ ] **`cmd/repo-guardian/main.go`**:
-  - [ ] If `cfg.WebhookIPAllowlist`:
+- [x] **`cmd/repo-guardian/main.go`**:
+  - [x] If `cfg.WebhookIPAllowlist`:
     - Create `webhook.NewGitHubIPAllowlist(cfg.WebhookIPAllowlistFailOpen,
       cfg.TrustProxyHeaders, logger)`
     - Call `allowlist.StartRefresh(ctx)`
     - Wrap: `webhookHandler = allowlist.Middleware(webhookHandler)` before
       passing to `newMainServer`
     - Log: `"webhook IP allowlist enabled"` with `fail_open` and `trust_proxy`
-  - [ ] If `!cfg.WebhookIPAllowlist`:
+  - [x] If `!cfg.WebhookIPAllowlist`:
     - Log: `"webhook IP allowlist disabled"`
     - Pass unwrapped `webhookHandler` to `newMainServer`
 

@@ -16,7 +16,12 @@ type Config struct {
 	GitHubAppID int64
 
 	// GitHubPrivateKeyPath is the filesystem path to the App's PEM private key.
+	// Mutually exclusive with GitHubPrivateKey; one must be set.
 	GitHubPrivateKeyPath string
+
+	// GitHubPrivateKey is the raw PEM-encoded private key content.
+	// Mutually exclusive with GitHubPrivateKeyPath; one must be set.
+	GitHubPrivateKey string
 
 	// GitHubWebhookSecret is the HMAC secret for validating webhook payloads.
 	GitHubWebhookSecret string
@@ -87,6 +92,7 @@ func Load() (*Config, error) {
 		DryRun:               dryRun,
 		LogLevel:             envOrDefault("LOG_LEVEL", "info"),
 		GitHubPrivateKeyPath: os.Getenv("GITHUB_PRIVATE_KEY_PATH"),
+		GitHubPrivateKey:     os.Getenv("GITHUB_PRIVATE_KEY"),
 		GitHubWebhookSecret:  os.Getenv("GITHUB_WEBHOOK_SECRET"),
 	}
 
@@ -144,8 +150,12 @@ func (c *Config) Validate() error {
 		errs = append(errs, errors.New("GITHUB_APP_ID is required"))
 	}
 
-	if c.GitHubPrivateKeyPath == "" {
-		errs = append(errs, errors.New("GITHUB_PRIVATE_KEY_PATH is required"))
+	if c.GitHubPrivateKeyPath == "" && c.GitHubPrivateKey == "" {
+		errs = append(errs, errors.New("one of GITHUB_PRIVATE_KEY_PATH or GITHUB_PRIVATE_KEY is required"))
+	}
+
+	if c.GitHubPrivateKeyPath != "" && c.GitHubPrivateKey != "" {
+		errs = append(errs, errors.New("GITHUB_PRIVATE_KEY_PATH and GITHUB_PRIVATE_KEY are mutually exclusive"))
 	}
 
 	if c.GitHubWebhookSecret == "" {

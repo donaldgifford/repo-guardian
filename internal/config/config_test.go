@@ -65,6 +65,7 @@ func TestLoadDefaults(t *testing.T) {
 func TestLoadRequired_Missing(t *testing.T) {
 	t.Setenv("GITHUB_APP_ID", "")
 	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "")
+	t.Setenv("GITHUB_PRIVATE_KEY", "")
 	t.Setenv("GITHUB_WEBHOOK_SECRET", "")
 
 	_, err := Load()
@@ -78,8 +79,8 @@ func TestLoadRequired_Missing(t *testing.T) {
 		t.Errorf("error should mention GITHUB_APP_ID: %v", err)
 	}
 
-	if !strings.Contains(errStr, "GITHUB_PRIVATE_KEY_PATH") {
-		t.Errorf("error should mention GITHUB_PRIVATE_KEY_PATH: %v", err)
+	if !strings.Contains(errStr, "GITHUB_PRIVATE_KEY") {
+		t.Errorf("error should mention GITHUB_PRIVATE_KEY: %v", err)
 	}
 
 	if !strings.Contains(errStr, "GITHUB_WEBHOOK_SECRET") {
@@ -225,6 +226,42 @@ func TestLoadInvalidScheduleInterval(t *testing.T) {
 	_, err := Load()
 	if err == nil {
 		t.Fatal("expected error for invalid SCHEDULE_INTERVAL")
+	}
+}
+
+func TestLoadPrivateKeyFromEnvVar(t *testing.T) {
+	t.Setenv("GITHUB_APP_ID", "123")
+	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "")
+	t.Setenv("GITHUB_PRIVATE_KEY", "-----BEGIN RSA PRIVATE KEY-----\ntest\n-----END RSA PRIVATE KEY-----")
+	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if cfg.GitHubPrivateKey == "" {
+		t.Error("GitHubPrivateKey should be set")
+	}
+
+	if cfg.GitHubPrivateKeyPath != "" {
+		t.Error("GitHubPrivateKeyPath should be empty")
+	}
+}
+
+func TestLoadPrivateKeyBothSet(t *testing.T) {
+	t.Setenv("GITHUB_APP_ID", "123")
+	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/key.pem")
+	t.Setenv("GITHUB_PRIVATE_KEY", "-----BEGIN RSA PRIVATE KEY-----\ntest\n-----END RSA PRIVATE KEY-----")
+	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error when both GITHUB_PRIVATE_KEY_PATH and GITHUB_PRIVATE_KEY are set")
+	}
+
+	if !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Errorf("error should mention mutually exclusive: %v", err)
 	}
 }
 

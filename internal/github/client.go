@@ -25,13 +25,30 @@ type GitHubClient struct {
 	scopedGHClient *gh.Client
 }
 
-// NewClient creates a new GitHubClient configured as a GitHub App.
+// NewClient creates a new GitHubClient configured as a GitHub App using a
+// private key file on disk.
 func NewClient(appID int64, privateKeyPath string, logger *slog.Logger, rateLimitThreshold float64) (*GitHubClient, error) {
 	transport, err := ghinstallation.NewAppsTransportKeyFromFile(http.DefaultTransport, appID, privateKeyPath)
 	if err != nil {
 		return nil, fmt.Errorf("creating GitHub App transport: %w", err)
 	}
 
+	return newClientFromTransport(transport, logger, rateLimitThreshold), nil
+}
+
+// NewClientFromKeyBytes creates a new GitHubClient configured as a GitHub App
+// using a PEM-encoded private key provided as raw bytes (e.g. from an env var
+// or secret).
+func NewClientFromKeyBytes(appID int64, privateKey []byte, logger *slog.Logger, rateLimitThreshold float64) (*GitHubClient, error) {
+	transport, err := ghinstallation.NewAppsTransport(http.DefaultTransport, appID, privateKey)
+	if err != nil {
+		return nil, fmt.Errorf("creating GitHub App transport from key bytes: %w", err)
+	}
+
+	return newClientFromTransport(transport, logger, rateLimitThreshold), nil
+}
+
+func newClientFromTransport(transport *ghinstallation.AppsTransport, logger *slog.Logger, rateLimitThreshold float64) *GitHubClient {
 	rlTransport := newRateLimitTransport(transport, logger.With("component", "ratelimit"), rateLimitThreshold)
 	appClient := gh.NewClient(&http.Client{Transport: rlTransport})
 
@@ -41,7 +58,7 @@ func NewClient(appID int64, privateKeyPath string, logger *slog.Logger, rateLimi
 		logger:             logger,
 		rateLimitThreshold: rateLimitThreshold,
 		installClients:     make(map[int64]*gh.Client),
-	}, nil
+	}
 }
 
 // ghClient returns the appropriate go-github client. If this GitHubClient

@@ -34,11 +34,26 @@ spec:
                 secretKeyRef:
                   name: repo-guardian-github
                   key: webhook-secret
+            # Private key via file mount (default).
+            # The volume below mounts the secret's 'private-key' key as a
+            # PEM file. To use an env var instead, remove this env entry and
+            # the volume/volumeMount, then uncomment the GITHUB_PRIVATE_KEY
+            # block below.
             - name: GITHUB_PRIVATE_KEY_PATH
               value: /etc/repo-guardian/private-key/private-key.pem
+            # --- Alternative: private key via environment variable ---
+            # Uncomment this block and remove GITHUB_PRIVATE_KEY_PATH,
+            # the github-private-key volume, and its volumeMount.
+            #
+            # - name: GITHUB_PRIVATE_KEY
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: repo-guardian-github
+            #       key: private-key
             - name: TEMPLATE_DIR
               value: /etc/repo-guardian/templates
           volumeMounts:
+            # Remove this mount if using GITHUB_PRIVATE_KEY env var.
             - name: github-private-key
               mountPath: /etc/repo-guardian/private-key
               readOnly: true
@@ -65,6 +80,7 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
       volumes:
+        # Remove this volume if using GITHUB_PRIVATE_KEY env var.
         - name: github-private-key
           secret:
             secretName: repo-guardian-github

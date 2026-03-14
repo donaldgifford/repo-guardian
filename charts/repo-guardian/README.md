@@ -60,6 +60,40 @@ helm install repo-guardian repo-guardian/repo-guardian \
 
 3. Once verified, set `config.dryRun: false` to enable live mode.
 
+## Releasing
+
+### GitHub Pages (default)
+
+Charts are published to GitHub Pages via the `chart-release` workflow (`.github/workflows/chart-release.yml`). This is a manual trigger (`workflow_dispatch`):
+
+1. Bump `version` in `Chart.yaml` (and `appVersion` if the app changed).
+2. Merge to `main`.
+3. Run the **Chart Release** workflow from the Actions tab.
+4. The workflow uses [chart-releaser-action](https://github.com/helm/chart-releaser-action) to package the chart, create a GitHub release, and update the `gh-pages` branch with `index.yaml`.
+
+**First-time setup:** Enable GitHub Pages in repo settings (Settings → Pages → Source: `gh-pages` branch). The `gh-pages` branch is created automatically on the first release.
+
+### OCI Registry (optional)
+
+The chart-release workflow includes an optional job that pushes the chart to an OCI-compliant registry (e.g., Amazon ECR). To enable it:
+
+1. Set the `HELM_OCI_REGISTRY` repository **variable** (e.g., `123456789012.dkr.ecr.us-east-1.amazonaws.com/helm-charts`).
+2. Set the `AWS_ROLE_ARN` repository **secret** for OIDC authentication.
+3. Create the ECR repository:
+   ```bash
+   aws ecr create-repository \
+     --repository-name helm-charts/repo-guardian \
+     --region us-east-1
+   ```
+
+The OCI push job is skipped when `HELM_OCI_REGISTRY` is not set.
+
+**Local push:**
+
+```bash
+make helm-push HELM_REGISTRY=123456789012.dkr.ecr.us-east-1.amazonaws.com/helm-charts
+```
+
 ## Values
 
 | Key | Type | Default | Description |

@@ -182,6 +182,70 @@ compose-logs: ## Tail logs from local services
 	@docker compose logs -f
 
 
+###############
+##@ Helm
+
+CHART_DIR     := charts/repo-guardian
+HELM_REGISTRY ?= ""
+
+.PHONY: helm-lint helm-template helm-template-ci helm-package
+.PHONY: helm-unittest helm-test helm-ct-lint helm-ct-list-changed helm-ct-install
+.PHONY: helm-docs helm-diff-check helm-cr-package helm-push
+
+helm-lint: ## Lint Helm chart
+	@ $(MAKE) --no-print-directory log-$@
+	@helm lint $(CHART_DIR)
+
+helm-template: ## Render Helm templates with default values
+	@ $(MAKE) --no-print-directory log-$@
+	@helm template $(PROJECT_NAME) $(CHART_DIR) \
+		--set config.appId=12345 \
+		--set secrets.webhookSecret=placeholder \
+		--set secrets.privateKey=placeholder
+
+helm-template-ci: ## Render Helm templates with CI values
+	@ $(MAKE) --no-print-directory log-$@
+	@helm template $(PROJECT_NAME) $(CHART_DIR) -f $(CHART_DIR)/ci/ci-values.yaml
+
+helm-package: ## Package Helm chart to .tgz
+	@ $(MAKE) --no-print-directory log-$@
+	@helm package $(CHART_DIR)
+
+helm-unittest: ## Run helm-unittest plugin tests
+	@ $(MAKE) --no-print-directory log-$@
+	@helm unittest $(CHART_DIR)
+
+helm-test: helm-lint helm-unittest ## Run Helm lint + unit tests
+
+helm-ct-lint: ## Run chart-testing lint
+	@ $(MAKE) --no-print-directory log-$@
+	@ct lint --config ct.yaml --all
+
+helm-ct-list-changed: ## List charts changed since target branch
+	@ $(MAKE) --no-print-directory log-$@
+	@ct list-changed --config ct.yaml
+
+helm-ct-install: ## Install and test chart in kind cluster
+	@ $(MAKE) --no-print-directory log-$@
+	@ct install --config ct.yaml
+
+helm-docs: ## Generate chart README with helm-docs
+	@ $(MAKE) --no-print-directory log-$@
+	@helm-docs --chart-search-root charts
+
+helm-diff-check: ## Show diff between installed release and local chart
+	@ $(MAKE) --no-print-directory log-$@
+	@helm diff upgrade $(RELEASE) $(CHART_DIR)
+
+helm-cr-package: ## Package chart with chart-releaser
+	@ $(MAKE) --no-print-directory log-$@
+	@cr package $(CHART_DIR)
+
+helm-push: ## Push packaged chart to OCI registry
+	@ $(MAKE) --no-print-directory log-$@
+	@helm package $(CHART_DIR)
+	@helm push $(PROJECT_NAME)-*.tgz oci://$(HELM_REGISTRY)
+
 ########################################################################
 ## Self-Documenting Makefile Help                                     ##
 ## https://marmelab.com/blog/2016/02/29/auto-documented-makefile.html ##

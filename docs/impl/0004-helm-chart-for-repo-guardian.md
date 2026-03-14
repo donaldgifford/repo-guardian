@@ -158,20 +158,20 @@ decision — no modular split).
 
 #### Tasks
 
-- [ ] Add `helm-lint` target
-- [ ] Add `helm-template` target (default values)
-- [ ] Add `helm-template-ci` target (CI values)
-- [ ] Add `helm-package` target
-- [ ] Add `helm-unittest` target
-- [ ] Add `helm-test` target (lint + unittest)
-- [ ] Add `helm-ct-lint` target
-- [ ] Add `helm-ct-list-changed` target
-- [ ] Add `helm-ct-install` target
-- [ ] Add `helm-docs` target
-- [ ] Add `helm-diff-check` target
-- [ ] Add `helm-cr-package` target
-- [ ] Add `helm-push` target (OCI registry)
-- [ ] Verify all targets work locally
+- [x] Add `helm-lint` target
+- [x] Add `helm-template` target (default values)
+- [x] Add `helm-template-ci` target (CI values)
+- [x] Add `helm-package` target
+- [x] Add `helm-unittest` target
+- [x] Add `helm-test` target (lint + unittest)
+- [x] Add `helm-ct-lint` target
+- [x] Add `helm-ct-list-changed` target
+- [x] Add `helm-ct-install` target
+- [x] Add `helm-docs` target
+- [x] Add `helm-diff-check` target
+- [x] Add `helm-cr-package` target
+- [x] Add `helm-push` target (OCI registry)
+- [x] Verify all targets work locally
 
 #### Success Criteria
 

@@ -13,6 +13,7 @@ Design docs, plans, and implementation docs can reference investigations by ID
 
 | ID | Title | Status | Date | Author | Link |
 |----|-------|--------|------|--------|------|
+| INV-0001 | Tailscale Funnel for Webhook Testing | Concluded | 2026-03-14 | Donald Gifford | [0001-tailscale-funnel-for-webhook-testing.md](0001-tailscale-funnel-for-webhook-testing.md) |
 <!-- END DOCZ AUTO-GENERATED -->
 <!-- BEGIN DOCZ AUTO-GENERATED -->
 <!-- END DOCZ AUTO-GENERATED -->

@@ -186,9 +186,9 @@ Generate the chart README automatically from values annotations.
 
 #### Tasks
 
-- [ ] Create `charts/repo-guardian/README.md.gotmpl` (optional, for custom README structure)
-- [ ] Run `helm-docs` and verify generated README
-- [ ] Verify all values are documented in the generated table
+- [x] Create `charts/repo-guardian/README.md.gotmpl` (optional, for custom README structure)
+- [x] Run `helm-docs` and verify generated README
+- [x] Verify all values are documented in the generated table
 
 #### Success Criteria
 

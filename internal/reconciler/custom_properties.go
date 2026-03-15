@@ -280,7 +280,11 @@ func (r *CustomPropertiesReconciler) createCatalogInfoPR(
 
 	commitMsg := "chore: add catalog-info.yaml"
 
-	if err := params.Client.CreateOrUpdateFile(ctx, params.Owner, params.Repo, CatalogInfoBranchName, "catalog-info.yaml", rendered, commitMsg); err != nil {
+	err = params.Client.CreateOrUpdateFile(
+		ctx, params.Owner, params.Repo, CatalogInfoBranchName,
+		"catalog-info.yaml", rendered, commitMsg,
+	)
+	if err != nil {
 		return fmt.Errorf("creating catalog-info.yaml: %w", err)
 	}
 

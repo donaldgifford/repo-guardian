@@ -15,14 +15,18 @@ import (
 	"github.com/zclconf/go-cty/cty"
 )
 
-const blockTypeIgnore = "ignore"
+const (
+	blockTypeIgnore = "ignore"
+	attrEnabled     = "enabled"
+)
 
 // hclConfig is the raw HCL-decoded structure before merging with defaults.
 type hclConfig struct {
-	Guardian     *GuardianConfig     `hcl:"guardian,block"`
-	IgnoreList   *IgnoreConfig       `hcl:"ignore,block"`
-	FileRules    []FileRuleConfig    `hcl:"rule,block"`
-	SettingRules []SettingRuleConfig `hcl:"-"`
+	Guardian              *GuardianConfig              `hcl:"guardian,block"`
+	IgnoreList            *IgnoreConfig                `hcl:"ignore,block"`
+	FileRules             []FileRuleConfig             `hcl:"rule,block"`
+	SettingRules          []SettingRuleConfig          `hcl:"-"`
+	BranchProtectionRules []BranchProtectionRuleConfig `hcl:"-"`
 }
 
 // Load reads policy configuration from the given path (file or directory),
@@ -226,14 +230,22 @@ func decodeBlock(block *hcl.Block, ctx *hcl.EvalContext, raw *hclConfig) hcl.Dia
 func decodeRuleOrSettingBlock(block *hcl.Block, ctx *hcl.EvalContext, raw *hclConfig) hcl.Diagnostics {
 	var diags hcl.Diagnostics
 
-	if block.Labels[0] == "setting" {
+	switch block.Labels[0] {
+	case "setting":
 		sr, d := decodeSettingRuleBlock(block, ctx)
 		diags = append(diags, d...)
 
 		if sr != nil {
 			raw.SettingRules = append(raw.SettingRules, *sr)
 		}
-	} else {
+	case "branch_protection":
+		bp, d := decodeBranchProtectionBlock(block, ctx)
+		diags = append(diags, d...)
+
+		if bp != nil {
+			raw.BranchProtectionRules = append(raw.BranchProtectionRules, *bp)
+		}
+	default:
 		r, d := decodeRuleBlock(block, ctx)
 		diags = append(diags, d...)
 
@@ -318,7 +330,7 @@ func decodeIgnoreBlock(block *hcl.Block, ctx *hcl.EvalContext) (*IgnoreConfig, h
 
 var ruleBodySchema = &hcl.BodySchema{
 	Attributes: []hcl.AttributeSchema{
-		{Name: "enabled"},
+		{Name: attrEnabled},
 		{Name: "check"},
 		{Name: "paths", Required: true},
 		{Name: "target", Required: true},
@@ -368,7 +380,7 @@ func decodeRuleAttributes(
 		}
 
 		switch name {
-		case "enabled":
+		case attrEnabled:
 			b := val.True()
 			r.Enabled = &b
 		case "check":
@@ -508,7 +520,7 @@ func decodeAssertionBlock(block *hcl.Block, ctx *hcl.EvalContext) (*AssertionCon
 
 var settingRuleBodySchema = &hcl.BodySchema{
 	Attributes: []hcl.AttributeSchema{
-		{Name: "enabled"},
+		{Name: attrEnabled},
 		{Name: "property", Required: true},
 		{Name: "expected", Required: true},
 		{Name: "remediate"},
@@ -537,7 +549,7 @@ func decodeSettingRuleBlock(block *hcl.Block, ctx *hcl.EvalContext) (*SettingRul
 		}
 
 		switch name {
-		case "enabled":
+		case attrEnabled:
 			b := val.True()
 			sr.Enabled = &b
 		case "property":
@@ -567,6 +579,86 @@ func decodeSettingRuleBlock(block *hcl.Block, ctx *hcl.EvalContext) (*SettingRul
 	return sr, diags
 }
 
+var branchProtectionBodySchema = &hcl.BodySchema{
+	Attributes: []hcl.AttributeSchema{
+		{Name: attrEnabled},
+		{Name: "branch", Required: true},
+		{Name: "require_pr"},
+		{Name: "required_approvals"},
+		{Name: "dismiss_stale_reviews"},
+		{Name: "require_status_checks"},
+		{Name: "enforce_admins"},
+		{Name: "require_linear_history"},
+		{Name: "remediate"},
+	},
+	Blocks: []hcl.BlockHeaderSchema{
+		{Type: blockTypeIgnore},
+	},
+}
+
+func decodeBranchProtectionBlock(
+	block *hcl.Block,
+	ctx *hcl.EvalContext,
+) (*BranchProtectionRuleConfig, hcl.Diagnostics) {
+	bp := &BranchProtectionRuleConfig{
+		Name: block.Labels[1],
+	}
+
+	content, diags := block.Body.Content(branchProtectionBodySchema)
+	if diags.HasErrors() {
+		return nil, diags
+	}
+
+	for name, attr := range content.Attributes {
+		val, d := attr.Expr.Value(ctx)
+		diags = append(diags, d...)
+
+		if d.HasErrors() {
+			continue
+		}
+
+		decodeBranchProtectionAttr(bp, name, val)
+	}
+
+	for _, sub := range content.Blocks {
+		if sub.Type == blockTypeIgnore {
+			ig, d := decodeIgnoreBlock(sub, ctx)
+			diags = append(diags, d...)
+			bp.Ignore = ig
+		}
+	}
+
+	return bp, diags
+}
+
+func decodeBranchProtectionAttr(bp *BranchProtectionRuleConfig, name string, val cty.Value) {
+	switch name {
+	case attrEnabled:
+		b := val.True()
+		bp.Enabled = &b
+	case "branch":
+		bp.Branch = val.AsString()
+	case "require_pr":
+		bp.RequirePR = val.True()
+	case "required_approvals":
+		n, _ := val.AsBigFloat().Int64()
+		bp.RequiredApprovals = int(n)
+	case "dismiss_stale_reviews":
+		bp.DismissStaleReviews = val.True()
+	case "require_status_checks":
+		for it := val.ElementIterator(); it.Next(); {
+			_, v := it.Element()
+			bp.RequireStatusChecks = append(bp.RequireStatusChecks, v.AsString())
+		}
+	case "enforce_admins":
+		bp.EnforceAdmins = val.True()
+	case "require_linear_history":
+		bp.RequireLinearHistory = val.True()
+	case "remediate":
+		bp.Remediate = val.True()
+	}
+}
+
 func hclConfigToPolicy(raw *hclConfig) *PolicyConfig {
 	defaults := BuiltinDefaults()
 
@@ -590,6 +682,7 @@ func hclConfigToPolicy(raw *hclConfig) *PolicyConfig {
 	}
 
 	cfg.SettingRules = raw.SettingRules
+	cfg.BranchProtectionRules = raw.BranchProtectionRules
 
 	return cfg
 }

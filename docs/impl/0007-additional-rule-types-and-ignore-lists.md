@@ -190,27 +190,27 @@ branch protection settings using the repository rulesets API.
 
 #### Tasks
 
-- [ ] Add `BranchProtectionRuleConfig` to `internal/policy/types.go`:
+- [x] Add `BranchProtectionRuleConfig` to `internal/policy/types.go`:
   - Name, Enabled, Branch, RequirePR, RequiredApprovals,
     DismissStaleReviews, RequireStatusChecks, EnforceAdmins,
     RequireLinearHistory, Ignore, Reconcilers
   - HCL struct tags for `rule "branch_protection"` block
-- [ ] Add `BranchProtectionRules []BranchProtectionRuleConfig` to
+- [x] Add `BranchProtectionRules []BranchProtectionRuleConfig` to
   `PolicyConfig`
-- [ ] Update HCL parser to handle `rule "branch_protection" "<name>" {}`
+- [x] Update HCL parser to handle `rule "branch_protection" "<name>" {}`
   blocks
-- [ ] Implement branch protection rule evaluation:
+- [x] Implement branch protection rule evaluation:
   - Read current protection via rulesets API
   - Compare each field against expected
   - All match → log, increment `branch_protection_checked_total`
   - Mismatch → remediate flow (same pattern as setting rules)
-- [ ] Map `BranchProtectionRuleConfig` fields to ruleset API request
+- [x] Map `BranchProtectionRuleConfig` fields to ruleset API request
   format
-- [ ] Handle "branch doesn't exist" case: log warning, no error
-- [ ] Add Prometheus metrics:
+- [x] Handle "branch doesn't exist" case: log warning, no error
+- [x] Add Prometheus metrics:
   - `repo_guardian_branch_protection_checked_total{rule_name}`
   - `repo_guardian_branch_protection_remediated_total{rule_name}`
-- [ ] Write unit tests:
+- [x] Write unit tests:
   - Protection matches: no action
   - Protection mismatches: logs differences
   - Protection with remediation: updates via API

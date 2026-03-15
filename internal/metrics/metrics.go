@@ -123,4 +123,16 @@ var (
 		Name: "repo_guardian_settings_remediated_total",
 		Help: "Setting rules remediated via API.",
 	}, []string{"rule_name"})
+
+	// BranchProtectionCheckedTotal counts branch protection rules evaluated.
+	BranchProtectionCheckedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_branch_protection_checked_total",
+		Help: "Branch protection rules evaluated.",
+	}, []string{"rule_name"})
+
+	// BranchProtectionRemediatedTotal counts branch protection rules remediated.
+	BranchProtectionRemediatedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_branch_protection_remediated_total",
+		Help: "Branch protection rules remediated via rulesets API.",
+	}, []string{"rule_name"})
 )

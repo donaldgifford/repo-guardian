@@ -411,6 +411,66 @@ func TestValidate_SettingRule_NilExpected(t *testing.T) {
 	}
 }
 
+func TestValidate_BranchProtection_Valid(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.BranchProtectionRules = []BranchProtectionRuleConfig{
+		{Name: "main_protection", Branch: "main", RequirePR: true, RequiredApprovals: 1},
+	}
+
+	if err := Validate(cfg); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_BranchProtection_EmptyBranch(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.BranchProtectionRules = []BranchProtectionRuleConfig{
+		{Name: "bad", Branch: ""},
+	}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for empty branch")
+	}
+
+	if !strings.Contains(err.Error(), "branch must be non-empty") {
+		t.Errorf("error %q should mention branch must be non-empty", err)
+	}
+}
+
+func TestValidate_BranchProtection_NegativeApprovals(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.BranchProtectionRules = []BranchProtectionRuleConfig{
+		{Name: "bad", Branch: "main", RequiredApprovals: -1},
+	}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for negative required_approvals")
+	}
+
+	if !strings.Contains(err.Error(), "required_approvals must be >= 0") {
+		t.Errorf("error %q should mention required_approvals", err)
+	}
+}
+
+func TestValidate_BranchProtection_DuplicateNames(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.BranchProtectionRules = []BranchProtectionRuleConfig{
+		{Name: "dup", Branch: "main"},
+		{Name: "dup", Branch: "develop"},
+	}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for duplicate names")
+	}
+
+	if !strings.Contains(err.Error(), "duplicate branch_protection rule") {
+		t.Errorf("error %q should mention duplicate", err)
+	}
+}
+
 func TestValidate_ErrorMessageClarity(t *testing.T) {
 	cfg := BuiltinDefaults()
 	cfg.Guardian.WorkerCount = 0

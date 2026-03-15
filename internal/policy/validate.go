@@ -14,6 +14,7 @@ func Validate(cfg *PolicyConfig) error {
 	errs = append(errs, validateFileRules(cfg.FileRules)...)
 	errs = append(errs, validateNoDuplicateRules(cfg.FileRules)...)
 	errs = append(errs, validateSettingRules(cfg.SettingRules)...)
+	errs = append(errs, validateBranchProtectionRules(cfg.BranchProtectionRules)...)
 
 	return errors.Join(errs...)
 }
@@ -202,6 +203,42 @@ func validateSettingExpectedType(r *SettingRuleConfig, prefix string) []error {
 				prefix, r.Property, r.Expected,
 			))
 		}
+	}
+
+	return errs
+}
+
+func validateBranchProtectionRules(rules []BranchProtectionRuleConfig) []error {
+	errs := make([]error, 0, len(rules))
+
+	seen := make(map[string]bool)
+
+	for i := range rules {
+		r := &rules[i]
+		prefix := fmt.Sprintf("branch_protection rule %q", r.Name)
+
+		if r.Name == "" {
+			errs = append(errs, fmt.Errorf("%s: name must be non-empty", prefix))
+		}
+
+		if r.Branch == "" {
+			errs = append(errs, fmt.Errorf("%s: branch must be non-empty", prefix))
+		}
+
+		if r.RequiredApprovals < 0 {
+			errs = append(errs, fmt.Errorf(
+				"%s: required_approvals must be >= 0, got %d",
+				prefix, r.RequiredApprovals,
+			))
+		}
+
+		if seen[r.Name] {
+			errs = append(errs, fmt.Errorf(
+				"duplicate branch_protection rule %q defined more than once", r.Name,
+			))
+		}
+
+		seen[r.Name] = true
 	}
 
 	return errs

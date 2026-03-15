@@ -84,8 +84,10 @@ func main() {
 	queue := checker.NewQueue(policyCfg.Guardian.QueueSize, logger)
 
 	// Initialize webhook handler.
-	// NOTE: Watched paths will be extracted from policy in Phase 6.
-	var webhookHandler http.Handler = webhook.NewHandler(cfg.GitHubWebhookSecret, queue, logger, nil)
+	// Extract watched paths from policy for push event handling.
+	watchedPaths := policy.ExtractWatchedPaths(policyCfg)
+
+	var webhookHandler http.Handler = webhook.NewHandler(cfg.GitHubWebhookSecret, queue, logger, watchedPaths)
 
 	// Initialize scheduler using policy guardian config.
 	sched := scheduler.NewScheduler(

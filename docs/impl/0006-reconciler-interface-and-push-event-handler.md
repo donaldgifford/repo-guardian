@@ -246,15 +246,15 @@ Build the utility that extracts watched file paths from the policy config.
 
 #### Tasks
 
-- [ ] Create `internal/policy/watch.go` with
+- [x] Create `internal/policy/watch.go` with
   `ExtractWatchedPaths(config *PolicyConfig) map[string]bool`
-- [ ] For each file rule with a reconciler where `watch = true`, add all
+- [x] For each file rule with a reconciler where `watch = true`, add all
   rule paths to the watched set
-- [ ] Call `ExtractWatchedPaths` in `main.go` and pass result to
+- [x] Call `ExtractWatchedPaths` in `main.go` and pass result to
   `webhook.NewHandler`
-- [ ] When no HCL config and no `watch = true` reconcilers, return empty
+- [x] When no HCL config and no `watch = true` reconcilers, return empty
   map (push events silently ignored)
-- [ ] Write unit tests:
+- [x] Write unit tests:
   - Rule with `watch = true` reconciler: all rule paths in set
   - Rule with `watch = false` reconciler: no paths in set
   - Rule with no reconciler: no paths in set

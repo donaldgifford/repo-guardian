@@ -8,11 +8,12 @@ import (
 // Validate checks the PolicyConfig for configuration errors.
 // Returns a joined error with all validation failures.
 func Validate(cfg *PolicyConfig) error {
-	errs := make([]error, 0, len(cfg.FileRules)+4)
+	errs := make([]error, 0, len(cfg.FileRules)+len(cfg.SettingRules)+4)
 
 	errs = append(errs, validateGuardian(&cfg.Guardian)...)
 	errs = append(errs, validateFileRules(cfg.FileRules)...)
 	errs = append(errs, validateNoDuplicateRules(cfg.FileRules)...)
+	errs = append(errs, validateSettingRules(cfg.SettingRules)...)
 
 	return errors.Join(errs...)
 }
@@ -138,6 +139,69 @@ func validateAssertion(a *AssertionConfig, prefix string) []error {
 			"%s: must set pattern, not_pattern, or yaml_path",
 			prefix,
 		))
+	}
+
+	return errs
+}
+
+func validateSettingRules(rules []SettingRuleConfig) []error {
+	errs := make([]error, 0, len(rules))
+
+	seen := make(map[string]bool)
+
+	for i := range rules {
+		r := &rules[i]
+		prefix := fmt.Sprintf("setting rule %q", r.Name)
+
+		if r.Name == "" {
+			errs = append(errs, fmt.Errorf("%s: name must be non-empty", prefix))
+		}
+
+		if !SupportedSettingProperties[r.Property] {
+			errs = append(errs, fmt.Errorf(
+				"%s: unsupported property %q; must be one of the supported setting properties",
+				prefix, r.Property,
+			))
+		}
+
+		if r.Expected == nil {
+			errs = append(errs, fmt.Errorf("%s: expected must be set", prefix))
+		} else {
+			errs = append(errs, validateSettingExpectedType(r, prefix)...)
+		}
+
+		if seen[r.Name] {
+			errs = append(errs, fmt.Errorf(
+				"duplicate setting rule %q defined more than once", r.Name,
+			))
+		}
+
+		seen[r.Name] = true
+	}
+
+	return errs
+}
+
+func validateSettingExpectedType(r *SettingRuleConfig, prefix string) []error {
+	var errs []error
+
+	switch r.Property {
+	case "default_branch":
+		if _, ok := r.Expected.(string); !ok {
+			errs = append(errs, fmt.Errorf(
+				"%s: expected must be a string for property %q, got %T",
+				prefix, r.Property, r.Expected,
+			))
+		}
+	case "vulnerability_alerts_enabled", "has_issues", "has_wiki",
+		"delete_branch_on_merge", "allow_merge_commit",
+		"allow_squash_merge", "allow_rebase_merge":
+		if _, ok := r.Expected.(bool); !ok {
+			errs = append(errs, fmt.Errorf(
+				"%s: expected must be a bool for property %q, got %T",
+				prefix, r.Property, r.Expected,
+			))
+		}
 	}
 
 	return errs

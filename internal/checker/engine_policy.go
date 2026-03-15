@@ -42,6 +42,11 @@ func (e *Engine) checkRepoWithPolicy(
 	// Run reconcilers for rules where the file check passed.
 	e.runReconcilers(ctx, log, client, owner, repo, defaultBranch, openPRs)
 
+	// Evaluate setting rules.
+	if err := e.evaluateSettingRules(ctx, log, client, owner, repo); err != nil {
+		return fmt.Errorf("evaluating setting rules: %w", err)
+	}
+
 	return nil
 }
 
@@ -566,6 +571,195 @@ func buildPRBodyFromPolicy(actionable []policy.FileRuleConfig) string {
 	sb.WriteString("Questions? Reach out in #platform-engineering.*\n")
 
 	return sb.String()
+}
+
+// evaluateSettingRules checks all setting rules against the repository.
+func (e *Engine) evaluateSettingRules(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	owner, repo string,
+) error {
+	if len(e.policy.SettingRules) == 0 {
+		return nil
+	}
+
+	ownerRepo := owner + "/" + repo
+
+	for i := range e.policy.SettingRules {
+		r := &e.policy.SettingRules[i]
+
+		if !r.IsEnabled() {
+			continue
+		}
+
+		ruleLog := log.With("setting_rule", r.Name, "property", r.Property)
+
+		if r.Ignore != nil && r.Ignore.Matches(ownerRepo) {
+			ruleLog.Info("repository matched per-rule ignore list, skipping setting rule")
+			metrics.IgnoredTotal.WithLabelValues("rule").Inc()
+
+			continue
+		}
+
+		if err := e.evaluateSettingRule(ctx, ruleLog, client, owner, repo, r); err != nil {
+			return fmt.Errorf("evaluating setting rule %q: %w", r.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// evaluateSettingRule checks a single setting rule against the repository.
+func (e *Engine) evaluateSettingRule(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	owner, repo string,
+	rule *policy.SettingRuleConfig,
+) error {
+	metrics.SettingsCheckedTotal.WithLabelValues(rule.Name).Inc()
+
+	currentValue, err := e.getSettingValue(ctx, client, owner, repo, rule.Property)
+	if err != nil {
+		return fmt.Errorf("getting current value for %s: %w", rule.Property, err)
+	}
+
+	if settingMatches(currentValue, rule.Expected) {
+		log.Debug("setting matches expected value", "current", currentValue)
+		return nil
+	}
+
+	metrics.SettingsMismatchedTotal.WithLabelValues(rule.Name).Inc()
+	log.Info("setting mismatch", "current", currentValue, "expected", rule.Expected)
+
+	if !rule.Remediate {
+		return nil
+	}
+
+	if e.dryRun {
+		log.Info("dry run: would remediate setting", "current", currentValue, "expected", rule.Expected)
+		return nil
+	}
+
+	if err := e.remediateSetting(ctx, log, client, owner, repo, rule); err != nil {
+		return fmt.Errorf("remediating %s: %w", rule.Property, err)
+	}
+
+	metrics.SettingsRemediatedTotal.WithLabelValues(rule.Name).Inc()
+	log.Info("remediated setting", "property", rule.Property)
+
+	return nil
+}
+
+// getSettingValue reads the current value of a repository setting.
+func (*Engine) getSettingValue(
+	ctx context.Context,
+	client ghclient.Client,
+	owner, repo, property string,
+) (any, error) {
+	if property == "vulnerability_alerts_enabled" {
+		return client.GetVulnerabilityAlertsEnabled(ctx, owner, repo)
+	}
+
+	settings, err := client.GetRepoSettings(ctx, owner, repo)
+	if err != nil {
+		return nil, err
+	}
+
+	switch property {
+	case "default_branch":
+		return settings.DefaultBranch, nil
+	case "has_issues":
+		return settings.HasIssues, nil
+	case "has_wiki":
+		return settings.HasWiki, nil
+	case "delete_branch_on_merge":
+		return settings.DeleteBranchOnMerge, nil
+	case "allow_merge_commit":
+		return settings.AllowMergeCommit, nil
+	case "allow_squash_merge":
+		return settings.AllowSquashMerge, nil
+	case "allow_rebase_merge":
+		return settings.AllowRebaseMerge, nil
+	default:
+		return nil, fmt.Errorf("unsupported property: %s", property)
+	}
+}
+
+// settingMatches compares the current value against the expected value.
+func settingMatches(current, expected any) bool {
+	return fmt.Sprintf("%v", current) == fmt.Sprintf("%v", expected)
+}
+
+// remediateSetting applies the expected setting value via the GitHub API.
+func (*Engine) remediateSetting(
+	ctx context.Context,
+	_ *slog.Logger,
+	client ghclient.Client,
+	owner, repo string,
+	rule *policy.SettingRuleConfig,
+) error {
+	switch rule.Property {
+	case "vulnerability_alerts_enabled":
+		expected, ok := rule.Expected.(bool)
+		if !ok {
+			return fmt.Errorf("expected bool for vulnerability_alerts_enabled, got %T", rule.Expected)
+		}
+
+		if expected {
+			return client.EnableVulnerabilityAlerts(ctx, owner, repo)
+		}
+
+		return client.DisableVulnerabilityAlerts(ctx, owner, repo)
+
+	case "default_branch":
+		expected, ok := rule.Expected.(string)
+		if !ok {
+			return fmt.Errorf("expected string for default_branch, got %T", rule.Expected)
+		}
+
+		return client.UpdateRepository(ctx, owner, repo, &ghclient.RepoUpdateOpts{
+			DefaultBranch: &expected,
+		})
+
+	default:
+		return remediateBoolSetting(ctx, client, owner, repo, rule)
+	}
+}
+
+// remediateBoolSetting handles remediation for boolean repository settings.
+func remediateBoolSetting(
+	ctx context.Context,
+	client ghclient.Client,
+	owner, repo string,
+	rule *policy.SettingRuleConfig,
+) error {
+	expected, ok := rule.Expected.(bool)
+	if !ok {
+		return fmt.Errorf("expected bool for %s, got %T", rule.Property, rule.Expected)
+	}
+
+	opts := &ghclient.RepoUpdateOpts{}
+
+	switch rule.Property {
+	case "has_issues":
+		opts.HasIssues = &expected
+	case "has_wiki":
+		opts.HasWiki = &expected
+	case "delete_branch_on_merge":
+		opts.DeleteBranchOnMerge = &expected
+	case "allow_merge_commit":
+		opts.AllowMergeCommit = &expected
+	case "allow_squash_merge":
+		opts.AllowSquashMerge = &expected
+	case "allow_rebase_merge":
+		opts.AllowRebaseMerge = &expected
+	default:
+		return fmt.Errorf("unsupported bool property: %s", rule.Property)
+	}
+
+	return client.UpdateRepository(ctx, owner, repo, opts)
 }
 
 // policyRuleNames extracts rule names from policy file rules.

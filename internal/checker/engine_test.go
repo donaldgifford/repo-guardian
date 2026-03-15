@@ -29,6 +29,13 @@ type mockClient struct {
 	installRepos     map[int64][]*ghclient.Repository
 	processedJobs    atomic.Int32
 
+	// Setting rule mock fields.
+	repoSettings               *ghclient.RepoSettings
+	vulnerabilityAlertsEnabled bool
+	updatedRepoOpts            []*ghclient.RepoUpdateOpts
+	enabledVulnAlerts          bool
+	disabledVulnAlerts         bool
+
 	getRepoErr        error
 	getContentsErr    error
 	getFileContentErr error
@@ -177,23 +184,30 @@ func (m *mockClient) SetCustomPropertyValues(_ context.Context, _, _ string, pro
 	return nil
 }
 
-func (*mockClient) GetVulnerabilityAlertsEnabled(_ context.Context, _, _ string) (bool, error) {
-	return false, nil
+func (m *mockClient) GetVulnerabilityAlertsEnabled(_ context.Context, _, _ string) (bool, error) {
+	return m.vulnerabilityAlertsEnabled, nil
 }
 
-func (*mockClient) EnableVulnerabilityAlerts(_ context.Context, _, _ string) error {
+func (m *mockClient) EnableVulnerabilityAlerts(_ context.Context, _, _ string) error {
+	m.enabledVulnAlerts = true
 	return nil
 }
 
-func (*mockClient) DisableVulnerabilityAlerts(_ context.Context, _, _ string) error {
+func (m *mockClient) DisableVulnerabilityAlerts(_ context.Context, _, _ string) error {
+	m.disabledVulnAlerts = true
 	return nil
 }
 
-func (*mockClient) GetRepoSettings(_ context.Context, _, _ string) (*ghclient.RepoSettings, error) {
+func (m *mockClient) GetRepoSettings(_ context.Context, _, _ string) (*ghclient.RepoSettings, error) {
+	if m.repoSettings != nil {
+		return m.repoSettings, nil
+	}
+
 	return &ghclient.RepoSettings{}, nil
 }
 
-func (*mockClient) UpdateRepository(_ context.Context, _, _ string, _ *ghclient.RepoUpdateOpts) error {
+func (m *mockClient) UpdateRepository(_ context.Context, _, _ string, opts *ghclient.RepoUpdateOpts) error {
+	m.updatedRepoOpts = append(m.updatedRepoOpts, opts)
 	return nil
 }
 

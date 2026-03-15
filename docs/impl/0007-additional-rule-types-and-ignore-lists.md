@@ -136,15 +136,15 @@ repository settings.
 
 #### Tasks
 
-- [ ] Add `SettingRuleConfig` to `internal/policy/types.go`:
+- [x] Add `SettingRuleConfig` to `internal/policy/types.go`:
   - Name, Enabled, Property, Expected (interface{}), Remediate, Ignore
   - HCL struct tags for the `rule "setting"` block
-- [ ] Add `SettingRules []SettingRuleConfig` to `PolicyConfig`
-- [ ] Update HCL parser to handle `rule "setting" "<name>" {}` blocks
-- [ ] Update validation to check:
+- [x] Add `SettingRules []SettingRuleConfig` to `PolicyConfig`
+- [x] Update HCL parser to handle `rule "setting" "<name>" {}` blocks
+- [x] Update validation to check:
   - `property` is one of the supported properties
   - `expected` type matches property type (bool or string)
-- [ ] Implement setting rule evaluation in checker engine:
+- [x] Implement setting rule evaluation in checker engine:
   - Read current value from GitHub API
   - Compare against expected
   - Match → log, increment `settings_checked_total`
@@ -152,7 +152,7 @@ repository settings.
   - Mismatch + `remediate=true` + not dry_run → set via API, increment
     `settings_remediated_total`
   - Mismatch + `remediate=true` + dry_run → log "would remediate"
-- [ ] Add supported properties:
+- [x] Add supported properties:
   - `vulnerability_alerts_enabled` (bool)
   - `default_branch` (string)
   - `has_issues` (bool)
@@ -161,11 +161,11 @@ repository settings.
   - `allow_merge_commit` (bool)
   - `allow_squash_merge` (bool)
   - `allow_rebase_merge` (bool)
-- [ ] Add Prometheus metrics:
+- [x] Add Prometheus metrics:
   - `repo_guardian_settings_checked_total{rule_name}`
   - `repo_guardian_settings_remediated_total{rule_name}`
   - `repo_guardian_settings_mismatched_total{rule_name}`
-- [ ] Write unit tests:
+- [x] Write unit tests:
   - Setting matches expected: no action
   - Setting mismatches, remediate=false: logs mismatch
   - Setting mismatches, remediate=true: calls API to fix

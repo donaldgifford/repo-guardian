@@ -1058,6 +1058,248 @@ func TestEmptyIgnoreList_NoReposSkipped(t *testing.T) {
 	}
 }
 
+// --- Setting rule tests ---
+
+func TestSettingRule_MatchesExpected_NoAction(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		SettingRules: []policy.SettingRuleConfig{
+			{Name: "enable_issues", Property: "has_issues", Expected: true},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.repoSettings = &ghclient.RepoSettings{HasIssues: true}
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if len(client.updatedRepoOpts) != 0 {
+		t.Error("should not update repo when setting matches expected")
+	}
+}
+
+func TestSettingRule_Mismatch_NoRemediate(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		SettingRules: []policy.SettingRuleConfig{
+			{Name: "enable_issues", Property: "has_issues", Expected: true, Remediate: false},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.repoSettings = &ghclient.RepoSettings{HasIssues: false}
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if len(client.updatedRepoOpts) != 0 {
+		t.Error("should not update repo when remediate is false")
+	}
+}
+
+func TestSettingRule_Mismatch_Remediate(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		SettingRules: []policy.SettingRuleConfig{
+			{Name: "enable_issues", Property: "has_issues", Expected: true, Remediate: true},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.repoSettings = &ghclient.RepoSettings{HasIssues: false}
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if len(client.updatedRepoOpts) != 1 {
+		t.Fatalf("expected 1 UpdateRepository call, got %d", len(client.updatedRepoOpts))
+	}
+
+	opts := client.updatedRepoOpts[0]
+	if opts.HasIssues == nil || !*opts.HasIssues {
+		t.Error("expected HasIssues to be set to true")
+	}
+}
+
+func TestSettingRule_Mismatch_Remediate_DryRun(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		SettingRules: []policy.SettingRuleConfig{
+			{Name: "enable_issues", Property: "has_issues", Expected: true, Remediate: true},
+		},
+	}
+	cfg.Guardian.DryRun = true
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.repoSettings = &ghclient.RepoSettings{HasIssues: false}
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if len(client.updatedRepoOpts) != 0 {
+		t.Error("should not update repo in dry run mode")
+	}
+}
+
+func TestSettingRule_VulnerabilityAlerts_Remediate(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		SettingRules: []policy.SettingRuleConfig{
+			{Name: "vuln_alerts", Property: "vulnerability_alerts_enabled", Expected: true, Remediate: true},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.vulnerabilityAlertsEnabled = false
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if !client.enabledVulnAlerts {
+		t.Error("expected vulnerability alerts to be enabled")
+	}
+}
+
+func TestSettingRule_DefaultBranch_Remediate(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		SettingRules: []policy.SettingRuleConfig{
+			{Name: "default_branch", Property: "default_branch", Expected: "main", Remediate: true},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.repoSettings = &ghclient.RepoSettings{DefaultBranch: "master"}
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if len(client.updatedRepoOpts) != 1 {
+		t.Fatalf("expected 1 UpdateRepository call, got %d", len(client.updatedRepoOpts))
+	}
+
+	opts := client.updatedRepoOpts[0]
+	if opts.DefaultBranch == nil || *opts.DefaultBranch != "main" {
+		t.Error("expected DefaultBranch to be set to 'main'")
+	}
+}
+
+func TestSettingRule_PerRuleIgnore(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		SettingRules: []policy.SettingRuleConfig{
+			{
+				Name:      "enable_issues",
+				Property:  "has_issues",
+				Expected:  true,
+				Remediate: true,
+				Ignore:    &policy.IgnoreConfig{Repos: []string{"org/ignored"}},
+			},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "ignored", HasBranch: true, DefaultRef: "main",
+	}
+	client.repoSettings = &ghclient.RepoSettings{HasIssues: false}
+
+	err := engine.CheckRepo(context.Background(), client, "org", "ignored")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if len(client.updatedRepoOpts) != 0 {
+		t.Error("should not update repo when setting rule is ignored")
+	}
+}
+
+func TestSettingRule_Disabled(t *testing.T) {
+	t.Parallel()
+
+	disabled := false
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		SettingRules: []policy.SettingRuleConfig{
+			{
+				Name:      "enable_issues",
+				Property:  "has_issues",
+				Expected:  true,
+				Remediate: true,
+				Enabled:   &disabled,
+			},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.repoSettings = &ghclient.RepoSettings{HasIssues: false}
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if len(client.updatedRepoOpts) != 0 {
+		t.Error("should not update repo when setting rule is disabled")
+	}
+}
+
 func TestReconciler_DryRunPropagated(t *testing.T) {
 	t.Parallel()
 

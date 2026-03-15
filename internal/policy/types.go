@@ -22,9 +22,10 @@ const (
 
 // PolicyConfig is the top-level parsed configuration.
 type PolicyConfig struct {
-	Guardian   GuardianConfig   `hcl:"guardian,block"`
-	IgnoreList IgnoreConfig     `hcl:"ignore,block"`
-	FileRules  []FileRuleConfig `hcl:"rule,block"`
+	Guardian     GuardianConfig      `hcl:"guardian,block"`
+	IgnoreList   IgnoreConfig        `hcl:"ignore,block"`
+	FileRules    []FileRuleConfig    `hcl:"rule,block"`
+	SettingRules []SettingRuleConfig `hcl:"-"`
 }
 
 // GuardianConfig holds operational settings for the guardian application.
@@ -107,6 +108,37 @@ type AssertionConfig struct {
 // Patterns support glob matching via path.Match (e.g., "myorg/terraform-*").
 type IgnoreConfig struct {
 	Repos []string `hcl:"repos,optional"`
+}
+
+// SettingRuleConfig defines a repository setting compliance rule.
+type SettingRuleConfig struct {
+	Name      string        `hcl:"name,label"`
+	Enabled   *bool         `hcl:"enabled,optional"`
+	Property  string        `hcl:"property"`
+	Expected  any           `hcl:"expected"`
+	Remediate bool          `hcl:"remediate,optional"`
+	Ignore    *IgnoreConfig `hcl:"ignore,block"`
+}
+
+// IsEnabled returns whether the setting rule is enabled, defaulting to true.
+func (s *SettingRuleConfig) IsEnabled() bool {
+	if s.Enabled == nil {
+		return true
+	}
+
+	return *s.Enabled
+}
+
+// SupportedSettingProperties is the set of valid property names for setting rules.
+var SupportedSettingProperties = map[string]bool{
+	"vulnerability_alerts_enabled": true,
+	"default_branch":               true,
+	"has_issues":                   true,
+	"has_wiki":                     true,
+	"delete_branch_on_merge":       true,
+	"allow_merge_commit":           true,
+	"allow_squash_merge":           true,
+	"allow_rebase_merge":           true,
 }
 
 // ReconcilerConfig holds configuration for a reconciler attached to a rule.

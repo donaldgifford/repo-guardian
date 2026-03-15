@@ -90,25 +90,25 @@ Migrate the existing custom properties logic from
 
 #### Tasks
 
-- [ ] Create `internal/reconciler/custom_properties.go` implementing
+- [x] Create `internal/reconciler/custom_properties.go` implementing
   `Reconciler`:
   - `NewCustomPropertiesReconciler(config ReconcilerConfig) (Reconciler, error)`
   - `Name() string` returns `"custom_properties"`
   - `Reconcile(ctx, params)` mirrors current `CheckCustomProperties` flow
-- [ ] Extract from `internal/checker/properties.go`:
+- [x] Extract from `internal/checker/properties.go`:
   - YAML parsing logic (catalog-info extraction)
   - Custom property diff logic
   - API mode: set properties directly, PR if file missing
   - GHA mode: create PR with workflow
-- [ ] Use `CustomPropertiesConfig` fields for YAML path mappings
+- [x] Use `CustomPropertiesConfig` fields for YAML path mappings
   (owner, component, jira_project, jira_label)
-- [ ] Support configurable defaults (owner, component default values)
-- [ ] Preserve all existing metrics:
+- [x] Support configurable defaults (owner, component default values)
+- [x] Preserve all existing metrics:
   - `properties_checked_total`
   - `properties_set_total`
   - `properties_already_correct_total`
-- [ ] Register `custom_properties` factory in `NewRegistry()`
-- [ ] Write unit tests:
+- [x] Register `custom_properties` factory in `NewRegistry()`
+- [x] Write unit tests:
   - Reconcile with valid catalog-info content: extracts correct values,
     diffs against current, calls `SetCustomPropertyValues`
   - Reconcile with missing fields: uses configured defaults

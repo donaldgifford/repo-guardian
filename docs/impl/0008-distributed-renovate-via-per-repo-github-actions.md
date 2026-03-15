@@ -1,7 +1,7 @@
 ---
 id: IMPL-0008
 title: "Distributed Renovate via Per-Repo GitHub Actions"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-03-15
 ---
@@ -283,15 +283,15 @@ Full CI pipeline validation and cleanup.
 
 #### Tasks
 
-- [ ] Run `make ci` (lint + test + build) — all green
-- [ ] Review test coverage for changed packages (`internal/policy/`,
+- [x] Run `make ci` (lint + test + build) — all green
+- [x] Review test coverage for changed packages (`internal/policy/`,
       `internal/rules/`, `internal/checker/`)
-- [ ] Verify no TODO/FIXME comments left from implementation
-- [ ] Verify `renovate-workflow.tmpl` content exactly matches DESIGN-0009
+- [x] Verify no TODO/FIXME comments left from implementation
+- [x] Verify `renovate-workflow.tmpl` content exactly matches DESIGN-0009
       workflow YAML
-- [ ] Verify `renovate.tmpl` content matches DESIGN-0009 config JSON
-- [ ] Update this implementation doc status to "Completed"
-- [ ] Commit all changes with conventional commit message
+- [x] Verify `renovate.tmpl` content matches DESIGN-0009 config JSON
+- [x] Update this implementation doc status to "Completed"
+- [x] Commit all changes with conventional commit message
 
 #### Success Criteria
 
@@ -318,12 +318,12 @@ Full CI pipeline validation and cleanup.
 
 ## Testing Plan
 
-- [ ] Unit tests for org preset assertion pattern (6 cases: 2 valid, 4
+- [x] Unit tests for org preset assertion pattern (6 cases: 2 valid, 4
       invalid including wrong org)
-- [ ] Unit tests for exact-match check on workflow template
-- [ ] Unit tests for contains check with assertion on config
-- [ ] Unit tests for default rule configuration (both rules, org config)
-- [ ] Integration tests for engine pipeline (6 scenarios: both missing,
+- [x] Unit tests for exact-match check on workflow template
+- [x] Unit tests for contains check with assertion on config
+- [x] Unit tests for default rule configuration (both rules, org config)
+- [x] Integration tests for engine pipeline (6 scenarios: both missing,
       missing workflow, missing config, invalid config, drifted workflow,
       all present)
 

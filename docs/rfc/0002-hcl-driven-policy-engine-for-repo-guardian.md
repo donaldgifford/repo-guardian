@@ -291,8 +291,8 @@ guardian.hcl (file or directory)
 |  + properties     |     | - custom_props    |
 |  checker)         |     | - label_sync      |
 +-------------------+     | - branch_protect  |
-    |                      | - workflow_sync   |
-    v                      +-------------------+
+    |                     | - workflow_sync   |
+    v                     +-------------------+
 +-------------------+           |
 | Checker Engine    |<----------+
 | (refactored)      |
@@ -367,6 +367,7 @@ type Reconciler interface {
 ```
 
 Adding a new reconciler type requires:
+
 1. Go code for the reconciler implementation
 2. HCL schema definition for the reconciler's fixed fields
 3. No changes to the rule engine or config loader
@@ -383,6 +384,7 @@ Two levels:
 Patterns support glob matching (e.g., `myorg/terraform-*`).
 
 Evaluation order:
+
 1. Global ignore list checked first (cheapest)
 2. Per-rule ignore list checked before rule evaluation
 
@@ -392,6 +394,7 @@ When a rule has `reconcile { watch = true }`, repo-guardian handles `push`
 events for the rule's file paths.
 
 The push handler:
+
 1. Checks the push is to the default branch
 2. Scans `commits[].added` and `commits[].modified` for watched file paths
 3. Enqueues the repo if a match is found

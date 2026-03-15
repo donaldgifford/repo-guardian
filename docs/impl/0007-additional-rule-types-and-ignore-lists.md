@@ -234,13 +234,13 @@ YAML configuration file.
 
 #### Tasks
 
-- [ ] Create `internal/reconciler/label_sync.go` implementing `Reconciler`:
+- [x] Create `internal/reconciler/label_sync.go` implementing `Reconciler`:
   - `NewLabelSyncReconciler(config ReconcilerConfig) (Reconciler, error)`
   - `Name()` returns `"label_sync"`
   - `Reconcile(ctx, params)` implements the sync flow
-- [ ] Define label file YAML schema:
+- [x] Define label file YAML schema:
   - `labels: [{name, color, description, renamed_from}]`
-- [ ] Implement reconcile flow:
+- [x] Implement reconcile flow:
   1. Parse file content as YAML label list
   2. List current repo labels via GitHub API
   3. Process renames first (`renamed_from` where old name exists)
@@ -248,10 +248,10 @@ YAML configuration file.
   5. Create missing labels
   6. Update changed labels (color or description mismatch)
   7. If `delete_extra = true`, delete labels not in the file
-- [ ] Add `LabelSyncConfig` fields to `ReconcilerConfig`:
+- [x] Add `LabelSyncConfig` fields to `ReconcilerConfig`:
   - `DeleteExtra bool`
-- [ ] Register `label_sync` factory in `NewRegistry()`
-- [ ] Write unit tests:
+- [x] Register `label_sync` factory in `NewRegistry()`
+- [x] Write unit tests:
   - Creates missing labels
   - Updates labels with changed color/description
   - Renames labels via `renamed_from`

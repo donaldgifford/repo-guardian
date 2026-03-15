@@ -454,6 +454,8 @@ func decodeReconcileBlock(block *hcl.Block, ctx *hcl.EvalContext) (*ReconcilerCo
 			rec.Watch = val.True()
 		case "mode":
 			rec.Mode = val.AsString()
+		case "delete_extra":
+			rec.DeleteExtra = val.True()
 		}
 	}
 

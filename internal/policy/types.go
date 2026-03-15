@@ -168,7 +168,8 @@ func (b *BranchProtectionRuleConfig) IsEnabled() bool {
 
 // ReconcilerConfig holds configuration for a reconciler attached to a rule.
 type ReconcilerConfig struct {
-	Type  string `hcl:"type,label"`
-	Watch bool   `hcl:"watch,optional"`
-	Mode  string `hcl:"mode,optional"`
+	Type        string `hcl:"type,label"`
+	Watch       bool   `hcl:"watch,optional"`
+	Mode        string `hcl:"mode,optional"`
+	DeleteExtra bool   `hcl:"delete_extra,optional"`
 }

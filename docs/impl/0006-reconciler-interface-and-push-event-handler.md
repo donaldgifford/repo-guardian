@@ -176,14 +176,14 @@ is present.
 
 #### Tasks
 
-- [ ] In `internal/policy/defaults.go`: when `CUSTOM_PROPERTIES_MODE` is
+- [x] In `internal/policy/defaults.go`: when `CUSTOM_PROPERTIES_MODE` is
   set and no HCL config is loaded, add a `custom_properties` reconciler
   to the `catalog_info` file rule in built-in defaults
-- [ ] Map env var mode value to reconciler config fields:
+- [x] Map env var mode value to reconciler config fields:
   - `mode = os.Getenv("CUSTOM_PROPERTIES_MODE")`
   - `watch = false` (no push handler in legacy mode)
   - Field mappings match current hardcoded values in `properties.go`
-- [ ] Write backward compatibility test:
+- [x] Write backward compatibility test:
   - No HCL config + `CUSTOM_PROPERTIES_MODE=api` → engine behavior
     identical to current
   - No HCL config + `CUSTOM_PROPERTIES_MODE=""` → no reconciler attached

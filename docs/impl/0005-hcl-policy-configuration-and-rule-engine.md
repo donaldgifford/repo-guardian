@@ -394,22 +394,21 @@ Add Helm chart support for mounting the HCL policy file via ConfigMap.
 - `gopkg.in/yaml.v3` — already in go.mod, used for YAML path evaluator
 - DESIGN-0006 — design document (completed)
 
-## Open Questions
+## Resolved Questions
 
-1. **Config trimming scope:** Should `config.Config` be fully trimmed of
-   operational fields in Phase 8, or should we maintain a compatibility shim
-   where `config.Config` still has the fields but delegates to
-   `GuardianConfig`? Trimming is cleaner but touches more files. A shim is
-   safer for rollout but adds technical debt.
+1. **Config trimming scope:** Fully trim `config.Config` of operational
+   fields in Phase 8. No compatibility shim — clean cut. `config.Config`
+   keeps only credentials (`GitHubAppID`, private key, webhook secret).
 
-2. **HCL library choice:** `hashicorp/hcl/v2` with `hclsimple` is the
-   simplest approach. However, `hcl/v2` with `gohcl` gives more control
-   over schema definition. Which API surface should we target?
+2. **HCL library choice:** Use `hclsimple` as the primary parsing API.
+   Both `hclsimple` and `gohcl` are subpackages of `github.com/hashicorp/hcl/v2`
+   — single dependency. Pull in other parts of the library as needed
+   (e.g., `hclparse` for better diagnostics).
 
-3. **Regex compilation caching:** Should compiled regexes live on the
-   `AssertionConfig` struct (populated at load time) or in a separate
-   compiled assertion type? The struct approach is simpler; the separate
-   type is more testable.
+3. **Regex compilation caching:** Use a separate compiled assertion type.
+   Regexes are compiled at config load time into a distinct type — compile
+   errors are caught early, and the type is independently testable and
+   mockable.
 
 ## References
 

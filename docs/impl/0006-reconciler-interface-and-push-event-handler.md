@@ -333,22 +333,19 @@ Remove the old custom properties code path and verify end-to-end behavior.
 - Current custom properties code: `internal/checker/properties.go`
 - Current webhook handler: `internal/webhook/handler.go`
 
-## Open Questions
+## Resolved Questions
 
-1. **Reconciler error handling:** Should a reconciler error fail the entire
-   `CheckRepo` call, or should it be logged and the check continue? Current
-   `checkCustomPropertiesIfEnabled` logs and continues. The design doc
-   follows this pattern, but should we make it configurable per reconciler?
+1. **Reconciler error handling:** Configurable per reconciler, defaulting to
+   fail the entire `CheckRepo` call. Reconcilers can opt into
+   log-and-continue behavior via config. Fail loud by default.
 
-2. **Push event handler testing:** The `PushEvent` type from `go-github`
-   has complex nested structures. Should we use real JSON fixtures from
-   GitHub's webhook docs, or construct Go structs directly in tests?
+2. **Push event handler testing:** Use both approaches — real JSON fixtures
+   from GitHub's webhook docs for realistic payload parsing, and Go structs
+   constructed directly for targeted edge cases.
 
-3. **Reconciler content reading:** The design says file content is read once
-   and passed to all reconcilers. Should we use `client.GetFileContent` (new
-   method) or reuse the existing `client.GetContents` which only checks
-   existence? We'll need to add a content-reading method to the GitHub
-   client interface.
+3. **Reconciler content reading:** Add a new `client.GetFileContent` method
+   that returns the file content as a string. Leave the existing
+   `client.GetContents` (existence check only) unchanged.
 
 ## References
 

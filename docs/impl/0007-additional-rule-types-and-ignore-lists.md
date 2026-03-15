@@ -393,27 +393,23 @@ End-to-end testing and documentation updates.
 - DESIGN-0008 — design document (completed)
 - GitHub rulesets API documentation
 
-## Open Questions
+## Resolved Questions
 
-1. **Ruleset API vs legacy branch protection API:** DESIGN-0008 specifies
-   the rulesets API. However, the rulesets API requires different permissions
-   and has different capabilities. Should we support both APIs with a config
-   flag, or commit to rulesets-only? Rulesets are GitHub's recommended path
-   forward, but some organizations may not have access.
+1. **Ruleset API vs legacy branch protection API:** Rulesets only. GitHub's
+   recommended path forward. If an org doesn't have access, that's a
+   problem for later.
 
-2. **Label sync conflict resolution:** If a label exists with the same name
-   as a `renamed_from` source AND the target name, what should happen?
-   Options: (a) skip the rename, (b) error, (c) delete the old label.
-   Need to define the conflict resolution strategy.
+2. **Label sync conflict resolution:** Skip the rename and log a warning.
+   No destructive action on conflicts — if both the source and target
+   label names exist, the rename is silently skipped with a warning log.
 
-3. **Setting rule property extensibility:** The supported properties list
-   is fixed in code. If a user wants to check a property not in the list,
-   should we support arbitrary repo API fields or keep the curated list?
-   Starting with a curated list is safer but less flexible.
+3. **Setting rule property extensibility:** Curated list with type checking.
+   Properties are validated against known types at config load time, similar
+   to Terraform variable validation blocks. Keeps things safe and typed.
 
-4. **Ignore list case sensitivity:** GitHub repo names are case-insensitive
-   but our glob matching uses `path.Match` which is case-sensitive. Should
-   we normalize to lowercase before matching?
+4. **Ignore list case sensitivity:** Normalize to lowercase before matching.
+   GitHub repo names are case-insensitive, so `path.Match` input is
+   lowercased to match that behavior.
 
 ## References
 

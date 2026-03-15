@@ -212,6 +212,7 @@ func newReconcilerRegistry(templates *rules.TemplateStore) *reconciler.Registry 
 	})
 	reg.Register("label_sync", reconciler.NewLabelSyncReconciler)
 	reg.Register("branch_protection", reconciler.NewBranchProtectionReconciler)
+	reg.Register("workflow_sync", reconciler.NewWorkflowSyncReconciler)
 
 	return reg
 }

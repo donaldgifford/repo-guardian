@@ -1742,3 +1742,161 @@ func TestIntegration_LabelSyncReconciler_EndToEnd(t *testing.T) {
 		t.Error("should not create PR when label file exists")
 	}
 }
+
+func TestPolicyCheckRepo_ExactMode_RenovateWorkflowMatchesTemplate(t *testing.T) {
+	t.Parallel()
+
+	ts := rules.NewTemplateStore()
+	if err := ts.Load(""); err != nil {
+		t.Fatal(err)
+	}
+
+	templateContent, err := ts.Get("renovate-workflow")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	enabled := true
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{{
+			Type:     "file",
+			Name:     "renovate_workflow",
+			Enabled:  &enabled,
+			Check:    "exact",
+			Paths:    []string{".github/workflows/renovate.yml"},
+			Target:   ".github/workflows/renovate.yml",
+			Template: "renovate-workflow",
+		}},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.contents["org/repo/.github/workflows/renovate.yml"] = true
+	client.fileContents["org/repo/.github/workflows/renovate.yml"] = templateContent
+
+	err = engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR != nil {
+		t.Error("should not create PR when workflow matches template exactly")
+	}
+}
+
+func TestPolicyCheckRepo_ExactMode_RenovateWorkflowDrifted(t *testing.T) {
+	t.Parallel()
+
+	enabled := true
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{{
+			Type:     "file",
+			Name:     "renovate_workflow",
+			Enabled:  &enabled,
+			Check:    "exact",
+			Paths:    []string{".github/workflows/renovate.yml"},
+			Target:   ".github/workflows/renovate.yml",
+			Template: "renovate-workflow",
+		}},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "abc123"
+	client.contents["org/repo/.github/workflows/renovate.yml"] = true
+	client.fileContents["org/repo/.github/workflows/renovate.yml"] = "name: Renovate\non:\n  workflow_dispatch:\n"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR == nil {
+		t.Fatal("expected PR when workflow content drifted from template")
+	}
+}
+
+func TestPolicyCheckRepo_ContainsMode_RenovateConfigValidAssertion(t *testing.T) {
+	t.Parallel()
+
+	enabled := true
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{{
+			Type:     "file",
+			Name:     "renovate_config",
+			Enabled:  &enabled,
+			Check:    "contains",
+			Paths:    []string{"renovate.json"},
+			Target:   "renovate.json",
+			Template: "renovate",
+			Assertions: []policy.AssertionConfig{
+				{Pattern: `github>.*renovate-config`, Message: "renovate.json must extend org preset"},
+			},
+		}},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.contents["org/repo/renovate.json"] = true
+	client.fileContents["org/repo/renovate.json"] = `{"extends": ["github>myorg/renovate-config"]}`
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR != nil {
+		t.Error("should not create PR when renovate config passes assertion")
+	}
+}
+
+func TestPolicyCheckRepo_ContainsMode_RenovateConfigInvalidAssertion(t *testing.T) {
+	t.Parallel()
+
+	enabled := true
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{{
+			Type:     "file",
+			Name:     "renovate_config",
+			Enabled:  &enabled,
+			Check:    "contains",
+			Paths:    []string{"renovate.json"},
+			Target:   "renovate.json",
+			Template: "renovate",
+			Assertions: []policy.AssertionConfig{
+				{Pattern: `github>.*renovate-config`, Message: "renovate.json must extend org preset"},
+			},
+		}},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "abc123"
+	client.contents["org/repo/renovate.json"] = true
+	client.fileContents["org/repo/renovate.json"] = `{"extends": ["config:recommended"]}`
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR == nil {
+		t.Fatal("expected PR when renovate config fails assertion")
+	}
+}

@@ -145,26 +145,26 @@ mode works with the workflow template.
 
 #### Tasks
 
-- [ ] Write unit tests in `internal/policy/assertion_test.go` for the
+- [x] Write unit tests in `internal/policy/assertion_test.go` for the
       Renovate org preset assertion pattern
       (`github>donaldgifford/renovate-config`):
-  - [ ] Valid: `{"extends": ["github>donaldgifford/renovate-config"]}`
+  - [x] Valid: `{"extends": ["github>donaldgifford/renovate-config"]}`
         — passes
-  - [ ] Valid: `{"extends": ["github>donaldgifford/renovate-config"],
+  - [x] Valid: `{"extends": ["github>donaldgifford/renovate-config"],
         "labels": ["deps"]}` — passes (overrides allowed)
-  - [ ] Invalid: `{"extends": ["config:recommended"]}` — fails
-  - [ ] Invalid: `{"extends": ["github>wrongorg/renovate-config"]}`
+  - [x] Invalid: `{"extends": ["config:recommended"]}` — fails
+  - [x] Invalid: `{"extends": ["github>wrongorg/renovate-config"]}`
         — fails (wrong org)
-  - [ ] Invalid: `{}` — fails (no extends)
-  - [ ] Invalid: empty string — fails
-- [ ] Write unit test in `internal/checker/engine_policy_test.go` for
+  - [x] Invalid: `{}` — fails (no extends)
+  - [x] Invalid: empty string — fails
+- [x] Write unit test in `internal/checker/engine_policy_test.go` for
       `evaluateExact()` with the renovate workflow template — verify that
       identical content passes and modified content triggers action
-- [ ] Write unit test in `internal/checker/engine_policy_test.go` for
+- [x] Write unit test in `internal/checker/engine_policy_test.go` for
       `evaluateContains()` with the renovate config — verify that present
       file with valid assertion passes and invalid assertion triggers
       action
-- [ ] Run `make test` to verify all tests pass
+- [x] Run `make test` to verify all tests pass
 
 #### Success Criteria
 

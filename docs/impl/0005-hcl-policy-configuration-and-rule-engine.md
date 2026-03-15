@@ -329,20 +329,20 @@ Add Helm chart support for mounting the HCL policy file via ConfigMap.
 
 #### Tasks
 
-- [ ] Add `policy.config` and `policy.existingConfigMap` to `values.yaml`
-- [ ] Create `templates/policy-configmap.yaml` (rendered when
+- [x] Add `policy.config` and `policy.existingConfigMap` to `values.yaml`
+- [x] Create `templates/policy-configmap.yaml` (rendered when
   `policy.config` is set)
-- [ ] Update `templates/deployment.yaml` to mount policy ConfigMap at
+- [x] Update `templates/deployment.yaml` to mount policy ConfigMap at
   `/etc/repo-guardian/guardian.hcl`
-- [ ] Set `GUARDIAN_CONFIG` env var in deployment when policy ConfigMap is
+- [x] Set `GUARDIAN_CONFIG` env var in deployment when policy ConfigMap is
   present
-- [ ] Write helm-unittest tests:
+- [x] Write helm-unittest tests:
   - Policy ConfigMap renders correctly with inline config
   - Policy ConfigMap not rendered when `policy.config` is empty
   - External ConfigMap used when `policy.existingConfigMap` is set
   - Deployment volume mount present when policy is configured
   - `GUARDIAN_CONFIG` env var set correctly
-- [ ] Update `ci/ci-values.yaml` if needed for chart-testing
+- [x] Update `ci/ci-values.yaml` if needed for chart-testing
 
 #### Success Criteria
 

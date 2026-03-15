@@ -152,6 +152,13 @@ serviceMonitor:
   # -- Additional labels for ServiceMonitor
   labels: {}
 
+# -- HCL policy configuration
+policy:
+  # -- Inline HCL policy config (creates a ConfigMap)
+  config: ""
+  # -- Use an existing ConfigMap for policy config
+  existingConfigMap: ""
+
 # -- Additional environment variables
 extraEnv: []
 # -- Additional volumes

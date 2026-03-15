@@ -99,6 +99,10 @@ spec:
             - name: TRUST_PROXY_HEADERS
               value: {{ .Values.webhookIPAllowlist.trustProxyHeaders | quote }}
             {{- end }}
+            {{- if or .Values.policy.config .Values.policy.existingConfigMap }}
+            - name: GUARDIAN_CONFIG
+              value: /etc/repo-guardian/policy/guardian.hcl
+            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -111,6 +115,11 @@ spec:
             - name: templates
               mountPath: /etc/repo-guardian/templates
               readOnly: true
+            {{- if or .Values.policy.config .Values.policy.existingConfigMap }}
+            - name: policy
+              mountPath: /etc/repo-guardian/policy
+              readOnly: true
+            {{- end }}
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -169,6 +178,11 @@ spec:
         - name: templates
           configMap:
             name: {{ include "repo-guardian.fullname" . }}-templates
+        {{- if or .Values.policy.config .Values.policy.existingConfigMap }}
+        - name: policy
+          configMap:
+            name: {{ .Values.policy.existingConfigMap | default (printf "%s-policy" (include "repo-guardian.fullname" .)) }}
+        {{- end }}
         {{- if .Values.tailscale.enabled }}
         - name: tailscale-state
           emptyDir: {}

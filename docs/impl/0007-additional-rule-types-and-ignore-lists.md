@@ -276,20 +276,20 @@ from a YAML file and applies them via the rulesets API.
 
 #### Tasks
 
-- [ ] Create `internal/reconciler/branch_protection.go` implementing
+- [x] Create `internal/reconciler/branch_protection.go` implementing
   `Reconciler`:
   - `NewBranchProtectionReconciler(config ReconcilerConfig) (Reconciler, error)`
   - `Name()` returns `"branch_protection"`
   - `Reconcile(ctx, params)` reads YAML file and applies settings
-- [ ] Define branch protection YAML schema (mirrors
+- [x] Define branch protection YAML schema (mirrors
   `BranchProtectionRuleConfig` fields)
-- [ ] Implement reconcile flow:
+- [x] Implement reconcile flow:
   1. Parse file content as YAML
   2. Read current rulesets via API
   3. Diff desired vs current
   4. Create or update rulesets as needed
-- [ ] Register `branch_protection` factory in `NewRegistry()`
-- [ ] Write unit tests:
+- [x] Register `branch_protection` factory in `NewRegistry()`
+- [x] Write unit tests:
   - Valid YAML → correct rulesets created
   - Existing rulesets updated when settings change
   - No changes when settings match

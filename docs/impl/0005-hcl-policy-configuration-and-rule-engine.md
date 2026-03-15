@@ -63,14 +63,14 @@ logic yet -- just the data structures that everything else builds on.
 
 #### Tasks
 
-- [ ] Create `internal/policy/types.go` with all Go types:
+- [x] Create `internal/policy/types.go` with all Go types:
   `PolicyConfig`, `GuardianConfig`, `FileRuleConfig`, `CheckMode` constants,
   `PRConfig`, `AssertionConfig`
-- [ ] Add placeholder fields for future types: `IgnoreConfig`,
+- [x] Add placeholder fields for future types: `IgnoreConfig`,
   `ReconcilerConfig` (empty structs, filled in IMPL-0006/0007)
-- [ ] Add `hashicorp/hcl/v2` and `hashicorp/hcl/v2/hclsimple` to `go.mod`
-- [ ] Add HCL struct tags to all types for schema binding
-- [ ] Write unit tests validating Go type construction and zero-value
+- [x] Add `hashicorp/hcl/v2` and `hashicorp/hcl/v2/hclsimple` to `go.mod`
+- [x] Add HCL struct tags to all types for schema binding
+- [x] Write unit tests validating Go type construction and zero-value
   defaults
 
 #### Success Criteria

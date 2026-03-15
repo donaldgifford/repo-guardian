@@ -74,13 +74,17 @@ structured configuration.
 
 ```hcl
 guardian {
-  dry_run            = false       # BOOL, env: DRY_RUN
-  schedule_interval  = "168h"      # DURATION, env: SCHEDULE_INTERVAL
-  worker_count       = 5           # INT, env: WORKER_COUNT
-  queue_size         = 1000        # INT, env: QUEUE_SIZE
-  log_level          = "info"      # STRING, env: LOG_LEVEL
-  skip_forks         = true        # BOOL, env: SKIP_FORKS
-  skip_archived      = true        # BOOL, env: SKIP_ARCHIVED
+  dry_run                       = false    # BOOL, env: DRY_RUN
+  schedule_interval             = "168h"   # DURATION, env: SCHEDULE_INTERVAL
+  worker_count                  = 5        # INT, env: WORKER_COUNT
+  queue_size                    = 1000     # INT, env: QUEUE_SIZE
+  log_level                     = "info"   # STRING, env: LOG_LEVEL
+  skip_forks                    = true     # BOOL, env: SKIP_FORKS
+  skip_archived                 = true     # BOOL, env: SKIP_ARCHIVED
+  rate_limit_threshold          = 0.10     # FLOAT, env: RATE_LIMIT_THRESHOLD
+  webhook_ip_allowlist          = true     # BOOL, env: WEBHOOK_IP_ALLOWLIST
+  webhook_ip_allowlist_fail_open = false   # BOOL, env: WEBHOOK_IP_ALLOWLIST_FAIL_OPEN
+  trust_proxy_headers           = false    # BOOL, env: TRUST_PROXY_HEADERS
 }
 ```
 
@@ -130,13 +134,17 @@ type PolicyConfig struct {
 }
 
 type GuardianConfig struct {
-    DryRun           bool
-    ScheduleInterval time.Duration
-    WorkerCount      int
-    QueueSize        int
-    LogLevel         string
-    SkipForks        bool
-    SkipArchived     bool
+    DryRun                    bool
+    ScheduleInterval          time.Duration
+    WorkerCount               int
+    QueueSize                 int
+    LogLevel                  string
+    SkipForks                 bool
+    SkipArchived              bool
+    RateLimitThreshold        float64
+    WebhookIPAllowlist        bool
+    WebhookIPAllowlistFailOpen bool
+    TrustProxyHeaders         bool
 }
 
 type FileRuleConfig struct {
@@ -217,6 +225,10 @@ When `GUARDIAN_CONFIG` points to a directory:
 | `guardian.log_level` | `LOG_LEVEL` | string |
 | `guardian.skip_forks` | `SKIP_FORKS` | bool |
 | `guardian.skip_archived` | `SKIP_ARCHIVED` | bool |
+| `guardian.rate_limit_threshold` | `RATE_LIMIT_THRESHOLD` | float |
+| `guardian.webhook_ip_allowlist` | `WEBHOOK_IP_ALLOWLIST` | bool |
+| `guardian.webhook_ip_allowlist_fail_open` | `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN` | bool |
+| `guardian.trust_proxy_headers` | `TRUST_PROXY_HEADERS` | bool |
 
 Env vars for credentials (`GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY_PATH`,
 `GITHUB_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET`) remain env-var-only -- they
@@ -403,39 +415,24 @@ in-memory struct loaded at startup.
 5. Helm chart updated to support `policy.config` and
    `policy.existingConfigMap`
 
-## Open Questions
+## Resolved Questions
 
-1. **Should we vendor or use a minimal YAML path evaluator?** Options:
-   a) Write a minimal evaluator for the subset we need (dot paths + array
-   wildcards) -- ~200 lines, no dependency
-   b) Use `yq` library (`github.com/mikefarah/yq/v4`) -- full-featured but
-   heavy dependency
-   c) Use `github.com/PaesslerAG/jsonpath` after converting YAML to JSON --
-   proven but adds a conversion step
-   The minimal evaluator is preferred given the simple path syntax we need.
+1. **YAML path evaluator:** Write a minimal evaluator (~200 lines) for dot
+   paths + array wildcards. No external dependency. The subset we need is
+   small enough to own.
 
-2. **How should `exact` mode handle template variables?** Templates like
-   `catalog-info.tmpl` contain placeholders (`REPO_NAME`, `ORG_NAME`). In
-   `exact` mode, should we render the template with the repo's actual values
-   before comparing, or should `exact` mode only work with static templates
-   (no placeholders)? Templates with placeholders probably shouldn't use
-   `exact` mode since the rendered output varies per repo.
+2. **`exact` mode with template variables:** `exact` mode only works with
+   static templates (no placeholders). Templates with variables (like
+   `catalog-info.tmpl`) should use `exists` or `contains` with assertions
+   instead.
 
-3. **Should the `guardian` block support `rate_limit_threshold`?** It's
-   currently an env var (`RATE_LIMIT_THRESHOLD`). Including it in the
-   `guardian` block keeps operational settings in one place, but it's a
-   tuning knob that rarely changes. Same question for `webhook_ip_allowlist`,
-   `webhook_ip_allowlist_fail_open`, and `trust_proxy_headers`.
+3. **`guardian` block scope:** All operational settings go in the `guardian`
+   block, including `rate_limit_threshold`, `webhook_ip_allowlist`,
+   `webhook_ip_allowlist_fail_open`, and `trust_proxy_headers`. The HCL
+   file is the source of truth; env vars are overrides.
 
-4. **Should we support HCL variables and locals?** HCL natively supports
-   `variable` blocks and `locals` for DRY configurations:
-   ```hcl
-   locals {
-     common_pr_terms = ["repo-guardian"]
-   }
-   ```
-   This adds complexity but could be useful for large configs. Should this
-   be supported from the start or deferred?
+4. **HCL variables and locals:** Supported from the start. Full HCL
+   expression evaluation including `locals {}` blocks for DRY configs.
 
 ## References
 

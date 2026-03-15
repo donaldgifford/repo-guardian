@@ -303,13 +303,31 @@ type LabelSyncConfig struct {
 }
 ```
 
+#### Label File Schema
+
+```yaml
+labels:
+  - name: bug
+    color: "d73a4a"
+    description: "Something isn't working"
+  - name: enhancement
+    color: "a2eeef"
+    description: "New feature or request"
+    renamed_from: "feature"   # optional, triggers rename instead of delete+create
+```
+
+The `renamed_from` field allows renaming labels while preserving
+issue/PR associations. When present, the reconciler detects the old label
+and renames it via the GitHub API rather than deleting and recreating.
+
 #### Reconcile Flow
 
-1. Parse the labels file (YAML: list of `{name, color, description}`)
+1. Parse the labels file (YAML: list of `{name, color, description, renamed_from}`)
 2. List current repo labels via GitHub API
-3. Diff desired vs current
-4. Create missing labels, update changed labels
-5. If `delete_extra = true`, delete labels not in the file
+3. Process renames first (labels with `renamed_from` where old name exists)
+4. Diff desired vs current
+5. Create missing labels, update changed labels
+6. If `delete_extra = true`, delete labels not in the file
 
 ### Reconciler: `branch_protection`
 
@@ -389,9 +407,11 @@ EnableVulnerabilityAlerts(ctx, owner, repo) error
 DisableVulnerabilityAlerts(ctx, owner, repo) error
 UpdateRepository(ctx, owner, repo, opts) error
 
-// Branch protection
-GetBranchProtection(ctx, owner, repo, branch) (*BranchProtection, error)
-UpdateBranchProtection(ctx, owner, repo, branch, opts) error
+// Repository rulesets (branch protection)
+ListRepositoryRulesets(ctx, owner, repo) ([]*Ruleset, error)
+GetRepositoryRuleset(ctx, owner, repo, rulesetID) (*Ruleset, error)
+CreateRepositoryRuleset(ctx, owner, repo, ruleset) (*Ruleset, error)
+UpdateRepositoryRuleset(ctx, owner, repo, rulesetID, ruleset) (*Ruleset, error)
 
 // Labels
 ListLabels(ctx, owner, repo) ([]*Label, error)
@@ -462,39 +482,30 @@ evaluation.
 5. Each addition is opt-in via `guardian.hcl` -- no impact on existing
    deployments
 
-## Open Questions
+## Resolved Questions
 
-1. **Should ignore lists support repo metadata beyond name?** For example,
-   ignoring all repos with a specific topic, or all private repos, or all
-   repos in a specific team. Name-based matching covers most cases, but
-   metadata-based filtering would be more powerful. This could be a future
-   enhancement: `ignore { topics = ["archived", "deprecated"] }`.
+1. **Ignore by repo metadata:** Name + glob only for now. Archived repos
+   are already ignored by default via `skip_archived = true` in the
+   `guardian` block. Metadata-based filtering (topics, visibility, team)
+   can be a future enhancement if needed.
 
-2. **Should setting rules support custom properties as a `property` type?**
-   Currently custom properties are handled by the `custom_properties`
-   reconciler attached to the `catalog_info` file rule. Should there also
-   be a way to set custom properties directly via `rule "setting"` without
-   needing a `catalog-info.yaml` file? This would be useful for properties
-   that don't come from Backstage.
+2. **Custom properties via `rule "setting"`:** No. Custom properties always
+   flow through `catalog-info.yaml` via the `custom_properties` reconciler.
+   The file is the source of truth -- if values aren't set, read from
+   catalog-info; if they don't match, make them match; if no file exists,
+   PR one.
 
-3. **Should `rule "branch_protection"` use the legacy branch protection
-   API or the newer repository rulesets API?** The rulesets API
-   (`/repos/{owner}/{repo}/rulesets`) is more powerful and is GitHub's
-   recommended path forward, but it requires different permissions and has
-   a different data model. The legacy API
-   (`/repos/{owner}/{repo}/branches/{branch}/protection`) is simpler and
-   more widely used. Should we support both, or pick one?
+3. **Branch protection API:** Use the repository rulesets API
+   (`/repos/{owner}/{repo}/rulesets`). It's GitHub's recommended path
+   forward and more powerful than the legacy branch protection API.
 
-4. **Should ignore list changes require a restart or be hot-reloadable?**
-   Currently the HCL config is loaded at startup. If ignore lists change
-   frequently (e.g., adding repos during an incident), a restart is
-   required. Hot-reload (watching the config file for changes) adds
-   complexity but improves operational agility.
+4. **Hot-reloadable config:** No. Require a restart. In Kubernetes, a
+   ConfigMap change triggers a rollout anyway, so hot-reload adds
+   complexity for no practical benefit.
 
-5. **Should `label_sync` reconciler handle label renames?** If a label is
-   renamed in the config file, should the reconciler detect the old label
-   and rename it (preserving issues assigned to it), or delete the old and
-   create the new (losing the association)?
+5. **Label rename handling:** Support renames via a `renamed_from` field
+   in the label config. The reconciler detects the old label and renames
+   it via the GitHub API, preserving issue/PR associations.
 
 ## References
 

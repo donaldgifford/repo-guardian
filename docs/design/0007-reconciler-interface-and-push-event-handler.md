@@ -446,33 +446,24 @@ No data model changes. The `RepoJob` struct is reused as-is.
 8. If push event volume is too high, remove the `push` subscription as a
    kill switch (no code change needed)
 
-## Open Questions
+## Resolved Questions
 
-1. **Should the reconciler receive the `CheckMode` result?** The reconciler
-   currently gets the file content. Should it also know whether the file
-   passed assertions (in `contains` mode) or matched the template (in
-   `exact` mode)? This could be useful for reconcilers that want to behave
-   differently based on file validity -- e.g., skip reconciliation if
-   assertions failed. Currently, reconcilers only run when assertions pass.
+1. **Reconciler receives check mode result:** No. Keep it simple --
+   reconcilers receive file content only. They only run when assertions
+   pass (or in `exists` mode, when the file is present). If we need
+   conditional behavior later, we can add it then.
 
-2. **Should push-triggered jobs run the full `CheckRepo` or only
-   reconcilers?** The current design runs a full `CheckRepo` (file rules +
-   reconcilers) since it's simple and idempotent. An alternative is a
-   `ReconcileOnly` job type that skips file existence checks. The tradeoff
-   is simplicity vs avoiding unnecessary API calls for repos where all
-   files are already present.
+2. **Full `CheckRepo` vs reconcile-only for push jobs:** Full `CheckRepo`.
+   Simple, idempotent, and the extra file existence checks are lightweight.
+   No new job type needed.
 
-3. **Should the `enqueue` function accept `TriggerPush` as a new parameter
-   or should we modify `RepoJob` to include additional context?** For
-   example, a push-triggered job could carry the list of changed files so
-   the checker engine only runs reconcilers for rules whose files changed,
-   rather than re-evaluating all rules. This is an optimization that trades
-   simplicity for efficiency.
+3. **Push-triggered `RepoJob` carries changed file paths:** No. Since we
+   run full `CheckRepo`, there's no need to pass changed paths. The
+   standard `RepoJob` struct is reused as-is.
 
-4. **How should the push handler handle tag pushes?** The `push` event also
-   fires for tag pushes (`refs/tags/...`). The current design filters on
-   `refs/heads/<default_branch>`, so tag pushes are ignored. Should we
-   explicitly log this for debugging visibility?
+4. **Tag push handling:** Log tag pushes at debug level for visibility.
+   The `refs/heads/<default_branch>` filter already ignores them, but an
+   explicit debug log helps with troubleshooting.
 
 ## References
 

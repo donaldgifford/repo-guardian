@@ -301,17 +301,17 @@ the application. Trim `config.Config` to only hold credentials.
 
 #### Tasks
 
-- [ ] Add `GUARDIAN_CONFIG` to `config.Config` (path to HCL file/dir)
-- [ ] Call `policy.Load()` in `main.go` after `config.Load()`
-- [ ] Pass `PolicyConfig.Guardian` fields to components that currently read
+- [x] Add `GUARDIAN_CONFIG` to `config.Config` (path to HCL file/dir)
+- [x] Call `policy.Load()` in `main.go` after `config.Load()`
+- [x] Pass `PolicyConfig.Guardian` fields to components that currently read
   from `config.Config` (engine, scheduler, queue)
-- [ ] Remove operational fields from `config.Config` that are now in
+- [x] Remove operational fields from `config.Config` that are now in
   `GuardianConfig` (keep credentials-only)
-- [ ] Update `checker.NewEngine` signature to accept `*policy.PolicyConfig`
-- [ ] Update `scheduler.NewScheduler` to use `GuardianConfig` fields
-- [ ] Update `checker.NewQueue` to use `GuardianConfig.QueueSize`
-- [ ] Log the config source at startup (HCL file path or "built-in defaults")
-- [ ] Write integration test: `config.Load()` + `policy.Load()` → engine
+- [x] Update `checker.NewEngine` signature to accept `*policy.PolicyConfig`
+- [x] Update `scheduler.NewScheduler` to use `GuardianConfig` fields
+- [x] Update `checker.NewQueue` to use `GuardianConfig.QueueSize`
+- [x] Log the config source at startup (HCL file path or "built-in defaults")
+- [x] Write integration test: `config.Load()` + `policy.Load()` → engine
   creation → no errors
 
 #### Success Criteria

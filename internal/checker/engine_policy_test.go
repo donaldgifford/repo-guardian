@@ -423,3 +423,40 @@ func TestYAMLSemanticallyEqual(t *testing.T) {
 		})
 	}
 }
+
+func TestIntegration_PolicyLoadAndEngineCreation(t *testing.T) {
+	t.Parallel()
+
+	// Integration test: policy.Load() → engine creation → no errors.
+	// Simulates the main.go startup path without HCL config.
+	policyCfg, err := policy.Load("")
+	if err != nil {
+		t.Fatalf("policy.Load: %v", err)
+	}
+
+	ts := rules.NewTemplateStore()
+	if err := ts.Load(""); err != nil {
+		t.Fatalf("templates.Load: %v", err)
+	}
+
+	engine, err := NewEngineFromPolicy(policyCfg, ts, slog.Default(), "")
+	if err != nil {
+		t.Fatalf("NewEngineFromPolicy: %v", err)
+	}
+
+	// Verify engine works with a basic check.
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.contents["org/repo/CODEOWNERS"] = true
+	client.contents["org/repo/.github/dependabot.yml"] = true
+
+	if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR != nil {
+		t.Error("should not create PR when all files exist")
+	}
+}

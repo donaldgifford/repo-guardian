@@ -15,6 +15,7 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/checker"
 	"github.com/donaldgifford/repo-guardian/internal/config"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
 	"github.com/donaldgifford/repo-guardian/internal/scheduler"
 	"github.com/donaldgifford/repo-guardian/internal/webhook"
@@ -37,8 +38,6 @@ func main() {
 	logger.Info("starting repo-guardian",
 		"listen_addr", cfg.ListenAddr,
 		"metrics_addr", cfg.MetricsAddr,
-		"dry_run", cfg.DryRun,
-		"worker_count", cfg.WorkerCount,
 		"custom_properties_mode", cfg.CustomPropertiesMode,
 	)
 
@@ -49,40 +48,52 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize rule registry and template store.
-	registry := rules.NewRegistry(rules.DefaultRules)
+	// Load policy configuration.
+	policyCfg, err := policy.Load(cfg.GuardianConfigPath)
+	if err != nil {
+		logger.Error("failed to load policy config", "error", err)
+		os.Exit(1)
+	}
 
+	if cfg.GuardianConfigPath != "" {
+		logger.Info("loaded policy config", "path", cfg.GuardianConfigPath)
+	} else {
+		logger.Info("using built-in default policy")
+	}
+
+	// Initialize template store.
 	templates := rules.NewTemplateStore()
 	if err := templates.Load(cfg.TemplateDir); err != nil {
 		logger.Error("failed to load templates", "error", err)
 		os.Exit(1)
 	}
 
-	// Initialize checker engine.
-	engine := checker.NewEngine(
-		registry,
+	// Initialize checker engine from policy config.
+	engine, err := checker.NewEngineFromPolicy(
+		policyCfg,
 		templates,
 		logger,
-		cfg.SkipForks,
-		cfg.SkipArchived,
-		cfg.DryRun,
 		cfg.CustomPropertiesMode,
 	)
+	if err != nil {
+		logger.Error("failed to create checker engine", "error", err)
+		os.Exit(1)
+	}
 
-	// Initialize work queue.
-	queue := checker.NewQueue(cfg.QueueSize, logger)
+	// Initialize work queue using policy guardian config.
+	queue := checker.NewQueue(policyCfg.Guardian.QueueSize, logger)
 
 	// Initialize webhook handler.
 	var webhookHandler http.Handler = webhook.NewHandler(cfg.GitHubWebhookSecret, queue, logger)
 
-	// Initialize scheduler.
+	// Initialize scheduler using policy guardian config.
 	sched := scheduler.NewScheduler(
 		client,
 		queue,
-		cfg.ScheduleInterval,
+		policyCfg.Guardian.ParsedScheduleInterval,
 		logger,
-		cfg.SkipForks,
-		cfg.SkipArchived,
+		policyCfg.Guardian.SkipForks,
+		policyCfg.Guardian.SkipArchived,
 	)
 
 	// Set up context for graceful shutdown.
@@ -90,25 +101,25 @@ func main() {
 	defer cancel()
 
 	// Wrap webhook handler with IP allowlist middleware if enabled.
-	if cfg.WebhookIPAllowlist {
+	if policyCfg.Guardian.WebhookIPAllowlist {
 		allowlist := webhook.NewGitHubIPAllowlist(
-			cfg.WebhookIPAllowlistFailOpen,
-			cfg.TrustProxyHeaders,
+			policyCfg.Guardian.WebhookIPAllowlistFailOpen,
+			policyCfg.Guardian.TrustProxyHeaders,
 			logger,
 		)
 		allowlist.StartRefresh(ctx)
 		webhookHandler = allowlist.Middleware(webhookHandler)
 
 		logger.Info("webhook IP allowlist enabled",
-			"fail_open", cfg.WebhookIPAllowlistFailOpen,
-			"trust_proxy", cfg.TrustProxyHeaders,
+			"fail_open", policyCfg.Guardian.WebhookIPAllowlistFailOpen,
+			"trust_proxy", policyCfg.Guardian.TrustProxyHeaders,
 		)
 	} else {
 		logger.Info("webhook IP allowlist disabled")
 	}
 
 	// Start work queue workers.
-	queue.Start(ctx, cfg.WorkerCount, engine, client)
+	queue.Start(ctx, policyCfg.Guardian.WorkerCount, engine, client)
 
 	// Start scheduler in background.
 	go sched.Start(ctx)

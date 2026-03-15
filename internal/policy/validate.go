@@ -8,7 +8,7 @@ import (
 // Validate checks the PolicyConfig for configuration errors.
 // Returns a joined error with all validation failures.
 func Validate(cfg *PolicyConfig) error {
-	var errs []error
+	errs := make([]error, 0, len(cfg.FileRules)+4)
 
 	errs = append(errs, validateGuardian(&cfg.Guardian)...)
 	errs = append(errs, validateFileRules(cfg.FileRules)...)
@@ -53,7 +53,7 @@ func validateGuardian(g *GuardianConfig) []error {
 }
 
 func validateFileRules(rules []FileRuleConfig) []error {
-	var errs []error
+	errs := make([]error, 0, len(rules))
 
 	for i := range rules {
 		r := &rules[i]

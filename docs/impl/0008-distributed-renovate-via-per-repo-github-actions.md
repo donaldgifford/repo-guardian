@@ -185,29 +185,29 @@ triggering.
 
 #### Tasks
 
-- [ ] Write integration test in `internal/checker/engine_policy_test.go`:
+- [x] Write integration test in `internal/checker/engine_policy_test.go`:
       `TestIntegration_RenovateFileRules_BothMissing` — engine detects
       both files missing, creates single PR containing both
       `renovate.yml` and `renovate.json` with correct template content
-- [ ] Write integration test:
+- [x] Write integration test:
       `TestIntegration_RenovateFileRules_WorkflowMissing` — engine detects
       missing `renovate.yml` (config exists and valid), creates PR with
       just the workflow file
-- [ ] Write integration test:
+- [x] Write integration test:
       `TestIntegration_RenovateFileRules_ConfigMissing` — engine detects
       missing `renovate.json`, creates PR with correct template content
-- [ ] Write integration test:
+- [x] Write integration test:
       `TestIntegration_RenovateFileRules_ConfigInvalidPreset` — engine
       detects `renovate.json` exists but fails assertion (missing org
       preset reference), creates PR
-- [ ] Write integration test:
+- [x] Write integration test:
       `TestIntegration_RenovateFileRules_WorkflowDrifted` — engine detects
       `renovate.yml` exists but differs from template (exact mode),
       creates PR
-- [ ] Write integration test:
+- [x] Write integration test:
       `TestIntegration_RenovateFileRules_AllPresent` — both files exist
       and pass checks, no PR created, reconciler runs
-- [ ] Run `make test` to verify all integration tests pass
+- [x] Run `make test` to verify all integration tests pass
 
 #### Success Criteria
 

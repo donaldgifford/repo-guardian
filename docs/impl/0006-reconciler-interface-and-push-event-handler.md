@@ -275,16 +275,16 @@ Remove the old custom properties code path and verify end-to-end behavior.
 
 #### Tasks
 
-- [ ] Remove `internal/checker/properties.go` (logic migrated to reconciler)
-- [ ] Remove `internal/checker/properties_test.go`
-- [ ] Remove `customPropertiesMode` from `config.Config`
-- [ ] Update any remaining references to the old properties code path
-- [ ] Write integration test: HCL config with `custom_properties` reconciler
+- [x] Remove `internal/checker/properties.go` (logic migrated to reconciler)
+- [x] Remove `internal/checker/properties_test.go`
+- [x] Remove `customPropertiesMode` from `config.Config`
+- [x] Update any remaining references to the old properties code path
+- [x] Write integration test: HCL config with `custom_properties` reconciler
   → engine creation → mock GitHub client → expected API calls
-- [ ] Write integration test: push event → handler → enqueue → engine →
+- [x] Write integration test: push event → handler → enqueue → engine →
   reconciler runs
-- [ ] Run `make ci` (lint + test + build)
-- [ ] Update `cmd/repo-guardian/main.go` imports
+- [x] Run `make ci` (lint + test + build)
+- [x] Update `cmd/repo-guardian/main.go` imports
 
 #### Success Criteria
 
@@ -320,13 +320,13 @@ Remove the old custom properties code path and verify end-to-end behavior.
 
 ## Testing Plan
 
-- [ ] Unit tests for reconciler interface and registry
-- [ ] Unit tests for custom properties reconciler (mirrors existing tests)
-- [ ] Unit tests for push event handler (all scenarios)
-- [ ] Unit tests for watched path extraction
-- [ ] Integration test: config → engine → reconciler flow
-- [ ] Integration test: push event → enqueue → check flow
-- [ ] Backward compatibility test: CUSTOM_PROPERTIES_MODE without HCL
+- [x] Unit tests for reconciler interface and registry
+- [x] Unit tests for custom properties reconciler (mirrors existing tests)
+- [x] Unit tests for push event handler (all scenarios)
+- [x] Unit tests for watched path extraction
+- [x] Integration test: config → engine → reconciler flow
+- [x] Integration test: push event → enqueue → check flow
+- [x] Backward compatibility test: CUSTOM_PROPERTIES_MODE without HCL
 
 ## Dependencies
 

@@ -340,6 +340,32 @@ func TestHandlePush_TagPush_DoesNotEnqueue(t *testing.T) {
 	}
 }
 
+func TestIntegration_PushEvent_EnqueueWithTriggerPush(t *testing.T) {
+	t.Parallel()
+
+	q := checker.NewQueue(10, slog.Default())
+	watched := map[string]bool{
+		"catalog-info.yaml": true,
+		"catalog-info.yml":  true,
+	}
+	h := NewHandler(testSecret, q, slog.Default(), watched)
+
+	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
+		{Modified: []string{"catalog-info.yaml"}},
+	})
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, makeRequest(t, "push", payload))
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	if q.Len() != 1 {
+		t.Fatalf("expected 1 job in queue, got %d", q.Len())
+	}
+}
+
 func TestExtractOwner(t *testing.T) {
 	t.Parallel()
 

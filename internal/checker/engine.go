@@ -27,13 +27,12 @@ const (
 // Engine is the core checker that evaluates repositories against the rule
 // registry and creates PRs for missing files.
 type Engine struct {
-	registry             *rules.Registry
-	templates            *rules.TemplateStore
-	logger               *slog.Logger
-	skipForks            bool
-	skipArchived         bool
-	dryRun               bool
-	customPropertiesMode string // legacy, removed in Phase 7
+	registry     *rules.Registry
+	templates    *rules.TemplateStore
+	logger       *slog.Logger
+	skipForks    bool
+	skipArchived bool
+	dryRun       bool
 
 	// policy is set when the engine is created from a PolicyConfig.
 	// When non-nil, CheckRepo uses policy-based evaluation with
@@ -52,16 +51,14 @@ func NewEngine(
 	templates *rules.TemplateStore,
 	logger *slog.Logger,
 	skipForks, skipArchived, dryRun bool,
-	customPropertiesMode string,
 ) *Engine {
 	return &Engine{
-		registry:             registry,
-		templates:            templates,
-		logger:               logger,
-		skipForks:            skipForks,
-		skipArchived:         skipArchived,
-		dryRun:               dryRun,
-		customPropertiesMode: customPropertiesMode,
+		registry:     registry,
+		templates:    templates,
+		logger:       logger,
+		skipForks:    skipForks,
+		skipArchived: skipArchived,
+		dryRun:       dryRun,
 	}
 }
 
@@ -109,7 +106,7 @@ func (e *Engine) CheckRepo(ctx context.Context, client ghclient.Client, owner, r
 		}
 	}
 
-	return e.checkCustomPropertiesIfEnabled(ctx, log, client, owner, repo, repoInfo.DefaultRef, openPRs)
+	return nil
 }
 
 // shouldSkip returns true and a reason if the repository should be skipped.
@@ -164,24 +161,6 @@ func (e *Engine) findMissingFiles(
 	}
 
 	return missing, nil
-}
-
-func (e *Engine) checkCustomPropertiesIfEnabled(
-	ctx context.Context,
-	log *slog.Logger,
-	client ghclient.Client,
-	owner, repo, defaultBranch string,
-	openPRs []*ghclient.PullRequest,
-) error {
-	if e.customPropertiesMode == "" {
-		return nil
-	}
-
-	if err := e.CheckCustomProperties(ctx, client, owner, repo, defaultBranch, openPRs); err != nil {
-		log.Error("custom properties check failed", "error", err)
-	}
-
-	return nil
 }
 
 func checkFileExists(

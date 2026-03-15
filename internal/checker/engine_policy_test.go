@@ -802,6 +802,71 @@ func TestReconciler_ErrorLoggedNotFatal(t *testing.T) {
 	}
 }
 
+// --- Integration Tests ---
+// These verify end-to-end flows from config through engine to reconciler.
+
+func TestIntegration_HCLConfigWithCustomPropertiesReconciler(t *testing.T) {
+	t.Parallel()
+
+	// Simulate HCL config with a custom_properties reconciler.
+	rec := &trackingReconciler{name: "custom_properties"}
+	enabled := true
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "catalog_info",
+				Enabled:  &enabled,
+				Check:    "exists",
+				Paths:    []string{"catalog-info.yaml", "catalog-info.yml"},
+				Target:   "catalog-info.yaml",
+				Template: "codeowners",
+				PR:       &policy.PRConfig{SearchTerms: []string{"catalog-info"}},
+				Reconcilers: []policy.ReconcilerConfig{
+					{Type: "custom_properties", Mode: "api", Watch: true},
+				},
+			},
+		},
+	}
+
+	engine := testPolicyEngineWithReconciler(cfg, rec)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "my-service", HasBranch: true, DefaultRef: "main",
+	}
+	client.contents["org/my-service/catalog-info.yaml"] = true
+	client.fileContents["org/my-service/catalog-info.yaml"] = "apiVersion: backstage.io/v1alpha1\nkind: Component"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "my-service")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	// Reconciler should have been called with the file content.
+	if rec.callCount() != 1 {
+		t.Fatalf("expected reconciler to run once, got %d", rec.callCount())
+	}
+
+	call := rec.lastCall()
+	if call.Owner != "org" {
+		t.Errorf("Owner = %q, want %q", call.Owner, "org")
+	}
+
+	if call.Repo != "my-service" {
+		t.Errorf("Repo = %q, want %q", call.Repo, "my-service")
+	}
+
+	if call.Content != "apiVersion: backstage.io/v1alpha1\nkind: Component" {
+		t.Error("Content should contain the catalog-info.yaml contents")
+	}
+
+	// No PR should be created since the file exists.
+	if client.createdPR != nil {
+		t.Error("no PR should be created when file already exists")
+	}
+}
+
 func TestReconciler_DryRunPropagated(t *testing.T) {
 	t.Parallel()
 

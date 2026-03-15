@@ -99,4 +99,10 @@ var (
 		Name: "repo_guardian_webhook_rejected_total",
 		Help: "Webhook requests rejected by IP allowlist.",
 	}, []string{"reason"})
+
+	// IgnoredTotal counts repos or rules skipped by ignore lists.
+	IgnoredTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_ignored_total",
+		Help: "Repos or rules skipped by ignore lists.",
+	}, []string{"scope"})
 )

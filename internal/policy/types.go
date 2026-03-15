@@ -104,13 +104,12 @@ type AssertionConfig struct {
 }
 
 // IgnoreConfig holds repository ignore patterns for global or per-rule use.
-// This is a placeholder that will be fully implemented in IMPL-0007.
+// Patterns support glob matching via path.Match (e.g., "myorg/terraform-*").
 type IgnoreConfig struct {
 	Repos []string `hcl:"repos,optional"`
 }
 
 // ReconcilerConfig holds configuration for a reconciler attached to a rule.
-// This is a placeholder that will be fully implemented in IMPL-0006.
 type ReconcilerConfig struct {
 	Type  string `hcl:"type,label"`
 	Watch bool   `hcl:"watch,optional"`

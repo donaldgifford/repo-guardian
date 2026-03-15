@@ -867,6 +867,197 @@ func TestIntegration_HCLConfigWithCustomPropertiesReconciler(t *testing.T) {
 	}
 }
 
+func TestGlobalIgnoreList_SkipsAllRules(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian:   policy.BuiltinDefaults().Guardian,
+		IgnoreList: policy.IgnoreConfig{Repos: []string{"org/ignored-repo"}},
+		FileRules:  policy.BuiltinDefaults().FileRules,
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "ignored-repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/ignored-repo/main"] = "abc123"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "ignored-repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR != nil {
+		t.Error("should not create PR for globally ignored repo")
+	}
+}
+
+func TestGlobalIgnoreList_GlobPattern(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian:   policy.BuiltinDefaults().Guardian,
+		IgnoreList: policy.IgnoreConfig{Repos: []string{"org/terraform-*"}},
+		FileRules:  policy.BuiltinDefaults().FileRules,
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "terraform-vpc", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/terraform-vpc/main"] = "abc123"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "terraform-vpc")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR != nil {
+		t.Error("should not create PR for globally ignored repo (glob)")
+	}
+}
+
+func TestGlobalIgnoreList_NoMatchStillProcesses(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian:   policy.BuiltinDefaults().Guardian,
+		IgnoreList: policy.IgnoreConfig{Repos: []string{"org/other-*"}},
+		FileRules:  policy.BuiltinDefaults().FileRules,
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "my-repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/my-repo/main"] = "abc123"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "my-repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	// Should still process and create PR for missing files.
+	if client.createdPR == nil {
+		t.Error("expected PR for non-ignored repo with missing files")
+	}
+}
+
+func TestPerRuleIgnoreList_SkipsOnlyThatRule(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "codeowners",
+				Paths:    []string{"CODEOWNERS"},
+				Target:   "CODEOWNERS",
+				Template: "codeowners",
+				Ignore:   &policy.IgnoreConfig{Repos: []string{"org/special-repo"}},
+			},
+			{
+				Type:     "file",
+				Name:     "dependabot",
+				Paths:    []string{".github/dependabot.yml"},
+				Target:   ".github/dependabot.yml",
+				Template: "dependabot",
+			},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "special-repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/special-repo/main"] = "abc123"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "special-repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	// Only 1 file should be created (dependabot), codeowners is ignored.
+	if client.createdPR == nil {
+		t.Fatal("expected PR for non-ignored rule")
+	}
+
+	if len(client.createdFiles) != 1 {
+		t.Errorf("expected 1 file created (dependabot only), got %d", len(client.createdFiles))
+	}
+}
+
+func TestPerRuleIgnoreList_ReconcilerAlsoSkipped(t *testing.T) {
+	t.Parallel()
+
+	rec := &trackingReconciler{name: "test_rec"}
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "test_file",
+				Paths:    []string{"test.txt"},
+				Target:   "test.txt",
+				Template: "codeowners",
+				Ignore:   &policy.IgnoreConfig{Repos: []string{"org/ignored"}},
+				Reconcilers: []policy.ReconcilerConfig{
+					{Type: "test_rec"},
+				},
+			},
+		},
+	}
+
+	engine := testPolicyEngineWithReconciler(cfg, rec)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "ignored", HasBranch: true, DefaultRef: "main",
+	}
+	client.contents["org/ignored/test.txt"] = true
+	client.fileContents["org/ignored/test.txt"] = "content"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "ignored")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if rec.callCount() != 0 {
+		t.Errorf("expected 0 reconciler calls for ignored rule, got %d", rec.callCount())
+	}
+}
+
+func TestEmptyIgnoreList_NoReposSkipped(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian:   policy.BuiltinDefaults().Guardian,
+		IgnoreList: policy.IgnoreConfig{},
+		FileRules:  policy.BuiltinDefaults().FileRules,
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "abc123"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	// Should process normally.
+	if client.createdPR == nil {
+		t.Error("expected PR for non-ignored repo with missing files")
+	}
+}
+
 func TestReconciler_DryRunPropagated(t *testing.T) {
 	t.Parallel()
 

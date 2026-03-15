@@ -56,10 +56,16 @@ func (e *Engine) runReconcilers(
 	owner, repo, defaultBranch string,
 	openPRs []*ghclient.PullRequest,
 ) {
+	ownerRepo := owner + "/" + repo
+
 	for i := range e.policy.FileRules {
 		r := &e.policy.FileRules[i]
 
 		if !r.IsEnabled() {
+			continue
+		}
+
+		if r.Ignore != nil && r.Ignore.Matches(ownerRepo) {
 			continue
 		}
 
@@ -211,6 +217,8 @@ func (e *Engine) findActionableRules(
 ) ([]policy.FileRuleConfig, error) {
 	var actionable []policy.FileRuleConfig
 
+	ownerRepo := owner + "/" + repo
+
 	for i := range e.policy.FileRules {
 		r := &e.policy.FileRules[i]
 
@@ -219,6 +227,13 @@ func (e *Engine) findActionableRules(
 		}
 
 		ruleLog := log.With("rule", r.Name, "check", r.CheckMode())
+
+		if r.Ignore != nil && r.Ignore.Matches(ownerRepo) {
+			ruleLog.Info("repository matched per-rule ignore list, skipping")
+			metrics.IgnoredTotal.WithLabelValues("rule").Inc()
+
+			continue
+		}
 
 		action, err := e.evaluateRule(ctx, ruleLog, client, owner, repo, r, openPRs)
 		if err != nil {

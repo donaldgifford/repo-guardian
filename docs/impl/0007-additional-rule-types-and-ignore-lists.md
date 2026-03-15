@@ -57,23 +57,23 @@ is the lowest-risk addition and immediately useful.
 
 #### Tasks
 
-- [ ] Populate `IgnoreConfig` struct in `internal/policy/types.go` (currently
+- [x] Populate `IgnoreConfig` struct in `internal/policy/types.go` (currently
   a placeholder from IMPL-0005):
   - `Repos []string` field with HCL struct tags
-- [ ] Create `internal/policy/ignore.go` with:
+- [x] Create `internal/policy/ignore.go` with:
   - `(ic *IgnoreConfig) Matches(ownerRepo string) bool`
   - Use `path.Match` for glob pattern matching
   - Input is always `owner/repo` format
-- [ ] Add `ignore {}` block support to HCL parser for:
+- [x] Add `ignore {}` block support to HCL parser for:
   - Top-level global ignore (in `PolicyConfig.IgnoreList`)
   - Per-rule ignore (in `FileRuleConfig.Ignore`)
-- [ ] Integrate into checker engine `CheckRepo`:
+- [x] Integrate into checker engine `CheckRepo`:
   - Check global ignore list once per repo (before any rules)
   - Check per-rule ignore list before each rule evaluation
   - Increment `repo_guardian_ignored_total{scope="global"}` or
     `{scope="rule"}` metric
-- [ ] Add `repo_guardian_ignored_total` counter metric with `scope` label
-- [ ] Write unit tests:
+- [x] Add `repo_guardian_ignored_total` counter metric with `scope` label
+- [x] Write unit tests:
   - Exact match: `myorg/my-repo` matches `myorg/my-repo`
   - Glob wildcard: `myorg/terraform-vpc` matches `myorg/terraform-*`
   - No match: `myorg/my-repo` doesn't match `myorg/other-*`

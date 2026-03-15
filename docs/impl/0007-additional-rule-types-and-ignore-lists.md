@@ -310,15 +310,15 @@ and triggers rescans.
 
 #### Tasks
 
-- [ ] Create `internal/reconciler/workflow_sync.go` implementing
+- [x] Create `internal/reconciler/workflow_sync.go` implementing
   `Reconciler`:
   - `NewWorkflowSyncReconciler(config ReconcilerConfig) (Reconciler, error)`
   - `Name()` returns `"workflow_sync"`
   - `Reconcile(ctx, params)` detects file mismatch
-- [ ] The reconciler is primarily useful for the `watch` capability
+- [x] The reconciler is primarily useful for the `watch` capability
   (push event → rescan → template comparison via `exact` check mode)
-- [ ] Register `workflow_sync` factory in `NewRegistry()`
-- [ ] Write unit tests:
+- [x] Register `workflow_sync` factory in `NewRegistry()`
+- [x] Write unit tests:
   - Reconciler runs without error when file matches template
   - Reconciler logs when file differs from template
   - Dry run mode

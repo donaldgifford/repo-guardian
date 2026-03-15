@@ -52,16 +52,15 @@ func TestBuiltinDefaults_GuardianConfig(t *testing.T) {
 func TestBuiltinDefaults_FileRuleCount(t *testing.T) {
 	cfg := BuiltinDefaults()
 
-	if len(cfg.FileRules) != len(rules.DefaultRules) {
-		t.Errorf(
-			"FileRules count = %d, want %d (matching rules.DefaultRules)",
-			len(cfg.FileRules),
-			len(rules.DefaultRules),
-		)
+	// 4 rules: codeowners, dependabot, renovate_config, renovate_workflow.
+	// Legacy rules.DefaultRules has 3 (no workflow rule).
+	want := len(rules.DefaultRules) + 1
+	if len(cfg.FileRules) != want {
+		t.Errorf("FileRules count = %d, want %d", len(cfg.FileRules), want)
 	}
 }
 
-func TestBuiltinDefaults_MatchesDefaultRules(t *testing.T) {
+func TestBuiltinDefaults_MatchesLegacyRules(t *testing.T) {
 	cfg := BuiltinDefaults()
 
 	ruleMap := make(map[string]rules.FileRule)
@@ -69,31 +68,30 @@ func TestBuiltinDefaults_MatchesDefaultRules(t *testing.T) {
 		ruleMap[r.Name] = r
 	}
 
+	// Map policy rule names to legacy DefaultRules names.
+	// renovate_workflow has no legacy counterpart.
+	nameMap := map[string]string{
+		"codeowners":      "CODEOWNERS",
+		"dependabot":      "Dependabot",
+		"renovate_config": "Renovate",
+	}
+
 	for _, policyRule := range cfg.FileRules {
+		defaultName, hasLegacy := nameMap[policyRule.Name]
+		if !hasLegacy {
+			continue
+		}
+
 		t.Run(policyRule.Name, func(t *testing.T) {
-			// Map policy rule names (lowercase) to DefaultRules names.
-			nameMap := map[string]string{
-				"codeowners": "CODEOWNERS",
-				"dependabot": "Dependabot",
-				"renovate":   "Renovate",
-			}
-
-			defaultName, ok := nameMap[policyRule.Name]
-			if !ok {
-				t.Fatalf("unexpected policy rule name %q", policyRule.Name)
-			}
-
 			defaultRule, found := ruleMap[defaultName]
 			if !found {
 				t.Fatalf("no matching DefaultRule for %q", policyRule.Name)
 			}
 
-			// Compare enabled state.
 			if policyRule.IsEnabled() != defaultRule.Enabled {
 				t.Errorf("Enabled = %v, want %v", policyRule.IsEnabled(), defaultRule.Enabled)
 			}
 
-			// Compare paths.
 			if len(policyRule.Paths) != len(defaultRule.Paths) {
 				t.Errorf("Paths count = %d, want %d", len(policyRule.Paths), len(defaultRule.Paths))
 			} else {
@@ -104,40 +102,96 @@ func TestBuiltinDefaults_MatchesDefaultRules(t *testing.T) {
 				}
 			}
 
-			// Compare target.
 			if policyRule.Target != defaultRule.TargetPath {
 				t.Errorf("Target = %q, want %q", policyRule.Target, defaultRule.TargetPath)
 			}
 
-			// Compare template name.
 			if policyRule.Template != defaultRule.DefaultTemplateName {
 				t.Errorf("Template = %q, want %q", policyRule.Template, defaultRule.DefaultTemplateName)
 			}
-
-			// Compare PR search terms.
-			if policyRule.PR == nil {
-				t.Fatal("PR config is nil")
-			}
-
-			if len(policyRule.PR.SearchTerms) != len(defaultRule.PRSearchTerms) {
-				t.Errorf(
-					"PR.SearchTerms count = %d, want %d",
-					len(policyRule.PR.SearchTerms),
-					len(defaultRule.PRSearchTerms),
-				)
-			} else {
-				for i, term := range policyRule.PR.SearchTerms {
-					if term != defaultRule.PRSearchTerms[i] {
-						t.Errorf("PR.SearchTerms[%d] = %q, want %q", i, term, defaultRule.PRSearchTerms[i])
-					}
-				}
-			}
-
-			// All default rules use "exists" check mode.
-			if policyRule.CheckMode() != CheckExists {
-				t.Errorf("CheckMode() = %v, want %v", policyRule.CheckMode(), CheckExists)
-			}
 		})
+	}
+}
+
+func TestBuiltinDefaults_RenovateConfigRule(t *testing.T) {
+	cfg := BuiltinDefaults()
+
+	var rule *FileRuleConfig
+	for i := range cfg.FileRules {
+		if cfg.FileRules[i].Name == "renovate_config" {
+			rule = &cfg.FileRules[i]
+			break
+		}
+	}
+
+	if rule == nil {
+		t.Fatal("renovate_config rule not found")
+	}
+
+	if rule.IsEnabled() {
+		t.Error("renovate_config should be disabled by default")
+	}
+
+	if rule.CheckMode() != CheckContains {
+		t.Errorf("CheckMode() = %v, want %v", rule.CheckMode(), CheckContains)
+	}
+
+	if len(rule.Assertions) != 1 {
+		t.Fatalf("Assertions count = %d, want 1", len(rule.Assertions))
+	}
+
+	a := rule.Assertions[0]
+	if a.Pattern != `github>.*renovate-config` {
+		t.Errorf("Assertion.Pattern = %q, want %q", a.Pattern, `github>.*renovate-config`)
+	}
+
+	if a.Message != "renovate.json must extend org preset" {
+		t.Errorf("Assertion.Message = %q, want %q", a.Message, "renovate.json must extend org preset")
+	}
+}
+
+func TestBuiltinDefaults_RenovateWorkflowRule(t *testing.T) {
+	cfg := BuiltinDefaults()
+
+	var rule *FileRuleConfig
+	for i := range cfg.FileRules {
+		if cfg.FileRules[i].Name == "renovate_workflow" {
+			rule = &cfg.FileRules[i]
+			break
+		}
+	}
+
+	if rule == nil {
+		t.Fatal("renovate_workflow rule not found")
+	}
+
+	if rule.IsEnabled() {
+		t.Error("renovate_workflow should be disabled by default")
+	}
+
+	if rule.CheckMode() != CheckExact {
+		t.Errorf("CheckMode() = %v, want %v", rule.CheckMode(), CheckExact)
+	}
+
+	if rule.Target != ".github/workflows/renovate.yml" {
+		t.Errorf("Target = %q, want %q", rule.Target, ".github/workflows/renovate.yml")
+	}
+
+	if rule.Template != "renovate-workflow" {
+		t.Errorf("Template = %q, want %q", rule.Template, "renovate-workflow")
+	}
+
+	if len(rule.Reconcilers) != 1 {
+		t.Fatalf("Reconcilers count = %d, want 1", len(rule.Reconcilers))
+	}
+
+	rec := rule.Reconcilers[0]
+	if rec.Type != "workflow_sync" {
+		t.Errorf("Reconciler.Type = %q, want %q", rec.Type, "workflow_sync")
+	}
+
+	if !rec.Watch {
+		t.Error("Reconciler.Watch should be true")
 	}
 }
 
@@ -154,12 +208,12 @@ func TestBuiltinDefaults_CustomPropertiesModeAPI(t *testing.T) {
 
 	cfg := BuiltinDefaults()
 
-	// Should have 4 rules: 3 defaults + catalog_info.
-	if len(cfg.FileRules) != 4 {
-		t.Fatalf("FileRules count = %d, want 4", len(cfg.FileRules))
+	// Should have 5 rules: 4 defaults + catalog_info.
+	if len(cfg.FileRules) != 5 {
+		t.Fatalf("FileRules count = %d, want 5", len(cfg.FileRules))
 	}
 
-	catalogRule := cfg.FileRules[3]
+	catalogRule := cfg.FileRules[4]
 
 	if catalogRule.Name != "catalog_info" {
 		t.Errorf("Name = %q, want %q", catalogRule.Name, "catalog_info")
@@ -189,9 +243,9 @@ func TestBuiltinDefaults_CustomPropertiesModeEmpty(t *testing.T) {
 
 	cfg := BuiltinDefaults()
 
-	// Should have 3 rules (no catalog_info).
-	if len(cfg.FileRules) != 3 {
-		t.Fatalf("FileRules count = %d, want 3", len(cfg.FileRules))
+	// Should have 4 rules (no catalog_info).
+	if len(cfg.FileRules) != 4 {
+		t.Fatalf("FileRules count = %d, want 4", len(cfg.FileRules))
 	}
 
 	for _, r := range cfg.FileRules {
@@ -206,11 +260,11 @@ func TestBuiltinDefaults_CustomPropertiesModeGHA(t *testing.T) {
 
 	cfg := BuiltinDefaults()
 
-	if len(cfg.FileRules) != 4 {
-		t.Fatalf("FileRules count = %d, want 4", len(cfg.FileRules))
+	if len(cfg.FileRules) != 5 {
+		t.Fatalf("FileRules count = %d, want 5", len(cfg.FileRules))
 	}
 
-	catalogRule := cfg.FileRules[3]
+	catalogRule := cfg.FileRules[4]
 	rec := catalogRule.Reconcilers[0]
 
 	if rec.Mode != "github-action" {

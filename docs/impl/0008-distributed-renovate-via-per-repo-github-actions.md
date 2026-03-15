@@ -94,11 +94,11 @@ assertion).
 
 #### Tasks
 
-- [ ] Add `org` field to `GuardianConfig` in `internal/policy/types.go`
+- [x] Add `org` field to `GuardianConfig` in `internal/policy/types.go`
       (`hcl:"org,optional"`) with env var override `GITHUB_ORG` applied
       in the loader. This is used for org-specific assertion patterns and
       template rendering.
-- [ ] Update `defaultRenovateRule()` in `internal/policy/defaults.go` to
+- [x] Update `defaultRenovateRule()` in `internal/policy/defaults.go` to
       return the `renovate_config` rule: `check = "contains"`,
       `paths = ["renovate.json", "renovate.json5", ".renovaterc",
       ".renovaterc.json", ".github/renovate.json",
@@ -107,20 +107,20 @@ assertion).
       assertion matching `github>ORG_NAME/renovate-config` (using
       configured org name) and message "renovate.json must extend org
       preset"
-- [ ] Add `defaultRenovateWorkflowRule()` in
+- [x] Add `defaultRenovateWorkflowRule()` in
       `internal/policy/defaults.go` returning the `renovate_workflow`
       rule: `check = "exact"`,
       `paths = [".github/workflows/renovate.yml"]`,
       `target = ".github/workflows/renovate.yml"`,
       `template = "renovate-workflow"`, with a `workflow_sync` reconciler
       (`watch = true`)
-- [ ] Both rules should default to `enabled = false` (opt-in, same as
+- [x] Both rules should default to `enabled = false` (opt-in, same as
       current Renovate rule behavior)
-- [ ] Add the workflow rule to the `DefaultPolicyConfig()` function's
+- [x] Add the workflow rule to the `DefaultPolicyConfig()` function's
       `FileRules` slice
-- [ ] Update existing tests in `internal/policy/defaults_test.go` to
+- [x] Update existing tests in `internal/policy/defaults_test.go` to
       cover both new rules, assertion config, and reconciler config
-- [ ] Run `make lint && make test` to verify
+- [x] Run `make lint && make test` to verify
 
 #### Success Criteria
 

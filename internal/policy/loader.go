@@ -690,6 +690,10 @@ func hclConfigToPolicy(raw *hclConfig) *PolicyConfig {
 }
 
 func mergeGuardianConfig(dst, src *GuardianConfig) {
+	if src.Org != "" {
+		dst.Org = src.Org
+	}
+
 	if src.DryRun {
 		dst.DryRun = true
 	}
@@ -736,6 +740,7 @@ func mergeGuardianConfig(dst, src *GuardianConfig) {
 }
 
 func applyEnvOverrides(g *GuardianConfig) {
+	applyEnvString("GITHUB_ORG", &g.Org)
 	applyEnvBool("DRY_RUN", &g.DryRun)
 	applyEnvString("SCHEDULE_INTERVAL", &g.ScheduleInterval)
 	applyEnvInt("WORKER_COUNT", &g.WorkerCount)

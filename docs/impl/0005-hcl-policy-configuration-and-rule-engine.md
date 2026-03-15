@@ -115,17 +115,17 @@ defaults, applies env var overrides, and validates the result.
 
 #### Tasks
 
-- [ ] Create `internal/policy/loader.go` with
+- [x] Create `internal/policy/loader.go` with
   `Load(path string) (*PolicyConfig, error)`
-- [ ] Implement single-file loading (`.hcl` file)
-- [ ] Implement directory loading (all `*.hcl` files, lexicographic order)
-- [ ] Implement env var override layer for `GuardianConfig` fields (use
+- [x] Implement single-file loading (`.hcl` file)
+- [x] Implement directory loading (all `*.hcl` files, lexicographic order)
+- [x] Implement env var override layer for `GuardianConfig` fields (use
   same env var names as current `config.Config`)
-- [ ] Implement merge logic: built-in defaults, then HCL overrides
-- [ ] Handle `GUARDIAN_CONFIG` unset or path not found → return
+- [x] Implement merge logic: built-in defaults, then HCL overrides
+- [x] Handle `GUARDIAN_CONFIG` unset or path not found → return
   `BuiltinDefaults()`
-- [ ] Support HCL variables and `locals {}` blocks
-- [ ] Write unit tests:
+- [x] Support HCL variables and `locals {}` blocks
+- [x] Write unit tests:
   - Valid HCL file parses correctly
   - Directory with multiple `.hcl` files merges correctly
   - Duplicate rule names across files produce validation error

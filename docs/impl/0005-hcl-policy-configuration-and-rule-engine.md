@@ -221,17 +221,17 @@ and the file exists.
 
 #### Tasks
 
-- [ ] Create `internal/policy/assertion.go` with
+- [x] Create `internal/policy/assertion.go` with
   `(a *AssertionConfig) Evaluate(content string, filePath string) error`
-- [ ] Implement `pattern` assertion: compile regex, match against content
-- [ ] Implement `not_pattern` assertion: compile regex, fail if matched
-- [ ] Implement `yaml_path` + `contains` assertion: evaluate path, check
+- [x] Implement `pattern` assertion: compile regex, match against content
+- [x] Implement `not_pattern` assertion: compile regex, fail if matched
+- [x] Implement `yaml_path` + `contains` assertion: evaluate path, check
   if any value contains the string
-- [ ] Implement `yaml_path` + `equals` assertion: evaluate path, check
+- [x] Implement `yaml_path` + `equals` assertion: evaluate path, check
   if any value equals the string
-- [ ] Return error with `message` field when assertion fails
-- [ ] Pre-compile regexes at config load time (not per-evaluation)
-- [ ] Write unit tests:
+- [x] Return error with `message` field when assertion fails
+- [x] Pre-compile regexes at config load time (not per-evaluation)
+- [x] Write unit tests:
   - Regex match passes and fails
   - Regex not_pattern passes and fails
   - YAML path contains passes and fails

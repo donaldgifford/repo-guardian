@@ -89,13 +89,13 @@ ensuring backward compatibility when no HCL config is present.
 
 #### Tasks
 
-- [ ] Create `internal/policy/defaults.go` with `BuiltinDefaults() *PolicyConfig`
-- [ ] Map current `rules.DefaultRules` to `FileRuleConfig` structs
+- [x] Create `internal/policy/defaults.go` with `BuiltinDefaults() *PolicyConfig`
+- [x] Map current `rules.DefaultRules` to `FileRuleConfig` structs
   (CODEOWNERS, Dependabot, Renovate)
-- [ ] Map current `config.Config` defaults to `GuardianConfig` fields
-- [ ] Write unit tests asserting built-in defaults match current
+- [x] Map current `config.Config` defaults to `GuardianConfig` fields
+- [x] Write unit tests asserting built-in defaults match current
   `DefaultRules` and `config.Load()` defaults exactly
-- [ ] Write comparison test: `BuiltinDefaults().FileRules` produces the same
+- [x] Write comparison test: `BuiltinDefaults().FileRules` produces the same
   rule names, paths, targets, and enabled states as `rules.DefaultRules`
 
 #### Success Criteria

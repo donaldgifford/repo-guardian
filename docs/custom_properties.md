@@ -1,5 +1,15 @@
 # Feature Plan: Custom Properties from Backstage catalog-info.yaml
 
+> **Note:** The custom properties logic originally implemented in
+> `internal/checker/properties.go` has been migrated to a reconciler in
+> `internal/reconciler/custom_properties.go` (see IMPL-0006). The
+> `CUSTOM_PROPERTIES_MODE` env var is still supported for backward compatibility
+> when no HCL policy config is present — it injects a `catalog_info` file rule
+> with a `custom_properties` reconciler into the built-in defaults. When an HCL
+> policy config defines file rules, `CUSTOM_PROPERTIES_MODE` is ignored (HCL
+> takes precedence). The `CustomPropertiesMode` field has been removed from
+> `config.Config`.
+
 ## Goal
 
 Ensure every repository in the GitHub organization has four custom properties

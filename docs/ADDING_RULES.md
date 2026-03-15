@@ -240,3 +240,62 @@ and "Missing Files Total by Rule" panels.
 No changes are needed in the checker engine, webhook handler, scheduler, work
 queue, or any other package. The rule registry pattern is designed so that
 adding a new compliance check is a two-file change.
+
+---
+
+## Alternative: HCL Policy Configuration
+
+When an HCL policy config file is present (set via `GUARDIAN_CONFIG` env var),
+file rules are defined in the config rather than the Go registry. This approach
+supports additional check modes (`contains`, `exact`) with content assertions
+and reconcilers for post-check actions.
+
+See `docs/design/0006-hcl-policy-configuration-and-rule-engine.md` for the
+full design, and `docs/design/0007-reconciler-interface-and-push-event-handler.md`
+for reconciler details.
+
+### Example: Adding a Rule via HCL
+
+```hcl
+rule "file" "github_actions_ci" {
+  enabled  = true
+  check    = "exists"
+  paths    = [".github/workflows/ci.yml", ".github/workflows/ci.yaml"]
+  target   = ".github/workflows/ci.yml"
+  template = "github-actions-ci"
+
+  pr {
+    search_terms = ["ci workflow", "github actions"]
+  }
+}
+```
+
+Rules defined in HCL replace the built-in defaults entirely. The template file
+(`internal/rules/templates/<name>.tmpl`) is still required.
+
+### Reconcilers
+
+HCL rules can attach reconcilers — pluggable post-check actions that run after
+file checks pass. For example, the `custom_properties` reconciler reads
+`catalog-info.yaml` and syncs ownership metadata to GitHub custom properties:
+
+```hcl
+rule "file" "catalog_info" {
+  check    = "exists"
+  paths    = ["catalog-info.yaml", "catalog-info.yml"]
+  target   = "catalog-info.yaml"
+  template = "catalog-info"
+
+  pr {
+    search_terms = ["catalog-info"]
+  }
+
+  reconcile "custom_properties" {
+    mode  = "api"
+    watch = true
+  }
+}
+```
+
+When `watch = true`, push events that modify the watched files on the default
+branch trigger a re-check.

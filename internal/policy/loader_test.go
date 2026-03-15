@@ -391,6 +391,46 @@ rule "file" "codeowners" {
 	}
 }
 
+func TestLoad_HCLTakesPrecedenceOverCustomPropertiesEnv(t *testing.T) {
+	t.Setenv("CUSTOM_PROPERTIES_MODE", "api")
+
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	// HCL defines only a codeowners rule — no catalog_info.
+	content := `
+rule "file" "codeowners" {
+  paths    = ["CODEOWNERS"]
+  target   = ".github/CODEOWNERS"
+  template = "codeowners.tmpl"
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing test file: %v", err)
+	}
+
+	cfg, err := Load(hclFile)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	// HCL defines 1 rule; CUSTOM_PROPERTIES_MODE should be ignored.
+	if len(cfg.FileRules) != 1 {
+		t.Fatalf("FileRules count = %d, want 1 (HCL should override defaults)", len(cfg.FileRules))
+	}
+
+	if cfg.FileRules[0].Name != "codeowners" {
+		t.Errorf("FileRules[0].Name = %q, want %q", cfg.FileRules[0].Name, "codeowners")
+	}
+
+	for _, r := range cfg.FileRules {
+		if r.Name == "catalog_info" {
+			t.Error("catalog_info rule should not be present when HCL config defines rules")
+		}
+	}
+}
+
 func TestLoad_DirectoryIgnoresNonHCLFiles(t *testing.T) {
 	dir := t.TempDir()
 

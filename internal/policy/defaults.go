@@ -1,6 +1,9 @@
 package policy
 
-import "time"
+import (
+	"os"
+	"time"
+)
 
 const (
 	defaultScheduleInterval = 168 * time.Hour
@@ -12,13 +15,45 @@ const (
 
 // BuiltinDefaults returns the default PolicyConfig that mirrors the current
 // hardcoded behavior when no HCL configuration file is present.
+// If CUSTOM_PROPERTIES_MODE is set, a catalog_info rule with a
+// custom_properties reconciler is included for backward compatibility.
 func BuiltinDefaults() *PolicyConfig {
+	rules := []FileRuleConfig{
+		defaultCodeownersRule(),
+		defaultDependabotRule(),
+		defaultRenovateRule(),
+	}
+
+	if mode := os.Getenv("CUSTOM_PROPERTIES_MODE"); mode != "" {
+		rules = append(rules, defaultCatalogInfoRule(mode))
+	}
+
 	return &PolicyConfig{
-		Guardian: defaultGuardianConfig(),
-		FileRules: []FileRuleConfig{
-			defaultCodeownersRule(),
-			defaultDependabotRule(),
-			defaultRenovateRule(),
+		Guardian:  defaultGuardianConfig(),
+		FileRules: rules,
+	}
+}
+
+func defaultCatalogInfoRule(mode string) FileRuleConfig {
+	enabled := true
+
+	return FileRuleConfig{
+		Type:     "file",
+		Name:     "catalog_info",
+		Enabled:  &enabled,
+		Check:    "exists",
+		Paths:    []string{"catalog-info.yaml", "catalog-info.yml"},
+		Target:   "catalog-info.yaml",
+		Template: "catalog-info",
+		PR: &PRConfig{
+			SearchTerms: []string{"catalog-info"},
+		},
+		Reconcilers: []ReconcilerConfig{
+			{
+				Type:  "custom_properties",
+				Mode:  mode,
+				Watch: false,
+			},
 		},
 	}
 }

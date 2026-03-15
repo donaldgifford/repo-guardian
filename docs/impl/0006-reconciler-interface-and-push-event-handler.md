@@ -1,7 +1,7 @@
 ---
 id: IMPL-0006
 title: "Reconciler Interface and Push Event Handler"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-03-15
 ---
@@ -9,7 +9,7 @@ created: 2026-03-15
 
 # IMPL 0006: Reconciler Interface and Push Event Handler
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-03-15
 
@@ -55,20 +55,20 @@ Define the core interface and registry that all reconciler types implement.
 
 #### Tasks
 
-- [ ] Create `internal/reconciler/reconciler.go` with:
+- [x] Create `internal/reconciler/reconciler.go` with:
   - `Reconciler` interface (`Name() string`,
-    `Reconcile(ctx, ReconcileParams) error`)
+    `Reconcile(ctx, *ReconcileParams) error`)
   - `ReconcileParams` struct (Client, Owner, Repo, DefaultBranch,
     Content, OpenPRs, DryRun, Logger)
-- [ ] Create `internal/reconciler/registry.go` with:
+- [x] Create `internal/reconciler/registry.go` with:
   - `Registry` struct with `factories map[string]Factory`
   - `Factory` type: `func(config ReconcilerConfig) (Reconciler, error)`
   - `NewRegistry() *Registry`
   - `Register(name string, factory Factory)`
   - `Build(config ReconcilerConfig) (Reconciler, error)`
-- [ ] Add `ReconcilerConfig` type to `internal/policy/types.go` with HCL
+- [x] Add `ReconcilerConfig` type to `internal/policy/types.go` with HCL
   struct tags (type, mode, watch, and type-specific fields)
-- [ ] Write unit tests:
+- [x] Write unit tests:
   - Registry registers and builds reconcilers correctly
   - Registry returns error for unknown reconciler type
   - `ReconcileParams` construction
@@ -90,25 +90,25 @@ Migrate the existing custom properties logic from
 
 #### Tasks
 
-- [ ] Create `internal/reconciler/custom_properties.go` implementing
+- [x] Create `internal/reconciler/custom_properties.go` implementing
   `Reconciler`:
   - `NewCustomPropertiesReconciler(config ReconcilerConfig) (Reconciler, error)`
   - `Name() string` returns `"custom_properties"`
   - `Reconcile(ctx, params)` mirrors current `CheckCustomProperties` flow
-- [ ] Extract from `internal/checker/properties.go`:
+- [x] Extract from `internal/checker/properties.go`:
   - YAML parsing logic (catalog-info extraction)
   - Custom property diff logic
   - API mode: set properties directly, PR if file missing
   - GHA mode: create PR with workflow
-- [ ] Use `CustomPropertiesConfig` fields for YAML path mappings
+- [x] Use `CustomPropertiesConfig` fields for YAML path mappings
   (owner, component, jira_project, jira_label)
-- [ ] Support configurable defaults (owner, component default values)
-- [ ] Preserve all existing metrics:
+- [x] Support configurable defaults (owner, component default values)
+- [x] Preserve all existing metrics:
   - `properties_checked_total`
   - `properties_set_total`
   - `properties_already_correct_total`
-- [ ] Register `custom_properties` factory in `NewRegistry()`
-- [ ] Write unit tests:
+- [x] Register `custom_properties` factory in `NewRegistry()`
+- [x] Write unit tests:
   - Reconcile with valid catalog-info content: extracts correct values,
     diffs against current, calls `SetCustomPropertyValues`
   - Reconcile with missing fields: uses configured defaults
@@ -135,21 +135,23 @@ after file assertions pass.
 
 #### Tasks
 
-- [ ] Add `Reconcilers []Reconciler` field to the engine's internal rule
+- [x] Add `Reconcilers []Reconciler` field to the engine's internal rule
   representation (built from `FileRuleConfig.Reconcilers` via Registry)
-- [ ] Build reconcilers from `PolicyConfig` at engine construction time
+- [x] Build reconcilers from `PolicyConfig` at engine construction time
   using the `Registry`
-- [ ] Modify `CheckRepo` flow:
+- [x] Modify `CheckRepo` flow:
   - After file existence + assertions pass → read file content once →
     run each reconciler with `ReconcileParams`
   - `exists` mode: reconcilers run when file is present
   - `contains` mode: reconcilers run when assertions pass
   - `exact` mode: reconcilers run when file matches template
-- [ ] Remove `checkCustomPropertiesIfEnabled` from `CheckRepo` (replaced
-  by reconciler invocation)
-- [ ] Remove `customPropertiesMode` field from `Engine` struct
-- [ ] Update `NewEngine` signature (no more `customPropertiesMode` param)
-- [ ] Write unit tests:
+- [x] Remove `checkCustomPropertiesIfEnabled` from `CheckRepo` (replaced
+  by reconciler invocation in policy path; legacy path retained until Phase 7)
+- [x] Remove `customPropertiesMode` field from `Engine` struct
+  (removed from policy path; legacy field retained until Phase 7)
+- [x] Update `NewEngine` signature (no more `customPropertiesMode` param)
+  (policy engine uses registry; legacy NewEngine unchanged until Phase 7)
+- [x] Write unit tests:
   - Reconciler runs when file present (exists mode)
   - Reconciler runs when assertions pass (contains mode)
   - Reconciler does not run when file missing
@@ -174,14 +176,14 @@ is present.
 
 #### Tasks
 
-- [ ] In `internal/policy/defaults.go`: when `CUSTOM_PROPERTIES_MODE` is
+- [x] In `internal/policy/defaults.go`: when `CUSTOM_PROPERTIES_MODE` is
   set and no HCL config is loaded, add a `custom_properties` reconciler
   to the `catalog_info` file rule in built-in defaults
-- [ ] Map env var mode value to reconciler config fields:
+- [x] Map env var mode value to reconciler config fields:
   - `mode = os.Getenv("CUSTOM_PROPERTIES_MODE")`
   - `watch = false` (no push handler in legacy mode)
   - Field mappings match current hardcoded values in `properties.go`
-- [ ] Write backward compatibility test:
+- [x] Write backward compatibility test:
   - No HCL config + `CUSTOM_PROPERTIES_MODE=api` → engine behavior
     identical to current
   - No HCL config + `CUSTOM_PROPERTIES_MODE=""` → no reconciler attached
@@ -204,21 +206,21 @@ when watched files are modified on the default branch.
 
 #### Tasks
 
-- [ ] Add `TriggerPush` constant to `internal/checker/queue.go`
-- [ ] Add `watchedPaths map[string]bool` field to `webhook.Handler`
-- [ ] Update `webhook.NewHandler` signature to accept `watchedPaths`
-- [ ] Add `case *gh.PushEvent:` to `ServeHTTP` switch
-- [ ] Implement `handlePushEvent`:
+- [x] Add `TriggerPush` constant to `internal/checker/queue.go`
+- [x] Add `watchedPaths map[string]bool` field to `webhook.Handler`
+- [x] Update `webhook.NewHandler` signature to accept `watchedPaths`
+- [x] Add `case *gh.PushEvent:` to `ServeHTTP` switch
+- [x] Implement `handlePushEvent`:
   - Check `e.GetRef()` matches `"refs/heads/" + defaultBranch`
   - Log tag pushes at debug level
   - Call `hasWatchedFileChanges`
   - If matched, enqueue with `TriggerPush`
-- [ ] Implement `hasWatchedFileChanges`:
+- [x] Implement `hasWatchedFileChanges`:
   - Check `Added` and `Modified` paths in all commits
   - Return true if any path is in `watchedPaths`
   - Do NOT check `Removed` paths
-- [ ] Update `main.go` to pass `watchedPaths` to `NewHandler`
-- [ ] Write unit tests:
+- [x] Update `main.go` to pass `watchedPaths` to `NewHandler`
+- [x] Write unit tests:
   - Push to default branch with watched file in `added`: enqueues
   - Push to default branch with watched file in `modified`: enqueues
   - Push to default branch with unrelated files: does not enqueue
@@ -244,15 +246,15 @@ Build the utility that extracts watched file paths from the policy config.
 
 #### Tasks
 
-- [ ] Create `internal/policy/watch.go` with
+- [x] Create `internal/policy/watch.go` with
   `ExtractWatchedPaths(config *PolicyConfig) map[string]bool`
-- [ ] For each file rule with a reconciler where `watch = true`, add all
+- [x] For each file rule with a reconciler where `watch = true`, add all
   rule paths to the watched set
-- [ ] Call `ExtractWatchedPaths` in `main.go` and pass result to
+- [x] Call `ExtractWatchedPaths` in `main.go` and pass result to
   `webhook.NewHandler`
-- [ ] When no HCL config and no `watch = true` reconcilers, return empty
+- [x] When no HCL config and no `watch = true` reconcilers, return empty
   map (push events silently ignored)
-- [ ] Write unit tests:
+- [x] Write unit tests:
   - Rule with `watch = true` reconciler: all rule paths in set
   - Rule with `watch = false` reconciler: no paths in set
   - Rule with no reconciler: no paths in set
@@ -273,16 +275,16 @@ Remove the old custom properties code path and verify end-to-end behavior.
 
 #### Tasks
 
-- [ ] Remove `internal/checker/properties.go` (logic migrated to reconciler)
-- [ ] Remove `internal/checker/properties_test.go`
-- [ ] Remove `customPropertiesMode` from `config.Config`
-- [ ] Update any remaining references to the old properties code path
-- [ ] Write integration test: HCL config with `custom_properties` reconciler
+- [x] Remove `internal/checker/properties.go` (logic migrated to reconciler)
+- [x] Remove `internal/checker/properties_test.go`
+- [x] Remove `customPropertiesMode` from `config.Config`
+- [x] Update any remaining references to the old properties code path
+- [x] Write integration test: HCL config with `custom_properties` reconciler
   → engine creation → mock GitHub client → expected API calls
-- [ ] Write integration test: push event → handler → enqueue → engine →
+- [x] Write integration test: push event → handler → enqueue → engine →
   reconciler runs
-- [ ] Run `make ci` (lint + test + build)
-- [ ] Update `cmd/repo-guardian/main.go` imports
+- [x] Run `make ci` (lint + test + build)
+- [x] Update `cmd/repo-guardian/main.go` imports
 
 #### Success Criteria
 
@@ -318,13 +320,13 @@ Remove the old custom properties code path and verify end-to-end behavior.
 
 ## Testing Plan
 
-- [ ] Unit tests for reconciler interface and registry
-- [ ] Unit tests for custom properties reconciler (mirrors existing tests)
-- [ ] Unit tests for push event handler (all scenarios)
-- [ ] Unit tests for watched path extraction
-- [ ] Integration test: config → engine → reconciler flow
-- [ ] Integration test: push event → enqueue → check flow
-- [ ] Backward compatibility test: CUSTOM_PROPERTIES_MODE without HCL
+- [x] Unit tests for reconciler interface and registry
+- [x] Unit tests for custom properties reconciler (mirrors existing tests)
+- [x] Unit tests for push event handler (all scenarios)
+- [x] Unit tests for watched path extraction
+- [x] Integration test: config → engine → reconciler flow
+- [x] Integration test: push event → enqueue → check flow
+- [x] Backward compatibility test: CUSTOM_PROPERTIES_MODE without HCL
 
 ## Dependencies
 

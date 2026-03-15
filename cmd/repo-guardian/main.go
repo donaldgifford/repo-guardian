@@ -16,6 +16,7 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/config"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
+	"github.com/donaldgifford/repo-guardian/internal/reconciler"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
 	"github.com/donaldgifford/repo-guardian/internal/scheduler"
 	"github.com/donaldgifford/repo-guardian/internal/webhook"
@@ -38,7 +39,6 @@ func main() {
 	logger.Info("starting repo-guardian",
 		"listen_addr", cfg.ListenAddr,
 		"metrics_addr", cfg.MetricsAddr,
-		"custom_properties_mode", cfg.CustomPropertiesMode,
 	)
 
 	// Initialize GitHub client.
@@ -73,7 +73,7 @@ func main() {
 		policyCfg,
 		templates,
 		logger,
-		cfg.CustomPropertiesMode,
+		newReconcilerRegistry(templates),
 	)
 	if err != nil {
 		logger.Error("failed to create checker engine", "error", err)
@@ -84,7 +84,10 @@ func main() {
 	queue := checker.NewQueue(policyCfg.Guardian.QueueSize, logger)
 
 	// Initialize webhook handler.
-	var webhookHandler http.Handler = webhook.NewHandler(cfg.GitHubWebhookSecret, queue, logger)
+	// Extract watched paths from policy for push event handling.
+	watchedPaths := policy.ExtractWatchedPaths(policyCfg)
+
+	var webhookHandler http.Handler = webhook.NewHandler(cfg.GitHubWebhookSecret, queue, logger, watchedPaths)
 
 	// Initialize scheduler using policy guardian config.
 	sched := scheduler.NewScheduler(
@@ -200,6 +203,15 @@ func gracefulShutdown(logger *slog.Logger, queue *checker.Queue, servers ...*htt
 
 	queue.Stop()
 	logger.Info("repo-guardian stopped")
+}
+
+func newReconcilerRegistry(templates *rules.TemplateStore) *reconciler.Registry {
+	reg := reconciler.NewRegistry()
+	reg.Register("custom_properties", func(cfg policy.ReconcilerConfig) (reconciler.Reconciler, error) {
+		return reconciler.NewCustomPropertiesReconciler(cfg, templates)
+	})
+
+	return reg
 }
 
 func newGitHubClient(cfg *config.Config, logger *slog.Logger) (*ghclient.GitHubClient, error) {

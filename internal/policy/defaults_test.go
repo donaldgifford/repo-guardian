@@ -7,6 +7,9 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/rules"
 )
 
+// --- Backward Compatibility Tests ---
+// These tests use t.Setenv and cannot be parallel.
+
 func TestBuiltinDefaults_ReturnsNonNil(t *testing.T) {
 	cfg := BuiltinDefaults()
 	if cfg == nil {
@@ -143,5 +146,74 @@ func TestBuiltinDefaults_EmptyIgnoreList(t *testing.T) {
 
 	if len(cfg.IgnoreList.Repos) != 0 {
 		t.Errorf("IgnoreList.Repos count = %d, want 0", len(cfg.IgnoreList.Repos))
+	}
+}
+
+func TestBuiltinDefaults_CustomPropertiesModeAPI(t *testing.T) {
+	t.Setenv("CUSTOM_PROPERTIES_MODE", "api")
+
+	cfg := BuiltinDefaults()
+
+	// Should have 4 rules: 3 defaults + catalog_info.
+	if len(cfg.FileRules) != 4 {
+		t.Fatalf("FileRules count = %d, want 4", len(cfg.FileRules))
+	}
+
+	catalogRule := cfg.FileRules[3]
+
+	if catalogRule.Name != "catalog_info" {
+		t.Errorf("Name = %q, want %q", catalogRule.Name, "catalog_info")
+	}
+
+	if len(catalogRule.Reconcilers) != 1 {
+		t.Fatalf("Reconcilers count = %d, want 1", len(catalogRule.Reconcilers))
+	}
+
+	rec := catalogRule.Reconcilers[0]
+
+	if rec.Type != "custom_properties" {
+		t.Errorf("Reconciler.Type = %q, want %q", rec.Type, "custom_properties")
+	}
+
+	if rec.Mode != "api" {
+		t.Errorf("Reconciler.Mode = %q, want %q", rec.Mode, "api")
+	}
+
+	if rec.Watch {
+		t.Error("Reconciler.Watch should be false in legacy mode")
+	}
+}
+
+func TestBuiltinDefaults_CustomPropertiesModeEmpty(t *testing.T) {
+	t.Setenv("CUSTOM_PROPERTIES_MODE", "")
+
+	cfg := BuiltinDefaults()
+
+	// Should have 3 rules (no catalog_info).
+	if len(cfg.FileRules) != 3 {
+		t.Fatalf("FileRules count = %d, want 3", len(cfg.FileRules))
+	}
+
+	for _, r := range cfg.FileRules {
+		if r.Name == "catalog_info" {
+			t.Error("catalog_info rule should not be present when mode is empty")
+		}
+	}
+}
+
+func TestBuiltinDefaults_CustomPropertiesModeGHA(t *testing.T) {
+	t.Setenv("CUSTOM_PROPERTIES_MODE", "github-action")
+
+	cfg := BuiltinDefaults()
+
+	if len(cfg.FileRules) != 4 {
+		t.Fatalf("FileRules count = %d, want 4", len(cfg.FileRules))
+	}
+
+	catalogRule := cfg.FileRules[3]
+	rec := catalogRule.Reconcilers[0]
+
+	if rec.Mode != "github-action" {
+		t.Errorf("Reconciler.Mode = %q, want %q", rec.Mode, "github-action")
 	}
 }

@@ -11,6 +11,7 @@ import (
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
+	"github.com/donaldgifford/repo-guardian/internal/reconciler"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
 )
 
@@ -38,43 +39,164 @@ func (e *Engine) checkRepoWithPolicy(
 		}
 	}
 
-	return e.checkCustomPropertiesIfEnabled(ctx, log, client, owner, repo, defaultBranch, openPRs)
+	// Run reconcilers for rules where the file check passed.
+	e.runReconcilers(ctx, log, client, owner, repo, defaultBranch, openPRs)
+
+	return nil
+}
+
+// runReconcilers executes reconcilers for rules where the file check passed.
+// Reconcilers run after file assertions pass — for exists mode when the file
+// is present, for contains mode when assertions pass, and for exact mode when
+// the file matches the template.
+func (e *Engine) runReconcilers(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	owner, repo, defaultBranch string,
+	openPRs []*ghclient.PullRequest,
+) {
+	for i := range e.policy.FileRules {
+		r := &e.policy.FileRules[i]
+
+		if !r.IsEnabled() {
+			continue
+		}
+
+		key := r.Type + ":" + r.Name
+		recs := e.ruleReconcilers[key]
+
+		if len(recs) == 0 {
+			continue
+		}
+
+		existingPath, err := findExistingFile(ctx, client, owner, repo, r.Paths)
+		if err != nil {
+			log.Error("error checking file for reconciler", "rule", r.Name, "error", err)
+			continue
+		}
+
+		if existingPath == "" {
+			continue
+		}
+
+		content := e.getFileContentForReconciler(ctx, log, client, owner, repo, existingPath, r)
+		if content == "" {
+			continue
+		}
+
+		params := &reconciler.ReconcileParams{
+			Client:        client,
+			Owner:         owner,
+			Repo:          repo,
+			DefaultBranch: defaultBranch,
+			Content:       content,
+			OpenPRs:       openPRs,
+			DryRun:        e.dryRun,
+			Logger:        log.With("rule", r.Name),
+		}
+
+		for _, rec := range recs {
+			recLog := log.With("rule", r.Name, "reconciler", rec.Name())
+
+			if err := rec.Reconcile(ctx, params); err != nil {
+				recLog.Error("reconciler failed", "error", err)
+			}
+		}
+	}
+}
+
+// getFileContentForReconciler reads file content and validates assertions
+// based on the rule's check mode. Returns empty string if the reconciler
+// should not run (assertions failed, content mismatch, etc.).
+func (e *Engine) getFileContentForReconciler(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	owner, repo, existingPath string,
+	rule *policy.FileRuleConfig,
+) string {
+	content, err := client.GetFileContent(ctx, owner, repo, existingPath)
+	if err != nil {
+		log.Error("error reading file for reconciler", "path", existingPath, "error", err)
+		return ""
+	}
+
+	switch rule.CheckMode() {
+	case policy.CheckContains:
+		key := rule.Type + ":" + rule.Name
+		assertions := e.compiledAssertions[key]
+
+		if len(assertions) > 0 {
+			if err := policy.EvaluateAssertions(assertions, content); err != nil {
+				return ""
+			}
+		}
+	case policy.CheckExact:
+		templateContent, err := e.templates.Get(rule.Template)
+		if err != nil {
+			log.Error("error getting template for reconciler", "template", rule.Template, "error", err)
+			return ""
+		}
+
+		if compareContent(log, existingPath, content, templateContent) {
+			return ""
+		}
+	}
+
+	return content
 }
 
 // NewEngineFromPolicy creates a new Engine configured from a PolicyConfig.
 // The Engine uses policy-based file rules with support for exists, contains,
-// and exact check modes.
+// and exact check modes. Reconcilers are built from config using the registry.
 func NewEngineFromPolicy(
 	cfg *policy.PolicyConfig,
 	templates *rules.TemplateStore,
 	logger *slog.Logger,
-	customPropertiesMode string,
+	registry *reconciler.Registry,
 ) (*Engine, error) {
-	// Pre-compile assertions for all rules.
 	compiled := make(map[string][]policy.CompiledAssertion)
+	ruleReconcilers := make(map[string][]reconciler.Reconciler)
 
 	for i := range cfg.FileRules {
 		r := &cfg.FileRules[i]
+		key := r.Type + ":" + r.Name
+
 		if len(r.Assertions) > 0 {
 			ca, err := policy.CompileAssertions(r.Assertions)
 			if err != nil {
 				return nil, fmt.Errorf("compiling assertions for rule %q: %w", r.Name, err)
 			}
 
-			key := r.Type + ":" + r.Name
 			compiled[key] = ca
+		}
+
+		if len(r.Reconcilers) > 0 && registry != nil {
+			recs := make([]reconciler.Reconciler, 0, len(r.Reconcilers))
+
+			for j := range r.Reconcilers {
+				rec, err := registry.Build(r.Reconcilers[j])
+				if err != nil {
+					return nil, fmt.Errorf("building reconciler for rule %q: %w", r.Name, err)
+				}
+
+				recs = append(recs, rec)
+			}
+
+			ruleReconcilers[key] = recs
 		}
 	}
 
 	return &Engine{
-		templates:            templates,
-		logger:               logger,
-		skipForks:            cfg.Guardian.SkipForks,
-		skipArchived:         cfg.Guardian.SkipArchived,
-		dryRun:               cfg.Guardian.DryRun,
-		customPropertiesMode: customPropertiesMode,
-		policy:               cfg,
-		compiledAssertions:   compiled,
+		templates:          templates,
+		logger:             logger,
+		skipForks:          cfg.Guardian.SkipForks,
+		skipArchived:       cfg.Guardian.SkipArchived,
+		dryRun:             cfg.Guardian.DryRun,
+		policy:             cfg,
+		compiledAssertions: compiled,
+		ruleReconcilers:    ruleReconcilers,
 	}, nil
 }
 

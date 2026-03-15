@@ -35,9 +35,10 @@ internal/
   config/     → configuration management (12-factor env vars)
   policy/     → HCL policy config: parser, loader, validation, YAML path evaluator, content assertions
   github/     → GitHub API client wrapper (go-github v68 + ghinstallation v2)
-  checker/    → core check-and-PR engine + work queue + custom properties checker
+  checker/    → core check-and-PR engine + work queue
+  reconciler/ → pluggable post-check reconcilers (e.g., custom_properties) with factory registry
   rules/      → FileRule registry + TemplateStore (embedded fallback templates)
-  webhook/    → HTTP handler for GitHub webhook events (HMAC-validated) + IP allowlist middleware
+  webhook/    → HTTP handler for GitHub webhook events (HMAC-validated) + IP allowlist middleware + push event handler
   scheduler/  → in-process ticker for weekly reconciliation
   metrics/    → Prometheus metrics (15 metrics total)
 charts/
@@ -53,7 +54,7 @@ docs/
   adr/        → Architecture decision records (docz managed)
 ```
 
-**Core flow:** GitHub webhook OR weekly scheduler → work queue (buffered channel) → checker engine → GitHub API (create PRs for missing files).
+**Core flow:** GitHub webhook OR weekly scheduler OR push event → work queue (buffered channel) → checker engine → GitHub API (create PRs for missing files) → reconcilers (post-check actions like custom property sync).
 
 **Key design patterns:**
 
@@ -62,7 +63,8 @@ docs/
 - **Deterministic branch naming** — single branch per repo (`repo-guardian/add-missing-files`) for idempotent PR creation.
 - **Work queue** with configurable concurrency (buffered channel + N worker goroutines) for rate-limit-safe GitHub API usage.
 - **Installation-scoped clients** — each job creates a GitHub client scoped to the specific installation, with cached transport tokens.
-- **Custom properties checker** — reads Backstage `catalog-info.yaml`, diffs against current GitHub custom properties, and either creates a PR with a GHA workflow (`github-action` mode) or sets properties directly via API (`api` mode). Controlled by `CUSTOM_PROPERTIES_MODE` env var (empty = disabled).
+- **Reconciler pattern** — pluggable post-check behaviors attached to file rules via `reconcile` blocks in HCL config. The `custom_properties` reconciler reads Backstage `catalog-info.yaml`, diffs against GitHub custom properties, and either creates a PR with a GHA workflow (`github-action` mode) or sets properties directly via API (`api` mode). Reconcilers run after file existence/assertion checks pass. Factory registry in `internal/reconciler/`. Backward compat: `CUSTOM_PROPERTIES_MODE` env var injects a `catalog_info` rule with reconciler into built-in defaults when no HCL config is present.
+- **Push event handler** — webhook handler accepts watched file paths (extracted from reconcilers with `watch = true`). Pushes to the default branch that add or modify watched files trigger a re-check via `TriggerPush`. Tag pushes and removed-only changes are ignored.
 - **Webhook IP allowlist** — middleware wraps only the webhook route (not health/metrics). Two-layer defense: IP allowlist (403) then HMAC validation (401). See `SECURITY.md`.
 - **Tailscale Funnel** — forwards client IPs via `X-Forwarded-For` (RemoteAddr is `127.0.0.1`). Tailscale overlay requires `TRUST_PROXY_HEADERS=true`.
 

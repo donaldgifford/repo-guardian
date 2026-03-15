@@ -60,11 +60,6 @@ type Config struct {
 	// at which pre-emptive throttling begins (e.g., 0.10 = 10%).
 	RateLimitThreshold float64
 
-	// CustomPropertiesMode controls how custom properties are managed.
-	// Valid values: "" (disabled), "github-action" (PR with GHA workflow),
-	// "api" (direct API write).
-	CustomPropertiesMode string
-
 	// WebhookIPAllowlist enables the GitHub webhook IP allowlist middleware.
 	WebhookIPAllowlist bool
 
@@ -147,7 +142,6 @@ func Load() (*Config, error) {
 	}
 
 	cfg.RateLimitThreshold = rateLimitThreshold
-	cfg.CustomPropertiesMode = os.Getenv("CUSTOM_PROPERTIES_MODE")
 
 	webhookIPAllowlist, err := envOrDefaultBool("WEBHOOK_IP_ALLOWLIST", true)
 	if err != nil {
@@ -196,15 +190,6 @@ func (c *Config) Validate() error {
 
 	if c.GitHubWebhookSecret == "" {
 		errs = append(errs, errors.New("GITHUB_WEBHOOK_SECRET is required"))
-	}
-
-	if c.CustomPropertiesMode != "" &&
-		c.CustomPropertiesMode != "github-action" &&
-		c.CustomPropertiesMode != "api" {
-		errs = append(errs, fmt.Errorf(
-			"CUSTOM_PROPERTIES_MODE must be \"\", \"github-action\", or \"api\", got %q",
-			c.CustomPropertiesMode,
-		))
 	}
 
 	return errors.Join(errs...)

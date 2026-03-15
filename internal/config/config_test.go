@@ -57,10 +57,6 @@ func TestLoadDefaults(t *testing.T) {
 		t.Errorf("RateLimitThreshold = %f, want 0.10", cfg.RateLimitThreshold)
 	}
 
-	if cfg.CustomPropertiesMode != "" {
-		t.Errorf("CustomPropertiesMode = %q, want empty (disabled)", cfg.CustomPropertiesMode)
-	}
-
 	if !cfg.WebhookIPAllowlist {
 		t.Error("WebhookIPAllowlist should default to true")
 	}
@@ -337,39 +333,5 @@ func TestLoadInvalidTrustProxyHeaders(t *testing.T) {
 
 	if !strings.Contains(err.Error(), "TRUST_PROXY_HEADERS") {
 		t.Errorf("error should mention TRUST_PROXY_HEADERS: %v", err)
-	}
-}
-
-func TestCustomPropertiesMode_ValidValues(t *testing.T) {
-	for _, mode := range []string{"", "github-action", "api"} {
-		t.Setenv("GITHUB_APP_ID", "123")
-		t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/key.pem")
-		t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
-		t.Setenv("CUSTOM_PROPERTIES_MODE", mode)
-
-		cfg, err := Load()
-		if err != nil {
-			t.Fatalf("Load with CUSTOM_PROPERTIES_MODE=%q: %v", mode, err)
-		}
-
-		if cfg.CustomPropertiesMode != mode {
-			t.Errorf("CustomPropertiesMode = %q, want %q", cfg.CustomPropertiesMode, mode)
-		}
-	}
-}
-
-func TestCustomPropertiesMode_InvalidValue(t *testing.T) {
-	t.Setenv("GITHUB_APP_ID", "123")
-	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/key.pem")
-	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
-	t.Setenv("CUSTOM_PROPERTIES_MODE", "invalid")
-
-	_, err := Load()
-	if err == nil {
-		t.Fatal("expected error for invalid CUSTOM_PROPERTIES_MODE")
-	}
-
-	if !strings.Contains(err.Error(), "CUSTOM_PROPERTIES_MODE") {
-		t.Errorf("error should mention CUSTOM_PROPERTIES_MODE: %v", err)
 	}
 }

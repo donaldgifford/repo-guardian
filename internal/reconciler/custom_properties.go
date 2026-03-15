@@ -1,4 +1,4 @@
-package checker
+package reconciler
 
 import (
 	"context"
@@ -8,9 +8,17 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/catalog"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
+	"github.com/donaldgifford/repo-guardian/internal/policy"
+	"github.com/donaldgifford/repo-guardian/internal/rules"
 )
 
 const (
+	// ModeAPI is the API mode for custom properties.
+	ModeAPI = "api"
+
+	// ModeGHA is the GitHub Actions mode for custom properties.
+	ModeGHA = "github-action"
+
 	// PropertiesBranchName is the branch used for custom properties PRs (github-action mode).
 	PropertiesBranchName = "repo-guardian/set-custom-properties"
 
@@ -24,44 +32,52 @@ const (
 	CatalogInfoPRTitle = "chore: add catalog-info.yaml"
 )
 
-// CheckCustomProperties reads the repo's catalog-info.yaml, extracts desired
-// custom property values, and either creates a PR (github-action mode) or sets
-// them directly via API (api mode).
-func (e *Engine) CheckCustomProperties(
-	ctx context.Context,
-	client ghclient.Client,
-	owner, repo, defaultBranch string,
-	openPRs []*ghclient.PullRequest,
-) error {
-	log := e.logger.With("owner", owner, "repo", repo, "mode", e.customPropertiesMode)
+// CustomPropertiesReconciler reads catalog-info.yaml content, extracts
+// custom property values, and syncs them to GitHub repository properties.
+type CustomPropertiesReconciler struct {
+	mode      string // "api" or "github-action"
+	templates *rules.TemplateStore
+}
+
+// NewCustomPropertiesReconciler creates a custom_properties reconciler from config.
+func NewCustomPropertiesReconciler(
+	config policy.ReconcilerConfig,
+	templates *rules.TemplateStore,
+) (Reconciler, error) {
+	mode := config.Mode
+	if mode != ModeAPI && mode != ModeGHA {
+		return nil, fmt.Errorf("custom_properties: mode must be %q or %q, got %q", ModeAPI, ModeGHA, mode)
+	}
+
+	return &CustomPropertiesReconciler{
+		mode:      mode,
+		templates: templates,
+	}, nil
+}
+
+// Name returns the reconciler type name.
+func (*CustomPropertiesReconciler) Name() string {
+	return "custom_properties"
+}
+
+// Reconcile reads catalog-info.yaml content, diffs custom properties, and
+// either sets them via API or creates a PR with a workflow.
+func (r *CustomPropertiesReconciler) Reconcile(ctx context.Context, params *ReconcileParams) error {
+	log := params.Logger.With("reconciler", "custom_properties", "mode", r.mode)
 	metrics.PropertiesCheckedTotal.Inc()
 
-	// Try to read catalog-info.yaml (then .yml).
-	content, err := client.GetFileContent(ctx, owner, repo, "catalog-info.yaml")
+	content, catalogFound, err := resolveCatalogContent(ctx, params)
 	if err != nil {
-		return fmt.Errorf("reading catalog-info.yaml: %w", err)
+		return err
 	}
 
-	catalogFound := content != ""
-	if !catalogFound {
-		content, err = client.GetFileContent(ctx, owner, repo, "catalog-info.yml")
-		if err != nil {
-			return fmt.Errorf("reading catalog-info.yml: %w", err)
-		}
-
-		catalogFound = content != ""
-	}
-
-	// Parse content (returns Unclassified defaults if empty/invalid).
 	desired := catalog.Parse(content)
 
-	// Read current custom properties.
-	current, err := client.GetCustomPropertyValues(ctx, owner, repo)
+	current, err := params.Client.GetCustomPropertyValues(ctx, params.Owner, params.Repo)
 	if err != nil {
 		return fmt.Errorf("reading custom properties: %w", err)
 	}
 
-	// Diff desired vs current.
 	if !diffProperties(desired, current) {
 		log.Info("custom properties already correct")
 		metrics.PropertiesAlreadyCorrectTotal.Inc()
@@ -75,33 +91,58 @@ func (e *Engine) CheckCustomProperties(
 		"catalog_found", catalogFound,
 	)
 
-	switch e.customPropertiesMode {
-	case "github-action":
-		return e.handleGHAMode(ctx, client, owner, repo, defaultBranch, desired, openPRs)
-	case "api":
-		return e.handleAPIMode(ctx, client, owner, repo, defaultBranch, desired, catalogFound, openPRs)
+	switch r.mode {
+	case ModeGHA:
+		return r.handleGHAMode(ctx, params, desired)
+	case ModeAPI:
+		return r.handleAPIMode(ctx, params, desired, catalogFound)
 	default:
 		return nil
 	}
 }
 
-func (e *Engine) handleGHAMode(
+// resolveCatalogContent returns the catalog-info content and whether it was found.
+// If params.Content is provided, it uses that directly. Otherwise, it tries
+// reading catalog-info.yaml then catalog-info.yml from the repo.
+func resolveCatalogContent(
 	ctx context.Context,
-	client ghclient.Client,
-	owner, repo, defaultBranch string,
-	desired *catalog.Properties,
-	openPRs []*ghclient.PullRequest,
-) error {
-	log := e.logger.With("owner", owner, "repo", repo)
+	params *ReconcileParams,
+) (string, bool, error) {
+	if params.Content != "" {
+		return params.Content, true, nil
+	}
 
-	// Check for existing PR.
-	existingPR := findPropertiesPR(openPRs, PropertiesBranchName)
+	content, err := params.Client.GetFileContent(ctx, params.Owner, params.Repo, "catalog-info.yaml")
+	if err != nil {
+		return "", false, fmt.Errorf("reading catalog-info.yaml: %w", err)
+	}
+
+	if content != "" {
+		return content, true, nil
+	}
+
+	content, err = params.Client.GetFileContent(ctx, params.Owner, params.Repo, "catalog-info.yml")
+	if err != nil {
+		return "", false, fmt.Errorf("reading catalog-info.yml: %w", err)
+	}
+
+	return content, content != "", nil
+}
+
+func (r *CustomPropertiesReconciler) handleGHAMode(
+	ctx context.Context,
+	params *ReconcileParams,
+	desired *catalog.Properties,
+) error {
+	log := params.Logger.With("owner", params.Owner, "repo", params.Repo)
+
+	existingPR := findPropertiesPR(params.OpenPRs, PropertiesBranchName)
 	if existingPR != nil {
 		log.Info("properties PR already exists", "pr_number", existingPR.Number)
 		return nil
 	}
 
-	if e.dryRun {
+	if params.DryRun {
 		log.Info("dry run: would create properties PR",
 			"owner_value", desired.Owner,
 			"component_value", desired.Component,
@@ -110,13 +151,11 @@ func (e *Engine) handleGHAMode(
 		return nil
 	}
 
-	// Handle stale branch cleanup.
-	if err := e.cleanupStaleBranch(ctx, client, owner, repo, PropertiesBranchName); err != nil {
+	if err := cleanupStaleBranch(ctx, log, params.Client, params.Owner, params.Repo, PropertiesBranchName); err != nil {
 		return err
 	}
 
-	// Render template with actual values.
-	tmplContent, err := e.templates.Get("set-custom-properties")
+	tmplContent, err := r.templates.Get("set-custom-properties")
 	if err != nil {
 		return fmt.Errorf("getting set-custom-properties template: %w", err)
 	}
@@ -128,32 +167,29 @@ func (e *Engine) handleGHAMode(
 		"JIRA_LABEL_VALUE":   desired.JiraLabel,
 	})
 
-	// Create branch from default branch HEAD.
-	baseSHA, err := client.GetBranchSHA(ctx, owner, repo, defaultBranch)
+	baseSHA, err := params.Client.GetBranchSHA(ctx, params.Owner, params.Repo, params.DefaultBranch)
 	if err != nil {
 		return fmt.Errorf("getting default branch SHA: %w", err)
 	}
 
 	if baseSHA == "" {
-		return fmt.Errorf("default branch %s has no SHA", defaultBranch)
+		return fmt.Errorf("default branch %s has no SHA", params.DefaultBranch)
 	}
 
-	if err := client.CreateBranch(ctx, owner, repo, PropertiesBranchName, baseSHA); err != nil {
+	if err := params.Client.CreateBranch(ctx, params.Owner, params.Repo, PropertiesBranchName, baseSHA); err != nil {
 		return fmt.Errorf("creating properties branch: %w", err)
 	}
 
-	// Commit the workflow file.
 	commitMsg := "chore: add workflow to set custom properties"
 	targetPath := ".github/workflows/set-custom-properties.yml"
 
-	if err := client.CreateOrUpdateFile(ctx, owner, repo, PropertiesBranchName, targetPath, rendered, commitMsg); err != nil {
+	if err := params.Client.CreateOrUpdateFile(ctx, params.Owner, params.Repo, PropertiesBranchName, targetPath, rendered, commitMsg); err != nil {
 		return fmt.Errorf("creating workflow file: %w", err)
 	}
 
-	// Create PR.
 	body := buildPropertiesPRBody(desired, "github-action")
 
-	pr, err := client.CreatePullRequest(ctx, owner, repo, PropertiesPRTitle, body, PropertiesBranchName, defaultBranch)
+	pr, err := params.Client.CreatePullRequest(ctx, params.Owner, params.Repo, PropertiesPRTitle, body, PropertiesBranchName, params.DefaultBranch)
 	if err != nil {
 		return fmt.Errorf("creating properties PR: %w", err)
 	}
@@ -164,17 +200,15 @@ func (e *Engine) handleGHAMode(
 	return nil
 }
 
-func (e *Engine) handleAPIMode(
+func (r *CustomPropertiesReconciler) handleAPIMode(
 	ctx context.Context,
-	client ghclient.Client,
-	owner, repo, defaultBranch string,
+	params *ReconcileParams,
 	desired *catalog.Properties,
 	catalogFound bool,
-	openPRs []*ghclient.PullRequest,
 ) error {
-	log := e.logger.With("owner", owner, "repo", repo)
+	log := params.Logger.With("owner", params.Owner, "repo", params.Repo)
 
-	if e.dryRun {
+	if params.DryRun {
 		log.Info("dry run: would set custom properties via API",
 			"owner_value", desired.Owner,
 			"component_value", desired.Component,
@@ -184,85 +218,79 @@ func (e *Engine) handleAPIMode(
 		return nil
 	}
 
-	// Set properties via API.
 	props := desiredToPropertyValues(desired)
 
-	if err := client.SetCustomPropertyValues(ctx, owner, repo, props); err != nil {
+	if err := params.Client.SetCustomPropertyValues(ctx, params.Owner, params.Repo, props); err != nil {
 		return fmt.Errorf("setting custom properties: %w", err)
 	}
 
 	metrics.PropertiesSetTotal.Inc()
 	log.Info("set custom properties via API")
 
-	// If catalog-info.yaml was not found, create a PR with a template.
 	if !catalogFound {
-		return e.createCatalogInfoPR(ctx, client, owner, repo, defaultBranch, openPRs)
+		return r.createCatalogInfoPR(ctx, params)
 	}
 
 	return nil
 }
 
-func (e *Engine) createCatalogInfoPR(
+func (r *CustomPropertiesReconciler) createCatalogInfoPR(
 	ctx context.Context,
-	client ghclient.Client,
-	owner, repo, defaultBranch string,
-	openPRs []*ghclient.PullRequest,
+	params *ReconcileParams,
 ) error {
-	log := e.logger.With("owner", owner, "repo", repo)
+	log := params.Logger.With("owner", params.Owner, "repo", params.Repo)
 
-	// Check for existing catalog-info PR.
-	existingPR := findPropertiesPR(openPRs, CatalogInfoBranchName)
+	existingPR := findPropertiesPR(params.OpenPRs, CatalogInfoBranchName)
 	if existingPR != nil {
 		log.Info("catalog-info PR already exists", "pr_number", existingPR.Number)
 		return nil
 	}
 
-	if e.dryRun {
+	if params.DryRun {
 		log.Info("dry run: would create catalog-info PR")
 		return nil
 	}
 
-	// Handle stale branch cleanup.
-	if err := e.cleanupStaleBranch(ctx, client, owner, repo, CatalogInfoBranchName); err != nil {
+	if err := cleanupStaleBranch(ctx, log, params.Client, params.Owner, params.Repo, CatalogInfoBranchName); err != nil {
 		return err
 	}
 
-	// Render catalog-info template.
-	tmplContent, err := e.templates.Get("catalog-info")
+	tmplContent, err := r.templates.Get("catalog-info")
 	if err != nil {
 		return fmt.Errorf("getting catalog-info template: %w", err)
 	}
 
 	rendered := renderTemplate(tmplContent, map[string]string{
-		"REPO_NAME": repo,
-		"ORG_NAME":  owner,
+		"REPO_NAME": params.Repo,
+		"ORG_NAME":  params.Owner,
 	})
 
-	// Create branch from default branch HEAD.
-	baseSHA, err := client.GetBranchSHA(ctx, owner, repo, defaultBranch)
+	baseSHA, err := params.Client.GetBranchSHA(ctx, params.Owner, params.Repo, params.DefaultBranch)
 	if err != nil {
 		return fmt.Errorf("getting default branch SHA: %w", err)
 	}
 
 	if baseSHA == "" {
-		return fmt.Errorf("default branch %s has no SHA", defaultBranch)
+		return fmt.Errorf("default branch %s has no SHA", params.DefaultBranch)
 	}
 
-	if err := client.CreateBranch(ctx, owner, repo, CatalogInfoBranchName, baseSHA); err != nil {
+	if err := params.Client.CreateBranch(ctx, params.Owner, params.Repo, CatalogInfoBranchName, baseSHA); err != nil {
 		return fmt.Errorf("creating catalog-info branch: %w", err)
 	}
 
-	// Commit the catalog-info.yaml file.
 	commitMsg := "chore: add catalog-info.yaml"
 
-	if err := client.CreateOrUpdateFile(ctx, owner, repo, CatalogInfoBranchName, "catalog-info.yaml", rendered, commitMsg); err != nil {
+	err = params.Client.CreateOrUpdateFile(
+		ctx, params.Owner, params.Repo, CatalogInfoBranchName,
+		"catalog-info.yaml", rendered, commitMsg,
+	)
+	if err != nil {
 		return fmt.Errorf("creating catalog-info.yaml: %w", err)
 	}
 
-	// Create PR.
 	body := buildPropertiesPRBody(nil, "api")
 
-	pr, err := client.CreatePullRequest(ctx, owner, repo, CatalogInfoPRTitle, body, CatalogInfoBranchName, defaultBranch)
+	pr, err := params.Client.CreatePullRequest(ctx, params.Owner, params.Repo, CatalogInfoPRTitle, body, CatalogInfoBranchName, params.DefaultBranch)
 	if err != nil {
 		return fmt.Errorf("creating catalog-info PR: %w", err)
 	}
@@ -274,9 +302,9 @@ func (e *Engine) createCatalogInfoPR(
 }
 
 // cleanupStaleBranch deletes a branch if it exists but has no open PR.
-// This follows the same pattern as createOrUpdatePR in engine.go.
-func (e *Engine) cleanupStaleBranch(
+func cleanupStaleBranch(
 	ctx context.Context,
+	log interface{ Info(string, ...any) },
 	client ghclient.Client,
 	owner, repo, branchName string,
 ) error {
@@ -286,7 +314,7 @@ func (e *Engine) cleanupStaleBranch(
 	}
 
 	if branchSHA != "" {
-		e.logger.Info("deleting stale branch from previously closed PR",
+		log.Info("deleting stale branch from previously closed PR",
 			"owner", owner, "repo", repo, "branch", branchName,
 		)
 
@@ -299,7 +327,6 @@ func (e *Engine) cleanupStaleBranch(
 }
 
 // findPropertiesPR finds an open PR whose head branch matches the given name.
-// Mirrors findOurPR from engine.go for consistency.
 func findPropertiesPR(openPRs []*ghclient.PullRequest, branchName string) *ghclient.PullRequest {
 	for _, pr := range openPRs {
 		if pr.Head == branchName {
@@ -311,14 +338,12 @@ func findPropertiesPR(openPRs []*ghclient.PullRequest, branchName string) *ghcli
 }
 
 // diffProperties returns true if any desired property differs from current values.
-// JiraProject and JiraLabel are only compared when the desired value is non-empty.
 func diffProperties(desired *catalog.Properties, current []*ghclient.CustomPropertyValue) bool {
 	currentMap := make(map[string]string, len(current))
 	for _, p := range current {
 		currentMap[p.PropertyName] = p.Value
 	}
 
-	// Always compare Owner and Component.
 	if currentMap["Owner"] != desired.Owner {
 		return true
 	}
@@ -327,7 +352,6 @@ func diffProperties(desired *catalog.Properties, current []*ghclient.CustomPrope
 		return true
 	}
 
-	// Only compare Jira fields when desired value is non-empty.
 	if desired.JiraProject != "" && currentMap["JiraProject"] != desired.JiraProject {
 		return true
 	}
@@ -339,7 +363,7 @@ func diffProperties(desired *catalog.Properties, current []*ghclient.CustomPrope
 	return false
 }
 
-// renderTemplate performs simple string replacement of placeholders in template content.
+// renderTemplate performs simple string replacement of placeholders.
 func renderTemplate(content string, replacements map[string]string) string {
 	result := content
 	for placeholder, value := range replacements {
@@ -378,7 +402,7 @@ func buildPropertiesPRBody(props *catalog.Properties, mode string) string {
 	var sb strings.Builder
 
 	switch mode {
-	case "github-action":
+	case ModeGHA:
 		buildGHABody(&sb, props)
 	default:
 		buildCatalogInfoBody(&sb)

@@ -12,6 +12,7 @@ import (
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
+	"github.com/donaldgifford/repo-guardian/internal/reconciler"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
 )
 
@@ -32,16 +33,20 @@ type Engine struct {
 	skipForks            bool
 	skipArchived         bool
 	dryRun               bool
-	customPropertiesMode string
+	customPropertiesMode string // legacy, removed in Phase 7
 
 	// policy is set when the engine is created from a PolicyConfig.
 	// When non-nil, CheckRepo uses policy-based evaluation with
 	// exists/contains/exact check modes.
 	policy             *policy.PolicyConfig
 	compiledAssertions map[string][]policy.CompiledAssertion
+
+	// ruleReconcilers maps rule key (type:name) to built reconcilers.
+	// Reconcilers run after file checks pass.
+	ruleReconcilers map[string][]reconciler.Reconciler
 }
 
-// NewEngine creates a new checker Engine.
+// NewEngine creates a new checker Engine using the legacy registry-based rules.
 func NewEngine(
 	registry *rules.Registry,
 	templates *rules.TemplateStore,

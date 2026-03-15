@@ -2,11 +2,14 @@ package checker
 
 import (
 	"context"
+	"errors"
 	"log/slog"
+	"sync"
 	"testing"
 
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
+	"github.com/donaldgifford/repo-guardian/internal/reconciler"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
 )
 
@@ -16,7 +19,7 @@ func testPolicyEngine(cfg *policy.PolicyConfig) *Engine {
 		panic(err)
 	}
 
-	engine, err := NewEngineFromPolicy(cfg, ts, slog.Default(), "")
+	engine, err := NewEngineFromPolicy(cfg, ts, slog.Default(), nil)
 	if err != nil {
 		panic(err)
 	}
@@ -313,7 +316,7 @@ func TestPolicyCheckRepo_ExactMode_YAMLSemanticComparison(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	engine, err := NewEngineFromPolicy(cfg, ts, slog.Default(), "")
+	engine, err := NewEngineFromPolicy(cfg, ts, slog.Default(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -439,7 +442,7 @@ func TestIntegration_PolicyLoadAndEngineCreation(t *testing.T) {
 		t.Fatalf("templates.Load: %v", err)
 	}
 
-	engine, err := NewEngineFromPolicy(policyCfg, ts, slog.Default(), "")
+	engine, err := NewEngineFromPolicy(policyCfg, ts, slog.Default(), nil)
 	if err != nil {
 		t.Fatalf("NewEngineFromPolicy: %v", err)
 	}
@@ -458,5 +461,387 @@ func TestIntegration_PolicyLoadAndEngineCreation(t *testing.T) {
 
 	if client.createdPR != nil {
 		t.Error("should not create PR when all files exist")
+	}
+}
+
+// --- Reconciler integration tests ---
+
+// trackingReconciler records calls for test verification.
+type trackingReconciler struct {
+	name      string
+	mu        sync.Mutex
+	calls     []reconcilerCall
+	returnErr error
+}
+
+type reconcilerCall struct {
+	Owner   string
+	Repo    string
+	Content string
+	DryRun  bool
+}
+
+func (r *trackingReconciler) Name() string { return r.name }
+
+func (r *trackingReconciler) Reconcile(_ context.Context, params *reconciler.ReconcileParams) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.calls = append(r.calls, reconcilerCall{
+		Owner:   params.Owner,
+		Repo:    params.Repo,
+		Content: params.Content,
+		DryRun:  params.DryRun,
+	})
+
+	return r.returnErr
+}
+
+func (r *trackingReconciler) callCount() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return len(r.calls)
+}
+
+func (r *trackingReconciler) lastCall() reconcilerCall {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.calls[len(r.calls)-1]
+}
+
+func testPolicyEngineWithReconciler(cfg *policy.PolicyConfig, rec *trackingReconciler) *Engine {
+	ts := rules.NewTemplateStore()
+	if err := ts.Load(""); err != nil {
+		panic(err)
+	}
+
+	reg := reconciler.NewRegistry()
+	reg.Register(rec.name, func(_ policy.ReconcilerConfig) (reconciler.Reconciler, error) {
+		return rec, nil
+	})
+
+	engine, err := NewEngineFromPolicy(cfg, ts, slog.Default(), reg)
+	if err != nil {
+		panic(err)
+	}
+
+	return engine
+}
+
+func TestReconciler_RunsWhenFilePresent_ExistsMode(t *testing.T) {
+	t.Parallel()
+
+	rec := &trackingReconciler{name: "test_rec"}
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "test_file",
+				Paths:    []string{"test.txt"},
+				Target:   "test.txt",
+				Template: "codeowners",
+				Check:    "exists",
+				Reconcilers: []policy.ReconcilerConfig{
+					{Type: "test_rec"},
+				},
+			},
+		},
+	}
+
+	engine := testPolicyEngineWithReconciler(cfg, rec)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.contents["org/repo/test.txt"] = true
+	client.fileContents["org/repo/test.txt"] = "file content"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if rec.callCount() != 1 {
+		t.Fatalf("expected 1 reconciler call, got %d", rec.callCount())
+	}
+
+	call := rec.lastCall()
+	if call.Content != "file content" {
+		t.Errorf("Content = %q, want %q", call.Content, "file content")
+	}
+
+	if call.Owner != "org" {
+		t.Errorf("Owner = %q, want %q", call.Owner, "org")
+	}
+}
+
+func TestReconciler_DoesNotRunWhenFileMissing(t *testing.T) {
+	t.Parallel()
+
+	rec := &trackingReconciler{name: "test_rec"}
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "test_file",
+				Paths:    []string{"test.txt"},
+				Target:   "test.txt",
+				Template: "codeowners",
+				Check:    "exists",
+				Reconcilers: []policy.ReconcilerConfig{
+					{Type: "test_rec"},
+				},
+			},
+		},
+	}
+
+	engine := testPolicyEngineWithReconciler(cfg, rec)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "abc123"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if rec.callCount() != 0 {
+		t.Errorf("expected 0 reconciler calls, got %d", rec.callCount())
+	}
+}
+
+func TestReconciler_RunsWhenAssertionsPass_ContainsMode(t *testing.T) {
+	t.Parallel()
+
+	rec := &trackingReconciler{name: "test_rec"}
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "test_file",
+				Paths:    []string{"test.txt"},
+				Target:   "test.txt",
+				Template: "codeowners",
+				Check:    "contains",
+				Assertions: []policy.AssertionConfig{
+					{Pattern: "required-text", Message: "must contain required-text"},
+				},
+				Reconcilers: []policy.ReconcilerConfig{
+					{Type: "test_rec"},
+				},
+			},
+		},
+	}
+
+	engine := testPolicyEngineWithReconciler(cfg, rec)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.contents["org/repo/test.txt"] = true
+	client.fileContents["org/repo/test.txt"] = "this has required-text in it"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if rec.callCount() != 1 {
+		t.Fatalf("expected 1 reconciler call, got %d", rec.callCount())
+	}
+}
+
+func TestReconciler_DoesNotRunWhenAssertionsFail(t *testing.T) {
+	t.Parallel()
+
+	rec := &trackingReconciler{name: "test_rec"}
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "test_file",
+				Paths:    []string{"test.txt"},
+				Target:   "test.txt",
+				Template: "codeowners",
+				Check:    "contains",
+				Assertions: []policy.AssertionConfig{
+					{Pattern: "required-text", Message: "must contain required-text"},
+				},
+				Reconcilers: []policy.ReconcilerConfig{
+					{Type: "test_rec"},
+				},
+			},
+		},
+	}
+
+	engine := testPolicyEngineWithReconciler(cfg, rec)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.contents["org/repo/test.txt"] = true
+	client.fileContents["org/repo/test.txt"] = "no match here"
+	client.branchSHAs["org/repo/main"] = "abc123"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if rec.callCount() != 0 {
+		t.Errorf("expected 0 reconciler calls when assertions fail, got %d", rec.callCount())
+	}
+}
+
+func TestReconciler_MultipleRunInOrder(t *testing.T) {
+	t.Parallel()
+
+	rec1 := &trackingReconciler{name: "rec_alpha"}
+	rec2 := &trackingReconciler{name: "rec_beta"}
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "test_file",
+				Paths:    []string{"test.txt"},
+				Target:   "test.txt",
+				Template: "codeowners",
+				Check:    "exists",
+				Reconcilers: []policy.ReconcilerConfig{
+					{Type: "rec_alpha"},
+					{Type: "rec_beta"},
+				},
+			},
+		},
+	}
+
+	ts := rules.NewTemplateStore()
+	if err := ts.Load(""); err != nil {
+		t.Fatalf("templates: %v", err)
+	}
+
+	reg := reconciler.NewRegistry()
+	reg.Register("rec_alpha", func(_ policy.ReconcilerConfig) (reconciler.Reconciler, error) {
+		return rec1, nil
+	})
+	reg.Register("rec_beta", func(_ policy.ReconcilerConfig) (reconciler.Reconciler, error) {
+		return rec2, nil
+	})
+
+	engine, err := NewEngineFromPolicy(cfg, ts, slog.Default(), reg)
+	if err != nil {
+		t.Fatalf("NewEngineFromPolicy: %v", err)
+	}
+
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.contents["org/repo/test.txt"] = true
+	client.fileContents["org/repo/test.txt"] = "content"
+
+	if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if rec1.callCount() != 1 {
+		t.Errorf("rec_alpha: expected 1 call, got %d", rec1.callCount())
+	}
+
+	if rec2.callCount() != 1 {
+		t.Errorf("rec_beta: expected 1 call, got %d", rec2.callCount())
+	}
+}
+
+func TestReconciler_ErrorLoggedNotFatal(t *testing.T) {
+	t.Parallel()
+
+	rec := &trackingReconciler{name: "test_rec", returnErr: errors.New("reconciler failed")}
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "test_file",
+				Paths:    []string{"test.txt"},
+				Target:   "test.txt",
+				Template: "codeowners",
+				Check:    "exists",
+				Reconcilers: []policy.ReconcilerConfig{
+					{Type: "test_rec"},
+				},
+			},
+		},
+	}
+
+	engine := testPolicyEngineWithReconciler(cfg, rec)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.contents["org/repo/test.txt"] = true
+	client.fileContents["org/repo/test.txt"] = "content"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo should not fail on reconciler error: %v", err)
+	}
+
+	if rec.callCount() != 1 {
+		t.Errorf("expected reconciler to be called, got %d calls", rec.callCount())
+	}
+}
+
+func TestReconciler_DryRunPropagated(t *testing.T) {
+	t.Parallel()
+
+	rec := &trackingReconciler{name: "test_rec"}
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "test_file",
+				Paths:    []string{"test.txt"},
+				Target:   "test.txt",
+				Template: "codeowners",
+				Check:    "exists",
+				Reconcilers: []policy.ReconcilerConfig{
+					{Type: "test_rec"},
+				},
+			},
+		},
+	}
+	cfg.Guardian.DryRun = true
+
+	engine := testPolicyEngineWithReconciler(cfg, rec)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.contents["org/repo/test.txt"] = true
+	client.fileContents["org/repo/test.txt"] = "content"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if rec.callCount() != 1 {
+		t.Fatalf("expected 1 reconciler call, got %d", rec.callCount())
+	}
+
+	if !rec.lastCall().DryRun {
+		t.Error("DryRun should be true in ReconcileParams")
 	}
 }

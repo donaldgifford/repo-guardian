@@ -135,21 +135,23 @@ after file assertions pass.
 
 #### Tasks
 
-- [ ] Add `Reconcilers []Reconciler` field to the engine's internal rule
+- [x] Add `Reconcilers []Reconciler` field to the engine's internal rule
   representation (built from `FileRuleConfig.Reconcilers` via Registry)
-- [ ] Build reconcilers from `PolicyConfig` at engine construction time
+- [x] Build reconcilers from `PolicyConfig` at engine construction time
   using the `Registry`
-- [ ] Modify `CheckRepo` flow:
+- [x] Modify `CheckRepo` flow:
   - After file existence + assertions pass → read file content once →
     run each reconciler with `ReconcileParams`
   - `exists` mode: reconcilers run when file is present
   - `contains` mode: reconcilers run when assertions pass
   - `exact` mode: reconcilers run when file matches template
-- [ ] Remove `checkCustomPropertiesIfEnabled` from `CheckRepo` (replaced
-  by reconciler invocation)
-- [ ] Remove `customPropertiesMode` field from `Engine` struct
-- [ ] Update `NewEngine` signature (no more `customPropertiesMode` param)
-- [ ] Write unit tests:
+- [x] Remove `checkCustomPropertiesIfEnabled` from `CheckRepo` (replaced
+  by reconciler invocation in policy path; legacy path retained until Phase 7)
+- [x] Remove `customPropertiesMode` field from `Engine` struct
+  (removed from policy path; legacy field retained until Phase 7)
+- [x] Update `NewEngine` signature (no more `customPropertiesMode` param)
+  (policy engine uses registry; legacy NewEngine unchanged until Phase 7)
+- [x] Write unit tests:
   - Reconciler runs when file present (exists mode)
   - Reconciler runs when assertions pass (contains mode)
   - Reconciler does not run when file missing

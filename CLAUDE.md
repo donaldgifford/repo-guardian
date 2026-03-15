@@ -33,6 +33,7 @@ cmd/repo-guardian/main.go  → entrypoint (dual HTTP servers, graceful shutdown)
 internal/
   catalog/    → Backstage catalog-info.yaml parser (gopkg.in/yaml.v3)
   config/     → configuration management (12-factor env vars)
+  policy/     → HCL policy config: parser, loader, validation, YAML path evaluator, content assertions
   github/     → GitHub API client wrapper (go-github v68 + ghinstallation v2)
   checker/    → core check-and-PR engine + work queue + custom properties checker
   rules/      → FileRule registry + TemplateStore (embedded fallback templates)
@@ -56,7 +57,8 @@ docs/
 
 **Key design patterns:**
 
-- **FileRule registry** — each rule defines paths to check, default templates, and PR detection logic. New rules are added without modifying core engine code.
+- **HCL policy engine** — optional `guardian.hcl` config (set via `GUARDIAN_CONFIG` env var) defines file rules with three check modes: `exists`, `contains` (with regex/YAML path assertions), `exact` (YAML semantic or byte comparison). Config merge order: built-in defaults → HCL file → env var overrides. Uses `hclparse.NewParser()` (not `hclsimple` due to `hcl:"-"` tag incompatibility). The engine has dual paths: `NewEngine` (legacy registry) and `NewEngineFromPolicy` (policy-based), dispatched via `e.policy != nil` in `CheckRepo`.
+- **FileRule registry** — each rule defines paths to check, default templates, and PR detection logic. New rules are added without modifying core engine code. Legacy path retained for backward compatibility.
 - **Deterministic branch naming** — single branch per repo (`repo-guardian/add-missing-files`) for idempotent PR creation.
 - **Work queue** with configurable concurrency (buffered channel + N worker goroutines) for rate-limit-safe GitHub API usage.
 - **Installation-scoped clients** — each job creates a GitHub client scoped to the specific installation, with cached transport tokens.

@@ -17,6 +17,11 @@ repo-guardian monitors your GitHub organization for new repositories and periodi
 
 Each rule checks multiple file paths (e.g., CODEOWNERS can live at root, `.github/`, or `docs/`), and skips repos that already have the file or an open PR addressing it.
 
+**Check modes** (via HCL policy config):
+- **exists** -- file must be present (default, current behavior)
+- **contains** -- file must exist and pass content assertions (regex patterns, YAML path checks)
+- **exact** -- file must match the template exactly (YAML semantic comparison for `.yml`/`.yaml` files)
+
 ## Prerequisites
 
 - Go 1.25+ (managed via [mise](https://mise.jdx.dev/))
@@ -51,10 +56,53 @@ All configuration is via environment variables (12-factor):
 | `WEBHOOK_IP_ALLOWLIST` | No | `true` | Enable GitHub webhook IP allowlist middleware |
 | `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN` | No | `false` | Allow requests when IP ranges are unavailable |
 | `TRUST_PROXY_HEADERS` | No | `false` | Read client IP from `X-Forwarded-For` header |
+| `GUARDIAN_CONFIG` | No | `""` | Path to HCL policy config file or directory |
 
 *One of `GITHUB_PRIVATE_KEY_PATH` or `GITHUB_PRIVATE_KEY` is required (mutually exclusive).
 
 Boolean values accept Go's `strconv.ParseBool` formats: `1`, `t`, `TRUE`, `true`, `0`, `f`, `FALSE`, `false`. Invalid values (e.g., `yes`, `no`) will cause a startup error.
+
+## Policy Configuration (HCL)
+
+repo-guardian supports an optional HCL policy file for defining custom file rules with check modes, content assertions, and structured configuration. Set `GUARDIAN_CONFIG` to a `.hcl` file or a directory of `.hcl` files.
+
+When no policy config is set, built-in defaults provide identical behavior to the environment variable configuration.
+
+**Example `guardian.hcl`:**
+
+```hcl
+guardian {
+  log_level  = "info"
+  dry_run    = false
+  skip_forks = true
+}
+
+rule "file" "codeowners" {
+  check    = "exists"
+  paths    = ["CODEOWNERS", ".github/CODEOWNERS", "docs/CODEOWNERS"]
+  target   = ".github/CODEOWNERS"
+  template = "codeowners"
+
+  pr {
+    search_terms = ["codeowners", "CODEOWNERS"]
+  }
+}
+
+rule "file" "catalog-info" {
+  check    = "contains"
+  paths    = ["catalog-info.yaml"]
+  target   = "catalog-info.yaml"
+  template = "catalog-info"
+
+  assertion {
+    yaml_path = "spec.owner"
+    contains  = "team"
+    message   = "spec.owner must reference a team"
+  }
+}
+```
+
+**Helm chart:** Use `policy.config` for inline HCL or `policy.existingConfigMap` to reference an external ConfigMap. See the [chart values](charts/repo-guardian/values.yaml).
 
 ## Quick Start (Local Development)
 
@@ -239,6 +287,7 @@ cmd/repo-guardian/main.go  -> entrypoint (dual HTTP servers, graceful shutdown)
 internal/
   catalog/    -> Backstage catalog-info.yaml parser
   config/     -> configuration (12-factor env vars, validated at startup)
+  policy/     -> HCL policy config parser, validation, YAML path evaluator, content assertions
   github/     -> GitHub API client (go-github v68, ghinstallation v2, rate limit transport)
   checker/    -> check-and-PR engine + buffered work queue + custom properties checker
   rules/      -> FileRule registry + TemplateStore (embedded fallback templates)

@@ -29,6 +29,19 @@ type mockClient struct {
 	installRepos     map[int64][]*ghclient.Repository
 	processedJobs    atomic.Int32
 
+	// Setting rule mock fields.
+	repoSettings               *ghclient.RepoSettings
+	vulnerabilityAlertsEnabled bool
+	updatedRepoOpts            []*ghclient.RepoUpdateOpts
+	enabledVulnAlerts          bool
+	disabledVulnAlerts         bool
+
+	// Branch protection mock fields.
+	rulesets         []*ghclient.Ruleset
+	createdRuleset   *ghclient.Ruleset
+	updatedRuleset   *ghclient.Ruleset
+	updatedRulesetID int64
+
 	getRepoErr        error
 	getContentsErr    error
 	getFileContentErr error
@@ -174,6 +187,71 @@ func (m *mockClient) SetCustomPropertyValues(_ context.Context, _, _ string, pro
 
 	m.setProperties = append(m.setProperties, properties...)
 
+	return nil
+}
+
+func (m *mockClient) GetVulnerabilityAlertsEnabled(_ context.Context, _, _ string) (bool, error) {
+	return m.vulnerabilityAlertsEnabled, nil
+}
+
+func (m *mockClient) EnableVulnerabilityAlerts(_ context.Context, _, _ string) error {
+	m.enabledVulnAlerts = true
+	return nil
+}
+
+func (m *mockClient) DisableVulnerabilityAlerts(_ context.Context, _, _ string) error {
+	m.disabledVulnAlerts = true
+	return nil
+}
+
+func (m *mockClient) GetRepoSettings(_ context.Context, _, _ string) (*ghclient.RepoSettings, error) {
+	if m.repoSettings != nil {
+		return m.repoSettings, nil
+	}
+
+	return &ghclient.RepoSettings{}, nil
+}
+
+func (m *mockClient) UpdateRepository(_ context.Context, _, _ string, opts *ghclient.RepoUpdateOpts) error {
+	m.updatedRepoOpts = append(m.updatedRepoOpts, opts)
+	return nil
+}
+
+func (m *mockClient) ListRepositoryRulesets(_ context.Context, _, _ string) ([]*ghclient.Ruleset, error) {
+	return m.rulesets, nil
+}
+
+func (*mockClient) GetRepositoryRuleset(_ context.Context, _, _ string, _ int64) (*ghclient.Ruleset, error) {
+	return nil, nil //nolint:nilnil // mock stub
+}
+
+func (m *mockClient) CreateRepositoryRuleset(_ context.Context, _, _ string, rs *ghclient.Ruleset) (*ghclient.Ruleset, error) {
+	m.createdRuleset = rs
+	rs.ID = 100
+
+	return rs, nil
+}
+
+func (m *mockClient) UpdateRepositoryRuleset(_ context.Context, _, _ string, id int64, rs *ghclient.Ruleset) (*ghclient.Ruleset, error) {
+	m.updatedRuleset = rs
+	m.updatedRulesetID = id
+
+	return rs, nil
+}
+
+func (*mockClient) ListLabels(_ context.Context, _, _ string) ([]*ghclient.Label, error) {
+	return nil, nil
+}
+
+func (*mockClient) CreateLabel(_ context.Context, _, _ string, _ *ghclient.Label) error {
+	return nil
+}
+
+func (*mockClient) UpdateLabel(_ context.Context, _, _, _ string, _ *ghclient.Label) error {
+	return nil
+}
+
+func (*mockClient) DeleteLabel(_ context.Context, _, _, _ string) error {
 	return nil
 }
 

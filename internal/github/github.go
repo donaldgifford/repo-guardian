@@ -37,6 +37,75 @@ type CustomPropertyValue struct {
 	Value        string
 }
 
+// RepoSettings holds GitHub repository settings that can be checked and
+// remediated by setting rules.
+type RepoSettings struct {
+	DefaultBranch       string
+	HasIssues           bool
+	HasWiki             bool
+	DeleteBranchOnMerge bool
+	AllowMergeCommit    bool
+	AllowSquashMerge    bool
+	AllowRebaseMerge    bool
+}
+
+// RepoUpdateOpts holds fields for updating repository settings.
+// Only non-nil pointer fields are applied.
+type RepoUpdateOpts struct {
+	HasIssues           *bool
+	HasWiki             *bool
+	DeleteBranchOnMerge *bool
+	AllowMergeCommit    *bool
+	AllowSquashMerge    *bool
+	AllowRebaseMerge    *bool
+	DefaultBranch       *string
+}
+
+// Ruleset represents a GitHub repository ruleset.
+type Ruleset struct {
+	ID                   int64
+	Name                 string
+	Enforcement          string // "active", "disabled", "evaluate"
+	Target               string // "branch", "tag"
+	BypassActors         []RulesetBypassActor
+	Conditions           *RulesetConditions
+	RequirePullRequest   *RulesetPullRequest
+	RequireStatusChecks  *RulesetStatusChecks
+	RequireLinearHistory bool
+}
+
+// RulesetBypassActor represents an actor that can bypass ruleset rules.
+type RulesetBypassActor struct {
+	ActorID   int64
+	ActorType string // "OrganizationAdmin", "RepositoryRole", etc.
+}
+
+// RulesetConditions defines which branches the ruleset applies to.
+type RulesetConditions struct {
+	IncludePatterns []string
+	ExcludePatterns []string
+}
+
+// RulesetPullRequest holds pull request requirements for a ruleset.
+type RulesetPullRequest struct {
+	RequiredApprovals      int
+	DismissStaleReviews    bool
+	RequireCodeOwnerReview bool
+}
+
+// RulesetStatusChecks holds required status check settings.
+type RulesetStatusChecks struct {
+	RequiredChecks     []string
+	StrictStatusChecks bool
+}
+
+// Label represents a GitHub repository label.
+type Label struct {
+	Name        string
+	Color       string
+	Description string
+}
+
 // Client defines the GitHub operations that repo-guardian requires.
 // This interface is the primary mock boundary for unit tests.
 type Client interface {
@@ -83,4 +152,43 @@ type Client interface {
 
 	// SetCustomPropertyValues creates or updates custom property values on a repository.
 	SetCustomPropertyValues(ctx context.Context, owner, repo string, properties []*CustomPropertyValue) error
+
+	// GetVulnerabilityAlertsEnabled checks if vulnerability alerts are enabled.
+	GetVulnerabilityAlertsEnabled(ctx context.Context, owner, repo string) (bool, error)
+
+	// EnableVulnerabilityAlerts enables vulnerability alerts for a repository.
+	EnableVulnerabilityAlerts(ctx context.Context, owner, repo string) error
+
+	// DisableVulnerabilityAlerts disables vulnerability alerts for a repository.
+	DisableVulnerabilityAlerts(ctx context.Context, owner, repo string) error
+
+	// GetRepoSettings returns the repository settings.
+	GetRepoSettings(ctx context.Context, owner, repo string) (*RepoSettings, error)
+
+	// UpdateRepository updates repository settings.
+	UpdateRepository(ctx context.Context, owner, repo string, opts *RepoUpdateOpts) error
+
+	// ListRepositoryRulesets returns all rulesets for a repository.
+	ListRepositoryRulesets(ctx context.Context, owner, repo string) ([]*Ruleset, error)
+
+	// GetRepositoryRuleset returns a specific ruleset by ID.
+	GetRepositoryRuleset(ctx context.Context, owner, repo string, rulesetID int64) (*Ruleset, error)
+
+	// CreateRepositoryRuleset creates a new repository ruleset.
+	CreateRepositoryRuleset(ctx context.Context, owner, repo string, ruleset *Ruleset) (*Ruleset, error)
+
+	// UpdateRepositoryRuleset updates an existing repository ruleset.
+	UpdateRepositoryRuleset(ctx context.Context, owner, repo string, rulesetID int64, ruleset *Ruleset) (*Ruleset, error)
+
+	// ListLabels returns all labels for a repository.
+	ListLabels(ctx context.Context, owner, repo string) ([]*Label, error)
+
+	// CreateLabel creates a new label in the repository.
+	CreateLabel(ctx context.Context, owner, repo string, label *Label) error
+
+	// UpdateLabel updates an existing label.
+	UpdateLabel(ctx context.Context, owner, repo, name string, label *Label) error
+
+	// DeleteLabel deletes a label from the repository.
+	DeleteLabel(ctx context.Context, owner, repo, name string) error
 }

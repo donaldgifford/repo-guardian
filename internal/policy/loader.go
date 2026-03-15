@@ -15,11 +15,18 @@ import (
 	"github.com/zclconf/go-cty/cty"
 )
 
+const (
+	blockTypeIgnore = "ignore"
+	attrEnabled     = "enabled"
+)
+
 // hclConfig is the raw HCL-decoded structure before merging with defaults.
 type hclConfig struct {
-	Guardian   *GuardianConfig  `hcl:"guardian,block"`
-	IgnoreList *IgnoreConfig    `hcl:"ignore,block"`
-	FileRules  []FileRuleConfig `hcl:"rule,block"`
+	Guardian              *GuardianConfig              `hcl:"guardian,block"`
+	IgnoreList            *IgnoreConfig                `hcl:"ignore,block"`
+	FileRules             []FileRuleConfig             `hcl:"rule,block"`
+	SettingRules          []SettingRuleConfig          `hcl:"-"`
+	BranchProtectionRules []BranchProtectionRuleConfig `hcl:"-"`
 }
 
 // Load reads policy configuration from the given path (file or directory),
@@ -144,7 +151,7 @@ func decodeBody(body hcl.Body, raw *hclConfig) hcl.Diagnostics {
 		Blocks: []hcl.BlockHeaderSchema{
 			{Type: "locals"},
 			{Type: "guardian"},
-			{Type: "ignore"},
+			{Type: blockTypeIgnore},
 			{Type: "rule", LabelNames: []string{"type", "name"}},
 		},
 	})
@@ -152,10 +159,21 @@ func decodeBody(body hcl.Body, raw *hclConfig) hcl.Diagnostics {
 		return diags
 	}
 
-	// Process locals blocks first to build eval context.
-	locals := map[string]cty.Value{}
+	diags = append(diags, decodeLocals(content.Blocks, ctx)...)
 
 	for _, block := range content.Blocks {
+		diags = append(diags, decodeBlock(block, ctx, raw)...)
+	}
+
+	return diags
+}
+
+func decodeLocals(blocks hcl.Blocks, ctx *hcl.EvalContext) hcl.Diagnostics {
+	var diags hcl.Diagnostics
+
+	locals := map[string]cty.Value{}
+
+	for _, block := range blocks {
 		if block.Type != "locals" {
 			continue
 		}
@@ -179,31 +197,60 @@ func decodeBody(body hcl.Body, raw *hclConfig) hcl.Diagnostics {
 		}
 	}
 
-	for _, block := range content.Blocks {
-		switch block.Type {
-		case "locals":
-			continue // already processed
-		case "guardian":
-			g, d := decodeGuardianBlock(block, ctx)
-			diags = append(diags, d...)
+	return diags
+}
 
-			if g != nil {
-				raw.Guardian = g
-			}
-		case "ignore":
-			ig, d := decodeIgnoreBlock(block, ctx)
-			diags = append(diags, d...)
+func decodeBlock(block *hcl.Block, ctx *hcl.EvalContext, raw *hclConfig) hcl.Diagnostics {
+	var diags hcl.Diagnostics
 
-			if ig != nil {
-				raw.IgnoreList = ig
-			}
-		case "rule":
-			r, d := decodeRuleBlock(block, ctx)
-			diags = append(diags, d...)
+	switch block.Type {
+	case "locals":
+		// already processed
+	case "guardian":
+		g, d := decodeGuardianBlock(block, ctx)
+		diags = append(diags, d...)
 
-			if r != nil {
-				raw.FileRules = append(raw.FileRules, *r)
-			}
+		if g != nil {
+			raw.Guardian = g
+		}
+	case blockTypeIgnore:
+		ig, d := decodeIgnoreBlock(block, ctx)
+		diags = append(diags, d...)
+
+		if ig != nil {
+			raw.IgnoreList = ig
+		}
+	case "rule":
+		diags = append(diags, decodeRuleOrSettingBlock(block, ctx, raw)...)
+	}
+
+	return diags
+}
+
+func decodeRuleOrSettingBlock(block *hcl.Block, ctx *hcl.EvalContext, raw *hclConfig) hcl.Diagnostics {
+	var diags hcl.Diagnostics
+
+	switch block.Labels[0] {
+	case "setting":
+		sr, d := decodeSettingRuleBlock(block, ctx)
+		diags = append(diags, d...)
+
+		if sr != nil {
+			raw.SettingRules = append(raw.SettingRules, *sr)
+		}
+	case "branch_protection":
+		bp, d := decodeBranchProtectionBlock(block, ctx)
+		diags = append(diags, d...)
+
+		if bp != nil {
+			raw.BranchProtectionRules = append(raw.BranchProtectionRules, *bp)
+		}
+	default:
+		r, d := decodeRuleBlock(block, ctx)
+		diags = append(diags, d...)
+
+		if r != nil {
+			raw.FileRules = append(raw.FileRules, *r)
 		}
 	}
 
@@ -283,7 +330,7 @@ func decodeIgnoreBlock(block *hcl.Block, ctx *hcl.EvalContext) (*IgnoreConfig, h
 
 var ruleBodySchema = &hcl.BodySchema{
 	Attributes: []hcl.AttributeSchema{
-		{Name: "enabled"},
+		{Name: attrEnabled},
 		{Name: "check"},
 		{Name: "paths", Required: true},
 		{Name: "target", Required: true},
@@ -292,7 +339,7 @@ var ruleBodySchema = &hcl.BodySchema{
 	Blocks: []hcl.BlockHeaderSchema{
 		{Type: "pr"},
 		{Type: "assertion"},
-		{Type: "ignore"},
+		{Type: blockTypeIgnore},
 		{Type: "reconcile", LabelNames: []string{"type"}},
 	},
 }
@@ -333,7 +380,7 @@ func decodeRuleAttributes(
 		}
 
 		switch name {
-		case "enabled":
+		case attrEnabled:
 			b := val.True()
 			r.Enabled = &b
 		case "check":
@@ -373,7 +420,7 @@ func decodeRuleSubBlocks(
 			if a != nil {
 				r.Assertions = append(r.Assertions, *a)
 			}
-		case "ignore":
+		case blockTypeIgnore:
 			ig, d := decodeIgnoreBlock(sub, ctx)
 			diags = append(diags, d...)
 			r.Ignore = ig
@@ -407,6 +454,8 @@ func decodeReconcileBlock(block *hcl.Block, ctx *hcl.EvalContext) (*ReconcilerCo
 			rec.Watch = val.True()
 		case "mode":
 			rec.Mode = val.AsString()
+		case "delete_extra":
+			rec.DeleteExtra = val.True()
 		}
 	}
 
@@ -471,6 +520,147 @@ func decodeAssertionBlock(block *hcl.Block, ctx *hcl.EvalContext) (*AssertionCon
 	return a, diags
 }
 
+var settingRuleBodySchema = &hcl.BodySchema{
+	Attributes: []hcl.AttributeSchema{
+		{Name: attrEnabled},
+		{Name: "property", Required: true},
+		{Name: "expected", Required: true},
+		{Name: "remediate"},
+	},
+	Blocks: []hcl.BlockHeaderSchema{
+		{Type: blockTypeIgnore},
+	},
+}
+
+func decodeSettingRuleBlock(block *hcl.Block, ctx *hcl.EvalContext) (*SettingRuleConfig, hcl.Diagnostics) {
+	sr := &SettingRuleConfig{
+		Name: block.Labels[1],
+	}
+
+	content, diags := block.Body.Content(settingRuleBodySchema)
+	if diags.HasErrors() {
+		return nil, diags
+	}
+
+	for name, attr := range content.Attributes {
+		val, d := attr.Expr.Value(ctx)
+		diags = append(diags, d...)
+
+		if d.HasErrors() {
+			continue
+		}
+
+		switch name {
+		case attrEnabled:
+			b := val.True()
+			sr.Enabled = &b
+		case "property":
+			sr.Property = val.AsString()
+		case "expected":
+			switch val.Type() {
+			case cty.Bool:
+				sr.Expected = val.True()
+			case cty.String:
+				sr.Expected = val.AsString()
+			default:
+				sr.Expected = val.AsString()
+			}
+		case "remediate":
+			sr.Remediate = val.True()
+		}
+	}
+
+	for _, sub := range content.Blocks {
+		if sub.Type == blockTypeIgnore {
+			ig, d := decodeIgnoreBlock(sub, ctx)
+			diags = append(diags, d...)
+			sr.Ignore = ig
+		}
+	}
+
+	return sr, diags
+}
+
+var branchProtectionBodySchema = &hcl.BodySchema{
+	Attributes: []hcl.AttributeSchema{
+		{Name: attrEnabled},
+		{Name: "branch", Required: true},
+		{Name: "require_pr"},
+		{Name: "required_approvals"},
+		{Name: "dismiss_stale_reviews"},
+		{Name: "require_status_checks"},
+		{Name: "enforce_admins"},
+		{Name: "require_linear_history"},
+		{Name: "remediate"},
+	},
+	Blocks: []hcl.BlockHeaderSchema{
+		{Type: blockTypeIgnore},
+	},
+}
+
+func decodeBranchProtectionBlock(
+	block *hcl.Block,
+	ctx *hcl.EvalContext,
+) (*BranchProtectionRuleConfig, hcl.Diagnostics) {
+	bp := &BranchProtectionRuleConfig{
+		Name: block.Labels[1],
+	}
+
+	content, diags := block.Body.Content(branchProtectionBodySchema)
+	if diags.HasErrors() {
+		return nil, diags
+	}
+
+	for name, attr := range content.Attributes {
+		val, d := attr.Expr.Value(ctx)
+		diags = append(diags, d...)
+
+		if d.HasErrors() {
+			continue
+		}
+
+		decodeBranchProtectionAttr(bp, name, val)
+	}
+
+	for _, sub := range content.Blocks {
+		if sub.Type == blockTypeIgnore {
+			ig, d := decodeIgnoreBlock(sub, ctx)
+			diags = append(diags, d...)
+			bp.Ignore = ig
+		}
+	}
+
+	return bp, diags
+}
+
+func decodeBranchProtectionAttr(bp *BranchProtectionRuleConfig, name string, val cty.Value) {
+	switch name {
+	case attrEnabled:
+		b := val.True()
+		bp.Enabled = &b
+	case "branch":
+		bp.Branch = val.AsString()
+	case "require_pr":
+		bp.RequirePR = val.True()
+	case "required_approvals":
+		n, _ := val.AsBigFloat().Int64()
+		bp.RequiredApprovals = int(n)
+	case "dismiss_stale_reviews":
+		bp.DismissStaleReviews = val.True()
+	case "require_status_checks":
+		for it := val.ElementIterator(); it.Next(); {
+			_, v := it.Element()
+			bp.RequireStatusChecks = append(bp.RequireStatusChecks, v.AsString())
+		}
+	case "enforce_admins":
+		bp.EnforceAdmins = val.True()
+	case "require_linear_history":
+		bp.RequireLinearHistory = val.True()
+	case "remediate":
+		bp.Remediate = val.True()
+	}
+}
+
 func hclConfigToPolicy(raw *hclConfig) *PolicyConfig {
 	defaults := BuiltinDefaults()
 
@@ -492,6 +682,9 @@ func hclConfigToPolicy(raw *hclConfig) *PolicyConfig {
 	} else {
 		cfg.FileRules = defaults.FileRules
 	}
+
+	cfg.SettingRules = raw.SettingRules
+	cfg.BranchProtectionRules = raw.BranchProtectionRules
 
 	return cfg
 }

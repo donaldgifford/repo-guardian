@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0008
 title: "Additional Rule Types and Ignore Lists"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-03-15
 ---
@@ -9,7 +9,7 @@ created: 2026-03-15
 
 # DESIGN 0008: Additional Rule Types and Ignore Lists
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-03-15
 

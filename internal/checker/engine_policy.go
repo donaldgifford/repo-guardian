@@ -42,6 +42,16 @@ func (e *Engine) checkRepoWithPolicy(
 	// Run reconcilers for rules where the file check passed.
 	e.runReconcilers(ctx, log, client, owner, repo, defaultBranch, openPRs)
 
+	// Evaluate setting rules.
+	if err := e.evaluateSettingRules(ctx, log, client, owner, repo); err != nil {
+		return fmt.Errorf("evaluating setting rules: %w", err)
+	}
+
+	// Evaluate branch protection rules.
+	if err := e.evaluateBranchProtectionRules(ctx, log, client, owner, repo); err != nil {
+		return fmt.Errorf("evaluating branch protection rules: %w", err)
+	}
+
 	return nil
 }
 
@@ -56,10 +66,16 @@ func (e *Engine) runReconcilers(
 	owner, repo, defaultBranch string,
 	openPRs []*ghclient.PullRequest,
 ) {
+	ownerRepo := owner + "/" + repo
+
 	for i := range e.policy.FileRules {
 		r := &e.policy.FileRules[i]
 
 		if !r.IsEnabled() {
+			continue
+		}
+
+		if r.Ignore != nil && r.Ignore.Matches(ownerRepo) {
 			continue
 		}
 
@@ -211,6 +227,8 @@ func (e *Engine) findActionableRules(
 ) ([]policy.FileRuleConfig, error) {
 	var actionable []policy.FileRuleConfig
 
+	ownerRepo := owner + "/" + repo
+
 	for i := range e.policy.FileRules {
 		r := &e.policy.FileRules[i]
 
@@ -219,6 +237,13 @@ func (e *Engine) findActionableRules(
 		}
 
 		ruleLog := log.With("rule", r.Name, "check", r.CheckMode())
+
+		if r.Ignore != nil && r.Ignore.Matches(ownerRepo) {
+			ruleLog.Info("repository matched per-rule ignore list, skipping")
+			metrics.IgnoredTotal.WithLabelValues("rule").Inc()
+
+			continue
+		}
 
 		action, err := e.evaluateRule(ctx, ruleLog, client, owner, repo, r, openPRs)
 		if err != nil {
@@ -551,6 +576,397 @@ func buildPRBodyFromPolicy(actionable []policy.FileRuleConfig) string {
 	sb.WriteString("Questions? Reach out in #platform-engineering.*\n")
 
 	return sb.String()
+}
+
+// evaluateSettingRules checks all setting rules against the repository.
+func (e *Engine) evaluateSettingRules(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	owner, repo string,
+) error {
+	if len(e.policy.SettingRules) == 0 {
+		return nil
+	}
+
+	ownerRepo := owner + "/" + repo
+
+	for i := range e.policy.SettingRules {
+		r := &e.policy.SettingRules[i]
+
+		if !r.IsEnabled() {
+			continue
+		}
+
+		ruleLog := log.With("setting_rule", r.Name, "property", r.Property)
+
+		if r.Ignore != nil && r.Ignore.Matches(ownerRepo) {
+			ruleLog.Info("repository matched per-rule ignore list, skipping setting rule")
+			metrics.IgnoredTotal.WithLabelValues("rule").Inc()
+
+			continue
+		}
+
+		if err := e.evaluateSettingRule(ctx, ruleLog, client, owner, repo, r); err != nil {
+			return fmt.Errorf("evaluating setting rule %q: %w", r.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// evaluateSettingRule checks a single setting rule against the repository.
+func (e *Engine) evaluateSettingRule(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	owner, repo string,
+	rule *policy.SettingRuleConfig,
+) error {
+	metrics.SettingsCheckedTotal.WithLabelValues(rule.Name).Inc()
+
+	currentValue, err := e.getSettingValue(ctx, client, owner, repo, rule.Property)
+	if err != nil {
+		return fmt.Errorf("getting current value for %s: %w", rule.Property, err)
+	}
+
+	if settingMatches(currentValue, rule.Expected) {
+		log.Debug("setting matches expected value", "current", currentValue)
+		return nil
+	}
+
+	metrics.SettingsMismatchedTotal.WithLabelValues(rule.Name).Inc()
+	log.Info("setting mismatch", "current", currentValue, "expected", rule.Expected)
+
+	if !rule.Remediate {
+		return nil
+	}
+
+	if e.dryRun {
+		log.Info("dry run: would remediate setting", "current", currentValue, "expected", rule.Expected)
+		return nil
+	}
+
+	if err := e.remediateSetting(ctx, log, client, owner, repo, rule); err != nil {
+		return fmt.Errorf("remediating %s: %w", rule.Property, err)
+	}
+
+	metrics.SettingsRemediatedTotal.WithLabelValues(rule.Name).Inc()
+	log.Info("remediated setting", "property", rule.Property)
+
+	return nil
+}
+
+// getSettingValue reads the current value of a repository setting.
+func (*Engine) getSettingValue(
+	ctx context.Context,
+	client ghclient.Client,
+	owner, repo, property string,
+) (any, error) {
+	if property == "vulnerability_alerts_enabled" {
+		return client.GetVulnerabilityAlertsEnabled(ctx, owner, repo)
+	}
+
+	settings, err := client.GetRepoSettings(ctx, owner, repo)
+	if err != nil {
+		return nil, err
+	}
+
+	switch property {
+	case "default_branch":
+		return settings.DefaultBranch, nil
+	case "has_issues":
+		return settings.HasIssues, nil
+	case "has_wiki":
+		return settings.HasWiki, nil
+	case "delete_branch_on_merge":
+		return settings.DeleteBranchOnMerge, nil
+	case "allow_merge_commit":
+		return settings.AllowMergeCommit, nil
+	case "allow_squash_merge":
+		return settings.AllowSquashMerge, nil
+	case "allow_rebase_merge":
+		return settings.AllowRebaseMerge, nil
+	default:
+		return nil, fmt.Errorf("unsupported property: %s", property)
+	}
+}
+
+// settingMatches compares the current value against the expected value.
+func settingMatches(current, expected any) bool {
+	return fmt.Sprintf("%v", current) == fmt.Sprintf("%v", expected)
+}
+
+// remediateSetting applies the expected setting value via the GitHub API.
+func (*Engine) remediateSetting(
+	ctx context.Context,
+	_ *slog.Logger,
+	client ghclient.Client,
+	owner, repo string,
+	rule *policy.SettingRuleConfig,
+) error {
+	switch rule.Property {
+	case "vulnerability_alerts_enabled":
+		expected, ok := rule.Expected.(bool)
+		if !ok {
+			return fmt.Errorf("expected bool for vulnerability_alerts_enabled, got %T", rule.Expected)
+		}
+
+		if expected {
+			return client.EnableVulnerabilityAlerts(ctx, owner, repo)
+		}
+
+		return client.DisableVulnerabilityAlerts(ctx, owner, repo)
+
+	case "default_branch":
+		expected, ok := rule.Expected.(string)
+		if !ok {
+			return fmt.Errorf("expected string for default_branch, got %T", rule.Expected)
+		}
+
+		return client.UpdateRepository(ctx, owner, repo, &ghclient.RepoUpdateOpts{
+			DefaultBranch: &expected,
+		})
+
+	default:
+		return remediateBoolSetting(ctx, client, owner, repo, rule)
+	}
+}
+
+// remediateBoolSetting handles remediation for boolean repository settings.
+func remediateBoolSetting(
+	ctx context.Context,
+	client ghclient.Client,
+	owner, repo string,
+	rule *policy.SettingRuleConfig,
+) error {
+	expected, ok := rule.Expected.(bool)
+	if !ok {
+		return fmt.Errorf("expected bool for %s, got %T", rule.Property, rule.Expected)
+	}
+
+	opts := &ghclient.RepoUpdateOpts{}
+
+	switch rule.Property {
+	case "has_issues":
+		opts.HasIssues = &expected
+	case "has_wiki":
+		opts.HasWiki = &expected
+	case "delete_branch_on_merge":
+		opts.DeleteBranchOnMerge = &expected
+	case "allow_merge_commit":
+		opts.AllowMergeCommit = &expected
+	case "allow_squash_merge":
+		opts.AllowSquashMerge = &expected
+	case "allow_rebase_merge":
+		opts.AllowRebaseMerge = &expected
+	default:
+		return fmt.Errorf("unsupported bool property: %s", rule.Property)
+	}
+
+	return client.UpdateRepository(ctx, owner, repo, opts)
+}
+
+// evaluateBranchProtectionRules checks all branch protection rules against the repository.
+func (e *Engine) evaluateBranchProtectionRules(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	owner, repo string,
+) error {
+	if len(e.policy.BranchProtectionRules) == 0 {
+		return nil
+	}
+
+	ownerRepo := owner + "/" + repo
+
+	for i := range e.policy.BranchProtectionRules {
+		r := &e.policy.BranchProtectionRules[i]
+
+		if !r.IsEnabled() {
+			continue
+		}
+
+		ruleLog := log.With("bp_rule", r.Name, "branch", r.Branch)
+
+		if r.Ignore != nil && r.Ignore.Matches(ownerRepo) {
+			ruleLog.Info("repository matched per-rule ignore list, skipping branch protection rule")
+			metrics.IgnoredTotal.WithLabelValues("rule").Inc()
+
+			continue
+		}
+
+		if err := e.evaluateBranchProtectionRule(ctx, ruleLog, client, owner, repo, r); err != nil {
+			return fmt.Errorf("evaluating branch protection rule %q: %w", r.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// evaluateBranchProtectionRule checks a single branch protection rule.
+func (e *Engine) evaluateBranchProtectionRule(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	owner, repo string,
+	rule *policy.BranchProtectionRuleConfig,
+) error {
+	metrics.BranchProtectionCheckedTotal.WithLabelValues(rule.Name).Inc()
+
+	// Check if the branch exists.
+	sha, err := client.GetBranchSHA(ctx, owner, repo, rule.Branch)
+	if err != nil {
+		return fmt.Errorf("checking branch %s: %w", rule.Branch, err)
+	}
+
+	if sha == "" {
+		log.Warn("branch does not exist, skipping branch protection rule")
+		return nil
+	}
+
+	// Fetch existing rulesets.
+	rulesets, err := client.ListRepositoryRulesets(ctx, owner, repo)
+	if err != nil {
+		return fmt.Errorf("listing rulesets: %w", err)
+	}
+
+	// Find a matching ruleset for this branch.
+	existing := findMatchingRuleset(rulesets, rule)
+
+	mismatches := compareBranchProtection(existing, rule)
+	if len(mismatches) == 0 {
+		log.Debug("branch protection matches expected configuration")
+		return nil
+	}
+
+	log.Info("branch protection mismatch", "mismatches", mismatches)
+
+	if !rule.Remediate {
+		return nil
+	}
+
+	if e.dryRun {
+		log.Info("dry run: would remediate branch protection", "mismatches", mismatches)
+		return nil
+	}
+
+	desired := buildDesiredRuleset(rule)
+
+	if existing != nil {
+		if _, err := client.UpdateRepositoryRuleset(ctx, owner, repo, existing.ID, desired); err != nil {
+			return fmt.Errorf("updating ruleset: %w", err)
+		}
+
+		log.Info("updated branch protection ruleset")
+	} else {
+		if _, err := client.CreateRepositoryRuleset(ctx, owner, repo, desired); err != nil {
+			return fmt.Errorf("creating ruleset: %w", err)
+		}
+
+		log.Info("created branch protection ruleset")
+	}
+
+	metrics.BranchProtectionRemediatedTotal.WithLabelValues(rule.Name).Inc()
+
+	return nil
+}
+
+// findMatchingRuleset finds a ruleset that targets the same branch pattern.
+func findMatchingRuleset(
+	rulesets []*ghclient.Ruleset,
+	rule *policy.BranchProtectionRuleConfig,
+) *ghclient.Ruleset {
+	for _, rs := range rulesets {
+		if rs.Conditions == nil {
+			continue
+		}
+
+		for _, pattern := range rs.Conditions.IncludePatterns {
+			if pattern == rule.Branch || pattern == "refs/heads/"+rule.Branch {
+				return rs
+			}
+		}
+	}
+
+	return nil
+}
+
+// compareBranchProtection compares the existing ruleset against the desired config.
+// Returns a list of mismatch descriptions.
+func compareBranchProtection(
+	existing *ghclient.Ruleset,
+	rule *policy.BranchProtectionRuleConfig,
+) []string {
+	if existing == nil {
+		if rule.RequirePR || rule.RequireLinearHistory || len(rule.RequireStatusChecks) > 0 {
+			return []string{"no matching ruleset found"}
+		}
+
+		return nil
+	}
+
+	var mismatches []string
+
+	if rule.RequirePR && existing.RequirePullRequest == nil {
+		mismatches = append(mismatches, "pull request required but not configured")
+	}
+
+	if rule.RequirePR && existing.RequirePullRequest != nil {
+		pr := existing.RequirePullRequest
+
+		if pr.RequiredApprovals != rule.RequiredApprovals {
+			mismatches = append(mismatches, fmt.Sprintf(
+				"required_approvals: got %d, want %d",
+				pr.RequiredApprovals, rule.RequiredApprovals,
+			))
+		}
+
+		if pr.DismissStaleReviews != rule.DismissStaleReviews {
+			mismatches = append(mismatches, fmt.Sprintf(
+				"dismiss_stale_reviews: got %v, want %v",
+				pr.DismissStaleReviews, rule.DismissStaleReviews,
+			))
+		}
+	}
+
+	if rule.RequireLinearHistory != existing.RequireLinearHistory {
+		mismatches = append(mismatches, fmt.Sprintf(
+			"require_linear_history: got %v, want %v",
+			existing.RequireLinearHistory, rule.RequireLinearHistory,
+		))
+	}
+
+	return mismatches
+}
+
+// buildDesiredRuleset creates a Ruleset from the branch protection config.
+func buildDesiredRuleset(rule *policy.BranchProtectionRuleConfig) *ghclient.Ruleset {
+	rs := &ghclient.Ruleset{
+		Name:        "repo-guardian-" + rule.Name,
+		Enforcement: "active",
+		Target:      "branch",
+		Conditions: &ghclient.RulesetConditions{
+			IncludePatterns: []string{"refs/heads/" + rule.Branch},
+		},
+		RequireLinearHistory: rule.RequireLinearHistory,
+	}
+
+	if rule.RequirePR {
+		rs.RequirePullRequest = &ghclient.RulesetPullRequest{
+			RequiredApprovals:   rule.RequiredApprovals,
+			DismissStaleReviews: rule.DismissStaleReviews,
+		}
+	}
+
+	if len(rule.RequireStatusChecks) > 0 {
+		rs.RequireStatusChecks = &ghclient.RulesetStatusChecks{
+			RequiredChecks:     rule.RequireStatusChecks,
+			StrictStatusChecks: true,
+		}
+	}
+
+	return rs
 }
 
 // policyRuleNames extracts rule names from policy file rules.

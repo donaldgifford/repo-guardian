@@ -80,6 +80,14 @@ func (e *Engine) CheckRepo(ctx context.Context, client ghclient.Client, owner, r
 		return nil
 	}
 
+	// Check global ignore list before any rules.
+	if e.policy != nil && e.policy.IgnoreList.Matches(owner+"/"+repo) {
+		log.Info("repository matched global ignore list, skipping all rules")
+		metrics.IgnoredTotal.WithLabelValues("global").Inc()
+
+		return nil
+	}
+
 	// Check each enabled rule.
 	openPRs, err := client.ListOpenPullRequests(ctx, owner, repo)
 	if err != nil {

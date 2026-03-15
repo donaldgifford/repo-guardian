@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -371,6 +372,317 @@ func (c *GitHubClient) SetCustomPropertyValues(
 	_, err := c.ghClient().Repositories.CreateOrUpdateCustomProperties(ctx, owner, repo, ghProps)
 	if err != nil {
 		return fmt.Errorf("setting custom properties for %s/%s: %w", owner, repo, err)
+	}
+
+	return nil
+}
+
+// GetVulnerabilityAlertsEnabled checks if vulnerability alerts are enabled.
+func (c *GitHubClient) GetVulnerabilityAlertsEnabled(ctx context.Context, owner, repo string) (bool, error) {
+	enabled, _, err := c.ghClient().Repositories.GetVulnerabilityAlerts(ctx, owner, repo)
+	if err != nil {
+		return false, fmt.Errorf("getting vulnerability alerts for %s/%s: %w", owner, repo, err)
+	}
+
+	return enabled, nil
+}
+
+// EnableVulnerabilityAlerts enables vulnerability alerts for a repository.
+func (c *GitHubClient) EnableVulnerabilityAlerts(ctx context.Context, owner, repo string) error {
+	_, err := c.ghClient().Repositories.EnableVulnerabilityAlerts(ctx, owner, repo)
+	if err != nil {
+		return fmt.Errorf("enabling vulnerability alerts for %s/%s: %w", owner, repo, err)
+	}
+
+	return nil
+}
+
+// DisableVulnerabilityAlerts disables vulnerability alerts for a repository.
+func (c *GitHubClient) DisableVulnerabilityAlerts(ctx context.Context, owner, repo string) error {
+	_, err := c.ghClient().Repositories.DisableVulnerabilityAlerts(ctx, owner, repo)
+	if err != nil {
+		return fmt.Errorf("disabling vulnerability alerts for %s/%s: %w", owner, repo, err)
+	}
+
+	return nil
+}
+
+// GetRepoSettings returns the repository settings.
+func (c *GitHubClient) GetRepoSettings(ctx context.Context, owner, repo string) (*RepoSettings, error) {
+	r, _, err := c.ghClient().Repositories.Get(ctx, owner, repo)
+	if err != nil {
+		return nil, fmt.Errorf("getting repo settings for %s/%s: %w", owner, repo, err)
+	}
+
+	return &RepoSettings{
+		DefaultBranch:       r.GetDefaultBranch(),
+		HasIssues:           r.GetHasIssues(),
+		HasWiki:             r.GetHasWiki(),
+		DeleteBranchOnMerge: r.GetDeleteBranchOnMerge(),
+		AllowMergeCommit:    r.GetAllowMergeCommit(),
+		AllowSquashMerge:    r.GetAllowSquashMerge(),
+		AllowRebaseMerge:    r.GetAllowRebaseMerge(),
+	}, nil
+}
+
+// UpdateRepository updates repository settings.
+func (c *GitHubClient) UpdateRepository(ctx context.Context, owner, repo string, opts *RepoUpdateOpts) error {
+	update := &gh.Repository{}
+
+	if opts.HasIssues != nil {
+		update.HasIssues = opts.HasIssues
+	}
+
+	if opts.HasWiki != nil {
+		update.HasWiki = opts.HasWiki
+	}
+
+	if opts.DeleteBranchOnMerge != nil {
+		update.DeleteBranchOnMerge = opts.DeleteBranchOnMerge
+	}
+
+	if opts.AllowMergeCommit != nil {
+		update.AllowMergeCommit = opts.AllowMergeCommit
+	}
+
+	if opts.AllowSquashMerge != nil {
+		update.AllowSquashMerge = opts.AllowSquashMerge
+	}
+
+	if opts.AllowRebaseMerge != nil {
+		update.AllowRebaseMerge = opts.AllowRebaseMerge
+	}
+
+	if opts.DefaultBranch != nil {
+		update.DefaultBranch = opts.DefaultBranch
+	}
+
+	_, _, err := c.ghClient().Repositories.Edit(ctx, owner, repo, update)
+	if err != nil {
+		return fmt.Errorf("updating repository %s/%s: %w", owner, repo, err)
+	}
+
+	return nil
+}
+
+// ListRepositoryRulesets returns all rulesets for a repository.
+func (c *GitHubClient) ListRepositoryRulesets(ctx context.Context, owner, repo string) ([]*Ruleset, error) {
+	ghRulesets, _, err := c.ghClient().Repositories.GetAllRulesets(ctx, owner, repo, false)
+	if err != nil {
+		return nil, fmt.Errorf("listing rulesets for %s/%s: %w", owner, repo, err)
+	}
+
+	rulesets := make([]*Ruleset, 0, len(ghRulesets))
+	for _, rs := range ghRulesets {
+		rulesets = append(rulesets, convertRuleset(rs))
+	}
+
+	return rulesets, nil
+}
+
+// GetRepositoryRuleset returns a specific ruleset by ID.
+func (c *GitHubClient) GetRepositoryRuleset(ctx context.Context, owner, repo string, rulesetID int64) (*Ruleset, error) {
+	rs, _, err := c.ghClient().Repositories.GetRuleset(ctx, owner, repo, rulesetID, false)
+	if err != nil {
+		return nil, fmt.Errorf("getting ruleset %d for %s/%s: %w", rulesetID, owner, repo, err)
+	}
+
+	return convertRuleset(rs), nil
+}
+
+// CreateRepositoryRuleset creates a new repository ruleset.
+func (c *GitHubClient) CreateRepositoryRuleset(ctx context.Context, owner, repo string, ruleset *Ruleset) (*Ruleset, error) {
+	ghRuleset := buildGHRuleset(ruleset)
+
+	created, _, err := c.ghClient().Repositories.CreateRuleset(ctx, owner, repo, ghRuleset)
+	if err != nil {
+		return nil, fmt.Errorf("creating ruleset for %s/%s: %w", owner, repo, err)
+	}
+
+	return convertRuleset(created), nil
+}
+
+// UpdateRepositoryRuleset updates an existing repository ruleset.
+func (c *GitHubClient) UpdateRepositoryRuleset(
+	ctx context.Context,
+	owner, repo string,
+	rulesetID int64,
+	ruleset *Ruleset,
+) (*Ruleset, error) {
+	ghRuleset := buildGHRuleset(ruleset)
+
+	updated, _, err := c.ghClient().Repositories.UpdateRuleset(ctx, owner, repo, rulesetID, ghRuleset)
+	if err != nil {
+		return nil, fmt.Errorf("updating ruleset %d for %s/%s: %w", rulesetID, owner, repo, err)
+	}
+
+	return convertRuleset(updated), nil
+}
+
+func convertRuleset(rs *gh.Ruleset) *Ruleset {
+	r := &Ruleset{
+		ID:          rs.GetID(),
+		Name:        rs.Name,
+		Enforcement: rs.Enforcement,
+		Target:      rs.GetTarget(),
+	}
+
+	if rs.Conditions != nil && rs.Conditions.RefName != nil {
+		r.Conditions = &RulesetConditions{
+			IncludePatterns: rs.Conditions.RefName.Include,
+			ExcludePatterns: rs.Conditions.RefName.Exclude,
+		}
+	}
+
+	for _, rule := range rs.Rules {
+		switch rule.Type {
+		case "pull_request":
+			if rule.Parameters != nil {
+				var prParams gh.PullRequestRuleParameters
+				if err := json.Unmarshal(*rule.Parameters, &prParams); err == nil {
+					r.RequirePullRequest = &RulesetPullRequest{
+						RequiredApprovals:      prParams.RequiredApprovingReviewCount,
+						DismissStaleReviews:    prParams.DismissStaleReviewsOnPush,
+						RequireCodeOwnerReview: prParams.RequireCodeOwnerReview,
+					}
+				}
+			}
+		case "required_linear_history":
+			r.RequireLinearHistory = true
+		case "required_status_checks":
+			if rule.Parameters != nil {
+				var scParams gh.RequiredStatusChecksRuleParameters
+				if err := json.Unmarshal(*rule.Parameters, &scParams); err == nil {
+					checks := make([]string, 0, len(scParams.RequiredStatusChecks))
+					for _, sc := range scParams.RequiredStatusChecks {
+						checks = append(checks, sc.Context)
+					}
+
+					r.RequireStatusChecks = &RulesetStatusChecks{
+						RequiredChecks:     checks,
+						StrictStatusChecks: scParams.StrictRequiredStatusChecksPolicy,
+					}
+				}
+			}
+		}
+	}
+
+	return r
+}
+
+func buildGHRuleset(ruleset *Ruleset) *gh.Ruleset {
+	rs := &gh.Ruleset{
+		Name:        ruleset.Name,
+		Enforcement: ruleset.Enforcement,
+		Target:      gh.Ptr(ruleset.Target),
+	}
+
+	if ruleset.Conditions != nil {
+		rs.Conditions = &gh.RulesetConditions{
+			RefName: &gh.RulesetRefConditionParameters{
+				Include: ruleset.Conditions.IncludePatterns,
+				Exclude: ruleset.Conditions.ExcludePatterns,
+			},
+		}
+	}
+
+	var rules []*gh.RepositoryRule
+
+	if ruleset.RequirePullRequest != nil {
+		pr := ruleset.RequirePullRequest
+		rules = append(rules, gh.NewPullRequestRule(&gh.PullRequestRuleParameters{
+			RequiredApprovingReviewCount: pr.RequiredApprovals,
+			DismissStaleReviewsOnPush:    pr.DismissStaleReviews,
+			RequireCodeOwnerReview:       pr.RequireCodeOwnerReview,
+		}))
+	}
+
+	if ruleset.RequireLinearHistory {
+		rules = append(rules, gh.NewRequiredLinearHistoryRule())
+	}
+
+	if ruleset.RequireStatusChecks != nil {
+		sc := ruleset.RequireStatusChecks
+		checks := make([]gh.RuleRequiredStatusChecks, 0, len(sc.RequiredChecks))
+
+		for _, check := range sc.RequiredChecks {
+			checks = append(checks, gh.RuleRequiredStatusChecks{Context: check})
+		}
+
+		rules = append(rules, gh.NewRequiredStatusChecksRule(&gh.RequiredStatusChecksRuleParameters{
+			RequiredStatusChecks:             checks,
+			StrictRequiredStatusChecksPolicy: sc.StrictStatusChecks,
+		}))
+	}
+
+	rs.Rules = rules
+
+	return rs
+}
+
+// ListLabels returns all labels for a repository.
+func (c *GitHubClient) ListLabels(ctx context.Context, owner, repo string) ([]*Label, error) {
+	opts := &gh.ListOptions{PerPage: 100}
+
+	var allLabels []*Label
+
+	for {
+		labels, resp, err := c.ghClient().Issues.ListLabels(ctx, owner, repo, opts)
+		if err != nil {
+			return nil, fmt.Errorf("listing labels for %s/%s: %w", owner, repo, err)
+		}
+
+		for _, l := range labels {
+			allLabels = append(allLabels, &Label{
+				Name:        l.GetName(),
+				Color:       l.GetColor(),
+				Description: l.GetDescription(),
+			})
+		}
+
+		if resp.NextPage == 0 {
+			break
+		}
+
+		opts.Page = resp.NextPage
+	}
+
+	return allLabels, nil
+}
+
+// CreateLabel creates a new label in the repository.
+func (c *GitHubClient) CreateLabel(ctx context.Context, owner, repo string, label *Label) error {
+	_, _, err := c.ghClient().Issues.CreateLabel(ctx, owner, repo, &gh.Label{
+		Name:        gh.Ptr(label.Name),
+		Color:       gh.Ptr(label.Color),
+		Description: gh.Ptr(label.Description),
+	})
+	if err != nil {
+		return fmt.Errorf("creating label %q for %s/%s: %w", label.Name, owner, repo, err)
+	}
+
+	return nil
+}
+
+// UpdateLabel updates an existing label.
+func (c *GitHubClient) UpdateLabel(ctx context.Context, owner, repo, name string, label *Label) error {
+	_, _, err := c.ghClient().Issues.EditLabel(ctx, owner, repo, name, &gh.Label{
+		Name:        gh.Ptr(label.Name),
+		Color:       gh.Ptr(label.Color),
+		Description: gh.Ptr(label.Description),
+	})
+	if err != nil {
+		return fmt.Errorf("updating label %q for %s/%s: %w", name, owner, repo, err)
+	}
+
+	return nil
+}
+
+// DeleteLabel deletes a label from the repository.
+func (c *GitHubClient) DeleteLabel(ctx context.Context, owner, repo, name string) error {
+	_, err := c.ghClient().Issues.DeleteLabel(ctx, owner, repo, name)
+	if err != nil {
+		return fmt.Errorf("deleting label %q for %s/%s: %w", name, owner, repo, err)
 	}
 
 	return nil

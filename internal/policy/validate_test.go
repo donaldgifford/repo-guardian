@@ -318,6 +318,159 @@ func TestValidate_ValidContainsWithAssertions(t *testing.T) {
 	}
 }
 
+func TestValidate_SettingRule_Valid(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.SettingRules = []SettingRuleConfig{
+		{Name: "enable_issues", Property: "has_issues", Expected: true},
+		{Name: "default_branch", Property: "default_branch", Expected: "main"},
+	}
+
+	if err := Validate(cfg); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_SettingRule_UnsupportedProperty(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.SettingRules = []SettingRuleConfig{
+		{Name: "bad_prop", Property: "nonexistent_thing", Expected: true},
+	}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for unsupported property")
+	}
+
+	if !strings.Contains(err.Error(), "unsupported property") {
+		t.Errorf("error %q should mention unsupported property", err)
+	}
+}
+
+func TestValidate_SettingRule_WrongExpectedType_Bool(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.SettingRules = []SettingRuleConfig{
+		{Name: "enable_issues", Property: "has_issues", Expected: "yes"},
+	}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for wrong expected type")
+	}
+
+	if !strings.Contains(err.Error(), "must be a bool") {
+		t.Errorf("error %q should mention must be a bool", err)
+	}
+}
+
+func TestValidate_SettingRule_WrongExpectedType_String(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.SettingRules = []SettingRuleConfig{
+		{Name: "default_branch", Property: "default_branch", Expected: true},
+	}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for wrong expected type")
+	}
+
+	if !strings.Contains(err.Error(), "must be a string") {
+		t.Errorf("error %q should mention must be a string", err)
+	}
+}
+
+func TestValidate_SettingRule_DuplicateNames(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.SettingRules = []SettingRuleConfig{
+		{Name: "dup", Property: "has_issues", Expected: true},
+		{Name: "dup", Property: "has_wiki", Expected: true},
+	}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for duplicate setting rule names")
+	}
+
+	if !strings.Contains(err.Error(), "duplicate setting rule") {
+		t.Errorf("error %q should mention duplicate setting rule", err)
+	}
+}
+
+func TestValidate_SettingRule_NilExpected(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.SettingRules = []SettingRuleConfig{
+		{Name: "test", Property: "has_issues", Expected: nil},
+	}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for nil expected")
+	}
+
+	if !strings.Contains(err.Error(), "expected must be set") {
+		t.Errorf("error %q should mention expected must be set", err)
+	}
+}
+
+func TestValidate_BranchProtection_Valid(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.BranchProtectionRules = []BranchProtectionRuleConfig{
+		{Name: "main_protection", Branch: "main", RequirePR: true, RequiredApprovals: 1},
+	}
+
+	if err := Validate(cfg); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_BranchProtection_EmptyBranch(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.BranchProtectionRules = []BranchProtectionRuleConfig{
+		{Name: "bad", Branch: ""},
+	}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for empty branch")
+	}
+
+	if !strings.Contains(err.Error(), "branch must be non-empty") {
+		t.Errorf("error %q should mention branch must be non-empty", err)
+	}
+}
+
+func TestValidate_BranchProtection_NegativeApprovals(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.BranchProtectionRules = []BranchProtectionRuleConfig{
+		{Name: "bad", Branch: "main", RequiredApprovals: -1},
+	}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for negative required_approvals")
+	}
+
+	if !strings.Contains(err.Error(), "required_approvals must be >= 0") {
+		t.Errorf("error %q should mention required_approvals", err)
+	}
+}
+
+func TestValidate_BranchProtection_DuplicateNames(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.BranchProtectionRules = []BranchProtectionRuleConfig{
+		{Name: "dup", Branch: "main"},
+		{Name: "dup", Branch: "develop"},
+	}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for duplicate names")
+	}
+
+	if !strings.Contains(err.Error(), "duplicate branch_protection rule") {
+		t.Errorf("error %q should mention duplicate", err)
+	}
+}
+
 func TestValidate_ErrorMessageClarity(t *testing.T) {
 	cfg := BuiltinDefaults()
 	cfg.Guardian.WorkerCount = 0

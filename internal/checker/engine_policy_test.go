@@ -867,6 +867,686 @@ func TestIntegration_HCLConfigWithCustomPropertiesReconciler(t *testing.T) {
 	}
 }
 
+func TestGlobalIgnoreList_SkipsAllRules(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian:   policy.BuiltinDefaults().Guardian,
+		IgnoreList: policy.IgnoreConfig{Repos: []string{"org/ignored-repo"}},
+		FileRules:  policy.BuiltinDefaults().FileRules,
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "ignored-repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/ignored-repo/main"] = "abc123"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "ignored-repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR != nil {
+		t.Error("should not create PR for globally ignored repo")
+	}
+}
+
+func TestGlobalIgnoreList_GlobPattern(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian:   policy.BuiltinDefaults().Guardian,
+		IgnoreList: policy.IgnoreConfig{Repos: []string{"org/terraform-*"}},
+		FileRules:  policy.BuiltinDefaults().FileRules,
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "terraform-vpc", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/terraform-vpc/main"] = "abc123"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "terraform-vpc")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR != nil {
+		t.Error("should not create PR for globally ignored repo (glob)")
+	}
+}
+
+func TestGlobalIgnoreList_NoMatchStillProcesses(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian:   policy.BuiltinDefaults().Guardian,
+		IgnoreList: policy.IgnoreConfig{Repos: []string{"org/other-*"}},
+		FileRules:  policy.BuiltinDefaults().FileRules,
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "my-repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/my-repo/main"] = "abc123"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "my-repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	// Should still process and create PR for missing files.
+	if client.createdPR == nil {
+		t.Error("expected PR for non-ignored repo with missing files")
+	}
+}
+
+func TestPerRuleIgnoreList_SkipsOnlyThatRule(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "codeowners",
+				Paths:    []string{"CODEOWNERS"},
+				Target:   "CODEOWNERS",
+				Template: "codeowners",
+				Ignore:   &policy.IgnoreConfig{Repos: []string{"org/special-repo"}},
+			},
+			{
+				Type:     "file",
+				Name:     "dependabot",
+				Paths:    []string{".github/dependabot.yml"},
+				Target:   ".github/dependabot.yml",
+				Template: "dependabot",
+			},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "special-repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/special-repo/main"] = "abc123"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "special-repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	// Only 1 file should be created (dependabot), codeowners is ignored.
+	if client.createdPR == nil {
+		t.Fatal("expected PR for non-ignored rule")
+	}
+
+	if len(client.createdFiles) != 1 {
+		t.Errorf("expected 1 file created (dependabot only), got %d", len(client.createdFiles))
+	}
+}
+
+func TestPerRuleIgnoreList_ReconcilerAlsoSkipped(t *testing.T) {
+	t.Parallel()
+
+	rec := &trackingReconciler{name: "test_rec"}
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "test_file",
+				Paths:    []string{"test.txt"},
+				Target:   "test.txt",
+				Template: "codeowners",
+				Ignore:   &policy.IgnoreConfig{Repos: []string{"org/ignored"}},
+				Reconcilers: []policy.ReconcilerConfig{
+					{Type: "test_rec"},
+				},
+			},
+		},
+	}
+
+	engine := testPolicyEngineWithReconciler(cfg, rec)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "ignored", HasBranch: true, DefaultRef: "main",
+	}
+	client.contents["org/ignored/test.txt"] = true
+	client.fileContents["org/ignored/test.txt"] = "content"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "ignored")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if rec.callCount() != 0 {
+		t.Errorf("expected 0 reconciler calls for ignored rule, got %d", rec.callCount())
+	}
+}
+
+func TestEmptyIgnoreList_NoReposSkipped(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian:   policy.BuiltinDefaults().Guardian,
+		IgnoreList: policy.IgnoreConfig{},
+		FileRules:  policy.BuiltinDefaults().FileRules,
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "abc123"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	// Should process normally.
+	if client.createdPR == nil {
+		t.Error("expected PR for non-ignored repo with missing files")
+	}
+}
+
+// --- Setting rule tests ---
+
+func TestSettingRule_MatchesExpected_NoAction(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		SettingRules: []policy.SettingRuleConfig{
+			{Name: "enable_issues", Property: "has_issues", Expected: true},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.repoSettings = &ghclient.RepoSettings{HasIssues: true}
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if len(client.updatedRepoOpts) != 0 {
+		t.Error("should not update repo when setting matches expected")
+	}
+}
+
+func TestSettingRule_Mismatch_NoRemediate(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		SettingRules: []policy.SettingRuleConfig{
+			{Name: "enable_issues", Property: "has_issues", Expected: true, Remediate: false},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.repoSettings = &ghclient.RepoSettings{HasIssues: false}
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if len(client.updatedRepoOpts) != 0 {
+		t.Error("should not update repo when remediate is false")
+	}
+}
+
+func TestSettingRule_Mismatch_Remediate(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		SettingRules: []policy.SettingRuleConfig{
+			{Name: "enable_issues", Property: "has_issues", Expected: true, Remediate: true},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.repoSettings = &ghclient.RepoSettings{HasIssues: false}
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if len(client.updatedRepoOpts) != 1 {
+		t.Fatalf("expected 1 UpdateRepository call, got %d", len(client.updatedRepoOpts))
+	}
+
+	opts := client.updatedRepoOpts[0]
+	if opts.HasIssues == nil || !*opts.HasIssues {
+		t.Error("expected HasIssues to be set to true")
+	}
+}
+
+func TestSettingRule_Mismatch_Remediate_DryRun(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		SettingRules: []policy.SettingRuleConfig{
+			{Name: "enable_issues", Property: "has_issues", Expected: true, Remediate: true},
+		},
+	}
+	cfg.Guardian.DryRun = true
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.repoSettings = &ghclient.RepoSettings{HasIssues: false}
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if len(client.updatedRepoOpts) != 0 {
+		t.Error("should not update repo in dry run mode")
+	}
+}
+
+func TestSettingRule_VulnerabilityAlerts_Remediate(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		SettingRules: []policy.SettingRuleConfig{
+			{Name: "vuln_alerts", Property: "vulnerability_alerts_enabled", Expected: true, Remediate: true},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.vulnerabilityAlertsEnabled = false
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if !client.enabledVulnAlerts {
+		t.Error("expected vulnerability alerts to be enabled")
+	}
+}
+
+func TestSettingRule_DefaultBranch_Remediate(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		SettingRules: []policy.SettingRuleConfig{
+			{Name: "default_branch", Property: "default_branch", Expected: "main", Remediate: true},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.repoSettings = &ghclient.RepoSettings{DefaultBranch: "master"}
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if len(client.updatedRepoOpts) != 1 {
+		t.Fatalf("expected 1 UpdateRepository call, got %d", len(client.updatedRepoOpts))
+	}
+
+	opts := client.updatedRepoOpts[0]
+	if opts.DefaultBranch == nil || *opts.DefaultBranch != "main" {
+		t.Error("expected DefaultBranch to be set to 'main'")
+	}
+}
+
+func TestSettingRule_PerRuleIgnore(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		SettingRules: []policy.SettingRuleConfig{
+			{
+				Name:      "enable_issues",
+				Property:  "has_issues",
+				Expected:  true,
+				Remediate: true,
+				Ignore:    &policy.IgnoreConfig{Repos: []string{"org/ignored"}},
+			},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "ignored", HasBranch: true, DefaultRef: "main",
+	}
+	client.repoSettings = &ghclient.RepoSettings{HasIssues: false}
+
+	err := engine.CheckRepo(context.Background(), client, "org", "ignored")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if len(client.updatedRepoOpts) != 0 {
+		t.Error("should not update repo when setting rule is ignored")
+	}
+}
+
+func TestSettingRule_Disabled(t *testing.T) {
+	t.Parallel()
+
+	disabled := false
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		SettingRules: []policy.SettingRuleConfig{
+			{
+				Name:      "enable_issues",
+				Property:  "has_issues",
+				Expected:  true,
+				Remediate: true,
+				Enabled:   &disabled,
+			},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.repoSettings = &ghclient.RepoSettings{HasIssues: false}
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if len(client.updatedRepoOpts) != 0 {
+		t.Error("should not update repo when setting rule is disabled")
+	}
+}
+
+// --- Branch protection rule tests ---
+
+func TestBranchProtection_Matches_NoAction(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		BranchProtectionRules: []policy.BranchProtectionRuleConfig{
+			{
+				Name:              "main_protection",
+				Branch:            "main",
+				RequirePR:         true,
+				RequiredApprovals: 1,
+			},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "abc123"
+	client.rulesets = []*ghclient.Ruleset{
+		{
+			ID:          1,
+			Name:        "repo-guardian-main_protection",
+			Enforcement: "active",
+			Target:      "branch",
+			Conditions:  &ghclient.RulesetConditions{IncludePatterns: []string{"refs/heads/main"}},
+			RequirePullRequest: &ghclient.RulesetPullRequest{
+				RequiredApprovals: 1,
+			},
+		},
+	}
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdRuleset != nil {
+		t.Error("should not create ruleset when protection matches")
+	}
+
+	if client.updatedRuleset != nil {
+		t.Error("should not update ruleset when protection matches")
+	}
+}
+
+func TestBranchProtection_Mismatch_NoRemediate(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		BranchProtectionRules: []policy.BranchProtectionRuleConfig{
+			{
+				Name:              "main_protection",
+				Branch:            "main",
+				RequirePR:         true,
+				RequiredApprovals: 2,
+				Remediate:         false,
+			},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "abc123"
+	client.rulesets = []*ghclient.Ruleset{
+		{
+			ID:         1,
+			Conditions: &ghclient.RulesetConditions{IncludePatterns: []string{"refs/heads/main"}},
+			RequirePullRequest: &ghclient.RulesetPullRequest{
+				RequiredApprovals: 1,
+			},
+		},
+	}
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.updatedRuleset != nil {
+		t.Error("should not update ruleset when remediate is false")
+	}
+}
+
+func TestBranchProtection_Mismatch_Remediate_Update(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		BranchProtectionRules: []policy.BranchProtectionRuleConfig{
+			{
+				Name:              "main_protection",
+				Branch:            "main",
+				RequirePR:         true,
+				RequiredApprovals: 2,
+				Remediate:         true,
+			},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "abc123"
+	client.rulesets = []*ghclient.Ruleset{
+		{
+			ID:         42,
+			Conditions: &ghclient.RulesetConditions{IncludePatterns: []string{"refs/heads/main"}},
+			RequirePullRequest: &ghclient.RulesetPullRequest{
+				RequiredApprovals: 1,
+			},
+		},
+	}
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.updatedRuleset == nil {
+		t.Fatal("expected ruleset to be updated")
+	}
+
+	if client.updatedRulesetID != 42 {
+		t.Errorf("expected ruleset ID 42, got %d", client.updatedRulesetID)
+	}
+}
+
+func TestBranchProtection_NoRuleset_Remediate_Create(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		BranchProtectionRules: []policy.BranchProtectionRuleConfig{
+			{
+				Name:              "main_protection",
+				Branch:            "main",
+				RequirePR:         true,
+				RequiredApprovals: 1,
+				Remediate:         true,
+			},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "abc123"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdRuleset == nil {
+		t.Fatal("expected ruleset to be created")
+	}
+
+	if client.createdRuleset.RequirePullRequest == nil {
+		t.Fatal("expected PR requirement in created ruleset")
+	}
+
+	if client.createdRuleset.RequirePullRequest.RequiredApprovals != 1 {
+		t.Errorf("expected 1 required approval, got %d",
+			client.createdRuleset.RequirePullRequest.RequiredApprovals)
+	}
+}
+
+func TestBranchProtection_BranchDoesNotExist(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		BranchProtectionRules: []policy.BranchProtectionRuleConfig{
+			{
+				Name:      "develop_protection",
+				Branch:    "develop",
+				RequirePR: true,
+				Remediate: true,
+			},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "abc123"
+	// "develop" branch does not exist (no entry in branchSHAs)
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdRuleset != nil {
+		t.Error("should not create ruleset when branch doesn't exist")
+	}
+}
+
+func TestBranchProtection_DryRun(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		BranchProtectionRules: []policy.BranchProtectionRuleConfig{
+			{
+				Name:              "main_protection",
+				Branch:            "main",
+				RequirePR:         true,
+				RequiredApprovals: 1,
+				Remediate:         true,
+			},
+		},
+	}
+	cfg.Guardian.DryRun = true
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "abc123"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdRuleset != nil {
+		t.Error("should not create ruleset in dry run mode")
+	}
+}
+
 func TestReconciler_DryRunPropagated(t *testing.T) {
 	t.Parallel()
 
@@ -908,5 +1588,157 @@ func TestReconciler_DryRunPropagated(t *testing.T) {
 
 	if !rec.lastCall().DryRun {
 		t.Error("DryRun should be true in ReconcileParams")
+	}
+}
+
+// --- Phase 8 integration tests ---
+
+func TestIntegration_IgnoreLists_SettingRules_BranchProtection(t *testing.T) {
+	t.Parallel()
+
+	// End-to-end: HCL-like config with ignore lists, setting rules, and
+	// branch protection rules all evaluated in a single CheckRepo call.
+	cfg := &policy.PolicyConfig{
+		Guardian:   policy.BuiltinDefaults().Guardian,
+		IgnoreList: policy.IgnoreConfig{Repos: []string{"org/globally-ignored"}},
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "codeowners",
+				Paths:    []string{"CODEOWNERS"},
+				Target:   "CODEOWNERS",
+				Template: "codeowners",
+				Ignore:   &policy.IgnoreConfig{Repos: []string{"org/skip-codeowners"}},
+			},
+		},
+		SettingRules: []policy.SettingRuleConfig{
+			{Name: "enable_issues", Property: "has_issues", Expected: true, Remediate: true},
+			{Name: "enable_wiki", Property: "has_wiki", Expected: false, Remediate: true},
+		},
+		BranchProtectionRules: []policy.BranchProtectionRuleConfig{
+			{
+				Name:              "main_protection",
+				Branch:            "main",
+				RequirePR:         true,
+				RequiredApprovals: 2,
+				Remediate:         true,
+			},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+
+	// --- Case 1: globally ignored repo → no API calls ---
+	ignoredClient := newMockClient()
+	ignoredClient.repo = &ghclient.Repository{
+		Owner: "org", Name: "globally-ignored", HasBranch: true, DefaultRef: "main",
+	}
+	ignoredClient.repoSettings = &ghclient.RepoSettings{HasIssues: false, HasWiki: true}
+	ignoredClient.branchSHAs["org/globally-ignored/main"] = "abc123"
+
+	if err := engine.CheckRepo(context.Background(), ignoredClient, "org", "globally-ignored"); err != nil {
+		t.Fatalf("globally ignored CheckRepo: %v", err)
+	}
+
+	if ignoredClient.createdPR != nil {
+		t.Error("globally ignored: should not create PR")
+	}
+
+	if len(ignoredClient.updatedRepoOpts) != 0 {
+		t.Error("globally ignored: should not remediate settings")
+	}
+
+	if ignoredClient.createdRuleset != nil {
+		t.Error("globally ignored: should not create rulesets")
+	}
+
+	// --- Case 2: normal repo → settings remediated + ruleset created ---
+	normalClient := newMockClient()
+	normalClient.repo = &ghclient.Repository{
+		Owner: "org", Name: "normal-repo", HasBranch: true, DefaultRef: "main",
+	}
+	normalClient.repoSettings = &ghclient.RepoSettings{HasIssues: false, HasWiki: true}
+	normalClient.branchSHAs["org/normal-repo/main"] = "abc123"
+	normalClient.contents["org/normal-repo/CODEOWNERS"] = true
+
+	if err := engine.CheckRepo(context.Background(), normalClient, "org", "normal-repo"); err != nil {
+		t.Fatalf("normal repo CheckRepo: %v", err)
+	}
+
+	// Both settings should be remediated (has_issues mismatch + has_wiki mismatch).
+	if len(normalClient.updatedRepoOpts) != 2 {
+		t.Errorf("expected 2 setting remediations, got %d", len(normalClient.updatedRepoOpts))
+	}
+
+	// Branch protection: no existing ruleset → should create one.
+	if normalClient.createdRuleset == nil {
+		t.Error("expected branch protection ruleset to be created")
+	}
+
+	// File rule: CODEOWNERS exists → no PR.
+	if normalClient.createdPR != nil {
+		t.Error("should not create PR when CODEOWNERS exists")
+	}
+}
+
+func TestIntegration_LabelSyncReconciler_EndToEnd(t *testing.T) {
+	t.Parallel()
+
+	labelContent := `labels:
+  - name: bug
+    color: "d73a4a"
+    description: "Something isn't working"
+  - name: enhancement
+    color: "a2eeef"
+    description: "New feature or request"
+`
+
+	rec := &trackingReconciler{name: "label_sync"}
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "labels",
+				Paths:    []string{".github/labels.yml"},
+				Target:   ".github/labels.yml",
+				Template: "codeowners",
+				Check:    "exists",
+				Reconcilers: []policy.ReconcilerConfig{
+					{Type: "label_sync"},
+				},
+			},
+		},
+	}
+
+	engine := testPolicyEngineWithReconciler(cfg, rec)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "my-service", HasBranch: true, DefaultRef: "main",
+	}
+	client.contents["org/my-service/.github/labels.yml"] = true
+	client.fileContents["org/my-service/.github/labels.yml"] = labelContent
+
+	err := engine.CheckRepo(context.Background(), client, "org", "my-service")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	// Reconciler should be called with the label file content.
+	if rec.callCount() != 1 {
+		t.Fatalf("expected 1 reconciler call, got %d", rec.callCount())
+	}
+
+	call := rec.lastCall()
+	if call.Owner != "org" || call.Repo != "my-service" {
+		t.Errorf("Owner/Repo = %s/%s, want org/my-service", call.Owner, call.Repo)
+	}
+
+	if call.Content != labelContent {
+		t.Error("reconciler should receive full label file content")
+	}
+
+	if client.createdPR != nil {
+		t.Error("should not create PR when label file exists")
 	}
 }

@@ -1,7 +1,7 @@
 ---
 id: IMPL-0007
 title: "Additional Rule Types and Ignore Lists"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-03-15
 ---
@@ -9,7 +9,7 @@ created: 2026-03-15
 
 # IMPL 0007: Additional Rule Types and Ignore Lists
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-03-15
 
@@ -57,23 +57,23 @@ is the lowest-risk addition and immediately useful.
 
 #### Tasks
 
-- [ ] Populate `IgnoreConfig` struct in `internal/policy/types.go` (currently
+- [x] Populate `IgnoreConfig` struct in `internal/policy/types.go` (currently
   a placeholder from IMPL-0005):
   - `Repos []string` field with HCL struct tags
-- [ ] Create `internal/policy/ignore.go` with:
+- [x] Create `internal/policy/ignore.go` with:
   - `(ic *IgnoreConfig) Matches(ownerRepo string) bool`
   - Use `path.Match` for glob pattern matching
   - Input is always `owner/repo` format
-- [ ] Add `ignore {}` block support to HCL parser for:
+- [x] Add `ignore {}` block support to HCL parser for:
   - Top-level global ignore (in `PolicyConfig.IgnoreList`)
   - Per-rule ignore (in `FileRuleConfig.Ignore`)
-- [ ] Integrate into checker engine `CheckRepo`:
+- [x] Integrate into checker engine `CheckRepo`:
   - Check global ignore list once per repo (before any rules)
   - Check per-rule ignore list before each rule evaluation
   - Increment `repo_guardian_ignored_total{scope="global"}` or
     `{scope="rule"}` metric
-- [ ] Add `repo_guardian_ignored_total` counter metric with `scope` label
-- [ ] Write unit tests:
+- [x] Add `repo_guardian_ignored_total` counter metric with `scope` label
+- [x] Write unit tests:
   - Exact match: `myorg/my-repo` matches `myorg/my-repo`
   - Glob wildcard: `myorg/terraform-vpc` matches `myorg/terraform-*`
   - No match: `myorg/my-repo` doesn't match `myorg/other-*`
@@ -100,26 +100,26 @@ branch protection rules, and reconcilers.
 
 #### Tasks
 
-- [ ] Add to `github.Client` interface:
+- [x] Add to `github.Client` interface:
   - `GetVulnerabilityAlertsEnabled(ctx, owner, repo) (bool, error)`
   - `EnableVulnerabilityAlerts(ctx, owner, repo) error`
   - `DisableVulnerabilityAlerts(ctx, owner, repo) error`
   - `UpdateRepository(ctx, owner, repo, opts) error`
   - `GetFileContent(ctx, owner, repo, path) (string, error)`
-- [ ] Add to `github.Client` interface (rulesets):
+- [x] Add to `github.Client` interface (rulesets):
   - `ListRepositoryRulesets(ctx, owner, repo) ([]*Ruleset, error)`
   - `GetRepositoryRuleset(ctx, owner, repo, rulesetID) (*Ruleset, error)`
   - `CreateRepositoryRuleset(ctx, owner, repo, ruleset) (*Ruleset, error)`
   - `UpdateRepositoryRuleset(ctx, owner, repo, rulesetID, ruleset) (*Ruleset, error)`
-- [ ] Add to `github.Client` interface (labels):
+- [x] Add to `github.Client` interface (labels):
   - `ListLabels(ctx, owner, repo) ([]*Label, error)`
   - `CreateLabel(ctx, owner, repo, label) error`
   - `UpdateLabel(ctx, owner, repo, name, label) error`
   - `DeleteLabel(ctx, owner, repo, name) error`
-- [ ] Define `Ruleset` and `Label` types in `internal/github/types.go`
-- [ ] Implement all methods in `internal/github/client.go`
-- [ ] Update mock client in tests to implement new interface methods
-- [ ] Write unit tests for each new method using `httptest.Server`
+- [x] Define `Ruleset` and `Label` types in `internal/github/types.go`
+- [x] Implement all methods in `internal/github/client.go`
+- [x] Update mock client in tests to implement new interface methods
+- [x] Write unit tests for each new method using `httptest.Server`
 
 #### Success Criteria
 
@@ -136,15 +136,15 @@ repository settings.
 
 #### Tasks
 
-- [ ] Add `SettingRuleConfig` to `internal/policy/types.go`:
+- [x] Add `SettingRuleConfig` to `internal/policy/types.go`:
   - Name, Enabled, Property, Expected (interface{}), Remediate, Ignore
   - HCL struct tags for the `rule "setting"` block
-- [ ] Add `SettingRules []SettingRuleConfig` to `PolicyConfig`
-- [ ] Update HCL parser to handle `rule "setting" "<name>" {}` blocks
-- [ ] Update validation to check:
+- [x] Add `SettingRules []SettingRuleConfig` to `PolicyConfig`
+- [x] Update HCL parser to handle `rule "setting" "<name>" {}` blocks
+- [x] Update validation to check:
   - `property` is one of the supported properties
   - `expected` type matches property type (bool or string)
-- [ ] Implement setting rule evaluation in checker engine:
+- [x] Implement setting rule evaluation in checker engine:
   - Read current value from GitHub API
   - Compare against expected
   - Match → log, increment `settings_checked_total`
@@ -152,7 +152,7 @@ repository settings.
   - Mismatch + `remediate=true` + not dry_run → set via API, increment
     `settings_remediated_total`
   - Mismatch + `remediate=true` + dry_run → log "would remediate"
-- [ ] Add supported properties:
+- [x] Add supported properties:
   - `vulnerability_alerts_enabled` (bool)
   - `default_branch` (string)
   - `has_issues` (bool)
@@ -161,11 +161,11 @@ repository settings.
   - `allow_merge_commit` (bool)
   - `allow_squash_merge` (bool)
   - `allow_rebase_merge` (bool)
-- [ ] Add Prometheus metrics:
+- [x] Add Prometheus metrics:
   - `repo_guardian_settings_checked_total{rule_name}`
   - `repo_guardian_settings_remediated_total{rule_name}`
   - `repo_guardian_settings_mismatched_total{rule_name}`
-- [ ] Write unit tests:
+- [x] Write unit tests:
   - Setting matches expected: no action
   - Setting mismatches, remediate=false: logs mismatch
   - Setting mismatches, remediate=true: calls API to fix
@@ -190,27 +190,27 @@ branch protection settings using the repository rulesets API.
 
 #### Tasks
 
-- [ ] Add `BranchProtectionRuleConfig` to `internal/policy/types.go`:
+- [x] Add `BranchProtectionRuleConfig` to `internal/policy/types.go`:
   - Name, Enabled, Branch, RequirePR, RequiredApprovals,
     DismissStaleReviews, RequireStatusChecks, EnforceAdmins,
     RequireLinearHistory, Ignore, Reconcilers
   - HCL struct tags for `rule "branch_protection"` block
-- [ ] Add `BranchProtectionRules []BranchProtectionRuleConfig` to
+- [x] Add `BranchProtectionRules []BranchProtectionRuleConfig` to
   `PolicyConfig`
-- [ ] Update HCL parser to handle `rule "branch_protection" "<name>" {}`
+- [x] Update HCL parser to handle `rule "branch_protection" "<name>" {}`
   blocks
-- [ ] Implement branch protection rule evaluation:
+- [x] Implement branch protection rule evaluation:
   - Read current protection via rulesets API
   - Compare each field against expected
   - All match → log, increment `branch_protection_checked_total`
   - Mismatch → remediate flow (same pattern as setting rules)
-- [ ] Map `BranchProtectionRuleConfig` fields to ruleset API request
+- [x] Map `BranchProtectionRuleConfig` fields to ruleset API request
   format
-- [ ] Handle "branch doesn't exist" case: log warning, no error
-- [ ] Add Prometheus metrics:
+- [x] Handle "branch doesn't exist" case: log warning, no error
+- [x] Add Prometheus metrics:
   - `repo_guardian_branch_protection_checked_total{rule_name}`
   - `repo_guardian_branch_protection_remediated_total{rule_name}`
-- [ ] Write unit tests:
+- [x] Write unit tests:
   - Protection matches: no action
   - Protection mismatches: logs differences
   - Protection with remediation: updates via API
@@ -234,13 +234,13 @@ YAML configuration file.
 
 #### Tasks
 
-- [ ] Create `internal/reconciler/label_sync.go` implementing `Reconciler`:
+- [x] Create `internal/reconciler/label_sync.go` implementing `Reconciler`:
   - `NewLabelSyncReconciler(config ReconcilerConfig) (Reconciler, error)`
   - `Name()` returns `"label_sync"`
   - `Reconcile(ctx, params)` implements the sync flow
-- [ ] Define label file YAML schema:
+- [x] Define label file YAML schema:
   - `labels: [{name, color, description, renamed_from}]`
-- [ ] Implement reconcile flow:
+- [x] Implement reconcile flow:
   1. Parse file content as YAML label list
   2. List current repo labels via GitHub API
   3. Process renames first (`renamed_from` where old name exists)
@@ -248,10 +248,10 @@ YAML configuration file.
   5. Create missing labels
   6. Update changed labels (color or description mismatch)
   7. If `delete_extra = true`, delete labels not in the file
-- [ ] Add `LabelSyncConfig` fields to `ReconcilerConfig`:
+- [x] Add `LabelSyncConfig` fields to `ReconcilerConfig`:
   - `DeleteExtra bool`
-- [ ] Register `label_sync` factory in `NewRegistry()`
-- [ ] Write unit tests:
+- [x] Register `label_sync` factory in `NewRegistry()`
+- [x] Write unit tests:
   - Creates missing labels
   - Updates labels with changed color/description
   - Renames labels via `renamed_from`
@@ -276,20 +276,20 @@ from a YAML file and applies them via the rulesets API.
 
 #### Tasks
 
-- [ ] Create `internal/reconciler/branch_protection.go` implementing
+- [x] Create `internal/reconciler/branch_protection.go` implementing
   `Reconciler`:
   - `NewBranchProtectionReconciler(config ReconcilerConfig) (Reconciler, error)`
   - `Name()` returns `"branch_protection"`
   - `Reconcile(ctx, params)` reads YAML file and applies settings
-- [ ] Define branch protection YAML schema (mirrors
+- [x] Define branch protection YAML schema (mirrors
   `BranchProtectionRuleConfig` fields)
-- [ ] Implement reconcile flow:
+- [x] Implement reconcile flow:
   1. Parse file content as YAML
   2. Read current rulesets via API
   3. Diff desired vs current
   4. Create or update rulesets as needed
-- [ ] Register `branch_protection` factory in `NewRegistry()`
-- [ ] Write unit tests:
+- [x] Register `branch_protection` factory in `NewRegistry()`
+- [x] Write unit tests:
   - Valid YAML → correct rulesets created
   - Existing rulesets updated when settings change
   - No changes when settings match
@@ -310,15 +310,15 @@ and triggers rescans.
 
 #### Tasks
 
-- [ ] Create `internal/reconciler/workflow_sync.go` implementing
+- [x] Create `internal/reconciler/workflow_sync.go` implementing
   `Reconciler`:
   - `NewWorkflowSyncReconciler(config ReconcilerConfig) (Reconciler, error)`
   - `Name()` returns `"workflow_sync"`
   - `Reconcile(ctx, params)` detects file mismatch
-- [ ] The reconciler is primarily useful for the `watch` capability
+- [x] The reconciler is primarily useful for the `watch` capability
   (push event → rescan → template comparison via `exact` check mode)
-- [ ] Register `workflow_sync` factory in `NewRegistry()`
-- [ ] Write unit tests:
+- [x] Register `workflow_sync` factory in `NewRegistry()`
+- [x] Write unit tests:
   - Reconciler runs without error when file matches template
   - Reconciler logs when file differs from template
   - Dry run mode
@@ -336,14 +336,14 @@ End-to-end testing and documentation updates.
 
 #### Tasks
 
-- [ ] Write integration test: HCL config with ignore lists + setting rules
+- [x] Write integration test: HCL config with ignore lists + setting rules
   + branch protection → engine → mock GitHub client → correct API calls
-- [ ] Write integration test: label_sync reconciler end-to-end with mock
+- [x] Write integration test: label_sync reconciler end-to-end with mock
   GitHub client
-- [ ] Verify all new metrics appear in `/metrics` endpoint
-- [ ] Update `CLAUDE.md` architecture section if needed
-- [ ] Run `make ci` (lint + test + build)
-- [ ] Verify backward compatibility: no HCL config → identical behavior
+- [x] Verify all new metrics appear in `/metrics` endpoint
+- [x] Update `CLAUDE.md` architecture section if needed
+- [x] Run `make ci` (lint + test + build)
+- [x] Verify backward compatibility: no HCL config → identical behavior
 
 #### Success Criteria
 
@@ -376,15 +376,15 @@ End-to-end testing and documentation updates.
 
 ## Testing Plan
 
-- [ ] Unit tests for ignore list matching (exact, glob, edge cases)
-- [ ] Unit tests for all new GitHub client methods
-- [ ] Unit tests for setting rule evaluation (all supported properties)
-- [ ] Unit tests for branch protection rule evaluation
-- [ ] Unit tests for label sync reconciler (create, update, rename, delete)
-- [ ] Unit tests for branch protection reconciler
-- [ ] Unit tests for workflow sync reconciler
-- [ ] Integration tests for ignore lists in CheckRepo flow
-- [ ] Integration tests for end-to-end reconciler flows
+- [x] Unit tests for ignore list matching (exact, glob, edge cases)
+- [x] Unit tests for all new GitHub client methods
+- [x] Unit tests for setting rule evaluation (all supported properties)
+- [x] Unit tests for branch protection rule evaluation
+- [x] Unit tests for label sync reconciler (create, update, rename, delete)
+- [x] Unit tests for branch protection reconciler
+- [x] Unit tests for workflow sync reconciler
+- [x] Integration tests for ignore lists in CheckRepo flow
+- [x] Integration tests for end-to-end reconciler flows
 
 ## Dependencies
 

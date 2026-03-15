@@ -210,6 +210,9 @@ func newReconcilerRegistry(templates *rules.TemplateStore) *reconciler.Registry 
 	reg.Register("custom_properties", func(cfg policy.ReconcilerConfig) (reconciler.Reconciler, error) {
 		return reconciler.NewCustomPropertiesReconciler(cfg, templates)
 	})
+	reg.Register("label_sync", reconciler.NewLabelSyncReconciler)
+	reg.Register("branch_protection", reconciler.NewBranchProtectionReconciler)
+	reg.Register("workflow_sync", reconciler.NewWorkflowSyncReconciler)
 
 	return reg
 }

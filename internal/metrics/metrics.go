@@ -99,4 +99,40 @@ var (
 		Name: "repo_guardian_webhook_rejected_total",
 		Help: "Webhook requests rejected by IP allowlist.",
 	}, []string{"reason"})
+
+	// IgnoredTotal counts repos or rules skipped by ignore lists.
+	IgnoredTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_ignored_total",
+		Help: "Repos or rules skipped by ignore lists.",
+	}, []string{"scope"})
+
+	// SettingsCheckedTotal counts setting rules evaluated per rule name.
+	SettingsCheckedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_settings_checked_total",
+		Help: "Setting rules evaluated.",
+	}, []string{"rule_name"})
+
+	// SettingsMismatchedTotal counts setting rules that found a mismatch.
+	SettingsMismatchedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_settings_mismatched_total",
+		Help: "Setting rules that found a mismatch.",
+	}, []string{"rule_name"})
+
+	// SettingsRemediatedTotal counts setting rules that were remediated.
+	SettingsRemediatedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_settings_remediated_total",
+		Help: "Setting rules remediated via API.",
+	}, []string{"rule_name"})
+
+	// BranchProtectionCheckedTotal counts branch protection rules evaluated.
+	BranchProtectionCheckedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_branch_protection_checked_total",
+		Help: "Branch protection rules evaluated.",
+	}, []string{"rule_name"})
+
+	// BranchProtectionRemediatedTotal counts branch protection rules remediated.
+	BranchProtectionRemediatedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_branch_protection_remediated_total",
+		Help: "Branch protection rules remediated via rulesets API.",
+	}, []string{"rule_name"})
 )

@@ -55,20 +55,20 @@ Define the core interface and registry that all reconciler types implement.
 
 #### Tasks
 
-- [ ] Create `internal/reconciler/reconciler.go` with:
+- [x] Create `internal/reconciler/reconciler.go` with:
   - `Reconciler` interface (`Name() string`,
-    `Reconcile(ctx, ReconcileParams) error`)
+    `Reconcile(ctx, *ReconcileParams) error`)
   - `ReconcileParams` struct (Client, Owner, Repo, DefaultBranch,
     Content, OpenPRs, DryRun, Logger)
-- [ ] Create `internal/reconciler/registry.go` with:
+- [x] Create `internal/reconciler/registry.go` with:
   - `Registry` struct with `factories map[string]Factory`
   - `Factory` type: `func(config ReconcilerConfig) (Reconciler, error)`
   - `NewRegistry() *Registry`
   - `Register(name string, factory Factory)`
   - `Build(config ReconcilerConfig) (Reconciler, error)`
-- [ ] Add `ReconcilerConfig` type to `internal/policy/types.go` with HCL
+- [x] Add `ReconcilerConfig` type to `internal/policy/types.go` with HCL
   struct tags (type, mode, watch, and type-specific fields)
-- [ ] Write unit tests:
+- [x] Write unit tests:
   - Registry registers and builds reconcilers correctly
   - Registry returns error for unknown reconciler type
   - `ReconcileParams` construction

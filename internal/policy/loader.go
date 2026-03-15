@@ -63,6 +63,10 @@ func Load(path string) (*PolicyConfig, error) {
 		return nil, err
 	}
 
+	if err := Validate(cfg); err != nil {
+		return nil, fmt.Errorf("validating config: %w", err)
+	}
+
 	return cfg, nil
 }
 

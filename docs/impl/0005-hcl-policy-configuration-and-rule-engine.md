@@ -151,9 +151,9 @@ early with clear, actionable error messages.
 
 #### Tasks
 
-- [ ] Create `internal/policy/validate.go` with
+- [x] Create `internal/policy/validate.go` with
   `Validate(cfg *PolicyConfig) error`
-- [ ] Validate `FileRuleConfig`:
+- [x] Validate `FileRuleConfig`:
   - `check` must be one of `exists`, `contains`, `exact`
   - `paths` must be non-empty
   - `target` must be non-empty
@@ -162,15 +162,15 @@ early with clear, actionable error messages.
   - `pattern` and `yaml_path` are mutually exclusive
   - `yaml_path` requires either `contains` or `equals`
   - `message` is required for all assertions
-- [ ] Validate `GuardianConfig`:
+- [x] Validate `GuardianConfig`:
   - `worker_count` > 0
   - `queue_size` > 0
   - `rate_limit_threshold` between 0.0 and 1.0
   - `log_level` is one of debug, info, warn, error
-- [ ] Validate no duplicate rule names (same type + name)
-- [ ] Write unit tests for each validation rule with both valid and invalid
+- [x] Validate no duplicate rule names (same type + name)
+- [x] Write unit tests for each validation rule with both valid and invalid
   inputs
-- [ ] Write unit tests for error message clarity (errors should name the
+- [x] Write unit tests for error message clarity (errors should name the
   field and explain the constraint)
 
 #### Success Criteria

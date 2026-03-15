@@ -194,6 +194,58 @@ func (m *mockClient) SetCustomPropertyValues(_ context.Context, _, _ string, pro
 	return nil
 }
 
+func (*mockClient) GetVulnerabilityAlertsEnabled(_ context.Context, _, _ string) (bool, error) {
+	return false, nil
+}
+
+func (*mockClient) EnableVulnerabilityAlerts(_ context.Context, _, _ string) error {
+	return nil
+}
+
+func (*mockClient) DisableVulnerabilityAlerts(_ context.Context, _, _ string) error {
+	return nil
+}
+
+func (*mockClient) GetRepoSettings(_ context.Context, _, _ string) (*ghclient.RepoSettings, error) {
+	return &ghclient.RepoSettings{}, nil
+}
+
+func (*mockClient) UpdateRepository(_ context.Context, _, _ string, _ *ghclient.RepoUpdateOpts) error {
+	return nil
+}
+
+func (*mockClient) ListRepositoryRulesets(_ context.Context, _, _ string) ([]*ghclient.Ruleset, error) {
+	return nil, nil
+}
+
+func (*mockClient) GetRepositoryRuleset(_ context.Context, _, _ string, _ int64) (*ghclient.Ruleset, error) {
+	return nil, nil //nolint:nilnil // mock stub
+}
+
+func (*mockClient) CreateRepositoryRuleset(_ context.Context, _, _ string, _ *ghclient.Ruleset) (*ghclient.Ruleset, error) {
+	return nil, nil //nolint:nilnil // mock stub
+}
+
+func (*mockClient) UpdateRepositoryRuleset(_ context.Context, _, _ string, _ int64, _ *ghclient.Ruleset) (*ghclient.Ruleset, error) {
+	return nil, nil //nolint:nilnil // mock stub
+}
+
+func (*mockClient) ListLabels(_ context.Context, _, _ string) ([]*ghclient.Label, error) {
+	return nil, nil
+}
+
+func (*mockClient) CreateLabel(_ context.Context, _, _ string, _ *ghclient.Label) error {
+	return nil
+}
+
+func (*mockClient) UpdateLabel(_ context.Context, _, _, _ string, _ *ghclient.Label) error {
+	return nil
+}
+
+func (*mockClient) DeleteLabel(_ context.Context, _, _, _ string) error {
+	return nil
+}
+
 func basePropertiesClient() *mockClient {
 	client := newMockClient()
 	client.repo = &ghclient.Repository{

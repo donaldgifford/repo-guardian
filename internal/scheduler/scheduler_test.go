@@ -90,6 +90,58 @@ func (*mockClient) SetCustomPropertyValues(_ context.Context, _, _ string, _ []*
 	return fmt.Errorf("not implemented")
 }
 
+func (*mockClient) GetVulnerabilityAlertsEnabled(_ context.Context, _, _ string) (bool, error) {
+	return false, fmt.Errorf("not implemented")
+}
+
+func (*mockClient) EnableVulnerabilityAlerts(_ context.Context, _, _ string) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (*mockClient) DisableVulnerabilityAlerts(_ context.Context, _, _ string) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (*mockClient) GetRepoSettings(_ context.Context, _, _ string) (*ghclient.RepoSettings, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (*mockClient) UpdateRepository(_ context.Context, _, _ string, _ *ghclient.RepoUpdateOpts) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (*mockClient) ListRepositoryRulesets(_ context.Context, _, _ string) ([]*ghclient.Ruleset, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (*mockClient) GetRepositoryRuleset(_ context.Context, _, _ string, _ int64) (*ghclient.Ruleset, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (*mockClient) CreateRepositoryRuleset(_ context.Context, _, _ string, _ *ghclient.Ruleset) (*ghclient.Ruleset, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (*mockClient) UpdateRepositoryRuleset(_ context.Context, _, _ string, _ int64, _ *ghclient.Ruleset) (*ghclient.Ruleset, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (*mockClient) ListLabels(_ context.Context, _, _ string) ([]*ghclient.Label, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (*mockClient) CreateLabel(_ context.Context, _, _ string, _ *ghclient.Label) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (*mockClient) UpdateLabel(_ context.Context, _, _, _ string, _ *ghclient.Label) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (*mockClient) DeleteLabel(_ context.Context, _, _, _ string) error {
+	return fmt.Errorf("not implemented")
+}
+
 func TestReconcileAll(t *testing.T) {
 	t.Parallel()
 

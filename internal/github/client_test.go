@@ -446,3 +446,211 @@ func TestSetCustomPropertyValues(t *testing.T) {
 		t.Errorf("request body missing expected properties: %s", bodyStr)
 	}
 }
+
+func TestGetVulnerabilityAlertsEnabled(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(
+		"GET /api/v3/repos/owner/repo/vulnerability-alerts",
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNoContent) // 204 = enabled
+		},
+	)
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	enabled, err := client.GetVulnerabilityAlertsEnabled(context.Background(), "owner", "repo")
+	if err != nil {
+		t.Fatalf("GetVulnerabilityAlertsEnabled: %v", err)
+	}
+
+	if !enabled {
+		t.Error("expected vulnerability alerts to be enabled")
+	}
+}
+
+func TestGetRepoSettings(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v3/repos/owner/repo", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		repo := &gh.Repository{
+			DefaultBranch:       gh.Ptr("main"),
+			HasIssues:           gh.Ptr(true),
+			HasWiki:             gh.Ptr(false),
+			DeleteBranchOnMerge: gh.Ptr(true),
+			AllowMergeCommit:    gh.Ptr(true),
+			AllowSquashMerge:    gh.Ptr(true),
+			AllowRebaseMerge:    gh.Ptr(false),
+		}
+
+		if err := json.NewEncoder(w).Encode(repo); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	settings, err := client.GetRepoSettings(context.Background(), "owner", "repo")
+	if err != nil {
+		t.Fatalf("GetRepoSettings: %v", err)
+	}
+
+	if settings.DefaultBranch != "main" {
+		t.Errorf("expected default_branch=main, got %q", settings.DefaultBranch)
+	}
+
+	if !settings.HasIssues {
+		t.Error("expected has_issues=true")
+	}
+
+	if settings.HasWiki {
+		t.Error("expected has_wiki=false")
+	}
+
+	if !settings.DeleteBranchOnMerge {
+		t.Error("expected delete_branch_on_merge=true")
+	}
+
+	if settings.AllowRebaseMerge {
+		t.Error("expected allow_rebase_merge=false")
+	}
+}
+
+func TestUpdateRepository(t *testing.T) {
+	t.Parallel()
+
+	var receivedBody map[string]any
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("PATCH /api/v3/repos/owner/repo", func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&receivedBody); err != nil {
+			t.Errorf("decoding request: %v", err)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+
+		if err := json.NewEncoder(w).Encode(&gh.Repository{Name: gh.Ptr("repo")}); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	trueVal := true
+
+	err := client.UpdateRepository(context.Background(), "owner", "repo", &RepoUpdateOpts{
+		DeleteBranchOnMerge: &trueVal,
+	})
+	if err != nil {
+		t.Fatalf("UpdateRepository: %v", err)
+	}
+
+	if v, ok := receivedBody["delete_branch_on_merge"]; !ok || v != true {
+		t.Errorf("expected delete_branch_on_merge=true in request body, got %v", receivedBody)
+	}
+}
+
+func TestListLabels(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v3/repos/owner/repo/labels", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		labels := []*gh.Label{
+			{Name: gh.Ptr("bug"), Color: gh.Ptr("d73a4a"), Description: gh.Ptr("Something isn't working")},
+			{Name: gh.Ptr("enhancement"), Color: gh.Ptr("a2eeef"), Description: gh.Ptr("New feature")},
+		}
+
+		if err := json.NewEncoder(w).Encode(labels); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	labels, err := client.ListLabels(context.Background(), "owner", "repo")
+	if err != nil {
+		t.Fatalf("ListLabels: %v", err)
+	}
+
+	if len(labels) != 2 {
+		t.Fatalf("expected 2 labels, got %d", len(labels))
+	}
+
+	if labels[0].Name != "bug" {
+		t.Errorf("expected first label name 'bug', got %q", labels[0].Name)
+	}
+
+	if labels[0].Color != "d73a4a" {
+		t.Errorf("expected color 'd73a4a', got %q", labels[0].Color)
+	}
+}
+
+func TestCreateLabel(t *testing.T) {
+	t.Parallel()
+
+	var receivedBody map[string]any
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /api/v3/repos/owner/repo/labels", func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&receivedBody); err != nil {
+			t.Errorf("decoding request: %v", err)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+
+		if err := json.NewEncoder(w).Encode(&gh.Label{Name: gh.Ptr("bug")}); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	err := client.CreateLabel(context.Background(), "owner", "repo", &Label{
+		Name:        "bug",
+		Color:       "d73a4a",
+		Description: "Something isn't working",
+	})
+	if err != nil {
+		t.Fatalf("CreateLabel: %v", err)
+	}
+
+	if receivedBody["name"] != "bug" {
+		t.Errorf("expected name 'bug' in request, got %v", receivedBody["name"])
+	}
+}
+
+func TestDeleteLabel(t *testing.T) {
+	t.Parallel()
+
+	deleted := false
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("DELETE /api/v3/repos/owner/repo/labels/obsolete", func(w http.ResponseWriter, _ *http.Request) {
+		deleted = true
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	err := client.DeleteLabel(context.Background(), "owner", "repo", "obsolete")
+	if err != nil {
+		t.Fatalf("DeleteLabel: %v", err)
+	}
+
+	if !deleted {
+		t.Error("expected DELETE request to be made")
+	}
+}

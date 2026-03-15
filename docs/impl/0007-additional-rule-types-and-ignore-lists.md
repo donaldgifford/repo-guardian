@@ -100,26 +100,26 @@ branch protection rules, and reconcilers.
 
 #### Tasks
 
-- [ ] Add to `github.Client` interface:
+- [x] Add to `github.Client` interface:
   - `GetVulnerabilityAlertsEnabled(ctx, owner, repo) (bool, error)`
   - `EnableVulnerabilityAlerts(ctx, owner, repo) error`
   - `DisableVulnerabilityAlerts(ctx, owner, repo) error`
   - `UpdateRepository(ctx, owner, repo, opts) error`
   - `GetFileContent(ctx, owner, repo, path) (string, error)`
-- [ ] Add to `github.Client` interface (rulesets):
+- [x] Add to `github.Client` interface (rulesets):
   - `ListRepositoryRulesets(ctx, owner, repo) ([]*Ruleset, error)`
   - `GetRepositoryRuleset(ctx, owner, repo, rulesetID) (*Ruleset, error)`
   - `CreateRepositoryRuleset(ctx, owner, repo, ruleset) (*Ruleset, error)`
   - `UpdateRepositoryRuleset(ctx, owner, repo, rulesetID, ruleset) (*Ruleset, error)`
-- [ ] Add to `github.Client` interface (labels):
+- [x] Add to `github.Client` interface (labels):
   - `ListLabels(ctx, owner, repo) ([]*Label, error)`
   - `CreateLabel(ctx, owner, repo, label) error`
   - `UpdateLabel(ctx, owner, repo, name, label) error`
   - `DeleteLabel(ctx, owner, repo, name) error`
-- [ ] Define `Ruleset` and `Label` types in `internal/github/types.go`
-- [ ] Implement all methods in `internal/github/client.go`
-- [ ] Update mock client in tests to implement new interface methods
-- [ ] Write unit tests for each new method using `httptest.Server`
+- [x] Define `Ruleset` and `Label` types in `internal/github/types.go`
+- [x] Implement all methods in `internal/github/client.go`
+- [x] Update mock client in tests to implement new interface methods
+- [x] Write unit tests for each new method using `httptest.Server`
 
 #### Success Criteria
 

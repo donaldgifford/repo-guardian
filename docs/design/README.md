@@ -37,5 +37,7 @@ docz create design "Your Design Title"
 | DESIGN-0003 | Tailscale Integration Research | Draft | 2026-03-01 | Donald Gifford | [0003-tailscale-integration-research.md](0003-tailscale-integration-research.md) |
 | DESIGN-0004 | GitHub Webhook IP Allowlist Middleware | Implemented | 2026-03-14 | Donald Gifford | [0004-github-webhook-ip-allowlist-middleware.md](0004-github-webhook-ip-allowlist-middleware.md) |
 | DESIGN-0005 | Helm Chart for repo-guardian | Implemented | 2026-03-14 | Donald Gifford | [0005-helm-chart-for-repo-guardian.md](0005-helm-chart-for-repo-guardian.md) |
-| DESIGN-0006 | Push Event Handler for catalog-info.yaml Changes | Draft | 2026-03-14 | Donald Gifford | [0006-push-event-handler-for-catalog-infoyaml-changes.md](0006-push-event-handler-for-catalog-infoyaml-changes.md) |
+| DESIGN-0006 | HCL Policy Configuration and Rule Engine | Draft | 2026-03-15 | Donald Gifford | [0006-hcl-policy-configuration-and-rule-engine.md](0006-hcl-policy-configuration-and-rule-engine.md) |
+| DESIGN-0007 | Reconciler Interface and Push Event Handler | Draft | 2026-03-15 | Donald Gifford | [0007-reconciler-interface-and-push-event-handler.md](0007-reconciler-interface-and-push-event-handler.md) |
+| DESIGN-0008 | Additional Rule Types and Ignore Lists | Draft | 2026-03-15 | Donald Gifford | [0008-additional-rule-types-and-ignore-lists.md](0008-additional-rule-types-and-ignore-lists.md) |
 <!-- END DOCZ AUTO-GENERATED -->

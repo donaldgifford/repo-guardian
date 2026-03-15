@@ -189,15 +189,15 @@ files. Uses `gopkg.in/yaml.v3` (already in `go.mod`).
 
 #### Tasks
 
-- [ ] Create `internal/policy/yamlpath.go` with
+- [x] Create `internal/policy/yamlpath.go` with
   `EvaluateYAMLPath(content string, path string) ([]string, error)`
-- [ ] Support dot-separated paths: `spec.owner`, `metadata.name`
-- [ ] Support literal slashes in keys:
+- [x] Support dot-separated paths: `spec.owner`, `metadata.name`
+- [x] Support literal slashes in keys:
   `metadata.annotations.jira/project-key`
-- [ ] Support array wildcards: `updates[*].package-ecosystem`
-- [ ] Return all matching values as `[]string`
-- [ ] Return clear errors for invalid YAML or invalid path expressions
-- [ ] Write table-driven unit tests covering:
+- [x] Support array wildcards: `updates[*].package-ecosystem`
+- [x] Return all matching values as `[]string`
+- [x] Return clear errors for invalid YAML or invalid path expressions
+- [x] Write table-driven unit tests covering:
   - Simple dot paths
   - Nested dot paths
   - Keys containing slashes

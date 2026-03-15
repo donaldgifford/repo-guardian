@@ -1,0 +1,123 @@
+---
+suite: policy configmap and deployment integration
+templates:
+  - templates/policy-configmap.yaml
+  - templates/deployment.yaml
+set:
+  config:
+    appId: "12345"
+  secrets:
+    webhookSecret: "test-secret"
+    privateKey: "test-key"
+tests:
+  - it: should render policy ConfigMap with inline config
+    template: templates/policy-configmap.yaml
+    set:
+      policy:
+        config: |
+          guardian {
+            log_level = "debug"
+          }
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-repo-guardian-policy
+
+  - it: should not render policy ConfigMap when config is empty
+    template: templates/policy-configmap.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should set GUARDIAN_CONFIG env var when policy config is set
+    template: templates/deployment.yaml
+    set:
+      policy:
+        config: |
+          guardian {
+            log_level = "debug"
+          }
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GUARDIAN_CONFIG
+            value: /etc/repo-guardian/policy/guardian.hcl
+
+  - it: should set GUARDIAN_CONFIG env var when existing ConfigMap is used
+    template: templates/deployment.yaml
+    set:
+      policy:
+        existingConfigMap: my-external-policy
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GUARDIAN_CONFIG
+            value: /etc/repo-guardian/policy/guardian.hcl
+
+  - it: should not set GUARDIAN_CONFIG when no policy config
+    template: templates/deployment.yaml
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GUARDIAN_CONFIG
+            value: /etc/repo-guardian/policy/guardian.hcl
+
+  - it: should mount policy volume when config is set
+    template: templates/deployment.yaml
+    set:
+      policy:
+        config: |
+          guardian {
+            log_level = "debug"
+          }
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: policy
+            mountPath: /etc/repo-guardian/policy
+            readOnly: true
+
+  - it: should add policy volume from inline config
+    template: templates/deployment.yaml
+    set:
+      policy:
+        config: |
+          guardian {
+            log_level = "debug"
+          }
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: policy
+            configMap:
+              name: RELEASE-NAME-repo-guardian-policy
+
+  - it: should use external ConfigMap for policy volume
+    template: templates/deployment.yaml
+    set:
+      policy:
+        existingConfigMap: my-external-policy
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: policy
+            configMap:
+              name: my-external-policy
+
+  - it: should not mount policy volume when no policy config
+    template: templates/deployment.yaml
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: policy
+            mountPath: /etc/repo-guardian/policy
+            readOnly: true

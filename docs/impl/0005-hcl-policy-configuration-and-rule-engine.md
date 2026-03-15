@@ -63,14 +63,14 @@ logic yet -- just the data structures that everything else builds on.
 
 #### Tasks
 
-- [ ] Create `internal/policy/types.go` with all Go types:
+- [x] Create `internal/policy/types.go` with all Go types:
   `PolicyConfig`, `GuardianConfig`, `FileRuleConfig`, `CheckMode` constants,
   `PRConfig`, `AssertionConfig`
-- [ ] Add placeholder fields for future types: `IgnoreConfig`,
+- [x] Add placeholder fields for future types: `IgnoreConfig`,
   `ReconcilerConfig` (empty structs, filled in IMPL-0006/0007)
-- [ ] Add `hashicorp/hcl/v2` and `hashicorp/hcl/v2/hclsimple` to `go.mod`
-- [ ] Add HCL struct tags to all types for schema binding
-- [ ] Write unit tests validating Go type construction and zero-value
+- [x] Add `hashicorp/hcl/v2` and `hashicorp/hcl/v2/hclsimple` to `go.mod`
+- [x] Add HCL struct tags to all types for schema binding
+- [x] Write unit tests validating Go type construction and zero-value
   defaults
 
 #### Success Criteria
@@ -89,13 +89,13 @@ ensuring backward compatibility when no HCL config is present.
 
 #### Tasks
 
-- [ ] Create `internal/policy/defaults.go` with `BuiltinDefaults() *PolicyConfig`
-- [ ] Map current `rules.DefaultRules` to `FileRuleConfig` structs
+- [x] Create `internal/policy/defaults.go` with `BuiltinDefaults() *PolicyConfig`
+- [x] Map current `rules.DefaultRules` to `FileRuleConfig` structs
   (CODEOWNERS, Dependabot, Renovate)
-- [ ] Map current `config.Config` defaults to `GuardianConfig` fields
-- [ ] Write unit tests asserting built-in defaults match current
+- [x] Map current `config.Config` defaults to `GuardianConfig` fields
+- [x] Write unit tests asserting built-in defaults match current
   `DefaultRules` and `config.Load()` defaults exactly
-- [ ] Write comparison test: `BuiltinDefaults().FileRules` produces the same
+- [x] Write comparison test: `BuiltinDefaults().FileRules` produces the same
   rule names, paths, targets, and enabled states as `rules.DefaultRules`
 
 #### Success Criteria
@@ -115,17 +115,17 @@ defaults, applies env var overrides, and validates the result.
 
 #### Tasks
 
-- [ ] Create `internal/policy/loader.go` with
+- [x] Create `internal/policy/loader.go` with
   `Load(path string) (*PolicyConfig, error)`
-- [ ] Implement single-file loading (`.hcl` file)
-- [ ] Implement directory loading (all `*.hcl` files, lexicographic order)
-- [ ] Implement env var override layer for `GuardianConfig` fields (use
+- [x] Implement single-file loading (`.hcl` file)
+- [x] Implement directory loading (all `*.hcl` files, lexicographic order)
+- [x] Implement env var override layer for `GuardianConfig` fields (use
   same env var names as current `config.Config`)
-- [ ] Implement merge logic: built-in defaults, then HCL overrides
-- [ ] Handle `GUARDIAN_CONFIG` unset or path not found → return
+- [x] Implement merge logic: built-in defaults, then HCL overrides
+- [x] Handle `GUARDIAN_CONFIG` unset or path not found → return
   `BuiltinDefaults()`
-- [ ] Support HCL variables and `locals {}` blocks
-- [ ] Write unit tests:
+- [x] Support HCL variables and `locals {}` blocks
+- [x] Write unit tests:
   - Valid HCL file parses correctly
   - Directory with multiple `.hcl` files merges correctly
   - Duplicate rule names across files produce validation error
@@ -151,9 +151,9 @@ early with clear, actionable error messages.
 
 #### Tasks
 
-- [ ] Create `internal/policy/validate.go` with
+- [x] Create `internal/policy/validate.go` with
   `Validate(cfg *PolicyConfig) error`
-- [ ] Validate `FileRuleConfig`:
+- [x] Validate `FileRuleConfig`:
   - `check` must be one of `exists`, `contains`, `exact`
   - `paths` must be non-empty
   - `target` must be non-empty
@@ -162,15 +162,15 @@ early with clear, actionable error messages.
   - `pattern` and `yaml_path` are mutually exclusive
   - `yaml_path` requires either `contains` or `equals`
   - `message` is required for all assertions
-- [ ] Validate `GuardianConfig`:
+- [x] Validate `GuardianConfig`:
   - `worker_count` > 0
   - `queue_size` > 0
   - `rate_limit_threshold` between 0.0 and 1.0
   - `log_level` is one of debug, info, warn, error
-- [ ] Validate no duplicate rule names (same type + name)
-- [ ] Write unit tests for each validation rule with both valid and invalid
+- [x] Validate no duplicate rule names (same type + name)
+- [x] Write unit tests for each validation rule with both valid and invalid
   inputs
-- [ ] Write unit tests for error message clarity (errors should name the
+- [x] Write unit tests for error message clarity (errors should name the
   field and explain the constraint)
 
 #### Success Criteria
@@ -189,15 +189,15 @@ files. Uses `gopkg.in/yaml.v3` (already in `go.mod`).
 
 #### Tasks
 
-- [ ] Create `internal/policy/yamlpath.go` with
+- [x] Create `internal/policy/yamlpath.go` with
   `EvaluateYAMLPath(content string, path string) ([]string, error)`
-- [ ] Support dot-separated paths: `spec.owner`, `metadata.name`
-- [ ] Support literal slashes in keys:
+- [x] Support dot-separated paths: `spec.owner`, `metadata.name`
+- [x] Support literal slashes in keys:
   `metadata.annotations.jira/project-key`
-- [ ] Support array wildcards: `updates[*].package-ecosystem`
-- [ ] Return all matching values as `[]string`
-- [ ] Return clear errors for invalid YAML or invalid path expressions
-- [ ] Write table-driven unit tests covering:
+- [x] Support array wildcards: `updates[*].package-ecosystem`
+- [x] Return all matching values as `[]string`
+- [x] Return clear errors for invalid YAML or invalid path expressions
+- [x] Write table-driven unit tests covering:
   - Simple dot paths
   - Nested dot paths
   - Keys containing slashes
@@ -221,17 +221,17 @@ and the file exists.
 
 #### Tasks
 
-- [ ] Create `internal/policy/assertion.go` with
+- [x] Create `internal/policy/assertion.go` with
   `(a *AssertionConfig) Evaluate(content string, filePath string) error`
-- [ ] Implement `pattern` assertion: compile regex, match against content
-- [ ] Implement `not_pattern` assertion: compile regex, fail if matched
-- [ ] Implement `yaml_path` + `contains` assertion: evaluate path, check
+- [x] Implement `pattern` assertion: compile regex, match against content
+- [x] Implement `not_pattern` assertion: compile regex, fail if matched
+- [x] Implement `yaml_path` + `contains` assertion: evaluate path, check
   if any value contains the string
-- [ ] Implement `yaml_path` + `equals` assertion: evaluate path, check
+- [x] Implement `yaml_path` + `equals` assertion: evaluate path, check
   if any value equals the string
-- [ ] Return error with `message` field when assertion fails
-- [ ] Pre-compile regexes at config load time (not per-evaluation)
-- [ ] Write unit tests:
+- [x] Return error with `message` field when assertion fails
+- [x] Pre-compile regexes at config load time (not per-evaluation)
+- [x] Write unit tests:
   - Regex match passes and fails
   - Regex not_pattern passes and fails
   - YAML path contains passes and fails
@@ -256,23 +256,23 @@ hardcoded `rules.Registry`. Implement the three check modes.
 
 #### Tasks
 
-- [ ] Modify `checker.Engine` to accept `*policy.PolicyConfig` instead of
+- [x] Modify `checker.Engine` to accept `*policy.PolicyConfig` instead of
   `*rules.Registry`
-- [ ] Refactor `CheckRepo` to iterate over `PolicyConfig.FileRules`
-- [ ] Implement `exists` mode: same as current behavior (check file
+- [x] Refactor `CheckRepo` to iterate over `PolicyConfig.FileRules`
+- [x] Implement `exists` mode: same as current behavior (check file
   existence, PR if missing)
-- [ ] Implement `contains` mode: check existence → if present, run
+- [x] Implement `contains` mode: check existence → if present, run
   assertions → if assertions fail, create PR to replace with template
-- [ ] Implement `exact` mode: check existence → if present, compare against
+- [x] Implement `exact` mode: check existence → if present, compare against
   template → YAML semantic comparison for `.yml`/`.yaml` files, byte
   comparison otherwise → create PR if mismatch
-- [ ] Add YAML semantic diff helper (parse both, compare parsed structures)
-- [ ] Update `findMissingFiles` to handle the new check modes
-- [ ] Preserve existing metrics (`files_missing_total`, `prs_created_total`,
+- [x] Add YAML semantic diff helper (parse both, compare parsed structures)
+- [x] Update `findMissingFiles` to handle the new check modes
+- [x] Preserve existing metrics (`files_missing_total`, `prs_created_total`,
   etc.)
-- [ ] Maintain backward compatibility: when using built-in defaults, behavior
+- [x] Maintain backward compatibility: when using built-in defaults, behavior
   is identical to current
-- [ ] Write unit tests:
+- [x] Write unit tests:
   - `exists` mode: file missing → PR created
   - `exists` mode: file present → no action
   - `contains` mode: file missing → PR created
@@ -301,17 +301,17 @@ the application. Trim `config.Config` to only hold credentials.
 
 #### Tasks
 
-- [ ] Add `GUARDIAN_CONFIG` to `config.Config` (path to HCL file/dir)
-- [ ] Call `policy.Load()` in `main.go` after `config.Load()`
-- [ ] Pass `PolicyConfig.Guardian` fields to components that currently read
+- [x] Add `GUARDIAN_CONFIG` to `config.Config` (path to HCL file/dir)
+- [x] Call `policy.Load()` in `main.go` after `config.Load()`
+- [x] Pass `PolicyConfig.Guardian` fields to components that currently read
   from `config.Config` (engine, scheduler, queue)
-- [ ] Remove operational fields from `config.Config` that are now in
+- [x] Remove operational fields from `config.Config` that are now in
   `GuardianConfig` (keep credentials-only)
-- [ ] Update `checker.NewEngine` signature to accept `*policy.PolicyConfig`
-- [ ] Update `scheduler.NewScheduler` to use `GuardianConfig` fields
-- [ ] Update `checker.NewQueue` to use `GuardianConfig.QueueSize`
-- [ ] Log the config source at startup (HCL file path or "built-in defaults")
-- [ ] Write integration test: `config.Load()` + `policy.Load()` → engine
+- [x] Update `checker.NewEngine` signature to accept `*policy.PolicyConfig`
+- [x] Update `scheduler.NewScheduler` to use `GuardianConfig` fields
+- [x] Update `checker.NewQueue` to use `GuardianConfig.QueueSize`
+- [x] Log the config source at startup (HCL file path or "built-in defaults")
+- [x] Write integration test: `config.Load()` + `policy.Load()` → engine
   creation → no errors
 
 #### Success Criteria
@@ -329,20 +329,20 @@ Add Helm chart support for mounting the HCL policy file via ConfigMap.
 
 #### Tasks
 
-- [ ] Add `policy.config` and `policy.existingConfigMap` to `values.yaml`
-- [ ] Create `templates/policy-configmap.yaml` (rendered when
+- [x] Add `policy.config` and `policy.existingConfigMap` to `values.yaml`
+- [x] Create `templates/policy-configmap.yaml` (rendered when
   `policy.config` is set)
-- [ ] Update `templates/deployment.yaml` to mount policy ConfigMap at
+- [x] Update `templates/deployment.yaml` to mount policy ConfigMap at
   `/etc/repo-guardian/guardian.hcl`
-- [ ] Set `GUARDIAN_CONFIG` env var in deployment when policy ConfigMap is
+- [x] Set `GUARDIAN_CONFIG` env var in deployment when policy ConfigMap is
   present
-- [ ] Write helm-unittest tests:
+- [x] Write helm-unittest tests:
   - Policy ConfigMap renders correctly with inline config
   - Policy ConfigMap not rendered when `policy.config` is empty
   - External ConfigMap used when `policy.existingConfigMap` is set
   - Deployment volume mount present when policy is configured
   - `GUARDIAN_CONFIG` env var set correctly
-- [ ] Update `ci/ci-values.yaml` if needed for chart-testing
+- [x] Update `ci/ci-values.yaml` if needed for chart-testing
 
 #### Success Criteria
 

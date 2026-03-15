@@ -1,0 +1,340 @@
+package policy
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestValidate_ValidDefaults(t *testing.T) {
+	cfg := BuiltinDefaults()
+
+	if err := Validate(cfg); err != nil {
+		t.Errorf("Validate(BuiltinDefaults()) = %v, want nil", err)
+	}
+}
+
+func TestValidate_GuardianWorkerCount(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.Guardian.WorkerCount = 0
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for WorkerCount = 0")
+	}
+
+	if !strings.Contains(err.Error(), "worker_count") {
+		t.Errorf("error %q should mention worker_count", err)
+	}
+}
+
+func TestValidate_GuardianQueueSize(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.Guardian.QueueSize = -1
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for QueueSize = -1")
+	}
+
+	if !strings.Contains(err.Error(), "queue_size") {
+		t.Errorf("error %q should mention queue_size", err)
+	}
+}
+
+func TestValidate_GuardianRateLimitThreshold(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   float64
+		wantErr bool
+	}{
+		{"valid zero", 0.0, false},
+		{"valid mid", 0.5, false},
+		{"valid one", 1.0, false},
+		{"negative", -0.1, true},
+		{"above one", 1.1, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := BuiltinDefaults()
+			cfg.Guardian.RateLimitThreshold = tt.value
+
+			err := Validate(cfg)
+
+			if tt.wantErr && err == nil {
+				t.Error("expected error")
+			}
+
+			if !tt.wantErr && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidate_GuardianLogLevel(t *testing.T) {
+	tests := []struct {
+		level   string
+		wantErr bool
+	}{
+		{"debug", false},
+		{"info", false},
+		{"warn", false},
+		{"error", false},
+		{"trace", true},
+		{"INFO", true},
+		{"", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.level, func(t *testing.T) {
+			cfg := BuiltinDefaults()
+			cfg.Guardian.LogLevel = tt.level
+
+			err := Validate(cfg)
+
+			if tt.wantErr && err == nil {
+				t.Errorf("expected error for log_level %q", tt.level)
+			}
+
+			if !tt.wantErr && err != nil {
+				t.Errorf("unexpected error for log_level %q: %v", tt.level, err)
+			}
+		})
+	}
+}
+
+func TestValidate_FileRuleCheckMode(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.FileRules = []FileRuleConfig{{
+		Type:     "file",
+		Name:     "test",
+		Check:    "invalid",
+		Paths:    []string{"test"},
+		Target:   "test",
+		Template: "test.tmpl",
+	}}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for invalid check mode")
+	}
+
+	if !strings.Contains(err.Error(), "check must be one of") {
+		t.Errorf("error %q should mention valid check values", err)
+	}
+}
+
+func TestValidate_FileRuleEmptyPaths(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.FileRules = []FileRuleConfig{{
+		Type:     "file",
+		Name:     "test",
+		Paths:    []string{},
+		Target:   "test",
+		Template: "test.tmpl",
+	}}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for empty paths")
+	}
+
+	if !strings.Contains(err.Error(), "paths must be non-empty") {
+		t.Errorf("error %q should mention paths", err)
+	}
+}
+
+func TestValidate_FileRuleEmptyTarget(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.FileRules = []FileRuleConfig{{
+		Type:     "file",
+		Name:     "test",
+		Paths:    []string{"test"},
+		Target:   "",
+		Template: "test.tmpl",
+	}}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for empty target")
+	}
+
+	if !strings.Contains(err.Error(), "target must be non-empty") {
+		t.Errorf("error %q should mention target", err)
+	}
+}
+
+func TestValidate_FileRuleEmptyTemplate(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.FileRules = []FileRuleConfig{{
+		Type:     "file",
+		Name:     "test",
+		Paths:    []string{"test"},
+		Target:   "test",
+		Template: "",
+	}}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for empty template")
+	}
+
+	if !strings.Contains(err.Error(), "template must be non-empty") {
+		t.Errorf("error %q should mention template", err)
+	}
+}
+
+func TestValidate_AssertionsRequireContainsMode(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.FileRules = []FileRuleConfig{{
+		Type:     "file",
+		Name:     "test",
+		Check:    "exists",
+		Paths:    []string{"test"},
+		Target:   "test",
+		Template: "test.tmpl",
+		Assertions: []AssertionConfig{
+			{Pattern: "foo", Message: "must have foo"},
+		},
+	}}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for assertions with check=exists")
+	}
+
+	if !strings.Contains(err.Error(), "assertions require check") {
+		t.Errorf("error %q should mention assertions require contains", err)
+	}
+}
+
+func TestValidate_AssertionPatternAndYAMLPathMutuallyExclusive(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.FileRules = []FileRuleConfig{{
+		Type:     "file",
+		Name:     "test",
+		Check:    "contains",
+		Paths:    []string{"test"},
+		Target:   "test",
+		Template: "test.tmpl",
+		Assertions: []AssertionConfig{
+			{Pattern: "foo", YAMLPath: "spec.owner", Contains: "bar", Message: "conflict"},
+		},
+	}}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for pattern + yaml_path")
+	}
+
+	if !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Errorf("error %q should mention mutually exclusive", err)
+	}
+}
+
+func TestValidate_AssertionYAMLPathRequiresContainsOrEquals(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.FileRules = []FileRuleConfig{{
+		Type:     "file",
+		Name:     "test",
+		Check:    "contains",
+		Paths:    []string{"test"},
+		Target:   "test",
+		Template: "test.tmpl",
+		Assertions: []AssertionConfig{
+			{YAMLPath: "spec.owner", Message: "missing check"},
+		},
+	}}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for yaml_path without contains/equals")
+	}
+
+	if !strings.Contains(err.Error(), "requires either contains or equals") {
+		t.Errorf("error %q should mention requires contains or equals", err)
+	}
+}
+
+func TestValidate_AssertionMessageRequired(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.FileRules = []FileRuleConfig{{
+		Type:     "file",
+		Name:     "test",
+		Check:    "contains",
+		Paths:    []string{"test"},
+		Target:   "test",
+		Template: "test.tmpl",
+		Assertions: []AssertionConfig{
+			{Pattern: "foo", Message: ""},
+		},
+	}}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for empty message")
+	}
+
+	if !strings.Contains(err.Error(), "message is required") {
+		t.Errorf("error %q should mention message required", err)
+	}
+}
+
+func TestValidate_DuplicateRuleNames(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.FileRules = []FileRuleConfig{
+		{Type: "file", Name: "test", Paths: []string{"a"}, Target: "a", Template: "a.tmpl"},
+		{Type: "file", Name: "test", Paths: []string{"b"}, Target: "b", Template: "b.tmpl"},
+	}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for duplicate rule names")
+	}
+
+	if !strings.Contains(err.Error(), "duplicate rule") {
+		t.Errorf("error %q should mention duplicate rule", err)
+	}
+}
+
+func TestValidate_ValidContainsWithAssertions(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.FileRules = []FileRuleConfig{{
+		Type:     "file",
+		Name:     "test",
+		Check:    "contains",
+		Paths:    []string{"test"},
+		Target:   "test",
+		Template: "test.tmpl",
+		Assertions: []AssertionConfig{
+			{Pattern: "foo", Message: "must have foo"},
+			{YAMLPath: "spec.owner", Contains: "team", Message: "must have owner"},
+		},
+	}}
+
+	if err := Validate(cfg); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_ErrorMessageClarity(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.Guardian.WorkerCount = 0
+	cfg.Guardian.LogLevel = "invalid"
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected errors")
+	}
+
+	errStr := err.Error()
+
+	if !strings.Contains(errStr, "guardian.worker_count") {
+		t.Error("error should include full field path guardian.worker_count")
+	}
+
+	if !strings.Contains(errStr, "guardian.log_level") {
+		t.Error("error should include full field path guardian.log_level")
+	}
+}

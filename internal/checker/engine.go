@@ -11,6 +11,7 @@ import (
 
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
+	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
 )
 
@@ -32,6 +33,12 @@ type Engine struct {
 	skipArchived         bool
 	dryRun               bool
 	customPropertiesMode string
+
+	// policy is set when the engine is created from a PolicyConfig.
+	// When non-nil, CheckRepo uses policy-based evaluation with
+	// exists/contains/exact check modes.
+	policy             *policy.PolicyConfig
+	compiledAssertions map[string][]policy.CompiledAssertion
 }
 
 // NewEngine creates a new checker Engine.
@@ -75,6 +82,10 @@ func (e *Engine) CheckRepo(ctx context.Context, client ghclient.Client, owner, r
 	openPRs, err := client.ListOpenPullRequests(ctx, owner, repo)
 	if err != nil {
 		return fmt.Errorf("listing open PRs: %w", err)
+	}
+
+	if e.policy != nil {
+		return e.checkRepoWithPolicy(ctx, log, client, owner, repo, repoInfo.DefaultRef, openPRs)
 	}
 
 	missing, err := e.findMissingFiles(ctx, log, client, owner, repo, openPRs)

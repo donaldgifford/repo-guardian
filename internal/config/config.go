@@ -73,6 +73,11 @@ type Config struct {
 
 	// TrustProxyHeaders reads client IP from X-Forwarded-For when true.
 	TrustProxyHeaders bool
+
+	// GuardianConfigPath is the path to a guardian.hcl policy file or
+	// directory of .hcl files. When set, operational settings are loaded
+	// from the HCL config instead of environment variables.
+	GuardianConfigPath string
 }
 
 // Load reads configuration from environment variables and applies defaults.
@@ -164,6 +169,7 @@ func Load() (*Config, error) {
 	}
 
 	cfg.TrustProxyHeaders = trustProxyHeaders
+	cfg.GuardianConfigPath = os.Getenv("GUARDIAN_CONFIG")
 
 	if err := cfg.Validate(); err != nil {
 		return nil, err

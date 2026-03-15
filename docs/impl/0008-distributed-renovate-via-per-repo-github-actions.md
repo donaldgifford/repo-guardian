@@ -63,17 +63,17 @@ Renovate files into repositories.
 
 #### Tasks
 
-- [ ] Create `internal/rules/templates/renovate-workflow.tmpl` with the
+- [x] Create `internal/rules/templates/renovate-workflow.tmpl` with the
       docker-based GitHub Actions workflow from DESIGN-0009 (schedule
       trigger, `actions/create-github-app-token@v1`, `docker run
       renovate/renovate:latest`, `RENOVATE_REPOSITORIES` scoped to
       `${{ github.repository }}`)
-- [ ] Update `internal/rules/templates/renovate.tmpl` to use the org
+- [x] Update `internal/rules/templates/renovate.tmpl` to use the org
       preset pattern (`"extends": ["github>ORG_NAME/renovate-config"]`)
       instead of the current `"extends": ["config:recommended"]`. The
       `ORG_NAME` placeholder is replaced at template load time using the
       configured org name (see Phase 2)
-- [ ] Verify templates load correctly via `TemplateStore` by checking
+- [x] Verify templates load correctly via `TemplateStore` by checking
       that `Get("renovate-workflow")` and `Get("renovate")` return
       expected content
 

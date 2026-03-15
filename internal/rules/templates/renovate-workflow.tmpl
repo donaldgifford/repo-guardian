@@ -1,0 +1,38 @@
+# Managed by repo-guardian — do not edit manually
+name: Renovate
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  renovate:
+    name: Renovate Dependency Updates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.RENOVATE_APP_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+
+      - name: Run Renovate
+        run: |
+          docker run --rm \
+            -e RENOVATE_TOKEN \
+            -e RENOVATE_REPOSITORIES \
+            -e RENOVATE_CONFIG_FILE \
+            -e LOG_LEVEL \
+            renovate/renovate:latest
+        env:
+          RENOVATE_TOKEN: ${{ steps.app-token.outputs.token }}
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_CONFIG_FILE: renovate.json
+          LOG_LEVEL: info

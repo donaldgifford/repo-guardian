@@ -45,7 +45,7 @@ func TestHandleWebhook_RepositoryCreated(t *testing.T) {
 	t.Parallel()
 
 	q := checker.NewQueue(10, slog.Default())
-	h := NewHandler(testSecret, q, slog.Default())
+	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	payload := &gh.RepositoryEvent{
 		Action: gh.Ptr("created"),
@@ -68,7 +68,7 @@ func TestHandleWebhook_InstallationReposAdded(t *testing.T) {
 	t.Parallel()
 
 	q := checker.NewQueue(10, slog.Default())
-	h := NewHandler(testSecret, q, slog.Default())
+	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	payload := &gh.InstallationRepositoriesEvent{
 		Action:       gh.Ptr("added"),
@@ -91,7 +91,7 @@ func TestHandleWebhook_InstallationCreated(t *testing.T) {
 	t.Parallel()
 
 	q := checker.NewQueue(10, slog.Default())
-	h := NewHandler(testSecret, q, slog.Default())
+	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	payload := &gh.InstallationEvent{
 		Action:       gh.Ptr("created"),
@@ -113,7 +113,7 @@ func TestHandleWebhook_InvalidSignature(t *testing.T) {
 	t.Parallel()
 
 	q := checker.NewQueue(10, slog.Default())
-	h := NewHandler(testSecret, q, slog.Default())
+	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	body := []byte(`{"action":"created"}`)
 	req := httptest.NewRequest(http.MethodPost, "/webhooks/github", bytes.NewReader(body))
@@ -133,7 +133,7 @@ func TestHandleWebhook_UnsupportedEvent(t *testing.T) {
 	t.Parallel()
 
 	q := checker.NewQueue(10, slog.Default())
-	h := NewHandler(testSecret, q, slog.Default())
+	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	payload := map[string]string{"action": "completed"}
 
@@ -149,7 +149,7 @@ func TestHandleWebhook_IgnoredAction(t *testing.T) {
 	t.Parallel()
 
 	q := checker.NewQueue(10, slog.Default())
-	h := NewHandler(testSecret, q, slog.Default())
+	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	payload := &gh.RepositoryEvent{
 		Action: gh.Ptr("deleted"),
@@ -166,6 +166,177 @@ func TestHandleWebhook_IgnoredAction(t *testing.T) {
 	// Ignored actions still return 200 (event was handled, just not actionable).
 	if rr.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d", rr.Code)
+	}
+}
+
+//nolint:unparam // test helper keeps defaultBranch param for clarity
+func makePushPayload(ref, defaultBranch string, commits []*gh.HeadCommit) *gh.PushEvent {
+	return &gh.PushEvent{
+		Ref: gh.Ptr(ref),
+		Repo: &gh.PushEventRepository{
+			Name:          gh.Ptr("test-repo"),
+			Owner:         &gh.User{Login: gh.Ptr("myorg")},
+			DefaultBranch: gh.Ptr(defaultBranch),
+		},
+		Installation: &gh.Installation{ID: gh.Ptr(int64(123))},
+		Commits:      commits,
+	}
+}
+
+func TestHandlePush_WatchedFileAdded_Enqueues(t *testing.T) {
+	t.Parallel()
+
+	q := checker.NewQueue(10, slog.Default())
+	watched := map[string]bool{"catalog-info.yaml": true}
+	h := NewHandler(testSecret, q, slog.Default(), watched)
+
+	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
+		{Added: []string{"catalog-info.yaml"}},
+	})
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, makeRequest(t, "push", payload))
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rr.Code)
+	}
+
+	if q.Len() != 1 {
+		t.Errorf("expected 1 job in queue, got %d", q.Len())
+	}
+}
+
+func TestHandlePush_WatchedFileModified_Enqueues(t *testing.T) {
+	t.Parallel()
+
+	q := checker.NewQueue(10, slog.Default())
+	watched := map[string]bool{"catalog-info.yaml": true}
+	h := NewHandler(testSecret, q, slog.Default(), watched)
+
+	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
+		{Modified: []string{"catalog-info.yaml"}},
+	})
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, makeRequest(t, "push", payload))
+
+	if q.Len() != 1 {
+		t.Errorf("expected 1 job in queue, got %d", q.Len())
+	}
+}
+
+func TestHandlePush_UnrelatedFiles_DoesNotEnqueue(t *testing.T) {
+	t.Parallel()
+
+	q := checker.NewQueue(10, slog.Default())
+	watched := map[string]bool{"catalog-info.yaml": true}
+	h := NewHandler(testSecret, q, slog.Default(), watched)
+
+	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
+		{Added: []string{"README.md"}, Modified: []string{"go.mod"}},
+	})
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, makeRequest(t, "push", payload))
+
+	if q.Len() != 0 {
+		t.Errorf("expected 0 jobs in queue, got %d", q.Len())
+	}
+}
+
+func TestHandlePush_NonDefaultBranch_DoesNotEnqueue(t *testing.T) {
+	t.Parallel()
+
+	q := checker.NewQueue(10, slog.Default())
+	watched := map[string]bool{"catalog-info.yaml": true}
+	h := NewHandler(testSecret, q, slog.Default(), watched)
+
+	payload := makePushPayload("refs/heads/feature-branch", "main", []*gh.HeadCommit{
+		{Added: []string{"catalog-info.yaml"}},
+	})
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, makeRequest(t, "push", payload))
+
+	if q.Len() != 0 {
+		t.Errorf("expected 0 jobs in queue, got %d", q.Len())
+	}
+}
+
+func TestHandlePush_RemovedOnly_DoesNotEnqueue(t *testing.T) {
+	t.Parallel()
+
+	q := checker.NewQueue(10, slog.Default())
+	watched := map[string]bool{"catalog-info.yaml": true}
+	h := NewHandler(testSecret, q, slog.Default(), watched)
+
+	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
+		{Removed: []string{"catalog-info.yaml"}},
+	})
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, makeRequest(t, "push", payload))
+
+	if q.Len() != 0 {
+		t.Errorf("expected 0 jobs in queue, got %d", q.Len())
+	}
+}
+
+func TestHandlePush_NoWatchedPaths_DoesNotEnqueue(t *testing.T) {
+	t.Parallel()
+
+	q := checker.NewQueue(10, slog.Default())
+	h := NewHandler(testSecret, q, slog.Default(), nil)
+
+	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
+		{Added: []string{"catalog-info.yaml"}},
+	})
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, makeRequest(t, "push", payload))
+
+	if q.Len() != 0 {
+		t.Errorf("expected 0 jobs in queue, got %d", q.Len())
+	}
+}
+
+func TestHandlePush_WatchedFileInLaterCommit_Enqueues(t *testing.T) {
+	t.Parallel()
+
+	q := checker.NewQueue(10, slog.Default())
+	watched := map[string]bool{"catalog-info.yaml": true}
+	h := NewHandler(testSecret, q, slog.Default(), watched)
+
+	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
+		{Added: []string{"README.md"}},
+		{Modified: []string{"go.mod"}},
+		{Added: []string{"catalog-info.yaml"}},
+	})
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, makeRequest(t, "push", payload))
+
+	if q.Len() != 1 {
+		t.Errorf("expected 1 job in queue, got %d", q.Len())
+	}
+}
+
+func TestHandlePush_TagPush_DoesNotEnqueue(t *testing.T) {
+	t.Parallel()
+
+	q := checker.NewQueue(10, slog.Default())
+	watched := map[string]bool{"catalog-info.yaml": true}
+	h := NewHandler(testSecret, q, slog.Default(), watched)
+
+	payload := makePushPayload("refs/tags/v1.0.0", "main", []*gh.HeadCommit{
+		{Added: []string{"catalog-info.yaml"}},
+	})
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, makeRequest(t, "push", payload))
+
+	if q.Len() != 0 {
+		t.Errorf("expected 0 jobs in queue, got %d", q.Len())
 	}
 }
 

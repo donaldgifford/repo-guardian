@@ -23,6 +23,9 @@ const (
 
 	// TriggerManual indicates the job was triggered manually.
 	TriggerManual Trigger = "manual"
+
+	// TriggerPush indicates the job was triggered by a push event on a watched file.
+	TriggerPush Trigger = "push"
 )
 
 // RepoJob represents a unit of work for the checker engine.

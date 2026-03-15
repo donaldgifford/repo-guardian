@@ -206,21 +206,21 @@ when watched files are modified on the default branch.
 
 #### Tasks
 
-- [ ] Add `TriggerPush` constant to `internal/checker/queue.go`
-- [ ] Add `watchedPaths map[string]bool` field to `webhook.Handler`
-- [ ] Update `webhook.NewHandler` signature to accept `watchedPaths`
-- [ ] Add `case *gh.PushEvent:` to `ServeHTTP` switch
-- [ ] Implement `handlePushEvent`:
+- [x] Add `TriggerPush` constant to `internal/checker/queue.go`
+- [x] Add `watchedPaths map[string]bool` field to `webhook.Handler`
+- [x] Update `webhook.NewHandler` signature to accept `watchedPaths`
+- [x] Add `case *gh.PushEvent:` to `ServeHTTP` switch
+- [x] Implement `handlePushEvent`:
   - Check `e.GetRef()` matches `"refs/heads/" + defaultBranch`
   - Log tag pushes at debug level
   - Call `hasWatchedFileChanges`
   - If matched, enqueue with `TriggerPush`
-- [ ] Implement `hasWatchedFileChanges`:
+- [x] Implement `hasWatchedFileChanges`:
   - Check `Added` and `Modified` paths in all commits
   - Return true if any path is in `watchedPaths`
   - Do NOT check `Removed` paths
-- [ ] Update `main.go` to pass `watchedPaths` to `NewHandler`
-- [ ] Write unit tests:
+- [x] Update `main.go` to pass `watchedPaths` to `NewHandler`
+- [x] Write unit tests:
   - Push to default branch with watched file in `added`: enqueues
   - Push to default branch with watched file in `modified`: enqueues
   - Push to default branch with unrelated files: does not enqueue

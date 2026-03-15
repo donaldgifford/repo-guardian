@@ -17,14 +17,22 @@ type Handler struct {
 	webhookSecret []byte
 	queue         *checker.Queue
 	logger        *slog.Logger
+	watchedPaths  map[string]bool
 }
 
 // NewHandler creates a new webhook Handler.
-func NewHandler(webhookSecret string, queue *checker.Queue, logger *slog.Logger) *Handler {
+// watchedPaths specifies file paths that trigger a re-check on push events.
+func NewHandler(
+	webhookSecret string,
+	queue *checker.Queue,
+	logger *slog.Logger,
+	watchedPaths map[string]bool,
+) *Handler {
 	return &Handler{
 		webhookSecret: []byte(webhookSecret),
 		queue:         queue,
 		logger:        logger,
+		watchedPaths:  watchedPaths,
 	}
 }
 
@@ -56,6 +64,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handleInstallationRepositoriesEvent(e)
 	case *gh.InstallationEvent:
 		h.handleInstallationEvent(e)
+	case *gh.PushEvent:
+		h.handlePushEvent(e)
 	default:
 		h.logger.Debug("ignoring unhandled event type", "type", eventType)
 		w.WriteHeader(http.StatusNoContent)
@@ -117,6 +127,88 @@ func (h *Handler) handleInstallationEvent(e *gh.InstallationEvent) {
 
 	for _, repo := range e.Repositories {
 		h.enqueue(extractOwner(repo.GetFullName()), repo.GetName(), installID)
+	}
+}
+
+func (h *Handler) handlePushEvent(e *gh.PushEvent) {
+	ref := e.GetRef()
+
+	// Ignore tag pushes.
+	if strings.HasPrefix(ref, "refs/tags/") {
+		h.logger.Debug("ignoring tag push", "ref", ref)
+		return
+	}
+
+	// Only process pushes to the default branch.
+	repo := e.GetRepo()
+	defaultBranch := repo.GetDefaultBranch()
+
+	if ref != "refs/heads/"+defaultBranch {
+		h.logger.Debug("ignoring push to non-default branch",
+			"ref", ref,
+			"default_branch", defaultBranch,
+		)
+
+		return
+	}
+
+	if len(h.watchedPaths) == 0 {
+		h.logger.Debug("no watched paths configured, ignoring push event")
+		return
+	}
+
+	if !h.hasWatchedFileChanges(e) {
+		return
+	}
+
+	owner := repo.GetOwner().GetLogin()
+	repoName := repo.GetName()
+	installID := e.GetInstallation().GetID()
+
+	h.logger.Info("push event with watched file changes",
+		"owner", owner,
+		"repo", repoName,
+		"ref", ref,
+	)
+
+	h.enqueuePush(owner, repoName, installID)
+}
+
+// hasWatchedFileChanges checks if any commit in the push event contains
+// added or modified files that match the watched paths. Removed files
+// are intentionally not checked.
+func (h *Handler) hasWatchedFileChanges(e *gh.PushEvent) bool {
+	for _, commit := range e.Commits {
+		for _, path := range commit.Added {
+			if h.watchedPaths[path] {
+				return true
+			}
+		}
+
+		for _, path := range commit.Modified {
+			if h.watchedPaths[path] {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func (h *Handler) enqueuePush(owner, repo string, installationID int64) {
+	job := checker.RepoJob{
+		Owner:          owner,
+		Repo:           repo,
+		InstallationID: installationID,
+		Trigger:        checker.TriggerPush,
+	}
+
+	if err := h.queue.Enqueue(job); err != nil {
+		h.logger.Error("failed to enqueue push job",
+			"owner", owner,
+			"repo", repo,
+			"error", err,
+		)
 	}
 }
 

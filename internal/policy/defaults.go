@@ -50,7 +50,7 @@ func defaultCodeownersRule() FileRuleConfig {
 		Check:    "exists",
 		Paths:    []string{"CODEOWNERS", ".github/CODEOWNERS", "docs/CODEOWNERS"},
 		Target:   ".github/CODEOWNERS",
-		Template: "codeowners.tmpl",
+		Template: "codeowners",
 		PR: &PRConfig{
 			SearchTerms: []string{"codeowners", "CODEOWNERS"},
 		},
@@ -67,7 +67,7 @@ func defaultDependabotRule() FileRuleConfig {
 		Check:    "exists",
 		Paths:    []string{".github/dependabot.yml", ".github/dependabot.yaml"},
 		Target:   ".github/dependabot.yml",
-		Template: "dependabot.tmpl",
+		Template: "dependabot",
 		PR: &PRConfig{
 			SearchTerms: []string{"dependabot"},
 		},
@@ -91,7 +91,7 @@ func defaultRenovateRule() FileRuleConfig {
 			".github/renovate.json5",
 		},
 		Target:   "renovate.json",
-		Template: "renovate.tmpl",
+		Template: "renovate",
 		PR: &PRConfig{
 			SearchTerms: []string{"renovate"},
 		},

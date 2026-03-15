@@ -256,23 +256,23 @@ hardcoded `rules.Registry`. Implement the three check modes.
 
 #### Tasks
 
-- [ ] Modify `checker.Engine` to accept `*policy.PolicyConfig` instead of
+- [x] Modify `checker.Engine` to accept `*policy.PolicyConfig` instead of
   `*rules.Registry`
-- [ ] Refactor `CheckRepo` to iterate over `PolicyConfig.FileRules`
-- [ ] Implement `exists` mode: same as current behavior (check file
+- [x] Refactor `CheckRepo` to iterate over `PolicyConfig.FileRules`
+- [x] Implement `exists` mode: same as current behavior (check file
   existence, PR if missing)
-- [ ] Implement `contains` mode: check existence → if present, run
+- [x] Implement `contains` mode: check existence → if present, run
   assertions → if assertions fail, create PR to replace with template
-- [ ] Implement `exact` mode: check existence → if present, compare against
+- [x] Implement `exact` mode: check existence → if present, compare against
   template → YAML semantic comparison for `.yml`/`.yaml` files, byte
   comparison otherwise → create PR if mismatch
-- [ ] Add YAML semantic diff helper (parse both, compare parsed structures)
-- [ ] Update `findMissingFiles` to handle the new check modes
-- [ ] Preserve existing metrics (`files_missing_total`, `prs_created_total`,
+- [x] Add YAML semantic diff helper (parse both, compare parsed structures)
+- [x] Update `findMissingFiles` to handle the new check modes
+- [x] Preserve existing metrics (`files_missing_total`, `prs_created_total`,
   etc.)
-- [ ] Maintain backward compatibility: when using built-in defaults, behavior
+- [x] Maintain backward compatibility: when using built-in defaults, behavior
   is identical to current
-- [ ] Write unit tests:
+- [x] Write unit tests:
   - `exists` mode: file missing → PR created
   - `exists` mode: file present → no action
   - `contains` mode: file missing → PR created

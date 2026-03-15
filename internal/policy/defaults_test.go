@@ -106,10 +106,9 @@ func TestBuiltinDefaults_MatchesDefaultRules(t *testing.T) {
 				t.Errorf("Target = %q, want %q", policyRule.Target, defaultRule.TargetPath)
 			}
 
-			// Compare template (policy uses "name.tmpl", DefaultRules uses "name").
-			wantTemplate := defaultRule.DefaultTemplateName + ".tmpl"
-			if policyRule.Template != wantTemplate {
-				t.Errorf("Template = %q, want %q", policyRule.Template, wantTemplate)
+			// Compare template name.
+			if policyRule.Template != defaultRule.DefaultTemplateName {
+				t.Errorf("Template = %q, want %q", policyRule.Template, defaultRule.DefaultTemplateName)
 			}
 
 			// Compare PR search terms.

@@ -36,7 +36,7 @@ docz create impl "Your Implementation Title"
 | IMPL-0002 | Custom Properties Implementation Plan | Completed | 2026-03-01 | Donald Gifford | [0002-custom-properties-implementation-plan.md](0002-custom-properties-implementation-plan.md) |
 | IMPL-0003 | GitHub Webhook IP Allowlist Middleware | Completed | 2026-03-14 | Donald Gifford | [0003-github-webhook-ip-allowlist-middleware.md](0003-github-webhook-ip-allowlist-middleware.md) |
 | IMPL-0004 | Helm Chart for repo-guardian | Completed | 2026-03-14 | Donald Gifford | [0004-helm-chart-for-repo-guardian.md](0004-helm-chart-for-repo-guardian.md) |
-| IMPL-0005 | HCL Policy Configuration and Rule Engine | Draft | 2026-03-15 | Donald Gifford | [0005-hcl-policy-configuration-and-rule-engine.md](0005-hcl-policy-configuration-and-rule-engine.md) |
+| IMPL-0005 | HCL Policy Configuration and Rule Engine | Completed | 2026-03-15 | Donald Gifford | [0005-hcl-policy-configuration-and-rule-engine.md](0005-hcl-policy-configuration-and-rule-engine.md) |
 | IMPL-0006 | Reconciler Interface and Push Event Handler | Draft | 2026-03-15 | Donald Gifford | [0006-reconciler-interface-and-push-event-handler.md](0006-reconciler-interface-and-push-event-handler.md) |
 | IMPL-0007 | Additional Rule Types and Ignore Lists | Draft | 2026-03-15 | Donald Gifford | [0007-additional-rule-types-and-ignore-lists.md](0007-additional-rule-types-and-ignore-lists.md) |
 <!-- END DOCZ AUTO-GENERATED -->

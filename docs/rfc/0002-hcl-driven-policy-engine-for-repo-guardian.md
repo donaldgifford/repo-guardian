@@ -1,7 +1,7 @@
 ---
 id: RFC-0002
 title: "HCL-driven Policy Engine for repo-guardian"
-status: Draft
+status: Accepted
 author: Donald Gifford
 created: 2026-03-14
 ---
@@ -9,7 +9,7 @@ created: 2026-03-14
 
 # RFC 0002: HCL-driven Policy Engine for repo-guardian
 
-**Status:** Draft
+**Status:** Accepted
 **Author:** Donald Gifford
 **Date:** 2026-03-14
 

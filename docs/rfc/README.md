@@ -34,4 +34,5 @@ docz create rfc "Your RFC Title"
 | ID | Title | Status | Date | Author | Link |
 |----|-------|--------|------|--------|------|
 | RFC-0001 | Repo Compliance App (repo-guardian) | Draft | 2026-02-06 | Donald Gifford | [0001-repo-compliance-app-repo-guardian.md](0001-repo-compliance-app-repo-guardian.md) |
+| RFC-0002 | HCL-driven Policy Engine for repo-guardian | Draft | 2026-03-14 | Donald Gifford | [0002-hcl-driven-policy-engine-for-repo-guardian.md](0002-hcl-driven-policy-engine-for-repo-guardian.md) |
 <!-- END DOCZ AUTO-GENERATED -->

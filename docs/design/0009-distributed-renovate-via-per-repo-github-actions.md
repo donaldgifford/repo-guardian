@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0009
 title: "Distributed Renovate via Per-Repo GitHub Actions"
-status: Draft
+status: Approved
 author: Donald Gifford
 created: 2026-03-15
 ---

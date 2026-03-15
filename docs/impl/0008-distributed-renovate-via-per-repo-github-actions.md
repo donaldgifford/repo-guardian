@@ -229,7 +229,7 @@ descriptions, and rollout guidance.
 
 #### Tasks
 
-- [ ] Add example HCL configuration to `docs/` or project README showing
+- [x] Add example HCL configuration to `docs/` or project README showing
       how to enable the Renovate file rules in `guardian.hcl`:
       ```hcl
       guardian {
@@ -258,14 +258,14 @@ descriptions, and rollout guidance.
         }
       }
       ```
-- [ ] Document the `renovate-workflow` and `renovate` template names and
+- [x] Document the `renovate-workflow` and `renovate` template names and
       what they contain
-- [ ] Document that both rules are disabled by default and must be opted
+- [x] Document that both rules are disabled by default and must be opted
       in via HCL config or by modifying defaults
-- [ ] Update DESIGN-0009 status from "Draft" to "Approved" (or as
+- [x] Update DESIGN-0009 status from "Draft" to "Approved" (or as
       appropriate after review)
-- [ ] Run `docz update` to regenerate README index tables
-- [ ] Run `make lint` to verify no markdown issues
+- [x] Run `docz update` to regenerate README index tables
+- [x] Run `make lint` to verify no markdown issues
 
 #### Success Criteria
 

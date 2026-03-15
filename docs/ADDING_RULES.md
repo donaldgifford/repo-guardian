@@ -299,3 +299,66 @@ rule "file" "catalog_info" {
 
 When `watch = true`, push events that modify the watched files on the default
 branch trigger a re-check.
+
+### Renovate File Rules
+
+repo-guardian includes two built-in Renovate file rules that are **disabled
+by default**. When enabled, they ensure every repository has a standardized
+Renovate workflow and configuration extending the org preset.
+
+To enable them, add the following to your `guardian.hcl`:
+
+```hcl
+guardian {
+  org = "donaldgifford"  # or set GITHUB_ORG env var
+}
+
+rule "file" "renovate_workflow" {
+  enabled  = true
+  check    = "exact"
+  paths    = [".github/workflows/renovate.yml"]
+  target   = ".github/workflows/renovate.yml"
+  template = "renovate-workflow"
+  reconcile "workflow_sync" { watch = true }
+}
+
+rule "file" "renovate_config" {
+  enabled  = true
+  check    = "contains"
+  paths    = ["renovate.json", "renovate.json5", ".renovaterc",
+              ".renovaterc.json", ".github/renovate.json",
+              ".github/renovate.json5"]
+  target   = "renovate.json"
+  template = "renovate"
+  assertion {
+    pattern = "github>donaldgifford/renovate-config"
+    message = "renovate.json must extend org preset"
+  }
+}
+```
+
+#### Templates
+
+| Template Name | Description |
+|---|---|
+| `renovate-workflow` | Docker-based GitHub Actions workflow that runs `renovate/renovate:latest` on a weekly cron schedule. Uses `actions/create-github-app-token@v1` for authentication. |
+| `renovate` | Minimal `renovate.json` extending the org preset (`github>ORG_NAME/renovate-config`). |
+
+#### Check Modes
+
+- **`renovate_workflow`** uses `check = "exact"` — the file must match the
+  template byte-for-byte (YAML-semantic comparison). Any drift triggers a PR
+  to restore the canonical workflow.
+- **`renovate_config`** uses `check = "contains"` with an assertion — the file
+  must exist and contain the org preset pattern. Teams can add additional
+  Renovate configuration (labels, automerge rules) as long as the org preset
+  reference is present.
+
+#### Prerequisites
+
+The Renovate workflow template expects two GitHub Actions secrets:
+
+- `RENOVATE_APP_ID` — the GitHub App ID for Renovate
+- `RENOVATE_APP_PRIVATE_KEY` — the GitHub App private key
+
+These must be configured as organization-level secrets.

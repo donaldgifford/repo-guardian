@@ -1590,3 +1590,155 @@ func TestReconciler_DryRunPropagated(t *testing.T) {
 		t.Error("DryRun should be true in ReconcileParams")
 	}
 }
+
+// --- Phase 8 integration tests ---
+
+func TestIntegration_IgnoreLists_SettingRules_BranchProtection(t *testing.T) {
+	t.Parallel()
+
+	// End-to-end: HCL-like config with ignore lists, setting rules, and
+	// branch protection rules all evaluated in a single CheckRepo call.
+	cfg := &policy.PolicyConfig{
+		Guardian:   policy.BuiltinDefaults().Guardian,
+		IgnoreList: policy.IgnoreConfig{Repos: []string{"org/globally-ignored"}},
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "codeowners",
+				Paths:    []string{"CODEOWNERS"},
+				Target:   "CODEOWNERS",
+				Template: "codeowners",
+				Ignore:   &policy.IgnoreConfig{Repos: []string{"org/skip-codeowners"}},
+			},
+		},
+		SettingRules: []policy.SettingRuleConfig{
+			{Name: "enable_issues", Property: "has_issues", Expected: true, Remediate: true},
+			{Name: "enable_wiki", Property: "has_wiki", Expected: false, Remediate: true},
+		},
+		BranchProtectionRules: []policy.BranchProtectionRuleConfig{
+			{
+				Name:              "main_protection",
+				Branch:            "main",
+				RequirePR:         true,
+				RequiredApprovals: 2,
+				Remediate:         true,
+			},
+		},
+	}
+
+	engine := testPolicyEngine(cfg)
+
+	// --- Case 1: globally ignored repo → no API calls ---
+	ignoredClient := newMockClient()
+	ignoredClient.repo = &ghclient.Repository{
+		Owner: "org", Name: "globally-ignored", HasBranch: true, DefaultRef: "main",
+	}
+	ignoredClient.repoSettings = &ghclient.RepoSettings{HasIssues: false, HasWiki: true}
+	ignoredClient.branchSHAs["org/globally-ignored/main"] = "abc123"
+
+	if err := engine.CheckRepo(context.Background(), ignoredClient, "org", "globally-ignored"); err != nil {
+		t.Fatalf("globally ignored CheckRepo: %v", err)
+	}
+
+	if ignoredClient.createdPR != nil {
+		t.Error("globally ignored: should not create PR")
+	}
+
+	if len(ignoredClient.updatedRepoOpts) != 0 {
+		t.Error("globally ignored: should not remediate settings")
+	}
+
+	if ignoredClient.createdRuleset != nil {
+		t.Error("globally ignored: should not create rulesets")
+	}
+
+	// --- Case 2: normal repo → settings remediated + ruleset created ---
+	normalClient := newMockClient()
+	normalClient.repo = &ghclient.Repository{
+		Owner: "org", Name: "normal-repo", HasBranch: true, DefaultRef: "main",
+	}
+	normalClient.repoSettings = &ghclient.RepoSettings{HasIssues: false, HasWiki: true}
+	normalClient.branchSHAs["org/normal-repo/main"] = "abc123"
+	normalClient.contents["org/normal-repo/CODEOWNERS"] = true
+
+	if err := engine.CheckRepo(context.Background(), normalClient, "org", "normal-repo"); err != nil {
+		t.Fatalf("normal repo CheckRepo: %v", err)
+	}
+
+	// Both settings should be remediated (has_issues mismatch + has_wiki mismatch).
+	if len(normalClient.updatedRepoOpts) != 2 {
+		t.Errorf("expected 2 setting remediations, got %d", len(normalClient.updatedRepoOpts))
+	}
+
+	// Branch protection: no existing ruleset → should create one.
+	if normalClient.createdRuleset == nil {
+		t.Error("expected branch protection ruleset to be created")
+	}
+
+	// File rule: CODEOWNERS exists → no PR.
+	if normalClient.createdPR != nil {
+		t.Error("should not create PR when CODEOWNERS exists")
+	}
+}
+
+func TestIntegration_LabelSyncReconciler_EndToEnd(t *testing.T) {
+	t.Parallel()
+
+	labelContent := `labels:
+  - name: bug
+    color: "d73a4a"
+    description: "Something isn't working"
+  - name: enhancement
+    color: "a2eeef"
+    description: "New feature or request"
+`
+
+	rec := &trackingReconciler{name: "label_sync"}
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "labels",
+				Paths:    []string{".github/labels.yml"},
+				Target:   ".github/labels.yml",
+				Template: "codeowners",
+				Check:    "exists",
+				Reconcilers: []policy.ReconcilerConfig{
+					{Type: "label_sync"},
+				},
+			},
+		},
+	}
+
+	engine := testPolicyEngineWithReconciler(cfg, rec)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "my-service", HasBranch: true, DefaultRef: "main",
+	}
+	client.contents["org/my-service/.github/labels.yml"] = true
+	client.fileContents["org/my-service/.github/labels.yml"] = labelContent
+
+	err := engine.CheckRepo(context.Background(), client, "org", "my-service")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	// Reconciler should be called with the label file content.
+	if rec.callCount() != 1 {
+		t.Fatalf("expected 1 reconciler call, got %d", rec.callCount())
+	}
+
+	call := rec.lastCall()
+	if call.Owner != "org" || call.Repo != "my-service" {
+		t.Errorf("Owner/Repo = %s/%s, want org/my-service", call.Owner, call.Repo)
+	}
+
+	if call.Content != labelContent {
+		t.Error("reconciler should receive full label file content")
+	}
+
+	if client.createdPR != nil {
+		t.Error("should not create PR when label file exists")
+	}
+}

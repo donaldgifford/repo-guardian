@@ -1,7 +1,7 @@
 ---
 id: IMPL-0007
 title: "Additional Rule Types and Ignore Lists"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-03-15
 ---
@@ -9,7 +9,7 @@ created: 2026-03-15
 
 # IMPL 0007: Additional Rule Types and Ignore Lists
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-03-15
 
@@ -336,14 +336,14 @@ End-to-end testing and documentation updates.
 
 #### Tasks
 
-- [ ] Write integration test: HCL config with ignore lists + setting rules
+- [x] Write integration test: HCL config with ignore lists + setting rules
   + branch protection → engine → mock GitHub client → correct API calls
-- [ ] Write integration test: label_sync reconciler end-to-end with mock
+- [x] Write integration test: label_sync reconciler end-to-end with mock
   GitHub client
-- [ ] Verify all new metrics appear in `/metrics` endpoint
-- [ ] Update `CLAUDE.md` architecture section if needed
-- [ ] Run `make ci` (lint + test + build)
-- [ ] Verify backward compatibility: no HCL config → identical behavior
+- [x] Verify all new metrics appear in `/metrics` endpoint
+- [x] Update `CLAUDE.md` architecture section if needed
+- [x] Run `make ci` (lint + test + build)
+- [x] Verify backward compatibility: no HCL config → identical behavior
 
 #### Success Criteria
 
@@ -376,15 +376,15 @@ End-to-end testing and documentation updates.
 
 ## Testing Plan
 
-- [ ] Unit tests for ignore list matching (exact, glob, edge cases)
-- [ ] Unit tests for all new GitHub client methods
-- [ ] Unit tests for setting rule evaluation (all supported properties)
-- [ ] Unit tests for branch protection rule evaluation
-- [ ] Unit tests for label sync reconciler (create, update, rename, delete)
-- [ ] Unit tests for branch protection reconciler
-- [ ] Unit tests for workflow sync reconciler
-- [ ] Integration tests for ignore lists in CheckRepo flow
-- [ ] Integration tests for end-to-end reconciler flows
+- [x] Unit tests for ignore list matching (exact, glob, edge cases)
+- [x] Unit tests for all new GitHub client methods
+- [x] Unit tests for setting rule evaluation (all supported properties)
+- [x] Unit tests for branch protection rule evaluation
+- [x] Unit tests for label sync reconciler (create, update, rename, delete)
+- [x] Unit tests for branch protection reconciler
+- [x] Unit tests for workflow sync reconciler
+- [x] Integration tests for ignore lists in CheckRepo flow
+- [x] Integration tests for end-to-end reconciler flows
 
 ## Dependencies
 

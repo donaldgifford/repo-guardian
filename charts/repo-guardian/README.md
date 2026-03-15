@@ -18,7 +18,7 @@ helm install repo-guardian repo-guardian/repo-guardian \
 ```bash
 helm install repo-guardian \
   oci://YOUR_REGISTRY/helm-charts/repo-guardian \
-  --version 0.1.0 \
+  --version 0.2.0 \
   --namespace platform-tools \
   --create-namespace \
   -f values-prod.yaml
@@ -128,6 +128,9 @@ make helm-push HELM_REGISTRY=123456789012.dkr.ecr.us-east-1.amazonaws.com/helm-c
 | podAnnotations | object | `{}` | Pod annotations |
 | podLabels | object | `{}` | Pod labels |
 | podSecurityContext | object | `{}` | Pod security context |
+| policy | object | `{"config":"","existingConfigMap":""}` | HCL policy configuration |
+| policy.config | string | `""` | Inline HCL policy config (creates a ConfigMap) |
+| policy.existingConfigMap | string | `""` | Use an existing ConfigMap for policy config |
 | readinessProbe.httpGet.path | string | `"/readyz"` |  |
 | readinessProbe.httpGet.port | string | `"http"` |  |
 | readinessProbe.initialDelaySeconds | int | `5` |  |

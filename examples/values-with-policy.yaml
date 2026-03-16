@@ -1,0 +1,172 @@
+---
+# Example Helm values for repo-guardian with HCL policy config.
+#
+# This shows a production-ready setup with:
+#   - Renovate file management enabled
+#   - Backstage catalog-info enforcement
+#   - Repository setting enforcement
+#   - Branch protection via rulesets API
+#
+# Install:
+#   helm install repo-guardian repo-guardian/repo-guardian \
+#     --namespace platform-tools --create-namespace \
+#     -f examples/values-with-policy.yaml
+#
+# The policy.config block below is the same HCL you'd put in a
+# guardian.hcl file. The chart creates a ConfigMap, mounts it at
+# /etc/repo-guardian/policy/guardian.hcl, and sets GUARDIAN_CONFIG
+# automatically.
+
+config:
+  appId: "123456"
+  org: "myorg"
+  logLevel: "info"
+  dryRun: false
+  workerCount: 5
+  queueSize: 1000
+  scheduleInterval: "168h"
+  skipForks: true
+  skipArchived: true
+
+secrets:
+  webhookSecret: "change-me"
+  privateKey: |
+    -----BEGIN RSA PRIVATE KEY-----
+    replace-with-your-actual-key
+    -----END RSA PRIVATE KEY-----
+
+# Inline HCL policy — same syntax as a standalone guardian.hcl file.
+# When this is set, built-in defaults are replaced entirely.
+policy:
+  config: |
+    guardian {
+      org = "myorg"
+    }
+
+    ignore {
+      repos = [
+        "myorg/.github",
+        "myorg/terraform-*",
+      ]
+    }
+
+    rule "file" "codeowners" {
+      check    = "exists"
+      paths    = ["CODEOWNERS", ".github/CODEOWNERS", "docs/CODEOWNERS"]
+      target   = ".github/CODEOWNERS"
+      template = "codeowners"
+
+      pr {
+        search_terms = ["codeowners", "CODEOWNERS"]
+      }
+    }
+
+    rule "file" "dependabot" {
+      check    = "exists"
+      paths    = [".github/dependabot.yml", ".github/dependabot.yaml"]
+      target   = ".github/dependabot.yml"
+      template = "dependabot"
+
+      pr {
+        search_terms = ["dependabot"]
+      }
+    }
+
+    rule "file" "renovate_workflow" {
+      enabled  = true
+      check    = "exact"
+      paths    = [".github/workflows/renovate.yml"]
+      target   = ".github/workflows/renovate.yml"
+      template = "renovate-workflow"
+
+      reconcile "workflow_sync" {
+        watch = true
+      }
+    }
+
+    rule "file" "renovate_config" {
+      enabled = true
+      check   = "contains"
+      paths   = [
+        "renovate.json",
+        "renovate.json5",
+        ".renovaterc",
+        ".renovaterc.json",
+        ".github/renovate.json",
+        ".github/renovate.json5",
+      ]
+      target   = "renovate.json"
+      template = "renovate"
+
+      pr {
+        search_terms = ["renovate"]
+      }
+
+      assertion {
+        pattern = "github>myorg/renovate-config"
+        message = "renovate.json must extend the org preset"
+      }
+    }
+
+    rule "file" "catalog_info" {
+      check    = "contains"
+      paths    = ["catalog-info.yaml", "catalog-info.yml"]
+      target   = "catalog-info.yaml"
+      template = "catalog-info"
+
+      pr {
+        search_terms = ["catalog-info"]
+      }
+
+      assertion {
+        yaml_path = "spec.owner"
+        contains  = "team"
+        message   = "spec.owner must reference a team"
+      }
+
+      assertion {
+        not_pattern = "TODO"
+        message     = "catalog-info.yaml must not contain TODO placeholders"
+      }
+
+      reconcile "custom_properties" {
+        mode  = "api"
+        watch = true
+      }
+    }
+
+    rule "setting" "enable_vuln_alerts" {
+      property  = "vulnerability_alerts_enabled"
+      expected  = true
+      remediate = true
+    }
+
+    rule "setting" "delete_branch_on_merge" {
+      property  = "delete_branch_on_merge"
+      expected  = true
+      remediate = true
+    }
+
+    rule "branch_protection" "main_protection" {
+      branch             = "main"
+      require_pr         = true
+      required_approvals = 1
+      remediate          = true
+    }
+
+webhookIPAllowlist:
+  enabled: true
+  failOpen: false
+  trustProxyHeaders: false
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi

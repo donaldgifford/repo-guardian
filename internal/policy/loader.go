@@ -273,36 +273,42 @@ func decodeGuardianBlock(block *hcl.Block, ctx *hcl.EvalContext) (*GuardianConfi
 			continue
 		}
 
-		switch name {
-		case "dry_run":
-			g.DryRun = val.True()
-		case "schedule_interval":
-			g.ScheduleInterval = val.AsString()
-		case "worker_count":
-			n, _ := val.AsBigFloat().Int64()
-			g.WorkerCount = int(n)
-		case "queue_size":
-			n, _ := val.AsBigFloat().Int64()
-			g.QueueSize = int(n)
-		case "log_level":
-			g.LogLevel = val.AsString()
-		case "skip_forks":
-			g.SkipForks = val.True()
-		case "skip_archived":
-			g.SkipArchived = val.True()
-		case "rate_limit_threshold":
-			f, _ := val.AsBigFloat().Float64()
-			g.RateLimitThreshold = f
-		case "webhook_ip_allowlist":
-			g.WebhookIPAllowlist = val.True()
-		case "webhook_ip_allowlist_fail_open":
-			g.WebhookIPAllowlistFailOpen = val.True()
-		case "trust_proxy_headers":
-			g.TrustProxyHeaders = val.True()
-		}
+		setGuardianAttr(g, name, val)
 	}
 
 	return g, diags
+}
+
+func setGuardianAttr(g *GuardianConfig, name string, val cty.Value) {
+	switch name {
+	case "org":
+		g.Org = val.AsString()
+	case "dry_run":
+		g.DryRun = val.True()
+	case "schedule_interval":
+		g.ScheduleInterval = val.AsString()
+	case "worker_count":
+		n, _ := val.AsBigFloat().Int64()
+		g.WorkerCount = int(n)
+	case "queue_size":
+		n, _ := val.AsBigFloat().Int64()
+		g.QueueSize = int(n)
+	case "log_level":
+		g.LogLevel = val.AsString()
+	case "skip_forks":
+		g.SkipForks = val.True()
+	case "skip_archived":
+		g.SkipArchived = val.True()
+	case "rate_limit_threshold":
+		f, _ := val.AsBigFloat().Float64()
+		g.RateLimitThreshold = f
+	case "webhook_ip_allowlist":
+		g.WebhookIPAllowlist = val.True()
+	case "webhook_ip_allowlist_fail_open":
+		g.WebhookIPAllowlistFailOpen = val.True()
+	case "trust_proxy_headers":
+		g.TrustProxyHeaders = val.True()
+	}
 }
 
 func decodeIgnoreBlock(block *hcl.Block, ctx *hcl.EvalContext) (*IgnoreConfig, hcl.Diagnostics) {

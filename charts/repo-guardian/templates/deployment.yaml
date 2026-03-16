@@ -84,6 +84,10 @@ spec:
               value: {{ .Values.config.skipForks | quote }}
             - name: SKIP_ARCHIVED
               value: {{ .Values.config.skipArchived | quote }}
+            {{- if .Values.config.org }}
+            - name: GITHUB_ORG
+              value: {{ .Values.config.org | quote }}
+            {{- end }}
             - name: TEMPLATE_DIR
               value: /etc/repo-guardian/templates
             - name: WEBHOOK_IP_ALLOWLIST

@@ -295,3 +295,114 @@ func TestEvaluate_ErrorMessageIncludesAssertionMessage(t *testing.T) {
 		t.Errorf("error %q should contain the assertion message", err)
 	}
 }
+
+func TestEvaluate_RenovateOrgPreset(t *testing.T) {
+	t.Parallel()
+
+	// Tests for the Renovate org preset assertion pattern used in
+	// defaultRenovateRule(). The default pattern is a wildcard
+	// (github>.*renovate-config) and the org-specific pattern is used
+	// when the org field is configured.
+	tests := []struct {
+		name    string
+		pattern string
+		content string
+		wantErr bool
+	}{
+		{
+			name:    "default_pattern_valid_org_preset",
+			pattern: `github>.*renovate-config`,
+			content: `{"extends": ["github>donaldgifford/renovate-config"]}`,
+			wantErr: false,
+		},
+		{
+			name:    "default_pattern_valid_with_overrides",
+			pattern: `github>.*renovate-config`,
+			content: `{"extends": ["github>donaldgifford/renovate-config"], "labels": ["deps"]}`,
+			wantErr: false,
+		},
+		{
+			name:    "default_pattern_invalid_config_recommended",
+			pattern: `github>.*renovate-config`,
+			content: `{"extends": ["config:recommended"]}`,
+			wantErr: true,
+		},
+		{
+			name:    "default_pattern_invalid_empty_object",
+			pattern: `github>.*renovate-config`,
+			content: `{}`,
+			wantErr: true,
+		},
+		{
+			name:    "default_pattern_invalid_empty_string",
+			pattern: `github>.*renovate-config`,
+			content: ``,
+			wantErr: true,
+		},
+		{
+			name:    "org_specific_valid",
+			pattern: `github>donaldgifford/renovate-config`,
+			content: `{"extends": ["github>donaldgifford/renovate-config"]}`,
+			wantErr: false,
+		},
+		{
+			name:    "org_specific_valid_with_overrides",
+			pattern: `github>donaldgifford/renovate-config`,
+			content: `{"extends": ["github>donaldgifford/renovate-config"], "labels": ["deps"]}`,
+			wantErr: false,
+		},
+		{
+			name:    "org_specific_invalid_config_recommended",
+			pattern: `github>donaldgifford/renovate-config`,
+			content: `{"extends": ["config:recommended"]}`,
+			wantErr: true,
+		},
+		{
+			name:    "org_specific_invalid_wrong_org",
+			pattern: `github>donaldgifford/renovate-config`,
+			content: `{"extends": ["github>wrongorg/renovate-config"]}`,
+			wantErr: true,
+		},
+		{
+			name:    "org_specific_invalid_empty_object",
+			pattern: `github>donaldgifford/renovate-config`,
+			content: `{}`,
+			wantErr: true,
+		},
+		{
+			name:    "org_specific_invalid_empty_string",
+			pattern: `github>donaldgifford/renovate-config`,
+			content: ``,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			compiled, err := CompileAssertions([]AssertionConfig{
+				{Pattern: tt.pattern, Message: "renovate.json must extend org preset"},
+			})
+			if err != nil {
+				t.Fatalf("CompileAssertions: %v", err)
+			}
+
+			err = compiled[0].Evaluate(tt.content)
+
+			if tt.wantErr && err == nil {
+				t.Error("expected assertion failure, got nil")
+			}
+
+			if !tt.wantErr && err != nil {
+				t.Errorf("expected pass, got: %v", err)
+			}
+
+			if tt.wantErr && err != nil {
+				if err.Error() != "renovate.json must extend org preset" {
+					t.Errorf("error = %q, want %q", err, "renovate.json must extend org preset")
+				}
+			}
+		})
+	}
+}

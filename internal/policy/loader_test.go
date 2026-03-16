@@ -16,8 +16,8 @@ func TestLoad_EmptyPath_ReturnsDefaults(t *testing.T) {
 		t.Fatal("Load('') returned nil")
 	}
 
-	if len(cfg.FileRules) != 3 {
-		t.Errorf("FileRules count = %d, want 3", len(cfg.FileRules))
+	if len(cfg.FileRules) != 4 {
+		t.Errorf("FileRules count = %d, want 4", len(cfg.FileRules))
 	}
 }
 
@@ -27,8 +27,8 @@ func TestLoad_NonexistentPath_ReturnsDefaults(t *testing.T) {
 		t.Fatalf("Load() error: %v", err)
 	}
 
-	if len(cfg.FileRules) != 3 {
-		t.Errorf("FileRules count = %d, want 3", len(cfg.FileRules))
+	if len(cfg.FileRules) != 4 {
+		t.Errorf("FileRules count = %d, want 4", len(cfg.FileRules))
 	}
 }
 
@@ -143,8 +143,8 @@ func TestLoad_EmptyDirectory_ReturnsDefaults(t *testing.T) {
 		t.Fatalf("Load() error: %v", err)
 	}
 
-	if len(cfg.FileRules) != 3 {
-		t.Errorf("FileRules count = %d, want 3 (defaults)", len(cfg.FileRules))
+	if len(cfg.FileRules) != 4 {
+		t.Errorf("FileRules count = %d, want 4 (defaults)", len(cfg.FileRules))
 	}
 }
 

@@ -22,6 +22,7 @@ func BuiltinDefaults() *PolicyConfig {
 		defaultCodeownersRule(),
 		defaultDependabotRule(),
 		defaultRenovateRule(),
+		defaultRenovateWorkflowRule(),
 	}
 
 	if mode := os.Getenv("CUSTOM_PROPERTIES_MODE"); mode != "" {
@@ -114,9 +115,9 @@ func defaultRenovateRule() FileRuleConfig {
 
 	return FileRuleConfig{
 		Type:    "file",
-		Name:    "renovate",
+		Name:    "renovate_config",
 		Enabled: &enabled,
-		Check:   "exists",
+		Check:   "contains",
 		Paths: []string{
 			"renovate.json",
 			"renovate.json5",
@@ -129,6 +130,32 @@ func defaultRenovateRule() FileRuleConfig {
 		Template: "renovate",
 		PR: &PRConfig{
 			SearchTerms: []string{"renovate"},
+		},
+		Assertions: []AssertionConfig{
+			{
+				Pattern: `github>.*renovate-config`,
+				Message: "renovate.json must extend org preset",
+			},
+		},
+	}
+}
+
+func defaultRenovateWorkflowRule() FileRuleConfig {
+	enabled := false
+
+	return FileRuleConfig{
+		Type:     "file",
+		Name:     "renovate_workflow",
+		Enabled:  &enabled,
+		Check:    "exact",
+		Paths:    []string{".github/workflows/renovate.yml"},
+		Target:   ".github/workflows/renovate.yml",
+		Template: "renovate-workflow",
+		Reconcilers: []ReconcilerConfig{
+			{
+				Type:  "workflow_sync",
+				Watch: true,
+			},
 		},
 	}
 }

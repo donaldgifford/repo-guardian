@@ -1742,3 +1742,434 @@ func TestIntegration_LabelSyncReconciler_EndToEnd(t *testing.T) {
 		t.Error("should not create PR when label file exists")
 	}
 }
+
+func TestPolicyCheckRepo_ExactMode_RenovateWorkflowMatchesTemplate(t *testing.T) {
+	t.Parallel()
+
+	ts := rules.NewTemplateStore()
+	if err := ts.Load(""); err != nil {
+		t.Fatal(err)
+	}
+
+	templateContent, err := ts.Get("renovate-workflow")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	enabled := true
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{{
+			Type:     "file",
+			Name:     "renovate_workflow",
+			Enabled:  &enabled,
+			Check:    "exact",
+			Paths:    []string{".github/workflows/renovate.yml"},
+			Target:   ".github/workflows/renovate.yml",
+			Template: "renovate-workflow",
+		}},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.contents["org/repo/.github/workflows/renovate.yml"] = true
+	client.fileContents["org/repo/.github/workflows/renovate.yml"] = templateContent
+
+	err = engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR != nil {
+		t.Error("should not create PR when workflow matches template exactly")
+	}
+}
+
+func TestPolicyCheckRepo_ExactMode_RenovateWorkflowDrifted(t *testing.T) {
+	t.Parallel()
+
+	enabled := true
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{{
+			Type:     "file",
+			Name:     "renovate_workflow",
+			Enabled:  &enabled,
+			Check:    "exact",
+			Paths:    []string{".github/workflows/renovate.yml"},
+			Target:   ".github/workflows/renovate.yml",
+			Template: "renovate-workflow",
+		}},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "abc123"
+	client.contents["org/repo/.github/workflows/renovate.yml"] = true
+	client.fileContents["org/repo/.github/workflows/renovate.yml"] = "name: Renovate\non:\n  workflow_dispatch:\n"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR == nil {
+		t.Fatal("expected PR when workflow content drifted from template")
+	}
+}
+
+func TestPolicyCheckRepo_ContainsMode_RenovateConfigValidAssertion(t *testing.T) {
+	t.Parallel()
+
+	enabled := true
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{{
+			Type:     "file",
+			Name:     "renovate_config",
+			Enabled:  &enabled,
+			Check:    "contains",
+			Paths:    []string{"renovate.json"},
+			Target:   "renovate.json",
+			Template: "renovate",
+			Assertions: []policy.AssertionConfig{
+				{Pattern: `github>.*renovate-config`, Message: "renovate.json must extend org preset"},
+			},
+		}},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.contents["org/repo/renovate.json"] = true
+	client.fileContents["org/repo/renovate.json"] = `{"extends": ["github>myorg/renovate-config"]}`
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR != nil {
+		t.Error("should not create PR when renovate config passes assertion")
+	}
+}
+
+func TestPolicyCheckRepo_ContainsMode_RenovateConfigInvalidAssertion(t *testing.T) {
+	t.Parallel()
+
+	enabled := true
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{{
+			Type:     "file",
+			Name:     "renovate_config",
+			Enabled:  &enabled,
+			Check:    "contains",
+			Paths:    []string{"renovate.json"},
+			Target:   "renovate.json",
+			Template: "renovate",
+			Assertions: []policy.AssertionConfig{
+				{Pattern: `github>.*renovate-config`, Message: "renovate.json must extend org preset"},
+			},
+		}},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "abc123"
+	client.contents["org/repo/renovate.json"] = true
+	client.fileContents["org/repo/renovate.json"] = `{"extends": ["config:recommended"]}`
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR == nil {
+		t.Fatal("expected PR when renovate config fails assertion")
+	}
+}
+
+// --- Renovate integration tests (Phase 4 IMPL-0008) ---
+// These tests exercise both renovate rules together through the full engine.
+
+func renovateIntegrationConfig() *policy.PolicyConfig {
+	enabled := true
+
+	return &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "renovate_workflow",
+				Enabled:  &enabled,
+				Check:    "exact",
+				Paths:    []string{".github/workflows/renovate.yml"},
+				Target:   ".github/workflows/renovate.yml",
+				Template: "renovate-workflow",
+				Reconcilers: []policy.ReconcilerConfig{
+					{Type: "workflow_sync", Watch: true},
+				},
+			},
+			{
+				Type:    "file",
+				Name:    "renovate_config",
+				Enabled: &enabled,
+				Check:   "contains",
+				Paths: []string{
+					"renovate.json", "renovate.json5",
+					".renovaterc", ".renovaterc.json",
+					".github/renovate.json", ".github/renovate.json5",
+				},
+				Target:   "renovate.json",
+				Template: "renovate",
+				Assertions: []policy.AssertionConfig{
+					{Pattern: `github>.*renovate-config`, Message: "renovate.json must extend org preset"},
+				},
+			},
+		},
+	}
+}
+
+func TestIntegration_RenovateFileRules_BothMissing(t *testing.T) {
+	t.Parallel()
+
+	cfg := renovateIntegrationConfig()
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "abc123"
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR == nil {
+		t.Fatal("expected PR when both files missing")
+	}
+
+	if len(client.createdFiles) != 2 {
+		t.Errorf("expected 2 files in PR (workflow + config), got %d", len(client.createdFiles))
+	}
+
+	hasWorkflow := false
+	hasConfig := false
+
+	for _, f := range client.createdFiles {
+		if f == ".github/workflows/renovate.yml" {
+			hasWorkflow = true
+		}
+
+		if f == "renovate.json" {
+			hasConfig = true
+		}
+	}
+
+	if !hasWorkflow {
+		t.Error("PR should contain .github/workflows/renovate.yml")
+	}
+
+	if !hasConfig {
+		t.Error("PR should contain renovate.json")
+	}
+}
+
+func TestIntegration_RenovateFileRules_WorkflowMissing(t *testing.T) {
+	t.Parallel()
+
+	cfg := renovateIntegrationConfig()
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "abc123"
+	client.contents["org/repo/renovate.json"] = true
+	client.fileContents["org/repo/renovate.json"] = `{"extends": ["github>myorg/renovate-config"]}`
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR == nil {
+		t.Fatal("expected PR when workflow is missing")
+	}
+
+	if len(client.createdFiles) != 1 {
+		t.Errorf("expected 1 file in PR (workflow only), got %d", len(client.createdFiles))
+	}
+
+	if len(client.createdFiles) > 0 && client.createdFiles[0] != ".github/workflows/renovate.yml" {
+		t.Errorf("expected workflow file, got %q", client.createdFiles[0])
+	}
+}
+
+func TestIntegration_RenovateFileRules_ConfigMissing(t *testing.T) {
+	t.Parallel()
+
+	ts := rules.NewTemplateStore()
+	if err := ts.Load(""); err != nil {
+		t.Fatal(err)
+	}
+
+	workflowContent, err := ts.Get("renovate-workflow")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := renovateIntegrationConfig()
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "abc123"
+	client.contents["org/repo/.github/workflows/renovate.yml"] = true
+	client.fileContents["org/repo/.github/workflows/renovate.yml"] = workflowContent
+
+	err = engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR == nil {
+		t.Fatal("expected PR when config is missing")
+	}
+
+	if len(client.createdFiles) != 1 {
+		t.Errorf("expected 1 file in PR (config only), got %d", len(client.createdFiles))
+	}
+
+	if len(client.createdFiles) > 0 && client.createdFiles[0] != "renovate.json" {
+		t.Errorf("expected config file, got %q", client.createdFiles[0])
+	}
+}
+
+func TestIntegration_RenovateFileRules_ConfigInvalidPreset(t *testing.T) {
+	t.Parallel()
+
+	ts := rules.NewTemplateStore()
+	if err := ts.Load(""); err != nil {
+		t.Fatal(err)
+	}
+
+	workflowContent, err := ts.Get("renovate-workflow")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := renovateIntegrationConfig()
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "abc123"
+	client.contents["org/repo/.github/workflows/renovate.yml"] = true
+	client.fileContents["org/repo/.github/workflows/renovate.yml"] = workflowContent
+	client.contents["org/repo/renovate.json"] = true
+	client.fileContents["org/repo/renovate.json"] = `{"extends": ["config:recommended"]}`
+
+	err = engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR == nil {
+		t.Fatal("expected PR when config has invalid preset")
+	}
+
+	if len(client.createdFiles) != 1 {
+		t.Errorf("expected 1 file in PR (config replacement), got %d", len(client.createdFiles))
+	}
+}
+
+func TestIntegration_RenovateFileRules_WorkflowDrifted(t *testing.T) {
+	t.Parallel()
+
+	cfg := renovateIntegrationConfig()
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "abc123"
+	client.contents["org/repo/.github/workflows/renovate.yml"] = true
+	client.fileContents["org/repo/.github/workflows/renovate.yml"] = "name: Renovate\non:\n  workflow_dispatch:\n"
+	client.contents["org/repo/renovate.json"] = true
+	client.fileContents["org/repo/renovate.json"] = `{"extends": ["github>myorg/renovate-config"]}`
+
+	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR == nil {
+		t.Fatal("expected PR when workflow has drifted from template")
+	}
+
+	hasWorkflow := false
+	for _, f := range client.createdFiles {
+		if f == ".github/workflows/renovate.yml" {
+			hasWorkflow = true
+		}
+	}
+
+	if !hasWorkflow {
+		t.Error("PR should contain the workflow file correction")
+	}
+}
+
+func TestIntegration_RenovateFileRules_AllPresent(t *testing.T) {
+	t.Parallel()
+
+	ts := rules.NewTemplateStore()
+	if err := ts.Load(""); err != nil {
+		t.Fatal(err)
+	}
+
+	workflowContent, err := ts.Get("renovate-workflow")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rec := &trackingReconciler{name: "workflow_sync"}
+	cfg := renovateIntegrationConfig()
+	engine := testPolicyEngineWithReconciler(cfg, rec)
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.contents["org/repo/.github/workflows/renovate.yml"] = true
+	client.fileContents["org/repo/.github/workflows/renovate.yml"] = workflowContent
+	client.contents["org/repo/renovate.json"] = true
+	client.fileContents["org/repo/renovate.json"] = `{"extends": ["github>myorg/renovate-config"]}`
+
+	err = engine.CheckRepo(context.Background(), client, "org", "repo")
+	if err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR != nil {
+		t.Error("should not create PR when all files present and valid")
+	}
+
+	if rec.callCount() != 1 {
+		t.Errorf("expected workflow_sync reconciler to run once, got %d", rec.callCount())
+	}
+}

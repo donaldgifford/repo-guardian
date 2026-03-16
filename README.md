@@ -13,7 +13,8 @@ repo-guardian monitors your GitHub organization for new repositories and periodi
 **Built-in rules:**
 - **CODEOWNERS** -- adds `.github/CODEOWNERS` with a placeholder team
 - **Dependabot** -- adds `.github/dependabot.yml` for GitHub Actions updates
-- **Renovate** -- adds `renovate.json` (disabled by default)
+- **Renovate Config** -- adds `renovate.json` extending org preset (disabled by default)
+- **Renovate Workflow** -- adds `.github/workflows/renovate.yml` with docker-based Renovate runner (disabled by default)
 
 Each rule checks multiple file paths (e.g., CODEOWNERS can live at root, `.github/`, or `docs/`), and skips repos that already have the file or an open PR addressing it.
 
@@ -56,6 +57,7 @@ All configuration is via environment variables (12-factor):
 | `WEBHOOK_IP_ALLOWLIST` | No | `true` | Enable GitHub webhook IP allowlist middleware |
 | `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN` | No | `false` | Allow requests when IP ranges are unavailable |
 | `TRUST_PROXY_HEADERS` | No | `false` | Read client IP from `X-Forwarded-For` header |
+| `GITHUB_ORG` | No | `""` | GitHub org/user name for org-specific assertion patterns |
 | `GUARDIAN_CONFIG` | No | `""` | Path to HCL policy config file or directory |
 
 *One of `GITHUB_PRIVATE_KEY_PATH` or `GITHUB_PRIVATE_KEY` is required (mutually exclusive).
@@ -101,6 +103,39 @@ rule "file" "catalog-info" {
   }
 }
 ```
+
+**Enabling Renovate rules:**
+
+```hcl
+guardian {
+  org = "myorg"  # or set GITHUB_ORG env var
+}
+
+rule "file" "renovate_workflow" {
+  enabled  = true
+  check    = "exact"
+  paths    = [".github/workflows/renovate.yml"]
+  target   = ".github/workflows/renovate.yml"
+  template = "renovate-workflow"
+  reconcile "workflow_sync" { watch = true }
+}
+
+rule "file" "renovate_config" {
+  enabled  = true
+  check    = "contains"
+  paths    = ["renovate.json", "renovate.json5", ".renovaterc",
+              ".renovaterc.json", ".github/renovate.json",
+              ".github/renovate.json5"]
+  target   = "renovate.json"
+  template = "renovate"
+  assertion {
+    pattern = "github>myorg/renovate-config"
+    message = "renovate.json must extend org preset"
+  }
+}
+```
+
+Both Renovate rules are disabled by default. See [`docs/ADDING_RULES.md`](docs/ADDING_RULES.md#renovate-file-rules) for details on templates, check modes, and prerequisites.
 
 **Helm chart:** Use `policy.config` for inline HCL or `policy.existingConfigMap` to reference an external ConfigMap. See the [chart values](charts/repo-guardian/values.yaml).
 

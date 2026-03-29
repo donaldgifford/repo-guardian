@@ -22,7 +22,7 @@ checkmake = "latest"
 # tools
 yq = "4.48.1"
 jq = "latest"
-"github:donaldgifford/docz" = "0.0.6"
+"github:donaldgifford/docz" = "latest"
 
 
 # Release tools

@@ -7,10 +7,12 @@ A GitHub App (Go) that automates repository onboarding and compliance across a G
 repo-guardian monitors your GitHub organization for new repositories and periodically reconciles all existing ones. When it finds a repo missing required configuration files, it creates a single PR adding all missing files at once.
 
 **Trigger sources:**
+
 - **Webhooks** -- new repo created, repos added to installation, new installation
 - **Scheduler** -- weekly reconciliation of all repos (configurable interval)
 
 **Built-in rules:**
+
 - **CODEOWNERS** -- adds `.github/CODEOWNERS` with a placeholder team
 - **Dependabot** -- adds `.github/dependabot.yml` for GitHub Actions updates
 - **Renovate Config** -- adds `renovate.json` extending org preset (disabled by default)
@@ -19,6 +21,7 @@ repo-guardian monitors your GitHub organization for new repositories and periodi
 Each rule checks multiple file paths (e.g., CODEOWNERS can live at root, `.github/`, or `docs/`), and skips repos that already have the file or an open PR addressing it.
 
 **Check modes** (via HCL policy config):
+
 - **exists** -- file must be present (default, current behavior)
 - **contains** -- file must exist and pass content assertions (regex patterns, YAML path checks)
 - **exact** -- file must match the template exactly (YAML semantic comparison for `.yml`/`.yaml` files)
@@ -142,33 +145,40 @@ Both Renovate rules are disabled by default. See [`docs/ADDING_RULES.md`](docs/A
 ## Quick Start (Local Development)
 
 1. **Install tools:**
+
    ```bash
    mise install
    ```
 
 2. **Copy and fill in environment config:**
+
    ```bash
    cp .env.example .env
    # Edit .env with your GitHub App credentials
    ```
 
 3. **Run with Docker Compose (dry-run mode):**
+
    ```bash
    make compose-up
    ```
 
 4. **Run with ngrok tunnel** (for receiving live webhooks):
+
    ```bash
    make compose-up-tunnel
    ```
+
    This starts an ngrok tunnel that forwards public webhook traffic to your local instance. Set the ngrok URL as your GitHub App's webhook URL.
 
 5. **View logs:**
+
    ```bash
    make compose-logs
    ```
 
 6. **Stop:**
+
    ```bash
    make compose-down
    ```
@@ -195,6 +205,7 @@ make ci               # Full CI pipeline (lint + test + build)
 ```
 
 Run a single test:
+
 ```bash
 go test -v -race -run TestName ./internal/package/...
 ```
@@ -301,6 +312,7 @@ Available at `METRICS_ADDR` (default `:9090/metrics`):
 ### Rate Limiting
 
 repo-guardian includes a built-in rate limit transport that:
+
 - Tracks GitHub API rate limit headers on every response
 - Pre-emptively throttles requests when the remaining budget drops below the configured threshold (default 10%)
 - Automatically retries once on primary rate limits (403 + `X-RateLimit-Remaining: 0`)

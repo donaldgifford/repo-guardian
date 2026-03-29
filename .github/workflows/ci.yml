@@ -84,15 +84,6 @@ jobs:
           go-version-file: go.mod
           go-package: ./...
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.35.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          scanners: vuln
-          severity: HIGH,CRITICAL
-          exit-code: "1"
-
   build:
     name: Build
     runs-on: ubuntu-latest

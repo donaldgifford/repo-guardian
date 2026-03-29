@@ -1,5 +1,5 @@
 ---
-name: Github Pages
+name: Github Pages Public
 on:
   push:
     branches:

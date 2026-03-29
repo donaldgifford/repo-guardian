@@ -1,3 +1,4 @@
+---
 docs_dir: docs
 
 types:
@@ -76,3 +77,10 @@ index:
 author:
   from_git: true
   default: ""
+
+wiki:
+  auto_update: true
+  mkdocs_path: mkdocs.yml
+  exclude:
+    - templates
+    - examples

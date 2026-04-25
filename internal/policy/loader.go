@@ -17,6 +17,7 @@ import (
 
 const (
 	blockTypeIgnore = "ignore"
+	blockTypeScope  = "scope"
 	attrEnabled     = "enabled"
 )
 
@@ -24,9 +25,15 @@ const (
 type hclConfig struct {
 	Guardian              *GuardianConfig              `hcl:"guardian,block"`
 	IgnoreList            *IgnoreConfig                `hcl:"ignore,block"`
+	Scope                 *ScopeConfig                 `hcl:"scope,block"`
 	FileRules             []FileRuleConfig             `hcl:"rule,block"`
 	SettingRules          []SettingRuleConfig          `hcl:"-"`
 	BranchProtectionRules []BranchProtectionRuleConfig `hcl:"-"`
+
+	// ScopeBlocks captures every top-level scope block encountered. Strict-mode
+	// validation rejects configs with more than one. The singleton Scope above
+	// is set to the first block decoded.
+	ScopeBlocks []*ScopeConfig `hcl:"-"`
 }
 
 // Load reads policy configuration from the given path (file or directory),
@@ -152,6 +159,7 @@ func decodeBody(body hcl.Body, raw *hclConfig) hcl.Diagnostics {
 			{Type: "locals"},
 			{Type: "guardian"},
 			{Type: blockTypeIgnore},
+			{Type: blockTypeScope},
 			{Type: "rule", LabelNames: []string{"type", "name"}},
 		},
 	})
@@ -219,6 +227,17 @@ func decodeBlock(block *hcl.Block, ctx *hcl.EvalContext, raw *hclConfig) hcl.Dia
 
 		if ig != nil {
 			raw.IgnoreList = ig
+		}
+	case blockTypeScope:
+		sc, d := decodeScopeBlock(block, ctx)
+		diags = append(diags, d...)
+
+		if sc != nil {
+			raw.ScopeBlocks = append(raw.ScopeBlocks, sc)
+
+			if raw.Scope == nil {
+				raw.Scope = sc
+			}
 		}
 	case "rule":
 		diags = append(diags, decodeRuleOrSettingBlock(block, ctx, raw)...)
@@ -332,6 +351,29 @@ func decodeIgnoreBlock(block *hcl.Block, ctx *hcl.EvalContext) (*IgnoreConfig, h
 	}
 
 	return ig, diags
+}
+
+func decodeScopeBlock(block *hcl.Block, ctx *hcl.EvalContext) (*ScopeConfig, hcl.Diagnostics) {
+	sc := &ScopeConfig{}
+
+	attrs, diags := block.Body.JustAttributes()
+	if diags.HasErrors() {
+		return nil, diags
+	}
+
+	if attr, ok := attrs["orgs"]; ok {
+		val, d := attr.Expr.Value(ctx)
+		diags = append(diags, d...)
+
+		if !d.HasErrors() {
+			for it := val.ElementIterator(); it.Next(); {
+				_, v := it.Element()
+				sc.Orgs = append(sc.Orgs, v.AsString())
+			}
+		}
+	}
+
+	return sc, diags
 }
 
 var ruleBodySchema = &hcl.BodySchema{
@@ -680,6 +722,10 @@ func hclConfigToPolicy(raw *hclConfig) *PolicyConfig {
 
 	if raw.IgnoreList != nil {
 		cfg.IgnoreList = *raw.IgnoreList
+	}
+
+	if raw.Scope != nil {
+		cfg.Scope = raw.Scope
 	}
 
 	// If HCL defines file rules, use those instead of defaults.

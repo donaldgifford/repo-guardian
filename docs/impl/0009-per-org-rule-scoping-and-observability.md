@@ -130,32 +130,32 @@ scope is added in Phase 3.
 
 #### Tasks
 
-- [ ] Update `decodeBody` schema in `internal/policy/loader.go`
+- [x] Update `decodeBody` schema in `internal/policy/loader.go`
       (line ~150) to add `{Type: "scope"}` to the top-level
       `BodySchema.Blocks`
-- [ ] Add `decodeScopeBlock(block *hcl.Block, ctx *hcl.EvalContext)
+- [x] Add `decodeScopeBlock(block *hcl.Block, ctx *hcl.EvalContext)
       (*ScopeConfig, hcl.Diagnostics)` next to
       `decodeIgnoreBlock` (line ~314). Reads the `orgs` attribute
       as a list of strings, identical to `decodeIgnoreBlock`'s
       `repos` handling
-- [ ] Update `decodeBlock` (line ~209) to dispatch
+- [x] Update `decodeBlock` (line ~209) to dispatch
       `block.Type == "scope"` to `decodeScopeBlock`. Handle
       multiple top-level scope blocks: collect all into a slice
       on `hclConfig` so Phase 4 validation can detect duplicates
-- [ ] Add `Scope *ScopeConfig` and `ScopeBlocks []*ScopeConfig`
+- [x] Add `Scope *ScopeConfig` and `ScopeBlocks []*ScopeConfig`
       fields to internal `hclConfig` struct (line ~24). The
       slice is for duplicate detection; the singleton `Scope`
       is what gets promoted into `PolicyConfig`
-- [ ] Update `hclConfigToPolicy` (line ~670) to copy the
+- [x] Update `hclConfigToPolicy` (line ~670) to copy the
       top-level scope into `cfg.Scope` if present
-- [ ] Add loader tests in `internal/policy/loader_test.go`:
+- [x] Add loader tests in `internal/policy/loader_test.go`:
   - `TestLoad_TopLevelScope_Decoded` — top-level
     `scope { orgs = ["myorg-*"] }` populates `cfg.Scope.Orgs`
   - `TestLoad_NoTopLevelScope_NilScope` — config with no scope
     block leaves `cfg.Scope == nil`
   - `TestLoad_TopLevelScope_AcrossDirectoryFiles` — directory
     with `scope.hcl` containing the block; verify decode
-- [ ] `make test` passes
+- [x] `make test` passes
 
 #### Success Criteria
 

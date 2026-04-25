@@ -513,3 +513,96 @@ rule "file" "codeowners" {
 		t.Errorf("FileRules count = %d, want 1", len(cfg.FileRules))
 	}
 }
+
+func TestLoad_TopLevelScope_Decoded(t *testing.T) {
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	content := `
+scope {
+  orgs = ["myorg-prod", "myorg-staging"]
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing test file: %v", err)
+	}
+
+	cfg, err := Load(hclFile)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Scope == nil {
+		t.Fatal("cfg.Scope is nil, want populated")
+	}
+
+	if len(cfg.Scope.Orgs) != 2 {
+		t.Fatalf("Scope.Orgs count = %d, want 2", len(cfg.Scope.Orgs))
+	}
+
+	if cfg.Scope.Orgs[0] != "myorg-prod" || cfg.Scope.Orgs[1] != "myorg-staging" {
+		t.Errorf("Scope.Orgs = %v, want [myorg-prod myorg-staging]", cfg.Scope.Orgs)
+	}
+}
+
+func TestLoad_NoTopLevelScope_NilScope(t *testing.T) {
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	content := `
+guardian {
+  log_level = "info"
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing test file: %v", err)
+	}
+
+	cfg, err := Load(hclFile)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Scope != nil {
+		t.Errorf("cfg.Scope = %+v, want nil (legacy mode)", cfg.Scope)
+	}
+}
+
+func TestLoad_TopLevelScope_AcrossDirectoryFiles(t *testing.T) {
+	dir := t.TempDir()
+
+	scopeFile := `
+scope {
+  orgs = ["myorg-prod"]
+}
+`
+
+	rulesFile := `
+guardian {
+  log_level = "info"
+}
+`
+
+	if err := os.WriteFile(filepath.Join(dir, "scope.hcl"), []byte(scopeFile), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "rules.hcl"), []byte(rulesFile), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Scope == nil {
+		t.Fatal("cfg.Scope is nil, want populated from scope.hcl")
+	}
+
+	if len(cfg.Scope.Orgs) != 1 || cfg.Scope.Orgs[0] != "myorg-prod" {
+		t.Errorf("Scope.Orgs = %v, want [myorg-prod]", cfg.Scope.Orgs)
+	}
+}

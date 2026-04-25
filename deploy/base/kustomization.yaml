@@ -9,6 +9,7 @@ resources:
   - configmap.yaml
   - serviceaccount.yaml
   - secret.yaml
+  - servicemonitor.yaml
 
 labels:
   - pairs:

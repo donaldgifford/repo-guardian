@@ -41,4 +41,5 @@ docz create design "Your Design Title"
 | DESIGN-0007 | Reconciler Interface and Push Event Handler | Implemented | 2026-03-15 | Donald Gifford | [0007-reconciler-interface-and-push-event-handler.md](0007-reconciler-interface-and-push-event-handler.md) |
 | DESIGN-0008 | Additional Rule Types and Ignore Lists | Implemented | 2026-03-15 | Donald Gifford | [0008-additional-rule-types-and-ignore-lists.md](0008-additional-rule-types-and-ignore-lists.md) |
 | DESIGN-0009 | Distributed Renovate via Per-Repo GitHub Actions | Approved | 2026-03-15 | Donald Gifford | [0009-distributed-renovate-via-per-repo-github-actions.md](0009-distributed-renovate-via-per-repo-github-actions.md) |
+| DESIGN-0010 | Per-org rule scoping and observability | Draft | 2026-04-25 | Donald Gifford | [0010-per-org-rule-scoping-and-observability.md](0010-per-org-rule-scoping-and-observability.md) |
 <!-- END DOCZ AUTO-GENERATED -->

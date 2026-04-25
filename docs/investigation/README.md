@@ -14,6 +14,7 @@ Design docs, plans, and implementation docs can reference investigations by ID
 | ID | Title | Status | Date | Author | Link |
 |----|-------|--------|------|--------|------|
 | INV-0001 | Tailscale Funnel for Webhook Testing | Concluded | 2026-03-14 | Donald Gifford | [0001-tailscale-funnel-for-webhook-testing.md](0001-tailscale-funnel-for-webhook-testing.md) |
+| INV-0002 | Multi-org and Forgejo support for repo-guardian | Open | 2026-04-25 | Donald Gifford | [0002-multi-org-and-forgejo-support-for-repo-guardian.md](0002-multi-org-and-forgejo-support-for-repo-guardian.md) |
 <!-- END DOCZ AUTO-GENERATED -->
 <!-- BEGIN DOCZ AUTO-GENERATED -->
 <!-- END DOCZ AUTO-GENERATED -->

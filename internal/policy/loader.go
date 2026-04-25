@@ -388,6 +388,7 @@ var ruleBodySchema = &hcl.BodySchema{
 		{Type: "pr"},
 		{Type: "assertion"},
 		{Type: blockTypeIgnore},
+		{Type: blockTypeScope},
 		{Type: "reconcile", LabelNames: []string{"type"}},
 	},
 }
@@ -472,6 +473,10 @@ func decodeRuleSubBlocks(
 			ig, d := decodeIgnoreBlock(sub, ctx)
 			diags = append(diags, d...)
 			r.Ignore = ig
+		case blockTypeScope:
+			sc, d := decodeScopeBlock(sub, ctx)
+			diags = append(diags, d...)
+			r.Scope = sc
 		case "reconcile":
 			rec, d := decodeReconcileBlock(sub, ctx)
 			diags = append(diags, d...)
@@ -577,6 +582,7 @@ var settingRuleBodySchema = &hcl.BodySchema{
 	},
 	Blocks: []hcl.BlockHeaderSchema{
 		{Type: blockTypeIgnore},
+		{Type: blockTypeScope},
 	},
 }
 
@@ -619,10 +625,15 @@ func decodeSettingRuleBlock(block *hcl.Block, ctx *hcl.EvalContext) (*SettingRul
 	}
 
 	for _, sub := range content.Blocks {
-		if sub.Type == blockTypeIgnore {
+		switch sub.Type {
+		case blockTypeIgnore:
 			ig, d := decodeIgnoreBlock(sub, ctx)
 			diags = append(diags, d...)
 			sr.Ignore = ig
+		case blockTypeScope:
+			sc, d := decodeScopeBlock(sub, ctx)
+			diags = append(diags, d...)
+			sr.Scope = sc
 		}
 	}
 
@@ -643,6 +654,7 @@ var branchProtectionBodySchema = &hcl.BodySchema{
 	},
 	Blocks: []hcl.BlockHeaderSchema{
 		{Type: blockTypeIgnore},
+		{Type: blockTypeScope},
 	},
 }
 
@@ -671,10 +683,15 @@ func decodeBranchProtectionBlock(
 	}
 
 	for _, sub := range content.Blocks {
-		if sub.Type == blockTypeIgnore {
+		switch sub.Type {
+		case blockTypeIgnore:
 			ig, d := decodeIgnoreBlock(sub, ctx)
 			diags = append(diags, d...)
 			bp.Ignore = ig
+		case blockTypeScope:
+			sc, d := decodeScopeBlock(sub, ctx)
+			diags = append(diags, d...)
+			bp.Scope = sc
 		}
 	}
 

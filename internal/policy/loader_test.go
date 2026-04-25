@@ -606,3 +606,163 @@ guardian {
 		t.Errorf("Scope.Orgs = %v, want [myorg-prod]", cfg.Scope.Orgs)
 	}
 }
+
+func TestLoad_FileRuleScope_Decoded(t *testing.T) {
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	content := `
+rule "file" "codeowners" {
+  paths    = ["CODEOWNERS"]
+  target   = ".github/CODEOWNERS"
+  template = "codeowners"
+
+  scope {
+    orgs = ["myorg-prod", "myorg-staging"]
+  }
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing test file: %v", err)
+	}
+
+	cfg, err := Load(hclFile)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if len(cfg.FileRules) != 1 {
+		t.Fatalf("FileRules count = %d, want 1", len(cfg.FileRules))
+	}
+
+	fr := cfg.FileRules[0]
+	if fr.Scope == nil {
+		t.Fatal("FileRules[0].Scope is nil, want populated")
+	}
+
+	if len(fr.Scope.Orgs) != 2 {
+		t.Fatalf("FileRules[0].Scope.Orgs count = %d, want 2", len(fr.Scope.Orgs))
+	}
+
+	if fr.Scope.Orgs[0] != "myorg-prod" || fr.Scope.Orgs[1] != "myorg-staging" {
+		t.Errorf("FileRules[0].Scope.Orgs = %v, want [myorg-prod myorg-staging]", fr.Scope.Orgs)
+	}
+}
+
+func TestLoad_SettingRuleScope_Decoded(t *testing.T) {
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	content := `
+rule "setting" "vuln_alerts" {
+  property = "vulnerability_alerts_enabled"
+  expected = true
+
+  scope {
+    orgs = ["myorg-prod"]
+  }
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing test file: %v", err)
+	}
+
+	cfg, err := Load(hclFile)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if len(cfg.SettingRules) != 1 {
+		t.Fatalf("SettingRules count = %d, want 1", len(cfg.SettingRules))
+	}
+
+	sr := cfg.SettingRules[0]
+	if sr.Scope == nil {
+		t.Fatal("SettingRules[0].Scope is nil, want populated")
+	}
+
+	if len(sr.Scope.Orgs) != 1 || sr.Scope.Orgs[0] != "myorg-prod" {
+		t.Errorf("SettingRules[0].Scope.Orgs = %v, want [myorg-prod]", sr.Scope.Orgs)
+	}
+}
+
+func TestLoad_BranchProtectionRuleScope_Decoded(t *testing.T) {
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	content := `
+rule "branch_protection" "main_protected" {
+  branch     = "main"
+  require_pr = true
+
+  scope {
+    orgs = ["myorg-prod"]
+  }
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing test file: %v", err)
+	}
+
+	cfg, err := Load(hclFile)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if len(cfg.BranchProtectionRules) != 1 {
+		t.Fatalf("BranchProtectionRules count = %d, want 1", len(cfg.BranchProtectionRules))
+	}
+
+	bp := cfg.BranchProtectionRules[0]
+	if bp.Scope == nil {
+		t.Fatal("BranchProtectionRules[0].Scope is nil, want populated")
+	}
+
+	if len(bp.Scope.Orgs) != 1 || bp.Scope.Orgs[0] != "myorg-prod" {
+		t.Errorf("BranchProtectionRules[0].Scope.Orgs = %v, want [myorg-prod]", bp.Scope.Orgs)
+	}
+}
+
+func TestLoad_RuleScopeWithUniversal(t *testing.T) {
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	content := `
+rule "file" "codeowners" {
+  paths    = ["CODEOWNERS"]
+  target   = ".github/CODEOWNERS"
+  template = "codeowners"
+
+  scope {
+    orgs = ["*"]
+  }
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing test file: %v", err)
+	}
+
+	cfg, err := Load(hclFile)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	fr := cfg.FileRules[0]
+	if fr.Scope == nil {
+		t.Fatal("FileRules[0].Scope is nil, want populated")
+	}
+
+	// "*" must be preserved verbatim — the runtime gate uses HasUniversal
+	// to detect it, but the loader does not expand it.
+	if len(fr.Scope.Orgs) != 1 || fr.Scope.Orgs[0] != "*" {
+		t.Errorf("FileRules[0].Scope.Orgs = %v, want [*] preserved verbatim", fr.Scope.Orgs)
+	}
+
+	if !fr.Scope.HasUniversal() {
+		t.Error("HasUniversal() returned false for orgs = [\"*\"]")
+	}
+}

@@ -174,30 +174,30 @@ setting, and branch-protection rules.
 
 #### Tasks
 
-- [ ] Update file-rule body schema (`ruleBodySchema`, line ~331)
+- [x] Update file-rule body schema (`ruleBodySchema`, line ~331)
       to allow `scope` sub-block alongside `ignore`, `pr`,
       `assertion`, `reconcile`
-- [ ] Update `decodeRuleSubBlocks` (line ~409) to handle
+- [x] Update `decodeRuleSubBlocks` (line ~409) to handle
       `sub.Type == "scope"`: call `decodeScopeBlock`, set
       `r.Scope`. Place next to the existing `ignore` handler
       (line ~429)
-- [ ] Update setting-rule body schema (`settingRuleBodySchema`,
+- [x] Update setting-rule body schema (`settingRuleBodySchema`,
       line ~529) to allow `scope` sub-block
-- [ ] Update setting-rule decoder (line ~579 area) to dispatch
+- [x] Update setting-rule decoder (line ~579 area) to dispatch
       `scope` sub-blocks to `decodeScopeBlock` and set `sr.Scope`
-- [ ] Update branch-protection body schema
+- [x] Update branch-protection body schema
       (`branchProtectionBodySchema`, line ~590) to allow `scope`
       sub-block
-- [ ] Update branch-protection decoder (line ~631 area) to set
+- [x] Update branch-protection decoder (line ~631 area) to set
       `bp.Scope`
-- [ ] Add loader tests in `loader_test.go`:
+- [x] Add loader tests in `loader_test.go`:
   - `TestLoad_FileRuleScope_Decoded`
   - `TestLoad_SettingRuleScope_Decoded`
   - `TestLoad_BranchProtectionRuleScope_Decoded`
   - `TestLoad_RuleScopeWithUniversal` — `scope { orgs = ["*"] }`
     decodes to `Orgs: ["*"]` (no special-cased expansion at
     load time; that's a runtime concept)
-- [ ] `make test` passes
+- [x] `make test` passes
 
 #### Success Criteria
 

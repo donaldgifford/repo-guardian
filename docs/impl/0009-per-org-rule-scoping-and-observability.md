@@ -216,7 +216,7 @@ without a top-level block.
 
 #### Tasks
 
-- [ ] Add `validateStrictScope(cfg *PolicyConfig) error` to
+- [x] Add `validateStrictScope(cfg *PolicyConfig) error` to
       `internal/policy/validate.go` (or new `validate_scope.go`):
   - Return error if `cfg.Scope.Orgs` is empty
   - Return error if multiple top-level scope blocks were
@@ -227,17 +227,17 @@ without a top-level block.
   - Return error for each rule whose `Scope.Orgs` is empty
   - Error messages match DESIGN-0010 strict-mode validation
     table verbatim
-- [ ] Wire into `Load` (`loader.go:73` area): call
+- [x] Wire into `Load` (`loader.go:73` area): call
       `validateStrictScope(cfg)` only when `cfg.Scope != nil`,
       after the existing `Validate(cfg)` call
-- [ ] Add legacy-mode warning: in `Load`, when `cfg.Scope == nil`,
+- [x] Add legacy-mode warning: in `Load`, when `cfg.Scope == nil`,
       walk all rule types; if any rule has `r.Scope != nil`,
       emit a single `slog.Warn` at load time with the resolved
       warning text from DESIGN-0010
       (`"per-rule scope ignored: no top-level scope { } block
       declared. Add a top-level scope block to enable strict
       mode, or remove per-rule scope blocks."`)
-- [ ] Add loader tests for each strict-mode error path
+- [x] Add loader tests for each strict-mode error path
       (table-driven preferred):
   - `TestLoad_StrictMode_TopLevelEmptyOrgs`
   - `TestLoad_StrictMode_DuplicateTopLevelScope_Directory`
@@ -245,11 +245,11 @@ without a top-level block.
   - `TestLoad_StrictMode_SettingRuleMissingScope`
   - `TestLoad_StrictMode_BranchProtectionRuleMissingScope`
   - `TestLoad_StrictMode_RuleEmptyScopeOrgs`
-- [ ] Add legacy-mode warning test:
+- [x] Add legacy-mode warning test:
       `TestLoad_LegacyMode_PerRuleScopePresent_Warns` — captures
       log output, asserts warning fires exactly once even when
       multiple rules have scope blocks
-- [ ] `make test` passes
+- [x] `make test` passes
 
 #### Success Criteria
 

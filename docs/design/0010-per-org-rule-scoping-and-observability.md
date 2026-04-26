@@ -22,7 +22,7 @@ created: 2026-04-25
 - [Detailed Design](#detailed-design)
   - [Architectural framing](#architectural-framing)
   - [Two modes: legacy and strict](#two-modes-legacy-and-strict)
-  - [`scope` block](#scope-block)
+  - [scope block](#scope-block)
   - [Strict-mode validation](#strict-mode-validation)
   - [Evaluation order](#evaluation-order)
   - [Metrics labels](#metrics-labels)
@@ -35,6 +35,7 @@ created: 2026-04-25
 - [Testing Strategy](#testing-strategy)
 - [Migration / Rollout Plan](#migration--rollout-plan)
 - [Open Questions](#open-questions)
+- [Resolved Questions](#resolved-questions)
 - [References](#references)
 <!--toc:end-->
 
@@ -49,8 +50,10 @@ of orgs the policy is intended for, plus a per-rule `scope { orgs = [...] }`
 block that targets a subset (or `["*"]` for all top-level orgs). Presence
 of the top-level block engages **strict mode**: every rule must declare
 its own scope explicitly. Absence preserves today's behavior unchanged
-(legacy mode). The design also adds `org` and `installation_id` labels
-to Prometheus metrics so operators can slice work and errors per org.
+(legacy mode). The design also adds an `org` label to Prometheus
+metrics so operators can slice work and errors per org, and ships
+updated `contrib/` Grafana dashboard and Prometheus alerts (plus a
+new `contrib/README.md` cataloging every exposed metric).
 
 ## Goals and Non-Goals
 
@@ -61,7 +64,10 @@ to Prometheus metrics so operators can slice work and errors per org.
 - Preserve every existing single-org HCL config unchanged. Adding the
   feature must not silently change behavior for anyone.
 - Surface per-org slicing in metrics so dashboards and alerts can be
-  cut by org and installation.
+  cut by org. (Installation IDs travel through structured logs for
+  GitHub audit-log correlation; they are not added as a metric label
+  because `(App, org)` is 1:1 with installation, making the label
+  redundant with `org`.)
 - Reuse the glob-matching, lowercase-normalize semantics from
   `IgnoreConfig` so users learn one matching model.
 
@@ -96,9 +102,8 @@ What's *not* there:
   run multiple repo-guardian instances (one per org) or accept that
   all orgs share the exact same policy.
 - **Metrics carry no org dimension.** `internal/metrics/metrics.go`
-  exposes 20+ counters and histograms; none include `org` or
-  `installation_id`. An operator looking at
-  `repo_guardian_errors_total` or
+  exposes 20+ counters and histograms; none include `org`. An
+  operator looking at `repo_guardian_errors_total` or
   `repo_guardian_files_missing_total{rule_name="codeowners"}` cannot
   tell which org the work belongs to.
 
@@ -261,18 +266,22 @@ asymmetry. Cost is a tiny loop per skipped repo; negligible.
 
 ### Metrics labels
 
-Add `org` and `installation_id` labels to per-repo / per-rule metrics.
-Values are derived where they're already known:
+Add an `org` label to per-repo / per-rule metrics. Values are
+derived from the owner segment of `owner/repo`, lowercased — known
+at every callsite that increments these metrics.
 
-- `org` — the owner segment from `owner/repo`, lowercased.
-- `installation_id` — `RepoJob.InstallationID` cast to string. Already
-  on the job so no new plumbing.
+Installation IDs are deliberately *not* added as a metric label.
+For a given GitHub App, the `(App, org)` pair is 1:1 with an
+installation, so `installation_id` would be redundant with `org`.
+Installation IDs continue to flow through structured logs
+(`RepoJob.InstallationID` is already plumbed to logger fields) for
+GitHub audit-log correlation.
 
 Label additions:
 
 | Metric | New labels |
 |--------|------------|
-| `repo_guardian_repos_checked_total` | `org`, `installation_id` |
+| `repo_guardian_repos_checked_total` | `org` |
 | `repo_guardian_files_missing_total` | `org` |
 | `repo_guardian_settings_checked_total` | `org` |
 | `repo_guardian_settings_mismatched_total` | `org` |
@@ -281,8 +290,8 @@ Label additions:
 | `repo_guardian_branch_protection_remediated_total` | `org` |
 | `repo_guardian_ignored_total` | `org` (in addition to existing `scope`) |
 | `repo_guardian_errors_total` | `org` |
-| `repo_guardian_prs_created_total` | `org` |
-| `repo_guardian_prs_updated_total` | `org` |
+| `repo_guardian_prs_created_total` | `org` (was unlabeled `Counter`; promoted to `CounterVec`) |
+| `repo_guardian_prs_updated_total` | `org` (was unlabeled `Counter`; promoted to `CounterVec`) |
 
 Plus one new metric:
 
@@ -359,12 +368,15 @@ would land < 100. Safe.
 
 ### Metrics
 
-- Update each `promauto.NewCounterVec` listed above to include the
-  new label(s) in the constructor.
+- Update each `promauto.NewCounterVec` listed above to include
+  `org` in the constructor's label slice.
+- Promote `PRsCreatedTotal` and `PRsUpdatedTotal` from
+  `prometheus.Counter` to `prometheus.CounterVec` with `["org"]`.
+  This is a Prometheus-schema change — see Migration / Rollout.
 - Add new `OutOfScopeTotal` counter vec with labels `level` and `org`.
-- Update every callsite to provide the new labels. `org` is derived
-  from `ownerRepo` (already in scope at every site); `installation_id`
-  is already on `RepoJob`.
+- Update every callsite to provide the new label. `org` is derived
+  from `ownerRepo` already in scope at every callsite via
+  `strings.SplitN(ownerRepo, "/", 2)[0]`.
 
 ## Data Model
 
@@ -475,11 +487,25 @@ Backward compatibility is the primary constraint:
   they want to keep applying everywhere. The load-time error makes
   the migration mechanical: errors point at each rule that needs
   attention.
-- **Existing metrics consumers** — adding labels to a `CounterVec`
+- **Existing metrics consumers** — adding `org` to `CounterVec`s
   affects queries that don't aggregate over the new label.
-  Operators with custom dashboards / alerts should be told to
-  `sum without (org, installation_id)` if they want pre-existing
-  behavior. Ship a migration note in the release.
+  Operators with custom dashboards / alerts should use
+  `sum without (org) (...)` to recover pre-existing behavior. Two
+  schema changes are riskier and called out separately:
+  - `repo_guardian_prs_created_total` and
+    `repo_guardian_prs_updated_total` were unlabeled `Counter`s.
+    They become `CounterVec`s with one label. Existing scalar
+    queries (`repo_guardian_prs_created_total`) return multiple
+    time series instead of one; consumers must wrap in
+    `sum(...)`.
+  - The new `repo_guardian_out_of_scope_total` is additive, not a
+    schema change.
+- **Bundled contrib/ dashboard and alerts updated.** The
+  repo-guardian Grafana dashboard and Prometheus alerts shipped
+  in `contrib/` are updated to use the new labels and added
+  metric. A `contrib/README.md` is added documenting every
+  exposed metric with examples and copy-paste-friendly queries
+  for operators starting fresh.
 - **Helm chart** — no changes needed.
 
 Ship in one release. No feature flag — the change is small, the
@@ -490,8 +516,15 @@ Documentation work shipped with the change:
 - New `examples/guardian-multi-org.hcl` and a corresponding
   directory-layout example (`examples/guardian-multi-org/`)
   demonstrating split files.
-- README + `docs/ADDING_RULES.md` updates with a "Multi-org" section.
-- Release notes calling out the metric label change.
+- README + `docs/ADDING_RULES.md` updates with a "Multi-org"
+  section.
+- Updated `contrib/grafana/repo-guardian-dashboard.json` and
+  `contrib/prometheus/alerts.yaml` reflecting new labels and the
+  `out_of_scope_total` metric.
+- New `contrib/README.md` cataloging every exposed metric, its
+  labels, and example queries.
+- Release notes calling out the metric label change and the
+  `Counter`-to-`CounterVec` promotion for PR metrics.
 
 ## Open Questions
 
@@ -517,6 +550,20 @@ None at this time.
 5. **Legacy-mode warning text** — `"per-rule scope ignored: no
    top-level scope { } block declared. Add a top-level scope block
    to enable strict mode, or remove per-rule scope blocks."`
+6. **Policy-level scope gate location** — runs inside `CheckRepo`
+   (engine layer), not in `processJob` (queue layer). Keeps all
+   scope-gating logic in one file alongside the rule-level gates.
+7. **`installation_id` as a metric label** — not added. `(App, org)`
+   is 1:1 with installation, so the label would be redundant with
+   `org`. Installation IDs continue to be logged via structured
+   log fields for GitHub audit-log correlation.
+8. **`PRsCreatedTotal` / `PRsUpdatedTotal` schema break** — accepted.
+   These are promoted from `Counter` to `CounterVec` with `["org"]`.
+   The bundled `contrib/` Grafana dashboard and Prometheus alerts
+   are updated to use the new schema. A new `contrib/README.md`
+   documents the metric set and provides copy-pasteable queries
+   so external operators can adopt the new schema with minimal
+   friction.
 
 ## References
 

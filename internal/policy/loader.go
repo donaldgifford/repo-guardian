@@ -3,6 +3,7 @@ package policy
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -81,7 +82,53 @@ func Load(path string) (*PolicyConfig, error) {
 		return nil, fmt.Errorf("validating config: %w", err)
 	}
 
+	if err := validateStrictScope(cfg); err != nil {
+		return nil, fmt.Errorf("validating config: %w", err)
+	}
+
+	warnLegacyPerRuleScope(cfg)
+
 	return cfg, nil
+}
+
+// warnLegacyPerRuleScope emits a single warning when running in legacy
+// mode (no top-level scope) but at least one rule defines its own scope
+// block. The per-rule scope is silently ignored at runtime; the warning
+// surfaces the misconfiguration without breaking the load.
+func warnLegacyPerRuleScope(cfg *PolicyConfig) {
+	if cfg.Scope != nil {
+		return
+	}
+
+	for i := range cfg.FileRules {
+		if cfg.FileRules[i].Scope != nil {
+			emitLegacyScopeWarning()
+
+			return
+		}
+	}
+
+	for i := range cfg.SettingRules {
+		if cfg.SettingRules[i].Scope != nil {
+			emitLegacyScopeWarning()
+
+			return
+		}
+	}
+
+	for i := range cfg.BranchProtectionRules {
+		if cfg.BranchProtectionRules[i].Scope != nil {
+			emitLegacyScopeWarning()
+
+			return
+		}
+	}
+}
+
+func emitLegacyScopeWarning() {
+	slog.Warn("per-rule scope ignored: no top-level scope { } block declared. " +
+		"Add a top-level scope block to enable strict mode, " +
+		"or remove per-rule scope blocks.")
 }
 
 func loadFile(path string) (*PolicyConfig, error) {
@@ -97,6 +144,10 @@ func loadFile(path string) (*PolicyConfig, error) {
 	decodeDiags := decodeBody(f.Body, &raw)
 	if decodeDiags.HasErrors() {
 		return nil, formatHCLError(path, decodeDiags)
+	}
+
+	if err := checkSingleTopLevelScope(&raw); err != nil {
+		return nil, err
 	}
 
 	return hclConfigToPolicy(&raw), nil
@@ -148,7 +199,23 @@ func loadDirectory(dir string) (*PolicyConfig, error) {
 		return nil, fmt.Errorf("decoding merged HCL: %s", decodeDiags.Error())
 	}
 
+	if err := checkSingleTopLevelScope(&raw); err != nil {
+		return nil, err
+	}
+
 	return hclConfigToPolicy(&raw), nil
+}
+
+// checkSingleTopLevelScope rejects configs with more than one top-level
+// scope { } block. Multiple blocks may appear when a directory load merges
+// files that each declare their own top-level scope; the strict-mode model
+// requires a single canonical universe declaration.
+func checkSingleTopLevelScope(raw *hclConfig) error {
+	if len(raw.ScopeBlocks) > 1 {
+		return fmt.Errorf("only one top-level scope block allowed, found %d", len(raw.ScopeBlocks))
+	}
+
+	return nil
 }
 
 func decodeBody(body hcl.Body, raw *hclConfig) hcl.Diagnostics {
@@ -746,9 +813,14 @@ func hclConfigToPolicy(raw *hclConfig) *PolicyConfig {
 	}
 
 	// If HCL defines file rules, use those instead of defaults.
-	if len(raw.FileRules) > 0 {
+	// In strict mode (top-level scope present), never fall back to defaults:
+	// the user has opted in to declaring every rule with its own scope.
+	switch {
+	case len(raw.FileRules) > 0:
 		cfg.FileRules = raw.FileRules
-	} else {
+	case raw.Scope != nil:
+		cfg.FileRules = nil
+	default:
 		cfg.FileRules = defaults.FileRules
 	}
 

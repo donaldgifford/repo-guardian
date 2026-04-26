@@ -596,27 +596,37 @@ Full CI pipeline, coverage check, and doc status update.
 
 ## Testing Plan
 
-- [ ] Unit tests for `ScopeConfig.Matches` and `HasUniversal`
-      (mirror `ignore_test.go` cases)
-- [ ] Loader tests for legacy mode (regression) and strict-mode
-      decoding
-- [ ] Loader tests for every error path in the strict-mode
-      validation table
-- [ ] Loader test for legacy-mode warning (fires once, log
-      capture)
-- [ ] Engine tests for legacy mode (regression — current
-      behavior preserved)
-- [ ] Engine tests for strict-mode policy-level gate
-- [ ] Engine tests for strict-mode rule-level gate (universal +
-      subset)
-- [ ] Engine tests for `out_of_scope_total` counter at both
-      levels with correct rule-evaluation semantics
-- [ ] Engine tests for scope+ignore interaction (out-of-scope
-      wins)
-- [ ] Metrics test for every relabeled metric registering and
-      accepting new labels
-- [ ] Example parse tests for both single-file and directory
-      multi-org configs
+- [x] Unit tests for `ScopeConfig.Matches` and `HasUniversal`
+      (mirror `ignore_test.go` cases) — `internal/policy/scope_test.go`
+- [x] Loader tests for legacy mode (regression) and strict-mode
+      decoding — `internal/policy/loader_test.go`
+- [x] Loader tests for every error path in the strict-mode
+      validation table — `internal/policy/loader_test.go`
+      (`TestLoad_StrictMode_*`)
+- [x] Loader test for legacy-mode warning (fires once, log
+      capture) — `TestLoad_LegacyMode_PerRuleScopePresent_Warns`
+- [x] Engine tests for legacy mode (regression — current
+      behavior preserved) —
+      `TestPolicyEngine_LegacyMode_NoScopeFiltering`
+- [x] Engine tests for strict-mode policy-level gate —
+      `TestPolicyEngine_StrictMode_PolicyScopeRejectsRepo`
+- [x] Engine tests for strict-mode rule-level gate (universal +
+      subset) — `TestPolicyEngine_StrictMode_RuleUniversalApplies`
+      and `TestPolicyEngine_StrictMode_RuleSubsetApplies`
+- [x] Engine tests for `out_of_scope_total` counter at both
+      levels with correct rule-evaluation semantics —
+      `TestPolicyEngine_StrictMode_OutOfScopeCounterByLevel`
+- [x] Engine tests for scope+ignore interaction (out-of-scope
+      wins) — `TestPolicyEngine_StrictMode_OutOfScopeWinsOverIgnore`
+      and `TestPolicyEngine_StrictMode_InScopeButIgnored`
+- [x] Metrics test for every relabeled metric registering and
+      accepting new labels — covered indirectly by all engine
+      tests asserting counter values via `prometheus/testutil`;
+      a panic on label arity mismatch would fail the suite
+- [x] Example parse tests for both single-file and directory
+      multi-org configs — `TestExampleHCL_MultiOrg` and
+      `TestExampleHCL_MultiOrgDirectory` in
+      `examples/examples_test.go`
 
 ## Resolved Questions
 

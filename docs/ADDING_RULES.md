@@ -362,3 +362,104 @@ The Renovate workflow template expects two GitHub Actions secrets:
 - `RENOVATE_APP_PRIVATE_KEY` — the GitHub App private key
 
 These must be configured as organization-level secrets.
+
+## Multi-org Configuration
+
+repo-guardian supports two scope modes for installations that span
+multiple GitHub organizations:
+
+### Legacy mode (default)
+
+When the HCL config has no top-level `scope { }` block, every
+enabled rule applies to every repository the GitHub App sees. This
+is the simpler default for single-org users — nothing changes.
+
+### Strict mode
+
+Declaring a top-level `scope { }` block engages strict mode. Every
+rule must declare its own `scope { orgs = [...] }` sub-block:
+
+```hcl
+scope {
+  orgs = ["myorg-prod", "myorg-staging"]
+}
+
+rule "file" "codeowners" {
+  paths    = ["CODEOWNERS"]
+  target   = "CODEOWNERS"
+  template = "codeowners"
+
+  scope {
+    orgs = ["*"]   # applies to every org in the top-level scope
+  }
+}
+
+rule "branch_protection" "main_required" {
+  branch                 = "main"
+  required_approvals     = 2
+  remediate              = true
+
+  scope {
+    orgs = ["myorg-prod"]   # applies only to myorg-prod
+  }
+}
+```
+
+Scope semantics:
+
+- **Glob matching** — `path.Match` patterns (`*`, `?`, `[abc]`)
+  on lowercased org names, mirroring the `ignore` block.
+- **Universal `["*"]`** — at the rule level, this is the explicit
+  "apply to every org listed in the top-level scope" idiom.
+- **Strict-mode validation** runs at config load:
+  - Top-level `scope.orgs` must be non-empty
+  - Every `rule { }` (file, setting, branch_protection) must
+    have a `scope { }` sub-block with non-empty `orgs`
+  - Across a directory load, only one top-level `scope { }`
+    may exist
+- **Splitting across files** — when `GUARDIAN_CONFIG` points to
+  a directory, all `.hcl` files merge before strict validation
+  runs. Put the top-level scope in a dedicated `scope.hcl` and
+  per-org rules in separate files. See `examples/guardian-multi-org/`.
+
+### Strict-mode error messages
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `top-level scope must declare at least one org` | `scope { }` block is empty | Add at least one entry to `orgs` |
+| `only one top-level scope block allowed, found N` | Multiple files in the directory both declare `scope { }` | Consolidate to a single `scope.hcl` |
+| `rule "X" must declare scope in strict mode` | A rule has no `scope { }` sub-block | Add `scope { orgs = ["*"] }` for shared rules, or a subset for org-specific rules |
+| `rule "X" scope.orgs must not be empty` | Rule's `scope.orgs` is `[]` | Populate the list, or remove the `scope` block (which then triggers the previous error) |
+
+### Legacy-mode warning
+
+If a rule defines a `scope { }` sub-block while the top-level
+`scope { }` is missing, repo-guardian logs a single warning at
+load time:
+
+```text
+WARN per-rule scope ignored: no top-level scope { } block declared.
+     Add a top-level scope block to enable strict mode, or remove
+     per-rule scope blocks.
+```
+
+This means the per-rule scopes are present but ignored — the rule
+will run against every repo. Either declare a top-level `scope { }`
+to opt in, or remove the per-rule scope blocks.
+
+### Observability
+
+Out-of-scope evaluations are tracked via the
+`repo_guardian_out_of_scope_total{level, org}` Prometheus counter:
+
+- `level="policy"` — increments once per enabled rule when the
+  top-level scope rejects the repo (the entire repo is skipped).
+- `level="rule"` — increments once per rule when its own scope
+  rejects the repo (other rules may still apply).
+
+In legacy mode this counter is always zero. A sustained nonzero
+`level="rule"` for an org with no other activity may indicate a
+typo in `scope.orgs` — see the
+[`RepoGuardianRuleNeverApplies`](../contrib/prometheus/alerts.yaml)
+alert and the [metrics catalog](../contrib/README.md) for queries
+and migration recipes.

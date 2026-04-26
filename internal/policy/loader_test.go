@@ -1,8 +1,11 @@
 package policy
 
 import (
+	"bytes"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -511,5 +514,529 @@ rule "file" "codeowners" {
 
 	if len(cfg.FileRules) != 1 {
 		t.Errorf("FileRules count = %d, want 1", len(cfg.FileRules))
+	}
+}
+
+func TestLoad_TopLevelScope_Decoded(t *testing.T) {
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	content := `
+scope {
+  orgs = ["myorg-prod", "myorg-staging"]
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing test file: %v", err)
+	}
+
+	cfg, err := Load(hclFile)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Scope == nil {
+		t.Fatal("cfg.Scope is nil, want populated")
+	}
+
+	if len(cfg.Scope.Orgs) != 2 {
+		t.Fatalf("Scope.Orgs count = %d, want 2", len(cfg.Scope.Orgs))
+	}
+
+	if cfg.Scope.Orgs[0] != "myorg-prod" || cfg.Scope.Orgs[1] != "myorg-staging" {
+		t.Errorf("Scope.Orgs = %v, want [myorg-prod myorg-staging]", cfg.Scope.Orgs)
+	}
+}
+
+func TestLoad_NoTopLevelScope_NilScope(t *testing.T) {
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	content := `
+guardian {
+  log_level = "info"
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing test file: %v", err)
+	}
+
+	cfg, err := Load(hclFile)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Scope != nil {
+		t.Errorf("cfg.Scope = %+v, want nil (legacy mode)", cfg.Scope)
+	}
+}
+
+func TestLoad_TopLevelScope_AcrossDirectoryFiles(t *testing.T) {
+	dir := t.TempDir()
+
+	scopeFile := `
+scope {
+  orgs = ["myorg-prod"]
+}
+`
+
+	rulesFile := `
+guardian {
+  log_level = "info"
+}
+`
+
+	if err := os.WriteFile(filepath.Join(dir, "scope.hcl"), []byte(scopeFile), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "rules.hcl"), []byte(rulesFile), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Scope == nil {
+		t.Fatal("cfg.Scope is nil, want populated from scope.hcl")
+	}
+
+	if len(cfg.Scope.Orgs) != 1 || cfg.Scope.Orgs[0] != "myorg-prod" {
+		t.Errorf("Scope.Orgs = %v, want [myorg-prod]", cfg.Scope.Orgs)
+	}
+}
+
+func TestLoad_FileRuleScope_Decoded(t *testing.T) {
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	content := `
+rule "file" "codeowners" {
+  paths    = ["CODEOWNERS"]
+  target   = ".github/CODEOWNERS"
+  template = "codeowners"
+
+  scope {
+    orgs = ["myorg-prod", "myorg-staging"]
+  }
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing test file: %v", err)
+	}
+
+	cfg, err := Load(hclFile)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if len(cfg.FileRules) != 1 {
+		t.Fatalf("FileRules count = %d, want 1", len(cfg.FileRules))
+	}
+
+	fr := cfg.FileRules[0]
+	if fr.Scope == nil {
+		t.Fatal("FileRules[0].Scope is nil, want populated")
+	}
+
+	if len(fr.Scope.Orgs) != 2 {
+		t.Fatalf("FileRules[0].Scope.Orgs count = %d, want 2", len(fr.Scope.Orgs))
+	}
+
+	if fr.Scope.Orgs[0] != "myorg-prod" || fr.Scope.Orgs[1] != "myorg-staging" {
+		t.Errorf("FileRules[0].Scope.Orgs = %v, want [myorg-prod myorg-staging]", fr.Scope.Orgs)
+	}
+}
+
+func TestLoad_SettingRuleScope_Decoded(t *testing.T) {
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	content := `
+rule "setting" "vuln_alerts" {
+  property = "vulnerability_alerts_enabled"
+  expected = true
+
+  scope {
+    orgs = ["myorg-prod"]
+  }
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing test file: %v", err)
+	}
+
+	cfg, err := Load(hclFile)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if len(cfg.SettingRules) != 1 {
+		t.Fatalf("SettingRules count = %d, want 1", len(cfg.SettingRules))
+	}
+
+	sr := cfg.SettingRules[0]
+	if sr.Scope == nil {
+		t.Fatal("SettingRules[0].Scope is nil, want populated")
+	}
+
+	if len(sr.Scope.Orgs) != 1 || sr.Scope.Orgs[0] != "myorg-prod" {
+		t.Errorf("SettingRules[0].Scope.Orgs = %v, want [myorg-prod]", sr.Scope.Orgs)
+	}
+}
+
+func TestLoad_BranchProtectionRuleScope_Decoded(t *testing.T) {
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	content := `
+rule "branch_protection" "main_protected" {
+  branch     = "main"
+  require_pr = true
+
+  scope {
+    orgs = ["myorg-prod"]
+  }
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing test file: %v", err)
+	}
+
+	cfg, err := Load(hclFile)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if len(cfg.BranchProtectionRules) != 1 {
+		t.Fatalf("BranchProtectionRules count = %d, want 1", len(cfg.BranchProtectionRules))
+	}
+
+	bp := cfg.BranchProtectionRules[0]
+	if bp.Scope == nil {
+		t.Fatal("BranchProtectionRules[0].Scope is nil, want populated")
+	}
+
+	if len(bp.Scope.Orgs) != 1 || bp.Scope.Orgs[0] != "myorg-prod" {
+		t.Errorf("BranchProtectionRules[0].Scope.Orgs = %v, want [myorg-prod]", bp.Scope.Orgs)
+	}
+}
+
+func TestLoad_StrictMode_TopLevelEmptyOrgs(t *testing.T) {
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	content := `
+scope {
+  orgs = []
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Load(hclFile)
+	if err == nil {
+		t.Fatal("expected error for empty top-level scope.orgs")
+	}
+
+	if !strings.Contains(err.Error(), "top-level scope must declare at least one org") {
+		t.Errorf("error %q does not match expected message", err)
+	}
+}
+
+func TestLoad_StrictMode_DuplicateTopLevelScope_Directory(t *testing.T) {
+	dir := t.TempDir()
+
+	scope1 := `
+scope {
+  orgs = ["myorg-prod"]
+}
+`
+
+	scope2 := `
+scope {
+  orgs = ["myorg-staging"]
+}
+`
+
+	if err := os.WriteFile(filepath.Join(dir, "scope1.hcl"), []byte(scope1), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "scope2.hcl"), []byte(scope2), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Load(dir)
+	if err == nil {
+		t.Fatal("expected error for duplicate top-level scope blocks")
+	}
+
+	if !strings.Contains(err.Error(), "only one top-level scope block allowed") {
+		t.Errorf("error %q does not match expected message", err)
+	}
+}
+
+func TestLoad_StrictMode_FileRuleMissingScope(t *testing.T) {
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	content := `
+scope {
+  orgs = ["myorg-prod"]
+}
+
+rule "file" "codeowners" {
+  paths    = ["CODEOWNERS"]
+  target   = ".github/CODEOWNERS"
+  template = "codeowners"
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Load(hclFile)
+	if err == nil {
+		t.Fatal("expected error for file rule missing scope in strict mode")
+	}
+
+	if !strings.Contains(err.Error(), `"codeowners"`) ||
+		!strings.Contains(err.Error(), "must declare scope in strict mode") {
+		t.Errorf("error %q does not match expected message", err)
+	}
+}
+
+func TestLoad_StrictMode_SettingRuleMissingScope(t *testing.T) {
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	content := `
+scope {
+  orgs = ["myorg-prod"]
+}
+
+rule "setting" "vuln_alerts" {
+  property = "vulnerability_alerts_enabled"
+  expected = true
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Load(hclFile)
+	if err == nil {
+		t.Fatal("expected error for setting rule missing scope in strict mode")
+	}
+
+	if !strings.Contains(err.Error(), `"vuln_alerts"`) ||
+		!strings.Contains(err.Error(), "must declare scope in strict mode") {
+		t.Errorf("error %q does not match expected message", err)
+	}
+}
+
+func TestLoad_StrictMode_BranchProtectionRuleMissingScope(t *testing.T) {
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	content := `
+scope {
+  orgs = ["myorg-prod"]
+}
+
+rule "branch_protection" "main_protected" {
+  branch     = "main"
+  require_pr = true
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Load(hclFile)
+	if err == nil {
+		t.Fatal("expected error for branch_protection rule missing scope in strict mode")
+	}
+
+	if !strings.Contains(err.Error(), `"main_protected"`) ||
+		!strings.Contains(err.Error(), "must declare scope in strict mode") {
+		t.Errorf("error %q does not match expected message", err)
+	}
+}
+
+func TestLoad_StrictMode_RuleEmptyScopeOrgs(t *testing.T) {
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	content := `
+scope {
+  orgs = ["myorg-prod"]
+}
+
+rule "file" "codeowners" {
+  paths    = ["CODEOWNERS"]
+  target   = ".github/CODEOWNERS"
+  template = "codeowners"
+
+  scope {
+    orgs = []
+  }
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Load(hclFile)
+	if err == nil {
+		t.Fatal("expected error for rule with empty scope.orgs")
+	}
+
+	if !strings.Contains(err.Error(), `"codeowners"`) ||
+		!strings.Contains(err.Error(), "scope.orgs must not be empty") {
+		t.Errorf("error %q does not match expected message", err)
+	}
+}
+
+func TestLoad_LegacyMode_PerRuleScopePresent_Warns(t *testing.T) {
+	// Capture slog output to verify the warning fires.
+	var buf bytes.Buffer
+
+	originalLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn})))
+
+	t.Cleanup(func() {
+		slog.SetDefault(originalLogger)
+	})
+
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	// No top-level scope, but two rules declare per-rule scope. The warning
+	// should fire exactly once even with multiple offending rules.
+	content := `
+rule "file" "codeowners" {
+  paths    = ["CODEOWNERS"]
+  target   = ".github/CODEOWNERS"
+  template = "codeowners"
+  scope {
+    orgs = ["myorg-prod"]
+  }
+}
+
+rule "file" "dependabot" {
+  paths    = [".github/dependabot.yml"]
+  target   = ".github/dependabot.yml"
+  template = "dependabot"
+  scope {
+    orgs = ["myorg-staging"]
+  }
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Load(hclFile)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	output := buf.String()
+	count := strings.Count(output, "per-rule scope ignored")
+
+	if count != 1 {
+		t.Errorf("expected exactly 1 legacy-mode warning, got %d. Output:\n%s", count, output)
+	}
+}
+
+func TestLoad_LegacyMode_NoPerRuleScope_NoWarning(t *testing.T) {
+	var buf bytes.Buffer
+
+	originalLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn})))
+
+	t.Cleanup(func() {
+		slog.SetDefault(originalLogger)
+	})
+
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	content := `
+rule "file" "codeowners" {
+  paths    = ["CODEOWNERS"]
+  target   = ".github/CODEOWNERS"
+  template = "codeowners"
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Load(hclFile)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if strings.Contains(buf.String(), "per-rule scope ignored") {
+		t.Errorf("unexpected legacy-mode warning when no per-rule scope present:\n%s", buf.String())
+	}
+}
+
+func TestLoad_RuleScopeWithUniversal(t *testing.T) {
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+
+	content := `
+rule "file" "codeowners" {
+  paths    = ["CODEOWNERS"]
+  target   = ".github/CODEOWNERS"
+  template = "codeowners"
+
+  scope {
+    orgs = ["*"]
+  }
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing test file: %v", err)
+	}
+
+	cfg, err := Load(hclFile)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	fr := cfg.FileRules[0]
+	if fr.Scope == nil {
+		t.Fatal("FileRules[0].Scope is nil, want populated")
+	}
+
+	// "*" must be preserved verbatim — the runtime gate uses HasUniversal
+	// to detect it, but the loader does not expand it.
+	if len(fr.Scope.Orgs) != 1 || fr.Scope.Orgs[0] != "*" {
+		t.Errorf("FileRules[0].Scope.Orgs = %v, want [*] preserved verbatim", fr.Scope.Orgs)
+	}
+
+	if !fr.Scope.HasUniversal() {
+		t.Error("HasUniversal() returned false for orgs = [\"*\"]")
 	}
 }

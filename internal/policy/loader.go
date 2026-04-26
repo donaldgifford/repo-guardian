@@ -3,6 +3,7 @@ package policy
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -17,6 +18,7 @@ import (
 
 const (
 	blockTypeIgnore = "ignore"
+	blockTypeScope  = "scope"
 	attrEnabled     = "enabled"
 )
 
@@ -24,9 +26,15 @@ const (
 type hclConfig struct {
 	Guardian              *GuardianConfig              `hcl:"guardian,block"`
 	IgnoreList            *IgnoreConfig                `hcl:"ignore,block"`
+	Scope                 *ScopeConfig                 `hcl:"scope,block"`
 	FileRules             []FileRuleConfig             `hcl:"rule,block"`
 	SettingRules          []SettingRuleConfig          `hcl:"-"`
 	BranchProtectionRules []BranchProtectionRuleConfig `hcl:"-"`
+
+	// ScopeBlocks captures every top-level scope block encountered. Strict-mode
+	// validation rejects configs with more than one. The singleton Scope above
+	// is set to the first block decoded.
+	ScopeBlocks []*ScopeConfig `hcl:"-"`
 }
 
 // Load reads policy configuration from the given path (file or directory),
@@ -74,7 +82,53 @@ func Load(path string) (*PolicyConfig, error) {
 		return nil, fmt.Errorf("validating config: %w", err)
 	}
 
+	if err := validateStrictScope(cfg); err != nil {
+		return nil, fmt.Errorf("validating config: %w", err)
+	}
+
+	warnLegacyPerRuleScope(cfg)
+
 	return cfg, nil
+}
+
+// warnLegacyPerRuleScope emits a single warning when running in legacy
+// mode (no top-level scope) but at least one rule defines its own scope
+// block. The per-rule scope is silently ignored at runtime; the warning
+// surfaces the misconfiguration without breaking the load.
+func warnLegacyPerRuleScope(cfg *PolicyConfig) {
+	if cfg.Scope != nil {
+		return
+	}
+
+	for i := range cfg.FileRules {
+		if cfg.FileRules[i].Scope != nil {
+			emitLegacyScopeWarning()
+
+			return
+		}
+	}
+
+	for i := range cfg.SettingRules {
+		if cfg.SettingRules[i].Scope != nil {
+			emitLegacyScopeWarning()
+
+			return
+		}
+	}
+
+	for i := range cfg.BranchProtectionRules {
+		if cfg.BranchProtectionRules[i].Scope != nil {
+			emitLegacyScopeWarning()
+
+			return
+		}
+	}
+}
+
+func emitLegacyScopeWarning() {
+	slog.Warn("per-rule scope ignored: no top-level scope { } block declared. " +
+		"Add a top-level scope block to enable strict mode, " +
+		"or remove per-rule scope blocks.")
 }
 
 func loadFile(path string) (*PolicyConfig, error) {
@@ -90,6 +144,10 @@ func loadFile(path string) (*PolicyConfig, error) {
 	decodeDiags := decodeBody(f.Body, &raw)
 	if decodeDiags.HasErrors() {
 		return nil, formatHCLError(path, decodeDiags)
+	}
+
+	if err := checkSingleTopLevelScope(&raw); err != nil {
+		return nil, err
 	}
 
 	return hclConfigToPolicy(&raw), nil
@@ -141,7 +199,23 @@ func loadDirectory(dir string) (*PolicyConfig, error) {
 		return nil, fmt.Errorf("decoding merged HCL: %s", decodeDiags.Error())
 	}
 
+	if err := checkSingleTopLevelScope(&raw); err != nil {
+		return nil, err
+	}
+
 	return hclConfigToPolicy(&raw), nil
+}
+
+// checkSingleTopLevelScope rejects configs with more than one top-level
+// scope { } block. Multiple blocks may appear when a directory load merges
+// files that each declare their own top-level scope; the strict-mode model
+// requires a single canonical universe declaration.
+func checkSingleTopLevelScope(raw *hclConfig) error {
+	if len(raw.ScopeBlocks) > 1 {
+		return fmt.Errorf("only one top-level scope block allowed, found %d", len(raw.ScopeBlocks))
+	}
+
+	return nil
 }
 
 func decodeBody(body hcl.Body, raw *hclConfig) hcl.Diagnostics {
@@ -152,6 +226,7 @@ func decodeBody(body hcl.Body, raw *hclConfig) hcl.Diagnostics {
 			{Type: "locals"},
 			{Type: "guardian"},
 			{Type: blockTypeIgnore},
+			{Type: blockTypeScope},
 			{Type: "rule", LabelNames: []string{"type", "name"}},
 		},
 	})
@@ -219,6 +294,17 @@ func decodeBlock(block *hcl.Block, ctx *hcl.EvalContext, raw *hclConfig) hcl.Dia
 
 		if ig != nil {
 			raw.IgnoreList = ig
+		}
+	case blockTypeScope:
+		sc, d := decodeScopeBlock(block, ctx)
+		diags = append(diags, d...)
+
+		if sc != nil {
+			raw.ScopeBlocks = append(raw.ScopeBlocks, sc)
+
+			if raw.Scope == nil {
+				raw.Scope = sc
+			}
 		}
 	case "rule":
 		diags = append(diags, decodeRuleOrSettingBlock(block, ctx, raw)...)
@@ -334,6 +420,29 @@ func decodeIgnoreBlock(block *hcl.Block, ctx *hcl.EvalContext) (*IgnoreConfig, h
 	return ig, diags
 }
 
+func decodeScopeBlock(block *hcl.Block, ctx *hcl.EvalContext) (*ScopeConfig, hcl.Diagnostics) {
+	sc := &ScopeConfig{}
+
+	attrs, diags := block.Body.JustAttributes()
+	if diags.HasErrors() {
+		return nil, diags
+	}
+
+	if attr, ok := attrs["orgs"]; ok {
+		val, d := attr.Expr.Value(ctx)
+		diags = append(diags, d...)
+
+		if !d.HasErrors() {
+			for it := val.ElementIterator(); it.Next(); {
+				_, v := it.Element()
+				sc.Orgs = append(sc.Orgs, v.AsString())
+			}
+		}
+	}
+
+	return sc, diags
+}
+
 var ruleBodySchema = &hcl.BodySchema{
 	Attributes: []hcl.AttributeSchema{
 		{Name: attrEnabled},
@@ -346,6 +455,7 @@ var ruleBodySchema = &hcl.BodySchema{
 		{Type: "pr"},
 		{Type: "assertion"},
 		{Type: blockTypeIgnore},
+		{Type: blockTypeScope},
 		{Type: "reconcile", LabelNames: []string{"type"}},
 	},
 }
@@ -430,6 +540,10 @@ func decodeRuleSubBlocks(
 			ig, d := decodeIgnoreBlock(sub, ctx)
 			diags = append(diags, d...)
 			r.Ignore = ig
+		case blockTypeScope:
+			sc, d := decodeScopeBlock(sub, ctx)
+			diags = append(diags, d...)
+			r.Scope = sc
 		case "reconcile":
 			rec, d := decodeReconcileBlock(sub, ctx)
 			diags = append(diags, d...)
@@ -535,6 +649,7 @@ var settingRuleBodySchema = &hcl.BodySchema{
 	},
 	Blocks: []hcl.BlockHeaderSchema{
 		{Type: blockTypeIgnore},
+		{Type: blockTypeScope},
 	},
 }
 
@@ -577,10 +692,15 @@ func decodeSettingRuleBlock(block *hcl.Block, ctx *hcl.EvalContext) (*SettingRul
 	}
 
 	for _, sub := range content.Blocks {
-		if sub.Type == blockTypeIgnore {
+		switch sub.Type {
+		case blockTypeIgnore:
 			ig, d := decodeIgnoreBlock(sub, ctx)
 			diags = append(diags, d...)
 			sr.Ignore = ig
+		case blockTypeScope:
+			sc, d := decodeScopeBlock(sub, ctx)
+			diags = append(diags, d...)
+			sr.Scope = sc
 		}
 	}
 
@@ -601,6 +721,7 @@ var branchProtectionBodySchema = &hcl.BodySchema{
 	},
 	Blocks: []hcl.BlockHeaderSchema{
 		{Type: blockTypeIgnore},
+		{Type: blockTypeScope},
 	},
 }
 
@@ -629,10 +750,15 @@ func decodeBranchProtectionBlock(
 	}
 
 	for _, sub := range content.Blocks {
-		if sub.Type == blockTypeIgnore {
+		switch sub.Type {
+		case blockTypeIgnore:
 			ig, d := decodeIgnoreBlock(sub, ctx)
 			diags = append(diags, d...)
 			bp.Ignore = ig
+		case blockTypeScope:
+			sc, d := decodeScopeBlock(sub, ctx)
+			diags = append(diags, d...)
+			bp.Scope = sc
 		}
 	}
 
@@ -682,10 +808,19 @@ func hclConfigToPolicy(raw *hclConfig) *PolicyConfig {
 		cfg.IgnoreList = *raw.IgnoreList
 	}
 
+	if raw.Scope != nil {
+		cfg.Scope = raw.Scope
+	}
+
 	// If HCL defines file rules, use those instead of defaults.
-	if len(raw.FileRules) > 0 {
+	// In strict mode (top-level scope present), never fall back to defaults:
+	// the user has opted in to declaring every rule with its own scope.
+	switch {
+	case len(raw.FileRules) > 0:
 		cfg.FileRules = raw.FileRules
-	} else {
+	case raw.Scope != nil:
+		cfg.FileRules = nil
+	default:
 		cfg.FileRules = defaults.FileRules
 	}
 

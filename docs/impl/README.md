@@ -40,4 +40,5 @@ docz create impl "Your Implementation Title"
 | IMPL-0006 | Reconciler Interface and Push Event Handler | Completed | 2026-03-15 | Donald Gifford | [0006-reconciler-interface-and-push-event-handler.md](0006-reconciler-interface-and-push-event-handler.md) |
 | IMPL-0007 | Additional Rule Types and Ignore Lists | Completed | 2026-03-15 | Donald Gifford | [0007-additional-rule-types-and-ignore-lists.md](0007-additional-rule-types-and-ignore-lists.md) |
 | IMPL-0008 | Distributed Renovate via Per-Repo GitHub Actions | Completed | 2026-03-15 | Donald Gifford | [0008-distributed-renovate-via-per-repo-github-actions.md](0008-distributed-renovate-via-per-repo-github-actions.md) |
+| IMPL-0009 | Per-org rule scoping and observability | Completed | 2026-04-25 | Donald Gifford | [0009-per-org-rule-scoping-and-observability.md](0009-per-org-rule-scoping-and-observability.md) |
 <!-- END DOCZ AUTO-GENERATED -->

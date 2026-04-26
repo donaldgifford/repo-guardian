@@ -1,0 +1,13 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: repo-guardian
+  labels:
+    app: repo-guardian
+spec:
+  selector:
+    matchLabels:
+      app: repo-guardian
+  endpoints:
+    - port: metrics
+      interval: 30s

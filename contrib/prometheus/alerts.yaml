@@ -30,9 +30,12 @@ groups:
       # During normal operation the scheduler or webhooks should produce
       # a steady stream of checks. A gap suggests the pod is down, the
       # queue is stuck, or no webhooks are arriving.
+      #
+      # Note: repos_checked_total carries [trigger, org] labels, so we
+      # sum without those to evaluate the global rate.
       - alert: RepoGuardianNoRepoChecks
         expr: |
-          increase(repo_guardian_repos_checked_total[2h]) == 0
+          sum(increase(repo_guardian_repos_checked_total[2h])) == 0
         for: 30m
         labels:
           severity: warning
@@ -193,9 +196,13 @@ groups:
 
       # A burst of PRs may indicate a misconfiguration or an unintended
       # reconciliation against repos that should be excluded.
+      #
+      # Note: prs_created_total is now a CounterVec[org]. Wrap in sum(...)
+      # to preserve the prior scalar threshold semantic; replace with
+      # `sum by (org) (...)` and a per-org threshold to alert per org.
       - alert: RepoGuardianPRBurst
         expr: |
-          increase(repo_guardian_prs_created_total[1h]) > 50
+          sum(increase(repo_guardian_prs_created_total[1h])) > 50
         for: 5m
         labels:
           severity: warning
@@ -207,3 +214,93 @@ groups:
             This may be expected during initial rollout or after enabling
             a new rule, but could also indicate a misconfiguration.
             Review recent PRs and consider enabling DRY_RUN mode.
+
+      # -------------------------------------------------------------------
+      # Setting and branch protection rules
+      # -------------------------------------------------------------------
+
+      # A setting being remediated repeatedly suggests another tool (or a
+      # human) is reverting the change after each reconciliation. Either
+      # disable the setting rule, or fix the upstream cause.
+      - alert: RepoGuardianSettingRemediationChurn
+        expr: |
+          sum by (rule_name, org) (
+            rate(repo_guardian_settings_remediated_total[6h])
+          ) > 0.01
+        for: 6h
+        labels:
+          severity: warning
+          service: repo-guardian
+        annotations:
+          summary: "Setting rule is being remediated repeatedly"
+          description: >-
+            Setting rule {{ $labels.rule_name }} in org {{ $labels.org }}
+            has been remediated repeatedly over 6 hours. Another tool or
+            user is likely reverting the change. Investigate the source
+            of the drift before re-enabling remediation.
+
+      # Branch protection ruleset churn — same indicator at the ruleset
+      # layer.
+      - alert: RepoGuardianBranchProtectionChurn
+        expr: |
+          sum by (rule_name, org) (
+            rate(repo_guardian_branch_protection_remediated_total[6h])
+          ) > 0.01
+        for: 6h
+        labels:
+          severity: warning
+          service: repo-guardian
+        annotations:
+          summary: "Branch protection ruleset is being remediated repeatedly"
+          description: >-
+            Branch protection rule {{ $labels.rule_name }} in org
+            {{ $labels.org }} has been remediated repeatedly over 6 hours.
+            Another tool may be overwriting the ruleset, or the
+            remediation diff is non-converging.
+
+      # -------------------------------------------------------------------
+      # Webhook ingress
+      # -------------------------------------------------------------------
+
+      # Sustained webhook rejections indicate either a misconfigured
+      # ingress (legitimate GitHub traffic being rejected) or scanning
+      # attempts against the public endpoint.
+      - alert: RepoGuardianWebhookRejectionsHigh
+        expr: |
+          sum by (reason) (rate(repo_guardian_webhook_rejected_total[15m])) > 0.1
+        for: 30m
+        labels:
+          severity: warning
+          service: repo-guardian
+        annotations:
+          summary: "Webhook requests being rejected at >0.1/s"
+          description: >-
+            Webhook rejection rate is {{ $value | humanize }}/s with
+            reason {{ $labels.reason }}. If reason is `ip_not_allowed`,
+            this may be GitHub IP range refresh lag or scanning traffic.
+            If `allowlist_unavailable`, the /meta fetch is failing and
+            legitimate webhooks are being dropped (fail-closed default).
+
+      # -------------------------------------------------------------------
+      # Strict-mode scope misconfiguration
+      # -------------------------------------------------------------------
+
+      # A rule is consistently producing rule-level out-of-scope events,
+      # meaning it applies to no in-scope orgs. This usually indicates a
+      # typo in the rule's scope.orgs list — the rule will never fire.
+      - alert: RepoGuardianRuleNeverApplies
+        expr: |
+          sum by (org) (rate(repo_guardian_out_of_scope_total{level="rule"}[1h])) > 0
+          and
+          sum by (org) (rate(repo_guardian_files_missing_total[1h])) == 0
+        for: 6h
+        labels:
+          severity: warning
+          service: repo-guardian
+        annotations:
+          summary: "Rule-level scope is rejecting every evaluation"
+          description: >-
+            For org {{ $labels.org }}, every rule evaluation has been
+            rejected by per-rule scope for 6 hours. Check guardian.hcl
+            for typos in scope.orgs lists or rules whose scope no longer
+            matches any in-scope org.

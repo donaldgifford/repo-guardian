@@ -24,6 +24,7 @@ const (
 type PolicyConfig struct {
 	Guardian              GuardianConfig               `hcl:"guardian,block"`
 	IgnoreList            IgnoreConfig                 `hcl:"ignore,block"`
+	Scope                 *ScopeConfig                 `hcl:"scope,block"`
 	FileRules             []FileRuleConfig             `hcl:"rule,block"`
 	SettingRules          []SettingRuleConfig          `hcl:"-"`
 	BranchProtectionRules []BranchProtectionRuleConfig `hcl:"-"`
@@ -65,6 +66,7 @@ type FileRuleConfig struct {
 	PR          *PRConfig          `hcl:"pr,block"`
 	Assertions  []AssertionConfig  `hcl:"assertion,block"`
 	Ignore      *IgnoreConfig      `hcl:"ignore,block"`
+	Scope       *ScopeConfig       `hcl:"scope,block"`
 	Reconcilers []ReconcilerConfig `hcl:"reconcile,block"`
 }
 
@@ -112,6 +114,18 @@ type IgnoreConfig struct {
 	Repos []string `hcl:"repos,optional"`
 }
 
+// ScopeConfig holds org match patterns. Used in two places:
+//   - PolicyConfig.Scope: top-level universe declaration. Presence engages
+//     strict mode (every rule must declare its own Scope).
+//   - FileRuleConfig.Scope / SettingRuleConfig.Scope /
+//     BranchProtectionRuleConfig.Scope: rule-level subset of the universe.
+//
+// Patterns use the same glob model as IgnoreConfig (path.Match, lowercase
+// normalization).
+type ScopeConfig struct {
+	Orgs []string `hcl:"orgs,optional"`
+}
+
 // SettingRuleConfig defines a repository setting compliance rule.
 type SettingRuleConfig struct {
 	Name      string        `hcl:"name,label"`
@@ -120,6 +134,7 @@ type SettingRuleConfig struct {
 	Expected  any           `hcl:"expected"`
 	Remediate bool          `hcl:"remediate,optional"`
 	Ignore    *IgnoreConfig `hcl:"ignore,block"`
+	Scope     *ScopeConfig  `hcl:"scope,block"`
 }
 
 // IsEnabled returns whether the setting rule is enabled, defaulting to true.
@@ -156,6 +171,7 @@ type BranchProtectionRuleConfig struct {
 	RequireLinearHistory bool          `hcl:"require_linear_history,optional"`
 	Remediate            bool          `hcl:"remediate,optional"`
 	Ignore               *IgnoreConfig `hcl:"ignore,block"`
+	Scope                *ScopeConfig  `hcl:"scope,block"`
 }
 
 // IsEnabled returns whether the branch protection rule is enabled, defaulting to true.

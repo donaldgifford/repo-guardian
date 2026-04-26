@@ -207,16 +207,61 @@ phases are complete:
 4. Production deployment configuration (dev and prod overlays)
 5. Extensibility (template overrides, configurable rules)
 6. Custom properties sync from Backstage catalog-info.yaml
+7. Helm chart, webhook IP allowlist, HCL policy engine
+8. Setting rules, branch-protection rules, ignore lists, reconcilers
+9. Distributed Renovate via per-repo GitHub Actions
+10. Per-org rule scoping (strict mode) and per-org metric labels
 
-### Built-in Rules
+### Rule Types
+
+repo-guardian's HCL policy engine supports three rule types, each with
+optional global and per-rule ignore lists:
+
+| Type | Block | Purpose |
+|---|---|---|
+| File | `rule "file" "name"` | Detect and add missing files; assert content via regex/YAML path |
+| Setting | `rule "setting" "name"` | Check and remediate 8 repository properties (issues, wiki, default branch, vulnerability alerts, etc.) |
+| Branch protection | `rule "branch_protection" "name"` | Check and remediate branch rulesets (required approvals, status checks, etc.) |
+
+### Built-in File Rules
 
 | Rule | Status | Purpose |
 |---|---|---|
 | CODEOWNERS | Enabled | Code ownership and review routing |
 | Dependabot | Enabled | Automated dependency updates (GitHub-native) |
-| Renovate | Defined (disabled by default) | Automated dependency updates (Mend/OSS) |
+| Renovate Config | Defined (disabled by default) | Automated dependency updates (Mend/OSS) |
+| Renovate Workflow | Defined (disabled by default) | Per-repo GitHub Actions Renovate runner |
 
-New rules can be added with a single struct definition and a template file.
+New rules can be added with a single HCL block (no code changes) or a
+single struct definition + template file (legacy path).
+
+### Reconcilers
+
+Pluggable post-check behaviors attached to file rules via `reconcile { }`
+blocks:
+
+| Reconciler | Purpose |
+|---|---|
+| `custom_properties` | Sync Backstage catalog-info.yaml -> GitHub custom properties |
+| `label_sync` | YAML-driven label create/update/rename/delete |
+| `branch_protection` | YAML-driven branch protection ruleset management |
+| `workflow_sync` | Lightweight observability for watched workflow files |
+
+### Multi-org Scoping (DESIGN-0010)
+
+For installations spanning multiple GitHub organizations, an optional
+top-level `scope { orgs = [...] }` block engages strict mode where every
+rule must declare its own `scope { }` sub-block:
+
+- **Legacy mode** (no top-level `scope { }`): every enabled rule applies
+  to every repo. Single-org users do not need to learn this feature.
+- **Strict mode** (top-level `scope { }` declared): every rule must
+  declare its scope. Use the literal `["*"]` to apply to every in-scope
+  org, or a subset (e.g., `["myorg-prod"]`) to target specific orgs.
+  Strict-mode validation runs at config load time.
+
+All per-rule and per-repo Prometheus counters carry an `org` label so
+operators can slice work, errors, and PR creation rates per organization.
 
 ### Custom Properties
 

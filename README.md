@@ -140,6 +140,8 @@ rule "file" "renovate_config" {
 
 Both Renovate rules are disabled by default. See [`docs/ADDING_RULES.md`](docs/ADDING_RULES.md#renovate-file-rules) for details on templates, check modes, and prerequisites.
 
+**Multi-org configurations:** A top-level `scope { orgs = [...] }` block engages strict mode where every rule must declare its own `scope { }` sub-block. Use the literal `["*"]` to apply to every in-scope org, or a subset to target specific orgs. Single-org users do not need this — leaving `scope { }` out preserves the legacy "every rule applies to every repo" behavior. See [`examples/guardian-multi-org.hcl`](examples/guardian-multi-org.hcl) and the [Multi-org Configuration](docs/ADDING_RULES.md#multi-org-configuration) section of `ADDING_RULES.md`.
+
 **Helm chart:** Use `policy.config` for inline HCL or `policy.existingConfigMap` to reference an external ConfigMap. See the [chart values](charts/repo-guardian/values.yaml).
 
 ## Quick Start (Local Development)
@@ -293,14 +295,21 @@ Available at `METRICS_ADDR` (default `:9090/metrics`):
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `repo_guardian_repos_checked_total` | Counter | `trigger` | Repos checked (webhook/scheduler) |
-| `repo_guardian_prs_created_total` | Counter | -- | PRs created |
-| `repo_guardian_prs_updated_total` | Counter | -- | PRs updated |
-| `repo_guardian_files_missing_total` | Counter | `rule_name` | Missing files detected |
+| `repo_guardian_repos_checked_total` | Counter | `trigger`, `org` | Repos checked (webhook/scheduler/push) |
+| `repo_guardian_prs_created_total` | Counter | `org` | PRs created |
+| `repo_guardian_prs_updated_total` | Counter | `org` | PRs updated |
+| `repo_guardian_files_missing_total` | Counter | `rule_name`, `org` | Missing files detected |
+| `repo_guardian_settings_checked_total` | Counter | `rule_name`, `org` | Setting rule evaluations |
+| `repo_guardian_settings_mismatched_total` | Counter | `rule_name`, `org` | Setting mismatches detected |
+| `repo_guardian_settings_remediated_total` | Counter | `rule_name`, `org` | Setting rules remediated |
+| `repo_guardian_branch_protection_checked_total` | Counter | `rule_name`, `org` | Branch protection rule evaluations |
+| `repo_guardian_branch_protection_remediated_total` | Counter | `rule_name`, `org` | Branch protection rules remediated |
+| `repo_guardian_ignored_total` | Counter | `scope`, `org` | Repos/rules skipped by ignore lists |
+| `repo_guardian_out_of_scope_total` | Counter | `level`, `org` | Rule evaluations skipped by strict-mode scope |
 | `repo_guardian_check_duration_seconds` | Histogram | -- | Check duration per repo |
 | `repo_guardian_webhook_received_total` | Counter | `event_type` | Webhooks received |
 | `repo_guardian_webhook_rejected_total` | Counter | `reason` | Webhooks rejected by IP allowlist |
-| `repo_guardian_errors_total` | Counter | `operation` | Errors by operation |
+| `repo_guardian_errors_total` | Counter | `operation`, `org` | Errors by operation |
 | `repo_guardian_github_rate_remaining` | Gauge | -- | GitHub API rate limit remaining |
 | `repo_guardian_github_rate_limit_waits_total` | Counter | `reason` | Rate limit waits by reason |
 | `repo_guardian_github_rate_limit_wait_seconds` | Histogram | -- | Duration of rate limit waits |
@@ -308,6 +317,8 @@ Available at `METRICS_ADDR` (default `:9090/metrics`):
 | `repo_guardian_properties_prs_created_total` | Counter | -- | PRs created for custom properties |
 | `repo_guardian_properties_set_total` | Counter | -- | Properties set via API |
 | `repo_guardian_properties_already_correct_total` | Counter | -- | Properties already matching |
+
+See [`contrib/README.md`](contrib/README.md) for example PromQL queries, a Grafana dashboard, alerting rules, and migration recipes for the `Counter` -> `CounterVec` promotion of `prs_created_total` and `prs_updated_total`.
 
 ### Rate Limiting
 
@@ -334,16 +345,17 @@ cmd/repo-guardian/main.go  -> entrypoint (dual HTTP servers, graceful shutdown)
 internal/
   catalog/    -> Backstage catalog-info.yaml parser
   config/     -> configuration (12-factor env vars, validated at startup)
-  policy/     -> HCL policy config parser, validation, YAML path evaluator, content assertions
+  policy/     -> HCL parser, validation, scope and ignore matchers, YAML path evaluator, content assertions
   github/     -> GitHub API client (go-github v68, ghinstallation v2, rate limit transport)
-  checker/    -> check-and-PR engine + buffered work queue + custom properties checker
+  checker/    -> check-and-PR engine + buffered work queue + setting/branch-protection rules + scope evaluation gates
+  reconciler/ -> pluggable post-check reconcilers (custom_properties, label_sync, branch_protection, workflow_sync)
   rules/      -> FileRule registry + TemplateStore (embedded fallback templates)
-  webhook/    -> HTTP handler for GitHub webhook events (HMAC-validated) + IP allowlist middleware
+  webhook/    -> HTTP handler for GitHub webhook events (HMAC-validated) + IP allowlist middleware + push event handler
   scheduler/  -> in-process ticker for periodic reconciliation
-  metrics/    -> Prometheus metric definitions
+  metrics/    -> Prometheus metric definitions (most counters labeled with org)
 ```
 
-**Core flow:** GitHub webhook OR weekly scheduler -> work queue (buffered channel) -> checker engine -> GitHub API (create PRs for missing files).
+**Core flow:** GitHub webhook OR weekly scheduler OR push event -> work queue (buffered channel) -> checker engine -> GitHub API (create PRs for missing files) -> reconcilers (post-check actions).
 
 ## Documentation
 

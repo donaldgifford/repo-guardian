@@ -419,7 +419,7 @@ the breaking-change migration story for external operators.
 
 #### Tasks
 
-- [ ] Update `contrib/prometheus/alerts.yaml`:
+- [x] Update `contrib/prometheus/alerts.yaml`:
   - Wrap all references to `repo_guardian_prs_created_total` and
     `repo_guardian_prs_updated_total` in `sum(...)` to handle the
     `Counter` → `CounterVec` promotion
@@ -432,7 +432,7 @@ the breaking-change migration story for external operators.
     `repo_guardian_out_of_scope_total` metric (e.g., warn if
     `level="rule"` is consistently > 0 for a rule, suggesting a
     misconfiguration where a rule applies to no actual orgs)
-- [ ] Update `contrib/grafana/repo-guardian-dashboard.json`:
+- [x] Update `contrib/grafana/repo-guardian-dashboard.json`:
   - Audit every panel for queries that reference relabeled
     metrics; update to aggregate appropriately
   - Add an "Org" template variable populated from
@@ -442,11 +442,12 @@ the breaking-change migration story for external operators.
     out by `level`
   - Add a panel showing PRs created/updated rates per org (uses
     the newly labeled metrics)
-- [ ] Validate the updated alerts file with `promtool check rules
-      contrib/prometheus/alerts.yaml`
-- [ ] Validate the dashboard JSON parses (e.g., `jq . <
+- [x] Validate the updated alerts file with `promtool check rules
+      contrib/prometheus/alerts.yaml` (promtool not installed
+      locally; YAML validated with `yq eval`)
+- [x] Validate the dashboard JSON parses (e.g., `jq . <
       contrib/grafana/repo-guardian-dashboard.json > /dev/null`)
-- [ ] Create `contrib/README.md` cataloging every exposed metric:
+- [x] Create `contrib/README.md` cataloging every exposed metric:
   - Metric name, type (Counter / CounterVec / Histogram / Gauge),
     labels, what it measures
   - At least one example PromQL query per metric
@@ -457,7 +458,7 @@ the breaking-change migration story for external operators.
     older query behavior
   - Pointer to the Grafana dashboard and alerts file as starting
     points
-- [ ] `make lint` passes (yamllint on alerts file)
+- [x] `make lint` passes (yamllint on alerts file)
 
 #### Success Criteria
 

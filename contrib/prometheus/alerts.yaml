@@ -30,9 +30,12 @@ groups:
       # During normal operation the scheduler or webhooks should produce
       # a steady stream of checks. A gap suggests the pod is down, the
       # queue is stuck, or no webhooks are arriving.
+      #
+      # Note: repos_checked_total carries [trigger, org] labels, so we
+      # sum without those to evaluate the global rate.
       - alert: RepoGuardianNoRepoChecks
         expr: |
-          increase(repo_guardian_repos_checked_total[2h]) == 0
+          sum(increase(repo_guardian_repos_checked_total[2h])) == 0
         for: 30m
         labels:
           severity: warning
@@ -193,9 +196,13 @@ groups:
 
       # A burst of PRs may indicate a misconfiguration or an unintended
       # reconciliation against repos that should be excluded.
+      #
+      # Note: prs_created_total is now a CounterVec[org]. Wrap in sum(...)
+      # to preserve the prior scalar threshold semantic; replace with
+      # `sum by (org) (...)` and a per-org threshold to alert per org.
       - alert: RepoGuardianPRBurst
         expr: |
-          increase(repo_guardian_prs_created_total[1h]) > 50
+          sum(increase(repo_guardian_prs_created_total[1h])) > 50
         for: 5m
         labels:
           severity: warning
@@ -207,3 +214,27 @@ groups:
             This may be expected during initial rollout or after enabling
             a new rule, but could also indicate a misconfiguration.
             Review recent PRs and consider enabling DRY_RUN mode.
+
+      # -------------------------------------------------------------------
+      # Strict-mode scope misconfiguration
+      # -------------------------------------------------------------------
+
+      # A rule is consistently producing rule-level out-of-scope events,
+      # meaning it applies to no in-scope orgs. This usually indicates a
+      # typo in the rule's scope.orgs list — the rule will never fire.
+      - alert: RepoGuardianRuleNeverApplies
+        expr: |
+          sum by (org) (rate(repo_guardian_out_of_scope_total{level="rule"}[1h])) > 0
+          and
+          sum by (org) (rate(repo_guardian_files_missing_total[1h])) == 0
+        for: 6h
+        labels:
+          severity: warning
+          service: repo-guardian
+        annotations:
+          summary: "Rule-level scope is rejecting every evaluation"
+          description: >-
+            For org {{ $labels.org }}, every rule evaluation has been
+            rejected by per-rule scope for 6 hours. Check guardian.hcl
+            for typos in scope.orgs lists or rules whose scope no longer
+            matches any in-scope org.

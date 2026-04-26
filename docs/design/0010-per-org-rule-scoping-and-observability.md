@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0010
 title: "Per-org rule scoping and observability"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-04-25
 ---
@@ -9,7 +9,7 @@ created: 2026-04-25
 
 # DESIGN 0010: Per-org rule scoping and observability
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-04-25
 

@@ -40,7 +40,7 @@ internal/
   rules/      → FileRule registry + TemplateStore (embedded fallback templates)
   webhook/    → HTTP handler for GitHub webhook events (HMAC-validated) + IP allowlist middleware + push event handler
   scheduler/  → in-process ticker for weekly reconciliation
-  metrics/    → Prometheus metrics (20 metrics total)
+  metrics/    → Prometheus metrics (21 metrics total, most labeled with org)
 charts/
   repo-guardian/ → Helm chart (recommended deployment method)
 deploy/
@@ -67,6 +67,8 @@ docs/
 - **Push event handler** — webhook handler accepts watched file paths (extracted from reconcilers with `watch = true`). Pushes to the default branch that add or modify watched files trigger a re-check via `TriggerPush`. Tag pushes and removed-only changes are ignored.
 - **Webhook IP allowlist** — middleware wraps only the webhook route (not health/metrics). Two-layer defense: IP allowlist (403) then HMAC validation (401). See `SECURITY.md`.
 - **Tailscale Funnel** — forwards client IPs via `X-Forwarded-For` (RemoteAddr is `127.0.0.1`). Tailscale overlay requires `TRUST_PROXY_HEADERS=true`.
+- **Per-org rule scoping (DESIGN-0010)** — optional top-level `scope { orgs = [...] }` block engages strict mode where every rule must declare its own `scope { }` sub-block. Absence preserves legacy mode (every rule applies to every repo). Rule-level `["*"]` is the universal "applies to every in-scope org" idiom. Per-rule scope without top-level scope emits a single `slog.Warn` at load time. Two evaluation gates in `engine_policy.go.checkRepoWithPolicy`: policy-level (skips entire repo, increments `OutOfScopeTotal{level=policy}` once per enabled rule) and rule-level (skips that rule, increments `OutOfScopeTotal{level=rule}`). Helpers and `OutOfScopeTotal` counter live in `internal/checker/scope.go`.
+- **Per-org metrics labels** — all per-rule and per-repo Prometheus counters carry an `org` label (`repos_checked_total[trigger, org]`, `files_missing_total[rule_name, org]`, `prs_created_total[org]` (CounterVec), etc.). Pre-existing scalar query semantics are preserved with `sum(...)`. Catalog and migration recipes in `contrib/README.md`.
 
 ## Docker
 

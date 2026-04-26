@@ -89,8 +89,16 @@ docker build -t repo-guardian:dev .   # Multi-stage: golang:1.25 builder + distr
 - Tests use hand-written mock clients implementing the `github.Client` interface (no mockery generation).
 - `httptest.Server` is used for GitHub API mocks in `internal/github/client_test.go`.
 - Note: `t.Parallel()` cannot be used with `t.Setenv()` in Go 1.25+ (panics at runtime). Config tests avoid `t.Parallel()`.
+- Counter assertions: `prometheus/client_golang/prometheus/testutil.ToFloat64(metric.WithLabelValues(...))` for value inspection; `metric.Reset()` between tests when state must be isolated.
 - Coverage target: 60% (threshold: 40%), tracked via Codecov.
 - Coverage ignores: `main.go`, `docs/`, `scripts/`.
+
+## Engine and Loader Subtleties
+
+- **Strict-mode loader behavior** — when `cfg.Scope != nil` and the user declares no rules, the loader does **not** fall back to `BuiltinDefaults().FileRules`. This is the only way the contract "every rule must declare its own scope" can hold. See the `switch` in `loader.go.hclConfigToPolicy`.
+- **File-rule double-iteration** — `engine_policy.go` iterates over `policy.FileRules` in two passes: `findActionableRules` (primary) and `runReconcilers` (post-check). Counter increments belong only to the primary pass; `runReconcilers` short-circuits on scope/ignore mismatch silently. Forgetting this leads to double counts on `OutOfScopeTotal{level=rule}` and `IgnoredTotal{scope=rule}`.
+- **Scope vs. ignore precedence** — both gates run before evaluation. Scope is checked first (out-of-scope skips counted in `OutOfScopeTotal`); ignore is checked second (skipped repos counted in `IgnoredTotal`). The two counters never both increment for the same rule on the same repo.
+- **Phantom `gopls` diagnostics** — when adding a new file in `internal/checker/`, `gopls` may show `undefined: Engine` errors for a few seconds while the cache rebuilds. Real compile/test results are authoritative; ignore the IDE warnings if `make lint` and `make test` pass.
 
 ## Release
 

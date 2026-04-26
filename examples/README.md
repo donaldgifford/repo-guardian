@@ -65,7 +65,8 @@ policy:
 
 | File | Description |
 |------|-------------|
-| [`values-with-policy.yaml`](values-with-policy.yaml) | Production-ready Helm values with inline HCL policy covering Renovate, catalog-info, settings, and branch protection. |
+| [`values-with-policy.yaml`](values-with-policy.yaml) | Single-org production-ready Helm values with inline HCL policy covering Renovate, catalog-info, settings, and branch protection. |
+| [`values-multi-org.yaml`](values-multi-org.yaml) | Multi-org Helm values using strict-mode `scope { }`. Shared file rules with `scope { orgs = ["*"] }`, plus prod-only and staging-only rules. |
 
 ## Other
 

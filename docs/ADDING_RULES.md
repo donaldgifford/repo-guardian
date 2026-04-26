@@ -446,3 +446,20 @@ WARN per-rule scope ignored: no top-level scope { } block declared.
 This means the per-rule scopes are present but ignored — the rule
 will run against every repo. Either declare a top-level `scope { }`
 to opt in, or remove the per-rule scope blocks.
+
+### Observability
+
+Out-of-scope evaluations are tracked via the
+`repo_guardian_out_of_scope_total{level, org}` Prometheus counter:
+
+- `level="policy"` — increments once per enabled rule when the
+  top-level scope rejects the repo (the entire repo is skipped).
+- `level="rule"` — increments once per rule when its own scope
+  rejects the repo (other rules may still apply).
+
+In legacy mode this counter is always zero. A sustained nonzero
+`level="rule"` for an org with no other activity may indicate a
+typo in `scope.orgs` — see the
+[`RepoGuardianRuleNeverApplies`](../contrib/prometheus/alerts.yaml)
+alert and the [metrics catalog](../contrib/README.md) for queries
+and migration recipes.

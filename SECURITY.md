@@ -133,6 +133,26 @@ throttling when the remaining budget drops below a configurable threshold
 (default: 10%). This prevents the app from exhausting its rate limit and
 ensures graceful degradation.
 
+### Scope-Constrained Rule Evaluation
+
+In multi-installation deployments where a single repo-guardian instance is
+authorized against multiple GitHub organizations, the optional top-level
+`scope { orgs = [...] }` HCL block engages strict mode where every rule
+must declare its own `scope { }` sub-block.
+
+This is not a substitute for GitHub's permission model -- the App's
+installations still control which repos the service can see -- but it
+narrows the rule blast radius: a misconfigured rule cannot accidentally
+fire against an org the operator did not list. Strict-mode validation
+runs at config load time, so missing or empty scope blocks fail loudly
+rather than silently applying everywhere.
+
+Out-of-scope evaluations are observable via the
+`repo_guardian_out_of_scope_total{level, org}` counter, providing a
+canary for misconfigured policies. See
+[`docs/ADDING_RULES.md`](docs/ADDING_RULES.md#multi-org-configuration)
+for the full strict-mode error taxonomy.
+
 ## Reporting Vulnerabilities
 
 If you discover a security vulnerability, please report it by opening a

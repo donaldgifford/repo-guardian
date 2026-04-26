@@ -1,0 +1,119 @@
+---
+# Example Helm values for repo-guardian with a strict-mode multi-org policy.
+#
+# This shows a deployment where one repo-guardian instance manages two
+# GitHub organizations (myorg-prod and myorg-staging). The top-level
+# scope { } block engages strict mode; every rule must declare its own
+# scope { } sub-block. Use the literal ["*"] for shared rules, or a
+# subset to target a single org.
+#
+# Single-org users should use values-with-policy.yaml instead — the
+# legacy mode (no top-level scope) is the simpler default.
+#
+# Install:
+#   helm install repo-guardian repo-guardian/repo-guardian \
+#     --namespace platform-tools --create-namespace \
+#     -f examples/values-multi-org.yaml
+
+config:
+  appId: "123456"
+  org: "myorg-prod"
+  logLevel: "info"
+  dryRun: false
+  workerCount: 5
+  queueSize: 1000
+  scheduleInterval: "168h"
+  skipForks: true
+  skipArchived: true
+
+secrets:
+  webhookSecret: "change-me"
+  privateKey: |
+    -----BEGIN RSA PRIVATE KEY-----
+    replace-with-your-actual-key
+    -----END RSA PRIVATE KEY-----
+
+# Inline strict-mode HCL policy.
+policy:
+  config: |
+    guardian {
+      org = "myorg-prod"
+    }
+
+    scope {
+      orgs = ["myorg-prod", "myorg-staging"]
+    }
+
+    # Shared file rules — apply to every in-scope org.
+    rule "file" "codeowners" {
+      paths    = ["CODEOWNERS", ".github/CODEOWNERS"]
+      target   = ".github/CODEOWNERS"
+      template = "codeowners"
+
+      scope {
+        orgs = ["*"]
+      }
+    }
+
+    rule "file" "dependabot" {
+      paths    = [".github/dependabot.yml"]
+      target   = ".github/dependabot.yml"
+      template = "dependabot"
+
+      scope {
+        orgs = ["*"]
+      }
+    }
+
+    # Prod-only — stricter requirements for the production org.
+    rule "branch_protection" "main_required" {
+      branch                 = "main"
+      require_pr             = true
+      required_approvals     = 2
+      dismiss_stale_reviews  = true
+      enforce_admins         = true
+      require_linear_history = true
+      remediate              = true
+
+      scope {
+        orgs = ["myorg-prod"]
+      }
+    }
+
+    rule "setting" "vulnerability_alerts" {
+      property  = "vulnerability_alerts_enabled"
+      expected  = true
+      remediate = true
+
+      scope {
+        orgs = ["myorg-prod"]
+      }
+    }
+
+    # Staging-only — lighter touch.
+    rule "setting" "delete_branch_on_merge" {
+      property  = "delete_branch_on_merge"
+      expected  = true
+      remediate = false
+
+      scope {
+        orgs = ["myorg-staging"]
+      }
+    }
+
+webhookIPAllowlist:
+  enabled: true
+  failOpen: false
+  trustProxyHeaders: false
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi

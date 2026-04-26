@@ -135,4 +135,13 @@ var (
 		Name: "repo_guardian_branch_protection_remediated_total",
 		Help: "Branch protection rules remediated via rulesets API.",
 	}, []string{"rule_name"})
+
+	// OutOfScopeTotal counts rule evaluations skipped by strict-mode scope.
+	// level="policy" means the top-level policy scope rejected the repo
+	// (incremented once per enabled rule across all rule types). level="rule"
+	// means the per-rule scope rejected the repo (incremented once per rule).
+	OutOfScopeTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_out_of_scope_total",
+		Help: "Rule evaluations skipped by strict-mode scope, by level (policy or rule) and org.",
+	}, []string{"level", "org"})
 )

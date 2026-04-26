@@ -271,22 +271,22 @@ consulted at runtime.
 
 #### Tasks
 
-- [ ] Add `policyScopeAllows(cfg *policy.PolicyConfig, owner
+- [x] Add `policyScopeAllows(cfg *policy.PolicyConfig, owner
       string) bool` helper. Returns `true` when
       `cfg.Scope == nil` (legacy) or `cfg.Scope.Matches(owner)`
-- [ ] Add `ruleScopeAllows(rs *policy.ScopeConfig, owner string,
+- [x] Add `ruleScopeAllows(rs *policy.ScopeConfig, owner string,
       strictMode bool) bool` helper:
   - In legacy mode (`!strictMode`), always returns `true`
   - In strict mode: `rs.HasUniversal() ||
     rs.Matches(owner)`. Note: top-level gate already passed,
     so `HasUniversal()` is sufficient for "applies to all"
-- [ ] In `engine_policy.go` `CheckRepo`: insert the policy-level
+- [x] In `engine_policy.go` `CheckRepo`: insert the policy-level
       gate at the top of the function, before any rule iteration.
       If it returns `false`, increment
       `OutOfScopeTotal{level="policy", org=owner}` once per
       enabled rule across all three rule types (sum of counts)
       and return early
-- [ ] Insert rule-level gate at each ignore-check site, **before**
+- [x] Insert rule-level gate at each ignore-check site, **before**
       the existing `r.Ignore.Matches(...)` call:
   - `engine_policy.go:78` (file rules — reconciler pass)
   - `engine_policy.go:241` (file rules — first pass)
@@ -294,10 +294,10 @@ consulted at runtime.
   - `engine_policy.go:792` (branch protection rules)
   - When the gate returns `false`: increment
     `OutOfScopeTotal{level="rule", org=owner}` and `continue`
-- [ ] Verify the legacy `engine.go` (non-policy registry path)
+- [x] Verify the legacy `engine.go` (non-policy registry path)
       is not affected — it has no `policy.PolicyConfig` so
       neither gate applies. Confirm by reading `NewEngine` flow
-- [ ] Add engine tests in `engine_policy_test.go`:
+- [x] Add engine tests in `engine_policy_test.go`:
   - `TestPolicyEngine_LegacyMode_NoScopeFiltering` — top-level
     nil, rules without scope, all repos processed (regression)
   - `TestPolicyEngine_StrictMode_PolicyScopeRejectsRepo` —
@@ -319,7 +319,7 @@ consulted at runtime.
   - `TestPolicyEngine_StrictMode_OutOfScopeCounterByLevel` —
     verifies policy-level vs rule-level label values are correct
     and counts match expectations
-- [ ] `make test` passes
+- [x] `make test` passes
 
 #### Success Criteria
 

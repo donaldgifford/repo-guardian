@@ -23,6 +23,13 @@ func (e *Engine) checkRepoWithPolicy(
 	owner, repo, defaultBranch string,
 	openPRs []*ghclient.PullRequest,
 ) error {
+	if !policyScopeAllows(e.policy, owner) {
+		log.Info("repository out of policy scope, skipping all rules")
+		recordOutOfScopePolicy(e.policy, owner)
+
+		return nil
+	}
+
 	actionable, err := e.findActionableRules(ctx, log, client, owner, repo, openPRs)
 	if err != nil {
 		return err
@@ -67,11 +74,18 @@ func (e *Engine) runReconcilers(
 	openPRs []*ghclient.PullRequest,
 ) {
 	ownerRepo := owner + "/" + repo
+	strict := strictMode(e.policy)
 
 	for i := range e.policy.FileRules {
 		r := &e.policy.FileRules[i]
 
 		if !r.IsEnabled() {
+			continue
+		}
+
+		// Scope was already counted in findActionableRules' rule-level gate
+		// for this same rule; this pass only short-circuits the reconciler.
+		if !ruleScopeAllows(r.Scope, owner, strict) {
 			continue
 		}
 
@@ -228,6 +242,7 @@ func (e *Engine) findActionableRules(
 	var actionable []policy.FileRuleConfig
 
 	ownerRepo := owner + "/" + repo
+	strict := strictMode(e.policy)
 
 	for i := range e.policy.FileRules {
 		r := &e.policy.FileRules[i]
@@ -237,6 +252,13 @@ func (e *Engine) findActionableRules(
 		}
 
 		ruleLog := log.With("rule", r.Name, "check", r.CheckMode())
+
+		if !ruleScopeAllows(r.Scope, owner, strict) {
+			ruleLog.Info("rule out of scope for org, skipping")
+			metrics.OutOfScopeTotal.WithLabelValues("rule", owner).Inc()
+
+			continue
+		}
 
 		if r.Ignore != nil && r.Ignore.Matches(ownerRepo) {
 			ruleLog.Info("repository matched per-rule ignore list, skipping")
@@ -590,6 +612,7 @@ func (e *Engine) evaluateSettingRules(
 	}
 
 	ownerRepo := owner + "/" + repo
+	strict := strictMode(e.policy)
 
 	for i := range e.policy.SettingRules {
 		r := &e.policy.SettingRules[i]
@@ -599,6 +622,13 @@ func (e *Engine) evaluateSettingRules(
 		}
 
 		ruleLog := log.With("setting_rule", r.Name, "property", r.Property)
+
+		if !ruleScopeAllows(r.Scope, owner, strict) {
+			ruleLog.Info("setting rule out of scope for org, skipping")
+			metrics.OutOfScopeTotal.WithLabelValues("rule", owner).Inc()
+
+			continue
+		}
 
 		if r.Ignore != nil && r.Ignore.Matches(ownerRepo) {
 			ruleLog.Info("repository matched per-rule ignore list, skipping setting rule")
@@ -779,6 +809,7 @@ func (e *Engine) evaluateBranchProtectionRules(
 	}
 
 	ownerRepo := owner + "/" + repo
+	strict := strictMode(e.policy)
 
 	for i := range e.policy.BranchProtectionRules {
 		r := &e.policy.BranchProtectionRules[i]
@@ -788,6 +819,13 @@ func (e *Engine) evaluateBranchProtectionRules(
 		}
 
 		ruleLog := log.With("bp_rule", r.Name, "branch", r.Branch)
+
+		if !ruleScopeAllows(r.Scope, owner, strict) {
+			ruleLog.Info("branch protection rule out of scope for org, skipping")
+			metrics.OutOfScopeTotal.WithLabelValues("rule", owner).Inc()
+
+			continue
+		}
 
 		if r.Ignore != nil && r.Ignore.Matches(ownerRepo) {
 			ruleLog.Info("repository matched per-rule ignore list, skipping branch protection rule")

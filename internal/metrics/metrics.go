@@ -12,25 +12,25 @@ var (
 	ReposCheckedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_repos_checked_total",
 		Help: "Total repositories processed.",
-	}, []string{"trigger"})
+	}, []string{"trigger", "org"})
 
-	// PRsCreatedTotal counts the total number of PRs created.
-	PRsCreatedTotal = promauto.NewCounter(prometheus.CounterOpts{
+	// PRsCreatedTotal counts the total number of PRs created, by org.
+	PRsCreatedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_prs_created_total",
 		Help: "Total pull requests created.",
-	})
+	}, []string{"org"})
 
-	// PRsUpdatedTotal counts the total number of existing PRs updated.
-	PRsUpdatedTotal = promauto.NewCounter(prometheus.CounterOpts{
+	// PRsUpdatedTotal counts the total number of existing PRs updated, by org.
+	PRsUpdatedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_prs_updated_total",
 		Help: "Total existing pull requests updated.",
-	})
+	}, []string{"org"})
 
-	// FilesMissingTotal counts missing files detected, labeled by rule name.
+	// FilesMissingTotal counts missing files detected, labeled by rule name and org.
 	FilesMissingTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_files_missing_total",
 		Help: "Missing files detected.",
-	}, []string{"rule_name"})
+	}, []string{"rule_name", "org"})
 
 	// CheckDurationSeconds records the time to check a single repo.
 	CheckDurationSeconds = promauto.NewHistogram(prometheus.HistogramOpts{
@@ -45,11 +45,11 @@ var (
 		Help: "Webhooks received.",
 	}, []string{"event_type"})
 
-	// ErrorsTotal counts errors, labeled by operation.
+	// ErrorsTotal counts errors, labeled by operation and org.
 	ErrorsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_errors_total",
 		Help: "Errors encountered.",
-	}, []string{"operation"})
+	}, []string{"operation", "org"})
 
 	// GitHubRateRemaining tracks the GitHub API rate limit remaining.
 	GitHubRateRemaining = promauto.NewGauge(prometheus.GaugeOpts{
@@ -100,41 +100,41 @@ var (
 		Help: "Webhook requests rejected by IP allowlist.",
 	}, []string{"reason"})
 
-	// IgnoredTotal counts repos or rules skipped by ignore lists.
+	// IgnoredTotal counts repos or rules skipped by ignore lists, by scope and org.
 	IgnoredTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_ignored_total",
 		Help: "Repos or rules skipped by ignore lists.",
-	}, []string{"scope"})
+	}, []string{"scope", "org"})
 
-	// SettingsCheckedTotal counts setting rules evaluated per rule name.
+	// SettingsCheckedTotal counts setting rules evaluated per rule name and org.
 	SettingsCheckedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_settings_checked_total",
 		Help: "Setting rules evaluated.",
-	}, []string{"rule_name"})
+	}, []string{"rule_name", "org"})
 
 	// SettingsMismatchedTotal counts setting rules that found a mismatch.
 	SettingsMismatchedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_settings_mismatched_total",
 		Help: "Setting rules that found a mismatch.",
-	}, []string{"rule_name"})
+	}, []string{"rule_name", "org"})
 
 	// SettingsRemediatedTotal counts setting rules that were remediated.
 	SettingsRemediatedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_settings_remediated_total",
 		Help: "Setting rules remediated via API.",
-	}, []string{"rule_name"})
+	}, []string{"rule_name", "org"})
 
 	// BranchProtectionCheckedTotal counts branch protection rules evaluated.
 	BranchProtectionCheckedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_branch_protection_checked_total",
 		Help: "Branch protection rules evaluated.",
-	}, []string{"rule_name"})
+	}, []string{"rule_name", "org"})
 
 	// BranchProtectionRemediatedTotal counts branch protection rules remediated.
 	BranchProtectionRemediatedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_branch_protection_remediated_total",
 		Help: "Branch protection rules remediated via rulesets API.",
-	}, []string{"rule_name"})
+	}, []string{"rule_name", "org"})
 
 	// OutOfScopeTotal counts rule evaluations skipped by strict-mode scope.
 	// level="policy" means the top-level policy scope rejected the repo

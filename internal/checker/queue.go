@@ -166,20 +166,20 @@ func processJob(
 	installClient, err := ghClient.CreateInstallationClient(ctx, job.InstallationID)
 	if err != nil {
 		jobLog.Error("failed to create installation client", "error", err)
-		metrics.ErrorsTotal.WithLabelValues("create_install_client").Inc()
+		metrics.ErrorsTotal.WithLabelValues("create_install_client", job.Owner).Inc()
 
 		return
 	}
 
 	if err := engine.CheckRepo(ctx, installClient, job.Owner, job.Repo); err != nil {
 		jobLog.Error("job failed", "error", err, "duration", time.Since(start))
-		metrics.ErrorsTotal.WithLabelValues("check_repo").Inc()
+		metrics.ErrorsTotal.WithLabelValues("check_repo", job.Owner).Inc()
 
 		return
 	}
 
 	duration := time.Since(start)
-	metrics.ReposCheckedTotal.WithLabelValues(string(job.Trigger)).Inc()
+	metrics.ReposCheckedTotal.WithLabelValues(string(job.Trigger), job.Owner).Inc()
 	metrics.CheckDurationSeconds.Observe(duration.Seconds())
 	jobLog.Info("job completed", "duration", duration)
 }

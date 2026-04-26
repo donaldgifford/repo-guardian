@@ -235,7 +235,7 @@ func TestPolicyEngine_StrictMode_OutOfScopeWinsOverIgnore(t *testing.T) {
 		},
 	}
 
-	beforeIgnored := testutil.ToFloat64(metrics.IgnoredTotal.WithLabelValues("rule"))
+	beforeIgnored := testutil.ToFloat64(metrics.IgnoredTotal.WithLabelValues("rule", "myorg-staging"))
 
 	engine := testPolicyEngine(cfg)
 	client := newMockClient()
@@ -252,7 +252,7 @@ func TestPolicyEngine_StrictMode_OutOfScopeWinsOverIgnore(t *testing.T) {
 		t.Errorf("rule out_of_scope counter = %v, want 1", got)
 	}
 
-	afterIgnored := testutil.ToFloat64(metrics.IgnoredTotal.WithLabelValues("rule"))
+	afterIgnored := testutil.ToFloat64(metrics.IgnoredTotal.WithLabelValues("rule", "myorg-staging"))
 	if afterIgnored != beforeIgnored {
 		t.Errorf("ignored counter incremented (%v -> %v); scope should short-circuit ignore",
 			beforeIgnored, afterIgnored)
@@ -277,7 +277,7 @@ func TestPolicyEngine_StrictMode_InScopeButIgnored(t *testing.T) {
 		},
 	}
 
-	beforeIgnored := testutil.ToFloat64(metrics.IgnoredTotal.WithLabelValues("rule"))
+	beforeIgnored := testutil.ToFloat64(metrics.IgnoredTotal.WithLabelValues("rule", "myorg-prod"))
 
 	engine := testPolicyEngine(cfg)
 	client := newMockClient()
@@ -294,7 +294,7 @@ func TestPolicyEngine_StrictMode_InScopeButIgnored(t *testing.T) {
 		t.Errorf("rule out_of_scope counter = %v, want 0", got)
 	}
 
-	afterIgnored := testutil.ToFloat64(metrics.IgnoredTotal.WithLabelValues("rule"))
+	afterIgnored := testutil.ToFloat64(metrics.IgnoredTotal.WithLabelValues("rule", "myorg-prod"))
 	if afterIgnored != beforeIgnored+1 {
 		t.Errorf("ignored counter = %v, want %v (one increment)", afterIgnored, beforeIgnored+1)
 	}

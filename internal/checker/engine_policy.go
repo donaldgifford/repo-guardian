@@ -262,7 +262,7 @@ func (e *Engine) findActionableRules(
 
 		if r.Ignore != nil && r.Ignore.Matches(ownerRepo) {
 			ruleLog.Info("repository matched per-rule ignore list, skipping")
-			metrics.IgnoredTotal.WithLabelValues("rule").Inc()
+			metrics.IgnoredTotal.WithLabelValues("rule", owner).Inc()
 
 			continue
 		}
@@ -274,7 +274,7 @@ func (e *Engine) findActionableRules(
 
 		if action {
 			ruleLog.Info("rule requires action")
-			metrics.FilesMissingTotal.WithLabelValues(r.Name).Inc()
+			metrics.FilesMissingTotal.WithLabelValues(r.Name, owner).Inc()
 			actionable = append(actionable, *r)
 		}
 	}
@@ -565,10 +565,10 @@ func (e *Engine) createOrUpdatePRFromPolicy(
 			return fmt.Errorf("creating PR: %w", err)
 		}
 
-		metrics.PRsCreatedTotal.Inc()
+		metrics.PRsCreatedTotal.WithLabelValues(owner).Inc()
 		log.Info("created PR", "pr_number", pr.Number)
 	} else {
-		metrics.PRsUpdatedTotal.Inc()
+		metrics.PRsUpdatedTotal.WithLabelValues(owner).Inc()
 		log.Info("updated existing PR", "pr_number", existingPR.Number)
 	}
 
@@ -632,7 +632,7 @@ func (e *Engine) evaluateSettingRules(
 
 		if r.Ignore != nil && r.Ignore.Matches(ownerRepo) {
 			ruleLog.Info("repository matched per-rule ignore list, skipping setting rule")
-			metrics.IgnoredTotal.WithLabelValues("rule").Inc()
+			metrics.IgnoredTotal.WithLabelValues("rule", owner).Inc()
 
 			continue
 		}
@@ -653,7 +653,7 @@ func (e *Engine) evaluateSettingRule(
 	owner, repo string,
 	rule *policy.SettingRuleConfig,
 ) error {
-	metrics.SettingsCheckedTotal.WithLabelValues(rule.Name).Inc()
+	metrics.SettingsCheckedTotal.WithLabelValues(rule.Name, owner).Inc()
 
 	currentValue, err := e.getSettingValue(ctx, client, owner, repo, rule.Property)
 	if err != nil {
@@ -665,7 +665,7 @@ func (e *Engine) evaluateSettingRule(
 		return nil
 	}
 
-	metrics.SettingsMismatchedTotal.WithLabelValues(rule.Name).Inc()
+	metrics.SettingsMismatchedTotal.WithLabelValues(rule.Name, owner).Inc()
 	log.Info("setting mismatch", "current", currentValue, "expected", rule.Expected)
 
 	if !rule.Remediate {
@@ -681,7 +681,7 @@ func (e *Engine) evaluateSettingRule(
 		return fmt.Errorf("remediating %s: %w", rule.Property, err)
 	}
 
-	metrics.SettingsRemediatedTotal.WithLabelValues(rule.Name).Inc()
+	metrics.SettingsRemediatedTotal.WithLabelValues(rule.Name, owner).Inc()
 	log.Info("remediated setting", "property", rule.Property)
 
 	return nil
@@ -829,7 +829,7 @@ func (e *Engine) evaluateBranchProtectionRules(
 
 		if r.Ignore != nil && r.Ignore.Matches(ownerRepo) {
 			ruleLog.Info("repository matched per-rule ignore list, skipping branch protection rule")
-			metrics.IgnoredTotal.WithLabelValues("rule").Inc()
+			metrics.IgnoredTotal.WithLabelValues("rule", owner).Inc()
 
 			continue
 		}
@@ -850,7 +850,7 @@ func (e *Engine) evaluateBranchProtectionRule(
 	owner, repo string,
 	rule *policy.BranchProtectionRuleConfig,
 ) error {
-	metrics.BranchProtectionCheckedTotal.WithLabelValues(rule.Name).Inc()
+	metrics.BranchProtectionCheckedTotal.WithLabelValues(rule.Name, owner).Inc()
 
 	// Check if the branch exists.
 	sha, err := client.GetBranchSHA(ctx, owner, repo, rule.Branch)
@@ -905,7 +905,7 @@ func (e *Engine) evaluateBranchProtectionRule(
 		log.Info("created branch protection ruleset")
 	}
 
-	metrics.BranchProtectionRemediatedTotal.WithLabelValues(rule.Name).Inc()
+	metrics.BranchProtectionRemediatedTotal.WithLabelValues(rule.Name, owner).Inc()
 
 	return nil
 }

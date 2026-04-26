@@ -83,7 +83,7 @@ func (e *Engine) CheckRepo(ctx context.Context, client ghclient.Client, owner, r
 	// Check global ignore list before any rules.
 	if e.policy != nil && e.policy.IgnoreList.Matches(owner+"/"+repo) {
 		log.Info("repository matched global ignore list, skipping all rules")
-		metrics.IgnoredTotal.WithLabelValues("global").Inc()
+		metrics.IgnoredTotal.WithLabelValues("global", owner).Inc()
 
 		return nil
 	}
@@ -164,7 +164,7 @@ func (e *Engine) findMissingFiles(
 		}
 
 		ruleLog.Info("file missing, will add to PR")
-		metrics.FilesMissingTotal.WithLabelValues(rule.Name).Inc()
+		metrics.FilesMissingTotal.WithLabelValues(rule.Name, owner).Inc()
 		missing = append(missing, rule)
 	}
 
@@ -280,10 +280,10 @@ func (e *Engine) createOrUpdatePR(
 			return fmt.Errorf("creating PR: %w", err)
 		}
 
-		metrics.PRsCreatedTotal.Inc()
+		metrics.PRsCreatedTotal.WithLabelValues(owner).Inc()
 		log.Info("created PR", "pr_number", pr.Number)
 	} else {
-		metrics.PRsUpdatedTotal.Inc()
+		metrics.PRsUpdatedTotal.WithLabelValues(owner).Inc()
 		log.Info("updated existing PR", "pr_number", existingPR.Number)
 	}
 

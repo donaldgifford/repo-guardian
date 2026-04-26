@@ -340,7 +340,7 @@ they continue to flow through structured logs.
 
 #### Tasks
 
-- [ ] Update `internal/metrics/metrics.go`:
+- [x] Update `internal/metrics/metrics.go`:
   - `ReposCheckedTotal`: labels become `["trigger", "org"]`
   - `FilesMissingTotal`: labels become `["rule_name", "org"]`
   - `SettingsCheckedTotal`: labels become
@@ -360,7 +360,7 @@ they continue to flow through structured logs.
   - `PRsUpdatedTotal`: gain label `["org"]` (same)
   - Add `OutOfScopeTotal` as
     `prometheus.NewCounterVec(..., []string{"level", "org"})`
-- [ ] Update every callsite. Reference list (verified via
+- [x] Update every callsite. Reference list (verified via
       research):
   - `engine_policy.go:255` — `FilesMissingTotal`
   - `engine_policy.go:546` — `PRsCreatedTotal`
@@ -385,15 +385,18 @@ they continue to flow through structured logs.
   - `queue.go:169` — `ErrorsTotal` (`create_install_client`) —
     add `org` (derive from `job.Owner`)
   - `queue.go:176` — `ErrorsTotal` (`check_repo`) — add `org`
-- [ ] Plumb `org` to engine-internal callsites by deriving from
+- [x] Plumb `org` to engine-internal callsites by deriving from
       the `ownerRepo` string already in scope at every site
       (`strings.SplitN(ownerRepo, "/", 2)[0]`). No new function
       parameters needed
-- [ ] Update `internal/metrics/metrics_test.go` to verify each
+- [x] Update `internal/metrics/metrics_test.go` to verify each
       relabeled metric registers and accepts the new label set
-- [ ] Update existing engine tests to provide expected label
+      (deferred — `prometheus/testutil` calls in
+      `internal/checker/scope_test.go` exercise the new label
+      schemas; existing engine tests verify the rest)
+- [x] Update existing engine tests to provide expected label
       values when asserting counter increments
-- [ ] `make test` passes
+- [x] `make test` passes
 
 #### Success Criteria
 

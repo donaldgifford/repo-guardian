@@ -480,29 +480,32 @@ ADDING_RULES updates.
 
 #### Tasks
 
-- [ ] Create `examples/guardian-multi-org.hcl` — single-file
+- [x] Create `examples/guardian-multi-org.hcl` — single-file
       example showing top-level scope, `["*"]` rules, and
       org-specific rules
-- [ ] Create `examples/guardian-multi-org/` directory with split
+- [x] Create `examples/guardian-multi-org/` directory with split
       files matching DESIGN-0010 §scope block:
   - `scope.hcl` — top-level scope
   - `shared.hcl` — rules with `scope { orgs = ["*"] }`
   - `prod-only.hcl` — `myorg-prod`-scoped rules
   - `staging-only.hcl` — `myorg-staging`-scoped rules
-- [ ] Update `examples/README.md` table to list the new examples
-- [ ] Update `examples/examples_test.go` with parse tests:
+- [x] Update `examples/README.md` table to list the new examples
+- [x] Update `examples/examples_test.go` with parse tests:
   - `TestExampleHCL_MultiOrg` — single-file example loads
   - `TestExampleHCL_MultiOrgDirectory` — directory example
     loads via `Load(directory)`
-- [ ] Add "Multi-org" section to `docs/ADDING_RULES.md` after
+- [x] Add "Multi-org" section to `docs/ADDING_RULES.md` after
       the reconcilers section, covering:
   - When to use legacy vs strict mode
   - The `scope { orgs = ["*"] }` idiom
   - How to split rules across files
   - Strict-mode error explanations and how to fix them
-- [ ] Update `README.md` configuration table to mention the
+- [x] Update `README.md` configuration table to mention the
       top-level `scope` block under the HCL policy example
-- [ ] Add a CHANGELOG / release note draft mentioning:
+      (covered via `examples/README.md` "Two scope modes" entry
+      and `docs/ADDING_RULES.md` "Multi-org Configuration" section
+      — the root README does not enumerate HCL blocks)
+- [x] Add a CHANGELOG / release note draft mentioning:
   - The added `org` label on per-rule / per-repo metrics
     (recommend `sum without (org) (...)` to recover pre-existing
     query semantics)
@@ -512,8 +515,13 @@ ADDING_RULES updates.
   - The new `repo_guardian_out_of_scope_total` metric
   - Pointer to the updated `contrib/` dashboards and alerts as
     a known-good starting point
-- [ ] `docz update` to refresh README index tables
-- [ ] `make lint` passes
+  (Captured in `contrib/README.md` "Migration from
+  pre-DESIGN-0010" section. Repo has no CHANGELOG.md;
+  GoReleaser produces release notes from commit messages.)
+- [x] `docz update` to refresh README index tables (no doc-type
+      additions needed; README indexes already include IMPL-0009
+      and DESIGN-0010 from prior commits)
+- [x] `make lint` passes
 
 #### Success Criteria
 

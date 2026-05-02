@@ -190,7 +190,7 @@ HELM_REGISTRY ?= ""
 
 .PHONY: helm-lint helm-template helm-template-ci helm-package
 .PHONY: helm-unittest helm-test helm-ct-lint helm-ct-list-changed helm-ct-install
-.PHONY: helm-docs helm-diff-check helm-cr-package helm-push
+.PHONY: helm-docs helm-diff-check helm-push
 
 helm-lint: ## Lint Helm chart
 	@ $(MAKE) --no-print-directory log-$@
@@ -236,10 +236,6 @@ helm-docs: ## Generate chart README with helm-docs
 helm-diff-check: ## Show diff between installed release and local chart
 	@ $(MAKE) --no-print-directory log-$@
 	@helm diff upgrade $(RELEASE) $(CHART_DIR)
-
-helm-cr-package: ## Package chart with chart-releaser
-	@ $(MAKE) --no-print-directory log-$@
-	@cr package $(CHART_DIR)
 
 helm-push: ## Push packaged chart to OCI registry
 	@ $(MAKE) --no-print-directory log-$@

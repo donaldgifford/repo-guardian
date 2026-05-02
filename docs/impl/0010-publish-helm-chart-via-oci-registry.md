@@ -1,7 +1,7 @@
 ---
 id: IMPL-0010
 title: "Publish Helm chart via OCI registry"
-status: Draft
+status: In Progress
 author: Donald Gifford
 created: 2026-05-02
 ---
@@ -9,9 +9,29 @@ created: 2026-05-02
 
 # IMPL 0010: Publish Helm chart via OCI registry
 
-**Status:** Draft
+**Status:** In Progress
 **Author:** Donald Gifford
 **Date:** 2026-05-02
+
+> **Implementation progress (2026-05-02):**
+> - **Phases 1, 2, 3, 5, 6, 7, 9 — Completed**
+> - **Phase 4 — Mostly complete.** Chart 0.3.1 published, signed
+>   with cosign keyless, SLSA Level 3 provenance attested.
+>   `helm pull` works, `cosign verify` and
+>   `cosign verify-attestation --type slsaprovenance` both pass.
+>   *Pending operator action:* flip GHCR package visibility from
+>   private to public at <https://github.com/users/donaldgifford/packages/container/charts%2Frepo-guardian/settings>
+>   and link to source repo.
+> - **Phase 8 — Not started.** Homelab consumer migration is
+>   cross-repo + 1Password manual. The homelab working tree has
+>   `kustomization.yaml` pinned to chart `0.2.0` (a version that
+>   was never published) — bump to `0.3.1` once the visibility
+>   flip is done. 1Password manual: add `private-key` field to
+>   item `56ix3ejbeqeo2gp2wofswwf6zy`; archive
+>   `rtzom545ay5ygonvpqg2fyunye` after migration verifies.
+> - **PRs merged:** #60 (initial publish + cosign + SLSA),
+>   #61 (cosign auth fix-forward 0.3.0 → 0.3.1), #62 (docs
+>   refresh), #63 (helm-cr cleanup).
 
 <!--toc:start-->
 - [Objective](#objective)

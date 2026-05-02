@@ -1,0 +1,63 @@
+---
+name: Changelog Update
+
+# Regenerates the root CHANGELOG.md from conventional commits and
+# opens a PR with the diff. Triggered on every binary release tag
+# (the release workflow tags v* via pr-semver-bump). The PR goes
+# through normal review and respects branch protection — no
+# bot-commit directly to main.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-changelog:
+    name: Regenerate root CHANGELOG and open PR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --output CHANGELOG.md
+
+      - name: Resolve tag name
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            tag="${GITHUB_REF#refs/tags/}"
+          else
+            tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "unreleased")
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Open changelog PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: chore/changelog-${{ steps.tag.outputs.tag }}
+          title: "docs(changelog): update root CHANGELOG for ${{ steps.tag.outputs.tag }}"
+          commit-message: "docs(changelog): update root CHANGELOG for ${{ steps.tag.outputs.tag }}"
+          body: |
+            Automated CHANGELOG regeneration triggered by tag
+            `${{ steps.tag.outputs.tag }}`.
+
+            Generated with `git-cliff --config cliff.toml --output CHANGELOG.md`.
+            Review the diff and merge to keep the root CHANGELOG current.
+          labels: |
+            chore
+            dont-release
+          delete-branch: true
+          add-paths: |
+            CHANGELOG.md

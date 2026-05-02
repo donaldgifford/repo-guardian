@@ -35,6 +35,12 @@ go.work.sum
 build/
 dist/
 
+# Helm chart packages (output of `helm package`)
+*.tgz
+
+# Donald loop / Claude Code session-local state
+.claude/*.local.md
+
 # Keys and certs
 *.pem
 *.cert

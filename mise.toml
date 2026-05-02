@@ -27,6 +27,7 @@ jq = "latest"
 
 # Release tools
 golangci-lint = "2.8.0"
+git-cliff = "latest"
 
 # Security
 trivy = "latest"

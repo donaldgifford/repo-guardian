@@ -102,7 +102,15 @@ docker build -t repo-guardian:dev .   # Multi-stage: golang:1.25 builder + distr
 
 ## Release
 
-GoReleaser builds for linux/darwin on amd64/arm64 (CGO disabled). Releases are GPG-signed. Semantic versioning via PR labels (`major`, `minor`, `patch`).
+GoReleaser builds for linux/darwin on amd64/arm64 (CGO disabled). Releases are GPG-signed. Semantic versioning via PR labels (`major`, `minor`, `patch`, `dont-release`). One semver label is required to merge — the workflow fails without it.
+
+**Helm chart distribution (DESIGN-0011, Approved):** `oci://ghcr.io/donaldgifford/charts/repo-guardian`, public visibility, signed with cosign keyless. The legacy chart-releaser → `gh-pages` flow is deprecated because `gh-pages` serves the mkdocs site. Chart `version` is independent of binary `appVersion`; do not auto-bump on every binary release.
+
+**Changelog generation (IMPL-0010):** `git-cliff` (mise-managed, currently `2.12.0`) drives both the root `CHANGELOG.md` and the chart-only `charts/repo-guardian/CHANGELOG.md`. Two configs: `cliff.toml` (root) and `charts/repo-guardian/cliff.toml` (chart). The chart config is gitignored from the `.tgz` via `charts/repo-guardian/.helmignore` (build-time only). The chart `CHANGELOG.md` itself is regenerated on-the-fly by the publish workflow before `helm package`, so the published artifact always ships with a current changelog. Invocations: `git-cliff --config cliff.toml --output CHANGELOG.md` (root) and `git-cliff --config charts/repo-guardian/cliff.toml --include-path 'charts/**' --output charts/repo-guardian/CHANGELOG.md` (chart). The `--include-path` filter lives at invocation time, not in config.
+
+**Chart publish workflow (`.github/workflows/chart-release.yml`):** OCI publish to GHCR with cosign keyless signing and SLSA Level 3 provenance. Two jobs: `publish` (checkout → setup-helm → cosign-installer → git-cliff regenerates chart CHANGELOG → read version → idempotency check via `helm pull` → registry login → package → upload artifact on `workflow_dispatch` only → push → cosign sign → summary) and `slsa-provenance` (gated on `needs.publish.outputs.published == 'true'`, uses `slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0`). Triggers: `push` to `main` scoped to `charts/**` and the workflow file, plus `workflow_dispatch` with `dry_run: boolean` input. Idempotent: re-runs against an already-published version exit early. The `helm-oci-push` ECR fan-out job is removed; ECR setup lives as a manual recipe in chart docs (Phase 6).
+
+**`DRY_RUN` precedence at runtime:** env var (set on the Deployment) overrides any `dry_run` from HCL or built-in defaults via `applyEnvOverrides` running last in `Load()`. A kustomize patch or Helm values setting `DRY_RUN=true` will silently keep the engine in dry-run regardless of the policy file. Always check `kubectl get deploy ... -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="DRY_RUN")]}'` first when the binary appears to be reading the wrong policy state.
 
 ## Rules
 

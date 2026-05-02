@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0011
 title: "Publish Helm chart via OCI registry"
-status: Draft
+status: Approved
 author: Donald Gifford
 created: 2026-05-02
 ---
@@ -9,7 +9,7 @@ created: 2026-05-02
 
 # DESIGN 0011: Publish Helm chart via OCI registry
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Donald Gifford
 **Date:** 2026-05-02
 
@@ -29,7 +29,7 @@ created: 2026-05-02
 - [Data Model](#data-model)
 - [Testing Strategy](#testing-strategy)
 - [Migration / Rollout Plan](#migration--rollout-plan)
-- [Open Questions](#open-questions)
+- [Resolved Questions](#resolved-questions)
 - [References](#references)
 <!--toc:end-->
 
@@ -54,8 +54,8 @@ bootstrap.
 
 - Publish chart artifacts to `oci://ghcr.io/donaldgifford/charts/repo-guardian`
   on every chart-version bump merged to `main`.
-- Sign chart artifacts with the same GPG key used for binary releases,
-  so consumers can verify provenance with `helm pull --verify`.
+- Sign chart artifacts with **cosign** (Sigstore keyless signing via the
+  workflow's OIDC identity), enabling `cosign verify` for provenance.
 - Make chart releases idempotent: re-running the workflow for an
   unchanged version is a no-op, not an error.
 - Keep the `gh-pages` branch reserved for the mkdocs documentation site.
@@ -131,7 +131,8 @@ GHCR is chosen over alternatives because:
   path works under Talos + ArgoCD.
 
 The package will be marked **public** under the user's GHCR settings,
-matching the binary image visibility.
+matching the binary image visibility. No secrets are baked into chart
+templates; values are operator-supplied at install time.
 
 ### Workflow trigger
 
@@ -151,12 +152,14 @@ validation continues to run via `helm-ct` and `helm-unittest` in
 ### Authentication
 
 Use `GITHUB_TOKEN` with the workflow-scoped `packages: write`
-permission. No long-lived PAT or AWS role required for the GHCR push:
+permission for the push, plus `id-token: write` for cosign keyless
+signing. No long-lived PAT or AWS role required:
 
 ```yaml
 permissions:
   contents: read
   packages: write
+  id-token: write   # for cosign keyless signing via OIDC
 
 steps:
   - run: |
@@ -165,7 +168,20 @@ steps:
           -u "${{ github.actor }}" \
           --password-stdin
       helm package charts/repo-guardian
-      helm push repo-guardian-*.tgz oci://ghcr.io/donaldgifford/charts
+      helm push repo-guardian-*.tgz oci://ghcr.io/donaldgifford/charts \
+        2>&1 | tee /tmp/push.log
+      digest=$(grep -oE 'sha256:[a-f0-9]{64}' /tmp/push.log | head -1)
+      cosign sign --yes \
+        "ghcr.io/donaldgifford/charts/repo-guardian@${digest}"
+```
+
+Consumers verify provenance with:
+
+```bash
+cosign verify \
+  --certificate-identity-regexp '^https://github.com/donaldgifford/repo-guardian/.+' \
+  --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+  ghcr.io/donaldgifford/charts/repo-guardian:<chart-version>
 ```
 
 The first push from a workflow auto-creates the OCI repository with
@@ -273,20 +289,21 @@ steps 5–7 is reverting the homelab repo to its prior kustomize-only
 manifest set; the in-cluster Deployment is recreated from the
 unmodified base.
 
-## Open Questions
+## Resolved Questions
 
-1. **Should we sign chart artifacts with cosign/Sigstore in addition
-   to (or instead of) GPG?** The binary releases are GPG-signed today.
-   Helm OCI supports cosign signatures natively via `helm registry`
-   commands. Defer to a follow-up if signing is added.
-2. **Visibility default — public or private?** Public matches the
-   binary image and the project's open-source posture, but means
-   anyone can `helm pull`. No secrets are baked into the chart
-   (templates only), so leaning toward public. **Decision needed
-   before first push.**
-3. **Retention policy.** GHCR's default is "keep all versions
-   forever." Worth a separate ADR if storage cost or noise becomes a
-   concern; not blocking.
+1. **Signing — cosign keyless via Sigstore.** Chart artifacts are
+   signed in the publish workflow using the workflow's OIDC identity
+   (`id-token: write` permission). No long-lived signing key to
+   manage; provenance is verifiable against the
+   `https://github.com/donaldgifford/repo-guardian/...` certificate
+   identity. GPG signing of the binary releases is unaffected.
+2. **Visibility — public.** Matches the binary container image at
+   `ghcr.io/donaldgifford/repo-guardian` and the project's
+   open-source posture. The chart contains no secrets; values are
+   operator-supplied at install time.
+3. **Retention policy — defer.** GHCR's default is "keep all
+   versions forever," which is fine until storage cost or noise
+   becomes a concern. A future ADR can revisit.
 
 ## References
 

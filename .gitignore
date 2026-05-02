@@ -35,6 +35,9 @@ go.work.sum
 build/
 dist/
 
+# Helm chart packages (output of `helm package`)
+*.tgz
+
 # Keys and certs
 *.pem
 *.cert

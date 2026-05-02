@@ -102,7 +102,11 @@ docker build -t repo-guardian:dev .   # Multi-stage: golang:1.25 builder + distr
 
 ## Release
 
-GoReleaser builds for linux/darwin on amd64/arm64 (CGO disabled). Releases are GPG-signed. Semantic versioning via PR labels (`major`, `minor`, `patch`).
+GoReleaser builds for linux/darwin on amd64/arm64 (CGO disabled). Releases are GPG-signed. Semantic versioning via PR labels (`major`, `minor`, `patch`, `dont-release`). One semver label is required to merge — the workflow fails without it.
+
+**Helm chart distribution (DESIGN-0011, Approved):** `oci://ghcr.io/donaldgifford/charts/repo-guardian`, public visibility, signed with cosign keyless. The legacy chart-releaser → `gh-pages` flow is deprecated because `gh-pages` serves the mkdocs site. Chart `version` is independent of binary `appVersion`; do not auto-bump on every binary release.
+
+**`DRY_RUN` precedence at runtime:** env var (set on the Deployment) overrides any `dry_run` from HCL or built-in defaults via `applyEnvOverrides` running last in `Load()`. A kustomize patch or Helm values setting `DRY_RUN=true` will silently keep the engine in dry-run regardless of the policy file. Always check `kubectl get deploy ... -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="DRY_RUN")]}'` first when the binary appears to be reading the wrong policy state.
 
 ## Rules
 

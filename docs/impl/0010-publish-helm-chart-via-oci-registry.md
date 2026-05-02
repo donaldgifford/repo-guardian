@@ -596,24 +596,23 @@ path is proven and a real consumer has migrated.
 
 #### Tasks
 
-- [ ] Remove `helm-cr-package` make target from the Makefile if
-      unused after the workflow rewrite (keep if local packaging
-      via `cr` is still useful)
-- [ ] Audit `mise.toml` — remove `helm-cr` if no longer invoked
-      anywhere (chart-testing's `ct` is separate and stays)
-- [ ] Check `.github/workflows/ci.yml` for any reference to
-      `chart-releaser` and remove if present
-- [ ] Grep for `chart-releaser-action`, `helm/chart-releaser-action`,
-      `gh-pages.*helm`, `HELM_OCI_REGISTRY`, and `AWS_ROLE_ARN`
-      (the latter two were only the ECR fan-out plumbing). Ensure
-      only doc references in `docs/design/0005-helm-chart.md`
-      (historical) and
-      `docs/design/0011-publish-helm-chart-via-oci-registry.md`
-      (background) remain
-- [ ] Update `docs/design/0005-helm-chart.md` distribution section
-      with a "Superseded by DESIGN-0011" note. Do NOT change its
-      top-level status (it's Implemented; only the distribution
-      sub-decision is replaced)
+- [x] Remove `helm-cr-package` make target from the Makefile —
+      removed; `helm-package` (already exists) does the same job
+      without chart-releaser dependency
+- [x] Audit `mise.toml` — `helm-cr` removed; chart-testing's `ct`
+      stays
+- [x] Check `.github/workflows/ci.yml` for any reference to
+      `chart-releaser` — none present
+- [x] Grep for `chart-releaser-action`, `helm/chart-releaser-action`,
+      `gh-pages.*helm`, `HELM_OCI_REGISTRY`, and `AWS_ROLE_ARN` —
+      only doc references remain in `docs/design/0005-helm-chart-for-repo-guardian.md`
+      (historical) and `docs/impl/0004-helm-chart-for-repo-guardian.md`
+      (historical IMPL — superseded by IMPL-0010 distribution rewrite)
+- [x] Update `docs/design/0005-helm-chart-for-repo-guardian.md`
+      with a "Superseded by DESIGN-0011" banner — done in PR #61
+      via a follow-up commit to main (top-level status retained
+      as `Implemented`; only the distribution sub-decision is
+      replaced)
 
 #### Success Criteria
 

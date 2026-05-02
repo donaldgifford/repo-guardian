@@ -516,36 +516,22 @@ tag pushes.
 
 #### Tasks
 
-- [ ] Decide between two implementation approaches:
-  - **(a) goreleaser pre-hook** — add a `before:` hook in
-    `.goreleaser.yml` that runs `git-cliff --config cliff.toml
-    --output CHANGELOG.md` before goreleaser packages. The
-    regenerated file lands as part of the release tag's working
-    tree but is NOT committed automatically; a follow-up step
-    opens a PR
-  - **(b) Separate workflow on `v*` tag push** — new
-    `.github/workflows/changelog-update.yml` triggered on tag
-    push. Runs git-cliff, commits to a branch, opens a PR
-- [ ] Implement chosen approach. Default proposal: **(b)** — keeps
-      the goreleaser config small and avoids tying CHANGELOG
-      regeneration to the binary release artifact build
-- [ ] If (b): create `.github/workflows/changelog-update.yml`:
-  - Trigger: `push: tags: ['v*']`
+- [x] Decide between two implementation approaches: chose **(b)**
+- [x] Implement chosen approach: option (b) — separate workflow
+- [x] Create `.github/workflows/changelog-update.yml`:
+  - Trigger: `push: tags: ['v*']` plus `workflow_dispatch`
   - Permissions: `contents: write`, `pull-requests: write`
-  - Steps: checkout (full history) → install git-cliff →
-    `git-cliff --config cliff.toml --output CHANGELOG.md` →
-    `peter-evans/create-pull-request@v7` to open a PR
-  - PR title: `docs(changelog): update root CHANGELOG for ${tag}`
-  - PR body: short note pointing at the tag and asking for
-    maintainer review
-- [ ] Test the hook by either pushing a test tag (e.g., `v1.4.1-test`)
-      to a throwaway branch and watching the workflow, OR by
-      manually running `git-cliff` locally and verifying the
-      output matches what the workflow would produce
-- [ ] Document the flow in `CONTRIBUTING.md` (or the project README
-      under "Releasing"): "binary release tags trigger an
-      automated PR updating the root CHANGELOG; merge it to keep
-      the file current"
+  - Steps: checkout (full history, ref: main) →
+    `orhun/git-cliff-action@v4` regenerates CHANGELOG.md →
+    resolve tag from `GITHUB_REF` →
+    `peter-evans/create-pull-request@v7` opens PR with
+    `chore` and `dont-release` labels (PR is automation
+    bookkeeping, not a release)
+- [x] Test via `git-cliff --config cliff.toml --output
+      /tmp/CHANGELOG.test.md` locally — verified output matches
+      workflow expectation
+- [x] Document the flow in `CONTRIBUTING.md` under "Releasing →
+      Root CHANGELOG"
 
 #### Success Criteria
 

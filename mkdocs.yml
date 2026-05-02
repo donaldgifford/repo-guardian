@@ -15,6 +15,7 @@ nav:
         - 'DESIGN-0008: Additional Rule Types and Ignore Lists': design/0008-additional-rule-types-and-ignore-lists.md
         - 'DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions': design/0009-distributed-renovate-via-per-repo-github-actions.md
         - 'DESIGN-0010: Per-org rule scoping and observability': design/0010-per-org-rule-scoping-and-observability.md
+        - 'DESIGN-0011: Publish Helm chart via OCI registry': design/0011-publish-helm-chart-via-oci-registry.md
     - Implementation Plans:
         - Overview: impl/README.md
         - 'IMPL-0001: Repo Guardian Implementation Plan': impl/0001-repo-guardian-implementation-plan.md

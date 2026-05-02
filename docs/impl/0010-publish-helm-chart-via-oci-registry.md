@@ -1,7 +1,7 @@
 ---
 id: IMPL-0010
 title: "Publish Helm chart via OCI registry"
-status: In Progress
+status: Completed
 author: Donald Gifford
 created: 2026-05-02
 ---
@@ -9,26 +9,78 @@ created: 2026-05-02
 
 # IMPL 0010: Publish Helm chart via OCI registry
 
-**Status:** In Progress
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-05-02
 
-> **Implementation progress (2026-05-02):**
-> - **Phases 1, 2, 3, 5, 6, 7, 9 — Completed**
-> - **Phase 4 — Completed.** Chart 0.3.1 published, signed with
->   cosign keyless, SLSA Level 3 provenance attested. Package is
->   public on GHCR (anonymous `helm pull` and `cosign verify`
->   both succeed without GHCR credentials).
-> - **Phase 8 — Not started.** Homelab consumer migration is
->   cross-repo + 1Password manual. The homelab working tree has
->   `kustomization.yaml` pinned to chart `0.2.0` (a version that
->   was never published) — bump to `0.3.1` once the visibility
->   flip is done. 1Password manual: add `private-key` field to
->   item `56ix3ejbeqeo2gp2wofswwf6zy`; archive
->   `rtzom545ay5ygonvpqg2fyunye` after migration verifies.
-> - **PRs merged:** #60 (initial publish + cosign + SLSA),
->   #61 (cosign auth fix-forward 0.3.0 → 0.3.1), #62 (docs
->   refresh), #63 (helm-cr cleanup).
+> **Implementation complete (2026-05-02).** All in-repo phases
+> shipped across 6 PRs (#60, #61, #62, #63, #64, #65). Chart
+> `oci://ghcr.io/donaldgifford/charts/repo-guardian:0.3.1` is
+> public on GHCR, signed with cosign keyless, and carries a
+> SLSA Level 3 provenance attestation. Anonymous `helm pull` and
+> `cosign verify` both succeed without GHCR credentials.
+>
+> **Phase 8 (homelab consumer migration)** is downstream
+> consumer-adoption work in a separate repo (`~/code/homelab/`)
+> and is owned by the operator. Steps that remain there: bump
+> `kustomization.yaml` from chart `0.2.0` (never published) to
+> `0.3.1`; add `private-key` field to 1Password item
+> `56ix3ejbeqeo2gp2wofswwf6zy`; commit + push the homelab branch;
+> watch ArgoCD reconcile to `Synced`+`Healthy`; archive old
+> 1Password item `rtzom545ay5ygonvpqg2fyunye` after verification.
+> The chart upstream this IMPL delivers is fully usable in the
+> meantime.
+
+## Retrospective
+
+What went smoothly:
+
+- **Dry-run validation on the feature branch** caught zero issues
+  before merge — the workflow's `workflow_dispatch` `dry_run` path
+  succeeded end-to-end with push/sign/SLSA correctly skipped, and
+  the uploaded `.tgz` artifact contained `CHANGELOG.md` as expected.
+- **git-cliff one-tool-for-both pattern** worked. Two configs
+  (`cliff.toml` + `charts/repo-guardian/cliff.toml`) with the
+  `--include-path 'charts/**'` filter applied at invocation time
+  cleanly separated root and chart changelogs without per-PR
+  fragment overhead.
+- **SLSA generator reusable workflow** plugged in with minimal
+  configuration — just `image`, `digest`, and registry credentials.
+  Verification via `cosign verify-attestation --type slsaprovenance`
+  passed first try.
+
+What broke and why:
+
+- **Cosign sign failed on the 0.3.0 first publish (PR #60).**
+  `helm registry login` writes credentials to
+  `~/.config/helm/registry/config.json`. Cosign reads
+  `~/.docker/config.json`. The two stores are disjoint, so cosign
+  had no GHCR credentials when it tried to push the `.sig` blob.
+  Fixed in PR #61 by adding `docker/login-action@v4` (which writes
+  to `~/.docker/config.json`) before the cosign step. Both logins
+  are kept — they serve different binaries with different credential
+  stores.
+- **Roll-forward yank exercised in practice.** Rather than delete
+  the unsigned 0.3.0 from GHCR (which would silently re-publish on
+  the next merge to main, since the idempotency check is keyed on
+  "tag exists in registry"), bumped `Chart.yaml` to `0.3.1` and
+  republished. This validated the documented yank semantics under
+  real conditions.
+
+Process notes:
+
+- **Six PRs, all `dont-release` labeled.** No Go code changed in
+  this IMPL, so the binary version (`appVersion: 1.4.0` from
+  IMPL-0009) was unchanged. Chart and binary version cadences
+  stayed independent — exactly the pattern DESIGN-0011 called for.
+- **GHCR initial visibility = private.** First publish auto-created
+  the package as private. The visibility flip is a one-time manual
+  step via the GHCR settings UI (no API for it). After flip,
+  subsequent publishes inherit the public setting.
+- **`workflow_dispatch` validates feature branches.** Triggering
+  the chart-release workflow on `feat/helm-chart-oci-distribution`
+  with `dry_run=true` worked without merging first — useful
+  pattern for any workflow that publishes artifacts.
 
 <!--toc:start-->
 - [Objective](#objective)

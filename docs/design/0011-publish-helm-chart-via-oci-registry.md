@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0011
 title: "Publish Helm chart via OCI registry"
-status: Approved
+status: Implemented
 author: Donald Gifford
 created: 2026-05-02
 ---
@@ -9,7 +9,7 @@ created: 2026-05-02
 
 # DESIGN 0011: Publish Helm chart via OCI registry
 
-**Status:** Approved
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-05-02
 

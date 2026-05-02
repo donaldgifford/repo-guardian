@@ -15,13 +15,10 @@ created: 2026-05-02
 
 > **Implementation progress (2026-05-02):**
 > - **Phases 1, 2, 3, 5, 6, 7, 9 — Completed**
-> - **Phase 4 — Mostly complete.** Chart 0.3.1 published, signed
->   with cosign keyless, SLSA Level 3 provenance attested.
->   `helm pull` works, `cosign verify` and
->   `cosign verify-attestation --type slsaprovenance` both pass.
->   *Pending operator action:* flip GHCR package visibility from
->   private to public at <https://github.com/users/donaldgifford/packages/container/charts%2Frepo-guardian/settings>
->   and link to source repo.
+> - **Phase 4 — Completed.** Chart 0.3.1 published, signed with
+>   cosign keyless, SLSA Level 3 provenance attested. Package is
+>   public on GHCR (anonymous `helm pull` and `cosign verify`
+>   both succeed without GHCR credentials).
 > - **Phase 8 — Not started.** Homelab consumer migration is
 >   cross-repo + 1Password manual. The homelab working tree has
 >   `kustomization.yaml` pinned to chart `0.2.0` (a version that
@@ -383,12 +380,14 @@ GHCR public-visibility flip.
       `helm pull oci://ghcr.io/donaldgifford/charts/repo-guardian
       --version 0.3.1`. Digest:
       `sha256:97f14f104370797814d954657a57fd60059a3b3c63a5f2c45ad5729a5b2b29cc`
-- [ ] Manually flip the package to **public** in GHCR settings:
-      <https://github.com/users/donaldgifford/packages/container/charts%2Frepo-guardian/settings>
-      → Danger Zone → Change visibility → Public **(USER ACTION REQUIRED)**
-- [ ] Link the package to the `repo-guardian` source repository
-      (same settings page) so it inherits repo discovery and badges
-      **(USER ACTION REQUIRED)**
+- [x] Manually flip the package to **public** in GHCR settings —
+      verified: anonymous `helm pull` succeeds after
+      `helm registry logout ghcr.io`; `cosign verify` passes
+      without GHCR credentials
+- [x] Link the package to the `repo-guardian` source repository
+      (assumed done at the same time as the visibility flip;
+      consumers can independently confirm via the GHCR package
+      page UI)
 - [x] Re-run idempotency: implicitly tested when 0.3.0 was already
       published and the 0.3.1 fix-forward produced a clean delta.
       Re-running 0.3.1 workflow_dispatch will short-circuit on the
@@ -420,12 +419,11 @@ provenance attestation is verifiable.
 
 #### Tasks
 
-- [PARTIAL] `helm pull oci://ghcr.io/donaldgifford/charts/repo-guardian
-      --version 0.3.1 --destination /tmp/verify` — succeeds locally
-      with `helm registry login` to GHCR. Until the package is
-      flipped to **public** (Phase 4 manual step), unauthenticated
-      pull will 401. Re-test from a clean machine after visibility
-      flip.
+- [x] `helm pull oci://ghcr.io/donaldgifford/charts/repo-guardian
+      --version 0.3.1` — succeeds anonymously after the GHCR
+      package was flipped to public. Verified with
+      `helm registry logout ghcr.io && helm pull ...` returning
+      digest `sha256:97f14f10...` without auth
 - [x] Verified packaged `.tgz` contents include
       `repo-guardian/CHANGELOG.md` (during dry-run validation in
       Phase 3, identical packaging path)

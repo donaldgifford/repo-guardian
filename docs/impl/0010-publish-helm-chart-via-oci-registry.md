@@ -308,25 +308,27 @@ artifact lands in GHCR.
 
 #### Tasks
 
-- [ ] Push the feature branch and open the PR (kept in Draft until
-      this phase completes)
-- [ ] Trigger the workflow via `gh workflow run "Chart Release (OCI)"
-      --ref feat/helm-chart-oci-distribution -f dry_run=true`
-- [ ] Confirm `gh run watch` shows: checkout → setup-helm → cosign
+- [x] Push the feature branch and open the PR (kept in Draft until
+      this phase completes) — PR #60
+- [x] Trigger the workflow via `gh workflow run "Chart Release (OCI)"
+      --ref feat/helm-chart-oci-distribution -f dry_run=true` — run 25256853237
+- [x] Confirm `gh run watch` shows: checkout → setup-helm → cosign
       install → git-cliff install → version read → idempotency
       check (no-op, version not yet published) →
       chart CHANGELOG generation → registry login → package →
       `.tgz` artifact upload → **skip** push → **skip** sign
       → summary
-- [ ] Inspect the run summary — `chart_version` should be `0.3.0`,
+- [x] Inspect the run summary — `chart_version` should be `0.3.0`,
       no digest captured, `helm push` and `cosign sign` should
       report "skipped" status
-- [ ] Download the uploaded `.tgz` artifact, `tar tzf` it, confirm
+- [x] Download the uploaded `.tgz` artifact, `tar tzf` it, confirm
       `repo-guardian/CHANGELOG.md` is present and non-empty
-- [ ] Confirm the `slsa-provenance` job is also skipped (because
+- [x] Confirm the `slsa-provenance` job is also skipped (because
       the conditional gate on `published == 'true'` does not fire
       on dry-run)
-- [ ] Address any actionlint or runtime warnings discovered
+- [x] Address any actionlint or runtime warnings discovered (Node.js 20
+      deprecation warning on `azure/setup-helm@v4` is upstream;
+      tracked separately, not blocking)
 
 #### Success Criteria
 

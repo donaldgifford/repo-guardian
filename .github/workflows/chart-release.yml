@@ -1,63 +1,151 @@
 ---
-name: Chart Release
+name: Chart Release (OCI)
 
 on:
-  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - 'charts/**'
+      - '.github/workflows/chart-release.yml'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Package but do not push'
+        type: boolean
+        default: false
 
 permissions:
-  contents: write
+  contents: read
+  packages: write
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io
+  REGISTRY_NAMESPACE: donaldgifford/charts
+  CHART_NAME: repo-guardian
 
 jobs:
-  chart-release:
-    name: Release Chart to GitHub Pages
+  publish:
+    name: Publish chart to GHCR
     runs-on: ubuntu-latest
+    outputs:
+      chart_version: ${{ steps.version.outputs.chart_version }}
+      digest: ${{ steps.push.outputs.digest }}
+      published: ${{ steps.push.outputs.published }}
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: main
           fetch-depth: 0
-          persist-credentials: true
-
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
-
-      - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1
-        with:
-          charts_dir: charts
-          skip_existing: true
-        env:
-          CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  helm-oci-push:
-    name: Push to OCI Registry
-    needs: chart-release
-    if: vars.HELM_OCI_REGISTRY != ''
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v6
 
       - uses: azure/setup-helm@v4
 
-      - uses: aws-actions/configure-aws-credentials@v6
+      - uses: sigstore/cosign-installer@v3
+
+      - uses: orhun/git-cliff-action@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: us-east-1
+          config: charts/repo-guardian/cliff.toml
+          args: --include-path "charts/**" --output charts/repo-guardian/CHANGELOG.md
+        env:
+          OUTPUT: charts/repo-guardian/CHANGELOG.md
 
-      - name: Login to ECR
+      - name: Read chart version
+        id: version
         run: |
-          aws ecr get-login-password | \
-            helm registry login --username AWS --password-stdin "${{ vars.HELM_OCI_REGISTRY }}"
+          chart_version=$(yq '.version' charts/repo-guardian/Chart.yaml)
+          echo "chart_version=${chart_version}" >> "$GITHUB_OUTPUT"
+          echo "Chart version: ${chart_version}"
 
-      - name: Package and push
+      - name: Check if version already published
+        id: idempotency
         run: |
-          helm package charts/repo-guardian
-          helm push repo-guardian-*.tgz "oci://${{ vars.HELM_OCI_REGISTRY }}"
+          if helm pull \
+              "oci://${REGISTRY}/${REGISTRY_NAMESPACE}/${CHART_NAME}" \
+              --version "${{ steps.version.outputs.chart_version }}" \
+              --destination /tmp 2>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Chart ${{ steps.version.outputs.chart_version }} already published, skipping."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Login to GHCR
+        if: steps.idempotency.outputs.exists != 'true'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            helm registry login "${REGISTRY}" \
+              --username "${{ github.actor }}" \
+              --password-stdin
+
+      - name: Package chart
+        if: steps.idempotency.outputs.exists != 'true'
+        run: helm package charts/repo-guardian
+
+      - name: Upload chart artifact
+        if: |
+          steps.idempotency.outputs.exists != 'true' &&
+          github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: chart-${{ steps.version.outputs.chart_version }}
+          path: ${{ env.CHART_NAME }}-${{ steps.version.outputs.chart_version }}.tgz
+          retention-days: 14
+
+      - name: Push chart to GHCR
+        id: push
+        if: |
+          steps.idempotency.outputs.exists != 'true' &&
+          inputs.dry_run != true
+        run: |
+          tgz="${CHART_NAME}-${{ steps.version.outputs.chart_version }}.tgz"
+          helm push "${tgz}" "oci://${REGISTRY}/${REGISTRY_NAMESPACE}" 2>&1 | \
+            tee /tmp/push.log
+          digest=$(grep -oE 'sha256:[a-f0-9]{64}' /tmp/push.log | head -1)
+          if [ -z "${digest}" ]; then
+            echo "ERROR: failed to capture digest from helm push output"
+            exit 1
+          fi
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+          echo "published=true" >> "$GITHUB_OUTPUT"
+
+      - name: Sign chart with cosign
+        if: steps.push.outputs.published == 'true'
+        run: |
+          cosign sign --yes \
+            "${REGISTRY}/${REGISTRY_NAMESPACE}/${CHART_NAME}@${{ steps.push.outputs.digest }}"
+
+      - name: Write run summary
+        if: always()
+        run: |
+          {
+            echo "## Chart Release Summary"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| Chart | \`${CHART_NAME}\` |"
+            echo "| Version | \`${{ steps.version.outputs.chart_version }}\` |"
+            echo "| Already published | \`${{ steps.idempotency.outputs.exists }}\` |"
+            echo "| Pushed | \`${{ steps.push.outputs.published || 'false' }}\` |"
+            if [ -n "${{ steps.push.outputs.digest }}" ]; then
+              ver="${{ steps.version.outputs.chart_version }}"
+              uri="oci://${REGISTRY}/${REGISTRY_NAMESPACE}/${CHART_NAME}:${ver}"
+              echo "| Digest | \`${{ steps.push.outputs.digest }}\` |"
+              echo "| OCI URL | \`${uri}\` |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  slsa-provenance:
+    name: Generate SLSA provenance
+    needs: publish
+    if: needs.publish.outputs.published == 'true'
+    permissions:
+      id-token: write
+      packages: write
+      contents: read
+      actions: read
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
+    with:
+      image: ghcr.io/donaldgifford/charts/repo-guardian
+      digest: ${{ needs.publish.outputs.digest }}
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}

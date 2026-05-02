@@ -201,10 +201,10 @@ bulk of the implementation work. Validation happens in Phase 3.
 
 #### Tasks
 
-- [ ] Rename top-level `name:` from `Chart Release` to
+- [x] Rename top-level `name:` from `Chart Release` to
       `Chart Release (OCI)` so the action history shows a clear
       cutover
-- [ ] Replace `on:` block:
+- [x] Replace `on:` block:
   ```yaml
   on:
     push:
@@ -219,18 +219,18 @@ bulk of the implementation work. Validation happens in Phase 3.
           type: boolean
           default: false
   ```
-- [ ] Replace top-level `permissions:` with:
+- [x] Replace top-level `permissions:` with:
   ```yaml
   permissions:
     contents: read
     packages: write
     id-token: write
   ```
-- [ ] Delete the existing `chart-release` job (chart-releaser-action)
+- [x] Delete the existing `chart-release` job (chart-releaser-action)
       entirely
-- [ ] Delete the existing `helm-oci-push` (ECR fan-out) job entirely;
+- [x] Delete the existing `helm-oci-push` (ECR fan-out) job entirely;
       ECR is documented as a manual recipe (Phase 6), not automated
-- [ ] Create a new `publish` job with steps:
+- [x] Create a new `publish` job with steps:
   1. `actions/checkout@v6` with `fetch-depth: 0` (git-cliff needs
      full history for changelog generation)
   2. `azure/setup-helm@v4`
@@ -264,7 +264,7 @@ bulk of the implementation work. Validation happens in Phase 3.
       "ghcr.io/donaldgifford/charts/repo-guardian@${digest}"`
   14. Print summary to `$GITHUB_STEP_SUMMARY` with the OCI URL,
       version, and digest for easy auditing
-- [ ] Add a `slsa-provenance` job using
+- [x] Add a `slsa-provenance` job using
       `slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml`
       (the container generator handles OCI-style artifacts) with:
   - `needs: publish`
@@ -274,11 +274,13 @@ bulk of the implementation work. Validation happens in Phase 3.
     digest from `needs.publish.outputs.digest`
   - Inherited permissions: `id-token: write`, `packages: write`,
     `contents: read`, `actions: read`
-- [ ] Verify `actions/checkout@v6`, `azure/setup-helm@v4`,
+- [x] Verify `actions/checkout@v6`, `azure/setup-helm@v4`,
       `sigstore/cosign-installer@v3`,
-      `actions/upload-artifact@v4`, and the slsa-github-generator
-      reusable workflow are at the latest stable versions
-- [ ] Run `actionlint` (via mise) on the new workflow file
+      `actions/upload-artifact@v7` (matches repo norm — repo uses
+      `upload-artifact@v7` elsewhere), `orhun/git-cliff-action@v4`,
+      and `slsa-github-generator@v2.0.0` reusable workflow are at
+      stable versions
+- [x] Run `actionlint` (via mise) on the new workflow file
 
 #### Success Criteria
 

@@ -141,11 +141,11 @@ in this phase.
 
 #### Tasks
 
-- [ ] Verify `*.tgz` is in `.gitignore` (already added) and no stray
+- [x] Verify `*.tgz` is in `.gitignore` (already added) and no stray
       packaged charts are tracked
-- [ ] Bump `version` from `0.2.0` to `0.3.0` in
+- [x] Bump `version` from `0.2.0` to `0.3.0` in
       `charts/repo-guardian/Chart.yaml`
-- [ ] Bump `appVersion` from `"1.3.7"` to `"1.4.0"` in
+- [x] Bump `appVersion` from `"1.3.7"` to `"1.4.0"` in
       `charts/repo-guardian/Chart.yaml`
 - [ ] Add `git-cliff` to `mise.toml` (latest stable; check
       <https://github.com/orhun/git-cliff/releases>)

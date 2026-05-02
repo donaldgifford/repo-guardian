@@ -211,6 +211,9 @@ phases are complete:
 8. Setting rules, branch-protection rules, ignore lists, reconcilers
 9. Distributed Renovate via per-repo GitHub Actions
 10. Per-org rule scoping (strict mode) and per-org metric labels
+11. Helm chart distribution via OCI on GHCR with cosign keyless
+    signing and SLSA Level 3 provenance — install via
+    `helm install repo-guardian oci://ghcr.io/donaldgifford/charts/repo-guardian --version <v>`
 
 ### Rule Types
 

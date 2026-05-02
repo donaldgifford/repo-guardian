@@ -4,30 +4,23 @@
 
 ## Installation
 
-```bash
-helm repo add repo-guardian https://donaldgifford.github.io/repo-guardian
-helm repo update
-helm install repo-guardian repo-guardian/repo-guardian \
-  --namespace platform-tools \
-  --create-namespace \
-  -f values-prod.yaml
-```
-
-### From OCI Registry
+The chart is published as an OCI artifact at
+`oci://ghcr.io/donaldgifford/charts/repo-guardian` (public, signed
+with cosign keyless, SLSA Level 3 provenance).
 
 ```bash
 helm install repo-guardian \
-  oci://YOUR_REGISTRY/helm-charts/repo-guardian \
+  oci://ghcr.io/donaldgifford/charts/repo-guardian \
   --version {{ template "chart.version" . }} \
-  --namespace platform-tools \
+  --namespace repo-guardian \
   --create-namespace \
-  -f values-prod.yaml
+  -f values.yaml
 ```
 
 ## Prerequisites
 
 - Kubernetes 1.28+
-- Helm 3.14+
+- Helm 3.14+ (OCI support)
 - A registered [GitHub App](https://docs.github.com/en/apps/creating-github-apps) with:
   - **Permissions:** Contents (Read & Write), Pull Requests (Read & Write), Metadata (Read)
   - **Events:** `repository`, `installation_repositories`, `installation`
@@ -52,47 +45,93 @@ secrets:
 2. Install the chart:
 
 ```bash
-helm install repo-guardian repo-guardian/repo-guardian \
-  --namespace platform-tools \
+helm install repo-guardian \
+  oci://ghcr.io/donaldgifford/charts/repo-guardian \
+  --version {{ template "chart.version" . }} \
+  --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
 ```
 
 3. Once verified, set `config.dryRun: false` to enable live mode.
 
-## Releasing
+## Verifying the chart
 
-### GitHub Pages (default)
+Every published version is signed with cosign (Sigstore keyless) via
+the workflow's OIDC identity, plus a SLSA Level 3 provenance
+attestation. Both can be verified offline against the public Sigstore
+transparency log.
 
-Charts are published to GitHub Pages via the `chart-release` workflow (`.github/workflows/chart-release.yml`). This is a manual trigger (`workflow_dispatch`):
-
-1. Bump `version` in `Chart.yaml` (and `appVersion` if the app changed).
-2. Merge to `main`.
-3. Run the **Chart Release** workflow from the Actions tab.
-4. The workflow uses [chart-releaser-action](https://github.com/helm/chart-releaser-action) to package the chart, create a GitHub release, and update the `gh-pages` branch with `index.yaml`.
-
-**First-time setup:** Enable GitHub Pages in repo settings (Settings → Pages → Source: `gh-pages` branch). The `gh-pages` branch is created automatically on the first release.
-
-### OCI Registry (optional)
-
-The chart-release workflow includes an optional job that pushes the chart to an OCI-compliant registry (e.g., Amazon ECR). To enable it:
-
-1. Set the `HELM_OCI_REGISTRY` repository **variable** (e.g., `123456789012.dkr.ecr.us-east-1.amazonaws.com/helm-charts`).
-2. Set the `AWS_ROLE_ARN` repository **secret** for OIDC authentication.
-3. Create the ECR repository:
-   ```bash
-   aws ecr create-repository \
-     --repository-name helm-charts/repo-guardian \
-     --region us-east-1
-   ```
-
-The OCI push job is skipped when `HELM_OCI_REGISTRY` is not set.
-
-**Local push:**
+### Cosign signature
 
 ```bash
-make helm-push HELM_REGISTRY=123456789012.dkr.ecr.us-east-1.amazonaws.com/helm-charts
+cosign verify \
+  --certificate-identity-regexp \
+    '^https://github.com/donaldgifford/repo-guardian/.+' \
+  --certificate-oidc-issuer \
+    'https://token.actions.githubusercontent.com' \
+  ghcr.io/donaldgifford/charts/repo-guardian:{{ template "chart.version" . }}
 ```
+
+### SLSA provenance
+
+```bash
+cosign verify-attestation --type slsaprovenance \
+  --certificate-identity-regexp \
+    '^https://github.com/slsa-framework/slsa-github-generator/.+' \
+  --certificate-oidc-issuer \
+    'https://token.actions.githubusercontent.com' \
+  ghcr.io/donaldgifford/charts/repo-guardian:{{ template "chart.version" . }}
+```
+
+The provenance attestation records the build workflow path, source
+commit SHA, and builder image — useful for downstream policy
+enforcement.
+
+## Releasing
+
+### OCI publish to GHCR (default)
+
+The chart publishes to `oci://ghcr.io/donaldgifford/charts/repo-guardian`
+on every push to `main` that touches `charts/**`. The
+`Chart Release (OCI)` workflow:
+
+1. Reads `version` from `Chart.yaml`
+2. Skips if that version already exists in the registry (idempotent)
+3. Regenerates `CHANGELOG.md` via git-cliff filtered to
+   `charts/**` so the published `.tgz` ships with a current changelog
+4. Packages, pushes, signs with cosign keyless, and produces a SLSA
+   provenance attestation
+
+To cut a chart release: bump `version` (and optionally `appVersion`)
+in `charts/repo-guardian/Chart.yaml`, merge to `main`, and the
+workflow handles the rest.
+
+For a manual smoke test on a feature branch, use
+`workflow_dispatch` with `dry_run: true` — the job packages and
+uploads the `.tgz` as a run artifact but skips the push and signing
+steps.
+
+### Yanking a chart version
+
+**Don't delete-and-resurrect.** The publish workflow's idempotency
+check is keyed on "tag exists in registry," not "tag has ever
+existed," so manually deleting a version from GHCR will silently
+re-publish on the next merge to `main`.
+
+If a published version has a critical bug, **roll forward**: bump the
+chart version (e.g., `0.3.0` → `0.3.1`) and republish a fixed chart.
+Consumers who pinned to the broken version stay broken until they
+upgrade — same model as the rest of the project (binary releases,
+deployments).
+
+### Publishing to ECR (alternative recipe)
+
+The default workflow publishes only to GHCR. If you need ECR (or
+another OCI registry) instead, see
+[`docs/publishing-to-ecr.md`](docs/publishing-to-ecr.md) for a
+manual / third-party-CI recipe. ECR fan-out is not wired into this
+repo's CI.
 
 {{ template "chart.valuesSection" . }}
 

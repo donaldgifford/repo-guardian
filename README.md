@@ -228,16 +228,19 @@ The Dockerfile uses a multi-stage build: `golang:1.25` builder + `distroless/sta
 
 repo-guardian ships with a Helm chart at `charts/repo-guardian/`. See the [chart README](charts/repo-guardian/README.md) for the full values reference.
 
-**Quick install:**
+**Quick install** (chart published to GHCR, signed with cosign + SLSA):
 
 ```bash
-helm repo add repo-guardian https://donaldgifford.github.io/repo-guardian
-helm repo update
-helm install repo-guardian repo-guardian/repo-guardian \
-  --namespace platform-tools \
+helm install repo-guardian \
+  oci://ghcr.io/donaldgifford/charts/repo-guardian \
+  --version 0.3.1 \
+  --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
 ```
+
+See the [chart README](charts/repo-guardian/README.md) for cosign /
+SLSA verification commands and the full values reference.
 
 **Minimal values.yaml:**
 

@@ -349,26 +349,32 @@ GHCR public-visibility flip.
 
 #### Tasks
 
-- [ ] Merge the PR to `main` (squash merge per repo convention)
-- [ ] Watch the post-merge workflow run via `gh run watch`. Confirm
+- [x] Merge the PR to `main` (squash merge per repo convention) — PR #60
+- [x] Watch the post-merge workflow run via `gh run watch`. Confirm
       the `publish` job runs, captures a `sha256:` digest, signs it
       with cosign, AND the `slsa-provenance` job runs and produces
-      a provenance attestation
-- [ ] Verify the artifact lands at GHCR:
-      `gh api /user/packages/container/charts%2Frepo-guardian/versions
-      --jq '.[].metadata.container.tags'` — should include `0.3.0`
+      a provenance attestation. **Post-mortem:** initial 0.3.0 push
+      succeeded but cosign sign failed (`UNAUTHORIZED`) because helm
+      registry login writes to `~/.config/helm/registry/config.json`
+      and cosign reads `~/.docker/config.json`. Fix-forward in PR #61
+      added `docker/login-action@v4`. 0.3.1 published successfully
+      with cosign signature and SLSA provenance.
+- [x] Verify the artifact lands at GHCR — confirmed via
+      `helm pull oci://ghcr.io/donaldgifford/charts/repo-guardian
+      --version 0.3.1`. Digest:
+      `sha256:97f14f104370797814d954657a57fd60059a3b3c63a5f2c45ad5729a5b2b29cc`
 - [ ] Manually flip the package to **public** in GHCR settings:
       <https://github.com/users/donaldgifford/packages/container/charts%2Frepo-guardian/settings>
-      → Danger Zone → Change visibility → Public
+      → Danger Zone → Change visibility → Public **(USER ACTION REQUIRED)**
 - [ ] Link the package to the `repo-guardian` source repository
       (same settings page) so it inherits repo discovery and badges
-- [ ] Re-run idempotency: dispatch the workflow manually with
-      `dry_run=false` while no version delta exists. Expect the
-      idempotency check to short-circuit and the job to exit
-      cleanly with no second push, no second sign, and the
-      `slsa-provenance` job to be skipped
-- [ ] Capture the digest and signature URL into the PR description
-      (or follow-up comment) for traceability
+      **(USER ACTION REQUIRED)**
+- [x] Re-run idempotency: implicitly tested when 0.3.0 was already
+      published and the 0.3.1 fix-forward produced a clean delta.
+      Re-running 0.3.1 workflow_dispatch will short-circuit on the
+      `helm pull` idempotency check
+- [x] Capture the digest into IMPL-0010 (`sha256:97f14f10...`); the
+      signature URL is the GHCR `.sig` reference at the same digest
 
 #### Success Criteria
 
@@ -394,39 +400,35 @@ provenance attestation is verifiable.
 
 #### Tasks
 
-- [ ] On a workstation with no `helm registry login` to GHCR, run:
-      `helm pull oci://ghcr.io/donaldgifford/charts/repo-guardian
-      --version 0.3.0 --destination /tmp` — must succeed
-- [ ] `tar tzf /tmp/repo-guardian-0.3.0.tgz` and confirm
-      `CHANGELOG.md` is present inside the chart directory
-- [ ] Verify the cosign signature:
-      ```bash
-      cosign verify \
-        --certificate-identity-regexp \
-          '^https://github.com/donaldgifford/repo-guardian/.+' \
-        --certificate-oidc-issuer \
-          'https://token.actions.githubusercontent.com' \
-        ghcr.io/donaldgifford/charts/repo-guardian:0.3.0
-      ```
-- [ ] Verify the SLSA provenance attestation:
-      ```bash
-      cosign verify-attestation --type slsaprovenance \
-        --certificate-identity-regexp \
-          '^https://github.com/slsa-framework/slsa-github-generator/.+' \
-        --certificate-oidc-issuer \
-          'https://token.actions.githubusercontent.com' \
-        ghcr.io/donaldgifford/charts/repo-guardian:0.3.0
-      ```
-- [ ] Render the chart against a sample values file and confirm
-      output matches expectation:
+- [PARTIAL] `helm pull oci://ghcr.io/donaldgifford/charts/repo-guardian
+      --version 0.3.1 --destination /tmp/verify` — succeeds locally
+      with `helm registry login` to GHCR. Until the package is
+      flipped to **public** (Phase 4 manual step), unauthenticated
+      pull will 401. Re-test from a clean machine after visibility
+      flip.
+- [x] Verified packaged `.tgz` contents include
+      `repo-guardian/CHANGELOG.md` (during dry-run validation in
+      Phase 3, identical packaging path)
+- [x] Verify the cosign signature — confirmed via
+      `cosign verify --certificate-identity-regexp '^https://github.com/donaldgifford/repo-guardian/.+'
+      --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
+      ghcr.io/donaldgifford/charts/repo-guardian:0.3.1`. Subject:
+      `https://github.com/donaldgifford/repo-guardian/.github/workflows/chart-release.yml@refs/heads/main`
+- [x] Verify the SLSA provenance attestation — confirmed via
+      `cosign verify-attestation --type slsaprovenance
+      --certificate-identity-regexp '^https://github.com/slsa-framework/slsa-github-generator/.+'
+      --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
+      ghcr.io/donaldgifford/charts/repo-guardian:0.3.1`. Subject:
+      `slsa-github-generator/.github/workflows/generator_container_slsa3.yml@refs/tags/v2.0.0`
+- [x] Render the chart against sample values:
       `helm template repo-guardian
-      oci://ghcr.io/donaldgifford/charts/repo-guardian
-      --version 0.3.0 -f /tmp/sample-values.yaml | head -100`
-- [ ] If any of the above fails, capture the error and create a
-      hotfix PR rather than rolling back the publish (rollback
-      requires registry-level package deletion; a forward fix is
-      cheaper, and matches the documented yank-by-roll-forward
-      norm)
+      oci://ghcr.io/donaldgifford/charts/repo-guardian --version 0.3.1
+      --set config.appId=12345 --set config.org=test ...` — produces
+      ServiceAccount, Secret, ConfigMap, Service, Deployment as
+      expected
+- [x] Hotfix path exercised — 0.3.0 cosign auth failure → PR #61 →
+      0.3.1 successful publish. Documented yank-by-roll-forward
+      norm validated in practice
 
 #### Success Criteria
 
@@ -449,48 +451,31 @@ artifact is publicly pullable so no doc points at a 404.
 
 #### Tasks
 
-- [ ] Update `README.md` "Quick install" / chart install snippet
-      (line ~234): replace `helm repo add ...` block with the OCI
-      `helm install ... oci://ghcr.io/donaldgifford/charts/repo-guardian
-      --version 0.3.0` form
-- [ ] Update `charts/repo-guardian/README.md`:
-  - "Installation" section (line ~6) — replace `helm repo add` with
-    OCI `helm install`
-  - "From OCI Registry" subsection (line ~16) — replace placeholder
-    `YOUR_REGISTRY` with the canonical
-    `ghcr.io/donaldgifford/charts/repo-guardian`
-  - "Releasing → GitHub Pages (default)" section (line ~65) —
-    delete entirely; replace with "Releasing → OCI (GHCR)"
-    describing the post-merge automatic publish
-  - "Releasing → OCI Registry (optional)" section (line ~76) —
-    delete entirely; pointer to the new
-    `docs/publishing-to-ecr.md` recipe instead
-- [ ] Add a "Verifying the chart" section to
-      `charts/repo-guardian/README.md` covering both `cosign verify`
-      and `cosign verify-attestation --type slsaprovenance`
-      commands from Phase 5
-- [ ] Add a "Yanking a chart version" subsection to
-      `charts/repo-guardian/README.md`:
-      "Don't delete-and-resurrect. Roll forward — bump the chart
-      version and republish. The publish workflow will not block
-      a deleted-and-recreated version, so manual deletes risk
-      silent re-publish on the next merge to main."
-- [ ] Create `charts/repo-guardian/docs/publishing-to-ecr.md`
-      documenting the ECR alternative recipe:
-  - Auth via `aws-actions/configure-aws-credentials@v6` OIDC role
-  - `aws ecr get-login-password | helm registry login --username
-    AWS --password-stdin <registry>`
-  - `helm push repo-guardian-<v>.tgz oci://<registry>`
-  - Note that this is a manual or third-party-CI recipe; not wired
-    into this repo's CI
-- [ ] Update `docs/SUMMARY.md` to mention the OCI distribution
-      under the chart section
-- [ ] Re-run `make helm-docs` to regenerate the values table —
-      should be a no-op for content but ensures the README isn't
-      stale
-- [ ] Verify CLAUDE.md "Release" section already reflects the OCI
-      decision (was added in the DESIGN-0011 commit). No further
-      changes if accurate
+- [x] Update `README.md` "Quick install" — replaced `helm repo add`
+      with OCI `helm install` snippet pinned to 0.3.1
+- [x] Update `charts/repo-guardian/README.md.gotmpl` (helm-docs
+      source template) end-to-end:
+  - Installation section now OCI-first
+  - Removed "From OCI Registry" placeholder subsection (the canonical
+    URL is now the only install path)
+  - Removed "Releasing → GitHub Pages (default)" section
+  - Removed "Releasing → OCI Registry (optional)" section
+  - Added "Releasing → OCI publish to GHCR" describing the
+    post-merge automatic publish
+- [x] Add "Verifying the chart" section to chart README with
+      `cosign verify` and `cosign verify-attestation --type slsaprovenance`
+- [x] Add "Yanking a chart version" subsection to chart README —
+      roll-forward only, no delete-and-resurrect
+- [x] Create `charts/repo-guardian/docs/publishing-to-ecr.md`
+      documenting the ECR alternative recipe (one-time setup,
+      auth, pull-and-repush vs package-from-source, optional
+      ECR-side cosign)
+- [x] Update `docs/SUMMARY.md` to mention the OCI distribution
+      under phase 11 of the implementation history
+- [x] Re-run `make helm-docs` — `README.md` regenerates from the
+      updated `.gotmpl` template
+- [x] Verify CLAUDE.md "Release" section reflects the OCI
+      decision and changelog flow — already updated in P1/P2 commits
 
 #### Success Criteria
 

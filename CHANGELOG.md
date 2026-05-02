@@ -5,15 +5,9 @@ based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
 ## [unreleased]
 
-### Documentation
+### Features
 
-- *(design)* DESIGN-0011 publish Helm chart via OCI registry
-- *(design)* Resolve DESIGN-0011 open questions, mark Approved
-- *(impl)* IMPL-0010 publish Helm chart via OCI registry
-
-### Miscellaneous Tasks
-
-- *(chart)* Bump chart 0.3.0 / appVersion 1.4.0 (IMPL-0010 P1.1-3)
+- *(chart)* Publish to OCI registry with cosign + SLSA (DESIGN-0011 / IMPL-0010) ([#60](https://github.com/donaldgifford/repo-guardian/issues/60))
 
 ## [1.4.0] - 2026-04-26
 

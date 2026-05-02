@@ -4,9 +4,9 @@ Changes to the `repo-guardian` Helm chart only. For application-level
 changes, see the root [CHANGELOG.md](../../CHANGELOG.md).
 ## [unreleased]
 
-### Miscellaneous Tasks
+### Features
 
-- *(chart)* Bump chart 0.3.0 / appVersion 1.4.0 (IMPL-0010 P1.1-3)
+- *(chart)* Publish to OCI registry with cosign + SLSA (DESIGN-0011 / IMPL-0010) ([#60](https://github.com/donaldgifford/repo-guardian/issues/60))
 
 ## [1.3.8] - 2026-03-16
 

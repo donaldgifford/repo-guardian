@@ -13,6 +13,15 @@ created: 2026-03-14
 **Author:** Donald Gifford
 **Date:** 2026-03-14
 
+> **Distribution superseded by [DESIGN-0011](0011-publish-helm-chart-via-oci-registry.md)**
+> The chart-releaser → `gh-pages` distribution model documented below
+> was never run in production. `gh-pages` is now used for the mkdocs
+> site (PR #51, #52). The chart is published to
+> `oci://ghcr.io/donaldgifford/charts/repo-guardian` with cosign
+> keyless signing and SLSA provenance per DESIGN-0011 / IMPL-0010.
+> Sections referring to chart-releaser, GitHub Pages distribution,
+> and the optional ECR fan-out remain for historical context only.
+
 ## Overview
 
 Replace the existing Kustomize-based deployment (`deploy/base/` + overlays) with

@@ -147,34 +147,36 @@ in this phase.
       `charts/repo-guardian/Chart.yaml`
 - [x] Bump `appVersion` from `"1.3.7"` to `"1.4.0"` in
       `charts/repo-guardian/Chart.yaml`
-- [ ] Add `git-cliff` to `mise.toml` (latest stable; check
+- [x] Add `git-cliff` to `mise.toml` (latest stable; check
       <https://github.com/orhun/git-cliff/releases>)
-- [ ] Run `mise install` to fetch git-cliff
-- [ ] Create `cliff.toml` at repo root with conventional-commit
+- [x] Run `mise install` to fetch git-cliff
+- [x] Create `cliff.toml` at repo root with conventional-commit
       grouping (feat / fix / chore / docs / refactor / test /
       ci / build / perf), GitHub commit URL template, and a
       preamble pointing at the project
-- [ ] Create `charts/repo-guardian/cliff.toml` based on the root
+- [x] Create `charts/repo-guardian/cliff.toml` based on the root
       config but with chart-specific preamble. The
       `--include-path 'charts/**'` filter is applied at invocation
       time, not in config (cliff's `include_path` config option is
       also valid; pick whichever yields cleaner workflow lines)
-- [ ] Generate initial root `CHANGELOG.md`:
+- [x] Generate initial root `CHANGELOG.md`:
       `git-cliff --config cliff.toml --output CHANGELOG.md`
-- [ ] Generate initial `charts/repo-guardian/CHANGELOG.md`:
+- [x] Generate initial `charts/repo-guardian/CHANGELOG.md`:
       `git-cliff --config charts/repo-guardian/cliff.toml
       --include-path 'charts/**' --output
       charts/repo-guardian/CHANGELOG.md`
-- [ ] Run `make helm-docs` to regenerate
+- [x] Run `make helm-docs` to regenerate
       `charts/repo-guardian/README.md` so the rendered version table
       reflects `0.3.0`
-- [ ] Run `make helm-lint` and `helm-unittest` — confirm no template
+- [x] Run `make helm-lint` and `helm-unittest` — confirm no template
       breakage from the version bump or new CHANGELOG file
-- [ ] Run `helm package charts/repo-guardian` locally, verify the
+- [x] Run `helm package charts/repo-guardian` locally, verify the
       output is `repo-guardian-0.3.0.tgz`, then `tar tzf` it to
       confirm `CHANGELOG.md` is included inside the chart, then
       delete the `.tgz` (it's gitignored but visible in
       `git status`)
+- [x] Add `cliff.toml` to `charts/repo-guardian/.helmignore` so the
+      build-time changelog config is not packaged into the `.tgz`
 
 #### Success Criteria
 

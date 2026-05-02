@@ -18,7 +18,7 @@ helm install repo-guardian repo-guardian/repo-guardian \
 ```bash
 helm install repo-guardian \
   oci://YOUR_REGISTRY/helm-charts/repo-guardian \
-  --version 0.2.0 \
+  --version 0.3.0 \
   --namespace platform-tools \
   --create-namespace \
   -f values-prod.yaml

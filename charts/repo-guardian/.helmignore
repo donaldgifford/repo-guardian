@@ -19,3 +19,4 @@
 tests/
 ci/
 README.md.gotmpl
+cliff.toml

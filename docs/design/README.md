@@ -44,4 +44,5 @@ docz create design "Your Design Title"
 | DESIGN-0010 | Per-org rule scoping and observability | Implemented | 2026-04-25 | Donald Gifford | [0010-per-org-rule-scoping-and-observability.md](0010-per-org-rule-scoping-and-observability.md) |
 | DESIGN-0011 | Publish Helm chart via OCI registry | Implemented | 2026-05-02 | Donald Gifford | [0011-publish-helm-chart-via-oci-registry.md](0011-publish-helm-chart-via-oci-registry.md) |
 | DESIGN-0012 | Persistent reconcile state and multi-replica coordination | Draft | 2026-05-02 | Donald Gifford | [0012-persistent-reconcile-state-and-multi-replica-coordination.md](0012-persistent-reconcile-state-and-multi-replica-coordination.md) |
+| DESIGN-0013 | Customizable PR templates and extensible template ConfigMap | Draft | 2026-05-03 | Donald Gifford | [0013-customizable-pr-templates-and-extensible-template-configmap.md](0013-customizable-pr-templates-and-extensible-template-configmap.md) |
 <!-- END DOCZ AUTO-GENERATED -->

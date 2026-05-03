@@ -120,9 +120,7 @@ GoReleaser builds for linux/darwin on amd64/arm64 (CGO disabled). Releases are G
 
 **`DRY_RUN` precedence at runtime:** env var (set on the Deployment) overrides any `dry_run` from HCL or built-in defaults via `applyEnvOverrides` running last in `Load()`. A kustomize patch or Helm values setting `DRY_RUN=true` will silently keep the engine in dry-run regardless of the policy file. Always check `kubectl get deploy ... -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="DRY_RUN")]}'` first when the binary appears to be reading the wrong policy state.
 
-## Known Issues
-
-- **Pre-existing-branch 422 on subsequent reconciles** (open, found 2026-05-02 during homelab smoke test of chart 0.3.2). When a repo has an open PR from a prior reconcile, the next reconcile against the same repo fails: engine sees the file missing on the default branch, tries to PUT-create it on `repo-guardian/add-missing-files`, GitHub returns `422 Invalid request "sha" wasn't supplied` because the file already exists on the branch. The engine's file-creation path needs to detect the pre-existing branch + file, GET the sha first, and either UPDATE (with sha) or skip if already correct. Workaround: merge open repo-guardian PRs quickly, or `gh api -X DELETE repos/<owner>/<repo>/git/refs/heads/repo-guardian/add-missing-files` between runs. Worth its own INV/IMPL.
+**Idempotent file commits on the reconcile branch (INV-0003, appVersion 1.4.1):** `internal/github/client.go.CreateOrUpdateFile` does GET-on-target-branch first, then either skips (identical content), updates with the existing blob `sha` (different content), or creates fresh (file missing). Before this fix the wrapper called `Repositories.CreateFile` unconditionally, so a second reconcile against a repo with an open `repo-guardian/add-missing-files` branch would 422 with "sha wasn't supplied." If you ever rename or rewrite this function, preserve the three-branch behavior — the package-level `GetContents(ctx, owner, repo, path)` helper is *default-branch-only* and will not protect you against the same bug if you swap to it.
 
 ## Rules
 

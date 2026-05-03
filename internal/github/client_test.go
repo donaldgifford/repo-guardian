@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -244,6 +245,193 @@ func TestCreatePullRequest(t *testing.T) {
 
 	if receivedBase != "main" {
 		t.Errorf("expected base 'main', got %q", receivedBase)
+	}
+}
+
+func TestCreateOrUpdateFile_FileMissing_Creates(t *testing.T) {
+	t.Parallel()
+
+	var (
+		createCalled bool
+		createBody   gh.RepositoryContentFileOptions
+	)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(
+		"GET /api/v3/repos/owner/repo/contents/CODEOWNERS",
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		},
+	)
+	mux.HandleFunc(
+		"PUT /api/v3/repos/owner/repo/contents/CODEOWNERS",
+		func(w http.ResponseWriter, r *http.Request) {
+			createCalled = true
+
+			if err := json.NewDecoder(r.Body).Decode(&createBody); err != nil {
+				t.Errorf("decoding request: %v", err)
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+
+			if err := json.NewEncoder(w).Encode(&gh.RepositoryContentResponse{}); err != nil {
+				t.Errorf("encoding response: %v", err)
+			}
+		},
+	)
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	err := client.CreateOrUpdateFile(
+		context.Background(),
+		"owner", "repo", "repo-guardian/add-missing-files", "CODEOWNERS",
+		"* @platform-team", "chore: add CODEOWNERS",
+	)
+	if err != nil {
+		t.Fatalf("CreateOrUpdateFile: %v", err)
+	}
+
+	if !createCalled {
+		t.Fatal("expected create PUT to fire when file is missing")
+	}
+
+	if createBody.SHA != nil {
+		t.Errorf("expected no sha on create, got %q", *createBody.SHA)
+	}
+
+	if string(createBody.Content) != "* @platform-team" {
+		t.Errorf("expected content forwarded to create, got %q", string(createBody.Content))
+	}
+}
+
+func TestCreateOrUpdateFile_FileExistsIdentical_Skips(t *testing.T) {
+	t.Parallel()
+
+	var putCalled bool
+
+	content := "* @platform-team"
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(
+		"GET /api/v3/repos/owner/repo/contents/CODEOWNERS",
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+
+			resp := &gh.RepositoryContent{
+				Name:     gh.Ptr("CODEOWNERS"),
+				Path:     gh.Ptr("CODEOWNERS"),
+				Type:     gh.Ptr("file"),
+				SHA:      gh.Ptr("abc123"),
+				Encoding: gh.Ptr("base64"),
+				Content:  gh.Ptr(base64.StdEncoding.EncodeToString([]byte(content))),
+			}
+
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				t.Errorf("encoding response: %v", err)
+			}
+		},
+	)
+	mux.HandleFunc(
+		"PUT /api/v3/repos/owner/repo/contents/CODEOWNERS",
+		func(w http.ResponseWriter, _ *http.Request) {
+			putCalled = true
+
+			w.WriteHeader(http.StatusOK)
+		},
+	)
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	err := client.CreateOrUpdateFile(
+		context.Background(),
+		"owner", "repo", "repo-guardian/add-missing-files", "CODEOWNERS",
+		content, "chore: add CODEOWNERS",
+	)
+	if err != nil {
+		t.Fatalf("CreateOrUpdateFile: %v", err)
+	}
+
+	if putCalled {
+		t.Error("expected no PUT when content matches existing file")
+	}
+}
+
+func TestCreateOrUpdateFile_FileExistsDifferent_Updates(t *testing.T) {
+	t.Parallel()
+
+	var (
+		putCalled bool
+		putBody   gh.RepositoryContentFileOptions
+	)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(
+		"GET /api/v3/repos/owner/repo/contents/CODEOWNERS",
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+
+			resp := &gh.RepositoryContent{
+				Name:     gh.Ptr("CODEOWNERS"),
+				Path:     gh.Ptr("CODEOWNERS"),
+				Type:     gh.Ptr("file"),
+				SHA:      gh.Ptr("oldsha456"),
+				Encoding: gh.Ptr("base64"),
+				Content:  gh.Ptr(base64.StdEncoding.EncodeToString([]byte("* @old-team"))),
+			}
+
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				t.Errorf("encoding response: %v", err)
+			}
+		},
+	)
+	mux.HandleFunc(
+		"PUT /api/v3/repos/owner/repo/contents/CODEOWNERS",
+		func(w http.ResponseWriter, r *http.Request) {
+			putCalled = true
+
+			if err := json.NewDecoder(r.Body).Decode(&putBody); err != nil {
+				t.Errorf("decoding request: %v", err)
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+
+			if err := json.NewEncoder(w).Encode(&gh.RepositoryContentResponse{}); err != nil {
+				t.Errorf("encoding response: %v", err)
+			}
+		},
+	)
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	err := client.CreateOrUpdateFile(
+		context.Background(),
+		"owner", "repo", "repo-guardian/add-missing-files", "CODEOWNERS",
+		"* @new-team", "chore: update CODEOWNERS",
+	)
+	if err != nil {
+		t.Fatalf("CreateOrUpdateFile: %v", err)
+	}
+
+	if !putCalled {
+		t.Fatal("expected PUT to fire when content differs from existing file")
+	}
+
+	if putBody.SHA == nil || *putBody.SHA != "oldsha456" {
+		got := "<nil>"
+		if putBody.SHA != nil {
+			got = *putBody.SHA
+		}
+
+		t.Errorf("expected sha 'oldsha456' on update, got %q", got)
+	}
+
+	if string(putBody.Content) != "* @new-team" {
+		t.Errorf("expected new content on update, got %q", string(putBody.Content))
 	}
 }
 

@@ -32,6 +32,7 @@ nav:
         - Overview: investigation/README.md
         - 'INV-0001: Tailscale Funnel for Webhook Testing': investigation/0001-tailscale-funnel-for-webhook-testing.md
         - 'INV-0002: Multi-org and Forgejo support for repo-guardian': investigation/0002-multi-org-and-forgejo-support-for-repo-guardian.md
+        - 'INV-0003: Pre-existing branch 422 on subsequent reconciles': investigation/0003-pre-existing-branch-422-on-subsequent-reconciles.md
     - Legacy:
         - Custom Properties Implementation Plan: legacy/custom_properties_implementation.md
         - 'Feature Plan: Custom Properties from Backstage catalog-info.yaml': legacy/custom_properties.md

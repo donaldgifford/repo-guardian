@@ -182,18 +182,49 @@ func (c *GitHubClient) DeleteBranch(ctx context.Context, owner, repo, branch str
 }
 
 // CreateOrUpdateFile creates or updates a file on the given branch.
+//
+// If the file already exists on the branch with identical content, it is a
+// no-op. If it exists with different content, the existing blob sha is
+// forwarded so GitHub treats the call as an update rather than a create
+// (which would otherwise return 422 "sha wasn't supplied").
 func (c *GitHubClient) CreateOrUpdateFile(
 	ctx context.Context,
 	owner, repo, branch, path, content, message string,
 ) error {
+	existing, _, resp, err := c.ghClient().Repositories.GetContents(
+		ctx, owner, repo, path,
+		&gh.RepositoryContentGetOptions{Ref: branch},
+	)
+	if err != nil && (resp == nil || resp.StatusCode != http.StatusNotFound) {
+		return fmt.Errorf("checking file %s on %s in %s/%s: %w", path, branch, owner, repo, err)
+	}
+
 	opts := &gh.RepositoryContentFileOptions{
 		Message: gh.Ptr(message),
 		Content: []byte(content),
 		Branch:  gh.Ptr(branch),
 	}
 
-	_, _, err := c.ghClient().Repositories.CreateFile(ctx, owner, repo, path, opts)
-	if err != nil {
+	if existing != nil {
+		decoded, decodeErr := existing.GetContent()
+		if decodeErr != nil {
+			return fmt.Errorf("decoding existing %s on %s in %s/%s: %w", path, branch, owner, repo, decodeErr)
+		}
+
+		if decoded == content {
+			return nil
+		}
+
+		opts.SHA = existing.SHA
+
+		if _, _, err := c.ghClient().Repositories.UpdateFile(ctx, owner, repo, path, opts); err != nil {
+			return fmt.Errorf("updating file %s on %s in %s/%s: %w", path, branch, owner, repo, err)
+		}
+
+		return nil
+	}
+
+	if _, _, err := c.ghClient().Repositories.CreateFile(ctx, owner, repo, path, opts); err != nil {
 		return fmt.Errorf("creating file %s in %s/%s: %w", path, owner, repo, err)
 	}
 

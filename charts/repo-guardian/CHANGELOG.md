@@ -8,6 +8,14 @@ changes, see the root [CHANGELOG.md](../../CHANGELOG.md).
 
 - *(chart)* Publish to OCI registry with cosign + SLSA (DESIGN-0011 / IMPL-0010) ([#60](https://github.com/donaldgifford/repo-guardian/issues/60))
 
+### Bug Fixes
+
+- *(chart)* Authenticate cosign to GHCR via docker login (post-mortem 0.3.0) ([#61](https://github.com/donaldgifford/repo-guardian/issues/61))
+
+### Documentation
+
+- *(chart)* Refresh install + verify + yank docs (IMPL-0010 P6) ([#62](https://github.com/donaldgifford/repo-guardian/issues/62))
+
 ## [1.3.8] - 2026-03-16
 
 ### Bug Fixes

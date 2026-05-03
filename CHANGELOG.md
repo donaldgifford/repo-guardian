@@ -9,6 +9,21 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 - *(chart)* Publish to OCI registry with cosign + SLSA (DESIGN-0011 / IMPL-0010) ([#60](https://github.com/donaldgifford/repo-guardian/issues/60))
 
+### Bug Fixes
+
+- *(chart)* Authenticate cosign to GHCR via docker login (post-mortem 0.3.0) ([#61](https://github.com/donaldgifford/repo-guardian/issues/61))
+
+### Documentation
+
+- *(chart)* Refresh install + verify + yank docs (IMPL-0010 P6) ([#62](https://github.com/donaldgifford/repo-guardian/issues/62))
+- *(impl)* Mark IMPL-0010 In Progress with phase summary ([#64](https://github.com/donaldgifford/repo-guardian/issues/64))
+- *(impl)* IMPL-0010 Phase 4 complete — GHCR public verified ([#65](https://github.com/donaldgifford/repo-guardian/issues/65))
+- IMPL-0010 retrospective + DESIGN-0011 Implemented ([#66](https://github.com/donaldgifford/repo-guardian/issues/66))
+
+### Miscellaneous Tasks
+
+- *(tooling)* Remove helm-cr leftovers (IMPL-0010 P9) ([#63](https://github.com/donaldgifford/repo-guardian/issues/63))
+
 ## [1.4.0] - 2026-04-26
 
 ### Bug Fixes

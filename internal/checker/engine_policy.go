@@ -540,6 +540,19 @@ func (e *Engine) createOrUpdatePRFromPolicy(
 		log.Info("created branch", "branch", BranchName)
 	}
 
+	// WARN: This loop syncs file content to the reconcile branch but does not
+	//   re-base the branch onto the current default-branch HEAD. If the PR sits
+	//   open while default advances, the branch's base SHA goes stale. Two
+	//   risks if auto-merge is enabled on the repo-guardian PR:
+	//   (1) base drift — usually safe (diff is "add this file") but loses
+	//       linear-history aesthetic; (2) content drift — if someone manually
+	//       writes a different version of the file to default in the gap, the
+	//       file rule's existence check stops flagging it, this loop no-ops,
+	//       and a squash-merge of the stale branch overwrites the manual
+	//       edit. Mitigations to consider: rebase the branch onto current
+	//       default before reconcile, close+reopen PRs older than N days,
+	//       or recommend operators don't enable auto-merge on
+	//       repo-guardian/* branches. See conversation in PR #71.
 	for i := range actionable {
 		r := &actionable[i]
 

@@ -257,6 +257,26 @@ Not included: `now`, `regexReplaceAll`, `readFile`, `glob`,
 `hasPrefix`, anything Sprig-specific. Adding a helper requires a
 code change with a test — keeps the surface small and auditable.
 
+### Render-time behavior
+
+- **PR body truncation.** Rendered PR bodies that exceed ~65000
+  chars (GitHub's PR body cap is 65535) are truncated to fit, with
+  a visible marker appended:
+  `<!-- truncated by repo-guardian: original length=N chars, max=65535 -->`.
+  Engine emits `slog.Warn` with the original length. PR creation
+  succeeds with the truncated body; the marker is visible to PR
+  reviewers and the warning is visible to operators in logs. PR
+  titles have no comparable limit issue (GitHub caps titles at 256
+  chars; templates that hit this are operator bugs, fail loud).
+- **Strict template validation.** Opt-in via `--strict-templates`
+  CLI flag on the binary (env var `STRICT_TEMPLATES=true`). When
+  enabled, every parsed template is execute-checked against a
+  zero-value variable context at policy-load time, surfacing
+  `.Catalog.Owner` references where `.Catalog` is nil before they
+  hit production. Off by default for V1; V2 may make it default
+  once the false-positive rate is known. Recommended in CI / dev
+  environments to catch template bugs before deploy.
+
 ### HCL grammar additions
 
 A new `pr {}` block grammar, valid at three scopes:
@@ -637,39 +657,54 @@ in step 2 / 5.
 
 ## Open Questions
 
-1. **Sprig subset or full Sprig?** Applies uniformly across all
-   three render contexts (file templates, PR title, PR body)
-   since they share the renderer. Including all of Sprig is one
-   import line and gives users `now`, `quote`, `regexReplaceAll`,
-   etc. for free. Argument against: surface area, security review
-   cost (Sprig has filesystem helpers we'd need to disable),
-   templates that drift into mini-programs. Lean toward small
-   curated subset; revisit if users complain.
-2. **`labels` templating.** Should the `labels` list itself accept
-   templates (e.g., `labels = ["jira/{{ env \"JIRA_PROJECT\" }}"]`)
-   or stay literal? Lean literal — labels are rarely dynamic.
-3. **Multi-rule PR — opt-in to separate PRs?** A `pr.bundle =
-   "separate"` flag would force a rule into its own branch / PR
-   when bundling would lose its custom title. Cleaner, but doubles
-   the PR count. Probably yes for V2; out of scope for V1.
-4. **`existingConfigMap` validation.** Should the chart fail the
-   install if the named ConfigMap doesn't exist, or let k8s emit
-   a CreateContainerConfigError when the pod tries to mount?
-   k8s's native behavior is fine; document it.
-5. **Body length limits.** GitHub caps PR bodies at 65535 chars.
-   Should we truncate-with-warning or fail at render time? Lean
-   truncate-with-warning since orgs sometimes accidentally embed
-   large blobs.
-6. **Global Markdown linter on bodies?** Probably no — operator
-   responsibility — but a doc note recommending standard Markdown
-   conventions wouldn't hurt.
-7. **Zero-value-context render check at parse time?** When a
-   template parses, optionally execute it against zero-value
-   contexts to surface "references `.Catalog.Owner` but `.Catalog`
-   may be nil" errors at load time. Catches dereference bugs
-   before they hit production. Cost: noisy errors when authors
-   intentionally rely on optional fields. Lean opt-in via a
-   `--strict-templates` flag.
+None outstanding. See **Resolved Questions** below.
+
+## Resolved Questions
+
+All resolved during PR #71 review walkthrough.
+
+1. **Sprig subset or full Sprig?** → **Small curated subset**
+   (`env`, `default`, `join`, `lower`, `upper`, `title`). Revisit if
+   real user demand surfaces a missing helper. Adding helpers later
+   is non-breaking; removing them is.
+2. **`labels` templating.** → **Stay literal.** Labels are a fixed
+   taxonomy in most orgs; the few dynamic-label cases (e.g., a
+   `jira/PROJECT-123` label) can be hardcoded per rule or set on
+   `defaults.pr.labels`. Going from literal to templated later is
+   non-breaking (a no-`{{ }}` template is just a string), so we
+   can flip it on if a real need surfaces.
+3. **Multi-rule PR — opt-in to separate PRs?** → **Defer to V2.**
+   V1 keeps "bundle and fall back to `defaults.pr.title` on title
+   conflict" behavior. `pr.bundle = "separate"` flag is non-breaking
+   to add later (default `"bundle"` preserves V1 behavior).
+4. **Reconciler PR config inheritance.** → **Explicit `inherits`
+   boolean on every `pr {}` block, default `true`.** Resolution
+   order: reconciler → rule → defaults → built-in, with `inherits =
+   false` skipping parents and falling through to built-in directly.
+   See Detailed Design § HCL grammar additions for the resolved
+   shape.
+5. **`existingConfigMap` validation.** → **Let k8s native behavior
+   handle it.** Pod stays in `CreateContainerConfigError` until the
+   ConfigMap exists; chart README documents the dependency. No
+   chart-time validation hook (would be skipped by `helm template`
+   consumers like ArgoCD anyway).
+6. **Body length limits.** → **Truncate-with-warning.** Engine
+   truncates rendered bodies to ~65000 chars, appends a visible
+   marker (`<!-- truncated by repo-guardian: original length=N
+   chars, max=65535 -->`), and emits `slog.Warn` with the original
+   length. PRs always succeed; reviewers see the marker; operators
+   see the warning in logs.
+7. **Global Markdown linter on bodies.** → **No.** Engine is a
+   substitution layer, not a Markdown editor. Linter would add
+   dependencies and stylistic-opinion false positives. Convention
+   recommendations live in `docs/ADDING_RULES.md`.
+8. **Zero-value-context render check at parse time.** → **Opt-in
+   via `--strict-templates` CLI flag** for V1. Default-off because
+   the engine knows which template is used in which context, and
+   per-context-type matching is more involved than running every
+   template against every zero-value context. V2 can be smarter
+   (per-template context matching) and make strict the default
+   once the false-positive rate is known.
 
 ## References
 

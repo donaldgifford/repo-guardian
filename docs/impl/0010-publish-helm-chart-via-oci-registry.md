@@ -66,6 +66,27 @@ What broke and why:
   "tag exists in registry"), bumped `Chart.yaml` to `0.3.1` and
   republished. This validated the documented yank semantics under
   real conditions.
+- **Chart resources landed in the wrong namespace on first homelab
+  deploy (PR #67, chart 0.3.1 → 0.3.2).** Helm convention says omit
+  `metadata.namespace` from templates and let `helm install --namespace
+  X` stamp it at apply time. That convention only holds when the
+  consumer actually runs `helm install`. The homelab pulls the chart
+  via `kustomize`'s `helmCharts:` block, which calls `helm template`
+  (no apply phase, no namespace stamping), and ArgoCD then routes
+  unstamped resources to `spec.destination.namespace` — `argocd` for
+  every app in our ApplicationSet. The Deployment, Service,
+  ServiceAccount, and ConfigMaps all landed in `argocd` while the
+  `OnePasswordItem` CRDs (which carry an explicit `metadata.namespace`)
+  landed correctly in `repo-guardian`, so secret resolution failed
+  and the pod never scheduled. Symptom was misleading because
+  `argocd app get` reports the Application's own namespace, not the
+  resource placement, and the renovate ApplicationSet sibling app
+  worked fine (renovate's chart already stamps namespaces). Fixed by
+  adding `namespace: {{ .Release.Namespace }}` to every template
+  metadata block (and to the `RoleBinding` subject for the tailscale
+  ServiceAccount). Lesson: a Helm chart that promises kustomize+ArgoCD
+  consumption must stamp its own namespace; the "convention" only
+  applies to the `helm install` consumption path.
 
 Process notes:
 

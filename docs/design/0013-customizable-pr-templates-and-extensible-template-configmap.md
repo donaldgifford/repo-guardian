@@ -30,23 +30,35 @@ created: 2026-05-03
 
 ## Overview
 
-repo-guardian's PR titles and bodies are hardcoded constants in the
-engine, which means orgs that require Jira/Linear ticket prefixes,
-conventional-commit style titles, or links to internal documentation
-in the body cannot adopt the tool without forking. Separately, the
-chart's template ConfigMap exposes only three hardcoded slots
+repo-guardian has two separate, weakly-related templating mechanisms
+today: file templates (`.tmpl` files rendered via simple
+uppercase-placeholder substitution like `OWNER_VALUE`) and PR titles
+/ bodies (hardcoded engine constants). Orgs that want Jira/Linear
+prefixes, conventional-commit titles, or doc links in PR bodies
+cannot adopt the tool without forking. Separately, the chart's
+template ConfigMap exposes only three hardcoded slots
 (`codeowners`, `dependabot`, `renovate`), so adding a sixth or
 seventh templated rule requires both an HCL change and a chart
-release. This design lets operators customize PR titles and bodies
-per-rule via Go-template expressions in HCL, and replaces the
-hardcoded chart slots with a generic `templates.files` map (plus an
-`existingConfigMap` escape hatch) so adding new rule templates is a
-config-only operation.
+release.
+
+This design **unifies all templating** behind a single Go
+`text/template`-based renderer used by file-template generation,
+PR titles, and PR bodies. Variables and helpers are shared across
+all three contexts; only the variable struct passed in differs.
+Embedded templates are rewritten from `OWNER_VALUE`-style
+substitution to dotted-path Go template syntax (`{{ .Catalog.Owner }}`).
+The chart's hardcoded ConfigMap slots are replaced with a generic
+`templates.files` map plus an `existingConfigMap` escape hatch so
+adding new rule templates is a config-only operation.
 
 ## Goals and Non-Goals
 
 ### Goals
 
+- **One templating system everywhere.** A single renderer in
+  `internal/template/` serves file-template rendering, PR titles,
+  and PR bodies. Same syntax, same helpers, different typed
+  variable contexts. Operators learn one mental model.
 - **Per-rule PR title and body customization.** Each rule (and each
   reconciler that opens its own PR) can override the engine defaults
   with a Go-template string.
@@ -56,20 +68,25 @@ config-only operation.
 - **Useful template variables.** Repo identity, rule identity, the
   list of files added in this PR, the current date, plus an `env`
   helper for runtime substitution (Jira project ID, support URL,
-  etc.).
+  etc.). Reconciler-specific contexts (e.g., catalog-info parsed
+  fields) are exposed as nested struct fields.
 - **Generic template ConfigMap.** Chart's `values.templates.files`
   is a map of `<filename>: <content>` so any template name is
   expressible without chart changes. Existing hardcoded slots
-  (`codeowners`, `dependabot`, `renovate`) remain accepted for one
-  release as a deprecation runway.
+  (`codeowners`, `dependabot`, `renovate`) are removed in this
+  release; users who set them must migrate to `templates.files`.
 - **`templates.existingConfigMap` escape hatch.** Mirrors
   `policy.existingConfigMap`. Operator points at a ConfigMap they
   manage themselves (out-of-band, GitOps-managed, etc.) and the
   chart skips creating its own.
+- **Helm values pass-through.** Operators expose arbitrary template
+  variables by setting environment variables on the Deployment
+  (via a chart values block); templates reference them with
+  `{{ env "MY_VAR" }}`. No new mechanism needed beyond the existing
+  `env` helper.
 - **Safe-by-default templating.** Template parse errors at config
-  load time, not at PR-creation time. A bad template should fail
-  the policy load with a clear message, not silently default to the
-  built-in title.
+  load time, not at render time. A bad template fails the policy
+  load with a clear message, not silently at PR creation.
 
 ### Non-Goals
 
@@ -88,6 +105,12 @@ config-only operation.
 - **Replacing the embedded fallback templates.** The binary still
   ships embedded defaults so a chart with no `templates.files`
   configured still works for the built-in rules.
+- **Backward compatibility with `OWNER_VALUE`-style placeholders.**
+  This design replaces the simple substitution renderer with Go
+  `text/template`. Existing reconciler templates (catalog-info,
+  set-custom-properties, renovate) are rewritten in this PR. There
+  is no compat layer — operators with custom `.tmpl` files using
+  the old uppercase placeholders must migrate when they upgrade.
 
 ## Background
 
@@ -101,7 +124,23 @@ Today's engine state for PR generation:
   `internal/reconciler/custom_properties.go`.
 - HCL `rule` blocks accept a `pr {}` sub-block today, but its only
   field is `search_terms` (used for finding existing PRs to update).
-- No template variable substitution exists in the binary.
+- No template variable substitution exists in the binary for PR
+  titles / bodies.
+
+Today's state for file template rendering:
+
+- `internal/reconciler/reconciler.go` has a private `renderTemplate`
+  function that does naive `strings.ReplaceAll` substitution from
+  a `map[string]string`. No Go `text/template`, no helpers, no
+  validation.
+- Reconcilers pass uppercase placeholder maps:
+  - `catalog-info.tmpl` consumes `REPO_NAME` and `ORG_NAME`
+  - `set-custom-properties.tmpl` consumes `OWNER_VALUE`,
+    `COMPONENT_VALUE`, `JIRA_PROJECT_VALUE`, `JIRA_LABEL_VALUE`
+  - `renovate.tmpl` consumes `ORG_NAME`
+- This is the legacy renderer this design replaces. The new
+  unified renderer means file templates and PR templates share
+  syntax, helpers, and parse-time validation.
 
 Today's chart state for templates:
 
@@ -117,6 +156,106 @@ Today's chart state for templates:
   binary.
 
 ## Detailed Design
+
+### Unified template renderer
+
+A single package `internal/template/` exposes one renderer used by
+all three contexts:
+
+```go
+package template
+
+type Renderer struct {
+    funcs template.FuncMap
+}
+
+func NewRenderer() *Renderer { /* ... */ }
+
+// Parse compiles a template string at config-load time.
+// Errors here surface as policy validation failures.
+func (r *Renderer) Parse(name, body string) (*Compiled, error)
+
+type Compiled struct {
+    name string
+    tpl  *template.Template
+}
+
+// Render executes the compiled template against any typed context.
+// Returns wrapped error on render failure.
+func (c *Compiled) Render(vars any) (string, error)
+```
+
+The renderer uses Go `text/template` with a curated function map.
+Variable contexts are typed structs (not `map[string]any`) so
+templates fail at parse time when they reference a non-existent
+field — caught by `make test` instead of in production.
+
+### Variable contexts
+
+Three context structs, all sharing common base fields:
+
+```go
+package template
+
+// Common is embedded into every context.
+type Common struct {
+    Owner         string  // org / repo owner
+    Repo          string  // repo name
+    DefaultBranch string  // e.g., "main"
+    Date          string  // RFC3339 timestamp at render time
+}
+
+// FileVars is passed to file template rendering.
+type FileVars struct {
+    Common
+    Rule    Rule          // rule being applied
+    Catalog *CatalogInfo  // populated only for catalog-info-aware rules; nil otherwise
+    Org     string        // alias for Owner; convenience for org-named templates
+}
+
+// PRVars is passed to PR title and body rendering.
+type PRVars struct {
+    Common
+    Rule       Rule       // single-rule PR
+    Rules      []Rule     // bundled-PR body; nil for single-rule
+    Files      []string   // all files included in this PR
+    Reconciler string     // reconciler name if this is a reconciler-opened PR; "" otherwise
+}
+
+type Rule struct {
+    Name   string
+    Target string
+}
+
+type CatalogInfo struct {
+    Owner       string  // spec.owner from catalog-info.yaml
+    Component   string  // metadata.name
+    JiraProject string  // backstage.io/jira-project-key
+    JiraLabel   string  // backstage.io/jira-component
+}
+```
+
+The `Catalog` field is `nil` for any file template not produced by
+a catalog-info-aware reconciler. Templates that reference
+`{{ .Catalog.Owner }}` on a context where `Catalog` is nil fail
+at render time with a clear error — and at parse time we can
+optionally validate by running each template against a zero-value
+context.
+
+### Helpers (curated subset)
+
+Available in all three contexts:
+
+| Helper | Signature | Use |
+|---|---|---|
+| `env` | `env "VAR"` | read environment variable; "" if unset |
+| `default` | `default fallback value` | fallback for empty values |
+| `join` | `join sep slice` | string-join a slice |
+| `lower`, `upper`, `title` | `lower str` | case helpers |
+
+Not included: `now`, `regexReplaceAll`, `readFile`, `glob`,
+`hasPrefix`, anything Sprig-specific. Adding a helper requires a
+code change with a test — keeps the surface small and auditable.
 
 ### HCL grammar additions
 
@@ -237,11 +376,20 @@ templates:
   # When set, the chart does NOT create its own template ConfigMap.
   existingConfigMap: ""
 
-  # DEPRECATED in this design's release; removed two minor releases later.
-  # Behavior preserved: setting these still populates `files` under the hood.
-  codeowners: ""
-  dependabot: ""
-  renovate: ""
+# REMOVED in this release (clean break):
+#   templates.codeowners
+#   templates.dependabot
+#   templates.renovate
+# Migration: move existing values into templates.files with the .tmpl suffix.
+
+# Helm values pass-through to template `env` helper.
+templating:
+  vars: {}
+  # Example:
+  #   JIRA_PROJECT: "PLAT"
+  #   DOCS_URL: "https://docs.example.com/compliance"
+  # Each key becomes an env var on the Deployment; templates reference
+  # them as {{ env "JIRA_PROJECT" }}.
 ```
 
 Example filled-in:
@@ -274,9 +422,18 @@ templates:
   ConfigMap. Mount the named ConfigMap on the Deployment.
 - Else: `range $name, $content := .Values.templates.files` and
   emit a key per entry.
-- Legacy slots (`codeowners`, `dependabot`, `renovate`) fold into
-  `files` at chart-template time with a deprecation warning emitted
-  via `helm.sh/hook-failure-policy` or simpler: a NOTES.txt block.
+- Legacy slots removed entirely. NOTES.txt explains the migration
+  for users upgrading from a release that set them.
+
+`templating.vars` rendering:
+
+- Each `(key, value)` becomes an env var on the Deployment via
+  `range $k, $v := .Values.templating.vars` in the deployment
+  template. Standard k8s env-var rules apply (uppercase recommended,
+  values shell-safe).
+- Templates reference them as `{{ env "KEY" }}` in any of the three
+  contexts. No special chart-side handling beyond emitting the env
+  vars.
 
 ## API / Interface Changes
 
@@ -289,97 +446,167 @@ HCL grammar (added):
 
 Go (added):
 
-- `internal/policy/pr.go` — `PRTemplate` struct, `Render(vars *PRVars) (title, body string, err error)`, validation at policy-load time.
-- `internal/checker/engine_policy.go` — wire `PRTemplate.Render` into PR creation, fall through to defaults.
-- `internal/reconciler/custom_properties.go` (and any reconciler that opens PRs) — accept a `*PRTemplate` from the reconciler config and invoke it.
+- `internal/template/` — new package owning the renderer, variable
+  contexts (`FileVars`, `PRVars`, `Common`), helpers, and parse-time
+  validation. Mockable interface for tests.
+- `internal/policy/pr.go` — `PRTemplate` struct holding compiled
+  title/body/labels resolved at HCL load time.
+- `internal/checker/engine_policy.go` — wire compiled `PRTemplate`
+  into PR creation, fall through to defaults.
+- `internal/reconciler/custom_properties.go` (and any reconciler
+  that opens PRs) — accept a `*PRTemplate` from the reconciler
+  config and invoke it.
+
+Go (changed):
+
+- `internal/reconciler/reconciler.go.renderTemplate` — removed.
+  Replaced by `template.Renderer.Render(compiled, FileVars{...})`.
+- `internal/rules/registry.go.TemplateStore` — `Get(name)` now
+  returns a `*template.Compiled` (parsed at load time) instead of
+  a raw string. Old callers that did `strings.ReplaceAll` on the
+  return value are migrated to `Render(compiled, vars)`.
+
+Embedded templates (rewritten — see Migration for the diff):
+
+- `internal/rules/templates/catalog-info.tmpl` — `REPO_NAME` →
+  `{{ .Repo }}`, `ORG_NAME` → `{{ .Owner }}`
+- `internal/rules/templates/set-custom-properties.tmpl` —
+  `OWNER_VALUE` → `{{ .Catalog.Owner }}`, `COMPONENT_VALUE` →
+  `{{ .Catalog.Component }}`, `JIRA_PROJECT_VALUE` →
+  `{{ .Catalog.JiraProject }}`, `JIRA_LABEL_VALUE` →
+  `{{ .Catalog.JiraLabel }}`
+- `internal/rules/templates/renovate.tmpl` — `ORG_NAME` →
+  `{{ .Owner }}`
 
 Chart `values.yaml` (changed):
 
 - Add `templates.files` (map)
 - Add `templates.existingConfigMap` (string)
-- Mark `templates.codeowners` / `dependabot` / `renovate` as deprecated in helm-docs
+- Add `templating.vars` (map) — Helm values → env-var pass-through
+- **Remove** `templates.codeowners`, `templates.dependabot`,
+  `templates.renovate` (clean break, no compat shim)
 
-Env vars: none. The PR-template feature is policy-driven, not env-driven.
+Env vars: any `templating.vars` entry becomes a Deployment env var.
 
 ## Data Model
 
-No persistence. Everything is config-resolved at policy load time.
+No persistence. Everything is config-resolved at policy / template
+load time.
 
-`PRTemplate` struct (sketch):
+`PRTemplate` struct (sketch — references the unified renderer
+defined in Detailed Design):
 
 ```go
 package policy
 
+import "github.com/donaldgifford/repo-guardian/internal/template"
+
 type PRTemplate struct {
-    Title  string   // raw template string
-    Body   string   // raw template string
-    Labels []string // applied verbatim, no templating
-
-    titleTpl *template.Template // parsed at load time
-    bodyTpl  *template.Template
+    Title  *template.Compiled  // parsed at policy load
+    Body   *template.Compiled
+    Labels []string             // applied verbatim, no templating
 }
 
-type PRVars struct {
-    Owner         string
-    Repo          string
-    DefaultBranch string
-    Rule          PRVarRule
-    Rules         []PRVarRule  // populated only for bundled-PR bodies
-    Files         []string
-    Date          string
-    Reconciler    string
+func (p *PRTemplate) Render(r *template.Renderer, v *template.PRVars) (title, body string, err error) {
+    title, err = p.Title.Render(v)
+    if err != nil { return }
+    body, err = p.Body.Render(v)
+    return
 }
-
-type PRVarRule struct {
-    Name   string
-    Target string
-}
-
-func (p *PRTemplate) Render(v *PRVars) (title, body string, err error)
 ```
 
-Templates are parsed once at policy load. Render-time errors are
-treated as engine errors (logged, PR creation aborts for that repo).
+The `*template.Compiled` and `*template.PRVars` types are defined
+in `internal/template/` (see Detailed Design § Variable contexts).
+The same package's `*template.FileVars` is used by reconcilers
+when they render `.tmpl` files.
+
+Templates are parsed once at config load (HCL parse for `pr {}`
+blocks, template-store load for `.tmpl` files). Parse errors fail
+the load with a clear message identifying which template and what
+went wrong. Render-time errors are treated as engine errors
+(logged, the failing operation aborts for that repo).
 
 ## Testing Strategy
 
+- **Unit tests** in `internal/template/`:
+  - Parse error surfacing (bad template → load fails with location)
+  - Each helper (`env`, `default`, `join`, `lower`, `upper`, `title`)
+    has positive + edge-case tests
+  - Render against zero-value contexts to catch templates that
+    deref nil pointers
+  - Render against `FileVars` and `PRVars` proves the same renderer
+    serves both
 - **Unit tests** in `internal/policy/pr_test.go`:
-  - Parse-time errors caught at policy load (bad template → fail
-    policy validation)
-  - Render with all variables / helpers
+  - Parse-time errors caught at policy load
   - Resolution-order tests (reconciler > rule > defaults > built-in)
 - **Integration tests** in `internal/checker/engine_policy_test.go`:
   - Rule with custom title → PR created with rendered title
   - Bundled PR with conflicting titles → falls back to defaults
   - Reconciler with custom title → reconciler PR uses it
+- **Reconciler tests** updated:
+  - `internal/reconciler/custom_properties_test.go` — assert the
+    rendered catalog-info / set-custom-properties bodies match
+    expected output under the new dotted variables
 - **Helm-unittest** for chart changes:
   - `templates.files` map renders into ConfigMap with all keys
   - `templates.existingConfigMap` skips ConfigMap rendering and
     mounts the named one
-  - Legacy slots still work
+  - `templating.vars` keys appear as Deployment env vars
 - **Smoke test in homelab** with at least one rule using a Jira-style
   title and `env "JIRA_PROJECT"` substitution.
 
 ## Migration / Rollout Plan
 
-1. **Land HCL grammar + Go renderer** in a single PR. Existing
-   policies parse unchanged because all new HCL blocks are optional.
-2. **Land chart `templates.files` map and `existingConfigMap`** in
-   a separate PR. Legacy slots still work; helm-docs emits
-   deprecation warnings.
-3. **Update `examples/guardian-full.hcl`** to demonstrate the new
-   `defaults { pr {} }` and per-rule `pr {}` blocks.
-4. **Document migration recipe** in chart README and `docs/ADDING_RULES.md`.
-5. **Deprecate legacy chart slots** two minor chart releases after
-   `templates.files` ships. Rip them out one minor release later.
+This design ships as one coordinated change set because the unified
+renderer touches both PR creation and reconciler file rendering;
+splitting them would leave the codebase mid-migration with two
+templating systems active simultaneously.
 
-Rollback: revert the chart values change (legacy slots still work),
-or revert the engine PR (HCL parser ignores unknown blocks with a
-warning, so old binary against new HCL is graceful).
+1. **Land `internal/template/` package** with renderer, contexts,
+   helpers, and tests. Pure addition; nothing yet calls it.
+2. **Migrate `TemplateStore.Get` to return `*template.Compiled`.**
+   Update the engine's file-creation path and reconcilers
+   (`custom_properties.go`) to call `Render(compiled, FileVars{...})`
+   instead of `renderTemplate(content, map)`. Delete
+   `renderTemplate`. CI must stay green.
+3. **Rewrite the embedded templates** to dotted-path syntax:
+
+   | Template | Old → New |
+   |---|---|
+   | `catalog-info.tmpl` | `REPO_NAME` → `{{ .Repo }}`; `ORG_NAME` → `{{ .Owner }}` |
+   | `set-custom-properties.tmpl` | `OWNER_VALUE` → `{{ .Catalog.Owner }}`; `COMPONENT_VALUE` → `{{ .Catalog.Component }}`; `JIRA_PROJECT_VALUE` → `{{ .Catalog.JiraProject }}`; `JIRA_LABEL_VALUE` → `{{ .Catalog.JiraLabel }}` |
+   | `renovate.tmpl` | `ORG_NAME` → `{{ .Owner }}` |
+
+4. **Land HCL grammar + `PRTemplate`** for `defaults { pr {} }`,
+   per-rule `pr {}`, per-reconciler `pr {}`. Resolution order
+   wired through the engine.
+5. **Chart values surface change**: add `templates.files`,
+   `templates.existingConfigMap`, `templating.vars`. Remove
+   `templates.codeowners` / `dependabot` / `renovate` outright
+   (clean break — the chart's NOTES.txt explains the migration).
+6. **Update `examples/guardian-full.hcl`** to demonstrate the new
+   `defaults { pr {} }` and per-rule `pr {}` blocks.
+7. **Document migration** in chart README, `docs/ADDING_RULES.md`,
+   and a CHANGELOG entry covering both the binary and chart breaking
+   changes. Operators with custom `.tmpl` files using the old
+   placeholders OR with the legacy chart slots populated must
+   migrate before upgrading.
+
+This is a binary-breaking change for operators with custom `.tmpl`
+files using the old `OWNER_VALUE`-style placeholders. It's also a
+chart-breaking change because `templates.codeowners` etc. are
+removed. Both warrant a binary minor bump (e.g., 1.4.x → 1.5.0)
+and a chart minor bump.
+
+Rollback: revert the umbrella PR — there's no in-place rollback
+because the old `renderTemplate` and old chart slots are deleted
+in step 2 / 5.
 
 ## Open Questions
 
-1. **Sprig subset or full Sprig?** Including all of Sprig is one
+1. **Sprig subset or full Sprig?** Applies uniformly across all
+   three render contexts (file templates, PR title, PR body)
+   since they share the renderer. Including all of Sprig is one
    import line and gives users `now`, `quote`, `regexReplaceAll`,
    etc. for free. Argument against: surface area, security review
    cost (Sprig has filesystem helpers we'd need to disable),
@@ -398,20 +625,24 @@ warning, so old binary against new HCL is graceful).
    reconciler PR might want a different default body (different
    rule context). Could add `defaults.reconciler.pr {}` if that
    matters.
-5. **Legacy chart slot removal cadence.** Two minor releases is
-   pretty fast for a breaking values change. Three? Four? Tied to
-   the chart's overall versioning policy.
-6. **`existingConfigMap` validation.** Should the chart fail the
+5. **`existingConfigMap` validation.** Should the chart fail the
    install if the named ConfigMap doesn't exist, or let k8s emit
    a CreateContainerConfigError when the pod tries to mount?
    k8s's native behavior is fine; document it.
-7. **Body length limits.** GitHub caps PR bodies at 65535 chars.
+6. **Body length limits.** GitHub caps PR bodies at 65535 chars.
    Should we truncate-with-warning or fail at render time? Lean
    truncate-with-warning since orgs sometimes accidentally embed
    large blobs.
-8. **Global Markdown linter on bodies?** Probably no — operator
+7. **Global Markdown linter on bodies?** Probably no — operator
    responsibility — but a doc note recommending standard Markdown
    conventions wouldn't hurt.
+8. **Zero-value-context render check at parse time?** When a
+   template parses, optionally execute it against zero-value
+   contexts to surface "references `.Catalog.Owner` but `.Catalog`
+   may be nil" errors at load time. Catches dereference bugs
+   before they hit production. Cost: noisy errors when authors
+   intentionally rely on optional fields. Lean opt-in via a
+   `--strict-templates` flag.
 
 ## References
 

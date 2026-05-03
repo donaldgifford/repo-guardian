@@ -1,7 +1,7 @@
 ---
 id: INV-0004
 title: "Forge interface and package refactor for Forgejo backend"
-status: Open
+status: Resolved
 author: Donald Gifford
 created: 2026-05-03
 ---
@@ -9,9 +9,10 @@ created: 2026-05-03
 
 # INV 0004: Forge interface and package refactor for Forgejo backend
 
-**Status:** Open
+**Status:** Resolved
 **Author:** Donald Gifford
 **Date:** 2026-05-03
+**Resolved:** 2026-05-03 (PR #71 review walkthrough)
 
 <!--toc:start-->
 - [Question](#question)
@@ -265,42 +266,53 @@ internal/
 
 ## Conclusion
 
-**Answer: Pending — investigation in progress.**
+**Answer: Yes — promote `internal/github.Client` to a `Provider`
+interface in `internal/scm/`, refactor the existing GitHub code
+behind it, and treat Forgejo as empirical validation rather than
+upfront design.**
 
-Preliminary: the interface refactor is straightforward (~15 core
-methods, ~10 GitHub-only on a feature interface, ~5 with backend
-mapping). The reconciler `RequiredFeatures()` mechanism cleanly
-solves the "which reconciler works where" problem. Auth is
-naturally pluggable.
+The interface refactor is straightforward — ~15 core methods, ~10
+GitHub-only methods on a feature extension interface, ~5 with
+per-backend mapping (preliminary classification in Observation 1).
+The reconciler `RequiredFeatures()` mechanism cleanly solves the
+"which reconciler works where" problem. Auth is naturally
+pluggable behind an `Authenticator` interface.
 
-The unknowns:
-
-- Whether `code.forgejo.org/forgejo/go-sdk` is mature enough at
-  v15.0 — needs hands-on prototyping.
-- Whether the Forgejo PR creation flow has subtle differences
-  beyond what INV-0002 noted (the `peter-evans/create-pull-request`
-  gotcha).
-- Whether multi-guardian HCL grammar belongs in this design or in
-  a separate one (the "multi-app" question from INV-0002).
+What we **deliberately don't decide here**: the exact Forgejo
+implementation shape, the `code.forgejo.org/forgejo/go-sdk`
+maturity story, the Forgejo PR-flow gotchas beyond what INV-0002
+flagged, and the multi-guardian HCL grammar. Those are best
+answered by writing a Forgejo provider against the interface
+*after* the abstraction is in code, not designed in advance for a
+backend we haven't built. Designing the abstraction up front for a
+hypothetical second backend is the over-design failure mode.
 
 ## Recommendation
 
-**Pending — to be filled after Observations 1–4 are validated by
-prototyping a no-op Forgejo client against the proposed interface.**
+Pragmatic two-step path:
 
-Likely shape:
+1. **IMPL: Provider interface refactor** (next in queue, separate
+   from PR #71). Rename `internal/github` →
+   `internal/scm/github`. Define `internal/scm.Provider` interface
+   (the ~15 core methods). Extract GitHub-only methods to
+   `internal/scm/github.GitHubFeatures` extension interface. Wire
+   reconciler `RequiredFeatures()` capability declarations. Move
+   the existing `Authenticator` shape (App installation transport
+   + token cache) behind a small interface. **No Forgejo yet.**
+   The existing GitHub backend is the only `Provider` implementation.
+   CI stays green throughout. This IMPL is mostly mechanical —
+   rename, move, extract.
 
-1. **DESIGN-0014** ("SCM forge abstraction and Forgejo backend")
-   captures the interface refactor as a design.
-2. **IMPL-0011** does the rename `internal/github` →
-   `internal/scm/github` + extracts feature interfaces. NO Forgejo
-   yet. CI must stay green.
-3. **IMPL-0012** adds the Forgejo `Forge` implementation behind an
-   `--experimental` flag. Reconciler `RequiredFeatures()` wiring
-   ensures `custom_properties` and `branch_protection` are skipped
-   on Forgejo guardians.
-4. **DESIGN-0015** (separate) covers multi-guardian HCL grammar if
-   that's needed beyond a single forge type per binary.
+2. **Future work** (no doc needed yet): add a Forgejo provider
+   against the same interface. Whatever falls out of that —
+   missing methods, wrong abstraction shape, auth model surprise —
+   surfaces empirically and informs whatever follow-up DESIGN, INV,
+   or IMPL it needs. Multi-guardian HCL grammar (the "multi-app"
+   question from INV-0002) gets its own design only if the Forgejo
+   implementation creates a real need for it.
+
+This INV is closed by step 1 happening; step 2 is open-ended and
+gets new artifacts only when work begins on it.
 
 ## References
 

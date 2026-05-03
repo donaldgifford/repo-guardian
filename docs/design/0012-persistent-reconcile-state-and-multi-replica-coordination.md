@@ -398,8 +398,7 @@ trigger with replicas=3 and a single durable consumer named
 
 ## Testing Strategy
 
-Two distinct test-double patterns, both already used elsewhere in
-the codebase:
+Two distinct test-double patterns:
 
 - **In-memory implementations** (`store/memory`, `queue/memory`,
   `scheduler/ticker`) are full functional implementations of the
@@ -407,13 +406,20 @@ the codebase:
   state-based tests assert on outcomes ("given these stale repos
   in the store, the sweep enqueues these jobs"). They are part of
   the production binary, not test-only fixtures.
-- **Hand-written mocks** in `_test.go` files implement the same
-  interfaces with recording / scripted-response semantics, used
-  for interaction-verification tests ("the engine called
-  `Store.UpdateRepoState` with `status=success`"). This matches
-  the existing pattern in `internal/checker/engine_test.go`
-  (`mockClient`) and `internal/reconciler/*_test.go` — hand-written,
-  no mockery codegen.
+- **Generated mocks** via `mockery v2` (already pinned in
+  `mise.toml`, currently unused) for interaction-verification
+  tests ("the engine called `Store.UpdateRepoState` with
+  `status=success`"). A `.mockery.yaml` config will declare the
+  three interfaces and emit mocks under
+  `internal/<pkg>/mocks/<Interface>.go`. Regeneration via
+  `make mocks` (new target) or implicitly in `make ci`. This
+  catches interface-shape drift at compile time when an interface
+  changes — no manual mock edits required.
+
+  The existing `github.Client` hand-written mocks in
+  `internal/checker/engine_test.go` and `internal/reconciler/*_test.go`
+  predate this decision. They can stay as-is; migrating them to
+  mockery is a follow-up cleanup, not a prerequisite.
 
 Test layers:
 

@@ -86,7 +86,7 @@ docker build -t repo-guardian:dev .   # Multi-stage: golang:1.25 builder + distr
 ## Testing
 
 - Use standard Go testing with race detector enabled.
-- Tests use hand-written mock clients implementing the `github.Client` interface (no mockery generation).
+- Existing `github.Client` tests use hand-written mock clients (`internal/checker/engine_test.go`, `internal/reconciler/*_test.go`). New interfaces added under DESIGN-0012 (Store, Queue, Scheduler) use generated mocks via `mockery v2` (pinned in `mise.toml`, config in `.mockery.yaml`). Regenerate via `make mocks`. Hand-written mocks for the legacy `github.Client` can stay as-is; migrating to mockery is a follow-up, not a prerequisite.
 - `httptest.Server` is used for GitHub API mocks in `internal/github/client_test.go`.
 - Note: `t.Parallel()` cannot be used with `t.Setenv()` in Go 1.25+ (panics at runtime). Config tests avoid `t.Parallel()`.
 - Counter assertions: `prometheus/client_golang/prometheus/testutil.ToFloat64(metric.WithLabelValues(...))` for value inspection; `metric.Reset()` between tests when state must be isolated.

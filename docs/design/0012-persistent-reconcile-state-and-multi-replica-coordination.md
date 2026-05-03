@@ -407,6 +407,10 @@ store:
       persistence:
         size: 5Gi
         storageClass: ""
+      # Same auto-generated-password pattern as Valkey. If
+      # store.postgres.existingSecret is unset, the chart creates
+      # <release>-postgres with a random password on first install
+      # and reuses it on upgrades.
     cnpg:
       instances: 1         # CNPG Cluster.spec.instances
       storage:
@@ -429,9 +433,10 @@ queue:
       persistence:
         size: 1Gi
         storageClass: ""
-      auth:
-        enabled: false     # set to true to use AUTH; requires
-                           # password in existingSecret
+      # AUTH is on by default. If existingSecret is unset, the
+      # chart auto-generates a random password Secret named
+      # <release>-valkey on first install and reuses it on upgrades
+      # (helm `lookup` + `randAlphaNum` pattern).
 
 # Scheduler
 scheduler:
@@ -608,36 +613,29 @@ don't ship tooling for it in V1.
    Useful for "the rule changed, recheck everyone." Counter — the
    operator can do this with a one-line `psql` query against the
    state DB; do we need an HTTP endpoint?
-5. **Valkey AUTH defaults.** Should the baked Valkey enable AUTH
-   by default? Argument for: defense in depth, even if the Valkey
-   is only network-reachable from inside the cluster. Argument
-   against: complicates the simple-install path; cluster-internal
-   traffic is already firewalled by NetworkPolicy if the operator
-   wants it. Lean toward off-by-default with a values flag to
-   enable, plus a recommended NetworkPolicy snippet in chart docs.
-6. **CNPG operator as a dependency.** When `store.postgres.mode =
+5. **CNPG operator as a dependency.** When `store.postgres.mode =
    cnpg`, the chart renders a `Cluster` CR that fails to reconcile
    if the CNPG operator isn't installed. Should we add a chart
    pre-flight check (helm hook) that verifies the CRD exists and
    fails fast at install time, or rely on k8s's native "CR with
    no controller" behavior (sits in pending)?
-7. **Observability.** Prometheus metrics for queue depth (Valkey
+6. **Observability.** Prometheus metrics for queue depth (Valkey
    `LLEN`), in-flight set size, scheduler-lock holder identity,
    store query latency, sweep batch size, rate-limit headroom.
    What are the SLO targets and which alerts ship with the chart?
-8. **In-flight reaper ownership.** Should the reaper be a
+7. **In-flight reaper ownership.** Should the reaper be a
    separate goroutine on every worker pod (with its own Valkey
    lock to prevent N-pods-reaping-simultaneously), or only run on
    the scheduler-lock holder? Lean every-pod-with-its-own-lock for
    resilience — if the scheduler holder is also doing reaping,
    leader churn delays orphan reclamation.
-9. **Postgres connection pool sizing.** Default `max_conns` for
+8. **Postgres connection pool sizing.** Default `max_conns` for
    the binary's pgx pool. Affects how many replicas can run before
    exhausting Postgres's `max_connections`. Probably `5 per replica`
    as a default with a values-tunable.
-10. **Sweep batch size.** Hard cap on repos enqueued per scheduler
-    tick? Default? Probably yes, with a default of `min(rate_budget,
-    200)`.
+9. **Sweep batch size.** Hard cap on repos enqueued per scheduler
+   tick? Default? Probably yes, with a default of `min(rate_budget,
+   200)`.
 
 ## References
 

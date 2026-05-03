@@ -35,44 +35,54 @@ restart, the scheduler enqueues every repo from scratch; mid-sweep
 restarts lose progress; and a multi-replica deployment would have
 every pod racing on the same repo set. At ~1000 repos × ~5 API calls
 per check, a cold sweep already approaches the hourly GitHub
-rate-limit ceiling for a single installation. This design proposes
-persisting `last_checked_at` per repo and adding multi-replica
-coordination, in two phases scaled to operational need rather than
-shipping a full distributed system on day one.
+rate-limit ceiling for a single installation. This design introduces
+durable persistence for state and queue, with **interface boundaries**
+between the engine and any concrete backend so that the storage,
+queue, and scheduler implementations can be swapped without engine
+changes. Day-one defaults: **Postgres** for state (CNPG in homelab,
+RDS Postgres elsewhere) and **embedded NATS JetStream** for the
+durable work queue + leader-elected scheduler.
 
 ## Goals and Non-Goals
 
 ### Goals
 
-- Restart-safe reconciliation: a pod restart should not redo work
-  that completed within a configurable freshness window.
-- Bounded API consumption per sweep: each tick should fit within
-  the installation's hourly rate-limit budget, with the rest deferred
-  to the next tick rather than burned and 429'd.
-- Multi-replica coordination *when needed*: 2–5 pods should not
-  reconcile the same repo simultaneously; sweep enqueueing should
-  happen on exactly one pod at a time.
-- Webhook-driven reconciles must remain stateless and parallel:
-  every pod should be able to handle webhook traffic without
-  consulting a leader.
-- Phased rollout: ship V1 (single-replica + state) before V2
-  (multi-replica + coordination); each phase must be independently
-  useful and reversible.
+- **Durability over pragmatism.** Surviving a pod crash mid-sweep
+  must not redo completed work. State and in-flight jobs survive
+  restarts.
+- **Interface-first architecture.** `Store`, `Queue`, and `Scheduler`
+  are Go interfaces with multiple implementations available from
+  day one (in-memory for tests, Postgres for state, NATS for queue
+  and scheduler). The engine depends only on the interfaces.
+- **Multi-replica safe by default.** No mode where running
+  `replicas: 2` is unsafe. Coordination primitives are part of
+  the V1 design, not bolted on later.
+- **No extra deployable infra for the queue.** NATS runs embedded
+  in the binary (clustered across pods via JetStream). Postgres is
+  external — but most operators already run one (CNPG in homelab,
+  RDS in cloud).
+- **Bounded API consumption per sweep.** Each scheduler tick fits
+  within the installation's hourly rate-limit budget; remaining
+  repos carry to the next tick.
+- **Webhook-driven reconciles remain parallel** across all replicas
+  — they enqueue to NATS like any other source, and any worker can
+  claim them.
 
 ### Non-Goals
 
-- Cross-cluster coordination (single k8s cluster only).
-- Distributed work queue with at-least-once semantics across all
-  pods. The current in-memory queue + idempotent reconciles are
-  sufficient if scoped appropriately.
-- Backfilling historical `last_checked_at` from prior runs. New
-  state starts empty; the first post-deploy sweep will look like
-  a cold start, after which steady state takes over.
-- HA-grade zero-downtime sweeping. Single-leader sweep with a
-  brief gap during leader transitions is acceptable.
-- Replacing the GitHub PR / branch as the source of truth for
-  *what* needs to be reconciled. State tracks *when* we last
-  looked, not *what* the desired state is.
+- Cross-cluster coordination. Single k8s cluster only.
+- Replacing GitHub PR / branch state as the source of truth for
+  *what* needs reconciling. State tracks *when we last looked*,
+  not *desired configuration*.
+- Backfilling historical `last_checked_at`. New state starts empty;
+  the first post-deploy sweep is a cold start, then steady state.
+- Sub-second leader failover during sweep transitions. JetStream's
+  consumer-takeover semantics (a few seconds gap when a consumer
+  pod dies) are acceptable.
+- A standalone NATS deployment as a fallback. We pick embedded and
+  commit to it; if embedded NATS doesn't fit the operator's needs,
+  the swappable `Queue` interface allows replacing it (e.g., with
+  a Postgres-backed queue) without touching engine code.
 
 ## Background
 
@@ -85,150 +95,252 @@ Current architecture (relevant parts):
 - `internal/checker/engine_policy.go` runs file rules + reconcilers
   per repo. After PR #69 (INV-0003), each check is idempotent at
   the GitHub API level.
-- No persistence anywhere in the binary. PVCs / secrets are
-  mounted but only for config and webhook secrets.
+- No persistence anywhere in the binary.
 
 Failure modes the current design exhibits:
 
 1. **Cold-start API burn.** At T=0 (pod boot) the scheduler runs
-   immediately. At ~5 API calls/repo × 1000 repos = ~5000 calls,
-   we approach the 5000/hr rate-limit ceiling on the first sweep
-   of every restart.
+   immediately. ~5 API calls/repo × 1000 repos = ~5000 calls
+   approaches the 5000/hr installation rate-limit ceiling on every
+   restart.
 2. **Restart amnesia.** Restart at T=20m loses the in-memory queue.
-   The next pod restarts the sweep from scratch — repos checked
-   in the prior 20 minutes get re-checked.
+   The next pod redoes work that was just completed.
 3. **Multi-replica race.** Running `replicas: 2` would have both
-   pods enumerate the same repo set, double the API consumption,
-   and double-create / contend on the same `repo-guardian/add-missing-files`
-   branch (the engine fix from INV-0003 makes this safe but wasteful).
+   pods enumerate the same repo set, double API consumption, and
+   contend on the same `repo-guardian/add-missing-files` branch.
+   The INV-0003 fix makes contention safe but wasteful.
+
+Why NATS embedded:
+
+- **Embedded server.** `github.com/nats-io/nats-server/v2/server`
+  starts a full NATS server in-process. JetStream provides durable
+  streams, work queues with at-least-once semantics, and KV store
+  primitives.
+- **Cluster-of-pods topology.** NATS clusters via raft for JetStream
+  metadata. Each pod runs an embedded server; they discover each
+  other via a headless k8s Service. Stream replicas live on a quorum
+  of pods, so any single pod can crash without queue data loss.
+- **Already used in similar Go projects** (nats.io/nats-server
+  embedded in operators, control planes). Production-tested embedded
+  pattern.
+- **Single binary deployable** stays a property of repo-guardian.
+  The chart adds a PVC for JetStream storage and a headless Service
+  for NATS clustering; no separate StatefulSet for a queue broker.
+
+Why Postgres for state (and not NATS KV or embedded SQLite):
+
+- The state queries we care about are relational with order-by:
+  "give me the N most-stale repos with `last_checked_at < ?`".
+  This is awkward in NATS KV and trivial in SQL.
+- CNPG in homelab and RDS in production are both well-trodden;
+  no new database-class infra to introduce.
+- Connection pooling, migrations, observability are all solved
+  problems for Postgres clients in Go (`pgx`, `golang-migrate`).
 
 ## Detailed Design
 
-The design has two phases. V1 is the minimum viable state layer.
-V2 layers coordination on top of V1 and is only activated when
-the operator decides to scale beyond `replicas: 1`.
+### Architectural shape
 
-### Phase V1: Persistent freshness state (single-replica)
+```
+            ┌─────────────────────────────────────┐
+            │            Engine                   │
+            │  (file rules, reconcilers,          │
+            │   GitHub client, idempotent ops)    │
+            └────────┬────────┬────────┬──────────┘
+                     │        │        │
+                     ▼        ▼        ▼
+                  Store    Queue   Scheduler   ← Go interfaces
+                     │        │        │
+                     ▼        ▼        ▼
+               Postgres   NATS      NATS
+              (CNPG/RDS) (Stream) (Periodic
+                         + WorkQueue       + Leader-elected
+                          consumer)         consumer)
+```
 
-Add a small embedded state store recording, per repo:
+The engine never imports `pgx` or `nats-server`. It receives
+`Store`, `Queue`, and `Scheduler` instances at construction time
+and uses only their interface methods. Concrete implementations
+live in `internal/store/postgres`, `internal/queue/nats`,
+`internal/scheduler/nats`. Test code uses `internal/store/memory`
+etc.
 
-- `installation_id`, `owner`, `repo` (composite key)
-- `last_checked_at` (timestamp)
-- `last_check_status` (`success` / `error` / `skipped`)
-- `last_error` (nullable, last error string for debuggability)
+### `Store` interface
 
-Sweep behavior changes to:
+Persistent per-repo state.
 
-1. On scheduler tick (or boot), query the store for repos where
-   `last_checked_at IS NULL OR last_checked_at < NOW() - freshness_window`.
-2. Sort by `last_checked_at ASC NULLS FIRST` so the longest-stale
-   repos go first.
-3. Enqueue at most `rate_budget = (remaining_rate_limit / avg_cost_per_repo)`
-   repos this tick; the rest carry to the next tick.
-4. After each job completes (success or error), write back
-   `last_checked_at = NOW()`, `last_check_status`, `last_error`.
+```go
+package store
 
-Webhooks bypass the freshness check entirely — an event always
-triggers a reconcile, and the post-job write updates the
-`last_checked_at` for free.
+type RepoState struct {
+    InstallationID  int64
+    Owner           string
+    Repo            string
+    LastCheckedAt   *time.Time
+    LastCheckStatus string  // "success" | "error" | "skipped" | "pending"
+    LastError       string
+}
 
-### Phase V2: Multi-replica coordination
+type Store interface {
+    GetRepoState(ctx context.Context, installationID int64, owner, repo string) (*RepoState, error)
+    UpdateRepoState(ctx context.Context, s *RepoState) error
+    StaleRepos(ctx context.Context, freshness time.Duration, limit int) ([]RepoState, error)
+    Close() error
+}
+```
 
-Add three things on top of V1:
+Implementations:
 
-1. **k8s Lease-based leader election** for the sweeper role only.
-   The leader runs the freshness query and enqueues jobs; followers
-   only handle webhook events. Implementation: standard
-   `k8s.io/client-go/tools/leaderelection` with a configurable
-   lease duration (default 30s).
-2. **Persistent job queue** replacing the in-memory channel. Workers
-   poll the store with `SELECT ... FOR UPDATE SKIP LOCKED LIMIT 1`
-   semantics, atomically claim jobs, execute, mark complete or
-   failed-with-retry. This unlocks horizontal scaling of workers
-   independent of leader role.
-3. **Backend swap from SQLite to Postgres.** SQLite cannot serve
-   multi-process `SKIP LOCKED` cleanly; this is the natural
-   inflection point.
+- `store/postgres` — production default. Uses `pgx/v5` + `golang-migrate`.
+- `store/memory` — for unit tests; in-process map.
 
-V2 is gated behind a config flag (e.g., `STORE_BACKEND=postgres`).
-Operators on V1 keep SQLite + leader-irrelevant single-replica
-behavior. Switching backends is one flag flip + a one-time data
-migration script.
+### `Queue` interface
 
-### Storage backend options (decision deferred to Open Questions)
+Durable work queue. At-least-once delivery; consumer-side dedupe
+is handled by the engine's existing idempotent reconcile path
+(per INV-0003).
 
-| Option | V1 fit | V2 fit | Pros | Cons |
-|--------|--------|--------|------|------|
-| **SQLite (file on PVC)** | Strong | Weak | No new infra; embedded driver; single-pod simple | `SKIP LOCKED` is awkward; PVC pins pod to node; can't share across replicas |
-| **Postgres (existing instance)** | Strong | Strong | Real concurrency; SKIP LOCKED; already in homelab | New ops dependency; migrations |
-| **Redis** | Weak | Medium | Fast; SETNX for locks | In-memory durability concerns; another dep; weaker query semantics |
-| **GitHub custom properties** | Weak | Weak | Zero new infra | Reads cost API calls — defeats the goal |
-| **k8s ConfigMap/Secret** | Weak | Weak | No new infra | k8s API rate-limited; not write-heavy-friendly |
+```go
+package queue
 
-The pragmatic recommendation is SQLite for V1 (lowest blast radius)
-with a clean abstraction so V2's swap to Postgres is a backend
-implementation, not a redesign. Alternative: skip SQLite and go
-straight to Postgres if the operator already runs one, accepting
-the day-one ops cost in exchange for not migrating later.
+type Job struct {
+    ID              string
+    InstallationID  int64
+    Owner           string
+    Repo            string
+    Trigger         string  // "scheduler" | "webhook" | "push"
+    EnqueuedAt      time.Time
+}
 
-### Coordination options (V2 only)
+type Queue interface {
+    Enqueue(ctx context.Context, j Job) error
+    Subscribe(ctx context.Context, handler func(context.Context, Job) error) error
+    Close() error
+}
+```
 
-| Option | Pros | Cons |
-|--------|------|------|
-| **k8s Lease (leader election)** | Idiomatic; no new infra; well-tested | Single-leader bottleneck on sweep enqueue (acceptable) |
-| **Postgres advisory locks** | Same DB as state; atomic | Postgres-only |
-| **Redis SETNX with TTL** | Well-known pattern | Lock-TTL semantics are subtle; another dep |
-| **Consistent hashing of repo → pod** | No central lock; horizontal scale | Pod-discovery complexity; rebalancing churn; harder to debug |
+The `Subscribe` handler is invoked once per claimed job; the
+implementation acks on `nil` return and nacks-with-retry on error.
+Workers are goroutines inside the binary; the queue manages the
+claim/ack lifecycle.
 
-Recommendation: **k8s Lease for the sweeper role + Postgres SKIP
-LOCKED for worker-side job claiming.** They serve different needs
-— the lease prevents duplicate enqueueing, SKIP LOCKED prevents
-duplicate execution.
+Implementations:
+
+- `queue/nats` — embedded JetStream Stream + WorkQueue consumer.
+  Stream config: `MaxAge=24h`, `Retention=WorkQueue`, replicas=3.
+  Consumer is durable, `MaxAckPending=N` (configurable, default 5).
+- `queue/memory` — in-process buffered channel for tests.
+- *Future option:* `queue/postgres` — `SELECT ... FOR UPDATE SKIP
+  LOCKED` if NATS embedded is rejected by an operator.
+
+### `Scheduler` interface
+
+Periodic ticks that fire on exactly one pod cluster-wide.
+
+```go
+package scheduler
+
+type Scheduler interface {
+    Schedule(ctx context.Context, name string, interval time.Duration, handler func(context.Context) error) error
+    Stop() error
+}
+```
+
+Implementations:
+
+- `scheduler/nats` — uses a JetStream stream with a single durable
+  consumer per scheduled task. The publisher uses
+  `Stream.Republish` or a heartbeat goroutine on the JetStream
+  meta-leader to write a "tick" message at the configured interval;
+  the durable consumer with `MaxAckPending=1` ensures only one pod
+  processes it. Leader failover is built in: if the consuming pod
+  dies, JetStream redelivers to the next available consumer.
+- `scheduler/ticker` — `time.Ticker` for tests / single-replica
+  fallback.
+
+### Sweep flow
+
+1. `Scheduler` fires the sweep tick (NATS-coordinated, single pod).
+2. Sweep handler queries `Store.StaleRepos(freshness, batch_size)`.
+3. For each stale repo, calls `Queue.Enqueue(Job{...})`.
+4. Worker pods (all replicas) `Subscribe` to the queue, claim jobs,
+   run the engine on the repo.
+5. On success or error, worker calls `Store.UpdateRepoState(...)`.
+6. Webhook handler bypasses the freshness check; it always
+   `Queue.Enqueue`s a job. Same worker pool consumes it.
+
+### Why not Postgres for the queue too
+
+Considered. Tradeoff matrix:
+
+| Concern | Postgres queue (`SKIP LOCKED`) | NATS JetStream embedded |
+|---------|-------------------------------|------------------------|
+| Operational simplicity | One DB to run | Embedded; no extra deploy |
+| Latency | Polling cost (50-200ms/poll) | Pub/sub; sub-ms delivery |
+| Throughput at 10k+ repos | Adequate; needs tuning | Designed for this |
+| Survives DB outage | No | Yes — queue is independent |
+| Familiarity | Higher | Lower (Go ecosystem) |
+| Lock-in | Lower | Higher (Go-only embedded story) |
+
+Embedded NATS wins on isolation (queue available even if Postgres
+is briefly down), latency, and throughput. The interface boundary
+preserves the option to swap.
 
 ## API / Interface Changes
 
 New environment variables:
 
-- `STORE_BACKEND` — `sqlite` (default) or `postgres`. Drives which
-  driver is loaded.
-- `STORE_DSN` — for SQLite: filesystem path (default
-  `/var/lib/repo-guardian/state.db`). For Postgres: standard
-  connection string.
-- `RECONCILE_FRESHNESS` — duration (default `168h` = 7 days).
-  Repos checked within this window are skipped at sweep time.
-- `RATE_LIMIT_RESERVE` — fraction of the hourly limit to leave as
-  headroom for webhook-driven work (default `0.2` = 20% reserved).
-- `LEADER_ELECTION_ENABLED` — bool (default `false`). When true,
-  uses k8s Lease for sweeper role.
-- `LEADER_ELECTION_NAMESPACE` / `LEADER_ELECTION_NAME` — lease
-  identity, defaults derived from pod env.
+- `STORE_BACKEND` — `postgres` (default) or `memory`.
+- `STORE_DSN` — Postgres connection string. Required when
+  `STORE_BACKEND=postgres`.
+- `QUEUE_BACKEND` — `nats` (default) or `memory`.
+- `QUEUE_NATS_STORAGE` — `file` (default, persistent) or `memory`.
+- `QUEUE_NATS_REPLICAS` — int (default `3`). Applied to JetStream
+  stream config; clamped to `<=` cluster size at runtime.
+- `SCHEDULER_BACKEND` — `nats` (default) or `ticker`.
+- `RECONCILE_FRESHNESS` — duration (default `168h`).
+- `RATE_LIMIT_RESERVE` — fraction (default `0.2`).
+- `NATS_CLUSTER_NAME` — string (default `repo-guardian`).
+- `NATS_CLUSTER_PEERS` — comma-separated peer URLs; populated
+  automatically from the headless Service in the chart.
+- `POD_NAME` / `POD_NAMESPACE` — k8s downward API; used for NATS
+  identity and observability.
 
 Helm chart additions:
 
-- New PVC template (V1) gated on `persistence.enabled` (default
-  `true` for SQLite backend).
-- New `serviceAccount` permission to write Lease objects (V2 only,
-  gated on `leaderElection.enabled`).
-- New values keys: `persistence.size`, `persistence.storageClass`,
-  `persistence.accessMode`.
+- StatefulSet **replaces** Deployment when persistence is enabled,
+  because each pod needs a stable identity for the embedded NATS
+  cluster and a per-pod PVC for JetStream storage. Deployment
+  remains an option for the in-memory backends (test/dev).
+- Headless Service for NATS cluster discovery.
+- PVC template per replica via `volumeClaimTemplates` (sizes default
+  to `1Gi` for queue storage; tunable).
+- New values keys:
+  ```yaml
+  store:
+    backend: postgres
+    dsn: ""           # required; usually from secret
+  queue:
+    backend: nats
+    storage: file
+    persistence:
+      size: 1Gi
+      storageClass: ""
+  scheduler:
+    backend: nats
+  postgresql:
+    # opt-in CNPG cluster sub-chart for homelab convenience
+    enabled: false
+  ```
+- ServiceAccount RBAC: `events.k8s.io` for emitting events,
+  `coordination.k8s.io` removed (NATS handles leader election,
+  not k8s Lease).
 
-No public API surface changes (HTTP endpoints unchanged). Internal
-Go interface additions:
-
-```go
-type Store interface {
-    GetRepoState(ctx, installationID int64, owner, repo string) (*RepoState, error)
-    UpdateRepoState(ctx, *RepoState) error
-    StaleRepos(ctx, freshness time.Duration, limit int) ([]RepoState, error)
-}
-```
-
-A second interface for V2's job queue (`Enqueue`, `Claim`, `Complete`)
-is introduced only when V2 ships.
+Internal Go interface additions are listed under Detailed Design.
 
 ## Data Model
 
-Single table, both backends:
+Postgres schema, owned by `internal/store/postgres/migrations`:
 
 ```sql
 CREATE TABLE repo_state (
@@ -245,95 +357,115 @@ CREATE INDEX idx_repo_state_freshness
     ON repo_state(last_checked_at NULLS FIRST);
 ```
 
-V2 adds:
+JetStream stream and consumer configs (declarative, applied at
+startup):
 
-```sql
-CREATE TABLE reconcile_jobs (
-    id BIGSERIAL PRIMARY KEY,
-    installation_id BIGINT NOT NULL,
-    owner TEXT NOT NULL,
-    repo TEXT NOT NULL,
-    trigger TEXT NOT NULL,        -- 'scheduler' | 'webhook' | 'push'
-    enqueued_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    claimed_by TEXT,              -- pod identity
-    claimed_at TIMESTAMP WITH TIME ZONE,
-    completed_at TIMESTAMP WITH TIME ZONE,
-    status TEXT NOT NULL DEFAULT 'pending',
-    error TEXT
-);
-
-CREATE INDEX idx_reconcile_jobs_pending
-    ON reconcile_jobs(enqueued_at)
-    WHERE claimed_at IS NULL;
+```go
+streamCfg := &nats.StreamConfig{
+    Name:      "REPO_GUARDIAN_JOBS",
+    Subjects:  []string{"jobs.>"},
+    Retention: nats.WorkQueuePolicy,
+    Storage:   nats.FileStorage,
+    Replicas:  3,
+    MaxAge:    24 * time.Hour,
+}
+consumerCfg := &nats.ConsumerConfig{
+    Durable:        "workers",
+    AckPolicy:      nats.AckExplicitPolicy,
+    MaxAckPending:  cfg.WorkerConcurrency,
+    AckWait:        5 * time.Minute,
+}
 ```
 
-Migration from V1 → V2: data preserved (schema is a superset).
+A second stream `REPO_GUARDIAN_TICKS` carries the periodic sweep
+trigger with replicas=3 and a single durable consumer named
+`sweep-leader`.
 
 ## Testing Strategy
 
-- **Unit tests** for the `Store` interface against both backends
-  (SQLite via in-memory mode, Postgres via `testcontainers-go`).
-- **Integration test** with a fake clock proving the freshness
-  gate skips recently-checked repos and re-enqueues stale ones.
-- **Concurrency test** (V2) spawning N goroutines all calling
-  `Claim` against the same Postgres instance, asserting no job
-  is claimed twice.
-- **Restart-safety test** simulating a mid-sweep crash, asserting
-  in-flight jobs are reclaimable on the next process boot.
-- **Helm-unittest** for the new PVC template and the serviceAccount
-  RBAC additions.
-- **Homelab smoke test** before declaring V1 complete: deploy with
-  `freshness=1h`, restart the pod 30m later, observe that no
-  re-checks fire.
+- **Unit tests** at the interface boundary using `store/memory`,
+  `queue/memory`, `scheduler/ticker`. Engine tests do not require
+  Postgres or NATS at all.
+- **Backend integration tests** under `_integration` build tag:
+  - Postgres via `testcontainers-go` running CNPG-flavored Postgres
+    16 (matches homelab).
+  - NATS via `nats-server` embedded directly in the test binary —
+    same code path as production.
+- **Multi-replica concurrency test**: spin up three embedded NATS
+  servers in one process forming a cluster, publish 100 jobs,
+  assert each is consumed exactly once across all consumers.
+- **Restart-safety test**: kill an embedded NATS server mid-job,
+  bring it back, assert no job is lost or double-consumed (verifies
+  JetStream's at-least-once semantics + engine idempotency).
+- **Helm-unittest** for the StatefulSet, headless Service, PVC
+  templates, and conditional in-memory Deployment.
+- **Homelab smoke test**: deploy with `replicas: 3`, kill one pod,
+  observe sweep continues; restart all three, observe no duplicate
+  reconciles.
 
 ## Migration / Rollout Plan
 
-1. **V1 ships with SQLite** behind a feature flag
-   (`STORE_BACKEND=memory` keeps current behavior). Default is
-   `sqlite` once V1 is validated in homelab.
-2. **Helm chart bumps minor version** when V1 lands (new PVC,
-   schema changes). Operators on the legacy in-memory mode can
-   stay there during the transition.
-3. **V1 retrospective** captures rate-limit measurements before
-   designing V2.
-4. **V2 ships with Postgres-or-SQLite split**. SQLite remains
-   supported for single-replica deployments. Postgres is opt-in.
-5. **Deprecation timeline**: in-memory `STORE_BACKEND=memory`
-   removed two minor releases after V1 lands.
+This design intentionally does not stage a "single-replica first"
+phase, since the interface-first architecture lets us ship the
+durable backends from day one without doubling the code paths.
 
-Rollback at any phase is a flag flip + helm rollback. State data
-is non-load-bearing — losing it just causes one extra sweep cycle.
+1. **Land the interfaces** in a separate PR with the in-memory
+   implementations only. Switch existing engine code to depend on
+   the interfaces. CI green, no behavior change.
+2. **Land the Postgres `Store` implementation** with the freshness
+   gate plumbed through the sweep handler. Behind
+   `STORE_BACKEND=postgres`. Default still `memory` while we
+   validate.
+3. **Land the embedded-NATS `Queue` and `Scheduler` implementations.**
+   Behind `QUEUE_BACKEND=nats` and `SCHEDULER_BACKEND=nats`.
+   Default still `memory`/`ticker`.
+4. **Helm chart MAJOR bump** to 0.4.0. StatefulSet, headless
+   Service, PVC volumeClaimTemplates, optional CNPG sub-chart.
+   Defaults flip to `postgres` + `nats` + `nats`.
+5. **Homelab smoke test** for one full sweep cycle on the new
+   backends.
+6. **Deprecate `memory` defaults** two minor chart releases later.
+
+Rollback at any step is a values flip back to the prior backend +
+helm rollback. State data is non-load-bearing; losing it just
+costs one extra sweep cycle.
 
 ## Open Questions
 
-1. **SQLite or skip-to-Postgres for V1?** SQLite is simpler but
-   creates a future migration. Postgres is heavier but matches
-   the homelab's existing infrastructure. The right answer depends
-   on whether multi-replica is months away or never.
-2. **Where does the freshness window come from per rule?** A repo
-   might have a fast-moving rule (e.g., dependabot updates) and a
-   slow-moving rule (e.g., CODEOWNERS). One global window may be
-   too coarse.
-3. **Rate-limit-aware scheduling vs. simple freshness gate.** Is
-   the freshness window enough to fit within rate-limit budgets,
-   or do we also need explicit budget arithmetic? Probably the
-   former is sufficient at 1000-repo scale; the latter matters
-   at 10000+.
-4. **Sweep batch size.** Should we cap repos-per-tick? If yes,
-   what's the default? Probably yes, with a default of N=200 or
-   `min(rate_budget, 200)`.
-5. **Exposing state via metrics.** Prometheus counters for
-   `repos_skipped_freshness_total{reason}`,
-   `sweep_batch_size`, `state_store_query_duration_seconds`?
-6. **Operator override: force re-check.** Add a webhook endpoint
-   or admin API that resets `last_checked_at` for a repo or
-   installation? Useful for "the rule changed, recheck everyone."
-7. **Job queue retention (V2).** How long do completed jobs stick
-   around for audit? Cron job to delete completed > 30 days?
-8. **Helm chart impact.** Does V1's PVC requirement break the
-   "deploy with `helm install` and nothing else" promise from
-   DESIGN-0005? Mitigation: PVC is opt-in (`persistence.enabled=false`
-   keeps the in-memory store with documented restart cost).
+1. **NATS embedded cluster bootstrap in k8s.** Headless Service
+   + downward API for peer discovery is the canonical pattern,
+   but exact wiring (init container? readiness probe gating?)
+   needs prototyping. Prior art: NATS' own Helm chart.
+2. **JetStream replica count vs. replica count.** What happens
+   when chart `replicas=1` (dev clusters) but `streamReplicas=3`?
+   We clamp at runtime, but the documentation needs to call this
+   out so operators don't get confused.
+3. **CNPG sub-chart vs. external Postgres.** Should the chart
+   ship with an opt-in CNPG cluster (pulling in the CNPG operator
+   as a dependency), or always require the operator to provide
+   a DSN? Probably the latter, with CNPG examples in chart docs.
+4. **Scheduler interface granularity.** Is one global sweep
+   sufficient, or do we want per-installation schedules with
+   different intervals?
+5. **Per-rule freshness windows.** A repo might have a fast-moving
+   rule (dependabot) and a slow-moving one (CODEOWNERS). One
+   global window per repo may be too coarse — should freshness
+   be tracked per `(repo, rule)`?
+6. **Webhook delivery semantics.** Webhook handler currently runs
+   the engine inline; under the new design it should `Queue.Enqueue`
+   and respond 202. What's the SLA for webhook ACK time?
+7. **Operator force-recheck.** Admin endpoint that resets
+   `last_checked_at` for a repo, installation, or globally?
+   Useful for "the rule changed, recheck everyone."
+8. **JetStream stream sizing.** What `MaxBytes` /
+   `MaxMsgsPerSubject` do we set? Worst case is one job per repo
+   per scheduler tick × N ticks of backlog if workers fall behind.
+9. **Observability.** Prometheus metrics for queue depth,
+   consumer lag, scheduler tick liveness, store query latency,
+   and rate-limit headroom. What are the SLO targets?
+10. **NATS auth.** Embedded cluster-internal traffic via mTLS or
+    simple token? Probably mTLS via cert-manager in homelab,
+    something different in cloud.
 
 ## References
 
@@ -344,7 +476,9 @@ is non-load-bearing — losing it just causes one extra sweep cycle.
   modifies)
 - GitHub REST API rate limits:
   https://docs.github.com/en/rest/overview/rate-limits-for-the-rest-api
-- Kubernetes Lease API:
-  https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#lease-v1-coordination-k8s-io
-- Postgres SKIP LOCKED:
-  https://www.postgresql.org/docs/current/sql-select.html#SQL-FOR-UPDATE-SHARE
+- NATS embedded server:
+  https://docs.nats.io/running-a-nats-service/clients
+- NATS JetStream:
+  https://docs.nats.io/nats-concepts/jetstream
+- CloudNativePG:
+  https://cloudnative-pg.io/documentation/current/

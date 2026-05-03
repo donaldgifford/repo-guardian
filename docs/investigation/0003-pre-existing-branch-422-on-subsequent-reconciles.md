@@ -1,7 +1,7 @@
 ---
 id: INV-0003
 title: "Pre-existing branch 422 on subsequent reconciles"
-status: Open
+status: Resolved
 author: Donald Gifford
 created: 2026-05-02
 ---
@@ -9,7 +9,7 @@ created: 2026-05-02
 
 # INV 0003: Pre-existing branch 422 on subsequent reconciles
 
-**Status:** Open
+**Status:** Resolved
 **Author:** Donald Gifford
 **Date:** 2026-05-02
 
@@ -123,35 +123,66 @@ the branch fresh and the file genuinely does not exist on it. This
 confirms the failure mode is "branch + file pre-existence" and not, for
 example, a stale token or a permissions regression.
 
-### Observation 3: Pending — code path
+### Observation 3: Code path located in client wrapper
 
-To complete the investigation, identify the exact function in
-`internal/github/` (or `internal/checker/`) that issues the PUT and
-confirm whether the wrapper already has a GetContents helper we can
-call before the PUT.
+`internal/checker/engine_policy.go:553` and
+`internal/checker/engine.go:267` both call
+`client.CreateOrUpdateFile`. The wrapper at
+`internal/github/client.go:184-201` was misnamed — it called only
+`Repositories.CreateFile`, never `UpdateFile`, and never read the
+existing blob first. On a fresh branch this works; on a re-used
+`repo-guardian/add-missing-files` branch with the file already
+present, the call hits 422.
+
+The package already had a `GetContents` helper, but it took no `Ref`
+parameter and so always queried the default branch — useless for the
+"does the file exist on the target branch?" question we needed to
+answer. The fix inlines `Repositories.GetContents` with
+`RepositoryContentGetOptions{Ref: branch}` directly inside
+`CreateOrUpdateFile`, since this is the only caller that needs
+branch-scoped existence checks.
 
 ## Conclusion
 
-**Answer:** Pending — investigation is in progress.
+**Answer:** Yes — fix is small (≈35 lines in
+`internal/github/client.go` plus three unit tests) and lives entirely
+in the GitHub client wrapper.
 
-Preliminary: hypothesis is consistent with all observed evidence
-(production log + workaround). Remaining work is to read the client
-wrapper and confirm the smallest patch shape.
+`CreateOrUpdateFile` now performs:
+
+1. `GetContents(..., Ref: branch)` to check the target branch.
+2. If 404 → `CreateFile` (unchanged path).
+3. If 200 with byte-identical decoded content → return nil (idempotent
+   skip; no commit, no API write).
+4. If 200 with differing content → `UpdateFile` with the existing
+   blob's `sha`.
+
+This makes the function name truthful (it now actually creates *or*
+updates) and makes engine reconciles idempotent on the
+`repo-guardian/add-missing-files` branch.
 
 ## Recommendation
 
-**Pending — to be filled after Observation 3.**
+Shipping in this PR. Decisions made:
 
-Likely shape:
-- If the fix is `<50` lines in `internal/github/client.go` plus a
-  unit test, ship a single PR labeled `fix` with `patch` semver.
-- If the fix touches engine-level logic (e.g., the engine needs to
-  decide between "skip the file because content is identical" vs.
-  "update the file because content differs"), promote to an IMPL doc.
-
-The engine should also surface a metric (`files_skipped_total{reason="already_present"}`?)
-for the no-op-on-identical-content case, so the homelab dashboards
-distinguish "engine did nothing" from "engine had nothing to do."
+- **One-PR fix, not an IMPL.** All changes are in
+  `internal/github/client.go` and `internal/github/client_test.go`.
+  No engine logic changed, no public API changed, signature of
+  `CreateOrUpdateFile` is preserved so callers in `engine.go` and
+  `engine_policy.go` are unaffected.
+- **No new metric.** The "skipped because identical" case is silent.
+  Adding a `files_skipped_total{reason}` metric would be useful for
+  homelab dashboards, but it expands scope beyond the bug fix and
+  belongs in a separate PR if/when the dashboard need surfaces.
+  Logging a debug-level `"file unchanged on branch"` line was
+  considered and rejected for the same scope-creep reason.
+- **Bumped chart `appVersion` to 1.4.1.** Real bug fix, real binary
+  change → patch semver bump on the binary. Chart `version` stays
+  at 0.3.2 (no chart-level changes).
+- **Test coverage added.** Three tests cover all three branches:
+  `TestCreateOrUpdateFile_FileMissing_Creates`,
+  `TestCreateOrUpdateFile_FileExistsIdentical_Skips`,
+  `TestCreateOrUpdateFile_FileExistsDifferent_Updates`.
 
 ## References
 

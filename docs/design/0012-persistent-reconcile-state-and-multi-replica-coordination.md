@@ -398,10 +398,29 @@ trigger with replicas=3 and a single durable consumer named
 
 ## Testing Strategy
 
-- **Unit tests** at the interface boundary using `store/memory`,
-  `queue/memory`, `scheduler/ticker`. Engine tests do not require
+Two distinct test-double patterns, both already used elsewhere in
+the codebase:
+
+- **In-memory implementations** (`store/memory`, `queue/memory`,
+  `scheduler/ticker`) are full functional implementations of the
+  interface — they hold state, enforce contracts, and let
+  state-based tests assert on outcomes ("given these stale repos
+  in the store, the sweep enqueues these jobs"). They are part of
+  the production binary, not test-only fixtures.
+- **Hand-written mocks** in `_test.go` files implement the same
+  interfaces with recording / scripted-response semantics, used
+  for interaction-verification tests ("the engine called
+  `Store.UpdateRepoState` with `status=success`"). This matches
+  the existing pattern in `internal/checker/engine_test.go`
+  (`mockClient`) and `internal/reconciler/*_test.go` — hand-written,
+  no mockery codegen.
+
+Test layers:
+
+- **Unit tests** at the interface boundary. Engine tests use
+  in-memory backends or hand-written mocks; do not require
   Postgres or NATS at all.
-- **Backend integration tests** under `_integration` build tag:
+- **Backend integration tests** under an `_integration` build tag:
   - Postgres via `testcontainers-go` running CNPG-flavored Postgres
     16 (matches homelab).
   - NATS via `nats-server` embedded directly in the test binary —
@@ -412,6 +431,11 @@ trigger with replicas=3 and a single durable consumer named
 - **Restart-safety test**: kill an embedded NATS server mid-job,
   bring it back, assert no job is lost or double-consumed (verifies
   JetStream's at-least-once semantics + engine idempotency).
+- **Contract tests** that run the same suite against every backend
+  pair (`memory` and `postgres` for `Store`; `memory` and `nats`
+  for `Queue`; `ticker` and `nats` for `Scheduler`). Catches
+  divergence between the in-memory and durable implementations
+  before it bites in production.
 - **Helm-unittest** for the StatefulSet, headless Service, PVC
   templates, and conditional in-memory Deployment.
 - **Homelab smoke test**: deploy with `replicas: 3`, kill one pod,

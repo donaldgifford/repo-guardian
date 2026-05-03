@@ -52,8 +52,14 @@ durable work queue + leader-elected scheduler.
   restarts.
 - **Interface-first architecture.** `Store`, `Queue`, and `Scheduler`
   are Go interfaces with multiple implementations available from
-  day one (in-memory for tests, Postgres for state, NATS for queue
-  and scheduler). The engine depends only on the interfaces.
+  day one. The engine depends only on the interfaces; concrete
+  backends are selected at startup.
+- **No-dep mode is a first-class supported configuration.** Because
+  every interface has an in-memory implementation, an operator can
+  run repo-guardian with zero external dependencies (no Postgres,
+  no embedded NATS clustering) by selecting the `memory` backends.
+  Restart-amnesia and single-replica are accepted tradeoffs in this
+  mode; it is not a "test only" path that gets deprecated.
 - **Multi-replica safe by default.** No mode where running
   `replicas: 2` is unsafe. Coordination primitives are part of
   the V1 design, not bolted on later.
@@ -191,8 +197,11 @@ type Store interface {
 
 Implementations:
 
-- `store/postgres` — production default. Uses `pgx/v5` + `golang-migrate`.
-- `store/memory` — for unit tests; in-process map.
+- `store/postgres` — durable, multi-replica safe. Uses `pgx/v5` +
+  `golang-migrate`.
+- `store/memory` — in-process map. Supported for both tests and
+  no-dep single-replica deployments. Restart loses all state;
+  operator accepts that tradeoff.
 
 ### `Queue` interface
 
@@ -229,9 +238,13 @@ Implementations:
 - `queue/nats` — embedded JetStream Stream + WorkQueue consumer.
   Stream config: `MaxAge=24h`, `Retention=WorkQueue`, replicas=3.
   Consumer is durable, `MaxAckPending=N` (configurable, default 5).
-- `queue/memory` — in-process buffered channel for tests.
+  Cluster-aware; multi-replica safe.
+- `queue/memory` — in-process buffered channel. Supported for tests
+  and no-dep single-replica deployments. Restart loses any
+  in-flight queue contents; webhook events arriving during a
+  restart window are dropped at the HTTP layer.
 - *Future option:* `queue/postgres` — `SELECT ... FOR UPDATE SKIP
-  LOCKED` if NATS embedded is rejected by an operator.
+  LOCKED` if some operator rejects embedded NATS.
 
 ### `Scheduler` interface
 
@@ -249,14 +262,16 @@ type Scheduler interface {
 Implementations:
 
 - `scheduler/nats` — uses a JetStream stream with a single durable
-  consumer per scheduled task. The publisher uses
-  `Stream.Republish` or a heartbeat goroutine on the JetStream
-  meta-leader to write a "tick" message at the configured interval;
-  the durable consumer with `MaxAckPending=1` ensures only one pod
-  processes it. Leader failover is built in: if the consuming pod
-  dies, JetStream redelivers to the next available consumer.
-- `scheduler/ticker` — `time.Ticker` for tests / single-replica
-  fallback.
+  consumer per scheduled task. A heartbeat goroutine on the
+  JetStream meta-leader writes a "tick" message at the configured
+  interval; the durable consumer with `MaxAckPending=1` ensures
+  only one pod processes it. Leader failover is built in: if the
+  consuming pod dies, JetStream redelivers to the next available
+  consumer.
+- `scheduler/ticker` — `time.Ticker` for tests and no-dep
+  single-replica deployments. Each pod's ticker fires
+  independently, so this implementation must not be paired with
+  multi-replica without coordination.
 
 ### Sweep flow
 
@@ -411,24 +426,37 @@ durable backends from day one without doubling the code paths.
 
 1. **Land the interfaces** in a separate PR with the in-memory
    implementations only. Switch existing engine code to depend on
-   the interfaces. CI green, no behavior change.
+   the interfaces. CI green, no behavior change. Today's binary
+   still works exactly as it does now.
 2. **Land the Postgres `Store` implementation** with the freshness
    gate plumbed through the sweep handler. Behind
-   `STORE_BACKEND=postgres`. Default still `memory` while we
-   validate.
+   `STORE_BACKEND=postgres`.
 3. **Land the embedded-NATS `Queue` and `Scheduler` implementations.**
    Behind `QUEUE_BACKEND=nats` and `SCHEDULER_BACKEND=nats`.
-   Default still `memory`/`ticker`.
-4. **Helm chart MAJOR bump** to 0.4.0. StatefulSet, headless
-   Service, PVC volumeClaimTemplates, optional CNPG sub-chart.
-   Defaults flip to `postgres` + `nats` + `nats`.
-5. **Homelab smoke test** for one full sweep cycle on the new
+4. **Helm chart MAJOR bump** to 0.4.0. Adds StatefulSet template,
+   headless Service, PVC `volumeClaimTemplates`, optional CNPG
+   sub-chart. Both deployment shapes coexist in the chart:
+   - `store.backend=memory` + `queue.backend=memory` +
+     `scheduler.backend=ticker` → renders as Deployment, no PVCs,
+     no extra services. The "try it" path.
+   - `store.backend=postgres` + `queue.backend=nats` +
+     `scheduler.backend=nats` → renders as StatefulSet with PVCs
+     and headless Service. The "run it for real" path.
+5. **Homelab smoke test** for one full sweep cycle on the durable
    backends.
-6. **Deprecate `memory` defaults** two minor chart releases later.
+6. **Pick a chart default.** Probably `memory` for first-touch
+   ergonomics, with chart docs explicitly recommending
+   `postgres + nats` for any production-ish deployment.
+   Decision deferred to Open Questions.
+
+The `memory` backends remain supported indefinitely as a
+no-dep mode. They are not a transitional path that gets
+deprecated.
 
 Rollback at any step is a values flip back to the prior backend +
-helm rollback. State data is non-load-bearing; losing it just
-costs one extra sweep cycle.
+helm rollback. Switching from `memory` to `postgres + nats` is
+not a data migration — `memory` has no persistent state to carry
+forward.
 
 ## Open Questions
 
@@ -466,6 +494,13 @@ costs one extra sweep cycle.
 10. **NATS auth.** Embedded cluster-internal traffic via mTLS or
     simple token? Probably mTLS via cert-manager in homelab,
     something different in cloud.
+11. **Chart default backend.** `memory` (first-touch friendly,
+    matches current behavior) or `postgres + nats` (durable but
+    requires the operator to provide a Postgres DSN before the
+    pod will boot)? Argument for `memory`: matches current chart
+    behavior; upgrade-in-place won't break anyone. Argument for
+    `postgres + nats`: avoids a footgun where someone deploys
+    with the chart default and silently loses data on restart.
 
 ## References
 

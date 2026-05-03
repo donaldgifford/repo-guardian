@@ -300,19 +300,51 @@ rule "file" "catalog_info" {
     watch = true
 
     pr {
-      title = "ci: install custom-properties workflow"
-      body  = "Installs the GitHub Action that syncs Backstage metadata to repo properties."
+      # inherits defaults to true; title and labels (unset here) come from
+      # defaults.pr; body uses the explicit override below.
+      body = "Installs the GitHub Action that syncs Backstage metadata to repo properties."
     }
+  }
+}
+
+# Cleaner alternative — opt out of inheritance entirely
+rule "file" "internal_audit_log" {
+  check    = "exists"
+  target   = ".github/audit-log.yml"
+  template = "audit-log"
+
+  pr {
+    # This PR is NOT a compliance PR; don't pick up [JIRA-CHORE] prefix
+    # or compliance/automated labels from defaults.pr.
+    inherits = false
+    title    = "audit: enable repo audit logging"
+    body     = "Enables structured audit logging for SOC2 evidence collection."
+    labels   = ["audit", "soc2"]
   }
 }
 ```
 
-Resolution order (most specific wins):
+Resolution order (most specific wins, walking up the chain):
 
 1. Reconciler-level `reconcile { pr {} }` (only for reconciler PRs)
 2. Rule-level `rule { pr {} }` (only for rule PRs)
 3. Policy-level `defaults { pr {} }`
 4. Engine built-in (current behavior)
+
+Each `pr {}` block has an `inherits` boolean (default `true`) that
+controls whether unset fields cascade up the chain:
+
+- `inherits = true` (default): unset fields at this level pull from
+  the next level up. So a reconciler `pr {}` that sets only `title`
+  gets `body` and `labels` from `rule.pr` (if set) → `defaults.pr`
+  → built-in.
+- `inherits = false`: this block is canonical; unset fields skip
+  parent levels and use the engine built-in directly. Useful when
+  the `defaults.pr` template is compliance-flavored but a specific
+  rule or reconciler PR needs to read differently.
+
+`defaults.pr` itself ignores `inherits` since it has no parent to
+inherit from.
 
 ### Template variables
 
@@ -502,9 +534,10 @@ package policy
 import "github.com/donaldgifford/repo-guardian/internal/template"
 
 type PRTemplate struct {
-    Title  *template.Compiled  // parsed at policy load
-    Body   *template.Compiled
-    Labels []string             // applied verbatim, no templating
+    Title    *template.Compiled  // parsed at policy load; nil = inherit
+    Body     *template.Compiled  // nil = inherit
+    Labels   []string             // applied verbatim, no templating; nil = inherit
+    Inherits bool                 // default true; false skips parent levels
 }
 
 func (p *PRTemplate) Render(r *template.Renderer, v *template.PRVars) (title, body string, err error) {
@@ -619,24 +652,18 @@ in step 2 / 5.
    "separate"` flag would force a rule into its own branch / PR
    when bundling would lose its custom title. Cleaner, but doubles
    the PR count. Probably yes for V2; out of scope for V1.
-4. **Reconciler PR config inheritance.** Should reconciler PRs
-   inherit from `defaults.pr` even though they're for a different
-   purpose? Right now the doc says yes. Counter-argument: a
-   reconciler PR might want a different default body (different
-   rule context). Could add `defaults.reconciler.pr {}` if that
-   matters.
-5. **`existingConfigMap` validation.** Should the chart fail the
+4. **`existingConfigMap` validation.** Should the chart fail the
    install if the named ConfigMap doesn't exist, or let k8s emit
    a CreateContainerConfigError when the pod tries to mount?
    k8s's native behavior is fine; document it.
-6. **Body length limits.** GitHub caps PR bodies at 65535 chars.
+5. **Body length limits.** GitHub caps PR bodies at 65535 chars.
    Should we truncate-with-warning or fail at render time? Lean
    truncate-with-warning since orgs sometimes accidentally embed
    large blobs.
-7. **Global Markdown linter on bodies?** Probably no — operator
+6. **Global Markdown linter on bodies?** Probably no — operator
    responsibility — but a doc note recommending standard Markdown
    conventions wouldn't hurt.
-8. **Zero-value-context render check at parse time?** When a
+7. **Zero-value-context render check at parse time?** When a
    template parses, optionally execute it against zero-value
    contexts to surface "references `.Catalog.Owner` but `.Catalog`
    may be nil" errors at load time. Catches dereference bugs

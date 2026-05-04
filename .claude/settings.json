@@ -28,6 +28,7 @@
       "Bash(git commit *)",
       "Bash(go mod *)",
       "Bash(go build *)",
+      "Bash(go vet *)",
       "Bash(promtool check *)",
       "Bash(yq eval *)",
       "Bash(make ci *)",

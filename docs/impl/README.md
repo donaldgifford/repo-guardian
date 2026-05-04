@@ -41,5 +41,6 @@ docz create impl "Your Implementation Title"
 | IMPL-0007 | Additional Rule Types and Ignore Lists | Completed | 2026-03-15 | Donald Gifford | [0007-additional-rule-types-and-ignore-lists.md](0007-additional-rule-types-and-ignore-lists.md) |
 | IMPL-0008 | Distributed Renovate via Per-Repo GitHub Actions | Completed | 2026-03-15 | Donald Gifford | [0008-distributed-renovate-via-per-repo-github-actions.md](0008-distributed-renovate-via-per-repo-github-actions.md) |
 | IMPL-0009 | Per-org rule scoping and observability | Completed | 2026-04-25 | Donald Gifford | [0009-per-org-rule-scoping-and-observability.md](0009-per-org-rule-scoping-and-observability.md) |
-| IMPL-0010 | Publish Helm chart via OCI registry | Draft | 2026-05-02 | Donald Gifford | [0010-publish-helm-chart-via-oci-registry.md](0010-publish-helm-chart-via-oci-registry.md) |
+| IMPL-0010 | Publish Helm chart via OCI registry | Completed | 2026-05-02 | Donald Gifford | [0010-publish-helm-chart-via-oci-registry.md](0010-publish-helm-chart-via-oci-registry.md) |
+| IMPL-0011 | Persistent reconcile state and multi-replica coordination | Draft | 2026-05-03 | Donald Gifford | [0011-persistent-reconcile-state-and-multi-replica-coordination.md](0011-persistent-reconcile-state-and-multi-replica-coordination.md) |
 <!-- END DOCZ AUTO-GENERATED -->

@@ -30,6 +30,7 @@ nav:
         - 'IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions': impl/0008-distributed-renovate-via-per-repo-github-actions.md
         - 'IMPL-0009: Per-org rule scoping and observability': impl/0009-per-org-rule-scoping-and-observability.md
         - 'IMPL-0010: Publish Helm chart via OCI registry': impl/0010-publish-helm-chart-via-oci-registry.md
+        - 'IMPL-0011: Persistent reconcile state and multi-replica coordination': impl/0011-persistent-reconcile-state-and-multi-replica-coordination.md
     - Investigations:
         - Overview: investigation/README.md
         - 'INV-0001: Tailscale Funnel for Webhook Testing': investigation/0001-tailscale-funnel-for-webhook-testing.md

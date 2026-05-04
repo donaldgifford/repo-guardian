@@ -214,12 +214,17 @@ type RepoState struct {
     LastCheckedAt   *time.Time
     LastCheckStatus string  // "success" | "error" | "skipped" | "pending"
     LastError       string
+    PolicyVersion   string  // hash of active policy at last write
 }
 
 type Store interface {
     GetRepoState(ctx context.Context, installationID int64, owner, repo string) (*RepoState, error)
     UpdateRepoState(ctx context.Context, s *RepoState) error
-    StaleRepos(ctx context.Context, freshness time.Duration, limit int) ([]RepoState, error)
+    // StaleRepos returns rows whose last_checked_at is older than
+    // freshness OR whose policy_version differs from currentPolicyVersion.
+    // The latter handles the new-rule-added scenario without per-rule
+    // freshness tracking — see Open Question #2.
+    StaleRepos(ctx context.Context, freshness time.Duration, currentPolicyVersion string, limit int) ([]RepoState, error)
     Close() error
 }
 ```
@@ -320,7 +325,8 @@ Implementations:
 
 1. `Scheduler` fires the sweep tick (Valkey-lock-coordinated; only
    the lock-holder pod executes).
-2. Sweep handler queries `Store.StaleRepos(freshness, batch_size)`.
+2. Sweep handler queries
+   `Store.StaleRepos(freshness, currentPolicyVersion, batch_size)`.
 3. For each stale repo, calls `Queue.Enqueue(Job{...})`.
 4. Worker pods (all replicas) `Subscribe` to the queue, claim jobs
    via Valkey `BRPOP` + in-flight set, run the engine on the repo.
@@ -343,10 +349,17 @@ combination:
 | **External Postgres + ElastiCache** | `external` | `external` | `valkey-lock` | Deployment only (operator manages external infra) |
 | **External Postgres + baked Valkey** | `external` | `baked-valkey` | `valkey-lock` | Deployment + Valkey Deployment + Valkey PVC + Service |
 
-CNPG mode requires the CNPG operator pre-installed in the cluster;
-the chart only renders the `Cluster` CR, not the operator. If
-the operator is missing, the CR fails to reconcile and the chart
-doesn't try to fix it.
+CNPG mode requires the CNPG operator pre-installed cluster-wide;
+the chart renders a `Cluster` CR (and optional `Pooler` CR) but
+does NOT take a Helm sub-chart dependency on the operator and does
+NOT install a pre-flight helm hook. If the CNPG CRDs are missing,
+the CR application fails at apply time and surfaces in helm/Argo
+the way any other missing CRD would. CNPG provisions Postgres and
+creates a `<cluster>-app` Secret with `host`/`username`/`password`/
+`dbname` keys; the repo-guardian Deployment consumes those keys
+via `secretKeyRef` — no chart-rendered DB credentials Secret in
+this mode. This pattern mirrors the maintainer's
+server-price-tracker chart.
 
 ### Why not Postgres for the queue too
 
@@ -367,6 +380,51 @@ option to consolidate to Postgres-only later if the operator
 burden of running Valkey turns out to be unwelcome — that's a
 config flip, not an engine change.
 
+### Observability
+
+10 new Prometheus metrics on top of the existing 21. All
+per-repo / per-installation metrics carry an `org` label,
+consistent with IMPL-0009. Pod-identity labels are kept off
+everything except `scheduler_is_leader` to avoid cardinality
+blowup.
+
+| Metric | Type | Labels | Source |
+|---|---|---|---|
+| `repo_guardian_queue_depth` | Gauge | `queue` (`jobs` / `in-flight`) | Periodic `LLEN`/`ZCARD` poll |
+| `repo_guardian_queue_enqueued_total` | Counter | `trigger` (`webhook` / `sweep`) | At `Queue.Enqueue` |
+| `repo_guardian_queue_claimed_total` | Counter | — | At `BRPOP` success |
+| `repo_guardian_queue_acked_total` | Counter | `outcome` (`success` / `error`) | At `Queue.Ack` |
+| `repo_guardian_queue_reaped_total` | Counter | — | When in-flight ZSET entries time out |
+| `repo_guardian_scheduler_is_leader` | Gauge | `pod` | 1 on lock-holder pod, 0 elsewhere |
+| `repo_guardian_scheduler_sweep_batch_size` | Histogram | — | At sweep handler exit |
+| `repo_guardian_store_query_seconds` | Histogram | `op` (`stale_repos` / `update_repo_state` / ...) | Wrap pgx calls |
+| `repo_guardian_rate_limit_remaining` | Gauge | `installation_id` | Read from GitHub response headers |
+| `repo_guardian_rate_limit_reserve_blocked_total` | Counter | `installation_id` | Increment when sweep skips an enqueue due to reserve |
+
+**SLO targets are deliberately deferred.** We don't yet have
+prod data on queue arrival rate at typical org sizes, how often
+the sweep tick lands on an empty stale-set, pgx pool contention
+under N-replica fan-in, or realistic rate-limit budget
+consumption. Ship the metrics, run for a release cycle, and
+draft a follow-up DESIGN with measured baselines and committed
+SLO targets at that point. Until then, treat the chart-bundled
+alerts (below) as starter shapes, not contractual SLOs.
+
+The chart surfaces a `serviceMonitor` block (matching the
+existing chart pattern) and a sibling `prometheusRule` block,
+both `enabled: false` by default. When `prometheusRule.enabled:
+true`, the chart renders a `PrometheusRule` with these starter
+alerts:
+
+- `RepoGuardianNoLeader` — `max(repo_guardian_scheduler_is_leader) == 0` for 5m → leader election broken
+- `RepoGuardianQueueBacklog` — `repo_guardian_queue_depth{queue="jobs"} > 1000` for 15m → workers can't keep up
+- `RepoGuardianReapingTooMuch` — `rate(repo_guardian_queue_reaped_total[5m]) > 0.1` → workers crashing or DSN flapping
+- `RepoGuardianRateLimitNearExhausted` — `repo_guardian_rate_limit_remaining < 100` per installation
+- `RepoGuardianStoreLatencyHigh` — `histogram_quantile(0.99, store_query_seconds) > 0.5s` for 10m
+
+`for:` durations and thresholds are values-overridable so
+operators can tune for their fleet size.
+
 ## API / Interface Changes
 
 New environment variables on the binary:
@@ -386,6 +444,16 @@ New environment variables on the binary:
   worker goroutines per replica.
 - `JOB_ACK_TIMEOUT` — duration (default `5m`). In-flight set
   reaper threshold.
+- `REAPER_INTERVAL` — duration (default `60s`). How often each
+  pod attempts the `lock:reaper` and runs the in-flight
+  reclamation pass.
+- `STORE_POSTGRES_MAX_CONNS` — int (default `5`). pgx pool max
+  per replica; tune up only if you've moved past the
+  recommended PgBouncer pattern at high replica counts.
+- `STORE_SWEEP_BATCH_SIZE` — int (default `200`). Hard cap on
+  repos enqueued per scheduler tick. Independent of the
+  per-installation rate-limit reserve check, which gates each
+  individual enqueue.
 
 Helm chart values surface (new):
 
@@ -395,6 +463,8 @@ store:
   backend: postgres        # postgres | memory
   postgres:
     mode: baked            # baked | cnpg | external
+    maxConns: 5            # STORE_POSTGRES_MAX_CONNS — pgx pool
+                           # max per replica
     # baked: chart renders Postgres Deployment + PVC + Service.
     # cnpg: chart renders a CNPG Cluster CR (requires the CNPG
     #   operator pre-installed in the cluster).
@@ -412,10 +482,48 @@ store:
       # <release>-postgres with a random password on first install
       # and reuses it on upgrades.
     cnpg:
-      instances: 1         # CNPG Cluster.spec.instances
+      # Chart renders a CNPG `Cluster` CR (and optional `Pooler` CR).
+      # The CNPG operator must be pre-installed cluster-wide; the
+      # chart does NOT depend on the CNPG operator chart and does
+      # NOT run a helm hook to verify the CRDs. If the operator is
+      # missing, the CR fails to reconcile and Argo/helm surfaces
+      # the error at apply time. This mirrors the pattern used in
+      # the maintainer's server-price-tracker chart.
+      #
+      # On install, CNPG provisions Postgres and creates an app
+      # Secret named `<cluster>-app` containing host/username/
+      # password/dbname keys. The repo-guardian Deployment consumes
+      # those keys via `secretKeyRef` — the chart does NOT render
+      # its own Postgres credentials Secret in this mode.
+      instances: 1
+      imageName: ghcr.io/cloudnative-pg/postgresql:17.2
+      bootstrap:
+        database: repo_guardian
+        owner: repo_guardian
       storage:
         size: 5Gi
         storageClass: ""
+      managed:
+        services:
+          # Single-instance does not need read-only or replica
+          # services. Drop them to keep the namespace tidy.
+          disabledDefaultServices: ["ro", "r"]
+      monitoring:
+        enablePodMonitor: false
+      postgresql:
+        parameters:
+          max_connections: "200"
+      resources: {}
+      # Optional PgBouncer in front of the cluster — only useful
+      # at high replica counts (>5 worker pods).
+      pooler:
+        enabled: false
+        type: rw
+        instances: 1
+        pgbouncer:
+          poolMode: transaction
+          defaultPoolSize: 25
+          maxClientConnections: 100
 
 # Queue: durable work queue + scheduler-lock backend
 queue:
@@ -443,6 +551,38 @@ scheduler:
   backend: valkey          # valkey | ticker
   # `valkey` reuses queue.valkey.dsn for leader-election locks.
   # `ticker` is single-replica only.
+  sweep:
+    batchSize: 200         # STORE_SWEEP_BATCH_SIZE — hard cap
+                           # on repos enqueued per tick
+  reaper:
+    interval: 60s          # REAPER_INTERVAL — how often each pod
+                           # attempts lock:reaper
+
+# Observability — both off by default; opt in per cluster.
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  path: /metrics
+  labels: {}
+
+prometheusRule:
+  enabled: false
+  # Per-alert overrides. Operators can tune `for:` durations and
+  # threshold expressions without forking the chart.
+  alerts:
+    noLeader:
+      for: 5m
+    queueBacklog:
+      threshold: 1000
+      for: 15m
+    reapingTooMuch:
+      rate: 0.1
+    rateLimitNearExhausted:
+      threshold: 100
+    storeLatencyHigh:
+      quantile: 0.99
+      threshold: 0.5
+      for: 10m
 ```
 
 ServiceAccount RBAC stays minimal — no leader-election Lease
@@ -469,11 +609,14 @@ CREATE TABLE repo_state (
     last_checked_at TIMESTAMP WITH TIME ZONE,
     last_check_status TEXT NOT NULL DEFAULT 'pending',
     last_error TEXT,
+    policy_version TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (installation_id, owner, repo)
 );
 
 CREATE INDEX idx_repo_state_freshness
     ON repo_state(last_checked_at NULLS FIRST);
+CREATE INDEX idx_repo_state_policy_version
+    ON repo_state(policy_version);
 ```
 
 Valkey key layout (no schema; documented as a contract):
@@ -595,47 +738,106 @@ don't ship tooling for it in V1.
 
 ## Open Questions
 
-1. **Scheduler interface granularity.** Is one global sweep
-   sufficient, or do we want per-installation schedules with
-   different intervals (e.g., a high-priority installation
-   reconciled hourly, others weekly)?
-2. **Per-rule freshness windows.** A repo might have a fast-moving
-   rule (dependabot) and a slow-moving one (CODEOWNERS). One
-   global window per repo may be too coarse — should freshness
-   be tracked per `(repo, rule)`?
-3. **Webhook delivery semantics.** Webhook handler currently runs
-   the engine inline; under the new design it should `Queue.Enqueue`
-   and respond 202. What's the SLA for webhook ACK time, and do we
-   need a separate "high priority" Valkey list for webhook-driven
-   jobs vs. scheduler-enqueued jobs?
-4. **Operator force-recheck.** Admin endpoint that resets
-   `last_checked_at` for a repo, installation, or globally?
-   Useful for "the rule changed, recheck everyone." Counter — the
-   operator can do this with a one-line `psql` query against the
-   state DB; do we need an HTTP endpoint?
-5. **CNPG operator as a dependency.** When `store.postgres.mode =
-   cnpg`, the chart renders a `Cluster` CR that fails to reconcile
-   if the CNPG operator isn't installed. Should we add a chart
-   pre-flight check (helm hook) that verifies the CRD exists and
-   fails fast at install time, or rely on k8s's native "CR with
-   no controller" behavior (sits in pending)?
-6. **Observability.** Prometheus metrics for queue depth (Valkey
-   `LLEN`), in-flight set size, scheduler-lock holder identity,
-   store query latency, sweep batch size, rate-limit headroom.
-   What are the SLO targets and which alerts ship with the chart?
-7. **In-flight reaper ownership.** Should the reaper be a
-   separate goroutine on every worker pod (with its own Valkey
-   lock to prevent N-pods-reaping-simultaneously), or only run on
-   the scheduler-lock holder? Lean every-pod-with-its-own-lock for
-   resilience — if the scheduler holder is also doing reaping,
-   leader churn delays orphan reclamation.
-8. **Postgres connection pool sizing.** Default `max_conns` for
-   the binary's pgx pool. Affects how many replicas can run before
-   exhausting Postgres's `max_connections`. Probably `5 per replica`
-   as a default with a values-tunable.
-9. **Sweep batch size.** Hard cap on repos enqueued per scheduler
-   tick? Default? Probably yes, with a default of `min(rate_budget,
-   200)`.
+1. **Scheduler interface granularity.** **Resolved.** One
+   global sweep is sufficient for V1. The `Scheduler` interface
+   admits per-installation schedules in a future iteration
+   (just another implementation slot — `scheduler/per-install`),
+   but adding it now would couple the interface to a concept we
+   don't have a use case for yet. Until an operator surfaces a
+   real "this installation needs hourly while others are weekly"
+   need, one `RECONCILE_FRESHNESS` window applied uniformly
+   keeps the scheduler trivial.
+2. **Per-rule freshness windows.** **Resolved.** Track
+   freshness per `(installation_id, owner, repo)` only — not
+   per `(repo, rule)`. The new-rule-added scenario is handled
+   by hashing the active policy into a `policy_version` column
+   on `repo_state`: when the operator updates `guardian.hcl`
+   the binary's loader recomputes the hash, sweep treats every
+   row whose `policy_version` differs from current as stale,
+   and the next tick re-enqueues. This avoids the cardinality
+   blowup of per-rule rows (tens of rules × tens of thousands
+   of repos) and the schema churn of tracking which rule each
+   row corresponds to. Schema impact: add `policy_version TEXT`
+   to `repo_state`, default empty, populated on first write.
+3. **Webhook delivery semantics.** **Resolved.** Single
+   shared `queue:jobs` LIST — no separate "high priority"
+   queue for webhook-driven jobs. Reconcile triggers are
+   limited (scheduler tick, new-repo install events, push to
+   default branch touching a watched file) rather than firing
+   on every PR/comment, so queue contention from webhook
+   floods is unlikely. Webhook ACK SLA: 202 within 2s
+   end-to-end (HMAC validation + IP allowlist + `Queue.Enqueue`
+   + return). The Valkey enqueue itself is sub-millisecond;
+   the budget is for the upstream middleware. If the queue
+   ever becomes the contention point we promote to a two-list
+   pattern (`queue:jobs:high` / `queue:jobs:low` with a
+   priority-aware `BLPOP` over both keys), but not before
+   metrics show it's needed.
+4. **Operator force-recheck.** **Resolved.** No HTTP admin
+   endpoint in V1. The chart owner also owns the state DB
+   (baked, CNPG, or external) and can run a one-liner —
+   `UPDATE repo_state SET last_checked_at = NULL WHERE
+   owner = '...';` — to force a recheck of any subset on the
+   next sweep tick. A future admin web UI is out of scope for
+   this design; if it lands, it adds an HTTP surface that
+   wraps the same SQL.
+5. **CNPG operator as a dependency.** **Resolved.** No helm
+   hook, no chart-level pre-flight check, no Helm sub-chart
+   dependency on the CNPG operator chart — Argo and Helm hooks
+   are operationally awkward together, and the CNPG operator is
+   a cluster-scoped prereq that organizations install once and
+   reuse across many apps. Pattern follows the maintainer's
+   server-price-tracker chart: `store.postgres.mode = cnpg`
+   gates rendering of the `Cluster` (and optional `Pooler`) CR;
+   if the CRDs are absent the CR application fails at apply
+   time and surfaces in Argo/helm normally. Documentation in
+   the chart README and a clear binary-side error message when
+   `STORE_POSTGRES_MODE=cnpg` is set but the DSN can't be
+   resolved cover the discoverability gap. The chart consumes
+   the CNPG-generated `<cluster>-app` Secret via `secretKeyRef`
+   — no chart-rendered Postgres credentials Secret in cnpg
+   mode.
+6. **Observability.** **Resolved** for the metric set and the
+   chart-bundled alert shapes — see the new "Observability"
+   subsection under Detailed Design (10 new metrics on top of
+   the existing 21, `serviceMonitor` + `prometheusRule` chart
+   blocks both off by default, 5 starter alerts when
+   `prometheusRule.enabled=true`). **SLO targets are
+   deliberately deferred** to a follow-up DESIGN once we have a
+   release cycle of prod data on queue arrival rate, sweep
+   batch sizes, pgx pool contention, and rate-limit budget
+   consumption. Until then, the chart-shipped alert thresholds
+   are starter shapes, not contractual SLOs, and operators can
+   tune `for:` durations and thresholds via values.
+7. **In-flight reaper ownership.** **Resolved.** Every worker
+   pod runs a reaper goroutine; pods race on a separate
+   `repo-guardian:lock:reaper` Valkey key (already in the
+   schema). This decouples reaper cadence from sweep cadence
+   and keeps orphan reclamation resilient to scheduler-leader
+   churn — if the leader pod dies mid-sweep, the reaper still
+   runs from another pod, just with a 30s lock-TTL gap.
+   Defaults: reaper interval 60s, `lock:reaper` TTL 30s (longer
+   than expected reap runtime). Cost is one extra goroutine per
+   pod and one extra Valkey key — negligible.
+8. **Postgres connection pool sizing.** **Resolved.** Default
+   pgx pool max = 5 per replica, values-tunable via
+   `STORE_POSTGRES_MAX_CONNS` (env) / `store.postgres.maxConns`
+   (helm). Math at default: 5 replicas → 25 conns, 10 → 50;
+   baked Postgres `max_connections=100` and CNPG `Cluster.spec.
+   postgresql.parameters.max_connections=200` (already in the
+   values block) both leave comfortable headroom. For replica
+   counts >15, the already-exposed CNPG `Pooler` (PgBouncer) is
+   the recommended path rather than bumping `max_conns`.
+9. **Sweep batch size.** **Resolved.** Hard cap of 200 repos
+   enqueued per scheduler tick, values-tunable via
+   `STORE_SWEEP_BATCH_SIZE` (env) / `scheduler.sweep.batchSize`
+   (helm). Rate-limit reserve is a *separate* per-repo enqueue
+   gate: at enqueue time, check the per-installation rate-limit
+   remaining; if under reserve, skip the enqueue and bump
+   `repo_guardian_rate_limit_reserve_blocked_total{installation_id}`
+   (the metric is already in the Q6 set). Decoupling keeps the
+   intent of each layer clear — the batch cap protects Postgres
+   and Valkey throughput; the reserve protects GitHub.
 
 ## References
 
@@ -650,5 +852,8 @@ don't ship tooling for it in V1.
   https://docs.github.com/en/rest/overview/rate-limits-for-the-rest-api
 - Valkey: https://valkey.io
 - CloudNativePG: https://cloudnative-pg.io/documentation/current/
+- server-price-tracker chart (CNPG `Cluster` + `Pooler` template
+  pattern adopted here):
+  https://github.com/donaldgifford/server-price-tracker/tree/main/charts/server-price-tracker
 - AWS ElastiCache for Redis (Valkey-compatible):
   https://docs.aws.amazon.com/AmazonElastiCache/latest/red-ug/

@@ -239,3 +239,46 @@ func TestEnginePR_BodyTruncation_AppendsMarker(t *testing.T) {
 		t.Errorf("body still exceeds max+marker headroom: len=%d", len(client.createdPRBody))
 	}
 }
+
+// TestEnginePR_JiraStyleTitle_FromTemplatingVars locks in the
+// IMPL-0012 Phase 7.4 homelab smoke acceptance criterion as a
+// deterministic unit test. The chart's `templating.vars.JIRA_PROJECT`
+// surfaces as an env var on the process; the `env` template helper
+// reads it and the resulting PR title must be `[PLAT-CHORE] add
+// CODEOWNERS`.
+//
+// Cannot run in parallel because t.Setenv() panics under t.Parallel
+// in Go 1.25+.
+func TestEnginePR_JiraStyleTitle_FromTemplatingVars(t *testing.T) {
+	t.Setenv("JIRA_PROJECT", "PLAT")
+
+	rule := newCodeownersRule()
+	titleStr := `[{{ env "JIRA_PROJECT" }}-CHORE] add CODEOWNERS`
+	rule.PR = &policy.PRConfig{
+		Title:         &titleStr,
+		CompiledTitle: compile(t, `rule "codeowners".pr.title`, titleStr),
+	}
+
+	cfg := &policy.PolicyConfig{
+		Guardian:  policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{rule},
+	}
+
+	engine := testPolicyEngine(cfg)
+	client := newMockClient()
+	client.repo = newPolicyMockRepo()
+	client.branchSHAs["org/repo/main"] = "abc123"
+
+	if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if client.createdPR == nil {
+		t.Fatal("expected PR to be created")
+	}
+
+	want := "[PLAT-CHORE] add CODEOWNERS"
+	if client.createdPR.Title != want {
+		t.Errorf("PR title: got %q, want %q", client.createdPR.Title, want)
+	}
+}

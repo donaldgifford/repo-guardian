@@ -123,7 +123,11 @@ The codeowners-only PR title MUST be exactly:
 ```
 
 Pass means `{{ env "JIRA_PROJECT" }}` resolved at render-time to the
-chart-supplied `PLAT`.
+chart-supplied `PLAT`. This exact chain is also locked in CI by
+`TestEnginePR_JiraStyleTitle_FromTemplatingVars` in
+`internal/checker/pr_test.go` — the homelab run is the live-traffic
+confirmation, but a regression here would already break the unit
+test.
 
 ### 4b. Bundled-PR title falls back to defaults
 

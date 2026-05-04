@@ -404,15 +404,15 @@ resolution, body truncation, strict-mode flag.
   - `.Catalog.Owner` reference at rule-pr scope flagged.
   - Empty config passes trivially.
   - Multiple failures aggregated.
-- [ ] Update existing reconciler tests (catalog_info /
-  set_custom_properties / label_sync / branch_protection /
-  workflow_sync) to assert the new PR title/body shape under both
-  default and customized policy. **Deferred**: existing reconciler
-  tests already pass through the new resolution code path — when
-  `params.PRTemplate` is nil they hit the fallback strings, which
-  are byte-identical to the previous hardcoded constants.
-  Customized-policy reconciler tests can land alongside the chart
-  smoke work in Phase 7.
+- [x] Update existing reconciler tests under customized policy.
+  `TestGHAMode_CustomizedPRTemplate` in
+  `internal/reconciler/custom_properties_test.go` supplies a
+  non-nil `ReconcileParams.PRTemplate` and asserts the rendered
+  title, body (with `.Reconciler` interpolated), and labels make
+  it onto the PR. The default-policy path is already covered by
+  the existing `TestGHAMode_*` tests — they hit the fallback
+  strings (byte-identical to the previous hardcoded constants)
+  through the new `resolveReconcilerPR` helper.
 
 #### Success Criteria
 
@@ -628,24 +628,24 @@ delivers on the customization promises.
 
 ## Testing Plan
 
-- [ ] Unit tests for `internal/template/` (Phase 1) covering renderer
+- [x] Unit tests for `internal/template/` (Phase 1) covering renderer
   + every helper + zero-value contexts + the `Validate` path.
-- [ ] Golden-file tests for every embedded template under
+- [x] Golden-file tests for every embedded template under
   `internal/rules/templates/` (Phase 3).
-- [ ] HCL fixtures exercising `defaults.pr`, per-rule `pr`,
+- [x] HCL fixtures exercising `defaults.pr`, per-rule `pr`,
   per-reconciler `pr`, and `inherits=false` (Phase 4).
-- [ ] `internal/policy/pr_test.go` resolution-order test matrix
+- [x] `internal/policy/pr_test.go` resolution-order test matrix
   (Phase 4).
-- [ ] Engine integration tests for: rule with custom title, bundled
+- [x] Engine integration tests for: rule with custom title, bundled
   PR title fallback, reconciler with custom title, body truncation,
   strict-mode validation failure, `inherits=false` short-circuit
   (Phase 5).
-- [ ] Reconciler test fixtures updated to assert the new PR shape
+- [x] Reconciler test fixtures updated to assert the new PR shape
   (Phase 5).
-- [ ] helm-unittest cases for `templates.files`,
+- [x] helm-unittest cases for `templates.files`,
   `templates.existingConfigMap`, `templating.vars` (Phase 6).
 - [ ] Homelab smoke at production with a Jira-style title and
-  multi-rule bundle (Phase 7).
+  multi-rule bundle (Phase 7) — **Pending operator action**.
 
 ## Dependencies
 

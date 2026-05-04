@@ -43,4 +43,5 @@ docz create impl "Your Implementation Title"
 | IMPL-0009 | Per-org rule scoping and observability | Completed | 2026-04-25 | Donald Gifford | [0009-per-org-rule-scoping-and-observability.md](0009-per-org-rule-scoping-and-observability.md) |
 | IMPL-0010 | Publish Helm chart via OCI registry | Completed | 2026-05-02 | Donald Gifford | [0010-publish-helm-chart-via-oci-registry.md](0010-publish-helm-chart-via-oci-registry.md) |
 | IMPL-0011 | Persistent reconcile state and multi-replica coordination | Draft | 2026-05-03 | Donald Gifford | [0011-persistent-reconcile-state-and-multi-replica-coordination.md](0011-persistent-reconcile-state-and-multi-replica-coordination.md) |
+| IMPL-0012 | Customizable PR templates and extensible template ConfigMap | Draft | 2026-05-03 | Donald Gifford | [0012-customizable-pr-templates-and-extensible-template-configmap.md](0012-customizable-pr-templates-and-extensible-template-configmap.md) |
 <!-- END DOCZ AUTO-GENERATED -->

@@ -123,14 +123,15 @@ Nothing yet calls it; CI must stay green throughout.
 
 #### Tasks
 
-- [ ] Add `internal/template/template.go` with:
+- [x] Add `internal/template/template.go` with:
   - `Renderer` struct holding the curated `template.FuncMap`.
   - `NewRenderer()` constructor.
   - `Renderer.Parse(name, body string) (*Compiled, error)` —
     compiles a Go `text/template` and returns a `*Compiled`.
   - `Compiled.Render(vars any) (string, error)` — executes against
-    any typed context.
-- [ ] Add `internal/template/contexts.go` with:
+    any typed context. Nil receiver returns `ErrNilCompiled`
+    sentinel.
+- [x] Add `internal/template/contexts.go` with:
   - `Common` struct (`Owner`, `Repo`, `DefaultBranch`, `Date`).
   - `FileVars` struct embedding `Common` (`Rule`,
     `Catalog *CatalogInfo`, `Org` alias).
@@ -139,15 +140,16 @@ Nothing yet calls it; CI must stay green throughout.
   - `Rule` struct (`Name`, `Target`).
   - `CatalogInfo` struct (`Owner`, `Component`, `JiraProject`,
     `JiraLabel`).
-- [ ] Add `internal/template/helpers.go` with the curated helper set:
+- [x] Add `internal/template/helpers.go` with the curated helper set:
   `env`, `default`, `join`, `lower`, `upper`, `title`. Each helper
   has godoc on the exported binding documenting the signature and
   edge cases.
-- [ ] Add `internal/template/strict.go` with
-  `Renderer.Validate(c *Compiled, contextType reflect.Type)` — runs
-  the compiled template against a zero-value of the named context
-  type. Used for opt-in strict mode in Phase 5.
-- [ ] Add `internal/template/template_test.go`:
+- [x] Add `internal/template/strict.go` with
+  `ValidateZero[T any](c *Compiled) error` — runs the compiled
+  template against a zero-value of context type T. Generic version
+  preferred over `reflect.Type` (cleaner call site,
+  compile-time-checked). Used for opt-in strict mode in Phase 5.
+- [x] Add `internal/template/template_test.go`:
   - Parse-error positive and negative cases.
   - Each helper has positive + edge-case tests.
   - Render against a zero-value `FileVars` and `PRVars` to catch nil
@@ -155,7 +157,8 @@ Nothing yet calls it; CI must stay green throughout.
   - Render against populated contexts proves byte-equivalence to a
     known expected string.
   - Confirm the same `Renderer` serves both `FileVars` and `PRVars`.
-- [ ] Doc comment at the top of `template.go` documents the security
+  - Coverage: 97.1% (target was ≥85%).
+- [x] Doc comment at the top of `template.go` documents the security
   posture of the `env` helper (no allow-list; operator-trusted).
 
 #### Success Criteria

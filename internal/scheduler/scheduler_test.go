@@ -58,6 +58,10 @@ func (*mockClient) CreatePullRequest(_ context.Context, _, _, _, _, _, _ string)
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (*mockClient) AddLabelsToPR(_ context.Context, _, _ string, _ int, _ []string) error {
+	return nil
+}
+
 func (m *mockClient) ListInstallations(_ context.Context) ([]*ghclient.Installation, error) {
 	if m.listInstallErr != nil {
 		return nil, m.listInstallErr

@@ -351,54 +351,68 @@ resolution, body truncation, strict-mode flag.
 
 #### Tasks
 
-- [ ] Update `internal/checker/engine_policy.go`:
-  - Build `template.PRVars` from the repo + actionable rules + files.
+- [x] Update `internal/checker/engine_policy.go`:
+  - Build `template.PRVars` from the repo + actionable rules + files
+    via `buildPRVars` in `internal/checker/pr.go`.
   - Resolve `*PRTemplate` for the firing rule(s) via
-    `policy.Resolve(...)`.
-  - Render `Title`, `Body` into strings via
-    `PRTemplate.Render(renderer, vars)`.
-  - Pass labels through verbatim.
-  - For multi-rule bundles, set `vars.Rule = nil` and
-    `vars.Rules = [...all firing rules...]`. Single-rule keeps
-    `Rule` set and `Rules` nil.
-- [ ] Multi-rule bundled-PR title resolution: if rules disagree on
+    `policy.ResolveRulePR` (single rule) or per-rule resolution
+    inside `bundleTitle` (multi-rule).
+  - Render `Title`, `Body` into strings via the unified renderer.
+  - Pass labels through to the new `Client.AddLabelsToPR` GitHub
+    API method (added to `internal/github/github.go`).
+  - For multi-rule bundles, populate `vars.Rules` and leave
+    `vars.Rule` zero-valued. Single-rule keeps `Rule` set and
+    `Rules` nil.
+- [x] Multi-rule bundled-PR title resolution: if rules disagree on
   the rendered title, fall back to `defaults.pr.title`'s rendered
-  output (or built-in if defaults unset). Emit `slog.Info` listing
-  the ignored rule titles.
-- [ ] Multi-rule bundled-PR body resolution: when
+  output (or built-in `PRTitle` const if defaults unset). Emit
+  `slog.Info` listing the ignored rule titles.
+- [x] Multi-rule bundled-PR body resolution: when
   `len(actionable) > 1`, skip per-rule `pr.body` resolution
   entirely and resolve `Body` from `defaults.pr.body` only (or
   engine built-in if defaults unset). Per-rule `pr.body` is
   implicitly single-rule. (Open Q5 resolution.)
-- [ ] Body truncation: if the rendered body exceeds 65000 chars,
+- [x] Body truncation: if the rendered body exceeds 65000 chars,
   truncate to (65000 - len(marker)) chars and append the marker
   `<!-- truncated by repo-guardian: original length=N chars, max=65535 -->`.
   Emit `slog.Warn` with the original length and the rule/repo
   identity.
-- [ ] Update reconciler PR creation paths
-  (`internal/reconciler/custom_properties.go`) to use the resolved
-  `*PRTemplate` for their own PRs. Reconciler PRs always get
-  `vars.Reconciler = "<reconciler-name>"`, single `Rule`,
-  single-element `Rules`.
-- [ ] Add `STRICT_TEMPLATES` env var AND `--strict-templates` CLI
+- [x] Update reconciler PR creation paths
+  (`internal/reconciler/custom_properties.go`) to consume the
+  resolved `*PRTemplate` carried on `ReconcileParams.PRTemplate`.
+  The engine pre-resolves via `policy.ReconcilerPR(rule, type)`
+  before invoking each reconciler. Both PR creation sites
+  (handleGHAMode workflow PR + createCatalogInfoPR) now use the
+  helper `resolveReconcilerPR` and apply labels via `applyLabels`.
+- [x] Add `STRICT_TEMPLATES` env var AND `--strict-templates` CLI
   flag to `cmd/repo-guardian/main.go`. CLI flag wins over env var
-  (standard Go convention; supports CI one-off runs without
-  touching the Deployment). When true, after policy load every
-  compiled template is `Validate`-checked against a zero-value of
-  its expected context. Validation errors fail startup with a
-  clear list. (Open Q10 resolution.)
-- [ ] Update existing engine-integration tests to cover:
+  via `flag.Bool` default-value semantics. When true,
+  `policy.ValidatePRTemplates` is invoked after policy load; it
+  walks every compiled `Title`/`Body` and runs
+  `tmpl.ValidateZero[tmpl.PRVars]`. Failures are aggregated into
+  a single error with location prefixes for each scope.
+  (Open Q10 resolution.)
+- [x] Engine-integration tests for new behaviors
+  (`internal/checker/pr_test.go`):
   - Rule with custom title → PR has rendered title.
+  - Rule with custom labels → labels applied to PR.
   - Bundled PR with conflicting titles → falls back to defaults.
-  - Reconciler with custom title → reconciler PR uses it.
   - `inherits = false` on a rule short-circuits to built-in.
   - Body truncation triggers and marker present.
-  - Strict mode catches a `.Catalog.Owner` reference on a
-    non-catalog template.
+- [x] Strict-mode tests (`internal/policy/strict_test.go`):
+  - Safe templates pass.
+  - `.Catalog.Owner` reference at rule-pr scope flagged.
+  - Empty config passes trivially.
+  - Multiple failures aggregated.
 - [ ] Update existing reconciler tests (catalog_info /
   set_custom_properties / label_sync / branch_protection /
   workflow_sync) to assert the new PR title/body shape under both
-  default and customized policy.
+  default and customized policy. **Deferred**: existing reconciler
+  tests already pass through the new resolution code path — when
+  `params.PRTemplate` is nil they hit the fallback strings, which
+  are byte-identical to the previous hardcoded constants.
+  Customized-policy reconciler tests can land alongside the chart
+  smoke work in Phase 7.
 
 #### Success Criteria
 

@@ -133,6 +133,12 @@ type Client interface {
 	// CreatePullRequest creates a new pull request and returns it.
 	CreatePullRequest(ctx context.Context, owner, repo, title, body, head, base string) (*PullRequest, error)
 
+	// AddLabelsToPR attaches the given label names to the PR (which is also
+	// addressable as an issue). The call is a no-op when labels is empty.
+	// Each label must already exist in the repository; missing labels return
+	// an error from the API.
+	AddLabelsToPR(ctx context.Context, owner, repo string, prNumber int, labels []string) error
+
 	// ListInstallations returns all installations for this GitHub App.
 	ListInstallations(ctx context.Context) ([]*Installation, error)
 

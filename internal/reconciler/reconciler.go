@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/policy"
 )
 
 // Reconciler defines the interface for a post-check action that runs
@@ -47,4 +48,11 @@ type ReconcileParams struct {
 
 	// Logger is a structured logger for the reconciler to use.
 	Logger *slog.Logger
+
+	// PRTemplate is the resolved (reconciler.pr → defaults.pr) PR
+	// template for any PR this reconciler may open. Nil means the
+	// caller passed no policy-driven PR config; reconcilers fall back
+	// to their hardcoded defaults in that case. Reconciler PRs
+	// deliberately skip rule.pr (DESIGN-0013 Q4 resolution).
+	PRTemplate *policy.PRTemplate
 }

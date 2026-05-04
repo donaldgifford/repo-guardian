@@ -254,6 +254,27 @@ func (c *GitHubClient) CreatePullRequest(
 	}, nil
 }
 
+// AddLabelsToPR attaches the given label names to a PR. PRs are
+// addressable through the issues endpoint, so this calls
+// Issues.AddLabelsToIssue under the hood. A nil or empty labels slice
+// is a no-op.
+func (c *GitHubClient) AddLabelsToPR(
+	ctx context.Context,
+	owner, repo string,
+	prNumber int,
+	labels []string,
+) error {
+	if len(labels) == 0 {
+		return nil
+	}
+
+	if _, _, err := c.ghClient().Issues.AddLabelsToIssue(ctx, owner, repo, prNumber, labels); err != nil {
+		return fmt.Errorf("adding labels to PR %s/%s#%d: %w", owner, repo, prNumber, err)
+	}
+
+	return nil
+}
+
 // ListInstallations returns all installations for this GitHub App.
 func (c *GitHubClient) ListInstallations(ctx context.Context) ([]*Installation, error) {
 	opts := &gh.ListOptions{PerPage: 100}

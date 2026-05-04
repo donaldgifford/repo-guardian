@@ -201,12 +201,19 @@ func (r *CustomPropertiesReconciler) handleGHAMode(
 		return fmt.Errorf("creating workflow file: %w", err)
 	}
 
-	body := buildPropertiesPRBody(desired, "github-action")
+	fallbackBody := buildPropertiesPRBody(desired, "github-action")
 
-	pr, err := params.Client.CreatePullRequest(ctx, params.Owner, params.Repo, PropertiesPRTitle, body, PropertiesBranchName, params.DefaultBranch)
+	prText, err := resolveReconcilerPR(log, params, "custom_properties", PropertiesPRTitle, fallbackBody)
+	if err != nil {
+		return fmt.Errorf("resolving reconciler PR template: %w", err)
+	}
+
+	pr, err := params.Client.CreatePullRequest(ctx, params.Owner, params.Repo, prText.Title, prText.Body, PropertiesBranchName, params.DefaultBranch)
 	if err != nil {
 		return fmt.Errorf("creating properties PR: %w", err)
 	}
+
+	applyLabels(ctx, log, params.Client, params.Owner, params.Repo, pr.Number, prText.Labels)
 
 	metrics.PropertiesPRsCreatedTotal.Inc()
 	log.Info("created properties PR", "pr_number", pr.Number)
@@ -310,12 +317,19 @@ func (r *CustomPropertiesReconciler) createCatalogInfoPR(
 		return fmt.Errorf("creating catalog-info.yaml: %w", err)
 	}
 
-	body := buildPropertiesPRBody(nil, "api")
+	fallbackBody := buildPropertiesPRBody(nil, "api")
 
-	pr, err := params.Client.CreatePullRequest(ctx, params.Owner, params.Repo, CatalogInfoPRTitle, body, CatalogInfoBranchName, params.DefaultBranch)
+	prText, err := resolveReconcilerPR(log, params, "custom_properties", CatalogInfoPRTitle, fallbackBody)
+	if err != nil {
+		return fmt.Errorf("resolving reconciler PR template: %w", err)
+	}
+
+	pr, err := params.Client.CreatePullRequest(ctx, params.Owner, params.Repo, prText.Title, prText.Body, CatalogInfoBranchName, params.DefaultBranch)
 	if err != nil {
 		return fmt.Errorf("creating catalog-info PR: %w", err)
 	}
+
+	applyLabels(ctx, log, params.Client, params.Owner, params.Repo, pr.Number, prText.Labels)
 
 	metrics.PropertiesPRsCreatedTotal.Inc()
 	log.Info("created catalog-info PR", "pr_number", pr.Number)

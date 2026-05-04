@@ -42,6 +42,8 @@ type mockClient struct {
 	deletedBranches  []string
 	createdFiles     []string
 	createdPR        *ghclient.PullRequest
+	createdPRBody    string
+	addedLabels      []string
 	installations    []*ghclient.Installation
 	installRepos     map[int64][]*ghclient.Repository
 	processedJobs    atomic.Int32
@@ -137,11 +139,12 @@ func (m *mockClient) CreateOrUpdateFile(_ context.Context, _, _, _, path, _, _ s
 	return nil
 }
 
-func (m *mockClient) CreatePullRequest(_ context.Context, _, _, title, _, head, _ string) (*ghclient.PullRequest, error) {
+func (m *mockClient) CreatePullRequest(_ context.Context, _, _, title, body, head, _ string) (*ghclient.PullRequest, error) {
 	if m.createPRErr != nil {
 		return nil, m.createPRErr
 	}
 
+	m.createdPRBody = body
 	m.createdPR = &ghclient.PullRequest{
 		Number: 1,
 		Title:  title,
@@ -150,6 +153,11 @@ func (m *mockClient) CreatePullRequest(_ context.Context, _, _, title, _, head, 
 	}
 
 	return m.createdPR, nil
+}
+
+func (m *mockClient) AddLabelsToPR(_ context.Context, _, _ string, _ int, labels []string) error {
+	m.addedLabels = append(m.addedLabels, labels...)
+	return nil
 }
 
 func (m *mockClient) ListInstallations(_ context.Context) ([]*ghclient.Installation, error) {

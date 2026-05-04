@@ -3,10 +3,12 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -25,6 +27,15 @@ import (
 const shutdownTimeout = 15 * time.Second
 
 func main() {
+	// CLI flag wins over env var (standard Go convention; supports CI
+	// one-off runs without touching the Deployment env).
+	strictTemplates := flag.Bool(
+		"strict-templates",
+		strictTemplatesFromEnv(),
+		"Validate every compiled PR template against a zero-value PRVars context at startup; exit non-zero on failure",
+	)
+	flag.Parse()
+
 	// Load configuration.
 	cfg, err := config.Load()
 	if err != nil {
@@ -60,6 +71,8 @@ func main() {
 	} else {
 		logger.Info("using built-in default policy")
 	}
+
+	runStrictTemplateValidation(*strictTemplates, policyCfg, logger)
 
 	// Initialize template store.
 	templates := rules.NewTemplateStore()
@@ -103,23 +116,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Wrap webhook handler with IP allowlist middleware if enabled.
-	if policyCfg.Guardian.WebhookIPAllowlist {
-		allowlist := webhook.NewGitHubIPAllowlist(
-			policyCfg.Guardian.WebhookIPAllowlistFailOpen,
-			policyCfg.Guardian.TrustProxyHeaders,
-			logger,
-		)
-		allowlist.StartRefresh(ctx)
-		webhookHandler = allowlist.Middleware(webhookHandler)
-
-		logger.Info("webhook IP allowlist enabled",
-			"fail_open", policyCfg.Guardian.WebhookIPAllowlistFailOpen,
-			"trust_proxy", policyCfg.Guardian.TrustProxyHeaders,
-		)
-	} else {
-		logger.Info("webhook IP allowlist disabled")
-	}
+	webhookHandler = wrapWebhookAllowlist(ctx, webhookHandler, &policyCfg.Guardian, logger)
 
 	// Start work queue workers.
 	queue.Start(ctx, policyCfg.Guardian.WorkerCount, engine, client)
@@ -247,6 +244,69 @@ func initLogger(level string) *slog.Logger {
 	})
 
 	return slog.New(handler)
+}
+
+// wrapWebhookAllowlist optionally wraps next with the GitHub IP
+// allowlist middleware. When the allowlist is enabled the refresher
+// is started against ctx so it terminates with shutdown. Returns the
+// original handler when disabled.
+func wrapWebhookAllowlist(
+	ctx context.Context,
+	next http.Handler,
+	g *policy.GuardianConfig,
+	logger *slog.Logger,
+) http.Handler {
+	if !g.WebhookIPAllowlist {
+		logger.Info("webhook IP allowlist disabled")
+		return next
+	}
+
+	allowlist := webhook.NewGitHubIPAllowlist(
+		g.WebhookIPAllowlistFailOpen,
+		g.TrustProxyHeaders,
+		logger,
+	)
+	allowlist.StartRefresh(ctx)
+
+	logger.Info("webhook IP allowlist enabled",
+		"fail_open", g.WebhookIPAllowlistFailOpen,
+		"trust_proxy", g.TrustProxyHeaders,
+	)
+
+	return allowlist.Middleware(next)
+}
+
+// runStrictTemplateValidation invokes ValidatePRTemplates when enabled
+// is true and exits non-zero on failure. Extracted from main() to keep
+// the entrypoint under the funlen statement budget.
+func runStrictTemplateValidation(enabled bool, policyCfg *policy.PolicyConfig, logger *slog.Logger) {
+	if !enabled {
+		return
+	}
+
+	if err := policy.ValidatePRTemplates(policyCfg); err != nil {
+		logger.Error("strict template validation failed", "error", err)
+		os.Exit(1)
+	}
+
+	logger.Info("strict template validation passed")
+}
+
+// strictTemplatesFromEnv reads STRICT_TEMPLATES from the environment
+// and returns the parsed boolean. Invalid or unset values default to
+// false. The CLI flag overrides this default at parse time.
+func strictTemplatesFromEnv() bool {
+	v := os.Getenv("STRICT_TEMPLATES")
+	if v == "" {
+		return false
+	}
+
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false
+	}
+
+	return b
 }
 
 func handleHealthz(w http.ResponseWriter, _ *http.Request) {

@@ -130,6 +130,7 @@ func (e *Engine) runReconcilers(
 
 		for _, rec := range recs {
 			recLog := log.With("rule", r.Name, "reconciler", rec.Name())
+			params.PRTemplate = e.policy.ReconcilerPR(r.Name, rec.Name())
 
 			if err := rec.Reconcile(ctx, params); err != nil {
 				recLog.Error("reconciler failed", "error", err)
@@ -589,19 +590,55 @@ func (e *Engine) createOrUpdatePRFromPolicy(
 	}
 
 	if existingPR == nil {
-		body := buildPRBodyFromPolicy(actionable)
-
-		pr, err := client.CreatePullRequest(ctx, owner, repo, PRTitle, body, BranchName, defaultBranch)
-		if err != nil {
-			return fmt.Errorf("creating PR: %w", err)
-		}
-
-		metrics.PRsCreatedTotal.WithLabelValues(owner).Inc()
-		log.Info("created PR", "pr_number", pr.Number)
-	} else {
-		metrics.PRsUpdatedTotal.WithLabelValues(owner).Inc()
-		log.Info("updated existing PR", "pr_number", existingPR.Number)
+		return e.createNewPolicyPR(ctx, log, client, owner, repo, defaultBranch, now, actionable)
 	}
+
+	metrics.PRsUpdatedTotal.WithLabelValues(owner).Inc()
+	log.Info("updated existing PR", "pr_number", existingPR.Number)
+
+	return nil
+}
+
+// createNewPolicyPR resolves PR templates, renders title/body/labels,
+// creates the PR, and applies labels. Extracted from
+// createOrUpdatePRFromPolicy to keep cyclomatic complexity in check.
+func (e *Engine) createNewPolicyPR(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	owner, repo, defaultBranch, now string,
+	actionable []policy.FileRuleConfig,
+) error {
+	fallbackBody := buildPRBodyFromPolicy(actionable)
+	vars := buildPRVars(owner, repo, defaultBranch, now, actionable)
+
+	var (
+		rendered renderedPR
+		err      error
+	)
+
+	switch len(actionable) {
+	case 1:
+		rendered, err = e.resolveAndRenderRulePR(log, &actionable[0], &vars, PRTitle, fallbackBody)
+	default:
+		rendered, err = e.resolveAndRenderBundlePR(log, actionable, &vars, PRTitle, fallbackBody)
+	}
+
+	if err != nil {
+		return fmt.Errorf("resolving PR template: %w", err)
+	}
+
+	pr, err := client.CreatePullRequest(ctx, owner, repo, rendered.Title, rendered.Body, BranchName, defaultBranch)
+	if err != nil {
+		return fmt.Errorf("creating PR: %w", err)
+	}
+
+	if err := client.AddLabelsToPR(ctx, owner, repo, pr.Number, rendered.Labels); err != nil {
+		log.Warn("adding labels to PR failed; continuing", "pr_number", pr.Number, "err", err)
+	}
+
+	metrics.PRsCreatedTotal.WithLabelValues(owner).Inc()
+	log.Info("created PR", "pr_number", pr.Number)
 
 	return nil
 }

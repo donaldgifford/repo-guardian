@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	tmpl "github.com/donaldgifford/repo-guardian/internal/template"
 )
 
 //go:embed templates/*.tmpl
@@ -84,7 +86,7 @@ func NewRegistry(rules []FileRule) *Registry {
 
 // EnabledRules returns only the rules where Enabled is true.
 func (r *Registry) EnabledRules() []FileRule {
-	var enabled []FileRule
+	enabled := make([]FileRule, 0, len(r.rules))
 
 	for _, rule := range r.rules {
 		if rule.Enabled {
@@ -115,44 +117,113 @@ func (r *Registry) AllRules() []FileRule {
 	return result
 }
 
-// TemplateStore loads and serves file templates, using embedded
-// defaults as fallbacks when a directory override is not available.
+// TemplateStore loads and serves file templates compiled with the
+// internal/template renderer. It tracks both the raw template body (for
+// byte-exact CheckExact comparisons) and the parsed *template.Compiled
+// (for rendering with variable contexts). Templates are loaded from a
+// directory if provided, with embedded defaults filling in any
+// remaining names.
 type TemplateStore struct {
-	templates map[string]string
+	renderer *tmpl.Renderer
+	raw      map[string]string
+	compiled map[string]*tmpl.Compiled
 }
 
-// NewTemplateStore creates an empty TemplateStore.
+// NewTemplateStore creates an empty TemplateStore wired to a fresh
+// Renderer. Callers that already hold a Renderer should use
+// NewTemplateStoreWithRenderer to share it.
 func NewTemplateStore() *TemplateStore {
+	return NewTemplateStoreWithRenderer(tmpl.NewRenderer())
+}
+
+// NewTemplateStoreWithRenderer creates an empty TemplateStore that
+// shares the supplied Renderer. Useful when the caller already owns a
+// Renderer and wants the same FuncMap applied across all parsed
+// templates in the process.
+func NewTemplateStoreWithRenderer(r *tmpl.Renderer) *TemplateStore {
 	return &TemplateStore{
-		templates: make(map[string]string),
+		renderer: r,
+		raw:      make(map[string]string),
+		compiled: make(map[string]*tmpl.Compiled),
 	}
 }
 
-// Load reads templates from the given directory (if non-empty and exists),
-// then fills in any missing templates from the embedded defaults.
+// Load reads templates from the given directory (if non-empty and
+// exists), then fills in any missing templates from the embedded
+// defaults. Each loaded template is parsed into a *template.Compiled
+// at load time so render-hot-path callers don't pay parse cost; parse
+// errors fail the load with the template name in the error message.
 func (ts *TemplateStore) Load(dir string) error {
-	// Load from directory if provided.
 	if dir != "" {
 		if err := ts.loadFromDir(dir); err != nil {
-			// Directory doesn't exist or can't be read; fall through to embedded.
 			if !os.IsNotExist(err) {
 				return fmt.Errorf("reading template directory %s: %w", dir, err)
 			}
 		}
 	}
 
-	// Fill in missing templates from embedded defaults.
 	return ts.loadEmbeddedDefaults()
 }
 
-// Get returns the template content for the given name.
-func (ts *TemplateStore) Get(name string) (string, error) {
-	content, ok := ts.templates[name]
+// Get returns the parsed template for the given name. Callers render
+// against any context type via Compiled.Render. Returns an error when
+// the name is not registered.
+func (ts *TemplateStore) Get(name string) (*tmpl.Compiled, error) {
+	c, ok := ts.compiled[name]
+	if !ok {
+		return nil, fmt.Errorf("template %q not found", name)
+	}
+
+	return c, nil
+}
+
+// Raw returns the unrendered template body for the given name. Useful
+// for byte-exact CheckExact comparisons that must operate on the
+// authored template text rather than its rendered output. Render-time
+// callers should prefer Get.
+func (ts *TemplateStore) Raw(name string) (string, error) {
+	body, ok := ts.raw[name]
 	if !ok {
 		return "", fmt.Errorf("template %q not found", name)
 	}
 
-	return content, nil
+	return body, nil
+}
+
+// store associates name with content, parsing the body via the shared
+// Renderer. It applies the legacy-syntax translator first so embedded
+// templates that still use OWNER_VALUE-style placeholders compile into
+// equivalent dotted-path Go templates during the Phase 2 transition.
+//
+// Templates that contain GitHub Actions expressions (`${{ secrets.X }}`)
+// are stored as raw passthrough since their `{{` `}}` markers are GHA
+// syntax, not Go template syntax, and would fail to parse otherwise.
+func (ts *TemplateStore) store(name, content string) error {
+	body := translateLegacyPlaceholders(content)
+
+	if containsGHAExpression(body) {
+		ts.raw[name] = content
+		ts.compiled[name] = ts.renderer.Raw(name, body)
+
+		return nil
+	}
+
+	c, err := ts.renderer.Parse(name, body)
+	if err != nil {
+		return fmt.Errorf("compiling template %q: %w", name, err)
+	}
+
+	ts.raw[name] = content
+	ts.compiled[name] = c
+
+	return nil
+}
+
+// containsGHAExpression reports whether body contains a GitHub Actions
+// expression marker (`${{`). Such markers collide with Go template
+// `{{` syntax and require the raw-passthrough compile path.
+func containsGHAExpression(body string) bool {
+	return strings.Contains(body, "${{")
 }
 
 func (ts *TemplateStore) loadFromDir(dir string) error {
@@ -174,7 +245,9 @@ func (ts *TemplateStore) loadFromDir(dir string) error {
 		}
 
 		name := strings.TrimSuffix(entry.Name(), ".tmpl")
-		ts.templates[name] = string(content)
+		if err := ts.store(name, string(content)); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -194,7 +267,7 @@ func (ts *TemplateStore) loadEmbeddedDefaults() error {
 		name := strings.TrimSuffix(entry.Name(), ".tmpl")
 
 		// Don't override directory-loaded templates.
-		if _, exists := ts.templates[name]; exists {
+		if _, exists := ts.compiled[name]; exists {
 			continue
 		}
 
@@ -203,8 +276,46 @@ func (ts *TemplateStore) loadEmbeddedDefaults() error {
 			return fmt.Errorf("reading embedded template %s: %w", entry.Name(), err)
 		}
 
-		ts.templates[name] = string(content)
+		if err := ts.store(name, string(content)); err != nil {
+			return err
+		}
 	}
 
 	return nil
+}
+
+// translateLegacyPlaceholders rewrites the legacy OWNER_VALUE-style
+// placeholders used by the pre-DESIGN-0013 reconciler templates into
+// dotted-path Go template syntax so they compile with the unified
+// renderer. This is a Phase 2 transitional shim — Phase 3 deletes this
+// function and rewrites the embedded templates directly.
+//
+// CLAUDE: delete this function and the legacyReplacements list when
+// Phase 3 of IMPL-0012 lands. The embedded templates will already use
+// dotted-path syntax at that point.
+func translateLegacyPlaceholders(content string) string {
+	if strings.Contains(content, "{{") {
+		return content
+	}
+
+	for _, r := range legacyReplacements {
+		content = strings.ReplaceAll(content, r.old, r.new)
+	}
+
+	return content
+}
+
+// legacyReplacements maps the pre-DESIGN-0013 placeholder syntax onto
+// the dotted-path Go template syntax. Used only by the Phase 2
+// transitional translator above.
+var legacyReplacements = []struct {
+	old string
+	new string
+}{
+	{"OWNER_VALUE", "{{ .Catalog.Owner }}"},
+	{"COMPONENT_VALUE", "{{ .Catalog.Component }}"},
+	{"JIRA_PROJECT_VALUE", "{{ .Catalog.JiraProject }}"},
+	{"JIRA_LABEL_VALUE", "{{ .Catalog.JiraLabel }}"},
+	{"REPO_NAME", "{{ .Repo }}"},
+	{"ORG_NAME", "{{ .Owner }}"},
 }

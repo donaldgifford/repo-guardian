@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/reconciler"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
+	tmpl "github.com/donaldgifford/repo-guardian/internal/template"
 )
 
 // checkRepoWithPolicy runs policy-based evaluation for a repository.
@@ -163,7 +165,7 @@ func (e *Engine) getFileContentForReconciler(
 			}
 		}
 	case policy.CheckExact:
-		templateContent, err := e.templates.Get(rule.Template)
+		templateContent, err := e.templates.Raw(rule.Template)
 		if err != nil {
 			log.Error("error getting template for reconciler", "template", rule.Template, "error", err)
 			return ""
@@ -381,7 +383,7 @@ func (e *Engine) evaluateExact(
 		return false, fmt.Errorf("getting file content for %s: %w", existingPath, err)
 	}
 
-	templateContent, err := e.templates.Get(rule.Template)
+	templateContent, err := e.templates.Raw(rule.Template)
 	if err != nil {
 		return false, fmt.Errorf("getting template %q: %w", rule.Template, err)
 	}
@@ -553,12 +555,28 @@ func (e *Engine) createOrUpdatePRFromPolicy(
 	//       default before reconcile, close+reopen PRs older than N days,
 	//       or recommend operators don't enable auto-merge on
 	//       repo-guardian/* branches. See conversation in PR #71.
+	now := time.Now().UTC().Format(time.RFC3339)
+
 	for i := range actionable {
 		r := &actionable[i]
 
-		content, err := e.templates.Get(r.Template)
+		compiled, err := e.templates.Get(r.Template)
 		if err != nil {
 			return fmt.Errorf("getting template for %s: %w", r.Name, err)
+		}
+
+		content, err := compiled.Render(tmpl.FileVars{
+			Common: tmpl.Common{
+				Owner:         owner,
+				Repo:          repo,
+				DefaultBranch: defaultBranch,
+				Date:          now,
+			},
+			Rule: tmpl.Rule{Name: r.Name, Target: r.Target},
+			Org:  owner,
+		})
+		if err != nil {
+			return fmt.Errorf("rendering template for %s: %w", r.Name, err)
 		}
 
 		msg := fmt.Sprintf("chore: add %s", r.Target)

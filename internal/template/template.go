@@ -73,13 +73,34 @@ func (r *Renderer) Parse(name, body string) (*Compiled, error) {
 	return &Compiled{name: name, tpl: tpl}, nil
 }
 
-// Compiled is a parsed template ready for repeated execution against any
-// of the typed variable contexts in contexts.go. A nil *Compiled is the
-// idiomatic sentinel for "no template configured at this scope" used by
-// the PRTemplate inheritance chain in internal/policy.
+// Raw constructs a Compiled whose Render method returns body verbatim,
+// bypassing the text/template engine. Used for embedded templates that
+// contain GitHub Actions expressions (`${{ secrets.X }}`) which collide
+// with Go template syntax but need no variable substitution from
+// repo-guardian's side. Callers that pass operator-supplied templates
+// should always use Parse — Raw is an internal-use construct for the
+// embedded-template loader.
+//
+// Defined on Renderer for API symmetry with Parse; the receiver is
+// unused today but reserved for future state (e.g., a default name
+// prefix or a registry of raw templates).
+func (*Renderer) Raw(name, body string) *Compiled {
+	return &Compiled{name: name, raw: body}
+}
+
+// Compiled is a parsed template ready for repeated execution against
+// any of the typed variable contexts in contexts.go. A nil *Compiled
+// is the idiomatic sentinel for "no template configured at this scope"
+// used by the PRTemplate inheritance chain in internal/policy.
+//
+// A Compiled has either a parsed *text/template.Template (the common
+// path, populated by Renderer.Parse) or a raw body string (the
+// passthrough path, populated by Renderer.Raw for templates that
+// embed GHA expressions). The two modes are mutually exclusive.
 type Compiled struct {
 	name string
 	tpl  *texttemplate.Template
+	raw  string
 }
 
 // Name reports the name the template was registered under at Parse time.
@@ -99,6 +120,10 @@ func (c *Compiled) Name() string {
 func (c *Compiled) Render(vars any) (string, error) {
 	if c == nil {
 		return "", ErrNilCompiled
+	}
+
+	if c.tpl == nil {
+		return c.raw, nil
 	}
 
 	var buf strings.Builder

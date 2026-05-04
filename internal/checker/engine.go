@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/reconciler"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
+	tmpl "github.com/donaldgifford/repo-guardian/internal/template"
 )
 
 const (
@@ -257,9 +259,23 @@ func (e *Engine) createOrUpdatePR(
 
 	// Commit each missing file.
 	for _, rule := range missing {
-		content, err := e.templates.Get(rule.DefaultTemplateName)
+		compiled, err := e.templates.Get(rule.DefaultTemplateName)
 		if err != nil {
 			return fmt.Errorf("getting template for %s: %w", rule.Name, err)
+		}
+
+		content, err := compiled.Render(tmpl.FileVars{
+			Common: tmpl.Common{
+				Owner:         owner,
+				Repo:          repo,
+				DefaultBranch: defaultBranch,
+				Date:          time.Now().UTC().Format(time.RFC3339),
+			},
+			Rule: tmpl.Rule{Name: rule.Name, Target: rule.TargetPath},
+			Org:  owner,
+		})
+		if err != nil {
+			return fmt.Errorf("rendering template for %s: %w", rule.Name, err)
 		}
 
 		msg := fmt.Sprintf("chore: add %s", rule.TargetPath)

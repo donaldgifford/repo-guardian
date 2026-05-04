@@ -179,45 +179,45 @@ Replace the legacy `strings.ReplaceAll`-based renderer with the new
 
 #### Tasks
 
-- [ ] Update `internal/rules/registry.go`:
+- [x] Update `internal/rules/registry.go`:
   - `TemplateStore` holds a `Renderer *template.Renderer` and a map
-    of name → `*template.Compiled` (parsed once at load).
+    of name → `*template.Compiled` (parsed once at load) plus a
+    parallel `raw` map for byte-exact CheckExact comparisons.
   - `TemplateStore.Get(name)` now returns
     `(*template.Compiled, error)`.
+  - `TemplateStore.Raw(name)` returns `(string, error)` for the
+    CheckExact byte-comparison case.
   - `LoadTemplates(...)` parses every embedded + filesystem-loaded
     `.tmpl` file via `Renderer.Parse`. Parse errors fail the load
-    with location context (`"template %q: %v"`).
-- [ ] Delete `internal/reconciler/reconciler.go.renderTemplate` and
-  every internal caller. Inline migration:
-  - `internal/reconciler/custom_properties.go` — replace
-    `renderTemplate(content, map)` with
-    `compiled.Render(template.FileVars{Common: ..., Catalog: &template.CatalogInfo{...}})`.
-  - Any other reconciler that renders a template gets the same
-    treatment.
-- [ ] Update the engine's file-creation path
-  (`internal/checker/engine_policy.go`) to call
-  `Renderer.Render(compiled, FileVars{...})` rather than the legacy
-  helper. Variable population: `Owner`, `Repo`, `DefaultBranch`,
-  `Date` from the repo context; `Rule` from the actionable rule;
-  `Catalog` left nil for non-catalog-aware rules.
-- [ ] Update `internal/checker/engine_test.go` and
-  `internal/reconciler/*_test.go` mock client fixtures to provide
-  the new context shape. The hand-written mocks stay; only the
-  input/output shape changes.
-- [ ] Confirm rendered output is byte-equivalent to the old renderer
-  for every existing template + variable combination — important
-  because Phase 3 hasn't rewritten the templates yet, so this phase
-  is exercising the compatibility envelope.
-
-  *(Subtle: the legacy renderer's substitution map keys like
-  `OWNER_VALUE` won't match Go template syntax, so the templates
-  will output them literally. To keep Phase 2 CI-green WITHOUT yet
-  touching the templates, use a small adapter: at parse time, if a
-  template body contains zero `{{` markers, treat it as a
-  legacy-syntax template and run a substitution shim. Phase 3
-  deletes the shim by rewriting the templates.)*
-
-- [ ] Phase-2-specific shim deletion list captured in a TODO inside
+    with location context (`"compiling template %q: %v"`).
+  - GHA-expression templates (containing `${{`) are stored as
+    raw-passthrough via `Renderer.Raw` since their `{{` markers
+    are GHA syntax, not Go template syntax.
+- [x] Delete `internal/reconciler/custom_properties.go.renderTemplate`
+  and every internal caller (the function lived in
+  custom_properties.go, not reconciler.go as the IMPL doc
+  originally stated). Inline migration:
+  - `internal/reconciler/custom_properties.go` — both render sites
+    (set-custom-properties and catalog-info) now call
+    `compiled.Render(template.FileVars{Common: ..., Catalog: ...})`.
+- [x] Update the engine's file-creation paths:
+  - `internal/checker/engine.go` (legacy path L260) — render via
+    `compiled.Render(FileVars{...})` with full Common context.
+  - `internal/checker/engine_policy.go` (policy path L559) — same
+    treatment, plus CheckExact paths (L166, L384) switched to
+    `Raw()` for byte comparison.
+- [x] Update `internal/checker/engine_policy_test.go` (six sites) to
+  call `Raw()` for fileContents fixtures since they need the
+  pre-render template body. Hand-written reconciler mocks stay;
+  custom_properties_test.go works unchanged.
+- [x] Confirm rendered output is byte-equivalent to the old renderer
+  via the legacy-syntax translator
+  (`translateLegacyPlaceholders`): templates with no `{{` markers
+  are pre-translated from `OWNER_VALUE`-style to dotted-path before
+  Parse, so the rendered output matches the legacy substitution
+  output exactly.
+- [x] Phase-2-specific shim deletion list captured as a `CLAUDE:`
+  directive comment on `translateLegacyPlaceholders` in
   `registry.go` so it's visible at code review time.
 
 #### Success Criteria

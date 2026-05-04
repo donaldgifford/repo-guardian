@@ -124,14 +124,25 @@ func TestTemplateStoreEmbeddedFallback(t *testing.T) {
 	}
 
 	for _, name := range []string{"codeowners", "dependabot", "renovate"} {
-		content, err := ts.Get(name)
+		compiled, err := ts.Get(name)
 		if err != nil {
 			t.Errorf("Get(%q): %v", name, err)
 			continue
 		}
 
-		if content == "" {
-			t.Errorf("Get(%q) returned empty content", name)
+		if compiled == nil {
+			t.Errorf("Get(%q) returned nil compiled template", name)
+			continue
+		}
+
+		raw, err := ts.Raw(name)
+		if err != nil {
+			t.Errorf("Raw(%q): %v", name, err)
+			continue
+		}
+
+		if raw == "" {
+			t.Errorf("Raw(%q) returned empty content", name)
 		}
 	}
 }
@@ -152,23 +163,23 @@ func TestTemplateStoreDirectoryOverride(t *testing.T) {
 	}
 
 	// codeowners should use the override.
-	content, err := ts.Get("codeowners")
+	rawCodeowners, err := ts.Raw("codeowners")
 	if err != nil {
-		t.Fatalf("Get(codeowners): %v", err)
+		t.Fatalf("Raw(codeowners): %v", err)
 	}
 
-	if content != overrideContent {
-		t.Errorf("expected override content, got %q", content)
+	if rawCodeowners != overrideContent {
+		t.Errorf("expected override content, got %q", rawCodeowners)
 	}
 
 	// dependabot should still use embedded default.
-	content, err = ts.Get("dependabot")
+	rawDependabot, err := ts.Raw("dependabot")
 	if err != nil {
-		t.Fatalf("Get(dependabot): %v", err)
+		t.Fatalf("Raw(dependabot): %v", err)
 	}
 
-	if content == "" {
-		t.Error("Get(dependabot) returned empty content")
+	if rawDependabot == "" {
+		t.Error("Raw(dependabot) returned empty content")
 	}
 }
 
@@ -196,12 +207,12 @@ func TestTemplateStoreNonexistentDir(t *testing.T) {
 		t.Fatalf("Load with nonexistent dir should not error: %v", err)
 	}
 
-	content, err := ts.Get("codeowners")
+	raw, err := ts.Raw("codeowners")
 	if err != nil {
-		t.Fatalf("Get(codeowners): %v", err)
+		t.Fatalf("Raw(codeowners): %v", err)
 	}
 
-	if content == "" {
+	if raw == "" {
 		t.Error("expected embedded fallback content")
 	}
 }

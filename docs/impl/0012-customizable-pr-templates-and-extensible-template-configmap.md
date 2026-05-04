@@ -281,21 +281,31 @@ consumed by the engine.
 
 #### Tasks
 
-- [ ] Extend HCL types in `internal/policy/types.go`:
+- [x] Extend HCL types in `internal/policy/types.go`:
   - Add `PRTemplate` struct (with `*template.Compiled` Title/Body,
     `[]string` Labels, `bool` Inherits — default true).
-  - Add `PRBlock` HCL struct with `Title`, `Body`, `Labels`,
-    `Inherits` fields. Tagged for HCL decoding.
-- [ ] Update `internal/policy/loader.go`:
-  - Decode `defaults { pr {} }` at the top level.
-  - Decode `pr {}` inside `rule "file"` blocks (extends existing).
-  - Decode `pr {}` inside `reconcile { ... }` blocks.
+  - Extend existing `PRConfig` HCL struct with `Title`, `Body`,
+    `Labels`, `Inherits` fields tagged for HCL decoding (kept
+    name `PRConfig` to avoid renaming the existing
+    `SearchTerms`-only block).
+  - Add `DefaultsConfig` for the new top-level `defaults { }`
+    block; add `PR *PRConfig` to `ReconcilerConfig` for
+    `reconcile { pr { } }` sub-blocks.
+- [x] Update `internal/policy/loader.go`:
+  - Decode `defaults { pr {} }` at the top level via
+    `decodeDefaultsBlock`.
+  - Decode `pr {}` inside `rule "file"` blocks (extended existing
+    `decodePRBlock` to read `title`, `body`, `labels`, `inherits`).
+  - Decode `pr {}` inside `reconcile { ... }` blocks (added
+    `reconcileBodySchema` so the decoder accepts the `pr`
+    sub-block).
   - Compile each `Title`/`Body` to `*template.Compiled` via the
-    package's `Renderer`. Parse errors fail policy load with
-    location context (`"defaults.pr.title: %v"`,
-    `"rule %q.pr.body: %v"`,
-    `"rule %q.reconcile.pr.title: %v"`).
-- [ ] Add `internal/policy/pr.go`:
+    package-level `Renderer` in a post-decode pass
+    (`compilePolicyTemplates`). Parse errors fail policy load
+    with location context (`defaults.pr.title`,
+    `rule "name".pr.body`,
+    `rule "name".reconcile "type".pr.title`).
+- [x] Add `internal/policy/pr.go`:
   - Two resolution entry points, both feeding the same
     field-by-field merge logic (Open Q3 resolution):
     - `ResolveRulePR(rule, defaults *PRTemplate) *PRTemplate`
@@ -309,14 +319,22 @@ consumed by the engine.
     built-in.
   - HCL presence-vs-absence: empty string `body = ""` and empty
     list `labels = []` are explicit overrides (do NOT inherit).
-    `PRBlock` uses `*string` / sidecar `bool` to track presence.
-    (Open Q2 / Q9 resolutions.)
-- [ ] Add `internal/policy/pr_test.go`:
+    `PRConfig` uses `*string` for Title/Body and a sidecar
+    `LabelsSet bool` populated by the loader to detect explicit
+    `labels = []`. (Open Q2 / Q9 resolutions.)
+  - `(*PolicyConfig).DefaultsPR()`, `RulePR(name)`, and
+    `ReconcilerPR(rule, type)` provide direct lookup for engine
+    callers without re-walking the rule list.
+- [x] Add `internal/policy/pr_test.go`:
   - Resolution-order tests covering every combination of
     set/unset/inherits=false at each level.
   - Field-by-field merge test (rule sets only `title`; body and
     labels inherited from defaults).
-  - Parse-error test surfaces the right error path.
+  - Parse-error test surfaces the right error path with location
+    prefix at all three scopes.
+  - End-to-end Load tests exercise the full HCL decode →
+    compile → resolve pipeline for defaults, rule, and
+    reconciler scopes.
 
 #### Success Criteria
 

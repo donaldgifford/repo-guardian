@@ -24,6 +24,38 @@ guardian {
   skip_archived     = true
 }
 
+# Process-wide PR template defaults. Every rule.pr and
+# reconcile.pr inherits these unless overridden field-by-field.
+# Reconciler PRs deliberately skip rule.pr — they merge
+# reconciler.pr → defaults.pr only.
+#
+# Helpers available in templates: env, default, join, lower,
+# upper, title. The `env "VAR"` helper reads the binary's
+# process env. NEVER reference secret env vars in PR text —
+# rendered output is visible to PR reviewers.
+defaults {
+  pr {
+    title = "[{{ env \"JIRA_PROJECT\" | default \"GUARDIAN\" }}] guardian: {{ .Owner }}/{{ .Repo }}"
+    body = <<EOT
+## Repo Guardian
+
+This PR was opened automatically by **repo-guardian**.
+
+### Files changed
+{{ range .Files }}- `{{ . }}`
+{{ end }}
+
+### What to do
+1. Review each file for your team's needs.
+2. Merge when ready — these are sensible defaults, not one-size-fits-all.
+
+---
+*Need help? Reach out in #platform-engineering.*
+EOT
+    labels = ["automated", "guardian"]
+  }
+}
+
 # Global ignore list — these repos are skipped for ALL rules.
 ignore {
   repos = [
@@ -43,8 +75,11 @@ rule "file" "codeowners" {
   target   = ".github/CODEOWNERS"
   template = "codeowners"
 
+  # Partial override: rule sets only `title`. Body and labels
+  # inherit from defaults.pr because `inherits` defaults to true.
   pr {
     search_terms = ["codeowners", "CODEOWNERS"]
+    title        = "chore({{ .Repo }}): adopt CODEOWNERS"
   }
 }
 
@@ -134,6 +169,16 @@ rule "file" "catalog_info" {
   reconcile "custom_properties" {
     mode  = "api"
     watch = true
+
+    # Reconciler PR opts out of the compliance-flavored defaults
+    # (skip parent inheritance entirely). Body falls back to the
+    # reconciler's hardcoded text because rule.pr is deliberately
+    # skipped for reconciler PRs (DESIGN-0013 Q4 resolution).
+    pr {
+      title    = "chore({{ .Repo }}): sync custom properties from catalog-info"
+      labels   = ["automated", "catalog-sync"]
+      inherits = false
+    }
   }
 }
 

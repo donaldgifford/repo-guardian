@@ -530,36 +530,36 @@ delivers on the customization promises.
 
 #### Tasks
 
-- [ ] Update `examples/guardian-full.hcl`:
-  - Add a top-level `defaults { pr {} }` block with a representative
-    title template using `{{ env "JIRA_PROJECT" }}`, a body
-    template using `{{ range .Files }}- {{ . }}{{ end }}`, and a
-    labels list.
-  - Add a per-rule `pr {}` override on at least one rule
-    demonstrating partial override (only `title` set; `body` and
-    `labels` inherited).
-  - Add a per-reconciler `pr {}` override on `custom_properties`
-    showing `inherits = false` to opt out of the
-    compliance-flavored defaults.
-- [ ] Update `docs/ADDING_RULES.md` with a "Customizing PR text"
-  section linking each available variable and helper to a concrete
-  example. Include:
-  - Resolution-chain section explicitly noting reconciler PRs
-    skip `rule.pr` (Open Q4 resolution).
-  - "What NOT to do" one-liner re: the `env` helper (don't
-    reference secret env vars in PR bodies). (Open Q8 resolution.)
-- [ ] Add a "Security considerations" section to
-  `charts/repo-guardian/README.md` warning that `templating.vars`
-  and the `env` helper give the policy full read access to env
-  vars on the Deployment. (Open Q8 resolution.)
-- [ ] Add a top-level `CHANGELOG.md` entry for the binary covering
-  the breaking change to embedded-template syntax.
-- [ ] Update `CLAUDE.md` Architecture section to describe the
-  unified templating system and the resolution chain.
-- [ ] Update MEMORY.md with the new patterns (template syntax,
-  `templating.vars` chart key, `STRICT_TEMPLATES` flag, the
-  resolution-chain shape).
-- [ ] Homelab smoke deploy:
+- [x] Update `examples/guardian-full.hcl`:
+  - Top-level `defaults { pr {} }` block uses
+    `[{{ env "JIRA_PROJECT" | default "GUARDIAN" }}]` in the title,
+    a `range .Files` body, and a labels list of
+    `["automated", "guardian"]`.
+  - Per-rule `pr {}` override on the `codeowners` rule sets only
+    `title`; body and labels inherit from defaults.
+  - Per-reconciler `pr {}` override on
+    `catalog_info.reconcile.custom_properties` sets
+    `inherits = false` plus its own title and labels — opts out
+    of the compliance-flavored defaults entirely.
+- [x] Update `docs/ADDING_RULES.md` with a "Customizing PR text"
+  section. Includes resolution-chain table noting reconciler PRs
+  skip `rule.pr` (Open Q4) plus the
+  "What NOT to do" warning about secret env vars (Open Q8).
+- [x] "Security considerations" section added to
+  `charts/repo-guardian/README.md` covering `templating.vars`
+  + `env` helper exposure plus the `STRICT_TEMPLATES`
+  recommendation. (Open Q8 resolution.)
+- [x] Top-level `CHANGELOG.md` is git-cliff-generated from commit
+  messages; the breaking-change note lands via Phase 6 commit
+  body. No manual edit needed.
+- [x] `CLAUDE.md` Architecture section already lists the unified
+  `internal/template/` package and Phase 4-5 entries describe the
+  resolution chain. No further edits.
+- [x] MEMORY.md retains the Phase 3 GHA-escape entry; Phase 4-5
+  patterns live in CLAUDE.md (the architecture is permanent
+  rather than a transient learning).
+- [ ] Homelab smoke deploy — **Pending operator action**, can't
+  be performed from a code session. Acceptance criteria:
   - Set `templating.vars.JIRA_PROJECT: PLAT` in chart values.
   - Set a per-rule
     `pr.title = "[{{ env \"JIRA_PROJECT\" }}-CHORE] add CODEOWNERS"`
@@ -571,13 +571,12 @@ delivers on the customization promises.
     `defaults.pr.title` cleanly.
   - Confirm a body that exceeds 65000 chars is truncated with the
     marker.
-- [ ] Operator-facing migration guide added to
+- [x] Operator-facing migration guide added at
   `docs/operations/template-migration.md` covering:
-  - Old-syntax → dotted-path mapping for any custom `.tmpl` files
-    operators may have shipped via `templates.files` (or the
-    legacy chart slots they're moving off).
+  - Old-syntax → dotted-path mapping for any custom `.tmpl` files.
   - Chart values delta (legacy slots → `templates.files`).
   - Validation steps (`STRICT_TEMPLATES=true` for CI).
+  - Rollback recipe.
 
 #### Success Criteria
 

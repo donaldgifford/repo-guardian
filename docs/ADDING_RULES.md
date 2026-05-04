@@ -463,3 +463,127 @@ typo in `scope.orgs` — see the
 [`RepoGuardianRuleNeverApplies`](../contrib/prometheus/alerts.yaml)
 alert and the [metrics catalog](../contrib/README.md) for queries
 and migration recipes.
+
+## Customizing PR text
+
+Repo Guardian renders PR titles and bodies through a unified
+Go-template engine (`internal/template`) at three configurable
+scopes. The grammar mirrors HCL's standard block style:
+
+```hcl
+defaults {
+  pr {
+    title  = "..."
+    body   = "..."
+    labels = ["..."]
+  }
+}
+
+rule "file" "codeowners" {
+  # ...
+  pr {
+    title    = "..."
+    inherits = true   # default
+  }
+}
+
+rule "file" "catalog_info" {
+  reconcile "custom_properties" {
+    pr {
+      body     = "..."
+      inherits = false  # opt out of defaults inheritance
+    }
+  }
+}
+```
+
+### Resolution chain
+
+| PR opened by                | Chain                                  |
+|-----------------------------|----------------------------------------|
+| File rule                   | `rule.pr → defaults.pr → built-in`     |
+| Reconciler (e.g. catalog)   | `reconciler.pr → defaults.pr → built-in` |
+| Bundled (multi-rule) PR     | per-rule titles voted; conflict → `defaults.pr.title`; body always from `defaults.pr.body` |
+
+**Reconciler PRs deliberately skip `rule.pr`.** A file rule's PR
+text describes its file change; a reconciler that opens a
+side-channel PR (e.g. `set-custom-properties.yml`) is a separate
+operation with its own narrative. Letting `rule.pr` flow into the
+reconciler would mean `chore: adopt CODEOWNERS` rendering on a
+custom-properties workflow PR.
+
+### Field-by-field merge
+
+Each of `title`, `body`, `labels` independently inherits when
+unset and `inherits = true`. Setting `inherits = false` at any
+scope short-circuits the chain — only fields that scope itself
+declared are honored. `labels = []` is an explicit empty-list
+override (different from omitting the attribute).
+
+### Variables available in templates
+
+PR templates render against `template.PRVars`:
+
+| Field            | Type       | Notes                                        |
+|------------------|------------|----------------------------------------------|
+| `.Owner`         | string     | GitHub org login                             |
+| `.Repo`          | string     | Repository name                              |
+| `.DefaultBranch` | string     | Repository's default branch (e.g. `main`)    |
+| `.Date`          | string     | RFC3339 timestamp at render time             |
+| `.Rule.Name`     | string     | Single-rule PRs only                         |
+| `.Rule.Target`   | string     | Single-rule PRs only                         |
+| `.Rules`         | `[]Rule`   | Multi-rule bundles only (zero in single)     |
+| `.Files`         | `[]string` | Every target path included in this PR        |
+| `.Reconciler`    | string     | Reconciler name (e.g. `custom_properties`); empty for file-rule PRs |
+
+### Helpers
+
+| Helper          | Purpose                                              |
+|-----------------|------------------------------------------------------|
+| `env "VAR"`     | Read process env var. Returns empty string if unset. |
+| `default x y`   | Return `y` if non-empty; otherwise `x`.              |
+| `join sep list` | Comma-style join: `{{ join ", " .Files }}`.          |
+| `lower s`       | Lowercase the input.                                 |
+| `upper s`       | Uppercase the input.                                 |
+| `title s`       | Capitalize the first ASCII letter.                   |
+
+### Example
+
+```hcl
+defaults {
+  pr {
+    title  = "[{{ env \"JIRA_PROJECT\" | default \"GUARDIAN\" }}] guardian"
+    body   = "Files:\n{{ range .Files }}- `{{ . }}`\n{{ end }}"
+    labels = ["automated", "guardian"]
+  }
+}
+```
+
+With `JIRA_PROJECT=PLAT` set on the Deployment, the rendered title
+becomes `[PLAT] guardian`. With it unset, `[GUARDIAN] guardian`.
+
+### What NOT to do
+
+**Never reference secret env vars from PR templates.** The
+rendered output is visible to PR reviewers — anyone with read
+access to the repository sees it. Operators who write the policy
+HCL can read any process env var via `{{ env "VAR" }}`, including
+`GITHUB_PRIVATE_KEY` and `WEBHOOK_SECRET`. The threat model
+assumes the operator who provisions runtime secrets is the same
+operator who writes the policy; reading the operator's own
+secrets is not privilege escalation, but emitting them into PR
+text is. The reserved-name list in
+`charts/repo-guardian/templates/_helpers.tpl` blocks
+`templating.vars` from declaring secret names directly, but the
+`env` helper is unrestricted by design — operator discipline is
+the only line of defense.
+
+### Strict-mode validation
+
+Set `STRICT_TEMPLATES=true` (or pass `--strict-templates` on the
+binary command line; the chart toggles this via
+`templating.strict: true`) to validate every compiled PR template
+at startup against a zero-value PRVars context. Templates that
+reference fields not on `PRVars` (e.g. `.Catalog.Owner`, which
+exists only on `FileVars`) fail startup with a location-prefixed
+error. Run this in CI to catch typos before deploy.

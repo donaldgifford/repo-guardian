@@ -31,6 +31,7 @@
       "Bash(go vet *)",
       "Bash(promtool check *)",
       "Bash(helm unittest *)",
+      "Bash(git cliff *)",
       "Bash(yq eval *)",
       "Bash(make ci *)",
       "Bash(/Users/donaldgifford/code/repo-guardian/build/bin/repo-guardian --help)",

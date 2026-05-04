@@ -38,6 +38,7 @@ internal/
   checker/    → core check-and-PR engine + work queue + setting rules + branch protection rules
   reconciler/ → pluggable post-check reconcilers (custom_properties, label_sync, branch_protection, workflow_sync) with factory registry
   rules/      → FileRule registry + TemplateStore (embedded fallback templates)
+  template/   → unified text/template renderer (Renderer/Compiled, FileVars/PRVars contexts, curated helpers, ValidateZero strict-mode validator)
   webhook/    → HTTP handler for GitHub webhook events (HMAC-validated) + IP allowlist middleware + push event handler
   scheduler/  → in-process ticker for weekly reconciliation
   metrics/    → Prometheus metrics (21 metrics total, most labeled with org)

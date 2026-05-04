@@ -191,24 +191,12 @@ func (ts *TemplateStore) Raw(name string) (string, error) {
 }
 
 // store associates name with content, parsing the body via the shared
-// Renderer. It applies the legacy-syntax translator first so embedded
-// templates that still use OWNER_VALUE-style placeholders compile into
-// equivalent dotted-path Go templates during the Phase 2 transition.
-//
-// Templates that contain GitHub Actions expressions (`${{ secrets.X }}`)
-// are stored as raw passthrough since their `{{` `}}` markers are GHA
-// syntax, not Go template syntax, and would fail to parse otherwise.
+// Renderer. Templates may contain Go template actions; templates that
+// embed GitHub Actions `${{ ... }}` expressions must escape them inside
+// backtick-raw-string Go template actions so the parser sees them as
+// literal text rather than malformed Go template syntax.
 func (ts *TemplateStore) store(name, content string) error {
-	body := translateLegacyPlaceholders(content)
-
-	if containsGHAExpression(body) {
-		ts.raw[name] = content
-		ts.compiled[name] = ts.renderer.Raw(name, body)
-
-		return nil
-	}
-
-	c, err := ts.renderer.Parse(name, body)
+	c, err := ts.renderer.Parse(name, content)
 	if err != nil {
 		return fmt.Errorf("compiling template %q: %w", name, err)
 	}
@@ -217,13 +205,6 @@ func (ts *TemplateStore) store(name, content string) error {
 	ts.compiled[name] = c
 
 	return nil
-}
-
-// containsGHAExpression reports whether body contains a GitHub Actions
-// expression marker (`${{`). Such markers collide with Go template
-// `{{` syntax and require the raw-passthrough compile path.
-func containsGHAExpression(body string) bool {
-	return strings.Contains(body, "${{")
 }
 
 func (ts *TemplateStore) loadFromDir(dir string) error {
@@ -282,40 +263,4 @@ func (ts *TemplateStore) loadEmbeddedDefaults() error {
 	}
 
 	return nil
-}
-
-// translateLegacyPlaceholders rewrites the legacy OWNER_VALUE-style
-// placeholders used by the pre-DESIGN-0013 reconciler templates into
-// dotted-path Go template syntax so they compile with the unified
-// renderer. This is a Phase 2 transitional shim — Phase 3 deletes this
-// function and rewrites the embedded templates directly.
-//
-// CLAUDE: delete this function and the legacyReplacements list when
-// Phase 3 of IMPL-0012 lands. The embedded templates will already use
-// dotted-path syntax at that point.
-func translateLegacyPlaceholders(content string) string {
-	if strings.Contains(content, "{{") {
-		return content
-	}
-
-	for _, r := range legacyReplacements {
-		content = strings.ReplaceAll(content, r.old, r.new)
-	}
-
-	return content
-}
-
-// legacyReplacements maps the pre-DESIGN-0013 placeholder syntax onto
-// the dotted-path Go template syntax. Used only by the Phase 2
-// transitional translator above.
-var legacyReplacements = []struct {
-	old string
-	new string
-}{
-	{"OWNER_VALUE", "{{ .Catalog.Owner }}"},
-	{"COMPONENT_VALUE", "{{ .Catalog.Component }}"},
-	{"JIRA_PROJECT_VALUE", "{{ .Catalog.JiraProject }}"},
-	{"JIRA_LABEL_VALUE", "{{ .Catalog.JiraLabel }}"},
-	{"REPO_NAME", "{{ .Repo }}"},
-	{"ORG_NAME", "{{ .Owner }}"},
 }

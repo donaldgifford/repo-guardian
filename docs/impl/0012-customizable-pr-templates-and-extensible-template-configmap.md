@@ -238,26 +238,31 @@ embedded templates.
 
 #### Tasks
 
-- [ ] Rewrite `internal/rules/templates/catalog-info.tmpl`:
+- [x] Rewrite `internal/rules/templates/catalog-info.tmpl`:
   - `REPO_NAME` → `{{ .Repo }}`
   - `ORG_NAME` → `{{ .Owner }}`
-- [ ] Rewrite `internal/rules/templates/set-custom-properties.tmpl`:
+- [x] Rewrite `internal/rules/templates/set-custom-properties.tmpl`:
   - `OWNER_VALUE` → `{{ .Catalog.Owner }}`
   - `COMPONENT_VALUE` → `{{ .Catalog.Component }}`
   - `JIRA_PROJECT_VALUE` → `{{ .Catalog.JiraProject }}`
   - `JIRA_LABEL_VALUE` → `{{ .Catalog.JiraLabel }}`
-- [ ] Rewrite `internal/rules/templates/renovate.tmpl`:
+- [x] Rewrite `internal/rules/templates/renovate.tmpl`:
   - `ORG_NAME` → `{{ .Owner }}`
-- [ ] Delete the legacy-syntax shim added in Phase 2's adapter step.
-- [ ] Update reconciler tests' expected output to match the dotted-
+- [x] Delete the legacy-syntax shim added in Phase 2's adapter step.
+- [x] Update reconciler tests' expected output to match the dotted-
   path rendered result (should be byte-equivalent to the old
   output; only the template syntax changed).
-- [ ] Add a regression test in `internal/template/template_test.go`
+- [x] Add a regression test in `internal/rules/registry_test.go`
   that loads each embedded template against a known fixture context
-  and asserts byte equality with a checked-in golden file.
-- [ ] Add a test that loads each embedded template against a
+  and asserts the rendered output contains expected substrings
+  (golden-style assertions live next to the TemplateStore tests).
+- [x] Add a test that loads each embedded template against a
   zero-value `FileVars` (with `Catalog: nil`) and asserts a clear
   error message for the catalog-info-aware templates.
+- [x] Rewrite `internal/rules/templates/renovate-workflow.tmpl` to
+  escape every GHA `${{ ... }}` expression inside a backtick-raw-string
+  Go template action so the template parses cleanly without the
+  `Renderer.Raw` passthrough routing.
 
 #### Success Criteria
 

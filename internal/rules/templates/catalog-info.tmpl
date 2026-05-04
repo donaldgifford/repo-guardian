@@ -2,12 +2,12 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: REPO_NAME
+  name: {{ .Repo }}
   description: "TODO: Add a description of this service"
   annotations:
-    backstage.io/source-location: url:https://github.com/ORG_NAME/REPO_NAME
+    backstage.io/source-location: url:https://github.com/{{ .Owner }}/{{ .Repo }}
     jira/project-key: "TODO"
-    jira/label: "REPO_NAME"
+    jira/label: "{{ .Repo }}"
   tags: []
 spec:
   lifecycle: production

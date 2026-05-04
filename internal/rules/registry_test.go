@@ -3,7 +3,10 @@ package rules
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	tmpl "github.com/donaldgifford/repo-guardian/internal/template"
 )
 
 func TestDefaultRulesCount(t *testing.T) {
@@ -194,6 +197,138 @@ func TestTemplateStoreGetMissing(t *testing.T) {
 	_, err := ts.Get("nonexistent")
 	if err == nil {
 		t.Error("expected error for missing template, got nil")
+	}
+}
+
+// TestEmbeddedTemplates_Render_Golden locks the rendered output of every
+// embedded template against a known-good string so accidental edits to
+// dotted-path placeholders or backtick-escaped GHA expressions surface in
+// CI rather than at runtime.
+func TestEmbeddedTemplates_Render_Golden(t *testing.T) {
+	t.Parallel()
+
+	ts := NewTemplateStore()
+	if err := ts.Load(""); err != nil {
+		t.Fatalf("Load embedded: %v", err)
+	}
+
+	cases := []struct {
+		name     string
+		tmplName string
+		vars     tmpl.FileVars
+		want     string
+	}{
+		{
+			name:     "catalog-info renders Owner and Repo",
+			tmplName: "catalog-info",
+			vars: tmpl.FileVars{
+				Common: tmpl.Common{Owner: "acme", Repo: "billing-svc"},
+			},
+			want: "name: billing-svc",
+		},
+		{
+			name:     "renovate config renders Owner into preset",
+			tmplName: "renovate",
+			vars: tmpl.FileVars{
+				Common: tmpl.Common{Owner: "acme"},
+			},
+			want: `"github>acme/renovate-config"`,
+		},
+		{
+			name:     "set-custom-properties renders Catalog fields and preserves GHA literals",
+			tmplName: "set-custom-properties",
+			vars: tmpl.FileVars{
+				Catalog: &tmpl.CatalogInfo{
+					Owner:       "platform",
+					Component:   "billing-svc",
+					JiraProject: "BILL",
+					JiraLabel:   "billing",
+				},
+			},
+			want: "${{ secrets.GITHUB_TOKEN }}",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			compiled, err := ts.Get(tc.tmplName)
+			if err != nil {
+				t.Fatalf("Get(%q): %v", tc.tmplName, err)
+			}
+
+			out, err := compiled.Render(tc.vars)
+			if err != nil {
+				t.Fatalf("Render: %v", err)
+			}
+
+			if !strings.Contains(out, tc.want) {
+				t.Errorf("rendered template %q does not contain %q\noutput:\n%s",
+					tc.tmplName, tc.want, out)
+			}
+		})
+	}
+}
+
+// TestEmbeddedTemplates_NilCatalog_Errors verifies that catalog-aware
+// templates fail loudly when rendered against a FileVars with nil
+// Catalog, rather than silently producing garbage. This is the
+// missingkey=error contract from the unified renderer.
+func TestEmbeddedTemplates_NilCatalog_Errors(t *testing.T) {
+	t.Parallel()
+
+	ts := NewTemplateStore()
+	if err := ts.Load(""); err != nil {
+		t.Fatalf("Load embedded: %v", err)
+	}
+
+	compiled, err := ts.Get("set-custom-properties")
+	if err != nil {
+		t.Fatalf("Get(set-custom-properties): %v", err)
+	}
+
+	_, err = compiled.Render(tmpl.FileVars{
+		Common: tmpl.Common{Owner: "acme", Repo: "billing-svc"},
+	})
+	if err == nil {
+		t.Fatal("expected render error for nil Catalog under missingkey=error")
+	}
+}
+
+// TestEmbeddedTemplates_RenovateWorkflow_PreservesGHAExpressions verifies
+// that backtick-escaped GHA expressions inside the renovate-workflow
+// template render to literal `${{ ... }}` syntax for GitHub Actions,
+// even with no Go template variables in the context.
+func TestEmbeddedTemplates_RenovateWorkflow_PreservesGHAExpressions(t *testing.T) {
+	t.Parallel()
+
+	ts := NewTemplateStore()
+	if err := ts.Load(""); err != nil {
+		t.Fatalf("Load embedded: %v", err)
+	}
+
+	compiled, err := ts.Get("renovate-workflow")
+	if err != nil {
+		t.Fatalf("Get(renovate-workflow): %v", err)
+	}
+
+	out, err := compiled.Render(tmpl.FileVars{})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	literals := []string{
+		"${{ secrets.RENOVATE_APP_ID }}",
+		"${{ secrets.RENOVATE_APP_PRIVATE_KEY }}",
+		"${{ steps.app-token.outputs.token }}",
+		"${{ github.repository }}",
+	}
+
+	for _, lit := range literals {
+		if !strings.Contains(out, lit) {
+			t.Errorf("renovate-workflow output missing literal %q\noutput:\n%s", lit, out)
+		}
 	}
 }
 

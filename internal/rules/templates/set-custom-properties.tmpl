@@ -21,16 +21,16 @@ jobs:
     steps:
       - name: Set repository custom properties
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: {{`${{ secrets.GITHUB_TOKEN }}`}}
         run: |
           gh api \
             --method PATCH \
-            "repos/${{ github.repository }}/properties/values" \
+            "repos/{{`${{ github.repository }}`}}/properties/values" \
             -f 'properties[][property_name]=Owner' \
-            -f 'properties[][value]=OWNER_VALUE' \
+            -f 'properties[][value]={{ .Catalog.Owner }}' \
             -f 'properties[][property_name]=Component' \
-            -f 'properties[][value]=COMPONENT_VALUE' \
+            -f 'properties[][value]={{ .Catalog.Component }}' \
             -f 'properties[][property_name]=JiraProject' \
-            -f 'properties[][value]=JIRA_PROJECT_VALUE' \
+            -f 'properties[][value]={{ .Catalog.JiraProject }}' \
             -f 'properties[][property_name]=JiraLabel' \
-            -f 'properties[][value]=JIRA_LABEL_VALUE'
+            -f 'properties[][value]={{ .Catalog.JiraLabel }}'

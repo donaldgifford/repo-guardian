@@ -61,6 +61,40 @@ func TestExampleHCL_Full(t *testing.T) {
 	if len(cfg.IgnoreList.Repos) != 3 {
 		t.Errorf("IgnoreList.Repos count = %d, want 3", len(cfg.IgnoreList.Repos))
 	}
+
+	// IMPL-0012 grammar assertions: defaults.pr, per-rule pr (partial
+	// override), per-reconciler pr (inherits=false). Locks in that
+	// the example actually exercises the Phase 4 grammar.
+	if cfg.Defaults == nil || cfg.Defaults.PR == nil {
+		t.Fatal("expected defaults.pr block to be parsed")
+	}
+
+	if cfg.Defaults.PR.CompiledTitle == nil {
+		t.Error("defaults.pr.title not compiled")
+	}
+
+	if len(cfg.Defaults.PR.Labels) == 0 {
+		t.Error("defaults.pr.labels is empty")
+	}
+
+	rulePR := cfg.RulePR("codeowners")
+	if rulePR == nil {
+		t.Fatal("expected RulePR(codeowners) to resolve")
+	}
+
+	if rulePR.Title == nil {
+		t.Error("rule \"codeowners\".pr.title not resolved")
+	}
+
+	// Reconciler PR with inherits=false should NOT inherit defaults.
+	recPR := cfg.ReconcilerPR("catalog_info", "custom_properties")
+	if recPR == nil {
+		t.Fatal("expected ReconcilerPR(catalog_info, custom_properties) to resolve")
+	}
+
+	if recPR.Title == nil {
+		t.Error("reconciler.pr.title not resolved")
+	}
 }
 
 func TestExampleHCL_MultiOrg(t *testing.T) {

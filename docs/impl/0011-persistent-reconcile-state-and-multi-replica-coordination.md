@@ -450,16 +450,18 @@ chart values. Add `serviceMonitor` and `prometheusRule` opt-in surfaces.
 - [ ] Stamp `namespace: {{ .Release.Namespace }}` in every new
   template's metadata (kustomize+ArgoCD requirement, see PR #67
   post-mortem).
-- [ ] Bump chart `version` from 0.3.3 to 0.4.0 (MINOR — new shapes,
-  no breaking changes for the old in-memory mode operator who
-  explicitly sets `store.backend=memory`). (Open Q8 resolution.)
+- [ ] Bump chart `version` from `0.4.x` (post-IMPL-0012) to `0.5.0`
+  (MINOR — new shapes, no breaking changes for the old in-memory
+  mode operator who explicitly sets `store.backend=memory`).
+  IMPL-0011 ships AFTER IMPL-0012 per the revised order. (Open Q8
+  resolution.)
 - [ ] Bump chart `appVersion` to match the binary release that ships
   this work.
-- [ ] Add the `0.4.0` release-notes entry to
+- [ ] Add the `0.5.0` release-notes entry to
   `charts/repo-guardian/CHANGELOG.md` calling out the default flip
   to `baked` and the legacy opt-in:
 
-  > **Behavior change**: chart 0.4.0 defaults to baked Postgres +
+  > **Behavior change**: chart 0.5.0 defaults to baked Postgres +
   > Valkey (`store.backend=postgres`, `queue.backend=valkey`). To
   > preserve the previous in-memory single-replica behavior, set
   > `store.backend=memory`, `queue.backend=memory`,
@@ -499,7 +501,7 @@ multi-replica promise.
   mid-sweep, bring it back, assert reaper requeues in-flight, no jobs
   permanently lost, engine idempotency makes any double-claim safe.
 - [ ] Homelab deploy: `helm upgrade --install repo-guardian
-  --version 0.4.0 -n repo-guardian` against the homelab cluster with
+  --version 0.5.0 -n repo-guardian` against the homelab cluster with
   `replicas: 3`, `store.postgres.mode=cnpg`,
   `queue.valkey.mode=baked`. Validate via `kubectl logs` that all 3
   pods are workers and exactly one is leader at a time.
@@ -525,7 +527,7 @@ multi-replica promise.
 - Leader-failover within 30s of a pod kill.
 - All metrics visible in Prometheus and the 5 starter alerts in a
   healthy state.
-- `cosign verify` and SLSA provenance pass on the chart 0.4.0
+- `cosign verify` and SLSA provenance pass on the chart 0.5.0
   artifact.
 
 ---
@@ -561,7 +563,7 @@ multi-replica promise.
 | `internal/webhook/handler.go` | Modify | Enqueue + 202; remove inline engine call |
 | `internal/config/config.go` | Modify | New env vars |
 | `internal/metrics/metrics.go` | Modify | Register 10 new metrics |
-| `charts/repo-guardian/Chart.yaml` | Modify | Bump to 0.4.0 |
+| `charts/repo-guardian/Chart.yaml` | Modify | Bump to 0.5.0 |
 | `charts/repo-guardian/values.yaml` | Modify | Add store/queue/scheduler/serviceMonitor/prometheusRule blocks |
 | `charts/repo-guardian/templates/deployment.yaml` | Modify | Wire env vars + DSN secrets |
 | `charts/repo-guardian/templates/store-postgres*.yaml` | Create | Baked Postgres + Secret |
@@ -670,18 +672,21 @@ All resolved. Captured here for the audit trail.
    Lua's no-blocking-ops rule). Sub-millisecond atomicity
    window. `EVALSHA` cached after first call. Document the
    script in `internal/queue/valkey/`.
-8. **Chart version bump.** **Resolved.** 0.3.3 → 0.4.0
-   (MINOR). Pre-1.0 chart, SemVer pre-1.0 allows breaking
-   changes in MINOR, and the legacy `memory + memory + ticker`
-   shape is preserved via opt-in values. 1.0.0 stays reserved
-   for the chart's API stability moment (Provider refactor +
-   multi-replica battle-tested + ops surface stable).
+8. **Chart version bump.** **Resolved.** `0.4.x`
+   (post-IMPL-0012) → `0.5.0` (MINOR). Pre-1.0 chart, SemVer
+   pre-1.0 allows breaking changes in MINOR, and the legacy
+   `memory + memory + ticker` shape is preserved via opt-in
+   values. 1.0.0 stays reserved for the chart's API stability
+   moment (Provider refactor + multi-replica battle-tested + ops
+   surface stable). **Note**: IMPL-0011 ships AFTER IMPL-0012 per
+   the revised release order (smaller cycle time + lower blast
+   radius for IMPL-0012 made it the right thing to ship first).
 9. **Backward compat for existing in-memory deployments.**
    **Resolved.** Flip the chart default to `baked` (option a).
    Document the legacy opt-in clearly in
    `charts/repo-guardian/CHANGELOG.md`:
 
-   > **Behavior change**: chart 0.4.0 defaults to baked
+   > **Behavior change**: chart 0.5.0 defaults to baked
    > Postgres + Valkey (`store.backend=postgres`,
    > `queue.backend=valkey`). To preserve the previous
    > in-memory single-replica behavior, set

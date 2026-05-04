@@ -422,7 +422,7 @@ and escape hatch. helm-unittest covers the matrix.
   clear upgrade message for users who had the legacy slots
   populated:
 
-  > **Breaking change in chart 0.5.0**: `templates.codeowners`,
+  > **Breaking change in chart 0.4.0**: `templates.codeowners`,
   > `templates.dependabot`, and `templates.renovate` have been
   > removed. Move existing values into `templates.files` with the
   > `.tmpl` suffix, e.g.:
@@ -453,13 +453,14 @@ and escape hatch. helm-unittest covers the matrix.
   `charts/repo-guardian/templates/_helpers.tpl` enumerating every
   chart-managed env var name. Used by deployment.yaml's
   collision-check. (Open Q6 resolution.)
-- [ ] Bump chart `version` from current (0.4.x post-IMPL-0011) to
-  `0.5.0` — chart-breaking (legacy slots removed). Sequential
-  release after IMPL-0011's chart 0.4.0; not coordinated as a
-  single combined bump. (Open Q7 resolution.)
+- [ ] Bump chart `version` from `0.3.3` to `0.4.0` —
+  chart-breaking (legacy slots removed). IMPL-0012 ships before
+  IMPL-0011; sequential release cadence keeps each chart rev
+  single-concern for rollback and validation. (Open Q7
+  resolution.)
 - [ ] Bump chart `appVersion` to match the binary release that
   ships this work.
-- [ ] Add the `0.5.0` release-notes entry to
+- [ ] Add the `0.4.0` release-notes entry to
   `charts/repo-guardian/CHANGELOG.md`:
 
   > **Breaking change**: legacy `templates.codeowners`,
@@ -579,7 +580,7 @@ delivers on the customization promises.
 | `charts/repo-guardian/templates/NOTES.txt` | Modify | Migration message |
 | `charts/repo-guardian/tests/configmap_test.yaml` | Modify | New test cases |
 | `charts/repo-guardian/tests/deployment_env_test.yaml` | Create | `templating.vars` env coverage |
-| `charts/repo-guardian/Chart.yaml` | Modify | Bump to 0.5.0 + appVersion |
+| `charts/repo-guardian/Chart.yaml` | Modify | Bump to 0.4.0 + appVersion |
 | `charts/repo-guardian/CHANGELOG.md` | Modify | Release-notes entry |
 | `charts/repo-guardian/README.md` | Modify | Document the new template values surface |
 | `examples/guardian-full.hcl` | Modify | `defaults.pr` + per-rule `pr` + per-reconciler `pr` examples |
@@ -617,8 +618,8 @@ delivers on the customization promises.
 - DESIGN-0007 (Reconciler Interface — the reconciler pattern whose
   PR creation this design also customizes).
 - IMPL-0011 (multi-replica work) coordinates with this for chart
-  version bumps but does not block. IMPL-0011 lands chart 0.4.0;
-  IMPL-0012 lands chart 0.5.0.
+  version bumps but does not block. **IMPL-0012 ships first as
+  chart 0.4.0; IMPL-0011 follows as chart 0.5.0.**
 - Go `text/template` (stdlib).
 - No new external Go dependencies.
 
@@ -694,15 +695,24 @@ All resolved. Captured here for the audit trail.
    names. The reserved list lives in the chart (not the binary)
    because it's about chart-managed env vars; new chart releases
    that introduce a reserved env var update the list.
-7. **Chart version bump strategy.** **Resolved.** Sequential —
-   IMPL-0011 lands chart 0.4.0; IMPL-0012 lands chart 0.5.0. Each
-   chart rev gets its own homelab smoke + cosign verification +
-   SLSA attestation; rollback blast radius is single-concern;
-   CHANGELOG entries stay readable. Combining the two would
-   couple unrelated change sets and slow IMPL-0011's already-
-   ready rollout. Operator workload is similar either way (the
-   values-file delta sums the same; the upgrade ceremony is cheap
-   for either).
+7. **Chart version bump strategy and order.** **Resolved.**
+   **IMPL-0012 ships first as chart 0.4.0**; IMPL-0011 follows as
+   chart 0.5.0. Sequential, not combined. Reasoning for putting
+   IMPL-0012 ahead: smaller scope (~3-4× faster cycle time, 1 Go
+   package + HCL grammar + chart values changes vs 7-phase
+   multi-replica plumbing); lower blast radius (no new
+   operational components like Postgres / Valkey backends);
+   day-1 visible improvement for operators (PR titles change
+   immediately, multi-replica is invisible until N>1 replicas);
+   production isn't acutely hurting (chart 0.3.3 with the
+   INV-0003 engine fix is working in homelab today, cold-start
+   API burn is theoretical until repo counts hit thousands);
+   merge-conflict economics favor landing the smaller chart
+   delta (this one) first so IMPL-0011's bigger delta merges
+   against a settled base. Sequential (vs combined) keeps each
+   chart rev single-concern for rollback, validation, and
+   CHANGELOG readability. Operator workload is similar either
+   ordering — two MINOR upgrades vs one combined upgrade.
 8. **`env` helper security posture.** **Resolved.** Option (a) —
    no allow-list, trust the operator. The operator already
    provisions every env var on the Deployment, writes the policy

@@ -7,11 +7,59 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Features
 
+- *(template)* Add internal/template/ package foundation (IMPL-0012 Phase 1)
+- *(template)* Migrate TemplateStore to compiled templates (IMPL-0012 Phase 2)
+- *(template)* Rewrite embedded templates to dotted-path syntax (IMPL-0012 Phase 3)
+- *(policy)* HCL pr {} grammar + PRTemplate resolution (IMPL-0012 Phase 4)
+- *(checker)* Wire PRTemplate into engine + reconciler PR creation (IMPL-0012 Phase 5)
+- *(chart)* [**breaking**] Generic templates.files map + templating.vars + STRICT_TEMPLATES (IMPL-0012 Phase 6)
+
+### Documentation
+
+- *(design)* DESIGN-0012 persistent reconcile state and multi-replica coordination
+- *(design)* DESIGN-0012 v2 — interface-first, durable, NATS+Postgres defaults
+- *(design)* Elevate memory backends to first-class no-dep mode
+- *(design)* Split test-double patterns and add contract tests
+- *(design)* Switch new interfaces to mockery-generated mocks
+- *(design)* DESIGN-0013 customizable PR templates and extensible template ConfigMap
+- *(inv)* INV-0004 forge interface and package refactor for Forgejo backend
+- *(design)* Unify DESIGN-0013 around a single template renderer
+- *(engine)* WARN about stale-branch / content-drift risk on auto-merge
+- *(design)* Explicit pr { inherits = true|false } for inheritance control
+- *(design)* Resolve all DESIGN-0013 open questions
+- *(inv)* Resolve INV-0004 — do the Provider refactor, defer Forgejo specifics
+- *(design)* DESIGN-0012 v3 — Valkey + Postgres, drop NATS-embedded story
+- *(design)* Valkey + Postgres AUTH on by default with auto-generated Secret
+- *(design)* Resolve all DESIGN-0012 open questions
+- *(impl)* IMPL-0011 — persistent reconcile state and multi-replica coordination
+- *(impl)* IMPL-0012 — customizable PR templates and extensible template ConfigMap
+- *(impl)* Flip release order — IMPL-0012 ships first as chart 0.4.0
+- Examples + customizing-PR-text + migration guide (IMPL-0012 Phase 7)
+- *(chart)* Homelab smoke runbook for IMPL-0012 Phase 7.4 acceptance
+- *(impl,design)* Mark IMPL-0012 + DESIGN-0013 complete; regen indices
+- CLAUDE.md milestone note for chart 0.4.0 / appVersion 1.5.0
+
+### Testing
+
+- *(chart)* Bump deployment_test image-tag pattern to 1.5.0
+- *(reconciler)* Customized-policy PR test + IMPL-0012 testing-plan check-off
+- *(checker)* Lock IMPL-0012 homelab smoke chain in CI
+
+### Miscellaneous Tasks
+
+- *(chart)* Bump 0.3.2 → 0.3.3 (carry appVersion 1.4.1) ([#70](https://github.com/donaldgifford/repo-guardian/issues/70))
+
+## [1.4.1] - 2026-05-03
+
+### Features
+
 - *(chart)* Publish to OCI registry with cosign + SLSA (DESIGN-0011 / IMPL-0010) ([#60](https://github.com/donaldgifford/repo-guardian/issues/60))
 
 ### Bug Fixes
 
 - *(chart)* Authenticate cosign to GHCR via docker login (post-mortem 0.3.0) ([#61](https://github.com/donaldgifford/repo-guardian/issues/61))
+- *(chart)* Stamp namespace into every template (0.3.1 → 0.3.2) ([#67](https://github.com/donaldgifford/repo-guardian/issues/67))
+- *(github)* Idempotent CreateOrUpdateFile (INV-0003) + appVersion 1.4.1 ([#69](https://github.com/donaldgifford/repo-guardian/issues/69))
 
 ### Documentation
 
@@ -19,6 +67,7 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 - *(impl)* Mark IMPL-0010 In Progress with phase summary ([#64](https://github.com/donaldgifford/repo-guardian/issues/64))
 - *(impl)* IMPL-0010 Phase 4 complete — GHCR public verified ([#65](https://github.com/donaldgifford/repo-guardian/issues/65))
 - IMPL-0010 retrospective + DESIGN-0011 Implemented ([#66](https://github.com/donaldgifford/repo-guardian/issues/66))
+- Capture chart 0.3.2 namespace-stamping post-mortem ([#68](https://github.com/donaldgifford/repo-guardian/issues/68))
 
 ### Miscellaneous Tasks
 

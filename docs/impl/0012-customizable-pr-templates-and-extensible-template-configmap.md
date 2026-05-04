@@ -559,7 +559,10 @@ delivers on the customization promises.
   patterns live in CLAUDE.md (the architecture is permanent
   rather than a transient learning).
 - [ ] Homelab smoke deploy — **Pending operator action**, can't
-  be performed from a code session. Acceptance criteria:
+  be performed from a code session. Operator-runnable runbook
+  scaffolded at
+  [`charts/repo-guardian/docs/homelab-smoke.md`](../../charts/repo-guardian/docs/homelab-smoke.md);
+  follow it end-to-end. Acceptance criteria:
   - Set `templating.vars.JIRA_PROJECT: PLAT` in chart values.
   - Set a per-rule
     `pr.title = "[{{ env \"JIRA_PROJECT\" }}-CHORE] add CODEOWNERS"`

@@ -125,6 +125,8 @@ GoReleaser builds for linux/darwin on amd64/arm64 (CGO disabled). Releases are G
 
 **Idempotent file commits on the reconcile branch (INV-0003, appVersion 1.4.1):** `internal/github/client.go.CreateOrUpdateFile` does GET-on-target-branch first, then either skips (identical content), updates with the existing blob `sha` (different content), or creates fresh (file missing). Before this fix the wrapper called `Repositories.CreateFile` unconditionally, so a second reconcile against a repo with an open `repo-guardian/add-missing-files` branch would 422 with "sha wasn't supplied." If you ever rename or rewrite this function, preserve the three-branch behavior — the package-level `GetContents(ctx, owner, repo, path)` helper is *default-branch-only* and will not protect you against the same bug if you swap to it.
 
+**Chart 0.4.0 / appVersion 1.5.0 (IMPL-0012):** breaking chart values change — legacy `templates.codeowners`/`dependabot`/`renovate` slots removed in favor of `templates.files: <name>: <content>` map. New keys: `templates.existingConfigMap`, `templating.vars`, `templating.strict`. Embedded `.tmpl` files were rewritten from `OWNER_VALUE`-style to dotted-path Go template syntax; GHA `${{ ... }}` expressions in any custom template must be wrapped in a backtick-raw-string action. PR templates (title/body/labels) configurable at three HCL scopes (`defaults.pr`, `rule.pr`, `reconcile.pr`) with field-by-field inheritance and `inherits=false` short-circuit. Migration recipe in `docs/operations/template-migration.md`; homelab smoke runbook in `charts/repo-guardian/docs/homelab-smoke.md`.
+
 ## Rules
 
 These rules must always be followed when working in this repository.

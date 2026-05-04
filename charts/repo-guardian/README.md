@@ -11,7 +11,7 @@ with cosign keyless, SLSA Level 3 provenance).
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 0.3.3 \
+  --version 0.4.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -47,7 +47,7 @@ secrets:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 0.3.3 \
+  --version 0.4.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -70,7 +70,7 @@ cosign verify \
     '^https://github.com/donaldgifford/repo-guardian/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:0.3.3
+  ghcr.io/donaldgifford/charts/repo-guardian:0.4.0
 ```
 
 ### SLSA provenance
@@ -81,7 +81,7 @@ cosign verify-attestation --type slsaprovenance \
     '^https://github.com/slsa-framework/slsa-github-generator/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:0.3.3
+  ghcr.io/donaldgifford/charts/repo-guardian:0.4.0
 ```
 
 The provenance attestation records the build workflow path, source
@@ -252,10 +252,12 @@ incoming webhook.
 | tailscale.image | string | `"ghcr.io/tailscale/tailscale:latest"` | Tailscale container image |
 | tailscale.rbac | object | `{"create":true}` | Create RBAC for Tailscale state management |
 | tailscale.userspace | bool | `true` | Use userspace networking (no CAP_NET_ADMIN needed) |
-| templates | object | `{"codeowners":"","dependabot":"","renovate":""}` | Template overrides for CODEOWNERS, dependabot, renovate |
-| templates.codeowners | string | `""` | Custom CODEOWNERS template (empty = use embedded default) |
-| templates.dependabot | string | `""` | Custom dependabot template |
-| templates.renovate | string | `""` | Custom renovate template |
+| templates | object | `{"existingConfigMap":"","files":{}}` | File-template overrides for the binary's TemplateStore.  Breaking change in chart 0.4.0: the legacy `templates.codeowners`, `templates.dependabot`, and `templates.renovate` slots have been removed. Move existing values into `templates.files` keyed by filename (with `.tmpl` suffix), e.g.:    templates:     files:       codeowners.tmpl: |         * @platform-team       dependabot.tmpl: |         version: 2         updates: ...  When `templates.existingConfigMap` is non-empty the chart skips rendering its own ConfigMap and the Deployment mounts the named ConfigMap at TEMPLATE_DIR. This is the escape hatch for operators who manage templates out-of-band (GitOps, Argo ApplicationSet, etc). |
+| templates.existingConfigMap | string | `""` | Name of an existing ConfigMap to mount at TEMPLATE_DIR instead of rendering one from `templates.files`. |
+| templates.files | object | `{}` | Map of filename to template content. Each entry becomes a key in the rendered ConfigMap and is loaded by the binary at startup. Filenames must end in `.tmpl`. |
+| templating | object | `{"strict":false,"vars":{}}` | Templating configuration: env-var injection and strict-mode validation.  `templating.vars` exposes arbitrary environment variables to the binary's `env "VAR"` template helper. Values flow through to the Deployment's container env list; they are NOT secrets — use `secrets.*` or `extraEnv` (with valueFrom: secretKeyRef) for secret material. The chart rejects keys that collide with chart-managed env vars (GITHUB_APP_ID, WEBHOOK_SECRET, etc).  `templating.strict` toggles `STRICT_TEMPLATES=true` on the Deployment. When enabled the binary validates every compiled PR template against a zero-value PRVars context at startup and fails fast on missing-field references. |
+| templating.strict | bool | `false` | Enable startup-time strict validation of compiled PR templates (sets STRICT_TEMPLATES=true on the Deployment). |
+| templating.vars | object | `{}` | Map of env-var key to value. Keys must not collide with chart-managed env vars; the chart fails template rendering on collisions. |
 | tolerations | list | `[]` | Tolerations |
 | webhookIPAllowlist | object | `{"enabled":true,"failOpen":false,"trustProxyHeaders":false}` | Webhook IP allowlist configuration |
 | webhookIPAllowlist.enabled | bool | `true` | Enable GitHub IP allowlist middleware |

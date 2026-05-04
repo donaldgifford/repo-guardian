@@ -1,3 +1,4 @@
+{{- if not .Values.templates.existingConfigMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -5,16 +6,15 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "repo-guardian.labels" . | nindent 4 }}
+{{- if .Values.templates.files }}
 data:
-  {{- if .Values.templates.codeowners }}
-  CODEOWNERS.tmpl: |
-    {{- .Values.templates.codeowners | nindent 4 }}
+  {{- range $name, $content := .Values.templates.files }}
+  {{ $name }}: |
+    {{- $content | nindent 4 }}
   {{- end }}
-  {{- if .Values.templates.dependabot }}
-  dependabot.yml.tmpl: |
-    {{- .Values.templates.dependabot | nindent 4 }}
-  {{- end }}
-  {{- if .Values.templates.renovate }}
-  renovate.json.tmpl: |
-    {{- .Values.templates.renovate | nindent 4 }}
-  {{- end }}
+{{- else }}
+# No template overrides declared. The binary falls back to its
+# embedded defaults at runtime when this ConfigMap is empty.
+data: {}
+{{- end }}
+{{- end }}

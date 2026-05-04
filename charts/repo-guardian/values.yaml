@@ -110,14 +110,56 @@ secrets:
   # -- Mount private key as file (true) or env var (false)
   privateKeyAsFile: true
 
-# -- Template overrides for CODEOWNERS, dependabot, renovate
+# -- File-template overrides for the binary's TemplateStore.
+#
+# Breaking change in chart 0.4.0: the legacy `templates.codeowners`,
+# `templates.dependabot`, and `templates.renovate` slots have been
+# removed. Move existing values into `templates.files` keyed by
+# filename (with `.tmpl` suffix), e.g.:
+#
+#   templates:
+#     files:
+#       codeowners.tmpl: |
+#         * @platform-team
+#       dependabot.tmpl: |
+#         version: 2
+#         updates: ...
+#
+# When `templates.existingConfigMap` is non-empty the chart skips
+# rendering its own ConfigMap and the Deployment mounts the named
+# ConfigMap at TEMPLATE_DIR. This is the escape hatch for operators
+# who manage templates out-of-band (GitOps, Argo ApplicationSet, etc).
 templates:
-  # -- Custom CODEOWNERS template (empty = use embedded default)
-  codeowners: ""
-  # -- Custom dependabot template
-  dependabot: ""
-  # -- Custom renovate template
-  renovate: ""
+  # -- Map of filename to template content. Each entry becomes a
+  # key in the rendered ConfigMap and is loaded by the binary at
+  # startup. Filenames must end in `.tmpl`.
+  files: {}
+  # -- Name of an existing ConfigMap to mount at TEMPLATE_DIR
+  # instead of rendering one from `templates.files`.
+  existingConfigMap: ""
+
+# -- Templating configuration: env-var injection and strict-mode
+# validation.
+#
+# `templating.vars` exposes arbitrary environment variables to the
+# binary's `env "VAR"` template helper. Values flow through to the
+# Deployment's container env list; they are NOT secrets — use
+# `secrets.*` or `extraEnv` (with valueFrom: secretKeyRef) for
+# secret material. The chart rejects keys that collide with
+# chart-managed env vars (GITHUB_APP_ID, WEBHOOK_SECRET, etc).
+#
+# `templating.strict` toggles `STRICT_TEMPLATES=true` on the
+# Deployment. When enabled the binary validates every compiled PR
+# template against a zero-value PRVars context at startup and
+# fails fast on missing-field references.
+templating:
+  # -- Map of env-var key to value. Keys must not collide with
+  # chart-managed env vars; the chart fails template rendering on
+  # collisions.
+  vars: {}
+  # -- Enable startup-time strict validation of compiled PR
+  # templates (sets STRICT_TEMPLATES=true on the Deployment).
+  strict: false
 
 # -- Webhook IP allowlist configuration
 webhookIPAllowlist:

@@ -1,3 +1,4 @@
+{{- include "repo-guardian.validateTemplatingVars" . -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -108,6 +109,14 @@ spec:
             - name: GUARDIAN_CONFIG
               value: /etc/repo-guardian/policy/guardian.hcl
             {{- end }}
+            {{- if .Values.templating.strict }}
+            - name: STRICT_TEMPLATES
+              value: "true"
+            {{- end }}
+            {{- range $k, $v := .Values.templating.vars }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -182,7 +191,7 @@ spec:
         {{- end }}
         - name: templates
           configMap:
-            name: {{ include "repo-guardian.fullname" . }}-templates
+            name: {{ .Values.templates.existingConfigMap | default (printf "%s-templates" (include "repo-guardian.fullname" .)) }}
         {{- if or .Values.policy.config .Values.policy.existingConfigMap }}
         - name: policy
           configMap:

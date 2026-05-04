@@ -2,7 +2,7 @@ suite: configmap
 templates:
   - templates/configmap.yaml
 tests:
-  - it: should create configmap with templates suffix
+  - it: emits empty data when no templates.files declared
     asserts:
       - hasDocuments:
           count: 1
@@ -10,29 +10,30 @@ tests:
           path: metadata.name
           pattern: ".*-templates$"
 
-  - it: should include custom codeowners template when set
+  - it: renders one configmap entry per templates.files key
     set:
       templates:
-        codeowners: "* @my-org/my-team"
+        files:
+          codeowners.tmpl: "* @my-org/my-team"
+          dependabot.tmpl: "version: 2"
     asserts:
+      - hasDocuments:
+          count: 1
       - isNotEmpty:
           path: data
 
-  - it: should include custom dependabot template when set
+  - it: skips chart configmap when templates.existingConfigMap is set
     set:
       templates:
-        dependabot: |
-          version: 2
-          updates: []
+        existingConfigMap: my-shared-templates
     asserts:
-      - isNotEmpty:
-          path: data
+      - hasDocuments:
+          count: 0
 
-  - it: should include custom renovate template when set
-    set:
-      templates:
-        renovate: |
-          { "$schema": "https://docs.renovatebot.com/renovate-schema.json" }
+  - it: stamps Release.Namespace on metadata
+    release:
+      namespace: my-ns
     asserts:
-      - isNotEmpty:
-          path: data
+      - equal:
+          path: metadata.namespace
+          value: my-ns

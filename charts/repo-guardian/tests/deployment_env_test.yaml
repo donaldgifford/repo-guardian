@@ -1,0 +1,76 @@
+suite: deployment-templating
+templates:
+  - templates/deployment.yaml
+set:
+  config:
+    appId: "12345"
+  secrets:
+    webhookSecret: "test-secret"
+    privateKey: "test-key"
+tests:
+  - it: emits templating.vars entries onto the container env list
+    set:
+      templating:
+        vars:
+          JIRA_PROJECT: "PLAT"
+          OWNING_TEAM: "platform"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: JIRA_PROJECT
+            value: "PLAT"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OWNING_TEAM
+            value: "platform"
+
+  - it: rejects templating.vars keys that collide with chart-managed env vars
+    set:
+      templating:
+        vars:
+          GITHUB_ORG: "anything"
+    asserts:
+      - failedTemplate:
+          errorMessage: "templating.vars keys collide with chart-managed env vars: GITHUB_ORG"
+
+  - it: emits STRICT_TEMPLATES=true when templating.strict is enabled
+    set:
+      templating:
+        strict: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STRICT_TEMPLATES
+            value: "true"
+
+  - it: omits STRICT_TEMPLATES env when templating.strict is unset
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STRICT_TEMPLATES
+            value: "true"
+
+  - it: mounts the chart-rendered templates ConfigMap by default
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: templates
+            configMap:
+              name: RELEASE-NAME-repo-guardian-templates
+
+  - it: mounts templates.existingConfigMap when set
+    set:
+      templates:
+        existingConfigMap: my-shared-templates
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: templates
+            configMap:
+              name: my-shared-templates

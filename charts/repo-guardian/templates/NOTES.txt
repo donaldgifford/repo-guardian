@@ -26,3 +26,28 @@ to route traffic to the {{ include "repo-guardian.fullname" . }} service on port
 
 Configure your GitHub App's webhook URL to point to:
   https://<your-domain>/webhooks/github
+
+{{- $hasLegacy := false }}
+{{- if hasKey .Values.templates "codeowners" }}{{- $hasLegacy = true }}{{- end }}
+{{- if hasKey .Values.templates "dependabot" }}{{- $hasLegacy = true }}{{- end }}
+{{- if hasKey .Values.templates "renovate" }}{{- $hasLegacy = true }}{{- end }}
+{{- if $hasLegacy }}
+
+WARNING: legacy template slots detected.
+
+Chart 0.4.0 removed templates.codeowners, templates.dependabot, and
+templates.renovate. Move existing values into templates.files keyed by
+filename:
+
+  templates:
+    files:
+      codeowners.tmpl: |
+        * @platform-team
+      dependabot.tmpl: |
+        version: 2
+        updates: [...]
+
+For out-of-band template management, set
+templates.existingConfigMap: <name> and the chart will mount that
+ConfigMap at TEMPLATE_DIR instead of rendering one.
+{{- end }}

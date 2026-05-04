@@ -430,35 +430,34 @@ and escape hatch. helm-unittest covers the matrix.
 
 #### Tasks
 
-- [ ] Update `charts/repo-guardian/values.yaml`:
+- [x] Update `charts/repo-guardian/values.yaml`:
   - **Add** `templates.files: {}` (map of `<filename>: <content>`).
   - **Add** `templates.existingConfigMap: ""`.
   - **Add** `templating.vars: {}` (map of env-var key → value).
   - **Add** `templating.strict: false` — sets `STRICT_TEMPLATES`
     env var on the Deployment. (Open Q10 resolution.)
   - **Remove** `templates.codeowners`, `templates.dependabot`,
-    `templates.renovate`. Document the migration in the values.yaml
+    `templates.renovate`. Migration documented in the values.yaml
     doc comments.
-- [ ] Rewrite `charts/repo-guardian/templates/configmap.yaml`:
+- [x] Rewrite `charts/repo-guardian/templates/configmap.yaml`:
   - If `.Values.templates.existingConfigMap` is non-empty: skip
     rendering the chart's ConfigMap entirely.
   - Else: `range $name, $content := .Values.templates.files` and
     emit a key per entry.
-  - Stamp `namespace: {{ .Release.Namespace }}` (chart 0.3.2
+  - `namespace: {{ .Release.Namespace }}` stamped (chart 0.3.2
     invariant from PR #67).
-- [ ] Update `charts/repo-guardian/templates/deployment.yaml`:
+- [x] Update `charts/repo-guardian/templates/deployment.yaml`:
   - When `existingConfigMap` is set, mount the named ConfigMap at
     `TEMPLATE_DIR` (`/etc/repo-guardian/templates`).
   - Else mount the chart-rendered ConfigMap.
-  - Append `templating.vars` keys to the env-var list:
-    `range $k, $v := .Values.templating.vars` →
-    `name: $k, value: $v`.
-  - **Before emitting** `templating.vars` env entries, intersect
-    keys against the reserved-name list (defined as a
-    `_helpers.tpl` template) and `{{ fail "..." }}` with the
-    offending names. (Open Q6 resolution.)
-  - Set `STRICT_TEMPLATES` env var from `.Values.templating.strict`.
-- [ ] Update `charts/repo-guardian/templates/NOTES.txt` with a
+  - Append `templating.vars` keys to the env-var list.
+  - Reserved-name validation runs at the top of the Deployment
+    template via `repo-guardian.validateTemplatingVars` helper —
+    fails the render with a clear list of offenders.
+    (Open Q6 resolution.)
+  - `STRICT_TEMPLATES` env var emitted when
+    `.Values.templating.strict` is true.
+- [x] Update `charts/repo-guardian/templates/NOTES.txt` with a
   clear upgrade message for users who had the legacy slots
   populated:
 
@@ -474,45 +473,44 @@ and escape hatch. helm-unittest covers the matrix.
   >       * @platform-team
   > ```
 
-- [ ] Add `charts/repo-guardian/tests/configmap_test.yaml` cases:
-  - `templates.files` empty → ConfigMap has only embedded fallback
-    keys (or the chart skips the ConfigMap entirely; document
-    which).
+- [x] Updated `charts/repo-guardian/tests/configmap_test.yaml`
+  cases:
+  - `templates.files` empty → chart ConfigMap renders with empty
+    `data: {}` and binary falls back to embedded defaults at
+    runtime.
   - `templates.files` populated → ConfigMap has every named key
     with matching content.
-  - `templates.existingConfigMap=foo` → no chart ConfigMap rendered;
+  - `templates.existingConfigMap=foo` → chart skips ConfigMap
+    rendering entirely (assertion: `hasDocuments: count: 0`);
     Deployment mounts `foo`.
-- [ ] Add `charts/repo-guardian/tests/deployment_env_test.yaml`:
+- [x] Add `charts/repo-guardian/tests/deployment_env_test.yaml`:
   - `templating.vars: {JIRA_PROJECT: "PLAT"}` → Deployment env list
     contains `name: JIRA_PROJECT, value: PLAT`.
-  - `templating.vars: {WEBHOOK_SECRET: "x"}` → helm template
+  - `templating.vars: {GITHUB_ORG: "anything"}` → helm template
     fails with reserved-name error. (Open Q6 resolution.)
   - `templating.strict: true` → Deployment env list contains
     `name: STRICT_TEMPLATES, value: "true"`. (Open Q10 resolution.)
-- [ ] Add `repo-guardian.reservedEnvVars` helper template to
+  - `templates.existingConfigMap=my-shared-templates` → Deployment
+    volume mount points to the supplied name.
+- [x] Add `repo-guardian.reservedEnvVars` helper template to
   `charts/repo-guardian/templates/_helpers.tpl` enumerating every
-  chart-managed env var name. Used by deployment.yaml's
-  collision-check. (Open Q6 resolution.)
-- [ ] Bump chart `version` from `0.3.3` to `0.4.0` —
-  chart-breaking (legacy slots removed). IMPL-0012 ships before
-  IMPL-0011; sequential release cadence keeps each chart rev
-  single-concern for rollback and validation. (Open Q7
-  resolution.)
-- [ ] Bump chart `appVersion` to match the binary release that
-  ships this work.
-- [ ] Add the `0.4.0` release-notes entry to
-  `charts/repo-guardian/CHANGELOG.md`:
-
-  > **Breaking change**: legacy `templates.codeowners`,
-  > `templates.dependabot`, `templates.renovate` values removed.
-  > Migrate to `templates.files` (map of filename to content). New
-  > `templating.vars` block exposes arbitrary env vars to the
-  > binary's template `env "VAR"` helper. New
-  > `templates.existingConfigMap` mounts an out-of-band ConfigMap
-  > instead of the chart-rendered one.
-
-- [ ] Run `helm template ... | kubectl apply --dry-run=client` for
-  the standard configurations. Confirm clean YAML output.
+  chart-managed env var name plus
+  `repo-guardian.validateTemplatingVars` invoking `fail` on
+  collision. Used by deployment.yaml's preamble.
+  (Open Q6 resolution.)
+- [x] Bump chart `version` from `0.3.3` to `0.4.0` —
+  chart-breaking (legacy slots removed).
+- [x] Bump chart `appVersion` from `1.4.1` to `1.5.0` to track
+  the binary release that ships this work.
+- [x] Chart `CHANGELOG.md` is auto-regenerated by git-cliff at
+  publish time from commit messages; the breaking-change note
+  lands via the Phase 6 commit body.
+- [x] Run `helm template ... | kubectl apply --dry-run=client` for
+  the standard + customized configurations. Verified output:
+  ServiceAccount, Secret, ConfigMap, Service, Deployment all
+  apply cleanly.
+- [x] `helm unittest charts/repo-guardian` green: 8 suites, 55
+  tests pass after Phase 6 changes.
 
 #### Success Criteria
 

@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0013
 title: "Customizable PR templates and extensible template ConfigMap"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-05-03
 ---
@@ -9,7 +9,7 @@ created: 2026-05-03
 
 # DESIGN 0013: Customizable PR templates and extensible template ConfigMap
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-05-03
 
@@ -20,11 +20,20 @@ created: 2026-05-03
   - [Non-Goals](#non-goals)
 - [Background](#background)
 - [Detailed Design](#detailed-design)
+  - [Unified template renderer](#unified-template-renderer)
+  - [Variable contexts](#variable-contexts)
+  - [Helpers (curated subset)](#helpers-curated-subset)
+  - [Render-time behavior](#render-time-behavior)
+  - [HCL grammar additions](#hcl-grammar-additions)
+  - [Template variables](#template-variables)
+  - [Multi-rule PR title resolution](#multi-rule-pr-title-resolution)
+  - [Chart values surface](#chart-values-surface)
 - [API / Interface Changes](#api--interface-changes)
 - [Data Model](#data-model)
 - [Testing Strategy](#testing-strategy)
 - [Migration / Rollout Plan](#migration--rollout-plan)
 - [Open Questions](#open-questions)
+- [Resolved Questions](#resolved-questions)
 - [References](#references)
 <!--toc:end-->
 

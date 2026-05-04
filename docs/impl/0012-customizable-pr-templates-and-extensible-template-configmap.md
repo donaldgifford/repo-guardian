@@ -1,7 +1,7 @@
 ---
 id: IMPL-0012
 title: "Customizable PR templates and extensible template ConfigMap"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-05-03
 ---
@@ -9,7 +9,7 @@ created: 2026-05-03
 
 # IMPL 0012: Customizable PR templates and extensible template ConfigMap
 
-**Status:** Draft
+**Status:** Completed (in-repo phases 1–7); Phase 7.4 homelab smoke operator-side
 **Author:** Donald Gifford
 **Date:** 2026-05-03
 
@@ -19,13 +19,27 @@ created: 2026-05-03
   - [In Scope](#in-scope)
   - [Out of Scope](#out-of-scope)
 - [Implementation Phases](#implementation-phases)
-  - [Phase 1: `internal/template/` package foundation](#phase-1-internaltemplate-package-foundation)
-  - [Phase 2: Migrate `TemplateStore` to compiled templates](#phase-2-migrate-templatestore-to-compiled-templates)
+  - [Phase 1: internal/template/ package foundation](#phase-1-internaltemplate-package-foundation)
+    - [Tasks](#tasks)
+    - [Success Criteria](#success-criteria)
+  - [Phase 2: Migrate TemplateStore to compiled templates](#phase-2-migrate-templatestore-to-compiled-templates)
+    - [Tasks](#tasks-1)
+    - [Success Criteria](#success-criteria-1)
   - [Phase 3: Rewrite embedded templates to dotted-path syntax](#phase-3-rewrite-embedded-templates-to-dotted-path-syntax)
-  - [Phase 4: HCL `pr {}` grammar + `PRTemplate`](#phase-4-hcl-pr--grammar--prtemplate)
+    - [Tasks](#tasks-2)
+    - [Success Criteria](#success-criteria-2)
+  - [Phase 4: HCL pr {} grammar + PRTemplate](#phase-4-hcl-pr--grammar--prtemplate)
+    - [Tasks](#tasks-3)
+    - [Success Criteria](#success-criteria-3)
   - [Phase 5: Engine PR creation integration + render-time behavior](#phase-5-engine-pr-creation-integration--render-time-behavior)
+    - [Tasks](#tasks-4)
+    - [Success Criteria](#success-criteria-4)
   - [Phase 6: Chart values surface](#phase-6-chart-values-surface)
+    - [Tasks](#tasks-5)
+    - [Success Criteria](#success-criteria-5)
   - [Phase 7: Examples + migration docs + smoke](#phase-7-examples--migration-docs--smoke)
+    - [Tasks](#tasks-6)
+    - [Success Criteria](#success-criteria-6)
 - [File Changes](#file-changes)
 - [Testing Plan](#testing-plan)
 - [Dependencies](#dependencies)

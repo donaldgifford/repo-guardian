@@ -132,9 +132,9 @@ equivalent to today's `internal/checker/queue.go` + `internal/scheduler/`.
   interface (`Enqueue`, `Subscribe`, `Close`).
 - [x] Add `internal/queue/memory/memory.go` — buffered channel
   implementation; `Subscribe` is a goroutine consuming from the channel.
-- [ ] Add `internal/scheduler/scheduler.go` with `Scheduler` interface
+- [x] Add `internal/scheduler/scheduler.go` with `Scheduler` interface
   (`Schedule(name, interval, handler)`, `Stop`).
-- [ ] Add `internal/scheduler/ticker/ticker.go` — `time.Ticker`-based
+- [x] Add `internal/scheduler/ticker/ticker.go` — `time.Ticker`-based
   implementation that fires the handler on every tick (no leader-election;
   single-replica only).
 - [ ] Wire the new interfaces into `cmd/repo-guardian/main.go` —
@@ -158,7 +158,7 @@ equivalent to today's `internal/checker/queue.go` + `internal/scheduler/`.
   `Scheduler`. Output to `internal/<pkg>/mocks/`.
 - [ ] Add `make mocks` target. Reference it from `make ci`.
 - [ ] Generate initial mocks; commit them to the repo.
-- [ ] Add unit tests for `memory` implementations: store
+- [x] Add unit tests for `memory` implementations: store
   upsert/freshness/policy-version, queue enqueue/consume order, ticker
   firing.
 

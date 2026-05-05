@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/donaldgifford/repo-guardian/internal/checker"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	memqueue "github.com/donaldgifford/repo-guardian/internal/queue/memory"
 )
 
 // mockClient implements ghclient.Client for scheduler tests.
@@ -165,7 +165,7 @@ func TestReconcileAll(t *testing.T) {
 		{Owner: "org2", Name: "repo-f"},
 	}
 
-	q := checker.NewQueue(100, slog.Default())
+	q := memqueue.New(100)
 
 	s := NewSweeper(client, q, time.Hour, slog.Default(), true, true)
 	s.reconcileAll(context.Background())
@@ -188,7 +188,7 @@ func TestReconcileAll_SkipsArchived(t *testing.T) {
 		{Owner: "org1", Name: "forked-repo", Fork: true},
 	}
 
-	q := checker.NewQueue(100, slog.Default())
+	q := memqueue.New(100)
 
 	s := NewSweeper(client, q, time.Hour, slog.Default(), true, true)
 	s.reconcileAll(context.Background())
@@ -209,7 +209,7 @@ func TestStart_RunsOnStartup(t *testing.T) {
 		{Owner: "org1", Name: "repo-a"},
 	}
 
-	q := checker.NewQueue(100, slog.Default())
+	q := memqueue.New(100)
 
 	s := NewSweeper(client, q, 24*time.Hour, slog.Default(), true, true)
 
@@ -240,7 +240,7 @@ func TestStart_RespectsContextCancellation(t *testing.T) {
 	t.Parallel()
 
 	client := newMockClient()
-	q := checker.NewQueue(100, slog.Default())
+	q := memqueue.New(100)
 
 	s := NewSweeper(client, q, time.Hour, slog.Default(), true, true)
 
@@ -267,7 +267,7 @@ func TestReconcileAll_ListInstallationsError(t *testing.T) {
 	client := newMockClient()
 	client.listInstallErr = fmt.Errorf("API error")
 
-	q := checker.NewQueue(100, slog.Default())
+	q := memqueue.New(100)
 
 	s := NewSweeper(client, q, time.Hour, slog.Default(), true, true)
 	s.reconcileAll(context.Background())

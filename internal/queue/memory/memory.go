@@ -95,3 +95,11 @@ func (q *Queue) Close() error {
 
 	return nil
 }
+
+// Len returns the number of buffered jobs awaiting Subscribe. Useful
+// in tests to verify Enqueue happened without spinning up a Subscribe
+// goroutine. Not part of the queue.Queue interface — this is a
+// memory-backend-only introspection helper.
+func (q *Queue) Len() int {
+	return len(q.jobs)
+}

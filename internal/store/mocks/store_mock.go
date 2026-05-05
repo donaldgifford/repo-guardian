@@ -5,8 +5,9 @@ package mocks
 import (
 	context "context"
 
-	store "github.com/donaldgifford/repo-guardian/internal/store"
 	mock "github.com/stretchr/testify/mock"
+
+	store "github.com/donaldgifford/repo-guardian/internal/store"
 
 	time "time"
 )

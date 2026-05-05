@@ -13,7 +13,7 @@ import (
 
 	gh "github.com/google/go-github/v68/github"
 
-	"github.com/donaldgifford/repo-guardian/internal/checker"
+	memqueue "github.com/donaldgifford/repo-guardian/internal/queue/memory"
 )
 
 const testSecret = "test-secret"
@@ -44,7 +44,7 @@ func makeRequest(t *testing.T, eventType string, payload any) *http.Request {
 func TestHandleWebhook_RepositoryCreated(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	payload := &gh.RepositoryEvent{
@@ -67,7 +67,7 @@ func TestHandleWebhook_RepositoryCreated(t *testing.T) {
 func TestHandleWebhook_InstallationReposAdded(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	payload := &gh.InstallationRepositoriesEvent{
@@ -90,7 +90,7 @@ func TestHandleWebhook_InstallationReposAdded(t *testing.T) {
 func TestHandleWebhook_InstallationCreated(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	payload := &gh.InstallationEvent{
@@ -112,7 +112,7 @@ func TestHandleWebhook_InstallationCreated(t *testing.T) {
 func TestHandleWebhook_InvalidSignature(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	body := []byte(`{"action":"created"}`)
@@ -132,7 +132,7 @@ func TestHandleWebhook_InvalidSignature(t *testing.T) {
 func TestHandleWebhook_UnsupportedEvent(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	payload := map[string]string{"action": "completed"}
@@ -148,7 +148,7 @@ func TestHandleWebhook_UnsupportedEvent(t *testing.T) {
 func TestHandleWebhook_IgnoredAction(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	payload := &gh.RepositoryEvent{
@@ -186,7 +186,7 @@ func makePushPayload(ref, defaultBranch string, commits []*gh.HeadCommit) *gh.Pu
 func TestHandlePush_WatchedFileAdded_Enqueues(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	watched := map[string]bool{"catalog-info.yaml": true}
 	h := NewHandler(testSecret, q, slog.Default(), watched)
 
@@ -209,7 +209,7 @@ func TestHandlePush_WatchedFileAdded_Enqueues(t *testing.T) {
 func TestHandlePush_WatchedFileModified_Enqueues(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	watched := map[string]bool{"catalog-info.yaml": true}
 	h := NewHandler(testSecret, q, slog.Default(), watched)
 
@@ -228,7 +228,7 @@ func TestHandlePush_WatchedFileModified_Enqueues(t *testing.T) {
 func TestHandlePush_UnrelatedFiles_DoesNotEnqueue(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	watched := map[string]bool{"catalog-info.yaml": true}
 	h := NewHandler(testSecret, q, slog.Default(), watched)
 
@@ -247,7 +247,7 @@ func TestHandlePush_UnrelatedFiles_DoesNotEnqueue(t *testing.T) {
 func TestHandlePush_NonDefaultBranch_DoesNotEnqueue(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	watched := map[string]bool{"catalog-info.yaml": true}
 	h := NewHandler(testSecret, q, slog.Default(), watched)
 
@@ -266,7 +266,7 @@ func TestHandlePush_NonDefaultBranch_DoesNotEnqueue(t *testing.T) {
 func TestHandlePush_RemovedOnly_DoesNotEnqueue(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	watched := map[string]bool{"catalog-info.yaml": true}
 	h := NewHandler(testSecret, q, slog.Default(), watched)
 
@@ -285,7 +285,7 @@ func TestHandlePush_RemovedOnly_DoesNotEnqueue(t *testing.T) {
 func TestHandlePush_NoWatchedPaths_DoesNotEnqueue(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
@@ -303,7 +303,7 @@ func TestHandlePush_NoWatchedPaths_DoesNotEnqueue(t *testing.T) {
 func TestHandlePush_WatchedFileInLaterCommit_Enqueues(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	watched := map[string]bool{"catalog-info.yaml": true}
 	h := NewHandler(testSecret, q, slog.Default(), watched)
 
@@ -324,7 +324,7 @@ func TestHandlePush_WatchedFileInLaterCommit_Enqueues(t *testing.T) {
 func TestHandlePush_TagPush_DoesNotEnqueue(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	watched := map[string]bool{"catalog-info.yaml": true}
 	h := NewHandler(testSecret, q, slog.Default(), watched)
 
@@ -343,7 +343,7 @@ func TestHandlePush_TagPush_DoesNotEnqueue(t *testing.T) {
 func TestIntegration_PushEvent_EnqueueWithTriggerPush(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	watched := map[string]bool{
 		"catalog-info.yaml": true,
 		"catalog-info.yml":  true,

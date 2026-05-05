@@ -15,20 +15,23 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
-	"github.com/donaldgifford/repo-guardian/internal/checker"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/queue"
 )
 
 // Sweeper periodically reconciles all repositories across all GitHub
 // App installations. Renamed from Scheduler in IMPL-0011 Phase 1 to
 // avoid colliding with the new Scheduler interface; behavior is
-// otherwise unchanged.
+// otherwise unchanged. Now consumes the abstract queue.Queue
+// interface so the same code path works against the in-memory queue
+// (single-replica) and the future Valkey queue (multi-replica).
 type Sweeper struct {
 	client       ghclient.Client
-	queue        *checker.Queue
+	queue        queue.Queue
 	interval     time.Duration
 	logger       *slog.Logger
 	skipForks    bool
@@ -38,14 +41,14 @@ type Sweeper struct {
 // NewSweeper creates a new Sweeper.
 func NewSweeper(
 	client ghclient.Client,
-	queue *checker.Queue,
+	q queue.Queue,
 	interval time.Duration,
 	logger *slog.Logger,
 	skipForks, skipArchived bool,
 ) *Sweeper {
 	return &Sweeper{
 		client:       client,
-		queue:        queue,
+		queue:        q,
 		interval:     interval,
 		logger:       logger,
 		skipForks:    skipForks,
@@ -113,14 +116,16 @@ func (s *Sweeper) reconcileAll(ctx context.Context) {
 				continue
 			}
 
-			job := checker.RepoJob{
+			job := queue.Job{
+				ID:             fmt.Sprintf("sweep/%s/%s/%d", repo.Owner, repo.Name, time.Now().UnixNano()),
 				Owner:          repo.Owner,
 				Repo:           repo.Name,
 				InstallationID: install.ID,
-				Trigger:        checker.TriggerScheduler,
+				Trigger:        queue.TriggerScheduler,
+				EnqueuedAt:     time.Now(),
 			}
 
-			if err := s.queue.Enqueue(job); err != nil {
+			if err := s.queue.Enqueue(ctx, job); err != nil {
 				s.logger.Error("failed to enqueue repo",
 					"owner", repo.Owner,
 					"repo", repo.Name,

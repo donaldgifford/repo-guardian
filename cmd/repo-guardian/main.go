@@ -18,10 +18,12 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/config"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
+	memqueue "github.com/donaldgifford/repo-guardian/internal/queue/memory"
 	"github.com/donaldgifford/repo-guardian/internal/reconciler"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
 	"github.com/donaldgifford/repo-guardian/internal/scheduler"
 	"github.com/donaldgifford/repo-guardian/internal/webhook"
+	"github.com/donaldgifford/repo-guardian/internal/worker"
 )
 
 const shutdownTimeout = 15 * time.Second
@@ -93,21 +95,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize work queue using policy guardian config.
-	queue := checker.NewQueue(policyCfg.Guardian.QueueSize, logger)
+	// Construct the abstract queue (IMPL-0011 P1). Memory backend is
+	// the only option in this phase; STORE_BACKEND/QUEUE_BACKEND knobs
+	// guard the future Postgres/Valkey switch.
+	jobQueue := memqueue.New(policyCfg.Guardian.QueueSize)
 
-	// Initialize webhook handler.
-	// Extract watched paths from policy for push event handling.
+	// Initialize webhook handler against the queue.Queue interface.
 	watchedPaths := policy.ExtractWatchedPaths(policyCfg)
 
-	var webhookHandler http.Handler = webhook.NewHandler(cfg.GitHubWebhookSecret, queue, logger, watchedPaths)
+	var webhookHandler http.Handler = webhook.NewHandler(cfg.GitHubWebhookSecret, jobQueue, logger, watchedPaths)
 
-	// Initialize sweeper using policy guardian config. Renamed from
-	// scheduler.NewScheduler under IMPL-0011 Phase 1 to free up the
-	// Scheduler name for the new abstract interface.
+	// Initialize sweeper. Sweeper now consumes queue.Queue (interface)
+	// — same code path will work against the future Valkey queue.
 	sched := scheduler.NewSweeper(
 		client,
-		queue,
+		jobQueue,
 		policyCfg.Guardian.ParsedScheduleInterval,
 		logger,
 		policyCfg.Guardian.SkipForks,
@@ -120,14 +122,17 @@ func main() {
 
 	webhookHandler = wrapWebhookAllowlist(ctx, webhookHandler, &policyCfg.Guardian, logger)
 
-	// Start work queue workers.
-	queue.Start(ctx, policyCfg.Guardian.WorkerCount, engine, client)
+	// Construct and start the worker pool. Workers consume queue.Subscribe
+	// and dispatch to engine.CheckRepo (replaces the legacy
+	// checker.Queue.Start path).
+	workerPool := worker.New(jobQueue, engine, client, policyCfg.Guardian.WorkerCount, logger)
+	workerPool.Start(ctx)
 
-	// Start scheduler in background.
+	// Start sweeper in background.
 	go sched.Start(ctx)
 
 	// Set up and start HTTP servers.
-	mainServer := newMainServer(cfg.ListenAddr, webhookHandler, queue)
+	mainServer := newMainServer(ctx, cfg.ListenAddr, webhookHandler)
 	metricsServer := newMetricsServer(cfg.MetricsAddr)
 
 	startServer(logger, mainServer, "main", cfg.ListenAddr, cancel)
@@ -138,14 +143,14 @@ func main() {
 	cancel()
 
 	// Graceful shutdown.
-	gracefulShutdown(logger, queue, mainServer, metricsServer)
+	gracefulShutdown(logger, jobQueue, workerPool, mainServer, metricsServer)
 }
 
-func newMainServer(addr string, webhookHandler http.Handler, queue *checker.Queue) *http.Server {
+func newMainServer(runCtx context.Context, addr string, webhookHandler http.Handler) *http.Server {
 	mux := http.NewServeMux()
 	mux.Handle("POST /webhooks/github", webhookHandler)
 	mux.HandleFunc("GET /healthz", handleHealthz)
-	mux.HandleFunc("GET /readyz", handleReadyz(queue))
+	mux.HandleFunc("GET /readyz", handleReadyz(runCtx))
 
 	return &http.Server{
 		Addr:              addr,
@@ -188,7 +193,7 @@ func awaitShutdown(ctx context.Context, logger *slog.Logger) {
 	}
 }
 
-func gracefulShutdown(logger *slog.Logger, queue *checker.Queue, servers ...*http.Server) {
+func gracefulShutdown(logger *slog.Logger, jobQueue interface{ Close() error }, workerPool interface{ Stop() }, servers ...*http.Server) {
 	logger.Info("shutting down")
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
@@ -200,7 +205,12 @@ func gracefulShutdown(logger *slog.Logger, queue *checker.Queue, servers ...*htt
 		}
 	}
 
-	queue.Stop()
+	workerPool.Stop()
+
+	if err := jobQueue.Close(); err != nil {
+		logger.Warn("job queue close error", "error", err)
+	}
+
 	logger.Info("repo-guardian stopped")
 }
 
@@ -319,9 +329,9 @@ func handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-func handleReadyz(queue *checker.Queue) http.HandlerFunc {
+func handleReadyz(runCtx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
-		if !queue.Accepting() {
+		if runCtx.Err() != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 
 			if _, err := w.Write([]byte("not ready")); err != nil {

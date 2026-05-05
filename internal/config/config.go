@@ -73,7 +73,41 @@ type Config struct {
 	// directory of .hcl files. When set, operational settings are loaded
 	// from the HCL config instead of environment variables.
 	GuardianConfigPath string
+
+	// StoreBackend selects the persistent-state implementation. One of
+	// "memory" (default — single-replica only) or "postgres". See
+	// IMPL-0011 / DESIGN-0012 for the full mode matrix.
+	StoreBackend string
+
+	// QueueBackend selects the work-queue implementation. One of
+	// "memory" (default — single-replica only) or "valkey".
+	QueueBackend string
+
+	// SchedulerBackend selects the scheduler implementation. One of
+	// "ticker" (default — fires on every replica, single-replica only)
+	// or "valkey" (Valkey-lock-coordinated; multi-replica safe).
+	SchedulerBackend string
+
+	// StoreDSN is the connection string for the postgres store backend
+	// (when StoreBackend=="postgres"). Ignored otherwise.
+	StoreDSN string
+
+	// QueueValkeyDSN is the connection string for the valkey queue
+	// backend (when QueueBackend=="valkey"). Same Valkey instance is
+	// reused by SchedulerBackend=="valkey".
+	QueueValkeyDSN string
 }
+
+// Backend identifier constants. Defined as package-level strings so
+// chart and binary share a single source of truth.
+const (
+	StoreBackendMemory     = "memory"
+	StoreBackendPostgres   = "postgres"
+	QueueBackendMemory     = "memory"
+	QueueBackendValkey     = "valkey"
+	SchedulerBackendTicker = "ticker"
+	SchedulerBackendValkey = "valkey"
+)
 
 // Load reads configuration from environment variables and applies defaults.
 func Load() (*Config, error) {
@@ -165,11 +199,21 @@ func Load() (*Config, error) {
 	cfg.TrustProxyHeaders = trustProxyHeaders
 	cfg.GuardianConfigPath = os.Getenv("GUARDIAN_CONFIG")
 
+	loadBackendConfig(cfg)
+
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 
 	return cfg, nil
+}
+
+func loadBackendConfig(cfg *Config) {
+	cfg.StoreBackend = envOrDefault("STORE_BACKEND", StoreBackendMemory)
+	cfg.QueueBackend = envOrDefault("QUEUE_BACKEND", QueueBackendMemory)
+	cfg.SchedulerBackend = envOrDefault("SCHEDULER_BACKEND", SchedulerBackendTicker)
+	cfg.StoreDSN = os.Getenv("STORE_DSN")
+	cfg.QueueValkeyDSN = os.Getenv("QUEUE_VALKEY_DSN")
 }
 
 // Validate checks that required configuration fields are set.
@@ -192,7 +236,45 @@ func (c *Config) Validate() error {
 		errs = append(errs, errors.New("GITHUB_WEBHOOK_SECRET is required"))
 	}
 
+	errs = append(errs, c.validateBackends()...)
+
 	return errors.Join(errs...)
+}
+
+func (c *Config) validateBackends() []error {
+	var errs []error
+
+	switch c.StoreBackend {
+	case StoreBackendMemory, StoreBackendPostgres:
+	default:
+		errs = append(errs, fmt.Errorf("STORE_BACKEND %q must be one of: memory, postgres", c.StoreBackend))
+	}
+
+	if c.StoreBackend == StoreBackendPostgres && c.StoreDSN == "" {
+		errs = append(errs, errors.New("STORE_DSN is required when STORE_BACKEND=postgres"))
+	}
+
+	switch c.QueueBackend {
+	case QueueBackendMemory, QueueBackendValkey:
+	default:
+		errs = append(errs, fmt.Errorf("QUEUE_BACKEND %q must be one of: memory, valkey", c.QueueBackend))
+	}
+
+	if c.QueueBackend == QueueBackendValkey && c.QueueValkeyDSN == "" {
+		errs = append(errs, errors.New("QUEUE_VALKEY_DSN is required when QUEUE_BACKEND=valkey"))
+	}
+
+	switch c.SchedulerBackend {
+	case SchedulerBackendTicker, SchedulerBackendValkey:
+	default:
+		errs = append(errs, fmt.Errorf("SCHEDULER_BACKEND %q must be one of: ticker, valkey", c.SchedulerBackend))
+	}
+
+	if c.SchedulerBackend == SchedulerBackendValkey && c.QueueValkeyDSN == "" {
+		errs = append(errs, errors.New("QUEUE_VALKEY_DSN is required when SCHEDULER_BACKEND=valkey (shared Valkey instance)"))
+	}
+
+	return errs
 }
 
 func envOrDefault(key, defaultVal string) string {

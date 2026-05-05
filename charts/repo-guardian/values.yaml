@@ -194,6 +194,120 @@ serviceMonitor:
   # -- Additional labels for ServiceMonitor
   labels: {}
 
+# -- Prometheus PrometheusRule with starter alerts (IMPL-0011 P6).
+prometheusRule:
+  # -- Create PrometheusRule with starter alerts.
+  enabled: false
+  # -- Additional labels (e.g., to match Prometheus operator
+  # `ruleSelector`).
+  labels: {}
+  # -- Per-alert overrides: each key under `alerts.<name>` accepts
+  # `for`, `severity`, `threshold`, and `enabled`. See the rendered
+  # PrometheusRule template for the canonical alert names.
+  alerts: {}
+
+# -- Persistent state store (per-repo reconcile state). See
+# DESIGN-0012 §Backend modes.
+store:
+  # -- Backend implementation: "memory" (single-replica, no
+  # persistence) or "postgres".
+  backend: memory
+  # -- Postgres-specific configuration. Ignored when backend != postgres.
+  postgres:
+    # -- Source of the Postgres deployment. One of:
+    # "baked"    — chart renders a single-pod Postgres Deployment;
+    # "cnpg"     — chart renders a CloudNativePG `Cluster` CR;
+    # "external" — operator provides DSN via existingSecret.
+    mode: baked
+    # -- Operator-supplied secret holding STORE_DSN. Required when
+    # mode=external.
+    existingSecret: ""
+    # -- Key inside existingSecret holding the DSN. Default: STORE_DSN.
+    existingSecretKey: STORE_DSN
+    # -- Connection cap for the pgx pool.
+    maxConns: 16
+    # -- Baked Postgres-only configuration.
+    baked:
+      # -- Pinned image. Bump intentionally.
+      image: postgres:16.4
+      # -- Persistent volume size.
+      storageSize: 10Gi
+      # -- StorageClass name. Empty → cluster default.
+      storageClassName: ""
+      # -- Resource requests/limits for the Postgres container.
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+    # -- CloudNativePG-only configuration.
+    cnpg:
+      # -- Number of CNPG instances.
+      instances: 1
+      # -- CNPG-managed Postgres image.
+      imageName: ghcr.io/cloudnative-pg/postgresql:16.4
+      # -- Storage block.
+      storage:
+        size: 10Gi
+        storageClass: ""
+      # -- Connection pooler (PgBouncer).
+      pooler:
+        enabled: false
+        instances: 2
+        type: rw
+
+# -- Work queue for reconcile jobs.
+queue:
+  # -- Backend implementation: "memory" or "valkey".
+  backend: memory
+  # -- Buffered channel size for the in-memory backend.
+  size: 1000
+  # -- Valkey-specific configuration. Ignored when backend != valkey.
+  valkey:
+    # -- Source of the Valkey deployment. One of:
+    # "baked"    — chart renders a single-pod Valkey Deployment;
+    # "external" — operator provides DSN via existingSecret.
+    mode: baked
+    # -- Operator-supplied secret holding QUEUE_VALKEY_DSN.
+    existingSecret: ""
+    # -- Key inside existingSecret holding the DSN.
+    existingSecretKey: QUEUE_VALKEY_DSN
+    # -- How long an in-flight job may sit before the reaper
+    # requeues it.
+    jobAckTimeout: "5m"
+    # -- Cadence between reaper iterations.
+    reaperInterval: "60s"
+    # -- Baked Valkey-only configuration.
+    baked:
+      # -- Pinned image. Bump intentionally.
+      image: valkey/valkey:8.0
+      # -- Persistent volume size.
+      storageSize: 1Gi
+      # -- StorageClass name. Empty → cluster default.
+      storageClassName: ""
+      # -- Generated AUTH password length (random alphanumeric).
+      authPasswordLength: 32
+
+# -- Scheduler (sweep cadence) backend.
+scheduler:
+  # -- Backend implementation: "ticker" (single-replica) or "valkey"
+  # (leader-elected via SETNX). Valkey scheduler shares the queue's
+  # Valkey instance.
+  backend: ticker
+
+# -- Stale-sweep tuning (IMPL-0011 Phase 5d).
+staleSweep:
+  # -- Maximum age of a stored last_checked_at before the sweep
+  # requeues. Default 24h. Effective only with store.backend=postgres.
+  freshness: "24h"
+  # -- Cap on rows returned per StaleRepos query.
+  batchSize: 200
+  # -- Fraction of an installation's GitHub rate-limit budget
+  # reserved against the stale-sweep enqueue path.
+  rateLimitReserve: 0.1
+
 # -- HCL policy configuration
 policy:
   # -- Inline HCL policy config (creates a ConfigMap)

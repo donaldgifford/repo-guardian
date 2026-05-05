@@ -1,0 +1,20 @@
+{{- if and (eq .Values.store.backend "postgres") (eq .Values.store.postgres.mode "cnpg") .Values.store.postgres.cnpg.pooler.enabled -}}
+---
+# Optional PgBouncer Pooler CR for the CNPG Cluster. Disabled by
+# default; tune via store.postgres.cnpg.pooler.enabled.
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: {{ include "repo-guardian.postgresFullname" . }}-pooler
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres-pooler
+spec:
+  cluster:
+    name: {{ include "repo-guardian.postgresFullname" . }}
+  instances: {{ .Values.store.postgres.cnpg.pooler.instances }}
+  type: {{ .Values.store.postgres.cnpg.pooler.type | quote }}
+  pgbouncer:
+    poolMode: transaction
+{{- end }}

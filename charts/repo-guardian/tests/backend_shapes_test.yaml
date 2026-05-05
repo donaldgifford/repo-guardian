@@ -1,0 +1,194 @@
+---
+suite: backend deployment shapes (IMPL-0011 P6)
+templates:
+  - templates/deployment.yaml
+  - templates/store-postgres.yaml
+  - templates/store-postgres-secret.yaml
+  - templates/store-cnpg-cluster.yaml
+  - templates/store-cnpg-pooler.yaml
+  - templates/queue-valkey.yaml
+  - templates/queue-valkey-secret.yaml
+
+set:
+  config:
+    appId: "12345"
+  secrets:
+    webhookSecret: "x"
+    privateKey: "x"
+
+tests:
+  - it: memory shape renders only the Deployment, no backing services
+    set:
+      store.backend: memory
+      queue.backend: memory
+      scheduler.backend: ticker
+    asserts:
+      - hasDocuments:
+          count: 1
+        template: templates/deployment.yaml
+      - hasDocuments:
+          count: 0
+        template: templates/store-postgres.yaml
+      - hasDocuments:
+          count: 0
+        template: templates/store-postgres-secret.yaml
+      - hasDocuments:
+          count: 0
+        template: templates/queue-valkey.yaml
+      - hasDocuments:
+          count: 0
+        template: templates/queue-valkey-secret.yaml
+      - hasDocuments:
+          count: 0
+        template: templates/store-cnpg-cluster.yaml
+
+  - it: baked shape renders Postgres + Valkey StatefulSets, Services, and Secrets
+    set:
+      store.backend: postgres
+      store.postgres.mode: baked
+      queue.backend: valkey
+      queue.valkey.mode: baked
+      scheduler.backend: valkey
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+        template: templates/store-postgres.yaml
+        documentIndex: 0
+      - equal:
+          path: kind
+          value: Service
+        template: templates/store-postgres.yaml
+        documentIndex: 1
+      - equal:
+          path: kind
+          value: Secret
+        template: templates/store-postgres-secret.yaml
+      - equal:
+          path: kind
+          value: StatefulSet
+        template: templates/queue-valkey.yaml
+        documentIndex: 0
+      - equal:
+          path: kind
+          value: Service
+        template: templates/queue-valkey.yaml
+        documentIndex: 1
+      - equal:
+          path: kind
+          value: Secret
+        template: templates/queue-valkey-secret.yaml
+
+  - it: cnpg shape renders the Cluster CR but no baked Postgres StatefulSet
+    set:
+      store.backend: postgres
+      store.postgres.mode: cnpg
+      queue.backend: valkey
+      queue.valkey.mode: baked
+      scheduler.backend: valkey
+    asserts:
+      - equal:
+          path: kind
+          value: Cluster
+        template: templates/store-cnpg-cluster.yaml
+      - hasDocuments:
+          count: 0
+        template: templates/store-postgres.yaml
+      - hasDocuments:
+          count: 0
+        template: templates/store-postgres-secret.yaml
+      - hasDocuments:
+          count: 0
+        template: templates/store-cnpg-pooler.yaml
+
+  - it: cnpg pooler renders when enabled
+    set:
+      store.backend: postgres
+      store.postgres.mode: cnpg
+      store.postgres.cnpg.pooler.enabled: true
+      queue.backend: valkey
+      queue.valkey.mode: baked
+      scheduler.backend: valkey
+    asserts:
+      - equal:
+          path: kind
+          value: Pooler
+        template: templates/store-cnpg-pooler.yaml
+
+  - it: external shape adds no backing services
+    set:
+      store.backend: postgres
+      store.postgres.mode: external
+      store.postgres.existingSecret: my-existing-secret
+      queue.backend: valkey
+      queue.valkey.mode: external
+      queue.valkey.existingSecret: my-existing-valkey
+      scheduler.backend: valkey
+    asserts:
+      - equal:
+          path: kind
+          value: Deployment
+        template: templates/deployment.yaml
+      - hasDocuments:
+          count: 0
+        template: templates/store-postgres.yaml
+      - hasDocuments:
+          count: 0
+        template: templates/store-postgres-secret.yaml
+      - hasDocuments:
+          count: 0
+        template: templates/queue-valkey.yaml
+      - hasDocuments:
+          count: 0
+        template: templates/queue-valkey-secret.yaml
+
+  - it: postgres backend injects STORE_DSN env var sourced from chart-rendered secret
+    set:
+      store.backend: postgres
+      store.postgres.mode: baked
+      queue.backend: memory
+      scheduler.backend: ticker
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STORE_BACKEND
+            value: postgres
+        template: templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STORE_DSN
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-repo-guardian-postgres
+                key: STORE_DSN
+        template: templates/deployment.yaml
+
+  - it: cnpg mode points STORE_DSN at the cnpg <name>-app secret with key=uri
+    set:
+      store.backend: postgres
+      store.postgres.mode: cnpg
+      queue.backend: memory
+      scheduler.backend: ticker
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STORE_DSN
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-repo-guardian-postgres-app
+                key: uri
+        template: templates/deployment.yaml
+
+  - it: termination grace period set to 60s for SIGTERM nack
+    set:
+      store.backend: memory
+      queue.backend: memory
+      scheduler.backend: ticker
+    asserts:
+      - equal:
+          path: spec.template.spec.terminationGracePeriodSeconds
+          value: 60
+        template: templates/deployment.yaml

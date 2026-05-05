@@ -1,0 +1,82 @@
+{{- if and (eq .Values.queue.backend "valkey") (eq .Values.queue.valkey.mode "baked") -}}
+---
+# Baked single-pod Valkey for the work queue. Suitable for homelab /
+# dev-cluster footprints. Production deployments should source the
+# DSN from queue.valkey.existingSecret pointing at a managed Valkey
+# (Redis-compatible) cluster.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "repo-guardian.valkeyFullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.labels" . | nindent 4 }}
+    app.kubernetes.io/component: valkey
+spec:
+  serviceName: {{ include "repo-guardian.valkeyFullname" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "repo-guardian.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: valkey
+  template:
+    metadata:
+      labels:
+        {{- include "repo-guardian.labels" . | nindent 8 }}
+        app.kubernetes.io/component: valkey
+    spec:
+      containers:
+        - name: valkey
+          image: {{ .Values.queue.valkey.baked.image | quote }}
+          args:
+            - "--requirepass"
+            - "$(VALKEY_PASSWORD)"
+            - "--appendonly"
+            - "yes"
+          env:
+            - name: VALKEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "repo-guardian.valkeyFullname" . }}
+                  key: VALKEY_PASSWORD
+          ports:
+            - containerPort: 6379
+              name: valkey
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            exec:
+              command: ["valkey-cli", "-a", "$(VALKEY_PASSWORD)", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.queue.valkey.baked.storageClassName }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.queue.valkey.baked.storageSize }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "repo-guardian.valkeyFullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.labels" . | nindent 4 }}
+    app.kubernetes.io/component: valkey
+spec:
+  clusterIP: None
+  ports:
+    - port: 6379
+      targetPort: valkey
+      name: valkey
+  selector:
+    {{- include "repo-guardian.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: valkey
+{{- end }}

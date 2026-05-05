@@ -406,69 +406,52 @@ chart values. Add `serviceMonitor` and `prometheusRule` opt-in surfaces.
 
 #### Tasks
 
-- [ ] Add `charts/repo-guardian/templates/store-postgres.yaml` (Deployment
-  + PVC + Service) gated by `store.backend=postgres` AND
-  `store.postgres.mode=baked`.
-- [ ] Add `charts/repo-guardian/templates/store-postgres-secret.yaml` —
+- [x] Add `charts/repo-guardian/templates/store-postgres.yaml`
+  (StatefulSet + headless Service via volumeClaimTemplates) gated by
+  `store.backend=postgres` AND `store.postgres.mode=baked`.
+- [x] Add `charts/repo-guardian/templates/store-postgres-secret.yaml` —
   auto-generated password Secret using the `lookup` + `randAlphaNum`
-  pattern; skipped if `store.postgres.existingSecret` is set.
-- [ ] Add `charts/repo-guardian/templates/store-cnpg-cluster.yaml` —
-  `Cluster` CR gated by `store.postgres.mode=cnpg`. Mirrors
-  server-price-tracker pattern (instances, imageName, bootstrap,
-  storage, managed.services, monitoring, postgresql.parameters,
-  resources).
-- [ ] Add `charts/repo-guardian/templates/store-cnpg-pooler.yaml` — `Pooler`
+  pattern; skipped when `store.postgres.mode != baked`.
+- [x] Add `charts/repo-guardian/templates/store-cnpg-cluster.yaml` —
+  `Cluster` CR gated by `store.postgres.mode=cnpg`.
+- [x] Add `charts/repo-guardian/templates/store-cnpg-pooler.yaml` — `Pooler`
   CR gated by `store.postgres.mode=cnpg AND store.postgres.cnpg.pooler.enabled`.
-- [ ] Add `charts/repo-guardian/templates/queue-valkey.yaml` (Deployment
-  + PVC + Service) gated by `queue.backend=valkey` AND
-  `queue.valkey.mode=baked`.
-- [ ] Add `charts/repo-guardian/templates/queue-valkey-secret.yaml` —
-  auto-generated AUTH Secret; skipped if `queue.valkey.existingSecret`
-  is set. AUTH on by default.
-- [ ] Update `charts/repo-guardian/templates/deployment.yaml`:
+- [x] Add `charts/repo-guardian/templates/queue-valkey.yaml` (StatefulSet
+  + headless Service) gated by `queue.backend=valkey` AND
+  `queue.valkey.mode=baked`. AUTH on by default.
+- [x] Add `charts/repo-guardian/templates/queue-valkey-secret.yaml` —
+  auto-generated AUTH Secret using `lookup` + `randAlphaNum`.
+- [x] Update `charts/repo-guardian/templates/deployment.yaml`:
   - `STORE_DSN` from `store.postgres.existingSecret` ref OR the
     chart-rendered Postgres Secret OR the CNPG `<cluster>-app` Secret
-    (`secretKeyRef` pointing at the keys CNPG creates).
+    (key=`uri`).
   - `QUEUE_VALKEY_DSN` from `queue.valkey.existingSecret` OR
     chart-rendered Valkey Secret.
   - Inject `STORE_BACKEND`, `QUEUE_BACKEND`, `SCHEDULER_BACKEND`,
-    `STORE_POSTGRES_MAX_CONNS`, `STORE_SWEEP_BATCH_SIZE`,
-    `REAPER_INTERVAL`, `JOB_ACK_TIMEOUT`, `WORKER_CONCURRENCY`.
+    `STORE_POSTGRES_MAX_CONNS`, `JOB_ACK_TIMEOUT`, `REAPER_INTERVAL`,
+    `RECONCILE_FRESHNESS`, `STALE_SWEEP_BATCH_SIZE`, `RATE_LIMIT_RESERVE`.
   - `POD_NAME` from the downward API for scheduler pod-ID.
-- [ ] Update `charts/repo-guardian/values.yaml` with the full schema
-  from DESIGN-0012 §API/Interface Changes (store / queue / scheduler /
-  serviceMonitor / prometheusRule blocks). Pin
-  `store.postgres.baked.image` to a specific minor (e.g.,
-  `postgres:16.4`) and `queue.valkey.baked.image` to a specific minor
-  (e.g., `valkey/valkey:8.0`). (Open Q2/Q3 resolutions.)
-- [ ] Set `terminationGracePeriodSeconds: 60` on the Deployment to
-  give workers time to nack-and-requeue in-flight jobs before
-  SIGKILL. (Open Q11 resolution.)
-- [ ] Add `charts/repo-guardian/templates/servicemonitor.yaml` gated
-  by `serviceMonitor.enabled`.
-- [ ] Add `charts/repo-guardian/templates/prometheusrule.yaml` gated
-  by `prometheusRule.enabled`. Render the 5 starter alerts with
-  values-overridable `for:` / threshold expressions.
-- [ ] Add helm-unittest cases under `charts/repo-guardian/tests/` for
-  each deployment shape:
-  - `memory + memory + ticker` → exactly one Deployment, no PVCs, no
-    Postgres/Valkey resources.
-  - `baked + baked` → repo-guardian + Postgres + Valkey + 2 PVCs +
-    matching Services.
-  - `cnpg + baked` → repo-guardian + CNPG `Cluster` CR + Valkey +
-    Valkey PVC + Service. No Postgres Deployment, no Postgres Secret.
-  - `external + external` → repo-guardian only; DSN env vars sourced
-    from the operator-provided existingSecret.
-- [ ] Stamp `namespace: {{ .Release.Namespace }}` in every new
-  template's metadata (kustomize+ArgoCD requirement, see PR #67
-  post-mortem).
-- [ ] Bump chart `version` from `0.4.x` (post-IMPL-0012) to `0.5.0`
-  (MINOR — new shapes, no breaking changes for the old in-memory
-  mode operator who explicitly sets `store.backend=memory`).
-  IMPL-0011 ships AFTER IMPL-0012 per the revised order. (Open Q8
-  resolution.)
-- [ ] Bump chart `appVersion` to match the binary release that ships
-  this work.
+- [x] Update `charts/repo-guardian/values.yaml` with `store`, `queue`,
+  `scheduler`, `staleSweep`, and `prometheusRule` blocks. Pin
+  `store.postgres.baked.image=postgres:16.4` and
+  `queue.valkey.baked.image=valkey/valkey:8.0`. (Open Q2/Q3 resolutions.)
+- [x] Set `terminationGracePeriodSeconds: 60` on the Deployment.
+  (Open Q11 resolution; SIGTERM nack-and-requeue follow-up.)
+- [x] `charts/repo-guardian/templates/servicemonitor.yaml` already
+  exists from earlier work — no change required.
+- [x] Add `charts/repo-guardian/templates/prometheusrule.yaml` gated
+  by `prometheusRule.enabled`. Renders 5 starter alerts:
+  QueueDepthHigh, ReaperRequeues, NoSchedulerLeader,
+  StoreQueryErrors, RateLimitNearExhaustion. Each tunable via
+  `prometheusRule.alerts.<name>.{for,severity,threshold,enabled}`.
+- [x] Add helm-unittest cases under
+  `charts/repo-guardian/tests/backend_shapes_test.yaml` covering the
+  four shapes (memory, baked, cnpg, external) plus DSN-injection,
+  CNPG-secret-key, and grace-period assertions.
+- [x] Stamp `namespace: {{ .Release.Namespace }}` in every new
+  template's metadata.
+- [x] Bump chart `version` from `0.4.0` to `0.5.0`.
+- [x] Bump chart `appVersion` to `1.6.0`.
 - [ ] Add the `0.5.0` release-notes entry to
   `charts/repo-guardian/CHANGELOG.md` calling out the default flip
   to `baked` and the legacy opt-in:

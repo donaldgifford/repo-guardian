@@ -1,0 +1,30 @@
+{{- if and (eq .Values.store.backend "postgres") (eq .Values.store.postgres.mode "cnpg") -}}
+---
+# CloudNativePG Cluster CR. Requires the cloudnative-pg operator
+# already installed in the cluster. CNPG creates a `<name>-app`
+# Secret holding the DSN under the `uri` key, which the
+# repo-guardian Deployment references.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "repo-guardian.postgresFullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  instances: {{ .Values.store.postgres.cnpg.instances }}
+  imageName: {{ .Values.store.postgres.cnpg.imageName | quote }}
+  primaryUpdateStrategy: unsupervised
+  bootstrap:
+    initdb:
+      database: repoguardian
+      owner: repoguardian
+  storage:
+    size: {{ .Values.store.postgres.cnpg.storage.size }}
+    {{- with .Values.store.postgres.cnpg.storage.storageClass }}
+    storageClass: {{ . | quote }}
+    {{- end }}
+  monitoring:
+    enablePodMonitor: {{ .Values.serviceMonitor.enabled }}
+{{- end }}

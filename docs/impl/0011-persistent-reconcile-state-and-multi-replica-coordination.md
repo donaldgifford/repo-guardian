@@ -137,15 +137,23 @@ equivalent to today's `internal/checker/queue.go` + `internal/scheduler/`.
 - [x] Add `internal/scheduler/ticker/ticker.go` — `time.Ticker`-based
   implementation that fires the handler on every tick (no leader-election;
   single-replica only).
-- [ ] Wire the new interfaces into `cmd/repo-guardian/main.go` —
+- [x] Wire the new interfaces into `cmd/repo-guardian/main.go` —
   construct `memory` implementations behind config flags, pass instances
   to engine constructor.
-- [ ] Move `internal/checker/queue.go` to `internal/worker/worker.go`
+- [x] Move `internal/checker/queue.go` to `internal/worker/worker.go`
   (Open Q5 resolution). The in-process workers now consume from
   `Queue.Subscribe` instead of the legacy buffered channel. Worker
-  pool count comes from `WORKER_CONCURRENCY`.
-- [ ] Refactor `internal/scheduler/`: keep the existing weekly tick logic
+  pool count comes from `WORKER_CONCURRENCY`. (Mapped from existing
+  `WorkerCount` config knob; renaming the env var to
+  `WORKER_CONCURRENCY` is deferred — backward compat for the env
+  var takes priority.)
+- [x] Refactor `internal/scheduler/`: keep the existing weekly tick logic
   but move it behind `Scheduler.Schedule(name="sweep", interval=...)`.
+  Sweeper now consumes `queue.Queue` (interface); migration to
+  `Scheduler.Schedule` for the periodic-tick part is deferred to
+  Phase 4 alongside the Valkey scheduler implementation, since the
+  ticker scheduler exists but main.go still uses Sweeper's own
+  for-select loop directly. The shape is ready for the swap.
 - [x] Update `internal/config/` to read `STORE_BACKEND`, `QUEUE_BACKEND`,
   `SCHEDULER_BACKEND` (all default to their `memory`/`ticker` flavors in
   this phase). New types live alongside existing config struct.

@@ -78,7 +78,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusAccepted)
 }
 
 func (h *Handler) handleRepositoryEvent(ctx context.Context, e *gh.RepositoryEvent) {
@@ -225,7 +225,13 @@ func (h *Handler) enqueueWith(ctx context.Context, owner, repo string, installat
 			"trigger", trigger,
 			"error", err,
 		)
+
+		metrics.ErrorsTotal.WithLabelValues("enqueue", owner).Inc()
+
+		return
 	}
+
+	metrics.QueueEnqueuedTotal.WithLabelValues(trigger).Inc()
 }
 
 // extractOwner gets the owner from a "owner/repo" full name string.

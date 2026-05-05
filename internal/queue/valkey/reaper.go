@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 )
 
 // ReaperOptions configures the Reaper goroutine.
@@ -147,6 +149,8 @@ func (r *Reaper) reapOnce(ctx context.Context) error {
 
 			return fmt.Errorf("reaper requeue: %w", err)
 		}
+
+		metrics.QueueReapedTotal.Inc()
 	}
 
 	return nil

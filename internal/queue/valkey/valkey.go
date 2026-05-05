@@ -60,6 +60,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/queue"
 )
 
@@ -240,6 +241,8 @@ func (q *Queue) processPayload(ctx context.Context, payload string, handler func
 		return
 	}
 
+	metrics.QueueClaimedTotal.Inc()
+
 	var j queue.Job
 	if err := json.Unmarshal([]byte(payload), &j); err != nil {
 		q.logger.WarnContext(ctx, "valkey decode failed; dropping job", "error", err)
@@ -258,6 +261,7 @@ func (q *Queue) processPayload(ctx context.Context, payload string, handler func
 			"repo", j.Repo,
 			"error", err,
 		)
+		metrics.QueueAckedTotal.WithLabelValues("error").Inc()
 
 		return
 	}
@@ -267,7 +271,11 @@ func (q *Queue) processPayload(ctx context.Context, payload string, handler func
 			"job_id", j.ID,
 			"error", err,
 		)
+
+		return
 	}
+
+	metrics.QueueAckedTotal.WithLabelValues("success").Inc()
 }
 
 // Close releases queue resources. The underlying redis client is NOT
@@ -289,6 +297,44 @@ func (q *Queue) Depth(ctx context.Context) (int64, error) {
 	}
 
 	return n, nil
+}
+
+// InFlight returns the current in-flight job count via ZCARD.
+func (q *Queue) InFlight(ctx context.Context) (int64, error) {
+	n, err := q.client.ZCard(ctx, q.opts.InFlightKey).Result()
+	if err != nil {
+		return 0, fmt.Errorf("valkey.InFlight: ZCARD: %w", err)
+	}
+
+	return n, nil
+}
+
+// StartDepthPoller polls Depth and InFlight every interval and writes
+// the values to the registered queue_depth gauge. Returns when ctx is
+// cancelled. Errors are logged at WARN — transient Valkey hiccups
+// shouldn't crash observability.
+func (q *Queue) StartDepthPoller(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if depth, err := q.Depth(ctx); err == nil {
+				metrics.QueueDepth.WithLabelValues("jobs").Set(float64(depth))
+			} else {
+				q.logger.WarnContext(ctx, "queue depth poll failed", "error", err)
+			}
+
+			if inflight, err := q.InFlight(ctx); err == nil {
+				metrics.QueueDepth.WithLabelValues("in-flight").Set(float64(inflight))
+			} else {
+				q.logger.WarnContext(ctx, "queue in-flight poll failed", "error", err)
+			}
+		}
+	}
 }
 
 // JobID returns the deterministic SHA-256-based identifier for the

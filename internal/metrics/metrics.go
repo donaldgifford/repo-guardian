@@ -156,37 +156,68 @@ var (
 		Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5},
 	}, []string{"operation", "outcome"})
 
-	// QueueDepth tracks the current pending-job count, by backend
-	// label (memory or valkey). Registered in IMPL-0011 Phase 3; wiring
-	// into the Valkey queue is deferred to Phase 5.
+	// QueueDepth tracks the current pending-job count of the work
+	// queue, labeled by queue (jobs or in-flight) for the Valkey
+	// backend.
 	QueueDepth = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "repo_guardian_queue_depth",
 		Help: "Pending jobs in the work queue.",
-	}, []string{"backend"})
+	}, []string{"queue"})
 
-	// QueueEnqueuedTotal counts jobs enqueued.
+	// QueueEnqueuedTotal counts jobs enqueued by trigger
+	// (webhook, sweep, push).
 	QueueEnqueuedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_queue_enqueued_total",
 		Help: "Total jobs enqueued.",
-	}, []string{"backend"})
+	}, []string{"trigger"})
 
 	// QueueClaimedTotal counts jobs claimed (BRPOP + ZADD in-flight).
-	QueueClaimedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	QueueClaimedTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "repo_guardian_queue_claimed_total",
 		Help: "Total jobs claimed by a worker.",
-	}, []string{"backend"})
+	})
 
-	// QueueAckedTotal counts jobs successfully acknowledged.
+	// QueueAckedTotal counts handler returns by outcome (success or
+	// error). A `success` ack means ZREM in-flight succeeded; an
+	// `error` ack means the handler returned an error and the entry
+	// was left in-flight for the reaper.
 	QueueAckedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_queue_acked_total",
-		Help: "Total jobs acknowledged by a worker.",
-	}, []string{"backend"})
+		Help: "Total jobs acknowledged by a worker, by outcome.",
+	}, []string{"outcome"})
 
 	// QueueReapedTotal counts in-flight jobs requeued by the reaper.
 	QueueReapedTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "repo_guardian_queue_reaped_total",
 		Help: "Total in-flight jobs requeued by the reaper.",
 	})
+
+	// SchedulerSweepBatchSize records the count of repos enqueued per
+	// sweep handler invocation. Useful for spotting partial-enumeration
+	// bugs (consistently 0 batches → upstream API error or
+	// listInstallations failure).
+	SchedulerSweepBatchSize = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "repo_guardian_scheduler_sweep_batch_size",
+		Help:    "Repos enqueued per sweep invocation.",
+		Buckets: []float64{0, 1, 5, 10, 25, 50, 100, 250, 500, 1000},
+	})
+
+	// RateLimitReserveBlockedTotal counts repos skipped during sweep
+	// because the GitHub API rate-limit reserve gate triggered for
+	// the installation.
+	RateLimitReserveBlockedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_rate_limit_reserve_blocked_total",
+		Help: "Repos skipped by the sweep rate-limit reserve gate, by installation.",
+	}, []string{"installation_id"})
+
+	// RateLimitRemaining tracks the GitHub API rate-limit remaining
+	// budget per installation, scraped from X-RateLimit-Remaining on
+	// every response. Replaces the singleton GitHubRateRemaining gauge
+	// for installation-scoped clients.
+	RateLimitRemaining = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_rate_limit_remaining",
+		Help: "GitHub API rate limit remaining, per installation.",
+	}, []string{"installation_id"})
 
 	// SchedulerIsLeader is a gauge labeled by pod that exports 1 when
 	// the named pod holds the scheduler leader lock and 0 otherwise.

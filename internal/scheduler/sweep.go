@@ -20,6 +20,7 @@ import (
 	"time"
 
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/queue"
 )
 
@@ -155,9 +156,13 @@ func (s *Sweeper) reconcileAll(ctx context.Context) {
 				continue
 			}
 
+			metrics.QueueEnqueuedTotal.WithLabelValues(queue.TriggerScheduler).Inc()
+
 			enqueued++
 		}
 	}
+
+	metrics.SchedulerSweepBatchSize.Observe(float64(enqueued))
 
 	s.logger.Info("reconciliation complete",
 		"enqueued", enqueued,

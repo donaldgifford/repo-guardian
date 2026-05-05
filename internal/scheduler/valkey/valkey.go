@@ -26,6 +26,8 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 )
 
 // ErrStopped is returned by Schedule when the Scheduler has been
@@ -154,8 +156,12 @@ func (s *Scheduler) tick(ctx context.Context, name string, handler func(context.
 	}
 
 	if !acquired {
+		metrics.SchedulerIsLeader.WithLabelValues(name, s.opts.PodID).Set(0)
+
 		return
 	}
+
+	metrics.SchedulerIsLeader.WithLabelValues(name, s.opts.PodID).Set(1)
 
 	s.logger.DebugContext(ctx, "scheduler tick acquired lock",
 		"name", name,

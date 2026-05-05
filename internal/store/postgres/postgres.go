@@ -18,8 +18,24 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 )
+
+// observeQuery records the duration of a single store query under
+// (operation, outcome). outcome is "ok" if err is nil, "error"
+// otherwise (including ErrNotFound, which we treat as a non-error
+// signal but a non-OK observation for diagnostic purposes).
+func observeQuery(operation string, start time.Time, err error) {
+	outcome := "ok"
+	if err != nil {
+		outcome = "error"
+	}
+
+	metrics.StoreQuerySeconds.
+		WithLabelValues(operation, outcome).
+		Observe(time.Since(start).Seconds())
+}
 
 // Store implements store.Store against a *pgxpool.Pool. Construct via
 // New; do not zero-init.
@@ -61,6 +77,15 @@ func New(ctx context.Context, dsn string, maxConns int32, logger *slog.Logger) (
 // GetRepoState returns the persisted state for (installationID,
 // owner, repo) or store.ErrNotFound if no row exists.
 func (s *Store) GetRepoState(ctx context.Context, installationID int64, owner, repo string) (*store.RepoState, error) {
+	start := time.Now()
+
+	rs, err := s.getRepoStateInner(ctx, installationID, owner, repo)
+	observeQuery("get_repo_state", start, err)
+
+	return rs, err
+}
+
+func (s *Store) getRepoStateInner(ctx context.Context, installationID int64, owner, repo string) (*store.RepoState, error) {
 	const q = `
 		SELECT installation_id, owner, repo,
 		       last_checked_at, last_check_status, last_error, policy_version
@@ -94,6 +119,14 @@ func (s *Store) GetRepoState(ctx context.Context, installationID int64, owner, r
 // primary key drives the conflict target; all other columns are
 // overwritten on conflict.
 func (s *Store) UpdateRepoState(ctx context.Context, rs *store.RepoState) error {
+	start := time.Now()
+	err := s.updateRepoStateInner(ctx, rs)
+	observeQuery("update_repo_state", start, err)
+
+	return err
+}
+
+func (s *Store) updateRepoStateInner(ctx context.Context, rs *store.RepoState) error {
 	const q = `
 		INSERT INTO repo_state (
 			installation_id, owner, repo,
@@ -122,6 +155,15 @@ func (s *Store) UpdateRepoState(ctx context.Context, rs *store.RepoState) error 
 // currentPolicyVersion. NULL last_checked_at sorts first to ensure
 // never-checked repos are reconciled before stale ones.
 func (s *Store) StaleRepos(ctx context.Context, freshness time.Duration, currentPolicyVersion string, limit int) ([]store.RepoState, error) {
+	start := time.Now()
+
+	out, err := s.staleReposInner(ctx, freshness, currentPolicyVersion, limit)
+	observeQuery("stale_repos", start, err)
+
+	return out, err
+}
+
+func (s *Store) staleReposInner(ctx context.Context, freshness time.Duration, currentPolicyVersion string, limit int) ([]store.RepoState, error) {
 	const q = `
 		SELECT installation_id, owner, repo,
 		       last_checked_at, last_check_status, last_error, policy_version

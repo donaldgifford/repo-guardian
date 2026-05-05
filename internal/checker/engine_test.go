@@ -263,6 +263,10 @@ func (*mockClient) DeleteLabel(_ context.Context, _, _, _ string) error {
 	return nil
 }
 
+func (*mockClient) RateLimitRemaining(_ context.Context, _ int64) (int, int, error) {
+	return 5000, 5000, nil
+}
+
 func testEngine(dryRun bool) *Engine {
 	reg := rules.NewRegistry(rules.DefaultRules)
 	ts := rules.NewTemplateStore()

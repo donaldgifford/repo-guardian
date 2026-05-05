@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/queue"
 )
 
@@ -75,6 +76,8 @@ func (q *Queue) Subscribe(ctx context.Context, handler func(context.Context, que
 				return ErrClosed
 			}
 
+			metrics.QueueClaimedTotal.Inc()
+
 			if err := handler(ctx, j); err != nil {
 				slog.WarnContext(ctx, "queue handler error",
 					"job_id", j.ID,
@@ -82,7 +85,12 @@ func (q *Queue) Subscribe(ctx context.Context, handler func(context.Context, que
 					"repo", j.Repo,
 					"error", err,
 				)
+				metrics.QueueAckedTotal.WithLabelValues("error").Inc()
+
+				continue
 			}
+
+			metrics.QueueAckedTotal.WithLabelValues("success").Inc()
 		}
 	}
 }

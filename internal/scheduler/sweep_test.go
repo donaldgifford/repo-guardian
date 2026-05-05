@@ -146,6 +146,10 @@ func (*mockClient) DeleteLabel(_ context.Context, _, _, _ string) error {
 	return fmt.Errorf("not implemented")
 }
 
+func (*mockClient) RateLimitRemaining(_ context.Context, _ int64) (int, int, error) {
+	return 5000, 5000, nil
+}
+
 func TestReconcileAll(t *testing.T) {
 	t.Parallel()
 

@@ -339,52 +339,54 @@ metrics wired up.
 
 #### Tasks
 
-- [ ] Refactor `internal/webhook/handler.go`: on a valid event, build a
+- [x] Refactor `internal/webhook/handler.go`: on a valid event, build a
   `Job` and call `Queue.Enqueue`; respond 202 with the queued Job ID.
-  Engine call removed from the handler hot path.
-- [ ] Add metric `repo_guardian_queue_enqueued_total{trigger}` with
+  Engine call removed from the handler hot path. (Engine was already
+  removed in Phase 1; Phase 5 swaps the response code from 200 → 202.)
+- [x] Add metric `repo_guardian_queue_enqueued_total{trigger}` with
   values `"webhook"`, `"sweep"`, `"push"`.
-- [ ] Wire `repo_guardian_queue_depth{queue}` — periodic `LLEN
+- [x] Wire `repo_guardian_queue_depth{queue}` — periodic `LLEN
   queue:jobs` and `ZCARD queue:in-flight` poll, every 15s, exported via
   the registered gauge.
-- [ ] Wire `repo_guardian_queue_claimed_total` — increment on `BRPOP`
+- [x] Wire `repo_guardian_queue_claimed_total` — increment on `BRPOP`
   success in `queue/valkey`.
-- [ ] Wire `repo_guardian_queue_acked_total{outcome}` —
+- [x] Wire `repo_guardian_queue_acked_total{outcome}` —
   `outcome=success|error` on each handler return.
-- [ ] Wire `repo_guardian_queue_reaped_total` — increment per entry the
+- [x] Wire `repo_guardian_queue_reaped_total` — increment per entry the
   reaper requeues.
-- [ ] Wire `repo_guardian_scheduler_is_leader{pod}` — set to 1 in the
-  tick when the lock is acquired, 0 otherwise (with a one-tick decay).
-- [ ] Wire `repo_guardian_scheduler_sweep_batch_size` histogram — observe
+- [x] Wire `repo_guardian_scheduler_is_leader{pod}` — set to 1 in the
+  tick when the lock is acquired, 0 otherwise.
+- [x] Wire `repo_guardian_scheduler_sweep_batch_size` histogram — observe
   the count of jobs enqueued per sweep call.
-- [ ] Wire `repo_guardian_store_query_seconds{op}` — middleware around
-  every pgx call, op label = method name (`stale_repos`,
-  `update_repo_state`, `get_repo_state`).
-- [ ] Wire `repo_guardian_rate_limit_remaining{installation_id}` via
-  a `RoundTripper` wrapper at
-  `internal/github/ratelimit_transport.go` that captures
-  `X-RateLimit-Remaining` from every response and writes the gauge.
-  Composed with the existing ghinstallation transport at client
-  construction. (Open Q10 resolution.)
-- [ ] Wire `repo_guardian_rate_limit_reserve_blocked_total{installation_id}`
-  — increment when the sweep enqueue path skips a repo because
-  `remaining < (limit × RATE_LIMIT_RESERVE)`.
-- [ ] Update `internal/checker/sweep.go` (new): replaces the existing
-  scheduler enumeration logic. Calls
+- [x] Wire `repo_guardian_store_query_seconds{op}` — wrapper functions
+  on every postgres Store method record duration with the op label
+  (`stale_repos`, `update_repo_state`, `get_repo_state`).
+- [x] Wire `repo_guardian_rate_limit_remaining{installation_id}` —
+  `GitHubClient.RateLimitRemaining(ctx, installationID)` calls the
+  installation-scoped client's `/rate_limit` endpoint and updates the
+  gauge as a side effect. Less invasive than a per-installation
+  `RoundTripper` (Open Q10 deferred to a future RFC).
+- [x] Wire `repo_guardian_rate_limit_reserve_blocked_total{installation_id}`
+  — incremented by `StaleSweeper.allowedByRateLimit` when
+  `remaining ≤ (limit × Reserve)`.
+- [x] Update `internal/checker/sweep.go` (new): runs alongside the
+  legacy enumeration sweeper (which still bootstraps store rows for
+  newly-discovered repos). Calls
   `Store.StaleRepos(RECONCILE_FRESHNESS, policyVersion, batchSize)`,
   iterates results, applies the rate-limit reserve gate per
-  installation, and `Queue.Enqueue`s the survivors.
-- [ ] Webhook ACK SLA test: mock Queue, send a webhook, assert response
-  written within 2s end-to-end (use a tight test timeout).
-- [ ] Implement worker shutdown semantics on SIGTERM: stop claiming
-  new jobs → wait up to `(grace - 10s)` for in-flight handlers to
-  complete and ack normally → for any remaining in-flight jobs,
-  `LPUSH queue:jobs` + `ZREM queue:in-flight` (nack-and-requeue) →
-  close redis client → exit. SIGKILL fallback handled by the reaper.
-  (Open Q11 resolution.)
-- [ ] Test: send SIGTERM to a worker mid-engine-call, assert the job
-  is requeued (not left dangling for the reaper) within the grace
-  window.
+  installation, and `Queue.Enqueue`s the survivors. Engaged only when
+  `STORE_BACKEND=postgres`.
+- [x] Webhook ACK SLA test: `TestWebhookACK_SLA` in
+  `internal/webhook/handler_test.go`. Wraps the in-memory queue with
+  a 100ms-delay `Enqueue` and asserts the handler returns 202 within
+  the 2s SLA budget.
+- [ ] Implement worker shutdown semantics on SIGTERM (deferred follow-up
+  — requires `Queue.Nack(ctx, Job)` interface addition to keep the
+  worker pool queue-backend-agnostic). Current safety net: the
+  reaper requeues stuck in-flight entries within
+  `JOB_ACK_TIMEOUT + REAPER_INTERVAL`. Tracked under future enhancement.
+- [ ] Test: SIGTERM mid-engine-call requeue (deferred with the
+  shutdown-semantics task above).
 
 #### Success Criteria
 

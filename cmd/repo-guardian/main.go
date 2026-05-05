@@ -36,7 +36,10 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/worker"
 )
 
-const shutdownTimeout = 15 * time.Second
+const (
+	shutdownTimeout   = 15 * time.Second
+	depthPollInterval = 15 * time.Second
+)
 
 func main() {
 	if err := run(); err != nil {
@@ -170,6 +173,31 @@ func bringUp(
 		return nil, fmt.Errorf("schedule sweep: %w", err)
 	}
 
+	if cfg.StoreBackend == config.StoreBackendPostgres {
+		policyVersion, vErr := policy.Version(policyCfg, nil)
+		if vErr != nil {
+			logger.Warn("policy.Version failed; stale-sweep policy_version will be empty", "error", vErr)
+		}
+
+		staleSweeper := checker.NewStaleSweeper(checker.StaleSweeperOptions{
+			Store:         stateStore,
+			Queue:         qw.queue,
+			RateLimit:     client,
+			Logger:        logger,
+			Freshness:     cfg.ReconcileFreshness,
+			PolicyVersion: policyVersion,
+			BatchSize:     cfg.StaleSweepBatchSize,
+			Reserve:       cfg.RateLimitReserve,
+		})
+
+		if err := sched.Schedule(ctx, "stale-sweep", policyCfg.Guardian.ParsedScheduleInterval, staleSweeper.SweepStale); err != nil {
+			closeAndLog(logger, "scheduler stop after stale-schedule-call failure", sched.Stop)
+			closeAndLog(logger, "store close after stale-schedule-call failure", stateStore.Close)
+
+			return nil, fmt.Errorf("schedule stale-sweep: %w", err)
+		}
+	}
+
 	workerPool := worker.New(qw.queue, engine, client, policyCfg.Guardian.WorkerCount, logger)
 	workerPool.Start(ctx)
 
@@ -179,6 +207,10 @@ func bringUp(
 				logger.Error("valkey reaper exited", "error", err)
 			}
 		}()
+	}
+
+	if vq, ok := qw.queue.(*valkeyqueue.Queue); ok {
+		go vq.StartDepthPoller(ctx, depthPollInterval)
 	}
 
 	watchedPaths := policy.ExtractWatchedPaths(policyCfg)

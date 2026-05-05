@@ -113,6 +113,22 @@ type Config struct {
 	// Kubernetes downward API; falls back to a process-time random
 	// identifier if absent. See IMPL-0011 / DESIGN-0012.
 	PodID string
+
+	// ReconcileFreshness is the maximum age of a stored
+	// last_checked_at before the StaleSweeper requeues the repo.
+	// Default 24h.
+	ReconcileFreshness time.Duration
+
+	// StaleSweepBatchSize caps the number of repos returned per
+	// StaleRepos query. Default 200.
+	StaleSweepBatchSize int
+
+	// RateLimitReserve is the fraction of an installation's GitHub
+	// rate limit reserved against sweep enqueue. When the remaining
+	// budget < (limit × reserve), the StaleSweeper skips that
+	// installation's repos and increments
+	// rate_limit_reserve_blocked_total. Default 0.1.
+	RateLimitReserve float64
 }
 
 // Backend identifier constants. Defined as package-level strings so
@@ -255,6 +271,27 @@ func loadBackendConfig(cfg *Config) error {
 
 	cfg.ReaperInterval = reaperInterval
 	cfg.PodID = os.Getenv("POD_NAME")
+
+	freshness, err := envOrDefaultDuration("RECONCILE_FRESHNESS", 24*time.Hour)
+	if err != nil {
+		return err
+	}
+
+	cfg.ReconcileFreshness = freshness
+
+	batchSize, err := envOrDefaultInt("STALE_SWEEP_BATCH_SIZE", 200)
+	if err != nil {
+		return err
+	}
+
+	cfg.StaleSweepBatchSize = batchSize
+
+	reserve, err := envOrDefaultFloat("RATE_LIMIT_RESERVE", 0.1)
+	if err != nil {
+		return err
+	}
+
+	cfg.RateLimitReserve = reserve
 
 	return nil
 }

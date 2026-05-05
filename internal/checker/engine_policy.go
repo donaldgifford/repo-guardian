@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/reconciler"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
+	tmpl "github.com/donaldgifford/repo-guardian/internal/template"
 )
 
 // checkRepoWithPolicy runs policy-based evaluation for a repository.
@@ -128,6 +130,7 @@ func (e *Engine) runReconcilers(
 
 		for _, rec := range recs {
 			recLog := log.With("rule", r.Name, "reconciler", rec.Name())
+			params.PRTemplate = e.policy.ReconcilerPR(r.Name, rec.Name())
 
 			if err := rec.Reconcile(ctx, params); err != nil {
 				recLog.Error("reconciler failed", "error", err)
@@ -163,7 +166,7 @@ func (e *Engine) getFileContentForReconciler(
 			}
 		}
 	case policy.CheckExact:
-		templateContent, err := e.templates.Get(rule.Template)
+		templateContent, err := e.templates.Raw(rule.Template)
 		if err != nil {
 			log.Error("error getting template for reconciler", "template", rule.Template, "error", err)
 			return ""
@@ -381,7 +384,7 @@ func (e *Engine) evaluateExact(
 		return false, fmt.Errorf("getting file content for %s: %w", existingPath, err)
 	}
 
-	templateContent, err := e.templates.Get(rule.Template)
+	templateContent, err := e.templates.Raw(rule.Template)
 	if err != nil {
 		return false, fmt.Errorf("getting template %q: %w", rule.Template, err)
 	}
@@ -540,12 +543,41 @@ func (e *Engine) createOrUpdatePRFromPolicy(
 		log.Info("created branch", "branch", BranchName)
 	}
 
+	// WARN: This loop syncs file content to the reconcile branch but does not
+	//   re-base the branch onto the current default-branch HEAD. If the PR sits
+	//   open while default advances, the branch's base SHA goes stale. Two
+	//   risks if auto-merge is enabled on the repo-guardian PR:
+	//   (1) base drift — usually safe (diff is "add this file") but loses
+	//       linear-history aesthetic; (2) content drift — if someone manually
+	//       writes a different version of the file to default in the gap, the
+	//       file rule's existence check stops flagging it, this loop no-ops,
+	//       and a squash-merge of the stale branch overwrites the manual
+	//       edit. Mitigations to consider: rebase the branch onto current
+	//       default before reconcile, close+reopen PRs older than N days,
+	//       or recommend operators don't enable auto-merge on
+	//       repo-guardian/* branches. See conversation in PR #71.
+	now := time.Now().UTC().Format(time.RFC3339)
+
 	for i := range actionable {
 		r := &actionable[i]
 
-		content, err := e.templates.Get(r.Template)
+		compiled, err := e.templates.Get(r.Template)
 		if err != nil {
 			return fmt.Errorf("getting template for %s: %w", r.Name, err)
+		}
+
+		content, err := compiled.Render(tmpl.FileVars{
+			Common: tmpl.Common{
+				Owner:         owner,
+				Repo:          repo,
+				DefaultBranch: defaultBranch,
+				Date:          now,
+			},
+			Rule: tmpl.Rule{Name: r.Name, Target: r.Target},
+			Org:  owner,
+		})
+		if err != nil {
+			return fmt.Errorf("rendering template for %s: %w", r.Name, err)
 		}
 
 		msg := fmt.Sprintf("chore: add %s", r.Target)
@@ -558,19 +590,55 @@ func (e *Engine) createOrUpdatePRFromPolicy(
 	}
 
 	if existingPR == nil {
-		body := buildPRBodyFromPolicy(actionable)
-
-		pr, err := client.CreatePullRequest(ctx, owner, repo, PRTitle, body, BranchName, defaultBranch)
-		if err != nil {
-			return fmt.Errorf("creating PR: %w", err)
-		}
-
-		metrics.PRsCreatedTotal.WithLabelValues(owner).Inc()
-		log.Info("created PR", "pr_number", pr.Number)
-	} else {
-		metrics.PRsUpdatedTotal.WithLabelValues(owner).Inc()
-		log.Info("updated existing PR", "pr_number", existingPR.Number)
+		return e.createNewPolicyPR(ctx, log, client, owner, repo, defaultBranch, now, actionable)
 	}
+
+	metrics.PRsUpdatedTotal.WithLabelValues(owner).Inc()
+	log.Info("updated existing PR", "pr_number", existingPR.Number)
+
+	return nil
+}
+
+// createNewPolicyPR resolves PR templates, renders title/body/labels,
+// creates the PR, and applies labels. Extracted from
+// createOrUpdatePRFromPolicy to keep cyclomatic complexity in check.
+func (e *Engine) createNewPolicyPR(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	owner, repo, defaultBranch, now string,
+	actionable []policy.FileRuleConfig,
+) error {
+	fallbackBody := buildPRBodyFromPolicy(actionable)
+	vars := buildPRVars(owner, repo, defaultBranch, now, actionable)
+
+	var (
+		rendered renderedPR
+		err      error
+	)
+
+	switch len(actionable) {
+	case 1:
+		rendered, err = e.resolveAndRenderRulePR(log, &actionable[0], &vars, PRTitle, fallbackBody)
+	default:
+		rendered, err = e.resolveAndRenderBundlePR(log, actionable, &vars, PRTitle, fallbackBody)
+	}
+
+	if err != nil {
+		return fmt.Errorf("resolving PR template: %w", err)
+	}
+
+	pr, err := client.CreatePullRequest(ctx, owner, repo, rendered.Title, rendered.Body, BranchName, defaultBranch)
+	if err != nil {
+		return fmt.Errorf("creating PR: %w", err)
+	}
+
+	if err := client.AddLabelsToPR(ctx, owner, repo, pr.Number, rendered.Labels); err != nil {
+		log.Warn("adding labels to PR failed; continuing", "pr_number", pr.Number, "err", err)
+	}
+
+	metrics.PRsCreatedTotal.WithLabelValues(owner).Inc()
+	log.Info("created PR", "pr_number", pr.Number)
 
 	return nil
 }

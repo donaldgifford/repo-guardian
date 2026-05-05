@@ -13,6 +13,7 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/reconciler"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
+	tmpl "github.com/donaldgifford/repo-guardian/internal/template"
 )
 
 const validCatalogInfo = `---
@@ -42,6 +43,8 @@ type mockClient struct {
 	deletedBranches  []string
 	createdFiles     []string
 	createdPR        *ghclient.PullRequest
+	createdPRBody    string
+	addedLabels      []string
 	installations    []*ghclient.Installation
 	installRepos     map[int64][]*ghclient.Repository
 	processedJobs    atomic.Int32
@@ -137,11 +140,12 @@ func (m *mockClient) CreateOrUpdateFile(_ context.Context, _, _, _, path, _, _ s
 	return nil
 }
 
-func (m *mockClient) CreatePullRequest(_ context.Context, _, _, title, _, head, _ string) (*ghclient.PullRequest, error) {
+func (m *mockClient) CreatePullRequest(_ context.Context, _, _, title, body, head, _ string) (*ghclient.PullRequest, error) {
 	if m.createPRErr != nil {
 		return nil, m.createPRErr
 	}
 
+	m.createdPRBody = body
 	m.createdPR = &ghclient.PullRequest{
 		Number: 1,
 		Title:  title,
@@ -150,6 +154,11 @@ func (m *mockClient) CreatePullRequest(_ context.Context, _, _, title, _, head, 
 	}
 
 	return m.createdPR, nil
+}
+
+func (m *mockClient) AddLabelsToPR(_ context.Context, _, _ string, _ int, labels []string) error {
+	m.addedLabels = append(m.addedLabels, labels...)
+	return nil
 }
 
 func (m *mockClient) ListInstallations(_ context.Context) ([]*ghclient.Installation, error) {
@@ -402,6 +411,67 @@ func TestGHAMode_UnparseableFile(t *testing.T) {
 
 	if client.createdPR == nil {
 		t.Fatal("expected PR to be created with Unclassified defaults")
+	}
+}
+
+// TestGHAMode_CustomizedPRTemplate verifies that a non-nil
+// ReconcileParams.PRTemplate flows through the new
+// resolveReconcilerPR helper: rendered title replaces the hardcoded
+// constant, labels are applied to the PR. This covers the
+// previously-deferred "Update existing reconciler tests under
+// customized policy" item from IMPL-0012 Phase 5.
+func TestGHAMode_CustomizedPRTemplate(t *testing.T) {
+	t.Parallel()
+
+	r := newTestReconciler(t, "github-action")
+	client := basePropertiesClient()
+	client.fileContents["org/my-service/catalog-info.yaml"] = validCatalogInfo
+
+	titleC, err := tmpl.NewRenderer().Parse("title", "[PLAT-CHORE] sync {{ .Repo }} properties")
+	if err != nil {
+		t.Fatalf("compiling title: %v", err)
+	}
+
+	bodyC, err := tmpl.NewRenderer().Parse("body", "Reconciler: {{ .Reconciler }} on {{ .Owner }}/{{ .Repo }}")
+	if err != nil {
+		t.Fatalf("compiling body: %v", err)
+	}
+
+	params := newParams(client, validCatalogInfo, false, nil)
+	params.PRTemplate = &policy.PRTemplate{
+		Title:     titleC,
+		Body:      bodyC,
+		Labels:    []string{"automated", "catalog-sync"},
+		LabelsSet: true,
+		Inherits:  false,
+	}
+
+	if err := r.Reconcile(context.Background(), params); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	if client.createdPR == nil {
+		t.Fatal("expected PR to be created")
+	}
+
+	wantTitle := "[PLAT-CHORE] sync my-service properties"
+	if client.createdPR.Title != wantTitle {
+		t.Errorf("PR title: got %q, want %q", client.createdPR.Title, wantTitle)
+	}
+
+	if !strings.Contains(client.createdPRBody, "Reconciler: custom_properties on org/my-service") {
+		t.Errorf("PR body missing rendered content; got: %s", client.createdPRBody)
+	}
+
+	wantLabels := []string{"automated", "catalog-sync"}
+	if len(client.addedLabels) != len(wantLabels) {
+		t.Fatalf("expected %d labels, got %v", len(wantLabels), client.addedLabels)
+	}
+
+	for i, want := range wantLabels {
+		if client.addedLabels[i] != want {
+			t.Errorf("label[%d]: got %q, want %q", i, client.addedLabels[i], want)
+		}
 	}
 }
 

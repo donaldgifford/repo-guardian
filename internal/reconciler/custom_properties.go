@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/donaldgifford/repo-guardian/internal/catalog"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
+	tmpl "github.com/donaldgifford/repo-guardian/internal/template"
 )
 
 const (
@@ -155,17 +157,29 @@ func (r *CustomPropertiesReconciler) handleGHAMode(
 		return err
 	}
 
-	tmplContent, err := r.templates.Get("set-custom-properties")
+	compiled, err := r.templates.Get("set-custom-properties")
 	if err != nil {
 		return fmt.Errorf("getting set-custom-properties template: %w", err)
 	}
 
-	rendered := renderTemplate(tmplContent, map[string]string{
-		"OWNER_VALUE":        desired.Owner,
-		"COMPONENT_VALUE":    desired.Component,
-		"JIRA_PROJECT_VALUE": desired.JiraProject,
-		"JIRA_LABEL_VALUE":   desired.JiraLabel,
+	rendered, err := compiled.Render(tmpl.FileVars{
+		Common: tmpl.Common{
+			Owner:         params.Owner,
+			Repo:          params.Repo,
+			DefaultBranch: params.DefaultBranch,
+			Date:          time.Now().UTC().Format(time.RFC3339),
+		},
+		Org: params.Owner,
+		Catalog: &tmpl.CatalogInfo{
+			Owner:       desired.Owner,
+			Component:   desired.Component,
+			JiraProject: desired.JiraProject,
+			JiraLabel:   desired.JiraLabel,
+		},
 	})
+	if err != nil {
+		return fmt.Errorf("rendering set-custom-properties template: %w", err)
+	}
 
 	baseSHA, err := params.Client.GetBranchSHA(ctx, params.Owner, params.Repo, params.DefaultBranch)
 	if err != nil {
@@ -187,12 +201,19 @@ func (r *CustomPropertiesReconciler) handleGHAMode(
 		return fmt.Errorf("creating workflow file: %w", err)
 	}
 
-	body := buildPropertiesPRBody(desired, "github-action")
+	fallbackBody := buildPropertiesPRBody(desired, "github-action")
 
-	pr, err := params.Client.CreatePullRequest(ctx, params.Owner, params.Repo, PropertiesPRTitle, body, PropertiesBranchName, params.DefaultBranch)
+	prText, err := resolveReconcilerPR(log, params, "custom_properties", PropertiesPRTitle, fallbackBody)
+	if err != nil {
+		return fmt.Errorf("resolving reconciler PR template: %w", err)
+	}
+
+	pr, err := params.Client.CreatePullRequest(ctx, params.Owner, params.Repo, prText.Title, prText.Body, PropertiesBranchName, params.DefaultBranch)
 	if err != nil {
 		return fmt.Errorf("creating properties PR: %w", err)
 	}
+
+	applyLabels(ctx, log, params.Client, params.Owner, params.Repo, pr.Number, prText.Labels)
 
 	metrics.PropertiesPRsCreatedTotal.Inc()
 	log.Info("created properties PR", "pr_number", pr.Number)
@@ -255,15 +276,23 @@ func (r *CustomPropertiesReconciler) createCatalogInfoPR(
 		return err
 	}
 
-	tmplContent, err := r.templates.Get("catalog-info")
+	compiled, err := r.templates.Get("catalog-info")
 	if err != nil {
 		return fmt.Errorf("getting catalog-info template: %w", err)
 	}
 
-	rendered := renderTemplate(tmplContent, map[string]string{
-		"REPO_NAME": params.Repo,
-		"ORG_NAME":  params.Owner,
+	rendered, err := compiled.Render(tmpl.FileVars{
+		Common: tmpl.Common{
+			Owner:         params.Owner,
+			Repo:          params.Repo,
+			DefaultBranch: params.DefaultBranch,
+			Date:          time.Now().UTC().Format(time.RFC3339),
+		},
+		Org: params.Owner,
 	})
+	if err != nil {
+		return fmt.Errorf("rendering catalog-info template: %w", err)
+	}
 
 	baseSHA, err := params.Client.GetBranchSHA(ctx, params.Owner, params.Repo, params.DefaultBranch)
 	if err != nil {
@@ -288,12 +317,19 @@ func (r *CustomPropertiesReconciler) createCatalogInfoPR(
 		return fmt.Errorf("creating catalog-info.yaml: %w", err)
 	}
 
-	body := buildPropertiesPRBody(nil, "api")
+	fallbackBody := buildPropertiesPRBody(nil, "api")
 
-	pr, err := params.Client.CreatePullRequest(ctx, params.Owner, params.Repo, CatalogInfoPRTitle, body, CatalogInfoBranchName, params.DefaultBranch)
+	prText, err := resolveReconcilerPR(log, params, "custom_properties", CatalogInfoPRTitle, fallbackBody)
+	if err != nil {
+		return fmt.Errorf("resolving reconciler PR template: %w", err)
+	}
+
+	pr, err := params.Client.CreatePullRequest(ctx, params.Owner, params.Repo, prText.Title, prText.Body, CatalogInfoBranchName, params.DefaultBranch)
 	if err != nil {
 		return fmt.Errorf("creating catalog-info PR: %w", err)
 	}
+
+	applyLabels(ctx, log, params.Client, params.Owner, params.Repo, pr.Number, prText.Labels)
 
 	metrics.PropertiesPRsCreatedTotal.Inc()
 	log.Info("created catalog-info PR", "pr_number", pr.Number)
@@ -361,16 +397,6 @@ func diffProperties(desired *catalog.Properties, current []*ghclient.CustomPrope
 	}
 
 	return false
-}
-
-// renderTemplate performs simple string replacement of placeholders.
-func renderTemplate(content string, replacements map[string]string) string {
-	result := content
-	for placeholder, value := range replacements {
-		result = strings.ReplaceAll(result, placeholder, value)
-	}
-
-	return result
 }
 
 // desiredToPropertyValues converts catalog Properties to GitHub CustomPropertyValue slice.

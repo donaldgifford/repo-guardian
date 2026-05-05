@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	tmpl "github.com/donaldgifford/repo-guardian/internal/template"
 )
 
 //go:embed templates/*.tmpl
@@ -84,7 +86,7 @@ func NewRegistry(rules []FileRule) *Registry {
 
 // EnabledRules returns only the rules where Enabled is true.
 func (r *Registry) EnabledRules() []FileRule {
-	var enabled []FileRule
+	enabled := make([]FileRule, 0, len(r.rules))
 
 	for _, rule := range r.rules {
 		if rule.Enabled {
@@ -115,44 +117,94 @@ func (r *Registry) AllRules() []FileRule {
 	return result
 }
 
-// TemplateStore loads and serves file templates, using embedded
-// defaults as fallbacks when a directory override is not available.
+// TemplateStore loads and serves file templates compiled with the
+// internal/template renderer. It tracks both the raw template body (for
+// byte-exact CheckExact comparisons) and the parsed *template.Compiled
+// (for rendering with variable contexts). Templates are loaded from a
+// directory if provided, with embedded defaults filling in any
+// remaining names.
 type TemplateStore struct {
-	templates map[string]string
+	renderer *tmpl.Renderer
+	raw      map[string]string
+	compiled map[string]*tmpl.Compiled
 }
 
-// NewTemplateStore creates an empty TemplateStore.
+// NewTemplateStore creates an empty TemplateStore wired to a fresh
+// Renderer. Callers that already hold a Renderer should use
+// NewTemplateStoreWithRenderer to share it.
 func NewTemplateStore() *TemplateStore {
+	return NewTemplateStoreWithRenderer(tmpl.NewRenderer())
+}
+
+// NewTemplateStoreWithRenderer creates an empty TemplateStore that
+// shares the supplied Renderer. Useful when the caller already owns a
+// Renderer and wants the same FuncMap applied across all parsed
+// templates in the process.
+func NewTemplateStoreWithRenderer(r *tmpl.Renderer) *TemplateStore {
 	return &TemplateStore{
-		templates: make(map[string]string),
+		renderer: r,
+		raw:      make(map[string]string),
+		compiled: make(map[string]*tmpl.Compiled),
 	}
 }
 
-// Load reads templates from the given directory (if non-empty and exists),
-// then fills in any missing templates from the embedded defaults.
+// Load reads templates from the given directory (if non-empty and
+// exists), then fills in any missing templates from the embedded
+// defaults. Each loaded template is parsed into a *template.Compiled
+// at load time so render-hot-path callers don't pay parse cost; parse
+// errors fail the load with the template name in the error message.
 func (ts *TemplateStore) Load(dir string) error {
-	// Load from directory if provided.
 	if dir != "" {
 		if err := ts.loadFromDir(dir); err != nil {
-			// Directory doesn't exist or can't be read; fall through to embedded.
 			if !os.IsNotExist(err) {
 				return fmt.Errorf("reading template directory %s: %w", dir, err)
 			}
 		}
 	}
 
-	// Fill in missing templates from embedded defaults.
 	return ts.loadEmbeddedDefaults()
 }
 
-// Get returns the template content for the given name.
-func (ts *TemplateStore) Get(name string) (string, error) {
-	content, ok := ts.templates[name]
+// Get returns the parsed template for the given name. Callers render
+// against any context type via Compiled.Render. Returns an error when
+// the name is not registered.
+func (ts *TemplateStore) Get(name string) (*tmpl.Compiled, error) {
+	c, ok := ts.compiled[name]
+	if !ok {
+		return nil, fmt.Errorf("template %q not found", name)
+	}
+
+	return c, nil
+}
+
+// Raw returns the unrendered template body for the given name. Useful
+// for byte-exact CheckExact comparisons that must operate on the
+// authored template text rather than its rendered output. Render-time
+// callers should prefer Get.
+func (ts *TemplateStore) Raw(name string) (string, error) {
+	body, ok := ts.raw[name]
 	if !ok {
 		return "", fmt.Errorf("template %q not found", name)
 	}
 
-	return content, nil
+	return body, nil
+}
+
+// store associates name with content, parsing the body via the shared
+// Renderer. Templates may contain Go template actions; templates that
+// embed GitHub Actions `${{ ... }}` expressions must escape them inside
+// backtick-raw-string Go template actions so the parser sees them as
+// literal text rather than malformed Go template syntax.
+func (ts *TemplateStore) store(name, content string) error {
+	c, err := ts.renderer.Parse(name, content)
+	if err != nil {
+		return fmt.Errorf("compiling template %q: %w", name, err)
+	}
+
+	ts.raw[name] = content
+	ts.compiled[name] = c
+
+	return nil
 }
 
 func (ts *TemplateStore) loadFromDir(dir string) error {
@@ -174,7 +226,9 @@ func (ts *TemplateStore) loadFromDir(dir string) error {
 		}
 
 		name := strings.TrimSuffix(entry.Name(), ".tmpl")
-		ts.templates[name] = string(content)
+		if err := ts.store(name, string(content)); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -194,7 +248,7 @@ func (ts *TemplateStore) loadEmbeddedDefaults() error {
 		name := strings.TrimSuffix(entry.Name(), ".tmpl")
 
 		// Don't override directory-loaded templates.
-		if _, exists := ts.templates[name]; exists {
+		if _, exists := ts.compiled[name]; exists {
 			continue
 		}
 
@@ -203,7 +257,9 @@ func (ts *TemplateStore) loadEmbeddedDefaults() error {
 			return fmt.Errorf("reading embedded template %s: %w", entry.Name(), err)
 		}
 
-		ts.templates[name] = string(content)
+		if err := ts.store(name, string(content)); err != nil {
+			return err
+		}
 	}
 
 	return nil

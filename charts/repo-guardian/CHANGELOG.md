@@ -6,11 +6,33 @@ changes, see the root [CHANGELOG.md](../../CHANGELOG.md).
 
 ### Features
 
+- *(chart)* [**breaking**] Generic templates.files map + templating.vars + STRICT_TEMPLATES (IMPL-0012 Phase 6)
+
+### Documentation
+
+- Examples + customizing-PR-text + migration guide (IMPL-0012 Phase 7)
+- *(chart)* Homelab smoke runbook for IMPL-0012 Phase 7.4 acceptance
+
+### Testing
+
+- *(chart)* Bump deployment_test image-tag pattern to 1.5.0
+- *(checker)* Lock IMPL-0012 homelab smoke chain in CI
+
+### Miscellaneous Tasks
+
+- *(chart)* Bump 0.3.2 → 0.3.3 (carry appVersion 1.4.1) ([#70](https://github.com/donaldgifford/repo-guardian/issues/70))
+
+## [1.4.1] - 2026-05-03
+
+### Features
+
 - *(chart)* Publish to OCI registry with cosign + SLSA (DESIGN-0011 / IMPL-0010) ([#60](https://github.com/donaldgifford/repo-guardian/issues/60))
 
 ### Bug Fixes
 
 - *(chart)* Authenticate cosign to GHCR via docker login (post-mortem 0.3.0) ([#61](https://github.com/donaldgifford/repo-guardian/issues/61))
+- *(chart)* Stamp namespace into every template (0.3.1 → 0.3.2) ([#67](https://github.com/donaldgifford/repo-guardian/issues/67))
+- *(github)* Idempotent CreateOrUpdateFile (INV-0003) + appVersion 1.4.1 ([#69](https://github.com/donaldgifford/repo-guardian/issues/69))
 
 ### Documentation
 

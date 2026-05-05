@@ -1,4 +1,8 @@
 # Managed by repo-guardian — do not edit manually
+#
+# GitHub Actions expressions are emitted via backtick-raw-string Go
+# template actions so the unified renderer can parse this file without
+# colliding with the GHA expression syntax.
 name: Renovate
 
 on:
@@ -20,8 +24,8 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@v1
         with:
-          app-id: ${{ secrets.RENOVATE_APP_ID }}
-          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+          app-id: {{`${{ secrets.RENOVATE_APP_ID }}`}}
+          private-key: {{`${{ secrets.RENOVATE_APP_PRIVATE_KEY }}`}}
 
       - name: Run Renovate
         run: |
@@ -32,7 +36,7 @@ jobs:
             -e LOG_LEVEL \
             renovate/renovate:latest
         env:
-          RENOVATE_TOKEN: ${{ steps.app-token.outputs.token }}
-          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_TOKEN: {{`${{ steps.app-token.outputs.token }}`}}
+          RENOVATE_REPOSITORIES: {{`${{ github.repository }}`}}
           RENOVATE_CONFIG_FILE: renovate.json
           LOG_LEVEL: info

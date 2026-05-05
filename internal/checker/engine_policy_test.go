@@ -222,7 +222,7 @@ func TestPolicyCheckRepo_ExactMode_FileMatchesTemplate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	templateContent, err := ts.Get("dependabot")
+	templateContent, err := ts.Raw("dependabot")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -311,7 +311,7 @@ func TestPolicyCheckRepo_ExactMode_YAMLSemanticComparison(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	templateContent, err := ts.Get("dependabot")
+	templateContent, err := ts.Raw("dependabot")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1751,7 +1751,7 @@ func TestPolicyCheckRepo_ExactMode_RenovateWorkflowMatchesTemplate(t *testing.T)
 		t.Fatal(err)
 	}
 
-	templateContent, err := ts.Get("renovate-workflow")
+	templateContent, err := ts.Raw("renovate-workflow")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2027,7 +2027,7 @@ func TestIntegration_RenovateFileRules_ConfigMissing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	workflowContent, err := ts.Get("renovate-workflow")
+	workflowContent, err := ts.Raw("renovate-workflow")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2068,7 +2068,7 @@ func TestIntegration_RenovateFileRules_ConfigInvalidPreset(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	workflowContent, err := ts.Get("renovate-workflow")
+	workflowContent, err := ts.Raw("renovate-workflow")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2143,7 +2143,7 @@ func TestIntegration_RenovateFileRules_AllPresent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	workflowContent, err := ts.Get("renovate-workflow")
+	workflowContent, err := ts.Raw("renovate-workflow")
 	if err != nil {
 		t.Fatal(err)
 	}

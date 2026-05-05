@@ -20,7 +20,7 @@ tests:
     asserts:
       - matchRegex:
           path: spec.template.spec.containers[0].image
-          pattern: "ghcr.io/donaldgifford/repo-guardian:1\\.4\\.1"
+          pattern: "ghcr.io/donaldgifford/repo-guardian:1\\.5\\.0"
 
   - it: should use custom image tag when set
     set:

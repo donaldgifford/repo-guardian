@@ -27,6 +27,7 @@ type hclConfig struct {
 	Guardian              *GuardianConfig              `hcl:"guardian,block"`
 	IgnoreList            *IgnoreConfig                `hcl:"ignore,block"`
 	Scope                 *ScopeConfig                 `hcl:"scope,block"`
+	Defaults              *DefaultsConfig              `hcl:"defaults,block"`
 	FileRules             []FileRuleConfig             `hcl:"rule,block"`
 	SettingRules          []SettingRuleConfig          `hcl:"-"`
 	BranchProtectionRules []BranchProtectionRuleConfig `hcl:"-"`
@@ -84,6 +85,10 @@ func Load(path string) (*PolicyConfig, error) {
 
 	if err := validateStrictScope(cfg); err != nil {
 		return nil, fmt.Errorf("validating config: %w", err)
+	}
+
+	if err := compilePolicyTemplates(cfg); err != nil {
+		return nil, err
 	}
 
 	warnLegacyPerRuleScope(cfg)
@@ -227,6 +232,7 @@ func decodeBody(body hcl.Body, raw *hclConfig) hcl.Diagnostics {
 			{Type: "guardian"},
 			{Type: blockTypeIgnore},
 			{Type: blockTypeScope},
+			{Type: "defaults"},
 			{Type: "rule", LabelNames: []string{"type", "name"}},
 		},
 	})
@@ -305,6 +311,13 @@ func decodeBlock(block *hcl.Block, ctx *hcl.EvalContext, raw *hclConfig) hcl.Dia
 			if raw.Scope == nil {
 				raw.Scope = sc
 			}
+		}
+	case "defaults":
+		dc, d := decodeDefaultsBlock(block, ctx)
+		diags = append(diags, d...)
+
+		if dc != nil {
+			raw.Defaults = dc
 		}
 	case "rule":
 		diags = append(diags, decodeRuleOrSettingBlock(block, ctx, raw)...)
@@ -557,15 +570,26 @@ func decodeRuleSubBlocks(
 	return diags
 }
 
+var reconcileBodySchema = &hcl.BodySchema{
+	Attributes: []hcl.AttributeSchema{
+		{Name: "watch"},
+		{Name: "mode"},
+		{Name: "delete_extra"},
+	},
+	Blocks: []hcl.BlockHeaderSchema{
+		{Type: "pr"},
+	},
+}
+
 func decodeReconcileBlock(block *hcl.Block, ctx *hcl.EvalContext) (*ReconcilerConfig, hcl.Diagnostics) {
 	rec := &ReconcilerConfig{Type: block.Labels[0]}
 
-	attrs, diags := block.Body.JustAttributes()
+	content, diags := block.Body.Content(reconcileBodySchema)
 	if diags.HasErrors() {
 		return nil, diags
 	}
 
-	for name, attr := range attrs {
+	for name, attr := range content.Attributes {
 		val, d := attr.Expr.Value(ctx)
 		diags = append(diags, d...)
 
@@ -577,6 +601,16 @@ func decodeReconcileBlock(block *hcl.Block, ctx *hcl.EvalContext) (*ReconcilerCo
 		case "delete_extra":
 			rec.DeleteExtra = val.True()
 		}
+	}
+
+	for _, sub := range content.Blocks {
+		if sub.Type != "pr" {
+			continue
+		}
+
+		pr, d := decodePRBlock(sub, ctx)
+		diags = append(diags, d...)
+		rec.PR = pr
 	}
 
 	return rec, diags
@@ -602,7 +636,77 @@ func decodePRBlock(block *hcl.Block, ctx *hcl.EvalContext) (*PRConfig, hcl.Diagn
 		}
 	}
 
+	if attr, ok := attrs["title"]; ok {
+		val, d := attr.Expr.Value(ctx)
+		diags = append(diags, d...)
+
+		if !d.HasErrors() {
+			s := val.AsString()
+			pr.Title = &s
+		}
+	}
+
+	if attr, ok := attrs["body"]; ok {
+		val, d := attr.Expr.Value(ctx)
+		diags = append(diags, d...)
+
+		if !d.HasErrors() {
+			s := val.AsString()
+			pr.Body = &s
+		}
+	}
+
+	if attr, ok := attrs["labels"]; ok {
+		val, d := attr.Expr.Value(ctx)
+		diags = append(diags, d...)
+
+		if !d.HasErrors() {
+			pr.LabelsSet = true
+			pr.Labels = make([]string, 0)
+
+			for it := val.ElementIterator(); it.Next(); {
+				_, v := it.Element()
+				pr.Labels = append(pr.Labels, v.AsString())
+			}
+		}
+	}
+
+	if attr, ok := attrs["inherits"]; ok {
+		val, d := attr.Expr.Value(ctx)
+		diags = append(diags, d...)
+
+		if !d.HasErrors() {
+			b := val.True()
+			pr.Inherits = &b
+		}
+	}
+
 	return pr, diags
+}
+
+func decodeDefaultsBlock(block *hcl.Block, ctx *hcl.EvalContext) (*DefaultsConfig, hcl.Diagnostics) {
+	dc := &DefaultsConfig{}
+
+	content, diags := block.Body.Content(&hcl.BodySchema{
+		Blocks: []hcl.BlockHeaderSchema{
+			{Type: "pr"},
+		},
+	})
+	if diags.HasErrors() {
+		return nil, diags
+	}
+
+	for _, sub := range content.Blocks {
+		if sub.Type != "pr" {
+			continue
+		}
+
+		pr, d := decodePRBlock(sub, ctx)
+		diags = append(diags, d...)
+		dc.PR = pr
+	}
+
+	return dc, diags
 }
 
 func decodeAssertionBlock(block *hcl.Block, ctx *hcl.EvalContext) (*AssertionConfig, hcl.Diagnostics) {
@@ -810,6 +914,10 @@ func hclConfigToPolicy(raw *hclConfig) *PolicyConfig {
 
 	if raw.Scope != nil {
 		cfg.Scope = raw.Scope
+	}
+
+	if raw.Defaults != nil {
+		cfg.Defaults = raw.Defaults
 	}
 
 	// If HCL defines file rules, use those instead of defaults.

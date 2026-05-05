@@ -16,6 +16,8 @@ nav:
         - 'DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions': design/0009-distributed-renovate-via-per-repo-github-actions.md
         - 'DESIGN-0010: Per-org rule scoping and observability': design/0010-per-org-rule-scoping-and-observability.md
         - 'DESIGN-0011: Publish Helm chart via OCI registry': design/0011-publish-helm-chart-via-oci-registry.md
+        - 'DESIGN-0012: Persistent reconcile state and multi-replica coordination': design/0012-persistent-reconcile-state-and-multi-replica-coordination.md
+        - 'DESIGN-0013: Customizable PR templates and extensible template ConfigMap': design/0013-customizable-pr-templates-and-extensible-template-configmap.md
     - Implementation Plans:
         - Overview: impl/README.md
         - 'IMPL-0001: Repo Guardian Implementation Plan': impl/0001-repo-guardian-implementation-plan.md
@@ -28,11 +30,14 @@ nav:
         - 'IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions': impl/0008-distributed-renovate-via-per-repo-github-actions.md
         - 'IMPL-0009: Per-org rule scoping and observability': impl/0009-per-org-rule-scoping-and-observability.md
         - 'IMPL-0010: Publish Helm chart via OCI registry': impl/0010-publish-helm-chart-via-oci-registry.md
+        - 'IMPL-0011: Persistent reconcile state and multi-replica coordination': impl/0011-persistent-reconcile-state-and-multi-replica-coordination.md
+        - 'IMPL-0012: Customizable PR templates and extensible template ConfigMap': impl/0012-customizable-pr-templates-and-extensible-template-configmap.md
     - Investigations:
         - Overview: investigation/README.md
         - 'INV-0001: Tailscale Funnel for Webhook Testing': investigation/0001-tailscale-funnel-for-webhook-testing.md
         - 'INV-0002: Multi-org and Forgejo support for repo-guardian': investigation/0002-multi-org-and-forgejo-support-for-repo-guardian.md
         - 'INV-0003: Pre-existing branch 422 on subsequent reconciles': investigation/0003-pre-existing-branch-422-on-subsequent-reconciles.md
+        - 'INV-0004: Forge interface and package refactor for Forgejo backend': investigation/0004-forge-interface-and-package-refactor-for-forgejo-backend.md
     - Legacy:
         - Custom Properties Implementation Plan: legacy/custom_properties_implementation.md
         - 'Feature Plan: Custom Properties from Backstage catalog-info.yaml': legacy/custom_properties.md

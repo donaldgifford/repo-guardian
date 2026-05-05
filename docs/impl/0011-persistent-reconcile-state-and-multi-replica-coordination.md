@@ -156,10 +156,10 @@ equivalent to today's `internal/checker/queue.go` + `internal/scheduler/`.
   change. Wire it through to the Engine. (Open Q4 resolution.)
   Implemented as `policy.Version(cfg, templates)`. Engine wiring is
   deferred to Phase 5 along with the sweep handler that consumes it.
-- [ ] Set up `.mockery.yaml` v2 config covering `Store`, `Queue`,
+- [x] Set up `.mockery.yaml` v2 config covering `Store`, `Queue`,
   `Scheduler`. Output to `internal/<pkg>/mocks/`.
-- [ ] Add `make mocks` target. Reference it from `make ci`.
-- [ ] Generate initial mocks; commit them to the repo.
+- [x] Add `make mocks` target. Reference it from `make ci`.
+- [x] Generate initial mocks; commit them to the repo.
 - [x] Add unit tests for `memory` implementations: store
   upsert/freshness/policy-version, queue enqueue/consume order, ticker
   firing.

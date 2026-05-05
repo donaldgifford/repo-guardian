@@ -1,7 +1,7 @@
 ---
 id: IMPL-0011
 title: "Persistent reconcile state and multi-replica coordination"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-05-03
 ---
@@ -9,7 +9,7 @@ created: 2026-05-03
 
 # IMPL 0011: Persistent reconcile state and multi-replica coordination
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-05-03
 
@@ -39,6 +39,7 @@ created: 2026-05-03
     - [Success Criteria](#success-criteria-5)
   - [Phase 7: Multi-replica validation + homelab smoke](#phase-7-multi-replica-validation--homelab-smoke)
     - [Tasks](#tasks-6)
+    - [Operator-side homelab smoke runbook](#operator-side-homelab-smoke-runbook)
     - [Success Criteria](#success-criteria-6)
 - [File Changes](#file-changes)
 - [Testing Plan](#testing-plan)

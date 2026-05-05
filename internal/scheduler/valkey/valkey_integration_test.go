@@ -66,6 +66,87 @@ func warnLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
 }
 
+// TestSchedulerContract_Valkey runs the same behavioural contract
+// that internal/scheduler/contract_test.go exercises against the
+// ticker backend. Locked in CI under the integration build tag.
+// Inlined rather than imported because the helper lives in a
+// test-only package; duplication is short and the suite shape is
+// stable.
+func TestSchedulerContract_Valkey(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	client := startValkey(ctx, t)
+
+	makeScheduler := func() *valkey.Scheduler {
+		return valkey.New(client, valkey.Options{
+			PodID:         "test-pod",
+			LockKeyPrefix: "test:" + t.Name() + ":",
+			LockTTL:       time.Second,
+			Logger:        warnLogger(),
+		})
+	}
+
+	t.Run("Schedule_Fires", func(t *testing.T) {
+		s := makeScheduler()
+
+		var fires atomic.Int32
+
+		runCtx, runCancel := context.WithCancel(ctx)
+		defer runCancel()
+
+		if err := s.Schedule(runCtx, "fires", 100*time.Millisecond, func(_ context.Context) error {
+			fires.Add(1)
+
+			return nil
+		}); err != nil {
+			t.Fatalf("Schedule: %v", err)
+		}
+
+		// Valkey scheduler waits for the first tick boundary; 600ms
+		// covers the 100ms interval comfortably.
+		time.Sleep(600 * time.Millisecond)
+
+		if fires.Load() == 0 {
+			t.Fatalf("expected at least 1 fire, got 0")
+		}
+
+		if err := s.Stop(); err != nil {
+			t.Fatalf("Stop: %v", err)
+		}
+	})
+
+	t.Run("Stop_Idempotent", func(t *testing.T) {
+		s := makeScheduler()
+
+		if err := s.Stop(); err != nil {
+			t.Fatalf("first Stop: %v", err)
+		}
+
+		if err := s.Stop(); err != nil {
+			t.Fatalf("second Stop: %v", err)
+		}
+	})
+
+	t.Run("Schedule_AfterStop_Errors", func(t *testing.T) {
+		s := makeScheduler()
+
+		if err := s.Stop(); err != nil {
+			t.Fatalf("Stop: %v", err)
+		}
+
+		err := s.Schedule(
+			context.Background(),
+			"after-stop",
+			time.Second,
+			func(_ context.Context) error { return nil },
+		)
+		if err == nil {
+			t.Fatalf("Schedule after Stop should return ErrStopped, got nil")
+		}
+	})
+}
+
 // TestLeaderElection_TwoPods boots two scheduler instances against
 // the same Valkey, schedules the same handler on both, and asserts
 // that across the configured tick window exactly one of them runs

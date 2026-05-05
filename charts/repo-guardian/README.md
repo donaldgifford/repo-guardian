@@ -11,7 +11,7 @@ with cosign keyless, SLSA Level 3 provenance).
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 0.4.0 \
+  --version 0.5.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -47,13 +47,46 @@ secrets:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 0.4.0 \
+  --version 0.5.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
 ```
 
 3. Once verified, set `config.dryRun: false` to enable live mode.
+
+## Choosing a deployment shape
+
+Chart 0.5.0+ supports four deployment shapes selected via the
+`store.backend`, `queue.backend`, and `scheduler.backend` values. Pick
+the row that matches your operator scenario; defaults preserve the
+single-replica memory mode.
+
+| Shape | Values | Use when |
+|-------|--------|----------|
+| **Single-replica memory** (default) | `store.backend=memory`, `queue.backend=memory`, `scheduler.backend=ticker`, `replicaCount=1` | You're trialing repo-guardian, running a homelab pilot, or reconciling fewer than ~50 repos. No external dependencies. |
+| **Baked Postgres + Valkey** | `store.backend=postgres`, `store.postgres.mode=baked`, `queue.backend=valkey`, `queue.valkey.mode=baked`, `scheduler.backend=valkey` | You want multi-replica with no external operator dependencies. Chart renders single-pod Postgres + Valkey StatefulSets with auto-generated passwords. Suitable for homelab / small dev clusters. |
+| **CNPG-managed Postgres + baked Valkey** | `store.postgres.mode=cnpg`, `queue.valkey.mode=baked` | You already run [CloudNativePG](https://cloudnative-pg.io/) in the cluster and want the operator to handle Postgres lifecycle (HA replicas, backups, monitoring). The chart renders a `Cluster` CR and an optional `Pooler` (PgBouncer) CR. |
+| **External Postgres + external Valkey** | `store.postgres.mode=external` + `existingSecret`; `queue.valkey.mode=external` + `existingSecret` | You're running a managed Postgres (RDS, Cloud SQL) and Redis-compatible service. Chart consumes the DSN from operator-supplied secrets and renders no backing resources. |
+
+For sizing knobs (`replicaCount`, `workerCount`, `maxConns`,
+`staleSweep.*`), see [docs/operations/scaling.md](../../docs/operations/scaling.md).
+For Postgres schema operations, see
+[docs/operations/migrations.md](../../docs/operations/migrations.md).
+
+### Upgrade notes (chart 0.5.0)
+
+- **No default change for existing users.** `store.backend`,
+  `queue.backend`, and `scheduler.backend` all default to the
+  single-replica memory implementations. Operators currently running
+  chart ≤ 0.4.x at `replicaCount: 1` get bit-identical behaviour
+  after upgrading; the new shapes are strictly opt-in.
+- **`terminationGracePeriodSeconds` raised to 60.** The Deployment
+  now gives workers up to 60s to drain in-flight jobs on SIGTERM.
+- **5 starter PrometheusRule alerts.** Set
+  `prometheusRule.enabled=true` to render them; each is individually
+  toggleable and threshold-tunable via
+  `prometheusRule.alerts.<name>`.
 
 ## Verifying the chart
 
@@ -70,7 +103,7 @@ cosign verify \
     '^https://github.com/donaldgifford/repo-guardian/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:0.4.0
+  ghcr.io/donaldgifford/charts/repo-guardian:0.5.0
 ```
 
 ### SLSA provenance
@@ -81,7 +114,7 @@ cosign verify-attestation --type slsaprovenance \
     '^https://github.com/slsa-framework/slsa-github-generator/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:0.4.0
+  ghcr.io/donaldgifford/charts/repo-guardian:0.5.0
 ```
 
 The provenance attestation records the build workflow path, source
@@ -223,12 +256,32 @@ incoming webhook.
 | policy | object | `{"config":"","existingConfigMap":""}` | HCL policy configuration |
 | policy.config | string | `""` | Inline HCL policy config (creates a ConfigMap) |
 | policy.existingConfigMap | string | `""` | Use an existing ConfigMap for policy config |
+| prometheusRule | object | `{"alerts":{},"enabled":false,"labels":{}}` | Prometheus PrometheusRule with starter alerts (IMPL-0011 P6). |
+| prometheusRule.alerts | object | `{}` | Per-alert overrides: each key under `alerts.<name>` accepts `for`, `severity`, `threshold`, and `enabled`. See the rendered PrometheusRule template for the canonical alert names. |
+| prometheusRule.enabled | bool | `false` | Create PrometheusRule with starter alerts. |
+| prometheusRule.labels | object | `{}` | Additional labels (e.g., to match Prometheus operator `ruleSelector`). |
+| queue | object | `{"backend":"memory","size":1000,"valkey":{"baked":{"authPasswordLength":32,"image":"valkey/valkey:8.0","storageClassName":"","storageSize":"1Gi"},"existingSecret":"","existingSecretKey":"QUEUE_VALKEY_DSN","jobAckTimeout":"5m","mode":"baked","reaperInterval":"60s"}}` | Work queue for reconcile jobs. |
+| queue.backend | string | `"memory"` | Backend implementation: "memory" or "valkey". |
+| queue.size | int | `1000` | Buffered channel size for the in-memory backend. |
+| queue.valkey | object | `{"baked":{"authPasswordLength":32,"image":"valkey/valkey:8.0","storageClassName":"","storageSize":"1Gi"},"existingSecret":"","existingSecretKey":"QUEUE_VALKEY_DSN","jobAckTimeout":"5m","mode":"baked","reaperInterval":"60s"}` | Valkey-specific configuration. Ignored when backend != valkey. |
+| queue.valkey.baked | object | `{"authPasswordLength":32,"image":"valkey/valkey:8.0","storageClassName":"","storageSize":"1Gi"}` | Baked Valkey-only configuration. |
+| queue.valkey.baked.authPasswordLength | int | `32` | Generated AUTH password length (random alphanumeric). |
+| queue.valkey.baked.image | string | `"valkey/valkey:8.0"` | Pinned image. Bump intentionally. |
+| queue.valkey.baked.storageClassName | string | `""` | StorageClass name. Empty → cluster default. |
+| queue.valkey.baked.storageSize | string | `"1Gi"` | Persistent volume size. |
+| queue.valkey.existingSecret | string | `""` | Operator-supplied secret holding QUEUE_VALKEY_DSN. |
+| queue.valkey.existingSecretKey | string | `"QUEUE_VALKEY_DSN"` | Key inside existingSecret holding the DSN. |
+| queue.valkey.jobAckTimeout | string | `"5m"` | How long an in-flight job may sit before the reaper requeues it. |
+| queue.valkey.mode | string | `"baked"` | Source of the Valkey deployment. One of: "baked"    — chart renders a single-pod Valkey Deployment; "external" — operator provides DSN via existingSecret. |
+| queue.valkey.reaperInterval | string | `"60s"` | Cadence between reaper iterations. |
 | readinessProbe.httpGet.path | string | `"/readyz"` |  |
 | readinessProbe.httpGet.port | string | `"http"` |  |
 | readinessProbe.initialDelaySeconds | int | `5` |  |
 | readinessProbe.periodSeconds | int | `10` |  |
 | replicaCount | int | `1` | Number of replicas |
 | resources | object | `{"limits":{"cpu":"500m","memory":"256Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}` | Container resource requests and limits |
+| scheduler | object | `{"backend":"ticker"}` | Scheduler (sweep cadence) backend. |
+| scheduler.backend | string | `"ticker"` | Backend implementation: "ticker" (single-replica) or "valkey" (leader-elected via SETNX). Valkey scheduler shares the queue's Valkey instance. |
 | secrets | object | `{"create":true,"existingSecret":"","privateKey":"","privateKeyAsFile":true,"webhookSecret":""}` | GitHub App secrets |
 | secrets.create | bool | `true` | Create secret resource (false = use existing secret) |
 | secrets.existingSecret | string | `""` | Name of existing secret (when create=false) |
@@ -245,6 +298,27 @@ incoming webhook.
 | serviceMonitor.enabled | bool | `false` | Create Prometheus ServiceMonitor |
 | serviceMonitor.interval | string | `"30s"` | Scrape interval |
 | serviceMonitor.labels | object | `{}` | Additional labels for ServiceMonitor |
+| staleSweep | object | `{"batchSize":200,"freshness":"24h","rateLimitReserve":0.1}` | Stale-sweep tuning (IMPL-0011 Phase 5d). |
+| staleSweep.batchSize | int | `200` | Cap on rows returned per StaleRepos query. |
+| staleSweep.freshness | string | `"24h"` | Maximum age of a stored last_checked_at before the sweep requeues. Default 24h. Effective only with store.backend=postgres. |
+| staleSweep.rateLimitReserve | float | `0.1` | Fraction of an installation's GitHub rate-limit budget reserved against the stale-sweep enqueue path. |
+| store | object | `{"backend":"memory","postgres":{"baked":{"image":"postgres:16.4","resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:16.4","instances":1,"pooler":{"enabled":false,"instances":2,"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}}` | Persistent state store (per-repo reconcile state). See DESIGN-0012 §Backend modes. |
+| store.backend | string | `"memory"` | Backend implementation: "memory" (single-replica, no persistence) or "postgres". |
+| store.postgres | object | `{"baked":{"image":"postgres:16.4","resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:16.4","instances":1,"pooler":{"enabled":false,"instances":2,"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}` | Postgres-specific configuration. Ignored when backend != postgres. |
+| store.postgres.baked | object | `{"image":"postgres:16.4","resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"}` | Baked Postgres-only configuration. |
+| store.postgres.baked.image | string | `"postgres:16.4"` | Pinned image. Bump intentionally. |
+| store.postgres.baked.resources | object | `{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}}` | Resource requests/limits for the Postgres container. |
+| store.postgres.baked.storageClassName | string | `""` | StorageClass name. Empty → cluster default. |
+| store.postgres.baked.storageSize | string | `"10Gi"` | Persistent volume size. |
+| store.postgres.cnpg | object | `{"imageName":"ghcr.io/cloudnative-pg/postgresql:16.4","instances":1,"pooler":{"enabled":false,"instances":2,"type":"rw"},"storage":{"size":"10Gi","storageClass":""}}` | CloudNativePG-only configuration. |
+| store.postgres.cnpg.imageName | string | `"ghcr.io/cloudnative-pg/postgresql:16.4"` | CNPG-managed Postgres image. |
+| store.postgres.cnpg.instances | int | `1` | Number of CNPG instances. |
+| store.postgres.cnpg.pooler | object | `{"enabled":false,"instances":2,"type":"rw"}` | Connection pooler (PgBouncer). |
+| store.postgres.cnpg.storage | object | `{"size":"10Gi","storageClass":""}` | Storage block. |
+| store.postgres.existingSecret | string | `""` | Operator-supplied secret holding STORE_DSN. Required when mode=external. |
+| store.postgres.existingSecretKey | string | `"STORE_DSN"` | Key inside existingSecret holding the DSN. Default: STORE_DSN. |
+| store.postgres.maxConns | int | `16` | Connection cap for the pgx pool. |
+| store.postgres.mode | string | `"baked"` | Source of the Postgres deployment. One of: "baked"    — chart renders a single-pod Postgres Deployment; "cnpg"     — chart renders a CloudNativePG `Cluster` CR; "external" — operator provides DSN via existingSecret. |
 | tailscale | object | `{"authKeySecret":"tailscale-auth","enabled":false,"hostname":"repo-guardian","image":"ghcr.io/tailscale/tailscale:latest","rbac":{"create":true},"userspace":true}` | Tailscale Funnel sidecar |
 | tailscale.authKeySecret | string | `"tailscale-auth"` | Name of existing secret containing 'authkey' |
 | tailscale.enabled | bool | `false` | Enable Tailscale sidecar container |

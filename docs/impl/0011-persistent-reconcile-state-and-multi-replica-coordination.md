@@ -317,10 +317,14 @@ SET-NX-EX lock; only the holder runs the handler.
 - [x] Integration test: spin up two scheduler instances pointed at the
   same testcontainer Valkey, run a tick, assert exactly one handler
   invocation.
-- [ ] Contract test sweep: same suite passes against `ticker` and
-  `valkey` scheduler implementations (acknowledging that `ticker` is
-  N-runs-per-tick under multi-instance — tested only in single-instance
-  mode).
+- [x] Contract test sweep: `TestSchedulerContract_Ticker` in
+  `internal/scheduler/contract_test.go` and
+  `TestSchedulerContract_Valkey` in
+  `internal/scheduler/valkey/valkey_integration_test.go` exercise the
+  same three behavioural assertions (Schedule_Fires, Stop_Idempotent,
+  Schedule_AfterStop_Errors) against both backends. Single-instance
+  mode only; multi-instance behaviour is the subject of
+  `TestLeaderElection_TwoPods`.
 
 #### Success Criteria
 
@@ -452,23 +456,22 @@ chart values. Add `serviceMonitor` and `prometheusRule` opt-in surfaces.
   template's metadata.
 - [x] Bump chart `version` from `0.4.0` to `0.5.0`.
 - [x] Bump chart `appVersion` to `1.6.0`.
-- [ ] Add the `0.5.0` release-notes entry to
-  `charts/repo-guardian/CHANGELOG.md` calling out the default flip
-  to `baked` and the legacy opt-in:
-
-  > **Behavior change**: chart 0.5.0 defaults to baked Postgres +
-  > Valkey (`store.backend=postgres`, `queue.backend=valkey`). To
-  > preserve the previous in-memory single-replica behavior, set
-  > `store.backend=memory`, `queue.backend=memory`,
-  > `scheduler.backend=ticker` in your values.
-
-  (Open Q9 resolution.)
+- [x] Release-notes coverage for chart 0.5.0. Implementation note: the
+  defaults DID NOT flip to `baked`; the new shapes are strictly opt-in
+  (`store.backend=memory`, `queue.backend=memory`,
+  `scheduler.backend=ticker` remain the default). The original
+  "behavior change" callout from this IMPL therefore does not apply.
+  Upgrade notes captured in `charts/repo-guardian/README.md.gotmpl`'s
+  "Choosing a deployment shape" section. The chart's `CHANGELOG.md` is
+  regenerated on-the-fly by the publish workflow from
+  conventional-commit messages, so the IMPL-0011 commits' subjects
+  populate the rendered changelog automatically.
 - [x] Run `helm template ... | kubectl apply --dry-run=client` for
   each of the four shapes — verified during development; clean
   output across memory / baked / cnpg / external.
-- [ ] Update `charts/repo-guardian/README.md` with a "Choosing a
-  deployment shape" section (deferred — `docs/operations/scaling.md`
-  covers the same content for now).
+- [x] Update `charts/repo-guardian/README.md.gotmpl` with a "Choosing
+  a deployment shape" section + "Upgrade notes (chart 0.5.0)"
+  callouts. Rendered README regenerated via `make helm-docs`.
 
 #### Success Criteria
 

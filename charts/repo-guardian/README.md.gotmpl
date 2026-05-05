@@ -55,6 +55,39 @@ helm install repo-guardian \
 
 3. Once verified, set `config.dryRun: false` to enable live mode.
 
+## Choosing a deployment shape
+
+Chart 0.5.0+ supports four deployment shapes selected via the
+`store.backend`, `queue.backend`, and `scheduler.backend` values. Pick
+the row that matches your operator scenario; defaults preserve the
+single-replica memory mode.
+
+| Shape | Values | Use when |
+|-------|--------|----------|
+| **Single-replica memory** (default) | `store.backend=memory`, `queue.backend=memory`, `scheduler.backend=ticker`, `replicaCount=1` | You're trialing repo-guardian, running a homelab pilot, or reconciling fewer than ~50 repos. No external dependencies. |
+| **Baked Postgres + Valkey** | `store.backend=postgres`, `store.postgres.mode=baked`, `queue.backend=valkey`, `queue.valkey.mode=baked`, `scheduler.backend=valkey` | You want multi-replica with no external operator dependencies. Chart renders single-pod Postgres + Valkey StatefulSets with auto-generated passwords. Suitable for homelab / small dev clusters. |
+| **CNPG-managed Postgres + baked Valkey** | `store.postgres.mode=cnpg`, `queue.valkey.mode=baked` | You already run [CloudNativePG](https://cloudnative-pg.io/) in the cluster and want the operator to handle Postgres lifecycle (HA replicas, backups, monitoring). The chart renders a `Cluster` CR and an optional `Pooler` (PgBouncer) CR. |
+| **External Postgres + external Valkey** | `store.postgres.mode=external` + `existingSecret`; `queue.valkey.mode=external` + `existingSecret` | You're running a managed Postgres (RDS, Cloud SQL) and Redis-compatible service. Chart consumes the DSN from operator-supplied secrets and renders no backing resources. |
+
+For sizing knobs (`replicaCount`, `workerCount`, `maxConns`,
+`staleSweep.*`), see [docs/operations/scaling.md](../../docs/operations/scaling.md).
+For Postgres schema operations, see
+[docs/operations/migrations.md](../../docs/operations/migrations.md).
+
+### Upgrade notes (chart 0.5.0)
+
+- **No default change for existing users.** `store.backend`,
+  `queue.backend`, and `scheduler.backend` all default to the
+  single-replica memory implementations. Operators currently running
+  chart ≤ 0.4.x at `replicaCount: 1` get bit-identical behaviour
+  after upgrading; the new shapes are strictly opt-in.
+- **`terminationGracePeriodSeconds` raised to 60.** The Deployment
+  now gives workers up to 60s to drain in-flight jobs on SIGTERM.
+- **5 starter PrometheusRule alerts.** Set
+  `prometheusRule.enabled=true` to render them; each is individually
+  toggleable and threshold-tunable via
+  `prometheusRule.alerts.<name>`.
+
 ## Verifying the chart
 
 Every published version is signed with cosign (Sigstore keyless) via

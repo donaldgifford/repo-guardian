@@ -3,7 +3,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -13,12 +15,15 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/donaldgifford/repo-guardian/internal/checker"
 	"github.com/donaldgifford/repo-guardian/internal/config"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
+	"github.com/donaldgifford/repo-guardian/internal/queue"
 	memqueue "github.com/donaldgifford/repo-guardian/internal/queue/memory"
+	valkeyqueue "github.com/donaldgifford/repo-guardian/internal/queue/valkey"
 	"github.com/donaldgifford/repo-guardian/internal/reconciler"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
 	"github.com/donaldgifford/repo-guardian/internal/scheduler"
@@ -83,12 +88,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	defer cancel()
+	// Construct the queue backend. Memory is the default; Valkey
+	// engages when QUEUE_BACKEND=valkey (operator-driven via chart
+	// values). The Valkey reaper goroutine is started alongside.
+	jobQueue, valkeyReaper, err := newQueue(ctx, cfg, policyCfg.Guardian.QueueSize, logger)
+	if err != nil {
+		cancel()
 
-	// Construct the abstract queue (IMPL-0011 P1). Memory backend is
-	// the only option in this phase; STORE_BACKEND/QUEUE_BACKEND knobs
-	// guard the future Postgres/Valkey switch.
-	jobQueue := memqueue.New(policyCfg.Guardian.QueueSize)
+		if closeErr := stateStore.Close(); closeErr != nil {
+			logger.Warn("store close error during queue-init failure", "error", closeErr)
+		}
+
+		logger.Error("failed to create queue", "error", err)
+		os.Exit(1)
+	}
+
+	defer cancel()
 
 	// Initialize webhook handler against the queue.Queue interface.
 	watchedPaths := policy.ExtractWatchedPaths(policyCfg)
@@ -116,6 +131,15 @@ func main() {
 
 	// Start sweeper in background.
 	go sched.Start(ctx)
+
+	// Start Valkey reaper if running against the Valkey backend.
+	if valkeyReaper != nil {
+		go func() {
+			if err := valkeyReaper.Start(ctx); err != nil && !errors.Is(err, context.Canceled) {
+				logger.Error("valkey reaper exited", "error", err)
+			}
+		}()
+	}
 
 	// Set up and start HTTP servers.
 	mainServer := newMainServer(ctx, cfg.ListenAddr, webhookHandler)
@@ -170,6 +194,54 @@ func loadPolicyAndEngine(cfg *config.Config, strictTemplates bool, logger *slog.
 	}
 
 	return policyCfg, engine
+}
+
+// newQueue constructs the work queue from cfg. Memory is the default;
+// Valkey engages when QUEUE_BACKEND=valkey. The Valkey backend also
+// returns a Reaper that the caller should run on its own goroutine
+// for the duration of ctx; the Reaper is nil for the memory backend.
+func newQueue(ctx context.Context, cfg *config.Config, queueSize int, logger *slog.Logger) (queue.Queue, *valkeyqueue.Reaper, error) {
+	if cfg.QueueBackend != config.QueueBackendValkey {
+		logger.Info("queue backend", "kind", "memory")
+
+		return memqueue.New(queueSize), nil, nil
+	}
+
+	logger.Info("queue backend", "kind", "valkey")
+
+	parsed, err := redis.ParseURL(cfg.QueueValkeyDSN)
+	if err != nil {
+		return nil, nil, fmt.Errorf("parse QUEUE_VALKEY_DSN: %w", err)
+	}
+
+	client := redis.NewClient(parsed)
+	if err := client.Ping(ctx).Err(); err != nil {
+		if closeErr := client.Close(); closeErr != nil {
+			logger.Warn("valkey client close failed during ping-fail cleanup", "error", closeErr)
+		}
+
+		return nil, nil, fmt.Errorf("valkey ping: %w", err)
+	}
+
+	q := valkeyqueue.New(client, valkeyqueue.Options{Logger: logger})
+	r := valkeyqueue.NewReaper(q, valkeyqueue.ReaperOptions{
+		PodID:         podID(cfg),
+		Interval:      cfg.ReaperInterval,
+		JobAckTimeout: cfg.JobAckTimeout,
+		Logger:        logger,
+	})
+
+	return q, r, nil
+}
+
+// podID returns the configured pod identifier or a process-time
+// fallback. Used by leader-election locks to attribute holders.
+func podID(cfg *config.Config) string {
+	if cfg.PodID != "" {
+		return cfg.PodID
+	}
+
+	return fmt.Sprintf("repo-guardian-%d", os.Getpid())
 }
 
 // newStore constructs the persistent state store from cfg. Memory is

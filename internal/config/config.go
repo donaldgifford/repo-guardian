@@ -100,6 +100,19 @@ type Config struct {
 	// StorePostgresMaxConns caps the postgres pool connection count.
 	// Zero falls back to pgxpool's default (derived from GOMAXPROCS).
 	StorePostgresMaxConns int32
+
+	// JobAckTimeout is how long a Valkey-queued job may stay in-flight
+	// before the reaper considers it abandoned and requeues it.
+	JobAckTimeout time.Duration
+
+	// ReaperInterval is the cadence between Valkey reaper attempts.
+	ReaperInterval time.Duration
+
+	// PodID identifies the running replica for leader-election locks
+	// (Valkey reaper, Valkey scheduler). Sourced from POD_NAME via the
+	// Kubernetes downward API; falls back to a process-time random
+	// identifier if absent. See IMPL-0011 / DESIGN-0012.
+	PodID string
 }
 
 // Backend identifier constants. Defined as package-level strings so
@@ -227,6 +240,21 @@ func loadBackendConfig(cfg *Config) error {
 	}
 
 	cfg.StorePostgresMaxConns = int32(maxConns) //nolint:gosec // operator-supplied cap, narrow conversion is intentional
+
+	ackTimeout, err := envOrDefaultDuration("JOB_ACK_TIMEOUT", 5*time.Minute)
+	if err != nil {
+		return err
+	}
+
+	cfg.JobAckTimeout = ackTimeout
+
+	reaperInterval, err := envOrDefaultDuration("REAPER_INTERVAL", time.Minute)
+	if err != nil {
+		return err
+	}
+
+	cfg.ReaperInterval = reaperInterval
+	cfg.PodID = os.Getenv("POD_NAME")
 
 	return nil
 }

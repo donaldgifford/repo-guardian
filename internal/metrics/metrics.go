@@ -155,4 +155,36 @@ var (
 		Help:    "Duration of Store queries in seconds.",
 		Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5},
 	}, []string{"operation", "outcome"})
+
+	// QueueDepth tracks the current pending-job count, by backend
+	// label (memory or valkey). Registered in IMPL-0011 Phase 3; wiring
+	// into the Valkey queue is deferred to Phase 5.
+	QueueDepth = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_queue_depth",
+		Help: "Pending jobs in the work queue.",
+	}, []string{"backend"})
+
+	// QueueEnqueuedTotal counts jobs enqueued.
+	QueueEnqueuedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_queue_enqueued_total",
+		Help: "Total jobs enqueued.",
+	}, []string{"backend"})
+
+	// QueueClaimedTotal counts jobs claimed (BRPOP + ZADD in-flight).
+	QueueClaimedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_queue_claimed_total",
+		Help: "Total jobs claimed by a worker.",
+	}, []string{"backend"})
+
+	// QueueAckedTotal counts jobs successfully acknowledged.
+	QueueAckedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_queue_acked_total",
+		Help: "Total jobs acknowledged by a worker.",
+	}, []string{"backend"})
+
+	// QueueReapedTotal counts in-flight jobs requeued by the reaper.
+	QueueReapedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "repo_guardian_queue_reaped_total",
+		Help: "Total in-flight jobs requeued by the reaper.",
+	})
 )

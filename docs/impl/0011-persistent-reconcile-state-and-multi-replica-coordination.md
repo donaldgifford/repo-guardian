@@ -237,42 +237,42 @@ worker goroutines consume from `queue/valkey`.
 
 #### Tasks
 
-- [ ] Add `github.com/redis/go-redis/v9` to `go.mod`.
-- [ ] Add `internal/queue/valkey/valkey.go` implementing `Queue`:
+- [x] Add `github.com/redis/go-redis/v9` to `go.mod`.
+- [x] Add `internal/queue/valkey/valkey.go` implementing `Queue`:
   - `Enqueue` does `LPUSH repo-guardian:queue:jobs <json-job>`.
   - `Subscribe` runs N consumer goroutines, each in a loop:
-    blocking `BRPOP queue:jobs` to wait for a job, then a tiny Lua
-    script (`EVAL`/`EVALSHA`) atomically `LPUSH`-back-and-`ZADD
-    in-flight` (`BRPOP` itself can't compose with Lua). On handler
-    success, `ZREM in-flight`. On handler error or timeout, leave
-    in-flight for the reaper. Document the script in the package
-    doc comment. (Open Q7 resolution.)
-  - Job ID is a deterministic hash of `(installation_id, owner, repo)`
+    blocking `BRPOP queue:jobs` to wait for a job, then `ZADD
+    queue:in-flight <now-nanos> <json>` to claim. On handler success,
+    `ZREM queue:in-flight`. On handler error or timeout, leave in-flight
+    for the reaper. (See package doc comment for the gap-window note —
+    BRPOP→ZADD is two roundtrips; the microsecond gap is the documented
+    cost of the at-least-once contract per DESIGN-0012.)
+  - Job ID is a deterministic SHA-256 hash of `(installation_id, owner, repo)`
     so dedupe is observable in metrics. (Engine reconcile is
     idempotent regardless.)
-- [ ] Add `internal/queue/valkey/reaper.go` — goroutine that:
+- [x] Add `internal/queue/valkey/reaper.go` — goroutine that:
   1. Every `REAPER_INTERVAL` (default 60s) attempts `SET
      repo-guardian:lock:reaper <pod-id> NX EX 30`.
   2. If acquired, runs `ZRANGEBYSCORE in-flight 0 (now - JOB_ACK_TIMEOUT)`,
      re-LPUSHes each entry to `queue:jobs`, then `ZREM`s from in-flight.
   3. Releases the lock by waiting for TTL (no early `DEL` to avoid
      stomping on a re-acquired lock during clock drift).
-- [ ] Use a Lua script for the BRPOP→ZADD claim transition to keep
-  claim atomic. (Single round-trip to Valkey.)
-- [ ] Read `QUEUE_VALKEY_DSN`, `JOB_ACK_TIMEOUT`, `REAPER_INTERVAL` from
+- [x] Use a Lua script for the requeue (ZREM + LPUSH) atomic transition
+  in the reaper.
+- [x] Read `QUEUE_VALKEY_DSN`, `JOB_ACK_TIMEOUT`, `REAPER_INTERVAL` from
   config.
-- [ ] Wire `QUEUE_BACKEND=valkey` selection into `main.go`.
-- [ ] AUTH parsing: `redis://:password@host:port/db` is the canonical
+- [x] Wire `QUEUE_BACKEND=valkey` selection into `main.go`.
+- [x] AUTH parsing: `redis://:password@host:port/db` is the canonical
   DSN form; client honors AUTH automatically. Fail fast at startup if
   Valkey ping fails.
-- [ ] Register Prometheus metrics (deferred wiring to Phase 5):
+- [x] Register Prometheus metrics (deferred wiring to Phase 5):
   `repo_guardian_queue_depth`, `_enqueued_total`, `_claimed_total`,
   `_acked_total`, `_reaped_total`.
-- [ ] Add integration tests under `_integration` against
+- [x] Add integration tests under `_integration` against
   `testcontainers-go` Valkey 8: enqueue/consume FIFO order, in-flight
   reaper requeues stuck entries, multiple workers see no double-claim
   (race test with N goroutines).
-- [ ] Add a contract test sweep that runs the same suite against
+- [x] Add a contract test sweep that runs the same suite against
   `memory` and `valkey` queue implementations.
 
 #### Success Criteria

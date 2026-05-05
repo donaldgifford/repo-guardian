@@ -102,8 +102,10 @@ func main() {
 
 	var webhookHandler http.Handler = webhook.NewHandler(cfg.GitHubWebhookSecret, queue, logger, watchedPaths)
 
-	// Initialize scheduler using policy guardian config.
-	sched := scheduler.NewScheduler(
+	// Initialize sweeper using policy guardian config. Renamed from
+	// scheduler.NewScheduler under IMPL-0011 Phase 1 to free up the
+	// Scheduler name for the new abstract interface.
+	sched := scheduler.NewSweeper(
 		client,
 		queue,
 		policyCfg.Guardian.ParsedScheduleInterval,

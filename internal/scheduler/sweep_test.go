@@ -167,7 +167,7 @@ func TestReconcileAll(t *testing.T) {
 
 	q := checker.NewQueue(100, slog.Default())
 
-	s := NewScheduler(client, q, time.Hour, slog.Default(), true, true)
+	s := NewSweeper(client, q, time.Hour, slog.Default(), true, true)
 	s.reconcileAll(context.Background())
 
 	if qLen := q.Len(); qLen != 6 {
@@ -190,7 +190,7 @@ func TestReconcileAll_SkipsArchived(t *testing.T) {
 
 	q := checker.NewQueue(100, slog.Default())
 
-	s := NewScheduler(client, q, time.Hour, slog.Default(), true, true)
+	s := NewSweeper(client, q, time.Hour, slog.Default(), true, true)
 	s.reconcileAll(context.Background())
 
 	if qLen := q.Len(); qLen != 1 {
@@ -211,7 +211,7 @@ func TestStart_RunsOnStartup(t *testing.T) {
 
 	q := checker.NewQueue(100, slog.Default())
 
-	s := NewScheduler(client, q, 24*time.Hour, slog.Default(), true, true)
+	s := NewSweeper(client, q, 24*time.Hour, slog.Default(), true, true)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -242,7 +242,7 @@ func TestStart_RespectsContextCancellation(t *testing.T) {
 	client := newMockClient()
 	q := checker.NewQueue(100, slog.Default())
 
-	s := NewScheduler(client, q, time.Hour, slog.Default(), true, true)
+	s := NewSweeper(client, q, time.Hour, slog.Default(), true, true)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -269,7 +269,7 @@ func TestReconcileAll_ListInstallationsError(t *testing.T) {
 
 	q := checker.NewQueue(100, slog.Default())
 
-	s := NewScheduler(client, q, time.Hour, slog.Default(), true, true)
+	s := NewSweeper(client, q, time.Hour, slog.Default(), true, true)
 	s.reconcileAll(context.Background())
 
 	if qLen := q.Len(); qLen != 0 {

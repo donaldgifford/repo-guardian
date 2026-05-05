@@ -123,14 +123,14 @@ equivalent to today's `internal/checker/queue.go` + `internal/scheduler/`.
 
 #### Tasks
 
-- [ ] Add `internal/store/store.go` with `RepoState` struct (incl.
+- [x] Add `internal/store/store.go` with `RepoState` struct (incl.
   `PolicyVersion`) and `Store` interface as defined in DESIGN-0012.
-- [ ] Add `internal/store/memory/memory.go` — map-backed implementation,
+- [x] Add `internal/store/memory/memory.go` — map-backed implementation,
   thread-safe via `sync.RWMutex`, full contract coverage incl.
   `StaleRepos(freshness, currentPolicyVersion, limit)`.
-- [ ] Add `internal/queue/queue.go` with `Job` struct and `Queue`
+- [x] Add `internal/queue/queue.go` with `Job` struct and `Queue`
   interface (`Enqueue`, `Subscribe`, `Close`).
-- [ ] Add `internal/queue/memory/memory.go` — buffered channel
+- [x] Add `internal/queue/memory/memory.go` — buffered channel
   implementation; `Subscribe` is a goroutine consuming from the channel.
 - [ ] Add `internal/scheduler/scheduler.go` with `Scheduler` interface
   (`Schedule(name, interval, handler)`, `Stop`).

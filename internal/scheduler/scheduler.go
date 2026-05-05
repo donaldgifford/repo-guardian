@@ -1,128 +1,23 @@
-// Package scheduler implements a periodic reconciliation loop that
-// enqueues all installed repositories for compliance checks.
 package scheduler
 
 import (
 	"context"
-	"log/slog"
 	"time"
-
-	"github.com/donaldgifford/repo-guardian/internal/checker"
-	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 )
 
-// Scheduler periodically reconciles all repositories across all
-// GitHub App installations.
-type Scheduler struct {
-	client       ghclient.Client
-	queue        *checker.Queue
-	interval     time.Duration
-	logger       *slog.Logger
-	skipForks    bool
-	skipArchived bool
-}
-
-// NewScheduler creates a new Scheduler.
-func NewScheduler(
-	client ghclient.Client,
-	queue *checker.Queue,
-	interval time.Duration,
-	logger *slog.Logger,
-	skipForks, skipArchived bool,
-) *Scheduler {
-	return &Scheduler{
-		client:       client,
-		queue:        queue,
-		interval:     interval,
-		logger:       logger,
-		skipForks:    skipForks,
-		skipArchived: skipArchived,
-	}
-}
-
-// Start begins the reconciliation loop. It runs reconcileAll immediately
-// on startup, then repeats at the configured interval. It blocks until
-// the context is canceled.
-func (s *Scheduler) Start(ctx context.Context) {
-	s.logger.Info("scheduler starting", "interval", s.interval)
-
-	// Run once on startup.
-	s.reconcileAll(ctx)
-
-	ticker := time.NewTicker(s.interval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			s.logger.Info("scheduler stopped")
-			return
-		case <-ticker.C:
-			s.reconcileAll(ctx)
-		}
-	}
-}
-
-// reconcileAll lists all installations and their repos, enqueuing each for checking.
-func (s *Scheduler) reconcileAll(ctx context.Context) {
-	start := time.Now()
-	s.logger.Info("starting reconciliation")
-
-	installations, err := s.client.ListInstallations(ctx)
-	if err != nil {
-		s.logger.Error("failed to list installations", "error", err)
-		return
-	}
-
-	var enqueued int
-
-	for _, install := range installations {
-		repos, err := s.client.ListInstallationRepos(ctx, install.ID)
-		if err != nil {
-			s.logger.Error("failed to list repos for installation",
-				"installation_id", install.ID,
-				"error", err,
-			)
-
-			continue
-		}
-
-		for _, repo := range repos {
-			// Pre-filter archived and forked repos to avoid enqueuing work
-			// that the engine would skip anyway. The engine performs the
-			// authoritative check — this is an optimization to reduce
-			// unnecessary GitHub API calls during reconciliation.
-			if s.skipArchived && repo.Archived {
-				continue
-			}
-
-			if s.skipForks && repo.Fork {
-				continue
-			}
-
-			job := checker.RepoJob{
-				Owner:          repo.Owner,
-				Repo:           repo.Name,
-				InstallationID: install.ID,
-				Trigger:        checker.TriggerScheduler,
-			}
-
-			if err := s.queue.Enqueue(job); err != nil {
-				s.logger.Error("failed to enqueue repo",
-					"owner", repo.Owner,
-					"repo", repo.Name,
-					"error", err,
-				)
-
-				continue
-			}
-
-			enqueued++
-		}
-	}
-
-	s.logger.Info("reconciliation complete",
-		"enqueued", enqueued,
-		"duration", time.Since(start),
-	)
+// Scheduler runs periodic handlers on a configurable interval. The
+// abstraction exists to swap the single-replica `time.Ticker` impl
+// (`scheduler/ticker`) for the cluster-coordinated Valkey impl
+// (`scheduler/valkey`, IMPL-0011 Phase 4) without touching call sites.
+//
+// Schedule registers a named handler that fires every interval until
+// either ctx is cancelled or Stop is called. Multiple Schedule calls
+// register independent handlers. The implementation determines whether
+// a tick fires on every replica (ticker) or only on a leader (valkey).
+//
+// Stop releases all timers and waits for in-flight handlers to return.
+// Idempotent.
+type Scheduler interface {
+	Schedule(ctx context.Context, name string, interval time.Duration, handler func(context.Context) error) error
+	Stop() error
 }

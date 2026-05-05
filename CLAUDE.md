@@ -40,8 +40,11 @@ internal/
   rules/      → FileRule registry + TemplateStore (embedded fallback templates)
   template/   → unified text/template renderer (Renderer/Compiled, FileVars/PRVars contexts, curated helpers, ValidateZero strict-mode validator)
   webhook/    → HTTP handler for GitHub webhook events (HMAC-validated) + IP allowlist middleware + push event handler
-  scheduler/  → in-process ticker for weekly reconciliation
+  scheduler/  → in-process ticker for weekly reconciliation; abstract Scheduler interface (IMPL-0011 P1) with ticker/ subpackage; legacy Sweeper struct retained for backward compat until Phase 4 wires Schedule.Schedule
   metrics/    → Prometheus metrics (21 metrics total, most labeled with org)
+  store/      → persistent per-repo state interface (IMPL-0011 P1) + memory/ implementation; postgres/ to come in Phase 2
+  queue/      → abstract work-queue interface (IMPL-0011 P1) + memory/ buffered-channel implementation; valkey/ to come in Phase 3
+  worker/     → in-process worker pool consuming queue.Queue.Subscribe (IMPL-0011 P1); replaces legacy internal/checker/queue.go
 charts/
   repo-guardian/ → Helm chart (recommended deployment method)
 deploy/

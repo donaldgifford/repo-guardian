@@ -1,0 +1,34 @@
+---
+# Mockery v2 configuration. Generates mocks for the IMPL-0011
+# interfaces introduced in DESIGN-0012 (Store, Queue, Scheduler).
+#
+# Run: make mocks
+# Lint: regenerated mocks must match committed mocks (CI gate).
+#
+# Hand-written mocks for the legacy github.Client interface are NOT
+# managed here — see CLAUDE.md "Mock generation policy" for the
+# coexistence rules.
+
+with-expecter: true
+inpackage: false
+filename: "{{ .InterfaceName | snakecase }}_mock.go"
+mockname: "Mock{{ .InterfaceName }}"
+outpkg: mocks
+disable-version-string: true
+
+packages:
+  github.com/donaldgifford/repo-guardian/internal/store:
+    config:
+      dir: "internal/store/mocks"
+    interfaces:
+      Store:
+  github.com/donaldgifford/repo-guardian/internal/queue:
+    config:
+      dir: "internal/queue/mocks"
+    interfaces:
+      Queue:
+  github.com/donaldgifford/repo-guardian/internal/scheduler:
+    config:
+      dir: "internal/scheduler/mocks"
+    interfaces:
+      Scheduler:

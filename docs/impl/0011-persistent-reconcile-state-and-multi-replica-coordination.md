@@ -146,14 +146,16 @@ equivalent to today's `internal/checker/queue.go` + `internal/scheduler/`.
   pool count comes from `WORKER_CONCURRENCY`.
 - [ ] Refactor `internal/scheduler/`: keep the existing weekly tick logic
   but move it behind `Scheduler.Schedule(name="sweep", interval=...)`.
-- [ ] Update `internal/config/` to read `STORE_BACKEND`, `QUEUE_BACKEND`,
+- [x] Update `internal/config/` to read `STORE_BACKEND`, `QUEUE_BACKEND`,
   `SCHEDULER_BACKEND` (all default to their `memory`/`ticker` flavors in
   this phase). New types live alongside existing config struct.
-- [ ] Add `policyVersion()` helper in `internal/policy/`: SHA-256 of
+- [x] Add `policyVersion()` helper in `internal/policy/`: SHA-256 of
   canonical-JSON-marshaled `PolicyConfig` (sorted keys), followed by
   `(name, content)` pairs from `TemplateStore` in sorted order. Hash
   must change when policy OR template content OR env-var overrides
   change. Wire it through to the Engine. (Open Q4 resolution.)
+  Implemented as `policy.Version(cfg, templates)`. Engine wiring is
+  deferred to Phase 5 along with the sweep handler that consumes it.
 - [ ] Set up `.mockery.yaml` v2 config covering `Store`, `Queue`,
   `Scheduler`. Output to `internal/<pkg>/mocks/`.
 - [ ] Add `make mocks` target. Reference it from `make ci`.

@@ -89,6 +89,11 @@ fmt: ## Format code with gofmt and goimports
 	@goimports -w $(GOIMPORTS_LOCAL_ARG) .
 	@goimports -w $(GOIMPORTS_LOCAL_ARG)  cmd/ internal/
 
+mocks: ## Regenerate mockery mocks for the IMPL-0011 interfaces (Store, Queue, Scheduler)
+	@ $(MAKE) --no-print-directory log-$@
+	@mockery
+	@echo "✓ Mocks regenerated under internal/*/mocks/"
+
 clean: ## Remove build artifacts
 	@ $(MAKE) --no-print-directory log-$@
 	@rm -rf $(BIN_DIR)/

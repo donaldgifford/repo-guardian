@@ -96,6 +96,10 @@ type Config struct {
 	// backend (when QueueBackend=="valkey"). Same Valkey instance is
 	// reused by SchedulerBackend=="valkey".
 	QueueValkeyDSN string
+
+	// StorePostgresMaxConns caps the postgres pool connection count.
+	// Zero falls back to pgxpool's default (derived from GOMAXPROCS).
+	StorePostgresMaxConns int32
 }
 
 // Backend identifier constants. Defined as package-level strings so
@@ -199,7 +203,9 @@ func Load() (*Config, error) {
 	cfg.TrustProxyHeaders = trustProxyHeaders
 	cfg.GuardianConfigPath = os.Getenv("GUARDIAN_CONFIG")
 
-	loadBackendConfig(cfg)
+	if err := loadBackendConfig(cfg); err != nil {
+		return nil, err
+	}
 
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -208,12 +214,21 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-func loadBackendConfig(cfg *Config) {
+func loadBackendConfig(cfg *Config) error {
 	cfg.StoreBackend = envOrDefault("STORE_BACKEND", StoreBackendMemory)
 	cfg.QueueBackend = envOrDefault("QUEUE_BACKEND", QueueBackendMemory)
 	cfg.SchedulerBackend = envOrDefault("SCHEDULER_BACKEND", SchedulerBackendTicker)
 	cfg.StoreDSN = os.Getenv("STORE_DSN")
 	cfg.QueueValkeyDSN = os.Getenv("QUEUE_VALKEY_DSN")
+
+	maxConns, err := envOrDefaultInt("STORE_POSTGRES_MAX_CONNS", 0)
+	if err != nil {
+		return err
+	}
+
+	cfg.StorePostgresMaxConns = int32(maxConns) //nolint:gosec // operator-supplied cap, narrow conversion is intentional
+
+	return nil
 }
 
 // Validate checks that required configuration fields are set.

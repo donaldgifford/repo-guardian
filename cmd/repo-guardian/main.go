@@ -22,6 +22,9 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/reconciler"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
 	"github.com/donaldgifford/repo-guardian/internal/scheduler"
+	"github.com/donaldgifford/repo-guardian/internal/store"
+	memstore "github.com/donaldgifford/repo-guardian/internal/store/memory"
+	pgstore "github.com/donaldgifford/repo-guardian/internal/store/postgres"
 	"github.com/donaldgifford/repo-guardian/internal/webhook"
 	"github.com/donaldgifford/repo-guardian/internal/worker"
 )
@@ -61,39 +64,26 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Load policy configuration.
-	policyCfg, err := policy.Load(cfg.GuardianConfigPath)
+	policyCfg, engine := loadPolicyAndEngine(cfg, *strictTemplates, logger)
+
+	// Set up context for graceful shutdown. Created early so the store
+	// backend (which may need to ping a remote DB) can use it.
+	// `cancel` is deferred *after* the store-creation gate to avoid the
+	// gocritic exitAfterDefer trap — `os.Exit` would skip the deferred
+	// cancel on a startup failure.
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Construct the abstract Store backend. Memory is the default;
+	// postgres engages when STORE_BACKEND=postgres (operator-driven via
+	// chart values) or implicitly when STORE_DSN is set.
+	stateStore, err := newStore(ctx, cfg, logger)
 	if err != nil {
-		logger.Error("failed to load policy config", "error", err)
+		cancel()
+		logger.Error("failed to create store", "error", err)
 		os.Exit(1)
 	}
 
-	if cfg.GuardianConfigPath != "" {
-		logger.Info("loaded policy config", "path", cfg.GuardianConfigPath)
-	} else {
-		logger.Info("using built-in default policy")
-	}
-
-	runStrictTemplateValidation(*strictTemplates, policyCfg, logger)
-
-	// Initialize template store.
-	templates := rules.NewTemplateStore()
-	if err := templates.Load(cfg.TemplateDir); err != nil {
-		logger.Error("failed to load templates", "error", err)
-		os.Exit(1)
-	}
-
-	// Initialize checker engine from policy config.
-	engine, err := checker.NewEngineFromPolicy(
-		policyCfg,
-		templates,
-		logger,
-		newReconcilerRegistry(templates),
-	)
-	if err != nil {
-		logger.Error("failed to create checker engine", "error", err)
-		os.Exit(1)
-	}
+	defer cancel()
 
 	// Construct the abstract queue (IMPL-0011 P1). Memory backend is
 	// the only option in this phase; STORE_BACKEND/QUEUE_BACKEND knobs
@@ -115,10 +105,6 @@ func main() {
 		policyCfg.Guardian.SkipForks,
 		policyCfg.Guardian.SkipArchived,
 	)
-
-	// Set up context for graceful shutdown.
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	webhookHandler = wrapWebhookAllowlist(ctx, webhookHandler, &policyCfg.Guardian, logger)
 
@@ -143,7 +129,68 @@ func main() {
 	cancel()
 
 	// Graceful shutdown.
-	gracefulShutdown(logger, jobQueue, workerPool, mainServer, metricsServer)
+	gracefulShutdown(logger, jobQueue, stateStore, workerPool, mainServer, metricsServer)
+}
+
+// loadPolicyAndEngine loads the operator's HCL policy, runs strict
+// template validation when enabled, loads the template store, and
+// constructs the checker engine. Any failure exits the process.
+// Extracted from main() to keep the entrypoint under the funlen
+// statement budget.
+func loadPolicyAndEngine(cfg *config.Config, strictTemplates bool, logger *slog.Logger) (*policy.PolicyConfig, *checker.Engine) {
+	policyCfg, err := policy.Load(cfg.GuardianConfigPath)
+	if err != nil {
+		logger.Error("failed to load policy config", "error", err)
+		os.Exit(1)
+	}
+
+	if cfg.GuardianConfigPath != "" {
+		logger.Info("loaded policy config", "path", cfg.GuardianConfigPath)
+	} else {
+		logger.Info("using built-in default policy")
+	}
+
+	runStrictTemplateValidation(strictTemplates, policyCfg, logger)
+
+	templates := rules.NewTemplateStore()
+	if err := templates.Load(cfg.TemplateDir); err != nil {
+		logger.Error("failed to load templates", "error", err)
+		os.Exit(1)
+	}
+
+	engine, err := checker.NewEngineFromPolicy(
+		policyCfg,
+		templates,
+		logger,
+		newReconcilerRegistry(templates),
+	)
+	if err != nil {
+		logger.Error("failed to create checker engine", "error", err)
+		os.Exit(1)
+	}
+
+	return policyCfg, engine
+}
+
+// newStore constructs the persistent state store from cfg. Memory is
+// the default; postgres engages when STORE_BACKEND=postgres. When
+// STORE_BACKEND=postgres the binary applies migrations before opening
+// the pool — failure aborts startup so we never serve traffic against
+// a stale schema.
+func newStore(ctx context.Context, cfg *config.Config, logger *slog.Logger) (store.Store, error) {
+	if cfg.StoreBackend != config.StoreBackendPostgres {
+		logger.Info("store backend", "kind", "memory")
+
+		return memstore.New(), nil
+	}
+
+	logger.Info("store backend", "kind", "postgres")
+
+	if err := pgstore.Migrate(cfg.StoreDSN); err != nil {
+		return nil, err
+	}
+
+	return pgstore.New(ctx, cfg.StoreDSN, cfg.StorePostgresMaxConns, logger)
 }
 
 func newMainServer(runCtx context.Context, addr string, webhookHandler http.Handler) *http.Server {
@@ -193,7 +240,13 @@ func awaitShutdown(ctx context.Context, logger *slog.Logger) {
 	}
 }
 
-func gracefulShutdown(logger *slog.Logger, jobQueue interface{ Close() error }, workerPool interface{ Stop() }, servers ...*http.Server) {
+func gracefulShutdown(
+	logger *slog.Logger,
+	jobQueue interface{ Close() error },
+	stateStore interface{ Close() error },
+	workerPool interface{ Stop() },
+	servers ...*http.Server,
+) {
 	logger.Info("shutting down")
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
@@ -209,6 +262,10 @@ func gracefulShutdown(logger *slog.Logger, jobQueue interface{ Close() error }, 
 
 	if err := jobQueue.Close(); err != nil {
 		logger.Warn("job queue close error", "error", err)
+	}
+
+	if err := stateStore.Close(); err != nil {
+		logger.Warn("store close error", "error", err)
 	}
 
 	logger.Info("repo-guardian stopped")

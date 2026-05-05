@@ -190,32 +190,32 @@ startup. Freshness gate plumbed through the sweep handler.
 
 #### Tasks
 
-- [ ] Add `pgx/v5` and `golang-migrate/migrate/v4` to `go.mod`.
-- [ ] Create `internal/store/postgres/migrations/` with `embed.FS` and
+- [x] Add `pgx/v5` and `golang-migrate/migrate/v4` to `go.mod`.
+- [x] Create `internal/store/postgres/migrations/` with `embed.FS` and
   `0001_init.up.sql` / `0001_init.down.sql` containing the `repo_state`
   schema from DESIGN-0012 §Data Model.
-- [ ] Add `internal/store/postgres/postgres.go` implementing `Store`
+- [x] Add `internal/store/postgres/postgres.go` implementing `Store`
   against a `*pgxpool.Pool`. All queries parameterized; `StaleRepos`
   expressed as `WHERE last_checked_at IS NULL OR last_checked_at < $1
   OR policy_version <> $2 ORDER BY last_checked_at NULLS FIRST LIMIT $3`.
-- [ ] Add `internal/store/postgres/migrate.go` — runs `migrate.Up()` at
+- [x] Add `internal/store/postgres/migrate.go` — runs `migrate.Up()` at
   startup, fails the binary if migrations fail. Uses pgx-backed driver.
-- [ ] Read `STORE_DSN` and `STORE_POSTGRES_MAX_CONNS` from config; build
+- [x] Read `STORE_DSN` and `STORE_POSTGRES_MAX_CONNS` from config; build
   `pgxpool.Config` with the connection cap.
-- [ ] Wire `STORE_BACKEND=postgres` selection into `main.go`. Default
+- [x] Wire `STORE_BACKEND=postgres` selection into `main.go`. Default
   value of `STORE_BACKEND` flips to `postgres` in this phase only when
   `STORE_DSN` is set; otherwise stays `memory` (chart drives the choice
   via env vars; binary alone is forgiving).
-- [ ] Add `Store.Close()` semantics: drain pool with timeout, log on
+- [x] Add `Store.Close()` semantics: drain pool with timeout, log on
   shutdown.
-- [ ] Add `repo_guardian_store_query_seconds` histogram (deferred wiring
+- [x] Add `repo_guardian_store_query_seconds` histogram (deferred wiring
   to Phase 5; just register here).
-- [ ] Tag the integration tests `_integration` and add testcontainers-go
+- [x] Tag the integration tests `_integration` and add testcontainers-go
   dependency. New file
   `internal/store/postgres/postgres_integration_test.go` exercises:
   upsert + read-back, stale query honoring freshness, stale query
   honoring policy-version mismatch, idempotent migration apply.
-- [ ] Add `make test-integration` target that runs `go test -tags=integration ./...`.
+- [x] Add `make test-integration` target that runs `go test -tags=integration ./...`.
 
 #### Success Criteria
 

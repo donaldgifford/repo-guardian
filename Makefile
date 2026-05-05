@@ -72,6 +72,10 @@ test-coverage: ## Run tests with coverage report
 	@ $(MAKE) --no-print-directory log-$@
 	@go test -v -race -coverprofile=$(COVERAGE_OUT) ./...
 
+test-integration: ## Run integration tests (requires Docker for testcontainers)
+	@ $(MAKE) --no-print-directory log-$@
+	@go test -v -race -tags=integration ./...
+
 
 ## Code Quality
 

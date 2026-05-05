@@ -144,4 +144,15 @@ var (
 		Name: "repo_guardian_out_of_scope_total",
 		Help: "Rule evaluations skipped by strict-mode scope, by level (policy or rule) and org.",
 	}, []string{"level", "org"})
+
+	// StoreQuerySeconds records the time taken by individual Store
+	// queries. Labeled by operation (get, update, stale, migrate) and
+	// outcome (ok, error). Registered in IMPL-0011 Phase 2; wiring into
+	// the postgres Store is deferred to Phase 5 to keep observability
+	// changes ring-fenced.
+	StoreQuerySeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "repo_guardian_store_query_seconds",
+		Help:    "Duration of Store queries in seconds.",
+		Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5},
+	}, []string{"operation", "outcome"})
 )

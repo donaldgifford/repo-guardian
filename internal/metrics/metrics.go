@@ -187,4 +187,12 @@ var (
 		Name: "repo_guardian_queue_reaped_total",
 		Help: "Total in-flight jobs requeued by the reaper.",
 	})
+
+	// SchedulerIsLeader is a gauge labeled by pod that exports 1 when
+	// the named pod holds the scheduler leader lock and 0 otherwise.
+	// Registered in IMPL-0011 Phase 4; wiring deferred to Phase 5.
+	SchedulerIsLeader = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_scheduler_is_leader",
+		Help: "1 when this pod holds the scheduler leader lock for the named handler, 0 otherwise.",
+	}, []string{"name", "pod"})
 )

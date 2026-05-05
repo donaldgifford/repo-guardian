@@ -40,7 +40,7 @@ internal/
   rules/      → FileRule registry + TemplateStore (embedded fallback templates)
   template/   → unified text/template renderer (Renderer/Compiled, FileVars/PRVars contexts, curated helpers, ValidateZero strict-mode validator)
   webhook/    → HTTP handler for GitHub webhook events (HMAC-validated) + IP allowlist middleware + push event handler
-  scheduler/  → in-process ticker for weekly reconciliation; abstract Scheduler interface (IMPL-0011 P1) with ticker/ subpackage; legacy Sweeper struct retained for backward compat until Phase 4 wires Schedule.Schedule
+  scheduler/  → abstract Scheduler interface (IMPL-0011 P1) + ticker/ + valkey/ (SETNX leader-election); main.go drives sweep cadence via Schedule, Sweeper.ReconcileAll is the handler
   metrics/    → Prometheus metrics (28 metrics total, most labeled with org; queue_* + store_query_seconds added IMPL-0011 P2/P3)
   store/      → persistent per-repo state interface (IMPL-0011 P1) + memory/ + postgres/ (pgx/v5 + pgxpool, golang-migrate embedded SQL)
   queue/      → abstract work-queue interface (IMPL-0011 P1) + memory/ buffered-channel + valkey/ (LIST + ZSET + reaper goroutine, leader-elected via SETNX)

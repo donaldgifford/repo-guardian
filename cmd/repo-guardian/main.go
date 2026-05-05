@@ -27,6 +27,8 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/reconciler"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
 	"github.com/donaldgifford/repo-guardian/internal/scheduler"
+	"github.com/donaldgifford/repo-guardian/internal/scheduler/ticker"
+	valkeyscheduler "github.com/donaldgifford/repo-guardian/internal/scheduler/valkey"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	memstore "github.com/donaldgifford/repo-guardian/internal/store/memory"
 	pgstore "github.com/donaldgifford/repo-guardian/internal/store/postgres"
@@ -37,6 +39,13 @@ import (
 const shutdownTimeout = 15 * time.Second
 
 func main() {
+	if err := run(); err != nil {
+		slog.Error("repo-guardian exited with error", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	// CLI flag wins over env var (standard Go convention; supports CI
 	// one-off runs without touching the Deployment env).
 	strictTemplates := flag.Bool(
@@ -46,14 +55,11 @@ func main() {
 	)
 	flag.Parse()
 
-	// Load configuration.
 	cfg, err := config.Load()
 	if err != nil {
-		slog.Error("failed to load config", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("load config: %w", err)
 	}
 
-	// Initialize logger.
 	logger := initLogger(cfg.LogLevel)
 	slog.SetDefault(logger)
 
@@ -62,98 +68,130 @@ func main() {
 		"metrics_addr", cfg.MetricsAddr,
 	)
 
-	// Initialize GitHub client.
 	client, err := newGitHubClient(cfg, logger)
 	if err != nil {
-		logger.Error("failed to create GitHub client", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("create github client: %w", err)
 	}
 
 	policyCfg, engine := loadPolicyAndEngine(cfg, *strictTemplates, logger)
 
-	// Set up context for graceful shutdown. Created early so the store
-	// backend (which may need to ping a remote DB) can use it.
-	// `cancel` is deferred *after* the store-creation gate to avoid the
-	// gocritic exitAfterDefer trap — `os.Exit` would skip the deferred
-	// cancel on a startup failure.
 	ctx, cancel := context.WithCancel(context.Background())
-
-	// Construct the abstract Store backend. Memory is the default;
-	// postgres engages when STORE_BACKEND=postgres (operator-driven via
-	// chart values) or implicitly when STORE_DSN is set.
-	stateStore, err := newStore(ctx, cfg, logger)
-	if err != nil {
-		cancel()
-		logger.Error("failed to create store", "error", err)
-		os.Exit(1)
-	}
-
-	// Construct the queue backend. Memory is the default; Valkey
-	// engages when QUEUE_BACKEND=valkey (operator-driven via chart
-	// values). The Valkey reaper goroutine is started alongside.
-	jobQueue, valkeyReaper, err := newQueue(ctx, cfg, policyCfg.Guardian.QueueSize, logger)
-	if err != nil {
-		cancel()
-
-		if closeErr := stateStore.Close(); closeErr != nil {
-			logger.Warn("store close error during queue-init failure", "error", closeErr)
-		}
-
-		logger.Error("failed to create queue", "error", err)
-		os.Exit(1)
-	}
-
 	defer cancel()
 
-	// Initialize webhook handler against the queue.Queue interface.
-	watchedPaths := policy.ExtractWatchedPaths(policyCfg)
-
-	var webhookHandler http.Handler = webhook.NewHandler(cfg.GitHubWebhookSecret, jobQueue, logger, watchedPaths)
-
-	// Initialize sweeper. Sweeper now consumes queue.Queue (interface)
-	// — same code path will work against the future Valkey queue.
-	sched := scheduler.NewSweeper(
-		client,
-		jobQueue,
-		policyCfg.Guardian.ParsedScheduleInterval,
-		logger,
-		policyCfg.Guardian.SkipForks,
-		policyCfg.Guardian.SkipArchived,
-	)
-
-	webhookHandler = wrapWebhookAllowlist(ctx, webhookHandler, &policyCfg.Guardian, logger)
-
-	// Construct and start the worker pool. Workers consume queue.Subscribe
-	// and dispatch to engine.CheckRepo (replaces the legacy
-	// checker.Queue.Start path).
-	workerPool := worker.New(jobQueue, engine, client, policyCfg.Guardian.WorkerCount, logger)
-	workerPool.Start(ctx)
-
-	// Start sweeper in background.
-	go sched.Start(ctx)
-
-	// Start Valkey reaper if running against the Valkey backend.
-	if valkeyReaper != nil {
-		go func() {
-			if err := valkeyReaper.Start(ctx); err != nil && !errors.Is(err, context.Canceled) {
-				logger.Error("valkey reaper exited", "error", err)
-			}
-		}()
+	rt, err := bringUp(ctx, cfg, policyCfg, engine, client, logger)
+	if err != nil {
+		return err
 	}
 
-	// Set up and start HTTP servers.
+	webhookHandler := wrapWebhookAllowlist(ctx, rt.webhookHandler, &policyCfg.Guardian, logger)
+
 	mainServer := newMainServer(ctx, cfg.ListenAddr, webhookHandler)
 	metricsServer := newMetricsServer(cfg.MetricsAddr)
 
 	startServer(logger, mainServer, "main", cfg.ListenAddr, cancel)
 	startServer(logger, metricsServer, "metrics", cfg.MetricsAddr, cancel)
 
-	// Wait for shutdown signal.
 	awaitShutdown(ctx, logger)
 	cancel()
 
-	// Graceful shutdown.
-	gracefulShutdown(logger, jobQueue, stateStore, workerPool, mainServer, metricsServer)
+	if err := rt.sched.Stop(); err != nil {
+		logger.Warn("scheduler stop error", "error", err)
+	}
+
+	gracefulShutdown(logger, rt.jobQueue, rt.stateStore, rt.qw.rclient, rt.workerPool, mainServer, metricsServer)
+
+	return nil
+}
+
+// closeAndLog runs the close func and logs at WARN if it returned a
+// non-nil error. Used by bringUp's failure paths to release partial
+// resources without producing errcheck noise.
+func closeAndLog(logger *slog.Logger, what string, fn func() error) {
+	if err := fn(); err != nil {
+		logger.Warn(what, "error", err)
+	}
+}
+
+// runtime bundles every long-lived resource constructed at startup
+// so the entrypoint can finish bring-up in a single call.
+type runtime struct {
+	stateStore     store.Store
+	qw             queueWiring
+	jobQueue       queue.Queue
+	sched          scheduler.Scheduler
+	workerPool     *worker.Pool
+	webhookHandler http.Handler
+}
+
+// bringUp constructs every long-lived resource and starts the
+// background goroutines (worker pool, valkey reaper, scheduler).
+// On failure it tears down anything already constructed before
+// returning the error so the caller can exit cleanly.
+func bringUp(
+	ctx context.Context,
+	cfg *config.Config,
+	policyCfg *policy.PolicyConfig,
+	engine *checker.Engine,
+	client ghclient.Client,
+	logger *slog.Logger,
+) (*runtime, error) {
+	stateStore, err := newStore(ctx, cfg, logger)
+	if err != nil {
+		return nil, fmt.Errorf("create store: %w", err)
+	}
+
+	qw, err := newQueue(ctx, cfg, policyCfg.Guardian.QueueSize, logger)
+	if err != nil {
+		closeAndLog(logger, "store close after queue-init failure", stateStore.Close)
+
+		return nil, fmt.Errorf("create queue: %w", err)
+	}
+
+	sched, err := newScheduler(cfg, logger, qw.rclient)
+	if err != nil {
+		closeAndLog(logger, "store close after scheduler-init failure", stateStore.Close)
+
+		return nil, fmt.Errorf("create scheduler: %w", err)
+	}
+
+	sweeper := scheduler.NewSweeper(
+		client,
+		qw.queue,
+		policyCfg.Guardian.ParsedScheduleInterval,
+		logger,
+		policyCfg.Guardian.SkipForks,
+		policyCfg.Guardian.SkipArchived,
+	)
+
+	if err := sched.Schedule(ctx, "sweep", policyCfg.Guardian.ParsedScheduleInterval, sweeper.ReconcileAll); err != nil {
+		closeAndLog(logger, "scheduler stop after schedule-call failure", sched.Stop)
+		closeAndLog(logger, "store close after schedule-call failure", stateStore.Close)
+
+		return nil, fmt.Errorf("schedule sweep: %w", err)
+	}
+
+	workerPool := worker.New(qw.queue, engine, client, policyCfg.Guardian.WorkerCount, logger)
+	workerPool.Start(ctx)
+
+	if qw.reaper != nil {
+		go func() {
+			if err := qw.reaper.Start(ctx); err != nil && !errors.Is(err, context.Canceled) {
+				logger.Error("valkey reaper exited", "error", err)
+			}
+		}()
+	}
+
+	watchedPaths := policy.ExtractWatchedPaths(policyCfg)
+	webhookHandler := webhook.NewHandler(cfg.GitHubWebhookSecret, qw.queue, logger, watchedPaths)
+
+	return &runtime{
+		stateStore:     stateStore,
+		qw:             qw,
+		jobQueue:       qw.queue,
+		sched:          sched,
+		workerPool:     workerPool,
+		webhookHandler: webhookHandler,
+	}, nil
 }
 
 // loadPolicyAndEngine loads the operator's HCL policy, runs strict
@@ -196,22 +234,31 @@ func loadPolicyAndEngine(cfg *config.Config, strictTemplates bool, logger *slog.
 	return policyCfg, engine
 }
 
+// queueWiring bundles the constructed queue, optional Valkey reaper,
+// and the redis client (nil for memory backend). The client is exposed
+// so the scheduler can share the connection rather than open its own.
+type queueWiring struct {
+	queue   queue.Queue
+	reaper  *valkeyqueue.Reaper
+	rclient *redis.Client
+}
+
 // newQueue constructs the work queue from cfg. Memory is the default;
 // Valkey engages when QUEUE_BACKEND=valkey. The Valkey backend also
 // returns a Reaper that the caller should run on its own goroutine
-// for the duration of ctx; the Reaper is nil for the memory backend.
-func newQueue(ctx context.Context, cfg *config.Config, queueSize int, logger *slog.Logger) (queue.Queue, *valkeyqueue.Reaper, error) {
+// for the duration of ctx; reaper and rclient are nil for memory.
+func newQueue(ctx context.Context, cfg *config.Config, queueSize int, logger *slog.Logger) (queueWiring, error) {
 	if cfg.QueueBackend != config.QueueBackendValkey {
 		logger.Info("queue backend", "kind", "memory")
 
-		return memqueue.New(queueSize), nil, nil
+		return queueWiring{queue: memqueue.New(queueSize)}, nil
 	}
 
 	logger.Info("queue backend", "kind", "valkey")
 
 	parsed, err := redis.ParseURL(cfg.QueueValkeyDSN)
 	if err != nil {
-		return nil, nil, fmt.Errorf("parse QUEUE_VALKEY_DSN: %w", err)
+		return queueWiring{}, fmt.Errorf("parse QUEUE_VALKEY_DSN: %w", err)
 	}
 
 	client := redis.NewClient(parsed)
@@ -220,7 +267,7 @@ func newQueue(ctx context.Context, cfg *config.Config, queueSize int, logger *sl
 			logger.Warn("valkey client close failed during ping-fail cleanup", "error", closeErr)
 		}
 
-		return nil, nil, fmt.Errorf("valkey ping: %w", err)
+		return queueWiring{}, fmt.Errorf("valkey ping: %w", err)
 	}
 
 	q := valkeyqueue.New(client, valkeyqueue.Options{Logger: logger})
@@ -231,7 +278,30 @@ func newQueue(ctx context.Context, cfg *config.Config, queueSize int, logger *sl
 		Logger:        logger,
 	})
 
-	return q, r, nil
+	return queueWiring{queue: q, reaper: r, rclient: client}, nil
+}
+
+// newScheduler constructs the scheduler.Scheduler from cfg. Ticker is
+// the default; Valkey engages when SCHEDULER_BACKEND=valkey and
+// requires a non-nil redis client (reuses the queue's client per
+// IMPL-0011 Phase 4 Open Q resolution).
+func newScheduler(cfg *config.Config, logger *slog.Logger, rclient *redis.Client) (scheduler.Scheduler, error) {
+	if cfg.SchedulerBackend != config.SchedulerBackendValkey {
+		logger.Info("scheduler backend", "kind", "ticker")
+
+		return ticker.New(), nil
+	}
+
+	if rclient == nil {
+		return nil, errors.New("scheduler backend valkey requires a Valkey-backed queue (set QUEUE_BACKEND=valkey)")
+	}
+
+	logger.Info("scheduler backend", "kind", "valkey")
+
+	return valkeyscheduler.New(rclient, valkeyscheduler.Options{
+		PodID:  podID(cfg),
+		Logger: logger,
+	}), nil
 }
 
 // podID returns the configured pod identifier or a process-time
@@ -316,6 +386,7 @@ func gracefulShutdown(
 	logger *slog.Logger,
 	jobQueue interface{ Close() error },
 	stateStore interface{ Close() error },
+	rclient *redis.Client,
 	workerPool interface{ Stop() },
 	servers ...*http.Server,
 ) {
@@ -338,6 +409,12 @@ func gracefulShutdown(
 
 	if err := stateStore.Close(); err != nil {
 		logger.Warn("store close error", "error", err)
+	}
+
+	if rclient != nil {
+		if err := rclient.Close(); err != nil {
+			logger.Warn("redis client close error", "error", err)
+		}
 	}
 
 	logger.Info("repo-guardian stopped")

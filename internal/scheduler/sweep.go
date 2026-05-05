@@ -59,6 +59,11 @@ func NewSweeper(
 // Start begins the reconciliation loop. It runs reconcileAll immediately
 // on startup, then repeats at the configured interval. It blocks until
 // the context is canceled.
+//
+// Deprecated: prefer Schedule + ReconcileAll. Start carries the
+// pre-IMPL-0011 internal-ticker behaviour; main.go has migrated to
+// driving the cadence through the abstract scheduler.Scheduler so
+// multi-replica deployments can leader-elect via Valkey.
 func (s *Sweeper) Start(ctx context.Context) {
 	s.logger.Info("sweeper starting", "interval", s.interval)
 
@@ -77,6 +82,21 @@ func (s *Sweeper) Start(ctx context.Context) {
 			s.reconcileAll(ctx)
 		}
 	}
+}
+
+// ReconcileAll runs the sweep handler exactly once. Suitable for
+// driving via scheduler.Scheduler.Schedule(...) from main.go. Errors
+// are logged inside reconcileAll; the returned error is nil unless ctx
+// is already cancelled (kept for handler-signature compatibility with
+// the Scheduler interface).
+func (s *Sweeper) ReconcileAll(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	s.reconcileAll(ctx)
+
+	return nil
 }
 
 // reconcileAll lists all installations and their repos, enqueuing each for checking.

@@ -295,7 +295,7 @@ SET-NX-EX lock; only the holder runs the handler.
 
 #### Tasks
 
-- [ ] Add `internal/scheduler/valkey/valkey.go` implementing `Scheduler`:
+- [x] Add `internal/scheduler/valkey/valkey.go` implementing `Scheduler`:
   - `Schedule(name, interval, handler)` starts a goroutine running
     `time.NewTicker(interval)`.
   - On each tick, attempt `SET repo-guardian:lock:<name> <pod-id> NX EX
@@ -306,15 +306,15 @@ SET-NX-EX lock; only the holder runs the handler.
     than `ttl`, two pods could overlap on the next tick. Document this
     and keep `ttl` generously larger than realistic handler runtime
     (sweep handler should be < 5s for 200-repo batch).
-- [ ] Pod ID derivation: prefer `POD_NAME` env (downward API), fall
-  back to a startup-time random `xid` if absent. Surfaced as the
-  `pod` label on `repo_guardian_scheduler_is_leader`.
-- [ ] Read `SCHEDULER_BACKEND` from config; wire `valkey` selection
+- [x] Pod ID derivation: prefer `POD_NAME` env (downward API), fall
+  back to a process-time `repo-guardian-<pid>` identifier if absent.
+  Surfaced as the `pod` label on `repo_guardian_scheduler_is_leader`.
+- [x] Read `SCHEDULER_BACKEND` from config; wire `valkey` selection
   into `main.go` and use the same `*redis.Client` instance as the
   queue.
-- [ ] Register `repo_guardian_scheduler_is_leader` gauge (deferred
+- [x] Register `repo_guardian_scheduler_is_leader` gauge (deferred
   wiring to Phase 5).
-- [ ] Integration test: spin up two scheduler instances pointed at the
+- [x] Integration test: spin up two scheduler instances pointed at the
   same testcontainer Valkey, run a tick, assert exactly one handler
   invocation.
 - [ ] Contract test sweep: same suite passes against `ticker` and

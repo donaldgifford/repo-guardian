@@ -197,4 +197,10 @@ type Client interface {
 
 	// DeleteLabel deletes a label from the repository.
 	DeleteLabel(ctx context.Context, owner, repo, name string) error
+
+	// RateLimitRemaining returns the current core rate-limit budget for
+	// the given installation. Used by the stale-sweep reserve gate
+	// (IMPL-0011 Phase 5e). Returns (remaining, limit, err); limit ≤ 0
+	// means "unknown" and the gate falls open.
+	RateLimitRemaining(ctx context.Context, installationID int64) (remaining, limit int, err error)
 }

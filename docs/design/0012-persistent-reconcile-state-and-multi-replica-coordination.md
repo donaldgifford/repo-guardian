@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0012
 title: "Persistent reconcile state and multi-replica coordination"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-05-02
 ---
@@ -9,7 +9,7 @@ created: 2026-05-02
 
 # DESIGN 0012: Persistent reconcile state and multi-replica coordination
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-05-02
 

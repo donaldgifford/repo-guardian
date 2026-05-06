@@ -2,20 +2,23 @@
 package webhook
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	gh "github.com/google/go-github/v68/github"
 
-	"github.com/donaldgifford/repo-guardian/internal/checker"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
+	"github.com/donaldgifford/repo-guardian/internal/queue"
 )
 
 // Handler handles incoming GitHub webhook events and enqueues repo check jobs.
 type Handler struct {
 	webhookSecret []byte
-	queue         *checker.Queue
+	queue         queue.Queue
 	logger        *slog.Logger
 	watchedPaths  map[string]bool
 }
@@ -24,13 +27,13 @@ type Handler struct {
 // watchedPaths specifies file paths that trigger a re-check on push events.
 func NewHandler(
 	webhookSecret string,
-	queue *checker.Queue,
+	q queue.Queue,
 	logger *slog.Logger,
 	watchedPaths map[string]bool,
 ) *Handler {
 	return &Handler{
 		webhookSecret: []byte(webhookSecret),
-		queue:         queue,
+		queue:         q,
 		logger:        logger,
 		watchedPaths:  watchedPaths,
 	}
@@ -57,15 +60,17 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	eventType := gh.WebHookType(r)
 	metrics.WebhookReceivedTotal.WithLabelValues(eventType).Inc()
 
+	ctx := r.Context()
+
 	switch e := event.(type) {
 	case *gh.RepositoryEvent:
-		h.handleRepositoryEvent(e)
+		h.handleRepositoryEvent(ctx, e)
 	case *gh.InstallationRepositoriesEvent:
-		h.handleInstallationRepositoriesEvent(e)
+		h.handleInstallationRepositoriesEvent(ctx, e)
 	case *gh.InstallationEvent:
-		h.handleInstallationEvent(e)
+		h.handleInstallationEvent(ctx, e)
 	case *gh.PushEvent:
-		h.handlePushEvent(e)
+		h.handlePushEvent(ctx, e)
 	default:
 		h.logger.Debug("ignoring unhandled event type", "type", eventType)
 		w.WriteHeader(http.StatusNoContent)
@@ -73,10 +78,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusAccepted)
 }
 
-func (h *Handler) handleRepositoryEvent(e *gh.RepositoryEvent) {
+func (h *Handler) handleRepositoryEvent(ctx context.Context, e *gh.RepositoryEvent) {
 	if e.GetAction() != "created" {
 		h.logger.Debug("ignoring repository event", "action", e.GetAction())
 		return
@@ -91,10 +96,10 @@ func (h *Handler) handleRepositoryEvent(e *gh.RepositoryEvent) {
 		"installation_id", installID,
 	)
 
-	h.enqueue(repo.GetOwner().GetLogin(), repo.GetName(), installID)
+	h.enqueue(ctx, repo.GetOwner().GetLogin(), repo.GetName(), installID)
 }
 
-func (h *Handler) handleInstallationRepositoriesEvent(e *gh.InstallationRepositoriesEvent) {
+func (h *Handler) handleInstallationRepositoriesEvent(ctx context.Context, e *gh.InstallationRepositoriesEvent) {
 	if e.GetAction() != "added" {
 		h.logger.Debug("ignoring installation_repositories event", "action", e.GetAction())
 		return
@@ -108,11 +113,11 @@ func (h *Handler) handleInstallationRepositoriesEvent(e *gh.InstallationReposito
 	)
 
 	for _, repo := range e.RepositoriesAdded {
-		h.enqueue(extractOwner(repo.GetFullName()), repo.GetName(), installID)
+		h.enqueue(ctx, extractOwner(repo.GetFullName()), repo.GetName(), installID)
 	}
 }
 
-func (h *Handler) handleInstallationEvent(e *gh.InstallationEvent) {
+func (h *Handler) handleInstallationEvent(ctx context.Context, e *gh.InstallationEvent) {
 	if e.GetAction() != "created" {
 		h.logger.Debug("ignoring installation event", "action", e.GetAction())
 		return
@@ -126,11 +131,11 @@ func (h *Handler) handleInstallationEvent(e *gh.InstallationEvent) {
 	)
 
 	for _, repo := range e.Repositories {
-		h.enqueue(extractOwner(repo.GetFullName()), repo.GetName(), installID)
+		h.enqueue(ctx, extractOwner(repo.GetFullName()), repo.GetName(), installID)
 	}
 }
 
-func (h *Handler) handlePushEvent(e *gh.PushEvent) {
+func (h *Handler) handlePushEvent(ctx context.Context, e *gh.PushEvent) {
 	ref := e.GetRef()
 
 	// Ignore tag pushes.
@@ -171,7 +176,7 @@ func (h *Handler) handlePushEvent(e *gh.PushEvent) {
 		"ref", ref,
 	)
 
-	h.enqueuePush(owner, repoName, installID)
+	h.enqueuePush(ctx, owner, repoName, installID)
 }
 
 // hasWatchedFileChanges checks if any commit in the push event contains
@@ -195,38 +200,38 @@ func (h *Handler) hasWatchedFileChanges(e *gh.PushEvent) bool {
 	return false
 }
 
-func (h *Handler) enqueuePush(owner, repo string, installationID int64) {
-	job := checker.RepoJob{
-		Owner:          owner,
-		Repo:           repo,
-		InstallationID: installationID,
-		Trigger:        checker.TriggerPush,
-	}
-
-	if err := h.queue.Enqueue(job); err != nil {
-		h.logger.Error("failed to enqueue push job",
-			"owner", owner,
-			"repo", repo,
-			"error", err,
-		)
-	}
+func (h *Handler) enqueuePush(ctx context.Context, owner, repo string, installationID int64) {
+	h.enqueueWith(ctx, owner, repo, installationID, queue.TriggerPush)
 }
 
-func (h *Handler) enqueue(owner, repo string, installationID int64) {
-	job := checker.RepoJob{
+func (h *Handler) enqueue(ctx context.Context, owner, repo string, installationID int64) {
+	h.enqueueWith(ctx, owner, repo, installationID, queue.TriggerWebhook)
+}
+
+func (h *Handler) enqueueWith(ctx context.Context, owner, repo string, installationID int64, trigger string) {
+	job := queue.Job{
+		ID:             fmt.Sprintf("%s/%s/%d", owner, repo, time.Now().UnixNano()),
 		Owner:          owner,
 		Repo:           repo,
 		InstallationID: installationID,
-		Trigger:        checker.TriggerWebhook,
+		Trigger:        trigger,
+		EnqueuedAt:     time.Now(),
 	}
 
-	if err := h.queue.Enqueue(job); err != nil {
+	if err := h.queue.Enqueue(ctx, job); err != nil {
 		h.logger.Error("failed to enqueue job",
 			"owner", owner,
 			"repo", repo,
+			"trigger", trigger,
 			"error", err,
 		)
+
+		metrics.ErrorsTotal.WithLabelValues("enqueue", owner).Inc()
+
+		return
 	}
+
+	metrics.QueueEnqueuedTotal.WithLabelValues(trigger).Inc()
 }
 
 // extractOwner gets the owner from a "owner/repo" full name string.

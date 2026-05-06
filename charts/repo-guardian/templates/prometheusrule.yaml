@@ -1,0 +1,88 @@
+{{- if .Values.prometheusRule.enabled -}}
+{{/*
+Starter alert pack for IMPL-0011 multi-replica deployments. Each
+alert may be tuned via prometheusRule.alerts.<name>.{for,severity,
+threshold}; setting `enabled: false` skips rendering the alert.
+Scoped to the labels block from values.yaml so an operator running
+multiple Prometheus instances can target a specific one with
+ruleSelector.
+*/}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "repo-guardian.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.labels" . | nindent 4 }}
+    {{- with .Values.prometheusRule.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: repo-guardian.rules
+      rules:
+        {{- $a := .Values.prometheusRule.alerts -}}
+        {{- /* QueueDepthHigh */ -}}
+        {{- $alert := default dict $a.QueueDepthHigh -}}
+        {{- if ne (default true (get $alert "enabled")) false }}
+        - alert: RepoGuardianQueueDepthHigh
+          expr: max(repo_guardian_queue_depth{queue="jobs"}) > {{ default 1000 (get $alert "threshold") }}
+          for: {{ default "10m" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "warning" (get $alert "severity") | quote }}
+          annotations:
+            summary: "repo-guardian queue depth above threshold"
+            description: "queue:jobs depth has exceeded the threshold for {{ default `10m` (get $alert `for`) }}; workers may be falling behind."
+        {{- end }}
+        {{- /* ReaperRequeues */ -}}
+        {{- $alert := default dict $a.ReaperRequeues -}}
+        {{- if ne (default true (get $alert "enabled")) false }}
+        - alert: RepoGuardianReaperRequeues
+          expr: rate(repo_guardian_queue_reaped_total[15m]) > {{ default 0.1 (get $alert "threshold") }}
+          for: {{ default "15m" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "warning" (get $alert "severity") | quote }}
+          annotations:
+            summary: "repo-guardian reaper actively requeueing jobs"
+            description: "the in-flight reaper has been requeueing jobs for over 15 minutes; workers may be crashing or hanging."
+        {{- end }}
+        {{- /* NoLeader */ -}}
+        {{- $alert := default dict $a.NoLeader -}}
+        {{- if ne (default true (get $alert "enabled")) false }}
+        - alert: RepoGuardianNoSchedulerLeader
+          expr: max(repo_guardian_scheduler_is_leader{name="sweep"}) == 0
+          for: {{ default "5m" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "critical" (get $alert "severity") | quote }}
+          annotations:
+            summary: "repo-guardian sweep scheduler has no leader"
+            description: "no replica has held the sweep leader lock for 5+ minutes; reconciliation has stalled."
+        {{- end }}
+        {{- /* StoreErrors */ -}}
+        {{- $alert := default dict $a.StoreErrors -}}
+        {{- if ne (default true (get $alert "enabled")) false }}
+        - alert: RepoGuardianStoreQueryErrors
+          expr: |
+            sum(rate(repo_guardian_store_query_seconds_count{outcome="error"}[5m]))
+              / sum(rate(repo_guardian_store_query_seconds_count[5m]))
+              > {{ default 0.1 (get $alert "threshold") }}
+          for: {{ default "10m" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "warning" (get $alert "severity") | quote }}
+          annotations:
+            summary: "repo-guardian store error rate elevated"
+            description: "{{ "{{" }} $value | humanizePercentage {{ "}}" }} of store queries failed in the last 5 minutes."
+        {{- end }}
+        {{- /* RateLimitNearExhaustion */ -}}
+        {{- $alert := default dict $a.RateLimitNearExhaustion -}}
+        {{- if ne (default true (get $alert "enabled")) false }}
+        - alert: RepoGuardianRateLimitNearExhaustion
+          expr: min(repo_guardian_rate_limit_remaining) < {{ default 200 (get $alert "threshold") }}
+          for: {{ default "5m" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "warning" (get $alert "severity") | quote }}
+          annotations:
+            summary: "repo-guardian GitHub rate-limit nearly exhausted"
+            description: "an installation has fewer than the configured threshold rate-limit budget remaining; the reserve gate will start blocking sweeps."
+        {{- end }}
+{{- end }}

@@ -28,6 +28,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "repo-guardian.serviceAccountName" . }}
+      terminationGracePeriodSeconds: 60
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -112,6 +113,42 @@ spec:
             {{- if .Values.templating.strict }}
             - name: STRICT_TEMPLATES
               value: "true"
+            {{- end }}
+            - name: STORE_BACKEND
+              value: {{ .Values.store.backend | quote }}
+            - name: QUEUE_BACKEND
+              value: {{ .Values.queue.backend | quote }}
+            - name: SCHEDULER_BACKEND
+              value: {{ .Values.scheduler.backend | quote }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            {{- if eq .Values.store.backend "postgres" }}
+            - name: STORE_POSTGRES_MAX_CONNS
+              value: {{ .Values.store.postgres.maxConns | quote }}
+            - name: STORE_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "repo-guardian.storeSecretName" . }}
+                  key: {{ include "repo-guardian.storeSecretKey" . }}
+            - name: RECONCILE_FRESHNESS
+              value: {{ .Values.staleSweep.freshness | quote }}
+            - name: STALE_SWEEP_BATCH_SIZE
+              value: {{ .Values.staleSweep.batchSize | quote }}
+            - name: RATE_LIMIT_RESERVE
+              value: {{ .Values.staleSweep.rateLimitReserve | quote }}
+            {{- end }}
+            {{- if eq .Values.queue.backend "valkey" }}
+            - name: QUEUE_VALKEY_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "repo-guardian.queueSecretName" . }}
+                  key: {{ include "repo-guardian.queueSecretKey" . }}
+            - name: JOB_ACK_TIMEOUT
+              value: {{ .Values.queue.valkey.jobAckTimeout | quote }}
+            - name: REAPER_INTERVAL
+              value: {{ .Values.queue.valkey.reaperInterval | quote }}
             {{- end }}
             {{- range $k, $v := .Values.templating.vars }}
             - name: {{ $k }}

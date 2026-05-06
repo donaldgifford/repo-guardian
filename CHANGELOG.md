@@ -7,43 +7,40 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Features
 
-- *(template)* Add internal/template/ package foundation (IMPL-0012 Phase 1)
-- *(template)* Migrate TemplateStore to compiled templates (IMPL-0012 Phase 2)
-- *(template)* Rewrite embedded templates to dotted-path syntax (IMPL-0012 Phase 3)
-- *(policy)* HCL pr {} grammar + PRTemplate resolution (IMPL-0012 Phase 4)
-- *(checker)* Wire PRTemplate into engine + reconciler PR creation (IMPL-0012 Phase 5)
-- *(chart)* [**breaking**] Generic templates.files map + templating.vars + STRICT_TEMPLATES (IMPL-0012 Phase 6)
+- *(store)* Store interface + in-memory implementation (IMPL-0011 P1.1)
+- *(queue)* Queue interface + in-memory implementation (IMPL-0011 P1.2)
+- *(scheduler)* Scheduler interface + ticker impl; rename old type to Sweeper (IMPL-0011 P1.3)
+- *(policy)* Policy.Version() helper for sweep freshness gate (IMPL-0011 P1.4)
+- *(config)* STORE_BACKEND / QUEUE_BACKEND / SCHEDULER_BACKEND knobs (IMPL-0011 P1.5)
+- *(worker)* Pool consuming queue.Queue.Subscribe (IMPL-0011 P1.7a)
+- *(store)* Postgres-backed Store with embedded migrations (IMPL-0011 P2)
+- *(queue)* Valkey-backed Queue + reaper (IMPL-0011 P3)
+- *(scheduler)* Valkey leader-elected scheduler (IMPL-0011 P4)
+- *(observability,sweep)* Wire IMPL-0011 P5 metrics + StaleSweeper
+- *(chart)* Multi-replica deployment shapes (IMPL-0011 P6)
+- *(test,docs)* Multi-replica integration test + ops docs (IMPL-0011 P7)
+
+### Refactor
+
+- *(workers)* Migrate webhook + sweeper + main.go to queue.Queue (IMPL-0011 P1.7-9)
 
 ### Documentation
 
-- *(design)* DESIGN-0012 persistent reconcile state and multi-replica coordination
-- *(design)* DESIGN-0012 v2 — interface-first, durable, NATS+Postgres defaults
-- *(design)* Elevate memory backends to first-class no-dep mode
-- *(design)* Split test-double patterns and add contract tests
-- *(design)* Switch new interfaces to mockery-generated mocks
-- *(design)* DESIGN-0013 customizable PR templates and extensible template ConfigMap
-- *(inv)* INV-0004 forge interface and package refactor for Forgejo backend
-- *(design)* Unify DESIGN-0013 around a single template renderer
-- *(engine)* WARN about stale-branch / content-drift risk on auto-merge
-- *(design)* Explicit pr { inherits = true|false } for inheritance control
-- *(design)* Resolve all DESIGN-0013 open questions
-- *(inv)* Resolve INV-0004 — do the Provider refactor, defer Forgejo specifics
-- *(design)* DESIGN-0012 v3 — Valkey + Postgres, drop NATS-embedded story
-- *(design)* Valkey + Postgres AUTH on by default with auto-generated Secret
-- *(design)* Resolve all DESIGN-0012 open questions
-- *(impl)* IMPL-0011 — persistent reconcile state and multi-replica coordination
-- *(impl)* IMPL-0012 — customizable PR templates and extensible template ConfigMap
-- *(impl)* Flip release order — IMPL-0012 ships first as chart 0.4.0
-- Examples + customizing-PR-text + migration guide (IMPL-0012 Phase 7)
-- *(chart)* Homelab smoke runbook for IMPL-0012 Phase 7.4 acceptance
-- *(impl,design)* Mark IMPL-0012 + DESIGN-0013 complete; regen indices
-- CLAUDE.md milestone note for chart 0.4.0 / appVersion 1.5.0
+- *(impl)* Check off IMPL-0011 Phase 1 store/queue/scheduler interface tasks
+- *(impl)* Check off IMPL-0011 Phase 1 mockery + config tasks
+- *(impl)* Check off IMPL-0011 Phase 1 wiring tasks
+- CLAUDE.md note about IMPL-0011 P1 package layout
+- *(chart)* Scheduler contract tests + 0.5.0 upgrade notes (IMPL-0011 cleanup)
 
-### Testing
+### Miscellaneous Tasks
 
-- *(chart)* Bump deployment_test image-tag pattern to 1.5.0
-- *(reconciler)* Customized-policy PR test + IMPL-0012 testing-plan check-off
-- *(checker)* Lock IMPL-0012 homelab smoke chain in CI
+- *(mocks)* Mockery v2 setup + initial generation (IMPL-0011 P1.6)
+
+## [1.5.0] - 2026-05-05
+
+### Features
+
+- Customizable PR templates + extensible template ConfigMap (IMPL-0012) ([#72](https://github.com/donaldgifford/repo-guardian/issues/72))
 
 ### Miscellaneous Tasks
 

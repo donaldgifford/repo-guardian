@@ -72,6 +72,10 @@ test-coverage: ## Run tests with coverage report
 	@ $(MAKE) --no-print-directory log-$@
 	@go test -v -race -coverprofile=$(COVERAGE_OUT) ./...
 
+test-integration: ## Run integration tests (requires Docker for testcontainers)
+	@ $(MAKE) --no-print-directory log-$@
+	@go test -v -race -tags=integration ./...
+
 
 ## Code Quality
 
@@ -88,6 +92,11 @@ fmt: ## Format code with gofmt and goimports
 	@gofmt -s -w .
 	@goimports -w $(GOIMPORTS_LOCAL_ARG) .
 	@goimports -w $(GOIMPORTS_LOCAL_ARG)  cmd/ internal/
+
+mocks: ## Regenerate mockery mocks for the IMPL-0011 interfaces (Store, Queue, Scheduler)
+	@ $(MAKE) --no-print-directory log-$@
+	@mockery
+	@echo "✓ Mocks regenerated under internal/*/mocks/"
 
 clean: ## Remove build artifacts
 	@ $(MAKE) --no-print-directory log-$@

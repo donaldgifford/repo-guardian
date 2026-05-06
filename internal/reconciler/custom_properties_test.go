@@ -255,6 +255,10 @@ func (*mockClient) DeleteLabel(_ context.Context, _, _, _ string) error {
 	return nil
 }
 
+func (*mockClient) RateLimitRemaining(_ context.Context, _ int64) (int, int, error) {
+	return 5000, 5000, nil
+}
+
 func basePropertiesClient() *mockClient {
 	client := newMockClient()
 	client.repo = &ghclient.Repository{

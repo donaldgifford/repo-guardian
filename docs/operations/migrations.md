@@ -1,0 +1,112 @@
+# Postgres schema operations
+
+This is the operator-facing guide for managing the `repo_state` table
+under `STORE_BACKEND=postgres`. The schema is small (one table, two
+indexes) and migrations apply at binary startup; most operators won't
+touch this page in normal operation.
+
+## Migration runtime
+
+`repo-guardian` calls `golang-migrate` against an embedded `migrations/`
+directory at startup. Migration is idempotent: `migrate.Up()` returns
+`ErrNoChange` when the schema is already current.
+
+Failures abort startup before the HTTP servers come up, so a botched
+schema never serves a single webhook. The most common failure mode is
+DSN misconfiguration (network, auth, missing database) — the binary
+prints the underlying pgx error before exiting.
+
+## Schema overview
+
+```sql
+CREATE TABLE repo_state (
+    installation_id   BIGINT  NOT NULL,
+    owner             TEXT    NOT NULL,
+    repo              TEXT    NOT NULL,
+    last_checked_at   TIMESTAMP WITH TIME ZONE,
+    last_check_status TEXT    NOT NULL DEFAULT 'pending',
+    last_error        TEXT,
+    policy_version    TEXT    NOT NULL DEFAULT '',
+    PRIMARY KEY (installation_id, owner, repo)
+);
+
+CREATE INDEX idx_repo_state_freshness
+    ON repo_state(last_checked_at NULLS FIRST);
+
+CREATE INDEX idx_repo_state_policy_version
+    ON repo_state(policy_version);
+```
+
+The two indexes drive the stale-sweep query in
+`internal/store/postgres/postgres.go.StaleRepos`:
+
+```sql
+SELECT ...
+FROM repo_state
+WHERE last_checked_at IS NULL
+   OR last_checked_at < $1
+   OR policy_version <> $2
+ORDER BY last_checked_at NULLS FIRST
+LIMIT $3
+```
+
+Both `last_checked_at` and `policy_version` are indexed so the OR-of-three
+filter doesn't degrade to a sequential scan even at 100k+ rows.
+
+## Out-of-band migration runs
+
+Multi-replica deployments may want to apply migrations from a one-shot
+Job rather than letting every pod race at startup. The `Migrate`
+function is exported separately from `New`:
+
+```go
+import "github.com/donaldgifford/repo-guardian/internal/store/postgres"
+
+if err := postgres.Migrate(dsn); err != nil {
+    log.Fatal(err)
+}
+```
+
+Wrap that in a `kubectl create job` and gate the runtime Deployment on
+its completion. `helm upgrade` order is: Job (migration) → Deployment
+(runtime) → ... If you do this, set `STORE_BACKEND=postgres` on the
+Deployment env but disable the startup migrate inside the binary by
+exposing a future `STORE_SKIP_MIGRATE=true` knob (not yet implemented;
+file an issue if you need it).
+
+For the homelab / single-replica path, the default startup-migrate
+behaviour is fine.
+
+## Backups
+
+CNPG-managed Postgres exposes a `backup` field on the `Cluster` CR;
+see the upstream operator docs for the supported configurations
+(volume snapshots, S3 backups, scheduled WAL archiving).
+
+The baked single-pod StatefulSet has no built-in backup. Treat it as
+ephemeral state — losing it means the next reconcile cycle re-checks
+every repo from scratch (slow but harmless). Production deployments
+should either move to `mode=cnpg` or `mode=external` with a managed
+Postgres provider.
+
+## Rolling back the schema
+
+`internal/store/postgres/migrations/0001_init.down.sql` drops the
+table and indexes. To roll back manually:
+
+```bash
+psql $STORE_DSN -c "DROP INDEX IF EXISTS idx_repo_state_policy_version;"
+psql $STORE_DSN -c "DROP INDEX IF EXISTS idx_repo_state_freshness;"
+psql $STORE_DSN -c "DROP TABLE IF EXISTS repo_state;"
+```
+
+The next binary startup will re-apply the migrations and the table
+comes back empty (no row recovery — the data is gone). Better to roll
+forward (a new migration that mutates the schema) than down.
+
+## Monitoring schema operations
+
+`repo_guardian_store_query_seconds{operation="get_repo_state"|"update_repo_state"|"stale_repos",outcome="ok"|"error"}` exposes the per-query duration histogram. The starter PrometheusRule includes
+a `RepoGuardianStoreQueryErrors` alert that fires when error rate
+exceeds 10% over 10 minutes — usually a sign of pool exhaustion,
+network flap, or migration drift.

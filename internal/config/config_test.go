@@ -68,6 +68,71 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.TrustProxyHeaders {
 		t.Error("TrustProxyHeaders should default to false")
 	}
+
+	if cfg.StoreBackend != StoreBackendMemory {
+		t.Errorf("StoreBackend default = %q, want %q", cfg.StoreBackend, StoreBackendMemory)
+	}
+
+	if cfg.QueueBackend != QueueBackendMemory {
+		t.Errorf("QueueBackend default = %q, want %q", cfg.QueueBackend, QueueBackendMemory)
+	}
+
+	if cfg.SchedulerBackend != SchedulerBackendTicker {
+		t.Errorf("SchedulerBackend default = %q, want %q", cfg.SchedulerBackend, SchedulerBackendTicker)
+	}
+}
+
+func TestLoadInvalidStoreBackend(t *testing.T) {
+	t.Setenv("GITHUB_APP_ID", "12345")
+	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/path/to/key.pem")
+	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
+	t.Setenv("STORE_BACKEND", "mysql")
+
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "STORE_BACKEND") {
+		t.Errorf("expected STORE_BACKEND validation error, got %v", err)
+	}
+}
+
+func TestLoadPostgresMissingDSN(t *testing.T) {
+	t.Setenv("GITHUB_APP_ID", "12345")
+	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/path/to/key.pem")
+	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
+	t.Setenv("STORE_BACKEND", "postgres")
+	t.Setenv("STORE_DSN", "")
+
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "STORE_DSN") {
+		t.Errorf("expected STORE_DSN required error, got %v", err)
+	}
+}
+
+func TestLoadValkeySchedulerMissingDSN(t *testing.T) {
+	t.Setenv("GITHUB_APP_ID", "12345")
+	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/path/to/key.pem")
+	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
+	t.Setenv("SCHEDULER_BACKEND", "valkey")
+	t.Setenv("QUEUE_VALKEY_DSN", "")
+
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "QUEUE_VALKEY_DSN") {
+		t.Errorf("expected QUEUE_VALKEY_DSN required error, got %v", err)
+	}
+}
+
+func TestLoadValkeyBackendsAcceptDSN(t *testing.T) {
+	t.Setenv("GITHUB_APP_ID", "12345")
+	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/path/to/key.pem")
+	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
+	t.Setenv("QUEUE_BACKEND", "valkey")
+	t.Setenv("SCHEDULER_BACKEND", "valkey")
+	t.Setenv("QUEUE_VALKEY_DSN", "valkey://localhost:6379")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if cfg.QueueBackend != QueueBackendValkey || cfg.SchedulerBackend != SchedulerBackendValkey {
+		t.Errorf("backends not accepted: queue=%q scheduler=%q", cfg.QueueBackend, cfg.SchedulerBackend)
+	}
 }
 
 func TestLoadRequired_Missing(t *testing.T) {

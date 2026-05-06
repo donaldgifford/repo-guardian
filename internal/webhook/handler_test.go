@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -10,11 +11,65 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	gh "github.com/google/go-github/v68/github"
 
-	"github.com/donaldgifford/repo-guardian/internal/checker"
+	"github.com/donaldgifford/repo-guardian/internal/queue"
+	memqueue "github.com/donaldgifford/repo-guardian/internal/queue/memory"
 )
+
+// slowQueue wraps memqueue but injects a sleep into Enqueue to test
+// the ACK SLA. The handler should return 202 even when the queue is
+// momentarily slow, because Enqueue happens before the handler
+// writes the response.
+type slowQueue struct {
+	*memqueue.Queue
+
+	delay time.Duration
+}
+
+func (s *slowQueue) Enqueue(ctx context.Context, j queue.Job) error { //nolint:gocritic // interface contract
+	select {
+	case <-time.After(s.delay):
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	return s.Queue.Enqueue(ctx, j)
+}
+
+// TestWebhookACK_SLA asserts the webhook handler returns 202 within
+// the 2s SLA defined by IMPL-0011 Phase 5. Even with the queue
+// momentarily slow, the handler should not block past the budget.
+func TestWebhookACK_SLA(t *testing.T) {
+	t.Parallel()
+
+	q := &slowQueue{Queue: memqueue.New(10), delay: 100 * time.Millisecond}
+	h := NewHandler(testSecret, q, slog.Default(), nil)
+
+	payload := &gh.RepositoryEvent{
+		Action: gh.Ptr("created"),
+		Repo: &gh.Repository{
+			Name:  gh.Ptr("sla-repo"),
+			Owner: &gh.User{Login: gh.Ptr("org")},
+		},
+		Installation: &gh.Installation{ID: gh.Ptr(int64(1))},
+	}
+
+	rr := httptest.NewRecorder()
+	start := time.Now()
+	h.ServeHTTP(rr, makeRequest(t, "repository", payload))
+	elapsed := time.Since(start)
+
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf("expected 202, got %d", rr.Code)
+	}
+
+	if elapsed > 2*time.Second {
+		t.Fatalf("ACK SLA breach: handler took %s, max 2s", elapsed)
+	}
+}
 
 const testSecret = "test-secret"
 
@@ -44,7 +99,7 @@ func makeRequest(t *testing.T, eventType string, payload any) *http.Request {
 func TestHandleWebhook_RepositoryCreated(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	payload := &gh.RepositoryEvent{
@@ -59,15 +114,15 @@ func TestHandleWebhook_RepositoryCreated(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, makeRequest(t, "repository", payload))
 
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
+	if rr.Code != http.StatusAccepted {
+		t.Errorf("expected 202, got %d", rr.Code)
 	}
 }
 
 func TestHandleWebhook_InstallationReposAdded(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	payload := &gh.InstallationRepositoriesEvent{
@@ -82,15 +137,15 @@ func TestHandleWebhook_InstallationReposAdded(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, makeRequest(t, "installation_repositories", payload))
 
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
+	if rr.Code != http.StatusAccepted {
+		t.Errorf("expected 202, got %d", rr.Code)
 	}
 }
 
 func TestHandleWebhook_InstallationCreated(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	payload := &gh.InstallationEvent{
@@ -104,15 +159,15 @@ func TestHandleWebhook_InstallationCreated(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, makeRequest(t, "installation", payload))
 
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
+	if rr.Code != http.StatusAccepted {
+		t.Errorf("expected 202, got %d", rr.Code)
 	}
 }
 
 func TestHandleWebhook_InvalidSignature(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	body := []byte(`{"action":"created"}`)
@@ -132,7 +187,7 @@ func TestHandleWebhook_InvalidSignature(t *testing.T) {
 func TestHandleWebhook_UnsupportedEvent(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	payload := map[string]string{"action": "completed"}
@@ -148,7 +203,7 @@ func TestHandleWebhook_UnsupportedEvent(t *testing.T) {
 func TestHandleWebhook_IgnoredAction(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	payload := &gh.RepositoryEvent{
@@ -163,9 +218,9 @@ func TestHandleWebhook_IgnoredAction(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, makeRequest(t, "repository", payload))
 
-	// Ignored actions still return 200 (event was handled, just not actionable).
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
+	// Ignored actions still return 202 (event was handled, just not actionable).
+	if rr.Code != http.StatusAccepted {
+		t.Errorf("expected 202, got %d", rr.Code)
 	}
 }
 
@@ -186,7 +241,7 @@ func makePushPayload(ref, defaultBranch string, commits []*gh.HeadCommit) *gh.Pu
 func TestHandlePush_WatchedFileAdded_Enqueues(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	watched := map[string]bool{"catalog-info.yaml": true}
 	h := NewHandler(testSecret, q, slog.Default(), watched)
 
@@ -197,8 +252,8 @@ func TestHandlePush_WatchedFileAdded_Enqueues(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, makeRequest(t, "push", payload))
 
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
+	if rr.Code != http.StatusAccepted {
+		t.Errorf("expected 202, got %d", rr.Code)
 	}
 
 	if q.Len() != 1 {
@@ -209,7 +264,7 @@ func TestHandlePush_WatchedFileAdded_Enqueues(t *testing.T) {
 func TestHandlePush_WatchedFileModified_Enqueues(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	watched := map[string]bool{"catalog-info.yaml": true}
 	h := NewHandler(testSecret, q, slog.Default(), watched)
 
@@ -228,7 +283,7 @@ func TestHandlePush_WatchedFileModified_Enqueues(t *testing.T) {
 func TestHandlePush_UnrelatedFiles_DoesNotEnqueue(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	watched := map[string]bool{"catalog-info.yaml": true}
 	h := NewHandler(testSecret, q, slog.Default(), watched)
 
@@ -247,7 +302,7 @@ func TestHandlePush_UnrelatedFiles_DoesNotEnqueue(t *testing.T) {
 func TestHandlePush_NonDefaultBranch_DoesNotEnqueue(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	watched := map[string]bool{"catalog-info.yaml": true}
 	h := NewHandler(testSecret, q, slog.Default(), watched)
 
@@ -266,7 +321,7 @@ func TestHandlePush_NonDefaultBranch_DoesNotEnqueue(t *testing.T) {
 func TestHandlePush_RemovedOnly_DoesNotEnqueue(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	watched := map[string]bool{"catalog-info.yaml": true}
 	h := NewHandler(testSecret, q, slog.Default(), watched)
 
@@ -285,7 +340,7 @@ func TestHandlePush_RemovedOnly_DoesNotEnqueue(t *testing.T) {
 func TestHandlePush_NoWatchedPaths_DoesNotEnqueue(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
@@ -303,7 +358,7 @@ func TestHandlePush_NoWatchedPaths_DoesNotEnqueue(t *testing.T) {
 func TestHandlePush_WatchedFileInLaterCommit_Enqueues(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	watched := map[string]bool{"catalog-info.yaml": true}
 	h := NewHandler(testSecret, q, slog.Default(), watched)
 
@@ -324,7 +379,7 @@ func TestHandlePush_WatchedFileInLaterCommit_Enqueues(t *testing.T) {
 func TestHandlePush_TagPush_DoesNotEnqueue(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	watched := map[string]bool{"catalog-info.yaml": true}
 	h := NewHandler(testSecret, q, slog.Default(), watched)
 
@@ -343,7 +398,7 @@ func TestHandlePush_TagPush_DoesNotEnqueue(t *testing.T) {
 func TestIntegration_PushEvent_EnqueueWithTriggerPush(t *testing.T) {
 	t.Parallel()
 
-	q := checker.NewQueue(10, slog.Default())
+	q := memqueue.New(10)
 	watched := map[string]bool{
 		"catalog-info.yaml": true,
 		"catalog-info.yml":  true,
@@ -357,8 +412,8 @@ func TestIntegration_PushEvent_EnqueueWithTriggerPush(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, makeRequest(t, "push", payload))
 
-	if rr.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", rr.Code)
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf("expected 202, got %d", rr.Code)
 	}
 
 	if q.Len() != 1 {

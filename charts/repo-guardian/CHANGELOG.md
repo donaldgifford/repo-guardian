@@ -6,17 +6,17 @@ changes, see the root [CHANGELOG.md](../../CHANGELOG.md).
 
 ### Features
 
-- *(chart)* [**breaking**] Generic templates.files map + templating.vars + STRICT_TEMPLATES (IMPL-0012 Phase 6)
+- *(chart)* Multi-replica deployment shapes (IMPL-0011 P6)
 
 ### Documentation
 
-- Examples + customizing-PR-text + migration guide (IMPL-0012 Phase 7)
-- *(chart)* Homelab smoke runbook for IMPL-0012 Phase 7.4 acceptance
+- *(chart)* Scheduler contract tests + 0.5.0 upgrade notes (IMPL-0011 cleanup)
 
-### Testing
+## [1.5.0] - 2026-05-05
 
-- *(chart)* Bump deployment_test image-tag pattern to 1.5.0
-- *(checker)* Lock IMPL-0012 homelab smoke chain in CI
+### Features
+
+- Customizable PR templates + extensible template ConfigMap (IMPL-0012) ([#72](https://github.com/donaldgifford/repo-guardian/issues/72))
 
 ### Miscellaneous Tasks
 

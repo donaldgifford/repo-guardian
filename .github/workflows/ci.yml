@@ -161,7 +161,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: helm plugin install --verify=false https://github.com/helm-unittest/helm-unittest
       - name: Run helm-unittest
-        run: helm unittest --color charts/repo-guardian
+        run: helm unittest charts/repo-guardian
 
   helm-test:
     name: Helm Chart Test

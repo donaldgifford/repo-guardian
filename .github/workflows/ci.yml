@@ -159,7 +159,7 @@ jobs:
       - name: Install helm-unittest plugin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: helm plugin install --version "~1" https://github.com/helm-unittest/helm-unittest
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest
       - name: Run helm-unittest
         run: helm unittest --color charts/repo-guardian
 

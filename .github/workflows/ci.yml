@@ -152,11 +152,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Run helm-unittest
-        uses: d3adb5/helm-unittest-action@v2
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
         with:
-          charts: charts/repo-guardian
-          flags: --color
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install helm-unittest plugin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: helm plugin install --version "~1" https://github.com/helm-unittest/helm-unittest
+      - name: Run helm-unittest
+        run: helm unittest --color charts/repo-guardian
 
   helm-test:
     name: Helm Chart Test

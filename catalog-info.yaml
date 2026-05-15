@@ -1,0 +1,23 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: repo-guardian
+  title: Repo Guardian
+  description: "Github App to automate repo onboarding and settings"
+  annotations:
+    backstage.io/code-coverage: enabled
+    backstage.io/source-location: url:https://github.com/donaldgifford/repo-guardian
+    backstage.io/techdocs-ref: "dir:."
+    github.com/project-slug: "donaldgifford/repo-guardian"
+    jira/project-key: "DON"
+    jira/label: "repo-guardian"
+  tags:
+    - go
+    - github
+  namespace: default
+spec:
+  lifecycle: production
+  type: service
+  owner: donaldgifford
+  system: infrastructure

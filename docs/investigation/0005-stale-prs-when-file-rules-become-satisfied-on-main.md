@@ -40,6 +40,11 @@ created: 2026-05-26
   - [Tier 4 — End-to-end against a real GitHub org (don't bother for this bug)](#tier-4--end-to-end-against-a-real-github-org-dont-bother-for-this-bug)
   - [What we are NOT proposing](#what-we-are-not-proposing)
   - [Recommendation](#recommendation-1)
+- [Observability and operator UX (extended)](#observability-and-operator-ux-extended)
+  - [Stale-PR gauge bucketed by rule × age](#stale-pr-gauge-bucketed-by-rule--age)
+  - [Reconciliation comments on the PR](#reconciliation-comments-on-the-pr)
+  - [Anti-pattern: do not use PR comments for engine state recovery](#anti-pattern-do-not-use-pr-comments-for-engine-state-recovery)
+  - [Updated IMPL sequence](#updated-impl-sequence)
 - [References](#references)
 <!--toc:end-->
 
@@ -531,6 +536,191 @@ For the IMPL plan that follows this investigation:
    integration scaffold). Don't block the bug fix on it.
 4. Skip Tier 4 unless we discover a separate class of bug that
    only manifests against real GitHub.
+
+## Observability and operator UX (extended)
+
+Beyond catching the bug class with tests, two operator-visible
+surfaces would make the file-rule reconcile loop legible to humans
+and produce fleet-wide insight even when nothing is broken.
+
+### Stale-PR gauge bucketed by rule × age
+
+Today there is no metric that answers "how many repos haven't
+merged the `codeowners` rule yet?" or "how many repo-guardian
+PRs have been open more than a week?" An operator looking at
+fleet health has to manually correlate `gh pr list` output
+against the policy file.
+
+Proposed:
+
+```go
+// internal/metrics/metrics.go
+OpenPRsByRule = promauto.NewGaugeVec(prometheus.GaugeOpts{
+    Name: "open_prs_by_rule",
+    Help: "Open repo-guardian PRs by org, rule, and PR age bucket. Reset and recomputed every sweep.",
+}, []string{"org", "rule", "age_bucket"})
+```
+
+Implementation on every sweep:
+
+1. `OpenPRsByRule.Reset()` at the start of `ReconcileAll` (or
+   the sweep handler in `internal/checker/sweep.go`).
+2. For every open repo-guardian PR (`findOurPR(openPRs) !=
+   nil`), compute `age := now.Sub(pr.CreatedAt)` and bucket it
+   into one of `0-3d`, `3-7d`, `7-30d`, `30d+`.
+3. For every rule still in `actionable` on that sweep,
+   `OpenPRsByRule.WithLabelValues(org, rule.Name,
+   bucket).Inc()`.
+
+This gives operators three natural views:
+
+```promql
+# Bubble-up by rule: how many repos haven't merged each rule.
+sum by (rule) (open_prs_by_rule)
+
+# Worst offenders: rules with the most month-plus stale PRs.
+sum by (rule) (open_prs_by_rule{age_bucket="30d+"})
+
+# Fleet aging curve over time.
+sum by (age_bucket) (open_prs_by_rule)
+```
+
+Companion alert in `templates/prometheusrule.yaml`:
+
+```yaml
+- alert: RepoGuardianPRsStuckLongTerm
+  expr: |
+    sum by (org, rule) (open_prs_by_rule{age_bucket="30d+"}) > 0
+  for: 1h
+  annotations:
+    summary: "{{ $labels.rule }} PRs open >30d in {{ $labels.org }}"
+    description: |
+      Repo-guardian has had open PRs for rule `{{ $labels.rule }}`
+      in org `{{ $labels.org }}` for more than 30 days.
+      `gh pr list --search 'head:repo-guardian/add-missing-files
+      state:open' --json title,url,createdAt`.
+```
+
+Cardinality bound: orgs × file rules × 4 buckets. With ~5 rules
+and a handful of orgs, that is at most low-hundreds of series —
+well within Prometheus comfort zones. `installation_id` is
+deliberately not a label (already redundant with `org` per the
+IMPL-0009 convention captured in MEMORY.md).
+
+Note on "updated_at" semantics: GitHub's `updated_at` advances on
+any commit, comment, label change, or assignee change — including
+repo-guardian's own reconcile writes. So a PR repo-guardian
+"touches" every sweep would never look stale by that field. Age
+from `created_at` is the right input for the staleness gauge.
+Separately, a `time_since_last_reconcile_seconds` gauge could
+track the inverse if we ever want it, but it duplicates what the
+sweep cadence already implies.
+
+### Reconciliation comments on the PR
+
+Today the engine writes the PR body once at creation and never
+again. The operator has no inline record of what repo-guardian
+has done over the PR's lifetime (added file X, removed orphan Y,
+refreshed body because Z became satisfied, etc.).
+
+Proposed: emit a structured PR comment on every state-transition
+event. Two design choices to settle in the IMPL plan:
+
+**Option A — append-only comment stream.** Every event is a new
+comment. Easy to implement. Maps cleanly to per-event
+attribution. Downside: noisy on long-lived PRs (one comment per
+sweep that does anything).
+
+**Option B — sticky single comment, edited in place.** First
+event creates a comment; subsequent events `UpdatePRComment` the
+same comment by ID, appending to its body. Standard GitHub
+Actions bot pattern (`actions/github-script` recipes). Find the
+existing comment by a marker line:
+
+```
+<!-- repo-guardian-reconcile-log v1 -->
+```
+
+This stays clean on long-lived PRs. Implementation cost is one
+ListComments call per sweep per repo with an open PR (cheap;
+already inside the sweep's API budget per IMPL-0011).
+
+**Recommended: Option B.** Operators reading a stale PR want
+"what has repo-guardian done to this PR in the past week?" as a
+single scrollable artifact, not a wall of bot comments.
+
+Comment body shape (sticky):
+
+```markdown
+<!-- repo-guardian-reconcile-log v1 -->
+
+## Repo Guardian reconcile log
+
+| Date (UTC) | Event |
+|---|---|
+| 2026-05-26 03:00 | Created with rules: `codeowners`, `renovate_config`, `catalog_info` |
+| 2026-05-29 03:00 | `catalog_info` rule satisfied on default branch — removed `catalog-info.yaml` from PR |
+| 2026-06-02 03:00 | Body refreshed: 2 rules remaining |
+```
+
+Engine side: add `client.UpsertPRComment(ctx, owner, repo,
+prNumber, markerLine, body)` to the github wrapper. On each
+state-transition event in `createOrUpdatePRFromPolicy`, render
+the new log row and call upsert.
+
+A new metric records the surface so it's observable:
+
+```go
+PRCommentsWrittenTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+    Name: "pr_comments_written_total",
+    Help: "PR reconcile-log comments written or updated, by org and event type.",
+}, []string{"org", "event"})
+```
+
+Where `event ∈ {created, file_removed, body_refreshed,
+auto_closed}`.
+
+### Anti-pattern: do not use PR comments for engine state recovery
+
+A natural-sounding follow-up — "read the comments back to know
+what we did last sweep" — should be explicitly **out of scope**.
+Two reasons:
+
+1. The durable Store added in IMPL-0011 (`repo_state` in
+   Postgres) is the canonical record of per-repo reconcile
+   history. Adding a second authority (PR comments) creates a
+   split-brain problem: which is right if they disagree?
+2. PR comments are user-editable. An operator who deletes the
+   reconcile-log comment, or a third-party bot that mass-deletes
+   bot comments, would corrupt engine state if the engine
+   trusted comment content.
+
+Comments are the **human-readable** view; `repo_state` is the
+**engine-readable** record. If the IMPL plan needs additional
+per-PR state (e.g., "files we committed last sweep, for the
+orphan-detection step"), add a column to `repo_state` — do not
+parse PR comment markdown.
+
+### Updated IMPL sequence
+
+Folding the above back into the recommendation chain at the top:
+
+1. **PR A (tiny)** — diagnostic counters
+   (`pr_orphan_left_total`, `pr_open_with_empty_actionable_total`)
+   from Tier 2 + the `open_prs_by_rule` gauge from this section.
+   Alerts in `templates/prometheusrule.yaml`. No engine behavior
+   change. Ship now to see the homelab numbers.
+2. **PR B (the actual fix)** — orphan deletion, body
+   regeneration, auto-close. Multi-sweep unit tests bundled.
+   Reconcile-log PR comments (sticky pattern) emitted on each
+   state-transition event. New `PRCommentsWrittenTotal` metric.
+3. **PR C (separate, deferrable)** — httptest integration
+   scaffold from Tier 3.
+
+The Option B sticky-comment design needs an explicit
+`UpsertPRComment` method on `ghclient.Client` and a
+corresponding mock. Calling that out so the IMPL plan can size
+it correctly.
 
 ## References
 

@@ -33,6 +33,13 @@ created: 2026-05-26
   - [Counting the blast radius](#counting-the-blast-radius)
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
+- [Testing strategy](#testing-strategy)
+  - [Tier 1 — Multi-sweep unit tests (do during the fix)](#tier-1--multi-sweep-unit-tests-do-during-the-fix)
+  - [Tier 2 — Diagnostic metric + Prometheus alert (separate small PR, before the fix)](#tier-2--diagnostic-metric--prometheus-alert-separate-small-pr-before-the-fix)
+  - [Tier 3 — Integration test scaffold using httptest.Server (medium effort, broader payoff)](#tier-3--integration-test-scaffold-using-httptestserver-medium-effort-broader-payoff)
+  - [Tier 4 — End-to-end against a real GitHub org (don't bother for this bug)](#tier-4--end-to-end-against-a-real-github-org-dont-bother-for-this-bug)
+  - [What we are NOT proposing](#what-we-are-not-proposing)
+  - [Recommendation](#recommendation-1)
 - [References](#references)
 <!--toc:end-->
 
@@ -386,6 +393,144 @@ Open question to discuss before writing IMPL: should
 or as a single squashed commit ("sync to current actionable set")?
 The latter is faster on multi-file repos but loses per-file
 attribution in the branch history.
+
+## Testing strategy
+
+The bug is a state-transition class — single-sweep tests can't catch
+it. What matters is what the engine does on sweep N+1 given the
+artifacts left by sweep N. Four options, ranked by ROI:
+
+### Tier 1 — Multi-sweep unit tests (do during the fix)
+
+The existing `mockClient` in `internal/checker/engine_test.go`
+already models state in maps (`contents`, `branchSHAs`,
+`openPRs`, etc.) and lets a test mutate that state between
+engine calls. The fix introduces three new interface methods
+(`DeleteFile`, `UpdatePullRequest`, `ClosePullRequest`); each
+needs a recording field on the mock plus an assertion in the
+test. Cheap because we're writing it alongside the fix.
+
+Three scenarios to lock in:
+
+1. **Orphan cleanup** — Sweep 1: rule `codeowners` actionable;
+   `.github/CODEOWNERS` written to branch. Mutate mock so the
+   file exists on `main`. Sweep 2: assert
+   `mock.deletedFiles` contains the target and
+   `mock.createdFiles` does NOT include it.
+2. **Body refresh on partial satisfaction** — Sweep 1: three
+   rules actionable; PR created with body listing all three.
+   Mutate mock so one rule's path exists on main. Sweep 2:
+   assert `mock.updatedPRBody` reflects the two-rule list, and
+   the orphaned target was deleted from the branch.
+3. **Auto-close on empty actionable** — Sweep 1: one rule
+   actionable; PR created. Mutate mock so the path exists on
+   main. Sweep 2: assert `mock.closedPRs` contains the PR
+   number AND `mock.deletedBranches` contains
+   `repo-guardian/add-missing-files`.
+
+Pattern is the established convention from
+`internal/checker/engine_policy_test.go` — no new infrastructure
+required.
+
+### Tier 2 — Diagnostic metric + Prometheus alert (separate small PR, before the fix)
+
+Add a counter that increments **exactly when the bug fires**.
+Name suggestion: `pr_orphan_left_total{org}` (incremented in
+`createOrUpdatePRFromPolicy` whenever a previously-committed file
+on the reconcile branch is no longer in `actionable`) and
+`pr_open_with_empty_actionable_total{org}` (incremented in
+`checkRepoWithPolicy` when `len(actionable) == 0` AND
+`findOurPR(openPRs) != nil`).
+
+Value: ship the metric BEFORE the fix to gather production
+evidence of how often the bug fires in the homelab. Pair with a
+PrometheusRule alert (extends `templates/prometheusrule.yaml`,
+which already ships 5 starter alerts from IMPL-0011 P6):
+
+```yaml
+- alert: RepoGuardianStalePRLikely
+  expr: |
+    sum(rate(pr_open_with_empty_actionable_total[1h])) by (org) > 0
+  for: 15m
+  annotations:
+    summary: "Repo Guardian observed satisfied rules with an open PR (org={{ $labels.org }})"
+```
+
+Keep the metric post-fix — it stays useful as a regression
+canary. If the fix lands and the counter resumes climbing, we
+have a smoke detector for that whole class of bug.
+
+### Tier 3 — Integration test scaffold using httptest.Server (medium effort, broader payoff)
+
+Precedent exists in `internal/github/client_test.go`, which uses
+`httptest.NewServer` to stand up a fake GitHub API surface. The
+existing tests are scoped to one API call per test. A multi-sweep
+engine test would extend the pattern:
+
+1. Stand up a `httptest.Server` that records every request and
+   serves canned responses from an in-test state map.
+2. Construct an installation-scoped `ghclient.Client` pointed at
+   the fake's URL.
+3. Wire it into `Engine.NewEngineFromPolicy` directly (no
+   webhooks, no scheduler, no queue).
+4. Drive the engine through N synthetic sweeps, mutating the
+   fake's state map between each.
+5. Assert on the request log: did the engine call `DeleteFile`,
+   `UpdatePullRequest`, `ClosePullRequest` at the right moments?
+
+Cost: roughly 1-2 days to write the harness; ~50 LOC per new
+test. Payoff: catches engine-flow bugs that single-method mocks
+miss (e.g., a CreateFile-then-DeleteFile that targets the wrong
+branch SHA). The harness becomes the canonical test bed for any
+future engine-loop change.
+
+Recommendation: scope this in a separate IMPL phase or follow-up
+RFC, not in the bug-fix PR. The fix itself is fine with Tier 1.
+
+### Tier 4 — End-to-end against a real GitHub org (don't bother for this bug)
+
+Stand up a sandbox GitHub org with throwaway repos, install
+repo-guardian as a real App, drive sweeps end-to-end, assert
+via `gh pr view`. This is the "is the whole system actually
+working?" tier.
+
+Cost is significant: sandbox org + GitHub App secret management
+in CI + rate-limit budget + cleanup between runs. The bug in
+INV-0005 is deterministic from code paths — it does not need
+real GitHub to surface. E2E would be valuable for chart-deploy
+smoke testing (already partially covered by
+`charts/repo-guardian/docs/homelab-smoke.md`), but it does not
+catch a different failure mode for this bug class than Tier 3
+catches more cheaply.
+
+### What we are NOT proposing
+
+- **Property-based / fuzz testing** — possible (the invariant
+  "files on branch == targets of actionable rules" is clean) but
+  requires the Tier 3 harness first. Re-evaluate after Tier 3
+  exists.
+- **Mutation testing** — would surface gaps in existing
+  coverage, but the gap here is identified already. Useful as a
+  separate codebase-wide initiative, not for this bug.
+- **Snapshot tests on PR body** — the body changes legitimately
+  when operators tune `defaults.pr.body`. Snapshots would
+  generate noise. Tier 1's explicit assertions on body content
+  are sufficient.
+
+### Recommendation
+
+For the IMPL plan that follows this investigation:
+
+1. Land Tier 2 (diagnostic metric + alert) as a small standalone
+   PR before the fix, so we can observe the bug rate in the
+   homelab now.
+2. Bundle Tier 1 (multi-sweep unit tests) with the fix in the
+   same PR — that's the bar for "we believe the fix is
+   correct."
+3. Open a separate planning issue or RFC for Tier 3 (httptest
+   integration scaffold). Don't block the bug fix on it.
+4. Skip Tier 4 unless we discover a separate class of bug that
+   only manifests against real GitHub.
 
 ## References
 

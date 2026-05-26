@@ -745,36 +745,67 @@ convention.
 
 **Other 4000-repo scale concerns worth naming explicitly:**
 
-1. **Sweep duration vs `RECONCILE_FRESHNESS`.** GitHub App rate
-   limit is ~5000/hr per installation. At 4-5 API calls per
-   repo per sweep, a single installation covering 4000 repos
-   needs ~3-4 hours just for API calls — assuming no
-   reconciliation actions. The default
-   `RECONCILE_FRESHNESS=7m` is meaningless at this scale. Two
-   mitigations: bump freshness up (24h is reasonable for
-   thousands of repos) or split into multiple installations
-   per org. IMPL-0011's `RATE_LIMIT_RESERVE` gate already
-   prevents the sweep from exhausting budget, but it does not
-   make the sweep faster.
-2. **Stale-PR gauge granularity at long sweep cadences.** If
-   sweeps take 3 hours, the gauge represents the fleet state
-   as of the most recent sweep. Alerts at minute resolution
-   become meaningless. Tune alert `for:` windows to match
-   sweep cadence — `for: 2h` minimum at 4K-repo scale.
+1. **Sweep throughput vs API budget — plan-dependent.** GitHub
+   App rate limit is **plan-sensitive**, not a flat 5000/hr:
+    - Free / Pro / Team installations: 5,000 requests/hr per
+      installation as a floor, scaling upward by user / repo
+      count via a documented formula.
+    - Enterprise Cloud organizations: 15,000 requests/hr per
+      installation.
+    - Enterprise Server: governed by the appliance's
+      configured limit; typically higher.
+
+   Per-repo cost is ~5-20 API calls in steady state depending on
+   policy density (one `GetRepository` + one
+   `ListOpenPullRequests` + N × `GetContents` for each file
+   rule's path list, plus setting / branch-protection / reconciler
+   calls).
+
+   But importantly: **the sweep does not enumerate the whole
+   fleet per tick.** IMPL-0011's `StaleSweeper`
+   (`internal/checker/sweep.go`) queries
+   `Store.StaleRepos(freshness, policyVersion,
+   batchSize)` and only processes `batchSize` repos per scheduler
+   tick. `STORE_SWEEP_BATCH_SIZE` defaults to 100; tune up for
+   bigger fleets, down for smaller budgets.
+
+   Steady-state worked examples at 4000 repos, assuming ~10 API
+   calls per repo:
+
+    | Plan | Limit | Freshness | Calls/hr at saturation | Comfortable? |
+    |---|---|---|---|---|
+    | Free/Pro/Team | 5,000/hr | 24h | ~1,700 | Yes, ~35% util |
+    | Free/Pro/Team | 5,000/hr | 7m   | ~17,000 | **No** — gate would block |
+    | Enterprise Cloud | 15,000/hr | 24h | ~1,700 | Yes, ~11% util |
+    | Enterprise Cloud | 15,000/hr | 7m | ~17,000 | Just over — tune batch_size down or freshness up |
+
+   At Enterprise Cloud + 4000 repos, 24h freshness with
+   `STORE_SWEEP_BATCH_SIZE` somewhere around 100-200 per tick
+   leaves comfortable headroom. The `RATE_LIMIT_RESERVE` gate
+   (`internal/checker/sweep.go:175-189`) falls open on lookup
+   failure and short-circuits enqueue when budget runs low, so
+   the worst case is "sweep slows down," not "sweep crashes."
+
+2. **Stale-PR gauge granularity at long sweep cadences.** With
+   24h freshness, the gauge reflects fleet state as of the most
+   recent stale-pass per repo, not the most recent
+   `kubectl exec` second. Alert `for:` windows should match
+   sweep cadence — `for: 2h` minimum at 24h-freshness scale,
+   `for: 15m` is fine at 7m freshness.
 3. **Postgres `repo_state` at 4000 rows.** Trivial. No
    concern; the existing schema supports this without
-   modification.
+   modification. The `(installation_id, owner, repo)` index from
+   IMPL-0011 P2 makes the `StaleRepos` query a bounded index scan
+   regardless of fleet size.
 4. **Sticky comment API cost.** The proposed sticky pattern
    does **one** `ListComments` call per repo with an open PR
-   per sweep, plus one `Update` or `Create` only when a
-   state-transition event fires. At 4000 repos with ~10%
-   having an open PR (≈ 400 PRs) and ~5% of those
-   transitioning state per sweep (≈ 20 events), that's 400
-   reads + 20 writes per sweep — well inside the API budget
-   the `RATE_LIMIT_RESERVE` gate is sized for. Importantly,
-   if **nothing changes** on a PR over a sweep, **zero
-   comment-related API calls fire**. The cost scales with
-   churn, not fleet size.
+   per sweep tick that touches it, plus one `Update` or
+   `Create` only when a state-transition event fires. At 4000
+   repos with ~10% having an open PR (≈ 400 PRs) and the
+   sweep processing 100/tick → only ~10 of those touched per
+   tick. If state transitions on ~5%, that's <1 comment write
+   per tick. The cost scales with **churn**, not fleet size,
+   and most ticks see zero comment-related API calls.
 5. **Orphan-cleanup cost in the fix PR.** `DeleteFile` is one
    call per orphan per affected repo. Bounded by "how many
    files became satisfied between sweeps" — for an actively
@@ -782,11 +813,13 @@ convention.
    sweep, since most rules either stay satisfied or stay
    broken between sweeps.
 
-If the operator scales past ~10K repos in a single installation,
-the right next investigation is per-installation sharding of the
-sweep (each pod handles a slice of installations), not
-metric-level tuning. The interface-first design from IMPL-0011
-makes that scope-able as a follow-up RFC.
+If the operator scales past ~10K repos in a single installation
+**or** runs into the 5K/hr floor on free-plan installations
+without room to bump batch size or freshness, the right next
+investigation is per-installation sharding of the sweep (each
+pod handles a slice of installations), not metric-level tuning.
+The interface-first design from IMPL-0011 makes that scope-able
+as a follow-up RFC.
 
 ### Updated IMPL sequence
 

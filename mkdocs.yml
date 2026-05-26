@@ -39,6 +39,7 @@ nav:
         - 'INV-0003: Pre-existing branch 422 on subsequent reconciles': investigation/0003-pre-existing-branch-422-on-subsequent-reconciles.md
         - 'INV-0004: Forge interface and package refactor for Forgejo backend': investigation/0004-forge-interface-and-package-refactor-for-forgejo-backend.md
         - 'INV-0005: Stale PRs when file rules become satisfied on main': investigation/0005-stale-prs-when-file-rules-become-satisfied-on-main.md
+        - 'INV-0006: Per-org GitHub App credentials': investigation/0006-per-org-github-app-credentials.md
     - Legacy:
         - Custom Properties Implementation Plan: legacy/custom_properties_implementation.md
         - 'Feature Plan: Custom Properties from Backstage catalog-info.yaml': legacy/custom_properties.md

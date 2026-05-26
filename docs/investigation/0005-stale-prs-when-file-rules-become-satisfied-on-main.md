@@ -44,6 +44,7 @@ created: 2026-05-26
   - [Stale-PR gauge bucketed by rule × age](#stale-pr-gauge-bucketed-by-rule--age)
   - [Reconciliation comments on the PR](#reconciliation-comments-on-the-pr)
   - [Anti-pattern: do not use PR comments for engine state recovery](#anti-pattern-do-not-use-pr-comments-for-engine-state-recovery)
+  - [Scale considerations (4000+ repos)](#scale-considerations-4000-repos)
   - [Updated IMPL sequence](#updated-impl-sequence)
 - [References](#references)
 <!--toc:end-->
@@ -701,6 +702,92 @@ per-PR state (e.g., "files we committed last sweep, for the
 orphan-detection step"), add a column to `repo_state` — do not
 parse PR comment markdown.
 
+### Scale considerations (4000+ repos)
+
+Cardinality of the proposed metrics is bounded by **label
+combinations, not gauge values**. Worked example for a 4000-repo
+fleet spread across 10 orgs:
+
+| Metric | Label set | Series count |
+|---|---|---|
+| `open_prs_by_rule` | `org` × `rule` × `age_bucket` | 10 × ~5 rules × 4 buckets = **200** |
+| `pr_orphan_left_total` | `org` × `rule` | 10 × 5 = **50** |
+| `pr_open_with_empty_actionable_total` | `org` | **10** |
+| `pr_comments_written_total` | `org` × `event` | 10 × 4 events = **40** |
+
+These are series, not values. If 300 of the 4000 repos have a
+stale `codeowners` PR in the 7-30d bucket, the **value** of
+`open_prs_by_rule{org="acme", rule="codeowners",
+age_bucket="7-30d"}` is 300 — but it's still one series.
+Prometheus comfort zone is hundreds of thousands of series, so
+this is nowhere near the danger zone.
+
+**What would explode cardinality (and why I deliberately did
+not propose any of these):**
+
+- Adding `repo` as a label: 4000 repos × 5 rules × 4 buckets =
+  80K series **per metric**. Cardinality bomb on a metric you'd
+  scrape every 30s.
+- Adding `pr_number` as a label: unbounded over the system's
+  lifetime (PR numbers monotonically increase, old PRs stay in
+  the label set forever).
+- Fine-grained age buckets (per-hour): 720 × 50 orgs × 10 rules
+  = 360K series. Same problem.
+
+**Convention preserved:** the codebase already disallows `repo`
+as a label across all 32 existing metrics. `installation_id`
+appears on exactly two metrics
+(`rate_limit_remaining`, `rate_limit_reserve_blocked_total`) —
+both genuinely installation-scoped because the rate-limit
+budget is per-installation. The per-rule and per-PR metrics
+stay labeled by `org` only. The new metrics follow the same
+convention.
+
+**Other 4000-repo scale concerns worth naming explicitly:**
+
+1. **Sweep duration vs `RECONCILE_FRESHNESS`.** GitHub App rate
+   limit is ~5000/hr per installation. At 4-5 API calls per
+   repo per sweep, a single installation covering 4000 repos
+   needs ~3-4 hours just for API calls — assuming no
+   reconciliation actions. The default
+   `RECONCILE_FRESHNESS=7m` is meaningless at this scale. Two
+   mitigations: bump freshness up (24h is reasonable for
+   thousands of repos) or split into multiple installations
+   per org. IMPL-0011's `RATE_LIMIT_RESERVE` gate already
+   prevents the sweep from exhausting budget, but it does not
+   make the sweep faster.
+2. **Stale-PR gauge granularity at long sweep cadences.** If
+   sweeps take 3 hours, the gauge represents the fleet state
+   as of the most recent sweep. Alerts at minute resolution
+   become meaningless. Tune alert `for:` windows to match
+   sweep cadence — `for: 2h` minimum at 4K-repo scale.
+3. **Postgres `repo_state` at 4000 rows.** Trivial. No
+   concern; the existing schema supports this without
+   modification.
+4. **Sticky comment API cost.** The proposed sticky pattern
+   does **one** `ListComments` call per repo with an open PR
+   per sweep, plus one `Update` or `Create` only when a
+   state-transition event fires. At 4000 repos with ~10%
+   having an open PR (≈ 400 PRs) and ~5% of those
+   transitioning state per sweep (≈ 20 events), that's 400
+   reads + 20 writes per sweep — well inside the API budget
+   the `RATE_LIMIT_RESERVE` gate is sized for. Importantly,
+   if **nothing changes** on a PR over a sweep, **zero
+   comment-related API calls fire**. The cost scales with
+   churn, not fleet size.
+5. **Orphan-cleanup cost in the fix PR.** `DeleteFile` is one
+   call per orphan per affected repo. Bounded by "how many
+   files became satisfied between sweeps" — for an actively
+   maintained fleet this trends toward small numbers per
+   sweep, since most rules either stay satisfied or stay
+   broken between sweeps.
+
+If the operator scales past ~10K repos in a single installation,
+the right next investigation is per-installation sharding of the
+sweep (each pod handles a slice of installations), not
+metric-level tuning. The interface-first design from IMPL-0011
+makes that scope-able as a follow-up RFC.
+
 ### Updated IMPL sequence
 
 Folding the above back into the recommendation chain at the top:
@@ -712,7 +799,8 @@ Folding the above back into the recommendation chain at the top:
    change. Ship now to see the homelab numbers.
 2. **PR B (the actual fix)** — orphan deletion, body
    regeneration, auto-close. Multi-sweep unit tests bundled.
-   Reconcile-log PR comments (sticky pattern) emitted on each
+   Reconcile-log PR comments (sticky pattern, human-readable
+   only — see anti-pattern subsection above) emitted on each
    state-transition event. New `PRCommentsWrittenTotal` metric.
 3. **PR C (separate, deferrable)** — httptest integration
    scaffold from Tier 3.

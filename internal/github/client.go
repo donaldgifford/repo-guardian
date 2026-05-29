@@ -924,7 +924,7 @@ func (c *GitHubClient) UpsertPRComment(
 ) error {
 	existing, err := c.ListPRComments(ctx, owner, repo, number)
 	if err != nil {
-		return err
+		return fmt.Errorf("upsert comment on PR #%d for %s/%s: %w", number, owner, repo, err)
 	}
 
 	stickyBody := marker + "\n" + body

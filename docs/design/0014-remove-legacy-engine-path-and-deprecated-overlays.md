@@ -28,7 +28,7 @@ created: 2026-05-28
 - [Data Model](#data-model)
 - [Testing Strategy](#testing-strategy)
 - [Migration / Rollout Plan](#migration--rollout-plan)
-- [Open Questions](#open-questions)
+- [Resolved Decisions](#resolved-decisions)
 - [References](#references)
 <!--toc:end-->
 
@@ -58,6 +58,10 @@ than keep paying the divergence tax.
 - Delete `NewEngine` (legacy registry path) and the
   `e.policy != nil` dispatch branch in `CheckRepo`. Every code path
   ends up policy-driven.
+- Slim `internal/rules/` down to just `TemplateStore` and the
+  embedded templates `embed.FS`. `Registry`, `DefaultRules`, and
+  the `FileRule` type become orphaned dead code once `engine.go`
+  is deleted and go with it.
 - Delete `deploy/base/`, `deploy/overlays/dev`,
   `deploy/overlays/prod`, `deploy/overlays/tailscale`. Helm chart
   becomes the only supported deployment path.
@@ -141,12 +145,28 @@ and drops the conditional. The `Engine` struct loses its
 `NewEngine` (claiming the simpler name now that there's only one
 constructor).
 
-The legacy registry types live in `internal/rules/` (`FileRule`
-registry + `TemplateStore`). These stay — `NewEngineFromPolicy`
-uses the `TemplateStore` for embedded fallback templates, and the
-HCL loader translates policy file-rules into the same shape the
-engine consumed before. Only the *constructor and dispatch* are
-legacy, not the rule abstraction.
+**`internal/rules/` shrinks to just `TemplateStore`.** Pre-review
+analysis assumed the whole package stayed, but a closer audit
+showed `Registry`, `NewRegistry`, `EnabledRules`, `RuleByName`,
+`AllRules`, `DefaultRules`, and the `FileRule` type are *only*
+referenced from the legacy `engine.go` (deleted in this PR). The
+policy path uses `policy.FileRuleConfig`, not `rules.FileRule` —
+they're distinct types in distinct packages. After PR 1:
+
+- **Delete:** `Registry` (+ constructor and methods), `DefaultRules`,
+  `FileRule` struct (~ 100 LOC across `registry.go`).
+- **Keep:** `TemplateStore`, `NewTemplateStore`,
+  `NewTemplateStoreWithRenderer`, `Get`, `Raw`, `Load`,
+  `embed.FS` of `templates/`. Four production call sites depend
+  on `TemplateStore`: `main.go:249`, `engine_policy.go:188`, and
+  `custom_properties.go:41,47`.
+
+The surviving `internal/rules/` package is ~150 LOC of
+`TemplateStore` + embedded templates. Same package path, same
+import lines — no consumer touched. The package name `rules` is
+mildly misleading after this slim-down (it's really a template
+store now), but renaming costs every import line in the tree for
+no behavioural benefit; deferred. See Resolved Decisions Q5.
 
 **Tests:** `internal/checker/engine_test.go` is the only call site.
 `runEngine` (`engine_test.go:278`) is the helper that constructs
@@ -207,6 +227,10 @@ external inbound links are vanishingly unlikely. Open Question 2.
 | `checker.NewEngine(reg, ts, log, ...)` | **Deleted** | Tests migrate to the renamed `NewEngine(client, policy, log)`. |
 | `checker.NewEngineFromPolicy(client, policy, log)` | **Renamed** to `NewEngine`. Signature unchanged. | `cmd/repo-guardian/main.go` updates the call site. |
 | `checker.Engine.policy *policy.Policy` | Non-nullable | No external consumers; field is unexported. |
+| `rules.Registry`, `rules.NewRegistry`, `rules.EnabledRules`, `rules.RuleByName`, `rules.AllRules` | **Deleted** | Only `engine.go` consumed them. |
+| `rules.DefaultRules` | **Deleted** | Only `NewRegistry(DefaultRules)` consumed it. |
+| `rules.FileRule` (struct) | **Deleted** | Distinct from `policy.FileRuleConfig`; only `engine.go` consumed it. |
+| `rules.TemplateStore` (+ methods, `embed.FS`) | Unchanged | Load-bearing for embedded templates; 4 production call sites depend on it. |
 | `deploy/base/*.yaml` | Deleted | Replaced by chart. |
 | `deploy/overlays/{dev,prod,tailscale}/*.yaml` | Deleted | Replaced by chart values. |
 | `docs/legacy/*.md` | Deleted | Superseded by docz-managed docs. |
@@ -241,16 +265,26 @@ No data model changes. The policy engine already owns all state.
 
 Split into **three PRs** to keep diffs reviewable and bisectable:
 
-**PR 1 — Engine path collapse** (largest, code-only):
+**PR 1 — Engine path collapse + `rules` slim-down** (largest, code-only):
 
 1. Rename `NewEngineFromPolicy` → `NewEngine`. Delete the old
    `NewEngine` constructor and the legacy `CheckRepo` branch.
-2. Migrate `engine_test.go`'s `runEngine` helper and every test
+2. Delete `Registry`, `NewRegistry`, `EnabledRules`, `RuleByName`,
+   `AllRules`, `DefaultRules`, and the `FileRule` struct from
+   `internal/rules/registry.go`. Keep `TemplateStore` + its
+   methods + the embedded templates. Delete the corresponding
+   `registry_test.go` cases for the deleted symbols (keep tests
+   that exercise `TemplateStore`).
+3. Migrate `engine_test.go`'s `runEngine` helper and every test
    case using it.
-3. Update `cmd/repo-guardian/main.go` call site.
-4. Update `CLAUDE.md` ("Engine dual path" architecture note becomes
-   "Engine path" — single-path description).
-5. `make ci` green; bisect-clean commit.
+4. Update `cmd/repo-guardian/main.go` call site for the
+   constructor rename (the `rules.NewTemplateStore()` line stays).
+5. Update `CLAUDE.md` ("Engine dual path" architecture note becomes
+   "Engine path" — single-path description). Update the
+   `internal/rules/` line in the package map to read
+   "TemplateStore (embedded fallback templates)" instead of
+   "FileRule registry + TemplateStore."
+6. `make ci` green; bisect-clean commit.
 
 **PR 2 — Kustomize tree removal** (deploy/ tombstone):
 
@@ -274,78 +308,21 @@ PR 1's rename — `NewEngine` is an internal symbol.
 Rollback for any single PR is `git revert` — no migrations, no
 schema changes, no runtime state to preserve.
 
-## Open Questions
+## Resolved Decisions
 
-Each option is letter-keyed: `a` is my recommendation; `b` onward
-are alternatives; `other` is an escape hatch for "none of the
-above, here's what I want."
+Open questions answered during pre-PR review (2026-05-29). Q5's
+options were rewritten after a closer audit revealed that
+`Registry`, `DefaultRules`, and the `FileRule` type are
+orphaned-dead-code after `engine.go` deletion (the original Q5
+incorrectly framed the whole package as load-bearing).
 
-### 1. `deploy/MIGRATED.md` tombstone — keep or skip?
-
-- **(a) Keep the tombstone for 6 months, then delete.** Git-history
-  readers who navigate to the old path get a one-page recipe;
-  6 months covers any reasonable upgrade window for a forked or
-  privately-vendored consumer. ✅ recommended.
-- **(b) Skip the tombstone entirely.** Git log is the authoritative
-  history; anyone deep enough to find the deleted path can read
-  the commit message.
-- **(c) Inline the migration into the chart README permanently.**
-  Chart README is already documented; piling on adds noise for
-  current-state operators.
-- **other:** _________________________
-
-### 2. Legacy URL redirects in mkdocs
-
-- **(a) No redirects.** The legacy URLs were nav-only; external
-  inbound links are vanishingly unlikely. ✅ recommended.
-- **(b) Add `mkdocs-redirects` plugin with 7 entries.** Cheap
-  insurance but introduces a build-time plugin dependency.
-- **(c) Add `.htaccess` / hosting-layer redirects.** Couples the
-  doc repo to the hosting platform.
-- **other:** _________________________
-
-### 3. Rename `NewEngineFromPolicy` → `NewEngine`?
-
-The legacy `NewEngine` slot becomes free. Reclaim it or pick a new
-name?
-
-- **(a) Rename `NewEngineFromPolicy` to `NewEngine`.** Now there's
-  only one constructor; the qualifier is dead weight. ✅ recommended.
-- **(b) Leave `NewEngineFromPolicy` as-is.** Avoids touching the
-  call site in `main.go`; preserves grep-ability in older
-  branches.
-- **(c) Rename to `NewPolicyEngine`.** More descriptive but the
-  package is `checker`, so `checker.NewPolicyEngine` is stutter.
-- **other:** _________________________
-
-### 4. Sequence — IMPL-0013 first, then this DESIGN's PRs?
-
-- **(a) Ship IMPL-0013 first; start this DESIGN's PRs only after
-  IMPL-0013 lands.** Keeps the two work streams from interleaving;
-  IMPL-0013 has operator-visible fixes that should not wait on a
-  removal-only sequence. ✅ recommended.
-- **(b) Ship this DESIGN's PR 1 first to simplify IMPL-0013's
-  Phase 3 code path.** Risks scope creep on the operator-visible
-  fix.
-- **(c) Run in parallel on separate branches.** Test-helper rewrites
-  in PR 1 will conflict with any IMPL-0013 tests added in the
-  same files.
-- **other:** _________________________
-
-### 5. Delete `internal/rules/registry.go` along with the legacy path?
-
-The `FileRule` registry is used by both legacy and policy paths
-(policy path consumes embedded fallback templates from it).
-
-- **(a) Keep the registry; it's still load-bearing for embedded
-  templates.** Removing it would require inlining the embedded
-  templates into the policy default-loader. ✅ recommended.
-- **(b) Inline embedded templates into `policy/defaults.go` as a
-  follow-up.** Clean separation between "rule abstraction" and
-  "policy abstraction," but a refactor beyond this DESIGN's scope.
-- **(c) Delete now and inline as part of PR 1.** Bloats PR 1
-  unnecessarily.
-- **other:** _________________________
+| # | Question | Decision | Notes |
+|---|---|---|---|
+| Q1 | `deploy/MIGRATED.md` tombstone | **(a)** Keep for 6 months, then delete. | One-page recipe for git-history readers; bounded lifetime. |
+| Q2 | Legacy URL redirects in mkdocs | **(a)** No redirects. | Legacy URLs were nav-only; external inbound is vanishingly unlikely. |
+| Q3 | Rename `NewEngineFromPolicy` → `NewEngine` | **(a)** Rename. | Only one constructor remains; qualifier becomes dead weight. |
+| Q4 | Sequence vs IMPL-0013 | **(a)** Ship IMPL-0013 first; start this DESIGN's PRs after it lands. | Avoids test-file conflicts; keeps operator-visible fix unblocked. |
+| Q5 | What survives in `internal/rules/` after PR 1 | **(a)** Slim down to just `TemplateStore` + embedded templates. Delete `Registry`, `DefaultRules`, `FileRule` type. | Same package path, ~150 LOC instead of 266, zero import-line churn for consumers. The package name `rules` becomes mildly misleading but renaming is deferred. |
 
 ## References
 

@@ -109,7 +109,7 @@ even on versions that don't yet have the fix.
 - [ ] Reset `OpenPRsByRule` to zero for `{org, rule}` combinations that
   drop to zero open PRs between sweeps — gauge semantics require this
   to avoid phantom non-zero series.
-- [ ] Wire `PROpenWithEmptyActionableTotal` increment in
+- [x] Wire `PROpenWithEmptyActionableTotal` increment in
   `engine_policy.go.checkRepoWithPolicy` at the existing
   `len(actionable) == 0 && existingPR != nil` branch (currently
   exits silently — see `engine_policy.go:546-558`).
@@ -119,7 +119,7 @@ even on versions that don't yet have the fix.
     for 1h. Severity warning.
   - `RepoGuardianPRDrift`: `rate(PROpenWithEmptyActionableTotal[1h]) > 0`
     for 30m. Severity warning.
-- [ ] Unit test that `PROpenWithEmptyActionableTotal` increments on the
+- [x] Unit test that `PROpenWithEmptyActionableTotal` increments on the
   exact path described above. Use the `mockClient` state-modelling
   pattern from `internal/checker/engine_test.go` (file present on
   default branch + open PR scenario).

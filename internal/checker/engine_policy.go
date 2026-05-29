@@ -39,7 +39,16 @@ func (e *Engine) checkRepoWithPolicy(
 
 	switch {
 	case len(actionable) == 0:
-		log.Info("all required files present")
+		// INV-0005 drift surface: if an open repo-guardian PR exists
+		// but no rule is actionable, the PR was orphaned by an
+		// out-of-band merge to main. IMPL-0013 Phase 3 makes this
+		// path convergent; Phase 1 just measures it.
+		if findOurPR(openPRs) != nil {
+			metrics.PROpenWithEmptyActionableTotal.WithLabelValues(owner).Inc()
+			log.Warn("open PR with empty actionable set — file rules satisfied on default branch (INV-0005 drift)")
+		} else {
+			log.Info("all required files present")
+		}
 	case e.dryRun:
 		log.Info("dry run: would create PR", "actionable_rules", policyRuleNames(actionable))
 	default:

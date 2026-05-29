@@ -109,10 +109,11 @@ func (c *GitHubClient) ListOpenPullRequests(ctx context.Context, owner, repo str
 
 		for _, pr := range prs {
 			allPRs = append(allPRs, &PullRequest{
-				Number: pr.GetNumber(),
-				Title:  pr.GetTitle(),
-				Head:   pr.GetHead().GetRef(),
-				State:  pr.GetState(),
+				Number:    pr.GetNumber(),
+				Title:     pr.GetTitle(),
+				Head:      pr.GetHead().GetRef(),
+				State:     pr.GetState(),
+				CreatedAt: pr.GetCreatedAt().Time,
 			})
 		}
 
@@ -250,10 +251,11 @@ func (c *GitHubClient) CreatePullRequest(
 	}
 
 	return &PullRequest{
-		Number: pr.GetNumber(),
-		Title:  pr.GetTitle(),
-		Head:   pr.GetHead().GetRef(),
-		State:  pr.GetState(),
+		Number:    pr.GetNumber(),
+		Title:     pr.GetTitle(),
+		Head:      pr.GetHead().GetRef(),
+		State:     pr.GetState(),
+		CreatedAt: pr.GetCreatedAt().Time,
 	}, nil
 }
 

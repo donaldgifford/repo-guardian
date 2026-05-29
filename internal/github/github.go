@@ -2,15 +2,19 @@
 // interacting with the GitHub API as a GitHub App.
 package github
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // PullRequest represents a GitHub pull request with the fields
 // relevant to repo-guardian's operations.
 type PullRequest struct {
-	Number int
-	Title  string
-	Head   string // Branch name.
-	State  string // "open", "closed".
+	Number    int
+	Title     string
+	Head      string    // Branch name.
+	State     string    // "open", "closed".
+	CreatedAt time.Time // PR creation timestamp; used for age-bucketed metrics.
 }
 
 // Installation represents a GitHub App installation on an org or user account.

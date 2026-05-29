@@ -268,6 +268,16 @@ var PRAgeBuckets = [...]string{
 	PRAgeBucketGT30,
 }
 
+// ResetOpenPRsByRule wipes every series of the OpenPRsByRule gauge.
+// Sweepers call this at the start of each iteration so that
+// {org, rule} combinations whose count drops to zero between sweeps
+// stop reporting phantom non-zero series. Workers re-populate the
+// gauge as they process enqueued jobs; the gauge converges within
+// one sweep cycle.
+func ResetOpenPRsByRule() {
+	OpenPRsByRule.Reset()
+}
+
 // PRAgeBucket returns the hard-coded age bucket label for the given
 // number of days since the PR was opened.
 func PRAgeBucket(ageDays float64) string {

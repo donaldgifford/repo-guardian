@@ -37,13 +37,15 @@ func (e *Engine) checkRepoWithPolicy(
 		return err
 	}
 
+	ourPR := findOurPR(openPRs)
+
 	switch {
 	case len(actionable) == 0:
 		// INV-0005 drift surface: if an open repo-guardian PR exists
 		// but no rule is actionable, the PR was orphaned by an
 		// out-of-band merge to main. IMPL-0013 Phase 3 makes this
 		// path convergent; Phase 1 just measures it.
-		if findOurPR(openPRs) != nil {
+		if ourPR != nil {
 			metrics.PROpenWithEmptyActionableTotal.WithLabelValues(owner).Inc()
 			log.Warn("open PR with empty actionable set — file rules satisfied on default branch (INV-0005 drift)")
 		} else {
@@ -55,6 +57,13 @@ func (e *Engine) checkRepoWithPolicy(
 		if err := e.createOrUpdatePRFromPolicy(ctx, client, owner, repo, defaultBranch, actionable, openPRs); err != nil {
 			return err
 		}
+	}
+
+	// IMPL-0013 Phase 1: populate OpenPRsByRule for any rule referenced
+	// by the open repo-guardian PR. The gauge represents a per-sweep
+	// snapshot; sweepers reset the entire gauge at iteration start.
+	if ourPR != nil {
+		recordOpenPRsByRule(ourPR, actionable, owner)
 	}
 
 	// Run reconcilers for rules where the file check passed.

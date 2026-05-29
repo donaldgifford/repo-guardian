@@ -106,7 +106,7 @@ even on versions that don't yet have the fix.
   `<1d`, `1-7d`, `7-30d`, `30d+` (Open Question 8). Set during the
   sweep handler (`internal/checker/sweep.go`) by joining
   `Store.StaleRepos` results against open-PR state.
-- [ ] Reset `OpenPRsByRule` to zero for `{org, rule}` combinations that
+- [x] Reset `OpenPRsByRule` to zero for `{org, rule}` combinations that
   drop to zero open PRs between sweeps — gauge semantics require this
   to avoid phantom non-zero series.
 - [x] Wire `PROpenWithEmptyActionableTotal` increment in
@@ -123,7 +123,7 @@ even on versions that don't yet have the fix.
   exact path described above. Use the `mockClient` state-modelling
   pattern from `internal/checker/engine_test.go` (file present on
   default branch + open PR scenario).
-- [ ] Unit test that `OpenPRsByRule` is reset to zero for
+- [x] Unit test that `OpenPRsByRule` is reset to zero for
   `{org, rule}` combinations whose count drops between sweeps. Use
   `testutil.ToFloat64` from the IMPL-0009 pattern.
 - [ ] Update `contrib/README.md` with example PromQL for both metrics

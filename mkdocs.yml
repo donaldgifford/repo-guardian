@@ -38,6 +38,7 @@ nav:
         - 'INV-0002: Multi-org and Forgejo support for repo-guardian': investigation/0002-multi-org-and-forgejo-support-for-repo-guardian.md
         - 'INV-0003: Pre-existing branch 422 on subsequent reconciles': investigation/0003-pre-existing-branch-422-on-subsequent-reconciles.md
         - 'INV-0004: Forge interface and package refactor for Forgejo backend': investigation/0004-forge-interface-and-package-refactor-for-forgejo-backend.md
+        - 'INV-0005: Stale PRs when file rules become satisfied on main': investigation/0005-stale-prs-when-file-rules-become-satisfied-on-main.md
     - Legacy:
         - Custom Properties Implementation Plan: legacy/custom_properties_implementation.md
         - 'Feature Plan: Custom Properties from Backstage catalog-info.yaml': legacy/custom_properties.md
@@ -53,6 +54,11 @@ nav:
         - 'RFC-0001: Repo Compliance App (repo-guardian)': rfc/0001-repo-compliance-app-repo-guardian.md
         - 'RFC-0002: HCL-driven Policy Engine for repo-guardian': rfc/0002-hcl-driven-policy-engine-for-repo-guardian.md
     - Repo Guardian - Executive Summary: SUMMARY.md
+    - Operations:
+        - Chart 0.5.0 migration runbook (IMPL-0011): operations/chart-0.5.0-migration.md
+        - Postgres schema operations: operations/migrations.md
+        - Scaling repo-guardian: operations/scaling.md
+        - Template migration guide (chart 0.3.x → 0.4.0): operations/template-migration.md
 plugins:
     - techdocs-core
 site_description: Documentation for repo-guardian

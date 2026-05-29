@@ -46,12 +46,13 @@ type mockClient struct {
 	updatedRulesetID int64
 
 	// IMPL-0013 P3 convergence fields.
-	deletedFiles     []string
-	updatedPRNumber  int
-	updatedPRTitle   string
-	updatedPRBody    string
-	closedPRNumber   int
-	upsertedComments []upsertedComment
+	deletedFiles       []string
+	updatedPRNumber    int
+	updatedPRTitle     string
+	updatedPRBody      string
+	closedPRNumber     int
+	upsertedComments   []upsertedComment
+	upsertCommentCalls int
 
 	getRepoErr             error
 	getContentsErr         error
@@ -334,11 +335,36 @@ func (m *mockClient) ClosePullRequest(_ context.Context, _, _ string, number int
 	return nil
 }
 
-func (*mockClient) ListPRComments(_ context.Context, _, _ string, _ int) ([]*ghclient.Comment, error) {
-	return nil, nil
+func (m *mockClient) ListPRComments(_ context.Context, _, _ string, number int) ([]*ghclient.Comment, error) {
+	var comments []*ghclient.Comment
+
+	for i := range m.upsertedComments {
+		c := m.upsertedComments[i]
+		if c.PRNumber != number {
+			continue
+		}
+
+		comments = append(comments, &ghclient.Comment{
+			ID:   int64(i + 1),
+			Body: c.Marker + "\n" + c.Body,
+		})
+	}
+
+	return comments, nil
 }
 
 func (m *mockClient) UpsertPRComment(_ context.Context, _, _ string, number int, marker, body string) error {
+	m.upsertCommentCalls++
+
+	for i := range m.upsertedComments {
+		existing := m.upsertedComments[i]
+		if existing.PRNumber == number && existing.Marker == marker {
+			m.upsertedComments[i].Body = body
+
+			return nil
+		}
+	}
+
 	m.upsertedComments = append(m.upsertedComments, upsertedComment{
 		PRNumber: number, Marker: marker, Body: body,
 	})

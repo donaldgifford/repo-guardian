@@ -430,7 +430,13 @@ to this chart version is unsurprising.
 - [x] Phase 3 multi-sweep tests run with `go test -count=10` to catch
   any flakiness (state-modelling mock keeps per-test state).
 - [x] Phase 4 sticky-comment idempotency: same render across two sweeps
-  produces zero API calls (skip-on-match in `upsertReconcileLog`).
+  produces exactly one `UpsertPRComment` API call, verified end-to-end
+  by `TestStickyComment_NoUpsertOnIdenticalState`
+  (`internal/checker/comments_test.go`). The skip-on-match check
+  compares a SHA-256 hash of the rule-status pairs (embedded in the
+  comment body as an HTML comment) rather than the full rendered body,
+  so the human-readable timestamp inside the body does not defeat
+  idempotency.
 - [x] Phase 5 helm-unittest: `AUTO_CLOSE_PR` env-var plumbing renders
   both with explicit `false` and at default `true`.
 - [ ] Homelab smoke (operator-side, documented in the runbook): one

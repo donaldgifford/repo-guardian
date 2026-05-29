@@ -7,6 +7,8 @@ package checker
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -169,8 +171,11 @@ type reconcileLogEvent struct {
 // status — handy for operators reading the PR's comment history to
 // reconstruct what repo-guardian decided.
 //
-// Skips the upsert when the rendered body matches the existing
-// marker-tagged comment (avoids API churn on no-op reconciles).
+// Skips the upsert when an existing reconcile-log comment already
+// reflects the same per-rule state (matched via a content-hash
+// HTML comment embedded in the body). The body's timestamp is
+// excluded from the hash so identical-state sweeps converge to a
+// single API call.
 func upsertReconcileLog(
 	ctx context.Context,
 	log *slog.Logger,
@@ -184,6 +189,7 @@ func upsertReconcileLog(
 	}
 
 	body := renderReconcileLog(events)
+	hashTag := reconcileLogHashTag(events)
 
 	existing, err := client.ListPRComments(ctx, owner, repo, pr.Number)
 	if err != nil {
@@ -195,8 +201,8 @@ func upsertReconcileLog(
 
 	for i := range existing {
 		c := existing[i]
-		if strings.HasPrefix(c.Body, reconcileLogMarker) && c.Body == reconcileLogMarker+"\n"+body {
-			// No change — skip upsert.
+		if strings.HasPrefix(c.Body, reconcileLogMarker) && strings.Contains(c.Body, hashTag) {
+			// State unchanged since the prior reconcile — skip upsert.
 			return
 		}
 	}
@@ -207,10 +213,24 @@ func upsertReconcileLog(
 	}
 }
 
+// reconcileLogHashTag returns the HTML-comment hash tag embedded in
+// every rendered reconcile-log body. The hash covers the rule-status
+// pairs only; the human-readable timestamp is deliberately excluded
+// so identical-state sweeps produce identical hashes.
+func reconcileLogHashTag(events []reconcileLogEvent) string {
+	h := sha256.New()
+	for i := range events {
+		_, _ = h.Write([]byte(events[i].Rule + "=" + events[i].Status + "\n"))
+	}
+
+	return "<!-- repo-guardian:reconcile-log:hash:" + hex.EncodeToString(h.Sum(nil)[:8]) + " -->"
+}
+
 func renderReconcileLog(events []reconcileLogEvent) string {
 	var sb strings.Builder
 
-	sb.WriteString("## repo-guardian reconcile log\n\n")
+	sb.WriteString(reconcileLogHashTag(events))
+	sb.WriteString("\n## repo-guardian reconcile log\n\n")
 	sb.WriteString("Last reconciled at ")
 	sb.WriteString(time.Now().UTC().Format(time.RFC3339))
 	sb.WriteString(".\n\n")

@@ -99,6 +99,47 @@ func TestStickyComment_ConvergentStateMentionsSatisfiedRules(t *testing.T) {
 	}
 }
 
+// TestStickyComment_NoUpsertOnIdenticalState verifies the
+// skip-on-match path in upsertReconcileLog: two reconciles against
+// identical per-rule state must result in exactly one
+// UpsertPRComment API call. Closes the Phase-4 testing-plan gap
+// flagged after the go-style review.
+func TestStickyComment_NoUpsertOnIdenticalState(t *testing.T) {
+	cfg := policy.BuiltinDefaults()
+	engine := testPolicyEngine(cfg)
+
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "main-sha"
+	client.branchSHAs["org/repo/"+BranchName] = "branch-sha"
+	client.openPRs = []*ghclient.PullRequest{
+		{Number: 1, Title: PRTitle, Head: BranchName, State: "open"},
+	}
+
+	for sweep := 1; sweep <= 2; sweep++ {
+		if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+			t.Fatalf("sweep %d: CheckRepo: %v", sweep, err)
+		}
+	}
+
+	// Auto-close ran on each sweep (PR was open with empty actionable
+	// in this fixture? no — actionable is non-empty, so auto-close
+	// does not trigger). The only upsert path that runs is the
+	// reconcile-log upsert in createOrUpdatePRFromPolicy. Two
+	// identical sweeps → one upsert; second is suppressed by the
+	// hash-tag match.
+	if client.upsertCommentCalls != 1 {
+		t.Errorf("expected exactly 1 UpsertPRComment call across 2 identical sweeps, got %d",
+			client.upsertCommentCalls)
+	}
+
+	if len(client.upsertedComments) != 1 {
+		t.Errorf("expected 1 stored comment, got %d", len(client.upsertedComments))
+	}
+}
+
 func TestBuildReconcileLogEvents_DistinguishesOrphansAndActionable(t *testing.T) {
 	t.Parallel()
 

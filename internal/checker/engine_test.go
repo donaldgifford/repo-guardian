@@ -267,6 +267,26 @@ func (*mockClient) RateLimitRemaining(_ context.Context, _ int64) (int, int, err
 	return 5000, 5000, nil
 }
 
+func (*mockClient) DeleteFile(_ context.Context, _, _, _, _, _, _ string) error {
+	return nil
+}
+
+func (*mockClient) UpdatePullRequest(_ context.Context, _, _ string, _ int, _, _ string) error {
+	return nil
+}
+
+func (*mockClient) ClosePullRequest(_ context.Context, _, _ string, _ int) error {
+	return nil
+}
+
+func (*mockClient) ListPRComments(_ context.Context, _, _ string, _ int) ([]*ghclient.Comment, error) {
+	return nil, nil
+}
+
+func (*mockClient) UpsertPRComment(_ context.Context, _, _ string, _ int, _, _ string) error {
+	return nil
+}
+
 func testEngine(dryRun bool) *Engine {
 	reg := rules.NewRegistry(rules.DefaultRules)
 	ts := rules.NewTemplateStore()

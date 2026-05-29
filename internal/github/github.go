@@ -207,4 +207,41 @@ type Client interface {
 	// (IMPL-0011 Phase 5e). Returns (remaining, limit, err); limit ≤ 0
 	// means "unknown" and the gate falls open.
 	RateLimitRemaining(ctx context.Context, installationID int64) (remaining, limit int, err error)
+
+	// DeleteFile removes a file from the given branch. Required by the
+	// IMPL-0013 Phase 3 orphan-cleanup path: when a file rule becomes
+	// satisfied on the default branch, the template file repo-guardian
+	// authored on the reconcile branch must be removed.
+	DeleteFile(ctx context.Context, owner, repo, branch, path, sha, message string) error
+
+	// UpdatePullRequest edits the title and body of an open pull
+	// request. Used by IMPL-0013 Phase 3 to refresh the PR body when
+	// the actionable rule set shrinks between sweeps.
+	UpdatePullRequest(ctx context.Context, owner, repo string, number int, title, body string) error
+
+	// ClosePullRequest transitions the pull request to the closed
+	// state without merging. Used by IMPL-0013 Phase 3 when every file
+	// rule has been satisfied and the PR is no longer needed.
+	ClosePullRequest(ctx context.Context, owner, repo string, number int) error
+
+	// ListPRComments returns issue comments on the given pull request.
+	// (PR comments are issue comments under the hood.) Used by
+	// UpsertPRComment to discover an existing sticky comment by its
+	// marker line.
+	ListPRComments(ctx context.Context, owner, repo string, number int) ([]*Comment, error)
+
+	// UpsertPRComment writes a sticky comment to a pull request: if a
+	// comment whose body starts with the given marker exists, edits
+	// it in place; otherwise creates a new comment with the marker
+	// prepended on row 1. Used by IMPL-0013 Phase 4 for the
+	// reconcile-log sticky comment.
+	UpsertPRComment(ctx context.Context, owner, repo string, number int, marker, body string) error
+}
+
+// Comment represents an issue/PR comment with the fields needed for
+// marker-based sticky-comment upsert. Populated from
+// go-github IssueComment responses.
+type Comment struct {
+	ID   int64
+	Body string
 }

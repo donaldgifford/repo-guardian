@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
@@ -773,6 +774,142 @@ func (c *GitHubClient) DeleteLabel(ctx context.Context, owner, repo, name string
 	_, err := c.ghClient().Issues.DeleteLabel(ctx, owner, repo, name)
 	if err != nil {
 		return fmt.Errorf("deleting label %q for %s/%s: %w", name, owner, repo, err)
+	}
+
+	return nil
+}
+
+// DeleteFile removes a file from the given branch via the Contents
+// API. The caller supplies the blob sha to preserve the
+// optimistic-concurrency contract of the upstream endpoint; the
+// engine fetches it during the orphan-discovery pass.
+func (c *GitHubClient) DeleteFile(
+	ctx context.Context,
+	owner, repo, branch, path, sha, message string,
+) error {
+	opts := &gh.RepositoryContentFileOptions{
+		Message: gh.Ptr(message),
+		SHA:     gh.Ptr(sha),
+		Branch:  gh.Ptr(branch),
+	}
+
+	if _, _, err := c.ghClient().Repositories.DeleteFile(ctx, owner, repo, path, opts); err != nil {
+		return fmt.Errorf("deleting %s on %s/%s@%s: %w", path, owner, repo, branch, err)
+	}
+
+	return nil
+}
+
+// UpdatePullRequest edits the title and body of an open pull request.
+// Used by IMPL-0013 Phase 3 to refresh the body when the actionable
+// set shrinks. State is left untouched — see ClosePullRequest for
+// the close path.
+func (c *GitHubClient) UpdatePullRequest(
+	ctx context.Context,
+	owner, repo string,
+	number int,
+	title, body string,
+) error {
+	patch := &gh.PullRequest{
+		Title: gh.Ptr(title),
+		Body:  gh.Ptr(body),
+	}
+
+	if _, _, err := c.ghClient().PullRequests.Edit(ctx, owner, repo, number, patch); err != nil {
+		return fmt.Errorf("updating PR #%d on %s/%s: %w", number, owner, repo, err)
+	}
+
+	return nil
+}
+
+// ClosePullRequest transitions the PR to the closed state without
+// merging. Used by IMPL-0013 Phase 3 when every file rule has been
+// satisfied on the default branch and the PR is no longer needed.
+func (c *GitHubClient) ClosePullRequest(
+	ctx context.Context,
+	owner, repo string,
+	number int,
+) error {
+	patch := &gh.PullRequest{State: gh.Ptr("closed")}
+
+	if _, _, err := c.ghClient().PullRequests.Edit(ctx, owner, repo, number, patch); err != nil {
+		return fmt.Errorf("closing PR #%d on %s/%s: %w", number, owner, repo, err)
+	}
+
+	return nil
+}
+
+// ListPRComments returns issue comments on the given pull request.
+// PR comments are issue comments under the hood, so this routes
+// through the Issues.ListComments endpoint. The full list is
+// returned via paginated traversal.
+func (c *GitHubClient) ListPRComments(
+	ctx context.Context,
+	owner, repo string,
+	number int,
+) ([]*Comment, error) {
+	opts := &gh.IssueListCommentsOptions{
+		ListOptions: gh.ListOptions{PerPage: 100},
+	}
+
+	var all []*Comment
+
+	for {
+		comments, resp, err := c.ghClient().Issues.ListComments(ctx, owner, repo, number, opts)
+		if err != nil {
+			return nil, fmt.Errorf("listing comments on PR #%d for %s/%s: %w", number, owner, repo, err)
+		}
+
+		for _, ic := range comments {
+			all = append(all, &Comment{
+				ID:   ic.GetID(),
+				Body: ic.GetBody(),
+			})
+		}
+
+		if resp.NextPage == 0 {
+			break
+		}
+
+		opts.Page = resp.NextPage
+	}
+
+	return all, nil
+}
+
+// UpsertPRComment writes a sticky marker-tagged comment. If a comment
+// whose body starts with the marker line exists, it is edited in
+// place; otherwise a fresh comment is created with the marker
+// prepended on row 1. The marker convention lets future tooling
+// identify and operate on repo-guardian-authored comments without
+// false-matching human comments.
+func (c *GitHubClient) UpsertPRComment(
+	ctx context.Context,
+	owner, repo string,
+	number int,
+	marker, body string,
+) error {
+	existing, err := c.ListPRComments(ctx, owner, repo, number)
+	if err != nil {
+		return err
+	}
+
+	stickyBody := marker + "\n" + body
+
+	for _, cm := range existing {
+		if strings.HasPrefix(cm.Body, marker) {
+			patch := &gh.IssueComment{Body: gh.Ptr(stickyBody)}
+			if _, _, editErr := c.ghClient().Issues.EditComment(ctx, owner, repo, cm.ID, patch); editErr != nil {
+				return fmt.Errorf("editing comment %d on PR #%d for %s/%s: %w", cm.ID, number, owner, repo, editErr)
+			}
+
+			return nil
+		}
+	}
+
+	newComment := &gh.IssueComment{Body: gh.Ptr(stickyBody)}
+	if _, _, err := c.ghClient().Issues.CreateComment(ctx, owner, repo, number, newComment); err != nil {
+		return fmt.Errorf("creating comment on PR #%d for %s/%s: %w", number, owner, repo, err)
 	}
 
 	return nil

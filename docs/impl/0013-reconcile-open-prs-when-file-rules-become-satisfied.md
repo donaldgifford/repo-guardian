@@ -154,35 +154,37 @@ will need a no-op stub.
 
 #### Tasks
 
-- [ ] Add to `internal/github/client.go.Client` interface:
-  - [ ] `DeleteFile(ctx, owner, repo, path, branch, sha, message) error`
+- [x] Add to `internal/github/client.go.Client` interface:
+  - [x] `DeleteFile(ctx, owner, repo, path, branch, sha, message) error`
     — wraps `client.Repositories.DeleteFile`. Used to remove orphan
     files from the reconcile branch.
-  - [ ] `UpdatePullRequest(ctx, owner, repo, number, title, body) error`
+  - [x] `UpdatePullRequest(ctx, owner, repo, number, title, body) error`
     — wraps `PullRequests.Edit` with title/body only.
-  - [ ] `ClosePullRequest(ctx, owner, repo, number) error` — wraps
+  - [x] `ClosePullRequest(ctx, owner, repo, number) error` — wraps
     `PullRequests.Edit` with `state="closed"`.
-  - [ ] `ListPRComments(ctx, owner, repo, number) ([]*Comment, error)`
+  - [x] `ListPRComments(ctx, owner, repo, number) ([]*Comment, error)`
     — wraps `Issues.ListComments` (PR comments are issue comments
     under the hood). Returns a thin `Comment` type with `ID`, `Body`.
-  - [ ] `UpsertPRComment(ctx, owner, repo, number, markerKey, body) error`
+  - [x] `UpsertPRComment(ctx, owner, repo, number, markerKey, body) error`
     — list comments, find the one starting with the marker line, if
     found `Issues.EditComment`, else `Issues.CreateComment`. Marker
     format: `<!-- repo-guardian:reconcile-log:v1 -->` on first line
     (see Open Question 2).
-- [ ] Implement all five against `go-github` and add unit tests using
+- [x] Implement all five against `go-github` and add unit tests using
   the existing `httptest.Server` pattern in
   `internal/github/client_test.go`.
-- [ ] Add no-op stubs to existing test mocks:
-  - [ ] `internal/checker/engine_test.go.mockClient`
-  - [ ] `internal/checker/sweep_test.go.mockClient`
-  - [ ] `internal/reconciler/custom_properties_test.go.mockClient`
+- [x] Add no-op stubs to existing test mocks:
+  - [x] `internal/checker/engine_test.go.mockClient`
+  - [x] `internal/scheduler/sweep_test.go.mockClient` (note:
+    `internal/checker/sweep_test.go` uses `fakeRateLimit` not
+    `mockClient` — no stubs needed there)
+  - [x] `internal/reconciler/custom_properties_test.go.mockClient`
     (embedded by `bpMockClient` and `labelMockClient`, so this
     one stub covers the reconciler tests).
-- [ ] Update mockery-generated mocks if any consume these interfaces
+- [x] Update mockery-generated mocks if any consume these interfaces
   via `make mocks` (Store/Queue/Scheduler don't; only the legacy
   hand-written mocks).
-- [ ] Document the marker-comment convention in `CLAUDE.md` under
+- [x] Document the marker-comment convention in `CLAUDE.md` under
   the architecture-notes section.
 
 #### Success Criteria

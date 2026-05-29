@@ -126,9 +126,9 @@ even on versions that don't yet have the fix.
 - [x] Unit test that `OpenPRsByRule` is reset to zero for
   `{org, rule}` combinations whose count drops between sweeps. Use
   `testutil.ToFloat64` from the IMPL-0009 pattern.
-- [ ] Update `contrib/README.md` with example PromQL for both metrics
+- [x] Update `contrib/README.md` with example PromQL for both metrics
   (mirror the IMPL-0009 migration recipe style).
-- [ ] Bump chart appVersion + chart version (patch); changelog entry.
+- [x] Bump chart appVersion + chart version (patch); changelog entry.
 
 #### Success Criteria
 

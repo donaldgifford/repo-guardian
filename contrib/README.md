@@ -55,6 +55,34 @@ sum by (org) (rate(repo_guardian_prs_created_total[5m]))
 topk(10, sum by (rule_name) (rate(repo_guardian_files_missing_total[1h])))
 ```
 
+### PR drift and convergence (IMPL-0013 Phase 1)
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `pr_open_with_empty_actionable_total` | CounterVec | `org` | Reconcile passes where an open repo-guardian PR exists but no rule is actionable — the INV-0005 drift surface. A non-zero rate after IMPL-0013 Phase 3 lands indicates convergence is not working. |
+| `open_prs_by_rule` | GaugeVec | `org`, `rule`, `age_bucket` | Snapshot of currently-open repo-guardian PRs, attributed to each rule referenced by the PR and bucketed by age (`<1d`, `1-7d`, `7-30d`, `30d+`). Reset to zero at the start of each sweep so {org, rule} combinations that drop to zero stop reporting. |
+
+Example:
+
+```promql
+# Drift rate per org (fires the RepoGuardianPRDrift alert)
+sum by (org) (rate(repo_guardian_pr_open_with_empty_actionable_total[1h]))
+
+# Stuck PRs older than 30 days, by org and rule
+sum by (org, rule) (repo_guardian_open_prs_by_rule{age_bucket="30d+"})
+
+# Per-rule fleet-wide stuck-PR breakdown (find rules with the worst convergence)
+topk(10, sum by (rule) (repo_guardian_open_prs_by_rule))
+
+# Aging distribution for a single rule
+sum by (age_bucket) (repo_guardian_open_prs_by_rule{rule="codeowners"})
+```
+
+The `open_prs_by_rule` gauge is a per-sweep snapshot; expect a brief
+zero window at sweep start before workers re-populate it. Average
+the gauge or use `max_over_time` if your scrape interval is shorter
+than your sweep interval.
+
 ### Setting rules
 
 | Metric | Type | Labels | Description |

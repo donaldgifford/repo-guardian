@@ -32,6 +32,7 @@ nav:
         - 'IMPL-0010: Publish Helm chart via OCI registry': impl/0010-publish-helm-chart-via-oci-registry.md
         - 'IMPL-0011: Persistent reconcile state and multi-replica coordination': impl/0011-persistent-reconcile-state-and-multi-replica-coordination.md
         - 'IMPL-0012: Customizable PR templates and extensible template ConfigMap': impl/0012-customizable-pr-templates-and-extensible-template-configmap.md
+        - 'IMPL-0013: Reconcile open PRs when file rules become satisfied': impl/0013-reconcile-open-prs-when-file-rules-become-satisfied.md
     - Investigations:
         - Overview: investigation/README.md
         - 'INV-0001: Tailscale Funnel for Webhook Testing': investigation/0001-tailscale-funnel-for-webhook-testing.md
@@ -57,6 +58,7 @@ nav:
     - Repo Guardian - Executive Summary: SUMMARY.md
     - Operations:
         - Chart 0.5.0 migration runbook (IMPL-0011): operations/chart-0.5.0-migration.md
+        - 'Chart 0.6.0 / PR convergence runbook (IMPL-0013)': operations/pr-convergence-migration.md
         - Postgres schema operations: operations/migrations.md
         - Scaling repo-guardian: operations/scaling.md
         - Template migration guide (chart 0.3.x → 0.4.0): operations/template-migration.md

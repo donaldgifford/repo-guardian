@@ -15,6 +15,7 @@ import (
 // mockClient implements ghclient.Client for testing.
 type mockClient struct {
 	contents         map[string]bool                            // "owner/repo/path" -> exists
+	branchContents   map[string]string                          // "owner/repo/branch/path" -> sha (IMPL-0013 P3 orphan discovery)
 	fileContents     map[string]string                          // "owner/repo/path" -> content
 	customProperties map[string][]*ghclient.CustomPropertyValue // "owner/repo" -> values
 	setProperties    []*ghclient.CustomPropertyValue            // records what was set
@@ -44,22 +45,40 @@ type mockClient struct {
 	updatedRuleset   *ghclient.Ruleset
 	updatedRulesetID int64
 
-	getRepoErr        error
-	getContentsErr    error
-	getFileContentErr error
-	getCustomPropsErr error
-	setCustomPropsErr error
-	listPRsErr        error
-	getBranchErr      error
-	createBranchErr   error
-	deleteBranchErr   error
-	createFileErr     error
-	createPRErr       error
+	// IMPL-0013 P3 convergence fields.
+	deletedFiles       []string
+	updatedPRNumber    int
+	updatedPRTitle     string
+	updatedPRBody      string
+	closedPRNumber     int
+	upsertedComments   []upsertedComment
+	upsertCommentCalls int
+
+	getRepoErr             error
+	getContentsErr         error
+	getContentsOnBranchErr error
+	getFileContentErr      error
+	getCustomPropsErr      error
+	setCustomPropsErr      error
+	listPRsErr             error
+	getBranchErr           error
+	createBranchErr        error
+	deleteBranchErr        error
+	createFileErr          error
+	deleteFileErr          error
+	createPRErr            error
+}
+
+type upsertedComment struct {
+	PRNumber int
+	Marker   string
+	Body     string
 }
 
 func newMockClient() *mockClient {
 	return &mockClient{
 		contents:         make(map[string]bool),
+		branchContents:   make(map[string]string),
 		fileContents:     make(map[string]string),
 		customProperties: make(map[string][]*ghclient.CustomPropertyValue),
 		branchSHAs:       make(map[string]string),
@@ -265,6 +284,92 @@ func (*mockClient) DeleteLabel(_ context.Context, _, _, _ string) error {
 
 func (*mockClient) RateLimitRemaining(_ context.Context, _ int64) (int, int, error) {
 	return 5000, 5000, nil
+}
+
+func (m *mockClient) GetContentsOnBranch(_ context.Context, owner, repo, path, branch string) (string, bool, error) {
+	if m.getContentsOnBranchErr != nil {
+		return "", false, m.getContentsOnBranchErr
+	}
+
+	if m.branchContents == nil {
+		return "", false, nil
+	}
+
+	key := owner + "/" + repo + "/" + branch + "/" + path
+	if sha, ok := m.branchContents[key]; ok {
+		return sha, true, nil
+	}
+
+	return "", false, nil
+}
+
+func (m *mockClient) DeleteFile(_ context.Context, owner, repo, branch, path, _, _ string) error {
+	if m.deleteFileErr != nil {
+		return m.deleteFileErr
+	}
+
+	key := owner + "/" + repo + "/" + branch + "/" + path
+	delete(m.branchContents, key)
+	m.deletedFiles = append(m.deletedFiles, path)
+
+	return nil
+}
+
+func (m *mockClient) UpdatePullRequest(_ context.Context, _, _ string, number int, title, body string) error {
+	m.updatedPRNumber = number
+	m.updatedPRTitle = title
+	m.updatedPRBody = body
+
+	return nil
+}
+
+func (m *mockClient) ClosePullRequest(_ context.Context, _, _ string, number int) error {
+	m.closedPRNumber = number
+
+	for i := range m.openPRs {
+		if m.openPRs[i].Number == number {
+			m.openPRs[i].State = "closed"
+		}
+	}
+
+	return nil
+}
+
+func (m *mockClient) ListPRComments(_ context.Context, _, _ string, number int) ([]*ghclient.Comment, error) {
+	var comments []*ghclient.Comment
+
+	for i := range m.upsertedComments {
+		c := m.upsertedComments[i]
+		if c.PRNumber != number {
+			continue
+		}
+
+		comments = append(comments, &ghclient.Comment{
+			ID:   int64(i + 1),
+			Body: c.Marker + "\n" + c.Body,
+		})
+	}
+
+	return comments, nil
+}
+
+func (m *mockClient) UpsertPRComment(_ context.Context, _, _ string, number int, marker, body string) error {
+	m.upsertCommentCalls++
+
+	for i := range m.upsertedComments {
+		existing := m.upsertedComments[i]
+		if existing.PRNumber == number && existing.Marker == marker {
+			m.upsertedComments[i].Body = body
+
+			return nil
+		}
+	}
+
+	m.upsertedComments = append(m.upsertedComments, upsertedComment{
+		PRNumber: number, Marker: marker, Body: body,
+	})
+
+	return nil
 }
 
 func testEngine(dryRun bool) *Engine {

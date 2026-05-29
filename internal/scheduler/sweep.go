@@ -105,6 +105,12 @@ func (s *Sweeper) reconcileAll(ctx context.Context) {
 	start := time.Now()
 	s.logger.Info("starting reconciliation")
 
+	// IMPL-0013 Phase 1: wipe the OpenPRsByRule gauge each sweep so
+	// {org, rule} combinations that no longer have open PRs drop to
+	// zero. Workers re-populate the gauge as they process enqueued
+	// jobs; the gauge converges within one sweep cycle.
+	metrics.ResetOpenPRsByRule()
+
 	installations, err := s.client.ListInstallations(ctx)
 	if err != nil {
 		s.logger.Error("failed to list installations", "error", err)

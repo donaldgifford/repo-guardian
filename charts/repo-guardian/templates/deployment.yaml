@@ -87,6 +87,8 @@ spec:
               value: {{ .Values.config.skipForks | quote }}
             - name: SKIP_ARCHIVED
               value: {{ .Values.config.skipArchived | quote }}
+            - name: AUTO_CLOSE_PR
+              value: {{ .Values.policy.autoClosePR | quote }}
             {{- if .Values.config.org }}
             - name: GITHUB_ORG
               value: {{ .Values.config.org | quote }}

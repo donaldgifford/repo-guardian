@@ -57,9 +57,26 @@ type GuardianConfig struct {
 	WebhookIPAllowlistFailOpen bool    `hcl:"webhook_ip_allowlist_fail_open,optional"`
 	TrustProxyHeaders          bool    `hcl:"trust_proxy_headers,optional"`
 
+	// AutoClosePR controls whether repo-guardian closes its own open
+	// pull request when every file rule has been satisfied on the
+	// default branch (IMPL-0013 Phase 3). Default true; set to false
+	// to preserve the legacy behaviour where the PR stays open until
+	// a human closes it. Override via env AUTO_CLOSE_PR.
+	AutoClosePR *bool `hcl:"auto_close_pr,optional"`
+
 	// ParsedScheduleInterval is the parsed duration from ScheduleInterval.
 	// It is not set from HCL directly but computed after loading.
 	ParsedScheduleInterval time.Duration `hcl:"-"`
+}
+
+// AutoClosePREnabled returns whether the auto-close behaviour is
+// active. Defaults to true when the field is unset.
+func (g *GuardianConfig) AutoClosePREnabled() bool {
+	if g.AutoClosePR == nil {
+		return true
+	}
+
+	return *g.AutoClosePR
 }
 
 // FileRuleConfig defines a file compliance rule.

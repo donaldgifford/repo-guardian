@@ -842,3 +842,385 @@ func TestDeleteLabel(t *testing.T) {
 		t.Error("expected DELETE request to be made")
 	}
 }
+
+// IMPL-0013 Phase 2 — DeleteFile, UpdatePullRequest, ClosePullRequest,
+// ListPRComments, UpsertPRComment tests. Each covers the happy path
+// and at least one error path.
+
+func TestGetContentsOnBranch_Exists(t *testing.T) {
+	t.Parallel()
+
+	var gotRef string
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v3/repos/owner/repo/contents/CODEOWNERS", func(w http.ResponseWriter, r *http.Request) {
+		gotRef = r.URL.Query().Get("ref")
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"name":"CODEOWNERS","path":"CODEOWNERS","sha":"orphan-sha","type":"file"}`))
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	sha, exists, err := client.GetContentsOnBranch(
+		context.Background(), "owner", "repo", "CODEOWNERS", "repo-guardian/add-missing-files",
+	)
+	if err != nil {
+		t.Fatalf("GetContentsOnBranch: %v", err)
+	}
+	if !exists {
+		t.Error("expected exists=true")
+	}
+	if sha != "orphan-sha" {
+		t.Errorf("sha = %q, want orphan-sha", sha)
+	}
+	if gotRef != "repo-guardian/add-missing-files" {
+		t.Errorf("ref query = %q, want repo-guardian/add-missing-files", gotRef)
+	}
+}
+
+func TestGetContentsOnBranch_NotFound(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v3/repos/owner/repo/contents/CODEOWNERS", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	sha, exists, err := client.GetContentsOnBranch(
+		context.Background(), "owner", "repo", "CODEOWNERS", "missing-branch",
+	)
+	if err != nil {
+		t.Fatalf("GetContentsOnBranch: %v", err)
+	}
+	if exists {
+		t.Error("expected exists=false on 404")
+	}
+	if sha != "" {
+		t.Errorf("sha = %q, want empty on 404", sha)
+	}
+}
+
+func TestGetContentsOnBranch_ServerError(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v3/repos/owner/repo/contents/CODEOWNERS", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	if _, _, err := client.GetContentsOnBranch(
+		context.Background(), "owner", "repo", "CODEOWNERS", "branch",
+	); err == nil {
+		t.Fatal("expected error on 500, got nil")
+	}
+}
+
+func TestDeleteFile_HappyPath(t *testing.T) {
+	t.Parallel()
+
+	gotSHA := ""
+	gotBranch := ""
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("DELETE /api/v3/repos/owner/repo/contents/CODEOWNERS", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			SHA    string `json:"sha"`
+			Branch string `json:"branch"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		gotSHA = body.SHA
+		gotBranch = body.Branch
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"commit":{"sha":"def456"}}`))
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	if err := client.DeleteFile(
+		context.Background(), "owner", "repo",
+		"repo-guardian/add-missing-files", "CODEOWNERS", "abc123", "remove orphan",
+	); err != nil {
+		t.Fatalf("DeleteFile: %v", err)
+	}
+
+	if gotSHA != "abc123" {
+		t.Errorf("sha sent = %q, want abc123", gotSHA)
+	}
+	if gotBranch != "repo-guardian/add-missing-files" {
+		t.Errorf("branch sent = %q, want repo-guardian/add-missing-files", gotBranch)
+	}
+}
+
+func TestDeleteFile_NotFound_Errors(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("DELETE /api/v3/repos/owner/repo/contents/CODEOWNERS", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	err := client.DeleteFile(
+		context.Background(), "owner", "repo",
+		"repo-guardian/add-missing-files", "CODEOWNERS", "abc123", "remove orphan",
+	)
+	if err == nil {
+		t.Fatal("DeleteFile: expected error on 404, got nil")
+	}
+}
+
+func TestUpdatePullRequest_HappyPath(t *testing.T) {
+	t.Parallel()
+
+	var gotPatch struct {
+		Title string `json:"title"`
+		Body  string `json:"body"`
+		State string `json:"state"`
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("PATCH /api/v3/repos/owner/repo/pulls/5", func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&gotPatch); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"number":5,"title":"updated","body":"new body","state":"open"}`))
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	if err := client.UpdatePullRequest(
+		context.Background(), "owner", "repo", 5, "updated", "new body",
+	); err != nil {
+		t.Fatalf("UpdatePullRequest: %v", err)
+	}
+
+	if gotPatch.Title != "updated" || gotPatch.Body != "new body" {
+		t.Errorf("patch sent: %+v", gotPatch)
+	}
+	if gotPatch.State != "" {
+		t.Errorf("state should not be set on update, got %q", gotPatch.State)
+	}
+}
+
+func TestUpdatePullRequest_NotFound_Errors(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("PATCH /api/v3/repos/owner/repo/pulls/999", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	if err := client.UpdatePullRequest(
+		context.Background(), "owner", "repo", 999, "x", "y",
+	); err == nil {
+		t.Fatal("UpdatePullRequest: expected error on 404, got nil")
+	}
+}
+
+func TestClosePullRequest_HappyPath(t *testing.T) {
+	t.Parallel()
+
+	var gotPatch struct {
+		State string `json:"state"`
+		Title string `json:"title"`
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("PATCH /api/v3/repos/owner/repo/pulls/7", func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&gotPatch); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"number":7,"state":"closed"}`))
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	if err := client.ClosePullRequest(context.Background(), "owner", "repo", 7); err != nil {
+		t.Fatalf("ClosePullRequest: %v", err)
+	}
+
+	if gotPatch.State != "closed" {
+		t.Errorf("state sent = %q, want closed", gotPatch.State)
+	}
+	if gotPatch.Title != "" {
+		t.Errorf("title should not be modified, got %q", gotPatch.Title)
+	}
+}
+
+func TestClosePullRequest_Errors(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("PATCH /api/v3/repos/owner/repo/pulls/7", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	if err := client.ClosePullRequest(context.Background(), "owner", "repo", 7); err == nil {
+		t.Fatal("ClosePullRequest: expected error on 422, got nil")
+	}
+}
+
+func TestListPRComments_HappyPath(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v3/repos/owner/repo/issues/5/comments", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[
+			{"id": 1, "body": "first comment"},
+			{"id": 2, "body": "<!-- repo-guardian:reconcile-log:v1 -->\nstatus update"}
+		]`))
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	comments, err := client.ListPRComments(context.Background(), "owner", "repo", 5)
+	if err != nil {
+		t.Fatalf("ListPRComments: %v", err)
+	}
+	if len(comments) != 2 {
+		t.Fatalf("expected 2 comments, got %d", len(comments))
+	}
+	if comments[0].ID != 1 || comments[1].ID != 2 {
+		t.Errorf("unexpected IDs: %v", comments)
+	}
+	if !strings.HasPrefix(comments[1].Body, "<!-- repo-guardian:reconcile-log:v1 -->") {
+		t.Errorf("comment 2 body lost marker: %q", comments[1].Body)
+	}
+}
+
+func TestListPRComments_Errors(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v3/repos/owner/repo/issues/5/comments", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	if _, err := client.ListPRComments(context.Background(), "owner", "repo", 5); err == nil {
+		t.Fatal("ListPRComments: expected error on 500, got nil")
+	}
+}
+
+func TestUpsertPRComment_CreatesWhenMissing(t *testing.T) {
+	t.Parallel()
+
+	var created struct {
+		Body string `json:"body"`
+	}
+	editedID := int64(0)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v3/repos/owner/repo/issues/5/comments", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"id": 1, "body": "human comment"}]`))
+	})
+	mux.HandleFunc("POST /api/v3/repos/owner/repo/issues/5/comments", func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&created); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id": 99}`))
+	})
+	mux.HandleFunc("PATCH /api/v3/repos/owner/repo/issues/comments/", func(w http.ResponseWriter, r *http.Request) {
+		editedID = 1
+		w.WriteHeader(http.StatusOK)
+		_ = r
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	const marker = "<!-- repo-guardian:reconcile-log:v1 -->"
+	if err := client.UpsertPRComment(
+		context.Background(), "owner", "repo", 5, marker, "reconciled at 2026-05-29",
+	); err != nil {
+		t.Fatalf("UpsertPRComment: %v", err)
+	}
+
+	if !strings.HasPrefix(created.Body, marker) {
+		t.Errorf("created body missing marker on row 1: %q", created.Body)
+	}
+	if editedID != 0 {
+		t.Errorf("expected create-not-edit, but PATCH was issued")
+	}
+}
+
+func TestUpsertPRComment_EditsExisting(t *testing.T) {
+	t.Parallel()
+
+	var patched struct {
+		Body string `json:"body"`
+	}
+	createCount := 0
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v3/repos/owner/repo/issues/5/comments", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[
+			{"id": 1, "body": "human comment"},
+			{"id": 42, "body": "<!-- repo-guardian:reconcile-log:v1 -->\nold body"}
+		]`))
+	})
+	mux.HandleFunc("POST /api/v3/repos/owner/repo/issues/5/comments", func(w http.ResponseWriter, _ *http.Request) {
+		createCount++
+		w.WriteHeader(http.StatusCreated)
+	})
+	mux.HandleFunc("PATCH /api/v3/repos/owner/repo/issues/comments/42", func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&patched); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id": 42}`))
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	const marker = "<!-- repo-guardian:reconcile-log:v1 -->"
+	if err := client.UpsertPRComment(
+		context.Background(), "owner", "repo", 5, marker, "new body",
+	); err != nil {
+		t.Fatalf("UpsertPRComment: %v", err)
+	}
+
+	if createCount != 0 {
+		t.Errorf("expected edit-not-create, but %d create call(s) issued", createCount)
+	}
+	if !strings.HasPrefix(patched.Body, marker) {
+		t.Errorf("edited body missing marker: %q", patched.Body)
+	}
+	if !strings.Contains(patched.Body, "new body") {
+		t.Errorf("edited body missing new content: %q", patched.Body)
+	}
+}

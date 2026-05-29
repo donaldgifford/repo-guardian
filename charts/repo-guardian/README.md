@@ -11,7 +11,7 @@ with cosign keyless, SLSA Level 3 provenance).
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 0.5.0 \
+  --version 0.6.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -47,7 +47,7 @@ secrets:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 0.5.0 \
+  --version 0.6.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -88,6 +88,44 @@ For Postgres schema operations, see
   toggleable and threshold-tunable via
   `prometheusRule.alerts.<name>`.
 
+### Upgrade notes (chart 0.6.0 / appVersion 1.7.0) — PR convergence
+
+This release closes the INV-0005 drift gap. Existing repo-guardian
+PRs that have every file rule satisfied on the default branch (e.g.
+a maintainer hand-merged a CODEOWNERS file on a side branch) are
+auto-closed on the next reconcile. The PR receives a final sticky
+markdown-table comment summarising per-rule status, then closes,
+then the reconcile branch is deleted.
+
+- **Behaviour change opt-out.** Set `policy.autoClosePR: false` to
+  preserve the legacy behaviour (PR stays open until a human closes
+  it). Useful for compliance workflows that require manual
+  PR-close attestation. The runtime override
+  `AUTO_CLOSE_PR=false` (env on the Deployment) wins over the
+  values file.
+- **Sticky reconcile-log comment.** Every reconcile that touches an
+  existing repo-guardian PR now posts (or edits) a sticky comment
+  identified by the row-1 marker
+  `<!-- repo-guardian:reconcile-log:v1 -->`. Operators can read
+  the comment history to reconstruct what repo-guardian decided
+  across the PR's lifetime.
+- **Two new alerts.** `RepoGuardianStaleOpenPRs` fires when any
+  PR has been open in the 30-day-plus bucket; `RepoGuardianPRDrift`
+  fires when `pr_open_with_empty_actionable_total` rate is non-zero
+  (indicates the convergence path failed). Both are starter alerts
+  in the chart's PrometheusRule; tune via
+  `prometheusRule.alerts.StaleOpenPRs.*` /
+  `prometheusRule.alerts.PRDrift.*`.
+- **Two new metrics.** `pr_orphan_left_total{org}` counts
+  `Client.DeleteFile` failures during orphan cleanup;
+  `prs_closed_total{org, reason="satisfied"}` counts auto-closures.
+  PromQL recipes in
+  [contrib/README.md](../../contrib/README.md).
+
+For the operator-side upgrade runbook (smoke checks, opt-out,
+rollback), see
+[docs/operations/pr-convergence-migration.md](../../docs/operations/pr-convergence-migration.md).
+
 ## Verifying the chart
 
 Every published version is signed with cosign (Sigstore keyless) via
@@ -103,7 +141,7 @@ cosign verify \
     '^https://github.com/donaldgifford/repo-guardian/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:0.5.0
+  ghcr.io/donaldgifford/charts/repo-guardian:0.6.0
 ```
 
 ### SLSA provenance
@@ -114,7 +152,7 @@ cosign verify-attestation --type slsaprovenance \
     '^https://github.com/slsa-framework/slsa-github-generator/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:0.5.0
+  ghcr.io/donaldgifford/charts/repo-guardian:0.6.0
 ```
 
 The provenance attestation records the build workflow path, source
@@ -253,7 +291,8 @@ incoming webhook.
 | podAnnotations | object | `{}` | Pod annotations |
 | podLabels | object | `{}` | Pod labels |
 | podSecurityContext | object | `{}` | Pod security context |
-| policy | object | `{"config":"","existingConfigMap":""}` | HCL policy configuration |
+| policy | object | `{"autoClosePR":true,"config":"","existingConfigMap":""}` | HCL policy configuration |
+| policy.autoClosePR | bool | `true` | Auto-close repo-guardian PRs when every file rule is satisfied on the default branch (IMPL-0013 Phase 3). When `true` (default), the PR is closed with a sticky comment and the reconcile branch is deleted. When `false`, the PR stays open until a human closes it. |
 | policy.config | string | `""` | Inline HCL policy config (creates a ConfigMap) |
 | policy.existingConfigMap | string | `""` | Use an existing ConfigMap for policy config |
 | prometheusRule | object | `{"alerts":{},"enabled":false,"labels":{}}` | Prometheus PrometheusRule with starter alerts (IMPL-0011 P6). |

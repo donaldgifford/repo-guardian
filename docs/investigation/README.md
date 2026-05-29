@@ -18,6 +18,7 @@ Design docs, plans, and implementation docs can reference investigations by ID
 | INV-0003 | Pre-existing branch 422 on subsequent reconciles | Resolved | 2026-05-02 | Donald Gifford | [0003-pre-existing-branch-422-on-subsequent-reconciles.md](0003-pre-existing-branch-422-on-subsequent-reconciles.md) |
 | INV-0004 | Forge interface and package refactor for Forgejo backend | Resolved | 2026-05-03 | Donald Gifford | [0004-forge-interface-and-package-refactor-for-forgejo-backend.md](0004-forge-interface-and-package-refactor-for-forgejo-backend.md) |
 | INV-0005 | Stale PRs when file rules become satisfied on main | Open | 2026-05-26 | Donald Gifford | [0005-stale-prs-when-file-rules-become-satisfied-on-main.md](0005-stale-prs-when-file-rules-become-satisfied-on-main.md) |
+| INV-0006 | Per-org GitHub App credentials | Deferred | 2026-05-26 | Donald Gifford | [0006-per-org-github-app-credentials.md](0006-per-org-github-app-credentials.md) |
 <!-- END DOCZ AUTO-GENERATED -->
 <!-- BEGIN DOCZ AUTO-GENERATED -->
 <!-- END DOCZ AUTO-GENERATED -->

@@ -41,7 +41,7 @@ internal/
   template/   → unified text/template renderer (Renderer/Compiled, FileVars/PRVars contexts, curated helpers, ValidateZero strict-mode validator)
   webhook/    → HTTP handler for GitHub webhook events (HMAC-validated) + IP allowlist middleware + push event handler
   scheduler/  → abstract Scheduler interface (IMPL-0011 P1) + ticker/ + valkey/ (SETNX leader-election); main.go drives sweep cadence via Schedule, Sweeper.ReconcileAll is the handler
-  metrics/    → Prometheus metrics (32 metrics total, most labeled with org; queue_*/store_query_seconds/scheduler_*/rate_limit_remaining/reserve_blocked added IMPL-0011 P2-P5)
+  metrics/    → Prometheus metrics (34 metrics total, most labeled with org; queue_*/store_query_seconds/scheduler_*/rate_limit_remaining/reserve_blocked added IMPL-0011 P2-P5; pr_open_with_empty_actionable_total + open_prs_by_rule added IMPL-0013 P1, with hard-coded PRAgeBucket helper)
   store/      → persistent per-repo state interface (IMPL-0011 P1) + memory/ + postgres/ (pgx/v5 + pgxpool, golang-migrate embedded SQL)
   queue/      → abstract work-queue interface (IMPL-0011 P1) + memory/ buffered-channel + valkey/ (LIST + ZSET + reaper goroutine, leader-elected via SETNX)
   worker/     → in-process worker pool consuming queue.Queue.Subscribe (IMPL-0011 P1); replaces legacy internal/checker/queue.go

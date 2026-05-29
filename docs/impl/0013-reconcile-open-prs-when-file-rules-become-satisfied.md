@@ -97,11 +97,11 @@ even on versions that don't yet have the fix.
 
 #### Tasks
 
-- [ ] Add `PROpenWithEmptyActionableTotal` counter in
+- [x] Add `PROpenWithEmptyActionableTotal` counter in
   `internal/metrics/metrics.go` labelled `{org}`. Incremented inside
   `checkRepoWithPolicy` when an open repo-guardian PR exists *and*
   the actionable set is empty.
-- [ ] Add `OpenPRsByRule` `GaugeVec` labelled
+- [x] Add `OpenPRsByRule` `GaugeVec` labelled
   `{org, rule, age_bucket}`. Bucket boundaries hard-coded to
   `<1d`, `1-7d`, `7-30d`, `30d+` (Open Question 8). Set during the
   sweep handler (`internal/checker/sweep.go`) by joining

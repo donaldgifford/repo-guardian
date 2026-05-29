@@ -18,6 +18,7 @@ nav:
         - 'DESIGN-0011: Publish Helm chart via OCI registry': design/0011-publish-helm-chart-via-oci-registry.md
         - 'DESIGN-0012: Persistent reconcile state and multi-replica coordination': design/0012-persistent-reconcile-state-and-multi-replica-coordination.md
         - 'DESIGN-0013: Customizable PR templates and extensible template ConfigMap': design/0013-customizable-pr-templates-and-extensible-template-configmap.md
+        - 'DESIGN-0014: Remove legacy engine path and deprecated overlays': design/0014-remove-legacy-engine-path-and-deprecated-overlays.md
     - Implementation Plans:
         - Overview: impl/README.md
         - 'IMPL-0001: Repo Guardian Implementation Plan': impl/0001-repo-guardian-implementation-plan.md

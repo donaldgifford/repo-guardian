@@ -1,0 +1,72 @@
+suite: prometheusrule
+templates:
+  - templates/prometheusrule.yaml
+tests:
+  - it: should not create prometheusrule by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should create prometheusrule when enabled
+    set:
+      prometheusRule:
+        enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: PrometheusRule
+
+  - it: should include the IMPL-0013 StaleOpenPRs alert
+    set:
+      prometheusRule:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianStaleOpenPRs
+          any: true
+
+  - it: should include the IMPL-0013 PRDrift alert
+    set:
+      prometheusRule:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianPRDrift
+          any: true
+
+  - it: should allow StaleOpenPRs to be disabled
+    set:
+      prometheusRule:
+        enabled: true
+        alerts:
+          StaleOpenPRs:
+            enabled: false
+    asserts:
+      - notContains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianStaleOpenPRs
+
+  - it: should allow PRDrift override of for and severity
+    set:
+      prometheusRule:
+        enabled: true
+        alerts:
+          PRDrift:
+            for: 15m
+            severity: critical
+    asserts:
+      - contains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianPRDrift
+            for: 15m
+            labels:
+              severity: critical
+          any: true

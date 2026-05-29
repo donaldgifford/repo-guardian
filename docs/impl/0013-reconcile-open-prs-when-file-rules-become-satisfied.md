@@ -113,7 +113,7 @@ even on versions that don't yet have the fix.
   `engine_policy.go.checkRepoWithPolicy` at the existing
   `len(actionable) == 0 && existingPR != nil` branch (currently
   exits silently — see `engine_policy.go:546-558`).
-- [ ] Add two Prometheus alerts in
+- [x] Add two Prometheus alerts in
   `charts/repo-guardian/templates/prometheusrule.yaml`:
   - `RepoGuardianStaleOpenPRs`: `OpenPRsByRule{age_bucket="30d+"} > 0`
     for 1h. Severity warning.

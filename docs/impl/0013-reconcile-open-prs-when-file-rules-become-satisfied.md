@@ -27,7 +27,7 @@ created: 2026-05-28
 - [File Changes](#file-changes)
 - [Testing Plan](#testing-plan)
 - [Dependencies](#dependencies)
-- [Open Questions](#open-questions)
+- [Resolved Decisions](#resolved-decisions)
 - [References](#references)
 <!--toc:end-->
 
@@ -66,18 +66,18 @@ so we can size the drift before flipping any close behaviour.
 ### Out of Scope
 
 - Legacy `NewEngine` (non-policy) path. Production runs are
-  policy-driven; the legacy path stays one-way for now. Tracked as a
-  follow-up issue, not in this IMPL — see Open Question 7.
+  policy-driven; the legacy path stays one-way for now. A separate
+  DESIGN doc will cover removing the legacy path entirely (and
+  legacy Kustomize overlays + `docs/legacy/`); divergence documented
+  in `CLAUDE.md` until that DESIGN lands. See Resolved Decisions Q7.
 - Setting rules, branch_protection rules, and reconciler convergence.
   Already convergent today; INV-0005 confirmed.
-- The `PROrphanLeftTotal` counter that would track "we updated the PR
-  but couldn't remove the orphan." Deferred until Phase 3 reveals
-  whether the failure mode is real — see Open Question 5.
 - Persisting comment IDs in the Store for faster sticky-comment
   lookup. List-and-find-by-marker is sub-second for the comment
-  counts we'll see in practice — see Open Question 10.
+  counts we'll see in practice. See Resolved Decisions Q10.
 - E2E httptest scaffold spanning webhook → engine → mock GitHub. Real
-  ROI but big enough to deserve its own IMPL doc — see Open Question 6.
+  ROI but big enough to deserve its own IMPL doc (IMPL-0014). See
+  Resolved Decisions Q6.
 
 ## Implementation Phases
 
@@ -234,8 +234,11 @@ one PR because they share the same control-flow gate
 - [ ] Handle `Client.DeleteFile` partial failure: if N of M orphan
   deletes succeed and one fails, log `slog.Warn`, continue with the
   remaining updates, do NOT increment `PRsUpdatedTotal` (treat as
-  drift surface for next sweep). Defer `PROrphanLeftTotal` counter
-  until we see this fire (Open Question 5).
+  drift surface for next sweep).
+- [ ] Add `PROrphanLeftTotal{org}` counter in
+  `internal/metrics/metrics.go`. Incremented on every
+  `Client.DeleteFile` error inside the partial-failure handler.
+  Matches the `*Total{org}` symmetry of other engine counters.
 - [ ] Treat `Client.GetContents` error on the reconcile branch as
   "rule is still actionable from our perspective" — see Open
   Question 9 — so a transient API error never causes us to
@@ -376,7 +379,7 @@ to this chart version is unsurprising.
 
 | File | Action | Description |
 |------|--------|-------------|
-| `internal/metrics/metrics.go` | Modify | Add `PROpenWithEmptyActionableTotal`, `OpenPRsByRule`, `PRsClosedTotal`. |
+| `internal/metrics/metrics.go` | Modify | Add `PROpenWithEmptyActionableTotal`, `OpenPRsByRule`, `PRsClosedTotal`, `PROrphanLeftTotal`. |
 | `internal/github/client.go` | Modify | Add `DeleteFile`, `UpdatePullRequest`, `ClosePullRequest`, `ListPRComments`, `UpsertPRComment`. |
 | `internal/github/client_test.go` | Modify | `httptest.Server` cases for the five new methods. |
 | `internal/checker/engine_test.go` | Modify | Add no-op stubs to `mockClient` for the five new methods. |
@@ -434,164 +437,22 @@ to this chart version is unsurprising.
 - Phase 2 must merge before Phase 3 (Phase 3 calls the new methods).
 - Phases 4 and 5 can sequence in either order after Phase 3.
 
-## Open Questions
+## Resolved Decisions
 
-Each option is letter-keyed: `a` is my recommendation; `b` onward are
-considered alternatives; `other` is an escape hatch for "none of the
-above, here's what I want."
+Open questions answered during pre-Phase-1 review (2026-05-28).
 
-### 1. State recovery for memory-backend operators
-
-How do we know which files repo-guardian has previously committed to
-the reconcile branch?
-
-- **(a) Always query the branch tree via `Client.GetContents` for each
-  rule's path.** Stateless. Works for memory and Postgres backends
-  identically. Costs one API call per rule per repo per sweep —
-  fits inside the existing per-installation rate-limit reserve.
-  ✅ recommended.
-- **(b) Persist the claimed-file set in `Store` keyed by repo.** Saves
-  the GET calls on Postgres backends but bifurcates behaviour
-  between memory and Postgres operators.
-- **(c) Read the branch's commit message log to find authored files.**
-  Brittle — relies on commit-message format being stable.
-- **other:** _________________________
-
-### 2. Sticky comment design — what makes the comment discoverable on re-upsert?
-
-- **(a) Marker line on row 1: `<!-- repo-guardian:reconcile-log:v1 -->`.**
-  Versioned suffix lets us evolve the template without breaking the
-  upsert match. Greppable, simple to validate, won't false-match
-  human comments. ✅ recommended.
-- **(b) Marker as a hidden HTML span with a data attribute.** GitHub
-  strips most HTML in comment rendering but preserves it in the
-  source — fragile.
-- **(c) Persist the comment ID in Store keyed by `(repo, PR number)`.**
-  Faster lookup but adds a Store dependency to the comment path and
-  fails ungracefully if state diverges.
-- **other:** _________________________
-
-### 3. Auto-close behaviour gate
-
-When `len(actionable) == 0 && existingPR != nil`, do we auto-close?
-
-- **(a) Default `true`, gateable via HCL `auto_close_pr` and env
-  `AUTO_CLOSE_PR`. Post a sticky close comment explaining why.**
-  Matches the convergent-by-default behaviour of every other rule
-  type. Opt-out path exists for operators who want manual review.
-  ✅ recommended.
-- **(b) Default `false`, opt-in only.** Conservative; keeps current
-  human-in-the-loop posture. Costs the convergence promise.
-- **(c) Default `true` with no opt-out.** Cleanest spec, but operators
-  with compliance workflows that require manual PR-close attestation
-  lose the ability to comply.
-- **other:** _________________________
-
-### 4. Orphan deletion strategy
-
-If a PR has 3 orphan files to remove, how do we sequence the deletes?
-
-- **(a) One commit per file via `Client.DeleteFile`.** Each delete
-  is independent — partial failure leaves an inconsistent branch
-  but no API-level atomicity issue. Cheapest to implement; commit
-  history is verbose but auditable. ✅ recommended.
-- **(b) Single commit deleting all orphan files via the Git Data API
-  (create tree → create commit → update ref).** Atomic but adds
-  ~3× the code in the client wrapper and a new failure mode if the
-  branch ref moves mid-flight.
-- **(c) Mixed: one commit per file when ≤2 orphans, batch via Git
-  Data API when ≥3.** Premature optimization — operator-visible
-  behaviour identical to (a) until very wide rule sets exist.
-- **other:** _________________________
-
-### 5. `PROrphanLeftTotal` counter — Phase 3 or follow-up?
-
-If a `Client.DeleteFile` call fails partway through a multi-orphan
-update, we log + continue. Do we also expose a counter for it?
-
-- **(a) Defer to a follow-up; add only if homelab smoke shows
-  non-zero failures.** Premature metric. The log line is the truth;
-  Prometheus counters lose info that the log retains. ✅ recommended.
-- **(b) Add the counter in Phase 3.** Cheap once we're already
-  touching the file; matches the symmetry of every other
-  `*Total{org}` counter we ship.
-- **(c) Add the counter only if Phase 1's drift metric is hard to
-  interpret without it.**
-- **other:** _________________________
-
-### 6. E2E httptest scaffold spanning webhook → engine → mock GitHub
-
-INV-0005 suggested this. Worth including here or splitting?
-
-- **(a) Split into its own IMPL doc (IMPL-0014).** It's a meaningful
-  testing-infrastructure investment that applies to many future
-  changes, not just this fix. The multi-sweep table-driven tests
-  in Phase 3 give us 80% of the coverage at 20% of the work.
-  ✅ recommended.
-- **(b) Include in Phase 3 as a stretch goal.** Risks scope creep on
-  the fix that operators are actively waiting for.
-- **(c) Skip entirely; multi-sweep unit tests are sufficient.**
-- **other:** _________________________
-
-### 7. Legacy `NewEngine` path
-
-The fix is policy-engine only. Do we touch the legacy path?
-
-- **(a) Out of scope; track as a follow-up issue. Document the
-  divergence in CLAUDE.md.** Production runs are 100% policy-driven
-  per CLAUDE.md. The legacy path is one-way today (no PR refresh,
-  no close); adding convergence to it doubles the test surface for
-  zero production benefit. ✅ recommended.
-- **(b) Mirror the fix in both paths.** Spec-clean but cost is real.
-- **(c) Delete the legacy path entirely as a precursor to this IMPL.**
-  Bigger blast radius; deserves its own DESIGN doc first.
-- **other:** _________________________
-
-### 8. `OpenPRsByRule` age-bucket boundaries
-
-- **(a) Hard-code `<1d`, `1-7d`, `7-30d`, `30d+`.** Matches every
-  internal SLO discussion I've seen; tunable boundaries are a
-  cardinality footgun and a future-config-surface trap. ✅ recommended.
-- **(b) Configurable via chart values (`metrics.prAgeBuckets`).**
-  More flexible but a new failure mode (operators tuning boundaries
-  to hide alerts).
-- **(c) Single `age_days` gauge instead of bucketed — let
-  PromQL `histogram_quantile` do the work.** Simpler metric
-  surface but more PromQL load on the alerting path.
-- **other:** _________________________
-
-### 9. `Client.GetContents` error behaviour during the orphan-cleanup gate
-
-If GET-on-reconcile-branch returns 500/timeout for a rule's path, do
-we treat the rule as "claimed but unverified" or "still actionable"?
-
-- **(a) Treat as still actionable from our perspective: don't delete
-  any file, don't close the PR.** Fail-safe — a transient API error
-  never causes destructive action. Next sweep retries. ✅ recommended.
-- **(b) Treat as "claimed" — proceed with delete/close.** Risk of
-  destructive action under flake.
-- **(c) Abort the entire sweep for this repo and retry next interval.**
-  Conservative but increases the per-sweep failure surface.
-- **other:** _________________________
-
-### 10. Persist comment ID in Store
-
-For the sticky reconcile-log comment, list-and-find-by-marker on
-every reconcile or persist the comment ID?
-
-- **(a) List-and-find-by-marker on every reconcile.** A repo with
-  100 PR comments still resolves in one API call (paginated; ~30
-  per page). Sub-second at the comment volumes we'll see. Avoids
-  Store schema growth for a Phase 4 nice-to-have. ✅ recommended.
-- **(b) Persist `(repo, PR number) → comment_id` in Store.** Faster
-  lookup but introduces a Store schema migration for a non-critical
-  surface; also fails ungracefully if the comment is deleted out
-  of band.
-- **(c) Cache comment IDs in-memory per process; fall back to list
-  on miss.** Some Postgres-backend ops, no migration cost. Doesn't
-  survive replica failover; mostly an optimization for the largest
-  fleets.
-- **other:** _________________________
+| # | Question | Decision | Notes |
+|---|---|---|---|
+| Q1 | State recovery for memory-backend operators | **(a)** Always query branch tree via `Client.GetContents` for each rule's path. | Stateless; identical behaviour across memory and Postgres backends. |
+| Q2 | Sticky comment marker | **(a)** Marker line row 1: `<!-- repo-guardian:reconcile-log:v1 -->`. | Versioned suffix lets us evolve the template without breaking upsert. |
+| Q3 | Auto-close behaviour gate | **(a)** Default `true`; gate via HCL `auto_close_pr` and env `AUTO_CLOSE_PR`. Sticky close comment posted before close. | Convergent-by-default matches all other rule types. |
+| Q4 | Orphan deletion strategy | **(a)** One commit per file via `Client.DeleteFile`. | Verbose but auditable; partial failure handled by the per-file loop. |
+| Q5 | `PROrphanLeftTotal` counter placement | **(b)** Add in Phase 3 (overrode recommendation). | Cheap while touching `metrics.go`; matches `*Total{org}` symmetry. |
+| Q6 | E2E httptest scaffold (webhook → engine → mock GitHub) | **(a)** Split into IMPL-0014. | Testing-infra investment applies broadly, not just to this fix. |
+| Q7 | Legacy `NewEngine` path | **Out of scope here; separate DESIGN doc covers complete legacy removal** (legacy engine path + `deploy/base` Kustomize overlays + `docs/legacy/`). Divergence documented in `CLAUDE.md` until that DESIGN lands. | DESIGN doc ships on its own branch alongside this IMPL. |
+| Q8 | `OpenPRsByRule` age-bucket boundaries | **(a)** Hard-code `<1d`, `1-7d`, `7-30d`, `30d+`. | Tunable boundaries are a cardinality and alert-suppression footgun. |
+| Q9 | `Client.GetContents` error behaviour | **(a)** Treat as still actionable — no delete, no close. | Fail-safe: transient API error never triggers destructive action. |
+| Q10 | Persist sticky-comment ID in Store | **(a)** List-and-find-by-marker on every reconcile. | Sub-second at the comment volumes we'll see; no Store schema growth. |
 
 ## References
 

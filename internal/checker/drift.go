@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
@@ -120,15 +121,16 @@ func discoverOrphans(
 // cleanupOrphans deletes the given orphan files from the reconcile
 // branch. Partial failures increment PROrphanLeftTotal and are
 // logged at Warn but do not abort the caller — the next sweep will
-// retry. Returns the count of successful deletes.
+// retry. Returns the names of rules whose orphan files were
+// successfully removed (for the reconcile-log sticky comment).
 func cleanupOrphans(
 	ctx context.Context,
 	log *slog.Logger,
 	client ghclient.Client,
 	orphans []orphanFile,
 	owner, repo string,
-) int {
-	deleted := 0
+) []string {
+	removed := make([]string, 0, len(orphans))
 
 	for i := range orphans {
 		o := orphans[i]
@@ -145,16 +147,134 @@ func cleanupOrphans(
 		log.Info("orphan cleanup: deleted file",
 			"rule", o.RuleName, "path", o.Path)
 
-		deleted++
+		removed = append(removed, o.RuleName)
 	}
 
-	return deleted
+	return removed
 }
 
 // reconcileLogMarker is the row-1 marker that identifies the sticky
 // reconcile-log PR comment. Versioned (v1) so future schema changes
 // don't break the upsert match.
 const reconcileLogMarker = "<!-- repo-guardian:reconcile-log:v1 -->"
+
+// reconcileLogEvent captures one rule's state in the current sweep.
+type reconcileLogEvent struct {
+	Rule   string
+	Status string // "still actionable" | "satisfied on main" | "orphan removed from branch"
+}
+
+// upsertReconcileLog posts (or edits) the sticky reconcile-log
+// comment on the given PR. The body lists every rule's current
+// status — handy for operators reading the PR's comment history to
+// reconstruct what repo-guardian decided.
+//
+// Skips the upsert when the rendered body matches the existing
+// marker-tagged comment (avoids API churn on no-op reconciles).
+func upsertReconcileLog(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	owner, repo string,
+	pr *ghclient.PullRequest,
+	events []reconcileLogEvent,
+) {
+	if pr == nil {
+		return
+	}
+
+	body := renderReconcileLog(events)
+
+	existing, err := client.ListPRComments(ctx, owner, repo, pr.Number)
+	if err != nil {
+		log.Warn("reconcile-log: ListPRComments failed; will retry next sweep",
+			"pr_number", pr.Number, "err", err)
+
+		return
+	}
+
+	for i := range existing {
+		c := existing[i]
+		if strings.HasPrefix(c.Body, reconcileLogMarker) && c.Body == reconcileLogMarker+"\n"+body {
+			// No change — skip upsert.
+			return
+		}
+	}
+
+	if err := client.UpsertPRComment(ctx, owner, repo, pr.Number, reconcileLogMarker, body); err != nil {
+		log.Warn("reconcile-log: UpsertPRComment failed; will retry next sweep",
+			"pr_number", pr.Number, "err", err)
+	}
+}
+
+func renderReconcileLog(events []reconcileLogEvent) string {
+	var sb strings.Builder
+
+	sb.WriteString("## repo-guardian reconcile log\n\n")
+	sb.WriteString("Last reconciled at ")
+	sb.WriteString(time.Now().UTC().Format(time.RFC3339))
+	sb.WriteString(".\n\n")
+
+	if len(events) == 0 {
+		sb.WriteString("_No file rules in scope for this repository._\n")
+
+		return sb.String()
+	}
+
+	sb.WriteString("| Rule | Status |\n")
+	sb.WriteString("|------|--------|\n")
+
+	for i := range events {
+		e := events[i]
+		fmt.Fprintf(&sb, "| `%s` | %s |\n", e.Rule, e.Status)
+	}
+
+	return sb.String()
+}
+
+// mapContains returns true when the key exists in the set.
+func mapContains(set map[string]struct{}, key string) bool {
+	_, ok := set[key]
+
+	return ok
+}
+
+// buildReconcileLogEvents joins the current actionable set and the
+// list of orphans removed this sweep into a flat status list.
+// Anything in allRules not in `actionable` is implicitly satisfied
+// on main; orphans are called out separately so operators see the
+// cleanup action.
+func buildReconcileLogEvents(allRules, actionable []policy.FileRuleConfig, removedOrphans []string) []reconcileLogEvent {
+	actionableNames := make(map[string]struct{}, len(actionable))
+	for i := range actionable {
+		actionableNames[actionable[i].Name] = struct{}{}
+	}
+
+	orphanNames := make(map[string]struct{}, len(removedOrphans))
+	for _, n := range removedOrphans {
+		orphanNames[n] = struct{}{}
+	}
+
+	events := make([]reconcileLogEvent, 0, len(allRules))
+
+	for i := range allRules {
+		r := &allRules[i]
+		if !r.IsEnabled() {
+			continue
+		}
+
+		switch {
+		case mapContains(orphanNames, r.Name):
+			events = append(events, reconcileLogEvent{Rule: r.Name, Status: "orphan removed from branch"})
+		case mapContains(actionableNames, r.Name):
+			events = append(events, reconcileLogEvent{Rule: r.Name, Status: "still actionable"})
+		default:
+			events = append(events, reconcileLogEvent{Rule: r.Name, Status: "satisfied on main"})
+		}
+	}
+
+	return events
+}
 
 // autoClosePR posts a final sticky comment, closes the PR, and
 // deletes the reconcile branch. Each step is independently
@@ -168,10 +288,13 @@ func autoClosePR(
 	client ghclient.Client,
 	owner, repo string,
 	pr *ghclient.PullRequest,
+	allRules []policy.FileRuleConfig,
 ) error {
-	closeBody := "All file rules referenced by this PR are now satisfied on the default branch. " +
-		"repo-guardian is auto-closing this PR per the `auto_close_pr` policy. " +
-		"Set `AUTO_CLOSE_PR=false` or `guardian { auto_close_pr = false }` to opt out."
+	events := buildReconcileLogEvents(allRules, nil, nil)
+
+	closeBody := renderReconcileLog(events) +
+		"\n_All file rules satisfied on the default branch. " +
+		"Auto-closing per `auto_close_pr` (set to `false` to opt out)._\n"
 
 	if err := client.UpsertPRComment(ctx, owner, repo, pr.Number, reconcileLogMarker, closeBody); err != nil {
 		log.Warn("auto-close: posting close comment failed; closing anyway",

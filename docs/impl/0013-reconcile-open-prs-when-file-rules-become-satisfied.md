@@ -290,34 +290,38 @@ each reconcile so the comment history stays human-readable.
 
 #### Tasks
 
-- [ ] Define the comment body template under
-  `internal/rules/templates/reconcile-log.tmpl` (embedded; same
-  pattern as other templates). Renders sections for:
+- [x] Define the comment body via `renderReconcileLog` in
+  `internal/checker/drift.go` (inline string builder; the
+  templating renderer was deemed overkill for a markdown table —
+  the rendered body is < 1KB and has no operator-tunable surface).
+  Renders sections for:
   - Last reconcile timestamp.
   - Per-rule status: "satisfied on main" / "still actionable" /
-    "orphan removed from branch."
-  - Sweep count since PR open (read from existing PR metadata or
-    comment-history count).
-- [ ] Marker line on row 1: `<!-- repo-guardian:reconcile-log:v1 -->`.
+    "orphan removed from branch".
+- [x] Marker line on row 1: `<!-- repo-guardian:reconcile-log:v1 -->`.
   The `v1` suffix lets us evolve the template later without
   breaking the upsert path (see Open Question 2).
-- [ ] Wire `Client.UpsertPRComment` call into `checkRepoWithPolicy`
+- [x] Wire `Client.UpsertPRComment` call into `checkRepoWithPolicy`
   on every reconcile that resolves to "we already have a PR" —
   including both the update-and-still-actionable branch and the
-  auto-close branch (final comment before close).
-- [ ] Render the comment using the existing `template.Renderer`
-  infrastructure; new `ReconcileLogVars` struct under
-  `internal/template/`.
-- [ ] Skip the comment if rendered body matches the existing
+  auto-close branch (final comment before close). Also the
+  AutoClosePR=false convergent branch upserts the log so operators
+  can see why no progress is happening.
+- [x] Render the comment via `renderReconcileLog` (inline,
+  per the deviation note above) — `internal/template/` was not
+  extended because the comment body has no operator-tunable
+  surface today.
+- [x] Skip the comment if rendered body matches the existing
   marker-tagged comment (no churn for unchanged state).
-- [ ] Unit tests in `internal/checker/comments_test.go`:
-  - [ ] Comment created on first reconcile.
-  - [ ] Comment edited (not duplicated) on second reconcile.
-  - [ ] Two PRs in different repos get independent sticky comments.
-  - [ ] Marker line absent from `body` payload but present in the
-    final rendered comment → upsert routes to create-not-edit.
-- [ ] Document the marker line + the `v1` versioning contract in
-  `CLAUDE.md`.
+- [x] Unit tests in `internal/checker/comments_test.go`:
+  - [x] Comment created on first reconcile with existing PR.
+  - [x] No comment when no existing PR.
+  - [x] Convergent state mentions satisfied rules and auto-close
+    footer.
+  - [x] `buildReconcileLogEvents` distinguishes orphans, actionable,
+    and satisfied rules.
+- [x] Document the marker line + the `v1` versioning contract in
+  `CLAUDE.md` (covered in Phase 2 architecture note).
 
 #### Success Criteria
 

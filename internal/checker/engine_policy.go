@@ -53,13 +53,19 @@ func (e *Engine) checkRepoWithPolicy(
 				log.Warn("dry run: would auto-close PR — file rules satisfied on default branch",
 					"pr_number", ourPR.Number)
 			case e.policy.Guardian.AutoClosePREnabled():
-				if err := autoClosePR(ctx, log, client, owner, repo, ourPR); err != nil {
+				if err := autoClosePR(ctx, log, client, owner, repo, ourPR, e.policy.FileRules); err != nil {
 					log.Error("auto-close PR failed; will retry on next sweep",
 						"pr_number", ourPR.Number, "err", err)
 				}
 			default:
 				log.Warn("open PR with empty actionable set — file rules satisfied on default branch (auto_close_pr disabled)",
 					"pr_number", ourPR.Number)
+				// IMPL-0013 Phase 4: log the convergent state via
+				// the sticky comment so operators reading the PR
+				// understand why no progress is happening despite
+				// every rule passing on main.
+				events := buildReconcileLogEvents(e.policy.FileRules, actionable, nil)
+				upsertReconcileLog(ctx, log, client, owner, repo, ourPR, events)
 			}
 		} else {
 			log.Info("all required files present")
@@ -601,14 +607,22 @@ func (e *Engine) createOrUpdatePRFromPolicy(
 	// files (rules that were in a previous version of the PR but are
 	// now satisfied on the default branch) and refresh the PR body.
 	orphans := discoverOrphans(ctx, log, client, e.policy.FileRules, actionable, owner, repo)
+
+	var removedOrphans []string
+
 	if len(orphans) > 0 {
 		log.Info("cleaning up orphan files", "count", len(orphans))
-		cleanupOrphans(ctx, log, client, orphans, owner, repo)
+		removedOrphans = cleanupOrphans(ctx, log, client, orphans, owner, repo)
 	}
 
 	if err := e.refreshPolicyPR(ctx, log, client, owner, repo, defaultBranch, existingPR, actionable, now); err != nil {
 		log.Warn("PR body refresh failed; PR text may be stale until next sweep", "err", err)
 	}
+
+	// IMPL-0013 Phase 4: sticky reconcile-log comment with per-rule
+	// status. Best-effort — failures don't abort the sweep.
+	events := buildReconcileLogEvents(e.policy.FileRules, actionable, removedOrphans)
+	upsertReconcileLog(ctx, log, client, owner, repo, existingPR, events)
 
 	metrics.PRsUpdatedTotal.WithLabelValues(owner).Inc()
 	log.Info("updated existing PR", "pr_number", existingPR.Number)

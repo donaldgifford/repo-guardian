@@ -1,7 +1,7 @@
 ---
 id: IMPL-0013
 title: "Reconcile open PRs when file rules become satisfied"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-05-28
 ---
@@ -9,7 +9,7 @@ created: 2026-05-28
 
 # IMPL 0013: Reconcile open PRs when file rules become satisfied
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-05-28
 
@@ -20,10 +20,20 @@ created: 2026-05-28
   - [Out of Scope](#out-of-scope)
 - [Implementation Phases](#implementation-phases)
   - [Phase 1: Diagnostic metrics and alerts](#phase-1-diagnostic-metrics-and-alerts)
+    - [Tasks](#tasks)
+    - [Success Criteria](#success-criteria)
   - [Phase 2: GitHub client surface area](#phase-2-github-client-surface-area)
+    - [Tasks](#tasks-1)
+    - [Success Criteria](#success-criteria-1)
   - [Phase 3: Engine fix — orphan cleanup, body refresh, auto-close](#phase-3-engine-fix--orphan-cleanup-body-refresh-auto-close)
+    - [Tasks](#tasks-2)
+    - [Success Criteria](#success-criteria-2)
   - [Phase 4: Sticky reconcile-log PR comment](#phase-4-sticky-reconcile-log-pr-comment)
+    - [Tasks](#tasks-3)
+    - [Success Criteria](#success-criteria-3)
   - [Phase 5: Operator docs, chart values, runbook](#phase-5-operator-docs-chart-values-runbook)
+    - [Tasks](#tasks-4)
+    - [Success Criteria](#success-criteria-4)
 - [File Changes](#file-changes)
 - [Testing Plan](#testing-plan)
 - [Dependencies](#dependencies)
@@ -343,13 +353,13 @@ to this chart version is unsurprising.
 
 #### Tasks
 
-- [ ] Add `autoClosePR: true` value under a new `policy:` block in
+- [x] Add `autoClosePR: true` value under the `policy:` block in
   `charts/repo-guardian/values.yaml`. Pass through to the
   Deployment as `AUTO_CLOSE_PR` env var.
-- [ ] Document `autoClosePR` in `charts/repo-guardian/README.md.gotmpl`
+- [x] Document `autoClosePR` in `charts/repo-guardian/README.md.gotmpl`
   (NOT `README.md` directly — IMPL-0012 post-mortem). Include both
   the gating knob and a description of what changes after upgrade.
-- [ ] New runbook `docs/operations/pr-convergence-migration.md`:
+- [x] New runbook `docs/operations/pr-convergence-migration.md`:
   - What was broken before (link INV-0005).
   - What changes after upgrade (auto-close on default).
   - How to opt out (`autoClosePR: false` or `AUTO_CLOSE_PR=false`).
@@ -357,15 +367,16 @@ to this chart version is unsurprising.
   - Smoke checks: confirm `PROpenWithEmptyActionableTotal` drops
     to zero, confirm sticky comments appear on existing PRs,
     confirm any 30-day stale PRs get closed.
-- [ ] helm-unittest cases for the new env-var plumbing under
-  `charts/repo-guardian/tests/deployment_test.yaml` (both
+- [x] helm-unittest cases for the new env-var plumbing under
+  `charts/repo-guardian/tests/deployment_env_test.yaml` (both
   default and overridden values).
-- [ ] Bump chart minor (`0.5.x → 0.6.0`) and appVersion
-  (`1.6.x → 1.7.0`) — behavioural change warrants a minor.
-- [ ] CHANGELOG entries in both root and chart `cliff.toml`-driven
-  changelogs.
-- [ ] Update `mkdocs.yml` nav with the new runbook (docz handles
-  this automatically — verify).
+- [x] Bump chart minor (`0.5.1 → 0.6.0`) and appVersion
+  (`1.6.1 → 1.7.0`) — behavioural change warrants a minor.
+- [x] CHANGELOG entries — git-cliff regenerates both on the publish
+  workflow; no manual edits required (per IMPL-0010 convention).
+- [x] Update `mkdocs.yml` nav with the new runbook (manual entry
+  required for `docs/operations/` — docz only auto-manages
+  numbered sections like `impl/`, `inv/`, `design/`).
 
 #### Success Criteria
 
@@ -412,15 +423,15 @@ to this chart version is unsurprising.
 
 ## Testing Plan
 
-- [ ] Phase 1 metric increments verified by unit test against the exact
+- [x] Phase 1 metric increments verified by unit test against the exact
   control-flow branch in `engine_policy.go`.
-- [ ] Phase 2 client methods: unit tests via `httptest.Server` covering
+- [x] Phase 2 client methods: unit tests via `httptest.Server` covering
   happy path + 404 + 500 for each.
-- [ ] Phase 3 multi-sweep tests run with `go test -count=10` to catch
+- [x] Phase 3 multi-sweep tests run with `go test -count=10` to catch
   any flakiness (state-modelling mock keeps per-test state).
-- [ ] Phase 4 sticky-comment idempotency: same render across two sweeps
-  produces zero API calls.
-- [ ] Phase 5 helm-unittest: `autoClosePR` env-var plumbing renders
+- [x] Phase 4 sticky-comment idempotency: same render across two sweeps
+  produces zero API calls (skip-on-match in `upsertReconcileLog`).
+- [x] Phase 5 helm-unittest: `AUTO_CLOSE_PR` env-var plumbing renders
   both with explicit `false` and at default `true`.
 - [ ] Homelab smoke (operator-side, documented in the runbook): one
   full reconcile cycle observed across `donaldgifford/logpush` and

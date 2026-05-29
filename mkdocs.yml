@@ -58,6 +58,7 @@ nav:
     - Repo Guardian - Executive Summary: SUMMARY.md
     - Operations:
         - Chart 0.5.0 migration runbook (IMPL-0011): operations/chart-0.5.0-migration.md
+        - 'Chart 0.6.0 / PR convergence runbook (IMPL-0013)': operations/pr-convergence-migration.md
         - Postgres schema operations: operations/migrations.md
         - Scaling repo-guardian: operations/scaling.md
         - Template migration guide (chart 0.3.x → 0.4.0): operations/template-migration.md

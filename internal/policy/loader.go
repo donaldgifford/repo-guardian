@@ -1001,12 +1001,26 @@ func applyEnvOverrides(g *GuardianConfig) {
 	applyEnvBool("WEBHOOK_IP_ALLOWLIST", &g.WebhookIPAllowlist)
 	applyEnvBool("WEBHOOK_IP_ALLOWLIST_FAIL_OPEN", &g.WebhookIPAllowlistFailOpen)
 	applyEnvBool("TRUST_PROXY_HEADERS", &g.TrustProxyHeaders)
+	applyEnvBoolPtr("AUTO_CLOSE_PR", &g.AutoClosePR)
 }
 
 func applyEnvBool(key string, dst *bool) {
 	if v := os.Getenv(key); v != "" {
 		if b, err := strconv.ParseBool(v); err == nil {
 			*dst = b
+		}
+	}
+}
+
+// applyEnvBoolPtr is the *bool variant for fields whose HCL block
+// uses a pointer to distinguish "unset" from "explicitly false".
+// When the env var is set, dst is reassigned to a new *bool so the
+// caller observes the value via the same Set/Get path as an HCL
+// assignment.
+func applyEnvBoolPtr(key string, dst **bool) {
+	if v := os.Getenv(key); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			*dst = &b
 		}
 	}
 }

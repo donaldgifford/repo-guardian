@@ -259,6 +259,10 @@ func (*mockClient) RateLimitRemaining(_ context.Context, _ int64) (int, int, err
 	return 5000, 5000, nil
 }
 
+func (*mockClient) GetContentsOnBranch(_ context.Context, _, _, _, _ string) (string, bool, error) {
+	return "", false, nil
+}
+
 func (*mockClient) DeleteFile(_ context.Context, _, _, _, _, _, _ string) error {
 	return nil
 }

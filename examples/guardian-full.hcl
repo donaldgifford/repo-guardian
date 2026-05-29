@@ -22,6 +22,18 @@ guardian {
   schedule_interval = "168h"
   skip_forks        = true
   skip_archived     = true
+
+  # IMPL-0013 Phase 3: when every file rule referenced by an open
+  # repo-guardian PR has been satisfied on the default branch (e.g.,
+  # a maintainer hand-merged a CODEOWNERS file on a side branch),
+  # auto-close the PR, post a final sticky comment explaining why,
+  # and delete the reconcile branch. Default: true.
+  #
+  # Set to false to preserve the legacy behaviour where the PR stays
+  # open until a human closes it. Useful for compliance workflows
+  # that require manual PR-close attestation. Env var override:
+  # AUTO_CLOSE_PR=false on the Deployment.
+  # auto_close_pr = true
 }
 
 # Process-wide PR template defaults. Every rule.pr and

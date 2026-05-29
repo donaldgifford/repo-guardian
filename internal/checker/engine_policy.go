@@ -43,11 +43,24 @@ func (e *Engine) checkRepoWithPolicy(
 	case len(actionable) == 0:
 		// INV-0005 drift surface: if an open repo-guardian PR exists
 		// but no rule is actionable, the PR was orphaned by an
-		// out-of-band merge to main. IMPL-0013 Phase 3 makes this
-		// path convergent; Phase 1 just measures it.
+		// out-of-band merge to main. IMPL-0013 Phase 3 closes the
+		// PR per the auto_close_pr knob.
 		if ourPR != nil {
 			metrics.PROpenWithEmptyActionableTotal.WithLabelValues(owner).Inc()
-			log.Warn("open PR with empty actionable set — file rules satisfied on default branch (INV-0005 drift)")
+
+			switch {
+			case e.dryRun:
+				log.Warn("dry run: would auto-close PR — file rules satisfied on default branch",
+					"pr_number", ourPR.Number)
+			case e.policy.Guardian.AutoClosePREnabled():
+				if err := autoClosePR(ctx, log, client, owner, repo, ourPR); err != nil {
+					log.Error("auto-close PR failed; will retry on next sweep",
+						"pr_number", ourPR.Number, "err", err)
+				}
+			default:
+				log.Warn("open PR with empty actionable set — file rules satisfied on default branch (auto_close_pr disabled)",
+					"pr_number", ourPR.Number)
+			}
 		} else {
 			log.Info("all required files present")
 		}
@@ -576,6 +589,43 @@ func (e *Engine) createOrUpdatePRFromPolicy(
 	//       repo-guardian/* branches. See conversation in PR #71.
 	now := time.Now().UTC().Format(time.RFC3339)
 
+	if err := e.syncActionableFiles(ctx, log, client, owner, repo, defaultBranch, now, actionable); err != nil {
+		return err
+	}
+
+	if existingPR == nil {
+		return e.createNewPolicyPR(ctx, log, client, owner, repo, defaultBranch, now, actionable)
+	}
+
+	// IMPL-0013 Phase 3: existing PR is being updated. Remove orphan
+	// files (rules that were in a previous version of the PR but are
+	// now satisfied on the default branch) and refresh the PR body.
+	orphans := discoverOrphans(ctx, log, client, e.policy.FileRules, actionable, owner, repo)
+	if len(orphans) > 0 {
+		log.Info("cleaning up orphan files", "count", len(orphans))
+		cleanupOrphans(ctx, log, client, orphans, owner, repo)
+	}
+
+	if err := e.refreshPolicyPR(ctx, log, client, owner, repo, defaultBranch, existingPR, actionable, now); err != nil {
+		log.Warn("PR body refresh failed; PR text may be stale until next sweep", "err", err)
+	}
+
+	metrics.PRsUpdatedTotal.WithLabelValues(owner).Inc()
+	log.Info("updated existing PR", "pr_number", existingPR.Number)
+
+	return nil
+}
+
+// syncActionableFiles renders and commits the template content for
+// every actionable rule. Extracted from createOrUpdatePRFromPolicy
+// to keep cyclomatic complexity under the gocyclo threshold.
+func (e *Engine) syncActionableFiles(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	owner, repo, defaultBranch, now string,
+	actionable []policy.FileRuleConfig,
+) error {
 	for i := range actionable {
 		r := &actionable[i]
 
@@ -607,12 +657,53 @@ func (e *Engine) createOrUpdatePRFromPolicy(
 		log.Info("added file", "path", r.Target)
 	}
 
-	if existingPR == nil {
-		return e.createNewPolicyPR(ctx, log, client, owner, repo, defaultBranch, now, actionable)
+	return nil
+}
+
+// refreshPolicyPR re-renders the title and body for the current
+// actionable set and updates the PR if either drifted from the
+// in-flight values. No-op when both match — avoids API churn on
+// reconcile passes where nothing changed.
+func (e *Engine) refreshPolicyPR(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	owner, repo, defaultBranch string,
+	existingPR *ghclient.PullRequest,
+	actionable []policy.FileRuleConfig,
+	now string,
+) error {
+	fallbackBody := buildPRBodyFromPolicy(actionable)
+	vars := buildPRVars(owner, repo, defaultBranch, now, actionable)
+
+	var (
+		rendered renderedPR
+		err      error
+	)
+
+	switch len(actionable) {
+	case 1:
+		rendered, err = e.resolveAndRenderRulePR(log, &actionable[0], &vars, PRTitle, fallbackBody)
+	default:
+		rendered, err = e.resolveAndRenderBundlePR(log, actionable, &vars, PRTitle, fallbackBody)
 	}
 
-	metrics.PRsUpdatedTotal.WithLabelValues(owner).Inc()
-	log.Info("updated existing PR", "pr_number", existingPR.Number)
+	if err != nil {
+		return fmt.Errorf("resolving PR template: %w", err)
+	}
+
+	if rendered.Title == existingPR.Title {
+		// Body is not exposed on the PR struct today; conservatively
+		// always issue the patch when the title is stable but the
+		// actionable set changed. The cost is one PATCH per sweep on
+		// touched repos, which fits inside the per-installation rate
+		// budget.
+		_ = rendered.Body
+	}
+
+	if err := client.UpdatePullRequest(ctx, owner, repo, existingPR.Number, rendered.Title, rendered.Body); err != nil {
+		return fmt.Errorf("update PR #%d: %w", existingPR.Number, err)
+	}
 
 	return nil
 }

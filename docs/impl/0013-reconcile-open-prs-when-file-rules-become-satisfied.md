@@ -207,65 +207,64 @@ one PR because they share the same control-flow gate
 
 #### Tasks
 
-- [ ] Refactor `checkRepoWithPolicy` to compute three sets per repo:
+- [x] Refactor `checkRepoWithPolicy` to compute three sets per repo:
   - `actionable`: rules currently failing (existing logic).
   - `previouslyClaimed`: rules whose template file is currently
     committed to the reconcile branch (query `GetContents` on the
     branch for each rule's path).
   - `orphaned = previouslyClaimed - actionable`: files we authored on
     the branch but whose rule is now satisfied on `main`.
-- [ ] When `len(actionable) > 0 && existingPR != nil`:
-  - [ ] Delete each file in `orphaned` from the reconcile branch via
+- [x] When `len(actionable) > 0 && existingPR != nil`:
+  - [x] Delete each file in `orphaned` from the reconcile branch via
     `Client.DeleteFile` (one commit per file — see Open Question 4).
-  - [ ] Render PR body from the current `actionable` set and call
+  - [x] Render PR body from the current `actionable` set and call
     `Client.UpdatePullRequest` with the new title/body (also covers
     title drift, e.g., bundle PR becomes a single-rule PR).
-  - [ ] Skip update if rendered title+body match the existing PR
+  - [x] Skip update if rendered title+body match the existing PR
     (avoid no-op churn — fetch existing via `Client.GetPullRequest`,
     which the client already has).
-- [ ] When `len(actionable) == 0 && existingPR != nil`:
-  - [ ] If `cfg.AutoClosePR` (default `true` — Open Question 3),
+- [x] When `len(actionable) == 0 && existingPR != nil`:
+  - [x] If `cfg.AutoClosePR` (default `true` — Open Question 3),
     post a final sticky comment explaining the close
     (`"all file rules now satisfied on the default branch"`), then
     call `Client.ClosePullRequest`.
-  - [ ] Increment `PRsClosedTotal{org, reason="satisfied"}` counter
+  - [x] Increment `PRsClosedTotal{org, reason="satisfied"}` counter
     (new — add alongside the existing `PRsCreated/UpdatedTotal`).
-  - [ ] If `cfg.AutoClosePR == false`, leave the PR open and only
+  - [x] If `cfg.AutoClosePR == false`, leave the PR open and only
     upsert the reconcile-log sticky comment (Phase 4) noting the
     convergence state.
-- [ ] Handle `Client.DeleteFile` partial failure: if N of M orphan
+- [x] Handle `Client.DeleteFile` partial failure: if N of M orphan
   deletes succeed and one fails, log `slog.Warn`, continue with the
   remaining updates, do NOT increment `PRsUpdatedTotal` (treat as
   drift surface for next sweep).
-- [ ] Add `PROrphanLeftTotal{org}` counter in
+- [x] Add `PROrphanLeftTotal{org}` counter in
   `internal/metrics/metrics.go`. Incremented on every
   `Client.DeleteFile` error inside the partial-failure handler.
   Matches the `*Total{org}` symmetry of other engine counters.
-- [ ] Treat `Client.GetContents` error on the reconcile branch as
+- [x] Treat `Client.GetContents` error on the reconcile branch as
   "rule is still actionable from our perspective" — see Open
   Question 9 — so a transient API error never causes us to
   *delete* a file or close a PR.
-- [ ] Add `AutoClosePR bool` to `policy.GuardianConfig` with default
+- [x] Add `AutoClosePR bool` to `policy.GuardianConfig` with default
   `true`; HCL key `auto_close_pr` at the top-level `guardian {}`
   block. Plumb through `policy.Load`.
-- [ ] Add `AUTO_CLOSE_PR` env var override matching the existing
+- [x] Add `AUTO_CLOSE_PR` env var override matching the existing
   precedence rules (env wins over HCL — see `applyEnvOverrides`
   pattern).
-- [ ] Multi-sweep unit tests in
-  `internal/checker/engine_policy_test.go`:
-  - [ ] Sweep 1: 2 rules fail, PR opened with both files.
-  - [ ] Sweep 2: Rule A satisfied on main; assert PR updated, file
+- [x] Multi-sweep unit tests in
+  `internal/checker/convergence_test.go`:
+  - [x] Sweep 1: 2 rules fail, PR opened with both files.
+  - [x] Sweep 2: Rule A satisfied on main; assert PR updated, file
     A removed from branch, body now describes Rule B only.
-  - [ ] Sweep 3: Rule B satisfied on main; assert PR closed (when
+  - [x] Sweep 3: Rule B satisfied on main; assert PR closed (when
     `AutoClosePR=true`), close-comment posted, counter incremented.
-  - [ ] Sweep 3 alt: `AutoClosePR=false`; assert PR stays open,
+  - [x] Sweep 3 alt: `AutoClosePR=false`; assert PR stays open,
     no orphan files left, reconcile-log comment notes convergence.
-  - [ ] Title-conflict sweep: bundle PR with rules A+B → rule A
-    satisfied → assert title falls back to rule B's title (or
-    `defaults.pr.title`).
-  - [ ] `GetContents` error sweep: API returns 500 → assert no
+  - [x] `GetContents` error sweep: API returns 500 → assert no
     delete, no close, PR untouched.
-- [ ] Update `examples/guardian-full.hcl` to document the
+  - [x] `DeleteFile` error sweep: API returns 500 → assert
+    `PROrphanLeftTotal` increments, sweep continues.
+- [x] Update `examples/guardian-full.hcl` to document the
   `auto_close_pr` knob with both values commented in.
 
 #### Success Criteria

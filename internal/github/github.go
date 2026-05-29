@@ -208,6 +208,14 @@ type Client interface {
 	// means "unknown" and the gate falls open.
 	RateLimitRemaining(ctx context.Context, installationID int64) (remaining, limit int, err error)
 
+	// GetContentsOnBranch returns the blob sha for a file at the given
+	// path on the specified branch. Returns (sha, true, nil) when the
+	// file exists, ("", false, nil) when it does not, and ("", false,
+	// err) on transport or non-404 errors. The sha is required by
+	// DeleteFile (optimistic concurrency); existence alone is not
+	// enough to act on.
+	GetContentsOnBranch(ctx context.Context, owner, repo, path, branch string) (sha string, exists bool, err error)
+
 	// DeleteFile removes a file from the given branch. Required by the
 	// IMPL-0013 Phase 3 orphan-cleanup path: when a file rule becomes
 	// satisfied on the default branch, the template file repo-guardian

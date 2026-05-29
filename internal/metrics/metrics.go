@@ -248,6 +248,27 @@ var (
 		Name: "repo_guardian_open_prs_by_rule",
 		Help: "Open repo-guardian PRs by org, rule, and age bucket.",
 	}, []string{"org", "rule", "age_bucket"})
+
+	// PRsClosedTotal counts pull requests closed by repo-guardian
+	// labeled by org and reason. IMPL-0013 Phase 3 introduces the
+	// reason="satisfied" path (auto-close when every file rule has
+	// been satisfied on the default branch); future reasons can be
+	// added without changing the metric name.
+	PRsClosedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_prs_closed_total",
+		Help: "Pull requests closed by repo-guardian, by reason.",
+	}, []string{"org", "reason"})
+
+	// PROrphanLeftTotal counts orphan files that repo-guardian
+	// attempted to delete from a reconcile branch but couldn't
+	// (typically a transient GitHub API failure). A non-zero rate
+	// indicates the next sweep needs to retry; sustained non-zero
+	// values across many sweeps point at a permission or branch-
+	// protection misconfiguration.
+	PROrphanLeftTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_pr_orphan_left_total",
+		Help: "Orphan files that could not be deleted from the reconcile branch.",
+	}, []string{"org"})
 )
 
 // Hard-coded age bucket labels for the OpenPRsByRule gauge.

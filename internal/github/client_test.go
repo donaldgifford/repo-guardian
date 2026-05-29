@@ -847,6 +847,82 @@ func TestDeleteLabel(t *testing.T) {
 // ListPRComments, UpsertPRComment tests. Each covers the happy path
 // and at least one error path.
 
+func TestGetContentsOnBranch_Exists(t *testing.T) {
+	t.Parallel()
+
+	var gotRef string
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v3/repos/owner/repo/contents/CODEOWNERS", func(w http.ResponseWriter, r *http.Request) {
+		gotRef = r.URL.Query().Get("ref")
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"name":"CODEOWNERS","path":"CODEOWNERS","sha":"orphan-sha","type":"file"}`))
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	sha, exists, err := client.GetContentsOnBranch(
+		context.Background(), "owner", "repo", "CODEOWNERS", "repo-guardian/add-missing-files",
+	)
+	if err != nil {
+		t.Fatalf("GetContentsOnBranch: %v", err)
+	}
+	if !exists {
+		t.Error("expected exists=true")
+	}
+	if sha != "orphan-sha" {
+		t.Errorf("sha = %q, want orphan-sha", sha)
+	}
+	if gotRef != "repo-guardian/add-missing-files" {
+		t.Errorf("ref query = %q, want repo-guardian/add-missing-files", gotRef)
+	}
+}
+
+func TestGetContentsOnBranch_NotFound(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v3/repos/owner/repo/contents/CODEOWNERS", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	sha, exists, err := client.GetContentsOnBranch(
+		context.Background(), "owner", "repo", "CODEOWNERS", "missing-branch",
+	)
+	if err != nil {
+		t.Fatalf("GetContentsOnBranch: %v", err)
+	}
+	if exists {
+		t.Error("expected exists=false on 404")
+	}
+	if sha != "" {
+		t.Errorf("sha = %q, want empty on 404", sha)
+	}
+}
+
+func TestGetContentsOnBranch_ServerError(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v3/repos/owner/repo/contents/CODEOWNERS", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	if _, _, err := client.GetContentsOnBranch(
+		context.Background(), "owner", "repo", "CODEOWNERS", "branch",
+	); err == nil {
+		t.Fatal("expected error on 500, got nil")
+	}
+}
+
 func TestDeleteFile_HappyPath(t *testing.T) {
 	t.Parallel()
 

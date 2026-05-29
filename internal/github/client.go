@@ -779,6 +779,39 @@ func (c *GitHubClient) DeleteLabel(ctx context.Context, owner, repo, name string
 	return nil
 }
 
+// GetContentsOnBranch returns the blob sha of a file at the given
+// path on the specified branch. Used by IMPL-0013 Phase 3 orphan
+// discovery to detect template files repo-guardian authored on the
+// reconcile branch whose rule is now satisfied on the default
+// branch.
+//
+// Returns ("", false, nil) on a 404 — the file does not exist on
+// the branch. Any other transport error is surfaced to the caller,
+// which treats it as "still actionable" to avoid destructive
+// downstream action under a transient API glitch.
+func (c *GitHubClient) GetContentsOnBranch(
+	ctx context.Context,
+	owner, repo, path, branch string,
+) (string, bool, error) {
+	existing, _, resp, err := c.ghClient().Repositories.GetContents(
+		ctx, owner, repo, path,
+		&gh.RepositoryContentGetOptions{Ref: branch},
+	)
+	if err != nil {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			return "", false, nil
+		}
+
+		return "", false, fmt.Errorf("get contents %s on %s in %s/%s: %w", path, branch, owner, repo, err)
+	}
+
+	if existing == nil {
+		return "", false, nil
+	}
+
+	return existing.GetSHA(), true, nil
+}
+
 // DeleteFile removes a file from the given branch via the Contents
 // API. The caller supplies the blob sha to preserve the
 // optimistic-concurrency contract of the upstream endpoint; the

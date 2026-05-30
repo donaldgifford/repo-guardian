@@ -26,6 +26,8 @@ created: 2026-05-26
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
 - [Triggers that would re-open this](#triggers-that-would-re-open-this)
+  - [What is not a trigger](#what-is-not-a-trigger)
+- [Initial-scale guidance](#initial-scale-guidance)
 - [References](#references)
 <!--toc:end-->
 
@@ -191,6 +193,49 @@ Concrete scenarios that would change the calculation:
 Absent any of those, the analysis above suggests staying with the
 single-app model.
 
+### What is *not* a trigger
+
+The triggers above are **structural**, not numeric. The following
+do NOT, on their own, justify the multi-app work:
+
+- **High org count.** 20+ orgs all installing the same App is
+  still one-app territory. Each install gets its own
+  `installation_id` with its own rate-limit bucket (5k/hr free,
+  15k/hr enterprise cloud), its own webhook delivery stream, and
+  its own per-installation auth token. There is no shared bucket
+  to saturate. The bottleneck at scale is the **work queue +
+  worker pool sizing**, addressed by IMPL-0011's backend shapes
+  (Postgres store + Valkey queue, leader-elected scheduler), not
+  by credential fanout.
+- **Multi-forge deployments.** Running repo-guardian against
+  20 GitHub orgs AND a few GitLab / Forgejo instances does not
+  require multi-app. GitLab and Forgejo sit behind the `Forge`
+  abstraction (INV-0004 / INV-0007), each carrying its own auth
+  model independent of GitHub Apps. Per-forge credentials are
+  expected; per-org-within-a-forge credentials are what this
+  investigation tracks.
+- **One central platform team owning the bot for all 20+ orgs.**
+  As long as a single platform team is comfortable owning one
+  shared private key for all orgs, the federated-ownership
+  trigger is not active. The pain point only appears when
+  individual orgs want independent key-rotation cadences.
+
+## Initial-scale guidance
+
+Operators onboarding 20+ GitHub orgs for the first time should
+default to:
+
+- **One GitHub App, installed across all orgs.** Same `app_id`,
+  same private key, same webhook secret.
+- **One installation per org**, mediated by the org admins
+  accepting the App's permission grants at install time.
+- **Per-installation rate-limit gating** via the existing
+  `RateLimitRemaining` path in `internal/checker/sweep.go`.
+
+Re-open this investigation if and when one of the structural
+triggers above appears — not when the org count crosses an
+arbitrary threshold.
+
 ## References
 
 - [INV-0005](0005-stale-prs-when-file-rules-become-satisfied-on-main.md)
@@ -200,6 +245,12 @@ single-app model.
   — earlier multi-org thinking; predates the current single-app
   ghinstallation model. Worth re-reading if this investigation
   re-opens.
+- [INV-0004](0004-forge-interface-and-package-refactor-for-forgejo-backend.md)
+  — `Forge` interface seam that absorbs non-GitHub backends.
+  Reinforces that multi-forge ≠ multi-app.
+- [INV-0007](0007-gitlab-forge-backend-support.md) — GitLab
+  backend investigation; the orthogonality of GitLab support to
+  this investigation was the motivating exchange.
 - [DESIGN-0002](../design/0002-github-api-rate-limit-handling.md)
   — rate-limit handling design; reaffirms per-installation gating.
 - `internal/config/config.go` —

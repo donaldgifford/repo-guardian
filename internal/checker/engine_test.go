@@ -3,13 +3,11 @@ package checker
 import (
 	"context"
 	"fmt"
-	"log/slog"
-	"strings"
 	"sync/atomic"
 	"testing"
 
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
-	"github.com/donaldgifford/repo-guardian/internal/rules"
+	"github.com/donaldgifford/repo-guardian/internal/policy"
 )
 
 // mockClient implements ghclient.Client for testing.
@@ -372,15 +370,16 @@ func (m *mockClient) UpsertPRComment(_ context.Context, _, _ string, number int,
 	return nil
 }
 
+// testEngine constructs a policy-driven Engine using the built-in
+// defaults (codeowners + dependabot enabled, renovate rules disabled),
+// with skipForks/skipArchived defaulted to true. Pass dryRun to
+// override the Guardian.DryRun knob — every other GuardianConfig field
+// inherits the BuiltinDefaults values.
 func testEngine(dryRun bool) *Engine {
-	reg := rules.NewRegistry(rules.DefaultRules)
-	ts := rules.NewTemplateStore()
+	cfg := policy.BuiltinDefaults()
+	cfg.Guardian.DryRun = dryRun
 
-	if err := ts.Load(""); err != nil {
-		panic(err)
-	}
-
-	return NewEngine(reg, ts, slog.Default(), true, true, dryRun)
+	return testPolicyEngine(cfg)
 }
 
 func TestCheckRepo_AllFilesExist(t *testing.T) {
@@ -625,36 +624,5 @@ func TestCheckRepo_StaleBranchCleanup(t *testing.T) {
 
 	if len(client.createdBranches) != 1 {
 		t.Errorf("expected 1 branch created, got %d", len(client.createdBranches))
-	}
-}
-
-func TestBuildPRBody(t *testing.T) {
-	t.Parallel()
-
-	missing := []rules.FileRule{
-		{Name: "CODEOWNERS", TargetPath: ".github/CODEOWNERS"},
-		{Name: "Dependabot", TargetPath: ".github/dependabot.yml"},
-	}
-
-	body := BuildPRBody(missing)
-
-	if !strings.Contains(body, "Repo Guardian") {
-		t.Error("PR body should contain 'Repo Guardian'")
-	}
-
-	if !strings.Contains(body, ".github/CODEOWNERS") {
-		t.Error("PR body should list CODEOWNERS path")
-	}
-
-	if !strings.Contains(body, ".github/dependabot.yml") {
-		t.Error("PR body should list dependabot path")
-	}
-
-	if !strings.Contains(body, "@org/CHANGEME") {
-		t.Error("PR body should mention CODEOWNERS placeholder")
-	}
-
-	if !strings.Contains(body, "platform-engineering") {
-		t.Error("PR body should reference platform-engineering channel")
 	}
 }

@@ -107,46 +107,46 @@ constructor, slims the `rules` package down to its surviving
 
 #### Tasks
 
-- [ ] Confirm `BuildPRBody` has zero consumers outside legacy
+- [x] Confirm `BuildPRBody` has zero consumers outside legacy
   `engine.go` and `TestBuildPRBody` (verified during audit; will
   re-confirm at task start).
-- [ ] Confirm `BranchName` and `PRTitle` constants are used by
+- [x] Confirm `BranchName` and `PRTitle` constants are used by
   both legacy and policy paths (verified during audit — they
   appear in `engine_policy.go:549,559,576` and 13 test sites).
   They stay in `engine.go` per Resolved Decision Q2 (`engine.go`
   remains the home for the surviving struct + constants +
   constructor + `CheckRepo`).
-- [ ] Delete from `internal/checker/engine.go`: `BuildPRBody`,
+- [x] Delete from `internal/checker/engine.go`: `BuildPRBody`,
   `shouldSkip`, `findMissingFiles`, `createOrUpdatePR`, the
   legacy body of `CheckRepo`, and the `NewEngine` constructor.
-- [ ] Rename `NewEngineFromPolicy` → `NewEngine` in
+- [x] Rename `NewEngineFromPolicy` → `NewEngine` in
   `internal/checker/engine_policy.go`. Drop the now-redundant
   `e.policy != nil` dispatch from `CheckRepo` (currently
   `engine_policy.go:99-101`).
-- [ ] Remove the `Engine.policy *policy.Policy` nullable field
+- [x] Remove the `Engine.policy *policy.Policy` nullable field
   semantics — the field becomes non-nullable. Update the
   constructor doc comment.
-- [ ] Confirm `engine.go` is left holding only: the `Engine`
+- [x] Confirm `engine.go` is left holding only: the `Engine`
   struct, `BranchName`/`PRTitle` constants, the renamed
   `NewEngine` constructor, and a single-path `CheckRepo`
   (~80 LOC). `engine_policy.go` keeps the policy-path methods.
-- [ ] Delete from `internal/rules/registry.go`:
+- [x] Delete from `internal/rules/registry.go`:
   - `FileRule` struct (lines 19-39)
   - `DefaultRules` slice (lines 43-75)
   - `Registry` struct (lines 78-80)
   - `NewRegistry`, `EnabledRules`, `RuleByName`, `AllRules`
     (lines 83-118)
-- [ ] Keep in `internal/rules/registry.go`: `TemplateStore` and
+- [x] Keep in `internal/rules/registry.go`: `TemplateStore` and
   its methods (`NewTemplateStore`,
   `NewTemplateStoreWithRenderer`, `Load`, `Get`, `Raw`) plus
   unexported helpers (`store`, `loadFromDir`,
   `loadEmbeddedDefaults`).
-- [ ] Drop test cases in `internal/rules/registry_test.go` that
+- [x] Drop test cases in `internal/rules/registry_test.go` that
   exercised the deleted symbols (`Registry`, `DefaultRules`,
   `FileRule`). Keep `TemplateStore` tests in place; keep the
   filename `registry_test.go` (per Resolved Decision Q6 —
   preserves git-blame history).
-- [ ] Migrate the 10 legacy test functions in
+- [x] Migrate the 10 legacy test functions in
   `internal/checker/engine_test.go`:
   `TestCheckRepo_AllFilesExist`, `TestCheckRepo_MissingFiles_NoPR`,
   `TestCheckRepo_MissingFiles_ExistingPR`,
@@ -158,9 +158,9 @@ constructor, slims the `rules` package down to its surviving
   (the existing helper at `engine_test.go:14`) or its
   equivalent. `TestBuildPRBody` is deleted — the function
   itself is gone.
-- [ ] Update `cmd/repo-guardian/main.go:255` call site:
+- [x] Update `cmd/repo-guardian/main.go:255` call site:
   `checker.NewEngineFromPolicy(...)` → `checker.NewEngine(...)`.
-- [ ] Update `CLAUDE.md`:
+- [x] Update `CLAUDE.md`:
   - Line 65 ("Engine dual path: `NewEngine` (legacy registry,
     no reconcilers) and `NewEngineFromPolicy`...") — rewrite to
     single-path description.
@@ -173,11 +173,11 @@ constructor, slims the `rules` package down to its surviving
 <!-- Resolved Decision Q4: no CI guard against regression of the
      deleted symbols — review discipline is sufficient. No task
      needed here. -->
-- [ ] Run `make fmt && make lint && make test` after each task.
-- [ ] Run `go test -race -count=10 ./internal/checker/...` once
+- [x] Run `make fmt && make lint && make test` after each task.
+- [x] Run `go test -race -count=10 ./internal/checker/...` once
   the test migration is complete, to catch flakiness in the
   rewrite.
-- [ ] Commit work in bisectable chunks (suggested split:
+- [x] Commit work in bisectable chunks (suggested split:
   constants relocation → legacy code deletion → renames → test
   migration → docs).
 
@@ -319,11 +319,11 @@ imports were superseded one-for-one by `docs/rfc/0001`,
 
 ## Testing Plan
 
-- [ ] **Phase 1**: After each chunk, run `make fmt && make lint
+- [x] **Phase 1**: After each chunk, run `make fmt && make lint
   && make test`. After test migration is complete, run
   `go test -race -count=10 ./internal/checker/...` for
   flakiness verification.
-- [ ] **Phase 1**: Manual check —
+- [x] **Phase 1**: Manual check —
   `grep -rn "NewEngineFromPolicy\|rules\.Registry\|rules\.FileRule\|rules\.DefaultRules\|BuildPRBody" --include='*.go' .`
   returns zero matches in production code (test migration
   artifacts in `_test.go` files are not allowed either).

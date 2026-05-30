@@ -1,5 +1,6 @@
-// Package rules defines the FileRule registry and template store for
-// repo-guardian's file compliance checks.
+// Package rules defines the template store for repo-guardian's file
+// compliance checks. Templates are loaded from an optional directory and
+// fall back to the embedded defaults.
 package rules
 
 import (
@@ -14,108 +15,6 @@ import (
 
 //go:embed templates/*.tmpl
 var embeddedTemplates embed.FS
-
-// FileRule defines a required file and how to detect/create it.
-type FileRule struct {
-	// Name is a human-readable name for logging and PR descriptions.
-	Name string
-
-	// Paths to check in priority order. If ANY path exists, the rule is satisfied.
-	Paths []string
-
-	// PRSearchTerms are strings to search for in open PR titles/branches
-	// to determine if someone is already working on adding this file.
-	PRSearchTerms []string
-
-	// DefaultTemplateName is the key into the template store
-	// for the default file content.
-	DefaultTemplateName string
-
-	// TargetPath is where the default file will be created if missing.
-	TargetPath string
-
-	// Enabled allows rules to be toggled without removal.
-	Enabled bool
-}
-
-// DefaultRules defines the initial set of file compliance rules.
-// CODEOWNERS and Dependabot are enabled; Renovate is defined but disabled.
-var DefaultRules = []FileRule{
-	{
-		Name:                "CODEOWNERS",
-		Paths:               []string{"CODEOWNERS", ".github/CODEOWNERS", "docs/CODEOWNERS"},
-		PRSearchTerms:       []string{"codeowners", "CODEOWNERS"},
-		DefaultTemplateName: "codeowners",
-		TargetPath:          ".github/CODEOWNERS",
-		Enabled:             true,
-	},
-	{
-		Name:                "Dependabot",
-		Paths:               []string{".github/dependabot.yml", ".github/dependabot.yaml"},
-		PRSearchTerms:       []string{"dependabot"},
-		DefaultTemplateName: "dependabot",
-		TargetPath:          ".github/dependabot.yml",
-		Enabled:             true,
-	},
-	{
-		Name: "Renovate",
-		Paths: []string{
-			"renovate.json",
-			"renovate.json5",
-			".renovaterc",
-			".renovaterc.json",
-			".github/renovate.json",
-			".github/renovate.json5",
-		},
-		PRSearchTerms:       []string{"renovate"},
-		DefaultTemplateName: "renovate",
-		TargetPath:          "renovate.json",
-		Enabled:             false,
-	},
-}
-
-// Registry holds a set of FileRules and provides query methods.
-type Registry struct {
-	rules []FileRule
-}
-
-// NewRegistry creates a Registry from the given rules.
-func NewRegistry(rules []FileRule) *Registry {
-	return &Registry{rules: rules}
-}
-
-// EnabledRules returns only the rules where Enabled is true.
-func (r *Registry) EnabledRules() []FileRule {
-	enabled := make([]FileRule, 0, len(r.rules))
-
-	for _, rule := range r.rules {
-		if rule.Enabled {
-			enabled = append(enabled, rule)
-		}
-	}
-
-	return enabled
-}
-
-// RuleByName returns the rule with the given name and true,
-// or a zero FileRule and false if not found.
-func (r *Registry) RuleByName(name string) (FileRule, bool) {
-	for _, rule := range r.rules {
-		if strings.EqualFold(rule.Name, name) {
-			return rule, true
-		}
-	}
-
-	return FileRule{}, false
-}
-
-// AllRules returns all rules in the registry.
-func (r *Registry) AllRules() []FileRule {
-	result := make([]FileRule, len(r.rules))
-	copy(result, r.rules)
-
-	return result
-}
 
 // TemplateStore loads and serves file templates compiled with the
 // internal/template renderer. It tracks both the raw template body (for

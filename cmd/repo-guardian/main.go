@@ -252,7 +252,7 @@ func loadPolicyAndEngine(cfg *config.Config, strictTemplates bool, logger *slog.
 		os.Exit(1)
 	}
 
-	engine, err := checker.NewEngineFromPolicy(
+	engine, err := checker.NewEngine(
 		policyCfg,
 		templates,
 		logger,

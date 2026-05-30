@@ -3,8 +3,6 @@ package policy
 import (
 	"testing"
 	"time"
-
-	"github.com/donaldgifford/repo-guardian/internal/rules"
 )
 
 // --- Backward Compatibility Tests ---
@@ -53,63 +51,9 @@ func TestBuiltinDefaults_FileRuleCount(t *testing.T) {
 	cfg := BuiltinDefaults()
 
 	// 4 rules: codeowners, dependabot, renovate_config, renovate_workflow.
-	// Legacy rules.DefaultRules has 3 (no workflow rule).
-	want := len(rules.DefaultRules) + 1
-	if len(cfg.FileRules) != want {
-		t.Errorf("FileRules count = %d, want %d", len(cfg.FileRules), want)
-	}
-}
-
-func TestBuiltinDefaults_MatchesLegacyRules(t *testing.T) {
-	cfg := BuiltinDefaults()
-
-	ruleMap := make(map[string]rules.FileRule)
-	for _, r := range rules.DefaultRules {
-		ruleMap[r.Name] = r
-	}
-
-	// Map policy rule names to legacy DefaultRules names.
-	// renovate_workflow has no legacy counterpart.
-	nameMap := map[string]string{
-		"codeowners":      "CODEOWNERS",
-		"dependabot":      "Dependabot",
-		"renovate_config": "Renovate",
-	}
-
-	for _, policyRule := range cfg.FileRules {
-		defaultName, hasLegacy := nameMap[policyRule.Name]
-		if !hasLegacy {
-			continue
-		}
-
-		t.Run(policyRule.Name, func(t *testing.T) {
-			defaultRule, found := ruleMap[defaultName]
-			if !found {
-				t.Fatalf("no matching DefaultRule for %q", policyRule.Name)
-			}
-
-			if policyRule.IsEnabled() != defaultRule.Enabled {
-				t.Errorf("Enabled = %v, want %v", policyRule.IsEnabled(), defaultRule.Enabled)
-			}
-
-			if len(policyRule.Paths) != len(defaultRule.Paths) {
-				t.Errorf("Paths count = %d, want %d", len(policyRule.Paths), len(defaultRule.Paths))
-			} else {
-				for i, path := range policyRule.Paths {
-					if path != defaultRule.Paths[i] {
-						t.Errorf("Paths[%d] = %q, want %q", i, path, defaultRule.Paths[i])
-					}
-				}
-			}
-
-			if policyRule.Target != defaultRule.TargetPath {
-				t.Errorf("Target = %q, want %q", policyRule.Target, defaultRule.TargetPath)
-			}
-
-			if policyRule.Template != defaultRule.DefaultTemplateName {
-				t.Errorf("Template = %q, want %q", policyRule.Template, defaultRule.DefaultTemplateName)
-			}
-		})
+	const wantRuleCount = 4
+	if len(cfg.FileRules) != wantRuleCount {
+		t.Errorf("FileRules count = %d, want %d", len(cfg.FileRules), wantRuleCount)
 	}
 }
 

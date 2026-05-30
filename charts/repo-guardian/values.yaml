@@ -314,6 +314,12 @@ policy:
   config: ""
   # -- Use an existing ConfigMap for policy config
   existingConfigMap: ""
+  # -- Auto-close repo-guardian PRs when every file rule is
+  # satisfied on the default branch (IMPL-0013 Phase 3). When
+  # `true` (default), the PR is closed with a sticky comment and
+  # the reconcile branch is deleted. When `false`, the PR stays
+  # open until a human closes it.
+  autoClosePR: true
 
 # -- Additional environment variables
 extraEnv: []

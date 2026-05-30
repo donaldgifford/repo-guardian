@@ -74,3 +74,22 @@ tests:
             name: templates
             configMap:
               name: my-shared-templates
+
+  - it: emits AUTO_CLOSE_PR=true by default (IMPL-0013 Phase 5)
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: AUTO_CLOSE_PR
+            value: "true"
+
+  - it: respects policy.autoClosePR=false override
+    set:
+      policy:
+        autoClosePR: false
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: AUTO_CLOSE_PR
+            value: "false"

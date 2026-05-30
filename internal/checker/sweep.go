@@ -109,6 +109,12 @@ func (s *StaleSweeper) SweepStale(ctx context.Context) error {
 		return err
 	}
 
+	// IMPL-0013 Phase 1: wipe the OpenPRsByRule gauge each sweep so
+	// {org, rule} combinations that no longer have open PRs drop to
+	// zero. Workers re-populate the gauge as they process enqueued
+	// jobs; the gauge converges within one sweep cycle.
+	metrics.ResetOpenPRsByRule()
+
 	start := time.Now()
 
 	stale, err := s.store.StaleRepos(ctx, s.freshness, s.policyVersion, s.batchSize)

@@ -226,4 +226,90 @@ var (
 		Name: "repo_guardian_scheduler_is_leader",
 		Help: "1 when this pod holds the scheduler leader lock for the named handler, 0 otherwise.",
 	}, []string{"name", "pod"})
+
+	// PROpenWithEmptyActionableTotal counts reconcile passes where
+	// an open repo-guardian PR exists but the actionable rule set is
+	// empty — the drift surface identified in INV-0005. Incremented
+	// inside checkRepoWithPolicy. A non-zero rate after the
+	// IMPL-0013 Phase 3 fix lands indicates the convergence path is
+	// not working as expected.
+	PROpenWithEmptyActionableTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_pr_open_with_empty_actionable_total",
+		Help: "Reconcile passes where an open repo-guardian PR existed and the actionable rule set was empty.",
+	}, []string{"org"})
+
+	// OpenPRsByRule tracks the count of currently-open repo-guardian
+	// PRs labeled by org, rule, and age bucket. Populated by the
+	// sweep handler; reset to zero for {org, rule} combinations whose
+	// count drops between sweeps to avoid phantom non-zero series.
+	// Age buckets are hard-coded to keep cardinality bounded — see
+	// PRAgeBucket helper.
+	OpenPRsByRule = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_open_prs_by_rule",
+		Help: "Open repo-guardian PRs by org, rule, and age bucket.",
+	}, []string{"org", "rule", "age_bucket"})
+
+	// PRsClosedTotal counts pull requests closed by repo-guardian
+	// labeled by org and reason. IMPL-0013 Phase 3 introduces the
+	// reason="satisfied" path (auto-close when every file rule has
+	// been satisfied on the default branch); future reasons can be
+	// added without changing the metric name.
+	PRsClosedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_prs_closed_total",
+		Help: "Pull requests closed by repo-guardian, by reason.",
+	}, []string{"org", "reason"})
+
+	// PROrphanLeftTotal counts orphan files that repo-guardian
+	// attempted to delete from a reconcile branch but couldn't
+	// (typically a transient GitHub API failure). A non-zero rate
+	// indicates the next sweep needs to retry; sustained non-zero
+	// values across many sweeps point at a permission or branch-
+	// protection misconfiguration.
+	PROrphanLeftTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_pr_orphan_left_total",
+		Help: "Orphan files that could not be deleted from the reconcile branch.",
+	}, []string{"org"})
 )
+
+// Hard-coded age bucket labels for the OpenPRsByRule gauge.
+const (
+	PRAgeBucketLT1d  = "<1d"
+	PRAgeBucket1To7  = "1-7d"
+	PRAgeBucket7To30 = "7-30d"
+	PRAgeBucketGT30  = "30d+"
+)
+
+// PRAgeBuckets lists all valid age buckets in ascending order. Useful
+// for resetting the OpenPRsByRule gauge across every bucket for a
+// given {org, rule} pair.
+var PRAgeBuckets = [...]string{
+	PRAgeBucketLT1d,
+	PRAgeBucket1To7,
+	PRAgeBucket7To30,
+	PRAgeBucketGT30,
+}
+
+// ResetOpenPRsByRule wipes every series of the OpenPRsByRule gauge.
+// Sweepers call this at the start of each iteration so that
+// {org, rule} combinations whose count drops to zero between sweeps
+// stop reporting phantom non-zero series. Workers re-populate the
+// gauge as they process enqueued jobs; the gauge converges within
+// one sweep cycle.
+func ResetOpenPRsByRule() {
+	OpenPRsByRule.Reset()
+}
+
+// PRAgeBucket returns the hard-coded age bucket label for the given
+// number of days since the PR was opened.
+func PRAgeBucket(ageDays float64) string {
+	switch {
+	case ageDays < 1:
+		return PRAgeBucketLT1d
+	case ageDays < 7:
+		return PRAgeBucket1To7
+	case ageDays < 30:
+		return PRAgeBucket7To30
+	default:
+		return PRAgeBucketGT30
+	}
+}

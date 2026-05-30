@@ -208,39 +208,48 @@ against the current binary anyway.
 
 #### Tasks
 
-- [ ] Delete `deploy/base/` (7 files: `configmap.yaml`,
+- [x] Delete `deploy/base/` (7 files: `configmap.yaml`,
   `deployment.yaml`, `kustomization.yaml`, `secret.yaml`,
   `service.yaml`, `serviceaccount.yaml`, `servicemonitor.yaml`).
-- [ ] Delete `deploy/overlays/dev/` (2 files).
-- [ ] Delete `deploy/overlays/prod/` (2 files).
-- [ ] Delete `deploy/overlays/tailscale/` (5 files).
-- [ ] Create `deploy/MIGRATED.md` tombstone per Resolved
+- [x] Delete `deploy/overlays/dev/` (2 files).
+- [x] Delete `deploy/overlays/prod/` (2 files).
+- [x] Delete `deploy/overlays/tailscale/` (5 files).
+- [x] Create `deploy/MIGRATED.md` tombstone per Resolved
   Decision Q3 — single page explaining: why the tree is gone
   (chart is the recommended path), the one-line `helm install`
   command, and one paragraph each mapping the `dev`/`prod`/
   `tailscale` overlays to their chart-values equivalents.
   Pointer to `charts/repo-guardian/README.md`. Bounded
   6-month lifetime — delete the file itself after that.
-- [ ] Update `CLAUDE.md` lines 50-52: drop the Kustomize
+- [x] Update `CLAUDE.md` lines 50-52: drop the Kustomize
   architecture note ("base, overlays — Kustomize... DEPRECATED").
-- [ ] Update root `README.md` (lines 272-279) per Resolved
+- [x] Update root `README.md` (lines 272-279) per Resolved
   Decision Q5: replace the Kustomize-based deployment example
   with a one-line "deployed via the Helm chart at
   `charts/repo-guardian/` — see [chart
   README](charts/repo-guardian/README.md) for installation
   recipe."
-- [ ] Verify no CI workflow references the deploy tree
+- [x] Verify no CI workflow references the deploy tree
   (`grep -rn "deploy/" .github/`). Audit confirmed zero
   references; re-run at task time.
-- [ ] Commit and run `make ci`.
+- [x] Also fixed stale `deploy/base/configmap.yaml` example in
+  `docs/ADDING_RULES.md` Step 5 — replaced with chart
+  `templates.files` values example.
+- [x] Commit and run `make ci`.
 
 #### Success Criteria
 
 - `find deploy -type f -name '*.yaml' 2>/dev/null | wc -l`
   returns 0.
 - `grep -rn "deploy/base\|deploy/overlays" --exclude-dir=.git .`
-  returns only the chosen tombstone artifact, DESIGN-0014, and
-  this IMPL-0014.
+  returns only the chosen tombstone artifact, DESIGN-0014,
+  this IMPL-0014, and historical references in DESIGN-0005
+  ("replace existing Kustomize-based deployment") + INV-0001
+  ("use the `deploy/overlays/tailscale/` overlay"). The latter
+  two are pre-existing docs that documented the now-displaced
+  tree; rewriting them would re-history these artifacts, so
+  they remain as factual records of decisions taken in their
+  time.
 - `make ci` green (no code changes; CI runs unaffected jobs).
 - If Q3 chose (b)/(c): `make helm-docs` regenerated the chart
   README cleanly; the rendered README is committed.
@@ -327,7 +336,7 @@ imports were superseded one-for-one by `docs/rfc/0001`,
   `grep -rn "NewEngineFromPolicy\|rules\.Registry\|rules\.FileRule\|rules\.DefaultRules\|BuildPRBody" --include='*.go' .`
   returns zero matches in production code (test migration
   artifacts in `_test.go` files are not allowed either).
-- [ ] **Phase 2**: `make ci` after the deletions (CI runs
+- [x] **Phase 2**: `make ci` after the deletions (CI runs
   unaffected because paths-filter detects no Go/Docker/Helm
   changes; the Helm Chart Test job exercises the chart, not the
   deleted overlays).

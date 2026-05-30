@@ -163,38 +163,35 @@ template name resolves correctly.
 
 ## Step 5: Deploy
 
-If you are overriding templates via the Kubernetes ConfigMap (rather than using
-the compiled-in defaults), add the new template to the ConfigMap as well:
+If you are overriding templates via the chart's `templates.files` map (rather
+than using the compiled-in defaults), add the new template to your Helm values:
 
 ```yaml
-# deploy/base/configmap.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: repo-guardian-templates
-data:
-  # ... existing templates ...
-  github-actions-ci: |
-    name: CI
-    on:
-      pull_request:
-        branches: [main]
-      push:
-        branches: [main]
-    permissions:
-      contents: read
-    jobs:
-      build:
-        runs-on: ubuntu-latest
-        steps:
-          - uses: actions/checkout@v4
-          - name: Build
-            run: echo "Add your build steps here"
-          - name: Test
-            run: echo "Add your test steps here"
+# values.yaml — passed to `helm install ... -f values.yaml`
+templates:
+  files:
+    # ... existing templates ...
+    github-actions-ci: |
+      name: CI
+      on:
+        pull_request:
+          branches: [main]
+        push:
+          branches: [main]
+      permissions:
+        contents: read
+      jobs:
+        build:
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v4
+            - name: Build
+              run: echo "Add your build steps here"
+            - name: Test
+              run: echo "Add your test steps here"
 ```
 
-If you are relying on the embedded templates (the default), the ConfigMap step
+If you are relying on the embedded templates (the default), the values override
 is not needed -- the template is compiled into the binary.
 
 Build and deploy:

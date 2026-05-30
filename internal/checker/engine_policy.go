@@ -13,7 +13,6 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/reconciler"
-	"github.com/donaldgifford/repo-guardian/internal/rules"
 	tmpl "github.com/donaldgifford/repo-guardian/internal/template"
 )
 
@@ -215,59 +214,6 @@ func (e *Engine) getFileContentForReconciler(
 	}
 
 	return content
-}
-
-// NewEngineFromPolicy creates a new Engine configured from a PolicyConfig.
-// The Engine uses policy-based file rules with support for exists, contains,
-// and exact check modes. Reconcilers are built from config using the registry.
-func NewEngineFromPolicy(
-	cfg *policy.PolicyConfig,
-	templates *rules.TemplateStore,
-	logger *slog.Logger,
-	registry *reconciler.Registry,
-) (*Engine, error) {
-	compiled := make(map[string][]policy.CompiledAssertion)
-	ruleReconcilers := make(map[string][]reconciler.Reconciler)
-
-	for i := range cfg.FileRules {
-		r := &cfg.FileRules[i]
-		key := r.Type + ":" + r.Name
-
-		if len(r.Assertions) > 0 {
-			ca, err := policy.CompileAssertions(r.Assertions)
-			if err != nil {
-				return nil, fmt.Errorf("compiling assertions for rule %q: %w", r.Name, err)
-			}
-
-			compiled[key] = ca
-		}
-
-		if len(r.Reconcilers) > 0 && registry != nil {
-			recs := make([]reconciler.Reconciler, 0, len(r.Reconcilers))
-
-			for j := range r.Reconcilers {
-				rec, err := registry.Build(r.Reconcilers[j])
-				if err != nil {
-					return nil, fmt.Errorf("building reconciler for rule %q: %w", r.Name, err)
-				}
-
-				recs = append(recs, rec)
-			}
-
-			ruleReconcilers[key] = recs
-		}
-	}
-
-	return &Engine{
-		templates:          templates,
-		logger:             logger,
-		skipForks:          cfg.Guardian.SkipForks,
-		skipArchived:       cfg.Guardian.SkipArchived,
-		dryRun:             cfg.Guardian.DryRun,
-		policy:             cfg,
-		compiledAssertions: compiled,
-		ruleReconcilers:    ruleReconcilers,
-	}, nil
 }
 
 // findActionableRules evaluates policy-based file rules against a repository

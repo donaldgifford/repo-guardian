@@ -19,7 +19,7 @@ func testPolicyEngine(cfg *policy.PolicyConfig) *Engine {
 		panic(err)
 	}
 
-	engine, err := NewEngineFromPolicy(cfg, ts, slog.Default(), nil)
+	engine, err := NewEngine(cfg, ts, slog.Default(), nil)
 	if err != nil {
 		panic(err)
 	}
@@ -316,7 +316,7 @@ func TestPolicyCheckRepo_ExactMode_YAMLSemanticComparison(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	engine, err := NewEngineFromPolicy(cfg, ts, slog.Default(), nil)
+	engine, err := NewEngine(cfg, ts, slog.Default(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -442,9 +442,9 @@ func TestIntegration_PolicyLoadAndEngineCreation(t *testing.T) {
 		t.Fatalf("templates.Load: %v", err)
 	}
 
-	engine, err := NewEngineFromPolicy(policyCfg, ts, slog.Default(), nil)
+	engine, err := NewEngine(policyCfg, ts, slog.Default(), nil)
 	if err != nil {
-		t.Fatalf("NewEngineFromPolicy: %v", err)
+		t.Fatalf("NewEngine: %v", err)
 	}
 
 	// Verify engine works with a basic check.
@@ -522,7 +522,7 @@ func testPolicyEngineWithReconciler(cfg *policy.PolicyConfig, rec *trackingRecon
 		return rec, nil
 	})
 
-	engine, err := NewEngineFromPolicy(cfg, ts, slog.Default(), reg)
+	engine, err := NewEngine(cfg, ts, slog.Default(), reg)
 	if err != nil {
 		panic(err)
 	}
@@ -738,9 +738,9 @@ func TestReconciler_MultipleRunInOrder(t *testing.T) {
 		return rec2, nil
 	})
 
-	engine, err := NewEngineFromPolicy(cfg, ts, slog.Default(), reg)
+	engine, err := NewEngine(cfg, ts, slog.Default(), reg)
 	if err != nil {
-		t.Fatalf("NewEngineFromPolicy: %v", err)
+		t.Fatalf("NewEngine: %v", err)
 	}
 
 	client := newMockClient()

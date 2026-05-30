@@ -46,10 +46,7 @@ internal/
   queue/      → abstract work-queue interface (IMPL-0011 P1) + memory/ buffered-channel + valkey/ (LIST + ZSET + reaper goroutine, leader-elected via SETNX)
   worker/     → in-process worker pool consuming queue.Queue.Subscribe (IMPL-0011 P1); replaces legacy internal/checker/queue.go
 charts/
-  repo-guardian/ → Helm chart (recommended deployment method)
-deploy/
-  base/       → Kustomize base (DEPRECATED — use Helm chart)
-  overlays/   → dev, prod, tailscale overlays (DEPRECATED)
+  repo-guardian/ → Helm chart (only supported deployment method)
 docs/
   rfc/        → High-level proposals (docz managed)
   design/     → Technical design documents (docz managed)

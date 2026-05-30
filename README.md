@@ -267,18 +267,6 @@ helm install repo-guardian repo-guardian/repo-guardian \
 
 When Tailscale is enabled, `TRUST_PROXY_HEADERS` and `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN` are automatically set to `true`.
 
-### Kustomize (Deprecated)
-
-> **Note:** Kustomize manifests in `deploy/` are deprecated in favor of the Helm chart above. They will be removed in a future release.
-
-```bash
-# Dev (dry-run mode, debug logging, 24h reconciliation)
-kubectl apply -k deploy/overlays/dev/
-
-# Prod (live mode, info logging, weekly reconciliation)
-kubectl apply -k deploy/overlays/prod/
-```
-
 ### Health Checks
 
 | Endpoint | Purpose |

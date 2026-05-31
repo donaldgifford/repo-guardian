@@ -3,38 +3,39 @@
 All notable changes to this project are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
-## [unreleased]
+## [1.7.0] - 2026-05-31
 
-### Features
+### Bug Fixes
 
-- *(store)* Store interface + in-memory implementation (IMPL-0011 P1.1)
-- *(queue)* Queue interface + in-memory implementation (IMPL-0011 P1.2)
-- *(scheduler)* Scheduler interface + ticker impl; rename old type to Sweeper (IMPL-0011 P1.3)
-- *(policy)* Policy.Version() helper for sweep freshness gate (IMPL-0011 P1.4)
-- *(config)* STORE_BACKEND / QUEUE_BACKEND / SCHEDULER_BACKEND knobs (IMPL-0011 P1.5)
-- *(worker)* Pool consuming queue.Queue.Subscribe (IMPL-0011 P1.7a)
-- *(store)* Postgres-backed Store with embedded migrations (IMPL-0011 P2)
-- *(queue)* Valkey-backed Queue + reaper (IMPL-0011 P3)
-- *(scheduler)* Valkey leader-elected scheduler (IMPL-0011 P4)
-- *(observability,sweep)* Wire IMPL-0011 P5 metrics + StaleSweeper
-- *(chart)* Multi-replica deployment shapes (IMPL-0011 P6)
-- *(test,docs)* Multi-replica integration test + ops docs (IMPL-0011 P7)
+- *(ci)* Use azure/setup-helm + direct plugin install for helm-unittest ([#76](https://github.com/donaldgifford/repo-guardian/issues/76))
 
 ### Refactor
 
-- *(workers)* Migrate webhook + sweeper + main.go to queue.Queue (IMPL-0011 P1.7-9)
+- *(checker)* IMPL-0014 Phase 1 collapse legacy engine path ([#85](https://github.com/donaldgifford/repo-guardian/issues/85))
 
 ### Documentation
 
-- *(impl)* Check off IMPL-0011 Phase 1 store/queue/scheduler interface tasks
-- *(impl)* Check off IMPL-0011 Phase 1 mockery + config tasks
-- *(impl)* Check off IMPL-0011 Phase 1 wiring tasks
-- CLAUDE.md note about IMPL-0011 P1 package layout
-- *(chart)* Scheduler contract tests + 0.5.0 upgrade notes (IMPL-0011 cleanup)
+- *(ops)* Chart 0.5.0 migration runbook (IMPL-0011) ([#75](https://github.com/donaldgifford/repo-guardian/issues/75))
+- *(claude)* Capture CI paths-filter convention + helm CLI gotchas ([#78](https://github.com/donaldgifford/repo-guardian/issues/78))
+- *(inv)* INV-0005 stale PRs when file rules become satisfied on main ([#80](https://github.com/donaldgifford/repo-guardian/issues/80))
+- *(inv)* INV-0006 per-org GitHub App credentials (deferred) ([#81](https://github.com/donaldgifford/repo-guardian/issues/81))
+- *(impl)* IMPL-0013 reconcile open PRs when file rules become satisfied ([#82](https://github.com/donaldgifford/repo-guardian/issues/82))
+- *(inv)* INV-0007 GitLab forge backend + INV-0006 scale clarification ([#84](https://github.com/donaldgifford/repo-guardian/issues/84))
+- DESIGN-0014 + IMPL-0014 — remove legacy engine path and deprecated overlays ([#83](https://github.com/donaldgifford/repo-guardian/issues/83))
+- IMPL-0014 Phase 3 purge legacy markdown + mkdocs nav block ([#87](https://github.com/donaldgifford/repo-guardian/issues/87))
+- *(0014)* Mark DESIGN-0014 + IMPL-0014 as Implemented ([#88](https://github.com/donaldgifford/repo-guardian/issues/88))
+- *(0014)* Check off final cross-phase verification ([#89](https://github.com/donaldgifford/repo-guardian/issues/89))
 
 ### Miscellaneous Tasks
 
-- *(mocks)* Mockery v2 setup + initial generation (IMPL-0011 P1.6)
+- *(ci)* Per-job paths filter via dorny/paths-filter ([#77](https://github.com/donaldgifford/repo-guardian/issues/77))
+- *(deploy)* IMPL-0014 Phase 2 remove Kustomize tree ([#86](https://github.com/donaldgifford/repo-guardian/issues/86))
+
+## [1.6.0] - 2026-05-06
+
+### Features
+
+- Persistent reconcile state + multi-replica coordination (IMPL-0011) ([#74](https://github.com/donaldgifford/repo-guardian/issues/74))
 
 ## [1.5.0] - 2026-05-05
 

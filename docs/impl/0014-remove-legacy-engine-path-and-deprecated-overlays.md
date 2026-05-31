@@ -1,7 +1,7 @@
 ---
 id: IMPL-0014
 title: "Remove legacy engine path and deprecated overlays"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-05-30
 ---
@@ -9,7 +9,7 @@ created: 2026-05-30
 
 # IMPL 0014: Remove legacy engine path and deprecated overlays
 
-**Status:** Draft
+**Status:** Implemented (2026-05-31 via PRs #85, #86, #87)
 **Author:** Donald Gifford
 **Date:** 2026-05-30
 

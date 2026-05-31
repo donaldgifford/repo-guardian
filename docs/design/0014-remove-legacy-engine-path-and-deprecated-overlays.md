@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0014
 title: "Remove legacy engine path and deprecated overlays"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-05-28
 ---
@@ -9,7 +9,7 @@ created: 2026-05-28
 
 # DESIGN 0014: Remove legacy engine path and deprecated overlays
 
-**Status:** Draft
+**Status:** Implemented (IMPL-0014 shipped 2026-05-31)
 **Author:** Donald Gifford
 **Date:** 2026-05-28
 
@@ -21,9 +21,9 @@ created: 2026-05-28
 - [Background](#background)
   - [Legacy surface inventory](#legacy-surface-inventory)
 - [Detailed Design](#detailed-design)
-  - [1. `internal/checker/engine.go` — legacy registry path](#1-internalcheckerenginego--legacy-registry-path)
-  - [2. `deploy/base/` + overlays — deprecated Kustomize](#2-deploybase--overlays--deprecated-kustomize)
-  - [3. `docs/legacy/` — pre-docz markdown](#3-docslegacy--pre-docz-markdown)
+  - [1. internal/checker/engine.go — legacy registry path](#1-internalcheckerenginego--legacy-registry-path)
+  - [2. deploy/base/ + overlays — deprecated Kustomize](#2-deploybase--overlays--deprecated-kustomize)
+  - [3. docs/legacy/ — pre-docz markdown](#3-docslegacy--pre-docz-markdown)
 - [API / Interface Changes](#api--interface-changes)
 - [Data Model](#data-model)
 - [Testing Strategy](#testing-strategy)

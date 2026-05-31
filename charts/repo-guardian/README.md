@@ -11,7 +11,7 @@ with cosign keyless, SLSA Level 3 provenance).
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 0.6.2 \
+  --version 0.6.3 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -47,7 +47,7 @@ secrets:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 0.6.2 \
+  --version 0.6.3 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -141,7 +141,7 @@ cosign verify \
     '^https://github.com/donaldgifford/repo-guardian/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:0.6.2
+  ghcr.io/donaldgifford/charts/repo-guardian:0.6.3
 ```
 
 ### SLSA provenance
@@ -152,7 +152,7 @@ cosign verify-attestation --type slsaprovenance \
     '^https://github.com/slsa-framework/slsa-github-generator/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:0.6.2
+  ghcr.io/donaldgifford/charts/repo-guardian:0.6.3
 ```
 
 The provenance attestation records the build workflow path, source

@@ -16,6 +16,7 @@ type CompiledAssertion struct {
 	yamlPath   string
 	contains   string
 	equals     string
+	nonEmpty   bool
 	message    string
 }
 
@@ -41,6 +42,7 @@ func compileAssertion(a *AssertionConfig) (CompiledAssertion, error) {
 		yamlPath: a.YAMLPath,
 		contains: a.Contains,
 		equals:   a.Equals,
+		nonEmpty: a.NonEmpty,
 		message:  a.Message,
 	}
 
@@ -105,6 +107,12 @@ func (ca *CompiledAssertion) evaluateYAMLPath(content string) error {
 
 	if ca.equals != "" {
 		if !slices.Contains(values, ca.equals) {
+			return fmt.Errorf("%s", ca.message)
+		}
+	}
+
+	if ca.nonEmpty {
+		if len(values) == 0 || slices.Contains(values, "") {
 			return fmt.Errorf("%s", ca.message)
 		}
 	}

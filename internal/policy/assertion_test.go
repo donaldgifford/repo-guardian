@@ -191,6 +191,100 @@ spec:
 	}
 }
 
+func TestEvaluate_YAMLPathNonEmptyPass(t *testing.T) {
+	content := `
+spec:
+  owner: donald
+`
+	compiled, err := CompileAssertions([]AssertionConfig{
+		{YAMLPath: "spec.owner", NonEmpty: true, Message: "owner must be set"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := compiled[0].Evaluate(content); err != nil {
+		t.Errorf("expected pass, got: %v", err)
+	}
+}
+
+func TestEvaluate_YAMLPathNonEmpty_MissingPathFails(t *testing.T) {
+	content := `
+spec:
+  lifecycle: production
+`
+	compiled, err := CompileAssertions([]AssertionConfig{
+		{YAMLPath: "spec.owner", NonEmpty: true, Message: "owner must be set"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = compiled[0].Evaluate(content)
+	if err == nil {
+		t.Fatal("expected failure for missing path")
+	}
+
+	if err.Error() != "owner must be set" {
+		t.Errorf("got %q, want %q", err, "owner must be set")
+	}
+}
+
+func TestEvaluate_YAMLPathNonEmpty_EmptyStringFails(t *testing.T) {
+	content := `
+spec:
+  owner: ""
+`
+	compiled, err := CompileAssertions([]AssertionConfig{
+		{YAMLPath: "spec.owner", NonEmpty: true, Message: "owner must be set"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = compiled[0].Evaluate(content)
+	if err == nil {
+		t.Fatal("expected failure for empty string value")
+	}
+}
+
+func TestEvaluate_YAMLPathNonEmpty_BareKeyFails(t *testing.T) {
+	// `owner:` with no value parses as nil → empty string in our resolver.
+	content := `
+spec:
+  owner:
+`
+	compiled, err := CompileAssertions([]AssertionConfig{
+		{YAMLPath: "spec.owner", NonEmpty: true, Message: "owner must be set"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := compiled[0].Evaluate(content); err == nil {
+		t.Fatal("expected failure for bare key with no value")
+	}
+}
+
+func TestEvaluate_YAMLPathNonEmpty_AllValuesMustBeNonEmpty(t *testing.T) {
+	// Wildcard match where one entry is empty — fail.
+	content := `
+updates:
+  - package-ecosystem: gomod
+  - package-ecosystem: ""
+`
+	compiled, err := CompileAssertions([]AssertionConfig{
+		{YAMLPath: "updates[*].package-ecosystem", NonEmpty: true, Message: "every entry must be set"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := compiled[0].Evaluate(content); err == nil {
+		t.Fatal("expected failure when any wildcard value is empty")
+	}
+}
+
 func TestEvaluateAssertions_AllPass(t *testing.T) {
 	content := `
 spec:

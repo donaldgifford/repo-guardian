@@ -187,13 +187,15 @@ type PRTemplate struct {
 
 // AssertionConfig defines a content assertion for a file rule.
 // Pattern and YAMLPath are mutually exclusive.
-// When YAMLPath is set, either Contains or Equals must also be set.
+// When YAMLPath is set, exactly one of Contains, Equals, or NonEmpty
+// must also be set.
 type AssertionConfig struct {
 	Pattern    string `hcl:"pattern,optional"`
 	NotPattern string `hcl:"not_pattern,optional"`
 	YAMLPath   string `hcl:"yaml_path,optional"`
 	Contains   string `hcl:"contains,optional"`
 	Equals     string `hcl:"equals,optional"`
+	NonEmpty   bool   `hcl:"non_empty,optional"`
 	Message    string `hcl:"message"`
 }
 

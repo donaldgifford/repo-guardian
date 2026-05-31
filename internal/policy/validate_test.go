@@ -252,8 +252,8 @@ func TestValidate_AssertionYAMLPathRequiresContainsOrEquals(t *testing.T) {
 		t.Fatal("expected error for yaml_path without contains/equals")
 	}
 
-	if !strings.Contains(err.Error(), "requires either contains or equals") {
-		t.Errorf("error %q should mention requires contains or equals", err)
+	if !strings.Contains(err.Error(), "requires one of contains, equals, or non_empty") {
+		t.Errorf("error %q should mention requires contains, equals, or non_empty", err)
 	}
 }
 

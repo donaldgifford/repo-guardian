@@ -736,6 +736,8 @@ func decodeAssertionBlock(block *hcl.Block, ctx *hcl.EvalContext) (*AssertionCon
 			a.Contains = val.AsString()
 		case "equals":
 			a.Equals = val.AsString()
+		case "non_empty":
+			a.NonEmpty = val.True()
 		case "message":
 			a.Message = val.AsString()
 		}

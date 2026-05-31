@@ -171,6 +171,15 @@ rule "file" "catalog_info" {
     message   = "spec.owner must reference a team (e.g., team-platform)"
   }
 
+  # YAML path non-empty assertion — fails when the path is missing or
+  # resolves to an empty string. Use this when you just want a field
+  # set without enforcing a specific value/substring.
+  assertion {
+    yaml_path = "spec.system"
+    non_empty = true
+    message   = "spec.system must be set"
+  }
+
   # Negative assertion — no placeholder values.
   assertion {
     not_pattern = "TODO"

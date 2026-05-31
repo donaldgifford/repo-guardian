@@ -362,9 +362,14 @@ imports were superseded one-for-one by `docs/rfc/0001`,
   out-of-`docs/` dangling refs remain). Manual cross-reference
   grep for `docs/legacy` returns only IMPL/DESIGN-0014 and the
   IMPL-0013 Q7 historical mention as expected.
-- [ ] **Cross-phase**: After all three PRs merge, run the chart
+- [x] **Cross-phase**: After all three PRs merge, run the chart
   publish workflow once with `dry_run=true` to confirm the
   chart still packages cleanly without the Kustomize tree.
+  **Outcome:** Run 26717238630 against `main` post-merge,
+  `dry_run=true`, completed successfully — packaging, SLSA
+  provenance, and cosign signing all clean. Verifies the chart
+  is fully independent of the deleted `deploy/` tree (as
+  expected; the chart never referenced it).
 
 ## Resolved Decisions
 

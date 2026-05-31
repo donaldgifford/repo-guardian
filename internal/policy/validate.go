@@ -128,9 +128,9 @@ func validateAssertion(a *AssertionConfig, prefix string) []error {
 		))
 	}
 
-	if hasYAMLPath && a.Contains == "" && a.Equals == "" {
+	if hasYAMLPath && a.Contains == "" && a.Equals == "" && !a.NonEmpty {
 		errs = append(errs, fmt.Errorf(
-			"%s: yaml_path requires either contains or equals",
+			"%s: yaml_path requires one of contains, equals, or non_empty",
 			prefix,
 		))
 	}

@@ -16,6 +16,20 @@ tests:
           path: spec.replicas
           value: 3
 
+  - it: should default revisionHistoryLimit to 3
+    asserts:
+      - equal:
+          path: spec.revisionHistoryLimit
+          value: 3
+
+  - it: should override revisionHistoryLimit from values
+    set:
+      revisionHistoryLimit: 10
+    asserts:
+      - equal:
+          path: spec.revisionHistoryLimit
+          value: 10
+
   - it: should use default image tag from appVersion
     asserts:
       - matchRegex:

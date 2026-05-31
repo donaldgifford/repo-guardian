@@ -54,6 +54,7 @@ nav:
     - Operations:
         - Chart 0.5.0 migration runbook (IMPL-0011): operations/chart-0.5.0-migration.md
         - Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration: operations/pr-convergence-migration.md
+        - Homelab CNPG cutover: operations/cnpg-homelab-cutover.md
         - Postgres schema operations: operations/migrations.md
         - Scaling repo-guardian: operations/scaling.md
         - Template migration guide (chart 0.3.x → 0.4.0): operations/template-migration.md

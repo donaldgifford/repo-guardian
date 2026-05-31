@@ -8,6 +8,7 @@ metadata:
     {{- include "repo-guardian.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   selector:
     matchLabels:
       {{- include "repo-guardian.selectorLabels" . | nindent 6 }}

@@ -11,7 +11,7 @@ with cosign keyless, SLSA Level 3 provenance).
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 0.6.0 \
+  --version 0.6.2 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -47,7 +47,7 @@ secrets:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 0.6.0 \
+  --version 0.6.2 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -141,7 +141,7 @@ cosign verify \
     '^https://github.com/donaldgifford/repo-guardian/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:0.6.0
+  ghcr.io/donaldgifford/charts/repo-guardian:0.6.2
 ```
 
 ### SLSA provenance
@@ -152,7 +152,7 @@ cosign verify-attestation --type slsaprovenance \
     '^https://github.com/slsa-framework/slsa-github-generator/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:0.6.0
+  ghcr.io/donaldgifford/charts/repo-guardian:0.6.2
 ```
 
 The provenance attestation records the build workflow path, source
@@ -319,6 +319,7 @@ incoming webhook.
 | readinessProbe.periodSeconds | int | `10` |  |
 | replicaCount | int | `1` | Number of replicas |
 | resources | object | `{"limits":{"cpu":"500m","memory":"256Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}` | Container resource requests and limits |
+| revisionHistoryLimit | int | `3` | Number of old ReplicaSets retained for rollback. Defaults to 3 to keep the kubectl `get rs` view tidy; bump if you need more rollback headroom. Kubernetes default is 10. |
 | scheduler | object | `{"backend":"ticker"}` | Scheduler (sweep cadence) backend. |
 | scheduler.backend | string | `"ticker"` | Backend implementation: "ticker" (single-replica) or "valkey" (leader-elected via SETNX). Valkey scheduler shares the queue's Valkey instance. |
 | secrets | object | `{"create":true,"existingSecret":"","privateKey":"","privateKeyAsFile":true,"webhookSecret":""}` | GitHub App secrets |
@@ -341,16 +342,16 @@ incoming webhook.
 | staleSweep.batchSize | int | `200` | Cap on rows returned per StaleRepos query. |
 | staleSweep.freshness | string | `"24h"` | Maximum age of a stored last_checked_at before the sweep requeues. Default 24h. Effective only with store.backend=postgres. |
 | staleSweep.rateLimitReserve | float | `0.1` | Fraction of an installation's GitHub rate-limit budget reserved against the stale-sweep enqueue path. |
-| store | object | `{"backend":"memory","postgres":{"baked":{"image":"postgres:16.4","resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:16.4","instances":1,"pooler":{"enabled":false,"instances":2,"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}}` | Persistent state store (per-repo reconcile state). See DESIGN-0012 §Backend modes. |
+| store | object | `{"backend":"memory","postgres":{"baked":{"image":"postgres:17.4","resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:17.4","instances":1,"pooler":{"enabled":false,"instances":2,"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}}` | Persistent state store (per-repo reconcile state). See DESIGN-0012 §Backend modes. |
 | store.backend | string | `"memory"` | Backend implementation: "memory" (single-replica, no persistence) or "postgres". |
-| store.postgres | object | `{"baked":{"image":"postgres:16.4","resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:16.4","instances":1,"pooler":{"enabled":false,"instances":2,"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}` | Postgres-specific configuration. Ignored when backend != postgres. |
-| store.postgres.baked | object | `{"image":"postgres:16.4","resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"}` | Baked Postgres-only configuration. |
-| store.postgres.baked.image | string | `"postgres:16.4"` | Pinned image. Bump intentionally. |
+| store.postgres | object | `{"baked":{"image":"postgres:17.4","resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:17.4","instances":1,"pooler":{"enabled":false,"instances":2,"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}` | Postgres-specific configuration. Ignored when backend != postgres. |
+| store.postgres.baked | object | `{"image":"postgres:17.4","resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"}` | Baked Postgres-only configuration. |
+| store.postgres.baked.image | string | `"postgres:17.4"` | Pinned image. Bump intentionally. |
 | store.postgres.baked.resources | object | `{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}}` | Resource requests/limits for the Postgres container. |
 | store.postgres.baked.storageClassName | string | `""` | StorageClass name. Empty → cluster default. |
 | store.postgres.baked.storageSize | string | `"10Gi"` | Persistent volume size. |
-| store.postgres.cnpg | object | `{"imageName":"ghcr.io/cloudnative-pg/postgresql:16.4","instances":1,"pooler":{"enabled":false,"instances":2,"type":"rw"},"storage":{"size":"10Gi","storageClass":""}}` | CloudNativePG-only configuration. |
-| store.postgres.cnpg.imageName | string | `"ghcr.io/cloudnative-pg/postgresql:16.4"` | CNPG-managed Postgres image. |
+| store.postgres.cnpg | object | `{"imageName":"ghcr.io/cloudnative-pg/postgresql:17.4","instances":1,"pooler":{"enabled":false,"instances":2,"type":"rw"},"storage":{"size":"10Gi","storageClass":""}}` | CloudNativePG-only configuration. |
+| store.postgres.cnpg.imageName | string | `"ghcr.io/cloudnative-pg/postgresql:17.4"` | CNPG-managed Postgres image. |
 | store.postgres.cnpg.instances | int | `1` | Number of CNPG instances. |
 | store.postgres.cnpg.pooler | object | `{"enabled":false,"instances":2,"type":"rw"}` | Connection pooler (PgBouncer). |
 | store.postgres.cnpg.storage | object | `{"size":"10Gi","storageClass":""}` | Storage block. |

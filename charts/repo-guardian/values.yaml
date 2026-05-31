@@ -2,6 +2,11 @@
 # -- Number of replicas
 replicaCount: 1
 
+# -- Number of old ReplicaSets retained for rollback. Defaults to 3 to
+# keep the kubectl `get rs` view tidy; bump if you need more rollback
+# headroom. Kubernetes default is 10.
+revisionHistoryLimit: 3
+
 image:
   # -- Container image repository
   repository: ghcr.io/donaldgifford/repo-guardian
@@ -229,7 +234,7 @@ store:
     # -- Baked Postgres-only configuration.
     baked:
       # -- Pinned image. Bump intentionally.
-      image: postgres:16.4
+      image: postgres:17.4
       # -- Persistent volume size.
       storageSize: 10Gi
       # -- StorageClass name. Empty → cluster default.
@@ -247,7 +252,7 @@ store:
       # -- Number of CNPG instances.
       instances: 1
       # -- CNPG-managed Postgres image.
-      imageName: ghcr.io/cloudnative-pg/postgresql:16.4
+      imageName: ghcr.io/cloudnative-pg/postgresql:17.4
       # -- Storage block.
       storage:
         size: 10Gi

@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
+## [1.8.0] - 2026-05-31
+
+### Features
+
+- *(policy)* Add non_empty assertion type for yaml_path ([#92](https://github.com/donaldgifford/repo-guardian/issues/92))
+
+### Miscellaneous Tasks
+
+- *(chart)* Add revisionHistoryLimit, bump PG 16.4 → 17.4, CNPG cutover runbook ([#91](https://github.com/donaldgifford/repo-guardian/issues/91))
+
 ## [1.7.0] - 2026-05-31
 
 ### Bug Fixes
@@ -30,6 +40,7 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 - *(ci)* Per-job paths filter via dorny/paths-filter ([#77](https://github.com/donaldgifford/repo-guardian/issues/77))
 - *(deploy)* IMPL-0014 Phase 2 remove Kustomize tree ([#86](https://github.com/donaldgifford/repo-guardian/issues/86))
+- *(release)* Cut v1.7.0 rollup (chart 0.6.1, appVersion 1.7.0) ([#90](https://github.com/donaldgifford/repo-guardian/issues/90))
 
 ## [1.6.0] - 2026-05-06
 

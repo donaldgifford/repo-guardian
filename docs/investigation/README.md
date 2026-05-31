@@ -20,6 +20,7 @@ Design docs, plans, and implementation docs can reference investigations by ID
 | INV-0005 | Stale PRs when file rules become satisfied on main | Open | 2026-05-26 | Donald Gifford | [0005-stale-prs-when-file-rules-become-satisfied-on-main.md](0005-stale-prs-when-file-rules-become-satisfied-on-main.md) |
 | INV-0006 | Per-org GitHub App credentials | Deferred | 2026-05-26 | Donald Gifford | [0006-per-org-github-app-credentials.md](0006-per-org-github-app-credentials.md) |
 | INV-0007 | GitLab forge backend support | Open | 2026-05-29 | Donald Gifford | [0007-gitlab-forge-backend-support.md](0007-gitlab-forge-backend-support.md) |
+| INV-0008 | DSL reference doc and codegen approach for guardian.hcl | Open | 2026-05-31 | Donald Gifford | [0008-dsl-reference-doc-and-codegen-approach-for-guardianhcl.md](0008-dsl-reference-doc-and-codegen-approach-for-guardianhcl.md) |
 <!-- END DOCZ AUTO-GENERATED -->
 <!-- BEGIN DOCZ AUTO-GENERATED -->
 <!-- END DOCZ AUTO-GENERATED -->

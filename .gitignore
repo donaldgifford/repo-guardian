@@ -44,6 +44,3 @@ dist/
 # Keys and certs
 *.pem
 *.cert
-
-# Legacy - older docs
-docs/legacy

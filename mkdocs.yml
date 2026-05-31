@@ -44,6 +44,7 @@ nav:
         - 'INV-0005: Stale PRs when file rules become satisfied on main': investigation/0005-stale-prs-when-file-rules-become-satisfied-on-main.md
         - 'INV-0006: Per-org GitHub App credentials': investigation/0006-per-org-github-app-credentials.md
         - 'INV-0007: GitLab forge backend support': investigation/0007-gitlab-forge-backend-support.md
+        - 'INV-0008: DSL reference doc and codegen approach for guardian.hcl': investigation/0008-dsl-reference-doc-and-codegen-approach-for-guardianhcl.md
     - Plans:
         - Overview: plan/README.md
     - RFCs:
@@ -54,7 +55,7 @@ nav:
     - Operations:
         - Chart 0.5.0 migration runbook (IMPL-0011): operations/chart-0.5.0-migration.md
         - Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration: operations/pr-convergence-migration.md
-        - Homelab CNPG cutover: operations/cnpg-homelab-cutover.md
+        - Homelab CNPG cutover runbook: operations/cnpg-homelab-cutover.md
         - Postgres schema operations: operations/migrations.md
         - Scaling repo-guardian: operations/scaling.md
         - Template migration guide (chart 0.3.x → 0.4.0): operations/template-migration.md

@@ -24,6 +24,27 @@ const (
 	CheckExact CheckMode = "exact"
 )
 
+// Rule block type identifiers — the first label on a `rule {}` block.
+const (
+	RuleTypeFile             = "file"
+	RuleTypeSetting          = "setting"
+	RuleTypeBranchProtection = "branch_protection"
+)
+
+// Supported setting rule properties. Used as the second label of
+// `rule "setting" "..." {}` blocks and as the keys of
+// SupportedSettingProperties.
+const (
+	SettingVulnerabilityAlertsEnabled = "vulnerability_alerts_enabled"
+	SettingDefaultBranch              = "default_branch"
+	SettingHasIssues                  = "has_issues"
+	SettingHasWiki                    = "has_wiki"
+	SettingDeleteBranchOnMerge        = "delete_branch_on_merge"
+	SettingAllowMergeCommit           = "allow_merge_commit"
+	SettingAllowSquashMerge           = "allow_squash_merge"
+	SettingAllowRebaseMerge           = "allow_rebase_merge"
+)
+
 // PolicyConfig is the top-level parsed configuration.
 type PolicyConfig struct {
 	Guardian              GuardianConfig               `hcl:"guardian,block"`
@@ -239,14 +260,14 @@ func (s *SettingRuleConfig) IsEnabled() bool {
 
 // SupportedSettingProperties is the set of valid property names for setting rules.
 var SupportedSettingProperties = map[string]bool{
-	"vulnerability_alerts_enabled": true,
-	"default_branch":               true,
-	"has_issues":                   true,
-	"has_wiki":                     true,
-	"delete_branch_on_merge":       true,
-	"allow_merge_commit":           true,
-	"allow_squash_merge":           true,
-	"allow_rebase_merge":           true,
+	SettingVulnerabilityAlertsEnabled: true,
+	SettingDefaultBranch:              true,
+	SettingHasIssues:                  true,
+	SettingHasWiki:                    true,
+	SettingDeleteBranchOnMerge:        true,
+	SettingAllowMergeCommit:           true,
+	SettingAllowSquashMerge:           true,
+	SettingAllowRebaseMerge:           true,
 }
 
 // BranchProtectionRuleConfig defines a branch protection compliance rule.

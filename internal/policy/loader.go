@@ -19,7 +19,9 @@ import (
 const (
 	blockTypeIgnore = "ignore"
 	blockTypeScope  = "scope"
+	blockTypeLocals = "locals"
 	attrEnabled     = "enabled"
+	attrRemediate   = "remediate"
 )
 
 // hclConfig is the raw HCL-decoded structure before merging with defaults.
@@ -228,7 +230,7 @@ func decodeBody(body hcl.Body, raw *hclConfig) hcl.Diagnostics {
 
 	content, diags := body.Content(&hcl.BodySchema{
 		Blocks: []hcl.BlockHeaderSchema{
-			{Type: "locals"},
+			{Type: blockTypeLocals},
 			{Type: "guardian"},
 			{Type: blockTypeIgnore},
 			{Type: blockTypeScope},
@@ -255,7 +257,7 @@ func decodeLocals(blocks hcl.Blocks, ctx *hcl.EvalContext) hcl.Diagnostics {
 	locals := map[string]cty.Value{}
 
 	for _, block := range blocks {
-		if block.Type != "locals" {
+		if block.Type != blockTypeLocals {
 			continue
 		}
 
@@ -285,7 +287,7 @@ func decodeBlock(block *hcl.Block, ctx *hcl.EvalContext, raw *hclConfig) hcl.Dia
 	var diags hcl.Diagnostics
 
 	switch block.Type {
-	case "locals":
+	case blockTypeLocals:
 		// already processed
 	case "guardian":
 		g, d := decodeGuardianBlock(block, ctx)
@@ -732,7 +734,7 @@ func decodeAssertionBlock(block *hcl.Block, ctx *hcl.EvalContext) (*AssertionCon
 			a.NotPattern = val.AsString()
 		case "yaml_path":
 			a.YAMLPath = val.AsString()
-		case "contains":
+		case string(CheckContains):
 			a.Contains = val.AsString()
 		case "equals":
 			a.Equals = val.AsString()
@@ -751,7 +753,7 @@ var settingRuleBodySchema = &hcl.BodySchema{
 		{Name: attrEnabled},
 		{Name: "property", Required: true},
 		{Name: "expected", Required: true},
-		{Name: "remediate"},
+		{Name: attrRemediate},
 	},
 	Blocks: []hcl.BlockHeaderSchema{
 		{Type: blockTypeIgnore},
@@ -792,7 +794,7 @@ func decodeSettingRuleBlock(block *hcl.Block, ctx *hcl.EvalContext) (*SettingRul
 			default:
 				sr.Expected = val.AsString()
 			}
-		case "remediate":
+		case attrRemediate:
 			sr.Remediate = val.True()
 		}
 	}
@@ -823,7 +825,7 @@ var branchProtectionBodySchema = &hcl.BodySchema{
 		{Name: "require_status_checks"},
 		{Name: "enforce_admins"},
 		{Name: "require_linear_history"},
-		{Name: "remediate"},
+		{Name: attrRemediate},
 	},
 	Blocks: []hcl.BlockHeaderSchema{
 		{Type: blockTypeIgnore},
@@ -894,7 +896,7 @@ func decodeBranchProtectionAttr(bp *BranchProtectionRuleConfig, name string, val
 		bp.EnforceAdmins = val.True()
 	case "require_linear_history":
 		bp.RequireLinearHistory = val.True()
-	case "remediate":
+	case attrRemediate:
 		bp.Remediate = val.True()
 	}
 }

@@ -13,6 +13,42 @@ const (
 	defaultRateLimitThresh  = 0.10
 )
 
+// Built-in file rule names. Operators reference these from HCL or via
+// rule lookups; tests assert against them.
+const (
+	RuleNameCodeowners       = "codeowners"
+	RuleNameDependabot       = "dependabot"
+	RuleNameRenovateConfig   = "renovate_config"
+	RuleNameRenovateWorkflow = "renovate_workflow"
+	RuleNameCatalogInfo      = "catalog_info"
+)
+
+// Reconciler type identifiers — second label of `reconcile {}` blocks.
+const (
+	ReconcilerCustomProperties = "custom_properties"
+	ReconcilerLabelSync        = "label_sync"
+	ReconcilerBranchProtection = "branch_protection"
+	ReconcilerWorkflowSync     = "workflow_sync"
+)
+
+// Default file paths referenced by built-in rules.
+const (
+	pathCodeownersGitHub    = ".github/CODEOWNERS"
+	pathCodeownersRoot      = "CODEOWNERS"
+	pathDependabotYml       = ".github/dependabot.yml"
+	pathRenovateWorkflowYml = ".github/workflows/renovate.yml"
+	pathCatalogInfoYaml     = "catalog-info.yaml"
+	pathCatalogInfoYml      = "catalog-info.yml"
+)
+
+const (
+	// renovateOrgPresetPattern is the default regex assertion for the
+	// renovate_config rule: requires `renovate.json` to extend an org
+	// preset matching `github>.*renovate-config`.
+	renovateOrgPresetPattern = `github>.*renovate-config`
+	renovateOrgPresetMessage = "renovate.json must extend org preset"
+)
+
 // BuiltinDefaults returns the default PolicyConfig that mirrors the current
 // hardcoded behavior when no HCL configuration file is present.
 // If CUSTOM_PROPERTIES_MODE is set, a catalog_info rule with a
@@ -39,19 +75,19 @@ func defaultCatalogInfoRule(mode string) FileRuleConfig {
 	enabled := true
 
 	return FileRuleConfig{
-		Type:     "file",
-		Name:     "catalog_info",
+		Type:     RuleTypeFile,
+		Name:     RuleNameCatalogInfo,
 		Enabled:  &enabled,
-		Check:    "exists",
-		Paths:    []string{"catalog-info.yaml", "catalog-info.yml"},
-		Target:   "catalog-info.yaml",
+		Check:    string(CheckExists),
+		Paths:    []string{pathCatalogInfoYaml, pathCatalogInfoYml},
+		Target:   pathCatalogInfoYaml,
 		Template: "catalog-info",
 		PR: &PRConfig{
 			SearchTerms: []string{"catalog-info"},
 		},
 		Reconcilers: []ReconcilerConfig{
 			{
-				Type:  "custom_properties",
+				Type:  ReconcilerCustomProperties,
 				Mode:  mode,
 				Watch: false,
 			},
@@ -80,15 +116,15 @@ func defaultCodeownersRule() FileRuleConfig {
 	enabled := true
 
 	return FileRuleConfig{
-		Type:     "file",
-		Name:     "codeowners",
+		Type:     RuleTypeFile,
+		Name:     RuleNameCodeowners,
 		Enabled:  &enabled,
-		Check:    "exists",
-		Paths:    []string{"CODEOWNERS", ".github/CODEOWNERS", "docs/CODEOWNERS"},
-		Target:   ".github/CODEOWNERS",
-		Template: "codeowners",
+		Check:    string(CheckExists),
+		Paths:    []string{pathCodeownersRoot, pathCodeownersGitHub, "docs/CODEOWNERS"},
+		Target:   pathCodeownersGitHub,
+		Template: RuleNameCodeowners,
 		PR: &PRConfig{
-			SearchTerms: []string{"codeowners", "CODEOWNERS"},
+			SearchTerms: []string{RuleNameCodeowners, pathCodeownersRoot},
 		},
 	}
 }
@@ -97,15 +133,15 @@ func defaultDependabotRule() FileRuleConfig {
 	enabled := true
 
 	return FileRuleConfig{
-		Type:     "file",
-		Name:     "dependabot",
+		Type:     RuleTypeFile,
+		Name:     RuleNameDependabot,
 		Enabled:  &enabled,
-		Check:    "exists",
-		Paths:    []string{".github/dependabot.yml", ".github/dependabot.yaml"},
-		Target:   ".github/dependabot.yml",
+		Check:    string(CheckExists),
+		Paths:    []string{pathDependabotYml, ".github/dependabot.yaml"},
+		Target:   pathDependabotYml,
 		Template: "dependabot",
 		PR: &PRConfig{
-			SearchTerms: []string{"dependabot"},
+			SearchTerms: []string{RuleNameDependabot},
 		},
 	}
 }
@@ -114,10 +150,10 @@ func defaultRenovateRule() FileRuleConfig {
 	enabled := false
 
 	return FileRuleConfig{
-		Type:    "file",
-		Name:    "renovate_config",
+		Type:    RuleTypeFile,
+		Name:    RuleNameRenovateConfig,
 		Enabled: &enabled,
-		Check:   "contains",
+		Check:   string(CheckContains),
 		Paths: []string{
 			"renovate.json",
 			"renovate.json5",
@@ -133,8 +169,8 @@ func defaultRenovateRule() FileRuleConfig {
 		},
 		Assertions: []AssertionConfig{
 			{
-				Pattern: `github>.*renovate-config`,
-				Message: "renovate.json must extend org preset",
+				Pattern: renovateOrgPresetPattern,
+				Message: renovateOrgPresetMessage,
 			},
 		},
 	}
@@ -144,16 +180,16 @@ func defaultRenovateWorkflowRule() FileRuleConfig {
 	enabled := false
 
 	return FileRuleConfig{
-		Type:     "file",
-		Name:     "renovate_workflow",
+		Type:     RuleTypeFile,
+		Name:     RuleNameRenovateWorkflow,
 		Enabled:  &enabled,
-		Check:    "exact",
-		Paths:    []string{".github/workflows/renovate.yml"},
-		Target:   ".github/workflows/renovate.yml",
+		Check:    string(CheckExact),
+		Paths:    []string{pathRenovateWorkflowYml},
+		Target:   pathRenovateWorkflowYml,
 		Template: "renovate-workflow",
 		Reconcilers: []ReconcilerConfig{
 			{
-				Type:  "workflow_sync",
+				Type:  ReconcilerWorkflowSync,
 				Watch: true,
 			},
 		},

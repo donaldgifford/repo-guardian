@@ -88,7 +88,7 @@ func makeRequest(t *testing.T, eventType string, payload any) *http.Request {
 		t.Fatalf("marshal payload: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/webhooks/github", bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/webhooks/github", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-GitHub-Event", eventType)
 	req.Header.Set("X-Hub-Signature-256", signPayload(body, testSecret))
@@ -171,7 +171,7 @@ func TestHandleWebhook_InvalidSignature(t *testing.T) {
 	h := NewHandler(testSecret, q, slog.Default(), nil)
 
 	body := []byte(`{"action":"created"}`)
-	req := httptest.NewRequest(http.MethodPost, "/webhooks/github", bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/webhooks/github", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-GitHub-Event", "repository")
 	req.Header.Set("X-Hub-Signature-256", "sha256=invalid")

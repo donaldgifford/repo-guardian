@@ -189,7 +189,7 @@ func TestExtractIP_RemoteAddr(t *testing.T) {
 	t.Parallel()
 
 	a := newTestAllowlist(false, false)
-	r := httptest.NewRequest(http.MethodPost, "/webhooks/github", http.NoBody)
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/webhooks/github", http.NoBody)
 	r.RemoteAddr = "192.30.252.1:12345"
 
 	ip := a.extractIP(r)
@@ -206,7 +206,7 @@ func TestExtractIP_XForwardedFor(t *testing.T) {
 	t.Parallel()
 
 	a := newTestAllowlist(false, true)
-	r := httptest.NewRequest(http.MethodPost, "/webhooks/github", http.NoBody)
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/webhooks/github", http.NoBody)
 	r.RemoteAddr = "127.0.0.1:12345"
 	r.Header.Set("X-Forwarded-For", "192.30.252.1, 10.0.0.1")
 
@@ -224,7 +224,7 @@ func TestExtractIP_XForwardedFor_Ignored(t *testing.T) {
 	t.Parallel()
 
 	a := newTestAllowlist(false, false)
-	r := httptest.NewRequest(http.MethodPost, "/webhooks/github", http.NoBody)
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/webhooks/github", http.NoBody)
 	r.RemoteAddr = "10.0.0.1:12345"
 	r.Header.Set("X-Forwarded-For", "192.30.252.1, 10.0.0.1")
 
@@ -249,7 +249,7 @@ func TestMiddleware_AllowedIP(t *testing.T) {
 	})
 
 	handler := a.Middleware(next)
-	r := httptest.NewRequest(http.MethodPost, "/webhooks/github", http.NoBody)
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/webhooks/github", http.NoBody)
 	r.RemoteAddr = "192.30.252.1:12345"
 	w := httptest.NewRecorder()
 
@@ -271,7 +271,7 @@ func TestMiddleware_BlockedIP(t *testing.T) {
 	})
 
 	handler := a.Middleware(next)
-	r := httptest.NewRequest(http.MethodPost, "/webhooks/github", http.NoBody)
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/webhooks/github", http.NoBody)
 	r.RemoteAddr = "10.0.0.1:12345"
 	w := httptest.NewRecorder()
 
@@ -292,7 +292,7 @@ func TestMiddleware_NotLoaded_FailClosed(t *testing.T) {
 	})
 
 	handler := a.Middleware(next)
-	r := httptest.NewRequest(http.MethodPost, "/webhooks/github", http.NoBody)
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/webhooks/github", http.NoBody)
 	r.RemoteAddr = "192.30.252.1:12345"
 	w := httptest.NewRecorder()
 

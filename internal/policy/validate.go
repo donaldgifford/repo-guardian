@@ -5,6 +5,12 @@ import (
 	"fmt"
 )
 
+const (
+	logLevelDebug = "debug"
+	logLevelWarn  = "warn"
+	logLevelError = "error"
+)
+
 // Validate checks the PolicyConfig for configuration errors.
 // Returns a joined error with all validation failures.
 func Validate(cfg *PolicyConfig) error {
@@ -38,10 +44,10 @@ func validateGuardian(g *GuardianConfig) []error {
 	}
 
 	validLogLevels := map[string]bool{
-		"debug": true,
-		"info":  true,
-		"warn":  true,
-		"error": true,
+		logLevelDebug:   true,
+		defaultLogLevel: true,
+		logLevelWarn:    true,
+		logLevelError:   true,
 	}
 
 	if !validLogLevels[g.LogLevel] {
@@ -71,10 +77,10 @@ func validateFileRule(r *FileRuleConfig, prefix string) []error {
 	var errs []error
 
 	validChecks := map[string]bool{
-		"exists":   true,
-		"contains": true,
-		"exact":    true,
-		"":         true, // defaults to "exists"
+		string(CheckExists):   true,
+		string(CheckContains): true,
+		string(CheckExact):    true,
+		"":                    true, // defaults to "exists"
 	}
 
 	if !validChecks[r.Check] {
@@ -187,16 +193,16 @@ func validateSettingExpectedType(r *SettingRuleConfig, prefix string) []error {
 	var errs []error
 
 	switch r.Property {
-	case "default_branch":
+	case SettingDefaultBranch:
 		if _, ok := r.Expected.(string); !ok {
 			errs = append(errs, fmt.Errorf(
 				"%s: expected must be a string for property %q, got %T",
 				prefix, r.Property, r.Expected,
 			))
 		}
-	case "vulnerability_alerts_enabled", "has_issues", "has_wiki",
-		"delete_branch_on_merge", "allow_merge_commit",
-		"allow_squash_merge", "allow_rebase_merge":
+	case SettingVulnerabilityAlertsEnabled, SettingHasIssues, SettingHasWiki,
+		SettingDeleteBranchOnMerge, SettingAllowMergeCommit,
+		SettingAllowSquashMerge, SettingAllowRebaseMerge:
 		if _, ok := r.Expected.(bool); !ok {
 			errs = append(errs, fmt.Errorf(
 				"%s: expected must be a bool for property %q, got %T",

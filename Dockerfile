@@ -1,5 +1,5 @@
 # Build stage
-FROM --platform=$BUILDPLATFORM golang:1.25 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26 AS builder
 
 ARG TARGETOS
 ARG TARGETARCH
@@ -13,7 +13,7 @@ RUN go mod download
 # Copy source and build.
 COPY . .
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
-    go build -trimpath -ldflags="-s -w" -o /repo-guardian ./cmd/repo-guardian
+  go build -trimpath -ldflags="-s -w" -o /repo-guardian ./cmd/repo-guardian
 
 # Runtime stage
 FROM gcr.io/distroless/static-debian12:nonroot

@@ -1,0 +1,21 @@
+---
+# $schema=https://www.schemastore.org/catalog-info.json
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: repo-guardian
+  title: Repo Guardian
+  description: >
+    A GitHub App (Go) that automates repository onboarding and compliance across a GitHub organization. It detects missing
+    configuration files (CODEOWNERS, Dependabot, Renovate) and creates pull requests with sensible defaults.
+  annotations:
+    backstage.io/source-location: url:https://github.com/donaldgifford/repo-guardian
+    backstage.io/techdocs-ref: "dir:."
+  tags:
+    - hcl2
+    - go
+spec:
+  lifecycle: production
+  type: tool
+  owner: donald
+  system: dev-tools

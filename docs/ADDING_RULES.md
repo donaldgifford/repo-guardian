@@ -1,8 +1,8 @@
 # Adding a New Rule to Repo Guardian
 
 This guide walks through adding a new file rule to repo-guardian. By the end,
-the service will detect when a repository is missing the file and create a PR to
-add a default version.
+the service will detect when a repository is missing the file and create a PR
+to add a default version.
 
 We will use a GitHub Actions CI workflow (`.github/workflows/ci.yml`) as the
 example, but the process is identical for any file type.
@@ -11,25 +11,36 @@ example, but the process is identical for any file type.
 
 ## How Rules Work
 
-A rule is a `FileRule` struct that tells the checker engine:
+Rules are defined in HCL (the operator-facing config) and live in
+`guardian.hcl` (pointed at by the `GUARDIAN_CONFIG` env var). The
+checker engine loads the policy on startup and iterates every enabled
+rule for every repository it processes. No changes to the engine,
+webhook handler, scheduler, or queue code are needed for a new rule.
 
-1. **What to look for** -- one or more file paths to check (if any exist, the
-   rule is satisfied).
-2. **How to detect existing PRs** -- search terms matched against open PR titles
-   and branch names to avoid duplicate work.
-3. **What to create** -- a target path and a default template for the file
-   content.
+A file rule tells the engine:
 
-The engine iterates over all enabled rules for every repository it checks. No
-changes to the engine, webhook handler, scheduler, or queue code are needed.
+1. **What to look for** — one or more file paths (the rule is satisfied
+   if any one exists; for `contains`/`exact` modes the rule additionally
+   evaluates content assertions).
+2. **What to create** — a target path and the name of a template
+   (resolved from the operator's `templates.files` map or the binary's
+   embedded defaults).
+3. **How to render the PR** — title, body, labels, and search terms
+   used to detect existing PRs and avoid duplicate work.
+
+If you want a rule to ship as a built-in default (enabled out of the
+box for every operator), it goes in `internal/policy/defaults.go`
+alongside the existing four. The HCL path is preferred for everything
+else — it requires no rebuild.
 
 ---
 
 ## Step 1: Create the Default Template
 
-Templates live in `internal/rules/templates/` and are embedded into the binary
-at compile time via `//go:embed`. The file name (minus `.tmpl`) becomes the
-template key referenced in the rule definition.
+Templates live in `internal/rules/templates/` and are embedded into the
+binary at compile time via `//go:embed`. The file name (minus `.tmpl`)
+becomes the template key referenced from HCL or the Helm
+`templates.files` map.
 
 Create `internal/rules/templates/github-actions-ci.tmpl`:
 
@@ -61,35 +72,42 @@ jobs:
 ```
 
 The template should be a reasonable starting point that works without
-modification but clearly signals where teams should customize. Comments in the
-file help developers understand what to change.
+modification but clearly signals where teams should customize.
+
+> **GitHub Actions `${{ ... }}` syntax.** Templates are rendered by
+> `internal/template/Renderer` (text/template). To emit a literal
+> `${{ secrets.X }}` you must wrap it in a backtick-raw-string action:
+> `` {{`${{ secrets.X }}`}} ``. A bare `${{` anywhere — including a
+> YAML comment — trips the parser with `unexpected <.> in operand`.
+
+If you do not need the template baked into the binary, you can also
+ship the template content directly via Helm values
+(`templates.files: <name>: <content>`) — no rebuild required.
 
 ---
 
-## Step 2: Add the Rule to the Registry
+## Step 2: Declare the Rule in HCL
 
-Open `internal/rules/registry.go` and append a new entry to the `DefaultRules`
-slice:
+Add a `rule "file" "..." { ... }` block to your `guardian.hcl`:
 
-```go
-var DefaultRules = []FileRule{
-    // ... existing CODEOWNERS, Dependabot, and Renovate rules ...
+```hcl
+rule "file" "github_actions_ci" {
+  enabled  = true
+  check    = "exists"
+  paths    = [
+    ".github/workflows/ci.yml",
+    ".github/workflows/ci.yaml",
+    ".github/workflows/build.yml",
+    ".github/workflows/build.yaml",
+    ".github/workflows/test.yml",
+    ".github/workflows/test.yaml",
+  ]
+  target   = ".github/workflows/ci.yml"
+  template = "github-actions-ci"
 
-    {
-        Name: "GitHub Actions CI",
-        Paths: []string{
-            ".github/workflows/ci.yml",
-            ".github/workflows/ci.yaml",
-            ".github/workflows/build.yml",
-            ".github/workflows/build.yaml",
-            ".github/workflows/test.yml",
-            ".github/workflows/test.yaml",
-        },
-        PRSearchTerms:       []string{"ci workflow", "github actions", "CI/CD"},
-        DefaultTemplateName: "github-actions-ci",
-        TargetPath:          ".github/workflows/ci.yml",
-        Enabled:             true,
-    },
+  pr {
+    search_terms = ["ci workflow", "github actions"]
+  }
 }
 ```
 
@@ -97,27 +115,32 @@ var DefaultRules = []FileRule{
 
 | Field | Purpose | Guidelines |
 |---|---|---|
-| `Name` | Human-readable label used in logs, PR body, and the `rule_name` Prometheus metric label. | Keep it short and descriptive. |
-| `Paths` | All locations where the file might already exist. The rule is satisfied if **any** path exists. | Include common naming variations (`.yml` vs `.yaml`, alternate directories). |
-| `PRSearchTerms` | Strings matched (case-insensitive) against open PR titles and branch names. If a match is found, the rule is skipped. | Use terms specific enough to avoid false positives but broad enough to catch related PRs from other tools or developers. |
-| `DefaultTemplateName` | Key into the template store. Must match the template file name without the `.tmpl` extension. | Must exactly match the file created in Step 1. |
-| `TargetPath` | Path where the file will be created in the PR branch. | Use the canonical/preferred location for the file. |
-| `Enabled` | Whether the rule is active. Set to `false` to define a rule without activating it. | Start with `true` unless you want to ship the rule dormant. |
+| `enabled` | Whether the rule is active. | Defaults to `true`. Set `false` to define a rule without activating it. |
+| `check` | One of `exists`, `contains`, `exact`. | `exists` is the default. Use `contains` with `assertion { ... }` blocks to enforce content patterns. Use `exact` to require a byte-for-byte (or YAML-semantic) match against the template. |
+| `paths` | All locations where the file might already exist. The rule is satisfied if **any** path exists (in `exists` mode). | Include common naming variations (`.yml` vs `.yaml`, alternate directories). |
+| `target` | Path where the file will be created in the PR branch. | Use the canonical/preferred location. |
+| `template` | Key into the template store. Must match the template file name without the `.tmpl` suffix. | Must match the file created in Step 1. |
+| `pr { search_terms }` | Strings matched case-insensitively against open PR titles and branch names. A match causes the rule to skip (a PR is assumed to be in flight). | Specific enough to avoid false positives but broad enough to catch related work. |
 
-### A Note on `Paths`
+### Notes
 
-The `Paths` field is intentionally broad. Many tools accept multiple file
-locations or naming conventions. For the GitHub Actions CI example, a team might
-already have a workflow named `build.yml` or `test.yml` that serves the same
-purpose. Listing these alternate paths prevents repo-guardian from creating a
-duplicate CI workflow when one already exists under a different name.
+- **`paths` is intentionally broad.** Many tools accept multiple file
+  locations. Listing alternates prevents repo-guardian from creating a
+  duplicate when a team already has a workflow under a different name.
+- **`search_terms`** prevents repo-guardian from opening a PR when
+  someone is already working on the same thing. A term like `"add"`
+  matches too many unrelated PRs; pick something specific to the rule.
 
-### A Note on `PRSearchTerms`
+### Built-in vs. operator-defined rules
 
-These terms prevent repo-guardian from opening a PR when someone is already
-working on the same thing. Be specific enough to avoid false matches (a term
-like `"add"` would match too many unrelated PRs) but broad enough to catch
-PRs with different naming conventions.
+If you want this rule shipped to every operator out of the box, add a
+corresponding constructor to `internal/policy/defaults.go` (alongside
+`defaultCodeownersRule`, `defaultDependabotRule`, etc.) and append it
+to the `BuiltinDefaults()` slice. The HCL block above is then no
+longer required — the rule is part of the binary's defaults.
+
+For all other cases (operator-specific rules, optional rules, rules
+that depend on local conventions), keep the rule in HCL only.
 
 ---
 
@@ -129,42 +152,52 @@ Run the existing tests to make sure nothing is broken:
 make check    # lint + tests with race detector
 ```
 
-The existing tests exercise the registry and engine generically -- they iterate
-over `DefaultRules` -- so adding a new rule entry does not require new test
-code unless the rule has unusual behavior. The key things to verify:
+The engine iterates over `policy.PolicyConfig.FileRules` generically,
+so a new rule entry does not require new test code unless the rule
+has unusual behavior. The key things to verify:
 
-1. The template file name matches `DefaultTemplateName` (the template store
-   will fail to load if there is a mismatch).
-2. `Paths` entries are valid file paths (no leading `/`, no glob patterns).
-3. `TargetPath` does not conflict with another rule's `TargetPath`.
+1. The template file name matches the rule's `template` value (the
+   template store fails to load if there is a mismatch).
+2. `paths` entries are valid file paths (no leading `/`, no glob
+   patterns — globs apply only to `ignore { paths = [...] }`).
+3. `target` does not conflict with another rule's `target`.
 
-If you want to test the new rule in isolation:
+If you want to exercise the new rule in isolation:
 
 ```bash
-go test -v -race -run TestCheckRepo ./internal/checker/...
+go test -v -race -run TestEnginePolicy ./internal/checker/...
 ```
 
 ---
 
 ## Step 4: Test with Dry-Run Mode
 
-Before deploying, validate the new rule against real repositories using dry-run
-mode. Set the `DRY_RUN=true` environment variable. The service will log every
-action it would take without actually creating branches or PRs:
+Before deploying, validate the new rule against real repositories using
+dry-run mode. Set `DRY_RUN=true` on the Deployment (or via Helm
+`policy.dryRun: true`). The service logs every action it would take
+without creating branches or PRs:
 
 ```
-INFO  dry run: would create PR  owner=myorg  repo=new-project  missing_files="[GitHub Actions CI]"
+INFO  dry run: would create PR  owner=myorg  repo=new-project  missing_files="[github_actions_ci]"
 ```
 
-This confirms the rule is detecting the right repositories and that the
-template name resolves correctly.
+> **`DRY_RUN` env wins over HCL.** Env vars are applied last in
+> `policy.Load`, so a Deployment-level `DRY_RUN=true` silently
+> overrides anything in `guardian.hcl`. If the engine looks stuck in
+> dry-run when you didn't expect it, check
+> `kubectl get deploy ... -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="DRY_RUN")]}'`
+> first.
+
+This confirms the rule is detecting the right repositories and that
+the template name resolves correctly.
 
 ---
 
 ## Step 5: Deploy
 
-If you are overriding templates via the chart's `templates.files` map (rather
-than using the compiled-in defaults), add the new template to your Helm values:
+If you are overriding templates via the chart's `templates.files` map
+(rather than using the compiled-in defaults), add the new template to
+your Helm values:
 
 ```yaml
 # values.yaml — passed to `helm install ... -f values.yaml`
@@ -191,15 +224,19 @@ templates:
               run: echo "Add your test steps here"
 ```
 
-If you are relying on the embedded templates (the default), the values override
-is not needed -- the template is compiled into the binary.
+If you are relying on embedded templates (the default), no values
+override is needed — the template is compiled into the binary.
 
 Build and deploy:
 
 ```bash
 make build
 docker build -t repo-guardian:latest .
-# Push to your registry and roll out the new version.
+# Push to your registry and roll out the new version, or
+helm upgrade --install repo-guardian \
+  oci://ghcr.io/donaldgifford/charts/repo-guardian \
+  --version <chart-version> \
+  -f values.yaml
 ```
 
 ---
@@ -208,73 +245,51 @@ docker build -t repo-guardian:latest .
 
 Once deployed, the new rule participates in every repository check:
 
-1. The engine loads all enabled rules from the registry.
-2. For the new rule, it checks whether any of the `Paths` exist in the repo.
-3. If none exist, it checks whether any open PR title or branch contains a
-   `PRSearchTerms` match.
-4. If the file is missing and no existing PR addresses it, the file is added to
-   the repo-guardian PR branch using the default template.
-5. The PR body lists all missing files, including the new one.
+1. The engine loads the merged policy (built-in defaults → HCL file →
+   env overrides) on startup.
+2. For the new rule, it checks whether any of the `paths` exist in the
+   repo (and evaluates any assertions for `contains`/`exact` modes).
+3. If the rule is actionable, it checks whether any open PR title or
+   branch matches a `pr.search_terms` entry. If so, the rule is
+   skipped for this run.
+4. If the rule is still actionable, the engine adds the rendered
+   template to the repo-guardian PR branch
+   (`repo-guardian/add-missing-files`). One branch per repo;
+   subsequent runs update the same branch idempotently.
+5. The PR body lists every rule contributing to this PR. When all
+   rules on the PR become satisfied on the default branch, the PR is
+   auto-closed (toggle via `guardian.auto_close_pr` / `AUTO_CLOSE_PR`).
 
-The `repo_guardian_files_missing_total` Prometheus counter will start recording
-detections with `rule_name="GitHub Actions CI"`. If you are using the
-contributed Grafana dashboard (`contrib/grafana/repo-guardian-dashboard.json`),
-the new rule will appear automatically in the "Missing Files Detected by Rule"
+The `repo_guardian_files_missing_total{rule_name, org}` Prometheus
+counter records detections; `repo_guardian_prs_created_total{org}`
+records PR creation. If you are using the contributed Grafana
+dashboard (`contrib/grafana/repo-guardian-dashboard.json`), the new
+rule appears automatically in the "Missing Files Detected by Rule"
 and "Missing Files Total by Rule" panels.
 
 ---
 
 ## Summary
 
-| Step | File | What to do |
+| Step | File / Surface | What to do |
 |---|---|---|
-| 1 | `internal/rules/templates/<name>.tmpl` | Create the default file content |
-| 2 | `internal/rules/registry.go` | Add a `FileRule` entry to `DefaultRules` |
-| 3 | -- | `make check` |
-| 4 | -- | Deploy with `DRY_RUN=true` and verify logs |
-| 5 | -- | Deploy to production |
+| 1 | `internal/rules/templates/<name>.tmpl` (or Helm `templates.files`) | Create the default file content |
+| 2 | `guardian.hcl` (or `internal/policy/defaults.go` for a built-in) | Declare the `rule "file" "<name>" { ... }` block |
+| 3 | — | `make check` |
+| 4 | — | Deploy with `DRY_RUN=true` and verify logs |
+| 5 | — | Roll out via Helm |
 
-No changes are needed in the checker engine, webhook handler, scheduler, work
-queue, or any other package. The rule registry pattern is designed so that
-adding a new compliance check is a two-file change.
+No changes are needed in the checker engine, webhook handler,
+scheduler, work queue, or any other package.
 
 ---
 
-## Alternative: HCL Policy Configuration
+## Reconcilers
 
-When an HCL policy config file is present (set via `GUARDIAN_CONFIG` env var),
-file rules are defined in the config rather than the Go registry. This approach
-supports additional check modes (`contains`, `exact`) with content assertions
-and reconcilers for post-check actions.
-
-See `docs/design/0006-hcl-policy-configuration-and-rule-engine.md` for the
-full design, and `docs/design/0007-reconciler-interface-and-push-event-handler.md`
-for reconciler details.
-
-### Example: Adding a Rule via HCL
-
-```hcl
-rule "file" "github_actions_ci" {
-  enabled  = true
-  check    = "exists"
-  paths    = [".github/workflows/ci.yml", ".github/workflows/ci.yaml"]
-  target   = ".github/workflows/ci.yml"
-  template = "github-actions-ci"
-
-  pr {
-    search_terms = ["ci workflow", "github actions"]
-  }
-}
-```
-
-Rules defined in HCL replace the built-in defaults entirely. The template file
-(`internal/rules/templates/<name>.tmpl`) is still required.
-
-### Reconcilers
-
-HCL rules can attach reconcilers — pluggable post-check actions that run after
-file checks pass. For example, the `custom_properties` reconciler reads
-`catalog-info.yaml` and syncs ownership metadata to GitHub custom properties:
+HCL rules can attach reconcilers — pluggable post-check actions that
+run after file checks pass. For example, the `custom_properties`
+reconciler reads `catalog-info.yaml` and syncs ownership metadata to
+GitHub custom properties:
 
 ```hcl
 rule "file" "catalog_info" {
@@ -294,14 +309,28 @@ rule "file" "catalog_info" {
 }
 ```
 
-When `watch = true`, push events that modify the watched files on the default
-branch trigger a re-check.
+When `watch = true`, push events that modify the watched files on the
+default branch trigger a re-check.
+
+Four built-in reconcilers ship with the binary:
+
+| Reconciler | Purpose |
+|---|---|
+| `custom_properties` | Sync Backstage `catalog-info.yaml` → GitHub repo custom properties (`api` or `github-action` mode) |
+| `label_sync` | YAML-driven label create / update / rename / delete |
+| `branch_protection` | YAML-driven branch protection ruleset management |
+| `workflow_sync` | Lightweight observability for watched workflow files |
+
+See `docs/design/0007-reconciler-interface-and-push-event-handler.md`
+and `docs/design/0008-additional-rule-types-and-ignore-lists.md` for
+the full design.
 
 ### Renovate File Rules
 
-repo-guardian includes two built-in Renovate file rules that are **disabled
-by default**. When enabled, they ensure every repository has a standardized
-Renovate workflow and configuration extending the org preset.
+repo-guardian includes two built-in Renovate file rules that are
+**disabled by default**. When enabled, they ensure every repository
+has a standardized Renovate workflow and configuration extending the
+org preset.
 
 To enable them, add the following to your `guardian.hcl`:
 
@@ -343,13 +372,13 @@ rule "file" "renovate_config" {
 
 #### Check Modes
 
-- **`renovate_workflow`** uses `check = "exact"` — the file must match the
-  template byte-for-byte (YAML-semantic comparison). Any drift triggers a PR
-  to restore the canonical workflow.
-- **`renovate_config`** uses `check = "contains"` with an assertion — the file
-  must exist and contain the org preset pattern. Teams can add additional
-  Renovate configuration (labels, automerge rules) as long as the org preset
-  reference is present.
+- **`renovate_workflow`** uses `check = "exact"` — the file must match
+  the template byte-for-byte (YAML-semantic comparison). Any drift
+  triggers a PR to restore the canonical workflow.
+- **`renovate_config`** uses `check = "contains"` with an assertion —
+  the file must exist and contain the org preset pattern. Teams can
+  add additional Renovate configuration (labels, automerge rules) as
+  long as the org preset reference is present.
 
 #### Prerequisites
 

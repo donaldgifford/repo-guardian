@@ -175,8 +175,10 @@ Template repos are opt-in; Repo Guardian is automatic.
   effects. The app can be deployed, observed, and tuned before enabling PR
   creation.
 - **Minimal infrastructure cost**: Single container (~20 MB image), minimal
-  resource footprint (100m CPU, 128Mi memory). No database, no external
-  dependencies beyond the GitHub API.
+  resource footprint (100m CPU, 128Mi memory). Single-replica deploys run
+  with in-memory state and no external dependencies beyond the GitHub API;
+  multi-replica deploys add an optional Postgres-backed Store and
+  Valkey-backed Queue for durable coordination (see IMPL-0011 / chart 0.5+).
 - **Rate-limit aware**: Built-in adaptive rate limiting prevents the app from
   exhausting GitHub API quotas, even during full reconciliation of large
   organizations.
@@ -190,7 +192,7 @@ Template repos are opt-in; Repo Guardian is automatic.
 | **Infrastructure** | Single Kubernetes pod (or any container runtime) |
 | **Image size** | ~20 MB (distroless base, static Go binary) |
 | **Resource requests** | 100m CPU, 128Mi memory |
-| **External dependencies** | GitHub API only |
+| **External dependencies** | GitHub API only (single-replica). Multi-replica deploys add optional Postgres + Valkey. |
 | **Licensing cost** | None (internal tool, open-source dependencies) |
 | **GitHub API usage** | ~1-3 API calls per repo per reconciliation cycle |
 
@@ -201,10 +203,10 @@ Template repos are opt-in; Repo Guardian is automatic.
 The application is feature-complete and production-ready. All implementation
 phases are complete:
 
-1. Foundation (GitHub client, rule registry, checker engine)
+1. Foundation (GitHub client, policy engine, checker)
 2. Webhook handler, scheduler, work queue, observability
-3. Docker image, Kubernetes manifests (Kustomize), CI pipeline
-4. Production deployment configuration (dev and prod overlays)
+3. Docker image, Helm chart deployment, CI pipeline
+4. Production deployment via the chart (homelab Talos + AWS EKS)
 5. Extensibility (template overrides, configurable rules)
 6. Custom properties sync from Backstage catalog-info.yaml
 7. Helm chart, webhook IP allowlist, HCL policy engine
@@ -214,6 +216,17 @@ phases are complete:
 11. Helm chart distribution via OCI on GHCR with cosign keyless
     signing and SLSA Level 3 provenance — install via
     `helm install repo-guardian oci://ghcr.io/donaldgifford/charts/repo-guardian --version <v>`
+12. Customizable PR templates (title/body/labels) at three HCL scopes
+    with field-by-field inheritance; extensible template ConfigMap via
+    `templates.files`
+13. Persistent reconcile state and multi-replica coordination
+    (Postgres-backed Store, Valkey-backed Queue and leader-elected
+    Scheduler) with single-replica memory defaults preserved
+14. PR auto-close when every rule on the PR is satisfied on the
+    default branch, with a sticky reconcile-log comment on every
+    sweep (opt-out via `policy.autoClosePR: false` / `AUTO_CLOSE_PR`)
+15. Legacy engine path and Kustomize overlays removed — the Helm
+    chart is the only supported deployment surface
 
 ### Rule Types
 
@@ -234,9 +247,11 @@ optional global and per-rule ignore lists:
 | Dependabot | Enabled | Automated dependency updates (GitHub-native) |
 | Renovate Config | Defined (disabled by default) | Automated dependency updates (Mend/OSS) |
 | Renovate Workflow | Defined (disabled by default) | Per-repo GitHub Actions Renovate runner |
+| Catalog Info | Conditional (enabled when `CUSTOM_PROPERTIES_MODE` is set) | Backstage `catalog-info.yaml` source for custom-property sync |
 
-New rules can be added with a single HCL block (no code changes) or a
-single struct definition + template file (legacy path).
+New rules can be added with a single HCL block in `guardian.hcl` (no
+code changes, no rebuild). Built-in defaults — for rules that ship to
+every operator — live in `internal/policy/defaults.go`.
 
 ### Reconcilers
 

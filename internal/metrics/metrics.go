@@ -6,31 +6,39 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
+// Prometheus label name constants — keep in sync with operator dashboards
+// and PromQL recipes in contrib/README.md.
+const (
+	labelOrg      = "org"
+	labelRuleName = "rule_name"
+	labelReason   = "reason"
+)
+
 // All repo-guardian Prometheus metrics.
 var (
 	// ReposCheckedTotal counts the total number of repositories processed.
 	ReposCheckedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_repos_checked_total",
 		Help: "Total repositories processed.",
-	}, []string{"trigger", "org"})
+	}, []string{"trigger", labelOrg})
 
 	// PRsCreatedTotal counts the total number of PRs created, by org.
 	PRsCreatedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_prs_created_total",
 		Help: "Total pull requests created.",
-	}, []string{"org"})
+	}, []string{labelOrg})
 
 	// PRsUpdatedTotal counts the total number of existing PRs updated, by org.
 	PRsUpdatedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_prs_updated_total",
 		Help: "Total existing pull requests updated.",
-	}, []string{"org"})
+	}, []string{labelOrg})
 
 	// FilesMissingTotal counts missing files detected, labeled by rule name and org.
 	FilesMissingTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_files_missing_total",
 		Help: "Missing files detected.",
-	}, []string{"rule_name", "org"})
+	}, []string{labelRuleName, labelOrg})
 
 	// CheckDurationSeconds records the time to check a single repo.
 	CheckDurationSeconds = promauto.NewHistogram(prometheus.HistogramOpts{
@@ -49,7 +57,7 @@ var (
 	ErrorsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_errors_total",
 		Help: "Errors encountered.",
-	}, []string{"operation", "org"})
+	}, []string{"operation", labelOrg})
 
 	// GitHubRateRemaining tracks the GitHub API rate limit remaining.
 	GitHubRateRemaining = promauto.NewGauge(prometheus.GaugeOpts{
@@ -61,7 +69,7 @@ var (
 	GitHubRateLimitWaitsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_github_rate_limit_waits_total",
 		Help: "Total rate limit waits by reason.",
-	}, []string{"reason"})
+	}, []string{labelReason})
 
 	// GitHubRateLimitWaitSeconds records the duration of rate limit waits.
 	GitHubRateLimitWaitSeconds = promauto.NewHistogram(prometheus.HistogramOpts{
@@ -98,43 +106,43 @@ var (
 	WebhookRejectedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_webhook_rejected_total",
 		Help: "Webhook requests rejected by IP allowlist.",
-	}, []string{"reason"})
+	}, []string{labelReason})
 
 	// IgnoredTotal counts repos or rules skipped by ignore lists, by scope and org.
 	IgnoredTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_ignored_total",
 		Help: "Repos or rules skipped by ignore lists.",
-	}, []string{"scope", "org"})
+	}, []string{"scope", labelOrg})
 
 	// SettingsCheckedTotal counts setting rules evaluated per rule name and org.
 	SettingsCheckedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_settings_checked_total",
 		Help: "Setting rules evaluated.",
-	}, []string{"rule_name", "org"})
+	}, []string{labelRuleName, labelOrg})
 
 	// SettingsMismatchedTotal counts setting rules that found a mismatch.
 	SettingsMismatchedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_settings_mismatched_total",
 		Help: "Setting rules that found a mismatch.",
-	}, []string{"rule_name", "org"})
+	}, []string{labelRuleName, labelOrg})
 
 	// SettingsRemediatedTotal counts setting rules that were remediated.
 	SettingsRemediatedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_settings_remediated_total",
 		Help: "Setting rules remediated via API.",
-	}, []string{"rule_name", "org"})
+	}, []string{labelRuleName, labelOrg})
 
 	// BranchProtectionCheckedTotal counts branch protection rules evaluated.
 	BranchProtectionCheckedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_branch_protection_checked_total",
 		Help: "Branch protection rules evaluated.",
-	}, []string{"rule_name", "org"})
+	}, []string{labelRuleName, labelOrg})
 
 	// BranchProtectionRemediatedTotal counts branch protection rules remediated.
 	BranchProtectionRemediatedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_branch_protection_remediated_total",
 		Help: "Branch protection rules remediated via rulesets API.",
-	}, []string{"rule_name", "org"})
+	}, []string{labelRuleName, labelOrg})
 
 	// OutOfScopeTotal counts rule evaluations skipped by strict-mode scope.
 	// level="policy" means the top-level policy scope rejected the repo
@@ -143,7 +151,7 @@ var (
 	OutOfScopeTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_out_of_scope_total",
 		Help: "Rule evaluations skipped by strict-mode scope, by level (policy or rule) and org.",
-	}, []string{"level", "org"})
+	}, []string{"level", labelOrg})
 
 	// StoreQuerySeconds records the time taken by individual Store
 	// queries. Labeled by operation (get, update, stale, migrate) and
@@ -236,7 +244,7 @@ var (
 	PROpenWithEmptyActionableTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_pr_open_with_empty_actionable_total",
 		Help: "Reconcile passes where an open repo-guardian PR existed and the actionable rule set was empty.",
-	}, []string{"org"})
+	}, []string{labelOrg})
 
 	// OpenPRsByRule tracks the count of currently-open repo-guardian
 	// PRs labeled by org, rule, and age bucket. Populated by the
@@ -247,7 +255,7 @@ var (
 	OpenPRsByRule = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "repo_guardian_open_prs_by_rule",
 		Help: "Open repo-guardian PRs by org, rule, and age bucket.",
-	}, []string{"org", "rule", "age_bucket"})
+	}, []string{labelOrg, "rule", "age_bucket"})
 
 	// PRsClosedTotal counts pull requests closed by repo-guardian
 	// labeled by org and reason. IMPL-0013 Phase 3 introduces the
@@ -257,7 +265,7 @@ var (
 	PRsClosedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_prs_closed_total",
 		Help: "Pull requests closed by repo-guardian, by reason.",
-	}, []string{"org", "reason"})
+	}, []string{labelOrg, labelReason})
 
 	// PROrphanLeftTotal counts orphan files that repo-guardian
 	// attempted to delete from a reconcile branch but couldn't
@@ -268,7 +276,7 @@ var (
 	PROrphanLeftTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_pr_orphan_left_total",
 		Help: "Orphan files that could not be deleted from the reconcile branch.",
-	}, []string{"org"})
+	}, []string{labelOrg})
 )
 
 // Hard-coded age bucket labels for the OpenPRsByRule gauge.

@@ -112,6 +112,7 @@ func (s *Scheduler) Schedule(ctx context.Context, name string, interval time.Dur
 		return ErrStopped
 	}
 
+	//nolint:gosec // G118 false positive — cancel is stored on s.cancels and invoked in Stop(); gosec can't track cross-method lifecycle.
 	hctx, cancel := context.WithCancel(ctx)
 	s.cancels = append(s.cancels, cancel)
 	s.wg.Add(1)

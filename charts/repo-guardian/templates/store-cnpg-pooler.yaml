@@ -15,6 +15,16 @@ spec:
     name: {{ include "repo-guardian.postgresFullname" . }}
   instances: {{ .Values.store.postgres.cnpg.pooler.instances }}
   type: {{ .Values.store.postgres.cnpg.pooler.type | quote }}
+
   pgbouncer:
-    poolMode: transaction
+    poolMode: {{ .Values.store.postgres.cnpg.pooler.pgbouncer.poolMode }}
+    parameters:
+      default_pool_size: {{ .Values.store.postgres.cnpg.pooler.pgbouncer.defaultPoolSize | quote }}
+      max_client_conn: {{ .Values.store.postgres.cnpg.pooler.pgbouncer.maxClientConnections | quote }}
+      {{- range $key, $value := .Values.store.postgres.cnpg.pooler.pgbouncer.parameters }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
+
+  monitoring:
+    enablePodMonitor: {{ .Values.store.postgres.cnpg.pooler.monitoring.enablePodMonitor }}
 {{- end }}

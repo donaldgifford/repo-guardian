@@ -830,7 +830,7 @@ func (*Engine) getSettingValue(
 	client ghclient.Client,
 	owner, repo, property string,
 ) (any, error) {
-	if property == "vulnerability_alerts_enabled" {
+	if property == policy.SettingVulnerabilityAlertsEnabled {
 		return client.GetVulnerabilityAlertsEnabled(ctx, owner, repo)
 	}
 
@@ -840,19 +840,19 @@ func (*Engine) getSettingValue(
 	}
 
 	switch property {
-	case "default_branch":
+	case policy.SettingDefaultBranch:
 		return settings.DefaultBranch, nil
-	case "has_issues":
+	case policy.SettingHasIssues:
 		return settings.HasIssues, nil
-	case "has_wiki":
+	case policy.SettingHasWiki:
 		return settings.HasWiki, nil
-	case "delete_branch_on_merge":
+	case policy.SettingDeleteBranchOnMerge:
 		return settings.DeleteBranchOnMerge, nil
-	case "allow_merge_commit":
+	case policy.SettingAllowMergeCommit:
 		return settings.AllowMergeCommit, nil
-	case "allow_squash_merge":
+	case policy.SettingAllowSquashMerge:
 		return settings.AllowSquashMerge, nil
-	case "allow_rebase_merge":
+	case policy.SettingAllowRebaseMerge:
 		return settings.AllowRebaseMerge, nil
 	default:
 		return nil, fmt.Errorf("unsupported property: %s", property)
@@ -873,10 +873,10 @@ func (*Engine) remediateSetting(
 	rule *policy.SettingRuleConfig,
 ) error {
 	switch rule.Property {
-	case "vulnerability_alerts_enabled":
+	case policy.SettingVulnerabilityAlertsEnabled:
 		expected, ok := rule.Expected.(bool)
 		if !ok {
-			return fmt.Errorf("expected bool for vulnerability_alerts_enabled, got %T", rule.Expected)
+			return fmt.Errorf("expected bool for %s, got %T", policy.SettingVulnerabilityAlertsEnabled, rule.Expected)
 		}
 
 		if expected {
@@ -885,10 +885,10 @@ func (*Engine) remediateSetting(
 
 		return client.DisableVulnerabilityAlerts(ctx, owner, repo)
 
-	case "default_branch":
+	case policy.SettingDefaultBranch:
 		expected, ok := rule.Expected.(string)
 		if !ok {
-			return fmt.Errorf("expected string for default_branch, got %T", rule.Expected)
+			return fmt.Errorf("expected string for %s, got %T", policy.SettingDefaultBranch, rule.Expected)
 		}
 
 		return client.UpdateRepository(ctx, owner, repo, &ghclient.RepoUpdateOpts{
@@ -915,17 +915,17 @@ func remediateBoolSetting(
 	opts := &ghclient.RepoUpdateOpts{}
 
 	switch rule.Property {
-	case "has_issues":
+	case policy.SettingHasIssues:
 		opts.HasIssues = &expected
-	case "has_wiki":
+	case policy.SettingHasWiki:
 		opts.HasWiki = &expected
-	case "delete_branch_on_merge":
+	case policy.SettingDeleteBranchOnMerge:
 		opts.DeleteBranchOnMerge = &expected
-	case "allow_merge_commit":
+	case policy.SettingAllowMergeCommit:
 		opts.AllowMergeCommit = &expected
-	case "allow_squash_merge":
+	case policy.SettingAllowSquashMerge:
 		opts.AllowSquashMerge = &expected
-	case "allow_rebase_merge":
+	case policy.SettingAllowRebaseMerge:
 		opts.AllowRebaseMerge = &expected
 	default:
 		return fmt.Errorf("unsupported bool property: %s", rule.Property)

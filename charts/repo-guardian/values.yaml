@@ -257,11 +257,38 @@ store:
       storage:
         size: 10Gi
         storageClass: ""
-      # -- Connection pooler (PgBouncer).
+      # -- Connection pooler (PgBouncer). Disabled by default.
       pooler:
         enabled: false
-        instances: 2
+        # -- Pooler type: `rw` (primary) or `ro` (read-only replicas).
         type: rw
+        # -- Pooler replica count.
+        instances: 1
+        pgbouncer:
+          # -- PgBouncer pool mode: `session`, `transaction`, or `statement`.
+          poolMode: transaction
+          # -- PgBouncer `default_pool_size`.
+          defaultPoolSize: 25
+          # -- PgBouncer `max_client_conn`.
+          maxClientConnections: 100
+          # -- Extra `pgbouncer.ini` parameters (key-value pairs).
+          parameters: {}
+        monitoring:
+          # -- Render a `PodMonitor` for the pooler. Requires the Prometheus Operator CRD.
+          enablePodMonitor: false
+        # Cilium does not support TCPRoute (cilium/cilium#42016), so external
+        # connections use a LoadBalancer Service with BGP advertisement.
+        service:
+          # -- Enable an external LoadBalancer Service in front of the pooler.
+          enabled: false
+          # -- Service `type` (usually `LoadBalancer`).
+          type: LoadBalancer
+          # -- Extra Service annotations.
+          annotations: {}
+          # -- Service labels. Defaults wire Cilium BGP IP advertisement.
+          labels:
+            bgp.cilium.io/advertise-service: default
+            bgp.cilium.io/ip-pool: default
 
 # -- Work queue for reconcile jobs.
 queue:

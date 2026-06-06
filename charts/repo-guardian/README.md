@@ -11,7 +11,7 @@ with cosign keyless, SLSA Level 3 provenance).
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 0.6.3 \
+  --version 0.7.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -47,7 +47,7 @@ secrets:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 0.6.3 \
+  --version 0.7.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -66,7 +66,7 @@ single-replica memory mode.
 |-------|--------|----------|
 | **Single-replica memory** (default) | `store.backend=memory`, `queue.backend=memory`, `scheduler.backend=ticker`, `replicaCount=1` | You're trialing repo-guardian, running a homelab pilot, or reconciling fewer than ~50 repos. No external dependencies. |
 | **Baked Postgres + Valkey** | `store.backend=postgres`, `store.postgres.mode=baked`, `queue.backend=valkey`, `queue.valkey.mode=baked`, `scheduler.backend=valkey` | You want multi-replica with no external operator dependencies. Chart renders single-pod Postgres + Valkey StatefulSets with auto-generated passwords. Suitable for homelab / small dev clusters. |
-| **CNPG-managed Postgres + baked Valkey** | `store.postgres.mode=cnpg`, `queue.valkey.mode=baked` | You already run [CloudNativePG](https://cloudnative-pg.io/) in the cluster and want the operator to handle Postgres lifecycle (HA replicas, backups, monitoring). The chart renders a `Cluster` CR and an optional `Pooler` (PgBouncer) CR. |
+| **CNPG-managed Postgres + baked Valkey** | `store.postgres.mode=cnpg`, `queue.valkey.mode=baked` | You already run [CloudNativePG](https://cloudnative-pg.io/) in the cluster and want the operator to handle Postgres lifecycle (HA replicas, backups, monitoring). The chart renders a `Cluster` CR and an optional `Pooler` (PgBouncer) CR. An optional `LoadBalancer` Service in front of the pooler (Cilium BGP-annotated by default) exposes the database to clients outside the cluster — enable via `store.postgres.cnpg.pooler.service.enabled`. |
 | **External Postgres + external Valkey** | `store.postgres.mode=external` + `existingSecret`; `queue.valkey.mode=external` + `existingSecret` | You're running a managed Postgres (RDS, Cloud SQL) and Redis-compatible service. Chart consumes the DSN from operator-supplied secrets and renders no backing resources. |
 
 For sizing knobs (`replicaCount`, `workerCount`, `maxConns`,
@@ -141,7 +141,7 @@ cosign verify \
     '^https://github.com/donaldgifford/repo-guardian/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:0.6.3
+  ghcr.io/donaldgifford/charts/repo-guardian:0.7.0
 ```
 
 ### SLSA provenance
@@ -152,7 +152,7 @@ cosign verify-attestation --type slsaprovenance \
     '^https://github.com/slsa-framework/slsa-github-generator/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:0.6.3
+  ghcr.io/donaldgifford/charts/repo-guardian:0.7.0
 ```
 
 The provenance attestation records the build workflow path, source
@@ -342,18 +342,29 @@ incoming webhook.
 | staleSweep.batchSize | int | `200` | Cap on rows returned per StaleRepos query. |
 | staleSweep.freshness | string | `"24h"` | Maximum age of a stored last_checked_at before the sweep requeues. Default 24h. Effective only with store.backend=postgres. |
 | staleSweep.rateLimitReserve | float | `0.1` | Fraction of an installation's GitHub rate-limit budget reserved against the stale-sweep enqueue path. |
-| store | object | `{"backend":"memory","postgres":{"baked":{"image":"postgres:17.4","resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:17.4","instances":1,"pooler":{"enabled":false,"instances":2,"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}}` | Persistent state store (per-repo reconcile state). See DESIGN-0012 §Backend modes. |
+| store | object | `{"backend":"memory","postgres":{"baked":{"image":"postgres:17.4","resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:17.4","instances":1,"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}}` | Persistent state store (per-repo reconcile state). See DESIGN-0012 §Backend modes. |
 | store.backend | string | `"memory"` | Backend implementation: "memory" (single-replica, no persistence) or "postgres". |
-| store.postgres | object | `{"baked":{"image":"postgres:17.4","resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:17.4","instances":1,"pooler":{"enabled":false,"instances":2,"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}` | Postgres-specific configuration. Ignored when backend != postgres. |
+| store.postgres | object | `{"baked":{"image":"postgres:17.4","resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:17.4","instances":1,"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}` | Postgres-specific configuration. Ignored when backend != postgres. |
 | store.postgres.baked | object | `{"image":"postgres:17.4","resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"}` | Baked Postgres-only configuration. |
 | store.postgres.baked.image | string | `"postgres:17.4"` | Pinned image. Bump intentionally. |
 | store.postgres.baked.resources | object | `{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}}` | Resource requests/limits for the Postgres container. |
 | store.postgres.baked.storageClassName | string | `""` | StorageClass name. Empty → cluster default. |
 | store.postgres.baked.storageSize | string | `"10Gi"` | Persistent volume size. |
-| store.postgres.cnpg | object | `{"imageName":"ghcr.io/cloudnative-pg/postgresql:17.4","instances":1,"pooler":{"enabled":false,"instances":2,"type":"rw"},"storage":{"size":"10Gi","storageClass":""}}` | CloudNativePG-only configuration. |
+| store.postgres.cnpg | object | `{"imageName":"ghcr.io/cloudnative-pg/postgresql:17.4","instances":1,"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"},"storage":{"size":"10Gi","storageClass":""}}` | CloudNativePG-only configuration. |
 | store.postgres.cnpg.imageName | string | `"ghcr.io/cloudnative-pg/postgresql:17.4"` | CNPG-managed Postgres image. |
 | store.postgres.cnpg.instances | int | `1` | Number of CNPG instances. |
-| store.postgres.cnpg.pooler | object | `{"enabled":false,"instances":2,"type":"rw"}` | Connection pooler (PgBouncer). |
+| store.postgres.cnpg.pooler | object | `{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"}` | Connection pooler (PgBouncer). Disabled by default. |
+| store.postgres.cnpg.pooler.instances | int | `1` | Pooler replica count. |
+| store.postgres.cnpg.pooler.monitoring.enablePodMonitor | bool | `false` | Render a `PodMonitor` for the pooler. Requires the Prometheus Operator CRD. |
+| store.postgres.cnpg.pooler.pgbouncer.defaultPoolSize | int | `25` | PgBouncer `default_pool_size`. |
+| store.postgres.cnpg.pooler.pgbouncer.maxClientConnections | int | `100` | PgBouncer `max_client_conn`. |
+| store.postgres.cnpg.pooler.pgbouncer.parameters | object | `{}` | Extra `pgbouncer.ini` parameters (key-value pairs). |
+| store.postgres.cnpg.pooler.pgbouncer.poolMode | string | `"transaction"` | PgBouncer pool mode: `session`, `transaction`, or `statement`. |
+| store.postgres.cnpg.pooler.service.annotations | object | `{}` | Extra Service annotations. |
+| store.postgres.cnpg.pooler.service.enabled | bool | `false` | Enable an external LoadBalancer Service in front of the pooler. |
+| store.postgres.cnpg.pooler.service.labels | object | `{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"}` | Service labels. Defaults wire Cilium BGP IP advertisement. |
+| store.postgres.cnpg.pooler.service.type | string | `"LoadBalancer"` | Service `type` (usually `LoadBalancer`). |
+| store.postgres.cnpg.pooler.type | string | `"rw"` | Pooler type: `rw` (primary) or `ro` (read-only replicas). |
 | store.postgres.cnpg.storage | object | `{"size":"10Gi","storageClass":""}` | Storage block. |
 | store.postgres.existingSecret | string | `""` | Operator-supplied secret holding STORE_DSN. Required when mode=external. |
 | store.postgres.existingSecretKey | string | `"STORE_DSN"` | Key inside existingSecret holding the DSN. Default: STORE_DSN. |

@@ -223,6 +223,57 @@ The reconcile state in Postgres is lost on rollback (the memory
 store starts empty), but that's the same state you started with
 before this runbook.
 
+## Optional: external access via the pooler LB Service (chart 0.7.0+)
+
+When you need to reach the database from outside the cluster (psql
+shell from your laptop, a side-car backup tool, a connection from
+another cluster on the same BGP fabric), enable the pooler plus its
+LoadBalancer Service. Cilium does not currently support TCPRoute
+([cilium/cilium#42016](https://github.com/cilium/cilium/issues/42016)),
+so the chart routes external connections through a regular
+`Service: LoadBalancer` and advertises the VIP via Cilium BGP labels.
+
+```yaml
+store:
+  postgres:
+    cnpg:
+      pooler:
+        enabled: true                            # ← required for the LB Service
+        instances: 2                             # 2 for HA, 1 for a homelab single-node
+        type: rw
+        pgbouncer:
+          poolMode: transaction
+        service:
+          enabled: true
+          type: LoadBalancer
+          labels:
+            bgp.cilium.io/advertise-service: default
+            bgp.cilium.io/ip-pool: default
+```
+
+After upgrade, find the assigned VIP:
+
+```bash
+kubectl get svc -n repo-guardian \
+  -l app.kubernetes.io/instance=repo-guardian \
+  -o jsonpath='{range .items[?(@.spec.type=="LoadBalancer")]}{.metadata.name}{"\t"}{.status.loadBalancer.ingress[0].ip}{"\n"}{end}'
+```
+
+Connect with the credentials from the CNPG-managed `<cluster>-app`
+Secret (`uri` key is a ready-made DSN):
+
+```bash
+kubectl get secret repo-guardian-postgres-app -n repo-guardian \
+  -o jsonpath='{.data.uri}' | base64 -d
+# postgresql://<user>:<pw>@<cluster>:5432/<db>
+# Swap <cluster> for the LB VIP from the previous command.
+```
+
+Both `instances` and the underlying CNPG `Cluster.instances` count
+should be ≥ 2 if external clients depend on this for production
+reads — a single-pooler-instance LB is a single restart away from
+dropping every external session.
+
 ## See also
 
 - [`chart-0.5.0-migration.md`](chart-0.5.0-migration.md) — full

@@ -1,0 +1,26 @@
+{{- if and (eq .Values.store.backend "postgres") (eq .Values.store.postgres.mode "cnpg") .Values.store.postgres.cnpg.pooler.enabled .Values.store.postgres.cnpg.pooler.service.enabled -}}
+{{- $poolerName := printf "%s-pooler" (include "repo-guardian.postgresFullname" .) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $poolerName }}-lb
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.labels" . | nindent 4 }}
+    {{- with .Values.store.postgres.cnpg.pooler.service.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.store.postgres.cnpg.pooler.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.store.postgres.cnpg.pooler.service.type | quote }}
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: postgres
+  selector:
+    cnpg.io/poolerName: {{ $poolerName }}
+{{- end }}

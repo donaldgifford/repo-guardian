@@ -79,24 +79,69 @@ Example:
 
 ### SLSA provenance
 
-This is the lossy swap. The `slsa-framework/slsa-github-generator`
-reusable workflow runs on a trusted reusable workflow runner and
-produces a SLSA Level 3 provenance attestation — the L3 guarantee is
-that the build environment is isolated from the provenance generator,
-which the reusable workflow gets by construction.
+This is the lossy swap. Both Level 2 and Level 3 produce signed
+in-toto provenance attestations stating "this digest was built from
+this source by this workflow." What changes is whether the build can
+forge its own claims.
 
-The manual replacement builds a SLSA v1.0 provenance JSON in-line
-from `github.*` context vars and signs it with `cosign attest`. This
-gets a signed in-toto attestation attached to the image in the
-registry, but the build and the attestation both run in the same job
-on the same runner, so the L3 isolation property is lost. Effectively
-this is **SLSA Level 2** (signed provenance, but build and signer are
-the same workload).
+| Aspect | L2 | L3 |
+|---|---|---|
+| Provenance signed? | Yes | Yes |
+| Build platform hosted? | Yes (e.g. GHA runners) | Yes |
+| Who generates provenance? | The build job itself | A separately running, trusted workflow the build can't modify |
+| Who holds the signing key? | The build's identity (OIDC token in the build job) | A control plane outside the build's reach |
+| Can the build lie about itself? | **Yes** | **No** |
 
-If you need full SLSA L3 and cannot use the reusable workflow, the
-real fix is to run the provenance step on a separate isolated runner
-or in a separate signed reusable workflow you control — out of scope
-for these examples.
+**Concretely in GitHub Actions:**
+
+- **L2** (this example — `cosign attest` in the same job that built
+  the image): the build job constructs the provenance JSON, signs it
+  with its own OIDC identity, and pushes. Anything with RCE inside
+  the build — a malicious `npm install`, a compromised base image, a
+  goofy `Makefile` — can override what gets written. The signature is
+  valid; the contents can be fiction. The verifier proves "someone
+  with this repo's OIDC identity signed this attestation." It cannot
+  prove the attestation describes reality.
+
+- **L3** (`slsa-framework/slsa-github-generator`): the build job
+  emits the image digest as an output. A separate reusable workflow
+  in a different repo, signed by the SLSA project, takes that digest
+  as input, queries GitHub's API for run metadata, generates the
+  provenance, signs with its own ephemeral OIDC identity, attests.
+  The build job has no way to tamper with the provenance generator's
+  logic, environment, or signing key — they share only the digest
+  string crossing the workflow boundary. The verifier proves "this
+  digest was built by workflow X in repo Y at commit Z." High-
+  confidence reality claim.
+
+**Threat model L3 defends against that L2 doesn't:** an attacker who
+compromises one of your build dependencies (typosquat, malicious PR
+merge, supply-chain attack on a base image) but doesn't get any
+further access. With L2 they can quietly emit "everything's fine"
+provenance signed with your OIDC identity. With L3 they can't,
+because the provenance step isn't running their code.
+
+**When L2 is actually fine:**
+
+- You're the only person who can push to the repo
+- You audit the build steps yourself
+- Consumers aren't running `slsa-verifier` in their install pipeline
+- Compliance documents don't require L3 specifically
+
+**When you need L3:**
+
+- You're publishing artifacts that downstream consumers verify
+  automatically against a specific provenance shape
+- Your security review demands non-forgeable build claims
+- You're publishing to ecosystems (e.g. distroless, Kubernetes core)
+  where L3 is table stakes
+
+If you need full L3 and cannot use the SLSA reusable workflow, the
+real fix is to host an equivalent **trusted control plane** yourself
+— a separately signed reusable workflow you control that takes a
+digest as input and emits provenance from an isolated environment.
+Out of scope for these examples; the manual `cosign attest` pattern
+below is the L2 fallback.
 
 The example pattern:
 

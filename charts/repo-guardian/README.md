@@ -4,13 +4,30 @@ GitHub App that automates repository onboarding and compliance
 
 ## Installation
 
-The chart is published as an OCI artifact at
-`oci://ghcr.io/donaldgifford/charts/repo-guardian` (public, signed
-with cosign keyless, SLSA Level 3 provenance).
+The chart is published as an OCI artifact to two registries — pick
+whichever you prefer. Both are signed with cosign keyless and ship
+SLSA Level 3 provenance attestations.
+
+**GHCR (public, anonymous pull):**
 
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
+  --version 0.7.0 \
+  --namespace repo-guardian \
+  --create-namespace \
+  -f values.yaml
+```
+
+**ECR (private; requires AWS auth):**
+
+```bash
+aws ecr get-login-password --region <region> | \
+  helm registry login <account>.dkr.ecr.<region>.amazonaws.com \
+    --username AWS --password-stdin
+
+helm install repo-guardian \
+  oci://<account>.dkr.ecr.<region>.amazonaws.com/repo-guardian-chart \
   --version 0.7.0 \
   --namespace repo-guardian \
   --create-namespace \

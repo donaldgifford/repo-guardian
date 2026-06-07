@@ -1,0 +1,274 @@
+---
+name: Publish to GHCR
+
+# Called from release.yml after bump-version. Also dispatchable for ad-hoc
+# republishes. Two jobs:
+#   image — push container image when `tag` is supplied
+#   chart — push Helm chart; idempotent via `helm pull` precheck
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Image tag to publish (e.g. v1.8.2). Empty = skip image push.'
+        type: string
+        required: false
+        default: ''
+      dry_run:
+        description: 'Package but do not push.'
+        type: boolean
+        required: false
+        default: false
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag to publish (e.g. v1.8.2). Leave empty to skip image push.'
+        type: string
+        required: false
+        default: ''
+      dry_run:
+        description: 'Package but do not push.'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_REPO: donaldgifford/repo-guardian
+  CHART_NAMESPACE: donaldgifford/charts
+  CHART_NAME: repo-guardian
+
+jobs:
+  image:
+    name: Publish image
+    runs-on: ubuntu-latest
+    if: inputs.tag != ''
+    outputs:
+      digest: ${{ steps.bake.outputs.digest }}
+      published: ${{ steps.bake.outputs.published }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: sigstore/cosign-installer@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ inputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.tag }}
+            type=raw,value=latest
+
+      - name: Build and push image
+        id: bake
+        if: inputs.dry_run != true
+        uses: docker/bake-action@v7
+        with:
+          targets: release
+          source: .
+          files: |
+            docker-bake.hcl
+            ${{ steps.meta.outputs.bake-file-tags }}
+            ${{ steps.meta.outputs.bake-file-labels }}
+          set: |-
+            *.cache-from=type=gha
+            *.cache-to=type=gha,mode=max
+
+      - name: Capture image digest
+        id: digest
+        if: steps.bake.conclusion == 'success' && inputs.dry_run != true
+        run: |
+          digest=$(echo '${{ steps.bake.outputs.metadata }}' | jq -r '.release."containerimage.digest"')
+          if [ -z "${digest}" ] || [ "${digest}" = "null" ]; then
+            echo "ERROR: failed to capture image digest from bake metadata"
+            exit 1
+          fi
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+          echo "published=true" >> "$GITHUB_OUTPUT"
+
+      - name: Sign image with cosign
+        if: steps.digest.outputs.published == 'true'
+        run: |
+          cosign sign --yes \
+            "${REGISTRY}/${IMAGE_REPO}@${{ steps.digest.outputs.digest }}"
+
+      - name: Write image summary
+        if: always()
+        run: |
+          {
+            echo "## GHCR Image Publish"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| Image | \`${REGISTRY}/${IMAGE_REPO}\` |"
+            echo "| Tag | \`${{ inputs.tag }}\` |"
+            echo "| Pushed | \`${{ steps.digest.outputs.published || 'false' }}\` |"
+            if [ -n "${{ steps.digest.outputs.digest }}" ]; then
+              echo "| Digest | \`${{ steps.digest.outputs.digest }}\` |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  image-slsa:
+    name: SLSA provenance (image)
+    needs: image
+    if: needs.image.outputs.published == 'true'
+    permissions:
+      id-token: write
+      packages: write
+      contents: read
+      actions: read
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
+    with:
+      image: ghcr.io/donaldgifford/repo-guardian
+      digest: ${{ needs.image.outputs.digest }}
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+  chart:
+    name: Publish chart
+    runs-on: ubuntu-latest
+    outputs:
+      chart_version: ${{ steps.version.outputs.chart_version }}
+      digest: ${{ steps.push.outputs.digest }}
+      published: ${{ steps.push.outputs.published }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: azure/setup-helm@v5
+      - uses: sigstore/cosign-installer@v3
+
+      - name: Login to GHCR (docker config — for cosign and helm)
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: orhun/git-cliff-action@v4
+        with:
+          config: charts/repo-guardian/cliff.toml
+          args: --include-path "charts/**" --output charts/repo-guardian/CHANGELOG.md
+        env:
+          OUTPUT: charts/repo-guardian/CHANGELOG.md
+
+      - name: Read chart version
+        id: version
+        run: |
+          chart_version=$(yq '.version' charts/repo-guardian/Chart.yaml)
+          echo "chart_version=${chart_version}" >> "$GITHUB_OUTPUT"
+          echo "Chart version: ${chart_version}"
+
+      - name: Check if version already published
+        id: idempotency
+        run: |
+          if helm pull \
+              "oci://${REGISTRY}/${CHART_NAMESPACE}/${CHART_NAME}" \
+              --version "${{ steps.version.outputs.chart_version }}" \
+              --destination /tmp 2>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Chart ${{ steps.version.outputs.chart_version }} already published, skipping."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Helm registry login
+        if: steps.idempotency.outputs.exists != 'true'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            helm registry login "${REGISTRY}" \
+              --username "${{ github.actor }}" \
+              --password-stdin
+
+      - name: Package chart
+        if: steps.idempotency.outputs.exists != 'true'
+        run: helm package charts/repo-guardian
+
+      - name: Upload chart artifact (dispatch only)
+        if: |
+          steps.idempotency.outputs.exists != 'true' &&
+          github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: chart-${{ steps.version.outputs.chart_version }}-ghcr
+          path: ${{ env.CHART_NAME }}-${{ steps.version.outputs.chart_version }}.tgz
+          retention-days: 14
+
+      - name: Push chart
+        id: push
+        if: |
+          steps.idempotency.outputs.exists != 'true' &&
+          inputs.dry_run != true
+        run: |
+          tgz="${CHART_NAME}-${{ steps.version.outputs.chart_version }}.tgz"
+          helm push "${tgz}" "oci://${REGISTRY}/${CHART_NAMESPACE}" 2>&1 | tee /tmp/push.log
+          digest=$(grep -oE 'sha256:[a-f0-9]{64}' /tmp/push.log | head -1)
+          if [ -z "${digest}" ]; then
+            echo "ERROR: failed to capture digest from helm push output"
+            exit 1
+          fi
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+          echo "published=true" >> "$GITHUB_OUTPUT"
+
+      - name: Sign chart with cosign
+        if: steps.push.outputs.published == 'true'
+        run: |
+          cosign sign --yes \
+            "${REGISTRY}/${CHART_NAMESPACE}/${CHART_NAME}@${{ steps.push.outputs.digest }}"
+
+      - name: Write chart summary
+        if: always()
+        run: |
+          {
+            echo "## GHCR Chart Publish"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| Chart | \`${CHART_NAME}\` |"
+            echo "| Version | \`${{ steps.version.outputs.chart_version }}\` |"
+            echo "| Already published | \`${{ steps.idempotency.outputs.exists }}\` |"
+            echo "| Pushed | \`${{ steps.push.outputs.published || 'false' }}\` |"
+            if [ -n "${{ steps.push.outputs.digest }}" ]; then
+              ver="${{ steps.version.outputs.chart_version }}"
+              uri="oci://${REGISTRY}/${CHART_NAMESPACE}/${CHART_NAME}:${ver}"
+              echo "| Digest | \`${{ steps.push.outputs.digest }}\` |"
+              echo "| OCI URL | \`${uri}\` |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  chart-slsa:
+    name: SLSA provenance (chart)
+    needs: chart
+    if: needs.chart.outputs.published == 'true'
+    permissions:
+      id-token: write
+      packages: write
+      contents: read
+      actions: read
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
+    with:
+      image: ghcr.io/donaldgifford/charts/repo-guardian
+      digest: ${{ needs.chart.outputs.digest }}
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}

@@ -115,6 +115,23 @@ In **Settings → Secrets and variables → Actions → Secrets**, set:
 | `ECR_REGION` | AWS region (e.g. `us-east-1`) |
 | `ECR_ROLE_ARN` | `arn:aws:iam::<account>:role/<role-name>` from step 2 |
 
+### 5. Enable the ECR publish gate
+
+The `publish-ecr` job in `release.yml` is **gated off by default** via
+the `ECR_PUBLISH_ENABLED` repo variable. Once steps 1–4 are complete
+and you've validated the workflow with a dry run (see Verification
+below), enable continuous ECR publishing:
+
+In **Settings → Secrets and variables → Actions → Variables**, add:
+
+| Variable name | Value |
+|---|---|
+| `ECR_PUBLISH_ENABLED` | `true` |
+
+Until this variable is set to `true`, releases publish only to GHCR.
+`ecr.yml` remains directly invokable via `workflow_dispatch` for
+standalone testing regardless of the gate.
+
 ## Verification
 
 Run the workflow with `dry_run: true` from the Actions tab → "Publish

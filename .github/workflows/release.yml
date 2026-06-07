@@ -92,6 +92,12 @@ jobs:
   publish-ecr:
     name: Publish to ECR
     needs: bump-version
+    # Disabled by default. Set repo variable ECR_PUBLISH_ENABLED=true
+    # (Settings → Secrets and variables → Actions → Variables) once the
+    # AWS-side prep in docs/operations/ecr-publish-setup.md is complete.
+    # ecr.yml remains directly invokable via workflow_dispatch for
+    # standalone testing regardless of this gate.
+    if: vars.ECR_PUBLISH_ENABLED == 'true'
     uses: ./.github/workflows/ecr.yml
     permissions:
       contents: read

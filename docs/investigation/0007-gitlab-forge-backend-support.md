@@ -11,7 +11,7 @@ created: 2026-05-29
 
 **Status:** Open
 **Author:** Donald Gifford
-**Date:** 2026-05-29
+**Date:** 2026-05-29 (extended 2026-06-08 with Finding 8 + Implementation taxonomy)
 
 <!--toc:start-->
 - [Question](#question)
@@ -26,11 +26,13 @@ created: 2026-05-29
   - [Finding 5 — Rate-limit model](#finding-5--rate-limit-model)
   - [Finding 6 — Wiz consumption (does custom_properties even matter on GitLab?)](#finding-6--wiz-consumption-does-customproperties-even-matter-on-gitlab)
   - [Finding 7 — Auth model](#finding-7--auth-model)
+  - [Finding 8 — Groups as the scope unit](#finding-8--groups-as-the-scope-unit)
 - [Cross-forge feature matrix](#cross-forge-feature-matrix)
   - [File rules](#file-rules)
   - [Setting rules](#setting-rules)
   - [Reconcilers](#reconcilers)
   - [Platform plumbing](#platform-plumbing)
+- [Implementation taxonomy: config-only vs code changes](#implementation-taxonomy-config-only-vs-code-changes)
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
 - [Open questions](#open-questions)
@@ -275,6 +277,55 @@ Cache the token in the existing config surface (or a `forge.gitlab.token`
 HCL block). Document the expiry/rotation responsibility on the
 operator.
 
+### Finding 8 — Groups as the scope unit
+
+DESIGN-0010 introduced `scope { orgs = [...] }` for per-org rule
+scoping on GitHub. The vocabulary needs to generalize for GitLab
+and Forgejo without breaking existing configs.
+
+**Org-like concepts per forge:**
+
+| Forge | Scope unit | Shape |
+|---|---|---|
+| GitHub | Organization | Flat — one level |
+| GitLab | Top-level group | **Hierarchical** — top-level group contains subgroups, projects, more subgroups (arbitrary nesting) |
+| Forgejo | Organization | Flat — Gitea-derived model |
+
+**Three options for the scope vocabulary:**
+
+| Option | Shape | Trade-off |
+|---|---|---|
+| **A.** Keep `scope { orgs = [...] }` | Universal name; values are forge-specific slugs (GitLab top-level group, Forgejo org, GitHub org) | Backward-compatible. Term is GitHub-leaning but operators learn quickly. **Recommended.** |
+| **B.** Rename to `scope { namespaces = [...] }` | Forge-agnostic name | Breaks every existing HCL config; requires migration recipe. Cosmetic win only. |
+| **C.** Polymorphic: `scope { github_orgs, gitlab_groups, forgejo_orgs }` | Per-forge typed fields | Most precise but verbose; loader needs forge-aware dispatch; every operator with > 1 forge writes more YAML. |
+
+**Recommendation: Option A.** `orgs` reads as "logical owners";
+document in the HCL reference that the values map to whatever each
+forge calls its top-level container. No breaking change.
+
+**Subgroup semantics on GitLab.** Top-level groups can contain
+arbitrary subgroup nesting (`myorg/sub/team/project`). The scope
+matcher needs explicit semantics:
+
+| Semantics | Behavior | Verdict |
+|---|---|---|
+| **Top-level only** | `orgs = ["myorg"]` matches `myorg/*` projects but not `myorg/sub/*` | Surprising; operator must explicitly enumerate subgroups. Rejected. |
+| **Recursive (default)** | `orgs = ["myorg"]` matches every project owned by `myorg` at any depth | Matches GitHub flat-org expectations. **Recommended.** |
+| **Explicit only** | `orgs = ["myorg", "myorg/sub"]` — no recursion, no shortcuts | Over-precise; operators write more config; combinatoric for deep hierarchies. Rejected. |
+
+**Recommended default: recursive.** Operators who need narrower
+targeting use the existing glob-pattern support in DESIGN-0010 to
+match specific paths (`orgs = ["myorg/prod-*"]`). This keeps the
+single-org GitHub idiom unchanged while supporting GitLab's
+nesting cleanly.
+
+**Cross-forge scope evaluation:** when multiple forge backends are
+configured, `orgs = [...]` matches against the **fully-qualified
+project owner** for each backend. Two distinct GitLab instances
+both having a top-level group named `platform` are NOT
+ambiguous — they're distinguished by the `forge { ... }` instance
+name, not by the org slug.
+
 ## Cross-forge feature matrix
 
 The repo-guardian feature surface, mapped across all three forges.
@@ -329,6 +380,70 @@ remediator.
 | Rate-limit gate | Per-installation bucket (5k/15k/hr) | Per-user (authed) / per-IP (unauthed); headers `RateLimit-*`; operator-tunable on self-hosted | Operator-configured |
 | Multi-org/instance model | Multi-installation under one App (or per-org Apps per INV-0006) | Multi-instance (each GitLab is its own URL + token) | Multi-instance |
 | Custom-properties consumer | Wiz uses GitHub Custom Properties | Wiz does NOT appear to consume GitLab Topics/Custom Attributes (confirm w/ vendor) | N/A |
+
+## Implementation taxonomy: config-only vs code changes
+
+Adding a new forge backend splits cleanly into three buckets. The
+distinction matters for scoping the work and for setting operator
+expectations about what a future backend toggle costs.
+
+| Bucket | Where | Examples |
+|---|---|---|
+| **Pure HCL config** | Operator sets values in `guardian.hcl`; no code change. | `forge.gitlab.url`, `forge.gitlab.token`, per-forge `scope { orgs }` lists, per-forge `ignore { }` blocks, all rule definitions (paths, templates, assertions), PR template scopes |
+| **Code — forge backend** | New Go code in `internal/forge/<name>/` implementing the `Forge` interface from INV-0004. Built once into the binary. | GitLab API client + auth + rate-limit gate, per-forge webhook payload parser, retry/backoff per forge, Standard Webhooks signing verifier |
+| **Code — forge-aware reconciler logic** | Existing reconciler / rule has different semantics per forge. Branches inside the reconciler. | `branch_protection` reconciler (3-way split on GitLab into Protected Branches + Push Rules + MR Approvals), `codeowners` path strategy, `custom_properties` retargeting to Topics, `dependabot` rule disabled outside GitHub |
+
+**No reconciler or rule is currently "pure config" for a brand-new
+backend.** Every reconciler in the codebase today contains
+GitHub-specific code paths (custom-properties API calls, rulesets
+JSON shape, etc.). Adding a forge means *either* writing the
+forge-side code for each reconciler you want to support, *or*
+having the reconciler return "unavailable on this backend" the
+same way INV-0004 resolved for Forgejo gaps.
+
+**Config knobs a new forge introduces:**
+
+```hcl
+forge "gitlab" "instance-1" {
+  url   = "https://gitlab.example.com"  # required, no default
+  token = env("GITLAB_TOKEN")            # Group Access Token recommended
+  # rate_limit_threshold inherits from guardian {} defaults
+}
+
+forge "github" "default" {
+  # existing GitHub App config; backward-compatible
+  app_id              = env("GITHUB_APP_ID")
+  private_key         = env("GITHUB_PRIVATE_KEY")
+  webhook_secret      = env("WEBHOOK_SECRET")
+}
+```
+
+`forge { }` is keyed by `<type> <name>` so an operator can run
+repo-guardian against multiple GitLab instances (different
+self-hosted servers, or `gitlab.com` + on-prem) from one deployment.
+Each instance is an independent `Forge` instance with its own
+client, rate-limit bucket, and scope.
+
+**Order of work for a fresh backend.** This is the rough sequence
+once a backend gets promoted from INV to DESIGN to IMPL:
+
+1. **Interface compatibility check** — confirm `Forge` covers every
+   method needed, add new methods if not (e.g.,
+   `ManageTopics(ctx, project, []string)` for GitLab).
+2. **Backend package** — `internal/forge/<name>/` implementing the
+   interface, with its own tests.
+3. **Auth + webhook plumbing** — config block, secret loading,
+   webhook handler dispatch (route or header-based).
+4. **Reconciler audit** — for each existing reconciler, add the
+   forge code path OR flag it explicitly unavailable.
+5. **Path / setting strategy adjustments** — `codeowners` paths,
+   merge-strategy enum translation for GitLab, etc.
+6. **Chart values + docs** — `forge.gitlab.*` values, ECR/GHCR
+   parity, operator runbook.
+
+Skipping any one of these surfaces as a runtime failure or as
+silent feature unavailability the operator only discovers from a
+log line.
 
 ## Conclusion
 

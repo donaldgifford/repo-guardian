@@ -13,7 +13,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
-	github.com/zclconf/go-cty v1.16.3
+	github.com/zclconf/go-cty v1.18.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 

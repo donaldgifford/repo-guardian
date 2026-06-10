@@ -183,56 +183,6 @@ guardian {
 	}
 }
 
-func TestLoad_OrgFromHCL(t *testing.T) {
-	dir := t.TempDir()
-	hclFile := filepath.Join(dir, "guardian.hcl")
-
-	content := `
-guardian {
-  org = "testorg"
-}
-`
-
-	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
-		t.Fatalf("writing test file: %v", err)
-	}
-
-	cfg, err := Load(hclFile)
-	if err != nil {
-		t.Fatalf("Load() error: %v", err)
-	}
-
-	if cfg.Guardian.Org != "testorg" {
-		t.Errorf("Guardian.Org = %q, want %q", cfg.Guardian.Org, "testorg")
-	}
-}
-
-func TestLoad_OrgEnvOverridesHCL(t *testing.T) {
-	dir := t.TempDir()
-	hclFile := filepath.Join(dir, "guardian.hcl")
-
-	content := `
-guardian {
-  org = "hcl-org"
-}
-`
-
-	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
-		t.Fatalf("writing test file: %v", err)
-	}
-
-	t.Setenv("GITHUB_ORG", "env-org")
-
-	cfg, err := Load(hclFile)
-	if err != nil {
-		t.Fatalf("Load() error: %v", err)
-	}
-
-	if cfg.Guardian.Org != "env-org" {
-		t.Errorf("Guardian.Org = %q, want %q (env override)", cfg.Guardian.Org, "env-org")
-	}
-}
-
 func TestLoad_InvalidHCLSyntax(t *testing.T) {
 	dir := t.TempDir()
 	hclFile := filepath.Join(dir, "guardian.hcl")

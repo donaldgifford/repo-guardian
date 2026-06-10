@@ -22,7 +22,6 @@ your Helm values under `policy.config`.
 
 ```bash
 export GUARDIAN_CONFIG=path/to/guardian.hcl
-export GITHUB_ORG=myorg
 make run-local
 ```
 
@@ -31,7 +30,6 @@ make run-local
 ```bash
 docker run -v $(pwd)/guardian.hcl:/etc/repo-guardian/policy/guardian.hcl \
   -e GUARDIAN_CONFIG=/etc/repo-guardian/policy/guardian.hcl \
-  -e GITHUB_ORG=myorg \
   repo-guardian:latest
 ```
 
@@ -41,9 +39,6 @@ docker run -v $(pwd)/guardian.hcl:/etc/repo-guardian/policy/guardian.hcl \
 # values.yaml
 policy:
   config: |
-    guardian {
-      org = "myorg"
-    }
     rule "file" "codeowners" {
       # ...
     }
@@ -78,8 +73,6 @@ policy:
 
 - **When HCL is provided, built-in defaults are replaced entirely.** You must
   define all the rules you want — there's no merging with defaults.
-- **`config.org` / `GITHUB_ORG`** sets the org name used in assertion patterns.
-  It can be set in the `guardian {}` block or as an env var (env var wins).
 - **Renovate rules are disabled by default** in built-in defaults. Set
   `enabled = true` to activate them, or define them in your HCL config.
 - **Templates are embedded** in the binary. The HCL `template` field references

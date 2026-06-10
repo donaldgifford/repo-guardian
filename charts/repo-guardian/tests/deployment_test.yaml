@@ -218,25 +218,6 @@ tests:
             name: extra-vol
             mountPath: /extra
 
-  - it: should not set GITHUB_ORG when org is empty
-    asserts:
-      - notContains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: GITHUB_ORG
-          any: true
-
-  - it: should set GITHUB_ORG when org is configured
-    set:
-      config:
-        org: "myorg"
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: GITHUB_ORG
-            value: "myorg"
-
   - it: should support nodeSelector
     set:
       nodeSelector:

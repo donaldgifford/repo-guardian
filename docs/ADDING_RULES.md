@@ -335,10 +335,6 @@ org preset.
 To enable them, add the following to your `guardian.hcl`:
 
 ```hcl
-guardian {
-  org = "donaldgifford"  # or set GITHUB_ORG env var
-}
-
 rule "file" "renovate_workflow" {
   enabled  = true
   check    = "exact"

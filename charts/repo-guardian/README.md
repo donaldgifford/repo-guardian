@@ -279,12 +279,11 @@ incoming webhook.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` | Affinity rules |
-| config | object | `{"appId":"","dryRun":false,"logLevel":"info","metricsPort":9090,"org":"","port":8080,"queueSize":100,"scheduleInterval":"168h","skipArchived":true,"skipForks":true,"workerCount":5}` | repo-guardian application configuration (env vars) |
+| config | object | `{"appId":"","dryRun":false,"logLevel":"info","metricsPort":9090,"port":8080,"queueSize":100,"scheduleInterval":"168h","skipArchived":true,"skipForks":true,"workerCount":5}` | repo-guardian application configuration (env vars) |
 | config.appId | string | `""` | GitHub App ID |
 | config.dryRun | bool | `false` | Dry run mode |
 | config.logLevel | string | `"info"` | Log level (debug, info, warn, error) |
 | config.metricsPort | int | `9090` | Metrics listen port |
-| config.org | string | `""` | GitHub organization name |
 | config.port | int | `8080` | Webhook listen port |
 | config.queueSize | int | `100` | Queue size for check queue |
 | config.scheduleInterval | string | `"168h"` | Reconciliation schedule interval (Go duration) |

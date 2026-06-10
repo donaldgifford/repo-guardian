@@ -81,8 +81,6 @@ readinessProbe:
 config:
   # -- GitHub App ID
   appId: ""
-  # -- GitHub organization name
-  org: ""
   # -- Webhook listen port
   port: 8080
   # -- Metrics listen port

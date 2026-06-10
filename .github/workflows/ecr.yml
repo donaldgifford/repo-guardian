@@ -55,7 +55,7 @@ jobs:
       registry: ${{ steps.registry.outputs.registry }}
       ecr_password: ${{ steps.token.outputs.password }}
     steps:
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
         with:
           role-to-assume: ${{ secrets.ECR_ROLE_ARN }}
           role-session-name: github-actions-repo-guardian-publish
@@ -92,7 +92,7 @@ jobs:
 
       - uses: sigstore/cosign-installer@v3
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
         with:
           role-to-assume: ${{ secrets.ECR_ROLE_ARN }}
           role-session-name: github-actions-repo-guardian-image
@@ -193,7 +193,7 @@ jobs:
       - uses: azure/setup-helm@v5
       - uses: sigstore/cosign-installer@v3
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
         with:
           role-to-assume: ${{ secrets.ECR_ROLE_ARN }}
           role-session-name: github-actions-repo-guardian-chart

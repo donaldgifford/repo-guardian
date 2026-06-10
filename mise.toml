@@ -3,11 +3,17 @@
 # Go
 # renovate: datasource=github-tags depName=golang/go
 go = "1.26.4"
+# renovate: datasource=github-releases depName=segmentio/golines
 golines = "latest"
+# renovate: datasource=go depName=github.com/spf13/cobra-cli
 "go:github.com/spf13/cobra-cli" = "latest"
+# renovate: datasource=go depName=golang.org/x/tools
 "go:golang.org/x/tools/cmd/goimports" = "latest"
+# renovate: datasource=go depName=github.com/vektra/mockery/v2
 "go:github.com/vektra/mockery/v2" = "latest"
+# renovate: datasource=go depName=golang.org/x/tools
 "go:golang.org/x/tools/cmd/godoc" = "latest"
+# renovate: datasource=go depName=github.com/goreleaser/chglog
 "go:github.com/goreleaser/chglog/cmd/chglog" = "latest"
 
 
@@ -21,33 +27,46 @@ yamlfmt = "0.20.0"
 yamllint = "1.37.1"
 # renovate: datasource=npm depName=prettier
 prettier = "3.7.4"
+# renovate: datasource=github-releases depName=donaldgifford/makefmt
 "github:donaldgifford/makefmt" = "latest"
+# renovate: datasource=github-releases depName=mrtazz/checkmake
 checkmake = "latest"
 
 # tools
 # renovate: datasource=github-releases depName=mikefarah/yq
 yq = "4.48.1"
+# renovate: datasource=github-releases depName=jqlang/jq
 jq = "latest"
+# renovate: datasource=github-releases depName=donaldgifford/docz
 "github:donaldgifford/docz" = "latest"
 
 
 # Release tools
 # renovate: datasource=github-releases depName=golangci/golangci-lint
 golangci-lint = "2.12.2"
+# renovate: datasource=github-releases depName=orhun/git-cliff
 git-cliff = "latest"
 
 # Security
+# renovate: datasource=github-releases depName=aquasecurity/trivy
 trivy = "latest"
+# renovate: datasource=github-releases depName=anchore/syft
 syft = "latest"
+# renovate: datasource=go depName=golang.org/x/vuln
 "go:golang.org/x/vuln/cmd/govulncheck" = "latest"
 
 # Compliance
+# renovate: datasource=go depName=github.com/google/go-licenses
 "go:github.com/google/go-licenses" = "latest"
 
 # helm
 # renovate: datasource=github-releases depName=helm/helm
 helm = "3.19.0"
+# renovate: datasource=github-releases depName=helm/chart-testing
 helm-ct = "latest"
+# renovate: datasource=github-releases depName=databus23/helm-diff
 helm-diff = "latest"
+# renovate: datasource=github-releases depName=norwoodj/helm-docs
 helm-docs = "latest"
+# renovate: datasource=github-releases depName=sigstore/cosign
 cosign = "latest"

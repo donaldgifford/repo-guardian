@@ -1,6 +1,7 @@
 [tools]
 
 # Go
+# renovate: datasource=github-tags depName=golang/go
 go = "1.26.4"
 golines = "latest"
 "go:github.com/spf13/cobra-cli" = "latest"
@@ -12,20 +13,26 @@ golines = "latest"
 
 # Repo utilities
 # Formatters and linters
+# renovate: datasource=github-releases depName=DavidAnson/markdownlint-cli2
 markdownlint-cli2 = "0.18.1"
+# renovate: datasource=github-releases depName=google/yamlfmt
 yamlfmt = "0.20.0"
+# renovate: datasource=github-tags depName=adrienverge/yamllint
 yamllint = "1.37.1"
+# renovate: datasource=npm depName=prettier
 prettier = "3.7.4"
 "github:donaldgifford/makefmt" = "latest"
 checkmake = "latest"
 
 # tools
+# renovate: datasource=github-releases depName=mikefarah/yq
 yq = "4.48.1"
 jq = "latest"
 "github:donaldgifford/docz" = "latest"
 
 
 # Release tools
+# renovate: datasource=github-releases depName=golangci/golangci-lint
 golangci-lint = "2.12.2"
 git-cliff = "latest"
 
@@ -38,6 +45,7 @@ syft = "latest"
 "go:github.com/google/go-licenses" = "latest"
 
 # helm
+# renovate: datasource=github-releases depName=helm/helm
 helm = "3.19.0"
 helm-ct = "latest"
 helm-diff = "latest"

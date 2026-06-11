@@ -1,13 +1,13 @@
 ---
 id: INV-0007
-title: "GitLab forge backend support"
+title: "GitLab provider backend support"
 status: Open
 author: Donald Gifford
 created: 2026-05-29
 ---
 <!-- markdownlint-disable-file MD025 MD041 -->
 
-# INV 0007: GitLab forge backend support
+# INV 0007: GitLab provider backend support
 
 **Status:** Open
 **Author:** Donald Gifford
@@ -27,7 +27,7 @@ created: 2026-05-29
   - [Finding 6 — Wiz consumption (does custom_properties even matter on GitLab?)](#finding-6--wiz-consumption-does-customproperties-even-matter-on-gitlab)
   - [Finding 7 — Auth model](#finding-7--auth-model)
   - [Finding 8 — Groups as the scope unit](#finding-8--groups-as-the-scope-unit)
-- [Cross-forge feature matrix](#cross-forge-feature-matrix)
+- [Cross-provider feature matrix](#cross-provider-feature-matrix)
   - [File rules](#file-rules)
   - [Setting rules](#setting-rules)
   - [Reconcilers](#reconcilers)
@@ -41,8 +41,8 @@ created: 2026-05-29
 
 ## Question
 
-INV-0004 established a `Forge` interface seam for Forgejo. Can we
-add **GitLab** as a third forge backend alongside GitHub and
+INV-0004 established a `Provider` interface seam for Forgejo. Can we
+add **GitLab** as a third provider backend alongside GitHub and
 Forgejo, and what are the GitLab-specific differences in:
 
 1. **API surface + Go SDK** — what's the supported Go client in
@@ -65,7 +65,7 @@ Forgejo, and what are the GitLab-specific differences in:
 
 GitLab's API is rich enough to support the core file-CRUD + MR +
 labels path with minimal vendor-conditional code, slotting into the
-existing `Forge` interface from INV-0004. The likely friction
+existing `Provider` interface from INV-0004. The likely friction
 points:
 
 - **No GitHub-App equivalent.** Auth becomes per-instance +
@@ -88,7 +88,7 @@ exists.
 discussion (2026-05-29). The same operator runs 20+ GitHub orgs
 plus a few self-hosted GitLab instances. INV-0006 clarified that
 GitLab support is orthogonal to per-org-app-credentials — it sits
-behind the existing `Forge` abstraction (INV-0004).
+behind the existing `Provider` abstraction (INV-0004).
 
 This investigation captures the GitLab-specific shape so that when
 the operator is ready to onboard the GitLab instances, the work
@@ -96,10 +96,10 @@ isn't blocked on a clean-slate analysis.
 
 ## Approach
 
-1. Confirm the `Forge` interface seam from INV-0004 covers the
+1. Confirm the `Provider` interface seam from INV-0004 covers the
    GitLab method set.
 2. Identify the supported Go SDK for GitLab in 2026.
-3. Cross-reference each `Forge` method against the GitLab REST
+3. Cross-reference each `Provider` method against the GitLab REST
    API v4 and map 1:1 / requires-translation / no-equivalent.
 4. Audit GitLab's auth model — PAT, Project Access Token, Group
    Access Token, OAuth app — and decide which fits the
@@ -108,7 +108,7 @@ isn't blocked on a clean-slate analysis.
    GitHub's existing handler.
 6. Inspect GitLab's rate-limit headers and map them onto the
    sweeper's `RateLimitRemaining` gate.
-7. Build a cross-forge feature matrix covering every rule,
+7. Build a cross-provider feature matrix covering every rule,
    setting, and reconciler in repo-guardian today, so the gaps
    are explicit before design begins.
 8. Confirm whether Wiz (the primary downstream consumer of the
@@ -153,12 +153,12 @@ Different syntax.**
 
 **Implications for the `codeowners` file rule:**
 
-- Path strategy must be forge-aware. GitHub-migrated repos
+- Path strategy must be provider-aware. GitHub-migrated repos
   carrying `.github/CODEOWNERS` are silently uncovered on both
-  GitLab and Forgejo. The `FileRule` registry needs forge-specific
+  GitLab and Forgejo. The `FileRule` registry needs provider-specific
   `Paths` resolution at check time.
 - The current rule body (stamp a default CODEOWNERS pointing at
-  the default reviewer team) is the same shape on every forge —
+  the default reviewer team) is the same shape on every provider —
   only the path changes.
 - Document clearly that Forgejo CODEOWNERS is advisory-only —
   setting up the file does NOT block merges without owner approval.
@@ -199,8 +199,8 @@ instance-administrator rights, which violates least-privilege.
 event-type-specific top-level keys (`object_kind: "push" |
 "merge_request" | ...`), nested `project` and `user` objects, and
 entirely different field names. **Not drop-in compatible** —
-`internal/webhook/` needs per-forge schema dispatch (route by
-header, then dispatch to a per-forge parser).
+`internal/webhook/` needs per-provider schema dispatch (route by
+header, then dispatch to a per-provider parser).
 
 ### Finding 5 — Rate-limit model
 
@@ -222,7 +222,7 @@ operator-configurable on self-hosted.**
   warning in headers.
 
 **Implication:** `Client.RateLimitRemaining(installationID)`
-should be polymorphic over forge — the parameter changes semantic
+should be polymorphic over provider — the parameter changes semantic
 meaning per backend. On GitLab, the "installation ID" maps to the
 token identity (or the project group). The reserve-gate logic in
 `internal/checker/sweep.go` itself is reusable; only the lookup
@@ -273,7 +273,7 @@ tokens are long-lived (configurable expiry, no auto-rotation).
 
 **Recommendation:** default to a **Group Access Token** for the
 reconciler, scoped to the group containing the managed projects.
-Cache the token in the existing config surface (or a `forge.gitlab.token`
+Cache the token in the existing config surface (or a `provider.gitlab.token`
 HCL block). Document the expiry/rotation responsibility on the
 operator.
 
@@ -283,9 +283,9 @@ DESIGN-0010 introduced `scope { orgs = [...] }` for per-org rule
 scoping on GitHub. The vocabulary needs to generalize for GitLab
 and Forgejo without breaking existing configs.
 
-**Org-like concepts per forge:**
+**Org-like concepts per provider:**
 
-| Forge | Scope unit | Shape |
+| Provider | Scope unit | Shape |
 |---|---|---|
 | GitHub | Organization | Flat — one level |
 | GitLab | Top-level group | **Hierarchical** — top-level group contains subgroups, projects, more subgroups (arbitrary nesting) |
@@ -295,13 +295,13 @@ and Forgejo without breaking existing configs.
 
 | Option | Shape | Trade-off |
 |---|---|---|
-| **A.** Keep `scope { orgs = [...] }` | Universal name; values are forge-specific slugs (GitLab top-level group, Forgejo org, GitHub org) | Backward-compatible. Term is GitHub-leaning but operators learn quickly. **Recommended.** |
-| **B.** Rename to `scope { namespaces = [...] }` | Forge-agnostic name | Breaks every existing HCL config; requires migration recipe. Cosmetic win only. |
-| **C.** Polymorphic: `scope { github_orgs, gitlab_groups, forgejo_orgs }` | Per-forge typed fields | Most precise but verbose; loader needs forge-aware dispatch; every operator with > 1 forge writes more YAML. |
+| **A.** Keep `scope { orgs = [...] }` | Universal name; values are provider-specific slugs (GitLab top-level group, Forgejo org, GitHub org) | Backward-compatible. Term is GitHub-leaning but operators learn quickly. **Recommended.** |
+| **B.** Rename to `scope { namespaces = [...] }` | Provider-agnostic name | Breaks every existing HCL config; requires migration recipe. Cosmetic win only. |
+| **C.** Polymorphic: `scope { github_orgs, gitlab_groups, forgejo_orgs }` | Per-provider typed fields | Most precise but verbose; loader needs provider-aware dispatch; every operator with > 1 provider writes more YAML. |
 
 **Recommendation: Option A.** `orgs` reads as "logical owners";
 document in the HCL reference that the values map to whatever each
-forge calls its top-level container. No breaking change.
+provider calls its top-level container. No breaking change.
 
 **Subgroup semantics on GitLab.** Top-level groups can contain
 arbitrary subgroup nesting (`myorg/sub/team/project`). The scope
@@ -319,16 +319,16 @@ match specific paths (`orgs = ["myorg/prod-*"]`). This keeps the
 single-org GitHub idiom unchanged while supporting GitLab's
 nesting cleanly.
 
-**Cross-forge scope evaluation:** when multiple forge backends are
+**Cross-provider scope evaluation:** when multiple provider backends are
 configured, `orgs = [...]` matches against the **fully-qualified
 project owner** for each backend. Two distinct GitLab instances
 both having a top-level group named `platform` are NOT
-ambiguous — they're distinguished by the `forge { ... }` instance
+ambiguous — they're distinguished by the `provider { ... }` instance
 name, not by the org slug.
 
-## Cross-forge feature matrix
+## Cross-provider feature matrix
 
-The repo-guardian feature surface, mapped across all three forges.
+The repo-guardian feature surface, mapped across all three providers.
 Legend: **✓** = directly supported, **~** = supported with
 caveats, **✗** = not supported, **N/A** = concept doesn't apply.
 
@@ -357,7 +357,7 @@ caveats, **✗** = not supported, **N/A** = concept doesn't apply.
 
 GitLab merge-strategy settings need an HCL-level translation:
 GitLab's `merge_method` is a single enum, while GitHub exposes
-three booleans. The setting-rule schema may need a forge-aware
+three booleans. The setting-rule schema may need a provider-aware
 remediator.
 
 ### Reconcilers
@@ -383,34 +383,34 @@ remediator.
 
 ## Implementation taxonomy: config-only vs code changes
 
-Adding a new forge backend splits cleanly into three buckets. The
+Adding a new provider backend splits cleanly into three buckets. The
 distinction matters for scoping the work and for setting operator
 expectations about what a future backend toggle costs.
 
 | Bucket | Where | Examples |
 |---|---|---|
-| **Pure HCL config** | Operator sets values in `guardian.hcl`; no code change. | `forge.gitlab.url`, `forge.gitlab.token`, per-forge `scope { orgs }` lists, per-forge `ignore { }` blocks, all rule definitions (paths, templates, assertions), PR template scopes |
-| **Code — forge backend** | New Go code in `internal/forge/<name>/` implementing the `Forge` interface from INV-0004. Built once into the binary. | GitLab API client + auth + rate-limit gate, per-forge webhook payload parser, retry/backoff per forge, Standard Webhooks signing verifier |
-| **Code — forge-aware reconciler logic** | Existing reconciler / rule has different semantics per forge. Branches inside the reconciler. | `branch_protection` reconciler (3-way split on GitLab into Protected Branches + Push Rules + MR Approvals), `codeowners` path strategy, `custom_properties` retargeting to Topics, `dependabot` rule disabled outside GitHub |
+| **Pure HCL config** | Operator sets values in `guardian.hcl`; no code change. | `provider.gitlab.url`, `provider.gitlab.token`, per-provider `scope { orgs }` lists, per-provider `ignore { }` blocks, all rule definitions (paths, templates, assertions), PR template scopes |
+| **Code — provider backend** | New Go code in `internal/provider/<name>/` implementing the `Provider` interface from INV-0004. Built once into the binary. | GitLab API client + auth + rate-limit gate, per-provider webhook payload parser, retry/backoff per provider, Standard Webhooks signing verifier |
+| **Code — provider-aware reconciler logic** | Existing reconciler / rule has different semantics per provider. Branches inside the reconciler. | `branch_protection` reconciler (3-way split on GitLab into Protected Branches + Push Rules + MR Approvals), `codeowners` path strategy, `custom_properties` retargeting to Topics, `dependabot` rule disabled outside GitHub |
 
 **No reconciler or rule is currently "pure config" for a brand-new
 backend.** Every reconciler in the codebase today contains
 GitHub-specific code paths (custom-properties API calls, rulesets
-JSON shape, etc.). Adding a forge means *either* writing the
-forge-side code for each reconciler you want to support, *or*
+JSON shape, etc.). Adding a provider means *either* writing the
+provider-side code for each reconciler you want to support, *or*
 having the reconciler return "unavailable on this backend" the
 same way INV-0004 resolved for Forgejo gaps.
 
-**Config knobs a new forge introduces:**
+**Config knobs a new provider introduces:**
 
 ```hcl
-forge "gitlab" "instance-1" {
+provider "gitlab" "instance-1" {
   url   = "https://gitlab.example.com"  # required, no default
   token = env("GITLAB_TOKEN")            # Group Access Token recommended
   # rate_limit_threshold inherits from guardian {} defaults
 }
 
-forge "github" "default" {
+provider "github" "default" {
   # existing GitHub App config; backward-compatible
   app_id              = env("GITHUB_APP_ID")
   private_key         = env("GITHUB_PRIVATE_KEY")
@@ -418,27 +418,27 @@ forge "github" "default" {
 }
 ```
 
-`forge { }` is keyed by `<type> <name>` so an operator can run
+`provider { }` is keyed by `<type> <name>` so an operator can run
 repo-guardian against multiple GitLab instances (different
 self-hosted servers, or `gitlab.com` + on-prem) from one deployment.
-Each instance is an independent `Forge` instance with its own
+Each instance is an independent `Provider` instance with its own
 client, rate-limit bucket, and scope.
 
 **Order of work for a fresh backend.** This is the rough sequence
 once a backend gets promoted from INV to DESIGN to IMPL:
 
-1. **Interface compatibility check** — confirm `Forge` covers every
+1. **Interface compatibility check** — confirm `Provider` covers every
    method needed, add new methods if not (e.g.,
    `ManageTopics(ctx, project, []string)` for GitLab).
-2. **Backend package** — `internal/forge/<name>/` implementing the
+2. **Backend package** — `internal/provider/<name>/` implementing the
    interface, with its own tests.
 3. **Auth + webhook plumbing** — config block, secret loading,
    webhook handler dispatch (route or header-based).
 4. **Reconciler audit** — for each existing reconciler, add the
-   forge code path OR flag it explicitly unavailable.
+   provider code path OR flag it explicitly unavailable.
 5. **Path / setting strategy adjustments** — `codeowners` paths,
    merge-strategy enum translation for GitLab, etc.
-6. **Chart values + docs** — `forge.gitlab.*` values, ECR/GHCR
+6. **Chart values + docs** — `provider.gitlab.*` values, ECR/GHCR
    parity, operator runbook.
 
 Skipping any one of these surfaces as a runtime failure or as
@@ -450,7 +450,7 @@ log line.
 **Answer:** _Inconclusive pending execution_ — but the preliminary
 research is strong enough to scope the work:
 
-- **Feasible.** The `Forge` interface seam from INV-0004 absorbs
+- **Feasible.** The `Provider` interface seam from INV-0004 absorbs
   GitLab cleanly. The community Go SDK is stable, well-maintained,
   and at v1.8.1.
 - **Largest gaps:** `custom_properties` (Topics is the only
@@ -461,10 +461,10 @@ research is strong enough to scope the work:
 - **Smallest gaps:** file CRUD, MR (PR) operations, labels,
   comments. These map 1:1 with renames only.
 - **Path strategy gap:** `codeowners` file rule's hard-coded
-  `.github/CODEOWNERS` default needs forge-aware path resolution
+  `.github/CODEOWNERS` default needs provider-aware path resolution
   — not just GitLab, but Forgejo too.
 - **Webhook handler refactor required.** Standard Webhooks
-  signing dispatch + per-forge payload parser. Not trivial; needs
+  signing dispatch + per-provider payload parser. Not trivial; needs
   its own DESIGN doc.
 
 ## Recommendation
@@ -472,18 +472,18 @@ research is strong enough to scope the work:
 **Promote to DESIGN when operator is ready to onboard GitLab
 instances.** Specifically, the DESIGN doc should cover:
 
-1. The `Forge` interface contract — confirm INV-0004's seam,
+1. The `Provider` interface contract — confirm INV-0004's seam,
    identify any new methods needed (e.g.,
    `ManageTopics(ctx, project, []string)`).
 2. Auth strategy — Group Access Token as default, with
    per-instance config block.
-3. Webhook router — Standard Webhooks signing dispatch, per-forge
+3. Webhook router — Standard Webhooks signing dispatch, per-provider
    payload parser, route prefix or header-based dispatch.
 4. The `branch_protection` reconciler split for GitLab (Protected
    Branches API + MR Approval Settings + Push Rules).
 5. Topics-vs-Custom-Properties decision for `custom_properties`,
    pending the Wiz-consumption confirmation.
-6. Helm chart auth surface (`forge.gitlab.token` block,
+6. Helm chart auth surface (`provider.gitlab.token` block,
    `existingSecret` plumbing).
 7. Migration recipe — how an operator running repo-guardian
    against GitHub today adds a GitLab instance without disturbing
@@ -506,7 +506,7 @@ investigation itself:
   prefer Service Accounts over Group Access Tokens. Confirm
   edition.
 - **(d)** Webhook URL routing — single `/webhook` with header-based
-  dispatch (recommended), or per-forge route prefix
+  dispatch (recommended), or per-provider route prefix
   (`/webhook/github`, `/webhook/gitlab`, `/webhook/forgejo`)?
   Single-route + header dispatch reuses existing IP-allowlist
   middleware patterns more cleanly.
@@ -514,11 +514,11 @@ investigation itself:
 ## References
 
 - [INV-0004](0004-forge-interface-and-package-refactor-for-forgejo-backend.md)
-  — established the `Forge` interface seam this backend slots
+  — established the `Provider` interface seam this backend slots
   into. Required reading before executing this investigation.
 - [INV-0002](0002-multi-org-and-forgejo-support-for-repo-guardian.md)
-  — earlier multi-forge thinking; predates the current
-  `Forge`-abstraction layout.
+  — earlier multi-provider thinking; predates the current
+  `Provider`-abstraction layout.
 - [INV-0006](0006-per-org-github-app-credentials.md) — the
   conversation that surfaced this question. INV-0006 clarified
   that GitLab support is orthogonal to per-org-app-credentials.

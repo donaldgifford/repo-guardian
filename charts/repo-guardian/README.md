@@ -13,7 +13,7 @@ SLSA Level 3 provenance attestations.
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 0.7.0 \
+  --version 0.7.1 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -28,7 +28,7 @@ aws ecr get-login-password --region <region> | \
 
 helm install repo-guardian \
   oci://<account>.dkr.ecr.<region>.amazonaws.com/repo-guardian-chart \
-  --version 0.7.0 \
+  --version 0.7.1 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -64,7 +64,7 @@ secrets:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 0.7.0 \
+  --version 0.7.1 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -158,7 +158,7 @@ cosign verify \
     '^https://github.com/donaldgifford/repo-guardian/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:0.7.0
+  ghcr.io/donaldgifford/charts/repo-guardian:0.7.1
 ```
 
 ### SLSA provenance
@@ -169,7 +169,7 @@ cosign verify-attestation --type slsaprovenance \
     '^https://github.com/slsa-framework/slsa-github-generator/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:0.7.0
+  ghcr.io/donaldgifford/charts/repo-guardian:0.7.1
 ```
 
 The provenance attestation records the build workflow path, source
@@ -279,12 +279,11 @@ incoming webhook.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` | Affinity rules |
-| config | object | `{"appId":"","dryRun":false,"logLevel":"info","metricsPort":9090,"org":"","port":8080,"queueSize":100,"scheduleInterval":"168h","skipArchived":true,"skipForks":true,"workerCount":5}` | repo-guardian application configuration (env vars) |
+| config | object | `{"appId":"","dryRun":false,"logLevel":"info","metricsPort":9090,"port":8080,"queueSize":100,"scheduleInterval":"168h","skipArchived":true,"skipForks":true,"workerCount":5}` | repo-guardian application configuration (env vars) |
 | config.appId | string | `""` | GitHub App ID |
 | config.dryRun | bool | `false` | Dry run mode |
 | config.logLevel | string | `"info"` | Log level (debug, info, warn, error) |
 | config.metricsPort | int | `9090` | Metrics listen port |
-| config.org | string | `""` | GitHub organization name |
 | config.port | int | `8080` | Webhook listen port |
 | config.queueSize | int | `100` | Queue size for check queue |
 | config.scheduleInterval | string | `"168h"` | Reconciliation schedule interval (Go duration) |

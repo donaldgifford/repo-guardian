@@ -11,11 +11,6 @@
 #
 # Usage:
 #   export GUARDIAN_CONFIG=examples/guardian-renovate.hcl
-#   export GITHUB_ORG=myorg        # or set org below
-
-guardian {
-  org = "myorg"   # used in the assertion pattern below
-}
 
 # --- Standard file rules (enabled by default) ---
 

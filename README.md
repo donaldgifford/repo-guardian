@@ -60,7 +60,6 @@ All configuration is via environment variables (12-factor):
 | `WEBHOOK_IP_ALLOWLIST` | No | `true` | Enable GitHub webhook IP allowlist middleware |
 | `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN` | No | `false` | Allow requests when IP ranges are unavailable |
 | `TRUST_PROXY_HEADERS` | No | `false` | Read client IP from `X-Forwarded-For` header |
-| `GITHUB_ORG` | No | `""` | GitHub org/user name for org-specific assertion patterns |
 | `GUARDIAN_CONFIG` | No | `""` | Path to HCL policy config file or directory |
 
 *One of `GITHUB_PRIVATE_KEY_PATH` or `GITHUB_PRIVATE_KEY` is required (mutually exclusive).
@@ -110,10 +109,6 @@ rule "file" "catalog-info" {
 **Enabling Renovate rules:**
 
 ```hcl
-guardian {
-  org = "myorg"  # or set GITHUB_ORG env var
-}
-
 rule "file" "renovate_workflow" {
   enabled  = true
   check    = "exact"

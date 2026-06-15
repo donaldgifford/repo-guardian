@@ -34,10 +34,6 @@ func TestExampleHCL_Renovate(t *testing.T) {
 	if len(cfg.FileRules) != 4 {
 		t.Errorf("FileRules count = %d, want 4", len(cfg.FileRules))
 	}
-
-	if cfg.Guardian.Org != "myorg" {
-		t.Errorf("Guardian.Org = %q, want %q", cfg.Guardian.Org, "myorg")
-	}
 }
 
 func TestExampleHCL_Full(t *testing.T) {

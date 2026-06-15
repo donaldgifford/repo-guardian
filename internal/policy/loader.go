@@ -382,8 +382,6 @@ func decodeGuardianBlock(block *hcl.Block, ctx *hcl.EvalContext) (*GuardianConfi
 
 func setGuardianAttr(g *GuardianConfig, name string, val cty.Value) {
 	switch name {
-	case "org":
-		g.Org = val.AsString()
 	case "dry_run":
 		g.DryRun = val.True()
 	case "schedule_interval":
@@ -943,10 +941,6 @@ func hclConfigToPolicy(raw *hclConfig) *PolicyConfig {
 }
 
 func mergeGuardianConfig(dst, src *GuardianConfig) {
-	if src.Org != "" {
-		dst.Org = src.Org
-	}
-
 	if src.DryRun {
 		dst.DryRun = true
 	}
@@ -993,7 +987,6 @@ func mergeGuardianConfig(dst, src *GuardianConfig) {
 }
 
 func applyEnvOverrides(g *GuardianConfig) {
-	applyEnvString("GITHUB_ORG", &g.Org)
 	applyEnvBool("DRY_RUN", &g.DryRun)
 	applyEnvString("SCHEDULE_INTERVAL", &g.ScheduleInterval)
 	applyEnvInt("WORKER_COUNT", &g.WorkerCount)

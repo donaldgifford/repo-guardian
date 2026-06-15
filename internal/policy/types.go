@@ -65,7 +65,6 @@ type DefaultsConfig struct {
 
 // GuardianConfig holds operational settings for the guardian application.
 type GuardianConfig struct {
-	Org                        string  `hcl:"org,optional"`
 	DryRun                     bool    `hcl:"dry_run,optional"`
 	ScheduleInterval           string  `hcl:"schedule_interval,optional"`
 	WorkerCount                int     `hcl:"worker_count,optional"`

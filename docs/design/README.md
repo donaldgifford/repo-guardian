@@ -46,4 +46,7 @@ docz create design "Your Design Title"
 | DESIGN-0012 | Persistent reconcile state and multi-replica coordination | Implemented | 2026-05-02 | Donald Gifford | [0012-persistent-reconcile-state-and-multi-replica-coordination.md](0012-persistent-reconcile-state-and-multi-replica-coordination.md) |
 | DESIGN-0013 | Customizable PR templates and extensible template ConfigMap | Implemented | 2026-05-03 | Donald Gifford | [0013-customizable-pr-templates-and-extensible-template-configmap.md](0013-customizable-pr-templates-and-extensible-template-configmap.md) |
 | DESIGN-0014 | Remove legacy engine path and deprecated overlays | Implemented | 2026-05-28 | Donald Gifford | [0014-remove-legacy-engine-path-and-deprecated-overlays.md](0014-remove-legacy-engine-path-and-deprecated-overlays.md) |
+| DESIGN-0015 | Per-installation Valkey queue partitioning | Draft | 2026-06-22 | Donald Gifford | [0015-per-installation-valkey-queue-partitioning.md](0015-per-installation-valkey-queue-partitioning.md) |
+| DESIGN-0016 | Separate Postgres read and write endpoints | Draft | 2026-06-22 | Donald Gifford | [0016-separate-postgres-read-and-write-endpoints.md](0016-separate-postgres-read-and-write-endpoints.md) |
+| DESIGN-0017 | Stale-sweep cutover and repository discovery | Draft | 2026-06-22 | Donald Gifford | [0017-stale-sweep-cutover-and-repository-discovery.md](0017-stale-sweep-cutover-and-repository-discovery.md) |
 <!-- END DOCZ AUTO-GENERATED -->

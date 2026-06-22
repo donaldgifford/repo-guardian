@@ -20,7 +20,10 @@ created: 2026-06-22
   - [Non-Goals](#non-goals)
 - [Background](#background)
 - [Detailed Design](#detailed-design)
-  - [Cold-start enqueue pacing](#cold-start-enqueue-pacing)
+  - [Pacing — two layered mechanisms](#pacing--two-layered-mechanisms)
+  - [Layer 1 — Budget-aware enqueueing (primary)](#layer-1--budget-aware-enqueueing-primary)
+  - [Layer 2 — Jittered initial last_checked_at (secondary)](#layer-2--jittered-initial-last_checked_at-secondary)
+  - [Cross-replica coordination](#cross-replica-coordination)
   - [Discovery-only Sweeper mode](#discovery-only-sweeper-mode)
   - [Webhook-driven incremental discovery](#webhook-driven-incremental-discovery)
   - [Periodic reconciliation discovery](#periodic-reconciliation-discovery)
@@ -127,45 +130,166 @@ bootstraps.
 
 ## Detailed Design
 
-### Cold-start enqueue pacing
+### Pacing — two layered mechanisms
 
-When a fresh deployment encounters an existing fleet, the Store is empty and
-every repo qualifies as stale. The current StaleSweeper would issue
-`StaleRepos(batchSize=200, …)` → enqueue 200 → repeat next tick → enqueue 200 →
-… eventually catching up.
+Two distinct concerns sit underneath "don't burn the API budget":
 
-That pacing is correct in shape but breaks down because the **discovery step**
-(populating the Store) happens via the legacy Sweeper, which doesn't pace —
-it dumps all 3000 repos in one tick.
-
-The fix: split discovery from enqueueing.
-
-```
-Discovery (slow, controlled):
-    ListInstallations() → ListInstallationRepos() → for each repo not in Store: INSERT row with
-    last_checked_at = NOW() - rand(0, freshness*2)
-
-StaleSweeper (existing):
-    StaleRepos(freshness, …) returns repos whose last_checked_at is older than freshness.
-    The jittered initial last_checked_at staggers the cold-start enqueue across multiple
-    sweep ticks.
-```
-
-The randomised initial `last_checked_at` means cold start enqueues a fraction of
-the fleet per tick, naturally pacing against rate-limit budgets. Example with
-freshness=24h, 3000 repos, sweep_interval=1h:
-
-| Sweep tick | Repos with last_checked_at > 24h old | Enqueued (approx.) |
+| Concern | Timescale | Mechanism |
 |---|---|---|
-| 1 | ~125 (those in [24h, 26h] jitter band) | 125 |
-| 2 | next 125 | 125 |
-| … | … | … |
-| 24 | last 125 | 125 |
-| 25 | repos reconciled in tick 1 are now stale → cycle repeats | 125 |
+| Avoid enqueueing more work per tick than the installation's current rate-limit budget can absorb | Within a single sweep tick | **Budget-aware enqueueing** (Layer 1) — reads `RateLimitRemaining`, deducts an estimated cost per repo, gates further enqueues when budget would dip below a configured reserve |
+| Avoid having every repo go stale on the same tick (post-cold-start synchronisation) | Across multiple sweep ticks | **Jittered initial `last_checked_at`** (Layer 2) — spreads first-observation timestamps so stale candidates trickle in over time instead of arriving in lockstep |
 
-Steady-state is reached in 24 sweep ticks (24 hours at 1h cadence). Worst-case
-API consumption is ~125 repos × 10 calls = 1250 API calls per tick, well within
-even a single installation's 5000/hr budget.
+Layer 1 is the primary throughput control. Layer 2 is the smoothing-over-time
+mechanism that avoids synchronisation effects. Both are cheap; both are easy to
+observe via Prometheus metrics; they layer cleanly.
+
+### Layer 1 — Budget-aware enqueueing (primary)
+
+Each installation has a `BudgetTracker`:
+
+```go
+type BudgetTracker struct {
+    installationID int64
+    limit          int           // hourly cap (5000 non-enterprise; 12500 GHEC)
+    remaining      int           // live counter, decremented after each Enqueue
+    resetAt        time.Time     // GitHub-reported reset time
+    reserve        float64       // fraction to NOT touch (default 0.20)
+    costPerRepo    int           // estimated API calls per reconcile (default 10)
+}
+
+func (bt *BudgetTracker) SpendableForEnqueue() int {
+    if time.Now().After(bt.resetAt) {
+        bt.RefreshFromAPI()  // pulls fresh remaining + reset from GitHub
+    }
+    reserveCount := int(float64(bt.limit) * bt.reserve)
+    spendable := bt.remaining - reserveCount
+    if spendable <= 0 { return 0 }
+    return spendable / bt.costPerRepo
+}
+```
+
+The Scheduler leader (StaleSweeper + Discoverer) consults the tracker before
+every Enqueue decision:
+
+```go
+// In StaleSweeper.SweepStale
+candidates, _ := s.store.StaleRepos(ctx, freshness, policyVersion, batchSize)
+budgets := map[int64]int{}                                  // available slots per installation
+for _, c := range candidates {
+    if budgets[c.InstallationID] == 0 {
+        budgets[c.InstallationID] = s.trackers[c.InstallationID].SpendableForEnqueue()
+    }
+    if budgets[c.InstallationID] <= 0 {
+        metrics.EnqueueGatedByBudget.WithLabelValues(strconv.FormatInt(c.InstallationID, 10)).Inc()
+        continue
+    }
+    s.queue.Enqueue(ctx, jobFromRepo(c))
+    budgets[c.InstallationID]--
+    s.trackers[c.InstallationID].remaining -= s.trackers[c.InstallationID].costPerRepo
+}
+```
+
+**Key properties:**
+
+- **Aggressive within bounds.** The leader spends all available budget down to
+  the reserve floor every tick. No artificial "go slow at the start" behaviour
+  beyond what the budget itself enforces.
+- **Reactive to actual state.** The tracker refreshes from
+  `Client.RateLimitRemaining` on tick start (or when `resetAt` elapses), so
+  webhook-triggered consumption that happened between ticks is observed.
+- **Costed in advance.** `costPerRepo` is an estimate; actual consumption is
+  observed on the next refresh. Estimation error self-corrects within one tick.
+- **Single integer per installation.** Trivial to surface as a metric and to
+  reason about.
+
+**Default reserve fraction: 0.20.** Holds back 20% of the installation's hourly
+budget for webhook-triggered work and unforeseen consumption. Tunable via:
+
+| Knob | Default | Meaning |
+|---|---|---|
+| `discovery.reserveFraction` | `0.20` | Fraction of `limit` kept untouched |
+| `discovery.estimatedCostPerRepo` | `10` | API calls assumed per reconcile (override after observing real consumption via metrics) |
+
+**Worked example — 25 GHEC orgs × 3000 repos at cold start:**
+
+| Stage | Per-install budget | Discovery enqueues per tick | Wall-clock to drain |
+|---|---|---|---|
+| Tick 1 | 12500 remaining, reserve 2500 → 10000 spendable / 10 = 1000 repos | min(1000, repos_for_install) | — |
+| Across 25 installs uniformly | 1000 per install × 25 = 25000 total | — | — |
+| 3000 stale candidates / 25 = 120 per install | All 3000 enqueued in tick 1 (budget allows) | — | 1 tick (≤1 hour) |
+
+At the GHEC budget level, the rate limit isn't actually the binding constraint
+for a steady-state 3000-repo fleet — the deployment can absorb the cold-start
+spike comfortably. The budget mechanism is most valuable for non-enterprise
+installations (5000/hr cap, where 3000 repos × 10 calls = 30000 calls would
+exceed the budget by 6x without pacing).
+
+### Layer 2 — Jittered initial `last_checked_at` (secondary)
+
+Even with budget gating in place, two failure modes remain:
+
+1. **Synchronisation collapse.** Without jitter, all 3000 repos have
+   `last_checked_at = NOW()` at discovery time. 24 hours later, all 3000
+   become stale on the same tick. Layer 1 gates enqueueing to fit within
+   budget — but every subsequent tick the SAME 3000 repos are stale until the
+   leader works through them. The cycle then repeats in lockstep.
+2. **Worker-pool burst peaks.** When budget is generous (GHEC), Layer 1
+   allows 1000-repo enqueues per tick. The worker pool then peaks at the same
+   moment every tick across installations. Spread out by jitter, the peaks
+   smear and the worker pool stays uniformly busy.
+
+The jitter writes a randomised initial `last_checked_at`:
+
+```go
+initialLastChecked := time.Now().Add(-time.Duration(rand.Int63n(int64(2*s.freshness))))
+```
+
+This places the timestamp uniformly in `[now - 2*freshness, now]`. Over time,
+repos cycle through stale and freshly-reconciled states at staggered cadences.
+The result is smooth steady-state load instead of tick-synchronised bursts.
+
+**Worked example with both layers — 25 orgs × 3000 repos, GHEC, freshness 24h,
+sweep_interval 1h:**
+
+| Sweep tick | Repos qualifying as stale | Budget allows | Enqueued |
+|---|---|---|---|
+| 1 (cold start) | ~750 (those with jitter in [24h, 48h] band) | 25000 | 750 |
+| 2 | ~125 (next jitter band slice + tick-1 repos still in flight) | 24900 | 125 |
+| 3 | ~125 | 24900 | 125 |
+| … | … | … | … |
+| 48 | ~125 | 24900 | 125 |
+| 49 | tick-1 repos rolling back into stale | 24900 | ~125 |
+| Steady state | uniform ~125/tick | budget always plentiful | always ≤ budget |
+
+Without Layer 2 (no jitter): tick 1 sees 3000 stale; Layer 1 budget enqueues
+1000 (still over the 750 jittered case but under the 3000 unbounded case);
+ticks 2-3 also see 3000 stale (the worker pool hasn't drained them yet);
+eventual steady state oscillates around 3000-stale-per-day spikes.
+
+Jitter alone (Layer 2 without Layer 1) doesn't help with non-enterprise rate
+limits where even 750 repos × 10 calls = 7500 calls exceeds the 5000/hr budget.
+
+Together, the two layers form a leaky bucket: jitter limits the **inflow rate**
+to the stale set; budget limits the **drain rate** from stale to queue.
+
+### Cross-replica coordination
+
+StaleSweeper and Discoverer are scheduled via `scheduler.Scheduler.Schedule(...)`.
+With the Valkey-backed scheduler (`scheduler.backend=valkey`), SETNX leader
+election ensures only one replica runs the scheduled handler per tick. This
+means budget tracking is naturally single-leader — no cross-replica
+coordination needed for the enqueue decision.
+
+Workers across all replicas drain the queue and make API calls; each call
+implicitly decrements the GitHub-side rate-limit counter. The Scheduler
+leader's `BudgetTracker.RefreshFromAPI` on the next tick observes the actual
+consumption (the GitHub API returns the live `X-RateLimit-Remaining` header).
+
+Multi-replica scenario where the leader changes mid-tick (rare — the SETNX
+lease lasts longer than a tick): the new leader rebuilds its `BudgetTracker`
+state from a fresh API call on its first tick. The brief gap between leader
+loss and re-acquisition means one tick may be missed, not over-spent. Safe by
+default.
 
 ### Discovery-only Sweeper mode
 
@@ -280,11 +404,16 @@ discovery.
 
 ### `internal/config/`
 
-Two new env vars:
+New env vars:
 
 - `DISCOVERY_INTERVAL` — Go duration string, default `1h`.
 - `DISCOVERY_ENABLED` — bool, default `true` when `STORE_BACKEND=postgres`,
   `false` otherwise.
+- `DISCOVERY_RESERVE_FRACTION` — float, default `0.20`. Fraction of each
+  installation's hourly rate-limit budget kept untouched by Layer 1 budget
+  gating.
+- `DISCOVERY_ESTIMATED_COST_PER_REPO` — int, default `10`. Estimated API calls
+  per reconcile, used by `BudgetTracker.SpendableForEnqueue`.
 
 ### `internal/store/`
 
@@ -299,6 +428,8 @@ to write Store rows when the Postgres backend is active. Same idempotent
 
 ### `internal/metrics/`
 
+Discovery loop:
+
 - `repo_guardian_repo_discovered_total{installation_id}` — counts newly
   discovered repos.
 - `repo_guardian_discovery_duration_seconds` — histogram of Discover loop
@@ -307,6 +438,27 @@ to write Store rows when the Postgres backend is active. Same idempotent
   counts the ListInstallations / ListInstallationRepos / Get API calls each
   Discover tick makes.
 
+Budget tracker (Layer 1):
+
+- `repo_guardian_api_budget_remaining{installation_id}` — Gauge mirroring the
+  latest `RateLimitRemaining` value the leader observed.
+- `repo_guardian_api_budget_spendable{installation_id}` — Gauge of
+  `(remaining - reserve) / costPerRepo` — i.e., how many repos the leader can
+  enqueue right now.
+- `repo_guardian_api_budget_reserve_fraction{installation_id}` — Gauge of the
+  configured reserve fraction (constant per installation under normal config;
+  exposed for dashboarding).
+- `repo_guardian_enqueue_gated_by_budget_total{installation_id}` — Counter
+  incremented each time a stale candidate is skipped because the budget
+  tracker returned 0 spendable slots. Operator alarm signal — sustained
+  non-zero means the deployment is rate-limit-bound.
+- `repo_guardian_api_budget_refresh_total{installation_id, outcome}` — Counter
+  with `outcome="ok"` for successful refreshes and `outcome="error"` for
+  failed refreshes (network, auth, etc.).
+- `repo_guardian_api_budget_utilisation{installation_id}` — Gauge of
+  `1 - (remaining / limit)`. Useful for dashboards showing how aggressively the
+  deployment is using the available budget.
+
 ### Chart values
 
 ```yaml
@@ -314,6 +466,9 @@ discovery:
   # NEW. Only effective when store.backend=postgres.
   enabled: true
   interval: "1h"
+  # Layer 1 — budget-aware enqueueing
+  reserveFraction: 0.20            # 20% of per-install limit kept untouched
+  estimatedCostPerRepo: 10         # tune from `api_budget_utilisation` metrics
 ```
 
 The values are no-ops when `store.backend=memory` (existing legacy Sweeper path
@@ -470,6 +625,60 @@ process (e.g., a CronJob) or remain in-pod as a goroutine?
   the multi-replica case.
 - (b) Separate CronJob. Better isolation but adds a deployment surface and
   needs its own creds + image + chart resources.
+- other:
+
+**(g)** Layer 1 reserve-fraction default.
+
+- **(a) = `0.20` (recommended).** Holds back 20% of each installation's hourly
+  budget for webhook-triggered work and unforeseen consumption. Comfortable
+  margin for typical fleets.
+- (b) `0.10`. More aggressive use of available budget; smaller margin for
+  webhook bursts.
+- (c) `0.30`. More conservative; leaves more budget for webhook surges at the
+  cost of slower steady-state catch-up after long downtime.
+- (d) Dynamic — derive from observed webhook QPS per installation. Adds state
+  but adapts to actual operator usage patterns. Future enhancement.
+- other:
+
+**(h)** Layer 1 estimated cost per repo.
+
+- **(a) = `10` API calls per repo (recommended).** Matches the empirical
+  per-reconcile cost in `docs/operations/scaling.md` (4 file checks + branch
+  / PR ops if actionable + rate-limit probe). Configurable via
+  `DISCOVERY_ESTIMATED_COST_PER_REPO` so operators can re-calibrate from
+  observed `api_budget_utilisation` metrics.
+- (b) Auto-tune from observed consumption. Track actual cost per reconcile in
+  Postgres; periodically refresh `costPerRepo` from the rolling average.
+  Cleaner adaptive behaviour but adds Store schema and statistics complexity.
+- (c) Hard-code with no operator knob. Simpler but worse for operators whose
+  reconcilers do more work (e.g., aggressive label sync against thousands of
+  labels).
+- other:
+
+**(i)** Layer 1 refresh cadence — when does the BudgetTracker call
+`Client.RateLimitRemaining`?
+
+- **(a) = Per sweep tick at minimum, plus on `resetAt` elapsed (recommended).**
+  The leader refreshes its trackers once per tick before enqueueing.
+  Cheap (one API call per installation per tick) and gives accurate budget
+  visibility. The `resetAt` elapse triggers a refresh outside the tick
+  cadence to pick up the hourly budget refill cleanly.
+- (b) Refresh only on `resetAt` elapsed. Cheaper but stale between refreshes;
+  webhook consumption isn't observed until the hour rolls.
+- (c) Refresh after every Enqueue. Most accurate but pathological — N calls
+  per tick. Rejected.
+- other:
+
+**(j)** Layer 1 vs Layer 2 — should the chart allow disabling jitter (Layer 2)
+once Layer 1 is in place?
+
+- **(a) = Keep both always on (recommended).** They address different failure
+  modes (within-tick burst vs cross-tick synchronisation); the cost of
+  jitter is negligible (one `rand.Int63n` per discovered repo). Removing
+  one creates a sharp edge in deployment behaviour without operational
+  upside.
+- (b) Make Layer 2 opt-out via `discovery.jitterEnabled: false`. Lets
+  operators experiment in test environments.
 - other:
 
 ## References

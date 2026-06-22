@@ -969,9 +969,9 @@ revert (the legacy Sweeper isn't scheduled for Postgres regardless of the flag).
 
 ## Open Questions
 
-**(a)** Jitter range for the initial `last_checked_at`.
+**(a)** ✅ **Resolved.** Jitter range for the initial `last_checked_at`.
 
-- **(a) = `random in [now - 2*freshness, now]` (recommended).** Spreads the
+- **(a) = `random in [now - 2*freshness, now]` (chosen).** Spreads the
   cold-start enqueue across `2 * freshness / sweep_interval` ticks. With
   freshness=24h, sweep=1h → ~48 ticks.
 - (b) `random in [now - freshness, now]`. Spreads across fewer ticks, faster
@@ -980,19 +980,19 @@ revert (the legacy Sweeper isn't scheduled for Postgres regardless of the flag).
   tick. Bad. Rejected.
 - other:
 
-**(b)** Discovery cadence default.
+**(b)** ✅ **Resolved.** Discovery cadence default.
 
-- **(a) = `1h` (recommended).** Detects webhook delivery gaps within an hour;
+- **(a) = `1h` (chosen).** Detects webhook delivery gaps within an hour;
   API cost is negligible at typical fleet sizes.
 - (b) `15m`. More responsive to new-repo events that miss the webhook; 4x the
   API cost.
 - (c) `24h`. Lower API cost but lets webhook gaps linger for a day.
 - other:
 
-**(c)** Should Discoverer also handle repo *removal* (a repo being archived,
-deleted, or moved out of the installation)?
+**(c)** ✅ **Resolved.** Should Discoverer also handle repo *removal* (a repo
+being archived, deleted, or moved out of the installation)?
 
-- **(a) = Out of scope for v1 (recommended).** Repo removal is a soft problem —
+- **(a) = Out of scope for v1 (chosen).** Repo removal is a soft problem —
   a stale Store row for an inaccessible repo just hits a 404 on next reconcile
   and gets handled by error paths. Tracking removal cleanly would require
   another comparison pass and isn't blocking.
@@ -1000,38 +1000,46 @@ deleted, or moved out of the installation)?
   removal-pending queue; webhook `repository.deleted` cleans up.
 - other:
 
-**(d)** Webhook handler write-on-discovery vs Discover loop write — what if
-both fire at once?
+**(d)** ✅ **Resolved — subsumed by decision (n).** Webhook handler
+write-on-discovery vs Discover loop write — what if both fire at once?
 
-- **(a) = Idempotent `Get`+conditional `Upsert` (recommended).** Both paths
-  check for an existing row before inserting; race is harmless. Same row
-  inserted twice with the same key just stays as one row.
-- (b) Distributed lock per (owner, repo) during discovery. Overkill for the
-  blast radius.
+- **Resolution:** decision (n) chose `Store.UpsertIfMissing` for the
+  Discoverer's insert-if-not-exists semantic. Webhook discovery uses the
+  same method. The atomic `INSERT ... ON CONFLICT DO NOTHING` makes the
+  race harmless without any distributed lock — whichever request hits
+  Postgres first wins; the loser sees `created=false` and proceeds.
 - other:
 
-**(e)** Memory-backend behaviour after this design.
+**(e)** ⏸️ **Deferred — tracked in DESIGN-0018.** Memory-backend behaviour
+after this design.
 
-- **(a) = Unchanged — legacy Sweeper continues to enqueue (recommended).** Memory
-  backend has no Store; there's no place to write discovery rows. The legacy
-  Sweeper's existing semantics are correct for single-replica memory mode.
-- (b) Extend Discoverer to support a memory-only mode. Adds complexity for a
-  use case that's already correct.
+- **Resolution:** during review the operator proposed dropping the memory
+  backend entirely now that Postgres + Valkey are the production path and
+  the dual-backend code is a meaningful maintenance tax. This is a larger
+  architectural decision than DESIGN-0017 can absorb (it ripples through
+  `internal/store/memory/`, `internal/queue/memory/`,
+  `internal/scheduler/ticker/`, chart defaults, helm-unittest matrix, and
+  the `make run-local` path). Spinning a separate DESIGN-0018: Deprecate
+  memory backend. Until that design lands and ships, IMPL-0015 treats
+  memory backend the same way it always has: the legacy Sweeper continues
+  to enqueue, no Discoverer wiring, no `Store.UpdateRepoState` calls (the
+  no-op memory Store covers the worker code path).
 - other:
 
-**(f)** Single-binary architectural question: should Discoverer be a separate
-process (e.g., a CronJob) or remain in-pod as a goroutine?
+**(f)** ✅ **Resolved.** Single-binary architectural question: should
+Discoverer be a separate process (e.g., a CronJob) or remain in-pod as a
+goroutine?
 
-- **(a) = In-pod goroutine (recommended).** Matches the existing Scheduler.Schedule
+- **(a) = In-pod goroutine (chosen).** Matches the existing Scheduler.Schedule
   pattern. No new resource/deployment shape; existing leader-election covers
   the multi-replica case.
 - (b) Separate CronJob. Better isolation but adds a deployment surface and
   needs its own creds + image + chart resources.
 - other:
 
-**(g)** Layer 1 reserve-fraction default.
+**(g)** ✅ **Resolved.** Layer 1 reserve-fraction default.
 
-- **(a) = `0.20` (recommended).** Holds back 20% of each installation's hourly
+- **(a) = `0.20` (chosen).** Holds back 20% of each installation's hourly
   budget for webhook-triggered work and unforeseen consumption. Comfortable
   margin for typical fleets.
 - (b) `0.10`. More aggressive use of available budget; smaller margin for
@@ -1042,9 +1050,9 @@ process (e.g., a CronJob) or remain in-pod as a goroutine?
   but adapts to actual operator usage patterns. Future enhancement.
 - other:
 
-**(h)** Layer 1 estimated cost per repo.
+**(h)** ✅ **Resolved.** Layer 1 estimated cost per repo.
 
-- **(a) = `10` API calls per repo (recommended).** Matches the empirical
+- **(a) = `10` API calls per repo (chosen).** Matches the empirical
   per-reconcile cost in `docs/operations/scaling.md` (4 file checks + branch
   / PR ops if actionable + rate-limit probe). Configurable via
   `DISCOVERY_ESTIMATED_COST_PER_REPO` so operators can re-calibrate from
@@ -1057,10 +1065,10 @@ process (e.g., a CronJob) or remain in-pod as a goroutine?
   labels).
 - other:
 
-**(i)** Layer 1 refresh cadence — when does the BudgetTracker call
-`Client.RateLimitRemaining`?
+**(i)** ✅ **Resolved.** Layer 1 refresh cadence — when does the
+BudgetTracker call `Client.RateLimitRemaining`?
 
-- **(a) = Per sweep tick at minimum, plus on `resetAt` elapsed (recommended).**
+- **(a) = Per sweep tick at minimum, plus on `resetAt` elapsed (chosen).**
   The leader refreshes its trackers once per tick before enqueueing.
   Cheap (one API call per installation per tick) and gives accurate budget
   visibility. The `resetAt` elapse triggers a refresh outside the tick
@@ -1071,10 +1079,10 @@ process (e.g., a CronJob) or remain in-pod as a goroutine?
   per tick. Rejected.
 - other:
 
-**(j)** Layer 1 vs Layer 2 — should the chart allow disabling jitter (Layer 2)
-once Layer 1 is in place?
+**(j)** ✅ **Resolved.** Layer 1 vs Layer 2 — should the chart allow
+disabling jitter (Layer 2) once Layer 1 is in place?
 
-- **(a) = Keep both always on (recommended).** They address different failure
+- **(a) = Keep both always on (chosen).** They address different failure
   modes (within-tick burst vs cross-tick synchronisation); the cost of
   jitter is negligible (one `rand.Int63n` per discovered repo). Removing
   one creates a sharp edge in deployment behaviour without operational
@@ -1083,10 +1091,10 @@ once Layer 1 is in place?
   operators experiment in test environments.
 - other:
 
-**(k)** Worker write-back failure semantics — what should happen when
-`engine.CheckRepo` succeeds but `Store.UpdateRepoState` fails?
+**(k)** ✅ **Resolved.** Worker write-back failure semantics — what should
+happen when `engine.CheckRepo` succeeds but `Store.UpdateRepoState` fails?
 
-- **(a) = Log + count + continue (recommended).** The reconcile succeeded
+- **(a) = Log + count + continue (chosen).** The reconcile succeeded
   externally (PR created, file written, comment posted). The Store write is
   best-effort. If it fails, next StaleSweeper tick re-enqueues; the
   reconcile is idempotent so the duplicate work is wasted but not
@@ -1099,14 +1107,14 @@ once Layer 1 is in place?
   for an unlikely failure mode.
 - other:
 
-**(l)** Write-back on partial reconcile success — `engine.CheckRepo` is a
-single returned-error operation today, but internally it composes multiple
-sub-steps (file checks, PR creation, reconciler runs). Should partial
-internal failures (e.g., custom_properties reconciler errored) still trigger
-write-back?
+**(l)** ✅ **Resolved.** Write-back on partial reconcile success —
+`engine.CheckRepo` is a single returned-error operation today, but internally
+it composes multiple sub-steps (file checks, PR creation, reconciler runs).
+Should partial internal failures (e.g., custom_properties reconciler errored)
+still trigger write-back?
 
 - **(a) = Yes — write-back if `engine.CheckRepo` returns nil; the engine
-  decides what counts as success (recommended).** Keeps the worker simple
+  decides what counts as success (chosen).** Keeps the worker simple
   and treats the engine as a black box. The engine's existing error
   semantics already handle partial failures (returning nil for "good
   enough" success or err for "retry").

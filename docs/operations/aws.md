@@ -204,15 +204,31 @@ the only change is the AWS Secrets Manager key (typically
 `elasticache/repo-guardian/auth`) and the template assembling the
 `rediss://` URL.
 
-## Sharding and noisy orgs
+## Partitioning, sharding, and the noisy-org problem
 
 This is the question most operators bring up after running
 repo-guardian against a real fleet: one large GitHub org has
 hundreds of actionable repos every sweep, and its work backs up
 the queue so the smaller orgs wait. The instinct is to reach for
-Valkey cluster mode (sharding).
+Valkey cluster mode (sharding). That instinct is wrong — the
+right tool is application-level **partitioning**, not Valkey
+sharding.
 
-That instinct is wrong for repo-guardian as it ships today.
+The two terms get conflated. They're different things at different
+layers:
+
+| Term | Definition | Layer | Helps the noisy-org problem? |
+|---|---|---|---|
+| **Sharding** | Valkey cluster mode splits the *key space* across N shards by hash slot | Valkey server | No — single-key queue → single shard |
+| **Partitioning** | Single logical queue split into *multiple keys* by a business dimension (installation, priority) | Application code | Yes — that's the whole point |
+
+Sharding moves the work for different *keys* onto different
+servers. Partitioning creates *multiple keys* in the first place.
+You need partitioning to have anything to shard, but partitioning
+alone (on a single Valkey node) already solves the fairness
+problem. Sharding is a separate axis that buys you per-key
+throughput parallelism once you have enough keys to make it
+worthwhile.
 
 ### Why Valkey sharding does NOT help
 
@@ -243,7 +259,85 @@ There's also a code-level gap: `cmd/repo-guardian/main.go` builds a
 detect cluster topology and pick the right client type. Not done
 today.
 
-### What actually helps with the noisy-org problem today
+### Partitioning (the actual answer, code change required)
+
+Strict per-installation fairness needs the queue split into multiple
+keys — one per installation — so workers can schedule across them
+intentionally rather than draining a single FIFO. This is the real
+fix; it's also the one that requires code changes.
+
+**Proposed key layout:**
+
+```
+repo-guardian:queue:install-{id}:jobs        LIST  (work for installation {id})
+repo-guardian:queue:install-{id}:inflight    ZSET  (jobID → dispatch_ts)
+repo-guardian:queue:installations            SET   (registry of known installation IDs)
+```
+
+`Enqueue` picks the key from `job.InstallationID`:
+
+```
+LPUSH repo-guardian:queue:install-{job.InstallationID}:jobs <job-json>
+SADD  repo-guardian:queue:installations {job.InstallationID}    -- idempotent registry
+```
+
+**Worker scheduling strategies** — three workable shapes, listed
+in increasing complexity:
+
+| Strategy | How it works | Pros | Cons |
+|---|---|---|---|
+| **A. `BLPOP` across all keys** | Worker reads `SMEMBERS installations`, calls `BLPOP key1 key2 … keyN timeout` — Valkey returns from whichever has work | Trivial code; natural fairness for ready work; no extra state | No per-installation concurrency cap (a noisy org can still grab every worker); `BLPOP` key-list scales but degrades at thousands |
+| **B. Round-robin with per-installation concurrency cap** | Maintain `repo-guardian:queue:install-{id}:in_flight_count`; worker iterates installations in round-robin order, skips any at cap | Strict fairness; bounds noisy org's parallelism; predictable | More state; needs an atomic check-and-incr Lua script |
+| **C. Weighted random by depth + rate-limit headroom** | Worker picks an installation at random, weighted by `(queue_depth × rate_limit_remaining)` | Adapts dynamically to rate limits; statistically fair | Most state; needs depth + headroom snapshots; harder to reason about |
+
+Recommended starting point: **A with a soft cap** — `BLPOP`-many
+plus a configurable per-installation concurrency limit (e.g.,
+`min(workerCount, ceil(workerCount/N))`). Combines simplicity
+with bounded blast radius.
+
+**Implementation surface:**
+
+| File | Change |
+|---|---|
+| `internal/queue/Queue` (interface) | `Enqueue` unchanged externally; internally selects key by `job.InstallationID`. `Subscribe` accepts an installation-registry watch so workers discover new installations as they appear. |
+| `internal/queue/valkey/valkey.go` | LUA scripts updated to operate on per-installation keys. `Reaper` iterates `SMEMBERS installations` to scan every in-flight ZSET. |
+| `internal/queue/memory/` | Per-installation buffered channels with round-robin `select`. |
+| `internal/worker/pool.go` | Schedule strategy plug — A initially, with hooks for B/C later. |
+| `internal/metrics/metrics.go` | `queue_depth` becomes `queue_depth{installation_id}` GaugeVec. `queue_dispatched_total` gains the same label. |
+| `charts/repo-guardian/values.yaml` | New knobs: `queue.partitioning.enabled` (default false during rollout), `queue.partitioning.perInstallationCap`. |
+
+Effort estimate: ~1 sprint week for one engineer (refactor +
+tests + metrics + integration test against ElastiCache). The
+queue interface stays binary-compatible — opt-in via the new
+chart value.
+
+**What partitioning gives you:**
+
+- Strict per-installation work scheduling (no noisy-org starvation)
+- Per-installation queue-depth metrics — you can see at a glance
+  which installations are backed up
+- Bounded blast radius when one installation's token goes stale —
+  others keep draining
+- A foundation for installation-aware HPA (`queue_depth{installation_id}`
+  → custom-metric autoscaling) later
+
+**When to invest:** the `staleSweep` + `workerCount` mitigations
+below give *eventual fairness* — every org's work clears within a
+sweep cycle, just not in strict round-robin. That's sufficient for
+most fleets. Reach for partitioning when:
+
+- One installation routinely has > 5x the queue depth of any other
+- Smaller orgs' webhook-triggered reconciles regularly wait > 5
+  minutes behind a sweep burst
+- You need per-org SLA reporting
+
+Until one of those triggers fires: tune the values below, not the
+topology. File an INV requesting per-installation queue
+partitioning when you cross the threshold.
+
+### What helps today (without code changes)
+
+The mitigations referenced above:
 
 | Lever | Where | Effect |
 |---|---|---|
@@ -252,25 +346,9 @@ today.
 | `config.workerCount` higher | values.yaml | Drains bursts faster. 30 workers × 3 replicas = 90 concurrent processors. Even a 500-job burst clears in <30 sec at 3 sec/repo. |
 | Vertical-scale Valkey | ElastiCache instance class | A larger single shard sustains more ops/sec. Almost certainly not the bottleneck, but cheap to bump if it is. |
 
-The combination above gives **eventual fairness** — every org's
-work gets done within a sweep cycle, just not strict round-robin.
-For most operators that's sufficient.
-
-### What a real fix looks like (roadmap, not config)
-
-Strict per-org fairness requires partitioning the queue by
-installation/org so workers grab from multiple queues in
-round-robin. That's a code change to `internal/queue/`:
-
-- Multiple keys (`repo-guardian:queue:install-12345:jobs`,
-  `:install-67890:jobs`, …)
-- Worker pool with round-robin / work-stealing across keys
-- Reaper updated to scan all in-flight ZSETs
-
-This is INV/IMPL territory. If you hit the noisy-org problem hard
-enough that the eventual-fairness mitigations aren't sufficient,
-file an INV requesting per-org queue partitioning and we'll scope
-it. Until then: tune the values, not the topology.
+The combination gives **eventual fairness** — every org's work
+gets done within a sweep cycle, just not strict round-robin. For
+most operators that's sufficient.
 
 ## End-to-end example
 

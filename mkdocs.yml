@@ -19,6 +19,9 @@ nav:
         - 'DESIGN-0012: Persistent reconcile state and multi-replica coordination': design/0012-persistent-reconcile-state-and-multi-replica-coordination.md
         - 'DESIGN-0013: Customizable PR templates and extensible template ConfigMap': design/0013-customizable-pr-templates-and-extensible-template-configmap.md
         - 'DESIGN-0014: Remove legacy engine path and deprecated overlays': design/0014-remove-legacy-engine-path-and-deprecated-overlays.md
+        - 'DESIGN-0015: Per-installation Valkey queue partitioning': design/0015-per-installation-valkey-queue-partitioning.md
+        - 'DESIGN-0016: Separate Postgres read and write endpoints': design/0016-separate-postgres-read-and-write-endpoints.md
+        - 'DESIGN-0017: Stale-sweep cutover and repository discovery': design/0017-stale-sweep-cutover-and-repository-discovery.md
     - Implementation Plans:
         - Overview: impl/README.md
         - 'IMPL-0001: Repo Guardian Implementation Plan': impl/0001-repo-guardian-implementation-plan.md
@@ -43,7 +46,7 @@ nav:
         - 'INV-0004: Forge interface and package refactor for Forgejo backend': investigation/0004-forge-interface-and-package-refactor-for-forgejo-backend.md
         - 'INV-0005: Stale PRs when file rules become satisfied on main': investigation/0005-stale-prs-when-file-rules-become-satisfied-on-main.md
         - 'INV-0006: Per-org GitHub App credentials': investigation/0006-per-org-github-app-credentials.md
-        - 'INV-0007: GitLab forge backend support': investigation/0007-gitlab-forge-backend-support.md
+        - 'INV-0007: GitLab provider backend support': investigation/0007-gitlab-forge-backend-support.md
     - Plans:
         - Overview: plan/README.md
     - RFCs:
@@ -52,12 +55,12 @@ nav:
         - 'RFC-0002: HCL-driven Policy Engine for repo-guardian': rfc/0002-hcl-driven-policy-engine-for-repo-guardian.md
     - Repo Guardian - Executive Summary: SUMMARY.md
     - Operations:
-        - AWS deployment (RDS/Aurora + ElastiCache for Valkey): operations/aws.md
         - Chart 0.5.0 migration runbook (IMPL-0011): operations/chart-0.5.0-migration.md
         - Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration: operations/pr-convergence-migration.md
         - ECR publish setup (maintainer-side): operations/ecr-publish-setup.md
-        - Homelab CNPG cutover: operations/cnpg-homelab-cutover.md
+        - Homelab CNPG cutover runbook: operations/cnpg-homelab-cutover.md
         - Postgres schema operations: operations/migrations.md
+        - Running repo-guardian on AWS: operations/aws.md
         - Scaling repo-guardian: operations/scaling.md
         - Template migration guide (chart 0.3.x → 0.4.0): operations/template-migration.md
 plugins:

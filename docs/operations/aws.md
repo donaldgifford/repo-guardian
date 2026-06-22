@@ -127,7 +127,8 @@ direct admin connections.
 - **No reader/writer split.** `StaleRepos` is read-heavy and could
   go to an Aurora reader endpoint, but the chart has one DSN slot.
   Today everything goes through the writer (or Proxy fronting the
-  writer). Bigger code change tracked separately — not blocking.
+  writer). Design lives at
+  [DESIGN-0016: Separate Postgres read and write endpoints](../design/0016-separate-postgres-read-and-write-endpoints.md).
 - **Secrets Manager rotation gap.** If AWS rotates the DB password
   via Secrets Manager → ESO re-syncs the k8s Secret → but the
   binary's open pgxpool connections still use the OLD password
@@ -332,8 +333,9 @@ most fleets. Reach for partitioning when:
 - You need per-org SLA reporting
 
 Until one of those triggers fires: tune the values below, not the
-topology. File an INV requesting per-installation queue
-partitioning when you cross the threshold.
+topology. The full design lives at
+[DESIGN-0015: Per-installation Valkey queue partitioning](../design/0015-per-installation-valkey-queue-partitioning.md)
+— promote it to IMPL when you cross the threshold.
 
 ### What helps today (without code changes)
 

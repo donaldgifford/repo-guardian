@@ -20,6 +20,7 @@ created: 2026-06-22
   - [Non-Goals](#non-goals)
 - [Background](#background)
 - [Detailed Design](#detailed-design)
+  - [Per-reconcile Store update — the missing half](#per-reconcile-store-update--the-missing-half)
   - [Pacing — two layered mechanisms](#pacing--two-layered-mechanisms)
   - [Layer 1 — Budget-aware enqueueing (primary)](#layer-1--budget-aware-enqueueing-primary)
   - [Layer 2 — Jittered initial last_checked_at (secondary)](#layer-2--jittered-initial-last_checked_at-secondary)
@@ -55,6 +56,11 @@ deployment encounters an existing fleet of repos.
 
 ### Goals
 
+- **Fix the freshness gate.** Today's workers don't write `last_checked_at` back
+  to Store after reconciling, so StaleSweeper re-enqueues every aged repo on
+  every tick forever (steady-state thrash). Wire `Store.UpdateRepoState` into
+  the worker post-`engine.CheckRepo` path. This is the gating fix for the
+  whole design.
 - Eliminate redundant enqueueing on the Postgres backend. After cutover, each
   sweep tick enqueues only stale repos, not every repo.
 - Cold-start a deployment against an existing 3000-repo fleet without burning the
@@ -62,8 +68,8 @@ deployment encounters an existing fleet of repos.
 - Keep discovery of new repos working without depending exclusively on webhooks
   (operators may have webhook delivery gaps, mis-configured installations, or
   brand-new installations with no historical webhooks).
-- Preserve existing memory-backend behaviour: memory mode has no Store and
-  continues to use the legacy Sweeper unchanged.
+- Preserve existing memory-backend behaviour: memory mode gets a no-op Store
+  implementation; the legacy Sweeper continues to enqueue per tick.
 - Bounded blast radius from misconfigured discovery: if discovery breaks, in-flight
   reconciliation continues; only new-repo onboarding is affected.
 
@@ -129,6 +135,89 @@ bootstraps.
   the (small) stale subset. Worker pool processes 2x the work it needs to.
 
 ## Detailed Design
+
+### Per-reconcile Store update — the missing half
+
+The IMPL-0011 architecture treats `repo_state.last_checked_at` as the source of
+truth for "when was this repo last reconciled." StaleSweeper queries against
+that column. But **the workers don't currently update it**:
+
+- `internal/worker/worker.go` doesn't import `internal/store/`.
+- `engine.CheckRepo` doesn't accept a `Store` parameter.
+- `Store.UpdateRepoState` is defined but is called by zero non-test code paths.
+
+Consequences:
+
+- **Webhook-triggered reconciles don't refresh the timestamp.** A push event
+  arrives, the worker reconciles the repo, completes successfully — and the
+  Store still says the repo was last checked at whatever `last_checked_at`
+  Discoverer wrote on first observation. The next StaleSweeper tick treats the
+  repo as still stale and enqueues it again.
+- **Steady-state thrashing.** Once a repo's jittered `last_checked_at` ages
+  past `freshness`, it stays stale forever — every sweep tick re-enqueues it
+  because no completion path moves the timestamp forward. The freshness gate
+  is effectively a no-op after one cycle.
+- **Policy-version invalidation doesn't roll forward.** When the operator
+  changes the policy and `policy.Version()` returns a new hash, StaleSweeper
+  is supposed to re-enqueue every repo (matching the `policy_version != $new`
+  predicate). But after that re-enqueue, the Store row's `policy_version`
+  field never updates because workers don't write to the Store. The "every
+  tick" thrash persists across all 3000 repos until manual intervention.
+
+This is a correctness bug, not an optimisation. The DESIGN-0017 cutover
+**cannot be completed** until the worker writes back. Closing this gap is
+the highest-priority piece of this design.
+
+**Worker write-back contract:**
+
+After every successful `engine.CheckRepo`, the worker calls
+`Store.UpdateRepoState`:
+
+```go
+// In internal/worker/worker.go processJob, after engine.CheckRepo returns nil
+err := p.store.UpdateRepoState(ctx, &store.RepoState{
+    InstallationID: j.InstallationID,
+    Owner:          j.Owner,
+    Repo:           j.Repo,
+    LastCheckedAt:  ptr(time.Now()),
+    PolicyVersion:  p.policyVersion,
+})
+if err != nil {
+    log.Warn("UpdateRepoState failed; StaleSweeper will re-enqueue",
+        "owner", j.Owner, "repo", j.Repo, "error", err)
+    metrics.StoreWriteBackErrorsTotal.WithLabelValues(j.Owner).Inc()
+    // Do NOT return the error — the reconcile succeeded; the Store write
+    // is best-effort. Worst case: this repo gets re-checked next sweep.
+}
+```
+
+**Behaviour on reconcile failure:**
+
+If `engine.CheckRepo` returns an error, the worker does NOT call
+`UpdateRepoState`. Leaving the old timestamp means StaleSweeper will pick the
+repo up again at the next eligible window — which is the correct retry
+semantic. Updating `last_checked_at` on failure would suppress retries.
+
+**Trigger field:**
+
+The job's `Trigger` field (`scheduler`, `webhook`, `push`) is preserved on
+the Store row as a metric label only, not as state. The Store doesn't
+distinguish "which trigger most recently reconciled this repo" because the
+freshness gate doesn't care — a successful reconcile is a successful
+reconcile.
+
+**Why this resolves the user-visible bug:**
+
+After this design lands:
+
+- Webhook push → worker reconciles → Store updated → next StaleSweeper
+  correctly skips the repo for the next `freshness` window.
+- Sweep tick reconciles → Store updated → next sweep tick skips the repo
+  similarly.
+- Failed reconcile → Store NOT updated → next sweep retries → bounded retry
+  loop driven by `freshness` and rate-limit reserve, with no thrashing.
+- Policy version change → all repos re-enqueue → workers reconcile and write
+  the new version → freshness gate works normally for the next cycle.
 
 ### Pacing — two layered mechanisms
 
@@ -417,8 +506,47 @@ New env vars:
 
 ### `internal/store/`
 
-`Store` interface unchanged. The discovery path uses existing `Get` and `Upsert`
-methods.
+`Store` interface unchanged. The discovery path and the per-reconcile
+write-back path both use existing `GetRepoState` / `UpdateRepoState` methods.
+
+### `internal/worker/`
+
+The Pool gains a `Store` dependency:
+
+```go
+type Pool struct {
+    queue          queue.Queue
+    engine         *checker.Engine
+    ghClient       ghclient.Client
+    store          store.Store          // NEW
+    policyVersion  string               // NEW — populated from policy.Version() at startup
+    logger         *slog.Logger
+    workers        int
+    // ...
+}
+
+func New(q queue.Queue, engine *checker.Engine, ghClient ghclient.Client,
+         st store.Store, policyVersion string,
+         workers int, logger *slog.Logger) *Pool {
+    return &Pool{
+        queue:         q,
+        engine:        engine,
+        ghClient:      ghClient,
+        store:         st,
+        policyVersion: policyVersion,
+        workers:       workers,
+        logger:        logger,
+    }
+}
+```
+
+`processJob` writes `last_checked_at` back to Store on successful reconcile;
+skips the write on reconcile error (preserves retry semantic — see
+[Per-reconcile Store update](#per-reconcile-store-update--the-missing-half)).
+
+For memory-backend deployments (where there is no Store), the constructor
+accepts a no-op Store implementation that returns immediately from
+`UpdateRepoState`. No special-casing in `processJob`.
 
 ### `internal/webhook/`
 
@@ -427,6 +555,15 @@ to write Store rows when the Postgres backend is active. Same idempotent
 `Get`+conditional `Upsert` pattern.
 
 ### `internal/metrics/`
+
+Worker write-back (Per-reconcile Store update):
+
+- `repo_guardian_store_writeback_total{installation_id, outcome="ok"|"error"}`
+  — counts UpdateRepoState calls from the worker after each reconcile.
+  `outcome="error"` means the reconcile succeeded but the Store write
+  failed; alarm signal if sustained.
+- `repo_guardian_store_writeback_duration_seconds` — histogram of the
+  UpdateRepoState call latency.
 
 Discovery loop:
 
@@ -525,11 +662,31 @@ No schema changes. The `repo_state` table is extended in usage:
 
 ## Migration / Rollout Plan
 
+### Phase 0 — Worker write-back (prerequisite)
+
+Land the per-reconcile Store update first. This is the gating step — none of
+the subsequent phases work correctly without it because the freshness gate
+in StaleSweeper depends on workers writing back.
+
+- Wire `Store` into `internal/worker/Pool`; thread `policyVersion` through
+  from `cmd/repo-guardian/main.go`.
+- `processJob` calls `UpdateRepoState` after every successful `engine.CheckRepo`.
+- Failed reconciles do NOT write — preserves retry semantics.
+- Memory-backend deployments get a no-op Store implementation; no behavioural
+  change.
+- Land with budget/jitter Layers 1+2 simultaneously to avoid a window where
+  the freshness gate is half-fixed. They're additive in scope but
+  inseparable in effect.
+- Validate via the new `store_writeback_total{outcome="ok"}` counter — should
+  rise in lockstep with `repos_checked_total`.
+
 ### Phase 1 — Land Discoverer alongside legacy Sweeper
+
+After Phase 0 is stable in production:
 
 - Implement `Discoverer.Discover` and new env vars; ship at default
   `DISCOVERY_ENABLED=false` for both backends.
-- Existing deployments unaffected.
+- Existing deployments unaffected; legacy Sweeper continues to bootstrap.
 
 ### Phase 2 — Opt-in cutover
 
@@ -679,6 +836,38 @@ once Layer 1 is in place?
   upside.
 - (b) Make Layer 2 opt-out via `discovery.jitterEnabled: false`. Lets
   operators experiment in test environments.
+- other:
+
+**(k)** Worker write-back failure semantics — what should happen when
+`engine.CheckRepo` succeeds but `Store.UpdateRepoState` fails?
+
+- **(a) = Log + count + continue (recommended).** The reconcile succeeded
+  externally (PR created, file written, comment posted). The Store write is
+  best-effort. If it fails, next StaleSweeper tick re-enqueues; the
+  reconcile is idempotent so the duplicate work is wasted but not
+  incorrect. Alarm via `store_writeback_total{outcome="error"}` rate.
+- (b) Return the write-back error from `processJob`. The queue marks the job
+  failed; reaper requeues it after `JOB_ACK_TIMEOUT`. Cleaner retry but
+  causes a duplicate reconcile (the external work already happened on the
+  first attempt).
+- (c) Retry the write inline with backoff. Complicates the worker hot path
+  for an unlikely failure mode.
+- other:
+
+**(l)** Write-back on partial reconcile success — `engine.CheckRepo` is a
+single returned-error operation today, but internally it composes multiple
+sub-steps (file checks, PR creation, reconciler runs). Should partial
+internal failures (e.g., custom_properties reconciler errored) still trigger
+write-back?
+
+- **(a) = Yes — write-back if `engine.CheckRepo` returns nil; the engine
+  decides what counts as success (recommended).** Keeps the worker simple
+  and treats the engine as a black box. The engine's existing error
+  semantics already handle partial failures (returning nil for "good
+  enough" success or err for "retry").
+- (b) Add a granular write-back interface where the engine returns a
+  per-step status. Worker writes individual step timestamps. Adds complex
+  state to Store rows. Premature.
 - other:
 
 ## References

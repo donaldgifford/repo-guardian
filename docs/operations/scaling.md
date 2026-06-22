@@ -119,7 +119,7 @@ Before turning on multi-replica for a fleet this size, run a full cold-start swe
 | Metric | Healthy | Action if breached |
 |---|---|---|
 | `repo_guardian_rate_limit_remaining{installation_id="..."}` | Stays above `(1 - rateLimitReserve) × limit` for every install | Raise `staleSweep.rateLimitReserve` (e.g. 0.20) |
-| `repo_guardian_reserve_blocked_total` | Increments only briefly during cold start, plateaus after | Lower `staleSweep.batchSize` to spread work over more ticks |
+| `repo_guardian_rate_limit_reserve_blocked_total` | Increments only briefly during cold start, plateaus after | Lower `staleSweep.batchSize` to spread work over more ticks |
 | `repo_guardian_queue_depth` | Drains within a sweep cycle | Raise `config.workerCount` per replica |
 | `repo_guardian_store_query_seconds` p99 | < 100ms | Bump CNPG `instances`, add SSD storage class |
 

@@ -4,12 +4,47 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
-	memqueue "github.com/donaldgifford/repo-guardian/internal/queue/memory"
+	"github.com/donaldgifford/repo-guardian/internal/queue"
 )
+
+// recordingQueue is a test-local queue.Queue that records enqueued
+// jobs in memory. Not a backend replacement — see DESIGN-0018 — just
+// a recorder for sweep-test assertions about how many jobs the
+// scheduler enqueued.
+type recordingQueue struct {
+	mu   sync.Mutex
+	jobs []queue.Job
+}
+
+func newRecordingQueue() *recordingQueue { return &recordingQueue{} }
+
+func (r *recordingQueue) Enqueue(_ context.Context, j queue.Job) error { //nolint:gocritic // interface contract
+	r.mu.Lock()
+	r.jobs = append(r.jobs, j)
+	r.mu.Unlock()
+
+	return nil
+}
+
+func (*recordingQueue) Subscribe(ctx context.Context, _ func(context.Context, queue.Job) error) error {
+	<-ctx.Done()
+
+	return ctx.Err()
+}
+
+func (*recordingQueue) Close() error { return nil }
+
+func (r *recordingQueue) Len() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return len(r.jobs)
+}
 
 // mockClient implements ghclient.Client for scheduler tests.
 type mockClient struct {
@@ -193,7 +228,7 @@ func TestReconcileAll(t *testing.T) {
 		{Owner: "org2", Name: "repo-f"},
 	}
 
-	q := memqueue.New(100)
+	q := newRecordingQueue()
 
 	s := NewSweeper(client, q, time.Hour, slog.Default(), true, true)
 	s.reconcileAll(context.Background())
@@ -216,7 +251,7 @@ func TestReconcileAll_SkipsArchived(t *testing.T) {
 		{Owner: "org1", Name: "forked-repo", Fork: true},
 	}
 
-	q := memqueue.New(100)
+	q := newRecordingQueue()
 
 	s := NewSweeper(client, q, time.Hour, slog.Default(), true, true)
 	s.reconcileAll(context.Background())
@@ -237,7 +272,7 @@ func TestStart_RunsOnStartup(t *testing.T) {
 		{Owner: "org1", Name: "repo-a"},
 	}
 
-	q := memqueue.New(100)
+	q := newRecordingQueue()
 
 	s := NewSweeper(client, q, 24*time.Hour, slog.Default(), true, true)
 
@@ -268,7 +303,7 @@ func TestStart_RespectsContextCancellation(t *testing.T) {
 	t.Parallel()
 
 	client := newMockClient()
-	q := memqueue.New(100)
+	q := newRecordingQueue()
 
 	s := NewSweeper(client, q, time.Hour, slog.Default(), true, true)
 
@@ -295,7 +330,7 @@ func TestReconcileAll_ListInstallationsError(t *testing.T) {
 	client := newMockClient()
 	client.listInstallErr = fmt.Errorf("API error")
 
-	q := memqueue.New(100)
+	q := newRecordingQueue()
 
 	s := NewSweeper(client, q, time.Hour, slog.Default(), true, true)
 	s.reconcileAll(context.Background())

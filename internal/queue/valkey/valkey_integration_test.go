@@ -147,6 +147,34 @@ func TestContract_Valkey(t *testing.T) {
 			t.Fatalf("Subscribe did not return after context cancel within %s", brpopWait)
 		}
 	})
+
+	t.Run("CloseUnblocksSubscribe", func(t *testing.T) {
+		q := newTestQueue(t, client)
+		runCtx, runCancel := context.WithTimeout(context.Background(), 5*time.Second)
+
+		defer runCancel()
+
+		done := make(chan struct{})
+
+		go func() {
+			defer close(done)
+			_ = q.Subscribe(runCtx, func(_ context.Context, _ queue.Job) error {
+				return nil
+			})
+		}()
+
+		time.Sleep(100 * time.Millisecond)
+
+		if err := q.Close(); err != nil {
+			t.Fatalf("close: %v", err)
+		}
+
+		select {
+		case <-done:
+		case <-time.After(brpopWait):
+			t.Fatalf("Subscribe did not return after Close within %s", brpopWait)
+		}
+	})
 }
 
 // brpopWait is the upper bound on how long Subscribe takes to react

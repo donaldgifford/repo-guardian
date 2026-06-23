@@ -49,4 +49,5 @@ docz create design "Your Design Title"
 | DESIGN-0015 | Per-installation Valkey queue partitioning | Draft | 2026-06-22 | Donald Gifford | [0015-per-installation-valkey-queue-partitioning.md](0015-per-installation-valkey-queue-partitioning.md) |
 | DESIGN-0016 | Separate Postgres read and write endpoints | Draft | 2026-06-22 | Donald Gifford | [0016-separate-postgres-read-and-write-endpoints.md](0016-separate-postgres-read-and-write-endpoints.md) |
 | DESIGN-0017 | Stale-sweep cutover and repository discovery | Draft | 2026-06-22 | Donald Gifford | [0017-stale-sweep-cutover-and-repository-discovery.md](0017-stale-sweep-cutover-and-repository-discovery.md) |
+| DESIGN-0018 | Deprecate memory backend | Draft | 2026-06-22 | Donald Gifford | [0018-deprecate-memory-backend.md](0018-deprecate-memory-backend.md) |
 <!-- END DOCZ AUTO-GENERATED -->

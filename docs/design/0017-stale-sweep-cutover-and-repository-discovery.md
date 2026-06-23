@@ -19,21 +19,43 @@ created: 2026-06-22
   - [Goals](#goals)
   - [Non-Goals](#non-goals)
 - [Background](#background)
+  - [Real symptoms](#real-symptoms)
 - [Gap audit (pre-implementation review)](#gap-audit-pre-implementation-review)
+  - [Findings](#findings)
+  - [Decisions resolved during the audit](#decisions-resolved-during-the-audit)
+  - [Phase 0 expanded scope](#phase-0-expanded-scope)
 - [Detailed Design](#detailed-design)
   - [Per-reconcile Store update — the missing half](#per-reconcile-store-update--the-missing-half)
   - [Pacing — two layered mechanisms](#pacing--two-layered-mechanisms)
   - [Layer 1 — Budget-aware enqueueing (primary)](#layer-1--budget-aware-enqueueing-primary)
-  - [Layer 2 — Jittered initial last_checked_at (secondary)](#layer-2--jittered-initial-last_checked_at-secondary)
+  - [Layer 2 — Jittered initial lastcheckedat (secondary)](#layer-2--jittered-initial-lastcheckedat-secondary)
   - [Cross-replica coordination](#cross-replica-coordination)
   - [Discovery-only Sweeper mode](#discovery-only-sweeper-mode)
   - [Webhook-driven incremental discovery](#webhook-driven-incremental-discovery)
   - [Periodic reconciliation discovery](#periodic-reconciliation-discovery)
   - [Cutover behaviour](#cutover-behaviour)
 - [API / Interface Changes](#api--interface-changes)
+  - [internal/scheduler/sweep.go (existing legacy Sweeper)](#internalschedulersweepgo-existing-legacy-sweeper)
+  - [internal/config/](#internalconfig)
+  - [internal/store/](#internalstore)
+  - [internal/policy/](#internalpolicy)
+  - [internal/worker/](#internalworker)
+  - [internal/webhook/](#internalwebhook)
+  - [internal/metrics/](#internalmetrics)
+  - [Chart values](#chart-values)
 - [Data Model](#data-model)
 - [Testing Strategy](#testing-strategy)
+  - [Unit tests](#unit-tests)
+  - [Integration tests (integrationtest.go)](#integration-tests-integrationtestgo)
+  - [Cutover validation](#cutover-validation)
+  - [Chart tests (helm-unittest)](#chart-tests-helm-unittest)
 - [Migration / Rollout Plan](#migration--rollout-plan)
+  - [Phase 0 — State-writeback prerequisites](#phase-0--state-writeback-prerequisites)
+  - [Phase 1 — Land Discoverer alongside legacy Sweeper](#phase-1--land-discoverer-alongside-legacy-sweeper)
+  - [Phase 2 — Opt-in cutover](#phase-2--opt-in-cutover)
+  - [Phase 3 — Default-flip for Postgres backend](#phase-3--default-flip-for-postgres-backend)
+  - [Phase 4 — Remove legacy Sweeper from Postgres path](#phase-4--remove-legacy-sweeper-from-postgres-path)
+  - [Rollback](#rollback)
 - [Open Questions](#open-questions)
 - [References](#references)
 <!--toc:end-->
@@ -1010,7 +1032,8 @@ write-on-discovery vs Discover loop write — what if both fire at once?
   Postgres first wins; the loser sees `created=false` and proceeds.
 - other:
 
-**(e)** ⏸️ **Deferred — tracked in DESIGN-0018.** Memory-backend behaviour
+**(e)** ⏸️ **Deferred — see
+[DESIGN-0018](0018-deprecate-memory-backend.md).** Memory-backend behaviour
 after this design.
 
 - **Resolution:** during review the operator proposed dropping the memory
@@ -1019,11 +1042,12 @@ after this design.
   architectural decision than DESIGN-0017 can absorb (it ripples through
   `internal/store/memory/`, `internal/queue/memory/`,
   `internal/scheduler/ticker/`, chart defaults, helm-unittest matrix, and
-  the `make run-local` path). Spinning a separate DESIGN-0018: Deprecate
-  memory backend. Until that design lands and ships, IMPL-0015 treats
-  memory backend the same way it always has: the legacy Sweeper continues
-  to enqueue, no Discoverer wiring, no `Store.UpdateRepoState` calls (the
-  no-op memory Store covers the worker code path).
+  the `make run-local` path). See [DESIGN-0018: Deprecate memory
+  backend](0018-deprecate-memory-backend.md) for the full removal scope
+  (~1,600 LOC net) and migration plan. Until DESIGN-0018 ships, IMPL-0015
+  treats memory backend the same way it always has: the legacy Sweeper
+  continues to enqueue, no Discoverer wiring, no `Store.UpdateRepoState`
+  calls (the no-op memory Store covers the worker code path).
 - other:
 
 **(f)** ✅ **Resolved.** Single-binary architectural question: should

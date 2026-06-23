@@ -243,18 +243,24 @@ tighten config validation, flip chart defaults, and add
 
 **1.8 — Flip chart defaults**
 
-- [ ] `charts/repo-guardian/values.yaml`:
-  - Line 217: `store.backend: memory` → `store.backend: postgres`.
-  - Add `store.postgres.mode: baked` as the default mode.
-  - Line 294: `queue.backend: memory` → `queue.backend: valkey`.
-  - Add `queue.valkey.mode: baked` as the default mode.
-  - Line 328: `scheduler.backend: ticker` → `scheduler.backend: valkey`.
-- [ ] Regenerate chart README via `make helm-docs`.
-- [ ] Verify the rendered Deployment template populates the env
-  vars from the new defaults.
-- [ ] Confirm baked Postgres + baked Valkey resources render
+- [x] `charts/repo-guardian/values.yaml`:
+  - `store.backend: memory` → `store.backend: postgres`.
+  - `store.postgres.mode: baked` already the default (no change
+    needed).
+  - `queue.backend: memory` → `queue.backend: valkey`.
+  - `queue.valkey.mode: baked` already the default (no change
+    needed).
+  - `scheduler.backend: ticker` → `scheduler.backend: valkey`.
+  - `queue.size` retained with a deprecation comment (chart-schema
+    compatibility; will be removed in a future chart-major).
+- [x] Regenerate chart README via `make helm-docs`.
+- [x] Verify the rendered Deployment template populates the env
+  vars from the new defaults (STORE_DSN + QUEUE_VALKEY_DSN both
+  resolve to chart-rendered Secrets out-of-the-box).
+- [x] Confirm baked Postgres + baked Valkey resources render
   out-of-the-box (`helm template charts/repo-guardian` with no
-  values overrides).
+  values overrides emits StatefulSet × 2 + chart-rendered
+  Secrets).
 
 **1.9 — JSON schema validation**
 

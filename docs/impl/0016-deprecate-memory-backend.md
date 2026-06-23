@@ -422,77 +422,58 @@ chart progression is now 0.7.x → 1.0.0-rc.1 (this IMPL) → 1.0.0-rc.N
 No deprecation warning ships. Phase 0 dropped per DESIGN-0018 resolved
 [OQ (a)](../design/0018-deprecate-memory-backend.md#open-questions).
 
-**3.** Migration runbook location — new section in
+**3.** ✅ **Resolved.** Migration runbook location — new section in
 `docs/operations/migrations.md` or a new file?
 
-- (a) New section in existing `docs/operations/migrations.md`. The
-  slog.Warn URL references that file's anchor; operators have one
-  place to look for migration content; the file is already in nav.
-- (b) New file `docs/operations/memory-backend-removal.md`. Cleaner
-  separation; migrations.md becomes a hub. Update the slog.Warn
-  URL accordingly.
-- (c) Both — short section in migrations.md links to a detailed
-  standalone file. Hybrid.
-- other:
+- **(a) = New section in existing `docs/operations/migrations.md`
+  (chosen).** Operators have one place to look for migration content;
+  the file is already in nav. Single anchor URL for the
+  configuration-error messages.
 
-**4.** `charts/repo-guardian/values.schema.json` existence — does
-it exist today?
+**4.** ✅ **Resolved.** `charts/repo-guardian/values.schema.json`
+existence — does it exist today?
 
-- (a) Verify first via `ls charts/repo-guardian/values.schema.json`;
-  if absent, create the full schema as part of Phase 1; if
-  present, extend the relevant sections. The audit didn't
-  explicitly check.
-- (b) Skip schema validation entirely; rely on the binary startup
-  error from Task 1.7. Avoids the schema-authoring burden but
-  trades helm-time errors for pod-runtime errors.
-- (c) Create a minimal schema covering only the backend-enum
-  fields; defer full-schema authoring to a separate effort.
-- other:
+- **(a) = Verify first; create or extend as needed (chosen).** First
+  step of Task 1.9: `ls charts/repo-guardian/values.schema.json`. If
+  absent, author a full schema; if present, extend the
+  `store.backend` / `queue.backend` / `scheduler.backend` enum
+  fields. Schema validation at `helm install` time is the friendlier
+  error path for operators.
 
-**5.** Order of operations within Phase 1 — package deletes first or
-chart changes first?
+**5.** ✅ **Resolved.** Order of operations within Phase 1 — package
+deletes first or chart changes first?
 
-- (a) Package deletes first → main.go simplification → config
-  validation → chart defaults → schema. Lockstep "code is correct
-  first, then chart" ordering. Reduces risk of chart upgrade
-  succeeding but binary refusing to start.
-- (b) Chart changes first → schema → package deletes. Operators
-  upgrading chart get the new defaults; subsequent binary upgrade
-  is a no-op. Front-loads operator-facing changes.
-- (c) Single atomic squash-merge with everything together. Atomic;
-  high risk if anything fails CI.
-- other:
+- **(a) = Package deletes first → main.go → config → chart →
+  schema (chosen).** Lockstep "code is correct first, then chart"
+  ordering. Reduces risk of a chart upgrade landing on operators
+  before the binary refuses memory values. Task sequence (1.2 →
+  1.7 → 1.8 → 1.9) already follows this order in the phase
+  outline above.
 
 **6.** ⛔ **Superseded.** Phase 0 PR strategy — single PR or split?
 
 Phase 0 was dropped. Only Phase 1's PR strategy is relevant — see
 question 7.
 
-**7.** Phase 1 PR strategy — Phase 1 is much larger.
+**7.** ✅ **Resolved.** Phase 1 PR strategy — Phase 1 is much larger.
 
-- (a) Single PR. Phase 1 is a cohesive change ("remove memory
-  backend"); reviewer reads DESIGN-0018 once and sees the full
-  removal. Risk: one large diff. Mitigated by Phase 0 prep.
-- (b) Split by package: one PR per backend deletion
-  (`store/memory`, `queue/memory`, `scheduler/ticker`), one PR for
-  main.go + config tightening, one PR for chart + schema, one PR
-  for docs. ~5 PRs total. Easier to review.
-- (c) Split by category: deletions PR, additions PR
-  (docker-compose + schema + runbook), chart-changes PR, docs PR.
-  3-4 PRs.
-- other:
+- **(a) = Single PR (chosen).** Phase 1 is a cohesive change
+  ("remove memory backend"); reviewer reads DESIGN-0018 once and
+  sees the full removal in one diff. The single-PR shape matches
+  the `1.0.0-rc.1` tag — a single squash-merge is the boundary
+  between "memory backend exists" and "memory backend does not."
+  Risk of a large diff is mitigated by the deletion-heavy LOC
+  count (~1,600 LOC removed, only a few hundred added).
 
-**8.** `docker-compose.dev.yaml` placement — repo root or
-sub-directory?
+**8.** ✅ **Resolved.** `docker-compose.dev.yaml` placement — repo
+root or sub-directory?
 
-- (a) Repo root as `docker-compose.dev.yaml`. Convention; CI
-  tooling, IDEs, and editors expect compose files at the root.
-  Easiest for newcomers.
-- (b) `dev/docker-compose.yaml` to namespace it. Keeps the root
-  tidy; signals "dev tooling here."
-- (c) `scripts/docker-compose.dev.yaml`. Co-located with other
-  dev tooling scripts.
-- other:
+- **(a) = Repo root as `docker-compose.dev.yaml` (chosen).**
+  Convention; CI tooling, IDEs (VS Code Docker extension, IntelliJ
+  Docker plugin), and editors expect compose files at the root.
+  `docker compose -f docker-compose.dev.yaml up -d` works from any
+  shell with no path gymnastics. Easiest for newcomers cloning the
+  repo for the first time.
 
 ## References
 
@@ -504,7 +485,8 @@ sub-directory?
   — sibling design that surfaced this work via question (e).
 - [IMPL-0015: Stale-sweep cutover and repository
   discovery](0015-stale-sweep-cutover-and-repository-discovery.md) —
-  must ship before this IMPL starts Phase 1.
+  ships **after** this IMPL on the path to 1.0.0. See
+  [Sequencing](#sequencing).
 - [DESIGN-0012: Persistent reconcile state and multi-replica
   coordination](../design/0012-persistent-reconcile-state-and-multi-replica-coordination.md)
   — introduced the multi-backend pattern this IMPL retires.

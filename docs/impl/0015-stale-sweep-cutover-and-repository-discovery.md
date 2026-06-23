@@ -241,12 +241,14 @@ as `Discoverer.Discover`; only the *schedule call* is removed here.
   (installation_id, owner, repo) DO NOTHING RETURNING (xmax = 0) AS
   created`. Handle the "no row returned" case as `created = false,
   err = nil`.
-- [ ] Implement in `internal/store/memory/memory.go` with a map
-  presence check under the existing mutex.
 - [ ] Regenerate the mockery mock for `store.Store` via `make mocks`.
-- [ ] Write unit tests for both implementations: existing row
-  preserved (returns `created=false`), missing row inserted
-  (returns `created=true`), idempotent on repeated calls.
+  (`internal/store/memory/` was deleted in IMPL-0016 — postgres is
+  the only concrete implementation.)
+- [ ] Write unit tests against the mockery `MockStore`: callers
+  short-circuit correctly when `created=false`, propagate
+  errors on `err != nil`. Integration coverage of the actual
+  INSERT...ON CONFLICT behaviour lives in the postgres
+  integration test below.
 - [ ] Add an integration test in
   `internal/store/postgres/postgres_integration_test.go` that
   exercises the `ON CONFLICT` path with a real Postgres.
@@ -471,14 +473,12 @@ deployments.
 | `internal/store/postgres/postgres.go` | 0 | Modify | Implement `UpsertIfMissing` |
 | `internal/store/postgres/postgres_test.go` | 0 | Modify | Add UpsertIfMissing tests |
 | `internal/store/postgres/postgres_integration_test.go` | 0 | Modify | Add ON CONFLICT integration test |
-| `internal/store/memory/memory.go` | 0 | Modify | Implement `UpsertIfMissing` |
-| `internal/store/memory/memory_test.go` | 0 | Modify | Add UpsertIfMissing tests |
-| `internal/store/mocks/Store.go` | 0 | Regenerate | `make mocks` |
+| `internal/store/mocks/store_mock.go` | 0 | Regenerate | `make mocks` |
 | `internal/rules/store.go` | 0 | Modify | Add `AsMap() map[string]string` |
 | `internal/rules/store_test.go` | 0 | Modify | Test AsMap |
 | `internal/policy/version_test.go` | 0 | Modify | Test that template changes invalidate hash |
 | `internal/metrics/metrics.go` | 0+1 | Modify | New metric definitions |
-| `cmd/repo-guardian/main.go` | 0+1 | Modify | Wire Store into worker + webhook; gate legacy Sweeper; schedule Discoverer |
+| `cmd/repo-guardian/main.go` | 0+1 | Modify | Wire Store into worker + webhook; delete legacy Sweeper schedule call; schedule Discoverer |
 | `internal/scheduler/sweep.go` | 1 | Modify | Either rename to Discoverer or extract Discoverer type |
 | `internal/scheduler/budget.go` | 1 | Create | BudgetTracker |
 | `internal/scheduler/budget_test.go` | 1 | Create | BudgetTracker tests |

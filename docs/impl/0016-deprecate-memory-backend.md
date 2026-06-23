@@ -169,11 +169,11 @@ tighten config validation, flip chart defaults, and add
 
 **1.3 — Delete `internal/queue/memory/`**
 
-- [ ] Delete the directory (387 LOC: `memory.go` 113 + `memory_test.go`
+- [x] Delete the directory (387 LOC: `memory.go` 113 + `memory_test.go`
   274).
-- [ ] Remove the import from `main.go` (line 25 per audit).
-- [ ] Verify no other importers.
-- [ ] `go build ./...` succeeds.
+- [x] Remove the import from `main.go` (line 25 per audit).
+- [x] Verify no other importers.
+- [x] `go build ./...` succeeds.
 
 **1.4 — Delete `internal/scheduler/ticker/`**
 

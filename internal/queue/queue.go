@@ -4,7 +4,7 @@
 // is at-least-once; deduplication is handled by the engine's idempotent
 // reconcile path (see INV-0003).
 //
-// Implementations live in subpackages (`queue/memory`, `queue/valkey`)
+// Implementations live in subpackages (`queue/valkey`)
 // and are selected via `QUEUE_BACKEND` at runtime.
 package queue
 

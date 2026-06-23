@@ -22,7 +22,6 @@ import (
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/queue"
-	memqueue "github.com/donaldgifford/repo-guardian/internal/queue/memory"
 	valkeyqueue "github.com/donaldgifford/repo-guardian/internal/queue/valkey"
 	"github.com/donaldgifford/repo-guardian/internal/reconciler"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
@@ -142,7 +141,7 @@ func bringUp(
 		return nil, fmt.Errorf("create store: %w", err)
 	}
 
-	qw, err := newQueue(ctx, cfg, policyCfg.Guardian.QueueSize, logger)
+	qw, err := newQueue(ctx, cfg, logger)
 	if err != nil {
 		closeAndLog(logger, "store close after queue-init failure", stateStore.Close)
 
@@ -274,17 +273,11 @@ type queueWiring struct {
 	rclient *redis.Client
 }
 
-// newQueue constructs the work queue from cfg. Memory is the default;
-// Valkey engages when QUEUE_BACKEND=valkey. The Valkey backend also
-// returns a Reaper that the caller should run on its own goroutine
-// for the duration of ctx; reaper and rclient are nil for memory.
-func newQueue(ctx context.Context, cfg *config.Config, queueSize int, logger *slog.Logger) (queueWiring, error) {
-	if cfg.QueueBackend != config.QueueBackendValkey {
-		logger.Info("queue backend", "kind", "memory")
-
-		return queueWiring{queue: memqueue.New(queueSize)}, nil
-	}
-
+// newQueue constructs the work queue from cfg. Valkey is the only
+// supported backend (IMPL-0016 dropped the in-memory shim). Returns
+// a Reaper that the caller should run on its own goroutine for the
+// duration of ctx.
+func newQueue(ctx context.Context, cfg *config.Config, logger *slog.Logger) (queueWiring, error) {
 	logger.Info("queue backend", "kind", "valkey")
 
 	parsed, err := redis.ParseURL(cfg.QueueValkeyDSN)

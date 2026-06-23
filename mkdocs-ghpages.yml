@@ -1,4 +1,5 @@
 ---
+# $schema=https://json.schemastore.org/mkdocs-1.6.json
 nav:
   - Home: index.md
   - ADRs:

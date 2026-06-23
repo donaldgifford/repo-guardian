@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 # Build stage
 FROM --platform=$BUILDPLATFORM golang:1.26 AS builder
 

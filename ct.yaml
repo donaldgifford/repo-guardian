@@ -1,3 +1,5 @@
+---
+# $schema=https://json.schemastore.org/helm-testsuite.json
 chart-dirs:
   - charts
 target-branch: main

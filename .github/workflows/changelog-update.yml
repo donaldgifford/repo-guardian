@@ -1,4 +1,5 @@
 ---
+# $schema=https://www.schemastore.org/github-action.json
 name: Changelog Update
 
 # Regenerates the root CHANGELOG.md from conventional commits and
@@ -59,5 +60,5 @@ jobs:
             chore
             dont-release
           delete-branch: true
-          add-paths: |
+          add-paths: |-
             CHANGELOG.md

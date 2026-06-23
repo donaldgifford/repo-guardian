@@ -46,4 +46,6 @@ docz create impl "Your Implementation Title"
 | IMPL-0012 | Customizable PR templates and extensible template ConfigMap | Completed | 2026-05-03 | Donald Gifford | [0012-customizable-pr-templates-and-extensible-template-configmap.md](0012-customizable-pr-templates-and-extensible-template-configmap.md) |
 | IMPL-0013 | Reconcile open PRs when file rules become satisfied | Implemented | 2026-05-28 | Donald Gifford | [0013-reconcile-open-prs-when-file-rules-become-satisfied.md](0013-reconcile-open-prs-when-file-rules-become-satisfied.md) |
 | IMPL-0014 | Remove legacy engine path and deprecated overlays | Implemented | 2026-05-30 | Donald Gifford | [0014-remove-legacy-engine-path-and-deprecated-overlays.md](0014-remove-legacy-engine-path-and-deprecated-overlays.md) |
+| IMPL-0015 | Stale-sweep cutover and repository discovery | Draft | 2026-06-23 | Donald Gifford | [0015-stale-sweep-cutover-and-repository-discovery.md](0015-stale-sweep-cutover-and-repository-discovery.md) |
+| IMPL-0016 | Deprecate memory backend | Draft | 2026-06-23 | Donald Gifford | [0016-deprecate-memory-backend.md](0016-deprecate-memory-backend.md) |
 <!-- END DOCZ AUTO-GENERATED -->

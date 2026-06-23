@@ -1,0 +1,29 @@
+---
+# $schema=https://www.schemastore.org/actionlint.json
+# actionlint configuration
+# Reference: https://github.com/rhysd/actionlint/blob/main/docs/config.md
+#
+# actionlint runs in CI (and locally via `actionlint .github/workflows/*.yml`)
+# and validates workflow syntax, expression types, runner labels, shellcheck
+# in `run:` blocks, and step input/output schemas. This file dials in the
+# parts that aren't autodetected.
+
+# Self-hosted runners are not used in this repo — keep the labels list empty
+# so any accidental introduction shows up as an "unknown label" error.
+self-hosted-runner:
+  labels: []
+
+# Repository / organization configuration variables (`vars.*`). Default
+# (null) is permissive — actionlint won't flag unknown vars references.
+# Switch to an explicit list (e.g. ["MY_VAR"]) once we start using any,
+# so unknown references become errors.
+config-variables: null
+
+# Per-path error filters. Add entries here if a specific workflow needs a
+# targeted ignore (e.g. a shellcheck SCxxxx false positive on a run: block).
+# Example:
+#   paths:
+#     .github/workflows/changelog-regen.yml:
+#       ignore:
+#         - "shellcheck reported issue.+SC2086.+"
+paths: {}

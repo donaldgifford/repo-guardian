@@ -1,4 +1,5 @@
 ---
+# $schema=https://www.schemastore.org/github-action.json
 name: Publish to GHCR
 
 # Called from release.yml after bump-version. Also dispatchable for ad-hoc

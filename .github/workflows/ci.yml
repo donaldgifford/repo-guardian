@@ -1,4 +1,5 @@
 ---
+# $schema=https://www.schemastore.org/github-action.json
 name: CI
 
 on:

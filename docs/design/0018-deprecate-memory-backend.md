@@ -349,10 +349,10 @@ migrate. There is no in-binary fallback path.
 
 ## Open Questions
 
-**(a)** Deprecation window length — how long do operators get between
-the warning (Phase 0) and the hard-fail (Phase 1)?
+**(a)** ✅ **Resolved.** Deprecation window length — how long do operators
+get between the warning (Phase 0) and the hard-fail (Phase 1)?
 
-- **(a) = One chart release cycle (recommended).** Matches the cadence
+- **(a) = One chart release cycle (chosen).** Matches the cadence
   of breaking changes elsewhere; long enough for operators following
   releases to migrate, short enough that the dual maintenance burden
   doesn't linger.
@@ -362,9 +362,9 @@ the warning (Phase 0) and the hard-fail (Phase 1)?
   external operators, so the deprecation window has no audience.
 - other:
 
-**(b)** Default `store.postgres.mode` after the flip.
+**(b)** ✅ **Resolved.** Default `store.postgres.mode` after the flip.
 
-- **(a) = `baked` (recommended).** Out-of-the-box install on a fresh
+- **(a) = `baked` (chosen).** Out-of-the-box install on a fresh
   cluster spins a single Postgres pod managed by the chart. Matches the
   current homelab-smoke runbook.
 - (b) `cnpg`. Assumes operators have CNPG installed; nicer multi-replica
@@ -375,17 +375,17 @@ the warning (Phase 0) and the hard-fail (Phase 1)?
   hurts the "kick the tires" experience.
 - other:
 
-**(c)** Default `queue.valkey.mode` after the flip.
+**(c)** ✅ **Resolved.** Default `queue.valkey.mode` after the flip.
 
-- **(a) = `baked` (recommended).** Symmetric with (b); chart-managed
+- **(a) = `baked` (chosen).** Symmetric with (b); chart-managed
   Valkey pod.
 - (b) `external`. Forces operators to bring their own Valkey.
 - other:
 
-**(d)** Local development experience — how do `make run-local` / `make
-test` work without memory backend?
+**(d)** ✅ **Resolved.** Local development experience — how do `make
+run-local` / `make test` work without memory backend?
 
-- **(a) = Docker Compose stub committed to the repo (recommended).** Ship
+- **(a) = Docker Compose stub committed to the repo (chosen).** Ship
   a `docker-compose.dev.yaml` with Postgres + Valkey. Add `make
   dev-services` / `make dev-stop` targets. `make run-local` depends on
   `dev-services`.
@@ -395,9 +395,10 @@ test` work without memory backend?
   path. Heavier setup but matches production exactly.
 - other:
 
-**(e)** Chart deprecation surface — where does the Phase 0 warning live?
+**(e)** ✅ **Resolved.** Chart deprecation surface — where does the Phase 0
+warning live?
 
-- **(a) = Both NOTES.txt and a binary-startup slog.Warn (recommended).**
+- **(a) = Both NOTES.txt and a binary-startup slog.Warn (chosen).**
   Operators see it both at `helm install` time and at pod startup. Belt
   and suspenders.
 - (b) NOTES.txt only. Operators reading helm output catch it; pod logs
@@ -406,9 +407,9 @@ test` work without memory backend?
   quiet.
 - other:
 
-**(f)** Schema-level lint for deprecated values.
+**(f)** ✅ **Resolved.** Schema-level lint for deprecated values.
 
-- **(a) = JSON schema validation in `values.schema.json` (recommended).**
+- **(a) = JSON schema validation in `values.schema.json` (chosen).**
   Reject memory/ticker values at `helm install` / `helm upgrade` time
   before the pod starts. Operators see the error in `helm install`
   output, not in pod CrashLoopBackoff.
@@ -416,9 +417,9 @@ test` work without memory backend?
   surface the problem.
 - other:
 
-**(g)** Sequencing with IMPL-0015 (DESIGN-0017).
+**(g)** ✅ **Resolved.** Sequencing with IMPL-0015 (DESIGN-0017).
 
-- **(a) = Independent sequencing (recommended).** IMPL-0015 ships
+- **(a) = Independent sequencing (chosen).** IMPL-0015 ships
   DESIGN-0017 with the no-op memory store path intact. Later, IMPL-0016
   ships DESIGN-0018 and removes the memory paths IMPL-0015 still
   touches. Keeps both implementations smaller.
@@ -426,10 +427,10 @@ test` work without memory backend?
   the no-op memory paths. Reduces IMPL-0015 scope but couples the two.
 - other:
 
-**(h)** Should we delete `docker-compose.dev.yaml` after testcontainers
-matures, or keep it as the canonical local-dev shape?
+**(h)** ✅ **Resolved.** Should we delete `docker-compose.dev.yaml` after
+testcontainers matures, or keep it as the canonical local-dev shape?
 
-- **(a) = Keep `docker-compose.dev.yaml` indefinitely (recommended).**
+- **(a) = Keep `docker-compose.dev.yaml` indefinitely (chosen).**
   testcontainers requires Go test wrapper code. Operators iterating on
   the binary outside `make test` benefit from a long-lived compose file
   they can leave running.

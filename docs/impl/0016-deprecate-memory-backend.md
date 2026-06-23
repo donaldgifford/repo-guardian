@@ -159,13 +159,13 @@ tighten config validation, flip chart defaults, and add
 
 **1.2 — Delete `internal/store/memory/`**
 
-- [ ] Delete the directory entirely (329 LOC: `memory.go` 133 LOC +
+- [x] Delete the directory entirely (329 LOC: `memory.go` 133 LOC +
   `memory_test.go` 196 LOC).
-- [ ] Remove the import from `cmd/repo-guardian/main.go` (line 30
+- [x] Remove the import from `cmd/repo-guardian/main.go` (line 30
   per the audit).
-- [ ] Verify no other files import `internal/store/memory` via
+- [x] Verify no other files import `internal/store/memory` via
   `grep -r "internal/store/memory"`.
-- [ ] `go build ./...` succeeds.
+- [x] `go build ./...` succeeds.
 
 **1.3 — Delete `internal/queue/memory/`**
 

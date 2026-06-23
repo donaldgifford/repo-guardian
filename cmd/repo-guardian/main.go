@@ -30,7 +30,6 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/scheduler/ticker"
 	valkeyscheduler "github.com/donaldgifford/repo-guardian/internal/scheduler/valkey"
 	"github.com/donaldgifford/repo-guardian/internal/store"
-	memstore "github.com/donaldgifford/repo-guardian/internal/store/memory"
 	pgstore "github.com/donaldgifford/repo-guardian/internal/store/postgres"
 	"github.com/donaldgifford/repo-guardian/internal/webhook"
 	"github.com/donaldgifford/repo-guardian/internal/worker"
@@ -346,18 +345,12 @@ func podID(cfg *config.Config) string {
 	return fmt.Sprintf("repo-guardian-%d", os.Getpid())
 }
 
-// newStore constructs the persistent state store from cfg. Memory is
-// the default; postgres engages when STORE_BACKEND=postgres. When
-// STORE_BACKEND=postgres the binary applies migrations before opening
-// the pool — failure aborts startup so we never serve traffic against
-// a stale schema.
+// newStore constructs the persistent state store from cfg. Postgres
+// is the only supported backend (IMPL-0016 dropped the in-memory
+// shim). The binary applies migrations before opening the pool —
+// failure aborts startup so we never serve traffic against a stale
+// schema.
 func newStore(ctx context.Context, cfg *config.Config, logger *slog.Logger) (store.Store, error) {
-	if cfg.StoreBackend != config.StoreBackendPostgres {
-		logger.Info("store backend", "kind", "memory")
-
-		return memstore.New(), nil
-	}
-
 	logger.Info("store backend", "kind", "postgres")
 
 	if err := pgstore.Migrate(cfg.StoreDSN); err != nil {

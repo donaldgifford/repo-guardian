@@ -177,11 +177,11 @@ tighten config validation, flip chart defaults, and add
 
 **1.4 — Delete `internal/scheduler/ticker/`**
 
-- [ ] Delete the directory (251 LOC: `ticker.go` 109 + `ticker_test.go`
+- [x] Delete the directory (251 LOC: `ticker.go` 109 + `ticker_test.go`
   142).
-- [ ] Remove the import from `main.go` (line 33 per audit).
-- [ ] Verify no other importers.
-- [ ] `go build ./...` succeeds.
+- [x] Remove the import from `main.go` (line 33 per audit).
+- [x] Verify no other importers.
+- [x] `go build ./...` succeeds.
 
 **1.5 — Delete ticker arm of scheduler contract test**
 

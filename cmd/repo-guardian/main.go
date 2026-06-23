@@ -26,7 +26,6 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/reconciler"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
 	"github.com/donaldgifford/repo-guardian/internal/scheduler"
-	"github.com/donaldgifford/repo-guardian/internal/scheduler/ticker"
 	valkeyscheduler "github.com/donaldgifford/repo-guardian/internal/scheduler/valkey"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	pgstore "github.com/donaldgifford/repo-guardian/internal/store/postgres"
@@ -305,19 +304,13 @@ func newQueue(ctx context.Context, cfg *config.Config, logger *slog.Logger) (que
 	return queueWiring{queue: q, reaper: r, rclient: client}, nil
 }
 
-// newScheduler constructs the scheduler.Scheduler from cfg. Ticker is
-// the default; Valkey engages when SCHEDULER_BACKEND=valkey and
-// requires a non-nil redis client (reuses the queue's client per
-// IMPL-0011 Phase 4 Open Q resolution).
+// newScheduler constructs the scheduler.Scheduler from cfg. Valkey
+// is the only supported backend (IMPL-0016 dropped the ticker
+// in-process shim); reuses the queue's redis client per IMPL-0011
+// Phase 4 Open Q resolution.
 func newScheduler(cfg *config.Config, logger *slog.Logger, rclient *redis.Client) (scheduler.Scheduler, error) {
-	if cfg.SchedulerBackend != config.SchedulerBackendValkey {
-		logger.Info("scheduler backend", "kind", "ticker")
-
-		return ticker.New(), nil
-	}
-
 	if rclient == nil {
-		return nil, errors.New("scheduler backend valkey requires a Valkey-backed queue (set QUEUE_BACKEND=valkey)")
+		return nil, errors.New("scheduler requires a Valkey-backed queue (set QUEUE_BACKEND=valkey)")
 	}
 
 	logger.Info("scheduler backend", "kind", "valkey")

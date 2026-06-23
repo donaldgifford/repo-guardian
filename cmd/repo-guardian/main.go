@@ -171,12 +171,12 @@ func bringUp(
 		return nil, fmt.Errorf("schedule sweep: %w", err)
 	}
 
-	if cfg.StoreBackend == config.StoreBackendPostgres {
-		policyVersion, vErr := policy.Version(policyCfg, templates.AsMap())
-		if vErr != nil {
-			logger.Warn("policy.Version failed; stale-sweep policy_version will be empty", "error", vErr)
-		}
+	policyVersion, vErr := policy.Version(policyCfg, templates.AsMap())
+	if vErr != nil {
+		logger.Warn("policy.Version failed; stale-sweep policy_version will be empty", "error", vErr)
+	}
 
+	if cfg.StoreBackend == config.StoreBackendPostgres {
 		staleSweeper := checker.NewStaleSweeper(checker.StaleSweeperOptions{
 			Store:         stateStore,
 			Queue:         qw.queue,
@@ -196,7 +196,7 @@ func bringUp(
 		}
 	}
 
-	workerPool := worker.New(qw.queue, engine, client, policyCfg.Guardian.WorkerCount, logger)
+	workerPool := worker.New(qw.queue, engine, client, stateStore, policyVersion, policyCfg.Guardian.WorkerCount, logger)
 	workerPool.Start(ctx)
 
 	if qw.reaper != nil {

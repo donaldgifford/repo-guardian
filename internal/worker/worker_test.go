@@ -45,7 +45,7 @@ func TestPool_StartStop(t *testing.T) {
 
 	defer func() { _ = q.Close() }()
 
-	p := worker.New(q, nil, nil, 2, slog.Default())
+	p := worker.New(q, nil, nil, nil, "", 2, slog.Default())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	p.Start(ctx)
@@ -60,7 +60,7 @@ func TestPool_StopIdempotent(t *testing.T) {
 	t.Parallel()
 
 	q := newRecordingQueue()
-	p := worker.New(q, nil, nil, 1, slog.Default())
+	p := worker.New(q, nil, nil, nil, "", 1, slog.Default())
 
 	p.Stop() // before Start
 	p.Stop() // double-Stop, also fine

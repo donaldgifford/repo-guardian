@@ -153,30 +153,37 @@ codebase.
 
 **0.1 — Worker `Store` injection + write-back contract**
 
-- [ ] Add `store store.Store` and `policyVersion string` fields to
+- [x] Add `store store.Store` and `policyVersion string` fields to
   `internal/worker.Pool`.
-- [ ] Update `worker.New(...)` constructor signature to accept `store`
+- [x] Update `worker.New(...)` constructor signature to accept `store`
   and `policyVersion` parameters. Document the new contract in the
   package doc-comment.
-- [ ] Update `cmd/repo-guardian/main.go` `bringUp` to thread the
+- [x] Update `cmd/repo-guardian/main.go` `bringUp` to thread the
   `stateStore` and a `policyVersion` value (computed once at startup
   from `policy.Version(cfg, templates.AsMap())` — see Task 0.4) into
-  `worker.New`.
-- [ ] In `processJob`, after `engine.CheckRepo` returns, construct a
+  `worker.New`. policyVersion is now computed at bringUp scope so it
+  feeds both `worker.New` and `StaleSweeper`.
+- [x] In `processJob`, after `engine.CheckRepo` returns, construct a
   `*store.RepoState` with `LastCheckedAt = &now`, `PolicyVersion =
   p.policyVersion`, and either `LastCheckStatus = store.StatusSuccess`
   + `LastError = ""` (on success) OR `LastCheckStatus =
   store.StatusError` + `LastError = truncate(err.Error(), 1024)` (on
-  failure).
-- [ ] Always call `p.store.UpdateRepoState(ctx, state)` — both success
+  failure). Write-back also runs on the `CreateInstallationClient`
+  failure path so a transient JWT/install-token glitch surfaces as a
+  StatusError row (otherwise the repo would be a stale-sweep dead
+  zone — checked but never re-checked).
+- [x] Always call `p.store.UpdateRepoState(ctx, state)` — both success
   and error paths. Best-effort: log + count + continue on Store write
   failure (per design decision (k)).
-- [ ] Add a `truncate(s string, n int)` helper. See Open Question 3 for
-  package location.
-- [ ] Update mockery-generated mock for `store.Store` to include any
-  new methods (`UpsertIfMissing` lands in Task 0.5).
-- [ ] Write unit tests: success-path write, error-path write,
-  Store-write-failure logged-and-continued. Use the mockery mock.
+- [x] Add a `Truncate(s string, n int)` helper. Lives in
+  `internal/store/util.go` (resolves Open Question 3a). Operates on
+  runes, not bytes; clipped strings get a single `…` ellipsis
+  suffix and the rune count is exactly `maxRunes`.
+- [x] Update mockery-generated mock for `store.Store` to include any
+  new methods (`UpsertIfMissing` landed in Task 0.5).
+- [x] Write unit tests: success-path write, error-path write,
+  store-write-failure logged-and-continued, long-error truncation,
+  nil-store no-panic. Use the mockery mock.
 
 **0.2 — Webhook handler `Store` injection + discovery write-back**
 

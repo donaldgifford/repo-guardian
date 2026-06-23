@@ -15,14 +15,20 @@ created: 2026-06-23
 
 <!--toc:start-->
 - [Objective](#objective)
+- [Sequencing](#sequencing)
 - [Scope](#scope)
   - [In Scope](#in-scope)
   - [Out of Scope](#out-of-scope)
 - [Implementation Phases](#implementation-phases)
   - [Phase 0: State-writeback prerequisites](#phase-0-state-writeback-prerequisites)
+    - [Tasks](#tasks)
+    - [Success Criteria](#success-criteria)
   - [Phase 1: Discoverer + Layer 1 budget gating](#phase-1-discoverer--layer-1-budget-gating)
-  - [Phase 2: Opt-in cutover (operator-side)](#phase-2-opt-in-cutover-operator-side)
-  - [Phase 3: Chart default flip](#phase-3-chart-default-flip)
+    - [Tasks](#tasks-1)
+    - [Success Criteria](#success-criteria-1)
+  - [Phase 2: RC validation in homelab](#phase-2-rc-validation-in-homelab)
+    - [Tasks](#tasks-2)
+    - [Success Criteria](#success-criteria-2)
 - [File Changes](#file-changes)
 - [Testing Plan](#testing-plan)
 - [Dependencies](#dependencies)
@@ -45,6 +51,42 @@ The design's pre-implementation audit surfaced 9 gaps beyond the
 worker-writeback bug. Phase 0 of this IMPL bundles all the prerequisites
 that must land together for the freshness gate, the budget tracker, and the
 cutover-gating logic to be coherent.
+
+## Sequencing
+
+**IMPL-0016 ships first.** Per DESIGN-0018 resolved [OQ
+(g)](../design/0018-deprecate-memory-backend.md#open-questions), the memory
+backend is removed before IMPL-0015 starts. By the time this IMPL's Phase 0
+begins, the codebase has no `internal/store/memory/`,
+`internal/queue/memory/`, or `internal/scheduler/ticker/` packages — every
+deployment is Postgres + Valkey.
+
+This simplifies IMPL-0015:
+
+- No "what does memory backend do here?" branch for every new write site.
+- Worker / webhook / config tests are single-backend.
+- Phase 0 Task 0.3 (legacy Sweeper gating) becomes "delete the schedule
+  call unconditionally" instead of "wrap in if-statement."
+- Phase 3 (chart default flip for `DISCOVERY_ENABLED`) collapses into
+  Phase 1 — discovery is on by default from the start since there's no
+  memory-backend deployment to opt-out for.
+- Phase 2 (operator-side opt-in cutover) collapses into the RC validation
+  flow — the homelab operator is the cutover.
+
+Both IMPLs bundle into the **1.0.0 release**, validated via
+manually-tagged `1.0.0-rc.N` versions:
+
+| RC | What landed |
+|---|---|
+| `1.0.0-rc.1` | IMPL-0016 work (memory backend removed; chart defaults flipped; schema validation added; `docker-compose.dev.yaml` shipped) |
+| `1.0.0-rc.2` | IMPL-0015 Phase 0 (state writeback prerequisites) |
+| `1.0.0-rc.3+` | IMPL-0015 Phase 1 (Discoverer + BudgetTracker), with `DISCOVERY_ENABLED=true` by default |
+| `1.0.0` | Stable cut when all phases validated in homelab |
+
+Binary `appVersion` stays on the 1.x line (1.8.1 → 1.9.0). Chart version
+moves to 1.0.0 to signal the meaningful operator-facing release. Binary
+v2.0.0 was deferred to avoid Go module `/v2` path migration; revisit if
+we ever expose a public library.
 
 ## Scope
 
@@ -70,8 +112,8 @@ cutover-gating logic to be coherent.
 ### Out of Scope
 
 - Removing the memory backend. Tracked separately in DESIGN-0018 /
-  IMPL-0016. This IMPL preserves the memory backend's existing semantics
-  via a no-op Store path.
+  IMPL-0016. **IMPL-0016 ships first**; by the time this IMPL starts, the
+  memory backend packages are already deleted. See [Sequencing](#sequencing).
 - Fast retry of errored repos (separate sweep cadence for
   `last_check_status=error`). Future enhancement; out of scope per
   DESIGN-0017 decision (m).
@@ -81,23 +123,31 @@ cutover-gating logic to be coherent.
 - Auto-tuning `estimatedCostPerRepo` from observed consumption. Out of
   scope per DESIGN-0017 decision (h).
 - Phase 4 (legacy Sweeper removal from Postgres path) — already absorbed
-  into Phase 0 by the audit. Memory backend retains the legacy Sweeper
-  schedule until DESIGN-0018 ships.
+  into Phase 0 by the audit. With memory backend removed in IMPL-0016,
+  the legacy Sweeper schedule is dropped unconditionally in Phase 0
+  Task 0.3 (no `STORE_BACKEND` gating needed).
+- Phase 2 (operator opt-in cutover) and Phase 3 (chart default flip) —
+  collapsed into the RC validation flow per [Sequencing](#sequencing).
+  Discovery is enabled by default from the 1.0.0 release since there's
+  no memory-backend deployment to opt-out for.
 
 ## Implementation Phases
 
 Each phase builds on the previous one. A phase is complete when all its
 tasks are checked off and its success criteria are met. Phase 0 is the
-largest by far — it bundles every prerequisite the design surfaced in the
-gap audit. Phases 2 and 3 are smaller / operator-side.
+largest — it bundles every prerequisite the design surfaced in the gap
+audit. Phase 1 lands Discoverer + budget tracker. Phase 2 is the RC
+validation flow tracking against the 1.0.0 release.
 
 ---
 
 ### Phase 0: State-writeback prerequisites
 
-The prerequisite bundle. None of Phases 1-3 work coherently without these.
-Phase 0 lands as one or more PRs (see Open Question 4 for PR strategy) and
-must ship and soak in production before Phase 1 begins implementation.
+The prerequisite bundle. Phase 1 doesn't work coherently without these.
+Ships as a single atomic PR (per resolved Open Question 4) tagged
+`1.0.0-rc.2` (or next available) for homelab validation. IMPL-0016 ships
+first as `1.0.0-rc.1` — this Phase 0 lands on a memory-backend-free
+codebase.
 
 #### Tasks
 
@@ -123,9 +173,6 @@ must ship and soak in production before Phase 1 begins implementation.
   failure (per design decision (k)).
 - [ ] Add a `truncate(s string, n int)` helper. See Open Question 3 for
   package location.
-- [ ] Provide a no-op `Store` implementation for memory backend
-  deployments — likely already covered by `internal/store/memory/` if
-  its `UpdateRepoState` is a trivial map write. Confirm with audit.
 - [ ] Update mockery-generated mock for `store.Store` to include any
   new methods (`UpsertIfMissing` lands in Task 0.5).
 - [ ] Write unit tests: success-path write, error-path write,
@@ -153,18 +200,20 @@ must ship and soak in production before Phase 1 begins implementation.
 - [ ] Write unit tests for each handler path; assert exactly one
   Store call per event with correct payload.
 
-**0.3 — Legacy Sweeper gating on `STORE_BACKEND`**
+**0.3 — Drop the legacy Sweeper schedule call**
 
-- [ ] In `cmd/repo-guardian/main.go`, wrap the existing
+With memory backend removed in IMPL-0016, the legacy Sweeper's bootstrap
+role is gone. StaleSweeper handles every deployment. The `Sweeper` type
+itself stays in `internal/scheduler/sweep.go` for Phase 1 to repurpose
+as `Discoverer.Discover`; only the *schedule call* is removed here.
+
+- [ ] In `cmd/repo-guardian/main.go`, delete the
   `sched.Schedule(ctx, "sweep", interval, sweeper.ReconcileAll)` call
-  in `if cfg.StoreBackend != config.StoreBackendPostgres`.
-- [ ] Add a `slog.Info` log message at the gate explaining the
-  rationale ("Postgres backend uses StaleSweeper, not legacy
-  per-tick enumeration").
-- [ ] Verify no tests directly depend on the legacy schedule
-  unconditionally running.
+  entirely. (No `if` gate — every deployment is Postgres + Valkey
+  post-IMPL-0016.)
+- [ ] Verify no tests directly depend on the legacy schedule running.
 - [ ] Document the change in `docs/operations/scaling.md` under the
-  Postgres-backend deployment section.
+  scaling matrix section.
 
 **0.4 — `policy.Version` template-hash fix**
 
@@ -298,14 +347,16 @@ Discoverer path.
 
 - [ ] Add new env vars to `internal/config/`:
   - `DISCOVERY_INTERVAL` — Go duration; default `1h`.
-  - `DISCOVERY_ENABLED` — bool; default `false` for both backends
-    (Phase 2 is opt-in; Phase 3 flips the default for Postgres).
+  - `DISCOVERY_ENABLED` — bool; default `true`. (Memory backend is
+    gone post-IMPL-0016; every deployment is Postgres + Valkey, so
+    discovery is on out-of-the-box. No opt-in cutover needed.)
   - `DISCOVERY_RESERVE_FRACTION` — float; default `0.20`. Validate
     range `[0.0, 1.0]`.
   - `DISCOVERY_ESTIMATED_COST_PER_REPO` — int; default `10`.
     Validate `> 0`.
 - [ ] Add to `charts/repo-guardian/values.yaml` under a new
-  `discovery:` block. Mirror env vars exactly.
+  `discovery:` block. Mirror env vars exactly; default
+  `enabled: true`.
 - [ ] Wire env vars into `Deployment` template via the existing
   reserved-env-vars helper.
 - [ ] Add helm-unittest cases asserting the env vars appear with
@@ -313,13 +364,11 @@ Discoverer path.
 
 **1.5 — Wire scheduler**
 
-- [ ] In `cmd/repo-guardian/main.go`, when
-  `cfg.DiscoveryEnabled && cfg.StoreBackend ==
-  config.StoreBackendPostgres`, schedule
-  `discoverer.Discover` at `cfg.DiscoveryInterval`.
+- [ ] In `cmd/repo-guardian/main.go`, when `cfg.DiscoveryEnabled`,
+  schedule `discoverer.Discover` at `cfg.DiscoveryInterval`. (No
+  `STORE_BACKEND` gate — memory backend gone.)
 - [ ] Log explicitly which schedulers are active at startup
-  (legacy Sweeper on memory, StaleSweeper on Postgres,
-  Discoverer when enabled).
+  (StaleSweeper always, Discoverer when enabled).
 
 **1.6 — Net-new Phase 1 metrics**
 
@@ -362,68 +411,51 @@ Discoverer path.
 
 ---
 
-### Phase 2: Opt-in cutover (operator-side)
+### Phase 2: RC validation in homelab
 
-After Phase 1 ships to production and soaks for ≥ 1 release cycle,
-operators flip `DISCOVERY_ENABLED=true` per installation. This phase is
-primarily an operator runbook and validation procedure; the code is
-unchanged from Phase 1.
-
-#### Tasks
-
-- [ ] Author `docs/operations/discoverer-cutover.md` runbook covering:
-  - Pre-flight checks (Phase 0 metrics healthy, Phase 1 deployed)
-  - How to flip `DISCOVERY_ENABLED=true` via chart values
-  - Expected metric changes (queue depth, `repo_discovered_total`,
-    `api_budget_utilisation`)
-  - Rollback procedure (set back to `false`, restart)
-- [ ] Validate the runbook in homelab by performing the cutover.
-- [ ] Add a chart NOTES.txt section that points operators at the
-  runbook when `DISCOVERY_ENABLED=false` is detected on a Postgres
-  backend deployment.
-- [ ] Update `docs/operations/scaling.md` to reference the runbook.
-
-#### Success Criteria
-
-- Runbook reviewed and validated in homelab.
-- Operator performs the cutover; queue depth on subsequent sweep
-  ticks reflects only-stale-repos (no legacy enumeration).
-- `repo_discovered_total` increments on new-repo events; no
-  drift between webhook-driven and discovery-loop-driven discoveries.
-- No regressions in any Phase 0 metric.
-
----
-
-### Phase 3: Chart default flip
-
-After ≥ 1 release cycle of Phase 2 operator validation in homelab and any
-public testers, flip the chart default for `DISCOVERY_ENABLED` to `true`
-when `store.backend=postgres`.
+Phases 2 and 3 from the original DESIGN-0017 rollout (operator opt-in
+cutover + chart default flip) collapse into RC validation per
+[Sequencing](#sequencing). Discovery is already on-by-default from
+Phase 1, so there's no operator cutover step. The homelab operator
+validates the full IMPL-0015 work via manually-tagged `1.0.0-rc.N`
+deployments.
 
 #### Tasks
 
-- [ ] Change `charts/repo-guardian/values.yaml` default for
-  `discovery.enabled` from `false` to `true` (still gated by
-  Postgres backend selection in the deployment template).
-- [ ] Update `charts/repo-guardian/README.md.gotmpl` to document the
-  new default.
-- [ ] Bump chart `version` and `appVersion` (chart-major if
-  considered a behavioural change to defaults, else chart-minor).
-- [ ] Regenerate chart README via `make helm-docs`.
-- [ ] Add a chart `CHANGELOG.md` entry describing the default flip
-  and any opt-out instructions.
-- [ ] Update helm-unittest cases to reflect the new default.
-- [ ] Update `docs/operations/scaling.md` to remove "opt-in" framing.
+- [ ] Tag `1.0.0-rc.2` (or next available rc.N) when Phase 0 ships.
+  Deploy to homelab; verify Phase 0 success criteria (writeback
+  metric rises with reconciles; `repo_state.last_check_status`
+  populates; legacy Sweeper not scheduled).
+- [ ] Force a manual sweep run after the rc deploys: trigger the
+  webhook with a test push OR wait one tick. Confirm
+  `store_writeback_total{outcome="ok"}` increments and the
+  expected `repo_state` row appears.
+- [ ] Tag `1.0.0-rc.3` (or next available) when Phase 1 ships.
+  Deploy to homelab; verify Phase 1 success criteria (Discoverer
+  active by default; `repo_discovered_total` increments;
+  `api_budget_*` metrics populate).
+- [ ] Add subsequent rc.N tags as fixes accumulate. Each rc is a
+  validation checkpoint.
+- [ ] Author / update `docs/operations/scaling.md` and chart README
+  to reflect the new defaults: Discoverer on; StaleSweeper as the
+  only sweep path; budget-tracker metrics catalogue.
+- [ ] When all rc.N validation passes, cut stable `1.0.0` (manual
+  `git tag v1.9.0 && git push --tags` + bump
+  `charts/repo-guardian/Chart.yaml` to `version: 1.0.0`).
+- [ ] Add a chart `CHANGELOG.md` entry for 1.0.0 describing the full
+  scope: memory backend removed, state writeback wired, Discoverer
+  on by default, budget gating in place.
 
 #### Success Criteria
 
-- All Phase 3 tasks checked off.
-- `make ci` passes; helm-unittest passes against the new default.
+- All RC tags validated in homelab; each rc.N produced the expected
+  metrics changes vs the previous rc.
+- Final `1.0.0` chart + `v1.9.0` binary tag published.
+- `make ci` passes against the final tag.
 - Chart README regenerated and committed.
-- A fresh chart install on Postgres backend has Discoverer active
-  out-of-the-box.
-- Memory backend deployments unaffected (no Discoverer
-  scheduling; legacy Sweeper continues).
+- Operations docs reflect the post-removal architecture.
+- A fresh `helm install` on a clean cluster produces a working
+  Postgres+Valkey + Discoverer-on deployment out of the box.
 
 ---
 
@@ -454,13 +486,13 @@ when `store.backend=postgres`.
 | `internal/checker/sweep_test.go` | 1 | Modify | Budget-gating tests |
 | `internal/config/config.go` | 1 | Modify | New env vars + validation |
 | `internal/config/config_test.go` | 1 | Modify | Defaults + range validation tests |
-| `charts/repo-guardian/values.yaml` | 1+3 | Modify | New `discovery:` block; Phase 3 flips defaults |
+| `charts/repo-guardian/values.yaml` | 1 | Modify | New `discovery:` block with `enabled: true` default |
 | `charts/repo-guardian/templates/deployment.yaml` | 1 | Modify | Wire new env vars |
 | `charts/repo-guardian/tests/backend_shapes_test.yaml` | 1 | Modify | Assert new env vars |
 | `charts/repo-guardian/templates/prometheusrule.yaml` | 1 | Modify | Optional alert on `enqueue_gated_by_budget_total` |
-| `charts/repo-guardian/README.md.gotmpl` | 0+3 | Modify | Document template ConfigMap invalidation; Phase 3 documents new default |
-| `docs/operations/scaling.md` | 0+1 | Modify | Document new metrics + legacy Sweeper change |
-| `docs/operations/discoverer-cutover.md` | 2 | Create | Operator runbook for opt-in cutover |
+| `charts/repo-guardian/README.md.gotmpl` | 0 | Modify | Document template ConfigMap invalidation |
+| `charts/repo-guardian/Chart.yaml` | 2 | Modify | Bump chart version through rc tags to 1.0.0 final |
+| `docs/operations/scaling.md` | 0+1+2 | Modify | Document new metrics + legacy Sweeper change + final 1.0.0 architecture |
 
 ## Testing Plan
 
@@ -557,12 +589,14 @@ or split?
   between (a) and (b).
 - other:
 
-**5.** ✅ **Resolved.** Chart version bump for Phase 0.
+**5.** ✅ **Resolved (revised 2026-06-23).** Chart version bump for
+Phase 0.
 
-- **(a) = Chart-minor (0.7.x → 0.8.0) (chosen).** Phase 0 changes chart
-  values surface (new metric definitions, no new operator-tunable
-  knobs but the deployment env has new metrics endpoints). Minor bump
-  signals "additive change."
+- (a) Chart-minor (0.7.x → 0.8.0). Originally chosen; superseded by the
+  IMPL-0015/IMPL-0016 reversal — see [Sequencing](#sequencing). Phase 0
+  now ships as part of the `1.0.0-rc.N` train (tag `1.0.0-rc.2` or next
+  available), bundled into the eventual `1.0.0` stable release alongside
+  IMPL-0016 and IMPL-0015's other phases.
 - (b) Chart-patch (0.7.x → 0.7.y). No new operator-facing knobs;
   metrics are internal. Patch bump matches no-config-change.
 - (c) Chart-major (0.7.x → 1.0.0). Argument: the worker contract

@@ -45,15 +45,23 @@ created: 2026-06-22
 
 ## Overview
 
-Deprecate then remove the in-memory `store` / `queue` / `scheduler` backends.
-Production deployments require Postgres + Valkey (or managed equivalents like
-AWS RDS / ElastiCache per `docs/operations/aws.md`); the memory backends are
+Remove the in-memory `store` / `queue` / `scheduler` backends. Production
+deployments require Postgres + Valkey (or managed equivalents like AWS RDS /
+ElastiCache per `docs/operations/aws.md`); the memory backends are
 maintenance dead weight that complicates every state-management change. Net
 ~1,600 LOC removal, a smaller test matrix, and tighter startup validation.
 
-Surfaced during the DESIGN-0017 pre-implementation review (question (e)) — the
-operator proposed dropping memory backend entirely instead of designing
+Surfaced during the DESIGN-0017 pre-implementation review (question (e)) —
+the operator proposed dropping memory backend entirely instead of designing
 around it. This design carries that decision through.
+
+**Sequencing:** IMPL-0016 (this design's implementation) ships **first**,
+before IMPL-0015 (DESIGN-0017's implementation). Both bundle into the
+1.0.0 release, validated via manually-tagged 1.0.0-rc.N versions in
+homelab. See resolved [OQ (g)](#open-questions) and the [Migration /
+Rollout Plan](#migration--rollout-plan). The deprecation-warning Phase 0
+originally proposed here was dropped per resolved
+[OQ (a)](#open-questions) — no audience for the warning.
 
 ## Goals and Non-Goals
 
@@ -321,56 +329,72 @@ to require valkey queue:
 
 ## Migration / Rollout Plan
 
-Two phases. The deprecation phase ships first to give operators a
-release cycle of warning before the breaking change.
+**Single phase (Phase 0 absorbed into Phase 1 per resolved
+[OQ (a)](#open-questions)).** IMPL-0016 ships first as part of the 1.0.0
+release cycle, removing the memory backend entirely in one cut. The
+1.0.0-rc.N manual-tagging workflow gives the homelab operator validation
+checkpoints; the final 1.0.0 cut is the stable break.
 
-### Phase 0 — Deprecation notice (one release cycle)
+### Single removal phase
 
-- Chart minor bump (e.g., `0.7.x` → `0.8.0`). No code changes.
-- `cmd/repo-guardian/main.go` adds a `slog.Warn` at startup if any of
-  the three backend env vars equal `memory` / `ticker`:
-
-  ```
-  "memory backends are deprecated and will be removed in a future release;
-   migrate to postgres + valkey. See docs/operations/migrations.md#removing-memory-backend"
-  ```
-- `charts/repo-guardian/templates/NOTES.txt` adds a deprecation banner
-  when `store.backend`, `queue.backend`, or `scheduler.backend` is set to
-  the deprecated values.
-- New runbook at `docs/operations/migrations.md#removing-memory-backend`
-  with the values.yaml diff and env var migration recipe.
-- README + chart README are updated to call out the deprecation.
-
-### Phase 1 — Removal (one release cycle later)
-
-- Chart-major bump. Delete the three packages and reshape `main.go` per
-  the audit.
-- Tighten config validation; emit hard-fail with the migration URL.
-- Flip chart defaults to `postgres` / `valkey`.
+- **Chart-major bump** (e.g., `0.7.x` → `1.0.0`). The 1.0.0 release is
+  the meaningful operator-facing cut: "we commit to Postgres + Valkey
+  as the production path."
+- **Manual RC tagging** during validation:
+  - `1.0.0-rc.1` — IMPL-0016 work done (memory backend removed, chart
+    defaults flipped, schema validation added, docker-compose.dev.yaml
+    shipped).
+  - `1.0.0-rc.N` — subsequent IMPL-0015 phase completions (state
+    writeback, Discoverer, BudgetTracker).
+  - `1.0.0` — stable cut when all phases of both IMPLs validated.
+- Delete the three backend packages
+  (`internal/store/memory/`, `internal/queue/memory/`,
+  `internal/scheduler/ticker/`) and reshape
+  `cmd/repo-guardian/main.go` per the [audit
+  summary](#audit-summary).
+- Tighten `internal/config/` validation; emit hard-fail with a
+  migration URL pointing at the
+  `docs/operations/migrations.md#removing-memory-backend` runbook.
+- Flip chart defaults to `store.backend=postgres` /
+  `queue.backend=valkey` / `scheduler.backend=valkey`. Add baked
+  `mode=baked` for both Postgres and Valkey.
+- Add `values.schema.json` rejection of `memory` / `ticker` values so
+  operators see the error at `helm install` time, not pod
+  CrashLoopBackoff time.
 - Delete and rewrite the helm-unittest cases per the audit.
 - Documentation sweep — see the audit's documentation list (README,
   CLAUDE.md, operations docs, examples).
+- Add `docker-compose.dev.yaml` at the repo root + `make
+  dev-services` / `make dev-stop` targets so `make run-local` works
+  without memory backend.
 
 ### Rollback
 
-Phase 0 has no operational effect — the deprecation warning is purely
-informational. Operators who upgrade past Phase 1 without migrating get
-a clear startup error and can pin to Phase 0's chart version while they
-migrate. There is no in-binary fallback path.
+No in-binary fallback path. Operators encountering issues with the
+1.0.0 release pin to the latest 0.7.x chart version while they
+migrate. The `docs/operations/migrations.md#removing-memory-backend`
+runbook ships alongside 1.0.0-rc.1 with the env var diff, chart values
+diff, and migration recipe.
+
+There is no deprecation window — see resolved [OQ (a)](#open-questions).
+The only known repo-guardian deployment runs Postgres + Valkey today;
+the deprecation warning would have had no audience.
 
 ## Open Questions
 
-**(a)** ✅ **Resolved.** Deprecation window length — how long do operators
-get between the warning (Phase 0) and the hard-fail (Phase 1)?
+**(a)** ✅ **Resolved (revised 2026-06-23).** Deprecation window length —
+how long do operators get between the warning (Phase 0) and the hard-fail
+(Phase 1)?
 
-- **(a) = One chart release cycle (chosen).** Matches the cadence
-  of breaking changes elsewhere; long enough for operators following
-  releases to migrate, short enough that the dual maintenance burden
-  doesn't linger.
-- (b) Two chart release cycles. More cautious; gives infrequent operators
-  more buffer.
-- (c) Skip Phase 0 entirely — rip it out in IMPL-0016. There are no known
-  external operators, so the deprecation window has no audience.
+- (a) One chart release cycle.
+- (b) Two chart release cycles.
+- **(c) = Skip Phase 0 entirely — rip it out in IMPL-0016 (chosen).**
+  There are no known external operators (only the homelab Postgres+Valkey
+  deployment), so the deprecation window has no audience. Combined with
+  the (g) reversal, this collapses IMPL-0016 to a single removal phase
+  that ships as part of the 1.0.0 release. Originally chose (a); revised
+  during IMPL planning when the dual-doc-update tax outweighed the
+  theatrical deprecation window benefit.
 - other:
 
 **(b)** ✅ **Resolved.** Default `store.postgres.mode` after the flip.
@@ -428,14 +452,21 @@ warning live?
   surface the problem.
 - other:
 
-**(g)** ✅ **Resolved.** Sequencing with IMPL-0015 (DESIGN-0017).
+**(g)** ✅ **Resolved (revised 2026-06-23).** Sequencing with IMPL-0015
+(DESIGN-0017).
 
-- **(a) = Independent sequencing (chosen).** IMPL-0015 ships
-  DESIGN-0017 with the no-op memory store path intact. Later, IMPL-0016
-  ships DESIGN-0018 and removes the memory paths IMPL-0015 still
-  touches. Keeps both implementations smaller.
-- (b) Land DESIGN-0018 first; IMPL-0015 then doesn't need to bother with
-  the no-op memory paths. Reduces IMPL-0015 scope but couples the two.
+- (a) Independent sequencing.
+- **(b) = Land DESIGN-0018 first; IMPL-0015 then doesn't need to bother
+  with the no-op memory paths (chosen).** IMPL-0016 ships first as part
+  of the 1.0.0-rc.N cycle, removing the memory backend entirely.
+  IMPL-0015 then implements its phases on a clean Postgres+Valkey-only
+  codebase — Phase 0 no longer needs to articulate "and what does memory
+  backend do here?" for every write site; tests are single-backend;
+  docs don't get updated twice. Both IMPLs bundle into the 1.0.0
+  release, validated via manually-tagged 1.0.0-rc.N versions in homelab.
+  Originally chose (a); revised during IMPL planning when the cleaner
+  break and earlier issue surfacing outweighed the smaller-PR argument
+  for independent sequencing.
 - other:
 
 **(h)** ✅ **Resolved.** Should we delete `docker-compose.dev.yaml` after

@@ -185,10 +185,11 @@ tighten config validation, flip chart defaults, and add
 
 **1.5 — Delete ticker arm of scheduler contract test**
 
-- [ ] Remove the `ticker.New()`-based test factory from
+- [x] Remove the `ticker.New()`-based test factory from
   `internal/scheduler/contract_test.go` (line 94 per audit, ~22
-  LOC).
-- [ ] The valkey-arm in
+  LOC). The whole file was deleted — the `runSchedulerContract`
+  helper was unused once the ticker arm was gone.
+- [x] The valkey-arm in
   `internal/scheduler/valkey/valkey_integration_test.go` is now the
   single source of truth for contract compliance.
 

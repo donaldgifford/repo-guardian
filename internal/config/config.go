@@ -132,15 +132,27 @@ type Config struct {
 }
 
 // Backend identifier constants. Defined as package-level strings so
-// chart and binary share a single source of truth.
+// chart and binary share a single source of truth. Memory and
+// ticker were removed in IMPL-0016; deprecatedBackends below carries
+// the rejected values for migration-error messages.
 const (
-	StoreBackendMemory     = "memory"
 	StoreBackendPostgres   = "postgres"
-	QueueBackendMemory     = "memory"
 	QueueBackendValkey     = "valkey"
-	SchedulerBackendTicker = "ticker"
 	SchedulerBackendValkey = "valkey"
 )
+
+// MigrationURL is the canonical operator documentation for the
+// memory-backend removal. Embedded in startup validation errors so
+// operators land on a runbook with overlay→values recipes.
+const MigrationURL = "https://github.com/donaldgifford/repo-guardian/blob/main/docs/operations/migrations.md#removing-memory-backend"
+
+// deprecatedBackends maps removed backend identifiers to the env var
+// that referenced them. Used by validateBackends to emit a single
+// targeted error per misconfigured env var.
+var deprecatedBackends = map[string]string{
+	"memory": "memory backend removed in IMPL-0016 (chart 1.0.0)",
+	"ticker": "ticker scheduler removed in IMPL-0016 (chart 1.0.0)",
+}
 
 // Load reads configuration from environment variables and applies defaults.
 func Load() (*Config, error) {
@@ -244,9 +256,12 @@ func Load() (*Config, error) {
 }
 
 func loadBackendConfig(cfg *Config) error {
-	cfg.StoreBackend = envOrDefault("STORE_BACKEND", StoreBackendMemory)
-	cfg.QueueBackend = envOrDefault("QUEUE_BACKEND", QueueBackendMemory)
-	cfg.SchedulerBackend = envOrDefault("SCHEDULER_BACKEND", SchedulerBackendTicker)
+	// Backends are required since IMPL-0016 — there is no longer a
+	// safe in-process default. Empty values fall through to
+	// validateBackends, which emits a targeted error.
+	cfg.StoreBackend = envOrDefault("STORE_BACKEND", StoreBackendPostgres)
+	cfg.QueueBackend = envOrDefault("QUEUE_BACKEND", QueueBackendValkey)
+	cfg.SchedulerBackend = envOrDefault("SCHEDULER_BACKEND", SchedulerBackendValkey)
 	cfg.StoreDSN = os.Getenv("STORE_DSN")
 	cfg.QueueValkeyDSN = os.Getenv("QUEUE_VALKEY_DSN")
 
@@ -324,30 +339,24 @@ func (c *Config) Validate() error {
 func (c *Config) validateBackends() []error {
 	var errs []error
 
-	switch c.StoreBackend {
-	case StoreBackendMemory, StoreBackendPostgres:
-	default:
-		errs = append(errs, fmt.Errorf("STORE_BACKEND %q must be one of: memory, postgres", c.StoreBackend))
+	if err := validateBackend("STORE_BACKEND", c.StoreBackend, StoreBackendPostgres); err != nil {
+		errs = append(errs, err)
 	}
 
 	if c.StoreBackend == StoreBackendPostgres && c.StoreDSN == "" {
 		errs = append(errs, errors.New("STORE_DSN is required when STORE_BACKEND=postgres"))
 	}
 
-	switch c.QueueBackend {
-	case QueueBackendMemory, QueueBackendValkey:
-	default:
-		errs = append(errs, fmt.Errorf("QUEUE_BACKEND %q must be one of: memory, valkey", c.QueueBackend))
+	if err := validateBackend("QUEUE_BACKEND", c.QueueBackend, QueueBackendValkey); err != nil {
+		errs = append(errs, err)
 	}
 
 	if c.QueueBackend == QueueBackendValkey && c.QueueValkeyDSN == "" {
 		errs = append(errs, errors.New("QUEUE_VALKEY_DSN is required when QUEUE_BACKEND=valkey"))
 	}
 
-	switch c.SchedulerBackend {
-	case SchedulerBackendTicker, SchedulerBackendValkey:
-	default:
-		errs = append(errs, fmt.Errorf("SCHEDULER_BACKEND %q must be one of: ticker, valkey", c.SchedulerBackend))
+	if err := validateBackend("SCHEDULER_BACKEND", c.SchedulerBackend, SchedulerBackendValkey); err != nil {
+		errs = append(errs, err)
 	}
 
 	if c.SchedulerBackend == SchedulerBackendValkey && c.QueueValkeyDSN == "" {
@@ -355,6 +364,21 @@ func (c *Config) validateBackends() []error {
 	}
 
 	return errs
+}
+
+// validateBackend returns nil when value matches the expected
+// backend, a migration-aware error when value is a removed backend
+// (memory, ticker), or a generic "must be X" error otherwise.
+func validateBackend(envVar, value, expected string) error {
+	if value == expected {
+		return nil
+	}
+
+	if reason, deprecated := deprecatedBackends[value]; deprecated {
+		return fmt.Errorf("%s=%q is no longer supported (%s). Migration runbook: %s", envVar, value, reason, MigrationURL)
+	}
+
+	return fmt.Errorf("%s %q must be %q. See %s", envVar, value, expected, MigrationURL)
 }
 
 func envOrDefault(key, defaultVal string) string {

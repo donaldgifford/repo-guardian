@@ -11,6 +11,10 @@ func TestLoadDefaults(t *testing.T) {
 	t.Setenv("GITHUB_APP_ID", "12345")
 	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/path/to/key.pem")
 	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
+	// Backend DSNs are required since IMPL-0016 (no in-process
+	// fallback). Provide placeholder values so Load validates.
+	t.Setenv("STORE_DSN", "postgres://u:p@localhost:5432/db?sslmode=disable")
+	t.Setenv("QUEUE_VALKEY_DSN", "redis://localhost:6379/0")
 
 	cfg, err := Load()
 	if err != nil {
@@ -69,16 +73,61 @@ func TestLoadDefaults(t *testing.T) {
 		t.Error("TrustProxyHeaders should default to false")
 	}
 
-	if cfg.StoreBackend != StoreBackendMemory {
-		t.Errorf("StoreBackend default = %q, want %q", cfg.StoreBackend, StoreBackendMemory)
+	if cfg.StoreBackend != StoreBackendPostgres {
+		t.Errorf("StoreBackend default = %q, want %q", cfg.StoreBackend, StoreBackendPostgres)
 	}
 
-	if cfg.QueueBackend != QueueBackendMemory {
-		t.Errorf("QueueBackend default = %q, want %q", cfg.QueueBackend, QueueBackendMemory)
+	if cfg.QueueBackend != QueueBackendValkey {
+		t.Errorf("QueueBackend default = %q, want %q", cfg.QueueBackend, QueueBackendValkey)
 	}
 
-	if cfg.SchedulerBackend != SchedulerBackendTicker {
-		t.Errorf("SchedulerBackend default = %q, want %q", cfg.SchedulerBackend, SchedulerBackendTicker)
+	if cfg.SchedulerBackend != SchedulerBackendValkey {
+		t.Errorf("SchedulerBackend default = %q, want %q", cfg.SchedulerBackend, SchedulerBackendValkey)
+	}
+}
+
+// TestLoadRejects_DeprecatedStoreBackend asserts a migration-aware
+// error fires when an operator sets STORE_BACKEND to a removed value.
+func TestLoadRejects_DeprecatedStoreBackend(t *testing.T) {
+	t.Setenv("GITHUB_APP_ID", "12345")
+	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/path/to/key.pem")
+	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
+	t.Setenv("STORE_BACKEND", "memory")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error for STORE_BACKEND=memory")
+	}
+
+	got := err.Error()
+	if !strings.Contains(got, "STORE_BACKEND") {
+		t.Errorf("error should reference STORE_BACKEND: %v", err)
+	}
+
+	if !strings.Contains(got, "no longer supported") {
+		t.Errorf("error should say %q is no longer supported: %v", "memory", err)
+	}
+
+	if !strings.Contains(got, MigrationURL) {
+		t.Errorf("error should embed the migration URL %q: %v", MigrationURL, err)
+	}
+}
+
+// TestLoadRejects_DeprecatedSchedulerBackend asserts ticker is also
+// rejected with the migration message.
+func TestLoadRejects_DeprecatedSchedulerBackend(t *testing.T) {
+	t.Setenv("GITHUB_APP_ID", "12345")
+	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/path/to/key.pem")
+	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
+	t.Setenv("SCHEDULER_BACKEND", "ticker")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error for SCHEDULER_BACKEND=ticker")
+	}
+
+	if !strings.Contains(err.Error(), "no longer supported") {
+		t.Errorf("error should say %q is no longer supported: %v", "ticker", err)
 	}
 }
 
@@ -121,6 +170,7 @@ func TestLoadValkeyBackendsAcceptDSN(t *testing.T) {
 	t.Setenv("GITHUB_APP_ID", "12345")
 	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/path/to/key.pem")
 	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
+	t.Setenv("STORE_DSN", "postgres://u:p@localhost:5432/db?sslmode=disable")
 	t.Setenv("QUEUE_BACKEND", "valkey")
 	t.Setenv("SCHEDULER_BACKEND", "valkey")
 	t.Setenv("QUEUE_VALKEY_DSN", "valkey://localhost:6379")
@@ -165,6 +215,8 @@ func TestLoadOverrides(t *testing.T) {
 	t.Setenv("GITHUB_APP_ID", "99999")
 	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/custom/key.pem")
 	t.Setenv("GITHUB_WEBHOOK_SECRET", "mysecret")
+	t.Setenv("STORE_DSN", "postgres://u:p@localhost:5432/db?sslmode=disable")
+	t.Setenv("QUEUE_VALKEY_DSN", "redis://localhost:6379/0")
 	t.Setenv("LISTEN_ADDR", ":9999")
 	t.Setenv("METRICS_ADDR", ":7777")
 	t.Setenv("WORKER_COUNT", "10")
@@ -322,6 +374,8 @@ func TestLoadPrivateKeyFromEnvVar(t *testing.T) {
 	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "")
 	t.Setenv("GITHUB_PRIVATE_KEY", "-----BEGIN RSA PRIVATE KEY-----\ntest\n-----END RSA PRIVATE KEY-----")
 	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
+	t.Setenv("STORE_DSN", "postgres://u:p@localhost:5432/db?sslmode=disable")
+	t.Setenv("QUEUE_VALKEY_DSN", "redis://localhost:6379/0")
 
 	cfg, err := Load()
 	if err != nil {

@@ -195,39 +195,51 @@ tighten config validation, flip chart defaults, and add
 
 **1.6 — Simplify `cmd/repo-guardian/main.go` dispatch helpers**
 
-- [ ] `newStore()` (lines 354-368): delete the memory branch (lines
-  355-358). Function becomes straight-line Postgres-only.
-- [ ] `newQueue()` (lines 282-314): delete the memory branch (lines
-  283-287). Function becomes straight-line Valkey-only.
-- [ ] `newScheduler()` (lines 320-337): delete the ticker branch
+- [x] `newStore()` (lines 354-368): delete the memory branch (lines
+  355-358). Function becomes straight-line Postgres-only. (Folded
+  into Task 1.2 commit.)
+- [x] `newQueue()` (lines 282-314): delete the memory branch (lines
+  283-287). Function becomes straight-line Valkey-only. (Folded
+  into Task 1.3 commit; also dropped the now-unused `queueSize`
+  parameter from the signature.)
+- [x] `newScheduler()` (lines 320-337): delete the ticker branch
   (lines 321-325). Function becomes straight-line Valkey-only.
-- [ ] Verify `funlen` lint doesn't trip on `main()` after the
-  simplifications (the helpers shrink; `main()` may also need
-  recheck).
-- [ ] `make lint && make test` pass.
+  (Folded into Task 1.4 commit.)
+- [x] Verify `funlen` lint doesn't trip on `main()` after the
+  simplifications (clean: `make lint` reports 0 issues).
+- [x] `make lint && make test` pass.
 
 **1.7 — Tighten `internal/config/` validation**
 
-- [ ] Delete the constants `StoreBackendMemory`, `QueueBackendMemory`,
-  `SchedulerBackendTicker` from `internal/config/config.go` (lines
-  137-143 per audit).
-- [ ] `loadBackendConfig()` (lines 247-249): no longer sets memory /
-  ticker defaults. Env vars become required; empty / unset is now
-  a validation error.
-- [ ] `validateBackends()` (lines 327-355): drop the memory /
-  ticker switch cases. Error messages tighten:
+- [x] Delete the constants `StoreBackendMemory`, `QueueBackendMemory`,
+  `SchedulerBackendTicker` from `internal/config/config.go`.
+- [x] `loadBackendConfig()`: defaults flip to
+  `postgres`/`valkey`/`valkey`. Operators upgrading without
+  setting env vars land in the post-IMPL-0016 configuration by
+  default (chart still ships explicit env vars).
+- [x] `validateBackends()`: refactored into `validateBackend()`
+  helper that returns a migration-aware error for deprecated
+  values (`memory`, `ticker`) and a generic "must be X" error
+  otherwise. Error messages tighten:
   - `STORE_BACKEND` must be `postgres`.
   - `QUEUE_BACKEND` must be `valkey`.
   - `SCHEDULER_BACKEND` must be `valkey`.
-- [ ] Error messages include the migration URL.
-- [ ] `STORE_DSN` becomes required when `STORE_BACKEND=postgres`;
-  same for the other two backends. Validate at startup.
-- [ ] Update / add unit tests covering:
-  - Unset backend env var → friendly startup error
-  - `STORE_BACKEND=memory` → friendly startup error with URL
-  - `STORE_BACKEND=postgres` + missing `STORE_DSN` → friendly
-    startup error
-  - All-valid configuration → no error
+- [x] Error messages include the migration URL (constant
+  `MigrationURL` points at the new `docs/operations/migrations.md`
+  anchor).
+- [x] `STORE_DSN` required when `STORE_BACKEND=postgres`; same for
+  the other two backends. Validated at startup (pre-existing
+  behaviour, retained).
+- [x] Updated unit tests:
+  - `TestLoadRejects_DeprecatedStoreBackend` — `STORE_BACKEND=memory`
+    → friendly startup error containing both "no longer supported"
+    and the migration URL.
+  - `TestLoadRejects_DeprecatedSchedulerBackend` — same for ticker.
+  - `TestLoadDefaults` updated to reflect postgres/valkey defaults
+    and supplies placeholder DSNs.
+  - `TestLoadOverrides`, `TestLoadValkeyBackendsAcceptDSN`,
+    `TestLoadPrivateKeyFromEnvVar` updated to set DSN env vars
+    (validation now requires them).
 
 **1.8 — Flip chart defaults**
 

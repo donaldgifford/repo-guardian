@@ -1,5 +1,5 @@
 ---
-suite: backend deployment shapes (IMPL-0011 P6)
+suite: backend deployment shapes (IMPL-0011 P6 / IMPL-0016 update)
 templates:
   - templates/deployment.yaml
   - templates/store-postgres.yaml
@@ -17,30 +17,28 @@ set:
     privateKey: "x"
 
 tests:
-  - it: memory shape renders only the Deployment, no backing services
-    set:
-      store.backend: memory
-      queue.backend: memory
-      scheduler.backend: ticker
+  - it: chart with no backend values set produces baked Postgres + baked Valkey resources
+    # Codifies the IMPL-0016 default. A fresh `helm install` with no
+    # values overrides renders the StatefulSets out-of-the-box.
     asserts:
-      - hasDocuments:
-          count: 1
-        template: templates/deployment.yaml
-      - hasDocuments:
-          count: 0
+      - equal:
+          path: kind
+          value: StatefulSet
         template: templates/store-postgres.yaml
-      - hasDocuments:
-          count: 0
-        template: templates/store-postgres-secret.yaml
-      - hasDocuments:
-          count: 0
+        documentIndex: 0
+      - equal:
+          path: kind
+          value: StatefulSet
         template: templates/queue-valkey.yaml
-      - hasDocuments:
-          count: 0
+        documentIndex: 0
+      - equal:
+          path: kind
+          value: Secret
+        template: templates/store-postgres-secret.yaml
+      - equal:
+          path: kind
+          value: Secret
         template: templates/queue-valkey-secret.yaml
-      - hasDocuments:
-          count: 0
-        template: templates/store-cnpg-cluster.yaml
 
   - it: baked shape renders Postgres + Valkey StatefulSets, Services, and Secrets
     set:
@@ -146,8 +144,9 @@ tests:
     set:
       store.backend: postgres
       store.postgres.mode: baked
-      queue.backend: memory
-      scheduler.backend: ticker
+      queue.backend: valkey
+      queue.valkey.mode: baked
+      scheduler.backend: valkey
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
@@ -169,8 +168,9 @@ tests:
     set:
       store.backend: postgres
       store.postgres.mode: cnpg
-      queue.backend: memory
-      scheduler.backend: ticker
+      queue.backend: valkey
+      queue.valkey.mode: baked
+      scheduler.backend: valkey
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
@@ -184,11 +184,21 @@ tests:
 
   - it: termination grace period set to 60s for SIGTERM nack
     set:
-      store.backend: memory
-      queue.backend: memory
-      scheduler.backend: ticker
+      store.backend: postgres
+      store.postgres.mode: baked
+      queue.backend: valkey
+      queue.valkey.mode: baked
+      scheduler.backend: valkey
     asserts:
       - equal:
           path: spec.template.spec.terminationGracePeriodSeconds
           value: 60
         template: templates/deployment.yaml
+
+  # Schema rejection lives in values.schema.json; helm-unittest can't
+  # easily exercise it because the plugin doesn't surface
+  # schema-validation errors as catchable failures. Schema rejection
+  # is exercised manually via `helm template ... --set
+  # store.backend=memory` and documented in the chart README under
+  # "Schema validation". See values.schema.json itself for the
+  # locked enum.

@@ -38,7 +38,7 @@ COVERAGE_OUT := coverage.out
 .PHONY: build
 .PHONY: test test-all test-coverage
 .PHONY: lint lint-fix fmt clean
-.PHONY: run run-local test-api ci check
+.PHONY: run run-local test-api ci check dev-services dev-stop
 .PHONY: release-check release-local
 
 ## Build Targets
@@ -112,9 +112,22 @@ run: ## Run CLI command
 	@ $(MAKE) --no-print-directory log-$@
 	./build/bin/repo-guardian
 
-run-local: build ## Run exporter with local config
+run-local: build dev-services ## Run binary against local Postgres + Valkey
 	@ $(MAKE) --no-print-directory log-$@
-	@$(BIN_DIR)/$(PROJECT_NAME)
+	@STORE_BACKEND=postgres \
+		STORE_DSN="postgres://repoguardian:repoguardian@localhost:5432/repoguardian?sslmode=disable" \
+		QUEUE_BACKEND=valkey \
+		QUEUE_VALKEY_DSN="redis://localhost:6379/0" \
+		SCHEDULER_BACKEND=valkey \
+		$(BIN_DIR)/$(PROJECT_NAME)
+
+dev-services: ## Start local Postgres + Valkey (docker-compose.dev.yaml)
+	@ $(MAKE) --no-print-directory log-$@
+	@docker compose -f docker-compose.dev.yaml up -d
+
+dev-stop: ## Stop local Postgres + Valkey
+	@ $(MAKE) --no-print-directory log-$@
+	@docker compose -f docker-compose.dev.yaml down
 
 ## CI/CD
 

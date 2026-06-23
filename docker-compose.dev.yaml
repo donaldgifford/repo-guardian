@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json
+#
+# Local dev backing services for repo-guardian (Postgres + Valkey).
+# Shipped with IMPL-0016 when the in-memory backends were removed —
+# `make run-local` now depends on these services being up.
+#
+# Bring up: make dev-services
+# Tear down: make dev-stop
+#
+# DSN defaults (used by `make run-local`):
+#   STORE_DSN=postgres://repoguardian:repoguardian@localhost:5432/repoguardian?sslmode=disable
+#   QUEUE_VALKEY_DSN=redis://localhost:6379/0
+---
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: repo-guardian-dev-postgres
+    environment:
+      POSTGRES_USER: repoguardian
+      POSTGRES_PASSWORD: repoguardian
+      POSTGRES_DB: repoguardian
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "repoguardian", "-d", "repoguardian"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: repo-guardian-dev-valkey
+    command: ["valkey-server", "--save", "60", "1", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  postgres-data:
+  valkey-data:

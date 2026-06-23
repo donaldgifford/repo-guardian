@@ -182,11 +182,23 @@ Both Renovate rules are disabled by default. See [`docs/ADDING_RULES.md`](docs/A
 
 ### Running Without Docker
 
+`make run-local` brings up local Postgres + Valkey via
+`docker-compose.dev.yaml`, then starts the binary against them. The
+in-memory backends were removed in IMPL-0016 (chart 1.0.0); Postgres
+and Valkey are now required at startup.
+
 ```bash
 make build
-# Export required env vars, then:
+# Bring up Postgres + Valkey, then start the binary (env vars wired
+# automatically; override via the shell if you need a non-default DSN):
 make run-local
+
+# Stop the backing services when done:
+make dev-stop
 ```
+
+If you only want the backing services without starting the binary
+(e.g., for `go test ./...`), run `make dev-services` directly.
 
 ## Build & Development
 

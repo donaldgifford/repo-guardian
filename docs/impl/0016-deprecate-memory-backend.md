@@ -142,20 +142,20 @@ tighten config validation, flip chart defaults, and add
 
 **1.1 — `docker-compose.dev.yaml` + make targets**
 
-- [ ] Create `docker-compose.dev.yaml` at the repo root (see Open
+- [x] Create `docker-compose.dev.yaml` at the repo root (see Open
   Question 8 for placement). Services: Postgres + Valkey with
   sensible defaults matching `make test` env vars.
-- [ ] Add `make dev-services` target that runs `docker compose -f
+- [x] Add `make dev-services` target that runs `docker compose -f
   docker-compose.dev.yaml up -d`.
-- [ ] Add `make dev-stop` target that runs `docker compose -f
+- [x] Add `make dev-stop` target that runs `docker compose -f
   docker-compose.dev.yaml down`.
-- [ ] Update `make run-local` to depend on `dev-services` so
+- [x] Update `make run-local` to depend on `dev-services` so
   newcomers can `make run-local` and have services come up
   automatically.
-- [ ] Update README's dev-setup section to document the new
+- [x] Update README's dev-setup section to document the new
   workflow.
 - [ ] Manually validate the compose flow end-to-end on a clean
-  checkout: `make dev-services && make run-local`.
+  checkout: `make dev-services && make run-local`. (operator-side)
 
 **1.2 — Delete `internal/store/memory/`**
 

@@ -3,6 +3,47 @@
 All notable changes to this project are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
+
+## [1.9.0] - 2026-06-23
+
+Bundled with chart `1.0.0-rc.1`. IMPL-0016 (memory backend
+removal). Validated via the `1.0.0-rc.N` series before cutting
+final `1.0.0`.
+
+### Removed (BREAKING)
+
+- *(store)* Delete `internal/store/memory` — Postgres is the only
+  supported `Store` backend ([IMPL-0016](docs/impl/0016-deprecate-memory-backend.md)).
+- *(queue)* Delete `internal/queue/memory` — Valkey is the only
+  supported `Queue` backend.
+- *(scheduler)* Delete `internal/scheduler/ticker` — Valkey is
+  the only supported `Scheduler` backend.
+- *(config)* `STORE_BACKEND=memory`, `QUEUE_BACKEND=memory`, and
+  `SCHEDULER_BACKEND=ticker` are now hard errors at startup. The
+  error includes a migration URL pointing at
+  `docs/operations/migrations.md#removing-memory-backend`.
+
+### Features
+
+- *(dev)* `docker-compose.dev.yaml` at the repo root + new
+  `make dev-services` / `make dev-stop` targets. `make run-local`
+  now depends on `dev-services` and wires the DSN env vars
+  automatically, so a fresh checkout can `make run-local`
+  end-to-end with no manual Postgres / Valkey provisioning.
+
+### Documentation
+
+- *(ops)* New `docs/operations/migrations.md#removing-memory-backend`
+  section with baked / cnpg / external migration recipes.
+- *(ops)* Superseded-by banners on `chart-0.5.0-migration.md` and
+  `cnpg-homelab-cutover.md`.
+- *(chart)* Chart README's deployment-shape table dropped the
+  "Single-replica memory" row; new "Schema validation"
+  subsection describes the `values.schema.json` rejection.
+
+See [DESIGN-0018](docs/design/0018-deprecate-memory-backend.md)
+for design rationale.
+
 ## [1.8.0] - 2026-05-31
 
 ### Features

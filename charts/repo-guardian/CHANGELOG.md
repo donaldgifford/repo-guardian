@@ -2,15 +2,51 @@
 
 Changes to the `repo-guardian` Helm chart only. For application-level
 changes, see the root [CHANGELOG.md](../../CHANGELOG.md).
-## [unreleased]
+
+## [1.0.0-rc.1] - 2026-06-23
+
+First release candidate on the path to chart `1.0.0`. Ships the
+memory-backend removal (IMPL-0016). Cut from
+`feat/impl-0016-remove-memory-backend`; carries appVersion
+`1.9.0`. Will be validated in homelab as `1.0.0-rc.1` (and any
+follow-up `1.0.0-rc.N` tags from IMPL-0015) before promoting to
+final `1.0.0`.
+
+### Breaking changes
+
+- `store.backend` enum now `["postgres"]` only. `memory` is
+  rejected by `values.schema.json` at chart-render time.
+- `queue.backend` enum now `["valkey"]` only. `memory` rejected.
+- `scheduler.backend` enum now `["valkey"]` only. `ticker`
+  rejected.
+- Default `store.backend` / `queue.backend` / `scheduler.backend`
+  flipped from `memory` / `memory` / `ticker` →
+  `postgres` / `valkey` / `valkey`. A fresh `helm install` with
+  no values overrides now brings up baked Postgres + baked
+  Valkey StatefulSets out-of-the-box.
+- The binary refuses to start when `STORE_BACKEND=memory` (or
+  any other removed value) is set on the Deployment. Error
+  message embeds the migration URL.
+
+### Migration
+
+See
+[docs/operations/migrations.md#removing-memory-backend](../../docs/operations/migrations.md#removing-memory-backend)
+for the three migration paths (baked / cnpg / external).
 
 ### Features
 
-- *(chart)* Multi-replica deployment shapes (IMPL-0011 P6)
+- *(chart)* New `values.schema.json` locks the three backend
+  enums.
+- *(chart)* Multi-replica deployment shapes (IMPL-0011 P6) ship
+  as the only supported configurations.
 
 ### Documentation
 
-- *(chart)* Scheduler contract tests + 0.5.0 upgrade notes (IMPL-0011 cleanup)
+- *(chart)* README deployment-shape table no longer lists the
+  "Single-replica memory" row; new "Schema validation"
+  subsection; "Upgrade notes (chart 1.0.0-rc.1) — breaking"
+  block at the top of the release notes.
 
 ## [1.5.0] - 2026-05-05
 

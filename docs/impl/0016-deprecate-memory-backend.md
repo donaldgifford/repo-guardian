@@ -334,22 +334,21 @@ tighten config validation, flip chart defaults, and add
 
 **1.12 — Chart-major version bump**
 
-- [ ] Bump chart `version` to major (e.g., 0.x.y → 1.0.0).
-  Rationale: defaults change + validation tightens +
-  values.schema.json rejects previously-valid configurations =
-  breaking change for any operator who had memory/ticker
-  explicitly set.
-- [ ] Bump `appVersion` for the binary changes.
-- [ ] Update CHANGELOG entries (root + chart) with a
-  breaking-change callout.
+- [x] Bump chart `version` to `1.0.0-rc.1` (release-candidate path
+  to `1.0.0`; see [Sequencing](#sequencing)).
+- [x] Bump `appVersion` to `1.9.0` for the binary changes.
+- [x] Update CHANGELOG entries (root + chart) with a
+  breaking-change callout (Task 1.13).
 
 **1.13 — CHANGELOG breaking-change callouts**
 
-- [ ] Root `CHANGELOG.md`: `Removed` section entry; reference
-  DESIGN-0018 + IMPL-0016.
-- [ ] Chart `CHANGELOG.md`: `Breaking changes` section entry with
-  the values.yaml diff and the env var diff. (git-cliff regenerates
-  on publish; the manual entry seeds the section.)
+- [x] Root `CHANGELOG.md`: `[1.9.0] - 2026-06-23` with the
+  Removed (BREAKING) callouts for memory store / queue / ticker
+  scheduler + the friendly-error config change.
+- [x] Chart `CHANGELOG.md`: `[1.0.0-rc.1] - 2026-06-23` with the
+  full breaking-change explainer and the migration runbook link.
+  (git-cliff regenerates on publish; the manual entry seeds the
+  section.)
 
 #### Success Criteria
 
@@ -409,21 +408,27 @@ All changes ship in Phase 1 (the single removal phase). See
 
 ## Testing Plan
 
-- [ ] Unit tests for config validation: each deprecated backend value
+- [x] Unit tests for config validation: each deprecated backend value
   path returns a friendly error with the migration URL.
-- [ ] Helm-unittest cases for the default flip: fresh `helm template`
-  produces baked Postgres + baked Valkey resources; setting
-  memory/ticker via `--set` fails schema validation.
+  (`TestLoadRejects_DeprecatedStoreBackend` +
+  `TestLoadRejects_DeprecatedSchedulerBackend` in
+  `internal/config/config_test.go`.)
+- [x] Helm-unittest cases for the default flip: fresh `helm template`
+  produces baked Postgres + baked Valkey resources. Schema rejection
+  verified manually via `helm template ... --set
+  store.backend=memory` (helm-unittest can't catch schema
+  errors — documented inline in the suite).
 - [ ] Manual test of `make dev-services && make run-local` on a
-  fresh repo checkout (no pre-existing services).
-- [ ] CI runs `go build ./...` to confirm no orphaned imports after
-  package deletes.
-- [ ] No coverage regression — postgres + valkey backends are
+  fresh repo checkout (no pre-existing services). (Operator-side.)
+- [x] CI runs `go build ./...` to confirm no orphaned imports after
+  package deletes (`make ci` green at end of Task 1.13).
+- [x] No coverage regression — postgres + valkey backends are
   already covered by integration tests via testcontainers.
 - [ ] End-to-end validation in homelab after the `1.0.0-rc.1` tag
   deploys: `helm install` with old (memory) values fails at schema
   validation; fresh install works out of the box; binary starts
   with no warnings on a Postgres+Valkey-only deployment.
+  (Operator-side, post-merge.)
 
 ## Dependencies
 

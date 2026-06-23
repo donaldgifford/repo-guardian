@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0017
 title: "Stale-sweep cutover and repository discovery"
-status: Draft
+status: Approved
 author: Donald Gifford
 created: 2026-06-22
 ---
@@ -9,7 +9,7 @@ created: 2026-06-22
 
 # DESIGN 0017: Stale-sweep cutover and repository discovery
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Donald Gifford
 **Date:** 2026-06-22
 

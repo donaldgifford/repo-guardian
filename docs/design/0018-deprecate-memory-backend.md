@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0018
 title: "Deprecate memory backend"
-status: Draft
+status: Approved
 author: Donald Gifford
 created: 2026-06-22
 ---
@@ -9,7 +9,7 @@ created: 2026-06-22
 
 # DESIGN 0018: Deprecate memory backend
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Donald Gifford
 **Date:** 2026-06-22
 
@@ -19,15 +19,26 @@ created: 2026-06-22
   - [Goals](#goals)
   - [Non-Goals](#non-goals)
 - [Background](#background)
+  - [Audit summary](#audit-summary)
 - [Detailed Design](#detailed-design)
   - [What gets removed](#what-gets-removed)
   - [What gets reshaped](#what-gets-reshaped)
   - [Startup validation](#startup-validation)
   - [Local development](#local-development)
 - [API / Interface Changes](#api--interface-changes)
+  - [CLI / env vars](#cli--env-vars)
+  - [Chart values](#chart-values)
+  - [Go interfaces](#go-interfaces)
 - [Data Model](#data-model)
 - [Testing Strategy](#testing-strategy)
+  - [Removed](#removed)
+  - [Rewritten](#rewritten)
+  - [Kept (unchanged)](#kept-unchanged)
+  - [New](#new)
 - [Migration / Rollout Plan](#migration--rollout-plan)
+  - [Phase 0 — Deprecation notice (one release cycle)](#phase-0--deprecation-notice-one-release-cycle)
+  - [Phase 1 — Removal (one release cycle later)](#phase-1--removal-one-release-cycle-later)
+  - [Rollback](#rollback)
 - [Open Questions](#open-questions)
 - [References](#references)
 <!--toc:end-->

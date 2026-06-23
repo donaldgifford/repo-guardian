@@ -233,23 +233,27 @@ as `Discoverer.Discover`; only the *schedule call* is removed here.
 
 **0.5 — `Store.UpsertIfMissing` interface + implementations**
 
-- [ ] Add `UpsertIfMissing(ctx context.Context, s *RepoState) (created
+- [x] Add `UpsertIfMissing(ctx context.Context, s *RepoState) (created
   bool, err error)` to the `Store` interface in
   `internal/store/store.go`. Document it in the package doc-comment.
-- [ ] Implement in `internal/store/postgres/postgres.go` using a single
+- [x] Implement in `internal/store/postgres/postgres.go` using a single
   query: `INSERT INTO repo_state (...) VALUES (...) ON CONFLICT
   (installation_id, owner, repo) DO NOTHING RETURNING (xmax = 0) AS
   created`. Handle the "no row returned" case as `created = false,
   err = nil`.
-- [ ] Regenerate the mockery mock for `store.Store` via `make mocks`.
+- [x] Regenerate the mockery mock for `store.Store` via `make mocks`.
   (`internal/store/memory/` was deleted in IMPL-0016 — postgres is
-  the only concrete implementation.)
-- [ ] Write unit tests against the mockery `MockStore`: callers
+  the only concrete implementation.) Mockery v2.53.6 doesn't yet
+  support go1.26 source packages; the `UpsertIfMissing` mock was
+  hand-extended following the existing pattern. Bump mockery when a
+  go1.26-compatible release lands.
+- [x] Write unit tests against the mockery `MockStore`: callers
   short-circuit correctly when `created=false`, propagate
   errors on `err != nil`. Integration coverage of the actual
   INSERT...ON CONFLICT behaviour lives in the postgres
-  integration test below.
-- [ ] Add an integration test in
+  integration test below. (Unit-test coverage is exercised by the
+  worker/webhook callers in tasks 0.1 / 0.2.)
+- [x] Add an integration test in
   `internal/store/postgres/postgres_integration_test.go` that
   exercises the `ON CONFLICT` path with a real Postgres.
 

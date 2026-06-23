@@ -55,9 +55,20 @@ type RepoState struct {
 // LastCheckedAt is older than freshness OR its PolicyVersion differs
 // from currentPolicyVersion (handles new-rule rollouts without per-rule
 // freshness tracking — see DESIGN-0012 Q2 resolution).
+//
+// UpsertIfMissing is the discovery write-path (DESIGN-0017): it inserts
+// a row with LastCheckStatus=StatusPending and LastCheckedAt=nil iff no
+// row exists for the (installationID, owner, repo) tuple. It returns
+// (true, nil) when a new row was inserted and (false, nil) when a row
+// already existed — callers use the boolean to drive
+// "discovered_repos_total" instrumentation and to decide whether to
+// emit a slog.Info on first-sight. Implementations MUST execute this
+// as a single atomic statement (no read-then-write race), and MUST NOT
+// overwrite any existing fields on conflict.
 type Store interface {
 	GetRepoState(ctx context.Context, installationID int64, owner, repo string) (*RepoState, error)
 	UpdateRepoState(ctx context.Context, s *RepoState) error
+	UpsertIfMissing(ctx context.Context, s *RepoState) (created bool, err error)
 	StaleRepos(ctx context.Context, freshness time.Duration, currentPolicyVersion string, limit int) ([]RepoState, error)
 	Close() error
 }

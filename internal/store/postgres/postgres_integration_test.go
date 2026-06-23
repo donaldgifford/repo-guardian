@@ -207,6 +207,83 @@ func TestPostgresStore_StaleByPolicyVersion(t *testing.T) {
 	}
 }
 
+func TestPostgresStore_UpsertIfMissing(t *testing.T) {
+	ctx := context.Background()
+	dsn := startPostgres(ctx, t)
+	s := newStore(ctx, t, dsn)
+
+	// First call inserts a fresh row.
+	created, err := s.UpsertIfMissing(ctx, &store.RepoState{
+		InstallationID: 7,
+		Owner:          "octo",
+		Repo:           "new-repo",
+		PolicyVersion:  "v1",
+	})
+	if err != nil {
+		t.Fatalf("first UpsertIfMissing: %v", err)
+	}
+
+	if !created {
+		t.Fatal("expected created=true on fresh insert")
+	}
+
+	got, err := s.GetRepoState(ctx, 7, "octo", "new-repo")
+	if err != nil {
+		t.Fatalf("get after upsert: %v", err)
+	}
+
+	if got.LastCheckedAt != nil {
+		t.Fatalf("expected nil LastCheckedAt, got %v", got.LastCheckedAt)
+	}
+
+	if got.LastCheckStatus != store.StatusPending {
+		t.Fatalf("expected StatusPending, got %q", got.LastCheckStatus)
+	}
+
+	// Second call on the same key is a no-op; created=false and the
+	// existing row is unchanged.
+	ts := time.Now().UTC()
+
+	rs := &store.RepoState{
+		InstallationID:  7,
+		Owner:           "octo",
+		Repo:            "new-repo",
+		LastCheckedAt:   &ts,
+		LastCheckStatus: store.StatusSuccess,
+		PolicyVersion:   "v2",
+	}
+	if err := s.UpdateRepoState(ctx, rs); err != nil {
+		t.Fatalf("UpdateRepoState to populate state: %v", err)
+	}
+
+	created, err = s.UpsertIfMissing(ctx, &store.RepoState{
+		InstallationID: 7,
+		Owner:          "octo",
+		Repo:           "new-repo",
+		PolicyVersion:  "v3", // intentionally different — must NOT overwrite.
+	})
+	if err != nil {
+		t.Fatalf("second UpsertIfMissing: %v", err)
+	}
+
+	if created {
+		t.Fatal("expected created=false on existing row")
+	}
+
+	got, err = s.GetRepoState(ctx, 7, "octo", "new-repo")
+	if err != nil {
+		t.Fatalf("get after second upsert: %v", err)
+	}
+
+	if got.PolicyVersion != "v2" {
+		t.Fatalf("UpsertIfMissing overwrote PolicyVersion: %q (wanted v2)", got.PolicyVersion)
+	}
+
+	if got.LastCheckStatus != store.StatusSuccess {
+		t.Fatalf("UpsertIfMissing overwrote LastCheckStatus: %q (wanted success)", got.LastCheckStatus)
+	}
+}
+
 func TestPostgresStore_MigrateIdempotent(t *testing.T) {
 	ctx := context.Background()
 	dsn := startPostgres(ctx, t)

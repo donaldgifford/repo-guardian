@@ -150,6 +150,69 @@ func (s *Store) updateRepoStateInner(ctx context.Context, rs *store.RepoState) e
 	return nil
 }
 
+// UpsertIfMissing inserts rs as a discovery row (LastCheckedAt=nil,
+// LastCheckStatus=StatusPending, LastError="") iff no row exists for
+// (installation_id, owner, repo). It returns (true, nil) when a row
+// was inserted and (false, nil) when an existing row was found.
+//
+// Implementation note: the `xmax` system column is 0 on a freshly
+// inserted row and non-zero on a row matched by ON CONFLICT, so
+// `(xmax = 0) AS created` gives a single-round-trip "did we insert?"
+// answer. INSERT ... ON CONFLICT DO NOTHING returns no row on
+// conflict by default, but we want a guaranteed RETURNING row so the
+// query is wrapped in a WITH cte that does the insert and a SELECT
+// against the existing row, UNIONed on the conflict path.
+func (s *Store) UpsertIfMissing(ctx context.Context, rs *store.RepoState) (bool, error) {
+	start := time.Now()
+
+	created, err := s.upsertIfMissingInner(ctx, rs)
+	observeQuery("upsert_if_missing", start, err)
+
+	return created, err
+}
+
+func (s *Store) upsertIfMissingInner(ctx context.Context, rs *store.RepoState) (bool, error) {
+	// Single-statement upsert-or-discover. The trailing SELECT runs only
+	// when the INSERT was suppressed by ON CONFLICT DO NOTHING (i.e. the
+	// row already existed) — UNION ALL on the empty-ins case returns the
+	// existing row's (xmax = 0) value, which is false because xmax is
+	// the lock holder's XID on a previously inserted row.
+	const q = `
+		WITH ins AS (
+			INSERT INTO repo_state (
+				installation_id, owner, repo,
+				last_checked_at, last_check_status, last_error, policy_version
+			) VALUES ($1, $2, $3, NULL, $4, '', $5)
+			ON CONFLICT (installation_id, owner, repo) DO NOTHING
+			RETURNING (xmax = 0) AS created
+		)
+		SELECT created FROM ins
+		UNION ALL
+		SELECT false
+		FROM repo_state
+		WHERE installation_id = $1 AND owner = $2 AND repo = $3
+		  AND NOT EXISTS (SELECT 1 FROM ins)
+		LIMIT 1
+	`
+
+	status := rs.LastCheckStatus
+	if status == "" {
+		status = store.StatusPending
+	}
+
+	row := s.pool.QueryRow(ctx, q,
+		rs.InstallationID, rs.Owner, rs.Repo,
+		status, rs.PolicyVersion,
+	)
+
+	var created bool
+	if err := row.Scan(&created); err != nil {
+		return false, fmt.Errorf("postgres.UpsertIfMissing: scan: %w", err)
+	}
+
+	return created, nil
+}
+
 // StaleRepos returns up to limit rows whose last_checked_at is older
 // than freshness OR whose policy_version differs from
 // currentPolicyVersion. NULL last_checked_at sorts first to ensure

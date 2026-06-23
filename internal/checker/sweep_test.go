@@ -97,6 +97,25 @@ func (f *fakeStore) UpdateRepoState(_ context.Context, s *store.RepoState) error
 	return nil
 }
 
+func (f *fakeStore) UpsertIfMissing(_ context.Context, s *store.RepoState) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	key := fakeStoreKey(s.InstallationID, s.Owner, s.Repo)
+	if _, ok := f.states[key]; ok {
+		return false, nil
+	}
+
+	cp := *s
+	if cp.LastCheckStatus == "" {
+		cp.LastCheckStatus = store.StatusPending
+	}
+
+	f.states[key] = &cp
+
+	return true, nil
+}
+
 func (f *fakeStore) StaleRepos(_ context.Context, freshness time.Duration, currentPolicyVersion string, limit int) ([]store.RepoState, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

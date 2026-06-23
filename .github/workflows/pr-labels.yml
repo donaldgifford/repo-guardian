@@ -1,3 +1,5 @@
+---
+# $schema=https://www.schemastore.org/github-action.json
 name: PR Label Check
 on:
   pull_request:

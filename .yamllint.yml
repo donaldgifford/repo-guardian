@@ -1,4 +1,5 @@
 ---
+# $schema=https://www.schemastore.org/yamllint.json
 # yamllint configuration for project
 
 extends: default

@@ -1,4 +1,5 @@
 ---
+# $schema=https://www.schemastore.org/markdownlint-config-schema.json
 # https://github.com/DavidAnson/markdownlint
 #
 # Unordered list style

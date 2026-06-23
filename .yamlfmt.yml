@@ -1,4 +1,5 @@
 ---
+# $schema=https://www.schemastore.org/yamlfmt.json
 # yamlfmt configuration for project
 
 formatter:

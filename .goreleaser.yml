@@ -1,4 +1,5 @@
 ---
+# $schema=https://goreleaser.com/static/schema.json
 version: 2
 
 builds:

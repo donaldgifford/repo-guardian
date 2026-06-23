@@ -2,8 +2,10 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "github>donaldgifford/renovate-config",
+    "github>donaldgifford/renovate-config:go",
     "github>donaldgifford/renovate-config:docker",
     "github>donaldgifford/renovate-config:mise",
+    "github>donaldgifford/renovate-config:helm",
     "github>donaldgifford/renovate-config:ci"
   ]
 }

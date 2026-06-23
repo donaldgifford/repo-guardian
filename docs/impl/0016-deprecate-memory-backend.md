@@ -278,8 +278,10 @@ tighten config validation, flip chart defaults, and add
   doesn't surface schema errors as catchable failures), so the
   test suite documents the manual verification path inline and
   the schema lives as the contract.
-- [ ] Document the schema validation in chart README. (Deferred
-  to Task 1.11 — the documentation sweep.)
+- [x] Document the schema validation in chart README — done in
+  Task 1.11 (`charts/repo-guardian/README.md.gotmpl` gained a
+  "Schema validation" subsection under "Choosing a deployment
+  shape").
 
 **1.10 — Helm-unittest rewrites**
 

@@ -74,30 +74,64 @@ helm install repo-guardian \
 
 ## Choosing a deployment shape
 
-Chart 0.5.0+ supports four deployment shapes selected via the
-`store.backend`, `queue.backend`, and `scheduler.backend` values. Pick
-the row that matches your operator scenario; defaults preserve the
-single-replica memory mode.
+Chart `1.0.0-rc.1`+ ships Postgres + Valkey as the only supported
+backends (IMPL-0016 removed the in-memory store/queue and the
+in-process ticker scheduler). Pick the row that matches your
+operator scenario; the baked shape is the default and brings up
+StatefulSets out-of-the-box.
 
 | Shape | Values | Use when |
 |-------|--------|----------|
-| **Single-replica memory** (default) | `store.backend=memory`, `queue.backend=memory`, `scheduler.backend=ticker`, `replicaCount=1` | You're trialing repo-guardian, running a homelab pilot, or reconciling fewer than ~50 repos. No external dependencies. |
-| **Baked Postgres + Valkey** | `store.backend=postgres`, `store.postgres.mode=baked`, `queue.backend=valkey`, `queue.valkey.mode=baked`, `scheduler.backend=valkey` | You want multi-replica with no external operator dependencies. Chart renders single-pod Postgres + Valkey StatefulSets with auto-generated passwords. Suitable for homelab / small dev clusters. |
+| **Baked Postgres + Valkey** (default) | `store.postgres.mode=baked`, `queue.valkey.mode=baked` | You want multi-replica with no external operator dependencies. Chart renders single-pod Postgres + Valkey StatefulSets with auto-generated passwords. Suitable for homelab / small dev clusters. |
 | **CNPG-managed Postgres + baked Valkey** | `store.postgres.mode=cnpg`, `queue.valkey.mode=baked` | You already run [CloudNativePG](https://cloudnative-pg.io/) in the cluster and want the operator to handle Postgres lifecycle (HA replicas, backups, monitoring). The chart renders a `Cluster` CR and an optional `Pooler` (PgBouncer) CR. An optional `LoadBalancer` Service in front of the pooler (Cilium BGP-annotated by default) exposes the database to clients outside the cluster — enable via `store.postgres.cnpg.pooler.service.enabled`. |
-| **External Postgres + external Valkey** | `store.postgres.mode=external` + `existingSecret`; `queue.valkey.mode=external` + `existingSecret` | You're running a managed Postgres (RDS, Cloud SQL) and Redis-compatible service. Chart consumes the DSN from operator-supplied secrets and renders no backing resources. |
+| **External Postgres + external Valkey** | `store.postgres.mode=external` + `existingSecret`; `queue.valkey.mode=external` + `existingSecret` | You're running a managed Postgres (RDS, Cloud SQL) and Redis-compatible service (ElastiCache for Valkey, etc.). Chart consumes the DSN from operator-supplied secrets and renders no backing resources. |
+
+### Schema validation
+
+`values.schema.json` (shipped with chart `1.0.0-rc.1`+) locks
+`store.backend` to `"postgres"`, `queue.backend` to `"valkey"`, and
+`scheduler.backend` to `"valkey"`. Operators upgrading from chart
+`0.7.x` who carry forward `store.backend=memory` (or any other
+removed value) will see a schema error at `helm install` /
+`helm upgrade` time, *before* pod startup:
+
+```
+Error: values don't meet the specifications of the schema(s) in
+the following chart(s):
+repo-guardian:
+- at '/store/backend': value must be 'postgres'
+```
+
+This is intentional: failing fast at chart-render time gives a
+cleaner diagnostic than a `CrashLoopBackoff` from the binary's
+startup validation (which also rejects the old values, with a
+migration URL — see [migrations.md](../../docs/operations/migrations.md#removing-memory-backend)).
 
 For sizing knobs (`replicaCount`, `workerCount`, `maxConns`,
 `staleSweep.*`), see [docs/operations/scaling.md](../../docs/operations/scaling.md).
 For Postgres schema operations, see
 [docs/operations/migrations.md](../../docs/operations/migrations.md).
 
+### Upgrade notes (chart 1.0.0-rc.1) — breaking
+
+- **Memory backends removed.** `store.backend=memory`,
+  `queue.backend=memory`, and `scheduler.backend=ticker` are
+  rejected by both `values.schema.json` and the binary's startup
+  validation. Postgres + Valkey are required. See
+  [migrations.md](../../docs/operations/migrations.md#removing-memory-backend)
+  for the operator migration recipes (baked / cnpg / external).
+- **Default deployment shape changed.** A fresh `helm install`
+  with no values overrides now brings up baked Postgres + baked
+  Valkey StatefulSets, where chart `0.7.x` brought up only the
+  Deployment. Set `store.postgres.mode=external` +
+  `queue.valkey.mode=external` if you're pointing at managed
+  infra.
+- **`STORE_BACKEND` / `QUEUE_BACKEND` / `SCHEDULER_BACKEND` env
+  vars are required.** Empty values fail validation; previous
+  chart releases supplied defaults that mapped to memory/ticker.
+
 ### Upgrade notes (chart 0.5.0)
 
-- **No default change for existing users.** `store.backend`,
-  `queue.backend`, and `scheduler.backend` all default to the
-  single-replica memory implementations. Operators currently running
-  chart ≤ 0.4.x at `replicaCount: 1` get bit-identical behaviour
-  after upgrading; the new shapes are strictly opt-in.
 - **`terminationGracePeriodSeconds` raised to 60.** The Deployment
   now gives workers up to 60s to drain in-flight jobs on SIGTERM.
 - **5 starter PrometheusRule alerts.** Set

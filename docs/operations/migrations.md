@@ -110,3 +110,86 @@ forward (a new migration that mutates the schema) than down.
 a `RepoGuardianStoreQueryErrors` alert that fires when error rate
 exceeds 10% over 10 minutes — usually a sign of pool exhaustion,
 network flap, or migration drift.
+
+## Removing memory backend
+
+Chart `1.0.0-rc.1` / appVersion `1.9.0` (IMPL-0016) deletes the
+in-memory store, queue, and ticker scheduler. The chart now ships
+Postgres + Valkey as the only supported backing services.
+
+If you're upgrading from chart `0.7.x` and were running with
+`store.backend=memory` / `queue.backend=memory` /
+`scheduler.backend=ticker`, the binary will refuse to start with:
+
+```
+STORE_BACKEND="memory" is no longer supported (memory backend
+removed in IMPL-0016 (chart 1.0.0)). Migration runbook:
+<this URL>
+```
+
+### Migration paths
+
+1. **Out-of-the-box (baked Postgres + baked Valkey).** Simplest:
+   the new defaults bring up StatefulSets for both services with
+   chart-rendered Secrets. No values overrides needed. Suitable
+   for homelab / single-cluster deployments.
+
+   ```bash
+   helm upgrade repo-guardian charts/repo-guardian \
+     --reset-then-reuse-values
+   ```
+
+2. **CNPG-managed Postgres + baked Valkey.** Set
+   `store.postgres.mode=cnpg` and the chart renders a
+   CloudNativePG `Cluster` CR. Valkey continues to come up baked.
+
+   ```yaml
+   store:
+     backend: postgres
+     postgres:
+       mode: cnpg
+   ```
+
+3. **Fully external infra.** Point both services at managed
+   instances (RDS / ElastiCache for Valkey, etc.). The operator
+   provides DSN secrets via `existingSecret`.
+
+   ```yaml
+   store:
+     backend: postgres
+     postgres:
+       mode: external
+       existingSecret: my-rds-secret
+       existingSecretKey: STORE_DSN
+   queue:
+     backend: valkey
+     valkey:
+       mode: external
+       existingSecret: my-valkey-secret
+       existingSecretKey: QUEUE_VALKEY_DSN
+   scheduler:
+     backend: valkey
+   ```
+
+### Local development without memory backend
+
+`make run-local` now depends on `make dev-services`, which brings
+up `docker-compose.dev.yaml` (Postgres + Valkey containers at
+`localhost:5432` / `localhost:6379` with default credentials). The
+`make` target wires the DSN env vars automatically; nothing extra
+in your shell.
+
+```bash
+make dev-services   # bring up Postgres + Valkey
+make run-local      # build + run against them
+make dev-stop       # tear down when done
+```
+
+### Data loss
+
+The in-memory store held only the post-IMPL-0011 sweep cadence
+state (`last_checked_at` / `last_check_status` per repo). It was
+non-durable by design — restarting a memory-backed binary already
+discarded the state. Moving to Postgres means future restarts
+*preserve* state; there's nothing to migrate forward, just a
+fresh database to populate via normal reconcile activity.

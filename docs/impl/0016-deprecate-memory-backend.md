@@ -301,27 +301,36 @@ tighten config validation, flip chart defaults, and add
 
 **1.11 — Documentation sweep**
 
-- [ ] `README.md`: remove all memory-mode references; ensure
-  Quickstart points at postgres+valkey path.
-- [ ] `CLAUDE.md`: update the Architecture section's backend list;
-  remove memory backend mention; replace the Phase 0 deprecation
-  note with "memory backend removed in IMPL-0016".
-- [ ] `docs/operations/scaling.md`: remove memory mode from any
-  scaling matrix; confirm single-backend story.
-- [ ] `docs/operations/aws.md`: verify no memory-mode references
-  (already managed but double-check).
-- [ ] `docs/operations/chart-0.5.0-migration.md`: add a note that
-  memory backend was the IMPL-0011 migration target; now removed
-  in IMPL-0016 (chart 1.0).
-- [ ] `docs/operations/cnpg-homelab-cutover.md`: verify references
-  are clean.
-- [ ] `charts/repo-guardian/README.md.gotmpl`: remove memory mode
-  from values description; document the new default.
-- [ ] `examples/`: update any example HCL or scripts that mention
-  memory backend (likely empty per the audit, but check).
-- [ ] `docs/operations/migrations.md#removing-memory-backend`:
-  update to reflect that Phase 1 has shipped; remove the rollback
-  advice now that no in-binary fallback exists.
+- [x] `README.md`: Quickstart already points at postgres+valkey
+  path (touched in Task 1.1). No further changes needed.
+- [x] `CLAUDE.md`: Architecture section's `store/` and `queue/`
+  entries no longer mention `memory/`; `scheduler/` entry no
+  longer mentions `ticker/`. New IMPL-0016 release note block
+  added. The IMPL-0011 P4 contract-test convention block was
+  rewritten to reflect the single-backend reality.
+- [x] `docs/operations/scaling.md`: dropped the "Memory mode is
+  single-replica" gotcha; replaced with a single-line statement
+  that backends are postgres+valkey only.
+- [x] `docs/operations/aws.md`: spot-check confirms it already
+  describes RDS + ElastiCache for Valkey only — no memory-mode
+  references.
+- [x] `docs/operations/chart-0.5.0-migration.md`: prepended a
+  "superseded by chart 1.0.0-rc.1" banner; flagged the
+  memory/ticker defaults paragraph as historical.
+- [x] `docs/operations/cnpg-homelab-cutover.md`: prepended a
+  "superseded" banner; scoped the runbook to operators still on
+  chart `0.6.x` / `0.7.x` who haven't yet cut to `1.0`.
+- [x] `charts/repo-guardian/README.md.gotmpl`: deployment-shape
+  table no longer lists "Single-replica memory"; added a "Schema
+  validation" subsection describing the new schema rejection;
+  added a chart-1.0.0-rc.1 upgrade-notes block at the top of the
+  release notes.
+- [x] `examples/`: grep confirms no memory-backend references.
+- [x] `docs/operations/migrations.md`: new section
+  `#removing-memory-backend` shipped with the three migration
+  paths (baked / cnpg / external) + the dev-services workflow.
+  Includes the explicit "no data loss because the memory store
+  was never durable" note.
 
 **1.12 — Chart-major version bump**
 

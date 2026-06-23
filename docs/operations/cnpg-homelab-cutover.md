@@ -1,8 +1,21 @@
 # Homelab CNPG cutover runbook
 
-You are running chart `0.6.x` with `store.backend=memory` (single-pod,
-no persistence) and want to switch to `store.backend=postgres` with
-`postgres.mode=cnpg` so reconcile state survives pod restarts.
+> [!NOTE]
+> **Superseded by chart `1.0.0-rc.1` (IMPL-0016).** The memory →
+> CNPG transition this runbook describes only applies to chart
+> `0.6.x` / `0.7.x` operators. Chart `1.0.0-rc.1`+ ships Postgres
+> as the only supported `store.backend`, and the chart defaults
+> already point at `postgres.mode=cnpg` if you set
+> `store.postgres.mode=cnpg`. See
+> [migrations.md#removing-memory-backend](migrations.md#removing-memory-backend)
+> for the post-IMPL-0016 migration path. This runbook is retained
+> for operators still on chart `0.6.x` / `0.7.x` who want to
+> cutover before bumping to `1.0`.
+
+You are running chart `0.6.x` or `0.7.x` with `store.backend=memory`
+(single-pod, no persistence) and want to switch to
+`store.backend=postgres` with `postgres.mode=cnpg` so reconcile
+state survives pod restarts.
 
 This runbook assumes:
 

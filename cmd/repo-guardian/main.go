@@ -73,12 +73,12 @@ func run() error {
 		return fmt.Errorf("create github client: %w", err)
 	}
 
-	policyCfg, engine := loadPolicyAndEngine(cfg, *strictTemplates, logger)
+	policyCfg, engine, templates := loadPolicyAndEngine(cfg, *strictTemplates, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	rt, err := bringUp(ctx, cfg, policyCfg, engine, client, logger)
+	rt, err := bringUp(ctx, cfg, policyCfg, engine, templates, client, logger)
 	if err != nil {
 		return err
 	}
@@ -132,6 +132,7 @@ func bringUp(
 	cfg *config.Config,
 	policyCfg *policy.PolicyConfig,
 	engine *checker.Engine,
+	templates *rules.TemplateStore,
 	client ghclient.Client,
 	logger *slog.Logger,
 ) (*runtime, error) {
@@ -171,7 +172,7 @@ func bringUp(
 	}
 
 	if cfg.StoreBackend == config.StoreBackendPostgres {
-		policyVersion, vErr := policy.Version(policyCfg, nil)
+		policyVersion, vErr := policy.Version(policyCfg, templates.AsMap())
 		if vErr != nil {
 			logger.Warn("policy.Version failed; stale-sweep policy_version will be empty", "error", vErr)
 		}
@@ -228,7 +229,11 @@ func bringUp(
 // constructs the checker engine. Any failure exits the process.
 // Extracted from main() to keep the entrypoint under the funlen
 // statement budget.
-func loadPolicyAndEngine(cfg *config.Config, strictTemplates bool, logger *slog.Logger) (*policy.PolicyConfig, *checker.Engine) {
+func loadPolicyAndEngine(
+	cfg *config.Config,
+	strictTemplates bool,
+	logger *slog.Logger,
+) (*policy.PolicyConfig, *checker.Engine, *rules.TemplateStore) {
 	policyCfg, err := policy.Load(cfg.GuardianConfigPath)
 	if err != nil {
 		logger.Error("failed to load policy config", "error", err)
@@ -260,7 +265,7 @@ func loadPolicyAndEngine(cfg *config.Config, strictTemplates bool, logger *slog.
 		os.Exit(1)
 	}
 
-	return policyCfg, engine
+	return policyCfg, engine, templates
 }
 
 // queueWiring bundles the constructed queue, optional Valkey reaper,

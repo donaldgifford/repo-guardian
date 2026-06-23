@@ -217,19 +217,24 @@ as `Discoverer.Discover`; only the *schedule call* is removed here.
 
 **0.4 — `policy.Version` template-hash fix**
 
-- [ ] Add `AsMap() map[string]string` method to `*rules.TemplateStore`
-  in `internal/rules/store.go`. Returns a snapshot of all template
-  names → content (embedded + ConfigMap-overridden).
-- [ ] Update `cmd/repo-guardian/main.go:177` (or wherever
-  `policy.Version` is called at startup) to pass
-  `templates.AsMap()` instead of `nil`.
-- [ ] Write a unit test that asserts the version hash changes when a
-  template entry's content changes (use a non-default
-  `TemplateStore` fixture).
-- [ ] Document the operator-facing implication in
+- [x] Add `AsMap() map[string]string` method to `*rules.TemplateStore`
+  in `internal/rules/registry.go` (the package's only Go file
+  post-IMPL-0014; no `store.go` exists in `internal/rules`).
+  Returns a snapshot of all template names → content (embedded +
+  ConfigMap-overridden).
+- [x] Update `cmd/repo-guardian/main.go` to pass `templates.AsMap()`
+  to `policy.Version` instead of `nil` (templates flow back from
+  `loadPolicyAndEngine` so the `bringUp` call site can hash them).
+- [x] Hash-change-on-template-content already covered by
+  `policy.TestVersion_TemplateContentChangesHash` in
+  `internal/policy/version_test.go`; new
+  `TestTemplateStoreAsMap` in
+  `internal/rules/registry_test.go` locks the snapshot contract
+  (copy semantics, directory override capture).
+- [x] Document the operator-facing implication in
   `charts/repo-guardian/README.md.gotmpl`: editing a template
   ConfigMap now triggers re-enqueue of all repos via policy version
-  invalidation.
+  invalidation. (Chart README regenerated via `make helm-docs`.)
 
 **0.5 — `Store.UpsertIfMissing` interface + implementations**
 

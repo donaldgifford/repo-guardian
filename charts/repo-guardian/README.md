@@ -13,7 +13,7 @@ SLSA Level 3 provenance attestations.
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 0.7.1 \
+  --version 1.0.0-rc.1 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -28,7 +28,7 @@ aws ecr get-login-password --region <region> | \
 
 helm install repo-guardian \
   oci://<account>.dkr.ecr.<region>.amazonaws.com/repo-guardian-chart \
-  --version 0.7.1 \
+  --version 1.0.0-rc.1 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -64,7 +64,7 @@ secrets:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 0.7.1 \
+  --version 1.0.0-rc.1 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -192,7 +192,7 @@ cosign verify \
     '^https://github.com/donaldgifford/repo-guardian/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:0.7.1
+  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.1
 ```
 
 ### SLSA provenance
@@ -203,7 +203,7 @@ cosign verify-attestation --type slsaprovenance \
     '^https://github.com/slsa-framework/slsa-github-generator/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:0.7.1
+  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.1
 ```
 
 The provenance attestation records the build workflow path, source
@@ -297,6 +297,28 @@ The chart's reserved-name list (`_helpers.tpl`) blocks
 (`GITHUB_APP_ID`, `WEBHOOK_SECRET`, `STRICT_TEMPLATES`, etc.) at
 helm-render time, but the `env` helper itself can read whatever
 the OS gives it.
+
+### Editing a template ConfigMap invalidates the policy version
+
+`policy.Version` (the hash that gates stale-sweep re-enqueue) is
+computed over BOTH the HCL policy AND the loaded template bodies.
+Editing an entry in `templates.files` or in a ConfigMap referenced
+via `templates.existingConfigMap` therefore changes the policy
+hash on the next pod restart, which in turn marks every persisted
+`repo_state` row as drifted (`policy_version <> current`) and
+triggers the stale-sweeper to re-enqueue all repos on the next
+sweep tick.
+
+This is intentional — operators should observe
+`repos_checked_total` climb across all in-scope repos within one
+`SCHEDULE_INTERVAL` window after a template edit + redeploy. If
+that does not happen, suspect either:
+
+- The pod did not pick up the new ConfigMap content (Helm
+  ConfigMap mounts are not auto-reloaded; the rollout must
+  recreate the pod), or
+- `STORE_BACKEND` is unset / not `postgres` (the hash is only
+  consumed on the Postgres-backed sweep path).
 
 ### `STRICT_TEMPLATES` recommendation
 

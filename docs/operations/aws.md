@@ -302,7 +302,7 @@ with bounded blast radius.
 |---|---|
 | `internal/queue/Queue` (interface) | `Enqueue` unchanged externally; internally selects key by `job.InstallationID`. `Subscribe` accepts an installation-registry watch so workers discover new installations as they appear. |
 | `internal/queue/valkey/valkey.go` | LUA scripts updated to operate on per-installation keys. `Reaper` iterates `SMEMBERS installations` to scan every in-flight ZSET. |
-| `internal/queue/memory/` | Per-installation buffered channels with round-robin `select`. |
+| ~~`internal/queue/memory/`~~ | Removed in IMPL-0016. The partitioning refactor now applies only to `internal/queue/valkey/`. |
 | `internal/worker/pool.go` | Schedule strategy plug — A initially, with hooks for B/C later. |
 | `internal/metrics/metrics.go` | `queue_depth` becomes `queue_depth{installation_id}` GaugeVec. `queue_dispatched_total` gains the same label. |
 | `charts/repo-guardian/values.yaml` | New knobs: `queue.partitioning.enabled` (default false during rollout), `queue.partitioning.perInstallationCap`. |

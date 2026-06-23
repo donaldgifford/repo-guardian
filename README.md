@@ -61,6 +61,11 @@ All configuration is via environment variables (12-factor):
 | `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN` | No | `false` | Allow requests when IP ranges are unavailable |
 | `TRUST_PROXY_HEADERS` | No | `false` | Read client IP from `X-Forwarded-For` header |
 | `GUARDIAN_CONFIG` | No | `""` | Path to HCL policy config file or directory |
+| `STORE_BACKEND` | No | `postgres` | Persistent state store backend. Only `postgres` is supported since IMPL-0016 (chart 1.0). |
+| `STORE_DSN` | Yes (when backend=postgres) | -- | Postgres connection string (e.g., `postgres://user:pass@host:5432/db?sslmode=disable`) |
+| `QUEUE_BACKEND` | No | `valkey` | Work queue backend. Only `valkey` is supported. |
+| `QUEUE_VALKEY_DSN` | Yes (when backend=valkey) | -- | Valkey/Redis connection string (e.g., `redis://host:6379/0`) |
+| `SCHEDULER_BACKEND` | No | `valkey` | Sweep scheduler backend. Only `valkey` is supported; shares the queue's Valkey instance. |
 
 *One of `GITHUB_PRIVATE_KEY_PATH` or `GITHUB_PRIVATE_KEY` is required (mutually exclusive).
 
@@ -345,15 +350,18 @@ internal/
   config/     -> configuration (12-factor env vars, validated at startup)
   policy/     -> HCL parser, validation, scope and ignore matchers, YAML path evaluator, content assertions
   github/     -> GitHub API client (go-github v68, ghinstallation v2, rate limit transport)
-  checker/    -> check-and-PR engine + buffered work queue + setting/branch-protection rules + scope evaluation gates
+  checker/    -> check-and-PR engine + setting/branch-protection rules + scope evaluation gates + StaleSweeper
   reconciler/ -> pluggable post-check reconcilers (custom_properties, label_sync, branch_protection, workflow_sync)
-  rules/      -> FileRule registry + TemplateStore (embedded fallback templates)
+  rules/      -> TemplateStore (embedded fallback templates)
   webhook/    -> HTTP handler for GitHub webhook events (HMAC-validated) + IP allowlist middleware + push event handler
-  scheduler/  -> in-process ticker for periodic reconciliation
+  scheduler/  -> Scheduler interface + valkey/ (SETNX leader-elected sweep cadence)
+  store/      -> per-repo state interface + postgres/ (pgx/v5 + pgxpool, embedded migrations)
+  queue/      -> work-queue interface + valkey/ (LIST + ZSET + reaper goroutine)
+  worker/     -> in-process worker pool consuming queue.Queue.Subscribe
   metrics/    -> Prometheus metric definitions (most counters labeled with org)
 ```
 
-**Core flow:** GitHub webhook OR weekly scheduler OR push event -> work queue (buffered channel) -> checker engine -> GitHub API (create PRs for missing files) -> reconcilers (post-check actions).
+**Core flow:** GitHub webhook OR scheduler tick OR push event -> Valkey-backed work queue -> worker pool -> checker engine -> GitHub API (create PRs for missing files) -> reconcilers (post-check actions). Reconcile state persisted to Postgres so a stale-sweep across many replicas converges without duplicate work.
 
 ## Documentation
 

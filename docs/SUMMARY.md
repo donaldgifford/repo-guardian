@@ -175,10 +175,13 @@ Template repos are opt-in; Repo Guardian is automatic.
   effects. The app can be deployed, observed, and tuned before enabling PR
   creation.
 - **Minimal infrastructure cost**: Single container (~20 MB image), minimal
-  resource footprint (100m CPU, 128Mi memory). Single-replica deploys run
-  with in-memory state and no external dependencies beyond the GitHub API;
-  multi-replica deploys add an optional Postgres-backed Store and
-  Valkey-backed Queue for durable coordination (see IMPL-0011 / chart 0.5+).
+  resource footprint (100m CPU, 128Mi memory). Postgres + Valkey backing
+  services are required (in-memory backends were removed in chart 1.0;
+  see IMPL-0016) but ship out-of-the-box as baked StatefulSets in the
+  Helm chart, so the default install brings up the whole stack with no
+  external infra. Operators can swap to managed Postgres (RDS, CloudSQL,
+  CNPG) and managed Valkey (ElastiCache for Valkey) via chart values
+  when scale demands it.
 - **Rate-limit aware**: Built-in adaptive rate limiting prevents the app from
   exhausting GitHub API quotas, even during full reconciliation of large
   organizations.
@@ -192,7 +195,7 @@ Template repos are opt-in; Repo Guardian is automatic.
 | **Infrastructure** | Single Kubernetes pod (or any container runtime) |
 | **Image size** | ~20 MB (distroless base, static Go binary) |
 | **Resource requests** | 100m CPU, 128Mi memory |
-| **External dependencies** | GitHub API only (single-replica). Multi-replica deploys add optional Postgres + Valkey. |
+| **External dependencies** | GitHub API + Postgres + Valkey. Postgres and Valkey ship as baked StatefulSets in the chart by default, or can be swapped for managed services (RDS / CNPG, ElastiCache for Valkey) via chart values. |
 | **Licensing cost** | None (internal tool, open-source dependencies) |
 | **GitHub API usage** | ~1-3 API calls per repo per reconciliation cycle |
 
@@ -221,12 +224,17 @@ phases are complete:
     `templates.files`
 13. Persistent reconcile state and multi-replica coordination
     (Postgres-backed Store, Valkey-backed Queue and leader-elected
-    Scheduler) with single-replica memory defaults preserved
+    Scheduler), initially opt-in with single-replica memory
+    defaults preserved
 14. PR auto-close when every rule on the PR is satisfied on the
     default branch, with a sticky reconcile-log comment on every
     sweep (opt-out via `policy.autoClosePR: false` / `AUTO_CLOSE_PR`)
 15. Legacy engine path and Kustomize overlays removed — the Helm
     chart is the only supported deployment surface
+16. Memory backend removed (chart 1.0). Postgres + Valkey become
+    the only supported store/queue/scheduler backends; the chart
+    bakes both as StatefulSets out-of-the-box. See
+    `docs/operations/migrations.md#removing-memory-backend`
 
 ### Rule Types
 

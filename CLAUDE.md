@@ -17,7 +17,9 @@ make lint-fix         # Run golangci-lint with auto-fix
 make fmt              # Format code (gofmt, goimports, gofumpt, golines, gci)
 make check            # Quick pre-commit check (lint + test)
 make ci               # Full CI pipeline (lint + test + build)
-make run-local        # Build and run locally
+make run-local        # Build, bring up Postgres+Valkey via docker-compose.dev.yaml, and run locally
+make dev-services     # Bring up Postgres + Valkey only (no binary)
+make dev-stop         # Tear down Postgres + Valkey
 ```
 
 Run a single test: `go test -v -race -run TestName ./internal/package/...`
@@ -90,6 +92,7 @@ docker build -t repo-guardian:dev .   # Multi-stage: golang:1.25 builder + distr
 
 - Use standard Go testing with race detector enabled.
 - Existing `github.Client` tests use hand-written mock clients (`internal/checker/engine_test.go`, `internal/reconciler/*_test.go`). New interfaces added under DESIGN-0012 (Store, Queue, Scheduler) use generated mocks via `mockery v2` (pinned in `mise.toml`, config in `.mockery.yaml`). Regenerate via `make mocks`. Hand-written mocks for the legacy `github.Client` can stay as-is; migrating to mockery is a follow-up, not a prerequisite.
+- **Test-local recording fakes for queue/store (post-IMPL-0016)** — when a test only needs to observe whether the system-under-test enqueued or persisted something, the convention is to define a file-local `recordingQueue` / `fakeStore` type that satisfies `queue.Queue` / `store.Store` with the minimum behaviour for the assertion. These are NOT backend replacements (DESIGN-0018 deliberately rules out shipping a new in-process test backend); they're per-file recorders. Reference impls live in `internal/checker/sweep_test.go`, `internal/scheduler/sweep_test.go`, `internal/webhook/handler_test.go`, `internal/worker/worker_test.go`. For full-behaviour parity (Subscribe pump, BRPOP semantics, etc.), use the valkey integration tests under the `integration` build tag.
 - `httptest.Server` is used for GitHub API mocks in `internal/github/client_test.go`.
 - Note: `t.Parallel()` cannot be used with `t.Setenv()` in Go 1.25+ (panics at runtime). Config tests avoid `t.Parallel()`.
 - Counter assertions: `prometheus/client_golang/prometheus/testutil.ToFloat64(metric.WithLabelValues(...))` for value inspection; `metric.Reset()` between tests when state must be isolated.
@@ -102,6 +105,7 @@ docker build -t repo-guardian:dev .   # Multi-stage: golang:1.25 builder + distr
 - **File-rule double-iteration** — `engine_policy.go` iterates over `policy.FileRules` in two passes: `findActionableRules` (primary) and `runReconcilers` (post-check). Counter increments belong only to the primary pass; `runReconcilers` short-circuits on scope/ignore mismatch silently. Forgetting this leads to double counts on `OutOfScopeTotal{level=rule}` and `IgnoredTotal{scope=rule}`.
 - **Scope vs. ignore precedence** — both gates run before evaluation. Scope is checked first (out-of-scope skips counted in `OutOfScopeTotal`); ignore is checked second (skipped repos counted in `IgnoredTotal`). The two counters never both increment for the same rule on the same repo.
 - **Phantom `gopls` diagnostics** — when adding a new file in `internal/checker/`, `gopls` may show `undefined: Engine` errors for a few seconds while the cache rebuilds. Real compile/test results are authoritative; ignore the IDE warnings if `make lint` and `make test` pass.
+- **Backend defaults post-IMPL-0016** — `internal/config/config.go.loadBackendConfig` defaults `STORE_BACKEND=postgres`, `QUEUE_BACKEND=valkey`, `SCHEDULER_BACKEND=valkey`. `validateBackends` rejects any other value via the `validateBackend` helper, which carries a `deprecatedBackends` map for migration-aware messages on `memory`/`ticker`. `STORE_DSN` and `QUEUE_VALKEY_DSN` are required env vars; tests that call `config.Load()` MUST `t.Setenv` placeholder DSNs or Load returns a joined-errors error. See `internal/config/config_test.go.TestLoadDefaults` for the canonical placeholder pattern.
 
 ## Release
 

@@ -9,9 +9,11 @@ import (
 // Prometheus label name constants — keep in sync with operator dashboards
 // and PromQL recipes in contrib/README.md.
 const (
-	labelOrg      = "org"
-	labelRuleName = "rule_name"
-	labelReason   = "reason"
+	labelOrg            = "org"
+	labelRuleName       = "rule_name"
+	labelReason         = "reason"
+	labelOutcome        = "outcome"
+	labelInstallationID = "installation_id"
 )
 
 // All repo-guardian Prometheus metrics.
@@ -162,7 +164,7 @@ var (
 		Name:    "repo_guardian_store_query_seconds",
 		Help:    "Duration of Store queries in seconds.",
 		Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5},
-	}, []string{"operation", "outcome"})
+	}, []string{"operation", labelOutcome})
 
 	// QueueDepth tracks the current pending-job count of the work
 	// queue, labeled by queue (jobs or in-flight) for the Valkey
@@ -192,7 +194,7 @@ var (
 	QueueAckedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_queue_acked_total",
 		Help: "Total jobs acknowledged by a worker, by outcome.",
-	}, []string{"outcome"})
+	}, []string{labelOutcome})
 
 	// QueueReapedTotal counts in-flight jobs requeued by the reaper.
 	QueueReapedTotal = promauto.NewCounter(prometheus.CounterOpts{
@@ -216,7 +218,7 @@ var (
 	RateLimitReserveBlockedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_rate_limit_reserve_blocked_total",
 		Help: "Repos skipped by the sweep rate-limit reserve gate, by installation.",
-	}, []string{"installation_id"})
+	}, []string{labelInstallationID})
 
 	// RateLimitRemaining tracks the GitHub API rate-limit remaining
 	// budget per installation, scraped from X-RateLimit-Remaining on
@@ -225,7 +227,7 @@ var (
 	RateLimitRemaining = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "repo_guardian_rate_limit_remaining",
 		Help: "GitHub API rate limit remaining, per installation.",
-	}, []string{"installation_id"})
+	}, []string{labelInstallationID})
 
 	// SchedulerIsLeader is a gauge labeled by pod that exports 1 when
 	// the named pod holds the scheduler leader lock and 0 otherwise.
@@ -266,6 +268,29 @@ var (
 		Name: "repo_guardian_prs_closed_total",
 		Help: "Pull requests closed by repo-guardian, by reason.",
 	}, []string{labelOrg, labelReason})
+
+	// StoreWritebackTotal counts persistent state write-back attempts
+	// from the worker pool, labeled by installation_id and outcome
+	// ("ok" or "error"). Introduced by IMPL-0015 Phase 0 — every
+	// processed job's final UpdateRepoState call increments this
+	// counter. A non-zero rate at outcome="error" indicates the worker
+	// completed work that the stale-sweeper will re-enqueue on the
+	// next tick because the persisted state never converged.
+	StoreWritebackTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_store_writeback_total",
+		Help: "Persistent-state write-back attempts from the worker pool, by installation and outcome.",
+	}, []string{labelInstallationID, labelOutcome})
+
+	// StoreWritebackDurationSeconds records the latency of worker-pool
+	// write-back attempts. Same call site as StoreWritebackTotal;
+	// observed on both success and error paths so percentile latency
+	// reflects the full distribution (failed writes that take 5s to
+	// time out are a real signal, not a censored sample).
+	StoreWritebackDurationSeconds = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "repo_guardian_store_writeback_duration_seconds",
+		Help:    "Latency of worker-pool persistent-state write-backs in seconds.",
+		Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5},
+	})
 
 	// PROrphanLeftTotal counts orphan files that repo-guardian
 	// attempted to delete from a reconcile branch but couldn't

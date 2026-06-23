@@ -264,16 +264,16 @@ as `Discoverer.Discover`; only the *schedule call* is removed here.
 
 **0.6 — Net-new Phase 0 metrics**
 
-- [ ] Add `repo_guardian_store_writeback_total` as a CounterVec
+- [x] Add `repo_guardian_store_writeback_total` as a CounterVec
   labelled by `installation_id` and `outcome` (`ok` | `error`).
-- [ ] Add `repo_guardian_store_writeback_duration_seconds` as a
+- [x] Add `repo_guardian_store_writeback_duration_seconds` as a
   Histogram.
 - [ ] Wire both metrics into the worker's UpdateRepoState call site
   added in Task 0.1.
-- [ ] Update `charts/repo-guardian/templates/prometheusrule.yaml` if
+- [x] Update `charts/repo-guardian/templates/prometheusrule.yaml` if
   any alerts on the new metrics are warranted. None planned for
   Phase 0 — these are observation metrics.
-- [ ] Document the new metrics in
+- [x] Document the new metrics in
   `docs/operations/scaling.md` under the metrics catalogue.
 
 #### Success Criteria

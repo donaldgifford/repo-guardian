@@ -145,6 +145,16 @@ Each Store query is a single round-trip; tracked via `repo_guardian_store_query_
 - Index health (`pg_stat_user_indexes` on `repo_state`).
 - CNPG instance count if running in `mode=cnpg` (default 1; bump to 3 for HA).
 
+### Write-back observability (IMPL-0015 Phase 0)
+
+Worker write-backs are tracked separately from generic Store queries:
+
+| Metric | Meaning | Healthy signal |
+|---|---|---|
+| `repo_guardian_store_writeback_total{outcome="ok"}` | Worker finished a job and persisted its outcome. Rises 1:1 with `repo_guardian_repos_checked_total` modulo write-back errors. | Lock-step with `repos_checked_total`. |
+| `repo_guardian_store_writeback_total{outcome="error"}` | Worker finished a job but `UpdateRepoState` failed. The work was real (PR opened/updated, files committed) but persistent state did not converge; the stale-sweeper will re-enqueue. | Zero in steady state; transient spikes during DB rolls. |
+| `repo_guardian_store_writeback_duration_seconds` | Latency of `UpdateRepoState` from the worker pool. | p99 < 50ms. Bumps in this metric — but flat `store_query_seconds` — point at write-contention or a missing index, not a generic DB problem. |
+
 ## Sizing for Valkey
 
 Valkey is small. The queue + in-flight ZSET + reaper lock fit in single-digit MB even for tens of thousands of jobs. The `queue.valkey.baked` 1Gi PVC is conservative; you'll never fill it.

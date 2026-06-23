@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "repo-guardian Helm chart values",
+  "description": "Subset of values.yaml that is enforced at `helm install`/`helm upgrade` time. IMPL-0016 added schema-level rejection of the removed memory / ticker backend identifiers so operators see schema errors at chart-render time instead of pod CrashLoopBackoff.",
+  "type": "object",
+  "properties": {
+    "store": {
+      "type": "object",
+      "properties": {
+        "backend": {
+          "description": "Persistent state store backend. Only \"postgres\" is supported since IMPL-0016 (chart 1.0).",
+          "type": "string",
+          "enum": ["postgres"]
+        },
+        "postgres": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "description": "Source of the Postgres deployment.",
+              "type": "string",
+              "enum": ["baked", "cnpg", "external"]
+            }
+          }
+        }
+      }
+    },
+    "queue": {
+      "type": "object",
+      "properties": {
+        "backend": {
+          "description": "Work queue backend. Only \"valkey\" is supported since IMPL-0016 (chart 1.0).",
+          "type": "string",
+          "enum": ["valkey"]
+        },
+        "valkey": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "description": "Source of the Valkey deployment.",
+              "type": "string",
+              "enum": ["baked", "external"]
+            }
+          }
+        }
+      }
+    },
+    "scheduler": {
+      "type": "object",
+      "properties": {
+        "backend": {
+          "description": "Sweep scheduler backend. Only \"valkey\" is supported since IMPL-0016 (chart 1.0).",
+          "type": "string",
+          "enum": ["valkey"]
+        }
+      }
+    }
+  }
+}

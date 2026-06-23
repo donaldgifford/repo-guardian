@@ -74,30 +74,64 @@ helm install repo-guardian \
 
 ## Choosing a deployment shape
 
-Chart 0.5.0+ supports four deployment shapes selected via the
-`store.backend`, `queue.backend`, and `scheduler.backend` values. Pick
-the row that matches your operator scenario; defaults preserve the
-single-replica memory mode.
+Chart `1.0.0-rc.1`+ ships Postgres + Valkey as the only supported
+backends (IMPL-0016 removed the in-memory store/queue and the
+in-process ticker scheduler). Pick the row that matches your
+operator scenario; the baked shape is the default and brings up
+StatefulSets out-of-the-box.
 
 | Shape | Values | Use when |
 |-------|--------|----------|
-| **Single-replica memory** (default) | `store.backend=memory`, `queue.backend=memory`, `scheduler.backend=ticker`, `replicaCount=1` | You're trialing repo-guardian, running a homelab pilot, or reconciling fewer than ~50 repos. No external dependencies. |
-| **Baked Postgres + Valkey** | `store.backend=postgres`, `store.postgres.mode=baked`, `queue.backend=valkey`, `queue.valkey.mode=baked`, `scheduler.backend=valkey` | You want multi-replica with no external operator dependencies. Chart renders single-pod Postgres + Valkey StatefulSets with auto-generated passwords. Suitable for homelab / small dev clusters. |
+| **Baked Postgres + Valkey** (default) | `store.postgres.mode=baked`, `queue.valkey.mode=baked` | You want multi-replica with no external operator dependencies. Chart renders single-pod Postgres + Valkey StatefulSets with auto-generated passwords. Suitable for homelab / small dev clusters. |
 | **CNPG-managed Postgres + baked Valkey** | `store.postgres.mode=cnpg`, `queue.valkey.mode=baked` | You already run [CloudNativePG](https://cloudnative-pg.io/) in the cluster and want the operator to handle Postgres lifecycle (HA replicas, backups, monitoring). The chart renders a `Cluster` CR and an optional `Pooler` (PgBouncer) CR. An optional `LoadBalancer` Service in front of the pooler (Cilium BGP-annotated by default) exposes the database to clients outside the cluster — enable via `store.postgres.cnpg.pooler.service.enabled`. |
-| **External Postgres + external Valkey** | `store.postgres.mode=external` + `existingSecret`; `queue.valkey.mode=external` + `existingSecret` | You're running a managed Postgres (RDS, Cloud SQL) and Redis-compatible service. Chart consumes the DSN from operator-supplied secrets and renders no backing resources. |
+| **External Postgres + external Valkey** | `store.postgres.mode=external` + `existingSecret`; `queue.valkey.mode=external` + `existingSecret` | You're running a managed Postgres (RDS, Cloud SQL) and Redis-compatible service (ElastiCache for Valkey, etc.). Chart consumes the DSN from operator-supplied secrets and renders no backing resources. |
+
+### Schema validation
+
+`values.schema.json` (shipped with chart `1.0.0-rc.1`+) locks
+`store.backend` to `"postgres"`, `queue.backend` to `"valkey"`, and
+`scheduler.backend` to `"valkey"`. Operators upgrading from chart
+`0.7.x` who carry forward `store.backend=memory` (or any other
+removed value) will see a schema error at `helm install` /
+`helm upgrade` time, *before* pod startup:
+
+```
+Error: values don't meet the specifications of the schema(s) in
+the following chart(s):
+repo-guardian:
+- at '/store/backend': value must be 'postgres'
+```
+
+This is intentional: failing fast at chart-render time gives a
+cleaner diagnostic than a `CrashLoopBackoff` from the binary's
+startup validation (which also rejects the old values, with a
+migration URL — see [migrations.md](../../docs/operations/migrations.md#removing-memory-backend)).
 
 For sizing knobs (`replicaCount`, `workerCount`, `maxConns`,
 `staleSweep.*`), see [docs/operations/scaling.md](../../docs/operations/scaling.md).
 For Postgres schema operations, see
 [docs/operations/migrations.md](../../docs/operations/migrations.md).
 
+### Upgrade notes (chart 1.0.0-rc.1) — breaking
+
+- **Memory backends removed.** `store.backend=memory`,
+  `queue.backend=memory`, and `scheduler.backend=ticker` are
+  rejected by both `values.schema.json` and the binary's startup
+  validation. Postgres + Valkey are required. See
+  [migrations.md](../../docs/operations/migrations.md#removing-memory-backend)
+  for the operator migration recipes (baked / cnpg / external).
+- **Default deployment shape changed.** A fresh `helm install`
+  with no values overrides now brings up baked Postgres + baked
+  Valkey StatefulSets, where chart `0.7.x` brought up only the
+  Deployment. Set `store.postgres.mode=external` +
+  `queue.valkey.mode=external` if you're pointing at managed
+  infra.
+- **`STORE_BACKEND` / `QUEUE_BACKEND` / `SCHEDULER_BACKEND` env
+  vars are required.** Empty values fail validation; previous
+  chart releases supplied defaults that mapped to memory/ticker.
+
 ### Upgrade notes (chart 0.5.0)
 
-- **No default change for existing users.** `store.backend`,
-  `queue.backend`, and `scheduler.backend` all default to the
-  single-replica memory implementations. Operators currently running
-  chart ≤ 0.4.x at `replicaCount: 1` get bit-identical behaviour
-  after upgrading; the new shapes are strictly opt-in.
 - **`terminationGracePeriodSeconds` raised to 60.** The Deployment
   now gives workers up to 60s to drain in-flight jobs on SIGTERM.
 - **5 starter PrometheusRule alerts.** Set
@@ -315,9 +349,9 @@ incoming webhook.
 | prometheusRule.alerts | object | `{}` | Per-alert overrides: each key under `alerts.<name>` accepts `for`, `severity`, `threshold`, and `enabled`. See the rendered PrometheusRule template for the canonical alert names. |
 | prometheusRule.enabled | bool | `false` | Create PrometheusRule with starter alerts. |
 | prometheusRule.labels | object | `{}` | Additional labels (e.g., to match Prometheus operator `ruleSelector`). |
-| queue | object | `{"backend":"memory","size":1000,"valkey":{"baked":{"authPasswordLength":32,"image":"valkey/valkey:8.0","storageClassName":"","storageSize":"1Gi"},"existingSecret":"","existingSecretKey":"QUEUE_VALKEY_DSN","jobAckTimeout":"5m","mode":"baked","reaperInterval":"60s"}}` | Work queue for reconcile jobs. |
-| queue.backend | string | `"memory"` | Backend implementation: "memory" or "valkey". |
-| queue.size | int | `1000` | Buffered channel size for the in-memory backend. |
+| queue | object | `{"backend":"valkey","size":1000,"valkey":{"baked":{"authPasswordLength":32,"image":"valkey/valkey:8.0","storageClassName":"","storageSize":"1Gi"},"existingSecret":"","existingSecretKey":"QUEUE_VALKEY_DSN","jobAckTimeout":"5m","mode":"baked","reaperInterval":"60s"}}` | Work queue for reconcile jobs. The in-memory backend was removed in IMPL-0016 (chart 1.0); valkey is the only supported value. |
+| queue.backend | string | `"valkey"` | Backend implementation. Only "valkey" is supported. |
+| queue.size | deprecated | `1000` | Buffered channel size; ignored since the in-memory backend was removed in IMPL-0016. Retained for values-schema backwards compatibility; will be deleted in a future chart-major release. |
 | queue.valkey | object | `{"baked":{"authPasswordLength":32,"image":"valkey/valkey:8.0","storageClassName":"","storageSize":"1Gi"},"existingSecret":"","existingSecretKey":"QUEUE_VALKEY_DSN","jobAckTimeout":"5m","mode":"baked","reaperInterval":"60s"}` | Valkey-specific configuration. Ignored when backend != valkey. |
 | queue.valkey.baked | object | `{"authPasswordLength":32,"image":"valkey/valkey:8.0","storageClassName":"","storageSize":"1Gi"}` | Baked Valkey-only configuration. |
 | queue.valkey.baked.authPasswordLength | int | `32` | Generated AUTH password length (random alphanumeric). |
@@ -336,8 +370,8 @@ incoming webhook.
 | replicaCount | int | `1` | Number of replicas |
 | resources | object | `{"limits":{"cpu":"500m","memory":"256Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}` | Container resource requests and limits |
 | revisionHistoryLimit | int | `3` | Number of old ReplicaSets retained for rollback. Defaults to 3 to keep the kubectl `get rs` view tidy; bump if you need more rollback headroom. Kubernetes default is 10. |
-| scheduler | object | `{"backend":"ticker"}` | Scheduler (sweep cadence) backend. |
-| scheduler.backend | string | `"ticker"` | Backend implementation: "ticker" (single-replica) or "valkey" (leader-elected via SETNX). Valkey scheduler shares the queue's Valkey instance. |
+| scheduler | object | `{"backend":"valkey"}` | Scheduler (sweep cadence) backend. The single-replica ticker scheduler was removed in IMPL-0016 (chart 1.0); valkey is the only supported value. Scheduler shares the queue's Valkey instance. |
+| scheduler.backend | string | `"valkey"` | Backend implementation. Only "valkey" is supported. |
 | secrets | object | `{"create":true,"existingSecret":"","privateKey":"","privateKeyAsFile":true,"webhookSecret":""}` | GitHub App secrets |
 | secrets.create | bool | `true` | Create secret resource (false = use existing secret) |
 | secrets.existingSecret | string | `""` | Name of existing secret (when create=false) |
@@ -358,8 +392,8 @@ incoming webhook.
 | staleSweep.batchSize | int | `200` | Cap on rows returned per StaleRepos query. |
 | staleSweep.freshness | string | `"24h"` | Maximum age of a stored last_checked_at before the sweep requeues. Default 24h. Effective only with store.backend=postgres. |
 | staleSweep.rateLimitReserve | float | `0.1` | Fraction of an installation's GitHub rate-limit budget reserved against the stale-sweep enqueue path. |
-| store | object | `{"backend":"memory","postgres":{"baked":{"image":"postgres:17.4","resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:17.4","instances":1,"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}}` | Persistent state store (per-repo reconcile state). See DESIGN-0012 §Backend modes. |
-| store.backend | string | `"memory"` | Backend implementation: "memory" (single-replica, no persistence) or "postgres". |
+| store | object | `{"backend":"postgres","postgres":{"baked":{"image":"postgres:17.4","resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:17.4","instances":1,"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}}` | Persistent state store (per-repo reconcile state). See DESIGN-0012 §Backend modes. The in-memory backend was removed in IMPL-0016 (chart 1.0); postgres is the only supported value. |
+| store.backend | string | `"postgres"` | Backend implementation. Only "postgres" is supported. |
 | store.postgres | object | `{"baked":{"image":"postgres:17.4","resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:17.4","instances":1,"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}` | Postgres-specific configuration. Ignored when backend != postgres. |
 | store.postgres.baked | object | `{"image":"postgres:17.4","resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"}` | Baked Postgres-only configuration. |
 | store.postgres.baked.image | string | `"postgres:17.4"` | Pinned image. Bump intentionally. |

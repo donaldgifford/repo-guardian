@@ -4,7 +4,7 @@
 // that need re-checking either because their state is stale or
 // because the active policy has changed.
 //
-// Implementations live in subpackages (`store/memory`, `store/postgres`)
+// Implementations live in subpackages (`store/postgres`)
 // and are selected at runtime via `STORE_BACKEND`. See DESIGN-0012 for
 // the architectural rationale.
 package store

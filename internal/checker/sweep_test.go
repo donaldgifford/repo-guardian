@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -14,10 +15,111 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/checker"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/queue"
-	memqueue "github.com/donaldgifford/repo-guardian/internal/queue/memory"
 	"github.com/donaldgifford/repo-guardian/internal/store"
-	memstore "github.com/donaldgifford/repo-guardian/internal/store/memory"
 )
+
+// recordingQueue is a test-local queue.Queue. Records enqueued jobs
+// for assertions; not a backend replacement (see DESIGN-0018).
+type recordingQueue struct {
+	mu   sync.Mutex
+	jobs []queue.Job
+}
+
+func newRecordingQueue() *recordingQueue { return &recordingQueue{} }
+
+func (r *recordingQueue) Enqueue(_ context.Context, j queue.Job) error { //nolint:gocritic // interface contract
+	r.mu.Lock()
+	r.jobs = append(r.jobs, j)
+	r.mu.Unlock()
+
+	return nil
+}
+
+func (*recordingQueue) Subscribe(ctx context.Context, _ func(context.Context, queue.Job) error) error {
+	<-ctx.Done()
+
+	return ctx.Err()
+}
+
+func (*recordingQueue) Close() error { return nil }
+
+func (r *recordingQueue) Len() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return len(r.jobs)
+}
+
+func (r *recordingQueue) Jobs() []queue.Job {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	out := make([]queue.Job, len(r.jobs))
+	copy(out, r.jobs)
+
+	return out
+}
+
+// fakeStore is a test-local store.Store. Holds RepoStates by key and
+// computes StaleRepos in-process. Not a backend replacement (see
+// DESIGN-0018) — just enough functionality for the sweep tests.
+type fakeStore struct {
+	mu     sync.Mutex
+	states map[string]*store.RepoState
+}
+
+func newFakeStore() *fakeStore {
+	return &fakeStore{states: make(map[string]*store.RepoState)}
+}
+
+func fakeStoreKey(installationID int64, owner, repo string) string {
+	return strconv.FormatInt(installationID, 10) + "|" + owner + "|" + repo
+}
+
+func (f *fakeStore) GetRepoState(_ context.Context, installationID int64, owner, repo string) (*store.RepoState, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if s, ok := f.states[fakeStoreKey(installationID, owner, repo)]; ok {
+		return s, nil
+	}
+
+	return nil, store.ErrNotFound
+}
+
+func (f *fakeStore) UpdateRepoState(_ context.Context, s *store.RepoState) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	cp := *s
+	f.states[fakeStoreKey(s.InstallationID, s.Owner, s.Repo)] = &cp
+
+	return nil
+}
+
+func (f *fakeStore) StaleRepos(_ context.Context, freshness time.Duration, currentPolicyVersion string, limit int) ([]store.RepoState, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	cutoff := time.Now().Add(-freshness)
+	out := make([]store.RepoState, 0)
+
+	for _, s := range f.states {
+		stale := s.LastCheckedAt == nil || s.LastCheckedAt.Before(cutoff)
+		drifted := s.PolicyVersion != currentPolicyVersion
+
+		if stale || drifted {
+			out = append(out, *s)
+			if len(out) == limit {
+				break
+			}
+		}
+	}
+
+	return out, nil
+}
+
+func (*fakeStore) Close() error { return nil }
 
 type fakeRateLimit struct {
 	remaining map[int64]int
@@ -43,8 +145,8 @@ func warnLogger() *slog.Logger {
 }
 
 func TestStaleSweeper_EnqueuesAllWhenBudgetIsAmple(t *testing.T) {
-	st := memstore.New()
-	q := memqueue.New(8)
+	st := newFakeStore()
+	q := newRecordingQueue()
 	rl := &fakeRateLimit{remaining: map[int64]int{}, limit: 5000}
 
 	old := time.Now().Add(-2 * time.Hour)
@@ -77,8 +179,8 @@ func TestStaleSweeper_EnqueuesAllWhenBudgetIsAmple(t *testing.T) {
 }
 
 func TestStaleSweeper_SkipsInstallationOverReserve(t *testing.T) {
-	st := memstore.New()
-	q := memqueue.New(8)
+	st := newFakeStore()
+	q := newRecordingQueue()
 
 	// remaining=499, limit=5000, reserve=0.1 → threshold=500.
 	// remaining (499) ≤ threshold (500) → gated.
@@ -113,8 +215,8 @@ func TestStaleSweeper_SkipsInstallationOverReserve(t *testing.T) {
 }
 
 func TestStaleSweeper_RateLimitErrorFallsOpen(t *testing.T) {
-	st := memstore.New()
-	q := memqueue.New(8)
+	st := newFakeStore()
+	q := newRecordingQueue()
 	rl := &fakeRateLimit{err: errors.New("transient")}
 
 	old := time.Now().Add(-2 * time.Hour)
@@ -140,8 +242,8 @@ func TestStaleSweeper_RateLimitErrorFallsOpen(t *testing.T) {
 }
 
 func TestStaleSweeper_PolicyVersionMismatchEnqueuesAll(t *testing.T) {
-	st := memstore.New()
-	q := memqueue.New(8)
+	st := newFakeStore()
+	q := newRecordingQueue()
 
 	recent := time.Now().Add(-1 * time.Minute)
 	if err := st.UpdateRepoState(t.Context(), &store.RepoState{
@@ -160,35 +262,12 @@ func TestStaleSweeper_PolicyVersionMismatchEnqueuesAll(t *testing.T) {
 		t.Fatalf("sweep: %v", err)
 	}
 
-	if got := q.Len(); got != 1 {
-		t.Fatalf("expected 1 enqueued (policy version drift), got %d", got)
+	jobs := q.Jobs()
+	if len(jobs) != 1 {
+		t.Fatalf("expected 1 enqueued (policy version drift), got %d", len(jobs))
 	}
 
-	// Drain to inspect the job.
-	job := <-receiveOne(t, q)
-	if job.Trigger != queue.TriggerScheduler {
-		t.Fatalf("trigger: got %q want %q", job.Trigger, queue.TriggerScheduler)
+	if jobs[0].Trigger != queue.TriggerScheduler {
+		t.Fatalf("trigger: got %q want %q", jobs[0].Trigger, queue.TriggerScheduler)
 	}
-}
-
-// receiveOne pulls one job off q and returns it. Used to inspect job
-// contents without holding a Subscribe goroutine for the test
-// lifecycle.
-func receiveOne(t *testing.T, q queue.Queue) <-chan queue.Job {
-	t.Helper()
-
-	ch := make(chan queue.Job, 1)
-	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-
-	go func() {
-		defer cancel()
-		_ = q.Subscribe(ctx, func(_ context.Context, j queue.Job) error {
-			ch <- j
-			cancel()
-
-			return nil
-		})
-	}()
-
-	return ch
 }

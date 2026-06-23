@@ -210,11 +210,11 @@ prometheusRule:
   alerts: {}
 
 # -- Persistent state store (per-repo reconcile state). See
-# DESIGN-0012 §Backend modes.
+# DESIGN-0012 §Backend modes. The in-memory backend was removed
+# in IMPL-0016 (chart 1.0); postgres is the only supported value.
 store:
-  # -- Backend implementation: "memory" (single-replica, no
-  # persistence) or "postgres".
-  backend: memory
+  # -- Backend implementation. Only "postgres" is supported.
+  backend: postgres
   # -- Postgres-specific configuration. Ignored when backend != postgres.
   postgres:
     # -- Source of the Postgres deployment. One of:
@@ -288,11 +288,16 @@ store:
             bgp.cilium.io/advertise-service: default
             bgp.cilium.io/ip-pool: default
 
-# -- Work queue for reconcile jobs.
+# -- Work queue for reconcile jobs. The in-memory backend was
+# removed in IMPL-0016 (chart 1.0); valkey is the only supported
+# value.
 queue:
-  # -- Backend implementation: "memory" or "valkey".
-  backend: memory
-  # -- Buffered channel size for the in-memory backend.
+  # -- Backend implementation. Only "valkey" is supported.
+  backend: valkey
+  # -- (deprecated) Buffered channel size; ignored since the
+  # in-memory backend was removed in IMPL-0016. Retained for
+  # values-schema backwards compatibility; will be deleted in a
+  # future chart-major release.
   size: 1000
   # -- Valkey-specific configuration. Ignored when backend != valkey.
   valkey:
@@ -320,12 +325,12 @@ queue:
       # -- Generated AUTH password length (random alphanumeric).
       authPasswordLength: 32
 
-# -- Scheduler (sweep cadence) backend.
+# -- Scheduler (sweep cadence) backend. The single-replica ticker
+# scheduler was removed in IMPL-0016 (chart 1.0); valkey is the only
+# supported value. Scheduler shares the queue's Valkey instance.
 scheduler:
-  # -- Backend implementation: "ticker" (single-replica) or "valkey"
-  # (leader-elected via SETNX). Valkey scheduler shares the queue's
-  # Valkey instance.
-  backend: ticker
+  # -- Backend implementation. Only "valkey" is supported.
+  backend: valkey
 
 # -- Stale-sweep tuning (IMPL-0011 Phase 5d).
 staleSweep:

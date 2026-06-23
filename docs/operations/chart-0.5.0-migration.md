@@ -1,14 +1,25 @@
 # Chart 0.5.0 migration runbook (IMPL-0011)
 
+> [!NOTE]
+> **Superseded by chart `1.0.0-rc.1` (IMPL-0016).** The
+> memory/ticker defaults this runbook describes are no longer
+> valid. The chart now ships Postgres + Valkey as the only
+> supported backends. See
+> [migrations.md#removing-memory-backend](migrations.md#removing-memory-backend)
+> for the current migration path. The 0.5.0 runbook is retained
+> for historical context only.
+
 Chart `0.5.0` ships [IMPL-0011](../impl/0011-persistent-reconcile-state-and-multi-replica-coordination.md):
 durable Postgres-backed `Store`, Valkey-backed `Queue` with in-flight
 reaper, and SETNX leader-elected `Scheduler` — the multi-replica
 foundation.
 
-**Defaults are preserved.** `store.backend=memory`,
-`queue.backend=memory`, `scheduler.backend=ticker`. Operators upgrading
-from chart `0.3.x` or `0.4.x` at `replicaCount: 1` get bit-identical
-behaviour with no values changes. The new backends are strictly opt-in.
+**(Historical) Defaults at the time of 0.5.0 release.**
+`store.backend=memory`, `queue.backend=memory`,
+`scheduler.backend=ticker`. Operators upgrading from chart `0.3.x`
+or `0.4.x` at `replicaCount: 1` got bit-identical behaviour with
+no values changes. Those backends were removed in chart
+`1.0.0-rc.1`.
 
 This runbook drives the upgrade in **two stages** so any regression is
 bisectable: no-op upgrade first, then multi-replica enablement.

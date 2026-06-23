@@ -5,15 +5,15 @@ import (
 	"time"
 )
 
-// Scheduler runs periodic handlers on a configurable interval. The
-// abstraction exists to swap the single-replica `time.Ticker` impl
-// (`scheduler/ticker`) for the cluster-coordinated Valkey impl
-// (`scheduler/valkey`, IMPL-0011 Phase 4) without touching call sites.
+// Scheduler runs periodic handlers on a configurable interval.
+// `scheduler/valkey` (IMPL-0011 Phase 4) is the only implementation;
+// it fires on the leader replica only via SETNX-backed locks. The
+// interface is retained so future single-replica or alternative
+// implementations can be slotted in without touching call sites.
 //
 // Schedule registers a named handler that fires every interval until
 // either ctx is cancelled or Stop is called. Multiple Schedule calls
-// register independent handlers. The implementation determines whether
-// a tick fires on every replica (ticker) or only on a leader (valkey).
+// register independent handlers.
 //
 // Stop releases all timers and waits for in-flight handlers to return.
 // Idempotent.

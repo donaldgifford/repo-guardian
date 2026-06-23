@@ -142,179 +142,215 @@ tighten config validation, flip chart defaults, and add
 
 **1.1 — `docker-compose.dev.yaml` + make targets**
 
-- [ ] Create `docker-compose.dev.yaml` at the repo root (see Open
+- [x] Create `docker-compose.dev.yaml` at the repo root (see Open
   Question 8 for placement). Services: Postgres + Valkey with
   sensible defaults matching `make test` env vars.
-- [ ] Add `make dev-services` target that runs `docker compose -f
+- [x] Add `make dev-services` target that runs `docker compose -f
   docker-compose.dev.yaml up -d`.
-- [ ] Add `make dev-stop` target that runs `docker compose -f
+- [x] Add `make dev-stop` target that runs `docker compose -f
   docker-compose.dev.yaml down`.
-- [ ] Update `make run-local` to depend on `dev-services` so
+- [x] Update `make run-local` to depend on `dev-services` so
   newcomers can `make run-local` and have services come up
   automatically.
-- [ ] Update README's dev-setup section to document the new
+- [x] Update README's dev-setup section to document the new
   workflow.
 - [ ] Manually validate the compose flow end-to-end on a clean
-  checkout: `make dev-services && make run-local`.
+  checkout: `make dev-services && make run-local`. (operator-side)
 
 **1.2 — Delete `internal/store/memory/`**
 
-- [ ] Delete the directory entirely (329 LOC: `memory.go` 133 LOC +
+- [x] Delete the directory entirely (329 LOC: `memory.go` 133 LOC +
   `memory_test.go` 196 LOC).
-- [ ] Remove the import from `cmd/repo-guardian/main.go` (line 30
+- [x] Remove the import from `cmd/repo-guardian/main.go` (line 30
   per the audit).
-- [ ] Verify no other files import `internal/store/memory` via
+- [x] Verify no other files import `internal/store/memory` via
   `grep -r "internal/store/memory"`.
-- [ ] `go build ./...` succeeds.
+- [x] `go build ./...` succeeds.
 
 **1.3 — Delete `internal/queue/memory/`**
 
-- [ ] Delete the directory (387 LOC: `memory.go` 113 + `memory_test.go`
+- [x] Delete the directory (387 LOC: `memory.go` 113 + `memory_test.go`
   274).
-- [ ] Remove the import from `main.go` (line 25 per audit).
-- [ ] Verify no other importers.
-- [ ] `go build ./...` succeeds.
+- [x] Remove the import from `main.go` (line 25 per audit).
+- [x] Verify no other importers.
+- [x] `go build ./...` succeeds.
 
 **1.4 — Delete `internal/scheduler/ticker/`**
 
-- [ ] Delete the directory (251 LOC: `ticker.go` 109 + `ticker_test.go`
+- [x] Delete the directory (251 LOC: `ticker.go` 109 + `ticker_test.go`
   142).
-- [ ] Remove the import from `main.go` (line 33 per audit).
-- [ ] Verify no other importers.
-- [ ] `go build ./...` succeeds.
+- [x] Remove the import from `main.go` (line 33 per audit).
+- [x] Verify no other importers.
+- [x] `go build ./...` succeeds.
 
 **1.5 — Delete ticker arm of scheduler contract test**
 
-- [ ] Remove the `ticker.New()`-based test factory from
+- [x] Remove the `ticker.New()`-based test factory from
   `internal/scheduler/contract_test.go` (line 94 per audit, ~22
-  LOC).
-- [ ] The valkey-arm in
+  LOC). The whole file was deleted — the `runSchedulerContract`
+  helper was unused once the ticker arm was gone.
+- [x] The valkey-arm in
   `internal/scheduler/valkey/valkey_integration_test.go` is now the
   single source of truth for contract compliance.
 
 **1.6 — Simplify `cmd/repo-guardian/main.go` dispatch helpers**
 
-- [ ] `newStore()` (lines 354-368): delete the memory branch (lines
-  355-358). Function becomes straight-line Postgres-only.
-- [ ] `newQueue()` (lines 282-314): delete the memory branch (lines
-  283-287). Function becomes straight-line Valkey-only.
-- [ ] `newScheduler()` (lines 320-337): delete the ticker branch
+- [x] `newStore()` (lines 354-368): delete the memory branch (lines
+  355-358). Function becomes straight-line Postgres-only. (Folded
+  into Task 1.2 commit.)
+- [x] `newQueue()` (lines 282-314): delete the memory branch (lines
+  283-287). Function becomes straight-line Valkey-only. (Folded
+  into Task 1.3 commit; also dropped the now-unused `queueSize`
+  parameter from the signature.)
+- [x] `newScheduler()` (lines 320-337): delete the ticker branch
   (lines 321-325). Function becomes straight-line Valkey-only.
-- [ ] Verify `funlen` lint doesn't trip on `main()` after the
-  simplifications (the helpers shrink; `main()` may also need
-  recheck).
-- [ ] `make lint && make test` pass.
+  (Folded into Task 1.4 commit.)
+- [x] Verify `funlen` lint doesn't trip on `main()` after the
+  simplifications (clean: `make lint` reports 0 issues).
+- [x] `make lint && make test` pass.
 
 **1.7 — Tighten `internal/config/` validation**
 
-- [ ] Delete the constants `StoreBackendMemory`, `QueueBackendMemory`,
-  `SchedulerBackendTicker` from `internal/config/config.go` (lines
-  137-143 per audit).
-- [ ] `loadBackendConfig()` (lines 247-249): no longer sets memory /
-  ticker defaults. Env vars become required; empty / unset is now
-  a validation error.
-- [ ] `validateBackends()` (lines 327-355): drop the memory /
-  ticker switch cases. Error messages tighten:
+- [x] Delete the constants `StoreBackendMemory`, `QueueBackendMemory`,
+  `SchedulerBackendTicker` from `internal/config/config.go`.
+- [x] `loadBackendConfig()`: defaults flip to
+  `postgres`/`valkey`/`valkey`. Operators upgrading without
+  setting env vars land in the post-IMPL-0016 configuration by
+  default (chart still ships explicit env vars).
+- [x] `validateBackends()`: refactored into `validateBackend()`
+  helper that returns a migration-aware error for deprecated
+  values (`memory`, `ticker`) and a generic "must be X" error
+  otherwise. Error messages tighten:
   - `STORE_BACKEND` must be `postgres`.
   - `QUEUE_BACKEND` must be `valkey`.
   - `SCHEDULER_BACKEND` must be `valkey`.
-- [ ] Error messages include the migration URL.
-- [ ] `STORE_DSN` becomes required when `STORE_BACKEND=postgres`;
-  same for the other two backends. Validate at startup.
-- [ ] Update / add unit tests covering:
-  - Unset backend env var → friendly startup error
-  - `STORE_BACKEND=memory` → friendly startup error with URL
-  - `STORE_BACKEND=postgres` + missing `STORE_DSN` → friendly
-    startup error
-  - All-valid configuration → no error
+- [x] Error messages include the migration URL (constant
+  `MigrationURL` points at the new `docs/operations/migrations.md`
+  anchor).
+- [x] `STORE_DSN` required when `STORE_BACKEND=postgres`; same for
+  the other two backends. Validated at startup (pre-existing
+  behaviour, retained).
+- [x] Updated unit tests:
+  - `TestLoadRejects_DeprecatedStoreBackend` — `STORE_BACKEND=memory`
+    → friendly startup error containing both "no longer supported"
+    and the migration URL.
+  - `TestLoadRejects_DeprecatedSchedulerBackend` — same for ticker.
+  - `TestLoadDefaults` updated to reflect postgres/valkey defaults
+    and supplies placeholder DSNs.
+  - `TestLoadOverrides`, `TestLoadValkeyBackendsAcceptDSN`,
+    `TestLoadPrivateKeyFromEnvVar` updated to set DSN env vars
+    (validation now requires them).
 
 **1.8 — Flip chart defaults**
 
-- [ ] `charts/repo-guardian/values.yaml`:
-  - Line 217: `store.backend: memory` → `store.backend: postgres`.
-  - Add `store.postgres.mode: baked` as the default mode.
-  - Line 294: `queue.backend: memory` → `queue.backend: valkey`.
-  - Add `queue.valkey.mode: baked` as the default mode.
-  - Line 328: `scheduler.backend: ticker` → `scheduler.backend: valkey`.
-- [ ] Regenerate chart README via `make helm-docs`.
-- [ ] Verify the rendered Deployment template populates the env
-  vars from the new defaults.
-- [ ] Confirm baked Postgres + baked Valkey resources render
+- [x] `charts/repo-guardian/values.yaml`:
+  - `store.backend: memory` → `store.backend: postgres`.
+  - `store.postgres.mode: baked` already the default (no change
+    needed).
+  - `queue.backend: memory` → `queue.backend: valkey`.
+  - `queue.valkey.mode: baked` already the default (no change
+    needed).
+  - `scheduler.backend: ticker` → `scheduler.backend: valkey`.
+  - `queue.size` retained with a deprecation comment (chart-schema
+    compatibility; will be removed in a future chart-major).
+- [x] Regenerate chart README via `make helm-docs`.
+- [x] Verify the rendered Deployment template populates the env
+  vars from the new defaults (STORE_DSN + QUEUE_VALKEY_DSN both
+  resolve to chart-rendered Secrets out-of-the-box).
+- [x] Confirm baked Postgres + baked Valkey resources render
   out-of-the-box (`helm template charts/repo-guardian` with no
-  values overrides).
+  values overrides emits StatefulSet × 2 + chart-rendered
+  Secrets).
 
 **1.9 — JSON schema validation**
 
-- [ ] Confirm whether `charts/repo-guardian/values.schema.json`
-  already exists (see Open Question 4). If absent, create it with
-  a full schema; if present, extend the relevant sections.
-- [ ] Reject `memory` and `ticker` values in the schema:
+- [x] Confirm whether `charts/repo-guardian/values.schema.json`
+  already exists — absent on `main`. Created a focused schema
+  covering only the backend enum fields; full-schema authoring
+  deferred.
+- [x] Reject `memory` and `ticker` values in the schema:
   - `store.backend`: enum `["postgres"]`
   - `queue.backend`: enum `["valkey"]`
   - `scheduler.backend`: enum `["valkey"]`
-- [ ] Add a helm-unittest case asserting that `helm install` with
-  `--set store.backend=memory` produces a schema error before pod
-  startup.
-- [ ] Document the schema validation in chart README.
+- [x] Schema rejection verified manually via `helm template ...
+  --set store.backend=memory` → "value must be 'postgres'" error.
+  helm-unittest cannot easily assert schema-rejection (plugin
+  doesn't surface schema errors as catchable failures), so the
+  test suite documents the manual verification path inline and
+  the schema lives as the contract.
+- [x] Document the schema validation in chart README — done in
+  Task 1.11 (`charts/repo-guardian/README.md.gotmpl` gained a
+  "Schema validation" subsection under "Choosing a deployment
+  shape").
 
 **1.10 — Helm-unittest rewrites**
 
-- [ ] Delete the test case `memory shape renders only the
-  Deployment, no backing services` in
-  `tests/backend_shapes_test.yaml` (lines 20-43 per audit).
-- [ ] Rewrite the `postgres backend injects STORE_DSN env var...`
-  case (lines 145-150) to require valkey queue.
-- [ ] Rewrite the `cnpg mode points STORE_DSN...` case (lines
-  168-183) to require valkey queue.
-- [ ] Rewrite the `termination grace period...` case (lines
-  185-194) to require postgres + valkey.
-- [ ] Add new case: `chart with no backend values set produces
-  baked CNPG + baked Valkey resources` — codifies the new default.
+- [x] Delete the test case `memory shape renders only the
+  Deployment, no backing services`.
+- [x] Rewrite the `postgres backend injects STORE_DSN env var...`
+  case to require valkey queue.
+- [x] Rewrite the `cnpg mode points STORE_DSN...` case to require
+  valkey queue.
+- [x] Rewrite the `termination grace period...` case to require
+  postgres + valkey.
+- [x] Add new case: `chart with no backend values set produces
+  baked Postgres + baked Valkey resources` — codifies the new
+  default at the head of the suite.
 - [ ] Add new case: `chart with memory value fails schema
-  validation`.
+  validation` — helm-unittest can't catch schema-validation
+  errors, so this lives as an inline comment in the suite
+  referencing the manual verification path.
 
 **1.11 — Documentation sweep**
 
-- [ ] `README.md`: remove all memory-mode references; ensure
-  Quickstart points at postgres+valkey path.
-- [ ] `CLAUDE.md`: update the Architecture section's backend list;
-  remove memory backend mention; replace the Phase 0 deprecation
-  note with "memory backend removed in IMPL-0016".
-- [ ] `docs/operations/scaling.md`: remove memory mode from any
-  scaling matrix; confirm single-backend story.
-- [ ] `docs/operations/aws.md`: verify no memory-mode references
-  (already managed but double-check).
-- [ ] `docs/operations/chart-0.5.0-migration.md`: add a note that
-  memory backend was the IMPL-0011 migration target; now removed
-  in IMPL-0016 (chart 1.0).
-- [ ] `docs/operations/cnpg-homelab-cutover.md`: verify references
-  are clean.
-- [ ] `charts/repo-guardian/README.md.gotmpl`: remove memory mode
-  from values description; document the new default.
-- [ ] `examples/`: update any example HCL or scripts that mention
-  memory backend (likely empty per the audit, but check).
-- [ ] `docs/operations/migrations.md#removing-memory-backend`:
-  update to reflect that Phase 1 has shipped; remove the rollback
-  advice now that no in-binary fallback exists.
+- [x] `README.md`: Quickstart already points at postgres+valkey
+  path (touched in Task 1.1). No further changes needed.
+- [x] `CLAUDE.md`: Architecture section's `store/` and `queue/`
+  entries no longer mention `memory/`; `scheduler/` entry no
+  longer mentions `ticker/`. New IMPL-0016 release note block
+  added. The IMPL-0011 P4 contract-test convention block was
+  rewritten to reflect the single-backend reality.
+- [x] `docs/operations/scaling.md`: dropped the "Memory mode is
+  single-replica" gotcha; replaced with a single-line statement
+  that backends are postgres+valkey only.
+- [x] `docs/operations/aws.md`: spot-check confirms it already
+  describes RDS + ElastiCache for Valkey only — no memory-mode
+  references.
+- [x] `docs/operations/chart-0.5.0-migration.md`: prepended a
+  "superseded by chart 1.0.0-rc.1" banner; flagged the
+  memory/ticker defaults paragraph as historical.
+- [x] `docs/operations/cnpg-homelab-cutover.md`: prepended a
+  "superseded" banner; scoped the runbook to operators still on
+  chart `0.6.x` / `0.7.x` who haven't yet cut to `1.0`.
+- [x] `charts/repo-guardian/README.md.gotmpl`: deployment-shape
+  table no longer lists "Single-replica memory"; added a "Schema
+  validation" subsection describing the new schema rejection;
+  added a chart-1.0.0-rc.1 upgrade-notes block at the top of the
+  release notes.
+- [x] `examples/`: grep confirms no memory-backend references.
+- [x] `docs/operations/migrations.md`: new section
+  `#removing-memory-backend` shipped with the three migration
+  paths (baked / cnpg / external) + the dev-services workflow.
+  Includes the explicit "no data loss because the memory store
+  was never durable" note.
 
 **1.12 — Chart-major version bump**
 
-- [ ] Bump chart `version` to major (e.g., 0.x.y → 1.0.0).
-  Rationale: defaults change + validation tightens +
-  values.schema.json rejects previously-valid configurations =
-  breaking change for any operator who had memory/ticker
-  explicitly set.
-- [ ] Bump `appVersion` for the binary changes.
-- [ ] Update CHANGELOG entries (root + chart) with a
-  breaking-change callout.
+- [x] Bump chart `version` to `1.0.0-rc.1` (release-candidate path
+  to `1.0.0`; see [Sequencing](#sequencing)).
+- [x] Bump `appVersion` to `1.9.0` for the binary changes.
+- [x] Update CHANGELOG entries (root + chart) with a
+  breaking-change callout (Task 1.13).
 
 **1.13 — CHANGELOG breaking-change callouts**
 
-- [ ] Root `CHANGELOG.md`: `Removed` section entry; reference
-  DESIGN-0018 + IMPL-0016.
-- [ ] Chart `CHANGELOG.md`: `Breaking changes` section entry with
-  the values.yaml diff and the env var diff. (git-cliff regenerates
-  on publish; the manual entry seeds the section.)
+- [x] Root `CHANGELOG.md`: `[1.9.0] - 2026-06-23` with the
+  Removed (BREAKING) callouts for memory store / queue / ticker
+  scheduler + the friendly-error config change.
+- [x] Chart `CHANGELOG.md`: `[1.0.0-rc.1] - 2026-06-23` with the
+  full breaking-change explainer and the migration runbook link.
+  (git-cliff regenerates on publish; the manual entry seeds the
+  section.)
 
 #### Success Criteria
 
@@ -374,21 +410,27 @@ All changes ship in Phase 1 (the single removal phase). See
 
 ## Testing Plan
 
-- [ ] Unit tests for config validation: each deprecated backend value
+- [x] Unit tests for config validation: each deprecated backend value
   path returns a friendly error with the migration URL.
-- [ ] Helm-unittest cases for the default flip: fresh `helm template`
-  produces baked Postgres + baked Valkey resources; setting
-  memory/ticker via `--set` fails schema validation.
+  (`TestLoadRejects_DeprecatedStoreBackend` +
+  `TestLoadRejects_DeprecatedSchedulerBackend` in
+  `internal/config/config_test.go`.)
+- [x] Helm-unittest cases for the default flip: fresh `helm template`
+  produces baked Postgres + baked Valkey resources. Schema rejection
+  verified manually via `helm template ... --set
+  store.backend=memory` (helm-unittest can't catch schema
+  errors — documented inline in the suite).
 - [ ] Manual test of `make dev-services && make run-local` on a
-  fresh repo checkout (no pre-existing services).
-- [ ] CI runs `go build ./...` to confirm no orphaned imports after
-  package deletes.
-- [ ] No coverage regression — postgres + valkey backends are
+  fresh repo checkout (no pre-existing services). (Operator-side.)
+- [x] CI runs `go build ./...` to confirm no orphaned imports after
+  package deletes (`make ci` green at end of Task 1.13).
+- [x] No coverage regression — postgres + valkey backends are
   already covered by integration tests via testcontainers.
 - [ ] End-to-end validation in homelab after the `1.0.0-rc.1` tag
   deploys: `helm install` with old (memory) values fails at schema
   validation; fresh install works out of the box; binary starts
   with no warnings on a Postgres+Valkey-only deployment.
+  (Operator-side, post-merge.)
 
 ## Dependencies
 

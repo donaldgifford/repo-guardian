@@ -153,6 +153,5 @@ The bottleneck is BRPOP throughput, not memory. Run `redis-cli -a $VALKEY_PASSWO
 
 ## Multi-replica gotchas
 
-- **Memory mode is single-replica.** `store.backend=memory` and `queue.backend=memory` deliver every ticker fire to every replica's worker pool — N replicas means N times the work and N times the GitHub API consumption. The chart will run, but you'll see duplicate PRs. Always pair memory backends with `replicaCount: 1`.
-- **Scheduler backend mismatches.** `scheduler.backend=valkey` requires `queue.backend=valkey` because they share the redis client. The chart will surface a clear startup error if you misconfigure.
+- **Backends are Postgres + Valkey only (IMPL-0016).** The in-memory store/queue and the in-process ticker scheduler were removed in chart 1.0. There's no single-replica fallback — every deployment needs Postgres + Valkey backing services. The chart's baked modes (`store.postgres.mode=baked`, `queue.valkey.mode=baked`) cover trivial deployments without external infra.
 - **Pod restarts cost a `JOB_ACK_TIMEOUT + REAPER_INTERVAL` window.** A worker that crashes mid-`engine.CheckRepo` leaves the job in-flight; the reaper requeues it after the timeout. Lower `JOB_ACK_TIMEOUT` for faster recovery, higher for tolerance to legitimately slow checks.

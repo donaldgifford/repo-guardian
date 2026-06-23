@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0017
 title: "Stale-sweep cutover and repository discovery"
-status: Draft
+status: Approved
 author: Donald Gifford
 created: 2026-06-22
 ---
@@ -9,7 +9,7 @@ created: 2026-06-22
 
 # DESIGN 0017: Stale-sweep cutover and repository discovery
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Donald Gifford
 **Date:** 2026-06-22
 
@@ -19,20 +19,43 @@ created: 2026-06-22
   - [Goals](#goals)
   - [Non-Goals](#non-goals)
 - [Background](#background)
+  - [Real symptoms](#real-symptoms)
+- [Gap audit (pre-implementation review)](#gap-audit-pre-implementation-review)
+  - [Findings](#findings)
+  - [Decisions resolved during the audit](#decisions-resolved-during-the-audit)
+  - [Phase 0 expanded scope](#phase-0-expanded-scope)
 - [Detailed Design](#detailed-design)
   - [Per-reconcile Store update — the missing half](#per-reconcile-store-update--the-missing-half)
   - [Pacing — two layered mechanisms](#pacing--two-layered-mechanisms)
   - [Layer 1 — Budget-aware enqueueing (primary)](#layer-1--budget-aware-enqueueing-primary)
-  - [Layer 2 — Jittered initial last_checked_at (secondary)](#layer-2--jittered-initial-last_checked_at-secondary)
+  - [Layer 2 — Jittered initial lastcheckedat (secondary)](#layer-2--jittered-initial-lastcheckedat-secondary)
   - [Cross-replica coordination](#cross-replica-coordination)
   - [Discovery-only Sweeper mode](#discovery-only-sweeper-mode)
   - [Webhook-driven incremental discovery](#webhook-driven-incremental-discovery)
   - [Periodic reconciliation discovery](#periodic-reconciliation-discovery)
   - [Cutover behaviour](#cutover-behaviour)
 - [API / Interface Changes](#api--interface-changes)
+  - [internal/scheduler/sweep.go (existing legacy Sweeper)](#internalschedulersweepgo-existing-legacy-sweeper)
+  - [internal/config/](#internalconfig)
+  - [internal/store/](#internalstore)
+  - [internal/policy/](#internalpolicy)
+  - [internal/worker/](#internalworker)
+  - [internal/webhook/](#internalwebhook)
+  - [internal/metrics/](#internalmetrics)
+  - [Chart values](#chart-values)
 - [Data Model](#data-model)
 - [Testing Strategy](#testing-strategy)
+  - [Unit tests](#unit-tests)
+  - [Integration tests (integrationtest.go)](#integration-tests-integrationtestgo)
+  - [Cutover validation](#cutover-validation)
+  - [Chart tests (helm-unittest)](#chart-tests-helm-unittest)
 - [Migration / Rollout Plan](#migration--rollout-plan)
+  - [Phase 0 — State-writeback prerequisites](#phase-0--state-writeback-prerequisites)
+  - [Phase 1 — Land Discoverer alongside legacy Sweeper](#phase-1--land-discoverer-alongside-legacy-sweeper)
+  - [Phase 2 — Opt-in cutover](#phase-2--opt-in-cutover)
+  - [Phase 3 — Default-flip for Postgres backend](#phase-3--default-flip-for-postgres-backend)
+  - [Phase 4 — Remove legacy Sweeper from Postgres path](#phase-4--remove-legacy-sweeper-from-postgres-path)
+  - [Rollback](#rollback)
 - [Open Questions](#open-questions)
 - [References](#references)
 <!--toc:end-->
@@ -134,6 +157,77 @@ bootstraps.
 - **Steady-state:** legacy Sweeper enqueues N repos every tick; StaleSweeper adds
   the (small) stale subset. Worker pool processes 2x the work it needs to.
 
+## Gap audit (pre-implementation review)
+
+Before starting IMPL-0015 we ran a code audit against this design's
+assumptions. The audit confirmed the worker write-back gap (the prereq this
+design already calls out in [Per-reconcile Store update](#per-reconcile-store-update--the-missing-half))
+and surfaced **9 additional gaps** that need to be addressed alongside it.
+This section records the findings so IMPL-0015 scope is unambiguous and
+post-merge readers can trace each Phase-0 step back to a concrete defect.
+
+### Findings
+
+| # | Path / Site | What this design assumed | What the code actually does | Severity |
+|---|---|---|---|---|
+| 1 | `internal/worker/worker.go:114` `processJob` | Calls `Store.UpdateRepoState` after `engine.CheckRepo` returns nil | No `store` import; `Pool` has no Store field. Engine returns and worker only increments `metrics.ReposCheckedTotal` (`worker.go:142`) | blocker |
+| 2 | `cmd/repo-guardian/main.go:201` `worker.New(...)` | Constructor takes `(q, engine, ghClient, store, policyVersion, workers, logger)` per [API / Interface Changes](#api--interface-changes) | Constructor takes `(q, engine, ghClient, workers, logger)`. `stateStore` is only handed to `StaleSweeper`, never reaches the worker — Phase 0 cannot compile without a constructor-signature change | blocker |
+| 3 | `cmd/repo-guardian/main.go:177` `policy.Version(policyCfg, nil)` | Policy version invalidates on template changes (`version.go:11-31` docstring) | Passes `templates=nil`; hash covers config only. Editing a CODEOWNERS template ConfigMap won't invalidate `repo_state.policy_version` — operators see no re-enqueue. Standalone correctness bug independent of this design | major |
+| 4 | `internal/webhook/handler.go` (entire file) | `installation_repositories.added` / `repository.created` / push handlers write Store rows with jittered `last_checked_at` | No `store` field; handlers only enqueue. StaleSweeper re-enqueues the same repo seconds later because Store doesn't know it was just reconciled | major |
+| 5 | `internal/scheduler/sweep.go:104` legacy `Sweeper.reconcileAll` | Repurposed/renamed to `Discoverer.Discover` (write-only, no Enqueue) | Legacy `Sweeper` still enqueues every repo every tick (`sweep.go:155`); coexists with `StaleSweeper` at the same interval from `main.go:169` and `main.go:193` | major |
+| 6 | `cmd/repo-guardian/main.go:169-198` | Legacy sweep gated off on Postgres backend at the cutover phase | Legacy `sweeper.ReconcileAll` schedules **unconditionally** — even when `STORE_BACKEND=postgres`. StaleSweeper's selectivity is wasted. Should be gated at Phase 0 (smaller blast radius than waiting for Phase 4) | major |
+| 7 | `internal/checker/sweep.go:107` `StaleSweeper.SweepStale` | Reads Store, possibly records sweep metadata | Reads `StaleRepos` only; no Store writes from the sweep path. Correct per design — but gated/failed enqueues leave no record. Fully OK once worker write-back lands | partial |
+| 8 | `internal/checker/drift.go:305` `autoClosePR` | Auto-close success updates Store row | No `store` import; auto-close runs inside `engine.CheckRepo` which doesn't take a Store. **Resolved transitively by Phase 0** — successful auto-close returns nil from `CheckRepo` and the worker write-back covers it | covered by Phase 0 |
+| 9 | `internal/store/store.go:58-63` Store interface | Design pseudocode calls `Get`/`Upsert` (Discoverer lines 393, 397, 428) | Interface only has `GetRepoState`, `UpdateRepoState`, `StaleRepos`, `Close`. Naming mismatch; the "insert only if not exists" Discoverer semantic isn't expressible in one method | minor (rename) / open (new method) |
+| 10 | `internal/metrics/` | `store_writeback_total{outcome}`, `repo_discovered_total`, `api_budget_*`, `enqueue_gated_by_budget_total` already wired | None of these metrics exist yet. All are net-new in IMPL-0015 (expected) | minor (tracking) |
+
+### Decisions resolved during the audit
+
+The audit raised three follow-up questions; resolutions below shape Phase 0
+of the rollout. Originals live in [Open Questions](#open-questions) as
+items **(m)**, **(n)**, **(o)**.
+
+- **(m) — Write back on `engine.CheckRepo` error too?** **Yes.** Worker writes
+  `LastCheckStatus = store.StatusError` and `LastError = err.Error()` on
+  failure (constants already defined at `internal/store/store.go:25-30`). The
+  goal is **DB-tracked observability for a future API/UI** — metrics surface
+  alerts and snapshots, but they aren't a datastore. Schema already supports
+  the columns; no migration needed.
+- **(n) — Discoverer insert-if-not-exists semantic?** **Add
+  `UpsertIfMissing(ctx, *RepoState) (created bool, err error)` to the Store
+  interface.** Single Postgres query (`INSERT ... ON CONFLICT DO NOTHING
+  RETURNING (xmax = 0) AS created`) — atomic and avoids the Get + conditional
+  Update dance. Memory backend implements with a map presence check.
+- **(o) — Scope of the `policy.Version` template-coverage fix?** **Roll into
+  IMPL-0015 Phase 0.** Keeps state-management changes co-located rather than
+  splitting into a one-PR detour. The fix surface is small: add
+  `rules.TemplateStore.AsMap() map[string]string`, thread it into the
+  `policy.Version(...)` call at `main.go:177`.
+
+### Phase 0 expanded scope
+
+Driven by the audit, Phase 0 of [Migration / Rollout
+Plan](#migration--rollout-plan) is no longer a single "wire worker write-back"
+PR. It bundles all the prerequisites that must land together for the freshness
+gate, the per-org observability claims, and the cutover-gating logic to be
+coherent:
+
+1. Worker `Store` injection + `policyVersion` threading (gap #1, #2).
+2. Worker write-back on both success AND error paths (gap #1, decision (m)).
+3. Webhook handler `Store` injection + write-back on push / installation /
+   repository events (gap #4).
+4. Legacy `Sweeper.ReconcileAll` schedule gated on `STORE_BACKEND != postgres`
+   (gap #5, #6).
+5. `policy.Version` templates-map fix (gap #3, decision (o)).
+6. `Store.UpsertIfMissing` interface method + Postgres / memory implementations
+   (gap #9, decision (n)).
+7. Net-new Phase-0 metrics: `store_writeback_total{installation_id, outcome}`,
+   `store_writeback_duration_seconds` (gap #10).
+
+The rest of this design (Layer 1 budget, Layer 2 jitter, Discoverer,
+Webhook-driven discovery) lands in Phases 1-4 on top of these Phase 0
+prerequisites.
+
 ## Detailed Design
 
 ### Per-reconcile Store update — the missing half
@@ -170,33 +264,69 @@ the highest-priority piece of this design.
 
 **Worker write-back contract:**
 
-After every successful `engine.CheckRepo`, the worker calls
-`Store.UpdateRepoState`:
+After every `engine.CheckRepo` call (success OR error), the worker calls
+`Store.UpdateRepoState`. The `RepoState` struct already carries the status
+fields (`LastCheckStatus`, `LastError`) and matching status constants
+(`store.StatusSuccess`, `store.StatusError`) from the IMPL-0011 schema; this
+design is the first writer:
 
 ```go
-// In internal/worker/worker.go processJob, after engine.CheckRepo returns nil
-err := p.store.UpdateRepoState(ctx, &store.RepoState{
+// In internal/worker/worker.go processJob, after engine.CheckRepo
+checkedAt := time.Now()
+state := &store.RepoState{
     InstallationID: j.InstallationID,
     Owner:          j.Owner,
     Repo:           j.Repo,
-    LastCheckedAt:  ptr(time.Now()),
+    LastCheckedAt:  &checkedAt,
     PolicyVersion:  p.policyVersion,
-})
-if err != nil {
-    log.Warn("UpdateRepoState failed; StaleSweeper will re-enqueue",
-        "owner", j.Owner, "repo", j.Repo, "error", err)
-    metrics.StoreWriteBackErrorsTotal.WithLabelValues(j.Owner).Inc()
-    // Do NOT return the error — the reconcile succeeded; the Store write
-    // is best-effort. Worst case: this repo gets re-checked next sweep.
 }
+if checkErr != nil {
+    state.LastCheckStatus = store.StatusError
+    state.LastError = truncate(checkErr.Error(), 1024)
+} else {
+    state.LastCheckStatus = store.StatusSuccess
+    state.LastError = ""
+}
+if err := p.store.UpdateRepoState(ctx, state); err != nil {
+    log.Warn("UpdateRepoState failed",
+        "owner", j.Owner, "repo", j.Repo, "error", err)
+    metrics.StoreWriteBackTotal.WithLabelValues(orgFromOwner(j.Owner), "error").Inc()
+    // Best-effort: the reconcile (success or error) is what the operator
+    // cares about; the Store write only feeds the freshness gate and the
+    // future API/UI. Next sweep picks the repo back up.
+    return checkErr
+}
+metrics.StoreWriteBackTotal.WithLabelValues(orgFromOwner(j.Owner), "ok").Inc()
+return checkErr
 ```
 
-**Behaviour on reconcile failure:**
+**Behaviour on reconcile failure — decision (m):**
 
-If `engine.CheckRepo` returns an error, the worker does NOT call
-`UpdateRepoState`. Leaving the old timestamp means StaleSweeper will pick the
-repo up again at the next eligible window — which is the correct retry
-semantic. Updating `last_checked_at` on failure would suppress retries.
+Originally this design proposed skipping `UpdateRepoState` on `engine.CheckRepo`
+error to preserve a "no-write means StaleSweeper retries next tick" retry
+loop. The [pre-implementation audit](#gap-audit-pre-implementation-review)
+resolved this as **(m) = (b): write back on error too** to make failed
+reconciles visible in the durable Store for the future API/UI surface.
+Metrics aren't a datastore — they alert and surface point-in-time snapshots,
+but a chronically-failing repo's status should live in the row, not a Grafana
+panel that operators may or may not look at.
+
+Implications of this decision:
+
+- `LastCheckedAt` advances on every reconcile (success or error). The
+  freshness gate treats errored repos the same as successful ones — the next
+  retry happens at the next freshness window (default 24h), not the next tick.
+- Queue-driven retry (worker returns error → queue marks job failed → reaper
+  requeues after `JOB_ACK_TIMEOUT`) is unaffected. This is the immediate-retry
+  path; it operates independently of the Store and runs within the
+  `JOB_ACK_TIMEOUT` window without waiting for the sweep cadence.
+- Operators with chronically-failing repos see them in the future UI via
+  `LastCheckStatus = "error"` + `LastError`. Today the only signal is the
+  `repo_guardian_check_errors_total` counter — useful for alerts but not for
+  "which repo errored last, and what was the message."
+- Fast retry of errored repos (e.g., "sweep an errored repo every hour
+  instead of every 24h") is **out of scope for IMPL-0015**. Future
+  enhancement; tracked as a follow-up open question.
 
 **Trigger field:**
 
@@ -506,8 +636,53 @@ New env vars:
 
 ### `internal/store/`
 
-`Store` interface unchanged. The discovery path and the per-reconcile
-write-back path both use existing `GetRepoState` / `UpdateRepoState` methods.
+Two interface changes:
+
+1. **NEW** `UpsertIfMissing(ctx, *RepoState) (created bool, err error)` —
+   atomic insert-if-not-exists used by the Discoverer (Phase 1) and the
+   webhook discovery handlers. Resolves [decision (n)](#gap-audit-pre-implementation-review)
+   from the pre-implementation audit.
+
+   ```go
+   type Store interface {
+       GetRepoState(ctx context.Context, installationID int64, owner, repo string) (*RepoState, error)
+       UpdateRepoState(ctx context.Context, s *RepoState) error
+       UpsertIfMissing(ctx context.Context, s *RepoState) (created bool, err error)  // NEW
+       StaleRepos(ctx context.Context, freshness time.Duration, currentPolicyVersion string, limit int) ([]RepoState, error)
+       Close() error
+   }
+   ```
+
+   **Postgres implementation:** `INSERT INTO repo_state (...) VALUES (...) ON
+   CONFLICT (installation_id, owner, repo) DO NOTHING RETURNING (xmax = 0) AS
+   created` — single round-trip; `xmax = 0` is true only for new rows. When
+   the conflict path skips, no row is returned and `created = false`.
+
+   **Memory implementation:** map presence check under the store's existing
+   mutex.
+
+2. **No schema migration.** `RepoState` already has `LastCheckStatus` and
+   `LastError` fields (`internal/store/store.go:40-48`); status constants
+   `StatusSuccess`, `StatusError`, `StatusSkipped`, `StatusPending` exist at
+   lines 25-30. This design is the first code path that writes them.
+
+### `internal/policy/`
+
+`policy.Version(cfg, templates)` is called at startup from
+`cmd/repo-guardian/main.go:177` with `templates = nil` today — the resulting
+hash doesn't cover template content, so editing a CODEOWNERS template
+ConfigMap won't invalidate `repo_state.policy_version` and won't re-enqueue
+anyone. Phase 0 fixes this:
+
+- Add `rules.TemplateStore.AsMap() map[string]string` that returns a snapshot
+  of all loaded template content (embedded + ConfigMap-overridden).
+- Update `cmd/repo-guardian/main.go:177` to call
+  `policy.Version(policyCfg, templates.AsMap())`.
+
+After the fix, template-only changes (operator edits a ConfigMap entry) will
+roll the policy version forward and StaleSweeper will pick up every repo on
+the next tick. Operators can self-validate by hashing the templates ConfigMap
+and comparing to the new `repo_guardian_policy_version` metric value.
 
 ### `internal/worker/`
 
@@ -550,9 +725,45 @@ accepts a no-op Store implementation that returns immediately from
 
 ### `internal/webhook/`
 
-Extend the `installation_repositories.added` and `repository.created` handlers
-to write Store rows when the Postgres backend is active. Same idempotent
-`Get`+conditional `Upsert` pattern.
+The webhook handler needs a `Store` dependency to write rows on
+webhook-triggered reconciles. Today `internal/webhook/handler.go` doesn't
+import `internal/store` ([gap audit
+#4](#gap-audit-pre-implementation-review)) — handlers only enqueue, so
+StaleSweeper can immediately re-enqueue the same repo because the durable
+row is unchanged.
+
+```go
+type Handler struct {
+    // ...existing fields...
+    store store.Store  // NEW; nil-safe for memory backend (use a no-op impl)
+}
+
+// In handleInstallationRepositoriesEvent / handleRepositoryEvent
+for _, repo := range payload.RepositoriesAdded {
+    _, _ = h.store.UpsertIfMissing(ctx, &store.RepoState{
+        InstallationID: payload.Installation.ID,
+        Owner:          repo.Owner.Login,
+        Repo:           repo.Name,
+        LastCheckedAt:  jitterPtr(now, 2*freshness),
+        PolicyVersion:  "",  // forces StaleSweeper to pick up
+    })
+}
+
+// In handlePushEvent, after enqueue succeeds, opportunistically advance the
+// timestamp to suppress the StaleSweeper next-tick double-enqueue:
+checkedAt := time.Now()
+_ = h.store.UpdateRepoState(ctx, &store.RepoState{
+    InstallationID:  payload.Installation.ID,
+    Owner:           payload.Repository.Owner.Login,
+    Repo:            payload.Repository.Name,
+    LastCheckedAt:   &checkedAt,
+    LastCheckStatus: store.StatusPending,  // worker overwrites on completion
+    PolicyVersion:   h.policyVersion,
+})
+```
+
+The `StatusPending` status indicates "enqueue acknowledged but worker hasn't
+run yet" — visible to the future API/UI as in-flight state.
 
 ### `internal/metrics/`
 
@@ -613,17 +824,33 @@ is unaffected).
 
 ## Data Model
 
-No schema changes. The `repo_state` table is extended in usage:
+No schema changes. The `repo_state` table already has every column this
+design needs (IMPL-0011 work landed the full schema). What changes is which
+columns are written and by which code path:
 
-- New rows can now have `policy_version = ''` (empty string) to signal
-  "discovered but not yet reconciled." The existing StaleSweeper query
-  (`policy_version != $currentVersion`) already handles this correctly — empty
-  string matches the inequality and the repo gets enqueued.
-- The `last_checked_at` column is no longer monotonically derived from
-  reconciliation time; on discovery, it can be set to a past timestamp via the
-  jitter logic. This is harmless — the column's semantic is "when StaleSweeper
-  should next consider this repo," not "wall-clock time of last successful
-  reconcile."
+- **`last_checked_at`** — now written by the worker on every reconcile
+  (success or error). Discoverer / webhook discovery write a jittered past
+  timestamp on first insert (`now - rand(0, 2*freshness)`). Semantic shifts
+  from "wall-clock time of last successful reconcile" to "when StaleSweeper
+  should next consider this repo."
+- **`last_check_status`** — first written by this design. Values from the
+  `internal/store/store.go:25-30` constants: `success`, `error`, `pending`,
+  `skipped`. Worker writes `success` on `engine.CheckRepo == nil`, `error`
+  otherwise. Webhook push handler writes `pending` on enqueue (worker
+  overwrites on completion). Discoverer leaves the field empty on first
+  insert.
+- **`last_error`** — first written by this design. Holds the truncated error
+  string when `last_check_status = error`. Cleared on the next successful
+  reconcile.
+- **`policy_version`** — written by the worker with the current policy hash.
+  Discoverer / webhook discovery write empty string (`''`) on first insert to
+  force StaleSweeper to pick up the repo on its next tick. The existing
+  StaleSweeper query (`policy_version != $currentVersion`) handles the empty
+  case correctly.
+
+**No migration is required** — operators upgrading from IMPL-0011 to
+IMPL-0015 will see the previously-NULL columns start to populate as workers
+reconcile each repo. Existing rows remain valid throughout.
 
 ## Testing Strategy
 
@@ -662,23 +889,64 @@ No schema changes. The `repo_state` table is extended in usage:
 
 ## Migration / Rollout Plan
 
-### Phase 0 — Worker write-back (prerequisite)
+### Phase 0 — State-writeback prerequisites
 
-Land the per-reconcile Store update first. This is the gating step — none of
-the subsequent phases work correctly without it because the freshness gate
-in StaleSweeper depends on workers writing back.
+Driven by the [pre-implementation audit](#gap-audit-pre-implementation-review),
+Phase 0 bundles the prerequisites that must all land together for the
+freshness gate to work coherently. None of the subsequent phases are correct
+without these:
 
-- Wire `Store` into `internal/worker/Pool`; thread `policyVersion` through
-  from `cmd/repo-guardian/main.go`.
-- `processJob` calls `UpdateRepoState` after every successful `engine.CheckRepo`.
-- Failed reconciles do NOT write — preserves retry semantics.
-- Memory-backend deployments get a no-op Store implementation; no behavioural
-  change.
-- Land with budget/jitter Layers 1+2 simultaneously to avoid a window where
-  the freshness gate is half-fixed. They're additive in scope but
-  inseparable in effect.
-- Validate via the new `store_writeback_total{outcome="ok"}` counter — should
-  rise in lockstep with `repos_checked_total`.
+1. **Worker write-back on success AND error** (gap #1, decision (m)).
+   - Add `store.Store` and `policyVersion string` fields to
+     `internal/worker.Pool`; update `worker.New` constructor signature.
+   - Thread both from `cmd/repo-guardian/main.go` (`bringUp`).
+   - `processJob` writes `RepoState` with appropriate `LastCheckStatus`,
+     `LastError`, `LastCheckedAt`, `PolicyVersion` after every
+     `engine.CheckRepo` (see [worker write-back
+     contract](#per-reconcile-store-update--the-missing-half)).
+   - Memory backend gets a no-op `Store` implementation.
+2. **Webhook handler `Store` injection** (gap #4).
+   - Add `store.Store` and `policyVersion string` fields to
+     `internal/webhook.Handler`.
+   - `installation_repositories.added` and `repository.created` handlers call
+     `UpsertIfMissing` with a jittered initial `LastCheckedAt`.
+   - Push handler calls `UpdateRepoState` with `LastCheckStatus = pending`
+     after successful enqueue.
+3. **Legacy Sweeper gated on `STORE_BACKEND != postgres`** (gap #5, #6).
+   - In `cmd/repo-guardian/main.go`, wrap the
+     `sched.Schedule(ctx, "sweep", interval, sweeper.ReconcileAll)` call in
+     `if cfg.StoreBackend != config.StoreBackendPostgres`.
+   - Postgres-backend deployments stop double-enqueueing immediately;
+     memory backend is unchanged.
+4. **`policy.Version` template-hash fix** (gap #3, decision (o)).
+   - Add `rules.TemplateStore.AsMap() map[string]string`.
+   - Update `main.go:177` to call `policy.Version(policyCfg, templates.AsMap())`.
+5. **`Store.UpsertIfMissing` interface method** (gap #9, decision (n)).
+   - Add `UpsertIfMissing(ctx, *RepoState) (created bool, err error)` to
+     `internal/store/store.go`.
+   - Implement in `internal/store/postgres/` (single-query `ON CONFLICT DO
+     NOTHING RETURNING xmax = 0`) and `internal/store/memory/` (map
+     presence check under existing mutex).
+6. **Net-new Phase-0 metrics**.
+   - `repo_guardian_store_writeback_total{installation_id, outcome}` —
+     CounterVec, labelled by installation ID and `ok` / `error`.
+   - `repo_guardian_store_writeback_duration_seconds` — Histogram.
+
+**Validation:**
+
+- `store_writeback_total{outcome="ok"}` rises in lockstep with
+  `repos_checked_total` (1:1 ratio modulo Store outages).
+- Operator-visible: after Phase 0 deploys, queue depth on Postgres backend
+  drops from "every repo every tick" to "only stale repos" — even though
+  Discoverer (Phase 1) hasn't shipped yet, the legacy Sweeper is no longer
+  feeding the queue and StaleSweeper's existing freshness gate finally
+  works.
+- `repo_state.last_check_status` populates with `success` / `error` /
+  `pending` values; previously-NULL rows fill in as workers process them.
+
+Phase 0 is the largest of the rollout phases and warrants its own
+implementation plan (IMPL-0015 Phase 0 sub-plan, to be authored before
+implementation starts).
 
 ### Phase 1 — Land Discoverer alongside legacy Sweeper
 
@@ -707,13 +975,12 @@ After ≥ 1 release cycle of Phase 2 operator validation:
 
 ### Phase 4 — Remove legacy Sweeper from Postgres path
 
-Once Phase 3 has been the default for ≥ 1 release cycle:
-
-- `cmd/repo-guardian/main.go` no longer schedules `legacySweeper.ReconcileAll`
-  when `STORE_BACKEND=postgres`, regardless of `DISCOVERY_ENABLED` (the flag
-  itself remains a kill-switch for Discoverer, but the legacy path is removed
-  from the Postgres-backend code path).
-- The legacy Sweeper type stays in the codebase for memory-backend deployments.
+**Absorbed into Phase 0** by the audit (gap #6). The
+`if cfg.StoreBackend != config.StoreBackendPostgres` guard on the legacy
+Sweeper schedule ships in Phase 0, not at the end of the rollout. The
+DISCOVERY_ENABLED flag introduced in Phase 1 becomes a kill-switch for the
+Discoverer only, with no effect on the legacy Sweeper schedule. The legacy
+Sweeper type itself stays in the codebase for memory-backend deployments.
 
 ### Rollback
 
@@ -724,9 +991,9 @@ revert (the legacy Sweeper isn't scheduled for Postgres regardless of the flag).
 
 ## Open Questions
 
-**(a)** Jitter range for the initial `last_checked_at`.
+**(a)** ✅ **Resolved.** Jitter range for the initial `last_checked_at`.
 
-- **(a) = `random in [now - 2*freshness, now]` (recommended).** Spreads the
+- **(a) = `random in [now - 2*freshness, now]` (chosen).** Spreads the
   cold-start enqueue across `2 * freshness / sweep_interval` ticks. With
   freshness=24h, sweep=1h → ~48 ticks.
 - (b) `random in [now - freshness, now]`. Spreads across fewer ticks, faster
@@ -735,19 +1002,19 @@ revert (the legacy Sweeper isn't scheduled for Postgres regardless of the flag).
   tick. Bad. Rejected.
 - other:
 
-**(b)** Discovery cadence default.
+**(b)** ✅ **Resolved.** Discovery cadence default.
 
-- **(a) = `1h` (recommended).** Detects webhook delivery gaps within an hour;
+- **(a) = `1h` (chosen).** Detects webhook delivery gaps within an hour;
   API cost is negligible at typical fleet sizes.
 - (b) `15m`. More responsive to new-repo events that miss the webhook; 4x the
   API cost.
 - (c) `24h`. Lower API cost but lets webhook gaps linger for a day.
 - other:
 
-**(c)** Should Discoverer also handle repo *removal* (a repo being archived,
-deleted, or moved out of the installation)?
+**(c)** ✅ **Resolved.** Should Discoverer also handle repo *removal* (a repo
+being archived, deleted, or moved out of the installation)?
 
-- **(a) = Out of scope for v1 (recommended).** Repo removal is a soft problem —
+- **(a) = Out of scope for v1 (chosen).** Repo removal is a soft problem —
   a stale Store row for an inaccessible repo just hits a 404 on next reconcile
   and gets handled by error paths. Tracking removal cleanly would require
   another comparison pass and isn't blocking.
@@ -755,38 +1022,48 @@ deleted, or moved out of the installation)?
   removal-pending queue; webhook `repository.deleted` cleans up.
 - other:
 
-**(d)** Webhook handler write-on-discovery vs Discover loop write — what if
-both fire at once?
+**(d)** ✅ **Resolved — subsumed by decision (n).** Webhook handler
+write-on-discovery vs Discover loop write — what if both fire at once?
 
-- **(a) = Idempotent `Get`+conditional `Upsert` (recommended).** Both paths
-  check for an existing row before inserting; race is harmless. Same row
-  inserted twice with the same key just stays as one row.
-- (b) Distributed lock per (owner, repo) during discovery. Overkill for the
-  blast radius.
+- **Resolution:** decision (n) chose `Store.UpsertIfMissing` for the
+  Discoverer's insert-if-not-exists semantic. Webhook discovery uses the
+  same method. The atomic `INSERT ... ON CONFLICT DO NOTHING` makes the
+  race harmless without any distributed lock — whichever request hits
+  Postgres first wins; the loser sees `created=false` and proceeds.
 - other:
 
-**(e)** Memory-backend behaviour after this design.
+**(e)** ⏸️ **Deferred — see
+[DESIGN-0018](0018-deprecate-memory-backend.md).** Memory-backend behaviour
+after this design.
 
-- **(a) = Unchanged — legacy Sweeper continues to enqueue (recommended).** Memory
-  backend has no Store; there's no place to write discovery rows. The legacy
-  Sweeper's existing semantics are correct for single-replica memory mode.
-- (b) Extend Discoverer to support a memory-only mode. Adds complexity for a
-  use case that's already correct.
+- **Resolution:** during review the operator proposed dropping the memory
+  backend entirely now that Postgres + Valkey are the production path and
+  the dual-backend code is a meaningful maintenance tax. This is a larger
+  architectural decision than DESIGN-0017 can absorb (it ripples through
+  `internal/store/memory/`, `internal/queue/memory/`,
+  `internal/scheduler/ticker/`, chart defaults, helm-unittest matrix, and
+  the `make run-local` path). See [DESIGN-0018: Deprecate memory
+  backend](0018-deprecate-memory-backend.md) for the full removal scope
+  (~1,600 LOC net) and migration plan. Until DESIGN-0018 ships, IMPL-0015
+  treats memory backend the same way it always has: the legacy Sweeper
+  continues to enqueue, no Discoverer wiring, no `Store.UpdateRepoState`
+  calls (the no-op memory Store covers the worker code path).
 - other:
 
-**(f)** Single-binary architectural question: should Discoverer be a separate
-process (e.g., a CronJob) or remain in-pod as a goroutine?
+**(f)** ✅ **Resolved.** Single-binary architectural question: should
+Discoverer be a separate process (e.g., a CronJob) or remain in-pod as a
+goroutine?
 
-- **(a) = In-pod goroutine (recommended).** Matches the existing Scheduler.Schedule
+- **(a) = In-pod goroutine (chosen).** Matches the existing Scheduler.Schedule
   pattern. No new resource/deployment shape; existing leader-election covers
   the multi-replica case.
 - (b) Separate CronJob. Better isolation but adds a deployment surface and
   needs its own creds + image + chart resources.
 - other:
 
-**(g)** Layer 1 reserve-fraction default.
+**(g)** ✅ **Resolved.** Layer 1 reserve-fraction default.
 
-- **(a) = `0.20` (recommended).** Holds back 20% of each installation's hourly
+- **(a) = `0.20` (chosen).** Holds back 20% of each installation's hourly
   budget for webhook-triggered work and unforeseen consumption. Comfortable
   margin for typical fleets.
 - (b) `0.10`. More aggressive use of available budget; smaller margin for
@@ -797,9 +1074,9 @@ process (e.g., a CronJob) or remain in-pod as a goroutine?
   but adapts to actual operator usage patterns. Future enhancement.
 - other:
 
-**(h)** Layer 1 estimated cost per repo.
+**(h)** ✅ **Resolved.** Layer 1 estimated cost per repo.
 
-- **(a) = `10` API calls per repo (recommended).** Matches the empirical
+- **(a) = `10` API calls per repo (chosen).** Matches the empirical
   per-reconcile cost in `docs/operations/scaling.md` (4 file checks + branch
   / PR ops if actionable + rate-limit probe). Configurable via
   `DISCOVERY_ESTIMATED_COST_PER_REPO` so operators can re-calibrate from
@@ -812,10 +1089,10 @@ process (e.g., a CronJob) or remain in-pod as a goroutine?
   labels).
 - other:
 
-**(i)** Layer 1 refresh cadence — when does the BudgetTracker call
-`Client.RateLimitRemaining`?
+**(i)** ✅ **Resolved.** Layer 1 refresh cadence — when does the
+BudgetTracker call `Client.RateLimitRemaining`?
 
-- **(a) = Per sweep tick at minimum, plus on `resetAt` elapsed (recommended).**
+- **(a) = Per sweep tick at minimum, plus on `resetAt` elapsed (chosen).**
   The leader refreshes its trackers once per tick before enqueueing.
   Cheap (one API call per installation per tick) and gives accurate budget
   visibility. The `resetAt` elapse triggers a refresh outside the tick
@@ -826,10 +1103,10 @@ process (e.g., a CronJob) or remain in-pod as a goroutine?
   per tick. Rejected.
 - other:
 
-**(j)** Layer 1 vs Layer 2 — should the chart allow disabling jitter (Layer 2)
-once Layer 1 is in place?
+**(j)** ✅ **Resolved.** Layer 1 vs Layer 2 — should the chart allow
+disabling jitter (Layer 2) once Layer 1 is in place?
 
-- **(a) = Keep both always on (recommended).** They address different failure
+- **(a) = Keep both always on (chosen).** They address different failure
   modes (within-tick burst vs cross-tick synchronisation); the cost of
   jitter is negligible (one `rand.Int63n` per discovered repo). Removing
   one creates a sharp edge in deployment behaviour without operational
@@ -838,10 +1115,10 @@ once Layer 1 is in place?
   operators experiment in test environments.
 - other:
 
-**(k)** Worker write-back failure semantics — what should happen when
-`engine.CheckRepo` succeeds but `Store.UpdateRepoState` fails?
+**(k)** ✅ **Resolved.** Worker write-back failure semantics — what should
+happen when `engine.CheckRepo` succeeds but `Store.UpdateRepoState` fails?
 
-- **(a) = Log + count + continue (recommended).** The reconcile succeeded
+- **(a) = Log + count + continue (chosen).** The reconcile succeeded
   externally (PR created, file written, comment posted). The Store write is
   best-effort. If it fails, next StaleSweeper tick re-enqueues; the
   reconcile is idempotent so the duplicate work is wasted but not
@@ -854,20 +1131,61 @@ once Layer 1 is in place?
   for an unlikely failure mode.
 - other:
 
-**(l)** Write-back on partial reconcile success — `engine.CheckRepo` is a
-single returned-error operation today, but internally it composes multiple
-sub-steps (file checks, PR creation, reconciler runs). Should partial
-internal failures (e.g., custom_properties reconciler errored) still trigger
-write-back?
+**(l)** ✅ **Resolved.** Write-back on partial reconcile success —
+`engine.CheckRepo` is a single returned-error operation today, but internally
+it composes multiple sub-steps (file checks, PR creation, reconciler runs).
+Should partial internal failures (e.g., custom_properties reconciler errored)
+still trigger write-back?
 
 - **(a) = Yes — write-back if `engine.CheckRepo` returns nil; the engine
-  decides what counts as success (recommended).** Keeps the worker simple
+  decides what counts as success (chosen).** Keeps the worker simple
   and treats the engine as a black box. The engine's existing error
   semantics already handle partial failures (returning nil for "good
   enough" success or err for "retry").
 - (b) Add a granular write-back interface where the engine returns a
   per-step status. Worker writes individual step timestamps. Adds complex
   state to Store rows. Premature.
+- other:
+
+**(m)** ✅ **Resolved.** Should the worker also write back to Store on
+`engine.CheckRepo` error (rather than skipping the write so the next sweep
+retries)?
+
+- (a) No — keep success-only writes; metrics surface errors.
+- **(b) = Yes (chosen).** Write `LastCheckStatus = store.StatusError` and
+  `LastError = err.Error()` on failure. Metrics are for alerts and
+  point-in-time snapshots, not a datastore — the future API/UI needs to read
+  the latest status from the DB to render "this repo's last check errored"
+  views. `LastCheckedAt` advances on the error write, so the freshness gate
+  treats errored repos like successful ones (retry at the next freshness
+  window). Queue-driven retry via reaper + `JOB_ACK_TIMEOUT` continues to
+  handle immediate retries independently.
+- other:
+
+**(n)** ✅ **Resolved.** Should the Discoverer's insert-if-not-exists
+semantic use a new interface method or compose existing methods?
+
+- (a) Compose `GetRepoState` + conditional `UpdateRepoState`. Two queries per
+  discovered repo; keeps the interface small.
+- **(b) = Yes, add `UpsertIfMissing(ctx, *RepoState) (created bool, err error)`
+  (chosen).** Single atomic Postgres query (`INSERT ... ON CONFLICT DO
+  NOTHING RETURNING (xmax = 0) AS created`). Avoids the Get + conditional
+  Update dance, eliminates the race between the read and the write, and
+  surfaces the "was this a new row?" signal that drives the
+  `repo_discovered_total` metric. Memory backend implements with a map
+  presence check under the existing mutex.
+- other:
+
+**(o)** ✅ **Resolved.** Scope of the `policy.Version` template-coverage fix
+(currently called with `templates=nil` at `main.go:177`, so template-only
+ConfigMap edits don't invalidate `policy_version`)?
+
+- (a) Standalone bug-fix PR before IMPL-0015 starts. Small, isolated.
+- **(b) = Roll into IMPL-0015 Phase 0 (chosen).** Keeps all state-management
+  changes co-located in one rollout instead of scattering across two PRs. The
+  fix is small enough to add as one bullet in Phase 0: `rules.TemplateStore`
+  gets an `AsMap() map[string]string` method, `main.go:177` calls
+  `policy.Version(policyCfg, templates.AsMap())`.
 - other:
 
 ## References

@@ -22,6 +22,7 @@ nav:
         - 'DESIGN-0015: Per-installation Valkey queue partitioning': design/0015-per-installation-valkey-queue-partitioning.md
         - 'DESIGN-0016: Separate Postgres read and write endpoints': design/0016-separate-postgres-read-and-write-endpoints.md
         - 'DESIGN-0017: Stale-sweep cutover and repository discovery': design/0017-stale-sweep-cutover-and-repository-discovery.md
+        - 'DESIGN-0018: Deprecate memory backend': design/0018-deprecate-memory-backend.md
     - Implementation Plans:
         - Overview: impl/README.md
         - 'IMPL-0001: Repo Guardian Implementation Plan': impl/0001-repo-guardian-implementation-plan.md

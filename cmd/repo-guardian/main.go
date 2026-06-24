@@ -17,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/donaldgifford/repo-guardian/internal/budget"
 	"github.com/donaldgifford/repo-guardian/internal/checker"
 	"github.com/donaldgifford/repo-guardian/internal/config"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
@@ -160,24 +161,16 @@ func bringUp(
 		logger.Warn("policy.Version failed; stale-sweep policy_version will be empty", "error", vErr)
 	}
 
-	if cfg.StoreBackend == config.StoreBackendPostgres {
-		staleSweeper := checker.NewStaleSweeper(checker.StaleSweeperOptions{
-			Store:         stateStore,
-			Queue:         qw.queue,
-			RateLimit:     client,
-			Logger:        logger,
-			Freshness:     cfg.ReconcileFreshness,
-			PolicyVersion: policyVersion,
-			BatchSize:     cfg.StaleSweepBatchSize,
-			Reserve:       cfg.RateLimitReserve,
-		})
+	tracker := budget.New(budget.Options{
+		ReserveFraction: cfg.DiscoveryReserveFraction,
+		CostPerRepo:     cfg.DiscoveryEstimatedCostPerRepo,
+	})
 
-		if err := sched.Schedule(ctx, "stale-sweep", policyCfg.Guardian.ParsedScheduleInterval, staleSweeper.SweepStale); err != nil {
-			closeAndLog(logger, "scheduler stop after stale-schedule-call failure", sched.Stop)
-			closeAndLog(logger, "store close after stale-schedule-call failure", stateStore.Close)
+	if err := scheduleHandlers(ctx, cfg, policyCfg, stateStore, qw.queue, client, sched, tracker, policyVersion, logger); err != nil {
+		closeAndLog(logger, "scheduler stop after handler-schedule failure", sched.Stop)
+		closeAndLog(logger, "store close after handler-schedule failure", stateStore.Close)
 
-			return nil, fmt.Errorf("schedule stale-sweep: %w", err)
-		}
+		return nil, err
 	}
 
 	workerPool := worker.New(qw.queue, engine, client, stateStore, policyVersion, policyCfg.Guardian.WorkerCount, logger)
@@ -214,6 +207,65 @@ func bringUp(
 		workerPool:     workerPool,
 		webhookHandler: webhookHandler,
 	}, nil
+}
+
+// scheduleHandlers wires both periodic schedulers onto the
+// scheduler.Scheduler. StaleSweeper always runs (IMPL-0011 Phase 5);
+// Discoverer runs only when cfg.DiscoveryEnabled (IMPL-0015 Phase 1).
+// Returns an error if either Schedule call fails — the caller is
+// responsible for tearing down the partially-built runtime.
+func scheduleHandlers(
+	ctx context.Context,
+	cfg *config.Config,
+	policyCfg *policy.PolicyConfig,
+	stateStore store.Store,
+	q queue.Queue,
+	client ghclient.Client,
+	sched scheduler.Scheduler,
+	tracker *budget.Tracker,
+	policyVersion string,
+	logger *slog.Logger,
+) error {
+	staleSweeper := checker.NewStaleSweeper(checker.StaleSweeperOptions{
+		Store:         stateStore,
+		Queue:         q,
+		RateLimit:     client,
+		Budget:        tracker,
+		Logger:        logger,
+		Freshness:     cfg.ReconcileFreshness,
+		PolicyVersion: policyVersion,
+		BatchSize:     cfg.StaleSweepBatchSize,
+		Reserve:       cfg.RateLimitReserve,
+	})
+
+	if err := sched.Schedule(ctx, "stale-sweep", policyCfg.Guardian.ParsedScheduleInterval, staleSweeper.SweepStale); err != nil {
+		return fmt.Errorf("schedule stale-sweep: %w", err)
+	}
+
+	logger.Info("scheduled stale-sweep handler", "interval", policyCfg.Guardian.ParsedScheduleInterval)
+
+	if !cfg.DiscoveryEnabled {
+		logger.Info("discoverer disabled via DISCOVERY_ENABLED=false")
+		return nil
+	}
+
+	discoverer := scheduler.NewDiscoverer(scheduler.DiscovererOptions{
+		Client:       client,
+		Store:        stateStore,
+		Budget:       tracker,
+		Logger:       logger,
+		SkipForks:    policyCfg.Guardian.SkipForks,
+		SkipArchived: policyCfg.Guardian.SkipArchived,
+		Freshness:    cfg.ReconcileFreshness,
+	})
+
+	if err := sched.Schedule(ctx, "discovery", cfg.DiscoveryInterval, discoverer.Discover); err != nil {
+		return fmt.Errorf("schedule discovery: %w", err)
+	}
+
+	logger.Info("scheduled discovery handler", "interval", cfg.DiscoveryInterval)
+
+	return nil
 }
 
 // loadPolicyAndEngine loads the operator's HCL policy, runs strict

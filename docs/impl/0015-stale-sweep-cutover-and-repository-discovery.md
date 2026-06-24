@@ -429,11 +429,16 @@ Discoverer path.
 
 **1.5 — Wire scheduler**
 
-- [ ] In `cmd/repo-guardian/main.go`, when `cfg.DiscoveryEnabled`,
+- [x] In `cmd/repo-guardian/main.go`, when `cfg.DiscoveryEnabled`,
   schedule `discoverer.Discover` at `cfg.DiscoveryInterval`. (No
-  `STORE_BACKEND` gate — memory backend gone.)
-- [ ] Log explicitly which schedulers are active at startup
-  (StaleSweeper always, Discoverer when enabled).
+  `STORE_BACKEND` gate — memory backend gone.) Logic lives in the
+  new `scheduleHandlers` helper alongside the StaleSweeper schedule
+  to keep `bringUp` under the funlen budget.
+- [x] Log explicitly which schedulers are active at startup
+  (StaleSweeper always, Discoverer when enabled, opt-out logged
+  when `DISCOVERY_ENABLED=false`). The BudgetTracker is constructed
+  unconditionally in `bringUp` and passed to both StaleSweeper and
+  Discoverer.
 
 **1.6 — Net-new Phase 1 metrics**
 

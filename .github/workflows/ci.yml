@@ -86,11 +86,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Set up mise
+        uses: jdx/mise-action@v3
+
       - name: Validate Prometheus alert rules
-        run: |
-          docker run --rm -v "$PWD:/work" -w /work \
-            prom/prometheus:v3.12.0 \
-            promtool check rules contrib/prometheus/alerts.yaml
+        run: make lint-alerts
 
   test-go:
     name: Test Go

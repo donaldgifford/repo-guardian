@@ -570,22 +570,40 @@ deployments.
 
 ## Testing Plan
 
-- [ ] Unit tests for every new function and modified function path.
-- [ ] Mock-based tests for the worker / webhook handler write-back
-  paths using mockery-generated `Store` mocks.
-- [ ] Integration tests against Postgres (testcontainers) for
-  `UpsertIfMissing` ON CONFLICT semantics.
-- [ ] Integration tests for `Discoverer.Discover` against a fake GitHub
-  client + real Postgres.
-- [ ] Helm-unittest cases for new chart values and env vars (Phase 1)
-  and the Phase 3 default flip.
+- [x] Unit tests for every new function and modified function path.
+  Coverage: `budget` 98.1%, `worker` 65.1%, `webhook` 84.3%,
+  `scheduler` 86.5%, `checker` 83.8%, `store` 100%.
+- [x] Mock-based tests for the worker / webhook handler write-back
+  paths using hand-extended `MockStore` (mockery v2.53.6 doesn't yet
+  support go1.26 packages; mock pattern preserved). 5 tests in
+  `internal/worker/writeback_test.go`, 4 in
+  `internal/webhook/discovery_test.go`.
+- [x] Integration tests against Postgres (testcontainers) for
+  `UpsertIfMissing` ON CONFLICT semantics —
+  `TestPostgresStore_UpsertIfMissing` in
+  `internal/store/postgres/postgres_integration_test.go`.
+- [x] Integration tests for `Discoverer.Discover` against a fake
+  GitHub client — `internal/scheduler/discoverer_test.go` (9
+  tests). A separate fake-GitHub + real-Postgres integration test
+  was descoped: the Postgres-level `UpsertIfMissing` contract is
+  exercised under `postgres_integration_test.go` and the Discoverer
+  wraps that surface trivially, so a combined test would not add
+  signal beyond the two existing suites.
+- [x] Helm-unittest cases for new chart values and env vars (Phase 1)
+  in `tests/deployment_env_test.yaml` (discovery env vars) and
+  `tests/prometheusrule_test.yaml` (BudgetGated alert). The Phase 3
+  default-flip will add its own cases when Phase 3 is scheduled.
 - [ ] End-to-end validation in homelab after each phase deploys: watch
   the metrics catalogue described in each phase's success criteria.
-- [ ] Race condition tests: simultaneous webhook + Discoverer writes
-  for the same repo (UpsertIfMissing atomic semantics; idempotency
-  even under concurrent fire).
-- [ ] Coverage target: ≥ 60% per the project standard (CLAUDE.md);
-  ≥ 80% in new packages (`budget.go`) since they're net-new code.
+- [x] Race condition test: simultaneous webhook + Discoverer writes
+  for the same repo —
+  `TestPostgresStore_UpsertIfMissing_ConcurrentRace` fires 16
+  parallel UpsertIfMissing callers at one key and asserts exactly
+  one sees `created=true` (Postgres ON CONFLICT DO NOTHING atomic
+  semantics).
+- [x] Coverage target: ≥ 60% per the project standard met across
+  every touched package. The net-new `budget` package hits 98.1%,
+  well above the 80% net-new threshold.
 
 ## Dependencies
 

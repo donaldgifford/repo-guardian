@@ -13,6 +13,8 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -281,6 +283,62 @@ func TestPostgresStore_UpsertIfMissing(t *testing.T) {
 
 	if got.LastCheckStatus != store.StatusSuccess {
 		t.Fatalf("UpsertIfMissing overwrote LastCheckStatus: %q (wanted success)", got.LastCheckStatus)
+	}
+}
+
+// TestPostgresStore_UpsertIfMissing_ConcurrentRace exercises the
+// IMPL-0015 Testing Plan race-condition checkbox: simultaneous
+// webhook + Discoverer writes for the same repo. The contract is
+// that ON CONFLICT DO NOTHING returns the *atomic* "did I insert this
+// row" flag — exactly one goroutine across N parallel callers must
+// see created=true, all others created=false.
+func TestPostgresStore_UpsertIfMissing_ConcurrentRace(t *testing.T) {
+	ctx := context.Background()
+	dsn := startPostgres(ctx, t)
+	s := newStore(ctx, t, dsn)
+
+	const workers = 16
+
+	var (
+		wg       sync.WaitGroup
+		startGun = make(chan struct{})
+		created  atomic.Int32
+		errCount atomic.Int32
+	)
+
+	for range workers {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			<-startGun
+
+			ok, err := s.UpsertIfMissing(ctx, &store.RepoState{
+				InstallationID: 99,
+				Owner:          "race",
+				Repo:           "contended",
+				PolicyVersion:  "v1",
+			})
+			if err != nil {
+				errCount.Add(1)
+				return
+			}
+
+			if ok {
+				created.Add(1)
+			}
+		}()
+	}
+
+	close(startGun)
+	wg.Wait()
+
+	if got := errCount.Load(); got != 0 {
+		t.Fatalf("UpsertIfMissing errored %d/%d times under contention", got, workers)
+	}
+
+	if got := created.Load(); got != 1 {
+		t.Fatalf("expected exactly 1 created=true under contention, got %d/%d", got, workers)
 	}
 }
 

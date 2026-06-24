@@ -53,6 +53,28 @@
           "enum": ["valkey"]
         }
       }
+    },
+    "discovery": {
+      "type": "object",
+      "description": "Repository discovery (IMPL-0015 Phase 1) — periodic enumeration of installations + repos via the GitHub API into Store.UpsertIfMissing.",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "interval": {
+          "type": "string",
+          "description": "Go duration (e.g. \"1h\", \"30m\")."
+        },
+        "reserveFraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "estimatedCostPerRepo": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
     }
   }
 }

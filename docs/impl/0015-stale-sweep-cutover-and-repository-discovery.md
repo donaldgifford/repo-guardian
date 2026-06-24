@@ -411,22 +411,21 @@ Discoverer path.
 
 **1.4 — Configuration**
 
-- [ ] Add new env vars to `internal/config/`:
+- [x] Add new env vars to `internal/config/`:
   - `DISCOVERY_INTERVAL` — Go duration; default `1h`.
-  - `DISCOVERY_ENABLED` — bool; default `true`. (Memory backend is
-    gone post-IMPL-0016; every deployment is Postgres + Valkey, so
-    discovery is on out-of-the-box. No opt-in cutover needed.)
-  - `DISCOVERY_RESERVE_FRACTION` — float; default `0.20`. Validate
-    range `[0.0, 1.0]`.
+  - `DISCOVERY_ENABLED` — bool; default `true`.
+  - `DISCOVERY_RESERVE_FRACTION` — float; default `0.20`. Range
+    `[0, 1]` validated in `Config.validateDiscovery`.
   - `DISCOVERY_ESTIMATED_COST_PER_REPO` — int; default `10`.
-    Validate `> 0`.
-- [ ] Add to `charts/repo-guardian/values.yaml` under a new
-  `discovery:` block. Mirror env vars exactly; default
-  `enabled: true`.
-- [ ] Wire env vars into `Deployment` template via the existing
-  reserved-env-vars helper.
-- [ ] Add helm-unittest cases asserting the env vars appear with
-  correct defaults.
+    `> 0` validated in `Config.validateDiscovery`.
+- [x] Add to `charts/repo-guardian/values.yaml` under a new
+  `discovery:` block. Defaults mirror the binary env-var defaults.
+  Also added schema validation in `values.schema.json` so out-of-
+  range values fail at chart-render time, not pod CrashLoopBackoff.
+- [x] Wire env vars into `Deployment` template alongside the
+  existing `RATE_LIMIT_RESERVE` block.
+- [x] Add helm-unittest cases asserting the env vars appear with
+  correct defaults + the `discovery.enabled=false` override path.
 
 **1.5 — Wire scheduler**
 

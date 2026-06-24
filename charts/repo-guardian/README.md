@@ -346,6 +346,11 @@ incoming webhook.
 | config.skipArchived | bool | `true` | Skip archived repositories |
 | config.skipForks | bool | `true` | Skip forked repositories |
 | config.workerCount | int | `5` | Worker count for check queue |
+| discovery | object | `{"enabled":true,"estimatedCostPerRepo":10,"interval":"1h","reserveFraction":0.2}` | Repository discovery (IMPL-0015 Phase 1). The Discoverer runs on the leader pod, enumerates installations + repos via the GitHub API, and persists discovery rows via Store.UpsertIfMissing so the stale-sweeper picks them up on the next tick. Webhook-driven discovery (`installation_repositories.added` + `repository.created`) is the primary on-ramp; the periodic Discoverer is the safety net for missed deliveries. |
+| discovery.enabled | bool | `true` | Toggle the Discoverer schedule. When false the binary still responds to discovery via webhooks; only the periodic enumeration path is disabled. |
+| discovery.estimatedCostPerRepo | int | `10` | Operator estimate of the rate-limit cost of a single reconcile. Drives the BudgetTracker's spendable-enqueue accounting. Must be > 0. |
+| discovery.interval | string | `"1h"` | Cadence between Discoverer.Discover invocations. Lower values burn more API budget on list_installations + list_installation_repos; higher values delay discovery of repos the webhook path missed. |
+| discovery.reserveFraction | float | `0.2` | Fraction of the rate-limit budget the BudgetTracker holds in reserve when gating discovery enqueues. Must be in [0, 1]. |
 | extraEnv | list | `[]` | Additional environment variables |
 | extraVolumeMounts | list | `[]` | Additional volume mounts |
 | extraVolumes | list | `[]` | Additional volumes |

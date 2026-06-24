@@ -66,6 +66,13 @@ All configuration is via environment variables (12-factor):
 | `QUEUE_BACKEND` | No | `valkey` | Work queue backend. Only `valkey` is supported. |
 | `QUEUE_VALKEY_DSN` | Yes (when backend=valkey) | -- | Valkey/Redis connection string (e.g., `redis://host:6379/0`) |
 | `SCHEDULER_BACKEND` | No | `valkey` | Sweep scheduler backend. Only `valkey` is supported; shares the queue's Valkey instance. |
+| `RECONCILE_FRESHNESS` | No | `24h` | StaleSweeper freshness window. Repos whose `last_checked_at` is older than this (or whose `policy_version` differs) are eligible for re-enqueue on the next sweep tick. |
+| `STALE_SWEEP_BATCH_SIZE` | No | `200` | Maximum repos the StaleSweeper enqueues per tick. Bound the per-tick API + queue pressure on large fleets. |
+| `RATE_LIMIT_RESERVE` | No | `0.1` | Sweeper-side reserve gate. The StaleSweeper refuses to enqueue when an installation's remaining GitHub rate-limit budget falls below `limit × RATE_LIMIT_RESERVE`. Distinct from the client-side `RATE_LIMIT_THRESHOLD` throttle. |
+| `DISCOVERY_ENABLED` | No | `true` | Toggle the periodic `Discoverer` (IMPL-0015 Phase 1). When `false` the binary still discovers via webhooks; only the periodic enumeration path is disabled. |
+| `DISCOVERY_INTERVAL` | No | `1h` | Cadence between `Discoverer.Discover` invocations. Lower values burn more API budget on `list_installations` + `list_installation_repos`; higher values delay discovery of repos the webhook path missed. |
+| `DISCOVERY_RESERVE_FRACTION` | No | `0.20` | `BudgetTracker` reserve floor (fraction of the rate-limit window held in reserve). Must be in `[0, 1]`. |
+| `DISCOVERY_ESTIMATED_COST_PER_REPO` | No | `10` | Operator estimate of the rate-limit cost of a single reconcile. Drives the `BudgetTracker`'s spendable-enqueue accounting. Must be > 0. |
 
 *One of `GITHUB_PRIVATE_KEY_PATH` or `GITHUB_PRIVATE_KEY` is required (mutually exclusive).
 
@@ -320,8 +327,24 @@ Available at `METRICS_ADDR` (default `:9090/metrics`):
 | `repo_guardian_properties_prs_created_total` | Counter | -- | PRs created for custom properties |
 | `repo_guardian_properties_set_total` | Counter | -- | Properties set via API |
 | `repo_guardian_properties_already_correct_total` | Counter | -- | Properties already matching |
+| `repo_guardian_queue_depth` | Gauge | `queue` | Current queue depth (jobs waiting). |
+| `repo_guardian_queue_enqueued_total` / `_claimed_total` / `_acked_total` / `_reaped_total` | Counter | `queue` | Queue lifecycle counters (IMPL-0011). |
+| `repo_guardian_scheduler_is_leader` | Gauge | `name` | 1 on the leader pod, 0 elsewhere. |
+| `repo_guardian_store_query_seconds` | Histogram | `op`, `outcome` | Persistent store query latency. |
+| `repo_guardian_rate_limit_remaining` | Gauge | `installation_id` | Per-installation GitHub rate-limit budget observed at sweep time. |
+| `repo_guardian_rate_limit_reserve_blocked_total` | Counter | `installation_id` | Enqueues blocked by the `RATE_LIMIT_RESERVE` gate. |
+| `repo_guardian_open_prs_by_rule` | Gauge | `org`, `rule`, `age_bucket` | Open repo-guardian PRs joined against actionable rules (IMPL-0013 P1). |
+| `repo_guardian_pr_open_with_empty_actionable_total` / `pr_orphan_left_total` / `prs_closed_total` | Counter | `org`, ... | PR convergence + drift counters (IMPL-0013). |
+| `repo_guardian_store_writeback_total` | Counter | `installation_id`, `outcome` | Worker persisted job outcome to the state store (IMPL-0015 Phase 0). Rises 1:1 with `repos_checked_total` modulo errors. |
+| `repo_guardian_store_writeback_duration_seconds` | Histogram | -- | Latency of `UpdateRepoState` from the worker pool. Target p99 < 50ms. |
+| `repo_guardian_repo_discovered_total` | Counter | `installation_id` | New repos surfaced by the `Discoverer` (IMPL-0015 Phase 1). |
+| `repo_guardian_discovery_duration_seconds` | Histogram | -- | Wall-clock per `Discoverer.Discover` invocation. |
+| `repo_guardian_discovery_api_calls_total` | Counter | `installation_id`, `endpoint` | GitHub API calls the Discoverer made. |
+| `repo_guardian_api_budget_remaining` / `_spendable` / `_reserve_fraction` / `_utilisation` | Gauge | `installation_id` | `BudgetTracker` rate-limit observability (IMPL-0015 Phase 1). |
+| `repo_guardian_api_budget_refresh_total` | Counter | `installation_id`, `outcome` | `BudgetTracker` refresh attempts. |
+| `repo_guardian_enqueue_gated_by_budget_total` | Counter | `installation_id` | Enqueues blocked by the `BudgetTracker` reserve gate (StaleSweeper + Discoverer share this counter). |
 
-See [`contrib/README.md`](contrib/README.md) for example PromQL queries, a Grafana dashboard, alerting rules, and migration recipes for the `Counter` -> `CounterVec` promotion of `prs_created_total` and `prs_updated_total`.
+See [`docs/operations/scaling.md`](docs/operations/scaling.md) for the full metric catalogue with operator playbooks and [`contrib/README.md`](contrib/README.md) for example PromQL queries, a Grafana dashboard, alerting rules, and migration recipes for the `Counter` -> `CounterVec` promotion of `prs_created_total` and `prs_updated_total`.
 
 ### Rate Limiting
 
@@ -353,15 +376,16 @@ internal/
   checker/    -> check-and-PR engine + setting/branch-protection rules + scope evaluation gates + StaleSweeper
   reconciler/ -> pluggable post-check reconcilers (custom_properties, label_sync, branch_protection, workflow_sync)
   rules/      -> TemplateStore (embedded fallback templates)
-  webhook/    -> HTTP handler for GitHub webhook events (HMAC-validated) + IP allowlist middleware + push event handler
-  scheduler/  -> Scheduler interface + valkey/ (SETNX leader-elected sweep cadence)
-  store/      -> per-repo state interface + postgres/ (pgx/v5 + pgxpool, embedded migrations)
+  webhook/    -> HTTP handler for GitHub webhook events (HMAC-validated) + IP allowlist middleware + push event handler + discovery write-back via Store.UpsertIfMissing
+  scheduler/  -> Scheduler interface + valkey/ (SETNX leader-elected sweep cadence) + Discoverer (periodic enumeration safety net for missed webhooks)
+  store/      -> per-repo state interface + postgres/ (pgx/v5 + pgxpool, embedded migrations); UpsertIfMissing for atomic discovery, UpdateRepoState for worker write-back
   queue/      -> work-queue interface + valkey/ (LIST + ZSET + reaper goroutine)
-  worker/     -> in-process worker pool consuming queue.Queue.Subscribe
+  worker/     -> in-process worker pool consuming queue.Queue.Subscribe; persists job outcome to the state store on every processed job
+  budget/     -> per-installation rate-limit cache shared by StaleSweeper + Discoverer (BudgetTracker, IMPL-0015 Phase 1)
   metrics/    -> Prometheus metric definitions (most counters labeled with org)
 ```
 
-**Core flow:** GitHub webhook OR scheduler tick OR push event -> Valkey-backed work queue -> worker pool -> checker engine -> GitHub API (create PRs for missing files) -> reconcilers (post-check actions). Reconcile state persisted to Postgres so a stale-sweep across many replicas converges without duplicate work.
+**Core flow:** GitHub webhook (or periodic Discoverer for missed deliveries) seeds `repo_state` via `Store.UpsertIfMissing`. The leader-elected StaleSweeper queries Postgres for rows older than `RECONCILE_FRESHNESS` (or whose `policy_version` differs) and enqueues them to the Valkey work queue. Worker pool consumes the queue, runs the checker engine + reconcilers against the GitHub API, then writes the outcome back to Postgres so a multi-replica sweep converges without duplicate work. Both schedulers gate enqueue on a shared `BudgetTracker` so a single installation can't burn the hourly rate-limit window.
 
 ## Documentation
 

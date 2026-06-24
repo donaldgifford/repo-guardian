@@ -298,6 +298,40 @@ The chart's reserved-name list (`_helpers.tpl`) blocks
 helm-render time, but the `env` helper itself can read whatever
 the OS gives it.
 
+### Repository discovery and rate-limit budgeting (IMPL-0015)
+
+`repo-guardian` 1.0.0-rc.2+ ships two cooperating schedulers on the
+leader pod:
+
+- **`Discoverer`** (`scheduler/discoverer.go`) enumerates installations
+  + repos via the GitHub API at `DISCOVERY_INTERVAL` and persists
+  discovery rows via `Store.UpsertIfMissing` — atomic
+  `INSERT ... ON CONFLICT DO NOTHING` so concurrent webhooks +
+  Discoverer never race. Newly-seeded rows enter `repo_state` with a
+  jittered `LastCheckedAt` so a fleet onboarding doesn't cluster every
+  repo's due-time at the same instant. Webhook-driven discovery
+  (`installation_repositories.added`, `repository.created`,
+  `installation.created`) is the primary on-ramp; the periodic
+  Discoverer is the safety net for missed deliveries.
+- **`StaleSweeper`** (`checker/sweep.go`) queries Postgres for rows
+  whose `last_checked_at` is older than `RECONCILE_FRESHNESS` or whose
+  `policy_version` differs from the current one, and enqueues each to
+  the Valkey work queue. There is no full-fleet enumeration on every
+  tick — the legacy `sweep` schedule was removed in 1.0.0-rc.2.
+
+Both schedulers consult a shared **`BudgetTracker`** before each
+enqueue. The tracker caches GitHub's rate-limit window per
+installation and refuses to enqueue when `remaining < limit ×
+reserveFraction`. When it blocks an enqueue,
+`repo_guardian_enqueue_gated_by_budget_total{installation_id}` ticks
+up; the starter alert `RepoGuardianBudgetGated` fires after 30
+minutes of sustained gating so operators know the deployment is
+rate-limit-bound. Tuning levers: `discovery.reserveFraction`
+(default `0.20`), `discovery.estimatedCostPerRepo` (default `10`),
+`staleSweep.freshness` (default `24h`). See
+[`docs/operations/scaling.md`](../../docs/operations/scaling.md#discoverer--budgettracker-impl-0015-phase-1)
+for the full metrics catalogue + alert tuning notes.
+
 ### Editing a template ConfigMap invalidates the policy version
 
 `policy.Version` (the hash that gates stale-sweep re-enqueue) is

@@ -187,25 +187,33 @@ codebase.
 
 **0.2 — Webhook handler `Store` injection + discovery write-back**
 
-- [ ] Add `store store.Store`, `policyVersion string`, and `freshness
+- [x] Add `store store.Store`, `policyVersion string`, and `freshness
   time.Duration` fields to `internal/webhook.Handler`.
-- [ ] Update `webhook.NewHandler(...)` constructor signature to accept
+- [x] Update `webhook.NewHandler(...)` constructor signature to accept
   the new dependencies.
-- [ ] Update `cmd/repo-guardian/main.go` to wire the Store + policy
+- [x] Update `cmd/repo-guardian/main.go` to wire the Store + policy
   version into the webhook handler constructor.
-- [ ] In `handleInstallationRepositoriesEvent`, for each repo in
+- [x] In `handleInstallationRepositoriesEvent`, for each repo in
   `RepositoriesAdded`, call `h.store.UpsertIfMissing(ctx,
   &store.RepoState{...})` with a jittered initial `LastCheckedAt =
   now - rand.Int63n(int64(2*h.freshness))` and `PolicyVersion = ""`.
-- [ ] In `handleRepositoryEvent` for `repository.created`, perform the
-  same UpsertIfMissing.
-- [ ] In `handlePushEvent`, after the existing enqueue logic, call
+- [x] In `handleRepositoryEvent` for `repository.created`, perform the
+  same UpsertIfMissing. (Also applied to `handleInstallationEvent`
+  for `installation.created` — the App-onboarding-with-existing-repos
+  path that mirrors `installation_repositories.added`.)
+- [x] In `handlePushEvent`, BEFORE the enqueue, call
   `h.store.UpdateRepoState(ctx, &store.RepoState{...})` with
   `LastCheckStatus = store.StatusPending`, current timestamp, and the
-  policy version. See Open Question 6 for ordering relative to the
-  enqueue call.
-- [ ] Write unit tests for each handler path; assert exactly one
-  Store call per event with correct payload.
+  policy version. Resolves OQ 6a (mark pending before enqueue so the
+  stale-sweeper doesn't redundantly re-enqueue while the job is in
+  flight).
+- [x] Write unit tests for each handler path; assert exactly one
+  Store call per event with correct payload. Tests in
+  `internal/webhook/discovery_test.go` exercise:
+  `installation_repositories.added` (UpsertIfMissing per repo + jitter
+  bounds), `repository.created` (single UpsertIfMissing),
+  `push` (markPending before enqueue), and the Store-error path
+  (does not block ACK or skip the queue).
 
 **0.3 — Drop the legacy Sweeper schedule call**
 
@@ -214,13 +222,19 @@ role is gone. StaleSweeper handles every deployment. The `Sweeper` type
 itself stays in `internal/scheduler/sweep.go` for Phase 1 to repurpose
 as `Discoverer.Discover`; only the *schedule call* is removed here.
 
-- [ ] In `cmd/repo-guardian/main.go`, delete the
+- [x] In `cmd/repo-guardian/main.go`, delete the
   `sched.Schedule(ctx, "sweep", interval, sweeper.ReconcileAll)` call
-  entirely. (No `if` gate — every deployment is Postgres + Valkey
-  post-IMPL-0016.)
-- [ ] Verify no tests directly depend on the legacy schedule running.
-- [ ] Document the change in `docs/operations/scaling.md` under the
-  scaling matrix section.
+  AND the `sweeper := scheduler.NewSweeper(...)` construction that
+  feeds it. (No `if` gate — every deployment is Postgres + Valkey
+  post-IMPL-0016.) The `scheduler.NewSweeper` symbol stays in
+  `internal/scheduler/sweep.go` for Phase 1 to repurpose as the
+  `Discoverer.Discover` handler.
+- [x] Verify no tests directly depend on the legacy schedule running.
+  (Existing `internal/scheduler/sweep_test.go` tests exercise
+  `scheduler.NewSweeper` + `.reconcileAll(...)` directly, not the
+  schedule call path, so they keep working unchanged.)
+- [x] Document the change in `docs/operations/scaling.md` under the
+  scaling matrix section (new "One sweeper, not two" gotcha entry).
 
 **0.4 — `policy.Version` template-hash fix**
 

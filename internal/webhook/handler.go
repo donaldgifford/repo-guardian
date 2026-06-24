@@ -1,10 +1,25 @@
 // Package webhook provides the HTTP handler for GitHub App webhook events.
+//
+// IMPL-0015 Phase 0 added the discovery write-back contract:
+// installation_repositories.added and repository.created webhook
+// events now call store.UpsertIfMissing for each newly-visible
+// repository, seeding a `pending` row with a jittered initial
+// LastCheckedAt. The jitter spreads the first cold-start sweep over
+// a 2×freshness window so a fleet onboarding bulk doesn't synchronise
+// every repo's next-due timestamp at install time.
+//
+// Push events do not seed new rows (the repo was either discovered at
+// installation time or already exists). They DO update the existing
+// row to LastCheckStatus=StatusPending BEFORE enqueuing, so the
+// stale-sweeper doesn't redundantly enqueue the same repo if its
+// sweep tick fires before the worker drains the push-triggered job.
 package webhook
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
@@ -13,6 +28,7 @@ import (
 
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/queue"
+	"github.com/donaldgifford/repo-guardian/internal/store"
 )
 
 // Handler handles incoming GitHub webhook events and enqueues repo check jobs.
@@ -21,21 +37,38 @@ type Handler struct {
 	queue         queue.Queue
 	logger        *slog.Logger
 	watchedPaths  map[string]bool
+	stateStore    store.Store
+	policyVersion string
+	freshness     time.Duration
+	// rng is the source for discovery-jitter. Per-Handler so tests
+	// can seed it deterministically; the production path receives
+	// the default time-seeded source.
+	rng *rand.Rand
 }
 
 // NewHandler creates a new webhook Handler.
-// watchedPaths specifies file paths that trigger a re-check on push events.
+// watchedPaths specifies file paths that trigger a re-check on push
+// events. stateStore + policyVersion + freshness drive the discovery
+// write-back contract added in IMPL-0015 Phase 0. Pass a nil
+// stateStore in tests that don't exercise that path.
 func NewHandler(
 	webhookSecret string,
 	q queue.Queue,
 	logger *slog.Logger,
 	watchedPaths map[string]bool,
+	stateStore store.Store,
+	policyVersion string,
+	freshness time.Duration,
 ) *Handler {
 	return &Handler{
 		webhookSecret: []byte(webhookSecret),
 		queue:         q,
 		logger:        logger,
 		watchedPaths:  watchedPaths,
+		stateStore:    stateStore,
+		policyVersion: policyVersion,
+		freshness:     freshness,
+		rng:           rand.New(rand.NewSource(time.Now().UnixNano())), //nolint:gosec // non-crypto: just jitter
 	}
 }
 
@@ -89,14 +122,17 @@ func (h *Handler) handleRepositoryEvent(ctx context.Context, e *gh.RepositoryEve
 
 	repo := e.GetRepo()
 	installID := e.GetInstallation().GetID()
+	owner := repo.GetOwner().GetLogin()
+	repoName := repo.GetName()
 
 	h.logger.Info("repository created event",
-		"owner", repo.GetOwner().GetLogin(),
-		"repo", repo.GetName(),
+		"owner", owner,
+		"repo", repoName,
 		"installation_id", installID,
 	)
 
-	h.enqueue(ctx, repo.GetOwner().GetLogin(), repo.GetName(), installID)
+	h.discover(ctx, installID, owner, repoName)
+	h.enqueue(ctx, owner, repoName, installID)
 }
 
 func (h *Handler) handleInstallationRepositoriesEvent(ctx context.Context, e *gh.InstallationRepositoriesEvent) {
@@ -113,7 +149,11 @@ func (h *Handler) handleInstallationRepositoriesEvent(ctx context.Context, e *gh
 	)
 
 	for _, repo := range e.RepositoriesAdded {
-		h.enqueue(ctx, extractOwner(repo.GetFullName()), repo.GetName(), installID)
+		owner := extractOwner(repo.GetFullName())
+		repoName := repo.GetName()
+
+		h.discover(ctx, installID, owner, repoName)
+		h.enqueue(ctx, owner, repoName, installID)
 	}
 }
 
@@ -131,7 +171,11 @@ func (h *Handler) handleInstallationEvent(ctx context.Context, e *gh.Installatio
 	)
 
 	for _, repo := range e.Repositories {
-		h.enqueue(ctx, extractOwner(repo.GetFullName()), repo.GetName(), installID)
+		owner := extractOwner(repo.GetFullName())
+		repoName := repo.GetName()
+
+		h.discover(ctx, installID, owner, repoName)
+		h.enqueue(ctx, owner, repoName, installID)
 	}
 }
 
@@ -176,7 +220,85 @@ func (h *Handler) handlePushEvent(ctx context.Context, e *gh.PushEvent) {
 		"ref", ref,
 	)
 
+	h.markPending(ctx, installID, owner, repoName)
 	h.enqueuePush(ctx, owner, repoName, installID)
+}
+
+// discover seeds a `pending` row for a newly-visible repo. The
+// LastCheckedAt is jittered uniformly across [0, 2×freshness] so a
+// fleet onboarding bulk doesn't cluster every repo's next-due
+// timestamp at install time — without the jitter, a stale-sweep with
+// freshness=24h would fire on every repo at exactly t+24h and
+// thrash the rate-limit reserve. Best-effort: a Store error here is
+// logged and counted, never propagated; the next sweep will discover
+// the repo via the GitHub API enumeration path.
+func (h *Handler) discover(ctx context.Context, installationID int64, owner, repo string) {
+	if h.stateStore == nil {
+		return
+	}
+
+	jitter := time.Duration(h.rng.Int63n(int64(2 * h.freshness)))
+	seedTime := time.Now().UTC().Add(-jitter)
+
+	state := &store.RepoState{
+		InstallationID:  installationID,
+		Owner:           owner,
+		Repo:            repo,
+		LastCheckedAt:   &seedTime,
+		LastCheckStatus: store.StatusPending,
+		PolicyVersion:   "", // empty so the next sweep treats as drifted
+	}
+
+	created, err := h.stateStore.UpsertIfMissing(ctx, state)
+	if err != nil {
+		h.logger.Warn("discovery UpsertIfMissing failed; next sweep will catch the repo",
+			"owner", owner,
+			"repo", repo,
+			"installation_id", installationID,
+			"error", err,
+		)
+
+		return
+	}
+
+	if created {
+		h.logger.Info("discovered new repository",
+			"owner", owner,
+			"repo", repo,
+			"installation_id", installationID,
+		)
+	}
+}
+
+// markPending writes StatusPending to the existing row BEFORE the
+// enqueue so the stale-sweeper doesn't redundantly enqueue the same
+// repo if its tick fires before the worker processes the push job.
+// Best-effort: a Store error here is logged and dropped — the worker
+// write-back will still converge the row on success/error.
+func (h *Handler) markPending(ctx context.Context, installationID int64, owner, repo string) {
+	if h.stateStore == nil {
+		return
+	}
+
+	now := time.Now().UTC()
+
+	state := &store.RepoState{
+		InstallationID:  installationID,
+		Owner:           owner,
+		Repo:            repo,
+		LastCheckedAt:   &now,
+		LastCheckStatus: store.StatusPending,
+		PolicyVersion:   h.policyVersion,
+	}
+
+	if err := h.stateStore.UpdateRepoState(ctx, state); err != nil {
+		h.logger.Warn("push markPending failed; worker write-back will converge",
+			"owner", owner,
+			"repo", repo,
+			"installation_id", installationID,
+			"error", err,
+		)
+	}
 }
 
 // hasWatchedFileChanges checks if any commit in the push event contains

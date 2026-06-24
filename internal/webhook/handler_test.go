@@ -80,7 +80,7 @@ func TestWebhookACK_SLA(t *testing.T) {
 	t.Parallel()
 
 	q := &slowQueue{recordingQueue: newRecordingQueue(), delay: 100 * time.Millisecond}
-	h := NewHandler(testSecret, q, slog.Default(), nil)
+	h := NewHandler(testSecret, q, slog.Default(), nil, nil, "", 24*time.Hour)
 
 	payload := &gh.RepositoryEvent{
 		Action: gh.Ptr("created"),
@@ -134,7 +134,7 @@ func TestHandleWebhook_RepositoryCreated(t *testing.T) {
 	t.Parallel()
 
 	q := newRecordingQueue()
-	h := NewHandler(testSecret, q, slog.Default(), nil)
+	h := NewHandler(testSecret, q, slog.Default(), nil, nil, "", 24*time.Hour)
 
 	payload := &gh.RepositoryEvent{
 		Action: gh.Ptr("created"),
@@ -157,7 +157,7 @@ func TestHandleWebhook_InstallationReposAdded(t *testing.T) {
 	t.Parallel()
 
 	q := newRecordingQueue()
-	h := NewHandler(testSecret, q, slog.Default(), nil)
+	h := NewHandler(testSecret, q, slog.Default(), nil, nil, "", 24*time.Hour)
 
 	payload := &gh.InstallationRepositoriesEvent{
 		Action:       gh.Ptr("added"),
@@ -180,7 +180,7 @@ func TestHandleWebhook_InstallationCreated(t *testing.T) {
 	t.Parallel()
 
 	q := newRecordingQueue()
-	h := NewHandler(testSecret, q, slog.Default(), nil)
+	h := NewHandler(testSecret, q, slog.Default(), nil, nil, "", 24*time.Hour)
 
 	payload := &gh.InstallationEvent{
 		Action:       gh.Ptr("created"),
@@ -202,7 +202,7 @@ func TestHandleWebhook_InvalidSignature(t *testing.T) {
 	t.Parallel()
 
 	q := newRecordingQueue()
-	h := NewHandler(testSecret, q, slog.Default(), nil)
+	h := NewHandler(testSecret, q, slog.Default(), nil, nil, "", 24*time.Hour)
 
 	body := []byte(`{"action":"created"}`)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/webhooks/github", bytes.NewReader(body))
@@ -222,7 +222,7 @@ func TestHandleWebhook_UnsupportedEvent(t *testing.T) {
 	t.Parallel()
 
 	q := newRecordingQueue()
-	h := NewHandler(testSecret, q, slog.Default(), nil)
+	h := NewHandler(testSecret, q, slog.Default(), nil, nil, "", 24*time.Hour)
 
 	payload := map[string]string{"action": "completed"}
 
@@ -238,7 +238,7 @@ func TestHandleWebhook_IgnoredAction(t *testing.T) {
 	t.Parallel()
 
 	q := newRecordingQueue()
-	h := NewHandler(testSecret, q, slog.Default(), nil)
+	h := NewHandler(testSecret, q, slog.Default(), nil, nil, "", 24*time.Hour)
 
 	payload := &gh.RepositoryEvent{
 		Action: gh.Ptr("deleted"),
@@ -277,7 +277,7 @@ func TestHandlePush_WatchedFileAdded_Enqueues(t *testing.T) {
 
 	q := newRecordingQueue()
 	watched := map[string]bool{"catalog-info.yaml": true}
-	h := NewHandler(testSecret, q, slog.Default(), watched)
+	h := NewHandler(testSecret, q, slog.Default(), watched, nil, "", 24*time.Hour)
 
 	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
 		{Added: []string{"catalog-info.yaml"}},
@@ -300,7 +300,7 @@ func TestHandlePush_WatchedFileModified_Enqueues(t *testing.T) {
 
 	q := newRecordingQueue()
 	watched := map[string]bool{"catalog-info.yaml": true}
-	h := NewHandler(testSecret, q, slog.Default(), watched)
+	h := NewHandler(testSecret, q, slog.Default(), watched, nil, "", 24*time.Hour)
 
 	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
 		{Modified: []string{"catalog-info.yaml"}},
@@ -319,7 +319,7 @@ func TestHandlePush_UnrelatedFiles_DoesNotEnqueue(t *testing.T) {
 
 	q := newRecordingQueue()
 	watched := map[string]bool{"catalog-info.yaml": true}
-	h := NewHandler(testSecret, q, slog.Default(), watched)
+	h := NewHandler(testSecret, q, slog.Default(), watched, nil, "", 24*time.Hour)
 
 	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
 		{Added: []string{"README.md"}, Modified: []string{"go.mod"}},
@@ -338,7 +338,7 @@ func TestHandlePush_NonDefaultBranch_DoesNotEnqueue(t *testing.T) {
 
 	q := newRecordingQueue()
 	watched := map[string]bool{"catalog-info.yaml": true}
-	h := NewHandler(testSecret, q, slog.Default(), watched)
+	h := NewHandler(testSecret, q, slog.Default(), watched, nil, "", 24*time.Hour)
 
 	payload := makePushPayload("refs/heads/feature-branch", "main", []*gh.HeadCommit{
 		{Added: []string{"catalog-info.yaml"}},
@@ -357,7 +357,7 @@ func TestHandlePush_RemovedOnly_DoesNotEnqueue(t *testing.T) {
 
 	q := newRecordingQueue()
 	watched := map[string]bool{"catalog-info.yaml": true}
-	h := NewHandler(testSecret, q, slog.Default(), watched)
+	h := NewHandler(testSecret, q, slog.Default(), watched, nil, "", 24*time.Hour)
 
 	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
 		{Removed: []string{"catalog-info.yaml"}},
@@ -375,7 +375,7 @@ func TestHandlePush_NoWatchedPaths_DoesNotEnqueue(t *testing.T) {
 	t.Parallel()
 
 	q := newRecordingQueue()
-	h := NewHandler(testSecret, q, slog.Default(), nil)
+	h := NewHandler(testSecret, q, slog.Default(), nil, nil, "", 24*time.Hour)
 
 	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
 		{Added: []string{"catalog-info.yaml"}},
@@ -394,7 +394,7 @@ func TestHandlePush_WatchedFileInLaterCommit_Enqueues(t *testing.T) {
 
 	q := newRecordingQueue()
 	watched := map[string]bool{"catalog-info.yaml": true}
-	h := NewHandler(testSecret, q, slog.Default(), watched)
+	h := NewHandler(testSecret, q, slog.Default(), watched, nil, "", 24*time.Hour)
 
 	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
 		{Added: []string{"README.md"}},
@@ -415,7 +415,7 @@ func TestHandlePush_TagPush_DoesNotEnqueue(t *testing.T) {
 
 	q := newRecordingQueue()
 	watched := map[string]bool{"catalog-info.yaml": true}
-	h := NewHandler(testSecret, q, slog.Default(), watched)
+	h := NewHandler(testSecret, q, slog.Default(), watched, nil, "", 24*time.Hour)
 
 	payload := makePushPayload("refs/tags/v1.0.0", "main", []*gh.HeadCommit{
 		{Added: []string{"catalog-info.yaml"}},
@@ -437,7 +437,7 @@ func TestIntegration_PushEvent_EnqueueWithTriggerPush(t *testing.T) {
 		"catalog-info.yaml": true,
 		"catalog-info.yml":  true,
 	}
-	h := NewHandler(testSecret, q, slog.Default(), watched)
+	h := NewHandler(testSecret, q, slog.Default(), watched, nil, "", 24*time.Hour)
 
 	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
 		{Modified: []string{"catalog-info.yaml"}},

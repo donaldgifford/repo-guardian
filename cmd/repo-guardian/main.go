@@ -155,22 +155,6 @@ func bringUp(
 		return nil, fmt.Errorf("create scheduler: %w", err)
 	}
 
-	sweeper := scheduler.NewSweeper(
-		client,
-		qw.queue,
-		policyCfg.Guardian.ParsedScheduleInterval,
-		logger,
-		policyCfg.Guardian.SkipForks,
-		policyCfg.Guardian.SkipArchived,
-	)
-
-	if err := sched.Schedule(ctx, "sweep", policyCfg.Guardian.ParsedScheduleInterval, sweeper.ReconcileAll); err != nil {
-		closeAndLog(logger, "scheduler stop after schedule-call failure", sched.Stop)
-		closeAndLog(logger, "store close after schedule-call failure", stateStore.Close)
-
-		return nil, fmt.Errorf("schedule sweep: %w", err)
-	}
-
 	policyVersion, vErr := policy.Version(policyCfg, templates.AsMap())
 	if vErr != nil {
 		logger.Warn("policy.Version failed; stale-sweep policy_version will be empty", "error", vErr)
@@ -212,7 +196,15 @@ func bringUp(
 	}
 
 	watchedPaths := policy.ExtractWatchedPaths(policyCfg)
-	webhookHandler := webhook.NewHandler(cfg.GitHubWebhookSecret, qw.queue, logger, watchedPaths)
+	webhookHandler := webhook.NewHandler(
+		cfg.GitHubWebhookSecret,
+		qw.queue,
+		logger,
+		watchedPaths,
+		stateStore,
+		policyVersion,
+		cfg.ReconcileFreshness,
+	)
 
 	return &runtime{
 		stateStore:     stateStore,

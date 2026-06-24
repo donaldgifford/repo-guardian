@@ -144,6 +144,117 @@ sum by (org) (rate(repo_guardian_files_missing_total[1h])) > 0
 | `properties_set_total` | Counter | — | Repositories where properties were set via API. |
 | `properties_already_correct_total` | Counter | — | Repositories where properties already matched. |
 
+### Multi-replica / scheduler / store / queue (IMPL-0011)
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `queue_depth` | Gauge | `queue` | Current queue depth (jobs waiting to be claimed). |
+| `queue_enqueued_total` | CounterVec | `queue` | Jobs enqueued. |
+| `queue_claimed_total` | CounterVec | `queue` | Jobs claimed by a worker. |
+| `queue_acked_total` | CounterVec | `queue`, `outcome` | Jobs ack'd after processing. `outcome={success,error}`. |
+| `queue_reaped_total` | CounterVec | `queue` | Jobs requeued by the in-flight reaper after ack-window expiry. |
+| `scheduler_is_leader` | Gauge | `name` | 1 on the replica holding the leader lock, 0 elsewhere. One per schedule (`sweep`, `stale-sweep`, `discovery`). |
+| `scheduler_sweep_batch_size` | Histogram | — | Distribution of `StaleRepos` batch sizes per sweep tick. |
+| `store_query_seconds` | Histogram | `op`, `outcome` | Persistent store query latency. `op` enumerates `GetRepoState`, `UpdateRepoState`, `StaleRepos`, `UpsertIfMissing`, etc. |
+| `rate_limit_remaining` | Gauge | `installation_id` | Per-installation GitHub rate-limit budget observed at sweep time. |
+| `rate_limit_reserve_blocked_total` | CounterVec | `installation_id` | Enqueues blocked by the `RATE_LIMIT_RESERVE` gate (live API check, distinct from BudgetTracker). |
+
+Example:
+
+```promql
+# Queue depth alarm signal
+max(repo_guardian_queue_depth{queue="jobs"})
+
+# Worker outcome breakdown
+sum by (outcome) (rate(repo_guardian_queue_acked_total[5m]))
+
+# Leader stability — should be exactly one replica per schedule
+sum by (name) (repo_guardian_scheduler_is_leader)
+
+# Per-op store latency p99
+histogram_quantile(0.99,
+  sum by (op, le) (rate(repo_guardian_store_query_seconds_bucket[5m])))
+```
+
+### PR convergence (IMPL-0013 Phase 3)
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `prs_closed_total` | CounterVec | `org`, `reason` | Repo-guardian PRs auto-closed by the convergence path. `reason=satisfied` when all file rules are satisfied on `main`. |
+| `pr_orphan_left_total` | CounterVec | `org` | Orphan files (rules whose file is on the reconcile branch but no longer in actionable) that could not be cleaned up via DeleteFile — usually a transient API glitch. Next sweep retries. |
+
+Example:
+
+```promql
+# Convergence rate per org (PRs successfully auto-closed)
+sum by (org) (rate(repo_guardian_prs_closed_total{reason="satisfied"}[1h]))
+
+# Orphan-cleanup failures (next sweep retries)
+sum by (org) (rate(repo_guardian_pr_orphan_left_total[1h]))
+```
+
+### Worker write-back (IMPL-0015 Phase 0)
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `store_writeback_total` | CounterVec | `installation_id`, `outcome` | Worker persisted job outcome to the state store. Rises 1:1 with `repos_checked_total` modulo errors. `outcome={ok,error}`. |
+| `store_writeback_duration_seconds` | Histogram | — | Latency of `UpdateRepoState` from the worker pool. Target p99 < 50ms. |
+
+Example:
+
+```promql
+# Write-back error rate (should be ~zero in steady state)
+sum(rate(repo_guardian_store_writeback_total{outcome="error"}[5m]))
+  / sum(rate(repo_guardian_store_writeback_total[5m]))
+
+# Write-back p99 (alarm if > 50ms sustained)
+histogram_quantile(0.99,
+  sum(rate(repo_guardian_store_writeback_duration_seconds_bucket[5m])) by (le))
+```
+
+### Discoverer (IMPL-0015 Phase 1)
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `repo_discovered_total` | CounterVec | `installation_id` | New repos surfaced by the Discoverer per installation. Bumps on first discovery; idempotent thereafter. |
+| `discovery_duration_seconds` | Histogram | — | Wall-clock per `Discoverer.Discover` invocation. |
+| `discovery_api_calls_total` | CounterVec | `installation_id`, `endpoint` | GitHub API calls the Discoverer made. `endpoint={list_installations,list_installation_repos}`. |
+
+Example:
+
+```promql
+# Cumulative discovered repos per installation
+sum by (installation_id) (repo_guardian_repo_discovered_total)
+
+# Discovery cost per tick
+sum by (endpoint) (rate(repo_guardian_discovery_api_calls_total[1h]))
+```
+
+### BudgetTracker (IMPL-0015 Phase 1)
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `api_budget_remaining` | Gauge | `installation_id` | Cached rate-limit budget remaining after local `Decrement`. Tighter than `rate_limit_remaining`. |
+| `api_budget_spendable` | Gauge | `installation_id` | Additional enqueues the tracker will allow without breaching reserve. |
+| `api_budget_reserve_fraction` | Gauge | `installation_id` | Operator-configured reserve floor (chart `discovery.reserveFraction`). |
+| `api_budget_utilisation` | Gauge | `installation_id` | `1 - (remaining / limit)`. |
+| `api_budget_refresh_total` | CounterVec | `installation_id`, `outcome` | BudgetTracker refresh attempts. `outcome={ok,error}`. |
+| `enqueue_gated_by_budget_total` | CounterVec | `installation_id` | Enqueues blocked by the BudgetTracker reserve gate. Shared between StaleSweeper and Discoverer. |
+
+Example:
+
+```promql
+# Operator alarm: deployment is rate-limit-bound
+sum(rate(repo_guardian_enqueue_gated_by_budget_total[15m])) > 0
+
+# Spendable budget approaching zero (gate about to close)
+min by (installation_id) (repo_guardian_api_budget_spendable)
+
+# Refresh failures (gate falls open without a cached snapshot)
+sum by (installation_id) (
+  rate(repo_guardian_api_budget_refresh_total{outcome="error"}[15m]))
+```
+
 ## Common Queries
 
 ### Per-org activity

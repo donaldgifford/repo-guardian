@@ -87,6 +87,10 @@ lint-fix: ## Run golangci-lint with auto-fix
 	@ $(MAKE) --no-print-directory log-$@
 	@golangci-lint run --fix ./...
 
+lint-alerts: ## Validate Prometheus alert rules in contrib/prometheus/
+	@ $(MAKE) --no-print-directory log-$@
+	@promtool check rules contrib/prometheus/alerts.yaml
+
 fmt: ## Format code with gofmt and goimports
 	@ $(MAKE) --no-print-directory log-$@
 	@gofmt -s -w .

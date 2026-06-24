@@ -109,4 +109,16 @@ spec:
             summary: "repo-guardian PR drift detected (INV-0005)"
             description: "open repo-guardian PRs exist where every file rule is now satisfied on the default branch; IMPL-0013 Phase 3 will auto-converge these, but the metric flags them today."
         {{- end }}
+        {{- /* BudgetGated — IMPL-0015 Phase 1 rate-limit-bound signal */ -}}
+        {{- $alert := default dict $a.BudgetGated -}}
+        {{- if ne (default true (get $alert "enabled")) false }}
+        - alert: RepoGuardianBudgetGated
+          expr: sum(rate(repo_guardian_enqueue_gated_by_budget_total[15m])) > {{ default 0 (get $alert "threshold") }}
+          for: {{ default "30m" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "warning" (get $alert "severity") | quote }}
+          annotations:
+            summary: "repo-guardian budget-gating enqueues (rate-limit bound)"
+            description: "the BudgetTracker has been blocking enqueues for 30+ minutes; the deployment is rate-limit-bound. See docs/operations/scaling.md §Discoverer + BudgetTracker for remediation."
+        {{- end }}
 {{- end }}

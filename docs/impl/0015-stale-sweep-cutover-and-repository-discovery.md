@@ -442,27 +442,29 @@ Discoverer path.
 
 **1.6 — Net-new Phase 1 metrics**
 
-- [ ] `repo_guardian_repo_discovered_total{installation_id}` —
-  CounterVec, Discoverer increments.
-- [ ] `repo_guardian_discovery_duration_seconds` — Histogram.
-- [ ] `repo_guardian_discovery_api_calls_total{installation_id,
+- [x] `repo_guardian_repo_discovered_total{installation_id}` —
+  CounterVec, Discoverer increments on each `created=true` row.
+- [x] `repo_guardian_discovery_duration_seconds` — Histogram.
+- [x] `repo_guardian_discovery_api_calls_total{installation_id,
   endpoint}` — CounterVec, labelled `endpoint=list_installations`
   / `list_installation_repos`.
-- [ ] `repo_guardian_api_budget_remaining{installation_id}` —
+- [x] `repo_guardian_api_budget_remaining{installation_id}` — Gauge.
+- [x] `repo_guardian_api_budget_spendable{installation_id}` — Gauge.
+- [x] `repo_guardian_api_budget_reserve_fraction{installation_id}` —
   Gauge.
-- [ ] `repo_guardian_api_budget_spendable{installation_id}` — Gauge.
-- [ ] `repo_guardian_api_budget_reserve_fraction{installation_id}` —
+- [x] `repo_guardian_api_budget_utilisation{installation_id}` —
   Gauge.
-- [ ] `repo_guardian_api_budget_utilisation{installation_id}` —
-  Gauge.
-- [ ] `repo_guardian_api_budget_refresh_total{installation_id,
+- [x] `repo_guardian_api_budget_refresh_total{installation_id,
   outcome}` — CounterVec.
-- [ ] `repo_guardian_enqueue_gated_by_budget_total{installation_id}` —
-  Counter. Operator alarm signal.
-- [ ] Document all in `docs/operations/scaling.md`.
-- [ ] Consider an alert in `prometheusrule.yaml` on sustained
-  `enqueue_gated_by_budget_total` rate > 0 — operators want to know
-  when they're rate-limit-bound.
+- [x] `repo_guardian_enqueue_gated_by_budget_total{installation_id}` —
+  CounterVec. Operator alarm signal.
+- [x] Documented all in `docs/operations/scaling.md` under
+  "Discoverer + BudgetTracker (IMPL-0015 Phase 1)".
+- [x] Added `RepoGuardianBudgetGated` alert in
+  `prometheusrule.yaml`: fires when
+  `rate(enqueue_gated_by_budget_total[15m]) > 0` for 30m. Tunable
+  via `prometheusRule.alerts.BudgetGated.{enabled,for,severity,
+  threshold}`.
 
 #### Success Criteria
 

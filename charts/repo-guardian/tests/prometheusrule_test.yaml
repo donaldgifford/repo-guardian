@@ -70,3 +70,27 @@ tests:
             labels:
               severity: critical
           any: true
+
+  - it: should render the BudgetGated alert by default
+    set:
+      prometheusRule:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianBudgetGated
+          any: true
+
+  - it: should allow BudgetGated to be disabled
+    set:
+      prometheusRule:
+        enabled: true
+        alerts:
+          BudgetGated:
+            enabled: false
+    asserts:
+      - notContains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianBudgetGated

@@ -155,6 +155,37 @@ Worker write-backs are tracked separately from generic Store queries:
 | `repo_guardian_store_writeback_total{outcome="error"}` | Worker finished a job but `UpdateRepoState` failed. The work was real (PR opened/updated, files committed) but persistent state did not converge; the stale-sweeper will re-enqueue. | Zero in steady state; transient spikes during DB rolls. |
 | `repo_guardian_store_writeback_duration_seconds` | Latency of `UpdateRepoState` from the worker pool. | p99 < 50ms. Bumps in this metric — but flat `store_query_seconds` — point at write-contention or a missing index, not a generic DB problem. |
 
+## Discoverer + BudgetTracker (IMPL-0015 Phase 1)
+
+The Discoverer runs on the leader pod at `DISCOVERY_INTERVAL` (default 1h), enumerates installations + repos via the GitHub API, and persists discovery rows via `Store.UpsertIfMissing`. Newly-discovered rows enter `repo_state` with `LastCheckStatus=pending` and a jittered `LastCheckedAt` so the stale-sweeper picks them up on its next tick without synchronizing every repo's due-time.
+
+The `BudgetTracker` (`internal/budget/`) is a per-installation, leader-scoped cache of the GitHub rate-limit window. Both the StaleSweeper and Discoverer share a single tracker via `bringUp` wire-up so the cost-per-repo accounting reflects total enqueue pressure.
+
+### Discovery metrics
+
+| Metric | Meaning | Healthy signal |
+|---|---|---|
+| `repo_guardian_repo_discovered_total{installation_id}` | New repos surfaced by the Discoverer per installation. | Bumps on first discovery; flat thereafter (idempotent UpsertIfMissing). |
+| `repo_guardian_discovery_duration_seconds` | Wall-clock per `Discoverer.Discover` invocation. | Scales with installations × repos; p99 should fit comfortably inside `DISCOVERY_INTERVAL`. |
+| `repo_guardian_discovery_api_calls_total{installation_id, endpoint}` | GitHub API calls the Discoverer made. | Steady rate; `endpoint="list_installation_repos"` is the dominant contributor. |
+
+### Budget metrics
+
+| Metric | Meaning | Healthy signal |
+|---|---|---|
+| `repo_guardian_api_budget_remaining{installation_id}` | Cached rate-limit budget remaining after local Decrement. Tighter than `rate_limit_remaining` because it includes pending-but-not-yet-completed Enqueues. | Tracks `rate_limit_remaining` but never exceeds it. |
+| `repo_guardian_api_budget_spendable{installation_id}` | Additional enqueues the tracker will allow without breaching reserve. | Positive in steady state; dropping to zero is the gate-closing signal. |
+| `repo_guardian_api_budget_reserve_fraction{installation_id}` | Operator-configured reserve floor (chart value `discovery.reserveFraction`). | Constant; useful to confirm chart values landed without grepping logs. |
+| `repo_guardian_api_budget_utilisation{installation_id}` | `1 - (remaining / limit)`. | Steady; rising values approaching `reserve_fraction` signal the deployment is becoming rate-limit-bound. |
+| `repo_guardian_api_budget_refresh_total{installation_id, outcome="error"}` | Failed tracker refresh attempts. | Zero in steady state. Non-zero means the gate is falling open (no snapshot to check against) and the deployment may exceed budget. |
+| `repo_guardian_enqueue_gated_by_budget_total{installation_id}` | Enqueues blocked by the BudgetTracker reserve gate. | Zero in normal operation. Non-zero means the deployment is rate-limit-bound — only fixes are `staleSweep.freshness↑`, rules↓, or per-org App credentials (INV-0006). |
+
+### Tuning
+
+- `discovery.reserveFraction` (default 0.20) — operators with smooth load can lower this for higher utilisation; bursty workloads should raise it. Cannot exceed 1.0.
+- `discovery.estimatedCostPerRepo` (default 10) — calibrate against `repo_guardian_repos_checked_total` ÷ `rate_limit_remaining` drop per sweep. Bump higher if you see budget exhaustion despite the tracker reporting positive `api_budget_spendable`.
+- `discovery.interval` (default 1h) — primary discovery channel is webhooks (`installation_repositories.added` / `repository.created`); the Discoverer is the safety net for missed deliveries. Operators confident in webhook fidelity can stretch this to 6h+.
+
 ## Sizing for Valkey
 
 Valkey is small. The queue + in-flight ZSET + reaper lock fit in single-digit MB even for tens of thousands of jobs. The `queue.valkey.baked` 1Gi PVC is conservative; you'll never fill it.

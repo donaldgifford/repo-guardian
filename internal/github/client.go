@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	gh "github.com/google/go-github/v68/github"
@@ -350,35 +351,41 @@ func (c *GitHubClient) ListInstallationRepos(ctx context.Context, installationID
 
 // RateLimitRemaining queries the installation-scoped client for the
 // current core rate-limit budget. Updates the per-installation
-// rate_limit_remaining gauge as a side effect. Returns (0, 0, nil)
-// when the upstream call fails so callers can treat it as "unknown
-// — fall open" rather than "exhausted — gate closed".
-func (c *GitHubClient) RateLimitRemaining(ctx context.Context, installationID int64) (int, int, error) {
+// rate_limit_remaining gauge as a side effect. Returns
+// (0, 0, time.Time{}, nil) when the upstream call fails so callers
+// can treat it as "unknown — fall open" rather than "exhausted —
+// gate closed".
+//
+// resetAt is the GitHub-reported hourly window rollover; callers may
+// compare it against time.Now() to drive auto-refresh of cached
+// budget snapshots.
+func (c *GitHubClient) RateLimitRemaining(ctx context.Context, installationID int64) (int, int, time.Time, error) {
 	scoped, err := c.CreateInstallationClient(ctx, installationID)
 	if err != nil {
-		return 0, 0, fmt.Errorf("rate-limit installation client: %w", err)
+		return 0, 0, time.Time{}, fmt.Errorf("rate-limit installation client: %w", err)
 	}
 
 	gc, ok := scoped.(*GitHubClient)
 	if !ok {
-		return 0, 0, fmt.Errorf("rate-limit unexpected client type %T", scoped)
+		return 0, 0, time.Time{}, fmt.Errorf("rate-limit unexpected client type %T", scoped)
 	}
 
 	limits, _, err := gc.ghClient().RateLimit.Get(ctx)
 	if err != nil {
-		return 0, 0, fmt.Errorf("rate-limit Get: %w", err)
+		return 0, 0, time.Time{}, fmt.Errorf("rate-limit Get: %w", err)
 	}
 
 	core := limits.GetCore()
 
 	remaining := core.Remaining
 	limit := core.Limit
+	resetAt := core.Reset.Time
 
 	metrics.RateLimitRemaining.
 		WithLabelValues(strconv.FormatInt(installationID, 10)).
 		Set(float64(remaining))
 
-	return remaining, limit, nil
+	return remaining, limit, resetAt, nil
 }
 
 // CreateInstallationClient returns a Client scoped to a specific installation.

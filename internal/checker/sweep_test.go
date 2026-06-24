@@ -146,17 +146,17 @@ type fakeRateLimit struct {
 	err       error
 }
 
-func (f *fakeRateLimit) RateLimitRemaining(_ context.Context, id int64) (int, int, error) {
+func (f *fakeRateLimit) RateLimitRemaining(_ context.Context, id int64) (int, int, time.Time, error) {
 	if f.err != nil {
-		return 0, 0, f.err
+		return 0, 0, time.Time{}, f.err
 	}
 
 	rem, ok := f.remaining[id]
 	if !ok {
-		return f.limit, f.limit, nil
+		return f.limit, f.limit, time.Time{}, nil
 	}
 
-	return rem, f.limit, nil
+	return rem, f.limit, time.Time{}, nil
 }
 
 func warnLogger() *slog.Logger {

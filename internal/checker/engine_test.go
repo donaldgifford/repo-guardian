@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
@@ -280,8 +281,8 @@ func (*mockClient) DeleteLabel(_ context.Context, _, _, _ string) error {
 	return nil
 }
 
-func (*mockClient) RateLimitRemaining(_ context.Context, _ int64) (int, int, error) {
-	return 5000, 5000, nil
+func (*mockClient) RateLimitRemaining(_ context.Context, _ int64) (int, int, time.Time, error) {
+	return 5000, 5000, time.Time{}, nil
 }
 
 func (m *mockClient) GetContentsOnBranch(_ context.Context, owner, repo, path, branch string) (string, bool, error) {

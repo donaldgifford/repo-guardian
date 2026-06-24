@@ -335,18 +335,28 @@ Discoverer path.
 
 **1.1 — `BudgetTracker` implementation**
 
-- [ ] Create `internal/scheduler/budget.go` (or `internal/budget/` — see
-  Open Question 2) with the `BudgetTracker` struct per DESIGN-0017
-  snippet.
-- [ ] Implement `SpendableForEnqueue() int`,
-  `RefreshFromAPI(client) error`, and a `Decrement(cost int)` helper.
-- [ ] Add per-installation tracker map (keyed by `installationID
-  int64`) to the leader (Scheduler).
-- [ ] Add `resetAt`-elapsed refresh trigger so the tracker
-  auto-refreshes when the GitHub-reported hourly window rolls.
-- [ ] Write unit tests with a fake `RateLimitClient`. Cover:
-  budget-exhausted gate, reset-elapsed refresh, decrement
-  accuracy, multi-installation isolation.
+- [x] Create `internal/budget/` package (per OQ 2b) with the
+  `Tracker` struct. `RateLimitClient` is a small in-package interface
+  the production wiring binds to `github.Client.RateLimitRemaining`;
+  `github.Client.RateLimitRemaining` was extended to return the
+  `resetAt` so the tracker can detect the GitHub-reported hourly
+  window rolling. All existing call sites (5 mock impls,
+  `internal/checker/sweep.go.allowedByRateLimit`) updated in lockstep.
+- [x] Implement `SpendableForEnqueue(installationID) (int, error)`,
+  `RefreshFromAPI(ctx, client, installationID) error`, and a
+  `Decrement(installationID)` helper that subtracts
+  `Options.CostPerRepo` per call.
+- [x] Per-installation tracker map keyed by `installationID int64`,
+  guarded by `sync.Mutex` for concurrent caller safety.
+- [x] `resetAt`-elapsed refresh trigger: `SpendableForEnqueue`
+  returns `ErrNoSnapshot` when the cached snapshot's `ResetAt` is in
+  the past; callers refresh on that signal.
+- [x] Unit tests against a fake `RateLimitClient` cover: no-snapshot
+  fall-open, refresh-then-spendable, budget-exhausted gate,
+  Decrement accuracy, resetAt-elapsed → ErrNoSnapshot,
+  multi-installation isolation, refresh-error propagation,
+  unknown-limit fall-open, Decrement-without-snapshot no-op,
+  and panic on invalid Options.
 
 **1.2 — Wire `BudgetTracker` into `StaleSweeper`**
 

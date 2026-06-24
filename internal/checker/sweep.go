@@ -36,7 +36,7 @@ import (
 // in-memory stub. Returning a negative remaining means "unknown" —
 // the gate falls open.
 type RateLimitProvider interface {
-	RateLimitRemaining(ctx context.Context, installationID int64) (remaining, limit int, err error)
+	RateLimitRemaining(ctx context.Context, installationID int64) (remaining, limit int, resetAt time.Time, err error)
 }
 
 // StaleSweeper reads the stale-repo list from a Store and enqueues
@@ -183,7 +183,7 @@ func (s *StaleSweeper) allowedByRateLimit(ctx context.Context, installationID in
 		return true
 	}
 
-	remaining, limit, err := s.rateLimit.RateLimitRemaining(ctx, installationID)
+	remaining, limit, _, err := s.rateLimit.RateLimitRemaining(ctx, installationID)
 	if err != nil {
 		s.logger.WarnContext(ctx, "rate-limit lookup failed; falling open",
 			"installation_id", installationID,

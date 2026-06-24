@@ -289,8 +289,11 @@ as `Discoverer.Discover`; only the *schedule call* is removed here.
   labelled by `installation_id` and `outcome` (`ok` | `error`).
 - [x] Add `repo_guardian_store_writeback_duration_seconds` as a
   Histogram.
-- [ ] Wire both metrics into the worker's UpdateRepoState call site
-  added in Task 0.1.
+- [x] Wire both metrics into the worker's UpdateRepoState call site
+  added in Task 0.1. (`writeBack` in `internal/worker/worker.go`
+  increments `StoreWritebackTotal` with the per-installation label
+  and observes `StoreWritebackDurationSeconds` on every call,
+  success and error paths.)
 - [x] Update `charts/repo-guardian/templates/prometheusrule.yaml` if
   any alerts on the new metrics are warranted. None planned for
   Phase 0 — these are observation metrics.

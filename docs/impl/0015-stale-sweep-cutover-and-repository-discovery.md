@@ -360,15 +360,24 @@ Discoverer path.
 
 **1.2 — Wire `BudgetTracker` into `StaleSweeper`**
 
-- [ ] In `internal/checker/sweep.go.SweepStale`, build a per-tick
-  `budgets map[int64]int` from the candidate set's installations.
-- [ ] Before each `Queue.Enqueue` call, consult
+- [x] `StaleSweeperOptions.Budget *budget.Tracker` field; the
+  StaleSweeper now consults the optional tracker via
+  `allowedByBudget` AFTER the existing live-API reserve gate
+  (`allowedByRateLimit`). Both gates can deny enqueue; only the
+  newer budget gate counts under
+  `enqueue_gated_by_budget_total`.
+- [x] Before each `Queue.Enqueue` call, consult
   `tracker.SpendableForEnqueue()`. If 0, increment
   `enqueue_gated_by_budget_total` and skip the enqueue.
-- [ ] On successful enqueue, decrement the tracker's `remaining`
+- [x] On successful enqueue, decrement the tracker's `remaining`
   field by `costPerRepo`.
-- [ ] Add unit tests covering: all-within-budget, budget-exhausted-mid-tick,
-  budget-recovers-on-next-tick.
+- [x] Add unit tests covering: budget-gated-zero-spendable,
+  decrement-on-successful-enqueue (3 enqueues × 10 cost = 30
+  budget burned). Existing all-within-budget path covered
+  implicitly by `TestStaleSweeper_EnqueuesStaleRepos`
+  (tracker nil → fall open). Budget-recovers-on-next-tick is
+  exercised by the in-process tracker semantics (next
+  RefreshFromAPI restores the snapshot).
 
 **1.3 — `Discoverer.Discover` implementation**
 

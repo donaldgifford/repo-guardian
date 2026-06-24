@@ -84,6 +84,50 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.SchedulerBackend != SchedulerBackendValkey {
 		t.Errorf("SchedulerBackend default = %q, want %q", cfg.SchedulerBackend, SchedulerBackendValkey)
 	}
+
+	if !cfg.DiscoveryEnabled {
+		t.Error("DiscoveryEnabled should default to true")
+	}
+
+	if cfg.DiscoveryInterval != time.Hour {
+		t.Errorf("DiscoveryInterval = %v, want 1h", cfg.DiscoveryInterval)
+	}
+
+	if cfg.DiscoveryReserveFraction != 0.20 {
+		t.Errorf("DiscoveryReserveFraction = %v, want 0.20", cfg.DiscoveryReserveFraction)
+	}
+
+	if cfg.DiscoveryEstimatedCostPerRepo != 10 {
+		t.Errorf("DiscoveryEstimatedCostPerRepo = %d, want 10", cfg.DiscoveryEstimatedCostPerRepo)
+	}
+}
+
+func TestLoadDiscovery_InvalidReserveFraction(t *testing.T) {
+	t.Setenv("GITHUB_APP_ID", "12345")
+	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/path/to/key.pem")
+	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
+	t.Setenv("STORE_DSN", "postgres://u:p@localhost:5432/db?sslmode=disable")
+	t.Setenv("QUEUE_VALKEY_DSN", "redis://localhost:6379/0")
+	t.Setenv("DISCOVERY_RESERVE_FRACTION", "1.5")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error for out-of-range DISCOVERY_RESERVE_FRACTION")
+	}
+}
+
+func TestLoadDiscovery_InvalidCostPerRepo(t *testing.T) {
+	t.Setenv("GITHUB_APP_ID", "12345")
+	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/path/to/key.pem")
+	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
+	t.Setenv("STORE_DSN", "postgres://u:p@localhost:5432/db?sslmode=disable")
+	t.Setenv("QUEUE_VALKEY_DSN", "redis://localhost:6379/0")
+	t.Setenv("DISCOVERY_ESTIMATED_COST_PER_REPO", "0")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error for DISCOVERY_ESTIMATED_COST_PER_REPO=0")
+	}
 }
 
 // TestLoadRejects_DeprecatedStoreBackend asserts a migration-aware

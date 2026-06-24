@@ -93,3 +93,37 @@ tests:
           content:
             name: AUTO_CLOSE_PR
             value: "false"
+
+  - it: emits IMPL-0015 Phase 1 discovery env vars with defaults
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DISCOVERY_ENABLED
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DISCOVERY_INTERVAL
+            value: "1h"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DISCOVERY_RESERVE_FRACTION
+            value: "0.2"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DISCOVERY_ESTIMATED_COST_PER_REPO
+            value: "10"
+
+  - it: respects discovery.enabled=false override
+    set:
+      discovery:
+        enabled: false
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DISCOVERY_ENABLED
+            value: "false"

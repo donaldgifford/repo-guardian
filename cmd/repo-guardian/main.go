@@ -17,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/donaldgifford/repo-guardian/internal/budget"
 	"github.com/donaldgifford/repo-guardian/internal/checker"
 	"github.com/donaldgifford/repo-guardian/internal/config"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
@@ -73,12 +74,12 @@ func run() error {
 		return fmt.Errorf("create github client: %w", err)
 	}
 
-	policyCfg, engine := loadPolicyAndEngine(cfg, *strictTemplates, logger)
+	policyCfg, engine, templates := loadPolicyAndEngine(cfg, *strictTemplates, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	rt, err := bringUp(ctx, cfg, policyCfg, engine, client, logger)
+	rt, err := bringUp(ctx, cfg, policyCfg, engine, templates, client, logger)
 	if err != nil {
 		return err
 	}
@@ -132,6 +133,7 @@ func bringUp(
 	cfg *config.Config,
 	policyCfg *policy.PolicyConfig,
 	engine *checker.Engine,
+	templates *rules.TemplateStore,
 	client ghclient.Client,
 	logger *slog.Logger,
 ) (*runtime, error) {
@@ -154,48 +156,24 @@ func bringUp(
 		return nil, fmt.Errorf("create scheduler: %w", err)
 	}
 
-	sweeper := scheduler.NewSweeper(
-		client,
-		qw.queue,
-		policyCfg.Guardian.ParsedScheduleInterval,
-		logger,
-		policyCfg.Guardian.SkipForks,
-		policyCfg.Guardian.SkipArchived,
-	)
-
-	if err := sched.Schedule(ctx, "sweep", policyCfg.Guardian.ParsedScheduleInterval, sweeper.ReconcileAll); err != nil {
-		closeAndLog(logger, "scheduler stop after schedule-call failure", sched.Stop)
-		closeAndLog(logger, "store close after schedule-call failure", stateStore.Close)
-
-		return nil, fmt.Errorf("schedule sweep: %w", err)
+	policyVersion, vErr := policy.Version(policyCfg, templates.AsMap())
+	if vErr != nil {
+		logger.Warn("policy.Version failed; stale-sweep policy_version will be empty", "error", vErr)
 	}
 
-	if cfg.StoreBackend == config.StoreBackendPostgres {
-		policyVersion, vErr := policy.Version(policyCfg, nil)
-		if vErr != nil {
-			logger.Warn("policy.Version failed; stale-sweep policy_version will be empty", "error", vErr)
-		}
+	tracker := budget.New(budget.Options{
+		ReserveFraction: cfg.DiscoveryReserveFraction,
+		CostPerRepo:     cfg.DiscoveryEstimatedCostPerRepo,
+	})
 
-		staleSweeper := checker.NewStaleSweeper(checker.StaleSweeperOptions{
-			Store:         stateStore,
-			Queue:         qw.queue,
-			RateLimit:     client,
-			Logger:        logger,
-			Freshness:     cfg.ReconcileFreshness,
-			PolicyVersion: policyVersion,
-			BatchSize:     cfg.StaleSweepBatchSize,
-			Reserve:       cfg.RateLimitReserve,
-		})
+	if err := scheduleHandlers(ctx, cfg, policyCfg, stateStore, qw.queue, client, sched, tracker, policyVersion, logger); err != nil {
+		closeAndLog(logger, "scheduler stop after handler-schedule failure", sched.Stop)
+		closeAndLog(logger, "store close after handler-schedule failure", stateStore.Close)
 
-		if err := sched.Schedule(ctx, "stale-sweep", policyCfg.Guardian.ParsedScheduleInterval, staleSweeper.SweepStale); err != nil {
-			closeAndLog(logger, "scheduler stop after stale-schedule-call failure", sched.Stop)
-			closeAndLog(logger, "store close after stale-schedule-call failure", stateStore.Close)
-
-			return nil, fmt.Errorf("schedule stale-sweep: %w", err)
-		}
+		return nil, err
 	}
 
-	workerPool := worker.New(qw.queue, engine, client, policyCfg.Guardian.WorkerCount, logger)
+	workerPool := worker.New(qw.queue, engine, client, stateStore, policyVersion, policyCfg.Guardian.WorkerCount, logger)
 	workerPool.Start(ctx)
 
 	if qw.reaper != nil {
@@ -211,7 +189,15 @@ func bringUp(
 	}
 
 	watchedPaths := policy.ExtractWatchedPaths(policyCfg)
-	webhookHandler := webhook.NewHandler(cfg.GitHubWebhookSecret, qw.queue, logger, watchedPaths)
+	webhookHandler := webhook.NewHandler(
+		cfg.GitHubWebhookSecret,
+		qw.queue,
+		logger,
+		watchedPaths,
+		stateStore,
+		policyVersion,
+		cfg.ReconcileFreshness,
+	)
 
 	return &runtime{
 		stateStore:     stateStore,
@@ -223,12 +209,75 @@ func bringUp(
 	}, nil
 }
 
+// scheduleHandlers wires both periodic schedulers onto the
+// scheduler.Scheduler. StaleSweeper always runs (IMPL-0011 Phase 5);
+// Discoverer runs only when cfg.DiscoveryEnabled (IMPL-0015 Phase 1).
+// Returns an error if either Schedule call fails — the caller is
+// responsible for tearing down the partially-built runtime.
+func scheduleHandlers(
+	ctx context.Context,
+	cfg *config.Config,
+	policyCfg *policy.PolicyConfig,
+	stateStore store.Store,
+	q queue.Queue,
+	client ghclient.Client,
+	sched scheduler.Scheduler,
+	tracker *budget.Tracker,
+	policyVersion string,
+	logger *slog.Logger,
+) error {
+	staleSweeper := checker.NewStaleSweeper(checker.StaleSweeperOptions{
+		Store:         stateStore,
+		Queue:         q,
+		RateLimit:     client,
+		Budget:        tracker,
+		Logger:        logger,
+		Freshness:     cfg.ReconcileFreshness,
+		PolicyVersion: policyVersion,
+		BatchSize:     cfg.StaleSweepBatchSize,
+		Reserve:       cfg.RateLimitReserve,
+	})
+
+	if err := sched.Schedule(ctx, "stale-sweep", policyCfg.Guardian.ParsedScheduleInterval, staleSweeper.SweepStale); err != nil {
+		return fmt.Errorf("schedule stale-sweep: %w", err)
+	}
+
+	logger.Info("scheduled stale-sweep handler", "interval", policyCfg.Guardian.ParsedScheduleInterval)
+
+	if !cfg.DiscoveryEnabled {
+		logger.Info("discoverer disabled via DISCOVERY_ENABLED=false")
+		return nil
+	}
+
+	discoverer := scheduler.NewDiscoverer(scheduler.DiscovererOptions{
+		Client:       client,
+		Store:        stateStore,
+		Budget:       tracker,
+		Logger:       logger,
+		SkipForks:    policyCfg.Guardian.SkipForks,
+		SkipArchived: policyCfg.Guardian.SkipArchived,
+		Freshness:    cfg.ReconcileFreshness,
+	})
+
+	if err := sched.Schedule(ctx, "discovery", cfg.DiscoveryInterval, discoverer.Discover); err != nil {
+		return fmt.Errorf("schedule discovery: %w", err)
+	}
+
+	logger.Info("scheduled discovery handler", "interval", cfg.DiscoveryInterval)
+
+	return nil
+}
+
 // loadPolicyAndEngine loads the operator's HCL policy, runs strict
 // template validation when enabled, loads the template store, and
 // constructs the checker engine. Any failure exits the process.
 // Extracted from main() to keep the entrypoint under the funlen
 // statement budget.
-func loadPolicyAndEngine(cfg *config.Config, strictTemplates bool, logger *slog.Logger) (*policy.PolicyConfig, *checker.Engine) {
+func loadPolicyAndEngine(
+	cfg *config.Config,
+	strictTemplates bool,
+	logger *slog.Logger,
+) (*policy.PolicyConfig, *checker.Engine, *rules.TemplateStore) {
 	policyCfg, err := policy.Load(cfg.GuardianConfigPath)
 	if err != nil {
 		logger.Error("failed to load policy config", "error", err)
@@ -260,7 +309,7 @@ func loadPolicyAndEngine(cfg *config.Config, strictTemplates bool, logger *slog.
 		os.Exit(1)
 	}
 
-	return policyCfg, engine
+	return policyCfg, engine, templates
 }
 
 // queueWiring bundles the constructed queue, optional Valkey reaper,

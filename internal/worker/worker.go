@@ -8,12 +8,23 @@
 // queue.Queue.Subscribe shape. Worker count comes from
 // WORKER_CONCURRENCY (mapped from config.Config.WorkerCount today
 // for backward compat).
+//
+// IMPL-0015 Phase 0 added the persistent state write-back contract.
+// After every processed job the worker calls
+// stateStore.UpdateRepoState with the engine outcome and the policy
+// version under which the check ran, so the stale-sweeper can
+// identify converged vs drifted repos on the next tick. Both success
+// and error paths write back; Store-write failures are logged and
+// counted but never propagated up — the queue.Job is the source of
+// truth for "did we do the work", and the persisted state is best-
+// effort observability.
 package worker
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"sync"
 	"time"
 
@@ -21,16 +32,24 @@ import (
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/queue"
+	"github.com/donaldgifford/repo-guardian/internal/store"
 )
+
+// errMaxRunes bounds the persisted LastError width. Kept short so the
+// operator-facing dashboards / log scrapers see predictable rows;
+// full diagnostic context lives in the slog.Error from processJob.
+const errMaxRunes = 1024
 
 // Pool runs N worker goroutines that subscribe to a queue.Queue and
 // invoke engine.CheckRepo for each delivered job. Idempotent Stop.
 type Pool struct {
-	queue    queue.Queue
-	engine   *checker.Engine
-	ghClient ghclient.Client
-	logger   *slog.Logger
-	workers  int
+	queue         queue.Queue
+	engine        *checker.Engine
+	ghClient      ghclient.Client
+	stateStore    store.Store
+	policyVersion string
+	logger        *slog.Logger
+	workers       int
 
 	wg     sync.WaitGroup
 	cancel context.CancelFunc
@@ -38,15 +57,29 @@ type Pool struct {
 	done   bool
 }
 
-// New constructs a Pool wired to the given queue, engine, and client.
+// New constructs a Pool wired to the given queue, engine, client,
+// state store, and policy version. The state store + policy version
+// drive the per-job write-back added in IMPL-0015 Phase 0; pass a nil
+// stateStore in tests that don't exercise that path.
+//
 // Use Start to launch the workers; Stop to drain and shut down.
-func New(q queue.Queue, engine *checker.Engine, ghClient ghclient.Client, workers int, logger *slog.Logger) *Pool {
+func New(
+	q queue.Queue,
+	engine *checker.Engine,
+	ghClient ghclient.Client,
+	stateStore store.Store,
+	policyVersion string,
+	workers int,
+	logger *slog.Logger,
+) *Pool {
 	return &Pool{
-		queue:    q,
-		engine:   engine,
-		ghClient: ghClient,
-		workers:  workers,
-		logger:   logger,
+		queue:         q,
+		engine:        engine,
+		ghClient:      ghClient,
+		stateStore:    stateStore,
+		policyVersion: policyVersion,
+		workers:       workers,
+		logger:        logger,
 	}
 }
 
@@ -127,6 +160,7 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 	if err != nil {
 		jobLog.Error("failed to create installation client", "error", err)
 		metrics.ErrorsTotal.WithLabelValues("create_install_client", j.Owner).Inc()
+		p.writeBack(ctx, jobLog, j, err)
 
 		return fmt.Errorf("create installation client for %d: %w", j.InstallationID, err)
 	}
@@ -134,6 +168,7 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 	if err := p.engine.CheckRepo(ctx, installClient, j.Owner, j.Repo); err != nil {
 		jobLog.Error("job failed", "error", err, "duration", time.Since(start))
 		metrics.ErrorsTotal.WithLabelValues("check_repo", j.Owner).Inc()
+		p.writeBack(ctx, jobLog, j, err)
 
 		return fmt.Errorf("check %s/%s: %w", j.Owner, j.Repo, err)
 	}
@@ -141,7 +176,55 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 	duration := time.Since(start)
 	metrics.ReposCheckedTotal.WithLabelValues(j.Trigger, j.Owner).Inc()
 	metrics.CheckDurationSeconds.Observe(duration.Seconds())
+	p.writeBack(ctx, jobLog, j, nil)
 	jobLog.Info("job completed", "duration", duration)
 
 	return nil
+}
+
+// writeBack persists the per-job outcome to the Store. checkErr=nil
+// is the success path (StatusSuccess, empty LastError); checkErr!=nil
+// is the error path (StatusError, truncated error message). Best-
+// effort: a Store-write failure logs at Warn, counts under
+// store_writeback_total{outcome="error"}, and returns. The queue.Job
+// is the source of truth for "did we do the work" — losing the
+// persisted state just means the next sweep will re-enqueue.
+//
+//nolint:gocritic // hugeParam: queue.Job-by-value matches Subscribe's contract
+func (p *Pool) writeBack(ctx context.Context, log *slog.Logger, j queue.Job, checkErr error) {
+	if p.stateStore == nil {
+		return
+	}
+
+	now := time.Now().UTC()
+
+	state := &store.RepoState{
+		InstallationID: j.InstallationID,
+		Owner:          j.Owner,
+		Repo:           j.Repo,
+		LastCheckedAt:  &now,
+		PolicyVersion:  p.policyVersion,
+	}
+
+	if checkErr == nil {
+		state.LastCheckStatus = store.StatusSuccess
+	} else {
+		state.LastCheckStatus = store.StatusError
+		state.LastError = store.Truncate(checkErr.Error(), errMaxRunes)
+	}
+
+	installLabel := strconv.FormatInt(j.InstallationID, 10)
+	wbStart := time.Now()
+
+	err := p.stateStore.UpdateRepoState(ctx, state)
+	metrics.StoreWritebackDurationSeconds.Observe(time.Since(wbStart).Seconds())
+
+	outcome := "ok"
+	if err != nil {
+		outcome = "error"
+
+		log.Warn("store write-back failed; sweep will re-enqueue", "error", err)
+	}
+
+	metrics.StoreWritebackTotal.WithLabelValues(installLabel, outcome).Inc()
 }

@@ -192,6 +192,63 @@ func (_c *MockStore_StaleRepos_Call) RunAndReturn(run func(context.Context, time
 	return _c
 }
 
+// UpsertIfMissing provides a mock function with given fields: ctx, s
+func (_m *MockStore) UpsertIfMissing(ctx context.Context, s *store.RepoState) (bool, error) {
+	ret := _m.Called(ctx, s)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpsertIfMissing")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *store.RepoState) (bool, error)); ok {
+		return rf(ctx, s)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *store.RepoState) bool); ok {
+		r0 = rf(ctx, s)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *store.RepoState) error); ok {
+		r1 = rf(ctx, s)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockStore_UpsertIfMissing_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpsertIfMissing'
+type MockStore_UpsertIfMissing_Call struct {
+	*mock.Call
+}
+
+// UpsertIfMissing is a helper method to define mock.On call
+//   - ctx context.Context
+//   - s *store.RepoState
+func (_e *MockStore_Expecter) UpsertIfMissing(ctx interface{}, s interface{}) *MockStore_UpsertIfMissing_Call {
+	return &MockStore_UpsertIfMissing_Call{Call: _e.mock.On("UpsertIfMissing", ctx, s)}
+}
+
+func (_c *MockStore_UpsertIfMissing_Call) Run(run func(ctx context.Context, s *store.RepoState)) *MockStore_UpsertIfMissing_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*store.RepoState))
+	})
+	return _c
+}
+
+func (_c *MockStore_UpsertIfMissing_Call) Return(_a0 bool, _a1 error) *MockStore_UpsertIfMissing_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockStore_UpsertIfMissing_Call) RunAndReturn(run func(context.Context, *store.RepoState) (bool, error)) *MockStore_UpsertIfMissing_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateRepoState provides a mock function with given fields: ctx, s
 func (_m *MockStore) UpdateRepoState(ctx context.Context, s *store.RepoState) error {
 	ret := _m.Called(ctx, s)

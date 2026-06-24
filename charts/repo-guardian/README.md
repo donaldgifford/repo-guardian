@@ -13,7 +13,7 @@ SLSA Level 3 provenance attestations.
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 0.7.1 \
+  --version 1.0.0-rc.2 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -28,7 +28,7 @@ aws ecr get-login-password --region <region> | \
 
 helm install repo-guardian \
   oci://<account>.dkr.ecr.<region>.amazonaws.com/repo-guardian-chart \
-  --version 0.7.1 \
+  --version 1.0.0-rc.2 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -64,7 +64,7 @@ secrets:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 0.7.1 \
+  --version 1.0.0-rc.2 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -192,7 +192,7 @@ cosign verify \
     '^https://github.com/donaldgifford/repo-guardian/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:0.7.1
+  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.2
 ```
 
 ### SLSA provenance
@@ -203,7 +203,7 @@ cosign verify-attestation --type slsaprovenance \
     '^https://github.com/slsa-framework/slsa-github-generator/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:0.7.1
+  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.2
 ```
 
 The provenance attestation records the build workflow path, source
@@ -298,6 +298,62 @@ The chart's reserved-name list (`_helpers.tpl`) blocks
 helm-render time, but the `env` helper itself can read whatever
 the OS gives it.
 
+### Repository discovery and rate-limit budgeting (IMPL-0015)
+
+`repo-guardian` 1.0.0-rc.2+ ships two cooperating schedulers on the
+leader pod:
+
+- **`Discoverer`** (`scheduler/discoverer.go`) enumerates installations
+  + repos via the GitHub API at `DISCOVERY_INTERVAL` and persists
+  discovery rows via `Store.UpsertIfMissing` — atomic
+  `INSERT ... ON CONFLICT DO NOTHING` so concurrent webhooks +
+  Discoverer never race. Newly-seeded rows enter `repo_state` with a
+  jittered `LastCheckedAt` so a fleet onboarding doesn't cluster every
+  repo's due-time at the same instant. Webhook-driven discovery
+  (`installation_repositories.added`, `repository.created`,
+  `installation.created`) is the primary on-ramp; the periodic
+  Discoverer is the safety net for missed deliveries.
+- **`StaleSweeper`** (`checker/sweep.go`) queries Postgres for rows
+  whose `last_checked_at` is older than `RECONCILE_FRESHNESS` or whose
+  `policy_version` differs from the current one, and enqueues each to
+  the Valkey work queue. There is no full-fleet enumeration on every
+  tick — the legacy `sweep` schedule was removed in 1.0.0-rc.2.
+
+Both schedulers consult a shared **`BudgetTracker`** before each
+enqueue. The tracker caches GitHub's rate-limit window per
+installation and refuses to enqueue when `remaining < limit ×
+reserveFraction`. When it blocks an enqueue,
+`repo_guardian_enqueue_gated_by_budget_total{installation_id}` ticks
+up; the starter alert `RepoGuardianBudgetGated` fires after 30
+minutes of sustained gating so operators know the deployment is
+rate-limit-bound. Tuning levers: `discovery.reserveFraction`
+(default `0.20`), `discovery.estimatedCostPerRepo` (default `10`),
+`staleSweep.freshness` (default `24h`). See
+[`docs/operations/scaling.md`](../../docs/operations/scaling.md#discoverer--budgettracker-impl-0015-phase-1)
+for the full metrics catalogue + alert tuning notes.
+
+### Editing a template ConfigMap invalidates the policy version
+
+`policy.Version` (the hash that gates stale-sweep re-enqueue) is
+computed over BOTH the HCL policy AND the loaded template bodies.
+Editing an entry in `templates.files` or in a ConfigMap referenced
+via `templates.existingConfigMap` therefore changes the policy
+hash on the next pod restart, which in turn marks every persisted
+`repo_state` row as drifted (`policy_version <> current`) and
+triggers the stale-sweeper to re-enqueue all repos on the next
+sweep tick.
+
+This is intentional — operators should observe
+`repos_checked_total` climb across all in-scope repos within one
+`SCHEDULE_INTERVAL` window after a template edit + redeploy. If
+that does not happen, suspect either:
+
+- The pod did not pick up the new ConfigMap content (Helm
+  ConfigMap mounts are not auto-reloaded; the rollout must
+  recreate the pod), or
+- `STORE_BACKEND` is unset / not `postgres` (the hash is only
+  consumed on the Postgres-backed sweep path).
+
 ### `STRICT_TEMPLATES` recommendation
 
 Enable `templating.strict: true` (or set `STRICT_TEMPLATES=true`
@@ -324,6 +380,11 @@ incoming webhook.
 | config.skipArchived | bool | `true` | Skip archived repositories |
 | config.skipForks | bool | `true` | Skip forked repositories |
 | config.workerCount | int | `5` | Worker count for check queue |
+| discovery | object | `{"enabled":true,"estimatedCostPerRepo":10,"interval":"1h","reserveFraction":0.2}` | Repository discovery (IMPL-0015 Phase 1). The Discoverer runs on the leader pod, enumerates installations + repos via the GitHub API, and persists discovery rows via Store.UpsertIfMissing so the stale-sweeper picks them up on the next tick. Webhook-driven discovery (`installation_repositories.added` + `repository.created`) is the primary on-ramp; the periodic Discoverer is the safety net for missed deliveries. |
+| discovery.enabled | bool | `true` | Toggle the Discoverer schedule. When false the binary still responds to discovery via webhooks; only the periodic enumeration path is disabled. |
+| discovery.estimatedCostPerRepo | int | `10` | Operator estimate of the rate-limit cost of a single reconcile. Drives the BudgetTracker's spendable-enqueue accounting. Must be > 0. |
+| discovery.interval | string | `"1h"` | Cadence between Discoverer.Discover invocations. Lower values burn more API budget on list_installations + list_installation_repos; higher values delay discovery of repos the webhook path missed. |
+| discovery.reserveFraction | float | `0.2` | Fraction of the rate-limit budget the BudgetTracker holds in reserve when gating discovery enqueues. Must be in [0, 1]. |
 | extraEnv | list | `[]` | Additional environment variables |
 | extraVolumeMounts | list | `[]` | Additional volume mounts |
 | extraVolumes | list | `[]` | Additional volumes |

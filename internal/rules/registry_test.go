@@ -225,6 +225,54 @@ func TestEmbeddedTemplates_RenovateWorkflow_PreservesGHAExpressions(t *testing.T
 	}
 }
 
+// TestTemplateStoreAsMap exercises the AsMap snapshot used to feed
+// policy.Version. Verifies (1) every loaded template body appears in
+// the map keyed by name (no .tmpl suffix), (2) the returned map is a
+// copy — mutating it does not affect subsequent reads from the store,
+// and (3) a directory override is reflected in the snapshot.
+func TestTemplateStoreAsMap(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+
+	overrideContent := "# Override CODEOWNERS\n* @platform\n"
+	if err := os.WriteFile(filepath.Join(dir, "codeowners.tmpl"), []byte(overrideContent), 0o644); err != nil {
+		t.Fatalf("write override: %v", err)
+	}
+
+	ts := NewTemplateStore()
+	if err := ts.Load(dir); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	snapshot := ts.AsMap()
+
+	got, ok := snapshot["codeowners"]
+	if !ok {
+		t.Fatal("snapshot missing override key 'codeowners'")
+	}
+
+	if got != overrideContent {
+		t.Errorf("snapshot did not capture override; got %q", got)
+	}
+
+	if _, ok := snapshot["dependabot"]; !ok {
+		t.Error("snapshot missing embedded fallback 'dependabot'")
+	}
+
+	// Mutating the snapshot must not affect the store.
+	snapshot["codeowners"] = "MUTATED"
+
+	rawFromStore, err := ts.Raw("codeowners")
+	if err != nil {
+		t.Fatalf("Raw after snapshot mutation: %v", err)
+	}
+
+	if rawFromStore != overrideContent {
+		t.Errorf("AsMap leaked mutation back to store; Raw returned %q", rawFromStore)
+	}
+}
+
 func TestTemplateStoreNonexistentDir(t *testing.T) {
 	t.Parallel()
 

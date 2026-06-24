@@ -9,9 +9,11 @@ import (
 // Prometheus label name constants — keep in sync with operator dashboards
 // and PromQL recipes in contrib/README.md.
 const (
-	labelOrg      = "org"
-	labelRuleName = "rule_name"
-	labelReason   = "reason"
+	labelOrg            = "org"
+	labelRuleName       = "rule_name"
+	labelReason         = "reason"
+	labelOutcome        = "outcome"
+	labelInstallationID = "installation_id"
 )
 
 // All repo-guardian Prometheus metrics.
@@ -162,7 +164,7 @@ var (
 		Name:    "repo_guardian_store_query_seconds",
 		Help:    "Duration of Store queries in seconds.",
 		Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5},
-	}, []string{"operation", "outcome"})
+	}, []string{"operation", labelOutcome})
 
 	// QueueDepth tracks the current pending-job count of the work
 	// queue, labeled by queue (jobs or in-flight) for the Valkey
@@ -192,7 +194,7 @@ var (
 	QueueAckedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_queue_acked_total",
 		Help: "Total jobs acknowledged by a worker, by outcome.",
-	}, []string{"outcome"})
+	}, []string{labelOutcome})
 
 	// QueueReapedTotal counts in-flight jobs requeued by the reaper.
 	QueueReapedTotal = promauto.NewCounter(prometheus.CounterOpts{
@@ -216,7 +218,7 @@ var (
 	RateLimitReserveBlockedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_rate_limit_reserve_blocked_total",
 		Help: "Repos skipped by the sweep rate-limit reserve gate, by installation.",
-	}, []string{"installation_id"})
+	}, []string{labelInstallationID})
 
 	// RateLimitRemaining tracks the GitHub API rate-limit remaining
 	// budget per installation, scraped from X-RateLimit-Remaining on
@@ -225,7 +227,7 @@ var (
 	RateLimitRemaining = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "repo_guardian_rate_limit_remaining",
 		Help: "GitHub API rate limit remaining, per installation.",
-	}, []string{"installation_id"})
+	}, []string{labelInstallationID})
 
 	// SchedulerIsLeader is a gauge labeled by pod that exports 1 when
 	// the named pod holds the scheduler leader lock and 0 otherwise.
@@ -266,6 +268,109 @@ var (
 		Name: "repo_guardian_prs_closed_total",
 		Help: "Pull requests closed by repo-guardian, by reason.",
 	}, []string{labelOrg, labelReason})
+
+	// APIBudgetRemaining is the per-installation rate-limit budget
+	// remaining, as cached by the BudgetTracker (IMPL-0015 Phase 1).
+	// Differs from `rate_limit_remaining` only in source: this gauge
+	// is the in-process tracker state including local Decrements; the
+	// other reflects the most recent GitHub-reported value. Operators
+	// watching for budget exhaustion want this one.
+	APIBudgetRemaining = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_api_budget_remaining",
+		Help: "Cached rate-limit budget remaining per installation, after local Decrement accounting.",
+	}, []string{labelInstallationID})
+
+	// APIBudgetSpendable is the number of additional enqueues the
+	// tracker will allow before breaching the reserve fraction. The
+	// StaleSweeper / Discoverer consults this before each Enqueue.
+	APIBudgetSpendable = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_api_budget_spendable",
+		Help: "Enqueues the tracker will allow before breaching the reserve fraction.",
+	}, []string{labelInstallationID})
+
+	// APIBudgetReserveFraction is the operator-configured floor that
+	// the tracker holds back from enqueue. Constant per
+	// installation; exposed as a gauge so operators can confirm the
+	// chart values landed without grepping logs.
+	APIBudgetReserveFraction = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_api_budget_reserve_fraction",
+		Help: "Operator-configured reserve fraction (chart value discovery.reserveFraction).",
+	}, []string{labelInstallationID})
+
+	// APIBudgetUtilisation is `1 - (remaining / limit)`. A rising
+	// value approaching reserve_fraction signals the deployment is
+	// becoming rate-limit-bound.
+	APIBudgetUtilisation = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_api_budget_utilisation",
+		Help: "Fraction of the rate-limit window used (1 - remaining/limit).",
+	}, []string{labelInstallationID})
+
+	// APIBudgetRefreshTotal counts BudgetTracker refresh attempts by
+	// outcome. Non-zero `outcome="error"` rate indicates the
+	// tracker cannot read the rate-limit window — gate is falling
+	// open and the deployment may exceed the budget.
+	APIBudgetRefreshTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_api_budget_refresh_total",
+		Help: "BudgetTracker rate-limit refresh attempts, by installation and outcome.",
+	}, []string{labelInstallationID, labelOutcome})
+
+	// EnqueueGatedByBudgetTotal counts enqueue attempts blocked by
+	// the BudgetTracker reserve gate. A non-zero rate means the
+	// deployment is rate-limit-bound; the only fixes are
+	// freshness↑, rules↓, or per-org App credentials (INV-0006).
+	EnqueueGatedByBudgetTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_enqueue_gated_by_budget_total",
+		Help: "Enqueue attempts blocked by the BudgetTracker reserve gate, by installation.",
+	}, []string{labelInstallationID})
+
+	// RepoDiscoveredTotal counts new rows inserted by the Discoverer
+	// via Store.UpsertIfMissing. Per-installation. Increments on
+	// first sighting of a repo; subsequent runs are idempotent
+	// (created=false on the upsert) and do not increment.
+	RepoDiscoveredTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_repo_discovered_total",
+		Help: "Repositories discovered by the Discoverer (UpsertIfMissing → created=true).",
+	}, []string{labelInstallationID})
+
+	// DiscoveryDurationSeconds records the wall-clock duration of a
+	// single Discoverer.Discover invocation.
+	DiscoveryDurationSeconds = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "repo_guardian_discovery_duration_seconds",
+		Help:    "Duration of a single Discoverer.Discover invocation in seconds.",
+		Buckets: []float64{0.1, 0.5, 1, 5, 10, 30, 60, 120, 300},
+	})
+
+	// DiscoveryAPICallsTotal counts GitHub API calls the Discoverer
+	// made, labeled by installation_id and endpoint
+	// (list_installations / list_installation_repos). Lets operators
+	// see exactly which endpoint is burning their budget.
+	DiscoveryAPICallsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_discovery_api_calls_total",
+		Help: "GitHub API calls made by the Discoverer, by installation and endpoint.",
+	}, []string{labelInstallationID, "endpoint"})
+
+	// StoreWritebackTotal counts persistent state write-back attempts
+	// from the worker pool, labeled by installation_id and outcome
+	// ("ok" or "error"). Introduced by IMPL-0015 Phase 0 — every
+	// processed job's final UpdateRepoState call increments this
+	// counter. A non-zero rate at outcome="error" indicates the worker
+	// completed work that the stale-sweeper will re-enqueue on the
+	// next tick because the persisted state never converged.
+	StoreWritebackTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_store_writeback_total",
+		Help: "Persistent-state write-back attempts from the worker pool, by installation and outcome.",
+	}, []string{labelInstallationID, labelOutcome})
+
+	// StoreWritebackDurationSeconds records the latency of worker-pool
+	// write-back attempts. Same call site as StoreWritebackTotal;
+	// observed on both success and error paths so percentile latency
+	// reflects the full distribution (failed writes that take 5s to
+	// time out are a real signal, not a censored sample).
+	StoreWritebackDurationSeconds = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "repo_guardian_store_writeback_duration_seconds",
+		Help:    "Latency of worker-pool persistent-state write-backs in seconds.",
+		Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5},
+	})
 
 	// PROrphanLeftTotal counts orphan files that repo-guardian
 	// attempted to delete from a reconcile branch but couldn't

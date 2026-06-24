@@ -181,8 +181,8 @@ func (*mockClient) DeleteLabel(_ context.Context, _, _, _ string) error {
 	return fmt.Errorf("not implemented")
 }
 
-func (*mockClient) RateLimitRemaining(_ context.Context, _ int64) (int, int, error) {
-	return 5000, 5000, nil
+func (*mockClient) RateLimitRemaining(_ context.Context, _ int64) (int, int, time.Time, error) {
+	return 5000, 5000, time.Time{}, nil
 }
 
 func (*mockClient) GetContentsOnBranch(_ context.Context, _, _, _, _ string) (string, bool, error) {

@@ -145,6 +145,47 @@ Each Store query is a single round-trip; tracked via `repo_guardian_store_query_
 - Index health (`pg_stat_user_indexes` on `repo_state`).
 - CNPG instance count if running in `mode=cnpg` (default 1; bump to 3 for HA).
 
+### Write-back observability (IMPL-0015 Phase 0)
+
+Worker write-backs are tracked separately from generic Store queries:
+
+| Metric | Meaning | Healthy signal |
+|---|---|---|
+| `repo_guardian_store_writeback_total{outcome="ok"}` | Worker finished a job and persisted its outcome. Rises 1:1 with `repo_guardian_repos_checked_total` modulo write-back errors. | Lock-step with `repos_checked_total`. |
+| `repo_guardian_store_writeback_total{outcome="error"}` | Worker finished a job but `UpdateRepoState` failed. The work was real (PR opened/updated, files committed) but persistent state did not converge; the stale-sweeper will re-enqueue. | Zero in steady state; transient spikes during DB rolls. |
+| `repo_guardian_store_writeback_duration_seconds` | Latency of `UpdateRepoState` from the worker pool. | p99 < 50ms. Bumps in this metric — but flat `store_query_seconds` — point at write-contention or a missing index, not a generic DB problem. |
+
+## Discoverer + BudgetTracker (IMPL-0015 Phase 1)
+
+The Discoverer runs on the leader pod at `DISCOVERY_INTERVAL` (default 1h), enumerates installations + repos via the GitHub API, and persists discovery rows via `Store.UpsertIfMissing`. Newly-discovered rows enter `repo_state` with `LastCheckStatus=pending` and a jittered `LastCheckedAt` so the stale-sweeper picks them up on its next tick without synchronizing every repo's due-time.
+
+The `BudgetTracker` (`internal/budget/`) is a per-installation, leader-scoped cache of the GitHub rate-limit window. Both the StaleSweeper and Discoverer share a single tracker via `bringUp` wire-up so the cost-per-repo accounting reflects total enqueue pressure.
+
+### Discovery metrics
+
+| Metric | Meaning | Healthy signal |
+|---|---|---|
+| `repo_guardian_repo_discovered_total{installation_id}` | New repos surfaced by the Discoverer per installation. | Bumps on first discovery; flat thereafter (idempotent UpsertIfMissing). |
+| `repo_guardian_discovery_duration_seconds` | Wall-clock per `Discoverer.Discover` invocation. | Scales with installations × repos; p99 should fit comfortably inside `DISCOVERY_INTERVAL`. |
+| `repo_guardian_discovery_api_calls_total{installation_id, endpoint}` | GitHub API calls the Discoverer made. | Steady rate; `endpoint="list_installation_repos"` is the dominant contributor. |
+
+### Budget metrics
+
+| Metric | Meaning | Healthy signal |
+|---|---|---|
+| `repo_guardian_api_budget_remaining{installation_id}` | Cached rate-limit budget remaining after local Decrement. Tighter than `rate_limit_remaining` because it includes pending-but-not-yet-completed Enqueues. | Tracks `rate_limit_remaining` but never exceeds it. |
+| `repo_guardian_api_budget_spendable{installation_id}` | Additional enqueues the tracker will allow without breaching reserve. | Positive in steady state; dropping to zero is the gate-closing signal. |
+| `repo_guardian_api_budget_reserve_fraction{installation_id}` | Operator-configured reserve floor (chart value `discovery.reserveFraction`). | Constant; useful to confirm chart values landed without grepping logs. |
+| `repo_guardian_api_budget_utilisation{installation_id}` | `1 - (remaining / limit)`. | Steady; rising values approaching `reserve_fraction` signal the deployment is becoming rate-limit-bound. |
+| `repo_guardian_api_budget_refresh_total{installation_id, outcome="error"}` | Failed tracker refresh attempts. | Zero in steady state. Non-zero means the gate is falling open (no snapshot to check against) and the deployment may exceed budget. |
+| `repo_guardian_enqueue_gated_by_budget_total{installation_id}` | Enqueues blocked by the BudgetTracker reserve gate. | Zero in normal operation. Non-zero means the deployment is rate-limit-bound — only fixes are `staleSweep.freshness↑`, rules↓, or per-org App credentials (INV-0006). |
+
+### Tuning
+
+- `discovery.reserveFraction` (default 0.20) — operators with smooth load can lower this for higher utilisation; bursty workloads should raise it. Cannot exceed 1.0.
+- `discovery.estimatedCostPerRepo` (default 10) — calibrate against `repo_guardian_repos_checked_total` ÷ `rate_limit_remaining` drop per sweep. Bump higher if you see budget exhaustion despite the tracker reporting positive `api_budget_spendable`.
+- `discovery.interval` (default 1h) — primary discovery channel is webhooks (`installation_repositories.added` / `repository.created`); the Discoverer is the safety net for missed deliveries. Operators confident in webhook fidelity can stretch this to 6h+.
+
 ## Sizing for Valkey
 
 Valkey is small. The queue + in-flight ZSET + reaper lock fit in single-digit MB even for tens of thousands of jobs. The `queue.valkey.baked` 1Gi PVC is conservative; you'll never fill it.
@@ -153,5 +194,6 @@ The bottleneck is BRPOP throughput, not memory. Run `redis-cli -a $VALKEY_PASSWO
 
 ## Multi-replica gotchas
 
+- **One sweeper, not two (IMPL-0015 Phase 0).** The legacy `sweep` schedule (full-fleet enumeration via the GitHub API) was deleted in `1.0.0-rc.2`. Only the `stale-sweep` schedule runs — it queries the persistent `repo_state` table for rows whose `last_checked_at` is older than `freshness` (or whose `policy_version` differs from the current one) and enqueues those. Behavioural consequence: a brand-new install with no `repo_state` rows produces an empty first sweep. Newly-discovered repos enter `repo_state` via webhook handlers (`installation_repositories.added`, `repository.created`) calling `UpsertIfMissing` with a jittered `LastCheckedAt`; the next sweep tick picks them up once the jitter window elapses.
 - **Backends are Postgres + Valkey only (IMPL-0016).** The in-memory store/queue and the in-process ticker scheduler were removed in chart 1.0. There's no single-replica fallback — every deployment needs Postgres + Valkey backing services. The chart's baked modes (`store.postgres.mode=baked`, `queue.valkey.mode=baked`) cover trivial deployments without external infra.
 - **Pod restarts cost a `JOB_ACK_TIMEOUT + REAPER_INTERVAL` window.** A worker that crashes mid-`engine.CheckRepo` leaves the job in-flight; the reaper requeues it after the timeout. Lower `JOB_ACK_TIMEOUT` for faster recovery, higher for tolerance to legitimately slow checks.

@@ -22,7 +22,7 @@ golines = "latest"
 # renovate: datasource=github-releases depName=DavidAnson/markdownlint-cli2
 markdownlint-cli2 = "0.18.1"
 # renovate: datasource=github-releases depName=google/yamlfmt
-yamlfmt = "0.20.0"
+yamlfmt = "0.21.0"
 # renovate: datasource=github-tags depName=adrienverge/yamllint
 yamllint = "1.37.1"
 # renovate: datasource=npm depName=prettier

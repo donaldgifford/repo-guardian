@@ -381,21 +381,33 @@ Discoverer path.
 
 **1.3 — `Discoverer.Discover` implementation**
 
-- [ ] Either repurpose `internal/scheduler.Sweeper` (rename
-  `ReconcileAll` → `Discover` and remove enqueueing) or create a
-  new `Discoverer` type. See Open Question 1 for package location.
-- [ ] Implement `Discover(ctx) error` per DESIGN-0017 snippet:
+- [x] Created a new `Discoverer` type alongside Sweeper in
+  `internal/scheduler/discoverer.go` (chose "new type" over the
+  rename path to keep the existing Sweeper tests green; Sweeper is
+  unwired post-Phase 0 and will be deleted in a follow-up).
+- [x] Implemented `Discover(ctx) error` per DESIGN-0017 snippet:
   `ListInstallations` → for each `ListInstallationRepos` → for each
   call `Store.UpsertIfMissing` with jittered initial
-  `LastCheckedAt` and empty `PolicyVersion`.
+  `LastCheckedAt` (uniform over [-2*freshness, 0]) and empty
+  `PolicyVersion`.
 - [ ] Consult `BudgetTracker` before each `UpsertIfMissing` (or
   before each `ListInstallationRepos` page — see Open Question 7).
-- [ ] Skip on Store-read errors (treat as "still actionable"
+  Deferred to Task 1.5 (scheduler wiring) since the tracker is
+  leader-scoped and main.go does the wiring; the Discoverer takes
+  the tracker via `DiscovererOptions.Budget` but doesn't yet
+  consult it.
+- [x] Skip on Store-read errors (treat as "still actionable"
   fail-safe — matches DESIGN-0017's discoverer-error semantic).
-- [ ] Increment `repo_discovered_total{installation_id}` on each
-  `created=true` row.
-- [ ] Write unit tests: empty installations, idempotency on repeat
-  runs, jitter range bounds, error propagation.
+  `upsertRepo` logs the error, doesn't increment
+  `repo_discovered_total`, and returns false so the iteration
+  continues.
+- [x] Increment `repo_discovered_total{installation_id}` on each
+  `created=true` row. Per-installation, idempotent on repeat runs.
+- [x] Unit tests: upserts every returned repo (jitter bounds checked),
+  idempotency on repeat runs (3 discover calls → 1 increment),
+  skips archived + forked, list_installations error fails safe,
+  list_installation_repos error skips the installation, Store
+  error fails safe, ctx-cancelled returns ctx.Err().
 
 **1.4 — Configuration**
 

@@ -20,7 +20,11 @@ func newTestClient(t *testing.T, mux *http.ServeMux) (*GitHubClient, *httptest.S
 
 	server := httptest.NewServer(mux)
 
-	ghClient := gh.NewClient(nil)
+	// Use the per-server http.Client so each test gets its own transport.
+	// Passing nil here makes every parallel test share http.DefaultTransport,
+	// and one test's deferred server.Close() can call CloseIdleConnections
+	// on the shared pool while another test is mid-request.
+	ghClient := gh.NewClient(server.Client())
 	ghClient, err := ghClient.WithEnterpriseURLs(server.URL+"/", server.URL+"/")
 	if err != nil {
 		t.Fatalf("setting enterprise URLs: %v", err)

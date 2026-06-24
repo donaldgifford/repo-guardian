@@ -70,3 +70,5 @@ helm-diff = "latest"
 helm-docs = "latest"
 # renovate: datasource=github-releases depName=sigstore/cosign
 cosign = "latest"
+# renovate: datasource=github-releases depName=prometheus/prometheus
+promtool = "latest"

@@ -16,6 +16,7 @@ package scheduler
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"math/rand"
 	"strconv"
@@ -132,6 +133,10 @@ func (d *Discoverer) Discover(ctx context.Context) error {
 // (excludes pre-existing rows). Best-effort: errors are logged and
 // the installation is skipped.
 func (d *Discoverer) discoverInstallation(ctx context.Context, install *ghclient.Installation) int {
+	if !d.budgetAllows(ctx, install.ID) {
+		return 0
+	}
+
 	repos, err := d.client.ListInstallationRepos(ctx, install.ID)
 
 	d.observeAPICall(install.ID, "list_installation_repos")
@@ -220,4 +225,49 @@ func (*Discoverer) observeAPICall(installationID int64, endpoint string) {
 	}
 
 	metrics.DiscoveryAPICallsTotal.WithLabelValues(label, endpoint).Inc()
+}
+
+// budgetAllows consults the BudgetTracker for installationID. Returns
+// true when discovery work is permitted; false when the tracker has a
+// cached snapshot reporting zero spendable budget. Fall-open semantics
+// apply when the tracker is nil (test mode) or when no snapshot is
+// cached yet (ErrNoSnapshot — the next Discover tick will have caught
+// up via the leader-driven refresh path). On gating, increments the
+// shared EnqueueGatedByBudgetTotal counter so the existing
+// RepoGuardianBudgetGated alert fires for discovery as well as
+// stale-sweep enqueues.
+func (d *Discoverer) budgetAllows(ctx context.Context, installationID int64) bool {
+	if d.budget == nil {
+		return true
+	}
+
+	spendable, err := d.budget.SpendableForEnqueue(installationID)
+	if err != nil {
+		if errors.Is(err, budget.ErrNoSnapshot) {
+			// No snapshot — fall open; the StaleSweeper's leader-driven
+			// refresh path will populate it.
+			return true
+		}
+
+		d.logger.WarnContext(ctx, "discovery: budget query failed; falling open",
+			"installation_id", installationID,
+			"error", err,
+		)
+
+		return true
+	}
+
+	if spendable <= 0 {
+		metrics.EnqueueGatedByBudgetTotal.
+			WithLabelValues(strconv.FormatInt(installationID, 10)).
+			Inc()
+
+		d.logger.WarnContext(ctx, "discovery: budget exhausted; skipping installation",
+			"installation_id", installationID,
+		)
+
+		return false
+	}
+
+	return true
 }

@@ -390,12 +390,16 @@ Discoverer path.
   call `Store.UpsertIfMissing` with jittered initial
   `LastCheckedAt` (uniform over [-2*freshness, 0]) and empty
   `PolicyVersion`.
-- [ ] Consult `BudgetTracker` before each `UpsertIfMissing` (or
-  before each `ListInstallationRepos` page — see Open Question 7).
-  Deferred to Task 1.5 (scheduler wiring) since the tracker is
-  leader-scoped and main.go does the wiring; the Discoverer takes
-  the tracker via `DiscovererOptions.Budget` but doesn't yet
-  consult it.
+- [x] Consult `BudgetTracker` before each `ListInstallationRepos`
+  page (per OQ 7: page-level gate is the natural granularity since
+  `list_installation_repos` is the API-heavy call). When
+  `SpendableForEnqueue` returns 0, log Warn, increment
+  `EnqueueGatedByBudgetTotal{installation_id}` (shared with
+  StaleSweeper so the existing `RepoGuardianBudgetGated` alert
+  covers both schedulers), and skip the installation. Fall-open on
+  `ErrNoSnapshot` and on nil tracker (tests). Unit tests:
+  `TestDiscoverer_BudgetExhausted_SkipsInstallation` +
+  `TestDiscoverer_BudgetNoSnapshot_FallsOpen`.
 - [x] Skip on Store-read errors (treat as "still actionable"
   fail-safe — matches DESIGN-0017's discoverer-error semantic).
   `upsertRepo` logs the error, doesn't increment

@@ -317,7 +317,7 @@ queue:
     # -- Baked Valkey-only configuration.
     baked:
       # -- Pinned image. Bump intentionally.
-      image: valkey/valkey:8.0
+      image: valkey/valkey:9.1
       # -- Persistent volume size.
       storageSize: 1Gi
       # -- StorageClass name. Empty → cluster default.

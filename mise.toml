@@ -61,7 +61,7 @@ syft = "latest"
 
 # helm
 # renovate: datasource=github-releases depName=helm/helm
-helm = "3.19.0"
+helm = "4.2.2"
 # renovate: datasource=github-releases depName=helm/chart-testing
 helm-ct = "latest"
 # renovate: datasource=github-releases depName=databus23/helm-diff

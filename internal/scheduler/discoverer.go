@@ -16,9 +16,10 @@ package scheduler
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"log/slog"
-	"math/rand"
+	"math/big"
 	"strconv"
 	"time"
 
@@ -41,7 +42,6 @@ type Discoverer struct {
 	skipForks    bool
 	skipArchived bool
 	freshness    time.Duration
-	rng          *rand.Rand
 }
 
 // DiscovererOptions bundles Discoverer constructor inputs. Option-
@@ -80,8 +80,20 @@ func NewDiscoverer(opts DiscovererOptions) *Discoverer {
 		skipForks:    opts.SkipForks,
 		skipArchived: opts.SkipArchived,
 		freshness:    opts.Freshness,
-		rng:          rand.New(rand.NewSource(time.Now().UnixNano())), //nolint:gosec // non-crypto: just jitter
 	}
+}
+
+// randomJitter returns a uniform random duration in [0, span) using
+// crypto/rand. On the practically-never reader-failure path returns 0,
+// which collapses to no jitter — fail-safe because jitter is a
+// load-spreading optimization, not a correctness requirement.
+func randomJitter(span time.Duration) time.Duration {
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(span)))
+	if err != nil {
+		return 0
+	}
+
+	return time.Duration(n.Int64())
 }
 
 // Discover runs one discovery iteration. Suitable for driving via
@@ -173,7 +185,7 @@ func (d *Discoverer) discoverInstallation(ctx context.Context, install *ghclient
 // repo) tuple with a jittered initial LastCheckedAt. Returns true
 // when a new row was created.
 func (d *Discoverer) upsertRepo(ctx context.Context, installationID int64, owner, repo string) bool {
-	jitter := time.Duration(d.rng.Int63n(int64(2 * d.freshness)))
+	jitter := randomJitter(2 * d.freshness)
 	seedTime := time.Now().UTC().Add(-jitter)
 
 	state := &store.RepoState{

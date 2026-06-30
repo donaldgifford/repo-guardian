@@ -24,7 +24,7 @@ markdownlint-cli2 = "0.18.1"
 # renovate: datasource=github-releases depName=google/yamlfmt
 yamlfmt = "0.20.0"
 # renovate: datasource=github-tags depName=adrienverge/yamllint
-yamllint = "1.37.1"
+yamllint = "1.38.0"
 # renovate: datasource=npm depName=prettier
 prettier = "3.7.4"
 # renovate: datasource=github-releases depName=donaldgifford/makefmt

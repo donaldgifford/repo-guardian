@@ -130,6 +130,54 @@ func TestExampleHCL_MultiOrg(t *testing.T) {
 	}
 }
 
+func TestExampleHCL_Enterprise(t *testing.T) {
+	cfg, err := policy.Load(filepath.Join(examplesDir(), "guardian-enterprise.hcl"))
+	if err != nil {
+		t.Fatalf("Load guardian-enterprise.hcl: %v", err)
+	}
+
+	if cfg.Scope == nil {
+		t.Fatal("expected top-level scope to engage strict mode")
+	}
+
+	if len(cfg.Scope.Orgs) != 3 {
+		t.Errorf("Scope.Orgs count = %d, want 3", len(cfg.Scope.Orgs))
+	}
+
+	// Two universal-scope baseline rules (codeowners + dependabot) and one
+	// org-specific rule pair (renovate workflow + config for myent-product).
+	if len(cfg.FileRules) != 4 {
+		t.Errorf("FileRules count = %d, want 4", len(cfg.FileRules))
+	}
+
+	if len(cfg.SettingRules) != 1 {
+		t.Errorf("SettingRules count = %d, want 1 (platform vuln-alerts)", len(cfg.SettingRules))
+	}
+
+	if len(cfg.BranchProtectionRules) != 1 {
+		t.Errorf("BranchProtectionRules count = %d, want 1 (platform main)", len(cfg.BranchProtectionRules))
+	}
+
+	// Strict mode: every rule must declare its own scope.
+	for _, r := range cfg.FileRules {
+		if r.Scope == nil {
+			t.Errorf("FileRule %q missing scope (strict mode)", r.Name)
+		}
+	}
+
+	for _, r := range cfg.SettingRules {
+		if r.Scope == nil {
+			t.Errorf("SettingRule %q missing scope (strict mode)", r.Name)
+		}
+	}
+
+	for _, r := range cfg.BranchProtectionRules {
+		if r.Scope == nil {
+			t.Errorf("BranchProtectionRule %q missing scope (strict mode)", r.Name)
+		}
+	}
+}
+
 func TestExampleHCL_MultiOrgDirectory(t *testing.T) {
 	cfg, err := policy.Load(filepath.Join(examplesDir(), "guardian-multi-org"))
 	if err != nil {

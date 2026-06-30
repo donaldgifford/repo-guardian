@@ -176,15 +176,12 @@ func TestLeaderElection_TwoPods(t *testing.T) {
 
 	var (
 		fires    atomic.Int32
-		fireCh   = make(chan string, 16)
 		interval = 200 * time.Millisecond
 	)
 
-	handler := func(pod string) func(context.Context) error {
+	handler := func(_ string) func(context.Context) error {
 		return func(_ context.Context) error {
 			fires.Add(1)
-			fireCh <- pod
-
 			return nil
 		}
 	}
@@ -201,13 +198,7 @@ func TestLeaderElection_TwoPods(t *testing.T) {
 	// captures the lock it'll hold it for the duration of this run, so
 	// we expect roughly one fire per LockTTL window — i.e. ≤ 2 fires
 	// rather than 14 (2 pods × 7 ticks).
-	deadline := time.Now().Add(1500 * time.Millisecond)
-
-	for time.Now().Before(deadline) {
-		time.Sleep(50 * time.Millisecond)
-	}
-
-	close(fireCh)
+	time.Sleep(1500 * time.Millisecond)
 
 	count := int(fires.Load())
 	if count == 0 {

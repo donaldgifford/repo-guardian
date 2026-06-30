@@ -77,6 +77,13 @@ const (
 // low while still feeling responsive on shutdown.
 const brpopTimeout = 5 * time.Second
 
+// recoveryTimeout caps the LPUSH used to re-enqueue a payload whose
+// post-BRPOP ZADD to in-flight failed. Detached from the caller's
+// ctx because the caller's cancellation is usually what triggered
+// the recovery in the first place — we still need the recovery to
+// succeed against Valkey.
+const recoveryTimeout = 5 * time.Second
+
 // requeueScript atomically removes a member from the in-flight ZSET
 // and pushes it back onto the jobs list. KEYS[1]=in-flight,
 // KEYS[2]=jobs; ARGV[1]=member.
@@ -231,12 +238,17 @@ func (q *Queue) brpopOnce(ctx context.Context) (string, error) {
 // processPayload claims, decodes, and dispatches a single job
 // payload. Decode failures are dropped (no point requeueing
 // undecodable garbage); handler failures leave the job in-flight.
+//
+// If ZADD to in-flight fails after BRPOP already removed the payload
+// from queue:jobs (e.g. because the caller's ctx was cancelled
+// mid-claim), the payload is LPUSHed back to queue:jobs using a
+// detached context so the at-least-once contract is preserved.
 func (q *Queue) processPayload(ctx context.Context, payload string, handler func(context.Context, queue.Job) error) {
 	if err := q.client.ZAdd(ctx, q.opts.InFlightKey, redis.Z{
 		Score:  float64(time.Now().UnixNano()),
 		Member: payload,
 	}).Err(); err != nil {
-		q.logger.WarnContext(ctx, "valkey ZADD in-flight failed; job may be lost", "error", err)
+		q.recoverPayload(ctx, payload, err)
 
 		return
 	}
@@ -276,6 +288,39 @@ func (q *Queue) processPayload(ctx context.Context, payload string, handler func
 	}
 
 	metrics.QueueAckedTotal.WithLabelValues("success").Inc()
+}
+
+// recoverPayload re-LPUSHes a payload that was BRPOPed but failed to
+// claim (ZADD to in-flight failed, typically because the subscriber's
+// ctx was cancelled mid-claim). Uses a detached context with a short
+// timeout so the recovery succeeds even when the caller's ctx is
+// already cancelled — the alternative is silently losing the job and
+// violating the at-least-once contract.
+//
+// If the recovery LPUSH also fails the job IS lost; the log captures
+// both errors so an operator can root-cause.
+func (q *Queue) recoverPayload(ctx context.Context, payload string, claimErr error) {
+	// Detached on purpose: the caller's ctx is usually what triggered
+	// the recovery (BRPOP succeeded, then ctx-cancelled before ZADD).
+	// Using ctx here would propagate the same cancellation and lose
+	// the job.
+	recoveryCtx, cancel := context.WithTimeout(context.Background(), recoveryTimeout)
+	defer cancel()
+
+	//nolint:contextcheck // recoveryCtx is intentionally detached from caller ctx
+	rerr := q.client.LPush(recoveryCtx, q.opts.JobsKey, payload).Err()
+	if rerr != nil {
+		q.logger.WarnContext(ctx, "valkey ZADD failed and LPUSH recovery failed; job lost",
+			"zadd_error", claimErr,
+			"lpush_error", rerr,
+		)
+
+		return
+	}
+
+	q.logger.WarnContext(ctx, "valkey ZADD in-flight failed; payload re-enqueued for retry",
+		"error", claimErr,
+	)
 }
 
 // Close releases queue resources. The underlying redis client is NOT

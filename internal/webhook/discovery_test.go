@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	gh "github.com/google/go-github/v68/github"
+	gh "github.com/google/go-github/v88/github"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/donaldgifford/repo-guardian/internal/store"

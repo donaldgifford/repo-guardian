@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	gh "github.com/google/go-github/v68/github"
+	gh "github.com/google/go-github/v88/github"
 )
 
 // newTestClient creates a GitHubClient backed by a httptest server.

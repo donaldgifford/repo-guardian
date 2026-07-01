@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
-	gh "github.com/google/go-github/v68/github"
+	gh "github.com/google/go-github/v88/github"
 
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 )

@@ -20,7 +20,7 @@ golines = "latest"
 # Repo utilities
 # Formatters and linters
 # renovate: datasource=github-releases depName=DavidAnson/markdownlint-cli2
-markdownlint-cli2 = "0.18.1"
+markdownlint-cli2 = "0.23.0"
 # renovate: datasource=github-releases depName=google/yamlfmt
 yamlfmt = "0.20.0"
 # renovate: datasource=github-tags depName=adrienverge/yamllint

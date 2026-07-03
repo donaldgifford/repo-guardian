@@ -232,7 +232,7 @@ store:
     # -- Baked Postgres-only configuration.
     baked:
       # -- Pinned image. Bump intentionally.
-      image: postgres:17.4
+      image: postgres:18.4
       # -- Persistent volume size.
       storageSize: 10Gi
       # -- StorageClass name. Empty → cluster default.

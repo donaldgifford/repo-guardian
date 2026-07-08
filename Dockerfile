@@ -25,4 +25,12 @@ EXPOSE 8080 9090
 
 USER nonroot:nonroot
 
+# No Dockerfile HEALTHCHECK: the distroless/static base ships no
+# shell, curl, or wget, so an HTTP probe directive can't run inside
+# the image. Production runs on k8s where the Helm chart configures
+# livenessProbe/readinessProbe against /healthz and /readyz directly.
+# Setting NONE explicitly so Docker doesn't sit in `health: starting`
+# forever when run via plain `docker run`.
+HEALTHCHECK NONE
+
 ENTRYPOINT ["/repo-guardian"]

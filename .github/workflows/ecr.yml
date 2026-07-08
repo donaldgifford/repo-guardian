@@ -130,8 +130,13 @@ jobs:
       - name: Capture image digest
         id: digest
         if: steps.bake.conclusion == 'success' && inputs.dry_run != true
+        # Metadata is passed via env, NOT interpolated into the script:
+        # the bake metadata JSON can contain quotes/parens that break
+        # shell syntax when inlined (broke the v1.8.2 release run).
+        env:
+          BAKE_METADATA: ${{ steps.bake.outputs.metadata }}
         run: |
-          digest=$(echo '${{ steps.bake.outputs.metadata }}' | jq -r '.release."containerimage.digest"')
+          digest=$(jq -r '.release."containerimage.digest"' <<< "${BAKE_METADATA}")
           if [ -z "${digest}" ] || [ "${digest}" = "null" ]; then
             echo "ERROR: failed to capture image digest from bake metadata"
             exit 1

@@ -165,10 +165,15 @@ jobs:
     name: SLSA provenance (image)
     needs: [aws-auth, image]
     if: needs.image.outputs.published == 'true'
+    # packages: write — the generator's internal job declares it
+    # unconditionally ("upload attestations to ghcr.io"), even though
+    # this call publishes to ECR. Omitting it fails the ENTIRE calling
+    # run (release.yml) at startup via the nested-permissions ceiling.
     permissions:
       id-token: write
       contents: read
       actions: read
+      packages: write
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
     with:
       image: ${{ needs.aws-auth.outputs.registry }}/repo-guardian
@@ -301,10 +306,12 @@ jobs:
     name: SLSA provenance (chart)
     needs: [aws-auth, chart]
     if: needs.chart.outputs.published == 'true'
+    # packages: write — same nested-ceiling requirement as image-slsa.
     permissions:
       id-token: write
       contents: read
       actions: read
+      packages: write
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
     with:
       image: ${{ needs.aws-auth.outputs.registry }}/repo-guardian-chart

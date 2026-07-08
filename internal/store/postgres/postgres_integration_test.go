@@ -36,7 +36,7 @@ func startPostgres(ctx context.Context, t *testing.T) string {
 
 	container, err := tcpostgres.Run(
 		ctx,
-		"postgres:16-alpine",
+		"postgres:18.4-alpine",
 		tcpostgres.WithDatabase("repoguardian_test"),
 		tcpostgres.WithUsername("test"),
 		tcpostgres.WithPassword("test"),

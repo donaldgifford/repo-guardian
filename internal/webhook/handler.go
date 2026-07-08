@@ -17,9 +17,10 @@ package webhook
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"log/slog"
-	"math/rand"
+	"math/big"
 	"net/http"
 	"strings"
 	"time"
@@ -40,10 +41,6 @@ type Handler struct {
 	stateStore    store.Store
 	policyVersion string
 	freshness     time.Duration
-	// rng is the source for discovery-jitter. Per-Handler so tests
-	// can seed it deterministically; the production path receives
-	// the default time-seeded source.
-	rng *rand.Rand
 }
 
 // NewHandler creates a new webhook Handler.
@@ -68,8 +65,20 @@ func NewHandler(
 		stateStore:    stateStore,
 		policyVersion: policyVersion,
 		freshness:     freshness,
-		rng:           rand.New(rand.NewSource(time.Now().UnixNano())), //nolint:gosec // non-crypto: just jitter
 	}
+}
+
+// randomJitter returns a uniform random duration in [0, span) using
+// crypto/rand. On the practically-never reader-failure path returns 0,
+// which collapses to no jitter — fail-safe because jitter is a
+// load-spreading optimization, not a correctness requirement.
+func randomJitter(span time.Duration) time.Duration {
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(span)))
+	if err != nil {
+		return 0
+	}
+
+	return time.Duration(n.Int64())
 }
 
 // ServeHTTP implements http.Handler for GitHub webhook events.
@@ -237,7 +246,7 @@ func (h *Handler) discover(ctx context.Context, installationID int64, owner, rep
 		return
 	}
 
-	jitter := time.Duration(h.rng.Int63n(int64(2 * h.freshness)))
+	jitter := randomJitter(2 * h.freshness)
 	seedTime := time.Now().UTC().Add(-jitter)
 
 	state := &store.RepoState{

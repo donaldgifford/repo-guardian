@@ -49,8 +49,12 @@ jobs:
     runs-on: ubuntu-latest
     if: inputs.tag != ''
     outputs:
-      digest: ${{ steps.bake.outputs.digest }}
-      published: ${{ steps.bake.outputs.published }}
+      # digest/published are written by the Capture-image-digest step
+      # (id: digest), NOT the bake step — bake only outputs metadata.
+      # Referencing the wrong step id left these empty and silently
+      # skipped image-slsa on every publish (ecr.yml had it right).
+      digest: ${{ steps.digest.outputs.digest }}
+      published: ${{ steps.digest.outputs.published }}
     steps:
       - uses: actions/checkout@v7
         with:

@@ -136,7 +136,7 @@ jobs:
       packages: write
       contents: read
       actions: read
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
     with:
       image: ghcr.io/donaldgifford/repo-guardian
       digest: ${{ needs.image.outputs.digest }}
@@ -266,7 +266,7 @@ jobs:
       packages: write
       contents: read
       actions: read
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
     with:
       image: ghcr.io/donaldgifford/charts/repo-guardian
       digest: ${{ needs.chart.outputs.digest }}

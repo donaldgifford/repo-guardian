@@ -81,10 +81,15 @@ jobs:
     name: Publish to GHCR
     needs: bump-version
     uses: ./.github/workflows/ghcr.yml
+    # actions: read is required by the nested SLSA generator jobs inside
+    # ghcr.yml. Caller-job permissions are a hard ceiling for nested
+    # reusable workflows — omitting it fails the whole run at startup
+    # (zero jobs created) before anything executes.
     permissions:
       contents: read
       packages: write
       id-token: write
+      actions: read
     with:
       tag: ${{ needs.bump-version.outputs.tag }}
       dry_run: false
@@ -100,9 +105,13 @@ jobs:
     # standalone testing regardless of this gate.
     if: vars.ECR_PUBLISH_ENABLED == 'true'
     uses: ./.github/workflows/ecr.yml
+    # actions: read — same nested-SLSA requirement as publish-ghcr.
+    # The uses: graph is validated at startup even though this job is
+    # gated off by the if: condition.
     permissions:
       contents: read
       id-token: write
+      actions: read
     with:
       tag: ${{ needs.bump-version.outputs.tag }}
       dry_run: false

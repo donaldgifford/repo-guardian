@@ -52,7 +52,7 @@ jobs:
       digest: ${{ steps.bake.outputs.digest }}
       published: ${{ steps.bake.outputs.published }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag }}
 
@@ -152,7 +152,7 @@ jobs:
       digest: ${{ steps.push.outputs.digest }}
       published: ${{ steps.push.outputs.published }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 

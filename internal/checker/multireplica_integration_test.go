@@ -63,7 +63,7 @@ func startValkeyMR(ctx context.Context, t *testing.T) *redis.Client {
 	t.Helper()
 
 	req := testcontainers.ContainerRequest{
-		Image:        "valkey/valkey:8-alpine",
+		Image:        "valkey/valkey:9.1-alpine",
 		ExposedPorts: []string{"6379/tcp"},
 		WaitingFor:   wait.ForLog("Ready to accept connections").WithStartupTimeout(60 * time.Second),
 	}

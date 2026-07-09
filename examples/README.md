@@ -78,7 +78,9 @@ policy:
   `enabled = true` to activate them, or define them in your HCL config.
 - **Templates are embedded** in the binary. The HCL `template` field references
   the template name (e.g., `"codeowners"`, `"renovate-workflow"`), not a file
-  path. Override templates by mounting files in `TEMPLATE_DIR`.
+  path. Override templates via the chart's `templates.files` map (or
+  `templates.existingConfigMap`), which mounts them at `TEMPLATE_DIR`; outside
+  the chart, mount files into `TEMPLATE_DIR` directly.
 - **Two scope modes:**
   - **Legacy** (no top-level `scope { }`): every rule applies to every repo
     the GitHub App sees. The simpler default for single-org users.

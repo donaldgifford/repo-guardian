@@ -4,12 +4,14 @@ A GitHub App (Go) that automates repository onboarding and compliance across a G
 
 ## How It Works
 
-repo-guardian monitors your GitHub organization for new repositories and periodically reconciles all existing ones. When it finds a repo missing required configuration files, it creates a single PR adding all missing files at once.
+repo-guardian monitors your GitHub organization for new repositories and periodically reconciles existing ones. When it finds a repo missing required configuration files, it creates a single PR adding all missing files at once.
 
 **Trigger sources:**
 
-- **Webhooks** -- new repo created, repos added to installation, new installation
-- **Scheduler** -- weekly reconciliation of all repos (configurable interval)
+- **Webhooks** -- new repo created, repos added to installation, new installation (each seeds persistent per-repo state and enqueues an immediate check)
+- **Push events** -- pushes to the default branch that touch watched files (`watch = true` reconcilers) trigger a re-check
+- **Stale sweep** -- a leader-elected scheduler periodically re-enqueues repos whose last check is older than `RECONCILE_FRESHNESS` or whose stored policy version differs from the running one (no full-fleet enumeration per tick)
+- **Discovery** -- a periodic enumerator catches repos whose webhooks were missed and seeds them into the state store
 
 **Built-in rules:**
 
@@ -28,10 +30,11 @@ Each rule checks multiple file paths (e.g., CODEOWNERS can live at root, `.githu
 
 ## Prerequisites
 
-- Go 1.25+ (managed via [mise](https://mise.jdx.dev/))
+- Go 1.26+ (managed via [mise](https://mise.jdx.dev/))
+- Postgres + Valkey backing services (the Helm chart bakes both by default; `make dev-services` brings them up locally)
 - A registered [GitHub App](https://docs.github.com/en/apps/creating-github-apps) with:
   - **Permissions:** Contents (Read & Write), Pull Requests (Read & Write), Metadata (Read)
-  - **Events:** `repository`, `installation_repositories`, `installation`
+  - **Events:** `repository`, `installation_repositories`, `installation`, and `push` (needed for `watch = true` reconcilers)
   - A generated private key (PEM file)
   - A webhook secret
 
@@ -50,7 +53,7 @@ All configuration is via environment variables (12-factor):
 | `WORKER_COUNT` | No | `5` | Number of concurrent repo check workers |
 | `QUEUE_SIZE` | No | `1000` | Work queue buffer size |
 | `TEMPLATE_DIR` | No | `/etc/repo-guardian/templates` | Directory for template overrides |
-| `SCHEDULE_INTERVAL` | No | `168h` | Reconciliation interval (Go duration) |
+| `SCHEDULE_INTERVAL` | No | `168h` | Stale-sweep tick cadence (Go duration). Each tick re-enqueues repos stale per `RECONCILE_FRESHNESS`. |
 | `SKIP_FORKS` | No | `true` | Skip forked repositories |
 | `SKIP_ARCHIVED` | No | `true` | Skip archived repositories |
 | `DRY_RUN` | No | `false` | Log actions without creating PRs |
@@ -239,7 +242,7 @@ make docker-build-multiarch    # Validate multi-arch build
 make docker-push               # Build and push multi-arch image
 ```
 
-The Dockerfile uses a multi-stage build: `golang:1.25` builder + `distroless/static` runtime. The final image is ~20MB and runs as a non-root user.
+The Dockerfile uses a multi-stage build: `golang:1.26` builder + `distroless/static` runtime. The final image is ~20MB and runs as a non-root user. There is no Dockerfile `HEALTHCHECK` (the distroless base has no shell to run one); Kubernetes probes `/healthz` and `/readyz` via the chart instead.
 
 ## Kubernetes Deployment
 
@@ -252,11 +255,13 @@ repo-guardian ships with a Helm chart at `charts/repo-guardian/`. See the [chart
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 0.3.1 \
+  --version 1.0.0-rc.2 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
 ```
+
+The default install brings up baked Postgres + Valkey StatefulSets alongside the Deployment — no external infrastructure needed. See [Choosing a deployment shape](charts/repo-guardian/README.md#choosing-a-deployment-shape) for CNPG-managed and external (RDS / ElastiCache) shapes.
 
 See the [chart README](charts/repo-guardian/README.md) for cosign /
 SLSA verification commands and the full values reference.

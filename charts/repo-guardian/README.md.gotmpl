@@ -37,10 +37,10 @@ helm install repo-guardian \
 ## Prerequisites
 
 - Kubernetes 1.28+
-- Helm 3.14+ (OCI support)
+- Helm 3.14+ or 4.x (OCI support)
 - A registered [GitHub App](https://docs.github.com/en/apps/creating-github-apps) with:
   - **Permissions:** Contents (Read & Write), Pull Requests (Read & Write), Metadata (Read)
-  - **Events:** `repository`, `installation_repositories`, `installation`
+  - **Events:** `repository`, `installation_repositories`, `installation`, and `push` (needed for `watch = true` reconcilers)
 
 ## Quick Start
 
@@ -212,25 +212,34 @@ enforcement.
 
 ## Releasing
 
-### OCI publish to GHCR (default)
+### Per-registry publish workflows
 
-The chart publishes to `oci://ghcr.io/donaldgifford/charts/repo-guardian`
-on every push to `main` that touches `charts/**`. The
-`Chart Release (OCI)` workflow:
+`release.yml` orchestrates publishing on every push to `main`: after
+the semver bump + goreleaser jobs it always calls `ghcr.yml` (and
+`ecr.yml`, when the `ECR_PUBLISH_ENABLED` repository variable is
+`true`) as reusable workflows. Each registry workflow has the same
+shape:
 
-1. Reads `version` from `Chart.yaml`
-2. Skips if that version already exists in the registry (idempotent)
-3. Regenerates `CHANGELOG.md` via git-cliff filtered to
-   `charts/**` so the published `.tgz` ships with a current changelog
-4. Packages, pushes, signs with cosign keyless, and produces a SLSA
-   provenance attestation
+- an **image** job gated on a non-empty release tag (so container
+  images only publish on actual binary releases), and
+- a **chart** job that runs on every push and is idempotent via a
+  `helm pull` precheck — it skips when the `Chart.yaml` version is
+  already in the registry.
+
+The chart job regenerates `CHANGELOG.md` via git-cliff filtered to
+`charts/**` (so the published `.tgz` ships with a current changelog),
+packages, pushes, signs with cosign keyless, and attaches a SLSA
+provenance attestation.
 
 To cut a chart release: bump `version` (and optionally `appVersion`)
-in `charts/repo-guardian/Chart.yaml`, merge to `main`, and the
-workflow handles the rest.
+in `charts/repo-guardian/Chart.yaml`, merge to `main`, and the chart
+job handles the rest. Chart-only changes (PR labeled `dont-release`)
+still publish the chart because the chart job does not gate on the
+binary release.
 
-For a manual smoke test on a feature branch, use
-`workflow_dispatch` with `dry_run: true` — the job packages and
+Each registry workflow also exposes `workflow_dispatch` with `tag` +
+`dry_run` inputs for ad-hoc republishes. For a manual smoke test on a
+feature branch, dispatch with `dry_run: true` — the job packages and
 uploads the `.tgz` as a run artifact but skips the push and signing
 steps.
 
@@ -247,13 +256,16 @@ Consumers who pinned to the broken version stay broken until they
 upgrade — same model as the rest of the project (binary releases,
 deployments).
 
-### Publishing to ECR (alternative recipe)
+### Publishing to ECR
 
-The default workflow publishes only to GHCR. If you need ECR (or
-another OCI registry) instead, see
-[`docs/publishing-to-ecr.md`](docs/publishing-to-ecr.md) for a
-manual / third-party-CI recipe. ECR fan-out is not wired into this
-repo's CI.
+ECR publishing IS wired into this repo's CI via `ecr.yml`, but gated
+off by default: set the `ECR_PUBLISH_ENABLED` repository variable to
+`true` once the AWS-side prep (OIDC role, repositories, permissions)
+in [docs/operations/ecr-publish-setup.md](../../docs/operations/ecr-publish-setup.md)
+is complete. `ecr.yml` also remains directly invokable via
+`workflow_dispatch` for standalone testing regardless of the gate.
+For a manual / third-party-CI recipe, see
+[`docs/publishing-to-ecr.md`](docs/publishing-to-ecr.md).
 
 ## Security considerations
 

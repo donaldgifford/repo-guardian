@@ -53,7 +53,7 @@ jobs:
     name: Label PR
     steps:
       - name: Checkout code
-        uses: actions/labeler@v6
+        uses: actions/labeler@v6.1.0
   lint:
     name: Lint
     runs-on: ubuntu-latest

@@ -2,6 +2,11 @@
 
 Welcome to the documentation for repo-guardian.
 
+New here? Start with the [Getting Started walkthrough](usage/getting-started.md)
+for what repo-guardian is, what it can (and can't) do, and how to roll it out —
+then keep the [Policy Reference](usage/policy-reference.md) open while writing
+your `guardian.hcl`.
+
 ## Document Types
 
 - [RFCs](rfc/README.md)

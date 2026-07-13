@@ -14,7 +14,6 @@
 #   exact    — file must match the template exactly
 
 guardian {
-  org               = "myorg"
   log_level         = "info"
   dry_run           = false
   worker_count      = 5

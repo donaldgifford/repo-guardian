@@ -1,5 +1,8 @@
 nav:
     - Home: index.md
+    - Usage:
+        - Getting Started: usage/getting-started.md
+        - Policy Reference: usage/policy-reference.md
     - ADRs:
         - Overview: adr/README.md
     - Adding a New Rule to Repo Guardian: ADDING_RULES.md

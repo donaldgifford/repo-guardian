@@ -25,6 +25,10 @@ spec:
         {{- include "repo-guardian.labels" . | nindent 8 }}
         app.kubernetes.io/component: valkey
     spec:
+      {{- with .Values.queue.valkey.baked.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: valkey
           image: {{ .Values.queue.valkey.baked.image | quote }}

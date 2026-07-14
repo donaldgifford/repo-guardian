@@ -24,6 +24,10 @@ spec:
         {{- include "repo-guardian.labels" . | nindent 8 }}
         app.kubernetes.io/component: postgres
     spec:
+      {{- with .Values.store.postgres.baked.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: postgres
           image: {{ .Values.store.postgres.baked.image | quote }}

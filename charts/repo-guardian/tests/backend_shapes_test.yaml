@@ -195,6 +195,57 @@ tests:
           value: 60
         template: templates/deployment.yaml
 
+  - it: baked Postgres and Valkey pods run as the image non-root user with fsGroup
+    # Regression guard for the root-chown startup failure: both official
+    # images chown their data dir when started as root, which fails on
+    # clusters/storage that forbid chown. Running as uid 999 makes the
+    # entrypoints skip chown; fsGroup 999 keeps the PVC writable.
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 999
+        template: templates/store-postgres.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 999
+        template: templates/store-postgres.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+        template: templates/store-postgres.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 999
+        template: templates/queue-valkey.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 999
+        template: templates/queue-valkey.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+        template: templates/queue-valkey.yaml
+        documentIndex: 0
+
+  - it: podSecurityContext can be nulled to restore the root entrypoint default
+    set:
+      store.postgres.baked.podSecurityContext: null
+      queue.valkey.baked.podSecurityContext: null
+    asserts:
+      - notExists:
+          path: spec.template.spec.securityContext
+        template: templates/store-postgres.yaml
+        documentIndex: 0
+      - notExists:
+          path: spec.template.spec.securityContext
+        template: templates/queue-valkey.yaml
+        documentIndex: 0
+
   # Schema rejection lives in values.schema.json; helm-unittest can't
   # easily exercise it because the plugin doesn't surface
   # schema-validation errors as catchable failures. Schema rejection

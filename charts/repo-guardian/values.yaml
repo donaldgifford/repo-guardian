@@ -237,6 +237,19 @@ store:
       storageSize: 10Gi
       # -- StorageClass name. Empty → cluster default.
       storageClassName: ""
+      # -- Pod securityContext. Runs Postgres as the image's built-in
+      # non-root user (uid/gid 999) so the entrypoint skips its
+      # root-only chown of PGDATA (which fails on clusters/storage
+      # that forbid chown, e.g. restrictive admission policies or
+      # NFS root_squash); fsGroup makes kubelet set volume group
+      # ownership instead. Set to `{}` to restore the image default
+      # (root entrypoint + chown).
+      podSecurityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
       # -- Resource requests/limits for the Postgres container.
       resources:
         requests:
@@ -324,6 +337,18 @@ queue:
       storageClassName: ""
       # -- Generated AUTH password length (random alphanumeric).
       authPasswordLength: 32
+      # -- Pod securityContext. Runs Valkey as the image's built-in
+      # non-root user (uid/gid 999) so the entrypoint skips its
+      # root-only chown of /data (which fails on clusters/storage
+      # that forbid chown); fsGroup makes kubelet set volume group
+      # ownership instead. Set to `{}` to restore the image default
+      # (root entrypoint + chown).
+      podSecurityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
 
 # -- Scheduler (sweep cadence) backend. The single-replica ticker
 # scheduler was removed in IMPL-0016 (chart 1.0); valkey is the only

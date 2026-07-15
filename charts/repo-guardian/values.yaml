@@ -233,6 +233,18 @@ store:
     baked:
       # -- Pinned image. Bump intentionally.
       image: postgres:18.4
+      # -- Operator-supplied Secret holding the Postgres password. When
+      # set, the chart does NOT generate its own password Secret; the
+      # baked StatefulSet reads the password from this Secret and the app
+      # assembles STORE_DSN at runtime via $(POSTGRES_PASSWORD). Use this
+      # for GitOps/ArgoCD: the chart's default `lookup`-based password
+      # preservation returns nothing under `helm template`, so the
+      # generated password rotates on every sync and drifts from the
+      # already-initialised data directory (auth failures). Password must
+      # be URL-safe (alphanumeric) — it is interpolated into the DSN URL.
+      existingSecret: ""
+      # -- Key inside existingSecret holding the password.
+      existingSecretKey: POSTGRES_PASSWORD
       # -- Persistent volume size.
       storageSize: 10Gi
       # -- StorageClass name. Empty → cluster default.
@@ -331,6 +343,15 @@ queue:
     baked:
       # -- Pinned image. Bump intentionally.
       image: valkey/valkey:9.1
+      # -- Operator-supplied Secret holding the Valkey password. Same
+      # GitOps rationale as store.postgres.baked.existingSecret. When set,
+      # the chart skips its generated password Secret; the baked Valkey
+      # reads the password from this Secret and the app assembles
+      # QUEUE_VALKEY_DSN at runtime via $(VALKEY_PASSWORD). URL-safe
+      # (alphanumeric) password required.
+      existingSecret: ""
+      # -- Key inside existingSecret holding the password.
+      existingSecretKey: VALKEY_PASSWORD
       # -- Persistent volume size.
       storageSize: 1Gi
       # -- StorageClass name. Empty → cluster default.

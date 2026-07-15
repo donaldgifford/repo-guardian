@@ -13,7 +13,7 @@ SLSA Level 3 provenance attestations.
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 1.0.0-rc.2 \
+  --version 1.0.0-rc.4 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -28,7 +28,7 @@ aws ecr get-login-password --region <region> | \
 
 helm install repo-guardian \
   oci://<account>.dkr.ecr.<region>.amazonaws.com/repo-guardian-chart \
-  --version 1.0.0-rc.2 \
+  --version 1.0.0-rc.4 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -64,7 +64,7 @@ secrets:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 1.0.0-rc.2 \
+  --version 1.0.0-rc.4 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -192,7 +192,7 @@ cosign verify \
     '^https://github.com/donaldgifford/repo-guardian/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.2
+  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.4
 ```
 
 ### SLSA provenance
@@ -203,7 +203,7 @@ cosign verify-attestation --type slsaprovenance \
     '^https://github.com/slsa-framework/slsa-github-generator/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.2
+  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.4
 ```
 
 The provenance attestation records the build workflow path, source
@@ -422,12 +422,14 @@ incoming webhook.
 | prometheusRule.alerts | object | `{}` | Per-alert overrides: each key under `alerts.<name>` accepts `for`, `severity`, `threshold`, and `enabled`. See the rendered PrometheusRule template for the canonical alert names. |
 | prometheusRule.enabled | bool | `false` | Create PrometheusRule with starter alerts. |
 | prometheusRule.labels | object | `{}` | Additional labels (e.g., to match Prometheus operator `ruleSelector`). |
-| queue | object | `{"backend":"valkey","size":1000,"valkey":{"baked":{"authPasswordLength":32,"image":"valkey/valkey:9.1","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"storageClassName":"","storageSize":"1Gi"},"existingSecret":"","existingSecretKey":"QUEUE_VALKEY_DSN","jobAckTimeout":"5m","mode":"baked","reaperInterval":"60s"}}` | Work queue for reconcile jobs. The in-memory backend was removed in IMPL-0016 (chart 1.0); valkey is the only supported value. |
+| queue | object | `{"backend":"valkey","size":1000,"valkey":{"baked":{"authPasswordLength":32,"existingSecret":"","existingSecretKey":"VALKEY_PASSWORD","image":"valkey/valkey:9.1","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"storageClassName":"","storageSize":"1Gi"},"existingSecret":"","existingSecretKey":"QUEUE_VALKEY_DSN","jobAckTimeout":"5m","mode":"baked","reaperInterval":"60s"}}` | Work queue for reconcile jobs. The in-memory backend was removed in IMPL-0016 (chart 1.0); valkey is the only supported value. |
 | queue.backend | string | `"valkey"` | Backend implementation. Only "valkey" is supported. |
 | queue.size | deprecated | `1000` | Buffered channel size; ignored since the in-memory backend was removed in IMPL-0016. Retained for values-schema backwards compatibility; will be deleted in a future chart-major release. |
-| queue.valkey | object | `{"baked":{"authPasswordLength":32,"image":"valkey/valkey:9.1","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"storageClassName":"","storageSize":"1Gi"},"existingSecret":"","existingSecretKey":"QUEUE_VALKEY_DSN","jobAckTimeout":"5m","mode":"baked","reaperInterval":"60s"}` | Valkey-specific configuration. Ignored when backend != valkey. |
-| queue.valkey.baked | object | `{"authPasswordLength":32,"image":"valkey/valkey:9.1","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"storageClassName":"","storageSize":"1Gi"}` | Baked Valkey-only configuration. |
+| queue.valkey | object | `{"baked":{"authPasswordLength":32,"existingSecret":"","existingSecretKey":"VALKEY_PASSWORD","image":"valkey/valkey:9.1","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"storageClassName":"","storageSize":"1Gi"},"existingSecret":"","existingSecretKey":"QUEUE_VALKEY_DSN","jobAckTimeout":"5m","mode":"baked","reaperInterval":"60s"}` | Valkey-specific configuration. Ignored when backend != valkey. |
+| queue.valkey.baked | object | `{"authPasswordLength":32,"existingSecret":"","existingSecretKey":"VALKEY_PASSWORD","image":"valkey/valkey:9.1","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"storageClassName":"","storageSize":"1Gi"}` | Baked Valkey-only configuration. |
 | queue.valkey.baked.authPasswordLength | int | `32` | Generated AUTH password length (random alphanumeric). |
+| queue.valkey.baked.existingSecret | string | `""` | Operator-supplied Secret holding the Valkey password. Same GitOps rationale as store.postgres.baked.existingSecret. When set, the chart skips its generated password Secret; the baked Valkey reads the password from this Secret and the app assembles QUEUE_VALKEY_DSN at runtime via $(VALKEY_PASSWORD). URL-safe (alphanumeric) password required. |
+| queue.valkey.baked.existingSecretKey | string | `"VALKEY_PASSWORD"` | Key inside existingSecret holding the password. |
 | queue.valkey.baked.image | string | `"valkey/valkey:9.1"` | Pinned image. Bump intentionally. |
 | queue.valkey.baked.podSecurityContext | object | `{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999}` | Pod securityContext. Runs Valkey as the image's built-in non-root user (uid/gid 999) so the entrypoint skips its root-only chown of /data (which fails on clusters/storage that forbid chown); fsGroup makes kubelet set volume group ownership instead. Set to `{}` to restore the image default (root entrypoint + chown). |
 | queue.valkey.baked.storageClassName | string | `""` | StorageClass name. Empty → cluster default. |
@@ -466,10 +468,12 @@ incoming webhook.
 | staleSweep.batchSize | int | `200` | Cap on rows returned per StaleRepos query. |
 | staleSweep.freshness | string | `"24h"` | Maximum age of a stored last_checked_at before the sweep requeues. Default 24h. Effective only with store.backend=postgres. |
 | staleSweep.rateLimitReserve | float | `0.1` | Fraction of an installation's GitHub rate-limit budget reserved against the stale-sweep enqueue path. |
-| store | object | `{"backend":"postgres","postgres":{"baked":{"image":"postgres:18.4","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:18.4","instances":1,"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}}` | Persistent state store (per-repo reconcile state). See DESIGN-0012 §Backend modes. The in-memory backend was removed in IMPL-0016 (chart 1.0); postgres is the only supported value. |
+| store | object | `{"backend":"postgres","postgres":{"baked":{"existingSecret":"","existingSecretKey":"POSTGRES_PASSWORD","image":"postgres:18.4","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:18.4","instances":1,"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}}` | Persistent state store (per-repo reconcile state). See DESIGN-0012 §Backend modes. The in-memory backend was removed in IMPL-0016 (chart 1.0); postgres is the only supported value. |
 | store.backend | string | `"postgres"` | Backend implementation. Only "postgres" is supported. |
-| store.postgres | object | `{"baked":{"image":"postgres:18.4","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:18.4","instances":1,"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}` | Postgres-specific configuration. Ignored when backend != postgres. |
-| store.postgres.baked | object | `{"image":"postgres:18.4","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"}` | Baked Postgres-only configuration. |
+| store.postgres | object | `{"baked":{"existingSecret":"","existingSecretKey":"POSTGRES_PASSWORD","image":"postgres:18.4","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:18.4","instances":1,"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}` | Postgres-specific configuration. Ignored when backend != postgres. |
+| store.postgres.baked | object | `{"existingSecret":"","existingSecretKey":"POSTGRES_PASSWORD","image":"postgres:18.4","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"}` | Baked Postgres-only configuration. |
+| store.postgres.baked.existingSecret | string | `""` | Operator-supplied Secret holding the Postgres password. When set, the chart does NOT generate its own password Secret; the baked StatefulSet reads the password from this Secret and the app assembles STORE_DSN at runtime via $(POSTGRES_PASSWORD). Use this for GitOps/ArgoCD: the chart's default `lookup`-based password preservation returns nothing under `helm template`, so the generated password rotates on every sync and drifts from the already-initialised data directory (auth failures). Password must be URL-safe (alphanumeric) — it is interpolated into the DSN URL. |
+| store.postgres.baked.existingSecretKey | string | `"POSTGRES_PASSWORD"` | Key inside existingSecret holding the password. |
 | store.postgres.baked.image | string | `"postgres:18.4"` | Pinned image. Bump intentionally. |
 | store.postgres.baked.podSecurityContext | object | `{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999}` | Pod securityContext. Runs Postgres as the image's built-in non-root user (uid/gid 999) so the entrypoint skips its root-only chown of PGDATA (which fails on clusters/storage that forbid chown, e.g. restrictive admission policies or NFS root_squash); fsGroup makes kubelet set volume group ownership instead. Set to `{}` to restore the image default (root entrypoint + chown). |
 | store.postgres.baked.resources | object | `{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}}` | Resource requests/limits for the Postgres container. |

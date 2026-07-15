@@ -41,8 +41,13 @@ spec:
             - name: VALKEY_PASSWORD
               valueFrom:
                 secretKeyRef:
+                  {{- if .Values.queue.valkey.baked.existingSecret }}
+                  name: {{ .Values.queue.valkey.baked.existingSecret }}
+                  key: {{ .Values.queue.valkey.baked.existingSecretKey | default "VALKEY_PASSWORD" }}
+                  {{- else }}
                   name: {{ include "repo-guardian.valkeyFullname" . }}
                   key: VALKEY_PASSWORD
+                  {{- end }}
           ports:
             - containerPort: 6379
               name: valkey

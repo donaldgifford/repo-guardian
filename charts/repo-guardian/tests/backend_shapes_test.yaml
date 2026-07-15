@@ -246,6 +246,78 @@ tests:
         template: templates/queue-valkey.yaml
         documentIndex: 0
 
+  - it: baked with operator-supplied password sources it externally and skips the chart Secret
+    # GitOps-safe path (fix for the lookup-under-helm-template password
+    # rotation): no chart-generated password Secret, StatefulSet + app
+    # both read the operator's Secret, DSN assembled at runtime.
+    set:
+      store.postgres.baked.existingSecret: my-pg-secret
+      queue.valkey.baked.existingSecret: my-vk-secret
+    release:
+      namespace: rg-ns
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: templates/store-postgres-secret.yaml
+      - hasDocuments:
+          count: 0
+        template: templates/queue-valkey-secret.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTGRES_USER
+            value: repoguardian
+        template: templates/store-postgres.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: my-pg-secret
+                key: POSTGRES_PASSWORD
+        template: templates/store-postgres.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: VALKEY_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: my-vk-secret
+                key: VALKEY_PASSWORD
+        template: templates/queue-valkey.yaml
+        documentIndex: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STORE_DSN
+            value: "postgres://repoguardian:$(POSTGRES_PASSWORD)@RELEASE-NAME-repo-guardian-postgres.rg-ns.svc.cluster.local:5432/repoguardian?sslmode=disable"
+        template: templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: QUEUE_VALKEY_DSN
+            value: "redis://:$(VALKEY_PASSWORD)@RELEASE-NAME-repo-guardian-valkey.rg-ns.svc.cluster.local:6379/0"
+        template: templates/deployment.yaml
+
+  - it: baked existingSecretKey overrides the default password key
+    set:
+      store.postgres.baked.existingSecret: my-pg-secret
+      store.postgres.baked.existingSecretKey: password
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: my-pg-secret
+                key: password
+        template: templates/store-postgres.yaml
+        documentIndex: 0
+
   # Schema rejection lives in values.schema.json; helm-unittest can't
   # easily exercise it because the plugin doesn't surface
   # schema-validation errors as catchable failures. Schema rejection

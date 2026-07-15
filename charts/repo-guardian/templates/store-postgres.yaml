@@ -37,6 +37,17 @@ spec:
           env:
             - name: POSTGRES_DB
               value: repoguardian
+            {{- if .Values.store.postgres.baked.existingSecret }}
+            # Operator-supplied password (GitOps-safe): username is a
+            # constant, password comes from the external Secret.
+            - name: POSTGRES_USER
+              value: repoguardian
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.store.postgres.baked.existingSecret }}
+                  key: {{ .Values.store.postgres.baked.existingSecretKey | default "POSTGRES_PASSWORD" }}
+            {{- else }}
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
@@ -47,6 +58,7 @@ spec:
                 secretKeyRef:
                   name: {{ include "repo-guardian.postgresFullname" . }}
                   key: POSTGRES_PASSWORD
+            {{- end }}
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
           volumeMounts:

@@ -21,6 +21,8 @@ created: 2026-06-23
   - [Out of Scope](#out-of-scope)
 - [Implementation Phases](#implementation-phases)
   - [Phase 1: Removal](#phase-1-removal)
+    - [Tasks](#tasks)
+    - [Success Criteria](#success-criteria)
 - [File Changes](#file-changes)
 - [Testing Plan](#testing-plan)
 - [Dependencies](#dependencies)

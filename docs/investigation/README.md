@@ -9,7 +9,7 @@ Design docs, plans, and implementation docs can reference investigations by ID
 (e.g. `INV-0001`) to document how open questions were resolved.
 
 <!-- BEGIN DOCZ AUTO-GENERATED -->
-## All INVESTIGATIONs
+## All Investigations
 
 | ID | Title | Status | Date | Author | Link |
 |----|-------|--------|------|--------|------|
@@ -20,6 +20,8 @@ Design docs, plans, and implementation docs can reference investigations by ID
 | INV-0005 | Stale PRs when file rules become satisfied on main | Open | 2026-05-26 | Donald Gifford | [0005-stale-prs-when-file-rules-become-satisfied-on-main.md](0005-stale-prs-when-file-rules-become-satisfied-on-main.md) |
 | INV-0006 | Per-org GitHub App credentials | Deferred | 2026-05-26 | Donald Gifford | [0006-per-org-github-app-credentials.md](0006-per-org-github-app-credentials.md) |
 | INV-0007 | GitLab provider backend support | Open | 2026-05-29 | Donald Gifford | [0007-gitlab-forge-backend-support.md](0007-gitlab-forge-backend-support.md) |
+| INV-0008 | Annotation-sourced custom properties should be configurable, not hardcoded | Resolved | 2026-07-19 | Donald Gifford | [0008-annotation-sourced-custom-properties-should-be-configurable-not.md](0008-annotation-sourced-custom-properties-should-be-configurable-not.md) |
+| INV-0009 | Read-only status API and web UI options | Open | 2026-07-19 | Donald Gifford | [0009-read-only-status-api-and-web-ui-options.md](0009-read-only-status-api-and-web-ui-options.md) |
 <!-- END DOCZ AUTO-GENERATED -->
 <!-- BEGIN DOCZ AUTO-GENERATED -->
 <!-- END DOCZ AUTO-GENERATED -->

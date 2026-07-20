@@ -1,8 +1,8 @@
 nav:
     - Home: index.md
     - Usage:
-        - Getting Started: usage/getting-started.md
-        - Policy Reference: usage/policy-reference.md
+        - Getting Started with repo-guardian: usage/getting-started.md
+        - Policy Reference (guardian.hcl): usage/policy-reference.md
     - ADRs:
         - Overview: adr/README.md
     - Adding a New Rule to Repo Guardian: ADDING_RULES.md
@@ -26,6 +26,7 @@ nav:
         - 'DESIGN-0016: Separate Postgres read and write endpoints': design/0016-separate-postgres-read-and-write-endpoints.md
         - 'DESIGN-0017: Stale-sweep cutover and repository discovery': design/0017-stale-sweep-cutover-and-repository-discovery.md
         - 'DESIGN-0018: Deprecate memory backend': design/0018-deprecate-memory-backend.md
+        - 'DESIGN-0019: Configurable annotation-sourced custom properties': design/0019-configurable-annotation-sourced-custom-properties.md
     - Implementation Plans:
         - Overview: impl/README.md
         - 'IMPL-0001: Repo Guardian Implementation Plan': impl/0001-repo-guardian-implementation-plan.md
@@ -44,6 +45,7 @@ nav:
         - 'IMPL-0014: Remove legacy engine path and deprecated overlays': impl/0014-remove-legacy-engine-path-and-deprecated-overlays.md
         - 'IMPL-0015: Stale-sweep cutover and repository discovery': impl/0015-stale-sweep-cutover-and-repository-discovery.md
         - 'IMPL-0016: Deprecate memory backend': impl/0016-deprecate-memory-backend.md
+        - 'IMPL-0017: Configurable annotation-sourced custom properties': impl/0017-configurable-annotation-sourced-custom-properties.md
     - Investigations:
         - Overview: investigation/README.md
         - 'INV-0001: Tailscale Funnel for Webhook Testing': investigation/0001-tailscale-funnel-for-webhook-testing.md
@@ -53,6 +55,8 @@ nav:
         - 'INV-0005: Stale PRs when file rules become satisfied on main': investigation/0005-stale-prs-when-file-rules-become-satisfied-on-main.md
         - 'INV-0006: Per-org GitHub App credentials': investigation/0006-per-org-github-app-credentials.md
         - 'INV-0007: GitLab provider backend support': investigation/0007-gitlab-forge-backend-support.md
+        - 'INV-0008: Annotation-sourced custom properties should be configurable, not hardcoded': investigation/0008-annotation-sourced-custom-properties-should-be-configurable-not.md
+        - 'INV-0009: Read-only status API and web UI options': investigation/0009-read-only-status-api-and-web-ui-options.md
     - Plans:
         - Overview: plan/README.md
     - RFCs:

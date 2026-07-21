@@ -1,7 +1,7 @@
 ---
 id: IMPL-0017
 title: "Configurable annotation-sourced custom properties"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-07-20
 ---
@@ -9,7 +9,7 @@ created: 2026-07-20
 
 # IMPL 0017: Configurable annotation-sourced custom properties
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-07-20
 
@@ -305,27 +305,32 @@ number written when this doc was drafted).
 
 #### Tasks
 
-- [ ] `docs/usage/policy-reference.md`: `annotation_properties` attribute
+- [x] `docs/usage/policy-reference.md`: `annotation_properties` attribute
       (type, default, validation rules, reserved names), managed-set
       clear-on-removal semantics, schema-preflight behavior + optional
       org-level **Custom properties: read** App permission, new metric(s)
-- [ ] `examples/guardian-full.hcl`: add the Jira map to the `catalog_info`
+- [x] `examples/guardian-full.hcl`: add the Jira map to the `catalog_info`
       reconcile block (reproduces pre-change homelab behavior)
-- [ ] Release-notes entry covering the four behavioral edges: removed
+- [x] Release-notes entry covering the four behavioral edges: removed
       built-in Jira extraction; `.Catalog.Jira*` →
       `index .Catalog.Properties "..."`; clear-on-removal; optional new App
-      permission
-- [ ] `CLAUDE.md`: update custom_properties architecture notes (managed
+      permission — landed as `docs/operations/annotation-properties-migration.md`,
+      following the existing per-feature migration-doc precedent
+      (`template-migration.md`, `pr-convergence-migration.md`) rather than
+      hand-editing the git-cliff-generated `CHANGELOG.md`
+- [x] `CLAUDE.md`: update custom_properties architecture notes (managed
       set, clears, preflight, `GetOrgPropertySchema` added to the
       mock-parity list, `CustomPropertyValue.Value *string`)
-- [ ] `docs/usage/getting-started.md`: refresh the custom-properties demo
+- [x] `docs/usage/getting-started.md`: refresh the custom-properties demo
       if it names Jira properties
 - [ ] Homelab smoke checklist (operator-side, checkbox stays open until
       run): upgrade with map configured ⇒ no behavior change; remove an
       annotation ⇒ property value clears; remove a schema definition ⇒
       warn + filter + metric
-- [ ] `docz update impl design inv` to refresh indices; mkdocs strict
-      build clean
+- [x] `docz update impl design inv` to refresh indices; mkdocs strict
+      build clean — 14-file pre-existing warning set unchanged (confirmed
+      via a one-off isolated-venv `mkdocs build --strict` run); none of
+      this phase's new/edited docs appear in it
 
 #### Success Criteria
 

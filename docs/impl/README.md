@@ -48,6 +48,6 @@ docz create impl "Your Implementation Title"
 | IMPL-0014 | Remove legacy engine path and deprecated overlays | Implemented | 2026-05-30 | Donald Gifford | [0014-remove-legacy-engine-path-and-deprecated-overlays.md](0014-remove-legacy-engine-path-and-deprecated-overlays.md) |
 | IMPL-0015 | Stale-sweep cutover and repository discovery | In Progress | 2026-06-23 | Donald Gifford | [0015-stale-sweep-cutover-and-repository-discovery.md](0015-stale-sweep-cutover-and-repository-discovery.md) |
 | IMPL-0016 | Deprecate memory backend | Completed | 2026-06-23 | Donald Gifford | [0016-deprecate-memory-backend.md](0016-deprecate-memory-backend.md) |
-| IMPL-0017 | Configurable annotation-sourced custom properties | Draft | 2026-07-20 | Donald Gifford | [0017-configurable-annotation-sourced-custom-properties.md](0017-configurable-annotation-sourced-custom-properties.md) |
+| IMPL-0017 | Configurable annotation-sourced custom properties | Completed | 2026-07-20 | Donald Gifford | [0017-configurable-annotation-sourced-custom-properties.md](0017-configurable-annotation-sourced-custom-properties.md) |
 | IMPL-0018 | Fix silently ignored operator config | Completed | 2026-07-20 | Donald Gifford | [0018-fix-silently-ignored-operator-config.md](0018-fix-silently-ignored-operator-config.md) |
 <!-- END DOCZ AUTO-GENERATED -->

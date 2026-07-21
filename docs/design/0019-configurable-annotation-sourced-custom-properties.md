@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0019
 title: "Configurable annotation-sourced custom properties"
-status: Approved
+status: Implemented
 author: Donald Gifford
 created: 2026-07-19
 ---
@@ -9,7 +9,7 @@ created: 2026-07-19
 
 # DESIGN 0019: Configurable annotation-sourced custom properties
 
-**Status:** Approved
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-07-19
 

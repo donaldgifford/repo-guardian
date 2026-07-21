@@ -98,26 +98,26 @@ Inert on its own — nothing consumes the field yet — so it merges safely.
 
 #### Tasks
 
-- [ ] Add `AnnotationProperties map[string]string` to `ReconcilerConfig`
+- [x] Add `AnnotationProperties map[string]string` to `ReconcilerConfig`
       (`internal/policy/types.go:297-304`); godoc states key = annotation,
       value = GitHub property name
-- [ ] Add `{Name: "annotation_properties"}` to `reconcileBodySchema` and a
+- [x] Add `{Name: "annotation_properties"}` to `reconcileBodySchema` and a
       decode case in `decodeReconcileBlock` (`internal/policy/loader.go:573-617`)
       using `val.AsValueMap()` guarded by `val.CanIterateElements()`;
       collect diags with the existing location-prefix pattern
-- [ ] Validation in `internal/policy/validate.go`, called from the existing
+- [x] Validation in `internal/policy/validate.go`, called from the existing
       validate pass, rejecting: reserved property names (`Owner`,
       `Component` — **case-insensitive**, OQ 3 → a), empty annotation keys,
       empty property names, duplicate property-name targets
       (case-insensitive), and names violating GitHub's constraint
       (`^[a-zA-Z0-9_.-]+$`, ≤75 chars)
-- [ ] Confirm `BuiltinDefaults()` and the `CUSTOM_PROPERTIES_MODE`
+- [x] Confirm `BuiltinDefaults()` and the `CUSTOM_PROPERTIES_MODE`
       back-compat injection (`internal/policy/defaults.go`) leave the map
       empty/nil (Owner/Component-only default)
-- [ ] Loader tests: map decodes; absent attribute ⇒ nil map; empty map ⇒
+- [x] Loader tests: map decodes; absent attribute ⇒ nil map; empty map ⇒
       empty; non-string values ⇒ diagnostic. Validate tests: one case per
       rejection with message-content assertions
-- [ ] `make lint && make test` green (watch gci ordering + godot on new
+- [x] `make lint && make test` green (watch gci ordering + godot on new
       comments)
 
 #### Success Criteria
@@ -355,7 +355,7 @@ Chart-only PR (`dont-release`), chart `1.0.0-rc.4` → `1.0.0-rc.5`.
 
 ## Testing Plan
 
-- [ ] Loader/validate matrix (Phase 0): decode shapes + every rejection
+- [x] Loader/validate matrix (Phase 0): decode shapes + every rejection
 - [ ] Catalog parse matrix (Phase 1): present/absent/empty/nil-map/non-Component
 - [ ] Managed-set diff + payload with sorted-order and clear assertions (Phase 2)
 - [ ] Unmanaged-property isolation: never diffed, never emitted (Phase 2)

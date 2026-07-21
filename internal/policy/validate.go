@@ -3,6 +3,9 @@ package policy
 import (
 	"errors"
 	"fmt"
+	"regexp"
+	"sort"
+	"strings"
 )
 
 const (
@@ -112,6 +115,99 @@ func validateFileRule(r *FileRuleConfig, prefix string) []error {
 	for j, a := range r.Assertions {
 		aPrefix := fmt.Sprintf("%s assertion[%d]", prefix, j)
 		errs = append(errs, validateAssertion(&a, aPrefix)...)
+	}
+
+	for j := range r.Reconcilers {
+		rec := &r.Reconcilers[j]
+		rPrefix := fmt.Sprintf("%s reconcile %q", prefix, rec.Type)
+		errs = append(errs, validateAnnotationProperties(rec.AnnotationProperties, rPrefix)...)
+	}
+
+	return errs
+}
+
+// reservedPropertyNames are GitHub custom property names the
+// custom_properties reconciler always manages from contract-guaranteed
+// Component fields (spec.owner, metadata.name). annotation_properties
+// may not target them (DESIGN-0019: built-in names are fixed, not
+// renameable). Compared case-insensitively because GitHub property
+// names are unique case-insensitively — an operator mapping to "owner"
+// would collide with the built-in "Owner" at PATCH time anyway.
+var reservedPropertyNames = map[string]bool{
+	"owner":     true,
+	"component": true,
+}
+
+// githubPropertyNamePattern matches GitHub's constraint on custom
+// property names: alphanumeric, underscore, period, hyphen: up to 75
+// characters (GitHub REST: organization custom properties).
+var githubPropertyNamePattern = regexp.MustCompile(`^[a-zA-Z0-9_.-]{1,75}$`)
+
+// validateAnnotationProperties validates a reconciler's
+// annotation_properties map (DESIGN-0019): annotation keys and property
+// names must be non-empty, property names must not be reserved
+// (Owner/Component), must match GitHub's property-name charset/length,
+// and no two annotations may target the same property name. Keys are
+// sorted before validation so the returned errors are deterministic.
+func validateAnnotationProperties(props map[string]string, prefix string) []error {
+	if len(props) == 0 {
+		return nil
+	}
+
+	var errs []error
+
+	annotations := make([]string, 0, len(props))
+	for annotation := range props {
+		annotations = append(annotations, annotation)
+	}
+
+	sort.Strings(annotations)
+
+	seenProperties := make(map[string]string, len(props))
+
+	for _, annotation := range annotations {
+		property := props[annotation]
+
+		if annotation == "" {
+			errs = append(errs, fmt.Errorf(
+				"%s: annotation_properties has an empty annotation key",
+				prefix,
+			))
+		}
+
+		if property == "" {
+			errs = append(errs, fmt.Errorf(
+				"%s: annotation_properties[%q] has an empty property name",
+				prefix, annotation,
+			))
+
+			continue
+		}
+
+		lower := strings.ToLower(property)
+
+		if reservedPropertyNames[lower] {
+			errs = append(errs, fmt.Errorf(
+				"%s: annotation_properties[%q] targets reserved property name %q (Owner/Component are built in and cannot be remapped)",
+				prefix, annotation, property,
+			))
+		}
+
+		if !githubPropertyNamePattern.MatchString(property) {
+			errs = append(errs, fmt.Errorf(
+				"%s: annotation_properties[%q] property name %q must match %s and be at most 75 characters",
+				prefix, annotation, property, githubPropertyNamePattern.String(),
+			))
+		}
+
+		if existing, ok := seenProperties[lower]; ok {
+			errs = append(errs, fmt.Errorf(
+				"%s: annotation_properties has duplicate property name %q targeted by both %q and %q",
+				prefix, property, existing, annotation,
+			))
+		} else {
+			seenProperties[lower] = annotation
+		}
 	}
 
 	return errs

@@ -301,4 +301,16 @@ type ReconcilerConfig struct {
 	Mode        string    `hcl:"mode,optional"`
 	DeleteExtra bool      `hcl:"delete_extra,optional"`
 	PR          *PRConfig `hcl:"pr,block"`
+
+	// AnnotationProperties maps a catalog-info.yaml annotation key
+	// (map key, e.g. "jira/project-key") to the GitHub custom property
+	// name it should be synced to (map value, e.g. "JiraProject").
+	// Consumed by the custom_properties reconciler (DESIGN-0019):
+	// Owner and Component are always synced from the Component kind's
+	// contract-guaranteed fields and cannot appear here; every other
+	// property is sourced from an annotation via this map. Absent or
+	// empty means only Owner/Component are synced. See
+	// validateAnnotationProperties for the load-time constraints
+	// (reserved names, duplicates, GitHub property-name charset).
+	AnnotationProperties map[string]string `hcl:"annotation_properties,optional"`
 }

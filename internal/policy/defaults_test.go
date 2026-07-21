@@ -180,6 +180,10 @@ func TestBuiltinDefaults_CustomPropertiesModeAPI(t *testing.T) {
 	if rec.Watch {
 		t.Error("Reconciler.Watch should be false in legacy mode")
 	}
+
+	if rec.AnnotationProperties != nil {
+		t.Errorf("Reconciler.AnnotationProperties = %v, want nil (Owner/Component-only default)", rec.AnnotationProperties)
+	}
 }
 
 func TestBuiltinDefaults_CustomPropertiesModeEmpty(t *testing.T) {

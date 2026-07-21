@@ -129,6 +129,10 @@ func (*mockClient) SetCustomPropertyValues(_ context.Context, _, _ string, _ []*
 	return fmt.Errorf("not implemented")
 }
 
+func (*mockClient) GetOrgPropertySchema(_ context.Context, _ string) ([]string, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 func (*mockClient) GetVulnerabilityAlertsEnabled(_ context.Context, _, _ string) (bool, error) {
 	return false, fmt.Errorf("not implemented")
 }

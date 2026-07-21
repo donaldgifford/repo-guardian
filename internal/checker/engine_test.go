@@ -216,6 +216,10 @@ func (m *mockClient) SetCustomPropertyValues(_ context.Context, _, _ string, pro
 	return nil
 }
 
+func (*mockClient) GetOrgPropertySchema(_ context.Context, _ string) ([]string, error) {
+	return nil, nil
+}
+
 func (m *mockClient) GetVulnerabilityAlertsEnabled(_ context.Context, _, _ string) (bool, error) {
 	return m.vulnerabilityAlertsEnabled, nil
 }

@@ -166,6 +166,15 @@ type Client interface {
 	// SetCustomPropertyValues creates or updates custom property values on a repository.
 	SetCustomPropertyValues(ctx context.Context, owner, repo string, properties []*CustomPropertyValue) error
 
+	// GetOrgPropertySchema returns the names of every custom property
+	// defined at the organization level (DESIGN-0019 preflight). Values
+	// are values-only, least-privilege: the App never creates or
+	// mutates schema definitions, only reads names to filter payloads.
+	// Requires the org-level "Custom properties: read" permission;
+	// callers must fail open (send the unfiltered payload) on error
+	// rather than block a sync that would otherwise succeed.
+	GetOrgPropertySchema(ctx context.Context, org string) ([]string, error)
+
 	// GetVulnerabilityAlertsEnabled checks if vulnerability alerts are enabled.
 	GetVulnerabilityAlertsEnabled(ctx context.Context, owner, repo string) (bool, error)
 

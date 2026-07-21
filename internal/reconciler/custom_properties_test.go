@@ -54,6 +54,10 @@ type mockClient struct {
 	installRepos     map[int64][]*ghclient.Repository
 	processedJobs    atomic.Int32
 
+	orgSchema      map[string][]string
+	orgSchemaErr   error
+	orgSchemaCalls atomic.Int32
+
 	getRepoErr        error
 	getContentsErr    error
 	getFileContentErr error
@@ -75,6 +79,7 @@ func newMockClient() *mockClient {
 		createdFileBody:  make(map[string]string),
 		branchSHAs:       make(map[string]string),
 		installRepos:     make(map[int64][]*ghclient.Repository),
+		orgSchema:        make(map[string][]string),
 	}
 }
 
@@ -208,6 +213,16 @@ func (m *mockClient) SetCustomPropertyValues(_ context.Context, _, _ string, pro
 	m.setProperties = append(m.setProperties, properties...)
 
 	return nil
+}
+
+func (m *mockClient) GetOrgPropertySchema(_ context.Context, org string) ([]string, error) {
+	m.orgSchemaCalls.Add(1)
+
+	if m.orgSchemaErr != nil {
+		return nil, m.orgSchemaErr
+	}
+
+	return m.orgSchema[org], nil
 }
 
 func (*mockClient) GetVulnerabilityAlertsEnabled(_ context.Context, _, _ string) (bool, error) {

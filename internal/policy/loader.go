@@ -653,13 +653,16 @@ func decodeReconcileBlock(block *hcl.Block, ctx *hcl.EvalContext) (*ReconcilerCo
 // decodeAnnotationProperties decodes the `annotation_properties` map
 // attribute on a `reconcile {}` block. rng anchors diagnostics to the
 // attribute's source location. Non-map values and non-string map values
-// each produce a diagnostic rather than panicking (cty's AsString panics
-// on a non-string value) and are skipped; the remaining entries still
-// decode. Reserved-name, duplicate-target, and charset validation happen
-// later at policy.Validate time (validateAnnotationProperties), where
-// file/rule context is available for a clearer error prefix.
+// each produce a diagnostic rather than panicking and are skipped; the
+// remaining entries still decode. The type guard checks IsObjectType/
+// IsMapType specifically rather than CanIterateElements: the latter is
+// also true for lists/sets/tuples, whose AsValueMap panics internally
+// (it calls AsString on a numeric index key). Reserved-name,
+// duplicate-target, and charset validation happen later at
+// policy.Validate time (validateAnnotationProperties), where file/rule
+// context is available for a clearer error prefix.
 func decodeAnnotationProperties(val cty.Value, rng hcl.Range) (map[string]string, hcl.Diagnostics) {
-	if !val.CanIterateElements() {
+	if !val.Type().IsObjectType() && !val.Type().IsMapType() {
 		return nil, hcl.Diagnostics{{
 			Severity: hcl.DiagError,
 			Summary:  "Invalid annotation_properties",

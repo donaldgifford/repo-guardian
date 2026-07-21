@@ -1164,3 +1164,21 @@ func TestLoad_AnnotationProperties_NonStringValue_Fails(t *testing.T) {
 		t.Errorf("error %q does not mention annotation_properties", err)
 	}
 }
+
+// TestLoad_AnnotationProperties_ListValue_FailsCleanly guards against a
+// panic regression: cty.Value.CanIterateElements() is also true for
+// List/Set/Tuple types, whose AsValueMap() panics internally (it calls
+// AsString on a numeric index key, not a string key). The decode guard
+// must check IsObjectType/IsMapType specifically instead.
+func TestLoad_AnnotationProperties_ListValue_FailsCleanly(t *testing.T) {
+	_, err := Load(writeReconcileHCL(t, `
+    annotation_properties = ["a", "b"]
+`))
+	if err == nil {
+		t.Fatal("Load() succeeded, want error for list-typed annotation_properties")
+	}
+
+	if !strings.Contains(err.Error(), "annotation_properties") {
+		t.Errorf("error %q does not mention annotation_properties", err)
+	}
+}

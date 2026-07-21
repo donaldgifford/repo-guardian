@@ -35,10 +35,13 @@ type Repository struct {
 }
 
 // CustomPropertyValue represents a single custom property key-value pair
-// on a GitHub repository.
+// on a GitHub repository. Value is nil to represent an unset/null
+// property value; SetCustomPropertyValues passes a nil Value through as
+// a JSON null, which is GitHub's documented mechanism for clearing a
+// repository's property value.
 type CustomPropertyValue struct {
 	PropertyName string
-	Value        string
+	Value        *string
 }
 
 // RepoSettings holds GitHub repository settings that can be checked and

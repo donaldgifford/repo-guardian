@@ -3,6 +3,7 @@ package reconciler
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -39,6 +40,18 @@ const (
 type CustomPropertiesReconciler struct {
 	mode      string // "api" or "github-action"
 	templates *rules.TemplateStore
+
+	// annotationProps maps a catalog-info annotation key to the GitHub
+	// custom property name it populates (DESIGN-0019). Nil/empty means
+	// only Owner/Component are managed.
+	annotationProps map[string]string
+
+	// managedNames is the sorted, deduplicated set of annotationProps
+	// values — the mapped-property half of the managed set (Owner and
+	// Component are always managed and are handled separately).
+	// Precomputed once at construction since annotationProps never
+	// changes for the lifetime of the reconciler.
+	managedNames []string
 }
 
 // NewCustomPropertiesReconciler creates a custom_properties reconciler from config.
@@ -52,9 +65,38 @@ func NewCustomPropertiesReconciler(
 	}
 
 	return &CustomPropertiesReconciler{
-		mode:      mode,
-		templates: templates,
+		mode:            mode,
+		templates:       templates,
+		annotationProps: config.AnnotationProperties,
+		managedNames:    managedPropertyNames(config.AnnotationProperties),
 	}, nil
+}
+
+// managedPropertyNames returns the sorted, deduplicated set of GitHub
+// custom property names targeted by annotationProps (its values, not
+// its keys). Deduplication is defensive: policy.Validate already
+// rejects duplicate targets at load time.
+func managedPropertyNames(annotationProps map[string]string) []string {
+	if len(annotationProps) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]bool, len(annotationProps))
+	names := make([]string, 0, len(annotationProps))
+
+	for _, name := range annotationProps {
+		if seen[name] {
+			continue
+		}
+
+		seen[name] = true
+
+		names = append(names, name)
+	}
+
+	sort.Strings(names)
+
+	return names
 }
 
 // Name returns the reconciler type name.
@@ -73,14 +115,14 @@ func (r *CustomPropertiesReconciler) Reconcile(ctx context.Context, params *Reco
 		return err
 	}
 
-	desired := catalog.Parse(content)
+	desired := catalog.Parse(content, r.annotationProps)
 
 	current, err := params.Client.GetCustomPropertyValues(ctx, params.Owner, params.Repo)
 	if err != nil {
 		return fmt.Errorf("reading custom properties: %w", err)
 	}
 
-	if !diffProperties(desired, current) {
+	if !r.diffProperties(desired, current) {
 		log.Info("custom properties already correct")
 		metrics.PropertiesAlreadyCorrectTotal.Inc()
 
@@ -90,6 +132,7 @@ func (r *CustomPropertiesReconciler) Reconcile(ctx context.Context, params *Reco
 	log.Info("custom properties need update",
 		"desired_owner", desired.Owner,
 		"desired_component", desired.Component,
+		"desired_properties", desired.Extra,
 		"catalog_found", catalogFound,
 	)
 
@@ -171,10 +214,9 @@ func (r *CustomPropertiesReconciler) handleGHAMode(
 		},
 		Org: params.Owner,
 		Catalog: &tmpl.CatalogInfo{
-			Owner:       desired.Owner,
-			Component:   desired.Component,
-			JiraProject: desired.JiraProject,
-			JiraLabel:   desired.JiraLabel,
+			Owner:      desired.Owner,
+			Component:  desired.Component,
+			Properties: managedPropertiesMap(desired, r.managedNames),
 		},
 	})
 	if err != nil {
@@ -201,7 +243,7 @@ func (r *CustomPropertiesReconciler) handleGHAMode(
 		return fmt.Errorf("creating workflow file: %w", err)
 	}
 
-	fallbackBody := buildPropertiesPRBody(desired, "github-action")
+	fallbackBody := buildPropertiesPRBody(desired, r.managedNames, "github-action")
 
 	prText, err := resolveReconcilerPR(log, params, "custom_properties", PropertiesPRTitle, fallbackBody)
 	if err != nil {
@@ -229,24 +271,35 @@ func (r *CustomPropertiesReconciler) handleAPIMode(
 ) error {
 	log := params.Logger.With("owner", params.Owner, "repo", params.Repo)
 
+	props := desiredToPropertyValues(desired, r.managedNames)
+	sets, clears := splitSetsAndClears(props)
+
 	if params.DryRun {
 		log.Info("dry run: would set custom properties via API",
-			"owner_value", desired.Owner,
-			"component_value", desired.Component,
+			"properties_to_set", sets,
+			"properties_to_clear", clears,
 			"catalog_found", catalogFound,
 		)
 
 		return nil
 	}
 
-	props := desiredToPropertyValues(desired)
-
 	if err := params.Client.SetCustomPropertyValues(ctx, params.Owner, params.Repo, props); err != nil {
 		return fmt.Errorf("setting custom properties: %w", err)
 	}
 
 	metrics.PropertiesSetTotal.Inc()
-	log.Info("set custom properties via API")
+
+	if len(clears) > 0 {
+		metrics.CustomPropertyClearedTotal.WithLabelValues(params.Owner).Add(float64(len(clears)))
+	}
+
+	logArgs := make([]any, 0, 2)
+	if len(clears) > 0 {
+		logArgs = append(logArgs, "cleared_properties", clears)
+	}
+
+	log.Info("set custom properties via API", logArgs...)
 
 	if !catalogFound {
 		return r.createCatalogInfoPR(ctx, params)
@@ -317,7 +370,7 @@ func (r *CustomPropertiesReconciler) createCatalogInfoPR(
 		return fmt.Errorf("creating catalog-info.yaml: %w", err)
 	}
 
-	fallbackBody := buildPropertiesPRBody(nil, "api")
+	fallbackBody := buildPropertiesPRBody(nil, r.managedNames, "api")
 
 	prText, err := resolveReconcilerPR(log, params, "custom_properties", CatalogInfoPRTitle, fallbackBody)
 	if err != nil {
@@ -373,63 +426,130 @@ func findPropertiesPR(openPRs []*ghclient.PullRequest, branchName string) *ghcli
 	return nil
 }
 
-// diffProperties returns true if any desired property differs from current values.
-func diffProperties(desired *catalog.Properties, current []*ghclient.CustomPropertyValue) bool {
-	currentMap := make(map[string]string, len(current))
+// currentValue dereferences a possibly-nil current property value,
+// treating nil (unset/null on GitHub) the same as an empty string.
+func currentValue(v *string) string {
+	if v == nil {
+		return ""
+	}
+
+	return *v
+}
+
+// diffProperties returns true if any managed property differs from
+// current values. The managed set is {Owner, Component} plus
+// r.managedNames; properties outside that set are never compared,
+// regardless of what GetCustomPropertyValues returns.
+func (r *CustomPropertiesReconciler) diffProperties(
+	desired *catalog.Properties,
+	current []*ghclient.CustomPropertyValue,
+) bool {
+	currentMap := make(map[string]*string, len(current))
 	for _, p := range current {
 		currentMap[p.PropertyName] = p.Value
 	}
 
-	if currentMap["Owner"] != desired.Owner {
+	if currentValue(currentMap["Owner"]) != desired.Owner {
 		return true
 	}
 
-	if currentMap["Component"] != desired.Component {
+	if currentValue(currentMap["Component"]) != desired.Component {
 		return true
 	}
 
-	if desired.JiraProject != "" && currentMap["JiraProject"] != desired.JiraProject {
-		return true
-	}
+	for _, name := range r.managedNames {
+		value, present := desired.Extra[name]
+		cur := currentValue(currentMap[name])
 
-	if desired.JiraLabel != "" && currentMap["JiraLabel"] != desired.JiraLabel {
-		return true
+		if present {
+			if cur != value {
+				return true
+			}
+
+			continue
+		}
+
+		// Annotation removed or empty: a non-empty current value must
+		// be cleared (DESIGN-0019 full state sync).
+		if cur != "" {
+			return true
+		}
 	}
 
 	return false
 }
 
-// desiredToPropertyValues converts catalog Properties to GitHub CustomPropertyValue slice.
-func desiredToPropertyValues(desired *catalog.Properties) []*ghclient.CustomPropertyValue {
-	props := []*ghclient.CustomPropertyValue{
-		{PropertyName: "Owner", Value: desired.Owner},
-		{PropertyName: "Component", Value: desired.Component},
-	}
+// desiredToPropertyValues converts catalog Properties into the GitHub
+// CustomPropertyValue payload for the managed set: Owner, Component,
+// then managedNames in sorted order. A managed name absent from
+// desired.Extra carries a nil Value, which SetCustomPropertyValues
+// sends as an explicit JSON null (clear).
+func desiredToPropertyValues(desired *catalog.Properties, managedNames []string) []*ghclient.CustomPropertyValue {
+	owner := desired.Owner
+	component := desired.Component
 
-	if desired.JiraProject != "" {
-		props = append(props, &ghclient.CustomPropertyValue{
-			PropertyName: "JiraProject",
-			Value:        desired.JiraProject,
-		})
-	}
+	props := make([]*ghclient.CustomPropertyValue, 0, len(managedNames)+2)
+	props = append(props,
+		&ghclient.CustomPropertyValue{PropertyName: "Owner", Value: &owner},
+		&ghclient.CustomPropertyValue{PropertyName: "Component", Value: &component},
+	)
 
-	if desired.JiraLabel != "" {
-		props = append(props, &ghclient.CustomPropertyValue{
-			PropertyName: "JiraLabel",
-			Value:        desired.JiraLabel,
-		})
+	for _, name := range managedNames {
+		if value, ok := desired.Extra[name]; ok {
+			props = append(props, &ghclient.CustomPropertyValue{PropertyName: name, Value: &value})
+			continue
+		}
+
+		props = append(props, &ghclient.CustomPropertyValue{PropertyName: name, Value: nil})
 	}
 
 	return props
 }
 
+// managedPropertiesMap builds the template-facing property map for
+// GHA-mode rendering: every managed name is present, using
+// desired.Extra's value or the empty string when absent (the
+// template's clear signal — see set-custom-properties.tmpl).
+func managedPropertiesMap(desired *catalog.Properties, managedNames []string) map[string]string {
+	if len(managedNames) == 0 {
+		return nil
+	}
+
+	props := make(map[string]string, len(managedNames))
+	for _, name := range managedNames {
+		props[name] = desired.Extra[name]
+	}
+
+	return props
+}
+
+// splitSetsAndClears partitions a CustomPropertyValue payload into the
+// properties being set (name -> value) and the properties being
+// cleared (nil Value), for logging and metrics.
+func splitSetsAndClears(props []*ghclient.CustomPropertyValue) (map[string]string, []string) {
+	sets := make(map[string]string, len(props))
+
+	var clears []string
+
+	for _, p := range props {
+		if p.Value == nil {
+			clears = append(clears, p.PropertyName)
+			continue
+		}
+
+		sets[p.PropertyName] = *p.Value
+	}
+
+	return sets, clears
+}
+
 // buildPropertiesPRBody generates the markdown PR body for custom properties PRs.
-func buildPropertiesPRBody(props *catalog.Properties, mode string) string {
+func buildPropertiesPRBody(props *catalog.Properties, managedNames []string, mode string) string {
 	var sb strings.Builder
 
 	switch mode {
 	case ModeGHA:
-		buildGHABody(&sb, props)
+		buildGHABody(&sb, props, managedNames)
 	default:
 		buildCatalogInfoBody(&sb)
 	}
@@ -441,12 +561,12 @@ func buildPropertiesPRBody(props *catalog.Properties, mode string) string {
 	return sb.String()
 }
 
-func buildGHABody(sb *strings.Builder, props *catalog.Properties) {
+func buildGHABody(sb *strings.Builder, props *catalog.Properties, managedNames []string) {
 	sb.WriteString("## Repo Guardian — Set Custom Properties\n\n")
 	sb.WriteString("This PR was automatically created by **repo-guardian** to set repository\n")
 	sb.WriteString("custom properties via a GitHub Actions workflow.\n\n")
 	sb.WriteString("### Properties to be set\n\n")
-	writePropertyList(sb, props)
+	writePropertyList(sb, props, managedNames)
 	sb.WriteString("\n### What happens when merged\n\n")
 	sb.WriteString("The included GitHub Actions workflow runs once on push to `main` and sets\n")
 	sb.WriteString("the above custom properties on this repository. The workflow can be safely\n")
@@ -464,7 +584,10 @@ func buildCatalogInfoBody(sb *strings.Builder) {
 	sb.WriteString("cycle and update custom properties with the correct values.\n\n")
 }
 
-func writePropertyList(sb *strings.Builder, props *catalog.Properties) {
+// writePropertyList renders Owner, Component, then every managed
+// mapped property — present values inline, absent ones flagged as a
+// pending clear (DESIGN-0019 full state sync).
+func writePropertyList(sb *strings.Builder, props *catalog.Properties, managedNames []string) {
 	if props == nil {
 		return
 	}
@@ -472,11 +595,12 @@ func writePropertyList(sb *strings.Builder, props *catalog.Properties) {
 	fmt.Fprintf(sb, "- **Owner:** `%s`\n", props.Owner)
 	fmt.Fprintf(sb, "- **Component:** `%s`\n", props.Component)
 
-	if props.JiraProject != "" {
-		fmt.Fprintf(sb, "- **JiraProject:** `%s`\n", props.JiraProject)
-	}
+	for _, name := range managedNames {
+		if value, ok := props.Extra[name]; ok {
+			fmt.Fprintf(sb, "- **%s:** `%s`\n", name, value)
+			continue
+		}
 
-	if props.JiraLabel != "" {
-		fmt.Fprintf(sb, "- **JiraLabel:** `%s`\n", props.JiraLabel)
+		fmt.Fprintf(sb, "- **%s:** _(will clear)_\n", name)
 	}
 }

@@ -7,13 +7,19 @@ import (
 func TestParse(t *testing.T) {
 	t.Parallel()
 
+	jiraAnnotationProps := map[string]string{
+		"jira/project-key": "JiraProject",
+		"jira/label":       "JiraLabel",
+	}
+
 	tests := []struct {
-		name    string
-		content string
-		want    *Properties
+		name            string
+		content         string
+		annotationProps map[string]string
+		want            *Properties
 	}{
 		{
-			name: "all fields present",
+			name: "mapped annotations present",
 			content: `---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -38,15 +44,18 @@ spec:
   owner: donaldgifford
   system: infrastructure
 `,
+			annotationProps: jiraAnnotationProps,
 			want: &Properties{
-				Owner:       "donaldgifford",
-				Component:   "repo-guardian",
-				JiraProject: "DON",
-				JiraLabel:   "repo-guardian",
+				Owner:     "donaldgifford",
+				Component: "repo-guardian",
+				Extra: map[string]string{
+					"JiraProject": "DON",
+					"JiraLabel":   "repo-guardian",
+				},
 			},
 		},
 		{
-			name: "missing jira annotations",
+			name: "mapped annotations absent",
 			content: `apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
@@ -54,6 +63,41 @@ metadata:
 spec:
   owner: platform-team
 `,
+			annotationProps: jiraAnnotationProps,
+			want: &Properties{
+				Owner:     "platform-team",
+				Component: "my-service",
+			},
+		},
+		{
+			name: "mapped annotation present but empty value is not populated",
+			content: `apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: my-service
+  annotations:
+    jira/project-key: ""
+spec:
+  owner: platform-team
+`,
+			annotationProps: jiraAnnotationProps,
+			want: &Properties{
+				Owner:     "platform-team",
+				Component: "my-service",
+			},
+		},
+		{
+			name: "nil annotationProps yields Owner/Component only",
+			content: `apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: my-service
+  annotations:
+    jira/project-key: "DON"
+spec:
+  owner: platform-team
+`,
+			annotationProps: nil,
 			want: &Properties{
 				Owner:     "platform-team",
 				Component: "my-service",
@@ -68,6 +112,7 @@ metadata:
 spec:
   owner: ""
 `,
+			annotationProps: jiraAnnotationProps,
 			want: &Properties{
 				Owner:     DefaultOwner,
 				Component: "my-service",
@@ -82,6 +127,7 @@ metadata:
 spec:
   owner: some-team
 `,
+			annotationProps: jiraAnnotationProps,
 			want: &Properties{
 				Owner:     "some-team",
 				Component: DefaultComponent,
@@ -96,6 +142,7 @@ metadata:
 spec:
   owner: api-team
 `,
+			annotationProps: jiraAnnotationProps,
 			want: &Properties{
 				Owner:     DefaultOwner,
 				Component: DefaultComponent,
@@ -110,22 +157,25 @@ metadata:
 spec:
   owner: some-team
 `,
+			annotationProps: jiraAnnotationProps,
 			want: &Properties{
 				Owner:     DefaultOwner,
 				Component: DefaultComponent,
 			},
 		},
 		{
-			name:    "malformed YAML",
-			content: `{{{`,
+			name:            "malformed YAML",
+			content:         `{{{`,
+			annotationProps: jiraAnnotationProps,
 			want: &Properties{
 				Owner:     DefaultOwner,
 				Component: DefaultComponent,
 			},
 		},
 		{
-			name:    "empty string",
-			content: "",
+			name:            "empty string",
+			content:         "",
+			annotationProps: jiraAnnotationProps,
 			want: &Properties{
 				Owner:     DefaultOwner,
 				Component: DefaultComponent,
@@ -137,6 +187,7 @@ spec:
 version: 1.0
 description: some random config
 `,
+			annotationProps: jiraAnnotationProps,
 			want: &Properties{
 				Owner:     DefaultOwner,
 				Component: DefaultComponent,
@@ -148,20 +199,45 @@ description: some random config
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := Parse(tt.content)
+			got := Parse(tt.content, tt.annotationProps)
 
 			if got.Owner != tt.want.Owner {
 				t.Errorf("Owner = %q, want %q", got.Owner, tt.want.Owner)
 			}
+
 			if got.Component != tt.want.Component {
 				t.Errorf("Component = %q, want %q", got.Component, tt.want.Component)
 			}
-			if got.JiraProject != tt.want.JiraProject {
-				t.Errorf("JiraProject = %q, want %q", got.JiraProject, tt.want.JiraProject)
+
+			if len(got.Extra) != len(tt.want.Extra) {
+				t.Errorf("Extra = %v, want %v", got.Extra, tt.want.Extra)
 			}
-			if got.JiraLabel != tt.want.JiraLabel {
-				t.Errorf("JiraLabel = %q, want %q", got.JiraLabel, tt.want.JiraLabel)
+
+			for k, v := range tt.want.Extra {
+				if got.Extra[k] != v {
+					t.Errorf("Extra[%q] = %q, want %q", k, got.Extra[k], v)
+				}
 			}
 		})
+	}
+}
+
+func TestParse_NilAnnotationPropsNeverAllocatesExtra(t *testing.T) {
+	t.Parallel()
+
+	content := `apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: my-service
+  annotations:
+    jira/project-key: "DON"
+spec:
+  owner: platform-team
+`
+
+	got := Parse(content, nil)
+
+	if got.Extra != nil {
+		t.Errorf("Extra = %v, want nil", got.Extra)
 	}
 }

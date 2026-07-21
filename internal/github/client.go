@@ -439,9 +439,10 @@ func (c *GitHubClient) GetCustomPropertyValues(
 
 	props := make([]*CustomPropertyValue, 0, len(ghProps))
 	for _, p := range ghProps {
-		value := ""
+		var value *string
 		if p.Value != nil {
-			value = fmt.Sprintf("%v", p.Value)
+			v := fmt.Sprintf("%v", p.Value)
+			value = &v
 		}
 
 		props = append(props, &CustomPropertyValue{

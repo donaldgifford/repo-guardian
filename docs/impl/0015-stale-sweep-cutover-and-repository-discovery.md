@@ -1,7 +1,7 @@
 ---
 id: IMPL-0015
 title: "Stale-sweep cutover and repository discovery"
-status: Draft
+status: In Progress
 author: Donald Gifford
 created: 2026-06-23
 ---
@@ -9,7 +9,7 @@ created: 2026-06-23
 
 # IMPL 0015: Stale-sweep cutover and repository discovery
 
-**Status:** Draft
+**Status:** In Progress
 **Author:** Donald Gifford
 **Date:** 2026-06-23
 

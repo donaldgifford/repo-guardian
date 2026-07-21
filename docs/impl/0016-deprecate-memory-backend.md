@@ -1,7 +1,7 @@
 ---
 id: IMPL-0016
 title: "Deprecate memory backend"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-06-23
 ---
@@ -9,7 +9,7 @@ created: 2026-06-23
 
 # IMPL 0016: Deprecate memory backend
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-06-23
 

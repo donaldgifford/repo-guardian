@@ -13,7 +13,7 @@ SLSA Level 3 provenance attestations.
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 1.0.0-rc.4 \
+  --version 1.0.0-rc.5 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -28,7 +28,7 @@ aws ecr get-login-password --region <region> | \
 
 helm install repo-guardian \
   oci://<account>.dkr.ecr.<region>.amazonaws.com/repo-guardian-chart \
-  --version 1.0.0-rc.4 \
+  --version 1.0.0-rc.5 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -64,7 +64,7 @@ secrets:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 1.0.0-rc.4 \
+  --version 1.0.0-rc.5 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -85,6 +85,17 @@ StatefulSets out-of-the-box.
 | **Baked Postgres + Valkey** (default) | `store.postgres.mode=baked`, `queue.valkey.mode=baked` | You want multi-replica with no external operator dependencies. Chart renders single-pod Postgres + Valkey StatefulSets with auto-generated passwords. Suitable for homelab / small dev clusters. |
 | **CNPG-managed Postgres + baked Valkey** | `store.postgres.mode=cnpg`, `queue.valkey.mode=baked` | You already run [CloudNativePG](https://cloudnative-pg.io/) in the cluster and want the operator to handle Postgres lifecycle (HA replicas, backups, monitoring). The chart renders a `Cluster` CR and an optional `Pooler` (PgBouncer) CR. An optional `LoadBalancer` Service in front of the pooler (Cilium BGP-annotated by default) exposes the database to clients outside the cluster — enable via `store.postgres.cnpg.pooler.service.enabled`. |
 | **External Postgres + external Valkey** | `store.postgres.mode=external` + `existingSecret`; `queue.valkey.mode=external` + `existingSecret` | You're running a managed Postgres (RDS, Cloud SQL) and Redis-compatible service (ElastiCache for Valkey, etc.). Chart consumes the DSN from operator-supplied secrets and renders no backing resources. |
+
+### Mode-scoped secret knobs
+
+Each `existingSecret` value is read by exactly one mode:
+`store.postgres.existingSecret` / `queue.valkey.existingSecret` only in
+`external` mode; `store.postgres.baked.existingSecret` /
+`queue.valkey.baked.existingSecret` only in `baked` mode. Setting one
+under any other mode fails `helm template` / `helm install` with an
+error naming the offending value and the correct alternative (chart
+`1.0.0-rc.5`+) instead of silently deploying on the chart-generated
+secret.
 
 ### Schema validation
 
@@ -192,7 +203,7 @@ cosign verify \
     '^https://github.com/donaldgifford/repo-guardian/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.4
+  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.5
 ```
 
 ### SLSA provenance
@@ -203,7 +214,7 @@ cosign verify-attestation --type slsaprovenance \
     '^https://github.com/slsa-framework/slsa-github-generator/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.4
+  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.5
 ```
 
 The provenance attestation records the build workflow path, source

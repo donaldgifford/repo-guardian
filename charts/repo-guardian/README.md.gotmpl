@@ -86,6 +86,17 @@ StatefulSets out-of-the-box.
 | **CNPG-managed Postgres + baked Valkey** | `store.postgres.mode=cnpg`, `queue.valkey.mode=baked` | You already run [CloudNativePG](https://cloudnative-pg.io/) in the cluster and want the operator to handle Postgres lifecycle (HA replicas, backups, monitoring). The chart renders a `Cluster` CR and an optional `Pooler` (PgBouncer) CR. An optional `LoadBalancer` Service in front of the pooler (Cilium BGP-annotated by default) exposes the database to clients outside the cluster — enable via `store.postgres.cnpg.pooler.service.enabled`. |
 | **External Postgres + external Valkey** | `store.postgres.mode=external` + `existingSecret`; `queue.valkey.mode=external` + `existingSecret` | You're running a managed Postgres (RDS, Cloud SQL) and Redis-compatible service (ElastiCache for Valkey, etc.). Chart consumes the DSN from operator-supplied secrets and renders no backing resources. |
 
+### Mode-scoped secret knobs
+
+Each `existingSecret` value is read by exactly one mode:
+`store.postgres.existingSecret` / `queue.valkey.existingSecret` only in
+`external` mode; `store.postgres.baked.existingSecret` /
+`queue.valkey.baked.existingSecret` only in `baked` mode. Setting one
+under any other mode fails `helm template` / `helm install` with an
+error naming the offending value and the correct alternative (chart
+`1.0.0-rc.5`+) instead of silently deploying on the chart-generated
+secret.
+
 ### Schema validation
 
 `values.schema.json` (shipped with chart `1.0.0-rc.1`+) locks

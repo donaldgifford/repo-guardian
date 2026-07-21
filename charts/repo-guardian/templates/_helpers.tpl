@@ -176,3 +176,32 @@ Renders empty on success; failure aborts the entire template render.
 {{- fail (printf "templating.vars keys collide with chart-managed env vars: %s" (join ", " $offenders)) -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Render-time guard for mode-scoped secret knobs (INV-0010). Each
+existingSecret value is consumed by exactly one store/queue mode; setting
+one under any other mode used to be silently ignored, leaving the
+deployment on a different credential source than the operator intended
+(the chart-generated Secret), which surfaces later as auth failures.
+Fail the render with an actionable message instead.
+
+Extend this guard when adding a new mode or secret knob — the dispatch in
+repo-guardian.storeSecretName / valkeySecretName must never silently drop
+an operator-supplied secret.
+
+Renders empty on success; failure aborts the entire template render.
+*/}}
+{{- define "repo-guardian.validateBackendSecrets" -}}
+{{- if and .Values.store.postgres.existingSecret (ne .Values.store.postgres.mode "external") -}}
+{{- fail (printf "store.postgres.existingSecret is set but store.postgres.mode=%s never reads it — use store.postgres.baked.existingSecret for baked mode, or set store.postgres.mode=external" .Values.store.postgres.mode) -}}
+{{- end -}}
+{{- if and .Values.store.postgres.baked.existingSecret (ne .Values.store.postgres.mode "baked") -}}
+{{- fail (printf "store.postgres.baked.existingSecret is set but store.postgres.mode=%s never reads it — use store.postgres.existingSecret for external mode, or set store.postgres.mode=baked" .Values.store.postgres.mode) -}}
+{{- end -}}
+{{- if and .Values.queue.valkey.existingSecret (ne .Values.queue.valkey.mode "external") -}}
+{{- fail (printf "queue.valkey.existingSecret is set but queue.valkey.mode=%s never reads it — use queue.valkey.baked.existingSecret for baked mode, or set queue.valkey.mode=external" .Values.queue.valkey.mode) -}}
+{{- end -}}
+{{- if and .Values.queue.valkey.baked.existingSecret (ne .Values.queue.valkey.mode "baked") -}}
+{{- fail (printf "queue.valkey.baked.existingSecret is set but queue.valkey.mode=%s never reads it — use queue.valkey.existingSecret for external mode, or set queue.valkey.mode=baked" .Values.queue.valkey.mode) -}}
+{{- end -}}
+{{- end }}

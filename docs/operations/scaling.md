@@ -186,6 +186,81 @@ The `BudgetTracker` (`internal/budget/`) is a per-installation, leader-scoped ca
 - `discovery.estimatedCostPerRepo` (default 10) — calibrate against `repo_guardian_repos_checked_total` ÷ `rate_limit_remaining` drop per sweep. Bump higher if you see budget exhaustion despite the tracker reporting positive `api_budget_spendable`.
 - `discovery.interval` (default 1h) — primary discovery channel is webhooks (`installation_repositories.added` / `repository.created`); the Discoverer is the safety net for missed deliveries. Operators confident in webhook fidelity can stretch this to 6h+.
 
+## Custom-property schema preflight (IMPL-0017 Phase 3)
+
+The `custom_properties` reconciler (API mode) checks every managed property
+name — `{Owner, Component}` ∪ the operator's `annotation_properties` targets
+— against the org's actual custom-property schema before PATCHing. A
+property the schema doesn't define is dropped from the payload (the rest
+still syncs in the same PATCH), warned about, and counted. The schema lookup
+is cached per org for 30 minutes and de-duplicated across concurrent
+worker-pool calls for the same org, so a fleet sweep costs at most one
+`GetOrgPropertySchema` API call per org per window regardless of how many
+repos in that org are processed concurrently.
+
+### Metric
+
+| Metric | Meaning | Healthy signal |
+|---|---|---|
+| `repo_guardian_custom_property_missing_schema_total{org, property}` | Sync attempts for a managed property absent from the org's custom-property schema. | Zero in steady state. Non-zero means either the org schema is missing a property definition the policy expects, or `annotation_properties` maps to a stale/renamed property. |
+
+Cardinality is bounded by the operator's `annotation_properties` config
+(single digits per org), so this is safe to alert on directly without a
+`sum()` — see below.
+
+### Loki matching contract
+
+When the schema fetch succeeds but one or more managed properties are
+undefined, the reconciler emits exactly this log line (locked by
+`TestAPIMode_FiltersUndefinedMappedProperty` in
+`internal/reconciler/custom_properties_test.go` — a Go test asserts the
+literal text and keys so this contract can't drift silently):
+
+```
+level=WARN msg="custom properties missing from org schema" org=<org> repo=<repo> missing_properties=[<Name1> <Name2> ...]
+```
+
+- **Message text** (match on this, not just the level): `custom properties missing from org schema`
+- **Structured keys:** `org` (string), `repo` (string), `missing_properties` (list of property names present in the sync attempt but absent from the org schema)
+
+Sample LogQL alerting rule (Loki ruler), grouped by org so each org's
+missing-schema streak pages independently:
+
+```yaml
+groups:
+  - name: repo-guardian-schema-preflight
+    rules:
+      - alert: RepoGuardianPropertySchemaMissingLogs
+        expr: |
+          sum by (org) (
+            count_over_time({app="repo-guardian"} |= "custom properties missing from org schema" [15m])
+          ) > 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "repo-guardian: org {{ $labels.org }} has custom properties missing from its schema"
+```
+
+The fail-open path (schema fetch itself errors — 403, 5xx, timeout) is a
+separate, distinct log line and is intentionally rarer (once per org per
+30-minute TTL window, not once per repo):
+
+```
+level=WARN msg="fetching org custom property schema failed; sending unfiltered properties" org=<org> error="<err>"
+```
+
+If the App is missing the org-level **Custom properties: read** permission,
+every affected org will show exactly this line, once per TTL window, with
+the unfiltered payload still syncing (no properties silently dropped due to
+a permissions gap — see `docs/usage/policy-reference.md` §Custom Property
+Schema Preflight).
+
+The Prometheus-side starter alert for the metric (`RepoGuardianPropertySchemaMissing`)
+lives in `charts/repo-guardian/templates/prometheusrule.yaml`; both signals
+key off the same `org` value, so a Loki log line and a Prometheus alert for
+the same incident always agree on which org to investigate.
+
 ## Sizing for Valkey
 
 Valkey is small. The queue + in-flight ZSET + reaper lock fit in single-digit MB even for tens of thousands of jobs. The `queue.valkey.baked` 1Gi PVC is conservative; you'll never fill it.

@@ -271,24 +271,27 @@ The behavioral core: managed-set state sync with clears, in both modes.
 
 ### Phase 4: Chart observability (alert + Loki contract)
 
-Chart-only PR (`dont-release`), chart `1.0.0-rc.4` → `1.0.0-rc.5`.
+Chart-only PR (`dont-release`), chart `1.0.0-rc.5` → `1.0.0-rc.6` (main
+advanced past `rc.4` with unrelated fixes — PRs #160/#161/#163 — while this
+IMPL was in progress; bumping from whatever main is actually on, not the
+number written when this doc was drafted).
 
 #### Tasks
 
-- [ ] `RepoGuardianPropertySchemaMissing` alert in
+- [x] `RepoGuardianPropertySchemaMissing` alert in
       `charts/repo-guardian/templates/prometheusrule.yaml`:
       `rate(repo_guardian_custom_property_missing_schema_total[15m]) > 0`
       for 30m, `severity: warning`, annotation linking the policy-reference
       preflight section (match existing alert style, lines 28-115)
-- [ ] Loki matching contract in `docs/operations/` (extend where the
+- [x] Loki matching contract in `docs/operations/` (extend where the
       IMPL-0015 metric tables live): exact message text, structured keys
       (`org`, `missing_properties`), sample LogQL ruler rule
-- [ ] helm-unittest case for the new alert entry
+- [x] helm-unittest case for the new alert entry
       (`charts/repo-guardian/tests/`) — remember `---` document-start and
       `equal:` path assertions (no `kind:` assertion type)
-- [ ] Chart.yaml version bump + `helm-docs` regeneration if README
+- [x] Chart.yaml version bump + `helm-docs` regeneration if README
       template mentions alerts
-- [ ] helm-unittest suite green; `make lint && make test` green
+- [x] helm-unittest suite green; `make lint && make test` green
 
 #### Success Criteria
 
@@ -368,7 +371,7 @@ Chart-only PR (`dont-release`), chart `1.0.0-rc.4` → `1.0.0-rc.5`.
 - [x] Stateful schema mock + call counter (one fetch per org per TTL) (Phase 3)
 - [x] Fail-open on 403; filter path; counter via `testutil.ToFloat64` (Phase 3)
 - [x] Literal warn-message text assertion (Loki contract) (Phase 3)
-- [ ] helm-unittest for the new alert (Phase 4)
+- [x] helm-unittest for the new alert (Phase 4)
 - [ ] Homelab smoke (operator-side, Phase 5)
 
 ## Dependencies

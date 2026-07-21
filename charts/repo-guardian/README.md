@@ -13,7 +13,7 @@ SLSA Level 3 provenance attestations.
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 1.0.0-rc.5 \
+  --version 1.0.0-rc.6 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -28,7 +28,7 @@ aws ecr get-login-password --region <region> | \
 
 helm install repo-guardian \
   oci://<account>.dkr.ecr.<region>.amazonaws.com/repo-guardian-chart \
-  --version 1.0.0-rc.5 \
+  --version 1.0.0-rc.6 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -64,7 +64,7 @@ secrets:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 1.0.0-rc.5 \
+  --version 1.0.0-rc.6 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -141,6 +141,23 @@ For Postgres schema operations, see
   vars are required.** Empty values fail validation; previous
   chart releases supplied defaults that mapped to memory/ticker.
 
+### Upgrade notes (chart 1.0.0-rc.6) — schema preflight alert
+
+Non-breaking, chart-only addition (IMPL-0017 Phase 4). Pairs with the
+`annotation_properties` custom-property feature; no action needed if you
+don't use it.
+
+- **New starter alert.** `RepoGuardianPropertySchemaMissing` fires when
+  `repo_guardian_custom_property_missing_schema_total` (per `org`,
+  `property`) is non-zero for 30+ minutes — a mapped
+  `annotation_properties` target has no matching custom-property
+  definition in the org's schema. Tune via
+  `prometheusRule.alerts.PropertySchemaMissing.*`.
+- **Loki matching contract documented.** The exact warn-log text and
+  structured keys (`org`, `missing_properties`) an operator can build a
+  LogQL rule from, without reading Go source, are in
+  [docs/operations/scaling.md](../../docs/operations/scaling.md#custom-property-schema-preflight-impl-0017-phase-3).
+
 ### Upgrade notes (chart 0.5.0)
 
 - **`terminationGracePeriodSeconds` raised to 60.** The Deployment
@@ -203,7 +220,7 @@ cosign verify \
     '^https://github.com/donaldgifford/repo-guardian/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.5
+  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.6
 ```
 
 ### SLSA provenance
@@ -214,7 +231,7 @@ cosign verify-attestation --type slsaprovenance \
     '^https://github.com/slsa-framework/slsa-github-generator/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.5
+  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.6
 ```
 
 The provenance attestation records the build workflow path, source

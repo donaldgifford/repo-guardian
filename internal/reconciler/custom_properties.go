@@ -311,7 +311,7 @@ func (r *CustomPropertiesReconciler) handleAPIMode(
 	log := params.Logger.With("owner", params.Owner, "repo", params.Repo)
 
 	props := desiredToPropertyValues(desired, r.managedNames)
-	props = r.filterBySchema(ctx, log, params.Client, params.Owner, params.Repo, props)
+	props = r.filterBySchema(ctx, log, params.Client, params.Owner, props)
 
 	if len(props) == 0 {
 		log.Info("no managed properties present in org schema; nothing to sync")
@@ -364,7 +364,7 @@ func (r *CustomPropertiesReconciler) filterBySchema(
 	ctx context.Context,
 	log *slog.Logger,
 	client ghclient.Client,
-	org, repo string,
+	org string,
 	props []*ghclient.CustomPropertyValue,
 ) []*ghclient.CustomPropertyValue {
 	defined, err := r.orgSchema(ctx, log, client, org)
@@ -387,14 +387,16 @@ func (r *CustomPropertiesReconciler) filterBySchema(
 	}
 
 	if len(missing) > 0 {
-		// org/repo are re-added explicitly even though the caller's
-		// logger already carries "owner"/"repo" via .With(): this is
-		// the literal Loki-contract line operators query on, and it
-		// must carry "org" + "missing_properties" as flat fields
-		// independent of whatever context happens to be chained in.
+		// "org" is added explicitly even though the caller's logger
+		// already carries the same value as "owner": this is the
+		// literal Loki-matching-contract line operators query on
+		// (docs/operations/scaling.md), and it must carry "org" +
+		// "missing_properties" as flat fields independent of whatever
+		// context happens to be chained in via .With(). "repo" is not
+		// re-added here — the caller's logger already carries it, and
+		// adding it again would duplicate the JSON key.
 		log.Warn("custom properties missing from org schema",
 			"org", org,
-			"repo", repo,
 			"missing_properties", missing,
 		)
 	}

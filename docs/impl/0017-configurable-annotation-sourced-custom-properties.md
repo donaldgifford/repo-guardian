@@ -229,34 +229,34 @@ The behavioral core: managed-set state sync with clears, in both modes.
 
 #### Tasks
 
-- [ ] `GetOrgPropertySchema(ctx, org) ([]string, error)` on the
+- [x] `GetOrgPropertySchema(ctx, org) ([]string, error)` on the
       `github.Client` interface + `GitHubClient` impl via
       `Organizations.GetAllCustomProperties` (names only)
-- [ ] mockClient parity: no-op stubs in `internal/checker/engine_test.go`,
+- [x] mockClient parity: no-op stubs in `internal/checker/engine_test.go`,
       `internal/scheduler/sweep_test.go`,
       `internal/reconciler/custom_properties_test.go` (embedded by
       `bpMockClient`/`labelMockClient` — one stub covers reconciler tests)
-- [ ] Per-org cache in `CustomPropertiesReconciler`: `sync.Mutex` +
+- [x] Per-org cache in `CustomPropertiesReconciler`: `sync.Mutex` +
       `map[string]schemaEntry{names map[string]struct{}, fetchedAt}`;
       unexported `schemaCacheTTL = 30 * time.Minute`; error results also
       cached for the TTL window (drives log-once-per-org fail-open)
-- [ ] Partition step in `handleAPIMode` before `SetCustomPropertyValues`:
+- [x] Partition step in `handleAPIMode` before `SetCustomPropertyValues`:
       split payload on schema membership; empty defined-subset skips the
       PATCH; missing set ⇒ `slog.Warn("custom properties missing from org
       schema", "org", ..., "repo", ..., "missing_properties", [...])` +
       per-property counter increment
-- [ ] Fail-open: schema fetch error (403/5xx/timeout) ⇒ log once per org
+- [x] Fail-open: schema fetch error (403/5xx/timeout) ⇒ log once per org
       per TTL window, send unfiltered payload (today's exact semantics)
-- [ ] `CustomPropertyMissingSchemaTotal` CounterVec
+- [x] `CustomPropertyMissingSchemaTotal` CounterVec
       (`repo_guardian_custom_property_missing_schema_total`,
       labels `org`, `property`) in `internal/metrics/metrics.go` following
       the `EnqueueGatedByBudgetTotal` pattern
-- [ ] Tests: stateful schema mock (mock-fidelity rule — returns configured
+- [x] Tests: stateful schema mock (mock-fidelity rule — returns configured
       schema, never bare nil) with call counter asserting one fetch per org
       per TTL; filter case; fail-open-on-403 case; counter assertions via
       `testutil.ToFloat64` + `Reset()` between cases; literal warn-message
       text asserted (Loki contract)
-- [ ] `make lint && make test` green
+- [x] `make lint && make test` green
 
 #### Success Criteria
 
@@ -365,9 +365,9 @@ Chart-only PR (`dont-release`), chart `1.0.0-rc.4` → `1.0.0-rc.5`.
 - [x] Cleared-properties counter + `cleared_properties` log field (Phase 2)
 - [x] Golden rendered workflow for 0/1/N properties including a clear (Phase 2)
 - [x] Regression: Jira map configured ⇒ set-identical output to pre-change (Phase 2)
-- [ ] Stateful schema mock + call counter (one fetch per org per TTL) (Phase 3)
-- [ ] Fail-open on 403; filter path; counter via `testutil.ToFloat64` (Phase 3)
-- [ ] Literal warn-message text assertion (Loki contract) (Phase 3)
+- [x] Stateful schema mock + call counter (one fetch per org per TTL) (Phase 3)
+- [x] Fail-open on 403; filter path; counter via `testutil.ToFloat64` (Phase 3)
+- [x] Literal warn-message text assertion (Loki contract) (Phase 3)
 - [ ] helm-unittest for the new alert (Phase 4)
 - [ ] Homelab smoke (operator-side, Phase 5)
 

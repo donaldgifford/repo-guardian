@@ -1,10 +1,12 @@
 package reconciler_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -57,6 +59,12 @@ type mockClient struct {
 	orgSchema      map[string][]string
 	orgSchemaErr   error
 	orgSchemaCalls atomic.Int32
+	orgSchemaDelay time.Duration // artificial latency to widen the concurrent-miss race window in tests
+
+	// setPropsMu guards setProperties: the one test that calls
+	// Reconcile concurrently across goroutines sharing this client
+	// exercises real concurrent SetCustomPropertyValues calls.
+	setPropsMu sync.Mutex
 
 	getRepoErr        error
 	getContentsErr    error
@@ -210,19 +218,37 @@ func (m *mockClient) SetCustomPropertyValues(_ context.Context, _, _ string, pro
 		return m.setCustomPropsErr
 	}
 
+	m.setPropsMu.Lock()
 	m.setProperties = append(m.setProperties, properties...)
+	m.setPropsMu.Unlock()
 
 	return nil
 }
 
+// GetOrgPropertySchema fails open (returns an error) for any org the
+// test hasn't explicitly configured via m.orgSchema, so tests that
+// predate schema preflight keep exercising the unfiltered payload
+// path without every one of them needing to set up a schema. Tests
+// that want to exercise the filter path set m.orgSchema[org]
+// explicitly, including to an empty slice for the "nothing defined"
+// case.
 func (m *mockClient) GetOrgPropertySchema(_ context.Context, org string) ([]string, error) {
 	m.orgSchemaCalls.Add(1)
+
+	if m.orgSchemaDelay > 0 {
+		time.Sleep(m.orgSchemaDelay)
+	}
 
 	if m.orgSchemaErr != nil {
 		return nil, m.orgSchemaErr
 	}
 
-	return m.orgSchema[org], nil
+	names, ok := m.orgSchema[org]
+	if !ok {
+		return nil, fmt.Errorf("mockClient: org schema not configured for %q", org)
+	}
+
+	return names, nil
 }
 
 func (*mockClient) GetVulnerabilityAlertsEnabled(_ context.Context, _, _ string) (bool, error) {
@@ -855,6 +881,207 @@ spec:
 
 	if got := testutil.ToFloat64(metrics.CustomPropertyClearedTotal.WithLabelValues("org")); got != 2 {
 		t.Errorf("CustomPropertyClearedTotal = %v, want 2", got)
+	}
+}
+
+// TestAPIMode_FiltersUndefinedMappedProperty is the DESIGN-0019
+// schema-preflight partition case: JiraLabel has no org-level
+// property definition, so it must be dropped from the PATCH while
+// Owner/Component/JiraProject (all defined) still sync in the same
+// call, with a warn line and a per-property counter increment.
+func TestAPIMode_FiltersUndefinedMappedProperty(t *testing.T) {
+	t.Parallel()
+
+	// Reset is safe here even under t.Parallel(): "filter-org" is a
+	// label value unique to this test, so no other test observes the
+	// zeroing. It's needed because CounterVec state is process-global
+	// and would otherwise accumulate across repeated test-binary runs
+	// (e.g. `go test -count=N`).
+	metrics.CustomPropertyMissingSchemaTotal.Reset()
+
+	var buf bytes.Buffer
+
+	logger := slog.New(slog.NewTextHandler(&buf, nil))
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+	client.orgSchema["filter-org"] = []string{"Owner", "Component", "JiraProject"} // JiraLabel undefined
+
+	params := newParams(client, validCatalogInfo, false, nil)
+	params.Owner = "filter-org" // unique per test: avoids racing other parallel tests' counter assertions
+	params.Logger = logger
+
+	if err := r.Reconcile(context.Background(), params); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	seen := make(map[string]bool)
+	for _, p := range client.setProperties {
+		seen[p.PropertyName] = true
+	}
+
+	for _, name := range []string{"Owner", "Component", "JiraProject"} {
+		if !seen[name] {
+			t.Errorf("expected %s (defined in org schema) in the single PATCH payload, got %+v", name, client.setProperties)
+		}
+	}
+
+	if seen["JiraLabel"] {
+		t.Error("JiraLabel is undefined in the org schema and must not appear in the payload")
+	}
+
+	logOutput := buf.String()
+	if !strings.Contains(logOutput, "custom properties missing from org schema") {
+		t.Errorf("expected missing-schema warn message, got log: %s", logOutput)
+	}
+
+	if !strings.Contains(logOutput, "org=filter-org") {
+		t.Errorf("expected org=filter-org in log output, got: %s", logOutput)
+	}
+
+	if !strings.Contains(logOutput, "JiraLabel") {
+		t.Errorf("expected missing_properties to mention JiraLabel, got: %s", logOutput)
+	}
+
+	if got := testutil.ToFloat64(metrics.CustomPropertyMissingSchemaTotal.WithLabelValues("filter-org", "JiraLabel")); got != 1 {
+		t.Errorf("CustomPropertyMissingSchemaTotal{filter-org,JiraLabel} = %v, want 1", got)
+	}
+}
+
+// TestAPIMode_EmptySchemaSkipsPatch covers the degenerate case where
+// the org schema is reachable but defines nothing: every managed
+// property is "missing," so the PATCH is skipped entirely rather than
+// sent empty.
+func TestAPIMode_EmptySchemaSkipsPatch(t *testing.T) {
+	t.Parallel()
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+	client.orgSchema["empty-schema-org"] = []string{}
+
+	params := newParams(client, validCatalogInfo, false, nil)
+	params.Owner = "empty-schema-org"
+
+	if err := r.Reconcile(context.Background(), params); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	if len(client.setProperties) != 0 {
+		t.Errorf("expected no PATCH when org schema defines nothing, got %+v", client.setProperties)
+	}
+}
+
+// TestAPIMode_SchemaFetchError_FailsOpenAndLogsOncePerOrg exercises
+// the 403/5xx/timeout path: repo-guardian must keep syncing the full,
+// unfiltered payload (today's pre-Phase-3 behavior) rather than block
+// on a broken schema endpoint, and must log the failure exactly once
+// per org per TTL window rather than once per repo.
+func TestAPIMode_SchemaFetchError_FailsOpenAndLogsOncePerOrg(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	logger := slog.New(slog.NewTextHandler(&buf, nil))
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+	client.orgSchemaErr = fmt.Errorf("403 Forbidden")
+
+	const repoCount = 3
+	for i := range repoCount {
+		params := newParams(client, validCatalogInfo, false, nil)
+		params.Repo = fmt.Sprintf("svc-%d", i)
+		params.Logger = logger
+
+		if err := r.Reconcile(context.Background(), params); err != nil {
+			t.Fatalf("Reconcile repo %d: %v", i, err)
+		}
+	}
+
+	counts := make(map[string]int)
+	for _, p := range client.setProperties {
+		counts[p.PropertyName]++
+	}
+
+	for _, name := range []string{"Owner", "Component", "JiraProject", "JiraLabel"} {
+		if counts[name] != repoCount {
+			t.Errorf("fail-open: expected %s in all %d unfiltered PATCHes, got count=%d", name, repoCount, counts[name])
+		}
+	}
+
+	if got := client.orgSchemaCalls.Load(); got != 1 {
+		t.Errorf("GetOrgPropertySchema calls = %d, want 1 (error cached for the TTL window)", got)
+	}
+
+	logOutput := buf.String()
+	if got := strings.Count(logOutput, "fetching org custom property schema failed"); got != 1 {
+		t.Errorf("expected exactly one fail-open warn line across %d repos, got %d in: %s", repoCount, got, logOutput)
+	}
+}
+
+// TestAPIMode_SchemaCache_OneFetchPerOrgWithinTTL is the fleet-sweep
+// cost bound from the Phase 3 success criteria: N repos processed for
+// the same org within the TTL window must cost exactly one
+// GetOrgPropertySchema call.
+func TestAPIMode_SchemaCache_OneFetchPerOrgWithinTTL(t *testing.T) {
+	t.Parallel()
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+	client.orgSchema["org"] = []string{"Owner", "Component", "JiraProject", "JiraLabel"}
+
+	const repoCount = 3
+	for i := range repoCount {
+		params := newParams(client, validCatalogInfo, false, nil)
+		params.Repo = fmt.Sprintf("svc-%d", i)
+
+		if err := r.Reconcile(context.Background(), params); err != nil {
+			t.Fatalf("Reconcile repo %d: %v", i, err)
+		}
+	}
+
+	if got := client.orgSchemaCalls.Load(); got != 1 {
+		t.Errorf("GetOrgPropertySchema calls = %d, want 1 (cached within TTL across %d repos in the same org)", got, repoCount)
+	}
+}
+
+// TestAPIMode_SchemaCache_ConcurrentMissesCollapseToOneFetch proves
+// the singleflight guard, not just the TTL cache: a burst of repos
+// from the same org processed concurrently by the worker pool (the
+// realistic cold-start scenario) must still cost exactly one
+// GetOrgPropertySchema call, not one per goroutine that raced past
+// the empty cache before the first fetch completed.
+func TestAPIMode_SchemaCache_ConcurrentMissesCollapseToOneFetch(t *testing.T) {
+	t.Parallel()
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+	client.orgSchema["org"] = []string{"Owner", "Component", "JiraProject", "JiraLabel"}
+	client.orgSchemaDelay = 20 * time.Millisecond
+
+	const goroutines = 20
+
+	var wg sync.WaitGroup
+
+	wg.Add(goroutines)
+
+	for i := range goroutines {
+		go func() {
+			defer wg.Done()
+
+			params := newParams(client, validCatalogInfo, false, nil)
+			params.Repo = fmt.Sprintf("svc-%d", i)
+
+			if err := r.Reconcile(context.Background(), params); err != nil {
+				t.Errorf("Reconcile repo %d: %v", i, err)
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	if got := client.orgSchemaCalls.Load(); got != 1 {
+		t.Errorf("GetOrgPropertySchema calls = %d, want 1 (singleflight-collapsed concurrent cache misses)", got)
 	}
 }
 

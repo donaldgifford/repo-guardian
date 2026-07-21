@@ -3,9 +3,13 @@ package reconciler
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
+	"sync"
 	"time"
+
+	"golang.org/x/sync/singleflight"
 
 	"github.com/donaldgifford/repo-guardian/internal/catalog"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
@@ -14,6 +18,22 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/rules"
 	tmpl "github.com/donaldgifford/repo-guardian/internal/template"
 )
+
+// schemaCacheTTL bounds how often GetOrgPropertySchema is called per
+// org. The schema rarely changes, and a 30-minute window keeps a
+// fleet sweep across many repos in one org down to a single API call
+// (Phase 3 success criterion).
+const schemaCacheTTL = 30 * time.Minute
+
+// schemaEntry caches one org's custom-property schema lookup, success
+// or failure, for schemaCacheTTL. Caching the error too is what makes
+// the fail-open warning log once per org per window instead of once
+// per repo.
+type schemaEntry struct {
+	names     map[string]struct{}
+	err       error
+	fetchedAt time.Time
+}
 
 const (
 	// ModeAPI is the API mode for custom properties.
@@ -52,6 +72,24 @@ type CustomPropertiesReconciler struct {
 	// Precomputed once at construction since annotationProps never
 	// changes for the lifetime of the reconciler.
 	managedNames []string
+
+	// schemaMu guards schemaCache. Reconcile runs concurrently across
+	// repos in the worker pool, and multiple repos in the same org can
+	// race to populate the same cache entry.
+	schemaMu sync.Mutex
+
+	// schemaCache holds one entry per org, keyed by org name, valid
+	// for schemaCacheTTL (DESIGN-0019 schema preflight).
+	schemaCache map[string]schemaEntry
+
+	// schemaGroup collapses concurrent cache misses for the same org
+	// into a single GetOrgPropertySchema call. Without it, a
+	// worker-pool burst of repos belonging to the same org — the
+	// common case right after a fleet-wide re-check — would each miss
+	// the cold cache and fire the fetch (and the fail-open warn log)
+	// simultaneously, breaking the "one API call per org per TTL"
+	// guarantee. Zero value is ready to use.
+	schemaGroup singleflight.Group
 }
 
 // NewCustomPropertiesReconciler creates a custom_properties reconciler from config.
@@ -69,6 +107,7 @@ func NewCustomPropertiesReconciler(
 		templates:       templates,
 		annotationProps: config.AnnotationProperties,
 		managedNames:    managedPropertyNames(config.AnnotationProperties),
+		schemaCache:     make(map[string]schemaEntry),
 	}, nil
 }
 
@@ -272,6 +311,13 @@ func (r *CustomPropertiesReconciler) handleAPIMode(
 	log := params.Logger.With("owner", params.Owner, "repo", params.Repo)
 
 	props := desiredToPropertyValues(desired, r.managedNames)
+	props = r.filterBySchema(ctx, log, params.Client, params.Owner, params.Repo, props)
+
+	if len(props) == 0 {
+		log.Info("no managed properties present in org schema; nothing to sync")
+		return nil
+	}
+
 	sets, clears := splitSetsAndClears(props)
 
 	if params.DryRun {
@@ -306,6 +352,134 @@ func (r *CustomPropertiesReconciler) handleAPIMode(
 	}
 
 	return nil
+}
+
+// filterBySchema drops properties the org's custom-property schema
+// does not define, warning once and incrementing
+// CustomPropertyMissingSchemaTotal once per missing property. A
+// schema-fetch error fails open: the payload passes through
+// unfiltered, preserving pre-Phase-3 behavior rather than blocking a
+// sync that would otherwise succeed.
+func (r *CustomPropertiesReconciler) filterBySchema(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	org, repo string,
+	props []*ghclient.CustomPropertyValue,
+) []*ghclient.CustomPropertyValue {
+	defined, err := r.orgSchema(ctx, log, client, org)
+	if err != nil {
+		return props
+	}
+
+	filtered := make([]*ghclient.CustomPropertyValue, 0, len(props))
+
+	var missing []string
+
+	for _, p := range props {
+		if _, ok := defined[p.PropertyName]; ok {
+			filtered = append(filtered, p)
+			continue
+		}
+
+		missing = append(missing, p.PropertyName)
+		metrics.CustomPropertyMissingSchemaTotal.WithLabelValues(org, p.PropertyName).Inc()
+	}
+
+	if len(missing) > 0 {
+		// org/repo are re-added explicitly even though the caller's
+		// logger already carries "owner"/"repo" via .With(): this is
+		// the literal Loki-contract line operators query on, and it
+		// must carry "org" + "missing_properties" as flat fields
+		// independent of whatever context happens to be chained in.
+		log.Warn("custom properties missing from org schema",
+			"org", org,
+			"repo", repo,
+			"missing_properties", missing,
+		)
+	}
+
+	return filtered
+}
+
+// orgSchema returns the org's custom-property schema names as a set,
+// using a schemaCacheTTL cache so N repos processed for the same org
+// within the window cost exactly one GetOrgPropertySchema call. A
+// fetch failure is cached too, and logged exactly once per org per
+// window — repeat callers within the TTL get the cached error
+// silently, letting filterBySchema fail open without re-logging.
+//
+// schemaGroup.Do collapses a cold-cache burst of concurrent callers
+// for the same org (the common case: the worker pool processes many
+// repos from one org at once) into a single fetch and a single
+// fail-open log line, rather than one per goroutine that missed the
+// cache before the first fetch completed.
+func (r *CustomPropertiesReconciler) orgSchema(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	org string,
+) (map[string]struct{}, error) {
+	r.schemaMu.Lock()
+	entry, ok := r.schemaCache[org]
+	r.schemaMu.Unlock()
+
+	if ok && time.Since(entry.fetchedAt) < schemaCacheTTL {
+		return entry.names, entry.err
+	}
+
+	result, err, _ := r.schemaGroup.Do(org, func() (any, error) {
+		return r.fetchOrgSchema(ctx, log, client, org), nil
+	})
+	if err != nil {
+		// Unreachable: the Do closure above always returns a nil
+		// error itself. The real fetch error lives inside the
+		// returned schemaEntry instead, so every waiter observes it
+		// (not just the leader goroutine that ran the closure).
+		return nil, err
+	}
+
+	fetched, ok := result.(schemaEntry)
+	if !ok {
+		return nil, fmt.Errorf("orgSchema: unexpected singleflight result type %T", result)
+	}
+
+	return fetched.names, fetched.err
+}
+
+// fetchOrgSchema calls the client, builds the schemaEntry, caches it,
+// and logs the fail-open warning on error. Split out of orgSchema so
+// the singleflight.Group.Do closure stays a single call.
+func (r *CustomPropertiesReconciler) fetchOrgSchema(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	org string,
+) schemaEntry {
+	names, err := client.GetOrgPropertySchema(ctx, org)
+
+	entry := schemaEntry{fetchedAt: time.Now()}
+
+	if err != nil {
+		entry.err = fmt.Errorf("fetching org property schema: %w", err)
+		log.Warn("fetching org custom property schema failed; sending unfiltered properties",
+			"org", org,
+			"error", err,
+		)
+	} else {
+		set := make(map[string]struct{}, len(names))
+		for _, name := range names {
+			set[name] = struct{}{}
+		}
+
+		entry.names = set
+	}
+
+	r.schemaMu.Lock()
+	r.schemaCache[org] = entry
+	r.schemaMu.Unlock()
+
+	return entry
 }
 
 func (r *CustomPropertiesReconciler) createCatalogInfoPR(

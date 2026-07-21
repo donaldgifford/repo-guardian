@@ -36,10 +36,6 @@ secrets:
 # Inline strict-mode HCL policy.
 policy:
   config: |
-    guardian {
-      org = "myorg-prod"
-    }
-
     scope {
       orgs = ["myorg-prod", "myorg-staging"]
     }

@@ -28,11 +28,6 @@
 //   this is wasteful — track the metric and file a feature request for
 //   discovery-time scope gating if it becomes load-bearing.
 
-guardian {
-  // Owner of any PRs we create. Override per-rule if you need to.
-  org = "myent-platform"
-}
-
 // Top-level scope: ONLY the orgs we want repo-guardian to reconcile.
 // Add orgs here as teams onboard. Orgs the App is installed on but
 // NOT listed here will be silently skipped (visible via

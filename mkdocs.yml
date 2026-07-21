@@ -46,6 +46,7 @@ nav:
         - 'IMPL-0015: Stale-sweep cutover and repository discovery': impl/0015-stale-sweep-cutover-and-repository-discovery.md
         - 'IMPL-0016: Deprecate memory backend': impl/0016-deprecate-memory-backend.md
         - 'IMPL-0017: Configurable annotation-sourced custom properties': impl/0017-configurable-annotation-sourced-custom-properties.md
+        - 'IMPL-0018: Fix silently ignored operator config': impl/0018-fix-silently-ignored-operator-config.md
     - Investigations:
         - Overview: investigation/README.md
         - 'INV-0001: Tailscale Funnel for Webhook Testing': investigation/0001-tailscale-funnel-for-webhook-testing.md
@@ -57,6 +58,7 @@ nav:
         - 'INV-0007: GitLab provider backend support': investigation/0007-gitlab-forge-backend-support.md
         - 'INV-0008: Annotation-sourced custom properties should be configurable, not hardcoded': investigation/0008-annotation-sourced-custom-properties-should-be-configurable-not.md
         - 'INV-0009: Read-only status API and web UI options': investigation/0009-read-only-status-api-and-web-ui-options.md
+        - 'INV-0010: Silently ignored operator config: auto_close_pr HCL attribute and cross-mode existingSecret': investigation/0010-silently-ignored-operator-config-autoclosepr-hcl-attribute-and.md
     - Plans:
         - Overview: plan/README.md
     - RFCs:

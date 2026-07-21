@@ -1,0 +1,96 @@
+---
+suite: cross-mode existingSecret render guard (INV-0010)
+# Each existingSecret knob is consumed by exactly one store/queue mode.
+# Setting one under any other mode used to be silently ignored — the
+# deployment came up on the chart-generated Secret instead of the
+# operator's, surfacing later as auth failures. The guard fails the
+# render instead.
+templates:
+  - templates/deployment.yaml
+set:
+  config:
+    appId: "12345"
+  secrets:
+    webhookSecret: "x"
+    privateKey: "x"
+
+tests:
+  - it: fails when store.postgres.existingSecret is set in baked mode
+    set:
+      store.postgres.existingSecret: operator-secret
+    asserts:
+      - failedTemplate:
+          errorPattern: "store.postgres.existingSecret is set but store.postgres.mode=baked never reads it"
+
+  - it: fails when store.postgres.existingSecret is set in cnpg mode
+    set:
+      store.postgres.mode: cnpg
+      store.postgres.existingSecret: operator-secret
+    asserts:
+      - failedTemplate:
+          errorPattern: "store.postgres.existingSecret is set but store.postgres.mode=cnpg never reads it"
+
+  - it: fails when store.postgres.baked.existingSecret is set in external mode
+    set:
+      store.postgres.mode: external
+      store.postgres.existingSecret: dsn-secret
+      store.postgres.baked.existingSecret: pw-secret
+    asserts:
+      - failedTemplate:
+          errorPattern: "store.postgres.baked.existingSecret is set but store.postgres.mode=external never reads it"
+
+  - it: fails when store.postgres.baked.existingSecret is set in cnpg mode
+    set:
+      store.postgres.mode: cnpg
+      store.postgres.baked.existingSecret: pw-secret
+    asserts:
+      - failedTemplate:
+          errorPattern: "store.postgres.baked.existingSecret is set but store.postgres.mode=cnpg never reads it"
+
+  - it: fails when queue.valkey.existingSecret is set in baked mode
+    set:
+      queue.valkey.existingSecret: operator-secret
+    asserts:
+      - failedTemplate:
+          errorPattern: "queue.valkey.existingSecret is set but queue.valkey.mode=baked never reads it"
+
+  - it: fails when queue.valkey.baked.existingSecret is set in external mode
+    set:
+      queue.valkey.mode: external
+      queue.valkey.existingSecret: dsn-secret
+      queue.valkey.baked.existingSecret: pw-secret
+    asserts:
+      - failedTemplate:
+          errorPattern: "queue.valkey.baked.existingSecret is set but queue.valkey.mode=external never reads it"
+
+  - it: default empty-string secrets do not trip the guard
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Deployment
+
+  - it: baked mode with baked.existingSecret renders (PR #161 shape)
+    set:
+      store.postgres.baked.existingSecret: pg-password
+      queue.valkey.baked.existingSecret: valkey-password
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Deployment
+
+  - it: external mode with external existingSecret renders
+    set:
+      store.postgres.mode: external
+      store.postgres.existingSecret: store-dsn
+      queue.valkey.mode: external
+      queue.valkey.existingSecret: queue-dsn
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Deployment

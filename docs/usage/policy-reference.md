@@ -69,10 +69,11 @@ duplicate `type:name` pair fails validation.
 | `webhook_ip_allowlist` | bool | `true` | Enable the GitHub webhook IP allowlist middleware (see `SECURITY.md`). |
 | `webhook_ip_allowlist_fail_open` | bool | `false` | Allow webhook requests when the allowlist can't be fetched. |
 | `trust_proxy_headers` | bool | `false` | Read client IP from `X-Forwarded-For` (required behind Tailscale Funnel or similar proxies). |
-| `auto_close_pr` | bool | `true` | Auto-close a guardian PR (and delete its branch) when every rule it addresses is satisfied on the default branch. Set `false` to keep PRs open for manual close-out. **Note:** currently only the `AUTO_CLOSE_PR` env var is honored — the HCL attribute is accepted but not applied by the loader (known gap). |
+| `auto_close_pr` | bool | `true` | Auto-close a guardian PR (and delete its branch) when every rule it addresses is satisfied on the default branch. Set `false` to keep PRs open for manual close-out. The `AUTO_CLOSE_PR` env var overrides the HCL value. |
 
-Unknown attributes in `guardian {}` are silently ignored — double-check
-spelling, the loader will not error on a typo'd attribute name here.
+Unknown attributes in `guardian {}` fail load with an "Unsupported
+argument" error naming the file and line — typos are caught at startup,
+not silently ignored.
 
 ## `ignore {}` — ignore lists
 

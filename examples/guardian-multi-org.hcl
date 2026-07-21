@@ -12,10 +12,6 @@
 // legacy mode (no top-level scope) is the simpler default. See
 // guardian-minimal.hcl or guardian-full.hcl instead.
 
-guardian {
-  org = "myorg-prod"
-}
-
 scope {
   orgs = ["myorg-prod", "myorg-staging"]
 }

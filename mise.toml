@@ -2,7 +2,7 @@
 
 # Go
 # renovate: datasource=github-tags depName=golang/go
-go = "1.26.4"
+go = "1.26.5"
 # renovate: datasource=github-releases depName=segmentio/golines
 golines = "latest"
 # renovate: datasource=go depName=github.com/spf13/cobra-cli

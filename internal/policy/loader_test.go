@@ -990,3 +990,78 @@ rule "file" "codeowners" {
 		t.Error("HasUniversal() returned false for orgs = [\"*\"]")
 	}
 }
+
+// writeGuardianHCL writes a single-file policy whose guardian block body is
+// the given snippet and returns the file path.
+func writeGuardianHCL(t *testing.T, body string) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+	content := "guardian {\n" + body + "\n}\n"
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing test file: %v", err)
+	}
+
+	return hclFile
+}
+
+func TestLoad_AutoClosePR_FromHCL(t *testing.T) {
+	tests := []struct {
+		name        string
+		body        string
+		wantSet     bool
+		wantEnabled bool
+	}{
+		{name: "explicit false", body: `auto_close_pr = false`, wantSet: true, wantEnabled: false},
+		{name: "explicit true", body: `auto_close_pr = true`, wantSet: true, wantEnabled: true},
+		{name: "unset defaults true", body: `log_level = "info"`, wantSet: false, wantEnabled: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := Load(writeGuardianHCL(t, tt.body))
+			if err != nil {
+				t.Fatalf("Load() error: %v", err)
+			}
+
+			if got := cfg.Guardian.AutoClosePR != nil; got != tt.wantSet {
+				t.Errorf("AutoClosePR set = %v, want %v", got, tt.wantSet)
+			}
+
+			if got := cfg.Guardian.AutoClosePREnabled(); got != tt.wantEnabled {
+				t.Errorf("AutoClosePREnabled() = %v, want %v", got, tt.wantEnabled)
+			}
+		})
+	}
+}
+
+// Env override must win over the HCL attribute because applyEnvOverrides
+// runs last in Load. Cannot use t.Parallel with t.Setenv.
+func TestLoad_AutoClosePR_EnvOverridesHCL(t *testing.T) {
+	t.Setenv("AUTO_CLOSE_PR", "true")
+
+	cfg, err := Load(writeGuardianHCL(t, `auto_close_pr = false`))
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if !cfg.Guardian.AutoClosePREnabled() {
+		t.Error("AutoClosePREnabled() = false, want true (env must override HCL)")
+	}
+}
+
+// The guardian block decodes through a strict schema (INV-0010): unknown
+// attributes — typos or stale config like the historical `org` — must fail
+// load instead of being silently ignored.
+func TestLoad_Guardian_UnknownAttribute_Fails(t *testing.T) {
+	_, err := Load(writeGuardianHCL(t, `org = "myorg"`))
+	if err == nil {
+		t.Fatal("Load() succeeded, want unsupported-argument error")
+	}
+
+	if !strings.Contains(err.Error(), "org") {
+		t.Errorf("error %q does not name the offending attribute", err)
+	}
+}

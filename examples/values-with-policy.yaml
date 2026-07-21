@@ -39,10 +39,6 @@ secrets:
 # When this is set, built-in defaults are replaced entirely.
 policy:
   config: |
-    guardian {
-      org = "myorg"
-    }
-
     ignore {
       repos = [
         "myorg/.github",

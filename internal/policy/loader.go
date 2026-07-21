@@ -358,15 +358,37 @@ func decodeRuleOrSettingBlock(block *hcl.Block, ctx *hcl.EvalContext, raw *hclCo
 	return diags
 }
 
+// guardianBodySchema is the strict attribute schema for the `guardian {}`
+// block. Unlike the previous JustAttributes() decode, unknown attributes
+// (typos, stale config like the historical `org`) fail load with an
+// "Unsupported argument" diagnostic instead of being silently ignored
+// (INV-0010).
+var guardianBodySchema = &hcl.BodySchema{
+	Attributes: []hcl.AttributeSchema{
+		{Name: "dry_run"},
+		{Name: "schedule_interval"},
+		{Name: "worker_count"},
+		{Name: "queue_size"},
+		{Name: "log_level"},
+		{Name: "skip_forks"},
+		{Name: "skip_archived"},
+		{Name: "rate_limit_threshold"},
+		{Name: "webhook_ip_allowlist"},
+		{Name: "webhook_ip_allowlist_fail_open"},
+		{Name: "trust_proxy_headers"},
+		{Name: "auto_close_pr"},
+	},
+}
+
 func decodeGuardianBlock(block *hcl.Block, ctx *hcl.EvalContext) (*GuardianConfig, hcl.Diagnostics) {
 	g := &GuardianConfig{}
 
-	attrs, diags := block.Body.JustAttributes()
+	content, diags := block.Body.Content(guardianBodySchema)
 	if diags.HasErrors() {
 		return nil, diags
 	}
 
-	for name, attr := range attrs {
+	for name, attr := range content.Attributes {
 		val, d := attr.Expr.Value(ctx)
 		diags = append(diags, d...)
 
@@ -407,6 +429,9 @@ func setGuardianAttr(g *GuardianConfig, name string, val cty.Value) {
 		g.WebhookIPAllowlistFailOpen = val.True()
 	case "trust_proxy_headers":
 		g.TrustProxyHeaders = val.True()
+	case "auto_close_pr":
+		b := val.True()
+		g.AutoClosePR = &b
 	}
 }
 
@@ -983,6 +1008,10 @@ func mergeGuardianConfig(dst, src *GuardianConfig) {
 
 	if src.TrustProxyHeaders {
 		dst.TrustProxyHeaders = true
+	}
+
+	if src.AutoClosePR != nil {
+		dst.AutoClosePR = src.AutoClosePR
 	}
 }
 

@@ -294,18 +294,75 @@ The block label selects one of four built-in types.
 |-----------|------|---------|------------|-------------|
 | `watch` | bool | `false` | all | Register the rule's paths as watched: a push to the default branch touching them triggers an immediate re-check. |
 | `mode` | string | — | `custom_properties` | `"api"` or `"github-action"` (required for this type). |
+| `annotation_properties` | map(string) | `{}` | `custom_properties` | Maps a `catalog-info.yaml` annotation key to the GitHub custom property name it populates. See below. |
 | `delete_extra` | bool | `false` | `label_sync` | Delete repo labels not present in the YAML source. |
 | `pr {}` | block | — | all | Per-reconciler PR template (merges with `defaults.pr` **only** — deliberately skips the rule's `pr`). |
 
 ### `custom_properties`
 
-Parses the repo's Backstage `catalog-info.yaml` and syncs ownership/Jira
-metadata to GitHub repository custom properties.
+Parses the repo's Backstage `catalog-info.yaml` and syncs GitHub repository
+custom properties from it (DESIGN-0019).
 
 - `mode = "api"` — write properties directly via the API.
 - `mode = "github-action"` — open a PR adding a workflow that sets the
   properties from within the repo (for orgs that want the change reviewed,
   or Apps without org-level property permissions).
+
+**The managed set** is `{Owner, Component}` plus every property name in
+`annotation_properties`. `Owner` always comes from `spec.owner` and
+`Component` always comes from `metadata.name` — these two are
+contract-guaranteed by every Backstage `Component` entity and are not
+configurable or remappable. Everything else is opt-in:
+
+```hcl
+reconcile "custom_properties" {
+  mode = "api"
+  annotation_properties = {
+    "jira/project-key" = "JiraProject"
+    "jira/label"        = "JiraLabel"
+  }
+}
+```
+
+With the map above, a `catalog-info.yaml` carrying
+`metadata.annotations["jira/project-key"]: BILL` sets the GitHub custom
+property `JiraProject` to `BILL`. Properties on GitHub outside the managed
+set (e.g. a `CostCenter` a human set by hand) are never read, diffed, or
+touched — repo-guardian only manages what it's told to.
+
+**Full state sync, including clears.** If a mapped annotation later
+disappears from `catalog-info.yaml` (removed, or the file itself removed),
+the corresponding GitHub property is cleared (set to `null`) on the next
+reconcile — not left stale. This applies to every property in the managed
+set except `Owner`/`Component`, which always carry a value once
+catalog-info exists.
+
+**Schema preflight (values-only, least-privilege).** Before writing,
+repo-guardian checks the org's actual custom-property *schema* (the set of
+property names an org admin has defined) and drops any managed property
+the schema doesn't define — the rest of the payload still syncs in the
+same PATCH. This requires the App to have the org-level **"Custom
+properties: read"** permission; without it (or on any schema-endpoint
+error), repo-guardian fails open and sends the full, unfiltered payload —
+exactly its pre-preflight behavior. A dropped property is logged
+(`"custom properties missing from org schema"`, with `org` and
+`missing_properties` fields — see
+[docs/operations/scaling.md](../operations/scaling.md#custom-property-schema-preflight-impl-0017-phase-3)
+for the Loki matching contract) and counted via
+`repo_guardian_custom_property_missing_schema_total{org, property}`. The
+App **never creates or mutates** schema definitions itself — an operator
+who wants a mapped property must define it in the org's custom-property
+schema through GitHub's own settings UI/API.
+
+`annotation_properties` validation (fails policy load, all errors reported
+together):
+
+- Annotation keys and property names must be non-empty.
+- Property names must match GitHub's charset/length constraint
+  (`^[a-zA-Z0-9_.-]{1,75}$`).
+- Property names may not be (case-insensitively) `Owner` or `Component` —
+  those are the built-in, non-remappable names.
+- Two annotations may not target the same property name.
 
 ### `label_sync`
 
@@ -396,7 +453,7 @@ Policy `pr.title`/`pr.body` strings and all file templates are Go
 | Variable | Type | Description |
 |----------|------|-------------|
 | `.Org` | string | Convenience alias for the owner login. |
-| `.Catalog` | object or nil | Parsed catalog-info fields for catalog-aware templates: `.Owner`, `.Component`, `.JiraProject`, `.JiraLabel`. **Guard with `{{ if .Catalog }}`** — it is nil for most rules. |
+| `.Catalog` | object or nil | Parsed catalog-info fields for catalog-aware templates: `.Owner`, `.Component`, and `.Properties` (a `map[string]string` keyed by the GitHub property name — every `annotation_properties` target is present, with an empty string meaning "absent, will clear"; access via `{{ index .Catalog.Properties "JiraProject" }}`). **Guard with `{{ if .Catalog }}`** — it is nil for most rules. |
 
 ### Helpers
 
@@ -491,6 +548,10 @@ Startup fails (all errors reported together) when:
 - Strict mode: a rule without its own `scope {}` block.
 - A `reconcile "custom_properties"` block whose `mode` is not `api` or
   `github-action` (fails at engine construction).
+- Any `annotation_properties` entry: empty annotation key or property name,
+  a property name outside GitHub's charset/length constraint, a property
+  name of `Owner`/`Component` (case-insensitive), or two annotations
+  targeting the same property name.
 
 ## Cookbook
 
@@ -531,6 +592,10 @@ rule "file" "catalog_info" {
   reconcile "custom_properties" {
     mode  = "api"
     watch = true
+    annotation_properties = {
+      "jira/project-key" = "JiraProject"
+      "jira/label"        = "JiraLabel"
+    }
   }
 }
 ```

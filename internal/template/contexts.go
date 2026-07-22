@@ -62,15 +62,21 @@ type Rule struct {
 }
 
 // CatalogInfo carries the parsed catalog-info.yaml fields surfaced to
-// templates that need them. All fields default to empty string when
-// absent in the source catalog-info.yaml.
+// templates that need them. Owner and Component default to
+// "Unclassified" when absent in the source catalog-info.yaml (see
+// catalog.DefaultOwner/DefaultComponent).
 type CatalogInfo struct {
 	// Owner is the spec.owner field from catalog-info.yaml.
 	Owner string
 	// Component is the metadata.name field from catalog-info.yaml.
 	Component string
-	// JiraProject is the backstage.io/jira-project-key annotation.
-	JiraProject string
-	// JiraLabel is the backstage.io/jira-component annotation.
-	JiraLabel string
+	// Properties holds the operator-configured annotation_properties
+	// managed set, keyed by GitHub custom property name (e.g.
+	// "JiraProject"). Every entry in the managed set is present: a
+	// mapped annotation that's absent or empty in the source
+	// catalog-info.yaml carries an empty string, which templates use
+	// to distinguish "set" from "clear" (see set-custom-properties.tmpl).
+	// Access via `{{ index .Catalog.Properties "JiraProject" }}` or
+	// `{{ range $name, $value := .Catalog.Properties }}`.
+	Properties map[string]string
 }

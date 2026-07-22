@@ -111,8 +111,11 @@ remediated via the GitHub rulesets API.
 rule's file checks pass:
 
 - `custom_properties` — parse Backstage `catalog-info.yaml`, sync ownership
-  and Jira metadata to GitHub custom properties (direct API mode, or a
-  PR-delivered GitHub Action for orgs that want changes reviewed).
+  (always) plus any operator-mapped annotations (opt-in via
+  `annotation_properties`, e.g. a Jira project key) to GitHub custom
+  properties (direct API mode, or a PR-delivered GitHub Action for orgs
+  that want changes reviewed). Removed annotations clear the property
+  value — a full state sync, not just adds.
 - `label_sync` — manage the repo's label set from a YAML file (create,
   recolor, rename, optionally delete extras).
 - `branch_protection` — manage rulesets from a YAML file in the repo.
@@ -228,6 +231,14 @@ rule "file" "catalog_info" {
   reconcile "custom_properties" {
     mode  = "api"
     watch = true   # pushes touching this file trigger instant re-checks
+
+    # Optional: map additional catalog-info annotations to GitHub custom
+    # properties. Owner/Component sync unconditionally; this map is how
+    # you opt more annotations into the same sync + clear-on-removal
+    # behavior.
+    annotation_properties = {
+      "jira/project-key" = "JiraProject"
+    }
   }
 }
 

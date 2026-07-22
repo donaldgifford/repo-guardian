@@ -186,9 +186,20 @@ rule "file" "catalog_info" {
   }
 
   # Sync ownership metadata to GitHub custom properties after checks pass.
+  # Owner/Component are always managed (contract-guaranteed by every
+  # Backstage Component entity); annotation_properties below is how you
+  # opt additional annotations into the same sync + clear-on-removal
+  # behavior. This reproduces the old built-in Jira extraction that
+  # DESIGN-0019 replaced — an org not using Jira would simply omit this
+  # map (or map different annotations).
   reconcile "custom_properties" {
     mode  = "api"
     watch = true
+
+    annotation_properties = {
+      "jira/project-key" = "JiraProject"
+      "jira/label"        = "JiraLabel"
+    }
 
     # Reconciler PR opts out of the compliance-flavored defaults
     # (skip parent inheritance entirely). Body falls back to the

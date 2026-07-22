@@ -1065,3 +1065,120 @@ func TestLoad_Guardian_UnknownAttribute_Fails(t *testing.T) {
 		t.Errorf("error %q does not name the offending attribute", err)
 	}
 }
+
+// writeReconcileHCL writes a single-file policy with one catalog_info file
+// rule whose reconcile "custom_properties" block body is the given snippet.
+func writeReconcileHCL(t *testing.T, reconcileBody string) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	hclFile := filepath.Join(dir, "guardian.hcl")
+	content := `
+rule "file" "catalog_info" {
+  paths    = ["catalog-info.yaml"]
+  target   = "catalog-info.yaml"
+  template = "catalog-info"
+
+  reconcile "custom_properties" {
+    mode = "api"
+` + reconcileBody + `
+  }
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing test file: %v", err)
+	}
+
+	return hclFile
+}
+
+func TestLoad_AnnotationProperties_Decodes(t *testing.T) {
+	hclFile := writeReconcileHCL(t, `
+    annotation_properties = {
+      "jira/project-key" = "JiraProject"
+      "jira/label"        = "JiraLabel"
+    }
+`)
+
+	cfg, err := Load(hclFile)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	rec := cfg.FileRules[0].Reconcilers[0]
+
+	want := map[string]string{
+		"jira/project-key": "JiraProject",
+		"jira/label":       "JiraLabel",
+	}
+
+	if len(rec.AnnotationProperties) != len(want) {
+		t.Fatalf("AnnotationProperties = %v, want %v", rec.AnnotationProperties, want)
+	}
+
+	for k, v := range want {
+		if rec.AnnotationProperties[k] != v {
+			t.Errorf("AnnotationProperties[%q] = %q, want %q", k, rec.AnnotationProperties[k], v)
+		}
+	}
+}
+
+func TestLoad_AnnotationProperties_AbsentIsNil(t *testing.T) {
+	cfg, err := Load(writeReconcileHCL(t, ""))
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	rec := cfg.FileRules[0].Reconcilers[0]
+
+	if rec.AnnotationProperties != nil {
+		t.Errorf("AnnotationProperties = %v, want nil when attribute absent", rec.AnnotationProperties)
+	}
+}
+
+func TestLoad_AnnotationProperties_EmptyMapIsEmpty(t *testing.T) {
+	cfg, err := Load(writeReconcileHCL(t, `annotation_properties = {}`))
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	rec := cfg.FileRules[0].Reconcilers[0]
+
+	if len(rec.AnnotationProperties) != 0 {
+		t.Errorf("AnnotationProperties = %v, want empty", rec.AnnotationProperties)
+	}
+}
+
+func TestLoad_AnnotationProperties_NonStringValue_Fails(t *testing.T) {
+	_, err := Load(writeReconcileHCL(t, `
+    annotation_properties = {
+      "jira/project-key" = 42
+    }
+`))
+	if err == nil {
+		t.Fatal("Load() succeeded, want error for non-string annotation_properties value")
+	}
+
+	if !strings.Contains(err.Error(), "annotation_properties") {
+		t.Errorf("error %q does not mention annotation_properties", err)
+	}
+}
+
+// TestLoad_AnnotationProperties_ListValue_FailsCleanly guards against a
+// panic regression: cty.Value.CanIterateElements() is also true for
+// List/Set/Tuple types, whose AsValueMap() panics internally (it calls
+// AsString on a numeric index key, not a string key). The decode guard
+// must check IsObjectType/IsMapType specifically instead.
+func TestLoad_AnnotationProperties_ListValue_FailsCleanly(t *testing.T) {
+	_, err := Load(writeReconcileHCL(t, `
+    annotation_properties = ["a", "b"]
+`))
+	if err == nil {
+		t.Fatal("Load() succeeded, want error for list-typed annotation_properties")
+	}
+
+	if !strings.Contains(err.Error(), "annotation_properties") {
+		t.Errorf("error %q does not mention annotation_properties", err)
+	}
+}

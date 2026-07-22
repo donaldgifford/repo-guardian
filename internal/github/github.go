@@ -35,10 +35,13 @@ type Repository struct {
 }
 
 // CustomPropertyValue represents a single custom property key-value pair
-// on a GitHub repository.
+// on a GitHub repository. Value is nil to represent an unset/null
+// property value; SetCustomPropertyValues passes a nil Value through as
+// a JSON null, which is GitHub's documented mechanism for clearing a
+// repository's property value.
 type CustomPropertyValue struct {
 	PropertyName string
-	Value        string
+	Value        *string
 }
 
 // RepoSettings holds GitHub repository settings that can be checked and
@@ -162,6 +165,15 @@ type Client interface {
 
 	// SetCustomPropertyValues creates or updates custom property values on a repository.
 	SetCustomPropertyValues(ctx context.Context, owner, repo string, properties []*CustomPropertyValue) error
+
+	// GetOrgPropertySchema returns the names of every custom property
+	// defined at the organization level (DESIGN-0019 preflight). Values
+	// are values-only, least-privilege: the App never creates or
+	// mutates schema definitions, only reads names to filter payloads.
+	// Requires the org-level "Custom properties: read" permission;
+	// callers must fail open (send the unfiltered payload) on error
+	// rather than block a sync that would otherwise succeed.
+	GetOrgPropertySchema(ctx context.Context, org string) ([]string, error)
 
 	// GetVulnerabilityAlertsEnabled checks if vulnerability alerts are enabled.
 	GetVulnerabilityAlertsEnabled(ctx context.Context, owner, repo string) (bool, error)

@@ -121,4 +121,16 @@ spec:
             summary: "repo-guardian budget-gating enqueues (rate-limit bound)"
             description: "the BudgetTracker has been blocking enqueues for 30+ minutes; the deployment is rate-limit-bound. See docs/operations/scaling.md §Discoverer + BudgetTracker for remediation."
         {{- end }}
+        {{- /* PropertySchemaMissing — DESIGN-0019 schema preflight */ -}}
+        {{- $alert := default dict $a.PropertySchemaMissing -}}
+        {{- if ne (default true (get $alert "enabled")) false }}
+        - alert: RepoGuardianPropertySchemaMissing
+          expr: rate(repo_guardian_custom_property_missing_schema_total[15m]) > {{ default 0 (get $alert "threshold") }}
+          for: {{ default "30m" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "warning" (get $alert "severity") | quote }}
+          annotations:
+            summary: "repo-guardian custom property missing from org schema"
+            description: "a mapped annotation_properties target has no matching org-level custom property definition; the sync for that property is being skipped. See docs/usage/policy-reference.md §Custom Property Schema Preflight — either define the property in the org's custom-property schema, or remove it from annotation_properties."
+        {{- end }}
 {{- end }}

@@ -600,6 +600,7 @@ var reconcileBodySchema = &hcl.BodySchema{
 		{Name: "watch"},
 		{Name: "mode"},
 		{Name: "delete_extra"},
+		{Name: "annotation_properties"},
 	},
 	Blocks: []hcl.BlockHeaderSchema{
 		{Type: "pr"},
@@ -618,6 +619,10 @@ func decodeReconcileBlock(block *hcl.Block, ctx *hcl.EvalContext) (*ReconcilerCo
 		val, d := attr.Expr.Value(ctx)
 		diags = append(diags, d...)
 
+		if d.HasErrors() {
+			continue
+		}
+
 		switch name {
 		case "watch":
 			rec.Watch = val.True()
@@ -625,6 +630,10 @@ func decodeReconcileBlock(block *hcl.Block, ctx *hcl.EvalContext) (*ReconcilerCo
 			rec.Mode = val.AsString()
 		case "delete_extra":
 			rec.DeleteExtra = val.True()
+		case "annotation_properties":
+			props, d := decodeAnnotationProperties(val, attr.Range)
+			diags = append(diags, d...)
+			rec.AnnotationProperties = props
 		}
 	}
 
@@ -639,6 +648,54 @@ func decodeReconcileBlock(block *hcl.Block, ctx *hcl.EvalContext) (*ReconcilerCo
 	}
 
 	return rec, diags
+}
+
+// decodeAnnotationProperties decodes the `annotation_properties` map
+// attribute on a `reconcile {}` block. rng anchors diagnostics to the
+// attribute's source location. Non-map values and non-string map values
+// each produce a diagnostic rather than panicking and are skipped; the
+// remaining entries still decode. The type guard checks IsObjectType/
+// IsMapType specifically rather than CanIterateElements: the latter is
+// also true for lists/sets/tuples, whose AsValueMap panics internally
+// (it calls AsString on a numeric index key). Reserved-name,
+// duplicate-target, and charset validation happen later at
+// policy.Validate time (validateAnnotationProperties), where file/rule
+// context is available for a clearer error prefix.
+func decodeAnnotationProperties(val cty.Value, rng hcl.Range) (map[string]string, hcl.Diagnostics) {
+	if !val.Type().IsObjectType() && !val.Type().IsMapType() {
+		return nil, hcl.Diagnostics{{
+			Severity: hcl.DiagError,
+			Summary:  "Invalid annotation_properties",
+			Detail:   "annotation_properties must be a map of string to string.",
+			Subject:  rng.Ptr(),
+		}}
+	}
+
+	raw := val.AsValueMap()
+
+	var diags hcl.Diagnostics
+
+	props := make(map[string]string, len(raw))
+
+	for k, v := range raw {
+		if v.Type() != cty.String {
+			diags = append(diags, &hcl.Diagnostic{
+				Severity: hcl.DiagError,
+				Summary:  "Invalid annotation_properties value",
+				Detail: fmt.Sprintf(
+					"annotation_properties[%q] must be a string, got %s.",
+					k, v.Type().FriendlyName(),
+				),
+				Subject: rng.Ptr(),
+			})
+
+			continue
+		}
+
+		props[k] = v.AsString()
+	}
+
+	return props, diags
 }
 
 func decodePRBlock(block *hcl.Block, ctx *hcl.EvalContext) (*PRConfig, hcl.Diagnostics) {

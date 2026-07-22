@@ -50,5 +50,5 @@ docz create design "Your Design Title"
 | DESIGN-0016 | Separate Postgres read and write endpoints | Draft | 2026-06-22 | Donald Gifford | [0016-separate-postgres-read-and-write-endpoints.md](0016-separate-postgres-read-and-write-endpoints.md) |
 | DESIGN-0017 | Stale-sweep cutover and repository discovery | Approved | 2026-06-22 | Donald Gifford | [0017-stale-sweep-cutover-and-repository-discovery.md](0017-stale-sweep-cutover-and-repository-discovery.md) |
 | DESIGN-0018 | Deprecate memory backend | Approved | 2026-06-22 | Donald Gifford | [0018-deprecate-memory-backend.md](0018-deprecate-memory-backend.md) |
-| DESIGN-0019 | Configurable annotation-sourced custom properties | Approved | 2026-07-19 | Donald Gifford | [0019-configurable-annotation-sourced-custom-properties.md](0019-configurable-annotation-sourced-custom-properties.md) |
+| DESIGN-0019 | Configurable annotation-sourced custom properties | Implemented | 2026-07-19 | Donald Gifford | [0019-configurable-annotation-sourced-custom-properties.md](0019-configurable-annotation-sourced-custom-properties.md) |
 <!-- END DOCZ AUTO-GENERATED -->

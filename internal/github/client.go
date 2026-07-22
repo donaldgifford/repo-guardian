@@ -439,9 +439,10 @@ func (c *GitHubClient) GetCustomPropertyValues(
 
 	props := make([]*CustomPropertyValue, 0, len(ghProps))
 	for _, p := range ghProps {
-		value := ""
+		var value *string
 		if p.Value != nil {
-			value = fmt.Sprintf("%v", p.Value)
+			v := fmt.Sprintf("%v", p.Value)
+			value = &v
 		}
 
 		props = append(props, &CustomPropertyValue{
@@ -473,6 +474,25 @@ func (c *GitHubClient) SetCustomPropertyValues(
 	}
 
 	return nil
+}
+
+// GetOrgPropertySchema returns the names of every custom property
+// defined at the organization level, via
+// Organizations.GetAllCustomProperties. Values-only, least-privilege:
+// this never creates or mutates schema definitions (DESIGN-0019
+// non-goal).
+func (c *GitHubClient) GetOrgPropertySchema(ctx context.Context, org string) ([]string, error) {
+	props, _, err := c.ghClient().Organizations.GetAllCustomProperties(ctx, org)
+	if err != nil {
+		return nil, fmt.Errorf("getting org property schema for %s: %w", org, err)
+	}
+
+	names := make([]string, 0, len(props))
+	for _, p := range props {
+		names = append(names, p.GetPropertyName())
+	}
+
+	return names, nil
 }
 
 // GetVulnerabilityAlertsEnabled checks if vulnerability alerts are enabled.

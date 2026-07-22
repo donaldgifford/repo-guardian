@@ -2,8 +2,7 @@
 # properties. It runs once when merged, then can be safely deleted.
 #
 # Prerequisites:
-#   - Org-level custom property schema must define: Owner, Component,
-#     JiraProject, JiraLabel
+#   - Org-level custom property schema must define: Owner, Component{{ range $name, $value := .Catalog.Properties }}, {{ $name }}{{ end }}
 #   - GITHUB_TOKEN must have custom_properties:write permission
 name: Set Custom Properties
 
@@ -27,10 +26,8 @@ jobs:
             --method PATCH \
             "repos/{{`${{ github.repository }}`}}/properties/values" \
             -f 'properties[][property_name]=Owner' \
-            -f 'properties[][value]={{ .Catalog.Owner }}' \
+            -f 'properties[][value]={{ .Catalog.Owner }}' \{{ range $name, $value := .Catalog.Properties }}
+            -f 'properties[][property_name]={{ $name }}' \
+            {{ if $value }}-f 'properties[][value]={{ $value }}'{{ else }}-F 'properties[][value]=null'{{ end }} \{{ end }}
             -f 'properties[][property_name]=Component' \
-            -f 'properties[][value]={{ .Catalog.Component }}' \
-            -f 'properties[][property_name]=JiraProject' \
-            -f 'properties[][value]={{ .Catalog.JiraProject }}' \
-            -f 'properties[][property_name]=JiraLabel' \
-            -f 'properties[][value]={{ .Catalog.JiraLabel }}'
+            -f 'properties[][value]={{ .Catalog.Component }}'

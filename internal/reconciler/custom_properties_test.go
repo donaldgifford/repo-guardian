@@ -1,16 +1,21 @@
 package reconciler_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/testutil"
+
 	"github.com/donaldgifford/repo-guardian/internal/catalog"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/reconciler"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
@@ -43,12 +48,23 @@ type mockClient struct {
 	createdBranches  []string
 	deletedBranches  []string
 	createdFiles     []string
+	createdFileBody  map[string]string
 	createdPR        *ghclient.PullRequest
 	createdPRBody    string
 	addedLabels      []string
 	installations    []*ghclient.Installation
 	installRepos     map[int64][]*ghclient.Repository
 	processedJobs    atomic.Int32
+
+	orgSchema      map[string][]string
+	orgSchemaErr   error
+	orgSchemaCalls atomic.Int32
+	orgSchemaDelay time.Duration // artificial latency to widen the concurrent-miss race window in tests
+
+	// setPropsMu guards setProperties: the one test that calls
+	// Reconcile concurrently across goroutines sharing this client
+	// exercises real concurrent SetCustomPropertyValues calls.
+	setPropsMu sync.Mutex
 
 	getRepoErr        error
 	getContentsErr    error
@@ -68,8 +84,10 @@ func newMockClient() *mockClient {
 		contents:         make(map[string]bool),
 		fileContents:     make(map[string]string),
 		customProperties: make(map[string][]*ghclient.CustomPropertyValue),
+		createdFileBody:  make(map[string]string),
 		branchSHAs:       make(map[string]string),
 		installRepos:     make(map[int64][]*ghclient.Repository),
+		orgSchema:        make(map[string][]string),
 	}
 }
 
@@ -131,12 +149,13 @@ func (m *mockClient) DeleteBranch(_ context.Context, _, _, branch string) error 
 	return nil
 }
 
-func (m *mockClient) CreateOrUpdateFile(_ context.Context, _, _, _, path, _, _ string) error {
+func (m *mockClient) CreateOrUpdateFile(_ context.Context, _, _, _, path, content, _ string) error {
 	if m.createFileErr != nil {
 		return m.createFileErr
 	}
 
 	m.createdFiles = append(m.createdFiles, path)
+	m.createdFileBody[path] = content
 
 	return nil
 }
@@ -199,9 +218,37 @@ func (m *mockClient) SetCustomPropertyValues(_ context.Context, _, _ string, pro
 		return m.setCustomPropsErr
 	}
 
+	m.setPropsMu.Lock()
 	m.setProperties = append(m.setProperties, properties...)
+	m.setPropsMu.Unlock()
 
 	return nil
+}
+
+// GetOrgPropertySchema fails open (returns an error) for any org the
+// test hasn't explicitly configured via m.orgSchema, so tests that
+// predate schema preflight keep exercising the unfiltered payload
+// path without every one of them needing to set up a schema. Tests
+// that want to exercise the filter path set m.orgSchema[org]
+// explicitly, including to an empty slice for the "nothing defined"
+// case.
+func (m *mockClient) GetOrgPropertySchema(_ context.Context, org string) ([]string, error) {
+	m.orgSchemaCalls.Add(1)
+
+	if m.orgSchemaDelay > 0 {
+		time.Sleep(m.orgSchemaDelay)
+	}
+
+	if m.orgSchemaErr != nil {
+		return nil, m.orgSchemaErr
+	}
+
+	names, ok := m.orgSchema[org]
+	if !ok {
+		return nil, fmt.Errorf("mockClient: org schema not configured for %q", org)
+	}
+
+	return names, nil
 }
 
 func (*mockClient) GetVulnerabilityAlertsEnabled(_ context.Context, _, _ string) (bool, error) {
@@ -297,13 +344,29 @@ func basePropertiesClient() *mockClient {
 func newTestReconciler(t *testing.T, mode string) reconciler.Reconciler {
 	t.Helper()
 
+	return newTestReconcilerWithProps(t, mode, nil)
+}
+
+// jiraAnnotationProps is the pre-DESIGN-0019 hardcoded Jira mapping,
+// reproduced as operator config for the regression tests proving
+// map-driven output matches the old built-in behavior set-for-set.
+func jiraAnnotationProps() map[string]string {
+	return map[string]string{
+		"jira/project-key": "JiraProject",
+		"jira/label":       "JiraLabel",
+	}
+}
+
+func newTestReconcilerWithProps(t *testing.T, mode string, annotationProps map[string]string) reconciler.Reconciler {
+	t.Helper()
+
 	ts := rules.NewTemplateStore()
 	if err := ts.Load(""); err != nil {
 		t.Fatalf("loading templates: %v", err)
 	}
 
 	r, err := reconciler.NewCustomPropertiesReconciler(
-		policy.ReconcilerConfig{Type: "custom_properties", Mode: mode},
+		policy.ReconcilerConfig{Type: "custom_properties", Mode: mode, AnnotationProperties: annotationProps},
 		ts,
 	)
 	if err != nil {
@@ -311,6 +374,12 @@ func newTestReconciler(t *testing.T, mode string) reconciler.Reconciler {
 	}
 
 	return r
+}
+
+// strPtr returns a pointer to s, for constructing
+// ghclient.CustomPropertyValue literals in tests.
+func strPtr(s string) *string {
+	return &s
 }
 
 func newParams(client ghclient.Client, content string, dryRun bool, openPRs []*ghclient.PullRequest) *reconciler.ReconcileParams {
@@ -404,6 +473,88 @@ func TestGHAMode_SetsFromCatalogInfo(t *testing.T) {
 
 	if client.createdFiles[0] != ".github/workflows/set-custom-properties.yml" {
 		t.Errorf("expected workflow file, got %q", client.createdFiles[0])
+	}
+
+	rendered := client.createdFileBody[".github/workflows/set-custom-properties.yml"]
+	if strings.Contains(rendered, "JiraProject") || strings.Contains(rendered, "-F ") {
+		t.Errorf("expected no mapped properties or clears with an empty map, got:\n%s", rendered)
+	}
+}
+
+// TestGHAMode_SetsFromCatalogInfo_JiraMapConfigured is the DESIGN-0019
+// GHA-mode regression case: with annotation_properties reproducing the
+// pre-change hardcoded Jira mapping, the rendered workflow carries the
+// same Jira values the old hardcoded template produced.
+func TestGHAMode_SetsFromCatalogInfo_JiraMapConfigured(t *testing.T) {
+	t.Parallel()
+
+	r := newTestReconcilerWithProps(t, "github-action", jiraAnnotationProps())
+	client := basePropertiesClient()
+	client.fileContents["org/my-service/catalog-info.yaml"] = validCatalogInfo
+
+	err := r.Reconcile(context.Background(), newParams(client, validCatalogInfo, false, nil))
+	if err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	if client.createdPR == nil {
+		t.Fatal("expected PR to be created")
+	}
+
+	rendered := client.createdFileBody[".github/workflows/set-custom-properties.yml"]
+
+	for _, want := range []string{
+		"-f 'properties[][property_name]=JiraLabel'",
+		"-f 'properties[][property_name]=JiraProject'",
+		"-f 'properties[][value]=my-service'",
+		"-f 'properties[][value]=PROJ'",
+	} {
+		if !strings.Contains(rendered, want) {
+			t.Errorf("rendered workflow missing %q; got:\n%s", want, rendered)
+		}
+	}
+}
+
+// TestGHAMode_RemovedAnnotationRendersClear proves the GHA-mode
+// workflow renders a JSON-null clear for a managed property whose
+// source annotation is no longer present in catalog-info.yaml.
+func TestGHAMode_RemovedAnnotationRendersClear(t *testing.T) {
+	t.Parallel()
+
+	r := newTestReconcilerWithProps(t, "github-action", jiraAnnotationProps())
+	client := basePropertiesClient()
+
+	contentWithOnlyProject := `apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: my-service
+  annotations:
+    jira/project-key: "PROJ"
+spec:
+  owner: platform-team
+`
+
+	err := r.Reconcile(context.Background(), newParams(client, contentWithOnlyProject, false, nil))
+	if err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	if client.createdPR == nil {
+		t.Fatal("expected PR to be created")
+	}
+
+	rendered := client.createdFileBody[".github/workflows/set-custom-properties.yml"]
+
+	if !strings.Contains(rendered, "-f 'properties[][property_name]=JiraLabel'") {
+		t.Errorf("expected JiraLabel property_name to still be emitted; got:\n%s", rendered)
+	}
+
+	if !strings.Contains(rendered, "-F 'properties[][value]=null'") {
+		t.Errorf("expected a JSON-null clear for the removed JiraLabel annotation; got:\n%s", rendered)
+	}
+
+	if !strings.Contains(rendered, "-f 'properties[][value]=PROJ'") {
+		t.Errorf("expected JiraProject to still be set from the present annotation; got:\n%s", rendered)
 	}
 }
 
@@ -510,10 +661,10 @@ func TestGHAMode_AlreadyCorrect(t *testing.T) {
 	r := newTestReconciler(t, "github-action")
 	client := basePropertiesClient()
 	client.customProperties["org/my-service"] = []*ghclient.CustomPropertyValue{
-		{PropertyName: "Owner", Value: "platform-team"},
-		{PropertyName: "Component", Value: "my-service"},
-		{PropertyName: "JiraProject", Value: "PROJ"},
-		{PropertyName: "JiraLabel", Value: "my-service"},
+		{PropertyName: "Owner", Value: strPtr("platform-team")},
+		{PropertyName: "Component", Value: strPtr("my-service")},
+		{PropertyName: "JiraProject", Value: strPtr("PROJ")},
+		{PropertyName: "JiraLabel", Value: strPtr("my-service")},
 	}
 
 	err := r.Reconcile(context.Background(), newParams(client, validCatalogInfo, false, nil))
@@ -589,10 +740,14 @@ func TestGHAMode_StaleBranchCleanup(t *testing.T) {
 
 // --- API mode tests ---
 
-func TestAPIMode_SetsFromCatalogInfo(t *testing.T) {
+// TestAPIMode_SetsFromCatalogInfo_JiraMapConfigured is the DESIGN-0019
+// regression case: with annotation_properties configured to reproduce
+// the pre-change hardcoded Jira mapping, the API payload is
+// set-identical to the old built-in behavior.
+func TestAPIMode_SetsFromCatalogInfo_JiraMapConfigured(t *testing.T) {
 	t.Parallel()
 
-	r := newTestReconciler(t, "api")
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
 	client := basePropertiesClient()
 
 	err := r.Reconcile(context.Background(), newParams(client, validCatalogInfo, false, nil))
@@ -606,7 +761,9 @@ func TestAPIMode_SetsFromCatalogInfo(t *testing.T) {
 
 	propMap := make(map[string]string)
 	for _, p := range client.setProperties {
-		propMap[p.PropertyName] = p.Value
+		if p.Value != nil {
+			propMap[p.PropertyName] = *p.Value
+		}
 	}
 
 	if propMap["Owner"] != "platform-team" {
@@ -621,8 +778,310 @@ func TestAPIMode_SetsFromCatalogInfo(t *testing.T) {
 		t.Errorf("expected JiraProject=PROJ, got %q", propMap["JiraProject"])
 	}
 
+	if propMap["JiraLabel"] != "my-service" {
+		t.Errorf("expected JiraLabel=my-service, got %q", propMap["JiraLabel"])
+	}
+
 	if client.createdPR != nil {
 		t.Error("should not create catalog-info PR when file exists")
+	}
+}
+
+// TestAPIMode_UnmanagedPropertyNeverTouched proves properties outside
+// the managed set ({Owner, Component} ∪ annotation_properties targets)
+// are never diffed or emitted, even when GitHub already has a value
+// for a name that happens to collide with an annotation the operator
+// hasn't mapped.
+func TestAPIMode_UnmanagedPropertyNeverTouched(t *testing.T) {
+	t.Parallel()
+
+	r := newTestReconciler(t, "api") // no annotation_properties configured
+	client := basePropertiesClient()
+	client.customProperties["org/my-service"] = []*ghclient.CustomPropertyValue{
+		{PropertyName: "Owner", Value: strPtr("someone-else")},
+		{PropertyName: "Component", Value: strPtr("my-service")},
+		{PropertyName: "CostCenter", Value: strPtr("manually-set-by-a-human")},
+	}
+
+	err := r.Reconcile(context.Background(), newParams(client, validCatalogInfo, false, nil))
+	if err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	if len(client.setProperties) == 0 {
+		t.Fatal("expected Owner drift to trigger a PATCH")
+	}
+
+	for _, p := range client.setProperties {
+		if p.PropertyName == "CostCenter" {
+			t.Errorf("unmanaged property CostCenter must never appear in the payload, got %+v", p)
+		}
+	}
+}
+
+// TestAPIMode_RemovedAnnotationClearsProperty is the DESIGN-0019
+// clear-on-removal case: a property previously set from a mapped
+// annotation must be nulled once the annotation disappears from
+// catalog-info.yaml, and the clear is counted + logged.
+func TestAPIMode_RemovedAnnotationClearsProperty(t *testing.T) {
+	t.Parallel()
+
+	metrics.CustomPropertyClearedTotal.Reset()
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+	client.customProperties["org/my-service"] = []*ghclient.CustomPropertyValue{
+		{PropertyName: "Owner", Value: strPtr("platform-team")},
+		{PropertyName: "Component", Value: strPtr("my-service")},
+		{PropertyName: "JiraProject", Value: strPtr("PROJ")},
+		{PropertyName: "JiraLabel", Value: strPtr("my-service")},
+	}
+
+	contentWithoutJira := `apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: my-service
+spec:
+  owner: platform-team
+  lifecycle: production
+  type: service
+`
+
+	err := r.Reconcile(context.Background(), newParams(client, contentWithoutJira, false, nil))
+	if err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	if len(client.setProperties) == 0 {
+		t.Fatal("expected a PATCH clearing the removed Jira properties")
+	}
+
+	var clearedJiraProject, clearedJiraLabel bool
+
+	for _, p := range client.setProperties {
+		switch p.PropertyName {
+		case "JiraProject":
+			clearedJiraProject = p.Value == nil
+		case "JiraLabel":
+			clearedJiraLabel = p.Value == nil
+		case "Owner", "Component":
+			if p.Value == nil {
+				t.Errorf("Owner/Component must never be cleared, got nil for %s", p.PropertyName)
+			}
+		}
+	}
+
+	if !clearedJiraProject {
+		t.Error("expected JiraProject to be cleared (nil Value)")
+	}
+
+	if !clearedJiraLabel {
+		t.Error("expected JiraLabel to be cleared (nil Value)")
+	}
+
+	if got := testutil.ToFloat64(metrics.CustomPropertyClearedTotal.WithLabelValues("org")); got != 2 {
+		t.Errorf("CustomPropertyClearedTotal = %v, want 2", got)
+	}
+}
+
+// TestAPIMode_FiltersUndefinedMappedProperty is the DESIGN-0019
+// schema-preflight partition case: JiraLabel has no org-level
+// property definition, so it must be dropped from the PATCH while
+// Owner/Component/JiraProject (all defined) still sync in the same
+// call, with a warn line and a per-property counter increment.
+func TestAPIMode_FiltersUndefinedMappedProperty(t *testing.T) {
+	t.Parallel()
+
+	// Reset is safe here even under t.Parallel(): "filter-org" is a
+	// label value unique to this test, so no other test observes the
+	// zeroing. It's needed because CounterVec state is process-global
+	// and would otherwise accumulate across repeated test-binary runs
+	// (e.g. `go test -count=N`).
+	metrics.CustomPropertyMissingSchemaTotal.Reset()
+
+	var buf bytes.Buffer
+
+	logger := slog.New(slog.NewTextHandler(&buf, nil))
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+	client.orgSchema["filter-org"] = []string{"Owner", "Component", "JiraProject"} // JiraLabel undefined
+
+	params := newParams(client, validCatalogInfo, false, nil)
+	params.Owner = "filter-org" // unique per test: avoids racing other parallel tests' counter assertions
+	params.Logger = logger
+
+	if err := r.Reconcile(context.Background(), params); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	seen := make(map[string]bool)
+	for _, p := range client.setProperties {
+		seen[p.PropertyName] = true
+	}
+
+	for _, name := range []string{"Owner", "Component", "JiraProject"} {
+		if !seen[name] {
+			t.Errorf("expected %s (defined in org schema) in the single PATCH payload, got %+v", name, client.setProperties)
+		}
+	}
+
+	if seen["JiraLabel"] {
+		t.Error("JiraLabel is undefined in the org schema and must not appear in the payload")
+	}
+
+	logOutput := buf.String()
+	if !strings.Contains(logOutput, "custom properties missing from org schema") {
+		t.Errorf("expected missing-schema warn message, got log: %s", logOutput)
+	}
+
+	if !strings.Contains(logOutput, "org=filter-org") {
+		t.Errorf("expected org=filter-org in log output, got: %s", logOutput)
+	}
+
+	if !strings.Contains(logOutput, "JiraLabel") {
+		t.Errorf("expected missing_properties to mention JiraLabel, got: %s", logOutput)
+	}
+
+	if got := testutil.ToFloat64(metrics.CustomPropertyMissingSchemaTotal.WithLabelValues("filter-org", "JiraLabel")); got != 1 {
+		t.Errorf("CustomPropertyMissingSchemaTotal{filter-org,JiraLabel} = %v, want 1", got)
+	}
+}
+
+// TestAPIMode_EmptySchemaSkipsPatch covers the degenerate case where
+// the org schema is reachable but defines nothing: every managed
+// property is "missing," so the PATCH is skipped entirely rather than
+// sent empty.
+func TestAPIMode_EmptySchemaSkipsPatch(t *testing.T) {
+	t.Parallel()
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+	client.orgSchema["empty-schema-org"] = []string{}
+
+	params := newParams(client, validCatalogInfo, false, nil)
+	params.Owner = "empty-schema-org"
+
+	if err := r.Reconcile(context.Background(), params); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	if len(client.setProperties) != 0 {
+		t.Errorf("expected no PATCH when org schema defines nothing, got %+v", client.setProperties)
+	}
+}
+
+// TestAPIMode_SchemaFetchError_FailsOpenAndLogsOncePerOrg exercises
+// the 403/5xx/timeout path: repo-guardian must keep syncing the full,
+// unfiltered payload (today's pre-Phase-3 behavior) rather than block
+// on a broken schema endpoint, and must log the failure exactly once
+// per org per TTL window rather than once per repo.
+func TestAPIMode_SchemaFetchError_FailsOpenAndLogsOncePerOrg(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	logger := slog.New(slog.NewTextHandler(&buf, nil))
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+	client.orgSchemaErr = fmt.Errorf("403 Forbidden")
+
+	const repoCount = 3
+	for i := range repoCount {
+		params := newParams(client, validCatalogInfo, false, nil)
+		params.Repo = fmt.Sprintf("svc-%d", i)
+		params.Logger = logger
+
+		if err := r.Reconcile(context.Background(), params); err != nil {
+			t.Fatalf("Reconcile repo %d: %v", i, err)
+		}
+	}
+
+	counts := make(map[string]int)
+	for _, p := range client.setProperties {
+		counts[p.PropertyName]++
+	}
+
+	for _, name := range []string{"Owner", "Component", "JiraProject", "JiraLabel"} {
+		if counts[name] != repoCount {
+			t.Errorf("fail-open: expected %s in all %d unfiltered PATCHes, got count=%d", name, repoCount, counts[name])
+		}
+	}
+
+	if got := client.orgSchemaCalls.Load(); got != 1 {
+		t.Errorf("GetOrgPropertySchema calls = %d, want 1 (error cached for the TTL window)", got)
+	}
+
+	logOutput := buf.String()
+	if got := strings.Count(logOutput, "fetching org custom property schema failed"); got != 1 {
+		t.Errorf("expected exactly one fail-open warn line across %d repos, got %d in: %s", repoCount, got, logOutput)
+	}
+}
+
+// TestAPIMode_SchemaCache_OneFetchPerOrgWithinTTL is the fleet-sweep
+// cost bound from the Phase 3 success criteria: N repos processed for
+// the same org within the TTL window must cost exactly one
+// GetOrgPropertySchema call.
+func TestAPIMode_SchemaCache_OneFetchPerOrgWithinTTL(t *testing.T) {
+	t.Parallel()
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+	client.orgSchema["org"] = []string{"Owner", "Component", "JiraProject", "JiraLabel"}
+
+	const repoCount = 3
+	for i := range repoCount {
+		params := newParams(client, validCatalogInfo, false, nil)
+		params.Repo = fmt.Sprintf("svc-%d", i)
+
+		if err := r.Reconcile(context.Background(), params); err != nil {
+			t.Fatalf("Reconcile repo %d: %v", i, err)
+		}
+	}
+
+	if got := client.orgSchemaCalls.Load(); got != 1 {
+		t.Errorf("GetOrgPropertySchema calls = %d, want 1 (cached within TTL across %d repos in the same org)", got, repoCount)
+	}
+}
+
+// TestAPIMode_SchemaCache_ConcurrentMissesCollapseToOneFetch proves
+// the singleflight guard, not just the TTL cache: a burst of repos
+// from the same org processed concurrently by the worker pool (the
+// realistic cold-start scenario) must still cost exactly one
+// GetOrgPropertySchema call, not one per goroutine that raced past
+// the empty cache before the first fetch completed.
+func TestAPIMode_SchemaCache_ConcurrentMissesCollapseToOneFetch(t *testing.T) {
+	t.Parallel()
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+	client.orgSchema["org"] = []string{"Owner", "Component", "JiraProject", "JiraLabel"}
+	client.orgSchemaDelay = 20 * time.Millisecond
+
+	const goroutines = 20
+
+	var wg sync.WaitGroup
+
+	wg.Add(goroutines)
+
+	for i := range goroutines {
+		go func() {
+			defer wg.Done()
+
+			params := newParams(client, validCatalogInfo, false, nil)
+			params.Repo = fmt.Sprintf("svc-%d", i)
+
+			if err := r.Reconcile(context.Background(), params); err != nil {
+				t.Errorf("Reconcile repo %d: %v", i, err)
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	if got := client.orgSchemaCalls.Load(); got != 1 {
+		t.Errorf("GetOrgPropertySchema calls = %d, want 1 (singleflight-collapsed concurrent cache misses)", got)
 	}
 }
 
@@ -643,7 +1102,9 @@ func TestAPIMode_NoCatalogFile(t *testing.T) {
 
 	propMap := make(map[string]string)
 	for _, p := range client.setProperties {
-		propMap[p.PropertyName] = p.Value
+		if p.Value != nil {
+			propMap[p.PropertyName] = *p.Value
+		}
 	}
 
 	if propMap["Owner"] != catalog.DefaultOwner {
@@ -665,10 +1126,10 @@ func TestAPIMode_AlreadyCorrect(t *testing.T) {
 	r := newTestReconciler(t, "api")
 	client := basePropertiesClient()
 	client.customProperties["org/my-service"] = []*ghclient.CustomPropertyValue{
-		{PropertyName: "Owner", Value: "platform-team"},
-		{PropertyName: "Component", Value: "my-service"},
-		{PropertyName: "JiraProject", Value: "PROJ"},
-		{PropertyName: "JiraLabel", Value: "my-service"},
+		{PropertyName: "Owner", Value: strPtr("platform-team")},
+		{PropertyName: "Component", Value: strPtr("my-service")},
+		{PropertyName: "JiraProject", Value: strPtr("PROJ")},
+		{PropertyName: "JiraLabel", Value: strPtr("my-service")},
 	}
 
 	err := r.Reconcile(context.Background(), newParams(client, validCatalogInfo, false, nil))
@@ -768,7 +1229,9 @@ func TestReconciler_MissingFields_UsesDefaults(t *testing.T) {
 
 	propMap := make(map[string]string)
 	for _, p := range client.setProperties {
-		propMap[p.PropertyName] = p.Value
+		if p.Value != nil {
+			propMap[p.PropertyName] = *p.Value
+		}
 	}
 
 	if propMap["Owner"] != catalog.DefaultOwner {

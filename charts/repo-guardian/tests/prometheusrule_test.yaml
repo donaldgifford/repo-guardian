@@ -94,3 +94,48 @@ tests:
           path: spec.groups[0].rules
           content:
             alert: RepoGuardianBudgetGated
+
+  - it: should render the IMPL-0017 PropertySchemaMissing alert by default
+    set:
+      prometheusRule:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianPropertySchemaMissing
+            for: 30m
+            labels:
+              severity: warning
+          any: true
+
+  - it: should allow PropertySchemaMissing to be disabled
+    set:
+      prometheusRule:
+        enabled: true
+        alerts:
+          PropertySchemaMissing:
+            enabled: false
+    asserts:
+      - notContains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianPropertySchemaMissing
+
+  - it: should allow PropertySchemaMissing override of for and severity
+    set:
+      prometheusRule:
+        enabled: true
+        alerts:
+          PropertySchemaMissing:
+            for: 1h
+            severity: critical
+    asserts:
+      - contains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianPropertySchemaMissing
+            for: 1h
+            labels:
+              severity: critical
+          any: true

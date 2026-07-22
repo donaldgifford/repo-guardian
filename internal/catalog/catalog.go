@@ -37,17 +37,24 @@ type Spec struct {
 // Properties holds the extracted custom property values destined for
 // GitHub repository custom properties.
 type Properties struct {
-	Owner       string
-	Component   string
-	JiraProject string
-	JiraLabel   string
+	Owner     string
+	Component string
+
+	// Extra holds annotation-sourced property values keyed by GitHub
+	// custom property name (the annotationProps argument's values to
+	// Parse), not by annotation key. Populated only for annotations
+	// that are present and non-empty in the entity's metadata.
+	Extra map[string]string
 }
 
 // Parse unmarshals a catalog-info.yaml content string into an Entity
-// and extracts custom property values. Returns default Properties
-// (Owner and Component set to "Unclassified") if the content cannot
-// be parsed or is not a Backstage Component entity.
-func Parse(content string) *Properties {
+// and extracts custom property values. annotationProps maps a catalog
+// annotation key (e.g. "jira/project-key") to the GitHub custom
+// property name it should populate (e.g. "JiraProject"); a nil or
+// empty map yields Owner/Component only. Returns default Properties
+// (Owner and Component set to "Unclassified") if the content cannot be
+// parsed or is not a Backstage Component entity.
+func Parse(content string, annotationProps map[string]string) *Properties {
 	var entity Entity
 	if err := yaml.Unmarshal([]byte(content), &entity); err != nil {
 		return defaults()
@@ -58,10 +65,8 @@ func Parse(content string) *Properties {
 	}
 
 	p := &Properties{
-		Owner:       entity.Spec.Owner,
-		Component:   entity.Metadata.Name,
-		JiraProject: entity.Metadata.Annotations["jira/project-key"],
-		JiraLabel:   entity.Metadata.Annotations["jira/label"],
+		Owner:     entity.Spec.Owner,
+		Component: entity.Metadata.Name,
 	}
 
 	if p.Owner == "" {
@@ -70,6 +75,19 @@ func Parse(content string) *Properties {
 
 	if p.Component == "" {
 		p.Component = DefaultComponent
+	}
+
+	for annotation, property := range annotationProps {
+		value := entity.Metadata.Annotations[annotation]
+		if value == "" {
+			continue
+		}
+
+		if p.Extra == nil {
+			p.Extra = make(map[string]string, len(annotationProps))
+		}
+
+		p.Extra[property] = value
 	}
 
 	return p

@@ -491,3 +491,141 @@ func TestValidate_ErrorMessageClarity(t *testing.T) {
 		t.Error("error should include full field path guardian.log_level")
 	}
 }
+
+func fileRuleWithReconciler(annotationProperties map[string]string) FileRuleConfig {
+	return FileRuleConfig{
+		Type:     "file",
+		Name:     "catalog_info",
+		Check:    "exists",
+		Paths:    []string{"catalog-info.yaml"},
+		Target:   "catalog-info.yaml",
+		Template: "test.tmpl",
+		Reconcilers: []ReconcilerConfig{{
+			Type:                 "custom_properties",
+			Mode:                 "api",
+			AnnotationProperties: annotationProperties,
+		}},
+	}
+}
+
+func TestValidate_AnnotationProperties_Valid(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(map[string]string{
+		"jira/project-key": "JiraProject",
+		"jira/label":       "JiraLabel",
+	})}
+
+	if err := Validate(cfg); err != nil {
+		t.Errorf("Validate() = %v, want nil", err)
+	}
+}
+
+func TestValidate_AnnotationProperties_EmptyOrNilIsValid(t *testing.T) {
+	for _, props := range []map[string]string{nil, {}} {
+		cfg := BuiltinDefaults()
+		cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(props)}
+
+		if err := Validate(cfg); err != nil {
+			t.Errorf("Validate() with AnnotationProperties=%v = %v, want nil", props, err)
+		}
+	}
+}
+
+func TestValidate_AnnotationProperties_ReservedName(t *testing.T) {
+	for _, reserved := range []string{"Owner", "owner", "OWNER", "Component", "component"} {
+		cfg := BuiltinDefaults()
+		cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(map[string]string{
+			"some/annotation": reserved,
+		})}
+
+		err := Validate(cfg)
+		if err == nil {
+			t.Fatalf("expected error for reserved property name %q", reserved)
+		}
+
+		if !strings.Contains(err.Error(), "reserved property name") {
+			t.Errorf("error %q should mention reserved property name for %q", err, reserved)
+		}
+	}
+}
+
+func TestValidate_AnnotationProperties_EmptyAnnotationKey(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(map[string]string{
+		"": "SomeProperty",
+	})}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for empty annotation key")
+	}
+
+	if !strings.Contains(err.Error(), "empty annotation key") {
+		t.Errorf("error %q should mention empty annotation key", err)
+	}
+}
+
+func TestValidate_AnnotationProperties_EmptyPropertyName(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(map[string]string{
+		"jira/project-key": "",
+	})}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for empty property name")
+	}
+
+	if !strings.Contains(err.Error(), "empty property name") {
+		t.Errorf("error %q should mention empty property name", err)
+	}
+}
+
+func TestValidate_AnnotationProperties_DuplicateTarget(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(map[string]string{
+		"jira/project-key": "JiraProject",
+		"other/annotation": "jiraproject",
+	})}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for duplicate property target (case-insensitive)")
+	}
+
+	if !strings.Contains(err.Error(), "duplicate property name") {
+		t.Errorf("error %q should mention duplicate property name", err)
+	}
+}
+
+func TestValidate_AnnotationProperties_InvalidCharset(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(map[string]string{
+		"jira/project-key": "Jira Project!",
+	})}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for invalid property name charset")
+	}
+
+	if !strings.Contains(err.Error(), "must match") {
+		t.Errorf("error %q should mention charset constraint", err)
+	}
+}
+
+func TestValidate_AnnotationProperties_TooLong(t *testing.T) {
+	cfg := BuiltinDefaults()
+	cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(map[string]string{
+		"jira/project-key": strings.Repeat("a", 76),
+	})}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for property name > 75 characters")
+	}
+
+	if !strings.Contains(err.Error(), "must match") {
+		t.Errorf("error %q should mention charset constraint", err)
+	}
+}

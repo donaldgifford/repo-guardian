@@ -14,6 +14,7 @@ const (
 	labelReason         = "reason"
 	labelOutcome        = "outcome"
 	labelInstallationID = "installation_id"
+	labelProperty       = "property"
 )
 
 // All repo-guardian Prometheus metrics.
@@ -103,6 +104,26 @@ var (
 		Name: "repo_guardian_properties_already_correct_total",
 		Help: "Total repositories where custom properties already matched desired values.",
 	})
+
+	// CustomPropertyClearedTotal counts individual managed custom
+	// properties cleared (set to JSON null) because their source
+	// annotation was removed from catalog-info.yaml (DESIGN-0019 full
+	// state sync). Labeled by org so a spike in clears is auditable per
+	// organization.
+	CustomPropertyClearedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_custom_property_cleared_total",
+		Help: "Total managed custom properties cleared because their source annotation was removed.",
+	}, []string{labelOrg})
+
+	// CustomPropertyMissingSchemaTotal counts sync attempts for a
+	// managed property that the org's custom-property schema does not
+	// define (DESIGN-0019 preflight). Labeled by org and property so
+	// operators can see exactly which mapped property needs a schema
+	// definition, and how often the mismatch recurs.
+	CustomPropertyMissingSchemaTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_custom_property_missing_schema_total",
+		Help: "Total sync attempts for a managed custom property absent from the org's property schema.",
+	}, []string{labelOrg, labelProperty})
 
 	// WebhookRejectedTotal counts webhook requests rejected by the IP allowlist.
 	WebhookRejectedTotal = promauto.NewCounterVec(prometheus.CounterOpts{

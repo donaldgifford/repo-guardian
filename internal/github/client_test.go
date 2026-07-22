@@ -589,12 +589,48 @@ func TestGetCustomPropertyValues(t *testing.T) {
 		t.Fatalf("expected 2 properties, got %d", len(props))
 	}
 
-	if props[0].PropertyName != "Owner" || props[0].Value != "platform-team" {
+	if props[0].PropertyName != "Owner" || props[0].Value == nil || *props[0].Value != "platform-team" {
 		t.Errorf("unexpected first property: %+v", props[0])
 	}
 
-	if props[1].PropertyName != "Component" || props[1].Value != "my-service" {
+	if props[1].PropertyName != "Component" || props[1].Value == nil || *props[1].Value != "my-service" {
 		t.Errorf("unexpected second property: %+v", props[1])
+	}
+}
+
+func TestGetCustomPropertyValues_NullValue(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(
+		"GET /api/v3/repos/owner/repo/properties/values",
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+
+			props := []*gh.CustomPropertyValue{
+				{PropertyName: "JiraProject", Value: nil},
+			}
+
+			if err := json.NewEncoder(w).Encode(props); err != nil {
+				t.Errorf("encoding response: %v", err)
+			}
+		},
+	)
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	props, err := client.GetCustomPropertyValues(context.Background(), "owner", "repo")
+	if err != nil {
+		t.Fatalf("GetCustomPropertyValues: %v", err)
+	}
+
+	if len(props) != 1 {
+		t.Fatalf("expected 1 property, got %d", len(props))
+	}
+
+	if props[0].Value != nil {
+		t.Errorf("expected nil Value for null property, got %q", *props[0].Value)
 	}
 }
 
@@ -620,9 +656,12 @@ func TestSetCustomPropertyValues(t *testing.T) {
 	client, server := newTestClient(t, mux)
 	defer server.Close()
 
+	owner := "platform-team"
+	component := "my-service"
+
 	err := client.SetCustomPropertyValues(context.Background(), "owner", "repo", []*CustomPropertyValue{
-		{PropertyName: "Owner", Value: "platform-team"},
-		{PropertyName: "Component", Value: "my-service"},
+		{PropertyName: "Owner", Value: &owner},
+		{PropertyName: "Component", Value: &component},
 	})
 	if err != nil {
 		t.Fatalf("SetCustomPropertyValues: %v", err)
@@ -636,6 +675,41 @@ func TestSetCustomPropertyValues(t *testing.T) {
 	bodyStr := string(receivedBody)
 	if !strings.Contains(bodyStr, "Owner") || !strings.Contains(bodyStr, "platform-team") {
 		t.Errorf("request body missing expected properties: %s", bodyStr)
+	}
+}
+
+func TestSetCustomPropertyValues_NilValueSendsNull(t *testing.T) {
+	t.Parallel()
+
+	var receivedBody []byte
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(
+		"PATCH /api/v3/repos/owner/repo/properties/values",
+		func(w http.ResponseWriter, r *http.Request) {
+			var err error
+			receivedBody, err = io.ReadAll(r.Body)
+			if err != nil {
+				t.Errorf("reading request body: %v", err)
+			}
+
+			w.WriteHeader(http.StatusNoContent)
+		},
+	)
+
+	client, server := newTestClient(t, mux)
+	defer server.Close()
+
+	err := client.SetCustomPropertyValues(context.Background(), "owner", "repo", []*CustomPropertyValue{
+		{PropertyName: "JiraProject", Value: nil},
+	})
+	if err != nil {
+		t.Fatalf("SetCustomPropertyValues: %v", err)
+	}
+
+	bodyStr := string(receivedBody)
+	if !strings.Contains(bodyStr, `"value":null`) {
+		t.Errorf("expected JSON null value for cleared property, got: %s", bodyStr)
 	}
 }
 

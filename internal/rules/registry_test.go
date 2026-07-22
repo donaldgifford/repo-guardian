@@ -132,13 +132,29 @@ func TestEmbeddedTemplates_Render_Golden(t *testing.T) {
 			tmplName: "set-custom-properties",
 			vars: tmpl.FileVars{
 				Catalog: &tmpl.CatalogInfo{
-					Owner:       "platform",
-					Component:   "billing-svc",
-					JiraProject: "BILL",
-					JiraLabel:   "billing",
+					Owner:     "platform",
+					Component: "billing-svc",
+					Properties: map[string]string{
+						"JiraProject": "BILL",
+						"JiraLabel":   "billing",
+					},
 				},
 			},
 			want: "${{ secrets.GITHUB_TOKEN }}",
+		},
+		{
+			name:     "set-custom-properties renders a clear as JSON null",
+			tmplName: "set-custom-properties",
+			vars: tmpl.FileVars{
+				Catalog: &tmpl.CatalogInfo{
+					Owner:     "platform",
+					Component: "billing-svc",
+					Properties: map[string]string{
+						"JiraProject": "",
+					},
+				},
+			},
+			want: "-F 'properties[][value]=null'",
 		},
 	}
 

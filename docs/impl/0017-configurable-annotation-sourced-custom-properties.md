@@ -1,7 +1,7 @@
 ---
 id: IMPL-0017
 title: "Configurable annotation-sourced custom properties"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-07-20
 ---
@@ -9,7 +9,7 @@ created: 2026-07-20
 
 # IMPL 0017: Configurable annotation-sourced custom properties
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-07-20
 
@@ -98,26 +98,26 @@ Inert on its own — nothing consumes the field yet — so it merges safely.
 
 #### Tasks
 
-- [ ] Add `AnnotationProperties map[string]string` to `ReconcilerConfig`
+- [x] Add `AnnotationProperties map[string]string` to `ReconcilerConfig`
       (`internal/policy/types.go:297-304`); godoc states key = annotation,
       value = GitHub property name
-- [ ] Add `{Name: "annotation_properties"}` to `reconcileBodySchema` and a
+- [x] Add `{Name: "annotation_properties"}` to `reconcileBodySchema` and a
       decode case in `decodeReconcileBlock` (`internal/policy/loader.go:573-617`)
       using `val.AsValueMap()` guarded by `val.CanIterateElements()`;
       collect diags with the existing location-prefix pattern
-- [ ] Validation in `internal/policy/validate.go`, called from the existing
+- [x] Validation in `internal/policy/validate.go`, called from the existing
       validate pass, rejecting: reserved property names (`Owner`,
       `Component` — **case-insensitive**, OQ 3 → a), empty annotation keys,
       empty property names, duplicate property-name targets
       (case-insensitive), and names violating GitHub's constraint
       (`^[a-zA-Z0-9_.-]+$`, ≤75 chars)
-- [ ] Confirm `BuiltinDefaults()` and the `CUSTOM_PROPERTIES_MODE`
+- [x] Confirm `BuiltinDefaults()` and the `CUSTOM_PROPERTIES_MODE`
       back-compat injection (`internal/policy/defaults.go`) leave the map
       empty/nil (Owner/Component-only default)
-- [ ] Loader tests: map decodes; absent attribute ⇒ nil map; empty map ⇒
+- [x] Loader tests: map decodes; absent attribute ⇒ nil map; empty map ⇒
       empty; non-string values ⇒ diagnostic. Validate tests: one case per
       rejection with message-content assertions
-- [ ] `make lint && make test` green (watch gci ordering + godot on new
+- [x] `make lint && make test` green (watch gci ordering + godot on new
       comments)
 
 #### Success Criteria
@@ -137,21 +137,24 @@ driven entirely by the caller's map.
 
 #### Tasks
 
-- [ ] Change signature to `Parse(content string, annotationProps
+- [x] Change signature to `Parse(content string, annotationProps
       map[string]string) *Properties`; replace `JiraProject`/`JiraLabel`
       fields with `Extra map[string]string` (property name → value);
       delete the `jira/*` lookups (`internal/catalog/catalog.go`)
-- [ ] Populate `Extra` only for present-and-non-empty annotations; keep
+- [x] Populate `Extra` only for present-and-non-empty annotations; keep
       `Unclassified` fallbacks and the apiVersion/kind gate exactly as-is;
       `defaults()` returns nil/empty `Extra`
-- [ ] Update the single production call site
+- [x] Update the single production call site
       (`internal/reconciler/custom_properties.go:76`) to pass the
       reconciler's map (field added properly in Phase 2 — a temporary nil
-      argument here is acceptable if Phase 1 merges alone)
-- [ ] Rewrite catalog tests: mapped annotation present / absent / empty
+      argument here is acceptable if Phase 1 merges alone) — landed
+      together with Phase 2's `annotationProps` field since the existing
+      reconciler tests directly depended on the hardcoded Jira extraction
+      and a standalone nil-argument commit would leave them failing
+- [x] Rewrite catalog tests: mapped annotation present / absent / empty
       value / nil map / non-Component entity / unparseable YAML; delete
       Jira-specific cases
-- [ ] `make lint && make test` green
+- [x] `make lint && make test` green
 
 #### Success Criteria
 
@@ -167,48 +170,48 @@ The behavioral core: managed-set state sync with clears, in both modes.
 
 #### Tasks
 
-- [ ] `github.CustomPropertyValue.Value` → `*string`
+- [x] `github.CustomPropertyValue.Value` → `*string`
       (`internal/github/client.go`): `SetCustomPropertyValues` passes nil
       through to go-github's `interface{}` (JSON null ⇒ removal);
       `GetCustomPropertyValues` keeps the `fmt.Sprintf("%v")` coercion for
       non-nil values of any type, nil stays nil (OQ 4 → a); fix all
       compiling call sites and test literals
-- [ ] Add `annotationProps map[string]string` field to
+- [x] Add `annotationProps map[string]string` field to
       `CustomPropertiesReconciler`; populate from
       `ReconcilerConfig.AnnotationProperties` in
       `NewCustomPropertiesReconciler`; thread the map into `catalog.Parse`
-- [ ] Rewrite `diffProperties` managed-set driven: `Owner`/`Component`
+- [x] Rewrite `diffProperties` managed-set driven: `Owner`/`Component`
       compare; each mapped name — present ⇒ value compare, absent while
       current non-empty ⇒ drift (clear needed); unmanaged names ignored
-- [ ] Rewrite `desiredToPropertyValues`: `Owner`, `Component`, then mapped
+- [x] Rewrite `desiredToPropertyValues`: `Owner`, `Component`, then mapped
       names in sorted key order; present ⇒ value, absent ⇒ nil (clear)
-- [ ] Update dry-run logs in `handleAPIMode` (`custom_properties.go:232-240`)
+- [x] Update dry-run logs in `handleAPIMode` (`custom_properties.go:232-240`)
       to enumerate sets vs clears; update the "custom properties need
       update" log similarly
-- [ ] Clears observability (OQ 2 → a): register
+- [x] Clears observability (OQ 2 → a): register
       `CustomPropertyClearedTotal` CounterVec
       (`repo_guardian_custom_property_cleared_total`, label `org`) in
       `internal/metrics/metrics.go`; increment per cleared property on a
       successful PATCH; add a `cleared_properties` field to the "set custom
       properties via API" log line (empty slice omitted)
-- [ ] PR-body builders (`buildGHABody`/`buildCatalogInfoBody`/
+- [x] PR-body builders (`buildGHABody`/`buildCatalogInfoBody`/
       `buildPropertiesPRBody`) render the map generically with "will clear"
       rows; drop Jira-specific lines
-- [ ] `tmpl.CatalogInfo`: replace `JiraProject`/`JiraLabel` with
+- [x] `tmpl.CatalogInfo`: replace `JiraProject`/`JiraLabel` with
       `Properties map[string]string` (`internal/template/contexts.go:64-75`);
       fix template-context tests
-- [ ] Rewrite `internal/rules/templates/set-custom-properties.tmpl`: range
+- [x] Rewrite `internal/rules/templates/set-custom-properties.tmpl`: range
       the managed set — `-f 'properties[][value]=...'` for values,
       `-F 'properties[][value]=null'` for clears; prerequisites comment
       generated from the actual property set (keep the backtick-escape
       wrappers for `${{ ... }}`)
-- [ ] Reconciler tests: api + gha with 0/1/N mapped annotations;
+- [x] Reconciler tests: api + gha with 0/1/N mapped annotations;
       clear-on-removal diff + payload; unmanaged-property isolation;
       cleared-counter assertion (`testutil.ToFloat64`);
       rendered-workflow golden assertions including a clear entry;
       regression case proving Jira-map-configured output matches the old
       hardcoded output set-for-set
-- [ ] `make lint && make test` green (hugeParam: keep passing
+- [x] `make lint && make test` green (hugeParam: keep passing
       `ReconcilerConfig` per existing convention; map adds one word)
 
 #### Success Criteria
@@ -226,34 +229,34 @@ The behavioral core: managed-set state sync with clears, in both modes.
 
 #### Tasks
 
-- [ ] `GetOrgPropertySchema(ctx, org) ([]string, error)` on the
+- [x] `GetOrgPropertySchema(ctx, org) ([]string, error)` on the
       `github.Client` interface + `GitHubClient` impl via
       `Organizations.GetAllCustomProperties` (names only)
-- [ ] mockClient parity: no-op stubs in `internal/checker/engine_test.go`,
+- [x] mockClient parity: no-op stubs in `internal/checker/engine_test.go`,
       `internal/scheduler/sweep_test.go`,
       `internal/reconciler/custom_properties_test.go` (embedded by
       `bpMockClient`/`labelMockClient` — one stub covers reconciler tests)
-- [ ] Per-org cache in `CustomPropertiesReconciler`: `sync.Mutex` +
+- [x] Per-org cache in `CustomPropertiesReconciler`: `sync.Mutex` +
       `map[string]schemaEntry{names map[string]struct{}, fetchedAt}`;
       unexported `schemaCacheTTL = 30 * time.Minute`; error results also
       cached for the TTL window (drives log-once-per-org fail-open)
-- [ ] Partition step in `handleAPIMode` before `SetCustomPropertyValues`:
+- [x] Partition step in `handleAPIMode` before `SetCustomPropertyValues`:
       split payload on schema membership; empty defined-subset skips the
       PATCH; missing set ⇒ `slog.Warn("custom properties missing from org
       schema", "org", ..., "repo", ..., "missing_properties", [...])` +
       per-property counter increment
-- [ ] Fail-open: schema fetch error (403/5xx/timeout) ⇒ log once per org
+- [x] Fail-open: schema fetch error (403/5xx/timeout) ⇒ log once per org
       per TTL window, send unfiltered payload (today's exact semantics)
-- [ ] `CustomPropertyMissingSchemaTotal` CounterVec
+- [x] `CustomPropertyMissingSchemaTotal` CounterVec
       (`repo_guardian_custom_property_missing_schema_total`,
       labels `org`, `property`) in `internal/metrics/metrics.go` following
       the `EnqueueGatedByBudgetTotal` pattern
-- [ ] Tests: stateful schema mock (mock-fidelity rule — returns configured
+- [x] Tests: stateful schema mock (mock-fidelity rule — returns configured
       schema, never bare nil) with call counter asserting one fetch per org
       per TTL; filter case; fail-open-on-403 case; counter assertions via
       `testutil.ToFloat64` + `Reset()` between cases; literal warn-message
       text asserted (Loki contract)
-- [ ] `make lint && make test` green
+- [x] `make lint && make test` green
 
 #### Success Criteria
 
@@ -268,24 +271,27 @@ The behavioral core: managed-set state sync with clears, in both modes.
 
 ### Phase 4: Chart observability (alert + Loki contract)
 
-Chart-only PR (`dont-release`), chart `1.0.0-rc.4` → `1.0.0-rc.5`.
+Chart-only PR (`dont-release`), chart `1.0.0-rc.5` → `1.0.0-rc.6` (main
+advanced past `rc.4` with unrelated fixes — PRs #160/#161/#163 — while this
+IMPL was in progress; bumping from whatever main is actually on, not the
+number written when this doc was drafted).
 
 #### Tasks
 
-- [ ] `RepoGuardianPropertySchemaMissing` alert in
+- [x] `RepoGuardianPropertySchemaMissing` alert in
       `charts/repo-guardian/templates/prometheusrule.yaml`:
       `rate(repo_guardian_custom_property_missing_schema_total[15m]) > 0`
       for 30m, `severity: warning`, annotation linking the policy-reference
       preflight section (match existing alert style, lines 28-115)
-- [ ] Loki matching contract in `docs/operations/` (extend where the
+- [x] Loki matching contract in `docs/operations/` (extend where the
       IMPL-0015 metric tables live): exact message text, structured keys
       (`org`, `missing_properties`), sample LogQL ruler rule
-- [ ] helm-unittest case for the new alert entry
+- [x] helm-unittest case for the new alert entry
       (`charts/repo-guardian/tests/`) — remember `---` document-start and
       `equal:` path assertions (no `kind:` assertion type)
-- [ ] Chart.yaml version bump + `helm-docs` regeneration if README
+- [x] Chart.yaml version bump + `helm-docs` regeneration if README
       template mentions alerts
-- [ ] helm-unittest suite green; `make lint && make test` green
+- [x] helm-unittest suite green; `make lint && make test` green
 
 #### Success Criteria
 
@@ -299,27 +305,32 @@ Chart-only PR (`dont-release`), chart `1.0.0-rc.4` → `1.0.0-rc.5`.
 
 #### Tasks
 
-- [ ] `docs/usage/policy-reference.md`: `annotation_properties` attribute
+- [x] `docs/usage/policy-reference.md`: `annotation_properties` attribute
       (type, default, validation rules, reserved names), managed-set
       clear-on-removal semantics, schema-preflight behavior + optional
       org-level **Custom properties: read** App permission, new metric(s)
-- [ ] `examples/guardian-full.hcl`: add the Jira map to the `catalog_info`
+- [x] `examples/guardian-full.hcl`: add the Jira map to the `catalog_info`
       reconcile block (reproduces pre-change homelab behavior)
-- [ ] Release-notes entry covering the four behavioral edges: removed
+- [x] Release-notes entry covering the four behavioral edges: removed
       built-in Jira extraction; `.Catalog.Jira*` →
       `index .Catalog.Properties "..."`; clear-on-removal; optional new App
-      permission
-- [ ] `CLAUDE.md`: update custom_properties architecture notes (managed
+      permission — landed as `docs/operations/annotation-properties-migration.md`,
+      following the existing per-feature migration-doc precedent
+      (`template-migration.md`, `pr-convergence-migration.md`) rather than
+      hand-editing the git-cliff-generated `CHANGELOG.md`
+- [x] `CLAUDE.md`: update custom_properties architecture notes (managed
       set, clears, preflight, `GetOrgPropertySchema` added to the
       mock-parity list, `CustomPropertyValue.Value *string`)
-- [ ] `docs/usage/getting-started.md`: refresh the custom-properties demo
+- [x] `docs/usage/getting-started.md`: refresh the custom-properties demo
       if it names Jira properties
 - [ ] Homelab smoke checklist (operator-side, checkbox stays open until
       run): upgrade with map configured ⇒ no behavior change; remove an
       annotation ⇒ property value clears; remove a schema definition ⇒
       warn + filter + metric
-- [ ] `docz update impl design inv` to refresh indices; mkdocs strict
-      build clean
+- [x] `docz update impl design inv` to refresh indices; mkdocs strict
+      build clean — 14-file pre-existing warning set unchanged (confirmed
+      via a one-off isolated-venv `mkdocs build --strict` run); none of
+      this phase's new/edited docs appear in it
 
 #### Success Criteria
 
@@ -355,17 +366,17 @@ Chart-only PR (`dont-release`), chart `1.0.0-rc.4` → `1.0.0-rc.5`.
 
 ## Testing Plan
 
-- [ ] Loader/validate matrix (Phase 0): decode shapes + every rejection
-- [ ] Catalog parse matrix (Phase 1): present/absent/empty/nil-map/non-Component
-- [ ] Managed-set diff + payload with sorted-order and clear assertions (Phase 2)
-- [ ] Unmanaged-property isolation: never diffed, never emitted (Phase 2)
-- [ ] Cleared-properties counter + `cleared_properties` log field (Phase 2)
-- [ ] Golden rendered workflow for 0/1/N properties including a clear (Phase 2)
-- [ ] Regression: Jira map configured ⇒ set-identical output to pre-change (Phase 2)
-- [ ] Stateful schema mock + call counter (one fetch per org per TTL) (Phase 3)
-- [ ] Fail-open on 403; filter path; counter via `testutil.ToFloat64` (Phase 3)
-- [ ] Literal warn-message text assertion (Loki contract) (Phase 3)
-- [ ] helm-unittest for the new alert (Phase 4)
+- [x] Loader/validate matrix (Phase 0): decode shapes + every rejection
+- [x] Catalog parse matrix (Phase 1): present/absent/empty/nil-map/non-Component
+- [x] Managed-set diff + payload with sorted-order and clear assertions (Phase 2)
+- [x] Unmanaged-property isolation: never diffed, never emitted (Phase 2)
+- [x] Cleared-properties counter + `cleared_properties` log field (Phase 2)
+- [x] Golden rendered workflow for 0/1/N properties including a clear (Phase 2)
+- [x] Regression: Jira map configured ⇒ set-identical output to pre-change (Phase 2)
+- [x] Stateful schema mock + call counter (one fetch per org per TTL) (Phase 3)
+- [x] Fail-open on 403; filter path; counter via `testutil.ToFloat64` (Phase 3)
+- [x] Literal warn-message text assertion (Loki contract) (Phase 3)
+- [x] helm-unittest for the new alert (Phase 4)
 - [ ] Homelab smoke (operator-side, Phase 5)
 
 ## Dependencies

@@ -27,6 +27,7 @@ nav:
         - 'DESIGN-0017: Stale-sweep cutover and repository discovery': design/0017-stale-sweep-cutover-and-repository-discovery.md
         - 'DESIGN-0018: Deprecate memory backend': design/0018-deprecate-memory-backend.md
         - 'DESIGN-0019: Configurable annotation-sourced custom properties': design/0019-configurable-annotation-sourced-custom-properties.md
+        - 'DESIGN-0020: Absent check mode and conditional file rules': design/0020-absent-check-mode-and-conditional-file-rules.md
     - Implementation Plans:
         - Overview: impl/README.md
         - 'IMPL-0001: Repo Guardian Implementation Plan': impl/0001-repo-guardian-implementation-plan.md
@@ -68,6 +69,7 @@ nav:
     - Operations:
         - Chart 0.5.0 migration runbook (IMPL-0011): operations/chart-0.5.0-migration.md
         - Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration: operations/pr-convergence-migration.md
+        - Custom-property annotation migration (appVersion 1.9.1 → next minor): operations/annotation-properties-migration.md
         - ECR publish setup (maintainer-side): operations/ecr-publish-setup.md
         - Homelab CNPG cutover runbook: operations/cnpg-homelab-cutover.md
         - Postgres schema operations: operations/migrations.md

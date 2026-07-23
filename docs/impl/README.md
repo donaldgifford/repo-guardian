@@ -50,4 +50,5 @@ docz create impl "Your Implementation Title"
 | IMPL-0016 | Deprecate memory backend | Completed | 2026-06-23 | Donald Gifford | [0016-deprecate-memory-backend.md](0016-deprecate-memory-backend.md) |
 | IMPL-0017 | Configurable annotation-sourced custom properties | Completed | 2026-07-20 | Donald Gifford | [0017-configurable-annotation-sourced-custom-properties.md](0017-configurable-annotation-sourced-custom-properties.md) |
 | IMPL-0018 | Fix silently ignored operator config | Completed | 2026-07-20 | Donald Gifford | [0018-fix-silently-ignored-operator-config.md](0018-fix-silently-ignored-operator-config.md) |
+| IMPL-0019 | Absent check mode and conditional file rules | Draft | 2026-07-23 | Donald Gifford | [0019-absent-check-mode-and-conditional-file-rules.md](0019-absent-check-mode-and-conditional-file-rules.md) |
 <!-- END DOCZ AUTO-GENERATED -->

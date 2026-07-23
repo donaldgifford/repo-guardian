@@ -255,6 +255,14 @@ Three tracks, sequenced around the IMPL-0019 constraint:
    land; flip to Resolved when the last track-3 item merges or is
    explicitly descoped.
 
+These tracks are now planned as two IMPL docs:
+[IMPL-0020](../impl/0020-pre-impl-0019-high-severity-fixes-inv-0011-group-a-high.md)
+covers track 1 (the A1+A2 High fixes, before IMPL-0019);
+[IMPL-0021](../impl/0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group.md)
+covers tracks 2 and 3 (Group A Mediums + Group B structural, after
+IMPL-0019). Open Question 5 in IMPL-0021 revisits whether Group B should
+later split into its own IMPL.
+
 ## Open Questions
 
 1. **Sequencing of the High fixes (A1+A2) relative to IMPL-0019?**

@@ -244,7 +244,10 @@ Changes concentrate in `findActionableRules` and a new shared helper:
    skipped this sweep, Warn log). Rationale: the gated action is
    typically destructive (deletion); a transient error must never cause a
    delete PR against a repo whose Renovate state is unknown. This mirrors
-   the IMPL-0013 Q9 fail-safe stance.
+   the IMPL-0013 Q9 fail-safe stance and the broader principle INV-0011
+   A1 makes explicit: a destructive action never proceeds from an
+   unknown or error state — unparseable/unreachable input is never
+   treated as desired state.
 5. **`evaluateAbsent`.** New evaluation arm: walk **all** of `paths`
    (unlike `findExistingFile`, which stops at the first hit) and collect
    every existing path. Actionable when the set is non-empty. The

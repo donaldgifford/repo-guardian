@@ -121,7 +121,14 @@ every malformed variant before any engine code exists.
       block list; implement `decodeWhenBlock` (own `hcl.BodySchema` with
       the single `rule_satisfied` attribute so unknown attrs fail load,
       per the INV-0010 guardian-block precedent); wire into
-      `decodeRuleSubBlocks`.
+      `decodeRuleSubBlocks`. **Null/unknown guard (INV-0011 A8):** the
+      `rule_satisfied` cty value must be checked with `IsNull()` /
+      `IsKnown()` and its type asserted to `cty.String` BEFORE calling
+      `.AsString()` — a typed-null or conditional-unknown expression
+      (`rule_satisfied = null`, or a `? :` yielding null) otherwise
+      panics at load instead of returning a diagnostic. This is the
+      exact class of bug INV-0011 found in `decodeAnnotationProperties`;
+      the new decoder must not repeat it.
 - [ ] 0.4 `validate.go`: move `target`/`template` requiredness out of the
       HCL schema into `validateFileRule`, conditioned on check mode —
       absent **forbids** `target`, `template`, `assertion` blocks, and
@@ -135,7 +142,9 @@ every malformed variant before any engine code exists.
 - [ ] 0.6 Loader tests: the DESIGN-0020 HCL-surface example loads clean;
       one test per validation-matrix row asserting the exact
       location-prefixed error; cycle tests at length 2 and 3; unknown
-      attribute inside `when {}` fails load.
+      attribute inside `when {}` fails load; `rule_satisfied = null` and
+      a conditional yielding a typed-null return a clean diagnostic
+      rather than panicking (INV-0011 A8 regression guard).
 - [ ] 0.7 `policy.Version` test: adding a `when` block, or flipping a
       rule's check mode to `absent`, changes the hash (`version.go`
       discrimination contract).
@@ -451,4 +460,5 @@ option (a).
 - IMPL-0013 — orphan cleanup / auto-close / sticky reconcile-log machinery this feature extends; the Q9 fail-safe stance generalized to gates and restoration
 - INV-0003 — `CreateOrUpdateFile` three-branch idempotency mirrored by the deletion arm
 - IMPL-0017 — single-PR, commit-per-task flow precedent; appVersion-vs-real-tag release gotcha (task 4.6)
+- [INV-0011](../investigation/0011-tech-debt-cleanup-inventory-post-impl-0019.md) — A8 (typed-null HCL panic in `decodeAnnotationProperties`) is the same decode-guard class task 0.3 must not repeat in `decodeWhenBlock`
 - Audited code paths (as of v1.9.0): `internal/policy/{types,loader,validate,version,watch}.go`, `internal/checker/{engine_policy,drift,pr}.go`, `internal/webhook/handler.go:213-330`, `internal/metrics/metrics.go`

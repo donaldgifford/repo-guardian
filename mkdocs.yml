@@ -48,6 +48,7 @@ nav:
         - 'IMPL-0016: Deprecate memory backend': impl/0016-deprecate-memory-backend.md
         - 'IMPL-0017: Configurable annotation-sourced custom properties': impl/0017-configurable-annotation-sourced-custom-properties.md
         - 'IMPL-0018: Fix silently ignored operator config': impl/0018-fix-silently-ignored-operator-config.md
+        - 'IMPL-0019: Absent check mode and conditional file rules': impl/0019-absent-check-mode-and-conditional-file-rules.md
     - Investigations:
         - Overview: investigation/README.md
         - 'INV-0001: Tailscale Funnel for Webhook Testing': investigation/0001-tailscale-funnel-for-webhook-testing.md

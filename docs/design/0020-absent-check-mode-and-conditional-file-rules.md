@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0020
 title: "Absent check mode and conditional file rules"
-status: Draft
+status: Approved
 author: Donald Gifford
 created: 2026-07-23
 ---
@@ -9,7 +9,7 @@ created: 2026-07-23
 
 # DESIGN 0020: Absent check mode and conditional file rules
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Donald Gifford
 **Date:** 2026-07-23
 
@@ -37,11 +37,11 @@ created: 2026-07-23
   - [Phase 0 — Policy schema, loader, validation](#phase-0--policy-schema-loader-validation)
   - [Phase 1 — Engine evaluation: when-gate and absent mode](#phase-1--engine-evaluation-when-gate-and-absent-mode)
   - [Phase 2 — Remediation: deletion commits, PR wording, convergence](#phase-2--remediation-deletion-commits-pr-wording-convergence)
-  - [Phase 3 — Push-event fast convergence (conditional on OQ 4)](#phase-3--push-event-fast-convergence-conditional-on-oq-4)
+  - [Phase 3 — Push-event fast convergence](#phase-3--push-event-fast-convergence)
   - [Phase 4 — Documentation and examples](#phase-4--documentation-and-examples)
 - [Testing Strategy](#testing-strategy)
 - [Migration / Rollout Plan](#migration--rollout-plan)
-- [Open Questions](#open-questions)
+- [Resolved Decisions](#resolved-decisions)
 - [References](#references)
 <!--toc:end-->
 
@@ -178,7 +178,7 @@ Grammar additions:
   `Required: true` on both attributes is relaxed to optional, with
   per-check-mode requiredness enforced in `validateFileRule`.
 - `when { rule_satisfied = "<rule-name>" }` — new optional block on
-  `rule "file"` blocks (any check mode, not just `absent` — see OQ 7).
+  `rule "file"` blocks (any check mode, not just `absent` — Decision 7).
   References a sibling file rule by its HCL label. The gate is true when
   the referenced rule is **satisfied on the default branch**: at least one
   of its `paths` exists and (for `contains`) its assertions pass / (for
@@ -191,7 +191,7 @@ path list (`any_exists = [...]`) because it reuses the sibling rule's
 `paths` *and* its assertions — a repo with a `renovate.json` that doesn't
 extend the org preset is not yet "using Renovate", and a duplicated path
 list is exactly the copy-paste divergence this repo's post-mortems keep
-catching (see OQ 1).
+catching (Decision 1).
 
 ### Semantics matrix
 
@@ -250,7 +250,7 @@ Changes concentrate in `findActionableRules` and a new shared helper:
    every existing path. Actionable when the set is non-empty. The
    collected paths ride along to remediation (a repo can have both
    `dependabot.yml` and `dependabot.yaml`; deleting only the first leaves
-   the rule permanently actionable — see OQ 5).
+   the rule permanently actionable — Decision 5).
 
 ### Remediation flow (deletion commits)
 
@@ -293,7 +293,7 @@ that adds `.github/CODEOWNERS` and removes `.github/dependabot.yml`).
   **restore** it (`GetFileContent` from default →
   `CreateOrUpdateFile` on branch, `chore: restore <path> (rule "<name>"
   no longer applies)`). Same fail-safe stance: any API error ⇒ leave it,
-  Warn, retry next sweep (see OQ 6).
+  Warn, retry next sweep (Decision 6).
 
 ### Validation rules
 
@@ -323,7 +323,7 @@ blocks and those validate exactly as today.
 - New `files_forbidden_present_total{rule_name, org}` CounterVec —
   incremented when an absent rule is actionable. `files_missing_total`
   is **not** incremented for absent rules; its name would invert its
-  meaning (see OQ 3).
+  meaning (Decision 3).
 - New `rule_gate_closed_total{rule_name, org}` CounterVec — incremented
   in the primary pass only when a `when` gate skips a rule. Distinct from
   `OutOfScopeTotal`/`IgnoredTotal` because gate state is repo-content
@@ -473,7 +473,9 @@ one add-rule and one absent-rule renders both sections and both commit
 kinds; re-running an identical sweep produces zero mutating API calls
 (idempotency, asserted via mock counters).
 
-### Phase 3 — Push-event fast convergence (conditional on OQ 4)
+### Phase 3 — Push-event fast convergence
+
+Auto-watch is in (Decision 4); this phase is unconditional.
 
 Tasks:
 
@@ -484,8 +486,6 @@ Tasks:
 - [ ] Webhook handler test: push touching `renovate.json` on the default
       branch enqueues a re-check for a policy where only the *gated* rule
       watches it.
-- [ ] Confirm no watched-path change when OQ 4 lands as (b); delete this
-      phase from the plan in that case.
 
 Success criteria: `make lint` and `make test` pass; the dependabot-removal
 PR opens on the first post-merge webhook delivery in the handler test, not
@@ -554,85 +554,50 @@ Additive and opt-in: policies that never write `check = "absent"` or
    rather than silently ignoring the rule — this is the desired
    fail-loud behavior, called out in the migration doc).
 
-## Open Questions
+## Resolved Decisions
 
-1. **Gate mechanism — what does `when {}` accept?**
-   - (a) **Recommendation:** `rule_satisfied = "<name>"` only. Reuses the
-     referenced rule's paths *and* assertions (a renovate.json that fails
-     the org-preset assertion isn't "using Renovate"); no duplicated path
-     lists to drift. Cycle detection is straightforward on a named graph.
-   - (b) `any_exists = ["path", ...]` only. Simpler engine (no rule graph,
-     no cycles), but duplicates path lists and cannot see assertions —
-     re-introduces the copy-paste divergence class of bug.
-   - (c) Both, mutually exclusive per block. Maximum flexibility, larger
-     validation surface and two behaviors to document.
-   - other:
+All seven open questions were resolved on 2026-07-23 with the recommended
+option (a). The two-PR eventual-consistency consequence (gate reads the
+default branch only; dependabot-only repos converge over two PR cycles)
+was reviewed and accepted at the same time.
 
-2. **Does the gate respect the referenced rule's own scope/ignore?**
-   - (a) **Recommendation:** No — content-only evaluation. The referenced
-     rule serves purely as a named bundle of paths+assertions; the gated
-     rule's *own* scope/ignore already control where the gated rule
-     applies. Mixing in the referee's gates makes the gate's value depend
-     on org/repo-name state in ways that are hard to reason about (e.g.,
-     renovate rule ignored on one repo would silently flip the dependabot
-     gate there).
-   - (b) Yes — gate is false wherever the referenced rule is
-     scoped/ignored out. More "consistent" with the referee as a whole
-     rule, but produces the surprising cross-effects above.
-   - other:
+1. **Gate mechanism** — `rule_satisfied = "<name>"` only. Reuses the
+   referenced rule's paths *and* assertions (a renovate.json that fails
+   the org-preset assertion isn't "using Renovate"); no duplicated path
+   lists to drift; cycle detection is straightforward on a named graph.
+   The `any_exists` inline form was rejected as re-introducing the
+   copy-paste divergence class of bug.
 
-3. **Metrics shape for absent-rule actionability?**
-   - (a) **Recommendation:** New `files_forbidden_present_total{rule_name,
-     org}` counter; `files_missing_total` untouched for absent rules. The
-     existing counter's name would mean its opposite; dashboards keying on
-     it (contrib/) stay truthful.
-   - (b) Reuse `files_missing_total` (rule label disambiguates). No new
-     metric, but "missing" counting "present" is a standing operator
-     footgun.
-   - other:
+2. **Gate is content-only** — the referenced rule's own scope/ignore do
+   NOT affect the gate. The referee serves purely as a named bundle of
+   paths+assertions; the gated rule's own scope/ignore control where the
+   gated rule applies. This avoids surprising cross-effects (a renovate
+   rule ignored on one repo silently flipping the dependabot gate there).
 
-4. **Auto-watch the referenced rule's paths for push-triggered re-checks
-   (Phase 3)?**
-   - (a) **Recommendation:** Yes. Merging the renovate-add PR fires a push
-     touching `renovate.json`; auto-watching means the removal PR opens
-     minutes later instead of at the next weekly sweep. Cost is a slightly
-     larger watched-path set in the webhook handler.
-   - (b) No — sweep-cadence convergence only. Simpler; the two-PR flow
-     already spans a human merge, so hours-to-days latency arguably
-     doesn't matter.
-   - other:
+3. **New metric** — `files_forbidden_present_total{rule_name, org}`;
+   `files_missing_total` is untouched for absent rules so its name stays
+   truthful for dashboards keying on it (contrib/).
 
-5. **When multiple `paths` entries exist in a repo (e.g., both
-   `dependabot.yml` and `dependabot.yaml`), what does remediation
-   delete?**
-   - (a) **Recommendation:** Every existing matching path, in one PR. The
-     rule's contract is "no file at any of these paths"; deleting only one
-     leaves the rule actionable forever.
-   - (b) First match only (parity with `findExistingFile`), converging
-     over successive PRs. Simpler diff per PR, but N PRs for N variants
-     and a confusing intermediate state.
-   - other:
+4. **Auto-watch is in** — a rule referenced by `when.rule_satisfied`
+   contributes its paths to the webhook watched set, so merging the
+   renovate-add PR triggers the removal PR within minutes rather than at
+   the next weekly sweep. Phase 3 is unconditional.
 
-6. **Stale deletion in a bundle PR (gate closes / file removed on main
-   while another rule keeps the PR open) — restore or leave?**
-   - (a) **Recommendation:** Restore the file on the reconcile branch from
-     default-branch content (the inverse-orphan arm), fail-safe on errors.
-     Leaves the PR diff always equal to current policy intent — the same
-     invariant orphan cleanup enforces for additions.
-   - (b) Leave the stale deletion until the whole PR auto-closes. No new
-     code path, but a reviewer merging the bundle would delete a file the
-     policy no longer targets — a correctness hole, not just cosmetics.
-   - other:
+5. **Delete every matching path in one PR** — the rule's contract is "no
+   file at any of these paths"; deleting only the first match would leave
+   the rule permanently actionable when both `.yml` and `.yaml` variants
+   exist.
 
-7. **Is `when {}` allowed on non-absent rules?**
-   - (a) **Recommendation:** Yes — the gate is orthogonal to check mode
-     (e.g., "require dependabot config *unless* renovate is satisfied"
-     wants a when-gated `exists` rule as the mirror-image policy). The
-     validation matrix and engine wiring are check-mode-agnostic anyway;
-     restricting it buys nothing.
-   - (b) No — absent-only for the first release; loosen later if asked.
-     Smaller doc surface now, breaking-change-shaped loosening later.
-   - other:
+6. **Restore stale deletions (inverse orphan)** — when the gate closes or
+   the file disappears from main while a bundle PR stays open, the file
+   is restored on the reconcile branch from default-branch content,
+   fail-safe on errors. The PR diff always equals current policy intent —
+   the same invariant orphan cleanup enforces for additions.
+
+7. **`when {}` is allowed on any check mode** — the gate is orthogonal to
+   check mode (a when-gated `exists` rule expresses the mirror-image
+   "require dependabot unless renovate is satisfied" policy). Validation
+   and engine wiring are check-mode-agnostic.
 
 ## References
 

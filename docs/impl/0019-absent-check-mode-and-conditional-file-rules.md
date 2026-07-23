@@ -38,7 +38,7 @@ created: 2026-07-23
 - [File Changes](#file-changes)
 - [Testing Plan](#testing-plan)
 - [Dependencies](#dependencies)
-- [Open Questions](#open-questions)
+- [Resolved Decisions (Implementation)](#resolved-decisions-implementation)
 - [References](#references)
 <!--toc:end-->
 
@@ -89,8 +89,9 @@ referee evaluation (referee's scope/ignore never affect the gate); new
 `files_forbidden_present_total` metric; auto-watch (Phase 3 is
 unconditional); delete every matching path in one PR; restore stale
 deletions (inverse orphan); `when {}` legal on any check mode. Gate
-errors fail closed. The [Open Questions](#open-questions) below are
-implementation-level only.
+errors fail closed. The
+[Resolved Decisions (Implementation)](#resolved-decisions-implementation)
+below are implementation-level only.
 
 ## Implementation Phases
 
@@ -158,7 +159,8 @@ gated, and the metrics that make both observable. No mutation paths yet.
 
 #### Tasks
 
-- [ ] 1.1 New `internal/checker/gate.go` (placement per OQ 1):
+- [ ] 1.1 New `internal/checker/gate.go` (Decision 1 — minimal breakup,
+      gate helpers only, no wider engine_policy.go refactor):
       `ruleSatisfiedOnDefault(ctx, client, owner, repo, rule)
       (bool, error)` — `evaluateRule` semantics **minus** the
       `hasExistingPRForPolicy` short-circuit, inverted per check mode
@@ -175,12 +177,12 @@ gated, and the metrics that make both observable. No mutation paths yet.
       counter — the file-rule double-iteration contract; a comment must
       say why).
 - [ ] 1.5 Fail-closed error handling: referee evaluation error ⇒ gate
-      closed, Warn log, counter with `reason="error"` (shape per OQ 3);
+      closed, Warn log, counter with `reason="error"` (Decision 3);
       test with an erroring mock asserting the rule is skipped and no
       remediation is planned.
 - [ ] 1.6 `evaluateAbsent` arm in `evaluateRule`: actionable iff **any**
       path in `rule.Paths` exists on the default branch (existence-only;
-      no content fetch). No path plumbing to remediation (per OQ 2).
+      no content fetch). No path plumbing to remediation (Decision 2).
 - [ ] 1.7 `internal/metrics/metrics.go`: `FilesForbiddenPresentTotal
       {rule_name, org}` and `RuleGateClosedTotal{rule_name, org, reason}`
       CounterVecs (reusing `labelRuleName`/`labelOrg`/`labelReason`
@@ -277,21 +279,24 @@ the next sweep.
 
 #### Tasks
 
-- [ ] 3.1 `internal/policy/watch.go.ExtractWatchedPaths`: paths of any
-      rule referenced by a `when.rule_satisfied` join the watched set
-      (union with the existing reconciler-`watch = true` sources). Scope
-      of additional own-path watching per OQ 4.
-- [ ] 3.2 Removed-file push handling per OQ 5 (today
-      `hasWatchedFileChanges` intentionally ignores `commit.Removed` —
-      `internal/webhook/handler.go:314`; a push that *removes*
-      `renovate.json` flips a gate, so removals are now semantically
-      significant for watched paths).
-- [ ] 3.3 Webhook handler tests: push adding `renovate.json` on the
-      default branch enqueues a re-check for a policy where only the
-      *gated* rule references it; plus coverage for whatever OQ 4/OQ 5
-      resolutions add.
-- [ ] 3.4 Doc comment on `ExtractWatchedPaths` updated to name both
-      sources (reconciler watch, gate reference).
+- [ ] 3.1 `internal/policy/watch.go.ExtractWatchedPaths`: for any rule
+      carrying a `when` gate, both the referee's paths AND the gated
+      rule's own paths join the watched set (Decision 4), unioned with
+      the existing reconciler-`watch = true` sources.
+- [ ] 3.2 Extend `hasWatchedFileChanges` to scan `commit.Removed` for
+      watched paths (Decision 5; today removals are intentionally
+      ignored — `internal/webhook/handler.go:314` — which predates
+      removals having policy meaning: a removed `renovate.json` flips a
+      gate). Update the function's doc comment, which currently
+      documents the removed-files exclusion.
+- [ ] 3.3 Webhook handler tests: (i) push adding `renovate.json`
+      enqueues a re-check for a policy where only the *gated* rule
+      references it; (ii) push re-adding `dependabot.yml` (a gated
+      rule's own path) enqueues a re-check; (iii) push *removing*
+      `renovate.json` enqueues a re-check; (iv) pushes touching
+      unwatched paths still enqueue nothing.
+- [ ] 3.4 Doc comment on `ExtractWatchedPaths` updated to name all three
+      sources (reconciler watch, gate reference, gated rule's own paths).
 
 #### Success Criteria
 
@@ -331,7 +336,7 @@ the next sweep.
       invocation); flip DESIGN-0020 to Implemented and this IMPL to
       Completed (frontmatter + body `**Status:**` line, both); mkdocs
       strict-mode warning count unchanged from the 14-file baseline.
-- [ ] 4.6 PR/release mechanics per OQ 6: semver label `minor` (new HCL
+- [ ] 4.6 PR/release mechanics (Decision 6): semver label `minor` (new HCL
       surface, additive binary feature), appVersion bump alongside,
       verifying appVersion against the real tag line per the
       IMPL-0017 post-mortem (Chart.yaml appVersion must equal the tag
@@ -355,13 +360,13 @@ the next sweep.
 | `internal/policy/loader.go` | Modify | schema relax, `when` block, `decodeWhenBlock` |
 | `internal/policy/validate.go` | Modify | validation matrix, `validateWhenGates` (cycle DFS) |
 | `internal/policy/watch.go` | Modify | gate-referenced paths join the watched set |
-| `internal/checker/gate.go` | Create | `ruleSatisfiedOnDefault`, `gateEvaluator` memo (OQ 1) |
+| `internal/checker/gate.go` | Create | `ruleSatisfiedOnDefault`, `gateEvaluator` memo (Decision 1) |
 | `internal/checker/engine_policy.go` | Modify | gate wiring both passes, `evaluateAbsent`, deletion arm in `syncActionableFiles`, body sections, dry-run detail |
 | `internal/checker/drift.go` | Modify | inverse-orphan restoration, reconcile-log wording |
 | `internal/checker/pr.go` | Modify | `buildPRVars` Action population |
 | `internal/template/contexts.go` | Modify | `Rule.Action` (additive) |
 | `internal/metrics/metrics.go` | Modify | two new CounterVecs |
-| `internal/webhook/handler.go` | Modify | removed-file handling per OQ 5 |
+| `internal/webhook/handler.go` | Modify | removed-file handling (Decision 5) |
 | `internal/checker/convergence_test.go` | Modify | renovate-first lifecycle scenarios |
 | `examples/guardian-full.hcl` | Modify | `no_dependabot` worked example |
 | `docs/usage/policy-reference.md` | Modify | operator reference |
@@ -383,8 +388,8 @@ the three canonical stub files.
       restoration, multi-path, idempotent re-sweep with zero mutating
       calls); stateful-mock fidelity for `GetContentsOnBranch` after
       writes.
-- [ ] Phase 3: webhook handler watched-set tests including the OQ 4/5
-      resolutions.
+- [ ] Phase 3: webhook handler watched-set tests — gate-referee add,
+      own-path re-add, referee removal, unwatched no-op (Decisions 4/5).
 - [ ] `go test ./examples/...` covering the updated `guardian-full.hcl`.
 - [ ] Homelab smoke (operator-side, checkbox stays open until run):
       dry-run upgrade shows planned deletions only; enable on the test
@@ -401,83 +406,44 @@ the three canonical stub files.
   `GetContentsOnBranch`, `GetFileContent`, `CreateOrUpdateFile`).
 - Post-v1.9.0 main (IMPL-0017 merged) is the base.
 
-## Open Questions
+## Resolved Decisions (Implementation)
 
-1. **Where do the gate evaluator and absent evaluation live?**
-   - (a) **Recommendation:** new `internal/checker/gate.go` for
-     `ruleSatisfiedOnDefault` + `gateEvaluator` (mirrors the
-     `scope.go` precedent for gate helpers; `engine_policy.go` is
-     already 1,155 lines and gocyclo/funlen limits bite there), with
-     `evaluateAbsent` staying in `engine_policy.go` beside its three
-     sibling evaluate arms.
-   - (b) Everything inline in `engine_policy.go` — one fewer file, but
-     pushes the file toward the lint ceilings and buries the memoization
-     type mid-file.
-   - other:
+All six open questions were resolved on 2026-07-23 with the recommended
+option (a).
 
-2. **How do collected absent-rule paths reach remediation?**
-   - (a) **Recommendation:** they don't — no plumbing.
-     `syncActionableFiles` re-probes each `rule.Paths` entry on the
-     reconcile branch via `GetContentsOnBranch`, which it must call
-     anyway to obtain the blob SHA for `DeleteFile`. Evaluation-time
-     collection stays local to `evaluateAbsent`. Zero signature churn
-     (`findActionableRules` keeps returning `[]policy.FileRuleConfig`;
-     `buildPRVars`, `discoverOrphans`, `refreshPolicyPR` call sites
-     untouched).
-   - (b) Thread an `actionableRule{rule, existingPaths}` wrapper through
-     the actionable slice — saves one `GetContents` round per path at
-     remediation time but changes the return type and every consumer,
-     and the branch-side SHA fetch still has to happen.
-   - other:
+1. **Code placement — new `internal/checker/gate.go`, minimal breakup
+   only.** `ruleSatisfiedOnDefault` + `gateEvaluator` live in the new
+   file (mirrors the `scope.go` precedent; `engine_policy.go` is already
+   1,155 lines); `evaluateAbsent` stays in `engine_policy.go` beside its
+   three sibling evaluate arms. **Explicit constraint from review:** do
+   NOT expand this into a wider engine_policy.go restructuring — the
+   feature ships against the file as it stands, and broader structural
+   cleanup is deferred to a separate tech-debt investigation after the
+   feature is proven working in service.
 
-3. **`rule_gate_closed_total` shape for the fail-closed error case?**
-   - (a) **Recommendation:** one counter with a `reason` label —
-     `rule_gate_closed_total{rule_name, org, reason}`, reason ∈
-     `not_satisfied` | `error`. Bounded cardinality (2 values), and an
-     alert on `reason="error"` distinguishes "gate working as designed"
-     from "API trouble is silently suppressing rules", which are
-     operationally very different.
-   - (b) No reason label; errors visible only in Warn logs. Simpler, but
-     a sustained API failure that suppresses a rule fleet-wide would be
-     invisible to metrics.
-   - other:
+2. **No path plumbing to remediation.** `syncActionableFiles` re-probes
+   each `rule.Paths` entry on the reconcile branch via
+   `GetContentsOnBranch` — needed anyway for the `DeleteFile` blob SHA.
+   `findActionableRules` keeps returning `[]policy.FileRuleConfig`; all
+   consumer call sites untouched.
 
-4. **Watched-set symmetry: also watch the gated rule's own paths?**
-   - (a) **Recommendation:** Yes — when a rule carries a `when` gate,
-     watch the referee's paths (Decision 4) *and* the gated rule's own
-     paths. A push that re-adds `dependabot.yml` to a gated repo then
-     triggers the removal PR immediately instead of at the next weekly
-     sweep. Same mechanism, one union, symmetric convergence.
-   - (b) Referee paths only — the literal Decision 4 scope. Re-added
-     forbidden files wait for the sweep cadence.
-   - other:
+3. **`rule_gate_closed_total{rule_name, org, reason}`** with reason ∈
+   `not_satisfied` | `error`. Bounded cardinality; `reason="error"` is
+   the alertable signal for "API trouble is silently suppressing rules".
 
-5. **Push events: start honoring `commit.Removed` for watched paths?**
-   - (a) **Recommendation:** Yes, for all watched paths.
-     `hasWatchedFileChanges` deliberately ignores removals today
-     (`handler.go:314`) — that was correct when watched files only fed
-     content reconcilers, but a removal now carries policy meaning: a
-     removed `renovate.json` flips a gate (restoration/auto-close should
-     react), and under OQ 4(a) a removed `dependabot.yml` is a
-     convergence event. One extra loop over `commit.Removed`; re-check
-     is cheap and idempotent.
-   - (b) Keep ignoring removals; the sweep catches gate flips hours or
-     days later. No handler change, slower convergence on the
-     gate-closing edge only.
-   - other:
+4. **Watched-set symmetry** — a gated rule contributes both the
+   referee's paths and its own paths to the watched set. A re-added
+   `dependabot.yml` triggers the removal PR on the push path.
 
-6. **PR packaging and release shape?**
-   - (a) **Recommendation:** one feature branch, one PR for Phases 0–4,
-     commit-per-task, semver label `minor` — the IMPL-0017 flow, which
-     just shipped cleanly. The phases are tightly coupled (Phase 0's
-     schema is inert without Phase 1/2; splitting ships dead config
-     surface) and one PR means one release, one migration note, one
-     appVersion bump.
-   - (b) Two PRs: core engine (Phases 0–2, `minor`) then webhook + docs
-     (Phases 3–4, `patch` or folded into the first release). Smaller
-     reviews, but the intermediate release has sweep-only convergence
-     and the docs lag the feature.
-   - other:
+5. **Honor `commit.Removed` for watched paths** — removals now carry
+   policy meaning (a removed `renovate.json` flips a gate; a removed
+   `dependabot.yml` is a convergence event). `hasWatchedFileChanges`
+   gains one loop over `commit.Removed`; its doc comment loses the
+   removed-files exclusion.
+
+6. **Single PR, Phases 0–4, commit-per-task, `minor` label** — the
+   IMPL-0017 flow. One release, one migration note, one appVersion bump
+   (verified against the real tag line per task 4.6).
 
 ## References
 

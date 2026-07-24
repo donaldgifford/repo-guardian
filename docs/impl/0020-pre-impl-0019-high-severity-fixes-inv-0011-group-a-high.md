@@ -1,7 +1,7 @@
 ---
 id: IMPL-0020
 title: "Pre-IMPL-0019 high-severity fixes (INV-0011 Group A High)"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-07-23
 ---
@@ -9,7 +9,7 @@ created: 2026-07-23
 
 # IMPL 0020: Pre-IMPL-0019 high-severity fixes (INV-0011 Group A High)
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-07-23
 

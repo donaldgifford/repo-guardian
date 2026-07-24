@@ -223,45 +223,45 @@ multi-sweep convergence suite that proves the lifecycle.
 
 #### Tasks
 
-- [ ] 2.1 `syncActionableFiles` action split (`engine_policy.go:582`):
+- [x] 2.1 `syncActionableFiles` action split (`engine_policy.go:582`):
       absent rules walk **all** `rule.Paths`, `GetContentsOnBranch` each
       on the reconcile branch — exists ⇒ `DeleteFile(branch, path, sha,
       "chore: remove <path> (forbidden by rule \"<name>\")")`; already
       absent ⇒ idempotent skip (mirror of the INV-0003 three-branch
       contract). Add/fix modes unchanged.
-- [ ] 2.2 Dry-run detail: the `checkRepoWithPolicy` dry-run arm
+- [x] 2.2 Dry-run detail: the `checkRepoWithPolicy` dry-run arm
       enumerates planned deletions per absent rule (path list in the log
       record) — deletion is the engine's first destructive remediation;
       "would create PR" alone is not reviewable.
-- [ ] 2.3 `internal/template/contexts.go`: `Rule.Action string` field
+- [x] 2.3 `internal/template/contexts.go`: `Rule.Action string` field
       (`"add"` | `"remove"`), populated in `buildPRVars` from
       `CheckMode()`. Additive — `ValidateZero` strict-mode templates keep
       passing (asserted).
-- [ ] 2.4 `buildPRBodyFromPolicy`: split into "Added files" / "Removed
+- [x] 2.4 `buildPRBodyFromPolicy`: split into "Added files" / "Removed
       files" sections; CODEOWNERS-placeholder note renders only when an
       add-mode rule is present.
-- [ ] 2.5 Inverse-orphan restoration (`drift.go`): absent arm in
+- [x] 2.5 Inverse-orphan restoration (`drift.go`): absent arm in
       `discoverOrphans` — for each no-longer-actionable absent rule,
       where default branch has a path and the reconcile branch does not,
       restore via `GetFileContent`(default) + `CreateOrUpdateFile`(branch,
       `"chore: restore <path> (rule \"<name>\" no longer applies)"`).
       Fail-safe: any API error ⇒ leave it, Warn,
       `PROrphanLeftTotal{org}` increment, retry next sweep.
-- [ ] 2.6 Reconcile-log wording (`drift.go.buildReconcileLogEvents`):
+- [x] 2.6 Reconcile-log wording (`drift.go.buildReconcileLogEvents`):
       absent-aware statuses (`present on main, pending removal` /
       `absent from main`) and gate-closed status (`skipped (when-gate
       closed: <referee> not satisfied)`) — requires threading gate
       outcomes into the event builder. Note in the task commit: status
       strings feed the content hash, so every open PR gets exactly one
       extra comment edit after upgrade.
-- [ ] 2.7 Convergence suite (`convergence_test.go`, extending
+- [x] 2.7 Convergence suite (`convergence_test.go`, extending
       `stagedConvergenceState`): renovate-first lifecycle sweep 1
       (add-renovate PR) → merge → sweep 2 (remove-dependabot PR) → merge
       → sweep 3 (converged, no action); hand-deleted dependabot →
       auto-close; gate closes mid-flight in a bundle PR → restoration;
       both `.yml` + `.yaml` present → both deleted in one PR; identical
       re-sweep ⇒ zero mutating API calls.
-- [ ] 2.8 Mock-fidelity check per the list-then-act rule: the mock's
+- [x] 2.8 Mock-fidelity check per the list-then-act rule: the mock's
       `GetContentsOnBranch` must reflect prior `DeleteFile` /
       `CreateOrUpdateFile` calls on the same mock instance, and the
       idempotency assertions must count mutating calls — an always-static

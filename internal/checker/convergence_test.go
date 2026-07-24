@@ -426,3 +426,46 @@ func TestConvergence_RenovateFirst_GateClosesMidFlight_RestoresDependabot(t *tes
 		t.Errorf("expected dependabot.yml restored to the branch, createdFiles=%v", s.client.createdFiles)
 	}
 }
+
+// A bundle PR mixing an add rule (codeowners) and an actionable absent
+// rule (no_dependabot, gate open) renders both body sections and produces
+// both commit kinds on the branch.
+func TestConvergence_Bundle_AddAndRemove_RendersBothSections(t *testing.T) {
+	cfg := renovateFirstPolicy()
+	cfg.FileRules = append(cfg.FileRules, policy.FileRuleConfig{
+		Type:     "file",
+		Name:     "codeowners",
+		Check:    string(policy.CheckExists),
+		Paths:    []string{".github/CODEOWNERS"},
+		Target:   ".github/CODEOWNERS",
+		Template: "codeowners",
+	})
+
+	s := newStagedConvergenceWithPolicy(t, cfg)
+	s.satisfyOnMain("renovate.json")                          // referee satisfied → gate open
+	s.forbiddenOnMainAndBranch(".github/dependabot.yml", "d") // absent rule actionable
+	// .github/CODEOWNERS missing on main → add rule actionable.
+
+	s.sweep()
+
+	if s.client.createdPR == nil {
+		t.Fatal("expected a bundle PR to be created")
+	}
+
+	body := s.client.createdPRBody
+	if !strings.Contains(body, "### Added Files") {
+		t.Errorf("bundle body missing Added Files section:\n%s", body)
+	}
+
+	if !strings.Contains(body, "### Removed Files") {
+		t.Errorf("bundle body missing Removed Files section:\n%s", body)
+	}
+
+	if !slices.Contains(s.client.createdFiles, ".github/CODEOWNERS") {
+		t.Errorf("expected CODEOWNERS added, createdFiles=%v", s.client.createdFiles)
+	}
+
+	if !slices.Contains(s.client.deletedFiles, ".github/dependabot.yml") {
+		t.Errorf("expected dependabot.yml deleted, deletedFiles=%v", s.client.deletedFiles)
+	}
+}

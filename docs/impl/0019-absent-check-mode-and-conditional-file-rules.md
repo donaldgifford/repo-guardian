@@ -109,14 +109,14 @@ every malformed variant before any engine code exists.
 
 #### Tasks
 
-- [ ] 0.1 Add `CheckAbsent CheckMode = "absent"` to
+- [x] 0.1 Add `CheckAbsent CheckMode = "absent"` to
       `internal/policy/types.go` (const block + `CheckMode()` switch) and
       the `validChecks` allowlist in `validate.go.validateFileRule`.
-- [ ] 0.2 Add `WhenConfig struct { RuleSatisfied string }` and
+- [x] 0.2 Add `WhenConfig struct { RuleSatisfied string }` and
       `When *WhenConfig` field on `FileRuleConfig` (`types.go`), with doc
       comments stating default-branch-only + content-only + fail-closed
       semantics.
-- [ ] 0.3 `loader.go`: drop `Required: true` from `target` and `template`
+- [x] 0.3 `loader.go`: drop `Required: true` from `target` and `template`
       in `ruleBodySchema` (loader.go:484-491); add `{Type: "when"}` to its
       block list; implement `decodeWhenBlock` (own `hcl.BodySchema` with
       the single `rule_satisfied` attribute so unknown attrs fail load,
@@ -129,23 +129,23 @@ every malformed variant before any engine code exists.
       panics at load instead of returning a diagnostic. This is the
       exact class of bug INV-0011 found in `decodeAnnotationProperties`;
       the new decoder must not repeat it.
-- [ ] 0.4 `validate.go`: move `target`/`template` requiredness out of the
+- [x] 0.4 `validate.go`: move `target`/`template` requiredness out of the
       HCL schema into `validateFileRule`, conditioned on check mode —
       absent **forbids** `target`, `template`, `assertion` blocks, and
       `reconcile` blocks; all other modes **require** `target` +
       `template` exactly as today.
-- [ ] 0.5 `validate.go`: new `validateWhenGates(rules []FileRuleConfig)`
+- [x] 0.5 `validate.go`: new `validateWhenGates(rules []FileRuleConfig)`
       — referenced rule must exist among file rules (error lists known
       rule names), must not be a setting/branch-protection name, must be
       enabled, no self-reference, no cycles of any length (DFS over the
       gate graph), empty `when {}` block is an error.
-- [ ] 0.6 Loader tests: the DESIGN-0020 HCL-surface example loads clean;
+- [x] 0.6 Loader tests: the DESIGN-0020 HCL-surface example loads clean;
       one test per validation-matrix row asserting the exact
       location-prefixed error; cycle tests at length 2 and 3; unknown
       attribute inside `when {}` fails load; `rule_satisfied = null` and
       a conditional yielding a typed-null return a clean diagnostic
       rather than panicking (INV-0011 A8 regression guard).
-- [ ] 0.7 `policy.Version` test: adding a `when` block, or flipping a
+- [x] 0.7 `policy.Version` test: adding a `when` block, or flipping a
       rule's check mode to `absent`, changes the hash (`version.go`
       discrimination contract).
 

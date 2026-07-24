@@ -168,36 +168,36 @@ gated, and the metrics that make both observable. No mutation paths yet.
 
 #### Tasks
 
-- [ ] 1.1 New `internal/checker/gate.go` (Decision 1 — minimal breakup,
+- [x] 1.1 New `internal/checker/gate.go` (Decision 1 — minimal breakup,
       gate helpers only, no wider engine_policy.go refactor):
       `ruleSatisfiedOnDefault(ctx, client, owner, repo, rule)
       (bool, error)` — `evaluateRule` semantics **minus** the
       `hasExistingPRForPolicy` short-circuit, inverted per check mode
       (exists / contains / exact / absent as specified in DESIGN-0020
       §Evaluation flow).
-- [ ] 1.2 `gate.go`: per-repo-check memoization — a `gateEvaluator`
+- [x] 1.2 `gate.go`: per-repo-check memoization — a `gateEvaluator`
       struct holding `map[string]gateResult`, constructed inside
       `checkRepoWithPolicy` and threaded to both iteration passes (never
       stored on `Engine`: the engine is shared across worker goroutines).
-- [ ] 1.3 Wire the gate into `findActionableRules` after the scope and
+- [x] 1.3 Wire the gate into `findActionableRules` after the scope and
       ignore gates: closed gate ⇒ Info log (rule, referee, referee
       state) + `RuleGateClosedTotal` increment, rule skipped.
-- [ ] 1.4 Wire the same gate into `runReconcilers` **silently** (no
+- [x] 1.4 Wire the same gate into `runReconcilers` **silently** (no
       counter — the file-rule double-iteration contract; a comment must
       say why).
-- [ ] 1.5 Fail-closed error handling: referee evaluation error ⇒ gate
+- [x] 1.5 Fail-closed error handling: referee evaluation error ⇒ gate
       closed, Warn log, counter with `reason="error"` (Decision 3);
       test with an erroring mock asserting the rule is skipped and no
       remediation is planned.
-- [ ] 1.6 `evaluateAbsent` arm in `evaluateRule`: actionable iff **any**
+- [x] 1.6 `evaluateAbsent` arm in `evaluateRule`: actionable iff **any**
       path in `rule.Paths` exists on the default branch (existence-only;
       no content fetch). No path plumbing to remediation (Decision 2).
-- [ ] 1.7 `internal/metrics/metrics.go`: `FilesForbiddenPresentTotal
+- [x] 1.7 `internal/metrics/metrics.go`: `FilesForbiddenPresentTotal
       {rule_name, org}` and `RuleGateClosedTotal{rule_name, org, reason}`
       CounterVecs (reusing `labelRuleName`/`labelOrg`/`labelReason`
       consts). Absent-actionable increments the new counter and must NOT
       increment `FilesMissingTotal` (asserted).
-- [ ] 1.8 Engine tests (`engine_test.go` mock pattern): all five
+- [x] 1.8 Engine tests (`engine_test.go` mock pattern): all five
       DESIGN-0020 semantics-matrix rows; gate-true-despite-open-referee-PR
       (the short-circuit distinction); memoization (mock call counting:
       at most one referee content evaluation per repo-check); metric

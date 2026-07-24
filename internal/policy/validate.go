@@ -98,6 +98,13 @@ func validateFileRule(r *FileRuleConfig, prefix string) []error {
 		errs = append(errs, fmt.Errorf("%s: paths must be non-empty", prefix))
 	}
 
+	// Absent rules delete by path and have nothing to render, assert, or
+	// reconcile: target/template/assertion/reconcile are all forbidden,
+	// and none of the content sub-validation below applies (DESIGN-0020).
+	if r.CheckMode() == CheckAbsent {
+		return append(errs, validateAbsentRule(r, prefix)...)
+	}
+
 	if r.Target == "" {
 		errs = append(errs, fmt.Errorf("%s: target must be non-empty", prefix))
 	}
@@ -122,6 +129,43 @@ func validateFileRule(r *FileRuleConfig, prefix string) []error {
 		rec := &r.Reconcilers[j]
 		rPrefix := fmt.Sprintf("%s reconcile %q", prefix, rec.Type)
 		errs = append(errs, validateAnnotationProperties(rec.AnnotationProperties, rPrefix)...)
+	}
+
+	return errs
+}
+
+// validateAbsentRule enforces the absent-mode restrictions: an absent
+// rule deletes files by path and has nothing to render or assert, so
+// target, template, assertion blocks, and reconcile blocks are all
+// rejected (DESIGN-0020 validation matrix). The non-empty paths check
+// and the cross-rule when {} gate validation live in the caller and
+// validateWhenGates respectively, so they are not repeated here.
+func validateAbsentRule(r *FileRuleConfig, prefix string) []error {
+	var errs []error
+
+	if r.Target != "" {
+		errs = append(errs, fmt.Errorf(
+			"%s: check = \"absent\" forbids target (deletions operate on paths)", prefix,
+		))
+	}
+
+	if r.Template != "" {
+		errs = append(errs, fmt.Errorf(
+			"%s: check = \"absent\" forbids template (nothing to render)", prefix,
+		))
+	}
+
+	if len(r.Assertions) > 0 {
+		errs = append(errs, fmt.Errorf(
+			"%s: check = \"absent\" forbids assertion blocks (no content to assert)", prefix,
+		))
+	}
+
+	if len(r.Reconcilers) > 0 {
+		errs = append(errs, fmt.Errorf(
+			"%s: check = \"absent\" forbids reconcile blocks (reconcilers consume file content that must not exist)",
+			prefix,
+		))
 	}
 
 	return errs

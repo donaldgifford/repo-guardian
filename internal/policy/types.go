@@ -117,13 +117,45 @@ type FileRuleConfig struct {
 	Enabled     *bool              `hcl:"enabled,optional"`
 	Check       string             `hcl:"check,optional"`
 	Paths       []string           `hcl:"paths"`
-	Target      string             `hcl:"target"`
-	Template    string             `hcl:"template"`
+	Target      string             `hcl:"target,optional"`
+	Template    string             `hcl:"template,optional"`
 	PR          *PRConfig          `hcl:"pr,block"`
 	Assertions  []AssertionConfig  `hcl:"assertion,block"`
 	Ignore      *IgnoreConfig      `hcl:"ignore,block"`
 	Scope       *ScopeConfig       `hcl:"scope,block"`
 	Reconcilers []ReconcilerConfig `hcl:"reconcile,block"`
+
+	// When, if set, makes this rule conditional on a sibling file rule
+	// being satisfied on the repository's default branch (DESIGN-0020).
+	// A closed gate skips the rule entirely for the current repo-check:
+	// it is not actionable, produces no orphans, and its reconcilers do
+	// not run. Legal on any check mode. See WhenConfig for the
+	// evaluation contract.
+	When *WhenConfig `hcl:"when,block"`
+}
+
+// WhenConfig gates a file rule on the state of a sibling file rule.
+// The gate is open when the referenced rule (by its HCL name label) is
+// satisfied on the default branch — its paths exist and, for contains/
+// exact modes, its assertions/content match. The evaluation is:
+//
+//   - default-branch-only: the gate never reads the reconcile branch,
+//     so repo-guardian never acts on a not-yet-merged referee state;
+//   - content-only: the referenced rule's own scope/ignore never affect
+//     the gate — the referee is a named bundle of paths+assertions, and
+//     the gated rule's own scope/ignore control where it applies
+//     (DESIGN-0020 Decision 2);
+//   - fail-closed: if evaluating the referenced rule errors, the gate is
+//     treated as closed and the rule is skipped this sweep, so a
+//     transient API error never triggers a destructive remediation
+//     against a repo whose referee state is unknown (Decision, INV-0011
+//     A1 principle).
+type WhenConfig struct {
+	// RuleSatisfied is the HCL name label of the sibling file rule this
+	// rule is gated on. Validated at load: the referee must exist among
+	// file rules, be enabled, not be this rule, and not participate in a
+	// gate cycle.
+	RuleSatisfied string `hcl:"rule_satisfied,optional"`
 }
 
 // IsEnabled returns whether the rule is enabled, defaulting to true.

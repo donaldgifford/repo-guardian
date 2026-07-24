@@ -339,14 +339,27 @@ func (e *Engine) evaluateRule(
 	case policy.CheckExact:
 		return e.evaluateExact(ctx, log, client, owner, repo, rule, existingPath)
 	case policy.CheckAbsent:
-		// Inert until IMPL-0019 Phase 1 task 1.6 wires evaluateAbsent.
-		// Absent rules must never route to evaluateExists (the default
-		// arm), which would treat a missing forbidden file as actionable
-		// against the rule's empty target and attempt a bogus create.
-		return false, nil
+		return e.evaluateAbsent(log, existingPath), nil
 	default:
 		return e.evaluateExists(log, existingPath), nil
 	}
+}
+
+// evaluateAbsent reports whether an absent-mode rule is actionable: true
+// iff at least one forbidden path exists on the default branch
+// (existence-only; findExistingFile already short-circuits on the first
+// hit, so no content is fetched). Remediation — deleting the present
+// paths on the reconcile branch — lands in IMPL-0019 Phase 2 (task 2.1).
+func (*Engine) evaluateAbsent(log *slog.Logger, existingPath string) bool {
+	if existingPath == "" {
+		log.Debug("no forbidden files present, absent rule satisfied")
+
+		return false
+	}
+
+	log.Info("forbidden file present, will remove", "path", existingPath)
+
+	return true
 }
 
 func (*Engine) evaluateExists(log *slog.Logger, existingPath string) bool {
@@ -636,6 +649,15 @@ func (e *Engine) syncActionableFiles(
 ) error {
 	for i := range actionable {
 		r := &actionable[i]
+
+		if r.CheckMode() == policy.CheckAbsent {
+			// IMPL-0019 Phase 1: absent rules are detected as actionable
+			// (for the gate, metrics, and dry-run enumeration) but their
+			// deletion remediation lands in Phase 2 (task 2.1). Skip here so
+			// the add/fix path never renders the rule's empty target. Phase 2
+			// replaces this guard with the GetContentsOnBranch → DeleteFile arm.
+			continue
+		}
 
 		compiled, err := e.templates.Get(r.Template)
 		if err != nil {

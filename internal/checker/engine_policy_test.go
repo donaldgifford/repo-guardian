@@ -74,20 +74,21 @@ func TestPolicyCheckRepo_ExistsMode_FilePresent(t *testing.T) {
 	}
 }
 
-// TestPolicyCheckRepo_AbsentMode_Inert is the IMPL-0019 Phase 0 bridge
-// assertion: an absent rule loads and is recognized by the engine, but
-// takes zero actions until Phase 1 wires evaluateAbsent. It must never
-// fall through to evaluateExists (which would treat a missing forbidden
-// file as actionable against the rule's empty target).
-func TestPolicyCheckRepo_AbsentMode_Inert(t *testing.T) {
+// TestPolicyCheckRepo_AbsentMode_Phase1 is the IMPL-0019 Phase 1 bridge:
+// evaluateAbsent detects a forbidden file as actionable, but the deletion
+// remediation lands in Phase 2. So a dry-run over a present forbidden file
+// enumerates the plan and mutates nothing, and a repo where the forbidden
+// file is already absent is satisfied (not actionable) — no mutation.
+func TestPolicyCheckRepo_AbsentMode_Phase1(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name           string
 		forbiddenExist bool
+		dryRun         bool
 	}{
-		{name: "forbidden file present", forbiddenExist: true},
-		{name: "forbidden file missing", forbiddenExist: false},
+		{name: "forbidden file present, dry-run enumerates only", forbiddenExist: true, dryRun: true},
+		{name: "forbidden file absent, rule satisfied", forbiddenExist: false, dryRun: false},
 	}
 
 	for _, tt := range tests {
@@ -95,14 +96,10 @@ func TestPolicyCheckRepo_AbsentMode_Inert(t *testing.T) {
 			t.Parallel()
 
 			cfg := &policy.PolicyConfig{
-				Guardian: policy.BuiltinDefaults().Guardian,
-				FileRules: []policy.FileRuleConfig{{
-					Type:  "file",
-					Name:  "no_dependabot",
-					Check: string(policy.CheckAbsent),
-					Paths: []string{".github/dependabot.yml"},
-				}},
+				Guardian:  policy.BuiltinDefaults().Guardian,
+				FileRules: []policy.FileRuleConfig{absentRule("no_dependabot")},
 			}
+			cfg.Guardian.DryRun = tt.dryRun
 
 			engine := testPolicyEngine(cfg)
 			client := newMockClient()
@@ -119,22 +116,35 @@ func TestPolicyCheckRepo_AbsentMode_Inert(t *testing.T) {
 				t.Fatalf("CheckRepo: %v", err)
 			}
 
+			// Phase 1 mutates nothing in either case: dry-run defers, and a
+			// satisfied absent rule is not actionable.
 			if client.createdPR != nil {
-				t.Error("absent rule must be inert in Phase 0: no PR should be created")
+				t.Error("Phase 1 absent rule must not create a PR")
 			}
 
 			if len(client.createdFiles) != 0 {
-				t.Errorf("absent rule must be inert: got %d created files, want 0", len(client.createdFiles))
+				t.Errorf("Phase 1 absent rule must not create files, got %d", len(client.createdFiles))
 			}
 
 			if len(client.deletedFiles) != 0 {
-				t.Errorf("absent rule must be inert: got %d deleted files, want 0", len(client.deletedFiles))
+				t.Errorf("Phase 1 absent rule must not delete files (Phase 2), got %d", len(client.deletedFiles))
 			}
 
 			if len(client.createdBranches) != 0 {
-				t.Errorf("absent rule must be inert: got %d created branches, want 0", len(client.createdBranches))
+				t.Errorf("Phase 1 absent rule must not create a branch, got %d", len(client.createdBranches))
 			}
 		})
+	}
+}
+
+// absentRule builds a minimal absent-mode file rule forbidding
+// .github/dependabot.yml, used across the IMPL-0019 engine tests.
+func absentRule(name string) policy.FileRuleConfig {
+	return policy.FileRuleConfig{
+		Type:  "file",
+		Name:  name,
+		Check: string(policy.CheckAbsent),
+		Paths: []string{".github/dependabot.yml"},
 	}
 }
 

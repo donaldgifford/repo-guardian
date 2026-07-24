@@ -3,6 +3,7 @@ package checker
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -37,6 +38,12 @@ func newStagedConvergence(t *testing.T, autoClose *bool) *stagedConvergenceState
 	cfg := policy.BuiltinDefaults()
 	cfg.Guardian.AutoClosePR = autoClose
 
+	return newStagedConvergenceWithPolicy(t, cfg)
+}
+
+func newStagedConvergenceWithPolicy(t *testing.T, cfg *policy.PolicyConfig) *stagedConvergenceState {
+	t.Helper()
+
 	engine := testPolicyEngine(cfg)
 
 	client := newMockClient()
@@ -53,6 +60,50 @@ func newStagedConvergence(t *testing.T, autoClose *bool) *stagedConvergenceState
 		engine: engine,
 		t:      t,
 	}
+}
+
+// renovateFirstPolicy is the DESIGN-0020 driving policy: add renovate.json
+// where missing, and remove dependabot config (both extensions) once
+// renovate_config is satisfied on the default branch.
+func renovateFirstPolicy() *policy.PolicyConfig {
+	return &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "renovate_config",
+				Check:    string(policy.CheckExists),
+				Paths:    []string{"renovate.json"},
+				Target:   "renovate.json",
+				Template: "codeowners",
+			},
+			{
+				Type:  "file",
+				Name:  "no_dependabot",
+				Check: string(policy.CheckAbsent),
+				Paths: []string{".github/dependabot.yml", ".github/dependabot.yaml"},
+				When:  &policy.WhenConfig{RuleSatisfied: "renovate_config"},
+			},
+		},
+	}
+}
+
+// openOurPR marks a repo-guardian PR as already open on the reconcile
+// branch so the next sweep takes the existing-PR update path.
+func (s *stagedConvergenceState) openOurPR(number int) {
+	s.client.openPRs = []*ghclient.PullRequest{
+		{Number: number, Title: PRTitle, Head: s.branch, State: "open"},
+	}
+	s.client.branchSHAs[s.org+"/"+s.repo+"/"+s.branch] = "branch-sha"
+}
+
+// forbiddenOnMainAndBranch seeds a forbidden file as present on both the
+// default branch and the reconcile branch (as if the branch was cut from
+// main before the file was removed).
+func (s *stagedConvergenceState) forbiddenOnMainAndBranch(path, sha string) {
+	s.satisfyOnMain(path)
+	s.client.fileContents[s.org+"/"+s.repo+"/"+path] = "content-of-" + path
+	s.addOrphanToBranch(path, sha)
 }
 
 func (s *stagedConvergenceState) sweep() {
@@ -246,5 +297,132 @@ func TestConvergence_DeleteFileError_IncrementsCounter_Continues(t *testing.T) {
 
 	if got := testutil.ToFloat64(metrics.PROrphanLeftTotal.WithLabelValues(s.org)); got != 1 {
 		t.Errorf("PROrphanLeftTotal{%q} = %v, want 1 (orphan delete failed)", s.org, got)
+	}
+}
+
+// Renovate-first sweep 1 on a dependabot-only repo: renovate_config is
+// missing so it is added, while no_dependabot's gate is closed (renovate
+// not yet satisfied) so dependabot is left untouched.
+func TestConvergence_RenovateFirst_Sweep1_GateClosedSkipsDependabot(t *testing.T) {
+	metrics.RuleGateClosedTotal.Reset()
+
+	s := newStagedConvergenceWithPolicy(t, renovateFirstPolicy())
+	s.satisfyOnMain(".github/dependabot.yml") // dependabot present, renovate missing
+
+	s.sweep()
+
+	if !slices.Contains(s.client.createdFiles, "renovate.json") {
+		t.Errorf("expected renovate.json to be added, createdFiles=%v", s.client.createdFiles)
+	}
+
+	if len(s.client.deletedFiles) != 0 {
+		t.Errorf("dependabot must not be removed while the gate is closed, deletedFiles=%v", s.client.deletedFiles)
+	}
+
+	if got := testutil.ToFloat64(
+		metrics.RuleGateClosedTotal.WithLabelValues("no_dependabot", s.org, "not_satisfied"),
+	); got != 1 {
+		t.Errorf("RuleGateClosedTotal{no_dependabot,%s,not_satisfied} = %v, want 1", s.org, got)
+	}
+}
+
+// Renovate satisfied on main + dependabot present → the open PR removes
+// the forbidden file from the reconcile branch.
+func TestConvergence_RenovateFirst_RemovesDependabot(t *testing.T) {
+	metrics.FilesForbiddenPresentTotal.Reset()
+
+	s := newStagedConvergenceWithPolicy(t, renovateFirstPolicy())
+	s.satisfyOnMain("renovate.json") // referee satisfied
+	s.forbiddenOnMainAndBranch(".github/dependabot.yml", "dep-sha")
+	s.openOurPR(2)
+
+	s.sweep()
+
+	if len(s.client.deletedFiles) != 1 || s.client.deletedFiles[0] != ".github/dependabot.yml" {
+		t.Errorf("expected .github/dependabot.yml deleted, deletedFiles=%v", s.client.deletedFiles)
+	}
+
+	if got := testutil.ToFloat64(
+		metrics.FilesForbiddenPresentTotal.WithLabelValues("no_dependabot", s.org),
+	); got != 1 {
+		t.Errorf("FilesForbiddenPresentTotal{no_dependabot,%s} = %v, want 1", s.org, got)
+	}
+}
+
+// Both dependabot extensions present → both removed in the one PR.
+func TestConvergence_RenovateFirst_BothVariantsDeleted(t *testing.T) {
+	s := newStagedConvergenceWithPolicy(t, renovateFirstPolicy())
+	s.satisfyOnMain("renovate.json")
+	s.forbiddenOnMainAndBranch(".github/dependabot.yml", "dep-yml-sha")
+	s.forbiddenOnMainAndBranch(".github/dependabot.yaml", "dep-yaml-sha")
+	s.openOurPR(3)
+
+	s.sweep()
+
+	if !slices.Contains(s.client.deletedFiles, ".github/dependabot.yml") ||
+		!slices.Contains(s.client.deletedFiles, ".github/dependabot.yaml") {
+		t.Errorf("expected both dependabot variants deleted, deletedFiles=%v", s.client.deletedFiles)
+	}
+}
+
+// Re-sweeping identical state after the removal is a no-op: the branch
+// already converged, so zero mutating API calls fire.
+func TestConvergence_RenovateFirst_IdempotentReSweep_ZeroMutations(t *testing.T) {
+	s := newStagedConvergenceWithPolicy(t, renovateFirstPolicy())
+	s.satisfyOnMain("renovate.json")
+	s.forbiddenOnMainAndBranch(".github/dependabot.yml", "dep-sha")
+	s.openOurPR(4)
+
+	s.sweep() // removes dependabot from the branch
+
+	s.client.deletedFiles = nil
+	s.client.createdFiles = nil
+
+	s.sweep() // identical state — nothing left to do
+
+	if len(s.client.deletedFiles) != 0 || len(s.client.createdFiles) != 0 {
+		t.Errorf("identical re-sweep must not mutate: deleted=%v created=%v",
+			s.client.deletedFiles, s.client.createdFiles)
+	}
+}
+
+// Dependabot hand-deleted from main while a removal PR is open → the
+// absent rule is satisfied, nothing else is actionable, PR auto-closes.
+func TestConvergence_RenovateFirst_HandDeletedDependabot_AutoCloses(t *testing.T) {
+	metrics.PRsClosedTotal.Reset()
+
+	s := newStagedConvergenceWithPolicy(t, renovateFirstPolicy())
+	s.satisfyOnMain("renovate.json") // referee satisfied; dependabot absent from main
+	s.openOurPR(5)
+
+	s.sweep()
+
+	if s.client.closedPRNumber != 5 {
+		t.Errorf("expected PR #5 auto-closed once dependabot is gone from main, got %d", s.client.closedPRNumber)
+	}
+
+	if got := testutil.ToFloat64(metrics.PRsClosedTotal.WithLabelValues(s.org, "satisfied")); got != 1 {
+		t.Errorf("PRsClosedTotal{%s,satisfied} = %v, want 1", s.org, got)
+	}
+}
+
+// Gate closes mid-flight in a bundle PR: renovate.json is removed from main
+// (gate closes) while the renovate_config add rule keeps the PR alive. The
+// dependabot file previously deleted from the branch is restored so the PR
+// stops proposing the deletion.
+func TestConvergence_RenovateFirst_GateClosesMidFlight_RestoresDependabot(t *testing.T) {
+	s := newStagedConvergenceWithPolicy(t, renovateFirstPolicy())
+
+	// renovate.json missing on main → renovate_config actionable (keeps PR
+	// alive) and no_dependabot's gate closed. dependabot present on main but
+	// already deleted from the branch by a prior sweep.
+	s.satisfyOnMain(".github/dependabot.yml")
+	s.client.fileContents[s.org+"/"+s.repo+"/.github/dependabot.yml"] = "restored-body"
+	s.openOurPR(6)
+
+	s.sweep()
+
+	if !slices.Contains(s.client.createdFiles, ".github/dependabot.yml") {
+		t.Errorf("expected dependabot.yml restored to the branch, createdFiles=%v", s.client.createdFiles)
 	}
 }

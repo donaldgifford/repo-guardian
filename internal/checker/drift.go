@@ -170,7 +170,7 @@ func restoreInverseOrphans(
 	log *slog.Logger,
 	client ghclient.Client,
 	allRules, actionable []policy.FileRuleConfig,
-	owner, repo, defaultBranch string,
+	owner, repo string,
 ) []string {
 	actionableSet := make(map[string]struct{}, len(actionable))
 	for i := range actionable {
@@ -190,7 +190,7 @@ func restoreInverseOrphans(
 			continue
 		}
 
-		if restoreRulePaths(ctx, log, client, r, owner, repo, defaultBranch) {
+		if restoreRulePaths(ctx, log, client, r, owner, repo) {
 			restored = append(restored, r.Name)
 		}
 	}
@@ -207,12 +207,12 @@ func restoreRulePaths(
 	log *slog.Logger,
 	client ghclient.Client,
 	r *policy.FileRuleConfig,
-	owner, repo, defaultBranch string,
+	owner, repo string,
 ) bool {
 	var restoredAny bool
 
 	for _, path := range r.Paths {
-		_, onDefault, err := client.GetContentsOnBranch(ctx, owner, repo, path, defaultBranch)
+		onDefault, err := client.GetContents(ctx, owner, repo, path)
 		if err != nil {
 			logRestoreSkip(log, owner, r.Name, path, "default-branch probe failed", err)
 

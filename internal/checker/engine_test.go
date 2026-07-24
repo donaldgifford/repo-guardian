@@ -143,9 +143,16 @@ func (m *mockClient) DeleteBranch(_ context.Context, _, _, branch string) error 
 	return nil
 }
 
-func (m *mockClient) CreateOrUpdateFile(_ context.Context, _, _, _, path, _, _ string) error {
+func (m *mockClient) CreateOrUpdateFile(_ context.Context, owner, repo, branch, path, _, _ string) error {
 	if m.createFileErr != nil {
 		return m.createFileErr
+	}
+
+	// Reflect the write on the branch so a later GetContentsOnBranch sees
+	// it — required for the inverse-orphan restoration path to be testable
+	// (IMPL-0019 task 2.8 mock-fidelity contract).
+	if m.branchContents != nil {
+		m.branchContents[owner+"/"+repo+"/"+branch+"/"+path] = "sha-" + path
 	}
 
 	m.createdFiles = append(m.createdFiles, path)

@@ -630,7 +630,7 @@ func (e *Engine) createOrUpdatePRFromPolicy(
 	// IMPL-0019 Phase 2: inverse orphans — absent rules that stopped being
 	// actionable and whose forbidden file the branch deleted must be
 	// restored so the PR stops proposing the deletion.
-	restoredRules := restoreInverseOrphans(ctx, log, client, e.policy.FileRules, actionable, owner, repo, defaultBranch)
+	restoredRules := restoreInverseOrphans(ctx, log, client, e.policy.FileRules, actionable, owner, repo)
 
 	if err := e.refreshPolicyPR(ctx, log, client, owner, repo, defaultBranch, existingPR, actionable, now); err != nil {
 		log.Warn("PR body refresh failed; PR text may be stale until next sweep", "err", err)

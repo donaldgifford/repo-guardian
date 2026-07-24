@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0020
 title: "Absent check mode and conditional file rules"
-status: Approved
+status: Implemented
 author: Donald Gifford
 created: 2026-07-23
 ---
@@ -9,7 +9,7 @@ created: 2026-07-23
 
 # DESIGN 0020: Absent check mode and conditional file rules
 
-**Status:** Approved
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-07-23
 
@@ -604,7 +604,7 @@ was reviewed and accepted at the same time.
 
 ## References
 
-- [DESIGN-0013 — PR templates](0013-customizable-pr-templates.md) — per-rule `pr {}` inheritance the removal PRs reuse
+- [DESIGN-0013 — PR templates](0013-customizable-pr-templates-and-extensible-template-configmap.md) — per-rule `pr {}` inheritance the removal PRs reuse
 - IMPL-0013 — orphan cleanup, auto-close, sticky reconcile-log; the Q9 fail-safe stance this design extends to gates and restoration
 - INV-0003 — `CreateOrUpdateFile` three-branch idempotency the deletion path mirrors
 - `examples/guardian-full.hcl` — the name-glob `ignore` workaround this design replaces

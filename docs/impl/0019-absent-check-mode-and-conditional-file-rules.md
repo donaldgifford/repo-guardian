@@ -1,7 +1,7 @@
 ---
 id: IMPL-0019
 title: "Absent check mode and conditional file rules"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-07-23
 ---
@@ -9,7 +9,7 @@ created: 2026-07-23
 
 # IMPL 0019: Absent check mode and conditional file rules
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-07-23
 
@@ -321,27 +321,27 @@ the next sweep.
 
 #### Tasks
 
-- [ ] 4.1 `docs/usage/policy-reference.md`: `absent` check-mode section,
+- [x] 4.1 `docs/usage/policy-reference.md`: `absent` check-mode section,
       `when {}` block reference, the validation-matrix table, gate
       fail-closed semantics, and the search-terms collision guidance
       (an absent rule's `search_terms` must not match the add-era PR
       titles for the same file — the example uses `"remove dependabot"`).
-- [ ] 4.2 `examples/guardian-full.hcl`: add the `no_dependabot` rule
+- [x] 4.2 `examples/guardian-full.hcl`: add the `no_dependabot` rule
       (check = "absent" + when gate on `renovate_config`); replace the
       name-glob `ignore { repos = ["myorg/renovate-*"] }` workaround on
       the dependabot rule, keeping the old form as a commented
       alternative; `go test ./examples/...` green.
-- [ ] 4.3 `docs/operations/absent-rules-migration.md` (per the
+- [x] 4.3 `docs/operations/absent-rules-migration.md` (per the
       `*-migration.md` precedent): dry-run-first recipe leading the doc
       (destructive remediation), policy-hash bump ⇒ one-time full
       re-sweep, reconcile-log hash bump ⇒ one comment edit per open PR,
       downgrade behavior (older binary fails loudly at load on the
       unknown check mode), search-terms guidance.
-- [ ] 4.4 CLAUDE.md architecture notes: absent mode, when-gate
+- [x] 4.4 CLAUDE.md architecture notes: absent mode, when-gate
       fail-closed + content-only semantics, inverse-orphan restoration,
       gate counter only-in-primary-pass reminder, memoization
       per-repo-check-never-on-Engine.
-- [ ] 4.5 `docz update impl` / `docz update design` (one type per
+- [x] 4.5 `docz update impl` / `docz update design` (one type per
       invocation); flip DESIGN-0020 to Implemented and this IMPL to
       Completed (frontmatter + body `**Status:**` line, both); mkdocs
       strict-mode warning count unchanged from the 14-file baseline.

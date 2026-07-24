@@ -198,7 +198,7 @@ description: some random config
 			}
 
 			if err != nil {
-				t.Fatalf("Parse(%q) error = %v, want nil", tt.name, err)
+				t.Fatalf("Parse() error = %v, want nil", err)
 			}
 
 			if got.Owner != tt.want.Owner {

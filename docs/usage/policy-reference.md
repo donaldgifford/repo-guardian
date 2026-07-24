@@ -337,6 +337,30 @@ reconcile — not left stale. This applies to every property in the managed
 set except `Owner`/`Component`, which always carry a value once
 catalog-info exists.
 
+**Malformed catalog-info is skipped, never cleared.** A clear only ever
+comes from a *valid* `catalog-info.yaml` that no longer names the
+annotation. If the file is present but does not parse as YAML, or parses
+as a non-`Component` entity, repo-guardian skips the reconcile entirely —
+it makes no property writes and retries on the next sweep, so a
+temporarily broken commit can never wipe every mapped property. Parse
+failures are logged (`"catalog-info parse failed; skipping reconcile to
+avoid clearing properties"`) and counted via
+`repo_guardian_catalog_parse_failed_total{org}`; a valid non-`Component`
+file is logged at info and does not move the counter. The
+"unclassified" defaults (`Owner`/`Component` = `Unclassified`) apply only
+when the repo has **no** catalog-info file at all — that is a positive
+"this repo is unclassified" state, distinct from a parse error.
+
+**Generated-workflow values are passed literally (github-action mode).**
+In `github-action` mode the property values are baked into the generated
+`.github/workflows/set-custom-properties.yml`. Those values reach the
+workflow's shell only through its `env:` block and are referenced as
+quoted `"$RG_PROP_*"` variables, so a value containing quotes, `$`, or
+`$(...)` is passed to `gh api` as an inert literal and never evaluated by
+the shell. A property value containing a literal GitHub Actions
+expression opener (`${{`) is rejected at render time rather than written
+into the workflow.
+
 **Schema preflight (values-only, least-privilege).** Before writing,
 repo-guardian checks the org's actual custom-property *schema* (the set of
 property names an org admin has defined) and drops any managed property

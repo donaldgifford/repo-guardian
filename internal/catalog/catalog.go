@@ -2,14 +2,25 @@
 // custom property values for GitHub repository metadata.
 package catalog
 
-import "gopkg.in/yaml.v3"
+import (
+	"errors"
+	"fmt"
 
-// Default values for required custom properties when catalog-info.yaml
-// is missing, unparseable, or does not contain the expected fields.
+	"gopkg.in/yaml.v3"
+)
+
+// Default values for required custom properties when no catalog-info
+// file exists or a valid Component entity omits the expected fields.
 const (
 	DefaultOwner     = "Unclassified"
 	DefaultComponent = "Unclassified"
 )
+
+// ErrNotComponent reports that the input parsed as valid YAML but is
+// not a Backstage Component entity. Callers must treat this as "not
+// something we manage here" and skip, never as a statement that the
+// desired property state is empty (INV-0011 A1, IMPL-0020 Decision 1).
+var ErrNotComponent = errors.New("not a Backstage Component entity")
 
 // Entity represents a Backstage catalog entity. Only the fields
 // relevant to custom property extraction are included.
@@ -51,17 +62,24 @@ type Properties struct {
 // and extracts custom property values. annotationProps maps a catalog
 // annotation key (e.g. "jira/project-key") to the GitHub custom
 // property name it should populate (e.g. "JiraProject"); a nil or
-// empty map yields Owner/Component only. Returns default Properties
-// (Owner and Component set to "Unclassified") if the content cannot be
-// parsed or is not a Backstage Component entity.
-func Parse(content string, annotationProps map[string]string) *Properties {
+// empty map yields Owner/Component only.
+//
+// Parse distinguishes three outcomes:
+//   - a valid Backstage Component entity returns its Properties;
+//   - unparseable YAML returns a wrapped parse error;
+//   - valid YAML that is not a Component entity returns an error
+//     matching ErrNotComponent via errors.Is.
+//
+// Both error outcomes return nil Properties: an error is "I could not
+// understand the input", never "the desired property state is empty".
+func Parse(content string, annotationProps map[string]string) (*Properties, error) {
 	var entity Entity
 	if err := yaml.Unmarshal([]byte(content), &entity); err != nil {
-		return defaults()
+		return nil, fmt.Errorf("parsing catalog-info: %w", err)
 	}
 
 	if entity.APIVersion != "backstage.io/v1alpha1" || entity.Kind != "Component" {
-		return defaults()
+		return nil, fmt.Errorf("%w: apiVersion=%q kind=%q", ErrNotComponent, entity.APIVersion, entity.Kind)
 	}
 
 	p := &Properties{
@@ -90,10 +108,15 @@ func Parse(content string, annotationProps map[string]string) *Properties {
 		p.Extra[property] = value
 	}
 
-	return p
+	return p, nil
 }
 
-func defaults() *Properties {
+// Defaults returns the Properties used when a repository has no
+// catalog-info file at all: Owner and Component set to "Unclassified"
+// and no Extra values. This is a positive desired state (the repo is
+// unclassified until a catalog-info.yaml is added), distinct from the
+// Parse error outcomes, which must never be synced.
+func Defaults() *Properties {
 	return &Properties{
 		Owner:     DefaultOwner,
 		Component: DefaultComponent,

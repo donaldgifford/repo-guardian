@@ -584,13 +584,14 @@ func TestGHAMode_UnparseableFile(t *testing.T) {
 	r := newTestReconciler(t, "github-action")
 	client := basePropertiesClient()
 
+	// Unparseable content → skip without opening a PR (INV-0011 A1).
 	err := r.Reconcile(context.Background(), newParams(client, "{{{invalid yaml", false, nil))
 	if err != nil {
 		t.Fatalf("Reconcile: %v", err)
 	}
 
-	if client.createdPR == nil {
-		t.Fatal("expected PR to be created with Unclassified defaults")
+	if client.createdPR != nil {
+		t.Errorf("expected no PR on unparseable catalog-info, got %+v", client.createdPR)
 	}
 }
 
@@ -1211,35 +1212,22 @@ func TestAPIMode_NoCatalog_StaleBranchCleanup(t *testing.T) {
 	}
 }
 
-func TestReconciler_MissingFields_UsesDefaults(t *testing.T) {
+func TestReconciler_UnparseableCatalog_Skips(t *testing.T) {
 	t.Parallel()
 
 	r := newTestReconciler(t, "api")
 	client := basePropertiesClient()
 
-	// Unparseable content → catalog.Parse returns defaults.
+	// Unparseable content → skip without touching GitHub state
+	// (INV-0011 A1: a parse failure must never masquerade as "clear
+	// everything").
 	err := r.Reconcile(context.Background(), newParams(client, "not yaml {{{", false, nil))
 	if err != nil {
 		t.Fatalf("Reconcile: %v", err)
 	}
 
-	if len(client.setProperties) == 0 {
-		t.Fatal("expected properties to be set")
-	}
-
-	propMap := make(map[string]string)
-	for _, p := range client.setProperties {
-		if p.Value != nil {
-			propMap[p.PropertyName] = *p.Value
-		}
-	}
-
-	if propMap["Owner"] != catalog.DefaultOwner {
-		t.Errorf("expected Owner=%s, got %q", catalog.DefaultOwner, propMap["Owner"])
-	}
-
-	if propMap["Component"] != catalog.DefaultComponent {
-		t.Errorf("expected Component=%s, got %q", catalog.DefaultComponent, propMap["Component"])
+	if len(client.setProperties) != 0 {
+		t.Errorf("expected zero SetCustomPropertyValues calls, got %v", client.setProperties)
 	}
 }
 

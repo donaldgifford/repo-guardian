@@ -1231,6 +1231,77 @@ func TestReconciler_UnparseableCatalog_Skips(t *testing.T) {
 	}
 }
 
+func TestAPIMode_UnparseableCatalog_NoWriteAndCounterIncrements(t *testing.T) {
+	t.Parallel()
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+	client.customProperties["parse-fail-org/my-service"] = []*ghclient.CustomPropertyValue{
+		{PropertyName: "Owner", Value: strPtr("platform-team")},
+		{PropertyName: "JiraProject", Value: strPtr("PROJ")},
+	}
+
+	// Owner doubles as the org metric label; a test-unique value keeps
+	// the counter delta isolated from parallel tests that also feed
+	// malformed content through owner "org".
+	params := newParams(client, "not yaml {{{", false, nil)
+	params.Owner = "parse-fail-org"
+
+	before := testutil.ToFloat64(metrics.CatalogParseFailedTotal.WithLabelValues("parse-fail-org"))
+
+	if err := r.Reconcile(context.Background(), params); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	if len(client.setProperties) != 0 {
+		t.Errorf("expected zero SetCustomPropertyValues calls on parse failure, got %v", client.setProperties)
+	}
+
+	got := testutil.ToFloat64(metrics.CatalogParseFailedTotal.WithLabelValues("parse-fail-org")) - before
+	if got != 1 {
+		t.Errorf("CatalogParseFailedTotal delta = %v, want 1", got)
+	}
+}
+
+func TestAPIMode_NonComponentCatalog_SkipsWithoutCounter(t *testing.T) {
+	t.Parallel()
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+
+	content := `apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: my-api
+spec:
+  owner: api-team
+`
+
+	params := newParams(client, content, false, nil)
+	params.Owner = "non-component-org"
+
+	before := testutil.ToFloat64(metrics.CatalogParseFailedTotal.WithLabelValues("non-component-org"))
+
+	if err := r.Reconcile(context.Background(), params); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	if len(client.setProperties) != 0 {
+		t.Errorf("expected zero SetCustomPropertyValues calls for non-Component entity, got %v", client.setProperties)
+	}
+
+	if client.createdPR != nil {
+		t.Errorf("expected no PR for non-Component entity, got %+v", client.createdPR)
+	}
+
+	// A valid non-Component entity is a legitimate skip, not a parse
+	// failure — the counter must not move (IMPL-0020 Decision 1).
+	got := testutil.ToFloat64(metrics.CatalogParseFailedTotal.WithLabelValues("non-component-org")) - before
+	if got != 0 {
+		t.Errorf("CatalogParseFailedTotal delta = %v, want 0", got)
+	}
+}
+
 // --- Registry integration test ---
 
 func TestRegistry_CustomPropertiesFactory(t *testing.T) {

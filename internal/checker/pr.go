@@ -317,6 +317,17 @@ func prConfigToTemplate(pr *policy.PRConfig) *policy.PRTemplate {
 	}
 }
 
+// ruleAction maps a check mode to the template-facing Rule.Action string:
+// "remove" for absent-mode rules that delete a forbidden file, "add" for
+// every other mode (IMPL-0019).
+func ruleAction(mode policy.CheckMode) string {
+	if mode == policy.CheckAbsent {
+		return "remove"
+	}
+
+	return "add"
+}
+
 // buildPRVars constructs the template.PRVars context from the engine's
 // known per-job state. Single-rule PRs leave Rules nil and populate
 // Rule; bundled multi-rule PRs leave Rule zero-valued and populate the
@@ -335,10 +346,20 @@ func buildPRVars(owner, repo, defaultBranch, date string, actionable []policy.Fi
 	rules := make([]tmpl.Rule, 0, len(actionable))
 
 	for i := range actionable {
-		files = append(files, actionable[i].Target)
+		r := &actionable[i]
+
+		if r.CheckMode() == policy.CheckAbsent {
+			// Absent rules have no target; the relevant files are the
+			// forbidden paths being removed.
+			files = append(files, r.Paths...)
+		} else {
+			files = append(files, r.Target)
+		}
+
 		rules = append(rules, tmpl.Rule{
-			Name:   actionable[i].Name,
-			Target: actionable[i].Target,
+			Name:   r.Name,
+			Target: r.Target,
+			Action: ruleAction(r.CheckMode()),
 		})
 	}
 

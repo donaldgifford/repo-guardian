@@ -380,6 +380,24 @@ func TestValidateZero_PRVars(t *testing.T) {
 	}
 }
 
+// TestValidateZero_PRVars_RuleAction asserts the IMPL-0019 Rule.Action
+// field is additive: a template reading .Rule.Action and ranging over
+// .Rules for .Action still passes zero-value strict-mode validation.
+func TestValidateZero_PRVars_RuleAction(t *testing.T) {
+	t.Parallel()
+
+	r := template.NewRenderer()
+
+	c, err := r.Parse("pr", "{{ .Rule.Action }}{{ range .Rules }}{{ .Action }}{{ .Target }}{{ end }}")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	if err := template.ValidateZero[template.PRVars](c); err != nil {
+		t.Errorf("template reading Rule.Action should pass validate: %v", err)
+	}
+}
+
 func TestCompiled_Render_NilReceiverReturnsSentinel(t *testing.T) {
 	t.Parallel()
 

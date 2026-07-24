@@ -32,7 +32,7 @@ created: 2026-07-23
 - [File Changes](#file-changes)
 - [Testing Plan](#testing-plan)
 - [Dependencies](#dependencies)
-- [Open Questions](#open-questions)
+- [Resolved Decisions](#resolved-decisions)
 - [References](#references)
 <!--toc:end-->
 
@@ -113,7 +113,7 @@ error as destructive desired state.
       `Parse(content string, annotationProps map[string]string)
       (*Properties, error)`: return a wrapped error when
       `yaml.Unmarshal` fails. Non-Component-entity handling is an
-      explicit decision — see Open Question 1.
+      explicit decision — see Decision 1.
 - [ ] 1.2 Update the sole caller `custom_properties.go.Reconcile:157`:
       on parse error, log `slog.Warn("catalog-info parse failed; skipping
       reconcile to avoid clearing properties", "err", err)`, increment
@@ -123,7 +123,7 @@ error as destructive desired state.
       `internal/metrics/metrics.go` (reuse `labelOrg`).
 - [ ] 1.4 Update `catalog` package tests: malformed YAML returns an
       error (not defaults); valid Component parses as today; the
-      non-Component case per Open Question 1.
+      non-Component case per Decision 1.
 - [ ] 1.5 Reconciler test: a malformed `catalog-info.yaml` in API mode
       issues zero `SetCustomPropertyValues` calls and increments the
       counter (stateful mock asserts no PATCH).
@@ -156,7 +156,7 @@ variables, which are passed literally and never re-evaluated.
 - [ ] 2.2 YAML-safe value emission: values render into `env:` such that a
       value containing a quote, `$`, newline, or `:` cannot break the
       workflow YAML or the shell (block scalar or a template helper that
-      quotes/escapes — mechanism per Open Question 2). A value that is
+      quotes/escapes — mechanism per Decision 2). A value that is
       empty still signals "clear" via the existing `-F
       'properties[][value]=null'` branch — the empty/clear distinction
       moves to checking the env var, not inline rendering.
@@ -192,7 +192,7 @@ variables, which are passed literally and never re-evaluated.
       `docs/operations/*-migration.md` entry): describes the A2 fix as a
       security fix, recommends operators using GHA mode regenerate any
       open properties PRs (old branches carry the vulnerable workflow —
-      see Open Question 3).
+      see Decision 3).
 - [ ] 3.3 CLAUDE.md: architecture note on the catalog parse-failure
       skip contract and the env-indirection template convention (so
       future template edits don't reintroduce inline interpolation).
@@ -253,64 +253,39 @@ No `github.Client` interface change ⇒ no mockClient-parity sweep.
   (clear-on-file-removal is only safe to enable once malformed input can
   no longer masquerade as "clear everything").
 
-## Open Questions
+## Resolved Decisions
 
-1. **`catalog.Parse` behavior for valid YAML that is NOT a Backstage
-   Component entity (e.g. `kind: Resource`)?**
-   - (a) **Recommendation:** treat it like a parse failure for
-     sync purposes — return a sentinel (e.g. `(nil, ErrNotComponent)` or
-     a `Parsed bool`) that the reconciler maps to "skip, do not clear."
-     Only a valid Component entity is a positive statement of desired
-     property state; a non-Component file is "not something we manage
-     here," and clearing on it is the same data-loss class as A1.
-   - (b) Keep the current "non-Component ⇒ defaults ⇒ clear" behavior,
-     fixing only the unparseable case. Simpler diff, but a repo that
-     switches its catalog-info to a non-Component kind silently loses its
-     properties.
-   - (c) Error on both unparseable AND non-Component (single error path).
-     Cleanest code, but conflates "garbage" with "valid, just not a
-     component," which may be legitimate for some repos.
-   - other:
+All four open questions resolved 2026-07-23 with the recommended option (a).
 
-2. **A2 value-safe rendering mechanism?**
-   - (a) **Recommendation:** emit values into the `env:` block using a
-     YAML-safe form (single-quoted scalar with `'`-doubling, or a
-     `|`-block scalar) via a small template helper, and reference them as
-     `"$RG_PROP_x"` in `run:`. Env indirection alone closes the shell
-     vector; YAML-safe emission closes the "value breaks the workflow
-     file" vector. Both are needed because the value is baked into a
-     generated file, not passed at runtime.
-   - (b) Env indirection with naive rendering — closes shell execution
-     but a value containing a newline or quote still corrupts the
-     workflow YAML (a lesser bug, but still broken output).
-   - (c) Escape values inline in the `run:` block (no env) — fragile
-     quote-within-quote escaping that the next template edit can silently
-     break; rejected for the same reason the release-pipeline post-mortem
-     moved bake metadata to `env:`.
-   - other:
+1. **Non-Component valid YAML is skipped, not cleared.** `catalog.Parse`
+   returns a sentinel (e.g. `(nil, ErrNotComponent)` or a `Parsed bool`)
+   that the reconciler maps to "skip, do not clear." Only a valid
+   Component entity is a positive statement of desired property state; a
+   non-Component file is "not something we manage here," and clearing on
+   it is the same data-loss class as the A1 parse-failure case. Practical
+   effect: `Parse` distinguishes three outcomes — valid Component (sync),
+   unparseable (error → skip), valid non-Component (skip, no clear).
 
-3. **Do we actively remediate already-open properties PRs carrying the
-   vulnerable workflow?**
-   - (a) **Recommendation:** no automated remediation; document it. The
-     GHA-mode PR-refresh gap is A4 (a separate Medium in IMPL-0021);
-     building refresh here would pull that scope forward. The migration
-     note tells operators to close/regenerate open properties PRs. Most
-     deployments (incl. homelab) run API mode, where the vector never
-     existed.
-   - (b) Add minimal branch-refresh here so the next reconcile rewrites
-     the workflow on existing PRs — safer for GHA-mode users, but
-     overlaps A4 and enlarges a security patch that should stay small.
-   - other:
+2. **A2 fix = env-indirection + YAML-safe emission.** Values render into
+   the workflow `env:` block in a YAML-safe form (single-quoted scalar
+   with `'`-doubling, or a `|`-block scalar, via a small template helper)
+   and are referenced as `"$RG_PROP_x"` in `run:`. Env indirection closes
+   the shell-execution vector; YAML-safe emission closes the
+   "value breaks the generated workflow file" vector. Both are required
+   because the value is baked into a generated file, not passed at
+   runtime.
 
-4. **Packaging — one PR or two?**
-   - (a) **Recommendation:** one `fix/` PR for both A1 and A2, `patch`
-     label. They're both High, both small, both on the same
-     custom-properties surface; one PR = one release = one security note.
-     (INV-0003 precedent: investigation → single tight fix PR.)
-   - (b) Two PRs (A1, then A2) — maximal isolation, but doubles review
-     and release overhead for two changes that are each < ~100 lines and
-     ship together anyway.
-   - other:
+3. **No automated remediation of already-open properties PRs.** Documented
+   only. The GHA-mode PR-refresh gap is A4 (a separate Medium in
+   IMPL-0021); building refresh here would pull that scope into a
+   security patch that should stay small. The migration note tells
+   operators to close/regenerate open properties PRs. Most deployments
+   (incl. homelab) run API mode, where the vector never existed.
+
+4. **One `fix/` PR for both A1 and A2, `patch` label.** Both High, both
+   small, both on the same custom-properties surface — one PR, one
+   release, one security note (INV-0003 precedent: investigation → single
+   tight fix PR).
 
 ## References
 

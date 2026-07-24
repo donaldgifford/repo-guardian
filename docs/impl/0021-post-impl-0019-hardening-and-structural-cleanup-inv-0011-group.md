@@ -44,7 +44,7 @@ created: 2026-07-23
 - [File Changes](#file-changes)
 - [Testing Plan](#testing-plan)
 - [Dependencies](#dependencies)
-- [Open Questions](#open-questions)
+- [Resolved Decisions](#resolved-decisions)
 - [References](#references)
 <!--toc:end-->
 
@@ -92,13 +92,13 @@ items B1, B2, B3, B4
   reordered or parallelized; the ordering below is by blast-radius, not
   dependency.
 - Phases 5–7 (Group B) come last and each merges as its own `chore/` PR
-  — see Open Question 5 on whether Group B should split into its own
+  — see Decision 5 on whether Group B should split into its own
   IMPL entirely.
 
 ## Implementation Phases
 
 Run `make fmt` + `make lint` after each task; commit per numbered task
-with conventional commits. Packaging into PRs is Open Question 4.
+with conventional commits. Packaging into PRs is Decision 4.
 
 ---
 
@@ -124,7 +124,7 @@ Two independent logic bugs in `internal/reconciler/custom_properties.go`.
       already exists, so annotation changes never refresh the
       branch/workflow/PR body. Refresh the existing PR's workflow file
       and body when desired state has changed since it was opened
-      (reuse the IMPL-0013 refresh pattern; scope per Open Question 2).
+      (reuse the IMPL-0013 refresh pattern; scope per Decision 2).
 - [ ] 1.4 A4 test: open a properties PR, change an annotation, reconcile
       again ⇒ the branch workflow + PR body reflect the new value
       (stateful mock).
@@ -152,7 +152,7 @@ IMPL-0020's parse-abort so a malformed file can never trigger a clear.
       managed set. Today `runReconcilers`
       (`engine_policy.go:147-149`) skips when `existingPath == ""`.
       Scope carefully against the file-rule double-iteration counter
-      contract (CLAUDE.md) and per Open Question 3 (all reconcilers, or
+      contract (CLAUDE.md) and per Decision 3 (all reconcilers, or
       only clear-capable ones?).
 - [ ] 2.2 Confirm the reconciler's `!catalogFound` API-mode branch
       (`custom_properties.go:350`) clears correctly when reached from the
@@ -165,7 +165,7 @@ IMPL-0020's parse-abort so a malformed file can never trigger a clear.
 - [ ] 2.4 Reconcile docs already promise this
       (`policy-reference.md:333-336`,
       `annotation-properties-migration.md:61-68`) — verify wording now
-      matches behavior; adjust if the Open Question 3 resolution narrows
+      matches behavior; adjust if the Decision 3 resolution narrows
       it.
 
 #### Success Criteria
@@ -224,7 +224,7 @@ almost never fires.
       before it can fire (an isolated mismatch stays positive ≤ ~15 min).
       Rework to a window that outlives the `for` (e.g.
       `increase(...[1h]) > 0` with a shorter `for`, or align windows) —
-      mechanism per Open Question 1.
+      mechanism per Decision 1.
 - [ ] 4.2 Fix the same flaw in the LogQL example
       (`docs/operations/scaling.md:229-238`).
 - [ ] 4.3 helm-unittest: the alert renders with the corrected
@@ -243,7 +243,7 @@ almost never fires.
 ### Phase 5: Dead-code removal (B3)
 
 Zero-risk deletion of unreferenced legacy code. Held until IMPL-0019
-proves out per the standing constraint (Open Question 6 revisits whether
+proves out per the standing constraint (Decision 6 revisits whether
 it may ride earlier).
 
 #### Tasks
@@ -270,7 +270,7 @@ it may ride earlier).
 ### Phase 6: Structural refactors (B1, B4)
 
 Mechanical, behavior-preserving. Each is its own commit; PR grouping per
-Open Question 4.
+Decision 5 (Group B spins into its own IMPL doc).
 
 #### Tasks
 
@@ -282,7 +282,7 @@ Open Question 4.
 - [ ] 6.2 **B4 — reconcile-branch base-drift** (`engine_policy.go:529`,
       PR #71 WARN): decide and implement a mitigation
       (rebase-before-reconcile, or close/reopen aged PRs, or documented
-      "don't auto-merge repo-guardian branches") — Open Question 7.
+      "don't auto-merge repo-guardian branches") — Decision 7.
 - [ ] 6.3 **B4 — `refreshPolicyPR` body compare**
       (`engine_policy.go:655-662`): the PR body isn't exposed on the PR
       struct, so title-stable sweeps PATCH unconditionally. Expose/cache
@@ -372,90 +372,50 @@ short design pass first because several mocks are stateful.
 - B4 task 6.4 coordinates with IMPL-0019's removal-PR search-terms
   convention.
 
-## Open Questions
+## Resolved Decisions
 
-1. **A7 alert-window fix shape?**
-   - (a) **Recommendation:** `increase(repo_guardian_custom_property_missing_schema_total[1h]) > 0`
-     with `for: 5m` — a window comfortably longer than `for`, so a single
-     isolated mismatch still fires; `increase` over `rate` reads more
-     naturally for a "did this happen at all recently" alert. Apply the
-     same shape to the LogQL example.
-   - (b) Keep `rate` but widen to `[1h]` and drop `for` to `0m` — fires
-     faster but loses the debounce, noisier on flapping.
-   - (c) Leave the alert; document it as "only meaningful on large
-     fleets with sustained mismatches." Cheapest, but ships a starter
-     alert that misleads small operators into thinking it works.
-   - other:
+All seven open questions resolved 2026-07-23 with the recommended option (a).
 
-2. **A4 GHA-mode refresh scope?**
-   - (a) **Recommendation:** refresh the workflow file + PR body on the
-     existing branch when desired state changed (mirror the IMPL-0013
-     file-rule refresh); do NOT add auto-close for GHA-mode properties
-     PRs in this pass. Closes the staleness bug without importing the
-     full convergence machinery.
-   - (b) Full parity with file-rule PRs including auto-close when the
-     desired set becomes empty — larger, and GHA-mode PRs are
-     merge-once-and-delete by design, so auto-close is lower value.
-   - other:
+1. **A7 alert window:**
+   `increase(repo_guardian_custom_property_missing_schema_total[1h]) > 0`
+   with `for: 5m` — a window comfortably longer than `for`, so a single
+   isolated mismatch still fires; `increase` over `rate` reads more
+   naturally for a "did this happen at all recently" alert. Same shape
+   applied to the LogQL example.
 
-3. **A3 — run all reconcilers on file-absence, or only clear-capable
-   ones?**
-   - (a) **Recommendation:** only invoke reconcilers whose contract
-     includes a clear/absence behavior (today: `custom_properties`).
-     `label_sync`/`branch_protection`/`workflow_sync` have no meaningful
-     "file removed" semantics and running them on absence risks
-     surprising side effects. A small reconciler capability flag
-     (`RunsOnAbsence() bool`) gates it.
-   - (b) Invoke all reconcilers on absence and let each no-op — simpler
-     wiring, but couples every reconciler to a new invocation context
-     they weren't designed for and muddies the double-iteration counter
-     contract.
-   - other:
+2. **A4 refresh scope:** refresh the workflow file + PR body on the
+   existing branch when desired state changed (mirror the IMPL-0013
+   file-rule refresh); do NOT add auto-close for GHA-mode properties PRs
+   in this pass. Closes the staleness bug without importing the full
+   convergence machinery.
 
-4. **PR packaging for the Group A Mediums (Phases 1–4)?**
-   - (a) **Recommendation:** one `fix/impl-0017-hardening` PR for the
-     code Mediums (A3, A4, A5, A6, A8) with `patch` + an A6 migration
-     note; a separate chart-only PR for A7 (`dont-release`, independent
-     cadence). Two PRs, coherent scope ("everything the review found,
-     minus the High fixes already shipped").
-   - (b) One PR per finding — maximal isolation, 5+ PRs of overhead for
-     sub-100-line changes.
-   - other:
+3. **A3 gating:** only invoke reconcilers whose contract includes a
+   clear/absence behavior (today: `custom_properties`), gated by a small
+   capability flag (`RunsOnAbsence() bool`).
+   `label_sync`/`branch_protection`/`workflow_sync` have no meaningful
+   "file removed" semantics and running them on absence risks surprising
+   side effects.
 
-5. **Should Group B (Phases 5–7) split into its own IMPL doc?**
-   - (a) **Recommendation:** yes — spin Group B into `IMPL-00XX
-     (structural cleanup)` when Phases 1–4 are done and IMPL-0019 is
-     proven, keeping this doc as the Group-A-Medium hardening record.
-     Group B is refactor/migration work with different review shape and
-     its own sequencing; bundling it here makes this doc span two very
-     different kinds of change and risks it staying open for months.
-   - (b) Keep everything in this one doc — single tracking artifact for
-     "all non-High INV-0011 work," at the cost of a long-lived doc mixing
-     fixes and refactors.
-   - other:
+4. **Group A Medium packaging:** one `fix/impl-0017-hardening` PR for the
+   code Mediums (A3, A4, A5, A6, A8) with `patch` + an A6 migration note;
+   a separate chart-only PR for A7 (`dont-release`, independent cadence).
 
-6. **May the dead-code deletion (Phase 5 / B3) ride earlier than the
-   rest of Group B?**
-   - (a) **Recommendation:** no — hold all of Group B until IMPL-0019 is
-     proven, per the standing constraint. "No structural churn during
-     feature work" is a simpler bright line to hold than to litigate
-     per-file, and B3 is zero-urgency.
-   - (b) Allow B3 in the Phase 1–4 hardening window — it's risk-free
-     deletion of unreferenced code and shrinks review noise; the bright
-     line costs us carrying dead code a few more weeks.
-   - other:
+5. **Group B splits into its own IMPL doc** once Phases 1–4 are done and
+   IMPL-0019 is proven, keeping this doc as the Group-A-Medium hardening
+   record. Group B is refactor/migration work with a different review
+   shape and its own sequencing; bundling risks this doc staying open for
+   months. (Phases 5–7 remain here as the plan of record until that
+   split happens.)
 
-7. **B4 reconcile-branch base-drift (task 6.2) — which mitigation?**
-   - (a) **Recommendation:** rebase the reconcile branch onto current
-     default-branch HEAD before syncing files each reconcile. Directly
-     eliminates both the base-drift and content-drift risks the PR #71
-     WARN describes, and keeps PRs mergeable without manual intervention.
-   - (b) Close+reopen repo-guardian PRs older than N days — simpler, but
-     churns PR numbers and notification noise.
-   - (c) Document "don't enable auto-merge on repo-guardian/* branches"
-     and leave the code — zero code, but relies on operator discipline
-     and doesn't fix content-drift.
-   - other:
+6. **Dead-code deletion (B3) waits with the rest of Group B** — hold all
+   of Group B until IMPL-0019 is proven. "No structural churn during
+   feature work" is a simpler bright line to hold than to litigate
+   per-file, and B3 is zero-urgency.
+
+7. **B4 base-drift mitigation:** rebase the reconcile branch onto current
+   default-branch HEAD before syncing files each reconcile. Directly
+   eliminates both the base-drift and content-drift risks the PR #71 WARN
+   describes, and keeps PRs mergeable without manual intervention.
 
 ## References
 

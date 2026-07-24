@@ -147,26 +147,26 @@ variables, which are passed literally and never re-evaluated.
 
 #### Tasks
 
-- [ ] 2.1 Rewrite `set-custom-properties.tmpl` so `Owner`, `Component`,
+- [x] 2.1 Rewrite `set-custom-properties.tmpl` so `Owner`, `Component`,
       and each `Properties` entry are emitted as workflow `env:` entries
       (e.g. `RG_PROP_Owner`, `RG_PROP_<name>`), then referenced in the
       `run:` script as `"$RG_PROP_Owner"` inside the `-f` arguments. The
       `${{ }}`-escape backtick convention still applies to the GHA
       expressions already in the file.
-- [ ] 2.2 YAML-safe value emission: values render into `env:` such that a
+- [x] 2.2 YAML-safe value emission: values render into `env:` such that a
       value containing a quote, `$`, newline, or `:` cannot break the
       workflow YAML or the shell (block scalar or a template helper that
       quotes/escapes — mechanism per Decision 2). A value that is
       empty still signals "clear" via the existing `-F
       'properties[][value]=null'` branch — the empty/clear distinction
       moves to checking the env var, not inline rendering.
-- [ ] 2.3 Template parse + render tests
+- [x] 2.3 Template parse + render tests
       (`internal/rules`/`internal/template`): a hostile value
       (`x'$(id)'`, embedded newline, `a: b`) renders to a workflow whose
       generated shell passes the literal string and whose YAML still
       parses. Assert the rendered output contains no unescaped
       interpolation of the value inside the `run:` block.
-- [ ] 2.4 Confirm strict-template validation (`ValidateZero`) still
+- [x] 2.4 Confirm strict-template validation (`ValidateZero`) still
       passes for the rewritten template context (no new required
       `CatalogInfo` fields introduced).
 
@@ -234,7 +234,7 @@ No `github.Client` interface change ⇒ no mockClient-parity sweep.
 
 - [x] Phase 1: catalog parse-error returns error; reconciler issues zero
       writes on malformed input; valid-catalog behavior unchanged.
-- [ ] Phase 2: injection regression (hostile value → inert literal);
+- [x] Phase 2: injection regression (hostile value → inert literal);
       YAML validity for quote/`$`/`:`/newline values; strict-template
       validation still passes.
 - [ ] `go test ./examples/...` still green (guardian-full.hcl uses the

@@ -310,9 +310,11 @@ func (h *Handler) markPending(ctx context.Context, installationID int64, owner, 
 	}
 }
 
-// hasWatchedFileChanges checks if any commit in the push event contains
-// added or modified files that match the watched paths. Removed files
-// are intentionally not checked.
+// hasWatchedFileChanges checks if any commit in the push event added,
+// modified, or removed a file matching the watched paths. Removals carry
+// policy meaning under IMPL-0019 when-gates (DESIGN-0020 Decision 5): a
+// removed renovate.json flips a gate closed, and a removed dependabot.yml
+// is a convergence event — both must trigger a re-check on the push path.
 func (h *Handler) hasWatchedFileChanges(e *gh.PushEvent) bool {
 	for _, commit := range e.Commits {
 		for _, path := range commit.Added {
@@ -322,6 +324,12 @@ func (h *Handler) hasWatchedFileChanges(e *gh.PushEvent) bool {
 		}
 
 		for _, path := range commit.Modified {
+			if h.watchedPaths[path] {
+				return true
+			}
+		}
+
+		for _, path := range commit.Removed {
 			if h.watchedPaths[path] {
 				return true
 			}

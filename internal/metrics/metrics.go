@@ -43,6 +43,28 @@ var (
 		Help: "Missing files detected.",
 	}, []string{labelRuleName, labelOrg})
 
+	// FilesForbiddenPresentTotal counts forbidden files detected present
+	// on the default branch by an absent-mode file rule (IMPL-0019 /
+	// DESIGN-0020). It is the absent-mode analogue of FilesMissingTotal:
+	// an actionable absent rule increments this, never FilesMissingTotal.
+	FilesForbiddenPresentTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_files_forbidden_present_total",
+		Help: "Forbidden files detected present by an absent-mode rule.",
+	}, []string{labelRuleName, labelOrg})
+
+	// RuleGateClosedTotal counts file-rule evaluations skipped because a
+	// when-gate was closed (IMPL-0019 / DESIGN-0020). reason="not_satisfied"
+	// is the ordinary "referee not yet satisfied on default branch" path;
+	// reason="error" means the referee evaluation errored and the gate
+	// failed closed — the alertable signal that API trouble is silently
+	// suppressing rules. Incremented only in the primary evaluation pass
+	// (findActionableRules), never in runReconcilers, per the file-rule
+	// double-iteration contract.
+	RuleGateClosedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_rule_gate_closed_total",
+		Help: "File-rule evaluations skipped because a when-gate was closed.",
+	}, []string{labelRuleName, labelOrg, labelReason})
+
 	// CheckDurationSeconds records the time to check a single repo.
 	CheckDurationSeconds = promauto.NewHistogram(prometheus.HistogramOpts{
 		Name:    "repo_guardian_check_duration_seconds",

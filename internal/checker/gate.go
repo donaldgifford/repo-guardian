@@ -99,6 +99,24 @@ func (g *gateEvaluator) gateOpen(ctx context.Context, log *slog.Logger, rule *po
 	return result.open, result.reason
 }
 
+// gateStatus reports the memoized gate outcome for a rule, for the
+// reconcile-log wording (IMPL-0019 task 2.6). It returns closed=false for
+// an ungated rule or one whose referee was not evaluated this repo-check;
+// it never triggers a fresh evaluation.
+func (g *gateEvaluator) gateStatus(rule *policy.FileRuleConfig) (closed bool, referee, reason string) {
+	if rule.When == nil {
+		return false, "", ""
+	}
+
+	referee = rule.When.RuleSatisfied
+
+	if res, ok := g.memo[referee]; ok && !res.open {
+		return true, referee, res.reason
+	}
+
+	return false, referee, ""
+}
+
 // evaluateReferee computes the gate outcome for a referee rule name. It
 // runs only on a memo miss, so its logs fire at most once per referee per
 // repo-check.

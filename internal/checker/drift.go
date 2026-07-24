@@ -155,6 +155,114 @@ func cleanupOrphans(
 	return removed
 }
 
+// restoreInverseOrphans restores forbidden files that an absent rule
+// previously deleted from the reconcile branch but which should no longer
+// be removed because the rule is no longer actionable (its when-gate
+// closed, or the file is gone from the default branch). It is the mirror
+// image of discoverOrphans/cleanupOrphans: instead of deleting a
+// no-longer-wanted added file, it re-adds a no-longer-forbidden file.
+//
+// Fail-safe (mirrors cleanupOrphans / IMPL-0013 Q9): any API error leaves
+// the path untouched, logs at Warn, increments PROrphanLeftTotal, and the
+// next sweep retries. Returns the names of rules whose files were restored.
+func restoreInverseOrphans(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	allRules, actionable []policy.FileRuleConfig,
+	owner, repo, defaultBranch string,
+) []string {
+	actionableSet := make(map[string]struct{}, len(actionable))
+	for i := range actionable {
+		actionableSet[actionable[i].Name] = struct{}{}
+	}
+
+	var restored []string
+
+	for i := range allRules {
+		r := &allRules[i]
+
+		if !r.IsEnabled() || r.CheckMode() != policy.CheckAbsent {
+			continue
+		}
+
+		if _, stillActionable := actionableSet[r.Name]; stillActionable {
+			continue
+		}
+
+		if restoreRulePaths(ctx, log, client, r, owner, repo, defaultBranch) {
+			restored = append(restored, r.Name)
+		}
+	}
+
+	return restored
+}
+
+// restoreRulePaths restores every path of a no-longer-actionable absent
+// rule that is present on the default branch but missing from the
+// reconcile branch. Returns true if at least one path was restored. Every
+// API error is fail-safe: the path is left untouched and retried next sweep.
+func restoreRulePaths(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	r *policy.FileRuleConfig,
+	owner, repo, defaultBranch string,
+) bool {
+	var restoredAny bool
+
+	for _, path := range r.Paths {
+		_, onDefault, err := client.GetContentsOnBranch(ctx, owner, repo, path, defaultBranch)
+		if err != nil {
+			logRestoreSkip(log, owner, r.Name, path, "default-branch probe failed", err)
+
+			continue
+		}
+
+		if !onDefault {
+			continue // nothing to restore — the file is gone from main too
+		}
+
+		_, onBranch, err := client.GetContentsOnBranch(ctx, owner, repo, path, BranchName)
+		if err != nil {
+			logRestoreSkip(log, owner, r.Name, path, "branch probe failed", err)
+
+			continue
+		}
+
+		if onBranch {
+			continue // branch still has it — nothing was deleted to restore
+		}
+
+		content, err := client.GetFileContent(ctx, owner, repo, path)
+		if err != nil {
+			logRestoreSkip(log, owner, r.Name, path, "fetching default content failed", err)
+
+			continue
+		}
+
+		msg := fmt.Sprintf("chore: restore %s (rule %q no longer applies)", path, r.Name)
+		if err := client.CreateOrUpdateFile(ctx, owner, repo, BranchName, path, content, msg); err != nil {
+			logRestoreSkip(log, owner, r.Name, path, "restore write failed", err)
+
+			continue
+		}
+
+		log.Info("inverse-orphan: restored file", "rule", r.Name, "path", path)
+
+		restoredAny = true
+	}
+
+	return restoredAny
+}
+
+// logRestoreSkip logs a fail-safe inverse-orphan skip and counts it.
+func logRestoreSkip(log *slog.Logger, owner, rule, path, reason string, err error) {
+	metrics.PROrphanLeftTotal.WithLabelValues(owner).Inc()
+	log.Warn("inverse-orphan: "+reason+"; leaving as-is, will retry next sweep",
+		"rule", rule, "path", path, "err", err)
+}
+
 // reconcileLogMarker is the row-1 marker that identifies the sticky
 // reconcile-log PR comment. Versioned (v1) so future schema changes
 // don't break the upsert match.
@@ -259,21 +367,24 @@ func mapContains(set map[string]struct{}, key string) bool {
 	return ok
 }
 
-// buildReconcileLogEvents joins the current actionable set and the
-// list of orphans removed this sweep into a flat status list.
-// Anything in allRules not in `actionable` is implicitly satisfied
-// on main; orphans are called out separately so operators see the
-// cleanup action.
-func buildReconcileLogEvents(allRules, actionable []policy.FileRuleConfig, removedOrphans []string) []reconcileLogEvent {
+// buildReconcileLogEvents joins the current actionable set, the orphans
+// removed this sweep, the inverse-orphans restored this sweep, and the
+// memoized gate outcomes into a flat per-rule status list. Absent rules
+// report removal-oriented statuses; a gate-closed rule reports why it was
+// skipped. gate may be nil (e.g. the auto-close path) — gate statuses are
+// simply omitted then.
+func buildReconcileLogEvents(
+	allRules, actionable []policy.FileRuleConfig,
+	removedOrphans, restoredRules []string,
+	gate *gateEvaluator,
+) []reconcileLogEvent {
 	actionableNames := make(map[string]struct{}, len(actionable))
 	for i := range actionable {
 		actionableNames[actionable[i].Name] = struct{}{}
 	}
 
-	orphanNames := make(map[string]struct{}, len(removedOrphans))
-	for _, n := range removedOrphans {
-		orphanNames[n] = struct{}{}
-	}
+	orphanNames := stringSet(removedOrphans)
+	restoredNames := stringSet(restoredRules)
 
 	events := make([]reconcileLogEvent, 0, len(allRules))
 
@@ -283,17 +394,59 @@ func buildReconcileLogEvents(allRules, actionable []policy.FileRuleConfig, remov
 			continue
 		}
 
-		switch {
-		case mapContains(orphanNames, r.Name):
-			events = append(events, reconcileLogEvent{Rule: r.Name, Status: "orphan removed from branch"})
-		case mapContains(actionableNames, r.Name):
-			events = append(events, reconcileLogEvent{Rule: r.Name, Status: "still actionable"})
-		default:
-			events = append(events, reconcileLogEvent{Rule: r.Name, Status: "satisfied on main"})
-		}
+		status := reconcileStatus(r, actionableNames, orphanNames, restoredNames, gate)
+		events = append(events, reconcileLogEvent{Rule: r.Name, Status: status})
 	}
 
 	return events
+}
+
+// reconcileStatus returns the reconcile-log status string for one rule.
+func reconcileStatus(
+	r *policy.FileRuleConfig,
+	actionable, orphans, restored map[string]struct{},
+	gate *gateEvaluator,
+) string {
+	absent := r.CheckMode() == policy.CheckAbsent
+
+	switch {
+	case mapContains(orphans, r.Name):
+		return "orphan removed from branch"
+	case mapContains(restored, r.Name):
+		return "restored to branch (rule no longer applies)"
+	case mapContains(actionable, r.Name):
+		if absent {
+			return "present on main, pending removal"
+		}
+
+		return "still actionable"
+	}
+
+	if gate != nil {
+		if closed, referee, reason := gate.gateStatus(r); closed {
+			if reason == gateReasonError {
+				return fmt.Sprintf("skipped (when-gate error: %s)", referee)
+			}
+
+			return fmt.Sprintf("skipped (when-gate closed: %s not satisfied)", referee)
+		}
+	}
+
+	if absent {
+		return "absent from main"
+	}
+
+	return "satisfied on main"
+}
+
+// stringSet collects a slice of names into a set for membership tests.
+func stringSet(names []string) map[string]struct{} {
+	set := make(map[string]struct{}, len(names))
+	for _, n := range names {
+		set[n] = struct{}{}
+	}
+
+	return set
 }
 
 // autoClosePR posts a final sticky comment, closes the PR, and
@@ -310,7 +463,7 @@ func autoClosePR(
 	pr *ghclient.PullRequest,
 	allRules []policy.FileRuleConfig,
 ) error {
-	events := buildReconcileLogEvents(allRules, nil, nil)
+	events := buildReconcileLogEvents(allRules, nil, nil, nil, nil)
 
 	closeBody := renderReconcileLog(events) +
 		"\n_All file rules satisfied on the default branch. " +

@@ -68,7 +68,7 @@ func (e *Engine) checkRepoWithPolicy(
 				// the sticky comment so operators reading the PR
 				// understand why no progress is happening despite
 				// every rule passing on main.
-				events := buildReconcileLogEvents(e.policy.FileRules, actionable, nil)
+				events := buildReconcileLogEvents(e.policy.FileRules, actionable, nil, nil, gate)
 				upsertReconcileLog(ctx, log, client, owner, repo, ourPR, events)
 			}
 		} else {
@@ -79,7 +79,7 @@ func (e *Engine) checkRepoWithPolicy(
 			"actionable_rules", policyRuleNames(actionable),
 			"planned_deletions", plannedDeletions(actionable))
 	default:
-		if err := e.createOrUpdatePRFromPolicy(ctx, client, owner, repo, defaultBranch, actionable, openPRs); err != nil {
+		if err := e.createOrUpdatePRFromPolicy(ctx, client, owner, repo, defaultBranch, actionable, openPRs, gate); err != nil {
 			return err
 		}
 	}
@@ -554,6 +554,7 @@ func (e *Engine) createOrUpdatePRFromPolicy(
 	owner, repo, defaultBranch string,
 	actionable []policy.FileRuleConfig,
 	openPRs []*ghclient.PullRequest,
+	gate *gateEvaluator,
 ) error {
 	log := e.logger.With("owner", owner, "repo", repo)
 
@@ -626,13 +627,18 @@ func (e *Engine) createOrUpdatePRFromPolicy(
 		removedOrphans = cleanupOrphans(ctx, log, client, orphans, owner, repo)
 	}
 
+	// IMPL-0019 Phase 2: inverse orphans — absent rules that stopped being
+	// actionable and whose forbidden file the branch deleted must be
+	// restored so the PR stops proposing the deletion.
+	restoredRules := restoreInverseOrphans(ctx, log, client, e.policy.FileRules, actionable, owner, repo, defaultBranch)
+
 	if err := e.refreshPolicyPR(ctx, log, client, owner, repo, defaultBranch, existingPR, actionable, now); err != nil {
 		log.Warn("PR body refresh failed; PR text may be stale until next sweep", "err", err)
 	}
 
 	// IMPL-0013 Phase 4: sticky reconcile-log comment with per-rule
 	// status. Best-effort — failures don't abort the sweep.
-	events := buildReconcileLogEvents(e.policy.FileRules, actionable, removedOrphans)
+	events := buildReconcileLogEvents(e.policy.FileRules, actionable, removedOrphans, restoredRules, gate)
 	upsertReconcileLog(ctx, log, client, owner, repo, existingPR, events)
 
 	metrics.PRsUpdatedTotal.WithLabelValues(owner).Inc()

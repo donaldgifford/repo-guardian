@@ -288,23 +288,23 @@ the next sweep.
 
 #### Tasks
 
-- [ ] 3.1 `internal/policy/watch.go.ExtractWatchedPaths`: for any rule
+- [x] 3.1 `internal/policy/watch.go.ExtractWatchedPaths`: for any rule
       carrying a `when` gate, both the referee's paths AND the gated
       rule's own paths join the watched set (Decision 4), unioned with
       the existing reconciler-`watch = true` sources.
-- [ ] 3.2 Extend `hasWatchedFileChanges` to scan `commit.Removed` for
+- [x] 3.2 Extend `hasWatchedFileChanges` to scan `commit.Removed` for
       watched paths (Decision 5; today removals are intentionally
       ignored — `internal/webhook/handler.go:314` — which predates
       removals having policy meaning: a removed `renovate.json` flips a
       gate). Update the function's doc comment, which currently
       documents the removed-files exclusion.
-- [ ] 3.3 Webhook handler tests: (i) push adding `renovate.json`
+- [x] 3.3 Webhook handler tests: (i) push adding `renovate.json`
       enqueues a re-check for a policy where only the *gated* rule
       references it; (ii) push re-adding `dependabot.yml` (a gated
       rule's own path) enqueues a re-check; (iii) push *removing*
       `renovate.json` enqueues a re-check; (iv) pushes touching
       unwatched paths still enqueue nothing.
-- [ ] 3.4 Doc comment on `ExtractWatchedPaths` updated to name all three
+- [x] 3.4 Doc comment on `ExtractWatchedPaths` updated to name all three
       sources (reconciler watch, gate reference, gated rule's own paths).
 
 #### Success Criteria

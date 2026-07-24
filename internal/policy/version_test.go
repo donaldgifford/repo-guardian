@@ -91,17 +91,23 @@ func TestVersion_WhenGateChangesHash(t *testing.T) {
 
 	templates := map[string]string{"codeowners": "* @platform"}
 
-	without, _ := policy.Version(base(), templates)
+	without, err := policy.Version(base(), templates)
+	if err != nil {
+		t.Fatalf("Version() error = %v", err)
+	}
 
 	gated := base()
 	gated.FileRules[len(gated.FileRules)-1].When = &policy.WhenConfig{
 		RuleSatisfied: "renovate_config",
 	}
 
-	with, _ := policy.Version(gated, templates)
+	with, err := policy.Version(gated, templates)
+	if err != nil {
+		t.Fatalf("Version() error = %v", err)
+	}
 
 	if without == with {
-		t.Error("adding a when gate must alter the policy hash")
+		t.Errorf("Version() = %q for both with and without when gate, want different hashes", with)
 	}
 }
 
@@ -122,15 +128,21 @@ func TestVersion_AbsentCheckModeChangesHash(t *testing.T) {
 
 	templates := map[string]string{"codeowners": "* @platform"}
 
-	exists, _ := policy.Version(base(), templates)
+	exists, err := policy.Version(base(), templates)
+	if err != nil {
+		t.Fatalf("Version() error = %v", err)
+	}
 
 	absent := base()
 	absent.FileRules[len(absent.FileRules)-1].Check = string(policy.CheckAbsent)
 
-	flipped, _ := policy.Version(absent, templates)
+	flipped, err := policy.Version(absent, templates)
+	if err != nil {
+		t.Fatalf("Version() error = %v", err)
+	}
 
 	if exists == flipped {
-		t.Error("flipping a rule's check mode to absent must alter the policy hash")
+		t.Errorf("Version() = %q for both exists and absent check mode, want different hashes", flipped)
 	}
 }
 

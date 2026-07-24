@@ -59,6 +59,7 @@ rule "file" "no_dependabot" {
 	for i := range cfg.FileRules {
 		if cfg.FileRules[i].Name == "no_dependabot" {
 			absent = &cfg.FileRules[i]
+			break
 		}
 	}
 

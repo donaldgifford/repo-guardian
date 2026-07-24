@@ -296,6 +296,12 @@ func (e *Engine) evaluateRule(
 		return e.evaluateContains(ctx, log, client, owner, repo, rule, existingPath)
 	case policy.CheckExact:
 		return e.evaluateExact(ctx, log, client, owner, repo, rule, existingPath)
+	case policy.CheckAbsent:
+		// Inert until IMPL-0019 Phase 1 task 1.6 wires evaluateAbsent.
+		// Absent rules must never route to evaluateExists (the default
+		// arm), which would treat a missing forbidden file as actionable
+		// against the rule's empty target and attempt a bogus create.
+		return false, nil
 	default:
 		return e.evaluateExists(log, existingPath), nil
 	}

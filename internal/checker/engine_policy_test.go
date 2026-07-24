@@ -74,6 +74,70 @@ func TestPolicyCheckRepo_ExistsMode_FilePresent(t *testing.T) {
 	}
 }
 
+// TestPolicyCheckRepo_AbsentMode_Inert is the IMPL-0019 Phase 0 bridge
+// assertion: an absent rule loads and is recognized by the engine, but
+// takes zero actions until Phase 1 wires evaluateAbsent. It must never
+// fall through to evaluateExists (which would treat a missing forbidden
+// file as actionable against the rule's empty target).
+func TestPolicyCheckRepo_AbsentMode_Inert(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		forbiddenExist bool
+	}{
+		{name: "forbidden file present", forbiddenExist: true},
+		{name: "forbidden file missing", forbiddenExist: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := &policy.PolicyConfig{
+				Guardian: policy.BuiltinDefaults().Guardian,
+				FileRules: []policy.FileRuleConfig{{
+					Type:  "file",
+					Name:  "no_dependabot",
+					Check: string(policy.CheckAbsent),
+					Paths: []string{".github/dependabot.yml"},
+				}},
+			}
+
+			engine := testPolicyEngine(cfg)
+			client := newMockClient()
+			client.repo = &ghclient.Repository{
+				Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+			}
+			client.branchSHAs["org/repo/main"] = "abc123"
+
+			if tt.forbiddenExist {
+				client.contents["org/repo/.github/dependabot.yml"] = true
+			}
+
+			if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+				t.Fatalf("CheckRepo: %v", err)
+			}
+
+			if client.createdPR != nil {
+				t.Error("absent rule must be inert in Phase 0: no PR should be created")
+			}
+
+			if len(client.createdFiles) != 0 {
+				t.Errorf("absent rule must be inert: got %d created files, want 0", len(client.createdFiles))
+			}
+
+			if len(client.deletedFiles) != 0 {
+				t.Errorf("absent rule must be inert: got %d deleted files, want 0", len(client.deletedFiles))
+			}
+
+			if len(client.createdBranches) != 0 {
+				t.Errorf("absent rule must be inert: got %d created branches, want 0", len(client.createdBranches))
+			}
+		})
+	}
+}
+
 func TestPolicyCheckRepo_ContainsMode_FileMissing(t *testing.T) {
 	t.Parallel()
 

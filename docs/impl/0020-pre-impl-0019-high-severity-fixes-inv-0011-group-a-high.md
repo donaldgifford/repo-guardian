@@ -109,22 +109,22 @@ error as destructive desired state.
 
 #### Tasks
 
-- [ ] 1.1 Change `catalog.Parse` to
+- [x] 1.1 Change `catalog.Parse` to
       `Parse(content string, annotationProps map[string]string)
       (*Properties, error)`: return a wrapped error when
       `yaml.Unmarshal` fails. Non-Component-entity handling is an
       explicit decision — see Decision 1.
-- [ ] 1.2 Update the sole caller `custom_properties.go.Reconcile:157`:
+- [x] 1.2 Update the sole caller `custom_properties.go.Reconcile:157`:
       on parse error, log `slog.Warn("catalog-info parse failed; skipping
       reconcile to avoid clearing properties", "err", err)`, increment
       `metrics.CatalogParseFailedTotal.WithLabelValues(owner)`, and
       return `nil` (skip — GitHub state untouched, retried next sweep).
-- [ ] 1.3 Add `CatalogParseFailedTotal{org}` CounterVec to
+- [x] 1.3 Add `CatalogParseFailedTotal{org}` CounterVec to
       `internal/metrics/metrics.go` (reuse `labelOrg`).
-- [ ] 1.4 Update `catalog` package tests: malformed YAML returns an
+- [x] 1.4 Update `catalog` package tests: malformed YAML returns an
       error (not defaults); valid Component parses as today; the
       non-Component case per Decision 1.
-- [ ] 1.5 Reconciler test: a malformed `catalog-info.yaml` in API mode
+- [x] 1.5 Reconciler test: a malformed `catalog-info.yaml` in API mode
       issues zero `SetCustomPropertyValues` calls and increments the
       counter (stateful mock asserts no PATCH).
 
@@ -232,7 +232,7 @@ No `github.Client` interface change ⇒ no mockClient-parity sweep.
 
 ## Testing Plan
 
-- [ ] Phase 1: catalog parse-error returns error; reconciler issues zero
+- [x] Phase 1: catalog parse-error returns error; reconciler issues zero
       writes on malformed input; valid-catalog behavior unchanged.
 - [ ] Phase 2: injection regression (hostile value → inert literal);
       YAML validity for quote/`$`/`:`/newline values; strict-template

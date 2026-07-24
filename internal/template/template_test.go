@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/donaldgifford/repo-guardian/internal/template"
 )
 
@@ -416,5 +418,136 @@ func TestCompiled_Name(t *testing.T) {
 
 	if c.Name() != "named" {
 		t.Errorf("Name() = %q, want %q", c.Name(), "named")
+	}
+}
+
+// TestPropEnvHelper locks the propenv binding: property names map to
+// RG_PROP_-prefixed shell identifiers with every character outside
+// [A-Za-z0-9_] replaced by '_'.
+func TestPropEnvHelper(t *testing.T) {
+	t.Parallel()
+
+	r := template.NewRenderer()
+
+	c, err := r.Parse("propenv", "{{ propenv .Repo }}")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"plain", "JiraProject", "RG_PROP_JiraProject"},
+		{"dot", "my.prop", "RG_PROP_my_prop"},
+		{"hyphen", "team-name", "RG_PROP_team_name"},
+		{"mixed", "a.b-c_d9", "RG_PROP_a_b_c_d9"},
+		{"empty", "", "RG_PROP_"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			out, err := c.Render(template.FileVars{Common: template.Common{Repo: tt.in}})
+			if err != nil {
+				t.Fatalf("Render(%q): %v", tt.in, err)
+			}
+
+			if out != tt.want {
+				t.Errorf("propenv(%q) = %q, want %q", tt.in, out, tt.want)
+			}
+		})
+	}
+}
+
+// TestYamlQuoteHelper proves the yamlq binding emits a single-line
+// double-quoted YAML scalar that round-trips every hostile input back
+// to the exact original value through a real YAML parser (IMPL-0020
+// A2 YAML-safe emission).
+func TestYamlQuoteHelper(t *testing.T) {
+	t.Parallel()
+
+	r := template.NewRenderer()
+
+	c, err := r.Parse("yamlq", "v: {{ yamlq .Repo }}")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tests := []struct {
+		name string
+		in   string
+	}{
+		{"plain", "BILL"},
+		{"empty", ""},
+		{"shell command substitution", "x'$(id)'"},
+		{"double quotes", `he said "hi"`},
+		{"backslash", `C:\path\to`},
+		{"newline", "line1\nline2"},
+		{"carriage return", "a\r\nb"},
+		{"tab", "a\tb"},
+		{"yaml mapping", "a: b"},
+		{"yaml flow indicators", "{key: [1, 2]}"},
+		{"leading dash", "- item"},
+		{"hash comment", "value # not a comment"},
+		{"NEL control", "a" + string(rune(0x85)) + "b"},
+		{"unicode line separator", "a" + string(rune(0x2028)) + "b"},
+		{"unicode paragraph separator", "a" + string(rune(0x2029)) + "b"},
+		{"dollar without braces", "$HOME and ${PATH}"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			out, err := c.Render(template.FileVars{Common: template.Common{Repo: tt.in}})
+			if err != nil {
+				t.Fatalf("Render(%q): %v", tt.in, err)
+			}
+
+			if strings.Contains(out, "\n") {
+				t.Errorf("yamlq(%q) rendered across multiple lines: %q", tt.in, out)
+			}
+
+			var doc struct {
+				V string `yaml:"v"`
+			}
+
+			if err := yaml.Unmarshal([]byte(out), &doc); err != nil {
+				t.Fatalf("rendered scalar is not valid YAML: %v\noutput: %q", err, out)
+			}
+
+			if doc.V != tt.in {
+				t.Errorf("round-trip = %q, want %q", doc.V, tt.in)
+			}
+		})
+	}
+}
+
+// TestYamlQuoteHelper_RejectsGHAExpression proves yamlq refuses values
+// carrying a GitHub Actions expression opener: no YAML escaping can
+// stop the Actions runner from evaluating "${{ ... }}" after parsing,
+// so rendering must fail instead.
+func TestYamlQuoteHelper_RejectsGHAExpression(t *testing.T) {
+	t.Parallel()
+
+	r := template.NewRenderer()
+
+	c, err := r.Parse("yamlq", "v: {{ yamlq .Repo }}")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	hostile := "x${{ secrets.GITHUB_TOKEN }}"
+
+	_, err = c.Render(template.FileVars{Common: template.Common{Repo: hostile}})
+	if err == nil {
+		t.Fatalf("Render(%q) error = nil, want expression-rejection error", hostile)
+	}
+
+	if !strings.Contains(err.Error(), "expression opener") {
+		t.Errorf("Render(%q) error = %v, want mention of expression opener", hostile, err)
 	}
 }

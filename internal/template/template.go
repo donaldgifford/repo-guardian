@@ -7,8 +7,8 @@
 // # Helpers
 //
 // The renderer ships a small curated helper set documented in helpers.go:
-// env, default, join, lower, upper, title. The full Sprig library is
-// deliberately not included to keep the surface auditable.
+// env, default, join, lower, upper, title, propenv, yamlq. The full Sprig
+// library is deliberately not included to keep the surface auditable.
 //
 // # Security posture for the env helper
 //

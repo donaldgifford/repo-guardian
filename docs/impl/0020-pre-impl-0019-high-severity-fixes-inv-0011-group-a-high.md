@@ -185,23 +185,25 @@ variables, which are passed literally and never re-evaluated.
 
 #### Tasks
 
-- [ ] 3.1 `docs/usage/policy-reference.md` § `custom_properties`: note
+- [x] 3.1 `docs/usage/policy-reference.md` § `custom_properties`: note
       that a malformed `catalog-info.yaml` is skipped (not cleared), and
       that generated-workflow values are passed literally.
-- [ ] 3.2 Short migration/security note (release notes or a
+- [x] 3.2 Short migration/security note (release notes or a
       `docs/operations/*-migration.md` entry): describes the A2 fix as a
       security fix, recommends operators using GHA mode regenerate any
       open properties PRs (old branches carry the vulnerable workflow —
-      see Decision 3).
-- [ ] 3.3 CLAUDE.md: architecture note on the catalog parse-failure
+      see Decision 3). Published at
+      `docs/operations/custom-properties-security-fix.md`.
+- [x] 3.3 CLAUDE.md: architecture note on the catalog parse-failure
       skip contract and the env-indirection template convention (so
       future template edits don't reintroduce inline interpolation).
-- [ ] 3.4 `docz update impl`; flip this doc to Completed; mkdocs
+- [x] 3.4 `docz update impl`; flip this doc to Completed; mkdocs
       strict-mode warning count unchanged from the 14-file baseline.
-- [ ] 3.5 Release: single `fix/` PR, `patch` semver label, appVersion
+- [x] 3.5 Release: single `fix/` PR, `patch` semver label, appVersion
       bump verified against the real tag line (per the IMPL-0017
       post-mortem — Chart.yaml appVersion must equal the tag the label
-      will cut from the latest real release).
+      will cut from the latest real release). appVersion 1.9.0 → 1.9.1
+      (latest real tag v1.9.0 + patch), chart 1.0.0-rc.6 → rc.7.
 
 #### Success Criteria
 
@@ -237,7 +239,7 @@ No `github.Client` interface change ⇒ no mockClient-parity sweep.
 - [x] Phase 2: injection regression (hostile value → inert literal);
       YAML validity for quote/`$`/`:`/newline values; strict-template
       validation still passes.
-- [ ] `go test ./examples/...` still green (guardian-full.hcl uses the
+- [x] `go test ./examples/...` still green (guardian-full.hcl uses the
       Jira map through this reconciler).
 - [ ] Homelab smoke (operator-side, stays open until run): push a
       deliberately malformed catalog-info.yaml ⇒ no property change +

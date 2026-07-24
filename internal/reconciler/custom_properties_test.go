@@ -506,8 +506,9 @@ func TestGHAMode_SetsFromCatalogInfo_JiraMapConfigured(t *testing.T) {
 	for _, want := range []string{
 		"-f 'properties[][property_name]=JiraLabel'",
 		"-f 'properties[][property_name]=JiraProject'",
-		"-f 'properties[][value]=my-service'",
-		"-f 'properties[][value]=PROJ'",
+		`RG_PROP_Component: "my-service"`,
+		`RG_PROP_JiraProject: "PROJ"`,
+		`properties[][value]=$RG_PROP_JiraProject`,
 	} {
 		if !strings.Contains(rendered, want) {
 			t.Errorf("rendered workflow missing %q; got:\n%s", want, rendered)
@@ -553,7 +554,7 @@ spec:
 		t.Errorf("expected a JSON-null clear for the removed JiraLabel annotation; got:\n%s", rendered)
 	}
 
-	if !strings.Contains(rendered, "-f 'properties[][value]=PROJ'") {
+	if !strings.Contains(rendered, `RG_PROP_JiraProject: "PROJ"`) {
 		t.Errorf("expected JiraProject to still be set from the present annotation; got:\n%s", rendered)
 	}
 }

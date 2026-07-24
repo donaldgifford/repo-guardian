@@ -31,7 +31,12 @@ func (e *Engine) checkRepoWithPolicy(
 		return nil
 	}
 
-	actionable, err := e.findActionableRules(ctx, log, client, owner, repo, openPRs)
+	// gate memoizes when-gate referee evaluations for this single
+	// repo-check and is threaded into both file-rule passes. It must be
+	// per-repo-check (never stored on the shared Engine) — see gate.go.
+	gate := newGateEvaluator(e, client, owner, repo)
+
+	actionable, err := e.findActionableRules(ctx, log, client, owner, repo, openPRs, gate)
 	if err != nil {
 		return err
 	}
@@ -85,7 +90,7 @@ func (e *Engine) checkRepoWithPolicy(
 	}
 
 	// Run reconcilers for rules where the file check passed.
-	e.runReconcilers(ctx, log, client, owner, repo, defaultBranch, openPRs)
+	e.runReconcilers(ctx, log, client, owner, repo, defaultBranch, openPRs, gate)
 
 	// Evaluate setting rules.
 	if err := e.evaluateSettingRules(ctx, log, client, owner, repo); err != nil {
@@ -110,6 +115,7 @@ func (e *Engine) runReconcilers(
 	client ghclient.Client,
 	owner, repo, defaultBranch string,
 	openPRs []*ghclient.PullRequest,
+	gate *gateEvaluator,
 ) {
 	ownerRepo := owner + "/" + repo
 	strict := strictMode(e.policy)
@@ -128,6 +134,14 @@ func (e *Engine) runReconcilers(
 		}
 
 		if r.Ignore != nil && r.Ignore.Matches(ownerRepo) {
+			continue
+		}
+
+		// when-gate (IMPL-0019): reuse the memoized result from the primary
+		// pass. Silent by design — the RuleGateClosedTotal counter is owned
+		// by findActionableRules; incrementing here too would double-count
+		// under the file-rule double-iteration contract.
+		if open, _ := gate.gateOpen(ctx, log, r); !open {
 			continue
 		}
 
@@ -224,6 +238,7 @@ func (e *Engine) findActionableRules(
 	client ghclient.Client,
 	owner, repo string,
 	openPRs []*ghclient.PullRequest,
+	gate *gateEvaluator,
 ) ([]policy.FileRuleConfig, error) {
 	var actionable []policy.FileRuleConfig
 
@@ -253,19 +268,46 @@ func (e *Engine) findActionableRules(
 			continue
 		}
 
+		// when-gate (IMPL-0019): a gated rule fires only when its referee
+		// is satisfied on the default branch. A closed gate — including a
+		// referee evaluation error (fail-closed) — skips the rule. This is
+		// the primary pass, so it owns the RuleGateClosedTotal counter; the
+		// runReconcilers pass reads the same memoized result silently.
+		if open, reason := gate.gateOpen(ctx, ruleLog, r); !open {
+			ruleLog.Info("rule gate closed, skipping rule",
+				"referee", r.When.RuleSatisfied, "reason", reason)
+			metrics.RuleGateClosedTotal.WithLabelValues(r.Name, owner, reason).Inc()
+
+			continue
+		}
+
 		action, err := e.evaluateRule(ctx, ruleLog, client, owner, repo, r, openPRs)
 		if err != nil {
 			return nil, fmt.Errorf("evaluating rule %q: %w", r.Name, err)
 		}
 
 		if action {
-			ruleLog.Info("rule requires action")
-			metrics.FilesMissingTotal.WithLabelValues(r.Name, owner).Inc()
+			e.recordActionable(ruleLog, r, owner)
 			actionable = append(actionable, *r)
 		}
 	}
 
 	return actionable, nil
+}
+
+// recordActionable logs and counts an actionable file rule, routing absent
+// rules to FilesForbiddenPresentTotal and all other modes to
+// FilesMissingTotal (IMPL-0019 task 1.7).
+func (*Engine) recordActionable(ruleLog *slog.Logger, r *policy.FileRuleConfig, owner string) {
+	if r.CheckMode() == policy.CheckAbsent {
+		ruleLog.Info("forbidden file present, will remove")
+		metrics.FilesForbiddenPresentTotal.WithLabelValues(r.Name, owner).Inc()
+
+		return
+	}
+
+	ruleLog.Info("rule requires action")
+	metrics.FilesMissingTotal.WithLabelValues(r.Name, owner).Inc()
 }
 
 // evaluateRule checks a single policy rule and returns true if action is needed.

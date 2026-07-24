@@ -74,6 +74,7 @@ nav:
         - Chart 0.5.0 migration runbook (IMPL-0011): operations/chart-0.5.0-migration.md
         - Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration: operations/pr-convergence-migration.md
         - Custom-property annotation migration (appVersion 1.9.1 → next minor): operations/annotation-properties-migration.md
+        - Custom-properties security fix (IMPL-0020): operations/custom-properties-security-fix.md
         - ECR publish setup (maintainer-side): operations/ecr-publish-setup.md
         - Homelab CNPG cutover runbook: operations/cnpg-homelab-cutover.md
         - Postgres schema operations: operations/migrations.md

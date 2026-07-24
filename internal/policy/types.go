@@ -22,6 +22,13 @@ const (
 	// CheckExact checks that the file exists and matches the template exactly.
 	// YAML files use semantic comparison; plaintext uses byte comparison.
 	CheckExact CheckMode = "exact"
+
+	// CheckAbsent checks that none of the rule's paths exist. The rule is
+	// actionable when any path is present on the default branch, and its
+	// remediation is a file-deletion PR on the reconcile branch rather
+	// than an add/fix commit (DESIGN-0020). Absent rules carry no target,
+	// template, assertions, or reconcilers — those are rejected at load.
+	CheckAbsent CheckMode = "absent"
 )
 
 // Rule block type identifiers — the first label on a `rule {}` block.
@@ -135,6 +142,8 @@ func (f *FileRuleConfig) CheckMode() CheckMode {
 		return CheckContains
 	case string(CheckExact):
 		return CheckExact
+	case string(CheckAbsent):
+		return CheckAbsent
 	default:
 		return CheckExists
 	}

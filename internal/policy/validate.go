@@ -83,12 +83,13 @@ func validateFileRule(r *FileRuleConfig, prefix string) []error {
 		string(CheckExists):   true,
 		string(CheckContains): true,
 		string(CheckExact):    true,
+		string(CheckAbsent):   true,
 		"":                    true, // defaults to "exists"
 	}
 
 	if !validChecks[r.Check] {
 		errs = append(errs, fmt.Errorf(
-			"%s: check must be one of exists, contains, exact; got %q",
+			"%s: check must be one of exists, contains, exact, absent; got %q",
 			prefix, r.Check,
 		))
 	}

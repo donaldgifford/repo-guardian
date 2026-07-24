@@ -1,7 +1,7 @@
 ---
 id: IMPL-0020
 title: "Pre-IMPL-0019 high-severity fixes (INV-0011 Group A High)"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-07-23
 ---
@@ -9,7 +9,7 @@ created: 2026-07-23
 
 # IMPL 0020: Pre-IMPL-0019 high-severity fixes (INV-0011 Group A High)
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-07-23
 
@@ -109,22 +109,22 @@ error as destructive desired state.
 
 #### Tasks
 
-- [ ] 1.1 Change `catalog.Parse` to
+- [x] 1.1 Change `catalog.Parse` to
       `Parse(content string, annotationProps map[string]string)
       (*Properties, error)`: return a wrapped error when
       `yaml.Unmarshal` fails. Non-Component-entity handling is an
       explicit decision — see Decision 1.
-- [ ] 1.2 Update the sole caller `custom_properties.go.Reconcile:157`:
+- [x] 1.2 Update the sole caller `custom_properties.go.Reconcile:157`:
       on parse error, log `slog.Warn("catalog-info parse failed; skipping
       reconcile to avoid clearing properties", "err", err)`, increment
       `metrics.CatalogParseFailedTotal.WithLabelValues(owner)`, and
       return `nil` (skip — GitHub state untouched, retried next sweep).
-- [ ] 1.3 Add `CatalogParseFailedTotal{org}` CounterVec to
+- [x] 1.3 Add `CatalogParseFailedTotal{org}` CounterVec to
       `internal/metrics/metrics.go` (reuse `labelOrg`).
-- [ ] 1.4 Update `catalog` package tests: malformed YAML returns an
+- [x] 1.4 Update `catalog` package tests: malformed YAML returns an
       error (not defaults); valid Component parses as today; the
       non-Component case per Decision 1.
-- [ ] 1.5 Reconciler test: a malformed `catalog-info.yaml` in API mode
+- [x] 1.5 Reconciler test: a malformed `catalog-info.yaml` in API mode
       issues zero `SetCustomPropertyValues` calls and increments the
       counter (stateful mock asserts no PATCH).
 
@@ -147,26 +147,26 @@ variables, which are passed literally and never re-evaluated.
 
 #### Tasks
 
-- [ ] 2.1 Rewrite `set-custom-properties.tmpl` so `Owner`, `Component`,
+- [x] 2.1 Rewrite `set-custom-properties.tmpl` so `Owner`, `Component`,
       and each `Properties` entry are emitted as workflow `env:` entries
       (e.g. `RG_PROP_Owner`, `RG_PROP_<name>`), then referenced in the
       `run:` script as `"$RG_PROP_Owner"` inside the `-f` arguments. The
       `${{ }}`-escape backtick convention still applies to the GHA
       expressions already in the file.
-- [ ] 2.2 YAML-safe value emission: values render into `env:` such that a
+- [x] 2.2 YAML-safe value emission: values render into `env:` such that a
       value containing a quote, `$`, newline, or `:` cannot break the
       workflow YAML or the shell (block scalar or a template helper that
       quotes/escapes — mechanism per Decision 2). A value that is
       empty still signals "clear" via the existing `-F
       'properties[][value]=null'` branch — the empty/clear distinction
       moves to checking the env var, not inline rendering.
-- [ ] 2.3 Template parse + render tests
+- [x] 2.3 Template parse + render tests
       (`internal/rules`/`internal/template`): a hostile value
       (`x'$(id)'`, embedded newline, `a: b`) renders to a workflow whose
       generated shell passes the literal string and whose YAML still
       parses. Assert the rendered output contains no unescaped
       interpolation of the value inside the `run:` block.
-- [ ] 2.4 Confirm strict-template validation (`ValidateZero`) still
+- [x] 2.4 Confirm strict-template validation (`ValidateZero`) still
       passes for the rewritten template context (no new required
       `CatalogInfo` fields introduced).
 
@@ -185,23 +185,25 @@ variables, which are passed literally and never re-evaluated.
 
 #### Tasks
 
-- [ ] 3.1 `docs/usage/policy-reference.md` § `custom_properties`: note
+- [x] 3.1 `docs/usage/policy-reference.md` § `custom_properties`: note
       that a malformed `catalog-info.yaml` is skipped (not cleared), and
       that generated-workflow values are passed literally.
-- [ ] 3.2 Short migration/security note (release notes or a
+- [x] 3.2 Short migration/security note (release notes or a
       `docs/operations/*-migration.md` entry): describes the A2 fix as a
       security fix, recommends operators using GHA mode regenerate any
       open properties PRs (old branches carry the vulnerable workflow —
-      see Decision 3).
-- [ ] 3.3 CLAUDE.md: architecture note on the catalog parse-failure
+      see Decision 3). Published at
+      `docs/operations/custom-properties-security-fix.md`.
+- [x] 3.3 CLAUDE.md: architecture note on the catalog parse-failure
       skip contract and the env-indirection template convention (so
       future template edits don't reintroduce inline interpolation).
-- [ ] 3.4 `docz update impl`; flip this doc to Completed; mkdocs
+- [x] 3.4 `docz update impl`; flip this doc to Completed; mkdocs
       strict-mode warning count unchanged from the 14-file baseline.
-- [ ] 3.5 Release: single `fix/` PR, `patch` semver label, appVersion
+- [x] 3.5 Release: single `fix/` PR, `patch` semver label, appVersion
       bump verified against the real tag line (per the IMPL-0017
       post-mortem — Chart.yaml appVersion must equal the tag the label
-      will cut from the latest real release).
+      will cut from the latest real release). appVersion 1.9.0 → 1.9.1
+      (latest real tag v1.9.0 + patch), chart 1.0.0-rc.6 → rc.7.
 
 #### Success Criteria
 
@@ -232,12 +234,12 @@ No `github.Client` interface change ⇒ no mockClient-parity sweep.
 
 ## Testing Plan
 
-- [ ] Phase 1: catalog parse-error returns error; reconciler issues zero
+- [x] Phase 1: catalog parse-error returns error; reconciler issues zero
       writes on malformed input; valid-catalog behavior unchanged.
-- [ ] Phase 2: injection regression (hostile value → inert literal);
+- [x] Phase 2: injection regression (hostile value → inert literal);
       YAML validity for quote/`$`/`:`/newline values; strict-template
       validation still passes.
-- [ ] `go test ./examples/...` still green (guardian-full.hcl uses the
+- [x] `go test ./examples/...` still green (guardian-full.hcl uses the
       Jira map through this reconciler).
 - [ ] Homelab smoke (operator-side, stays open until run): push a
       deliberately malformed catalog-info.yaml ⇒ no property change +

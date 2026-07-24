@@ -506,8 +506,9 @@ func TestGHAMode_SetsFromCatalogInfo_JiraMapConfigured(t *testing.T) {
 	for _, want := range []string{
 		"-f 'properties[][property_name]=JiraLabel'",
 		"-f 'properties[][property_name]=JiraProject'",
-		"-f 'properties[][value]=my-service'",
-		"-f 'properties[][value]=PROJ'",
+		`RG_PROP_Component: "my-service"`,
+		`RG_PROP_JiraProject: "PROJ"`,
+		`properties[][value]=$RG_PROP_JiraProject`,
 	} {
 		if !strings.Contains(rendered, want) {
 			t.Errorf("rendered workflow missing %q; got:\n%s", want, rendered)
@@ -553,7 +554,7 @@ spec:
 		t.Errorf("expected a JSON-null clear for the removed JiraLabel annotation; got:\n%s", rendered)
 	}
 
-	if !strings.Contains(rendered, "-f 'properties[][value]=PROJ'") {
+	if !strings.Contains(rendered, `RG_PROP_JiraProject: "PROJ"`) {
 		t.Errorf("expected JiraProject to still be set from the present annotation; got:\n%s", rendered)
 	}
 }
@@ -584,13 +585,14 @@ func TestGHAMode_UnparseableFile(t *testing.T) {
 	r := newTestReconciler(t, "github-action")
 	client := basePropertiesClient()
 
+	// Unparseable content → skip without opening a PR (INV-0011 A1).
 	err := r.Reconcile(context.Background(), newParams(client, "{{{invalid yaml", false, nil))
 	if err != nil {
 		t.Fatalf("Reconcile: %v", err)
 	}
 
-	if client.createdPR == nil {
-		t.Fatal("expected PR to be created with Unclassified defaults")
+	if client.createdPR != nil {
+		t.Errorf("expected no PR on unparseable catalog-info, got %+v", client.createdPR)
 	}
 }
 
@@ -1211,35 +1213,93 @@ func TestAPIMode_NoCatalog_StaleBranchCleanup(t *testing.T) {
 	}
 }
 
-func TestReconciler_MissingFields_UsesDefaults(t *testing.T) {
+func TestReconciler_UnparseableCatalog_Skips(t *testing.T) {
 	t.Parallel()
 
 	r := newTestReconciler(t, "api")
 	client := basePropertiesClient()
 
-	// Unparseable content → catalog.Parse returns defaults.
+	// Unparseable content → skip without touching GitHub state
+	// (INV-0011 A1: a parse failure must never masquerade as "clear
+	// everything").
 	err := r.Reconcile(context.Background(), newParams(client, "not yaml {{{", false, nil))
 	if err != nil {
 		t.Fatalf("Reconcile: %v", err)
 	}
 
-	if len(client.setProperties) == 0 {
-		t.Fatal("expected properties to be set")
+	if len(client.setProperties) != 0 {
+		t.Errorf("expected zero SetCustomPropertyValues calls, got %v", client.setProperties)
+	}
+}
+
+func TestAPIMode_UnparseableCatalog_NoWriteAndCounterIncrements(t *testing.T) {
+	t.Parallel()
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+	client.customProperties["parse-fail-org/my-service"] = []*ghclient.CustomPropertyValue{
+		{PropertyName: "Owner", Value: strPtr("platform-team")},
+		{PropertyName: "JiraProject", Value: strPtr("PROJ")},
 	}
 
-	propMap := make(map[string]string)
-	for _, p := range client.setProperties {
-		if p.Value != nil {
-			propMap[p.PropertyName] = *p.Value
-		}
+	// Owner doubles as the org metric label; a test-unique value keeps
+	// the counter delta isolated from parallel tests that also feed
+	// malformed content through owner "org".
+	params := newParams(client, "not yaml {{{", false, nil)
+	params.Owner = "parse-fail-org"
+
+	before := testutil.ToFloat64(metrics.CatalogParseFailedTotal.WithLabelValues("parse-fail-org"))
+
+	if err := r.Reconcile(context.Background(), params); err != nil {
+		t.Fatalf("Reconcile: %v", err)
 	}
 
-	if propMap["Owner"] != catalog.DefaultOwner {
-		t.Errorf("expected Owner=%s, got %q", catalog.DefaultOwner, propMap["Owner"])
+	if len(client.setProperties) != 0 {
+		t.Errorf("expected zero SetCustomPropertyValues calls on parse failure, got %v", client.setProperties)
 	}
 
-	if propMap["Component"] != catalog.DefaultComponent {
-		t.Errorf("expected Component=%s, got %q", catalog.DefaultComponent, propMap["Component"])
+	got := testutil.ToFloat64(metrics.CatalogParseFailedTotal.WithLabelValues("parse-fail-org")) - before
+	if got != 1 {
+		t.Errorf("CatalogParseFailedTotal delta = %v, want 1", got)
+	}
+}
+
+func TestAPIMode_NonComponentCatalog_SkipsWithoutCounter(t *testing.T) {
+	t.Parallel()
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+
+	content := `apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: my-api
+spec:
+  owner: api-team
+`
+
+	params := newParams(client, content, false, nil)
+	params.Owner = "non-component-org"
+
+	before := testutil.ToFloat64(metrics.CatalogParseFailedTotal.WithLabelValues("non-component-org"))
+
+	if err := r.Reconcile(context.Background(), params); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	if len(client.setProperties) != 0 {
+		t.Errorf("expected zero SetCustomPropertyValues calls for non-Component entity, got %v", client.setProperties)
+	}
+
+	if client.createdPR != nil {
+		t.Errorf("expected no PR for non-Component entity, got %+v", client.createdPR)
+	}
+
+	// A valid non-Component entity is a legitimate skip, not a parse
+	// failure — the counter must not move (IMPL-0020 Decision 1).
+	got := testutil.ToFloat64(metrics.CatalogParseFailedTotal.WithLabelValues("non-component-org")) - before
+	if got != 0 {
+		t.Errorf("CatalogParseFailedTotal delta = %v, want 0", got)
 	}
 }
 

@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"errors"
 	"testing"
 )
 
@@ -17,6 +18,11 @@ func TestParse(t *testing.T) {
 		content         string
 		annotationProps map[string]string
 		want            *Properties
+		// wantErrIs, when non-nil, asserts errors.Is(err, wantErrIs).
+		wantErrIs error
+		// wantParseErr asserts a non-ErrNotComponent parse error
+		// (unparseable YAML wrapped by Parse).
+		wantParseErr bool
 	}{
 		{
 			name: "mapped annotations present",
@@ -143,10 +149,7 @@ spec:
   owner: api-team
 `,
 			annotationProps: jiraAnnotationProps,
-			want: &Properties{
-				Owner:     DefaultOwner,
-				Component: DefaultComponent,
-			},
+			wantErrIs:       ErrNotComponent,
 		},
 		{
 			name: "wrong apiVersion",
@@ -158,28 +161,19 @@ spec:
   owner: some-team
 `,
 			annotationProps: jiraAnnotationProps,
-			want: &Properties{
-				Owner:     DefaultOwner,
-				Component: DefaultComponent,
-			},
+			wantErrIs:       ErrNotComponent,
 		},
 		{
 			name:            "malformed YAML",
 			content:         `{{{`,
 			annotationProps: jiraAnnotationProps,
-			want: &Properties{
-				Owner:     DefaultOwner,
-				Component: DefaultComponent,
-			},
+			wantParseErr:    true,
 		},
 		{
 			name:            "empty string",
 			content:         "",
 			annotationProps: jiraAnnotationProps,
-			want: &Properties{
-				Owner:     DefaultOwner,
-				Component: DefaultComponent,
-			},
+			wantErrIs:       ErrNotComponent,
 		},
 		{
 			name: "valid YAML but not backstage entity",
@@ -188,10 +182,7 @@ version: 1.0
 description: some random config
 `,
 			annotationProps: jiraAnnotationProps,
-			want: &Properties{
-				Owner:     DefaultOwner,
-				Component: DefaultComponent,
-			},
+			wantErrIs:       ErrNotComponent,
 		},
 	}
 
@@ -199,7 +190,16 @@ description: some random config
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := Parse(tt.content, tt.annotationProps)
+			got, err := Parse(tt.content, tt.annotationProps)
+
+			if tt.wantErrIs != nil || tt.wantParseErr {
+				assertParseError(t, got, err, tt.wantErrIs)
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Parse() error = %v, want nil", err)
+			}
 
 			if got.Owner != tt.want.Owner {
 				t.Errorf("Owner = %q, want %q", got.Owner, tt.want.Owner)
@@ -222,6 +222,35 @@ description: some random config
 	}
 }
 
+// assertParseError verifies an error outcome of Parse: nil Properties,
+// a non-nil error, and — when wantErrIs is set — sentinel identity.
+// A nil wantErrIs asserts the inverse: a parse error must NOT satisfy
+// errors.Is(err, ErrNotComponent), so callers can distinguish the two
+// skip reasons.
+func assertParseError(t *testing.T, got *Properties, err, wantErrIs error) {
+	t.Helper()
+
+	if err == nil {
+		t.Fatal("Parse() error = nil, want error")
+	}
+
+	if got != nil {
+		t.Errorf("Parse() = %+v, want nil Properties on error", got)
+	}
+
+	if wantErrIs != nil {
+		if !errors.Is(err, wantErrIs) {
+			t.Errorf("Parse() error = %v, want errors.Is(err, %v)", err, wantErrIs)
+		}
+
+		return
+	}
+
+	if errors.Is(err, ErrNotComponent) {
+		t.Errorf("Parse() error = %v, want a parse error distinct from ErrNotComponent", err)
+	}
+}
+
 func TestParse_NilAnnotationPropsNeverAllocatesExtra(t *testing.T) {
 	t.Parallel()
 
@@ -235,7 +264,28 @@ spec:
   owner: platform-team
 `
 
-	got := Parse(content, nil)
+	got, err := Parse(content, nil)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+
+	if got.Extra != nil {
+		t.Errorf("Extra = %v, want nil", got.Extra)
+	}
+}
+
+func TestDefaults(t *testing.T) {
+	t.Parallel()
+
+	got := Defaults()
+
+	if got.Owner != DefaultOwner {
+		t.Errorf("Owner = %q, want %q", got.Owner, DefaultOwner)
+	}
+
+	if got.Component != DefaultComponent {
+		t.Errorf("Component = %q, want %q", got.Component, DefaultComponent)
+	}
 
 	if got.Extra != nil {
 		t.Errorf("Extra = %v, want nil", got.Extra)

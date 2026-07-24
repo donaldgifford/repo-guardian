@@ -4,6 +4,14 @@
 # Prerequisites:
 #   - Org-level custom property schema must define: Owner, Component{{ range $name, $value := .Catalog.Properties }}, {{ $name }}{{ end }}
 #   - GITHUB_TOKEN must have custom_properties:write permission
+#
+# Property values are passed to the shell exclusively through the env
+# block (rendered YAML-safe by the yamlq template helper) and expanded
+# as "$RG_PROP_*" variables, which the shell substitutes literally and
+# never re-parses. Never interpolate a property VALUE directly into the
+# run script when editing this template (IMPL-0020 A2); property NAMES
+# are operator-controlled policy config validated against a safe
+# charset at load time.
 name: Set Custom Properties
 
 on:
@@ -21,13 +29,21 @@ jobs:
       - name: Set repository custom properties
         env:
           GH_TOKEN: {{`${{ secrets.GITHUB_TOKEN }}`}}
+          RG_PROP_Owner: {{ yamlq .Catalog.Owner }}
+          RG_PROP_Component: {{ yamlq .Catalog.Component }}{{ range $name, $value := .Catalog.Properties }}
+          {{ propenv $name }}: {{ yamlq $value }}{{ end }}
         run: |
-          gh api \
-            --method PATCH \
-            "repos/{{`${{ github.repository }}`}}/properties/values" \
-            -f 'properties[][property_name]=Owner' \
-            -f 'properties[][value]={{ .Catalog.Owner }}' \{{ range $name, $value := .Catalog.Properties }}
-            -f 'properties[][property_name]={{ $name }}' \
-            {{ if $value }}-f 'properties[][value]={{ $value }}'{{ else }}-F 'properties[][value]=null'{{ end }} \{{ end }}
-            -f 'properties[][property_name]=Component' \
-            -f 'properties[][value]={{ .Catalog.Component }}'
+          args=(
+            --method PATCH
+            "repos/{{`${{ github.repository }}`}}/properties/values"
+            -f 'properties[][property_name]=Owner'
+            -f "properties[][value]=$RG_PROP_Owner"
+            -f 'properties[][property_name]=Component'
+            -f "properties[][value]=$RG_PROP_Component"
+          ){{ range $name, $value := .Catalog.Properties }}
+          if [ -n "${{ propenv $name }}" ]; then
+            args+=(-f 'properties[][property_name]={{ $name }}' -f "properties[][value]=${{ propenv $name }}")
+          else
+            args+=(-f 'properties[][property_name]={{ $name }}' -F 'properties[][value]=null')
+          fi{{ end }}
+          gh api "${args[@]}"

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	tmpl "github.com/donaldgifford/repo-guardian/internal/template"
 )
 
@@ -306,5 +308,151 @@ func TestTemplateStoreNonexistentDir(t *testing.T) {
 
 	if raw == "" {
 		t.Error("expected embedded fallback content")
+	}
+}
+
+// TestSetCustomProperties_InjectionValueIsInert is the IMPL-0020 A2
+// regression: a hostile catalog annotation value that previously
+// achieved shell command substitution inside the generated workflow's
+// `gh api -f` arguments now round-trips as an inert literal. The value
+// reaches the shell only through the env: block (rendered by yamlq)
+// and is expanded as a quoted "$RG_PROP_*" variable — never
+// interpolated into the run script — so no part of it is re-parsed by
+// the shell. The generated workflow YAML must also remain parseable.
+func TestSetCustomProperties_InjectionValueIsInert(t *testing.T) {
+	t.Parallel()
+
+	ts := NewTemplateStore()
+	if err := ts.Load(""); err != nil {
+		t.Fatalf("Load embedded: %v", err)
+	}
+
+	compiled, err := ts.Get("set-custom-properties")
+	if err != nil {
+		t.Fatalf("Get(set-custom-properties): %v", err)
+	}
+
+	hostile := "x'$(id)'"
+
+	out, err := compiled.Render(tmpl.FileVars{
+		Catalog: &tmpl.CatalogInfo{
+			Owner:     "platform",
+			Component: "billing-svc",
+			Properties: map[string]string{
+				"JiraProject": hostile,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	// The hostile value must appear only inside the env: block as a
+	// yamlq-quoted scalar, never inline in an -f 'properties...' arg
+	// where the shell would evaluate the $() substitution.
+	if strings.Contains(out, "-f 'properties[][value]="+hostile+"'") {
+		t.Errorf("hostile value interpolated directly into a run-script argument:\n%s", out)
+	}
+
+	if !strings.Contains(out, `RG_PROP_JiraProject: "x'$(id)'"`) {
+		t.Errorf("expected hostile value as a yamlq-quoted env scalar; got:\n%s", out)
+	}
+
+	// The run script references the value only through the env var.
+	if !strings.Contains(out, `properties[][value]=$RG_PROP_JiraProject`) {
+		t.Errorf("expected run script to reference the value via $RG_PROP_JiraProject; got:\n%s", out)
+	}
+
+	assertGeneratedWorkflowValue(t, out, "JiraProject", hostile)
+}
+
+// TestSetCustomProperties_HostileValuesYAMLSafe proves the generated
+// workflow YAML stays valid — and the property value round-trips
+// byte-exact through a real YAML parse — for values carrying quotes,
+// dollar signs, colons, and newlines (IMPL-0020 A2 YAML-safe emission).
+func TestSetCustomProperties_HostileValuesYAMLSafe(t *testing.T) {
+	t.Parallel()
+
+	ts := NewTemplateStore()
+	if err := ts.Load(""); err != nil {
+		t.Fatalf("Load embedded: %v", err)
+	}
+
+	compiled, err := ts.Get("set-custom-properties")
+	if err != nil {
+		t.Fatalf("Get(set-custom-properties): %v", err)
+	}
+
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{"quote", `he said "hi"`},
+		{"single quote", "it's mine"},
+		{"dollar", "$HOME/path"},
+		{"colon", "a: b"},
+		{"newline", "line1\nline2"},
+		{"flow indicators", "{k: [1,2]}"},
+		{"command substitution", "x'$(id)'"},
+		{"leading dash", "- item"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			out, err := compiled.Render(tmpl.FileVars{
+				Catalog: &tmpl.CatalogInfo{
+					Owner:     "platform",
+					Component: "billing-svc",
+					Properties: map[string]string{
+						"JiraProject": tt.value,
+					},
+				},
+			})
+			if err != nil {
+				t.Fatalf("Render(%q): %v", tt.value, err)
+			}
+
+			assertGeneratedWorkflowValue(t, out, "JiraProject", tt.value)
+		})
+	}
+}
+
+// assertGeneratedWorkflowValue parses the rendered workflow YAML and
+// asserts the named property value round-trips byte-exact through its
+// env: entry, proving yamlq neither broke the document nor mangled the
+// value.
+func assertGeneratedWorkflowValue(t *testing.T, rendered, property, want string) {
+	t.Helper()
+
+	var wf struct {
+		Jobs struct {
+			SetProperties struct {
+				Steps []struct {
+					Env map[string]string `yaml:"env"`
+				} `yaml:"steps"`
+			} `yaml:"set-properties"`
+		} `yaml:"jobs"`
+	}
+
+	if err := yaml.Unmarshal([]byte(rendered), &wf); err != nil {
+		t.Fatalf("generated workflow is not valid YAML: %v\noutput:\n%s", err, rendered)
+	}
+
+	steps := wf.Jobs.SetProperties.Steps
+	if len(steps) != 1 {
+		t.Fatalf("expected 1 step, got %d", len(steps))
+	}
+
+	envName := "RG_PROP_" + property
+
+	got, ok := steps[0].Env[envName]
+	if !ok {
+		t.Fatalf("env %q not found in generated workflow:\n%s", envName, rendered)
+	}
+
+	if got != want {
+		t.Errorf("env %q = %q, want %q (value did not round-trip through YAML)", envName, got, want)
 	}
 }

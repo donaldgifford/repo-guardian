@@ -125,6 +125,17 @@ var (
 		Help: "Total sync attempts for a managed custom property absent from the org's property schema.",
 	}, []string{labelOrg, labelProperty})
 
+	// CatalogParseFailedTotal counts custom-properties reconciles
+	// skipped because catalog-info.yaml could not be parsed (INV-0011
+	// A1). A parse failure is never treated as desired state: the
+	// reconcile skips without touching GitHub properties and retries
+	// on the next sweep. Labeled by org so a repo publishing malformed
+	// catalog-info is attributable per organization.
+	CatalogParseFailedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_catalog_parse_failed_total",
+		Help: "Total custom-properties reconciles skipped because catalog-info.yaml failed to parse.",
+	}, []string{labelOrg})
+
 	// WebhookRejectedTotal counts webhook requests rejected by the IP allowlist.
 	WebhookRejectedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_webhook_rejected_total",

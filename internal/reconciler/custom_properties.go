@@ -2,6 +2,7 @@ package reconciler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -154,7 +155,27 @@ func (r *CustomPropertiesReconciler) Reconcile(ctx context.Context, params *Reco
 		return err
 	}
 
-	desired := catalog.Parse(content, r.annotationProps)
+	desired := catalog.Defaults()
+
+	if catalogFound {
+		parsed, parseErr := catalog.Parse(content, r.annotationProps)
+
+		switch {
+		case errors.Is(parseErr, catalog.ErrNotComponent):
+			// Not something we manage here — a valid non-Component
+			// entity is never a statement of desired property state
+			// (IMPL-0020 Decision 1).
+			log.Info("catalog-info is not a Backstage Component entity; skipping custom-properties reconcile", "err", parseErr)
+			return nil
+		case parseErr != nil:
+			log.Warn("catalog-info parse failed; skipping reconcile to avoid clearing properties", "err", parseErr)
+			metrics.CatalogParseFailedTotal.WithLabelValues(params.Owner).Inc()
+
+			return nil
+		}
+
+		desired = parsed
+	}
 
 	current, err := params.Client.GetCustomPropertyValues(ctx, params.Owner, params.Repo)
 	if err != nil {

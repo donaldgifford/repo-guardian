@@ -44,6 +44,11 @@ type mockClient struct {
 	updatedRuleset   *ghclient.Ruleset
 	updatedRulesetID int64
 
+	// IMPL-0021 B4 base-drift field: PR numbers passed to
+	// UpdatePRBranch, in call order.
+	updatedPRBranches []int
+	updatePRBranchErr error
+
 	// IMPL-0013 P3 convergence fields.
 	deletedFiles       []string
 	updatedPRNumber    int
@@ -329,6 +334,16 @@ func (m *mockClient) UpdatePullRequest(_ context.Context, _, _ string, number in
 	m.updatedPRNumber = number
 	m.updatedPRTitle = title
 	m.updatedPRBody = body
+
+	return nil
+}
+
+func (m *mockClient) UpdatePRBranch(_ context.Context, _, _ string, number int) error {
+	if m.updatePRBranchErr != nil {
+		return m.updatePRBranchErr
+	}
+
+	m.updatedPRBranches = append(m.updatedPRBranches, number)
 
 	return nil
 }

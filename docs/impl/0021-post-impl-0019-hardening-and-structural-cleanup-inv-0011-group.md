@@ -311,10 +311,31 @@ Decision 5 (Group B spins into its own IMPL doc).
       `engine_pr.go` (the three concerns cohabiting the 1,155-line file
       alongside file-rule evaluation). Pure moves — no behavior change,
       no signature change; verified by an unchanged test suite.
-- [ ] 6.2 **B4 — reconcile-branch base-drift** (`engine_policy.go:529`,
+- [x] 6.2 **B4 — reconcile-branch base-drift** (`engine_policy.go:529`,
       PR #71 WARN): decide and implement a mitigation
       (rebase-before-reconcile, or close/reopen aged PRs, or documented
       "don't auto-merge repo-guardian branches") — Decision 7.
+
+  **Implemented as merge-in, not rebase.** New `github.Client` method
+  `UpdatePRBranch` wraps `PullRequests.UpdateBranch` (which *merges*
+  base into head) and is called from `engine_pr.go` before
+  `syncActionableFiles`, gated on an existing open PR — a branch cut
+  earlier in the same sweep is already at base HEAD. Deviation from
+  Decision 7's literal "rebase": a rebase (force-push reset) would
+  discard any commit a reviewer pushed onto the bot branch, and
+  GitHub's API offers no rebase primitive for a PR branch anyway.
+  Merging achieves the same goal — the sync always operates on
+  current default-branch content, so it can only add what is still
+  genuinely missing, and a squash-merge can no longer silently revert
+  a manual edit made in the gap.
+
+  Best-effort by design: `UpdatePRBranch` returns an error when the
+  branch conflicts with base (a human edited the same file on it), and
+  `updateReconcileBranch` logs a Warn and continues rather than
+  stranding the PR. `gh.AcceptedError` (202, GitHub queued the merge
+  asynchronously) is treated as success. Covered by
+  `internal/checker/base_drift_test.go`: called-with-PR-number,
+  not-called-for-a-fresh-branch, and error-does-not-block-the-sync.
 - [ ] 6.3 **B4 — `refreshPolicyPR` body compare**
       (`engine_policy.go:655-662`): the PR body isn't exposed on the PR
       struct, so title-stable sweeps PATCH unconditionally. Expose/cache

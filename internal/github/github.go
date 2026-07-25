@@ -247,6 +247,12 @@ type Client interface {
 	// the actionable rule set shrinks between sweeps.
 	UpdatePullRequest(ctx context.Context, owner, repo string, number int, title, body string) error
 
+	// UpdatePRBranch merges the pull request's base branch into its
+	// head branch, keeping a long-lived reconcile PR mergeable as the
+	// default branch advances. A no-op error is returned when the
+	// branch cannot be updated; callers treat it as best-effort.
+	UpdatePRBranch(ctx context.Context, owner, repo string, number int) error
+
 	// ClosePullRequest transitions the pull request to the closed
 	// state without merging. Used by IMPL-0013 Phase 3 when every file
 	// rule has been satisfied and the PR is no longer needed.

@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -896,6 +897,35 @@ func (c *GitHubClient) ClosePullRequest(
 
 	if _, _, err := c.ghClient().PullRequests.Edit(ctx, owner, repo, number, patch); err != nil {
 		return fmt.Errorf("closing PR #%d on %s/%s: %w", number, owner, repo, err)
+	}
+
+	return nil
+}
+
+// UpdatePRBranch brings the pull request's head branch up to date with
+// its base by merging base into head — the same operation as the
+// "Update branch" button in the GitHub UI.
+//
+// Deliberately a merge rather than a force-push reset to base: the
+// reconcile branch may carry commits a reviewer pushed onto the bot's
+// PR before merging it, and resetting the ref would silently discard
+// them (INV-0011 B4 / IMPL-0021 Decision 7).
+//
+// GitHub answers 202 Accepted because it schedules the update in the
+// background; go-github surfaces that as an AcceptedError, which is a
+// success here and is reported as such. A branch that cannot be
+// fast-forwarded (a genuine conflict with base) returns an error for
+// the caller to handle.
+func (c *GitHubClient) UpdatePRBranch(
+	ctx context.Context,
+	owner, repo string,
+	number int,
+) error {
+	_, _, err := c.ghClient().PullRequests.UpdateBranch(ctx, owner, repo, number, nil)
+
+	var accepted *gh.AcceptedError
+	if err != nil && !errors.As(err, &accepted) {
+		return fmt.Errorf("updating branch for PR #%d on %s/%s: %w", number, owner, repo, err)
 	}
 
 	return nil

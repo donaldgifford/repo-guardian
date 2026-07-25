@@ -163,6 +163,10 @@ func (*mockClient) UpdatePullRequest(_ context.Context, _, _ string, _ int, _, _
 	return nil
 }
 
+func (*mockClient) UpdatePRBranch(_ context.Context, _, _ string, _ int) error {
+	return nil
+}
+
 func (*mockClient) ClosePullRequest(_ context.Context, _, _ string, _ int) error {
 	return nil
 }

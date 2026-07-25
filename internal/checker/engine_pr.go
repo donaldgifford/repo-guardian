@@ -39,6 +39,29 @@ func hasExistingPRForPolicy(openPRs []*ghclient.PullRequest, rule *policy.FileRu
 	return false
 }
 
+// updateReconcileBranch merges the default branch into an open PR's
+// reconcile branch, best-effort.
+//
+// Failure is never fatal: the branch may legitimately conflict with
+// base (a human edited the same file on the reconcile branch), and
+// refusing to reconcile over that would be worse than leaving the
+// branch behind — the sync below still runs, and the next sweep
+// retries. Mirrors the IMPL-0013 Q9 fail-safe stance.
+func updateReconcileBranch(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	owner, repo string,
+	number int,
+) {
+	if err := client.UpdatePRBranch(ctx, owner, repo, number); err != nil {
+		log.Warn("could not update reconcile branch from default; continuing with the branch as-is",
+			"pr_number", number,
+			"error", err,
+		)
+	}
+}
+
 // createOrUpdatePRFromPolicy creates or updates a PR for actionable policy rules.
 func (e *Engine) createOrUpdatePRFromPolicy(
 	ctx context.Context,
@@ -84,19 +107,21 @@ func (e *Engine) createOrUpdatePRFromPolicy(
 		log.Info("created branch", "branch", BranchName)
 	}
 
-	// WARN: This loop syncs file content to the reconcile branch but does not
-	//   re-base the branch onto the current default-branch HEAD. If the PR sits
-	//   open while default advances, the branch's base SHA goes stale. Two
-	//   risks if auto-merge is enabled on the repo-guardian PR:
-	//   (1) base drift — usually safe (diff is "add this file") but loses
-	//       linear-history aesthetic; (2) content drift — if someone manually
-	//       writes a different version of the file to default in the gap, the
-	//       file rule's existence check stops flagging it, this loop no-ops,
-	//       and a squash-merge of the stale branch overwrites the manual
-	//       edit. Mitigations to consider: rebase the branch onto current
-	//       default before reconcile, close+reopen PRs older than N days,
-	//       or recommend operators don't enable auto-merge on
-	//       repo-guardian/* branches. See conversation in PR #71.
+	// Bring an already-open PR's branch up to date with the default
+	// branch before syncing files onto it (INV-0011 B4, PR #71).
+	//
+	// A branch that sits open while default advances goes stale in two
+	// ways: its base SHA drifts, and — the dangerous one — if someone
+	// writes a different version of the same file to default in the
+	// gap, the rule stops being actionable, the sync below no-ops, and
+	// a squash-merge of the stale branch silently reverts the manual
+	// edit. Merging default in first means the sync always operates on
+	// current content, so it can only add what is genuinely still
+	// missing.
+	if existingPR != nil {
+		updateReconcileBranch(ctx, log, client, owner, repo, existingPR.Number)
+	}
+
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	if err := e.syncActionableFiles(ctx, log, client, owner, repo, defaultBranch, now, actionable); err != nil {

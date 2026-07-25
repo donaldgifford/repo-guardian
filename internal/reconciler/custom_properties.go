@@ -64,6 +64,15 @@ const (
 	CatalogInfoPRTitle = "chore: add catalog-info.yaml"
 )
 
+const (
+	// propertiesWorkflowPath is the workflow the github-action mode
+	// commits to the properties branch.
+	propertiesWorkflowPath = ".github/workflows/set-custom-properties.yml"
+
+	propertiesCreateCommitMsg  = "chore: add workflow to set custom properties"
+	propertiesRefreshCommitMsg = "chore: refresh custom properties workflow"
+)
+
 // CustomPropertiesReconciler reads catalog-info.yaml content, extracts
 // custom property values, and syncs them to GitHub repository properties.
 type CustomPropertiesReconciler struct {
@@ -257,10 +266,20 @@ func (r *CustomPropertiesReconciler) handleGHAMode(
 ) error {
 	log := params.Logger.With("owner", params.Owner, "repo", params.Repo)
 
-	existingPR := findPropertiesPR(params.OpenPRs, PropertiesBranchName)
-	if existingPR != nil {
-		log.Info("properties PR already exists", "pr_number", existingPR.Number)
-		return nil
+	rendered, err := r.renderPropertiesWorkflow(params, desired)
+	if err != nil {
+		return err
+	}
+
+	fallbackBody := buildPropertiesPRBody(desired, r.managedNames, ModeGHA)
+
+	prText, err := resolveReconcilerPR(log, params, "custom_properties", PropertiesPRTitle, fallbackBody)
+	if err != nil {
+		return fmt.Errorf("resolving reconciler PR template: %w", err)
+	}
+
+	if existingPR := findPropertiesPR(params.OpenPRs, PropertiesBranchName); existingPR != nil {
+		return refreshPropertiesPR(ctx, log, params, existingPR, rendered, prText)
 	}
 
 	if params.DryRun {
@@ -276,9 +295,51 @@ func (r *CustomPropertiesReconciler) handleGHAMode(
 		return err
 	}
 
+	baseSHA, err := params.Client.GetBranchSHA(ctx, params.Owner, params.Repo, params.DefaultBranch)
+	if err != nil {
+		return fmt.Errorf("getting default branch SHA: %w", err)
+	}
+
+	if baseSHA == "" {
+		return fmt.Errorf("default branch %s has no SHA", params.DefaultBranch)
+	}
+
+	if err := params.Client.CreateBranch(ctx, params.Owner, params.Repo, PropertiesBranchName, baseSHA); err != nil {
+		return fmt.Errorf("creating properties branch: %w", err)
+	}
+
+	err = params.Client.CreateOrUpdateFile(
+		ctx, params.Owner, params.Repo, PropertiesBranchName,
+		propertiesWorkflowPath, rendered, propertiesCreateCommitMsg,
+	)
+	if err != nil {
+		return fmt.Errorf("creating workflow file: %w", err)
+	}
+
+	pr, err := params.Client.CreatePullRequest(ctx, params.Owner, params.Repo, prText.Title, prText.Body, PropertiesBranchName, params.DefaultBranch)
+	if err != nil {
+		return fmt.Errorf("creating properties PR: %w", err)
+	}
+
+	applyLabels(ctx, log, params.Client, params.Owner, params.Repo, pr.Number, prText.Labels)
+
+	metrics.PropertiesPRsCreatedTotal.Inc()
+	log.Info("created properties PR", "pr_number", pr.Number)
+
+	return nil
+}
+
+// renderPropertiesWorkflow renders the set-custom-properties workflow
+// for the current desired state. Shared by the create and refresh paths
+// so a refreshed PR can never drift from what a freshly-created one
+// would have contained.
+func (r *CustomPropertiesReconciler) renderPropertiesWorkflow(
+	params *ReconcileParams,
+	desired *catalog.Properties,
+) (string, error) {
 	compiled, err := r.templates.Get("set-custom-properties")
 	if err != nil {
-		return fmt.Errorf("getting set-custom-properties template: %w", err)
+		return "", fmt.Errorf("getting set-custom-properties template: %w", err)
 	}
 
 	rendered, err := compiled.Render(tmpl.FileVars{
@@ -296,45 +357,56 @@ func (r *CustomPropertiesReconciler) handleGHAMode(
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("rendering set-custom-properties template: %w", err)
+		return "", fmt.Errorf("rendering set-custom-properties template: %w", err)
 	}
 
-	baseSHA, err := params.Client.GetBranchSHA(ctx, params.Owner, params.Repo, params.DefaultBranch)
+	return rendered, nil
+}
+
+// refreshPropertiesPR brings an already-open properties PR back in line
+// with the current desired state.
+//
+// Before IMPL-0021 this path returned early, so an annotation edited
+// after the PR opened was never reflected in the branch workflow or the
+// PR body: the PR sat advertising stale values, and merging it wrote
+// the *old* properties (INV-0011 A4).
+//
+// Both writes are idempotent, so a steady-state sweep over an open PR
+// costs zero mutating calls: CreateOrUpdateFile skips byte-identical
+// content (INV-0003), and the PR is PATCHed only when the rendered
+// title or body actually differs from what GitHub holds. Auto-close for
+// properties PRs stays out of scope (IMPL-0021 Decision 2).
+func refreshPropertiesPR(
+	ctx context.Context,
+	log *slog.Logger,
+	params *ReconcileParams,
+	pr *ghclient.PullRequest,
+	rendered string,
+	prText renderedPR,
+) error {
+	if params.DryRun {
+		log.Info("dry run: would refresh properties PR", "pr_number", pr.Number)
+		return nil
+	}
+
+	err := params.Client.CreateOrUpdateFile(
+		ctx, params.Owner, params.Repo, PropertiesBranchName,
+		propertiesWorkflowPath, rendered, propertiesRefreshCommitMsg,
+	)
 	if err != nil {
-		return fmt.Errorf("getting default branch SHA: %w", err)
+		return fmt.Errorf("refreshing workflow file: %w", err)
 	}
 
-	if baseSHA == "" {
-		return fmt.Errorf("default branch %s has no SHA", params.DefaultBranch)
+	if pr.Title == prText.Title && pr.Body == prText.Body {
+		log.Info("properties PR already current", "pr_number", pr.Number)
+		return nil
 	}
 
-	if err := params.Client.CreateBranch(ctx, params.Owner, params.Repo, PropertiesBranchName, baseSHA); err != nil {
-		return fmt.Errorf("creating properties branch: %w", err)
+	if err := params.Client.UpdatePullRequest(ctx, params.Owner, params.Repo, pr.Number, prText.Title, prText.Body); err != nil {
+		return fmt.Errorf("refreshing properties PR: %w", err)
 	}
 
-	commitMsg := "chore: add workflow to set custom properties"
-	targetPath := ".github/workflows/set-custom-properties.yml"
-
-	if err := params.Client.CreateOrUpdateFile(ctx, params.Owner, params.Repo, PropertiesBranchName, targetPath, rendered, commitMsg); err != nil {
-		return fmt.Errorf("creating workflow file: %w", err)
-	}
-
-	fallbackBody := buildPropertiesPRBody(desired, r.managedNames, "github-action")
-
-	prText, err := resolveReconcilerPR(log, params, "custom_properties", PropertiesPRTitle, fallbackBody)
-	if err != nil {
-		return fmt.Errorf("resolving reconciler PR template: %w", err)
-	}
-
-	pr, err := params.Client.CreatePullRequest(ctx, params.Owner, params.Repo, prText.Title, prText.Body, PropertiesBranchName, params.DefaultBranch)
-	if err != nil {
-		return fmt.Errorf("creating properties PR: %w", err)
-	}
-
-	applyLabels(ctx, log, params.Client, params.Owner, params.Repo, pr.Number, prText.Labels)
-
-	metrics.PropertiesPRsCreatedTotal.Inc()
-	log.Info("created properties PR", "pr_number", pr.Number)
+	log.Info("refreshed stale properties PR", "pr_number", pr.Number)
 
 	return nil
 }

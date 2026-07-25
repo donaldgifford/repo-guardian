@@ -108,7 +108,7 @@ Two independent logic bugs in `internal/reconciler/custom_properties.go`.
 
 #### Tasks
 
-- [ ] 1.1 **A5 (no-op PATCH loop):** filter schema-missing properties
+- [x] 1.1 **A5 (no-op PATCH loop):** filter schema-missing properties
       *before* the drift computation, not only before the PATCH.
       Currently `diffProperties` (`custom_properties.go:164`) compares
       the full managed set while `filterBySchema`
@@ -116,7 +116,7 @@ Two independent logic bugs in `internal/reconciler/custom_properties.go`.
       schema-missing mapped property reports drift forever and re-PATCHes
       the already-correct defined ones each sweep. Move/apply the schema
       filter (or exempt schema-missing names) ahead of `diffProperties`.
-- [ ] 1.2 A5 test: with Owner/Component already correct and one mapped
+- [x] 1.2 A5 test: with Owner/Component already correct and one mapped
       property absent from the org schema, a second reconcile issues zero
       PATCH calls (stateful mock counts calls across two sweeps).
 - [ ] 1.3 **A4 (GHA-mode staleness):** `handleGHAMode`

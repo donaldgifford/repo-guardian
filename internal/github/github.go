@@ -10,8 +10,12 @@ import (
 // PullRequest represents a GitHub pull request with the fields
 // relevant to repo-guardian's operations.
 type PullRequest struct {
-	Number    int
-	Title     string
+	Number int
+	Title  string
+	// Body is the PR description. Carried so a reconcile can tell
+	// whether a refresh would actually change anything and skip the
+	// PATCH when it would not (INV-0011 A4/B4).
+	Body      string
 	Head      string    // Branch name.
 	State     string    // "open", "closed".
 	CreatedAt time.Time // PR creation timestamp; used for age-bucketed metrics.

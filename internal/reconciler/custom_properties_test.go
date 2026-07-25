@@ -51,6 +51,10 @@ type mockClient struct {
 	createdFileBody  map[string]string
 	createdPR        *ghclient.PullRequest
 	createdPRBody    string
+	updatedPRNumber  int
+	updatedPRTitle   string
+	updatedPRBody    string
+	updatePRCalls    int
 	addedLabels      []string
 	installations    []*ghclient.Installation
 	installRepos     map[int64][]*ghclient.Repository
@@ -173,9 +177,14 @@ func (m *mockClient) CreatePullRequest(_ context.Context, _, _, title, body, hea
 	}
 
 	m.createdPRBody = body
+	// Body is carried on the returned PR so a later refresh can compare
+	// against it the way the real client does (list-then-act fidelity);
+	// without it every refresh would look like a change and the
+	// "no PATCH in steady state" assertion would be vacuous.
 	m.createdPR = &ghclient.PullRequest{
 		Number: 1,
 		Title:  title,
+		Body:   body,
 		Head:   head,
 		State:  "open",
 	}
@@ -360,7 +369,12 @@ func (*mockClient) DeleteFile(_ context.Context, _, _, _, _, _, _ string) error 
 	return nil
 }
 
-func (*mockClient) UpdatePullRequest(_ context.Context, _, _ string, _ int, _, _ string) error {
+func (m *mockClient) UpdatePullRequest(_ context.Context, _, _ string, number int, title, body string) error {
+	m.updatePRCalls++
+	m.updatedPRNumber = number
+	m.updatedPRTitle = title
+	m.updatedPRBody = body
+
 	return nil
 }
 
@@ -741,6 +755,88 @@ func TestGHAMode_ExistingPR(t *testing.T) {
 
 	if client.createdPR != nil {
 		t.Error("should not create PR when one already exists")
+	}
+}
+
+// TestGHAMode_ExistingPR_RefreshesStaleWorkflowAndBody is the INV-0011
+// A4 regression. handleGHAMode used to return early whenever a
+// properties PR was open, so an annotation edited after the PR opened
+// never reached the branch workflow or the PR body — merging the PR
+// then wrote the stale values. The third sweep pins the other half of
+// the contract: a refresh that would change nothing issues no PATCH.
+func TestGHAMode_ExistingPR_RefreshesStaleWorkflowAndBody(t *testing.T) {
+	t.Parallel()
+
+	const workflowPath = ".github/workflows/set-custom-properties.yml"
+
+	r := newTestReconcilerWithProps(t, "github-action", jiraAnnotationProps())
+	client := basePropertiesClient()
+
+	// Sweep 1: no PR yet, so the branch, workflow and PR are created.
+	if err := r.Reconcile(context.Background(), newParams(client, validCatalogInfo, false, nil)); err != nil {
+		t.Fatalf("Reconcile sweep 1: %v", err)
+	}
+
+	if client.createdPR == nil {
+		t.Fatal("sweep 1 should have created the properties PR")
+	}
+
+	if got := client.createdFileBody[workflowPath]; !strings.Contains(got, `"PROJ"`) {
+		t.Fatalf("sweep 1 workflow should carry the original value, got:\n%s", got)
+	}
+
+	// The catalog annotation changes while the PR sits open.
+	updatedCatalog := strings.Replace(validCatalogInfo, `jira/project-key: "PROJ"`, `jira/project-key: "NEWPROJ"`, 1)
+	if updatedCatalog == validCatalogInfo {
+		t.Fatal("test fixture did not change; the annotation edit is a no-op")
+	}
+
+	if err := r.Reconcile(
+		context.Background(),
+		newParams(client, updatedCatalog, false, []*ghclient.PullRequest{client.createdPR}),
+	); err != nil {
+		t.Fatalf("Reconcile sweep 2: %v", err)
+	}
+
+	workflow := client.createdFileBody[workflowPath]
+	if !strings.Contains(workflow, `"NEWPROJ"`) {
+		t.Errorf("branch workflow was not refreshed; want NEWPROJ, got:\n%s", workflow)
+	}
+
+	if strings.Contains(workflow, `"PROJ"`) {
+		t.Errorf("branch workflow still carries the stale value, got:\n%s", workflow)
+	}
+
+	if client.updatePRCalls != 1 {
+		t.Fatalf("UpdatePullRequest calls = %d, want 1 (stale body must be refreshed)", client.updatePRCalls)
+	}
+
+	if client.updatedPRNumber != client.createdPR.Number {
+		t.Errorf("refreshed PR number = %d, want %d", client.updatedPRNumber, client.createdPR.Number)
+	}
+
+	if !strings.Contains(client.updatedPRBody, "NEWPROJ") {
+		t.Errorf("refreshed PR body does not mention the new value, got:\n%s", client.updatedPRBody)
+	}
+
+	// Sweep 3: the PR now matches desired state, so nothing is PATCHed.
+	current := &ghclient.PullRequest{
+		Number: client.createdPR.Number,
+		Title:  client.updatedPRTitle,
+		Body:   client.updatedPRBody,
+		Head:   reconciler.PropertiesBranchName,
+		State:  "open",
+	}
+
+	if err := r.Reconcile(
+		context.Background(),
+		newParams(client, updatedCatalog, false, []*ghclient.PullRequest{current}),
+	); err != nil {
+		t.Fatalf("Reconcile sweep 3: %v", err)
+	}
+
+	if client.updatePRCalls != 1 {
+		t.Errorf("UpdatePullRequest calls after steady-state sweep = %d, want 1 (no-op refresh must not PATCH)", client.updatePRCalls)
 	}
 }
 

@@ -306,7 +306,7 @@ Decision 5 (Group B spins into its own IMPL doc).
 
 #### Tasks
 
-- [ ] 6.1 **B1 (`engine_policy.go` split):** extract into
+- [x] 6.1 **B1 (`engine_policy.go` split):** extract into
       `engine_settings.go`, `engine_branch_protection.go`, and
       `engine_pr.go` (the three concerns cohabiting the 1,155-line file
       alongside file-rule evaluation). Pure moves — no behavior change,

@@ -345,7 +345,7 @@ the next sweep.
       invocation); flip DESIGN-0020 to Implemented and this IMPL to
       Completed (frontmatter + body `**Status:**` line, both); mkdocs
       strict-mode warning count unchanged from the 14-file baseline.
-- [ ] 4.6 PR/release mechanics (Decision 6): semver label `minor` (new HCL
+- [x] 4.6 PR/release mechanics (Decision 6): semver label `minor` (new HCL
       surface, additive binary feature), appVersion bump alongside,
       verifying appVersion against the real tag line per the
       IMPL-0017 post-mortem (Chart.yaml appVersion must equal the tag
@@ -387,19 +387,19 @@ the three canonical stub files.
 
 ## Testing Plan
 
-- [ ] Phase 0: validation-matrix fixture tests (one per row, exact
+- [x] Phase 0: validation-matrix fixture tests (one per row, exact
       errors); cycle detection length 2/3; `policy.Version`
       discrimination.
-- [ ] Phase 1: semantics-matrix table-driven engine tests; gate
+- [x] Phase 1: semantics-matrix table-driven engine tests; gate
       memoization via mock call counting; fail-closed error test;
       metric assertions with unique labels (parallel-safe).
-- [ ] Phase 2: multi-sweep convergence suite (lifecycle, auto-close,
+- [x] Phase 2: multi-sweep convergence suite (lifecycle, auto-close,
       restoration, multi-path, idempotent re-sweep with zero mutating
       calls); stateful-mock fidelity for `GetContentsOnBranch` after
       writes.
-- [ ] Phase 3: webhook handler watched-set tests — gate-referee add,
+- [x] Phase 3: webhook handler watched-set tests — gate-referee add,
       own-path re-add, referee removal, unwatched no-op (Decisions 4/5).
-- [ ] `go test ./examples/...` covering the updated `guardian-full.hcl`.
+- [x] `go test ./examples/...` covering the updated `guardian-full.hcl`.
 - [ ] Homelab smoke (operator-side, checkbox stays open until run):
       dry-run upgrade shows planned deletions only; enable on the test
       org ⇒ removal PR opens against a repo with both renovate +

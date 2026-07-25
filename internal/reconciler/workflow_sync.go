@@ -19,6 +19,10 @@ func NewWorkflowSyncReconciler(_ policy.ReconcilerConfig) (Reconciler, error) {
 
 func (*workflowSyncReconciler) Name() string { return "workflow_sync" }
 
+// RunsOnAbsence reports false: this reconciler only observes a
+// watched workflow that exists.
+func (*workflowSyncReconciler) RunsOnAbsence() bool { return false }
+
 func (*workflowSyncReconciler) Reconcile(_ context.Context, params *ReconcileParams) error {
 	log := params.Logger
 

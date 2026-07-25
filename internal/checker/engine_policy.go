@@ -160,13 +160,19 @@ func (e *Engine) runReconcilers(
 			continue
 		}
 
-		if existingPath == "" {
-			continue
-		}
+		// The file being absent is itself a desired state for some
+		// reconcilers (custom_properties clears the managed set), so
+		// absence no longer skips the whole rule — it narrows the run
+		// to reconcilers that opt in via RunsOnAbsence (INV-0011 A3).
+		fileAbsent := existingPath == ""
 
-		content := e.getFileContentForReconciler(ctx, log, client, owner, repo, existingPath, r)
-		if content == "" {
-			continue
+		var content string
+
+		if !fileAbsent {
+			content = e.getFileContentForReconciler(ctx, log, client, owner, repo, existingPath, r)
+			if content == "" {
+				continue
+			}
 		}
 
 		params := &reconciler.ReconcileParams{
@@ -175,12 +181,17 @@ func (e *Engine) runReconcilers(
 			Repo:          repo,
 			DefaultBranch: defaultBranch,
 			Content:       content,
+			FileAbsent:    fileAbsent,
 			OpenPRs:       openPRs,
 			DryRun:        e.dryRun,
 			Logger:        log.With("rule", r.Name),
 		}
 
 		for _, rec := range recs {
+			if fileAbsent && !rec.RunsOnAbsence() {
+				continue
+			}
+
 			recLog := log.With("rule", r.Name, "reconciler", rec.Name())
 			params.PRTemplate = e.policy.ReconcilerPR(r.Name, rec.Name())
 

@@ -1318,6 +1318,87 @@ func TestAPIMode_SchemaCache_ConcurrentMissesCollapseToOneFetch(t *testing.T) {
 	}
 }
 
+// TestAPIMode_FileRemoved_ClearsManagedProperties is the INV-0011 A3
+// regression at the reconciler boundary: a repo whose catalog-info was
+// synced and then deleted must have its mapped properties cleared, not
+// left stale, and must not race the file rule by opening its own
+// "add catalog-info" PR. The malformed sweep re-asserts the IMPL-0020
+// A1 boundary from the other side — a broken file is never a clear.
+func TestAPIMode_FileRemoved_ClearsManagedProperties(t *testing.T) {
+	t.Parallel()
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+
+	// Sweep 1: the file exists and the properties converge.
+	if err := r.Reconcile(context.Background(), newParams(client, validCatalogInfo, false, nil)); err != nil {
+		t.Fatalf("Reconcile sweep 1: %v", err)
+	}
+
+	if got := propertyValue(client, "JiraProject"); got != "PROJ" {
+		t.Fatalf("after sweep 1 JiraProject = %q, want PROJ", got)
+	}
+
+	// Sweep 2: the file is gone from the default branch. The engine
+	// signals this with FileAbsent; the mock has no catalog-info to
+	// serve, so the reconciler's own lookup also comes up empty.
+	absent := newParams(client, "", false, nil)
+	absent.FileAbsent = true
+
+	if err := r.Reconcile(context.Background(), absent); err != nil {
+		t.Fatalf("Reconcile sweep 2: %v", err)
+	}
+
+	for _, name := range []string{"JiraProject", "JiraLabel"} {
+		if got := propertyValue(client, name); got != "" {
+			t.Errorf("%s = %q after the file was removed, want cleared", name, got)
+		}
+	}
+
+	// Owner/Component always carry a value once managed, so they fall
+	// back to the catalog defaults rather than clearing.
+	if got := propertyValue(client, "Owner"); got != catalog.DefaultOwner {
+		t.Errorf("Owner = %q after removal, want %q", got, catalog.DefaultOwner)
+	}
+
+	if client.createdPR != nil {
+		t.Errorf("reconciler must not open its own catalog-info PR on the absence path; the file rule owns that (got %+v)", client.createdPR)
+	}
+
+	// Sweep 3: a malformed file reappears. It is not a statement of
+	// desired state, so nothing is written (IMPL-0020 A1).
+	callsBefore := client.setPropsCalls.Load()
+
+	if err := r.Reconcile(context.Background(), newParams(client, "{{{ not yaml", false, nil)); err != nil {
+		t.Fatalf("Reconcile sweep 3: %v", err)
+	}
+
+	if got := client.setPropsCalls.Load(); got != callsBefore {
+		t.Errorf("malformed catalog-info triggered %d PATCH call(s); it must skip without writing", got-callsBefore)
+	}
+}
+
+// propertyValue reports the value the mock currently holds for name,
+// treating cleared (nil) and unset alike as the empty string.
+func propertyValue(client *mockClient, name string) string {
+	props, err := client.GetCustomPropertyValues(context.Background(), "org", "my-service")
+	if err != nil {
+		return ""
+	}
+
+	for _, p := range props {
+		if p.PropertyName == name {
+			if p.Value == nil {
+				return ""
+			}
+
+			return *p.Value
+		}
+	}
+
+	return ""
+}
+
 func TestAPIMode_NoCatalogFile(t *testing.T) {
 	t.Parallel()
 

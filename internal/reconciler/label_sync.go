@@ -38,6 +38,10 @@ func NewLabelSyncReconciler(config policy.ReconcilerConfig) (Reconciler, error) 
 
 func (*labelSyncReconciler) Name() string { return "label_sync" }
 
+// RunsOnAbsence reports false: a missing labels file means "no
+// desired state declared", not "delete every label".
+func (*labelSyncReconciler) RunsOnAbsence() bool { return false }
+
 func (r *labelSyncReconciler) Reconcile(ctx context.Context, params *ReconcileParams) error {
 	log := params.Logger
 

@@ -542,30 +542,35 @@ func TestIntegration_PolicyLoadAndEngineCreation(t *testing.T) {
 
 // trackingReconciler records calls for test verification.
 type trackingReconciler struct {
-	name      string
-	mu        sync.Mutex
-	calls     []reconcilerCall
-	returnErr error
+	name          string
+	mu            sync.Mutex
+	calls         []reconcilerCall
+	returnErr     error
+	runsOnAbsence bool
 }
 
 type reconcilerCall struct {
-	Owner   string
-	Repo    string
-	Content string
-	DryRun  bool
+	Owner      string
+	Repo       string
+	Content    string
+	DryRun     bool
+	FileAbsent bool
 }
 
 func (r *trackingReconciler) Name() string { return r.name }
+
+func (r *trackingReconciler) RunsOnAbsence() bool { return r.runsOnAbsence }
 
 func (r *trackingReconciler) Reconcile(_ context.Context, params *reconciler.ReconcileParams) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	r.calls = append(r.calls, reconcilerCall{
-		Owner:   params.Owner,
-		Repo:    params.Repo,
-		Content: params.Content,
-		DryRun:  params.DryRun,
+		Owner:      params.Owner,
+		Repo:       params.Repo,
+		Content:    params.Content,
+		DryRun:     params.DryRun,
+		FileAbsent: params.FileAbsent,
 	})
 
 	return r.returnErr
@@ -772,6 +777,84 @@ func TestReconciler_DoesNotRunWhenAssertionsFail(t *testing.T) {
 
 	if rec.callCount() != 0 {
 		t.Errorf("expected 0 reconciler calls when assertions fail, got %d", rec.callCount())
+	}
+}
+
+// TestReconciler_RunsOnAbsence_OnlyForCapableReconcilers is the
+// INV-0011 A3 regression at the engine boundary. runReconcilers used to
+// skip the whole rule when the file was missing, which made the
+// custom_properties clear-on-removal arm unreachable in production
+// however well it was unit-tested in isolation. Absence now runs the
+// reconcilers that opt in — and only those, so label_sync and friends
+// never see a "file removed" they have no meaning for (Decision 3).
+func TestReconciler_RunsOnAbsence_OnlyForCapableReconcilers(t *testing.T) {
+	t.Parallel()
+
+	clears := &trackingReconciler{name: "rec_clears", runsOnAbsence: true}
+	contentOnly := &trackingReconciler{name: "rec_content_only"}
+
+	cfg := &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "test_file",
+				Paths:    []string{"test.txt"},
+				Target:   "test.txt",
+				Template: "codeowners",
+				Check:    "exists",
+				Reconcilers: []policy.ReconcilerConfig{
+					{Type: "rec_clears"},
+					{Type: "rec_content_only"},
+				},
+			},
+		},
+	}
+
+	ts := rules.NewTemplateStore()
+	if err := ts.Load(""); err != nil {
+		t.Fatalf("templates: %v", err)
+	}
+
+	reg := reconciler.NewRegistry()
+	reg.Register("rec_clears", func(_ policy.ReconcilerConfig) (reconciler.Reconciler, error) {
+		return clears, nil
+	})
+	reg.Register("rec_content_only", func(_ policy.ReconcilerConfig) (reconciler.Reconciler, error) {
+		return contentOnly, nil
+	})
+
+	engine, err := NewEngine(cfg, ts, slog.Default(), reg)
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	client := newMockClient()
+	client.repo = &ghclient.Repository{
+		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
+	}
+	client.branchSHAs["org/repo/main"] = "abc123"
+	// test.txt is deliberately absent from client.contents.
+
+	if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+		t.Fatalf("CheckRepo: %v", err)
+	}
+
+	if got := clears.callCount(); got != 1 {
+		t.Fatalf("absence-capable reconciler calls = %d, want 1", got)
+	}
+
+	call := clears.calls[0]
+	if !call.FileAbsent {
+		t.Error("absence invocation must set FileAbsent so the reconciler can tell it apart from an empty Content")
+	}
+
+	if call.Content != "" {
+		t.Errorf("absence invocation Content = %q, want empty", call.Content)
+	}
+
+	if got := contentOnly.callCount(); got != 0 {
+		t.Errorf("content-only reconciler calls = %d, want 0 (must not run on absence)", got)
 	}
 }
 

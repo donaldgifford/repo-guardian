@@ -161,6 +161,14 @@ func (*CustomPropertiesReconciler) Name() string {
 	return "custom_properties"
 }
 
+// RunsOnAbsence reports true: a repo whose catalog-info file has been
+// removed has a well-defined desired state — Owner/Component fall back
+// to catalog.Defaults() and every mapped property clears — and that
+// state can only be reached by reconciling on absence (INV-0011 A3).
+func (*CustomPropertiesReconciler) RunsOnAbsence() bool {
+	return true
+}
+
 // Reconcile reads catalog-info.yaml content, diffs custom properties, and
 // either sets them via API or creates a PR with a workflow.
 func (r *CustomPropertiesReconciler) Reconcile(ctx context.Context, params *ReconcileParams) error {
@@ -461,6 +469,15 @@ func (r *CustomPropertiesReconciler) handleAPIMode(
 	log.Info("set custom properties via API", logArgs...)
 
 	if !catalogFound {
+		// The engine reached us *because* the file is missing, so the
+		// file rule that triggered this reconciler is already opening a
+		// PR that adds it. Opening a second one on a second branch
+		// would race that PR to add the same path (IMPL-0021 A3).
+		if params.FileAbsent {
+			log.Info("catalog-info missing; properties cleared, file rule owns adding the file")
+			return nil
+		}
+
 		return r.createCatalogInfoPR(ctx, params)
 	}
 

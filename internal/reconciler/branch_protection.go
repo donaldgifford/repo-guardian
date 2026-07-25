@@ -35,6 +35,11 @@ func NewBranchProtectionReconciler(_ policy.ReconcilerConfig) (Reconciler, error
 
 func (*branchProtectionReconciler) Name() string { return "branch_protection" }
 
+// RunsOnAbsence reports false: rulesets are driven by the config
+// file's content, and a missing config is not a statement that the
+// repo should have no rulesets.
+func (*branchProtectionReconciler) RunsOnAbsence() bool { return false }
+
 func (*branchProtectionReconciler) Reconcile(ctx context.Context, params *ReconcileParams) error {
 	log := params.Logger
 

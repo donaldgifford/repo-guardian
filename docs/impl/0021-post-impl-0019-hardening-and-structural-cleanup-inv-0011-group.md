@@ -248,15 +248,15 @@ it may ride earlier).
 
 #### Tasks
 
-- [ ] 5.1 Delete `internal/scheduler/sweep.go` (`Sweeper`, `NewSweeper`,
+- [x] 5.1 Delete `internal/scheduler/sweep.go` (`Sweeper`, `NewSweeper`,
       `ReconcileAll`, deprecated `Start`) and its tests — confirmed
       referenced only within its own file/tests; the IMPL-0015 Phase 1
       "repurpose as Discoverer" never consumed it (`Discoverer` shipped
       as its own type).
-- [ ] 5.2 Sweep for other post-IMPL-0015/0016/0017 leftovers (unused
+- [x] 5.2 Sweep for other post-IMPL-0015/0016/0017 leftovers (unused
       config plumbing for the removed `sweep` schedule, orphaned
       helpers) via `deadcode`/`staticcheck U1000` and a reference scan.
-- [ ] 5.3 Confirm `make ci` green after deletion (no dangling
+- [x] 5.3 Confirm `make ci` green after deletion (no dangling
       references, no coverage-threshold regression from removed tests).
 
 #### Success Criteria
@@ -264,6 +264,38 @@ it may ride earlier).
 - `make ci` passes with the dead code removed.
 - `deadcode ./...` reports no new unreachable exported symbols in the
   scheduler package.
+
+#### Finding: BudgetTracker is never refreshed in production (not fixed here)
+
+The task 5.2 sweep turned up an unreachable symbol that is **not** dead
+code and was deliberately left in place: `budget.Tracker.RefreshFromAPI`
+(and, through it, `publishGauges`) is called only from tests.
+
+`deadcode ./cmd/...` reports both as unreachable from `main`. The
+`unused` linter cannot see this — the symbol is exported and *is* used,
+just only by test files in other packages — which is why it survived
+since IMPL-0015 Phase 1.
+
+Consequence: `main.go` constructs the tracker and threads it into both
+`StaleSweeper` and `Discoverer`, but no snapshot is ever populated, so
+`SpendableForEnqueue` always returns `ErrNoSnapshot` and both call sites
+take their fall-open branch. In production that means:
+
+- the Layer-1 budget gate never denies an enqueue;
+- `api_budget_{remaining,spendable,reserve_fraction,utilisation}` are
+  never published and `api_budget_refresh_total` never increments;
+- `RepoGuardianBudgetGated` can never fire, since
+  `enqueue_gated_by_budget_total` only moves when the gate denies.
+
+The existing comments at `checker/sweep.go` ("fall open — caller drives
+refresh elsewhere") and `scheduler/discoverer.go` ("the next Discover
+tick will have caught up via the leader-driven refresh path") describe a
+refresh path that was never built.
+
+Deleting the function would have cemented the bug, so it stays. Wiring
+it up is a design question — refresh cadence, which loop owns it, and
+how installations are enumerated for it — outside this doc's scope
+(A3–A8, B1–B4). It needs its own investigation and change.
 
 ---
 
@@ -360,7 +392,7 @@ short design pass first because several mocks are stateful.
 - [x] Phase 3: A6 `$`/`#` accept + `.` reject; A8 typed-null diagnostic
       (no panic).
 - [x] Phase 4: helm-unittest alert render; firing-window reasoning noted.
-- [ ] Phase 5: `make ci` + `deadcode` clean after removal.
+- [x] Phase 5: `make ci` + `deadcode` clean after removal.
 - [ ] Phase 6: unchanged test suite green after B1 split; B4 items
       covered or documented.
 - [ ] Phase 7: generated mocks pass full suite incl. stateful behaviors.

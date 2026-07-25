@@ -390,8 +390,18 @@ touched — repo-guardian only manages what it's told to.
 disappears from `catalog-info.yaml` (removed, or the file itself removed),
 the corresponding GitHub property is cleared (set to `null`) on the next
 reconcile — not left stale. This applies to every property in the managed
-set except `Owner`/`Component`, which always carry a value once
-catalog-info exists.
+set except `Owner`/`Component`, which always carry a value: they fall back
+to `Unclassified` rather than clearing.
+
+The file-removal half of that contract needs the reconciler to run even
+though there is no file to read. `custom_properties` is invoked on absence
+because clearing is part of its contract; reconcilers whose behavior is
+purely a function of file *content* (`label_sync`, `branch_protection`,
+`workflow_sync`) are not, since a missing config file is not a statement
+that the repo should have no labels, no rulesets, or no workflow. When the
+file rule that owns those paths is `exists`-mode, it opens its own PR to
+restore the missing file; the reconciler only clears the properties and
+never opens a competing PR for the same path.
 
 **Malformed catalog-info is skipped, never cleared.** A clear only ever
 comes from a *valid* `catalog-info.yaml` that no longer names the

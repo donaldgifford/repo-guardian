@@ -146,7 +146,7 @@ IMPL-0020's parse-abort so a malformed file can never trigger a clear.
 
 #### Tasks
 
-- [ ] 2.1 Engine: invoke the `custom_properties` reconciler when the
+- [x] 2.1 Engine: invoke the `custom_properties` reconciler when the
       rule's configured file is absent, so the reconciler's existing
       (currently production-dead) no-catalog arm runs and clears the
       managed set. Today `runReconcilers`
@@ -154,15 +154,15 @@ IMPL-0020's parse-abort so a malformed file can never trigger a clear.
       Scope carefully against the file-rule double-iteration counter
       contract (CLAUDE.md) and per Decision 3 (all reconcilers, or
       only clear-capable ones?).
-- [ ] 2.2 Confirm the reconciler's `!catalogFound` API-mode branch
+- [x] 2.2 Confirm the reconciler's `!catalogFound` API-mode branch
       (`custom_properties.go:350`) clears correctly when reached from the
       engine (it is already unit-tested in isolation; this wires the
       engine path that reaches it).
-- [ ] 2.3 Multi-sweep test: repo with a synced catalog-info → file
+- [x] 2.3 Multi-sweep test: repo with a synced catalog-info → file
       removed → next reconcile clears the mapped properties (not left
       stale), and a *malformed* file still skips (IMPL-0020 A1 boundary
       re-asserted here).
-- [ ] 2.4 Reconcile docs already promise this
+- [x] 2.4 Reconcile docs already promise this
       (`policy-reference.md:333-336`,
       `annotation-properties-migration.md:61-68`) — verify wording now
       matches behavior; adjust if the Decision 3 resolution narrows
@@ -355,7 +355,7 @@ short design pass first because several mocks are stateful.
 
 - [x] Phase 1: A5 zero-call second sweep; A4 PR-refresh after annotation
       change.
-- [ ] Phase 2: clear-on-removal multi-sweep; malformed-file-still-skips
+- [x] Phase 2: clear-on-removal multi-sweep; malformed-file-still-skips
       boundary.
 - [ ] Phase 3: A6 `$`/`#` accept + `.` reject; A8 typed-null diagnostic
       (no panic).

@@ -67,6 +67,14 @@ state sync**: add, update, and clear. If a mapped annotation disappears
 (edited out, or the whole file removed), the corresponding GitHub property
 is set to `null` on the next reconcile.
 
+> **Note (IMPL-0021).** Only the *edited-out annotation* half of this
+> worked when it first shipped. The *whole file removed* half was
+> unreachable — the engine skipped reconcilers entirely when the file was
+> missing, so a deleted `catalog-info.yaml` left every mapped property
+> stale (INV-0011 A3). Both halves behave as documented from appVersion
+> 1.10.1 on. When the file is gone, `Owner`/`Component` fall back to
+> `Unclassified` rather than clearing.
+
 If you were relying on the old "sticky" behavior (a property, once set,
 persists even after the source annotation is removed), there is no opt-out
 — this is the DESIGN-0019 resolution (OQ 3 → b) and is considered a

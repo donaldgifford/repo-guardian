@@ -54,6 +54,7 @@ type mockClient struct {
 	updatedPRNumber    int
 	updatedPRTitle     string
 	updatedPRBody      string
+	updatePRCalls      int
 	closedPRNumber     int
 	upsertedComments   []upsertedComment
 	upsertCommentCalls int
@@ -334,6 +335,18 @@ func (m *mockClient) UpdatePullRequest(_ context.Context, _, _ string, number in
 	m.updatedPRNumber = number
 	m.updatedPRTitle = title
 	m.updatedPRBody = body
+	m.updatePRCalls++
+
+	// List-then-act fidelity (CLAUDE.md): a later ListOpenPullRequests
+	// must observe this write the way GitHub would, or the "skip the
+	// PATCH when nothing changed" assertion is vacuous — every sweep
+	// would re-diff against the pre-refresh body and patch again.
+	for _, pr := range m.openPRs {
+		if pr.Number == number {
+			pr.Title = title
+			pr.Body = body
+		}
+	}
 
 	return nil
 }

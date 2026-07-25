@@ -3,6 +3,7 @@ package checker
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -35,6 +36,52 @@ func TestBaseDrift_NoExistingPR_BranchNotUpdated(t *testing.T) {
 	if len(s.client.updatedPRBranches) != 0 {
 		t.Errorf("UpdatePRBranch calls = %v, want none for a freshly created branch",
 			s.client.updatedPRBranches)
+	}
+}
+
+// Steady state — the actionable set has not moved since the last sweep,
+// so the re-rendered PR text is identical and the PATCH is waste
+// (INV-0011 B4, IMPL-0021 task 6.3).
+func TestPRRefresh_UnchangedText_SkipsPatch(t *testing.T) {
+	s := newStagedConvergence(t, nil)
+	s.openOurPR(7)
+
+	// Sweep 1: PR text is empty on the mock's PR, so the refresh
+	// patches it with the freshly rendered body.
+	s.sweep()
+
+	if s.client.updatePRCalls != 1 {
+		t.Fatalf("UpdatePullRequest calls after sweep 1 = %d, want 1", s.client.updatePRCalls)
+	}
+
+	// Sweep 2: nothing changed on the repo, so the render is identical
+	// to what sweep 1 wrote and no PATCH should go out.
+	s.sweep()
+
+	if s.client.updatePRCalls != 1 {
+		t.Errorf("UpdatePullRequest calls after an unchanged sweep 2 = %d, want 1",
+			s.client.updatePRCalls)
+	}
+}
+
+// A body a human re-saved through the web UI comes back CRLF-encoded.
+// Nothing about it actually changed, so it must not draw a PATCH on
+// every sweep for the rest of the PR's life.
+func TestPRRefresh_CRLFBodyFromWebUI_SkipsPatch(t *testing.T) {
+	s := newStagedConvergence(t, nil)
+	s.openOurPR(7)
+
+	s.sweep()
+
+	crlf := strings.ReplaceAll(s.client.updatedPRBody, "\n", "\r\n")
+	s.client.openPRs[0].Body = crlf
+	s.client.updatePRCalls = 0
+
+	s.sweep()
+
+	if s.client.updatePRCalls != 0 {
+		t.Errorf("UpdatePullRequest calls for a CRLF-normalized body = %d, want 0",
+			s.client.updatePRCalls)
 	}
 }
 

@@ -285,13 +285,10 @@ func (e *Engine) refreshPolicyPR(
 		return fmt.Errorf("resolving PR template: %w", err)
 	}
 
-	if rendered.Title == existingPR.Title {
-		// Body is not exposed on the PR struct today; conservatively
-		// always issue the patch when the title is stable but the
-		// actionable set changed. The cost is one PATCH per sweep on
-		// touched repos, which fits inside the per-installation rate
-		// budget.
-		_ = rendered.Body
+	if rendered.Title == existingPR.Title && sameBody(rendered.Body, existingPR.Body) {
+		log.Debug("PR text unchanged; skipping refresh", "pr_number", existingPR.Number)
+
+		return nil
 	}
 
 	if err := client.UpdatePullRequest(ctx, owner, repo, existingPR.Number, rendered.Title, rendered.Body); err != nil {
@@ -299,6 +296,20 @@ func (e *Engine) refreshPolicyPR(
 	}
 
 	return nil
+}
+
+// sameBody reports whether two PR bodies are equal ignoring line-ending
+// style. GitHub stores a body submitted through the web UI with CRLF
+// while everything repo-guardian writes uses LF; without the
+// normalization a body a human opened and re-saved unchanged would look
+// different forever and draw a PATCH on every single sweep.
+//
+// Note this comparison only suppresses churn for bodies that render
+// deterministically. A custom `defaults.pr.body` that interpolates
+// `{{ .Date }}` re-renders differently every sweep and will keep
+// patching — which is the pre-IMPL-0021 behavior, not a regression.
+func sameBody(rendered, existing string) bool {
+	return strings.ReplaceAll(rendered, "\r\n", "\n") == strings.ReplaceAll(existing, "\r\n", "\n")
 }
 
 // createNewPolicyPR resolves PR templates, renders title/body/labels,

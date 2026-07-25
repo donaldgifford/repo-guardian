@@ -336,10 +336,33 @@ Decision 5 (Group B spins into its own IMPL doc).
   asynchronously) is treated as success. Covered by
   `internal/checker/base_drift_test.go`: called-with-PR-number,
   not-called-for-a-fresh-branch, and error-does-not-block-the-sync.
-- [ ] 6.3 **B4 — `refreshPolicyPR` body compare**
+- [x] 6.3 **B4 — `refreshPolicyPR` body compare**
       (`engine_policy.go:655-662`): the PR body isn't exposed on the PR
       struct, so title-stable sweeps PATCH unconditionally. Expose/cache
       the body (or hash it) to skip no-op PATCHes.
+
+  **Exposed rather than hashed.** `github.PullRequest` gained a `Body`
+  field (populated at both construction sites in `client.go` — the list
+  path and the create path), so `refreshPolicyPR` compares the freshly
+  rendered title *and* body against the in-flight PR and returns early
+  when both match. A hash would have bought nothing: the body is
+  already in the list response we pay for regardless.
+
+  Comparison goes through `sameBody`, which normalizes CRLF → LF. A
+  body a human opens and re-saves in the web UI comes back CRLF-encoded
+  even when the text is untouched; without the normalization that PR
+  would draw a PATCH on every sweep for the rest of its life. The skip
+  only suppresses churn for deterministic renders — a custom
+  `defaults.pr.body` interpolating `{{ .Date }}` re-renders differently
+  each sweep and keeps patching, which is the pre-IMPL-0021 behavior
+  rather than a regression.
+
+  Pinning this needed a mock-fidelity fix (CLAUDE.md): the checker
+  `mockClient.UpdatePullRequest` now writes back into `openPRs` so a
+  later `ListOpenPullRequests` observes the refreshed body. Without it
+  the "second identical sweep issues no PATCH" assertion would have
+  been vacuous. Tests in `internal/checker/base_drift_test.go`;
+  both were verified to fail with the fix neutralized.
 - [ ] 6.4 **B4 — `hasExistingPRForPolicy` search-terms fragility**
       (`engine_policy.go:438-456`): substring matching collides across
       rules and across add-vs-remove eras (sharper-edged now that

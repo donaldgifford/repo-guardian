@@ -154,7 +154,7 @@ func TestBuildReconcileLogEvents_DistinguishesOrphansAndActionable(t *testing.T)
 	}
 	removed := []string{"codeowners"}
 
-	events := buildReconcileLogEvents(allRules, actionable, removed)
+	events := buildReconcileLogEvents(allRules, actionable, removed, nil, nil)
 
 	if len(events) != 3 {
 		t.Fatalf("expected 3 events, got %d: %v", len(events), events)

@@ -149,34 +149,90 @@ field-by-field unless it opts out.
 ```hcl
 rule "file" "codeowners" {
   enabled  = true                                  # optional, default true
-  check    = "exists"                              # exists | contains | exact
+  check    = "exists"                              # exists | contains | exact | absent
   paths    = ["CODEOWNERS", ".github/CODEOWNERS"]  # required
-  target   = ".github/CODEOWNERS"                  # required
-  template = "codeowners"                          # required
+  target   = ".github/CODEOWNERS"                  # required (not for absent)
+  template = "codeowners"                          # required (not for absent)
 }
 ```
 
 | Attribute | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `enabled` | bool | no | `true` | Disabled rules are skipped entirely. |
-| `check` | string | no | `"exists"` | One of `exists`, `contains`, `exact`. |
-| `paths` | list(string) | **yes** | — | Candidate locations checked in order; the rule is satisfied by the first hit (subject to mode). Must be non-empty. |
-| `target` | string | **yes** | — | Path where the PR creates the file when missing. |
-| `template` | string | **yes** | — | Template name (TemplateStore key, no `.tmpl` suffix) used to render the file content. |
+| `check` | string | no | `"exists"` | One of `exists`, `contains`, `exact`, `absent`. |
+| `paths` | list(string) | **yes** | — | Candidate locations checked in order. For add modes the rule is satisfied by the first hit; for `absent` the rule is actionable if **any** path exists. Must be non-empty. |
+| `target` | string | conditional | — | Path where the PR creates the file when missing. **Required** for `exists`/`contains`/`exact`; **forbidden** for `absent`. |
+| `template` | string | conditional | — | Template name (TemplateStore key, no `.tmpl` suffix). **Required** for `exists`/`contains`/`exact`; **forbidden** for `absent`. |
 
 Nested blocks: `assertion` (0+), `pr` (0 or 1), `ignore` (0 or 1), `scope`
-(0 or 1), `reconcile` (0+).
+(0 or 1), `reconcile` (0+), `when` (0 or 1). Absent rules forbid `assertion`
+and `reconcile` blocks (see below).
 
 ### Check modes
 
-| Mode | File present? | Content checked? | Actionable when |
-|------|--------------|------------------|-----------------|
-| `exists` | required | no | No candidate path exists. |
-| `contains` | required | assertions must pass | File missing, or any assertion fails. |
-| `exact` | required | must equal rendered template | File missing or differs from the template. YAML files (`.yml`/`.yaml`) compare semantically (key order and formatting don't matter); everything else compares bytes. |
+| Mode | File present? | Content checked? | Actionable when | Remediation |
+|------|--------------|------------------|-----------------|-------------|
+| `exists` | required | no | No candidate path exists. | Add the file. |
+| `contains` | required | assertions must pass | File missing, or any assertion fails. | Add/fix the file. |
+| `exact` | required | must equal rendered template | File missing or differs from the template. YAML files (`.yml`/`.yaml`) compare semantically (key order and formatting don't matter); everything else compares bytes. | Add/fix the file. |
+| `absent` | must be **gone** | no | **Any** candidate path exists on the default branch. | **Delete** every present path via a deletion PR on the reconcile branch. |
 
 Declaring `assertion` blocks on a rule whose mode is not `contains` is a
-validation error.
+validation error. An `absent` rule additionally forbids `target`,
+`template`, `assertion`, and `reconcile` — its only job is to ensure the
+paths are gone, so there is nothing to render or reconcile.
+
+### `absent` mode — removing forbidden files
+
+`check = "absent"` inverts the usual polarity: the rule is satisfied when
+**none** of its `paths` exist, and actionable when any do. Remediation is a
+file-deletion commit on the same `repo-guardian/add-missing-files`
+reconcile branch, described under a **Removed Files** section in the PR
+body. Deletion is idempotent — a path already gone from the branch is
+skipped — and it is the engine's only destructive remediation, so:
+
+- **Dry-run first.** With `dry_run = true` the engine logs the planned
+  deletions per rule and mutates nothing.
+- **`search_terms` must not collide with the add-era PR.** If an `absent`
+  rule forbidding `dependabot.yml` reused `search_terms = ["dependabot"]`,
+  its removal PR would be mistaken for the old *add* PR and skipped. Use a
+  distinct phrase such as `["remove dependabot"]`.
+
+### `when {}` — conditional gating
+
+Any file rule (any check mode) may be gated on a **sibling file rule** being
+satisfied on the default branch:
+
+```hcl
+rule "file" "no_dependabot" {
+  check = "absent"
+  paths = [".github/dependabot.yml", ".github/dependabot.yaml"]
+
+  when {
+    rule_satisfied = "renovate_config"  # gate on this sibling file rule
+  }
+}
+```
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `rule_satisfied` | string | **yes** | HCL name of a sibling **file** rule. The gated rule fires only when that rule is satisfied on the default branch. |
+
+Gate semantics:
+
+- **Default-branch-only.** The gate reads the default branch, never the
+  reconcile branch — repo-guardian never acts on a not-yet-merged state.
+- **Content-only.** The referee's own `scope`/`ignore` never affect the
+  gate; only its paths/assertions/content decide satisfaction.
+- **Fail-closed.** If evaluating the referee errors (API glitch), the gate
+  is treated as **closed** and the rule is skipped this sweep. A
+  destructive gated action never proceeds from an unknown state.
+
+Validated at load: the referee must exist as an enabled **file** rule
+(setting/branch-protection names are rejected), must not be the rule itself,
+and gates must not form a cycle of any length. Merging the referee's add PR
+(or re-adding a removed file) triggers the gated rule's re-check on the push
+path, not just the next sweep.
 
 ### `assertion {}` — content assertions
 
@@ -560,9 +616,16 @@ Startup fails (all errors reported together) when:
 - `guardian.worker_count` ≤ 0, `guardian.queue_size` ≤ 0,
   `guardian.rate_limit_threshold` outside [0.0, 1.0], or
   `guardian.log_level` not in `debug|info|warn|error`.
-- Any file rule: `check` not in `exists|contains|exact`; empty `paths`,
-  `target`, or `template`; assertions on a non-`contains` rule; any
-  assertion violating the [assertion rules](#assertion-content-assertions).
+- Any file rule: `check` not in `exists|contains|exact|absent`; empty
+  `paths`; a non-`absent` rule missing `target` or `template`; assertions
+  on a non-`contains` rule; any assertion violating the
+  [assertion rules](#assertion-content-assertions).
+- Any `absent` rule that declares `target`, `template`, an `assertion`
+  block, or a `reconcile` block.
+- Any `when {}` gate: empty block; `rule_satisfied` naming a rule that
+  doesn't exist, is disabled, is a setting/branch-protection rule, or is
+  the gated rule itself; or a gate cycle of any length
+  (`a → b → a`, `a → b → c → a`, …).
 - Any setting rule: empty name, unsupported `property`, missing `expected`,
   or `expected` type not matching the property.
 - Any branch-protection rule: empty name or `branch`,

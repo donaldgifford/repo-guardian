@@ -31,7 +31,12 @@ func (e *Engine) checkRepoWithPolicy(
 		return nil
 	}
 
-	actionable, err := e.findActionableRules(ctx, log, client, owner, repo, openPRs)
+	// gate memoizes when-gate referee evaluations for this single
+	// repo-check and is threaded into both file-rule passes. It must be
+	// per-repo-check (never stored on the shared Engine) — see gate.go.
+	gate := newGateEvaluator(e, client, owner, repo)
+
+	actionable, err := e.findActionableRules(ctx, log, client, owner, repo, openPRs, gate)
 	if err != nil {
 		return err
 	}
@@ -63,16 +68,18 @@ func (e *Engine) checkRepoWithPolicy(
 				// the sticky comment so operators reading the PR
 				// understand why no progress is happening despite
 				// every rule passing on main.
-				events := buildReconcileLogEvents(e.policy.FileRules, actionable, nil)
+				events := buildReconcileLogEvents(e.policy.FileRules, actionable, nil, nil, gate)
 				upsertReconcileLog(ctx, log, client, owner, repo, ourPR, events)
 			}
 		} else {
 			log.Info("all required files present")
 		}
 	case e.dryRun:
-		log.Info("dry run: would create PR", "actionable_rules", policyRuleNames(actionable))
+		log.Info("dry run: would create PR",
+			"actionable_rules", policyRuleNames(actionable),
+			"planned_deletions", plannedDeletions(actionable))
 	default:
-		if err := e.createOrUpdatePRFromPolicy(ctx, client, owner, repo, defaultBranch, actionable, openPRs); err != nil {
+		if err := e.createOrUpdatePRFromPolicy(ctx, client, owner, repo, defaultBranch, actionable, openPRs, gate); err != nil {
 			return err
 		}
 	}
@@ -85,7 +92,7 @@ func (e *Engine) checkRepoWithPolicy(
 	}
 
 	// Run reconcilers for rules where the file check passed.
-	e.runReconcilers(ctx, log, client, owner, repo, defaultBranch, openPRs)
+	e.runReconcilers(ctx, log, client, owner, repo, defaultBranch, openPRs, gate)
 
 	// Evaluate setting rules.
 	if err := e.evaluateSettingRules(ctx, log, client, owner, repo); err != nil {
@@ -110,6 +117,7 @@ func (e *Engine) runReconcilers(
 	client ghclient.Client,
 	owner, repo, defaultBranch string,
 	openPRs []*ghclient.PullRequest,
+	gate *gateEvaluator,
 ) {
 	ownerRepo := owner + "/" + repo
 	strict := strictMode(e.policy)
@@ -128,6 +136,14 @@ func (e *Engine) runReconcilers(
 		}
 
 		if r.Ignore != nil && r.Ignore.Matches(ownerRepo) {
+			continue
+		}
+
+		// when-gate (IMPL-0019): reuse the memoized result from the primary
+		// pass. Silent by design — the RuleGateClosedTotal counter is owned
+		// by findActionableRules; incrementing here too would double-count
+		// under the file-rule double-iteration contract.
+		if open, _ := gate.gateOpen(ctx, log, r); !open {
 			continue
 		}
 
@@ -224,6 +240,7 @@ func (e *Engine) findActionableRules(
 	client ghclient.Client,
 	owner, repo string,
 	openPRs []*ghclient.PullRequest,
+	gate *gateEvaluator,
 ) ([]policy.FileRuleConfig, error) {
 	var actionable []policy.FileRuleConfig
 
@@ -253,19 +270,46 @@ func (e *Engine) findActionableRules(
 			continue
 		}
 
+		// when-gate (IMPL-0019): a gated rule fires only when its referee
+		// is satisfied on the default branch. A closed gate — including a
+		// referee evaluation error (fail-closed) — skips the rule. This is
+		// the primary pass, so it owns the RuleGateClosedTotal counter; the
+		// runReconcilers pass reads the same memoized result silently.
+		if open, reason := gate.gateOpen(ctx, ruleLog, r); !open {
+			ruleLog.Info("rule gate closed, skipping rule",
+				"referee", r.When.RuleSatisfied, "reason", reason)
+			metrics.RuleGateClosedTotal.WithLabelValues(r.Name, owner, reason).Inc()
+
+			continue
+		}
+
 		action, err := e.evaluateRule(ctx, ruleLog, client, owner, repo, r, openPRs)
 		if err != nil {
 			return nil, fmt.Errorf("evaluating rule %q: %w", r.Name, err)
 		}
 
 		if action {
-			ruleLog.Info("rule requires action")
-			metrics.FilesMissingTotal.WithLabelValues(r.Name, owner).Inc()
+			e.recordActionable(ruleLog, r, owner)
 			actionable = append(actionable, *r)
 		}
 	}
 
 	return actionable, nil
+}
+
+// recordActionable logs and counts an actionable file rule, routing absent
+// rules to FilesForbiddenPresentTotal and all other modes to
+// FilesMissingTotal (IMPL-0019 task 1.7).
+func (*Engine) recordActionable(ruleLog *slog.Logger, r *policy.FileRuleConfig, owner string) {
+	if r.CheckMode() == policy.CheckAbsent {
+		ruleLog.Info("forbidden file present, will remove")
+		metrics.FilesForbiddenPresentTotal.WithLabelValues(r.Name, owner).Inc()
+
+		return
+	}
+
+	ruleLog.Info("rule requires action")
+	metrics.FilesMissingTotal.WithLabelValues(r.Name, owner).Inc()
 }
 
 // evaluateRule checks a single policy rule and returns true if action is needed.
@@ -296,9 +340,30 @@ func (e *Engine) evaluateRule(
 		return e.evaluateContains(ctx, log, client, owner, repo, rule, existingPath)
 	case policy.CheckExact:
 		return e.evaluateExact(ctx, log, client, owner, repo, rule, existingPath)
+	case policy.CheckAbsent:
+		return e.evaluateAbsent(log, existingPath), nil
 	default:
 		return e.evaluateExists(log, existingPath), nil
 	}
+}
+
+// evaluateAbsent reports whether an absent-mode rule is actionable: true
+// iff at least one forbidden path exists on the default branch
+// (existence-only; findExistingFile already short-circuits on the first
+// hit, so no content is fetched). Remediation — deleting the present
+// paths on the reconcile branch — lands in IMPL-0019 Phase 2 (task 2.1).
+func (*Engine) evaluateAbsent(log *slog.Logger, existingPath string) bool {
+	if existingPath == "" {
+		log.Debug("no forbidden files present, absent rule satisfied")
+
+		return false
+	}
+
+	// recordActionable owns the Info-level "actionable" log for every check
+	// mode; keep the path detail here at Debug to avoid double-logging.
+	log.Debug("forbidden file present", "path", existingPath)
+
+	return true
 }
 
 func (*Engine) evaluateExists(log *slog.Logger, existingPath string) bool {
@@ -489,6 +554,7 @@ func (e *Engine) createOrUpdatePRFromPolicy(
 	owner, repo, defaultBranch string,
 	actionable []policy.FileRuleConfig,
 	openPRs []*ghclient.PullRequest,
+	gate *gateEvaluator,
 ) error {
 	log := e.logger.With("owner", owner, "repo", repo)
 
@@ -561,13 +627,18 @@ func (e *Engine) createOrUpdatePRFromPolicy(
 		removedOrphans = cleanupOrphans(ctx, log, client, orphans, owner, repo)
 	}
 
+	// IMPL-0019 Phase 2: inverse orphans — absent rules that stopped being
+	// actionable and whose forbidden file the branch deleted must be
+	// restored so the PR stops proposing the deletion.
+	restoredRules := restoreInverseOrphans(ctx, log, client, e.policy.FileRules, actionable, owner, repo)
+
 	if err := e.refreshPolicyPR(ctx, log, client, owner, repo, defaultBranch, existingPR, actionable, now); err != nil {
 		log.Warn("PR body refresh failed; PR text may be stale until next sweep", "err", err)
 	}
 
 	// IMPL-0013 Phase 4: sticky reconcile-log comment with per-rule
 	// status. Best-effort — failures don't abort the sweep.
-	events := buildReconcileLogEvents(e.policy.FileRules, actionable, removedOrphans)
+	events := buildReconcileLogEvents(e.policy.FileRules, actionable, removedOrphans, restoredRules, gate)
 	upsertReconcileLog(ctx, log, client, owner, repo, existingPR, events)
 
 	metrics.PRsUpdatedTotal.WithLabelValues(owner).Inc()
@@ -588,6 +659,14 @@ func (e *Engine) syncActionableFiles(
 ) error {
 	for i := range actionable {
 		r := &actionable[i]
+
+		if r.CheckMode() == policy.CheckAbsent {
+			if err := e.removeForbiddenFiles(ctx, log, client, owner, repo, r); err != nil {
+				return err
+			}
+
+			continue
+		}
 
 		compiled, err := e.templates.Get(r.Template)
 		if err != nil {
@@ -615,6 +694,43 @@ func (e *Engine) syncActionableFiles(
 		}
 
 		log.Info("added file", "path", r.Target)
+	}
+
+	return nil
+}
+
+// removeForbiddenFiles deletes every path of an absent-mode rule that is
+// present on the reconcile branch, mirroring the INV-0003 three-branch
+// idempotency contract: probe the reconcile branch first, delete with the
+// blob SHA when present, skip when already absent so a second sweep is a
+// no-op. A path that is already gone is not an error — the branch has
+// converged for that path (IMPL-0019 Phase 2 task 2.1).
+func (*Engine) removeForbiddenFiles(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	owner, repo string,
+	r *policy.FileRuleConfig,
+) error {
+	for _, path := range r.Paths {
+		sha, exists, err := client.GetContentsOnBranch(ctx, owner, repo, path, BranchName)
+		if err != nil {
+			return fmt.Errorf("checking %s on branch for absent rule %q: %w", path, r.Name, err)
+		}
+
+		if !exists {
+			log.Debug("forbidden file already absent on branch", "path", path, "rule", r.Name)
+
+			continue
+		}
+
+		msg := fmt.Sprintf("chore: remove %s (forbidden by rule %q)", path, r.Name)
+
+		if err := client.DeleteFile(ctx, owner, repo, BranchName, path, sha, msg); err != nil {
+			return fmt.Errorf("deleting %s for absent rule %q: %w", path, r.Name, err)
+		}
+
+		log.Info("removed forbidden file", "path", path, "rule", r.Name)
 	}
 
 	return nil
@@ -713,22 +829,49 @@ func (e *Engine) createNewPolicyPR(
 }
 
 func buildPRBodyFromPolicy(actionable []policy.FileRuleConfig) string {
-	var sb strings.Builder
-
-	sb.WriteString("## Repo Guardian — Missing Configuration Files\n\n")
-	sb.WriteString("This PR was automatically created by **repo-guardian** because the following\n")
-	sb.WriteString("required configuration files were not found in this repository:\n\n")
-	sb.WriteString("### Added Files\n\n")
+	var added, removed []policy.FileRuleConfig
 
 	for i := range actionable {
-		fmt.Fprintf(&sb, "- `%s` — %s\n", actionable[i].Target, actionable[i].Name)
+		if actionable[i].CheckMode() == policy.CheckAbsent {
+			removed = append(removed, actionable[i])
+		} else {
+			added = append(added, actionable[i])
+		}
 	}
 
-	sb.WriteString("\n> **Note:** The CODEOWNERS file contains a placeholder (`@org/CHANGEME`).\n")
-	sb.WriteString("> Please replace it with your actual team before merging.\n\n")
+	var sb strings.Builder
+
+	sb.WriteString("## Repo Guardian — Configuration Drift\n\n")
+	sb.WriteString("This PR was automatically created by **repo-guardian** to bring this\n")
+	sb.WriteString("repository into line with the organization's file policy.\n\n")
+
+	if len(added) > 0 {
+		sb.WriteString("### Added Files\n\n")
+
+		for i := range added {
+			fmt.Fprintf(&sb, "- `%s` — %s\n", added[i].Target, added[i].Name)
+		}
+
+		// The CODEOWNERS placeholder note is only relevant when a file is
+		// being added; a removal-only PR must not mention it.
+		sb.WriteString("\n> **Note:** The CODEOWNERS file contains a placeholder (`@org/CHANGEME`).\n")
+		sb.WriteString("> Please replace it with your actual team before merging.\n\n")
+	}
+
+	if len(removed) > 0 {
+		sb.WriteString("### Removed Files\n\n")
+
+		for i := range removed {
+			for _, path := range removed[i].Paths {
+				fmt.Fprintf(&sb, "- `%s` — %s\n", path, removed[i].Name)
+			}
+		}
+
+		sb.WriteString("\n")
+	}
 
 	sb.WriteString("### What to do\n\n")
-	sb.WriteString("1. Review the default file contents and adjust for your team's needs.\n")
+	sb.WriteString("1. Review the changes and adjust for your team's needs.\n")
 	sb.WriteString("2. Merge when ready — these are sensible defaults, not one-size-fits-all.\n\n")
 	sb.WriteString("---\n")
 	sb.WriteString("*Automated by [repo-guardian](https://github.com/apps/repo-guardian). ")
@@ -1152,4 +1295,19 @@ func policyRuleNames(rr []policy.FileRuleConfig) []string {
 	}
 
 	return names
+}
+
+// plannedDeletions lists the forbidden paths every actionable absent rule
+// would delete, so the dry-run log is reviewable before the engine's first
+// destructive remediation actually runs (IMPL-0019 Phase 2 task 2.2).
+func plannedDeletions(actionable []policy.FileRuleConfig) []string {
+	var paths []string
+
+	for i := range actionable {
+		if actionable[i].CheckMode() == policy.CheckAbsent {
+			paths = append(paths, actionable[i].Paths...)
+		}
+	}
+
+	return paths
 }

@@ -104,10 +104,15 @@ rule "file" "dependabot" {
     search_terms = ["dependabot"]
   }
 
-  # Per-rule ignore — skip repos that use Renovate instead.
-  ignore {
-    repos = ["myorg/renovate-*"]
-  }
+  # Superseded by the "no_dependabot" absent rule below (IMPL-0019).
+  # Rather than guessing which repos use Renovate by name glob, we add
+  # Dependabot everywhere and let the gated absent rule remove it wherever
+  # Renovate is actually live on the default branch. The old name-glob
+  # workaround is kept here as a commented alternative:
+  #
+  # ignore {
+  #   repos = ["myorg/renovate-*"]
+  # }
 }
 
 rule "file" "renovate_workflow" {
@@ -143,6 +148,29 @@ rule "file" "renovate_config" {
   assertion {
     pattern = "github>myorg/renovate-config"
     message = "renovate.json must extend the org preset"
+  }
+}
+
+# Absent-mode rule with a when-gate (IMPL-0019 / DESIGN-0020): remove the
+# Dependabot config from any repo whose "renovate_config" rule is satisfied
+# on the default branch. The gate is fail-closed and evaluates the default
+# branch only, so Dependabot is never removed before Renovate is actually
+# live and reviewed. Absent rules take no target/template/assertion blocks —
+# their remediation is a file-deletion PR on the reconcile branch.
+rule "file" "no_dependabot" {
+  check = "absent"
+  paths = [".github/dependabot.yml", ".github/dependabot.yaml"]
+
+  when {
+    rule_satisfied = "renovate_config"
+  }
+
+  pr {
+    # search_terms MUST NOT match the "dependabot" add rule's PR titles, or
+    # the removal PR would be mistaken for the add PR and skipped. Use a
+    # distinct phrase tied to the removal.
+    search_terms = ["remove dependabot"]
+    title        = "chore({{ .Repo }}): remove Dependabot config (repo uses Renovate)"
   }
 }
 

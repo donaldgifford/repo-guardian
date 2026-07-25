@@ -22,6 +22,7 @@ func Validate(cfg *PolicyConfig) error {
 	errs = append(errs, validateGuardian(&cfg.Guardian)...)
 	errs = append(errs, validateFileRules(cfg.FileRules)...)
 	errs = append(errs, validateNoDuplicateRules(cfg.FileRules)...)
+	errs = append(errs, validateWhenGates(cfg)...)
 	errs = append(errs, validateSettingRules(cfg.SettingRules)...)
 	errs = append(errs, validateBranchProtectionRules(cfg.BranchProtectionRules)...)
 
@@ -83,18 +84,26 @@ func validateFileRule(r *FileRuleConfig, prefix string) []error {
 		string(CheckExists):   true,
 		string(CheckContains): true,
 		string(CheckExact):    true,
+		string(CheckAbsent):   true,
 		"":                    true, // defaults to "exists"
 	}
 
 	if !validChecks[r.Check] {
 		errs = append(errs, fmt.Errorf(
-			"%s: check must be one of exists, contains, exact; got %q",
+			"%s: check must be one of exists, contains, exact, absent; got %q",
 			prefix, r.Check,
 		))
 	}
 
 	if len(r.Paths) == 0 {
 		errs = append(errs, fmt.Errorf("%s: paths must be non-empty", prefix))
+	}
+
+	// Absent rules delete by path and have nothing to render, assert, or
+	// reconcile: target/template/assertion/reconcile are all forbidden,
+	// and none of the content sub-validation below applies (DESIGN-0020).
+	if r.CheckMode() == CheckAbsent {
+		return append(errs, validateAbsentRule(r, prefix)...)
 	}
 
 	if r.Target == "" {
@@ -121,6 +130,43 @@ func validateFileRule(r *FileRuleConfig, prefix string) []error {
 		rec := &r.Reconcilers[j]
 		rPrefix := fmt.Sprintf("%s reconcile %q", prefix, rec.Type)
 		errs = append(errs, validateAnnotationProperties(rec.AnnotationProperties, rPrefix)...)
+	}
+
+	return errs
+}
+
+// validateAbsentRule enforces the absent-mode restrictions: an absent
+// rule deletes files by path and has nothing to render or assert, so
+// target, template, assertion blocks, and reconcile blocks are all
+// rejected (DESIGN-0020 validation matrix). The non-empty paths check
+// and the cross-rule when {} gate validation live in the caller and
+// validateWhenGates respectively, so they are not repeated here.
+func validateAbsentRule(r *FileRuleConfig, prefix string) []error {
+	var errs []error
+
+	if r.Target != "" {
+		errs = append(errs, fmt.Errorf(
+			"%s: check = \"absent\" forbids target (deletions operate on paths)", prefix,
+		))
+	}
+
+	if r.Template != "" {
+		errs = append(errs, fmt.Errorf(
+			"%s: check = \"absent\" forbids template (nothing to render)", prefix,
+		))
+	}
+
+	if len(r.Assertions) > 0 {
+		errs = append(errs, fmt.Errorf(
+			"%s: check = \"absent\" forbids assertion blocks (no content to assert)", prefix,
+		))
+	}
+
+	if len(r.Reconcilers) > 0 {
+		errs = append(errs, fmt.Errorf(
+			"%s: check = \"absent\" forbids reconcile blocks (reconcilers consume file content that must not exist)",
+			prefix,
+		))
 	}
 
 	return errs
@@ -364,4 +410,191 @@ func validateNoDuplicateRules(rules []FileRuleConfig) []error {
 	}
 
 	return errs
+}
+
+// validateWhenGates validates every file rule's when {} gate against the
+// full policy: the referenced rule must exist among file rules (not a
+// setting/branch-protection rule), be enabled, and not be the rule
+// itself; the when {} block must name a rule (empty is an error); and
+// the gate graph must be acyclic. Cross-rule checks (existence, cycles)
+// cannot live in the per-rule validateFileRule, so they run here over
+// the whole rule set (DESIGN-0020 validation matrix).
+func validateWhenGates(cfg *PolicyConfig) []error {
+	fileRuleByName := make(map[string]*FileRuleConfig, len(cfg.FileRules))
+	for i := range cfg.FileRules {
+		fileRuleByName[cfg.FileRules[i].Name] = &cfg.FileRules[i]
+	}
+
+	nonFileKind := make(map[string]string)
+	for i := range cfg.SettingRules {
+		nonFileKind[cfg.SettingRules[i].Name] = RuleTypeSetting
+	}
+
+	for i := range cfg.BranchProtectionRules {
+		nonFileKind[cfg.BranchProtectionRules[i].Name] = RuleTypeBranchProtection
+	}
+
+	var errs []error
+
+	// graph maps a gated rule to the rule it references; only well-formed
+	// gates (existing, enabled, non-self) enter it, so cycle detection
+	// never trips over an already-reported malformed gate.
+	graph := make(map[string]string)
+
+	for i := range cfg.FileRules {
+		r := &cfg.FileRules[i]
+		if r.When == nil {
+			continue
+		}
+
+		prefix := fmt.Sprintf("rule %q %q when", r.Type, r.Name)
+		if err := validateWhenReference(r, prefix, fileRuleByName, nonFileKind, cfg.FileRules); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		graph[r.Name] = r.When.RuleSatisfied
+	}
+
+	return append(errs, detectGateCycles(graph)...)
+}
+
+// validateWhenReference checks a single rule's when reference and returns
+// the first problem found (empty, self-reference, wrong kind, nonexistent,
+// disabled), or nil when the gate is well-formed and safe to add to the
+// cycle graph.
+func validateWhenReference(
+	r *FileRuleConfig,
+	prefix string,
+	fileRuleByName map[string]*FileRuleConfig,
+	nonFileKind map[string]string,
+	fileRules []FileRuleConfig,
+) error {
+	ref := r.When.RuleSatisfied
+
+	switch ref {
+	case "":
+		return fmt.Errorf("%s: rule_satisfied must be set (empty when {} block)", prefix)
+	case r.Name:
+		return fmt.Errorf("%s: rule_satisfied cannot reference its own rule %q", prefix, ref)
+	}
+
+	referee, ok := fileRuleByName[ref]
+	if !ok {
+		if kind, isNonFile := nonFileKind[ref]; isNonFile {
+			return fmt.Errorf(
+				"%s: rule_satisfied %q is a %q rule; when gates reference file rules only",
+				prefix, ref, kind,
+			)
+		}
+
+		return fmt.Errorf(
+			"%s: rule_satisfied %q names no file rule; known file rules: %s",
+			prefix, ref, knownFileRuleNames(fileRules),
+		)
+	}
+
+	if !referee.IsEnabled() {
+		return fmt.Errorf(
+			"%s: rule_satisfied %q references a disabled rule (a permanently-closed gate is a policy bug)",
+			prefix, ref,
+		)
+	}
+
+	return nil
+}
+
+// detectGateCycles reports every cycle in the gate graph. Each node has
+// at most one outgoing edge (a rule gates on exactly one referee), so
+// the graph is functional and a single forward walk per unseen node
+// finds any cycle: a node revisited while still on the current walk
+// closes a loop. Nodes are finalized (state 2) after each walk, so a
+// state-1 node is always on the current path.
+func detectGateCycles(graph map[string]string) []error {
+	const (
+		inProgress = 1
+		done       = 2
+	)
+
+	state := make(map[string]int, len(graph))
+
+	starts := make([]string, 0, len(graph))
+	for name := range graph {
+		starts = append(starts, name)
+	}
+
+	sort.Strings(starts)
+
+	var errs []error
+
+	for _, start := range starts {
+		if state[start] != 0 {
+			continue
+		}
+
+		var path []string
+
+		for node := start; ; {
+			switch state[node] {
+			case done:
+				node = "" // joins an already-verified acyclic chain
+			case inProgress:
+				errs = append(errs, gateCycleError(path, node))
+				node = ""
+			default:
+				state[node] = inProgress
+				path = append(path, node)
+
+				next, ok := graph[node]
+				if !ok {
+					node = ""
+					break
+				}
+
+				node = next
+			}
+
+			if node == "" {
+				break
+			}
+		}
+
+		for _, n := range path {
+			state[n] = done
+		}
+	}
+
+	return errs
+}
+
+// gateCycleError formats the cycle closed when node is re-encountered on
+// path, as "a -> b -> a".
+func gateCycleError(path []string, node string) error {
+	start := 0
+
+	for i, n := range path {
+		if n == node {
+			start = i
+			break
+		}
+	}
+
+	cycle := make([]string, 0, len(path)-start+1)
+	cycle = append(cycle, path[start:]...)
+	cycle = append(cycle, node)
+
+	return fmt.Errorf("when gate cycle detected: %s", strings.Join(cycle, " -> "))
+}
+
+// knownFileRuleNames returns the sorted, comma-separated file-rule names
+// for the "no such rule" diagnostic.
+func knownFileRuleNames(rules []FileRuleConfig) string {
+	names := make([]string, 0, len(rules))
+	for i := range rules {
+		names = append(names, rules[i].Name)
+	}
+
+	sort.Strings(names)
+
+	return strings.Join(names, ", ")
 }

@@ -42,8 +42,8 @@ func TestExampleHCL_Full(t *testing.T) {
 		t.Fatalf("Load guardian-full.hcl: %v", err)
 	}
 
-	if len(cfg.FileRules) != 6 {
-		t.Errorf("FileRules count = %d, want 6", len(cfg.FileRules))
+	if len(cfg.FileRules) != 7 {
+		t.Errorf("FileRules count = %d, want 7 (incl. no_dependabot absent rule)", len(cfg.FileRules))
 	}
 
 	if len(cfg.SettingRules) != 4 {

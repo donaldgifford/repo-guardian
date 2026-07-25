@@ -16,6 +16,7 @@ import (
 
 	gh "github.com/google/go-github/v68/github"
 
+	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/queue"
 )
 
@@ -352,7 +353,9 @@ func TestHandlePush_NonDefaultBranch_DoesNotEnqueue(t *testing.T) {
 	}
 }
 
-func TestHandlePush_RemovedOnly_DoesNotEnqueue(t *testing.T) {
+// A removed watched path now enqueues a re-check: removals carry policy
+// meaning under IMPL-0019 when-gates (DESIGN-0020 Decision 5).
+func TestHandlePush_RemovedWatched_Enqueues(t *testing.T) {
 	t.Parallel()
 
 	q := newRecordingQueue()
@@ -366,8 +369,28 @@ func TestHandlePush_RemovedOnly_DoesNotEnqueue(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, makeRequest(t, "push", payload))
 
+	if q.Len() != 1 {
+		t.Errorf("expected 1 job for a removed watched path, got %d", q.Len())
+	}
+}
+
+// A removed unwatched path still enqueues nothing.
+func TestHandlePush_RemovedUnwatched_DoesNotEnqueue(t *testing.T) {
+	t.Parallel()
+
+	q := newRecordingQueue()
+	watched := map[string]bool{"catalog-info.yaml": true}
+	h := NewHandler(testSecret, q, slog.Default(), watched, nil, "", 24*time.Hour)
+
+	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
+		{Removed: []string{"unrelated.txt"}},
+	})
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, makeRequest(t, "push", payload))
+
 	if q.Len() != 0 {
-		t.Errorf("expected 0 jobs in queue, got %d", q.Len())
+		t.Errorf("expected 0 jobs for a removed unwatched path, got %d", q.Len())
 	}
 }
 
@@ -472,5 +495,115 @@ func TestExtractOwner(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("extractOwner(%q) = %q, want %q", tt.fullName, got, tt.want)
 		}
+	}
+}
+
+// gateWatchPolicy is a renovate-first policy whose paths are watched
+// SOLELY because of the when-gate (no watched reconcilers): the referee
+// renovate_config's paths and the gated no_dependabot's own paths join
+// the watched set via DESIGN-0020 Decision 4.
+func gateWatchPolicy() *policy.PolicyConfig {
+	return &policy.PolicyConfig{
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "renovate_config",
+				Check:    "exists",
+				Paths:    []string{"renovate.json"},
+				Target:   "renovate.json",
+				Template: "renovate.tmpl",
+			},
+			{
+				Type:  "file",
+				Name:  "no_dependabot",
+				Check: "absent",
+				Paths: []string{".github/dependabot.yml", ".github/dependabot.yaml"},
+				When:  &policy.WhenConfig{RuleSatisfied: "renovate_config"},
+			},
+		},
+	}
+}
+
+// Decision 4: adding the referee's file (renovate.json) enqueues a
+// re-check even though only the gated rule references it.
+func TestHandlePush_GateReferee_Added_Enqueues(t *testing.T) {
+	t.Parallel()
+
+	q := newRecordingQueue()
+	watched := policy.ExtractWatchedPaths(gateWatchPolicy())
+	h := NewHandler(testSecret, q, slog.Default(), watched, nil, "", 24*time.Hour)
+
+	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
+		{Added: []string{"renovate.json"}},
+	})
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, makeRequest(t, "push", payload))
+
+	if q.Len() != 1 {
+		t.Errorf("expected 1 job when the gate referee is added, got %d", q.Len())
+	}
+}
+
+// Decision 4: re-adding a gated rule's own path (dependabot.yml) enqueues
+// a re-check so the removal PR re-opens on the push path.
+func TestHandlePush_GatedOwnPath_Readded_Enqueues(t *testing.T) {
+	t.Parallel()
+
+	q := newRecordingQueue()
+	watched := policy.ExtractWatchedPaths(gateWatchPolicy())
+	h := NewHandler(testSecret, q, slog.Default(), watched, nil, "", 24*time.Hour)
+
+	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
+		{Added: []string{".github/dependabot.yml"}},
+	})
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, makeRequest(t, "push", payload))
+
+	if q.Len() != 1 {
+		t.Errorf("expected 1 job when a gated rule's own path is re-added, got %d", q.Len())
+	}
+}
+
+// Decision 5: removing the referee's file (renovate.json) flips the gate
+// and must enqueue a re-check on the push path.
+func TestHandlePush_GateReferee_Removed_Enqueues(t *testing.T) {
+	t.Parallel()
+
+	q := newRecordingQueue()
+	watched := policy.ExtractWatchedPaths(gateWatchPolicy())
+	h := NewHandler(testSecret, q, slog.Default(), watched, nil, "", 24*time.Hour)
+
+	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
+		{Removed: []string{"renovate.json"}},
+	})
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, makeRequest(t, "push", payload))
+
+	if q.Len() != 1 {
+		t.Errorf("expected 1 job when the gate referee is removed, got %d", q.Len())
+	}
+}
+
+// A push touching only unwatched paths enqueues nothing even with a
+// gate-driven watched set.
+func TestHandlePush_GatePolicy_UnwatchedPath_DoesNotEnqueue(t *testing.T) {
+	t.Parallel()
+
+	q := newRecordingQueue()
+	watched := policy.ExtractWatchedPaths(gateWatchPolicy())
+	h := NewHandler(testSecret, q, slog.Default(), watched, nil, "", 24*time.Hour)
+
+	payload := makePushPayload("refs/heads/main", "main", []*gh.HeadCommit{
+		{Added: []string{"README.md"}, Modified: []string{"go.mod"}},
+	})
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, makeRequest(t, "push", payload))
+
+	if q.Len() != 0 {
+		t.Errorf("expected 0 jobs for unwatched paths, got %d", q.Len())
 	}
 }

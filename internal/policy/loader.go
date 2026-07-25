@@ -17,11 +17,13 @@ import (
 )
 
 const (
-	blockTypeIgnore = "ignore"
-	blockTypeScope  = "scope"
-	blockTypeLocals = "locals"
-	attrEnabled     = "enabled"
-	attrRemediate   = "remediate"
+	blockTypeIgnore   = "ignore"
+	blockTypeScope    = "scope"
+	blockTypeLocals   = "locals"
+	blockTypeWhen     = "when"
+	attrEnabled       = "enabled"
+	attrRemediate     = "remediate"
+	attrRuleSatisfied = "rule_satisfied"
 )
 
 // hclConfig is the raw HCL-decoded structure before merging with defaults.
@@ -486,8 +488,12 @@ var ruleBodySchema = &hcl.BodySchema{
 		{Name: attrEnabled},
 		{Name: "check"},
 		{Name: "paths", Required: true},
-		{Name: "target", Required: true},
-		{Name: "template", Required: true},
+		// target and template are optional at the schema level:
+		// absent-mode rules forbid both, and every other mode requires
+		// both. Per-check-mode requiredness is enforced in
+		// validateFileRule (DESIGN-0020), not here.
+		{Name: "target"},
+		{Name: "template"},
 	},
 	Blocks: []hcl.BlockHeaderSchema{
 		{Type: "pr"},
@@ -495,6 +501,18 @@ var ruleBodySchema = &hcl.BodySchema{
 		{Type: blockTypeIgnore},
 		{Type: blockTypeScope},
 		{Type: "reconcile", LabelNames: []string{"type"}},
+		{Type: blockTypeWhen},
+	},
+}
+
+// whenBodySchema is the strict attribute schema for a `when {}` gate
+// block. Decoding through Content() (not JustAttributes()) means any
+// attribute other than rule_satisfied fails load with "Unsupported
+// argument" — the INV-0010 guardian-block precedent, so a typo like
+// `rule_satisfed` is caught at load rather than silently ignored.
+var whenBodySchema = &hcl.BodySchema{
+	Attributes: []hcl.AttributeSchema{
+		{Name: attrRuleSatisfied},
 	},
 }
 
@@ -589,10 +607,59 @@ func decodeRuleSubBlocks(
 			if rec != nil {
 				r.Reconcilers = append(r.Reconcilers, *rec)
 			}
+		case blockTypeWhen:
+			w, d := decodeWhenBlock(sub, ctx)
+			diags = append(diags, d...)
+			r.When = w
 		}
 	}
 
 	return diags
+}
+
+// decodeWhenBlock decodes a `when {}` gate block on a file rule via a
+// strict body schema (unknown attributes fail load). The rule_satisfied
+// cty value is guarded against typed-null and conditional-unknown before
+// AsString(): a `rule_satisfied = null` or a `cond ? a : b` yielding
+// null would otherwise panic at load rather than returning a
+// diagnostic. This is the exact decode-guard class INV-0011 A8 found in
+// decodeAnnotationProperties, and this decoder must not repeat it. An
+// absent rule_satisfied leaves RuleSatisfied empty; validateWhenGates
+// reports the empty-when error with rule context.
+func decodeWhenBlock(block *hcl.Block, ctx *hcl.EvalContext) (*WhenConfig, hcl.Diagnostics) {
+	content, diags := block.Body.Content(whenBodySchema)
+	if diags.HasErrors() {
+		return nil, diags
+	}
+
+	w := &WhenConfig{}
+
+	attr, ok := content.Attributes[attrRuleSatisfied]
+	if !ok {
+		return w, diags
+	}
+
+	val, d := attr.Expr.Value(ctx)
+	diags = append(diags, d...)
+
+	if d.HasErrors() {
+		return w, diags
+	}
+
+	if val.IsNull() || !val.IsKnown() || val.Type() != cty.String {
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Invalid when.rule_satisfied",
+			Detail:   "rule_satisfied must be a non-null string naming a sibling file rule.",
+			Subject:  attr.Range.Ptr(),
+		})
+
+		return w, diags
+	}
+
+	w.RuleSatisfied = val.AsString()
+
+	return w, diags
 }
 
 var reconcileBodySchema = &hcl.BodySchema{

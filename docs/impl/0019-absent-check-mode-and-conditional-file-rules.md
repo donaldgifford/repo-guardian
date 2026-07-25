@@ -1,7 +1,7 @@
 ---
 id: IMPL-0019
 title: "Absent check mode and conditional file rules"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-07-23
 ---
@@ -9,7 +9,7 @@ created: 2026-07-23
 
 # IMPL 0019: Absent check mode and conditional file rules
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-07-23
 
@@ -109,14 +109,14 @@ every malformed variant before any engine code exists.
 
 #### Tasks
 
-- [ ] 0.1 Add `CheckAbsent CheckMode = "absent"` to
+- [x] 0.1 Add `CheckAbsent CheckMode = "absent"` to
       `internal/policy/types.go` (const block + `CheckMode()` switch) and
       the `validChecks` allowlist in `validate.go.validateFileRule`.
-- [ ] 0.2 Add `WhenConfig struct { RuleSatisfied string }` and
+- [x] 0.2 Add `WhenConfig struct { RuleSatisfied string }` and
       `When *WhenConfig` field on `FileRuleConfig` (`types.go`), with doc
       comments stating default-branch-only + content-only + fail-closed
       semantics.
-- [ ] 0.3 `loader.go`: drop `Required: true` from `target` and `template`
+- [x] 0.3 `loader.go`: drop `Required: true` from `target` and `template`
       in `ruleBodySchema` (loader.go:484-491); add `{Type: "when"}` to its
       block list; implement `decodeWhenBlock` (own `hcl.BodySchema` with
       the single `rule_satisfied` attribute so unknown attrs fail load,
@@ -129,23 +129,23 @@ every malformed variant before any engine code exists.
       panics at load instead of returning a diagnostic. This is the
       exact class of bug INV-0011 found in `decodeAnnotationProperties`;
       the new decoder must not repeat it.
-- [ ] 0.4 `validate.go`: move `target`/`template` requiredness out of the
+- [x] 0.4 `validate.go`: move `target`/`template` requiredness out of the
       HCL schema into `validateFileRule`, conditioned on check mode —
       absent **forbids** `target`, `template`, `assertion` blocks, and
       `reconcile` blocks; all other modes **require** `target` +
       `template` exactly as today.
-- [ ] 0.5 `validate.go`: new `validateWhenGates(rules []FileRuleConfig)`
+- [x] 0.5 `validate.go`: new `validateWhenGates(rules []FileRuleConfig)`
       — referenced rule must exist among file rules (error lists known
       rule names), must not be a setting/branch-protection name, must be
       enabled, no self-reference, no cycles of any length (DFS over the
       gate graph), empty `when {}` block is an error.
-- [ ] 0.6 Loader tests: the DESIGN-0020 HCL-surface example loads clean;
+- [x] 0.6 Loader tests: the DESIGN-0020 HCL-surface example loads clean;
       one test per validation-matrix row asserting the exact
       location-prefixed error; cycle tests at length 2 and 3; unknown
       attribute inside `when {}` fails load; `rule_satisfied = null` and
       a conditional yielding a typed-null return a clean diagnostic
       rather than panicking (INV-0011 A8 regression guard).
-- [ ] 0.7 `policy.Version` test: adding a `when` block, or flipping a
+- [x] 0.7 `policy.Version` test: adding a `when` block, or flipping a
       rule's check mode to `absent`, changes the hash (`version.go`
       discrimination contract).
 
@@ -168,36 +168,36 @@ gated, and the metrics that make both observable. No mutation paths yet.
 
 #### Tasks
 
-- [ ] 1.1 New `internal/checker/gate.go` (Decision 1 — minimal breakup,
+- [x] 1.1 New `internal/checker/gate.go` (Decision 1 — minimal breakup,
       gate helpers only, no wider engine_policy.go refactor):
       `ruleSatisfiedOnDefault(ctx, client, owner, repo, rule)
       (bool, error)` — `evaluateRule` semantics **minus** the
       `hasExistingPRForPolicy` short-circuit, inverted per check mode
       (exists / contains / exact / absent as specified in DESIGN-0020
       §Evaluation flow).
-- [ ] 1.2 `gate.go`: per-repo-check memoization — a `gateEvaluator`
+- [x] 1.2 `gate.go`: per-repo-check memoization — a `gateEvaluator`
       struct holding `map[string]gateResult`, constructed inside
       `checkRepoWithPolicy` and threaded to both iteration passes (never
       stored on `Engine`: the engine is shared across worker goroutines).
-- [ ] 1.3 Wire the gate into `findActionableRules` after the scope and
+- [x] 1.3 Wire the gate into `findActionableRules` after the scope and
       ignore gates: closed gate ⇒ Info log (rule, referee, referee
       state) + `RuleGateClosedTotal` increment, rule skipped.
-- [ ] 1.4 Wire the same gate into `runReconcilers` **silently** (no
+- [x] 1.4 Wire the same gate into `runReconcilers` **silently** (no
       counter — the file-rule double-iteration contract; a comment must
       say why).
-- [ ] 1.5 Fail-closed error handling: referee evaluation error ⇒ gate
+- [x] 1.5 Fail-closed error handling: referee evaluation error ⇒ gate
       closed, Warn log, counter with `reason="error"` (Decision 3);
       test with an erroring mock asserting the rule is skipped and no
       remediation is planned.
-- [ ] 1.6 `evaluateAbsent` arm in `evaluateRule`: actionable iff **any**
+- [x] 1.6 `evaluateAbsent` arm in `evaluateRule`: actionable iff **any**
       path in `rule.Paths` exists on the default branch (existence-only;
       no content fetch). No path plumbing to remediation (Decision 2).
-- [ ] 1.7 `internal/metrics/metrics.go`: `FilesForbiddenPresentTotal
+- [x] 1.7 `internal/metrics/metrics.go`: `FilesForbiddenPresentTotal
       {rule_name, org}` and `RuleGateClosedTotal{rule_name, org, reason}`
       CounterVecs (reusing `labelRuleName`/`labelOrg`/`labelReason`
       consts). Absent-actionable increments the new counter and must NOT
       increment `FilesMissingTotal` (asserted).
-- [ ] 1.8 Engine tests (`engine_test.go` mock pattern): all five
+- [x] 1.8 Engine tests (`engine_test.go` mock pattern): all five
       DESIGN-0020 semantics-matrix rows; gate-true-despite-open-referee-PR
       (the short-circuit distinction); memoization (mock call counting:
       at most one referee content evaluation per repo-check); metric
@@ -223,45 +223,45 @@ multi-sweep convergence suite that proves the lifecycle.
 
 #### Tasks
 
-- [ ] 2.1 `syncActionableFiles` action split (`engine_policy.go:582`):
+- [x] 2.1 `syncActionableFiles` action split (`engine_policy.go:582`):
       absent rules walk **all** `rule.Paths`, `GetContentsOnBranch` each
       on the reconcile branch — exists ⇒ `DeleteFile(branch, path, sha,
       "chore: remove <path> (forbidden by rule \"<name>\")")`; already
       absent ⇒ idempotent skip (mirror of the INV-0003 three-branch
       contract). Add/fix modes unchanged.
-- [ ] 2.2 Dry-run detail: the `checkRepoWithPolicy` dry-run arm
+- [x] 2.2 Dry-run detail: the `checkRepoWithPolicy` dry-run arm
       enumerates planned deletions per absent rule (path list in the log
       record) — deletion is the engine's first destructive remediation;
       "would create PR" alone is not reviewable.
-- [ ] 2.3 `internal/template/contexts.go`: `Rule.Action string` field
+- [x] 2.3 `internal/template/contexts.go`: `Rule.Action string` field
       (`"add"` | `"remove"`), populated in `buildPRVars` from
       `CheckMode()`. Additive — `ValidateZero` strict-mode templates keep
       passing (asserted).
-- [ ] 2.4 `buildPRBodyFromPolicy`: split into "Added files" / "Removed
+- [x] 2.4 `buildPRBodyFromPolicy`: split into "Added files" / "Removed
       files" sections; CODEOWNERS-placeholder note renders only when an
       add-mode rule is present.
-- [ ] 2.5 Inverse-orphan restoration (`drift.go`): absent arm in
+- [x] 2.5 Inverse-orphan restoration (`drift.go`): absent arm in
       `discoverOrphans` — for each no-longer-actionable absent rule,
       where default branch has a path and the reconcile branch does not,
       restore via `GetFileContent`(default) + `CreateOrUpdateFile`(branch,
       `"chore: restore <path> (rule \"<name>\" no longer applies)"`).
       Fail-safe: any API error ⇒ leave it, Warn,
       `PROrphanLeftTotal{org}` increment, retry next sweep.
-- [ ] 2.6 Reconcile-log wording (`drift.go.buildReconcileLogEvents`):
+- [x] 2.6 Reconcile-log wording (`drift.go.buildReconcileLogEvents`):
       absent-aware statuses (`present on main, pending removal` /
       `absent from main`) and gate-closed status (`skipped (when-gate
       closed: <referee> not satisfied)`) — requires threading gate
       outcomes into the event builder. Note in the task commit: status
       strings feed the content hash, so every open PR gets exactly one
       extra comment edit after upgrade.
-- [ ] 2.7 Convergence suite (`convergence_test.go`, extending
+- [x] 2.7 Convergence suite (`convergence_test.go`, extending
       `stagedConvergenceState`): renovate-first lifecycle sweep 1
       (add-renovate PR) → merge → sweep 2 (remove-dependabot PR) → merge
       → sweep 3 (converged, no action); hand-deleted dependabot →
       auto-close; gate closes mid-flight in a bundle PR → restoration;
       both `.yml` + `.yaml` present → both deleted in one PR; identical
       re-sweep ⇒ zero mutating API calls.
-- [ ] 2.8 Mock-fidelity check per the list-then-act rule: the mock's
+- [x] 2.8 Mock-fidelity check per the list-then-act rule: the mock's
       `GetContentsOnBranch` must reflect prior `DeleteFile` /
       `CreateOrUpdateFile` calls on the same mock instance, and the
       idempotency assertions must count mutating calls — an always-static
@@ -288,23 +288,23 @@ the next sweep.
 
 #### Tasks
 
-- [ ] 3.1 `internal/policy/watch.go.ExtractWatchedPaths`: for any rule
+- [x] 3.1 `internal/policy/watch.go.ExtractWatchedPaths`: for any rule
       carrying a `when` gate, both the referee's paths AND the gated
       rule's own paths join the watched set (Decision 4), unioned with
       the existing reconciler-`watch = true` sources.
-- [ ] 3.2 Extend `hasWatchedFileChanges` to scan `commit.Removed` for
+- [x] 3.2 Extend `hasWatchedFileChanges` to scan `commit.Removed` for
       watched paths (Decision 5; today removals are intentionally
       ignored — `internal/webhook/handler.go:314` — which predates
       removals having policy meaning: a removed `renovate.json` flips a
       gate). Update the function's doc comment, which currently
       documents the removed-files exclusion.
-- [ ] 3.3 Webhook handler tests: (i) push adding `renovate.json`
+- [x] 3.3 Webhook handler tests: (i) push adding `renovate.json`
       enqueues a re-check for a policy where only the *gated* rule
       references it; (ii) push re-adding `dependabot.yml` (a gated
       rule's own path) enqueues a re-check; (iii) push *removing*
       `renovate.json` enqueues a re-check; (iv) pushes touching
       unwatched paths still enqueue nothing.
-- [ ] 3.4 Doc comment on `ExtractWatchedPaths` updated to name all three
+- [x] 3.4 Doc comment on `ExtractWatchedPaths` updated to name all three
       sources (reconciler watch, gate reference, gated rule's own paths).
 
 #### Success Criteria
@@ -321,31 +321,31 @@ the next sweep.
 
 #### Tasks
 
-- [ ] 4.1 `docs/usage/policy-reference.md`: `absent` check-mode section,
+- [x] 4.1 `docs/usage/policy-reference.md`: `absent` check-mode section,
       `when {}` block reference, the validation-matrix table, gate
       fail-closed semantics, and the search-terms collision guidance
       (an absent rule's `search_terms` must not match the add-era PR
       titles for the same file — the example uses `"remove dependabot"`).
-- [ ] 4.2 `examples/guardian-full.hcl`: add the `no_dependabot` rule
+- [x] 4.2 `examples/guardian-full.hcl`: add the `no_dependabot` rule
       (check = "absent" + when gate on `renovate_config`); replace the
       name-glob `ignore { repos = ["myorg/renovate-*"] }` workaround on
       the dependabot rule, keeping the old form as a commented
       alternative; `go test ./examples/...` green.
-- [ ] 4.3 `docs/operations/absent-rules-migration.md` (per the
+- [x] 4.3 `docs/operations/absent-rules-migration.md` (per the
       `*-migration.md` precedent): dry-run-first recipe leading the doc
       (destructive remediation), policy-hash bump ⇒ one-time full
       re-sweep, reconcile-log hash bump ⇒ one comment edit per open PR,
       downgrade behavior (older binary fails loudly at load on the
       unknown check mode), search-terms guidance.
-- [ ] 4.4 CLAUDE.md architecture notes: absent mode, when-gate
+- [x] 4.4 CLAUDE.md architecture notes: absent mode, when-gate
       fail-closed + content-only semantics, inverse-orphan restoration,
       gate counter only-in-primary-pass reminder, memoization
       per-repo-check-never-on-Engine.
-- [ ] 4.5 `docz update impl` / `docz update design` (one type per
+- [x] 4.5 `docz update impl` / `docz update design` (one type per
       invocation); flip DESIGN-0020 to Implemented and this IMPL to
       Completed (frontmatter + body `**Status:**` line, both); mkdocs
       strict-mode warning count unchanged from the 14-file baseline.
-- [ ] 4.6 PR/release mechanics (Decision 6): semver label `minor` (new HCL
+- [x] 4.6 PR/release mechanics (Decision 6): semver label `minor` (new HCL
       surface, additive binary feature), appVersion bump alongside,
       verifying appVersion against the real tag line per the
       IMPL-0017 post-mortem (Chart.yaml appVersion must equal the tag
@@ -387,19 +387,19 @@ the three canonical stub files.
 
 ## Testing Plan
 
-- [ ] Phase 0: validation-matrix fixture tests (one per row, exact
+- [x] Phase 0: validation-matrix fixture tests (one per row, exact
       errors); cycle detection length 2/3; `policy.Version`
       discrimination.
-- [ ] Phase 1: semantics-matrix table-driven engine tests; gate
+- [x] Phase 1: semantics-matrix table-driven engine tests; gate
       memoization via mock call counting; fail-closed error test;
       metric assertions with unique labels (parallel-safe).
-- [ ] Phase 2: multi-sweep convergence suite (lifecycle, auto-close,
+- [x] Phase 2: multi-sweep convergence suite (lifecycle, auto-close,
       restoration, multi-path, idempotent re-sweep with zero mutating
       calls); stateful-mock fidelity for `GetContentsOnBranch` after
       writes.
-- [ ] Phase 3: webhook handler watched-set tests — gate-referee add,
+- [x] Phase 3: webhook handler watched-set tests — gate-referee add,
       own-path re-add, referee removal, unwatched no-op (Decisions 4/5).
-- [ ] `go test ./examples/...` covering the updated `guardian-full.hcl`.
+- [x] `go test ./examples/...` covering the updated `guardian-full.hcl`.
 - [ ] Homelab smoke (operator-side, checkbox stays open until run):
       dry-run upgrade shows planned deletions only; enable on the test
       org ⇒ removal PR opens against a repo with both renovate +

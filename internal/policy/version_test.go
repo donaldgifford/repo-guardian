@@ -74,6 +74,78 @@ func TestVersion_PolicyConfigChangesHash(t *testing.T) {
 	}
 }
 
+func TestVersion_WhenGateChangesHash(t *testing.T) {
+	t.Parallel()
+
+	base := func() *policy.PolicyConfig {
+		cfg := policy.BuiltinDefaults()
+		cfg.FileRules = append(cfg.FileRules, policy.FileRuleConfig{
+			Type:  "file",
+			Name:  "no_dependabot",
+			Check: string(policy.CheckAbsent),
+			Paths: []string{".github/dependabot.yml"},
+		})
+
+		return cfg
+	}
+
+	templates := map[string]string{"codeowners": "* @platform"}
+
+	without, err := policy.Version(base(), templates)
+	if err != nil {
+		t.Fatalf("Version() error = %v", err)
+	}
+
+	gated := base()
+	gated.FileRules[len(gated.FileRules)-1].When = &policy.WhenConfig{
+		RuleSatisfied: "renovate_config",
+	}
+
+	with, err := policy.Version(gated, templates)
+	if err != nil {
+		t.Fatalf("Version() error = %v", err)
+	}
+
+	if without == with {
+		t.Errorf("Version() = %q for both with and without when gate, want different hashes", with)
+	}
+}
+
+func TestVersion_AbsentCheckModeChangesHash(t *testing.T) {
+	t.Parallel()
+
+	base := func() *policy.PolicyConfig {
+		cfg := policy.BuiltinDefaults()
+		cfg.FileRules = append(cfg.FileRules, policy.FileRuleConfig{
+			Type:  "file",
+			Name:  "dependabot_watch",
+			Check: string(policy.CheckExists),
+			Paths: []string{".github/dependabot.yml"},
+		})
+
+		return cfg
+	}
+
+	templates := map[string]string{"codeowners": "* @platform"}
+
+	exists, err := policy.Version(base(), templates)
+	if err != nil {
+		t.Fatalf("Version() error = %v", err)
+	}
+
+	absent := base()
+	absent.FileRules[len(absent.FileRules)-1].Check = string(policy.CheckAbsent)
+
+	flipped, err := policy.Version(absent, templates)
+	if err != nil {
+		t.Fatalf("Version() error = %v", err)
+	}
+
+	if exists == flipped {
+		t.Errorf("Version() = %q for both exists and absent check mode, want different hashes", flipped)
+	}
+}
+
 func TestVersion_NilConfigErrors(t *testing.T) {
 	t.Parallel()
 

@@ -59,6 +59,12 @@ type Rule struct {
 	// Target is the file path the rule operates on (e.g.
 	// ".github/CODEOWNERS").
 	Target string
+	// Action is "add" for rules that create/update a file and "remove"
+	// for absent-mode rules that delete a forbidden file (IMPL-0019).
+	// The zero value is the empty string; buildPRVars populates it from
+	// the rule's check mode. Additive — absent from pre-IMPL-0019
+	// templates and safe under the zero-value strict-mode validator.
+	Action string
 }
 
 // CatalogInfo carries the parsed catalog-info.yaml fields surfaced to

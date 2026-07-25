@@ -119,13 +119,13 @@ Two independent logic bugs in `internal/reconciler/custom_properties.go`.
 - [x] 1.2 A5 test: with Owner/Component already correct and one mapped
       property absent from the org schema, a second reconcile issues zero
       PATCH calls (stateful mock counts calls across two sweeps).
-- [ ] 1.3 **A4 (GHA-mode staleness):** `handleGHAMode`
+- [x] 1.3 **A4 (GHA-mode staleness):** `handleGHAMode`
       (`custom_properties.go:223-226`) returns early when a properties PR
       already exists, so annotation changes never refresh the
       branch/workflow/PR body. Refresh the existing PR's workflow file
       and body when desired state has changed since it was opened
       (reuse the IMPL-0013 refresh pattern; scope per Decision 2).
-- [ ] 1.4 A4 test: open a properties PR, change an annotation, reconcile
+- [x] 1.4 A4 test: open a properties PR, change an annotation, reconcile
       again ⇒ the branch workflow + PR body reflect the new value
       (stateful mock).
 
@@ -353,7 +353,7 @@ short design pass first because several mocks are stateful.
 
 ## Testing Plan
 
-- [ ] Phase 1: A5 zero-call second sweep; A4 PR-refresh after annotation
+- [x] Phase 1: A5 zero-call second sweep; A4 PR-refresh after annotation
       change.
 - [ ] Phase 2: clear-on-removal multi-sweep; malformed-file-still-skips
       boundary.

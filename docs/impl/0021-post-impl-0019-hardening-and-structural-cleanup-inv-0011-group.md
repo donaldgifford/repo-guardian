@@ -183,23 +183,23 @@ Both in `internal/policy`; independent of each other.
 
 #### Tasks
 
-- [ ] 3.1 **A6 (charset):** correct `githubPropertyNamePattern`
+- [x] 3.1 **A6 (charset):** correct `githubPropertyNamePattern`
       (`validate.go:144`) to GitHub's actual set —
       `^[a-zA-Z0-9_$#-]{1,75}$` (allow `$` `#`, disallow `.`). Verified
       against GitHub docs in INV-0011. Update the mirrored regex text in
       `policy-reference.md:360-362`.
-- [ ] 3.2 A6 tests: `$`/`#` names accepted; a `.` name rejected at load
+- [x] 3.2 A6 tests: `$`/`#` names accepted; a `.` name rejected at load
       with the location-prefixed error.
-- [ ] 3.3 A6 migration note: this is load-breaking for any policy already
+- [x] 3.3 A6 migration note: this is load-breaking for any policy already
       using a dotted property name — startup now fails loudly at load
       rather than 422-ing at sync time. Document the upgrade edge.
-- [ ] 3.4 **A8 (typed-null panic):** guard
+- [x] 3.4 **A8 (typed-null panic):** guard
       `decodeAnnotationProperties` (`loader.go:664-695`) with
       `val.IsNull()` / `!val.IsKnown()` before `AsValueMap()`, and the
       per-value `AsString()` likewise, returning a diagnostic instead of
       panicking. (The *new* `decodeWhenBlock` already got this guard in
       IMPL-0019 Phase 0; this fixes the pre-existing instance.)
-- [ ] 3.5 A8 test: `annotation_properties = null` and a conditional
+- [x] 3.5 A8 test: `annotation_properties = null` and a conditional
       yielding a typed-null map return a clean diagnostic, not a panic.
 
 #### Success Criteria
@@ -357,7 +357,7 @@ short design pass first because several mocks are stateful.
       change.
 - [x] Phase 2: clear-on-removal multi-sweep; malformed-file-still-skips
       boundary.
-- [ ] Phase 3: A6 `$`/`#` accept + `.` reject; A8 typed-null diagnostic
+- [x] Phase 3: A6 `$`/`#` accept + `.` reject; A8 typed-null diagnostic
       (no panic).
 - [ ] Phase 4: helm-unittest alert render; firing-window reasoning noted.
 - [ ] Phase 5: `make ci` + `deadcode` clean after removal.

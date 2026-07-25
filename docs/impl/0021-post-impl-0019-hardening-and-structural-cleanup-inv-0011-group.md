@@ -218,18 +218,18 @@ almost never fires.
 
 #### Tasks
 
-- [ ] 4.1 Fix the alert window in
+- [x] 4.1 Fix the alert window in
       `charts/repo-guardian/templates/prometheusrule.yaml:128-129`: the
       `rate(...[15m]) > 0` + `for: 30m` pairing resets the pending alert
       before it can fire (an isolated mismatch stays positive ≤ ~15 min).
       Rework to a window that outlives the `for` (e.g.
       `increase(...[1h]) > 0` with a shorter `for`, or align windows) —
       mechanism per Decision 1.
-- [ ] 4.2 Fix the same flaw in the LogQL example
+- [x] 4.2 Fix the same flaw in the LogQL example
       (`docs/operations/scaling.md:229-238`).
-- [ ] 4.3 helm-unittest: the alert renders with the corrected
+- [x] 4.3 helm-unittest: the alert renders with the corrected
       expression; existing enable/disable/override cases still pass.
-- [ ] 4.4 Chart version bump (`dont-release`, chart-only cadence).
+- [x] 4.4 Chart version bump (`dont-release`, chart-only cadence).
 
 #### Success Criteria
 
@@ -359,7 +359,7 @@ short design pass first because several mocks are stateful.
       boundary.
 - [x] Phase 3: A6 `$`/`#` accept + `.` reject; A8 typed-null diagnostic
       (no panic).
-- [ ] Phase 4: helm-unittest alert render; firing-window reasoning noted.
+- [x] Phase 4: helm-unittest alert render; firing-window reasoning noted.
 - [ ] Phase 5: `make ci` + `deadcode` clean after removal.
 - [ ] Phase 6: unchanged test suite green after B1 split; B4 items
       covered or documented.

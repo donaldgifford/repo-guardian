@@ -125,8 +125,15 @@ spec:
         {{- $alert := default dict $a.PropertySchemaMissing -}}
         {{- if ne (default true (get $alert "enabled")) false }}
         - alert: RepoGuardianPropertySchemaMissing
-          expr: rate(repo_guardian_custom_property_missing_schema_total[15m]) > {{ default 0 (get $alert "threshold") }}
-          for: {{ default "30m" (get $alert "for") | quote }}
+          {{- /*
+            increase(...[1h]) with a short `for`, not rate(...[15m]) with
+            for: 30m. The window must outlive `for` or the alert can never
+            fire: a schema mismatch is observed once per repo per sweep, so
+            an isolated one leaves rate() positive for ~15m and the 30m
+            pending period resets before it elapses (INV-0011 A7).
+          */}}
+          expr: increase(repo_guardian_custom_property_missing_schema_total[1h]) > {{ default 0 (get $alert "threshold") }}
+          for: {{ default "5m" (get $alert "for") | quote }}
           labels:
             severity: {{ default "warning" (get $alert "severity") | quote }}
           annotations:

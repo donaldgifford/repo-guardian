@@ -614,6 +614,55 @@ func TestValidate_AnnotationProperties_InvalidCharset(t *testing.T) {
 	}
 }
 
+// TestValidate_AnnotationProperties_Charset is the INV-0011 A6
+// regression. The original pattern allowed a period and omitted `$`
+// and `#`, inverting GitHub's actual charset on both edges: a `$`/`#`
+// name was rejected at load even though GitHub accepts it, and a dotted
+// name loaded cleanly only to 422 at sync time.
+func TestValidate_AnnotationProperties_Charset(t *testing.T) {
+	tests := []struct {
+		name     string
+		property string
+		wantErr  bool
+	}{
+		{name: "dollar sign accepted", property: "Cost$Center"},
+		{name: "number sign accepted", property: "Team#1"},
+		{name: "hyphen accepted", property: "cost-center"},
+		{name: "underscore accepted", property: "cost_center"},
+		{name: "alphanumeric accepted", property: "JiraProject2"},
+		{name: "period rejected", property: "jira.project", wantErr: true},
+		{name: "space rejected", property: "Jira Project", wantErr: true},
+		{name: "slash rejected", property: "jira/project", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := BuiltinDefaults()
+			cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(map[string]string{
+				"jira/project-key": tt.property,
+			})}
+
+			err := Validate(cfg)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("Validate(property=%q) = nil, want a charset error", tt.property)
+				}
+
+				if !strings.Contains(err.Error(), "must match") {
+					t.Errorf("Validate(property=%q) error = %q, want it to mention the charset constraint", tt.property, err)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Validate(property=%q) = %v, want nil (GitHub accepts this name)", tt.property, err)
+			}
+		})
+	}
+}
+
 func TestValidate_AnnotationProperties_TooLong(t *testing.T) {
 	cfg := BuiltinDefaults()
 	cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(map[string]string{

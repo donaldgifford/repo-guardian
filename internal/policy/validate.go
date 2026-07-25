@@ -185,9 +185,16 @@ var reservedPropertyNames = map[string]bool{
 }
 
 // githubPropertyNamePattern matches GitHub's constraint on custom
-// property names: alphanumeric, underscore, period, hyphen: up to 75
-// characters (GitHub REST: organization custom properties).
-var githubPropertyNamePattern = regexp.MustCompile(`^[a-zA-Z0-9_.-]{1,75}$`)
+// property names: alphanumeric, and the special characters hyphen,
+// underscore, dollar sign and number sign, up to 75 characters (GitHub
+// REST: organization custom properties).
+//
+// The original pattern here allowed a period and omitted `$` and `#`,
+// which got both edges wrong (INV-0011 A6): `$`/`#` names were rejected
+// at load even though GitHub accepts them, while a dotted name loaded
+// cleanly and then failed with a 422 at sync time. Failing loudly at
+// load is the better trade — see docs/operations/property-name-charset.md.
+var githubPropertyNamePattern = regexp.MustCompile(`^[a-zA-Z0-9_$#-]{1,75}$`)
 
 // validateAnnotationProperties validates a reconciler's
 // annotation_properties map (DESIGN-0019): annotation keys and property

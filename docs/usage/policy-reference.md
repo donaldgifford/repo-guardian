@@ -449,7 +449,11 @@ together):
 
 - Annotation keys and property names must be non-empty.
 - Property names must match GitHub's charset/length constraint
-  (`^[a-zA-Z0-9_.-]{1,75}$`).
+  (`^[a-zA-Z0-9_$#-]{1,75}$`) — alphanumerics plus `-`, `_`, `$` and `#`.
+  A period is **not** allowed. Releases before appVersion 1.10.1 used a
+  pattern that had this backwards; see
+  [property-name charset](../operations/property-name-charset.md) if a
+  policy that used to load now fails.
 - Property names may not be (case-insensitively) `Owner` or `Component` —
   those are the built-in, non-remappable names.
 - Two annotations may not target the same property name.

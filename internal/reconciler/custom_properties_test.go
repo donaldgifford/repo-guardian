@@ -61,9 +61,16 @@ type mockClient struct {
 	orgSchemaCalls atomic.Int32
 	orgSchemaDelay time.Duration // artificial latency to widen the concurrent-miss race window in tests
 
-	// setPropsMu guards setProperties: the one test that calls
-	// Reconcile concurrently across goroutines sharing this client
-	// exercises real concurrent SetCustomPropertyValues calls.
+	// setPropsCalls counts SetCustomPropertyValues invocations, kept
+	// separate from setProperties (which accumulates payload entries)
+	// so a test can assert "how many PATCH round-trips" independently
+	// of how many properties each carried.
+	setPropsCalls atomic.Int32
+
+	// setPropsMu guards setProperties AND customProperties: a write
+	// lands in both (list-then-act fidelity), and the one test that
+	// calls Reconcile concurrently across goroutines sharing this
+	// client exercises real concurrent reads and writes.
 	setPropsMu sync.Mutex
 
 	getRepoErr        error
@@ -210,19 +217,57 @@ func (m *mockClient) GetCustomPropertyValues(_ context.Context, owner, repo stri
 
 	key := fmt.Sprintf("%s/%s", owner, repo)
 
+	m.setPropsMu.Lock()
+	defer m.setPropsMu.Unlock()
+
 	return m.customProperties[key], nil
 }
 
-func (m *mockClient) SetCustomPropertyValues(_ context.Context, _, _ string, properties []*ghclient.CustomPropertyValue) error {
+func (m *mockClient) SetCustomPropertyValues(_ context.Context, owner, repo string, properties []*ghclient.CustomPropertyValue) error {
 	if m.setCustomPropsErr != nil {
 		return m.setCustomPropsErr
 	}
 
+	m.setPropsCalls.Add(1)
+
 	m.setPropsMu.Lock()
+	defer m.setPropsMu.Unlock()
+
 	m.setProperties = append(m.setProperties, properties...)
-	m.setPropsMu.Unlock()
+
+	// List-then-act fidelity (CLAUDE.md): a later GetCustomPropertyValues
+	// must observe this write the way GitHub would. Without it a
+	// "converges to zero PATCHes" assertion is vacuous — the second
+	// sweep would re-diff against stale state and act again for reasons
+	// that have nothing to do with the behavior under test.
+	key := fmt.Sprintf("%s/%s", owner, repo)
+	m.customProperties[key] = mergeProperties(m.customProperties[key], properties)
 
 	return nil
+}
+
+// mergeProperties applies a PATCH payload onto the current property
+// list, replacing values by name and appending names not yet present.
+func mergeProperties(current, writes []*ghclient.CustomPropertyValue) []*ghclient.CustomPropertyValue {
+	merged := make([]*ghclient.CustomPropertyValue, 0, len(current)+len(writes))
+	index := make(map[string]int, len(current))
+
+	for _, p := range current {
+		index[p.PropertyName] = len(merged)
+		merged = append(merged, p)
+	}
+
+	for _, w := range writes {
+		if i, ok := index[w.PropertyName]; ok {
+			merged[i] = w
+			continue
+		}
+
+		index[w.PropertyName] = len(merged)
+		merged = append(merged, w)
+	}
+
+	return merged
 }
 
 // GetOrgPropertySchema fails open (returns an error) for any org the
@@ -947,6 +992,96 @@ func TestAPIMode_FiltersUndefinedMappedProperty(t *testing.T) {
 
 	if got := testutil.ToFloat64(metrics.CustomPropertyMissingSchemaTotal.WithLabelValues("filter-org", "JiraLabel")); got != 1 {
 		t.Errorf("CustomPropertyMissingSchemaTotal{filter-org,JiraLabel} = %v, want 1", got)
+	}
+}
+
+// TestAPIMode_SchemaMissingProperty_ConvergesToZeroPatches is the
+// INV-0011 A5 regression: a mapped property the org schema does not
+// define must not report drift forever. Before the fix, diffProperties
+// compared the full managed set while only the payload was filtered, so
+// JiraLabel — undefined in the org and therefore never writable — kept
+// the reconciler in a no-op PATCH loop, re-sending the already-correct
+// Owner/Component/JiraProject on every sweep.
+func TestAPIMode_SchemaMissingProperty_ConvergesToZeroPatches(t *testing.T) {
+	t.Parallel()
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+	client.orgSchema["org"] = []string{"Owner", "Component", "JiraProject"} // JiraLabel undefined
+
+	// Sweep 1 converges the three defined properties from empty.
+	if err := r.Reconcile(context.Background(), newParams(client, validCatalogInfo, false, nil)); err != nil {
+		t.Fatalf("Reconcile sweep 1: %v", err)
+	}
+
+	if got := client.setPropsCalls.Load(); got != 1 {
+		t.Fatalf("sweep 1 SetCustomPropertyValues calls = %d, want 1 (initial convergence)", got)
+	}
+
+	seen := make(map[string]bool)
+	for _, p := range client.setProperties {
+		seen[p.PropertyName] = true
+	}
+
+	if seen["JiraLabel"] {
+		t.Error("JiraLabel is undefined in the org schema and must never be sent")
+	}
+
+	// Sweep 2 over identical state must be a complete no-op: the only
+	// property still "differing" is the one the org cannot store.
+	if err := r.Reconcile(context.Background(), newParams(client, validCatalogInfo, false, nil)); err != nil {
+		t.Fatalf("Reconcile sweep 2: %v", err)
+	}
+
+	if got := client.setPropsCalls.Load(); got != 1 {
+		t.Errorf("SetCustomPropertyValues calls after 2 sweeps = %d, want 1 (second sweep must issue zero PATCHes)", got)
+	}
+}
+
+// TestAPIMode_SchemaMissingProperty_StillReportsMissingSchema pins the
+// observability half of the A5 fix: because a schema-missing property
+// no longer registers as drift, the missing-schema warn and counter had
+// to move onto the every-reconcile path. If they regress back onto the
+// drift path this test fails, and RepoGuardianPropertySchemaMissing
+// would silently stop firing.
+func TestAPIMode_SchemaMissingProperty_StillReportsMissingSchema(t *testing.T) {
+	t.Parallel()
+
+	metrics.CustomPropertyMissingSchemaTotal.Reset()
+
+	var buf bytes.Buffer
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+	client.orgSchema["converged-org"] = []string{"Owner", "Component", "JiraProject"}
+	client.customProperties["converged-org/my-service"] = []*ghclient.CustomPropertyValue{
+		{PropertyName: "Owner", Value: strPtr("platform-team")},
+		{PropertyName: "Component", Value: strPtr("my-service")},
+		{PropertyName: "JiraProject", Value: strPtr("PROJ")},
+	}
+
+	params := newParams(client, validCatalogInfo, false, nil)
+	params.Owner = "converged-org" // unique per test: parallel-safe counter assertions
+	params.Logger = slog.New(slog.NewTextHandler(&buf, nil))
+
+	if err := r.Reconcile(context.Background(), params); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	// Fully converged: nothing to write.
+	if got := client.setPropsCalls.Load(); got != 0 {
+		t.Errorf("SetCustomPropertyValues calls = %d, want 0 (already converged)", got)
+	}
+
+	// ...yet the schema gap is still reported.
+	if got := testutil.ToFloat64(
+		metrics.CustomPropertyMissingSchemaTotal.WithLabelValues("converged-org", "JiraLabel"),
+	); got != 1 {
+		t.Errorf("CustomPropertyMissingSchemaTotal{converged-org,JiraLabel} = %v, want 1 on a no-drift reconcile", got)
+	}
+
+	if logOutput := buf.String(); !strings.Contains(logOutput, "custom properties missing from org schema") {
+		t.Errorf("expected missing-schema warn on a no-drift reconcile, got log: %s", logOutput)
 	}
 }
 

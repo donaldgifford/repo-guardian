@@ -330,9 +330,16 @@ func (e *Engine) evaluateRule(
 	rule *policy.FileRuleConfig,
 	openPRs []*ghclient.PullRequest,
 ) (bool, error) {
-	// Check if there's already a PR for this rule.
-	if hasExistingPRForPolicy(openPRs, rule) {
-		log.Info("existing PR found, skipping rule")
+	// Yield to a PR someone else already opened for this rule. Our own
+	// reconcile PR never matches here — it is handled by the converge
+	// path (see foreignPRForRule).
+	if pr, term := foreignPRForRule(openPRs, rule); pr != nil {
+		log.Info("existing PR found, skipping rule",
+			"pr_number", pr.Number,
+			"pr_head", pr.Head,
+			"matched_term", term,
+		)
+
 		return false, nil
 	}
 

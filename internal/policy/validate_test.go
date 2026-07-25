@@ -678,3 +678,29 @@ func TestValidate_AnnotationProperties_TooLong(t *testing.T) {
 		t.Errorf("error %q should mention charset constraint", err)
 	}
 }
+
+// A blank search term substring-matches every open PR, so the rule
+// would skip itself on any repo that has any PR open — silently, with
+// no log line or metric to notice it by (INV-0011 B4).
+func TestValidate_FileRuleBlankSearchTerm(t *testing.T) {
+	for _, term := range []string{"", "   "} {
+		cfg := BuiltinDefaults()
+		cfg.FileRules = []FileRuleConfig{{
+			Type:     "file",
+			Name:     "test",
+			Paths:    []string{"test"},
+			Target:   "test",
+			Template: "test.tmpl",
+			PR:       &PRConfig{SearchTerms: []string{"codeowners", term}},
+		}}
+
+		err := Validate(cfg)
+		if err == nil {
+			t.Fatalf("expected error for blank search term %q", term)
+		}
+
+		if !strings.Contains(err.Error(), "search_terms[1] must be non-blank") {
+			t.Errorf("error %q should identify the blank term by index", err)
+		}
+	}
+}

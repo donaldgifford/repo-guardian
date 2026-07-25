@@ -19,24 +19,64 @@ import (
 	tmpl "github.com/donaldgifford/repo-guardian/internal/template"
 )
 
-func hasExistingPRForPolicy(openPRs []*ghclient.PullRequest, rule *policy.FileRuleConfig) bool {
+// foreignPRForRule returns the open pull request that already appears
+// to be addressing this rule together with the search term that matched
+// it, or (nil, "") when no open PR does.
+//
+// repo-guardian's own reconcile PR is deliberately excluded (INV-0011
+// B4). It is already handled by the converge path — the PR is refreshed
+// while rules stay actionable and auto-closed once they are all
+// satisfied — and letting it match here breaks that in two ways:
+//
+//   - Self-suppression. IMPL-0012 lets an operator set a per-rule
+//     `pr.title`, so a rule whose title naturally contains its own
+//     search term ("chore: add CODEOWNERS" vs `["codeowners"]`) matches
+//     the very PR it opened. The rule stops being actionable, the
+//     actionable set empties, the PR auto-closes, and the next sweep
+//     re-opens it — one oscillation per sweep, forever.
+//   - Era collision. An absent rule forbidding a file that an earlier
+//     add-era rule installed shares vocabulary with the add-era PR
+//     title by construction; DESIGN-0020 could only warn operators to
+//     hand-pick non-colliding terms. Both PRs are ours, so skipping
+//     ours removes the hazard structurally instead of by documentation.
+//
+// Matching against third-party PRs stays deliberately loose
+// (case-insensitive substring over title and head branch): the point is
+// to yield to a human who is already doing the work, and a human's
+// branch naming is not something we can match precisely.
+func foreignPRForRule(
+	openPRs []*ghclient.PullRequest,
+	rule *policy.FileRuleConfig,
+) (*ghclient.PullRequest, string) {
 	if rule.PR == nil {
-		return false
+		return nil, ""
 	}
 
 	for _, pr := range openPRs {
+		if pr.Head == BranchName {
+			continue
+		}
+
 		titleLower := strings.ToLower(pr.Title)
 		branchLower := strings.ToLower(pr.Head)
 
 		for _, term := range rule.PR.SearchTerms {
+			// An empty term substring-matches every PR, which would
+			// disable the rule org-wide with no signal. Policy
+			// validation rejects it at load; this is defense in depth
+			// for rules built in Go rather than parsed from HCL.
+			if term == "" {
+				continue
+			}
+
 			termLower := strings.ToLower(term)
 			if strings.Contains(titleLower, termLower) || strings.Contains(branchLower, termLower) {
-				return true
+				return pr, term
 			}
 		}
 	}
 
-	return false
+	return nil, ""
 }
 
 // updateReconcileBranch merges the default branch into an open PR's

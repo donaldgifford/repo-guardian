@@ -120,7 +120,7 @@ rule "file" "github_actions_ci" {
 | `paths` | All locations where the file might already exist. The rule is satisfied if **any** path exists (in `exists` mode). | Include common naming variations (`.yml` vs `.yaml`, alternate directories). |
 | `target` | Path where the file will be created in the PR branch. | Use the canonical/preferred location. |
 | `template` | Key into the template store. Must match the template file name without the `.tmpl` suffix. | Must match the file created in Step 1. |
-| `pr { search_terms }` | Strings matched case-insensitively against open PR titles and branch names. A match causes the rule to skip (a PR is assumed to be in flight). | Specific enough to avoid false positives but broad enough to catch related work. |
+| `pr { search_terms }` | Strings matched case-insensitively against the titles and branch names of *third-party* open PRs. A match causes the rule to skip (someone else's PR is assumed to be in flight). repo-guardian's own reconcile PR is never matched. | Specific enough to avoid false positives but broad enough to catch related work. Blank entries are rejected at load. |
 
 ### Notes
 
@@ -130,6 +130,9 @@ rule "file" "github_actions_ci" {
 - **`search_terms`** prevents repo-guardian from opening a PR when
   someone is already working on the same thing. A term like `"add"`
   matches too many unrelated PRs; pick something specific to the rule.
+  The search skips repo-guardian's own reconcile PR, so a term that
+  happens to appear in your own `pr.title` will not make the rule
+  suppress itself.
 
 ### Built-in vs. operator-defined rules
 
@@ -249,9 +252,10 @@ Once deployed, the new rule participates in every repository check:
    env overrides) on startup.
 2. For the new rule, it checks whether any of the `paths` exist in the
    repo (and evaluates any assertions for `contains`/`exact` modes).
-3. If the rule is actionable, it checks whether any open PR title or
-   branch matches a `pr.search_terms` entry. If so, the rule is
-   skipped for this run.
+3. If the rule is actionable, it checks whether any *third-party* open
+   PR's title or branch matches a `pr.search_terms` entry. If so, the
+   rule is skipped for this run. repo-guardian's own reconcile PR is
+   excluded from this search — it is handled by step 4 instead.
 4. If the rule is still actionable, the engine adds the rendered
    template to the repo-guardian PR branch
    (`repo-guardian/add-missing-files`). One branch per repo;

@@ -363,12 +363,51 @@ Decision 5 (Group B spins into its own IMPL doc).
   the "second identical sweep issues no PATCH" assertion would have
   been vacuous. Tests in `internal/checker/base_drift_test.go`;
   both were verified to fail with the fix neutralized.
-- [ ] 6.4 **B4 — `hasExistingPRForPolicy` search-terms fragility**
+- [x] 6.4 **B4 — `hasExistingPRForPolicy` search-terms fragility**
       (`engine_policy.go:438-456`): substring matching collides across
       rules and across add-vs-remove eras (sharper-edged now that
       IMPL-0019 ships removal PRs). Tighten matching (scoped/anchored
       terms, or a structured marker) — coordinate with whatever
       convention IMPL-0019 landed for removal-PR search terms.
+
+  **Scoped by author, not by anchoring the terms.** Renamed to
+  `foreignPRForRule` and it now skips any PR whose head is
+  `BranchName` — our own reconcile PR. That one change dissolves both
+  named collisions, because every colliding PR in both scenarios is
+  ours:
+
+  - *Era collision.* An absent rule removing what an add-era rule
+    installed shares vocabulary with the add-era PR title by
+    construction. DESIGN-0020 could only warn operators to hand-pick
+    non-colliding terms (`["remove dependabot"]`); the add-era PR is
+    repo-guardian's, so excluding it removes the hazard structurally.
+    `docs/usage/policy-reference.md` updated accordingly — the distinct
+    phrase is now a readability nicety, not load-bearing.
+  - *Self-suppression (found while implementing, not in INV-0011).*
+    IMPL-0012 lets an operator set a per-rule `pr.title`. A rule whose
+    title naturally contains its own search term — `"chore: add
+    CODEOWNERS"` against `["codeowners"]` — matched the very PR it had
+    just opened. The rule stopped being actionable, the actionable set
+    emptied, `autoClosePR` closed the PR, and the next sweep re-opened
+    it: an open/close oscillation once per sweep, forever, on a
+    perfectly reasonable config. Pinned end-to-end by
+    `TestForeignPRForRule_CustomTitleDoesNotSelfSuppress`, which was
+    verified to fail (PR auto-closed while its rule was unsatisfied)
+    with the exclusion removed.
+
+  Matching against third-party PRs stays case-insensitive substring on
+  purpose: the goal is to yield to a human already doing the work, and
+  human branch naming isn't precisely matchable. Anchoring the terms
+  would have traded a real behavior (catching related work) for no
+  gain, since the collisions were never about term shape.
+
+  Blank `search_terms` entries are now rejected at load
+  (`validateSearchTerms`) — a blank term substring-matches every PR, so
+  the rule would silently disable itself on any repo with any PR open,
+  with no log line or metric to notice it by. Same fail-at-load stance
+  IMPL-0018 took for unknown `guardian {}` attributes. The matcher also
+  skips blank terms as defense in depth for rules built in Go rather
+  than parsed from HCL.
 
 #### Success Criteria
 

@@ -35,6 +35,11 @@ go.work.sum
 build/
 dist/
 
+# mkdocs build output (`mkdocs build` / `mkdocs build --strict`).
+# The published site is built by CI from source, never from a
+# committed tree.
+site/
+
 # Helm chart packages (output of `helm package`)
 *.tgz
 

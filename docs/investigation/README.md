@@ -24,6 +24,7 @@ Design docs, plans, and implementation docs can reference investigations by ID
 | INV-0009 | Read-only status API and web UI options | Open | 2026-07-19 | Donald Gifford | [0009-read-only-status-api-and-web-ui-options.md](0009-read-only-status-api-and-web-ui-options.md) |
 | INV-0010 | Silently ignored operator config: auto_close_pr HCL attribute and cross-mode existingSecret | Resolved | 2026-07-20 | Donald Gifford | [0010-silently-ignored-operator-config-autoclosepr-hcl-attribute-and.md](0010-silently-ignored-operator-config-autoclosepr-hcl-attribute-and.md) |
 | INV-0011 | Tech debt cleanup inventory post IMPL-0019 | Open | 2026-07-23 | Donald Gifford | [0011-tech-debt-cleanup-inventory-post-impl-0019.md](0011-tech-debt-cleanup-inventory-post-impl-0019.md) |
+| INV-0012 | Inert BudgetTracker and untrustworthy alert pack | Open | 2026-07-25 | Donald Gifford | [0012-inert-budgettracker-and-untrustworthy-alert-pack.md](0012-inert-budgettracker-and-untrustworthy-alert-pack.md) |
 <!-- END DOCZ AUTO-GENERATED -->
 <!-- BEGIN DOCZ AUTO-GENERATED -->
 <!-- END DOCZ AUTO-GENERATED -->

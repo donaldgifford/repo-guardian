@@ -64,6 +64,7 @@ nav:
         - 'INV-0009: Read-only status API and web UI options': investigation/0009-read-only-status-api-and-web-ui-options.md
         - 'INV-0010: Silently ignored operator config: auto_close_pr HCL attribute and cross-mode existingSecret': investigation/0010-silently-ignored-operator-config-autoclosepr-hcl-attribute-and.md
         - 'INV-0011: Tech debt cleanup inventory post IMPL-0019': investigation/0011-tech-debt-cleanup-inventory-post-impl-0019.md
+        - 'INV-0012: Inert BudgetTracker and untrustworthy alert pack': investigation/0012-inert-budgettracker-and-untrustworthy-alert-pack.md
     - Plans:
         - Overview: plan/README.md
     - RFCs:
@@ -71,12 +72,12 @@ nav:
         - 'RFC-0001: Repo Compliance App (repo-guardian)': rfc/0001-repo-compliance-app-repo-guardian.md
         - 'RFC-0002: HCL-driven Policy Engine for repo-guardian': rfc/0002-hcl-driven-policy-engine-for-repo-guardian.md
     - Operations:
-        - Absent rules and conditional gates migration (IMPL-0019): operations/absent-rules-migration.md
+        - Absent rules and conditional gates migration (appVersion → next minor): operations/absent-rules-migration.md
         - Chart 0.5.0 migration runbook (IMPL-0011): operations/chart-0.5.0-migration.md
         - Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration: operations/pr-convergence-migration.md
-        - Custom-property annotation migration (appVersion 1.9.1 → next minor): operations/annotation-properties-migration.md
         - Custom-properties security fix (IMPL-0020): operations/custom-properties-security-fix.md
-        - Custom-property name charset correction (IMPL-0021): operations/property-name-charset.md
+        - Custom-property annotation migration (appVersion 1.9.1 → next minor): operations/annotation-properties-migration.md
+        - Custom-property name charset correction (appVersion 1.10.1): operations/property-name-charset.md
         - ECR publish setup (maintainer-side): operations/ecr-publish-setup.md
         - Homelab CNPG cutover runbook: operations/cnpg-homelab-cutover.md
         - Postgres schema operations: operations/migrations.md

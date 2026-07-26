@@ -15,6 +15,7 @@ import (
 
 	"github.com/donaldgifford/repo-guardian/internal/catalog"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/github/mocks"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/reconciler"
@@ -38,6 +39,15 @@ spec:
 
 // mockClient implements ghclient.Client for testing.
 type mockClient struct {
+	// Embedded generated mock. Every method this fake needs is
+	// overridden below, so the embedded value is never actually
+	// called; it exists so that adding a method to ghclient.Client
+	// does not break compilation here (IMPL-0021 Phase 7 / INV-0011
+	// B2). A test that reaches an un-overridden method panics with
+	// testify's "no return value specified" — a loud signal that the
+	// new API needs fake behavior, rather than a silent zero value.
+	mocks.MockClient
+
 	contents         map[string]bool
 	fileContents     map[string]string
 	customProperties map[string][]*ghclient.CustomPropertyValue

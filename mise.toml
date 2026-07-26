@@ -9,8 +9,11 @@ golines = "latest"
 "go:github.com/spf13/cobra-cli" = "latest"
 # renovate: datasource=go depName=golang.org/x/tools
 "go:golang.org/x/tools/cmd/goimports" = "latest"
-# renovate: datasource=go depName=github.com/vektra/mockery/v2
-"go:github.com/vektra/mockery/v2" = "latest"
+# mockery v3: v2's final release (2.53.6) is built against go1.25 and
+# cannot load this go1.26 module at all, so `make mocks` was a no-op
+# error. See IMPL-0021 Phase 7.
+# renovate: datasource=go depName=github.com/vektra/mockery/v3
+"go:github.com/vektra/mockery/v3" = "latest"
 # renovate: datasource=go depName=golang.org/x/tools
 "go:golang.org/x/tools/cmd/godoc" = "latest"
 # renovate: datasource=go depName=github.com/goreleaser/chglog

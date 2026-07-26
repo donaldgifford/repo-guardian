@@ -249,8 +249,9 @@ type Client interface {
 
 	// UpdatePRBranch merges the pull request's base branch into its
 	// head branch, keeping a long-lived reconcile PR mergeable as the
-	// default branch advances. A no-op error is returned when the
-	// branch cannot be updated; callers treat it as best-effort.
+	// default branch advances. Returns an error when the merge cannot
+	// be performed (most often a conflict with base); callers treat
+	// the call as best-effort and continue rather than abort.
 	UpdatePRBranch(ctx context.Context, owner, repo string, number int) error
 
 	// ClosePullRequest transitions the pull request to the closed

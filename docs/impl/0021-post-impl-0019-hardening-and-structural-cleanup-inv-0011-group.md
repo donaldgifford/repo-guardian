@@ -425,16 +425,72 @@ short design pass first because several mocks are stateful.
 
 #### Tasks
 
-- [ ] 7.1 Design pass: catalog the stateful mock behaviors
+- [x] 7.1 Design pass: catalog the stateful mock behaviors
       (recording, list-then-act fidelity in
       `custom_properties_test.go`, `convergence_test.go`) and decide how
       they map onto mockery (expectation plumbing vs hand-kept wrapper
       types) — this is the "not a pure win" risk flagged in INV-0011 B2.
-- [ ] 7.2 Migrate the three canonical stub sites
+
+  **Finding first: `make mocks` was broken and nobody knew.** mockery
+  v2's final release (2.53.6, what `mise.toml` pinned) is built against
+  go1.25 and cannot load this module at all — every invocation dies
+  with *"package requires newer Go version go1.26"*. That is why the
+  Phase-0 `Store.UpsertIfMissing` mock had to be hand-extended
+  (CLAUDE.md records the symptom without the cause), and it went
+  unnoticed because there is **no CI gate** regenerating mocks and
+  diffing them, despite `.mockery.yaml`'s header claiming one. mockery
+  v3.7.2 loads the module fine and is BSD-3-Clause, same as v2.
+
+  **What the mocks actually are.** The three "mocks" are *fakes*, not
+  mocks: tests seed maps (`contents["org/repo/CODEOWNERS"] = true`) and
+  the fake computes answers, rather than declaring per-call
+  expectations. Six behaviors depend on that, and four are
+  list-then-act pairs the CLAUDE.md mock-fidelity rule exists to
+  protect:
+
+  | Fake behavior | Where | Why it can't be an expectation |
+  |---|---|---|
+  | `SetCustomPropertyValues` → `GetCustomPropertyValues` | `reconciler` | converge-to-zero-PATCHes assertions |
+  | `UpsertPRComment` → `ListPRComments` (dedup on {PR, marker}) | `checker` | sticky-comment idempotency (IMPL-0013 P4) |
+  | `CreateOrUpdateFile` → `GetContentsOnBranch` | `checker` | inverse-orphan restoration (IMPL-0019 2.8) |
+  | `UpdatePullRequest` → `ListOpenPullRequests` | `checker` | no-op-PATCH skip (task 6.3) |
+  | schema cache call-counting under `-race`, 20 goroutines | `reconciler` | concurrency, not call order |
+  | jittered `LastCheckedAt`, error injection per method | all three | value computed from args |
+
+  Rewriting 108 construction sites into `.RunAndReturn` closures would
+  relocate every one of those behaviors into generated-mock plumbing
+  and add `mock.Anything` noise, for zero behavioral gain. That is
+  INV-0011 B2's "not a pure win," confirmed.
+
+  **Decision: embed, don't migrate.** Generate `mocks.MockClient` for
+  `github.Client` and embed it in each hand-written fake. Every method
+  a fake needs is still hand-written and overrides the embedded one, so
+  behavior is untouched; the embedded value exists purely to absorb
+  *future* interface methods. A test that reaches an un-overridden
+  method panics with testify's "no return value specified" — strictly
+  better than today's silent zero value, which is precisely how the
+  IMPL-0013 P4 vacuous-assertion post-mortem happened.
+- [x] 7.2 Migrate the three canonical stub sites
       (`engine_test.go`, `sweep_test.go` — or its replacement after
       Phase 5, `custom_properties_test.go`) to generated mocks, keeping
       stateful behavior intact.
-- [ ] 7.3 `make mocks` wired and documented; CLAUDE.md updated to drop
+
+  Upgraded mockery v2 → v3 (`mise.toml`, `.mockery.yaml` rewritten to
+  the v3 schema via `mockery migrate` plus the repo's filename and
+  structname templates), regenerated Store/Queue/Scheduler — which
+  replaces the hand-extended `UpsertIfMissing` with the real generated
+  method — and added `github.Client` to the config. Embedded
+  `mocks.MockClient` in `internal/checker/engine_test.go`,
+  `internal/scheduler/mock_test.go`, and
+  `internal/reconciler/custom_properties_test.go` (the last covers
+  `bpMockClient`/`labelMockClient` by embedding).
+
+  Verified by probe rather than by assertion: added a throwaway
+  `ProbeOnlyMethod` to `github.Client` and its implementation, and
+  counted `go vet` errors across the three fake packages — **12 before
+  `make mocks`, 0 after**, with the full `-race` suite green. Then
+  reverted the probe.
+- [x] 7.3 `make mocks` wired and documented; CLAUDE.md updated to drop
       the "add stubs to three files in lockstep" convention once the
       generated mocks are authoritative.
 
@@ -461,7 +517,9 @@ short design pass first because several mocks are stateful.
 | `charts/repo-guardian/templates/prometheusrule.yaml` | Modify | A7 alert window |
 | `charts/repo-guardian/tests/prometheusrule_test.yaml` | Modify | A7 assertion |
 | `internal/scheduler/sweep.go` | Delete | B3 dead code |
-| `internal/{checker,scheduler,reconciler}/*_test.go` | Modify | B2 mockery migration |
+| `internal/{checker,scheduler,reconciler}/*_test.go` | Modify | B2 — embed generated MockClient in the hand-written fakes |
+| `internal/github/mocks/client_mock.go` | Create | B2 — generated base absorbing future interface methods |
+| `.mockery.yaml`, `mise.toml`, `Makefile` | Modify | B2 — mockery v2 (broken on go1.26) → v3 |
 | `docs/usage/policy-reference.md` | Modify | A6 charset text |
 | `docs/operations/scaling.md` | Modify | A7 LogQL example |
 | `CLAUDE.md` | Modify | A6 migration, B2 convention drop |
@@ -476,9 +534,9 @@ short design pass first because several mocks are stateful.
       (no panic).
 - [x] Phase 4: helm-unittest alert render; firing-window reasoning noted.
 - [x] Phase 5: `make ci` + `deadcode` clean after removal.
-- [ ] Phase 6: unchanged test suite green after B1 split; B4 items
+- [x] Phase 6: unchanged test suite green after B1 split; B4 items
       covered or documented.
-- [ ] Phase 7: generated mocks pass full suite incl. stateful behaviors.
+- [x] Phase 7: generated mocks pass full suite incl. stateful behaviors.
 
 ## Dependencies
 

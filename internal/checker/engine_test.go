@@ -8,11 +8,21 @@ import (
 	"time"
 
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/github/mocks"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 )
 
 // mockClient implements ghclient.Client for testing.
 type mockClient struct {
+	// Embedded generated mock. Every method this fake needs is
+	// overridden below, so the embedded value is never actually
+	// called; it exists so that adding a method to ghclient.Client
+	// does not break compilation here (IMPL-0021 Phase 7 / INV-0011
+	// B2). A test that reaches an un-overridden method panics with
+	// testify's "no return value specified" — a loud signal that the
+	// new API needs fake behavior, rather than a silent zero value.
+	mocks.MockClient
+
 	contents         map[string]bool                            // "owner/repo/path" -> exists
 	branchContents   map[string]string                          // "owner/repo/branch/path" -> sha (IMPL-0013 P3 orphan discovery)
 	fileContents     map[string]string                          // "owner/repo/path" -> content

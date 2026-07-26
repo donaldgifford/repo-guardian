@@ -1,3 +1,17 @@
+// Package scheduler provides the periodic-work abstraction used to
+// drive repo-guardian's background loops.
+//
+// It contains two things:
+//   - Scheduler, the interface main.go schedules handlers on, with a
+//     leader-elected Valkey implementation in scheduler/valkey.
+//   - Discoverer, which enumerates installations and their repositories
+//     and seeds persistent repo_state rows for the stale sweeper
+//     (IMPL-0015 Phase 1).
+//
+// The legacy Sweeper — a concrete for-select loop that enumerated every
+// repository on every tick and enqueued it directly — was removed in
+// IMPL-0021. Discovery (this package) and staleness-driven enqueueing
+// (checker.StaleSweeper) replaced it.
 package scheduler
 
 import (

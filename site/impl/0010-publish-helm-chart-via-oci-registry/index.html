@@ -1,0 +1,5219 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+        <link rel="prev" href="../0009-per-org-rule-scoping-and-observability/">
+      
+      
+        <link rel="next" href="../0011-persistent-reconcile-state-and-multi-replica-coordination/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Publish Helm chart via OCI registry - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#impl-0010-publish-helm-chart-via-oci-registry" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Publish Helm chart via OCI registry
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started with repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference (guardian.hcl)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0010-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0010: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0011-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0011: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0012-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0012: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0013-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0013: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0015-per-installation-valkey-queue-partitioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0015: Per-installation Valkey queue partitioning
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0016-separate-postgres-read-and-write-endpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0016: Separate Postgres read and write endpoints
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0017-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0017: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0018-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0018: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0019-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0019: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0020-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0020: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0009-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0009: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0010: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0010: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#retrospective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Retrospective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-pre-flight-chart-version-bump-and-changelog-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Pre-flight, Chart Version Bump, and Changelog Setup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Pre-flight, Chart Version Bump, and Changelog Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-workflow-rewrite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Workflow Rewrite
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: Workflow Rewrite">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-dry-run-validation-on-the-pr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: Dry-run Validation on the PR
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3: Dry-run Validation on the PR">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-first-publish-and-visibility-flip" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: First Publish and Visibility Flip
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4: First Publish and Visibility Flip">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-cosign-slsa-verification-and-smoke-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Cosign + SLSA Verification and Smoke Test
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 5: Cosign + SLSA Verification and Smoke Test">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-documentation-refresh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: Documentation Refresh
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 6: Documentation Refresh">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-7-root-changelog-and-binary-release-hook" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7: Root Changelog and Binary Release Hook
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 7: Root Changelog and Binary Release Hook">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-8-homelab-consumer-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 8: Homelab Consumer Migration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 8: Homelab Consumer Migration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-9-decommission-legacy-chart-releaser-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 9: Decommission Legacy chart-releaser Path
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 9: Decommission Legacy chart-releaser Path">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolved-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolved Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0011-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0011: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0012-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0012: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0013-reconcile-open-prs-when-file-rules-become-satisfied/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0013: Reconcile open PRs when file rules become satisfied
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0015-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0015: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Progress"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0016-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0016: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0017-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0017: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0018-fix-silently-ignored-operator-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0018: Fix silently ignored operator config
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0019-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0019: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0020-pre-impl-0019-high-severity-fixes-inv-0011-group-a-high/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0020: Pre-IMPL-0019 high-severity fixes (INV-0011 Group A High)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0021: Post-IMPL-0019 hardening and structural cleanup (INV-0011 Group A Medium + Group B)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0002-multi-org-and-forgejo-support-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0002: Multi-org and Forgejo support for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0003-pre-existing-branch-422-on-subsequent-reconciles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0003: Pre-existing branch 422 on subsequent reconciles
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0004-forge-interface-and-package-refactor-for-forgejo-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0004: Forge interface and package refactor for Forgejo backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0005-stale-prs-when-file-rules-become-satisfied-on-main/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0005: Stale PRs when file rules become satisfied on main
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0006-per-org-github-app-credentials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0006: Per-org GitHub App credentials
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Deferred"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0007-gitlab-forge-backend-support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0007: GitLab provider backend support
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0008-annotation-sourced-custom-properties-should-be-configurable-not/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0008: Annotation-sourced custom properties should be configurable, not hardcoded
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0009-read-only-status-api-and-web-ui-options/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0009: Read-only status API and web UI options
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0010-silently-ignored-operator-config-autoclosepr-hcl-attribute-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0010: Silently ignored operator config: auto_close_pr HCL attribute and cross-mode existingSecret
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0011-tech-debt-cleanup-inventory-post-impl-0019/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0011: Tech debt cleanup inventory post IMPL-0019
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/absent-rules-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Absent rules and conditional gates migration (IMPL-0019)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/chart-0.5.0-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.5.0 migration runbook (IMPL-0011)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/pr-convergence-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/annotation-properties-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property annotation migration (appVersion 1.9.1 → next minor)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/custom-properties-security-fix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-properties security fix (IMPL-0020)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/property-name-charset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property name charset correction (IMPL-0021)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ecr-publish-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ECR publish setup (maintainer-side)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/cnpg-homelab-cutover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Homelab CNPG cutover runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postgres schema operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running repo-guardian on AWS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/template-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Template migration guide (chart 0.3.x → 0.4.0)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#retrospective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Retrospective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-pre-flight-chart-version-bump-and-changelog-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Pre-flight, Chart Version Bump, and Changelog Setup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Pre-flight, Chart Version Bump, and Changelog Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-workflow-rewrite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Workflow Rewrite
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: Workflow Rewrite">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-dry-run-validation-on-the-pr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: Dry-run Validation on the PR
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3: Dry-run Validation on the PR">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-first-publish-and-visibility-flip" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: First Publish and Visibility Flip
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4: First Publish and Visibility Flip">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-cosign-slsa-verification-and-smoke-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Cosign + SLSA Verification and Smoke Test
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 5: Cosign + SLSA Verification and Smoke Test">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-documentation-refresh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: Documentation Refresh
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 6: Documentation Refresh">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-7-root-changelog-and-binary-release-hook" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7: Root Changelog and Binary Release Hook
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 7: Root Changelog and Binary Release Hook">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-8-homelab-consumer-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 8: Homelab Consumer Migration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 8: Homelab Consumer Migration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-9-decommission-legacy-chart-releaser-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 9: Decommission Legacy chart-releaser Path
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 9: Decommission Legacy chart-releaser Path">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolved-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolved Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="impl-0010-publish-helm-chart-via-oci-registry">IMPL 0010: Publish Helm chart via OCI registry<a class="headerlink" href="#impl-0010-publish-helm-chart-via-oci-registry" title="Permanent link">&para;</a></h1>
+<p><strong>Status:</strong> Completed
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-05-02</p>
+<blockquote>
+<p><strong>Implementation complete (2026-05-02).</strong> All in-repo phases
+shipped across 6 PRs (#60, #61, #62, #63, #64, #65). Chart
+<code>oci://ghcr.io/donaldgifford/charts/repo-guardian:0.3.1</code> is
+public on GHCR, signed with cosign keyless, and carries a
+SLSA Level 3 provenance attestation. Anonymous <code>helm pull</code> and
+<code>cosign verify</code> both succeed without GHCR credentials.</p>
+<p><strong>Phase 8 (homelab consumer migration)</strong> is downstream
+consumer-adoption work in a separate repo (<code>~/code/homelab/</code>)
+and is owned by the operator. Steps that remain there: bump
+<code>kustomization.yaml</code> from chart <code>0.2.0</code> (never published) to
+<code>0.3.1</code>; add <code>private-key</code> field to 1Password item
+<code>56ix3ejbeqeo2gp2wofswwf6zy</code>; commit + push the homelab branch;
+watch ArgoCD reconcile to <code>Synced</code>+<code>Healthy</code>; archive old
+1Password item <code>rtzom545ay5ygonvpqg2fyunye</code> after verification.
+The chart upstream this IMPL delivers is fully usable in the
+meantime.</p>
+</blockquote>
+<h2 id="retrospective">Retrospective<a class="headerlink" href="#retrospective" title="Permanent link">&para;</a></h2>
+<p>What went smoothly:</p>
+<ul>
+<li><strong>Dry-run validation on the feature branch</strong> caught zero issues
+  before merge — the workflow's <code>workflow_dispatch</code> <code>dry_run</code> path
+  succeeded end-to-end with push/sign/SLSA correctly skipped, and
+  the uploaded <code>.tgz</code> artifact contained <code>CHANGELOG.md</code> as expected.</li>
+<li><strong>git-cliff one-tool-for-both pattern</strong> worked. Two configs
+  (<code>cliff.toml</code> + <code>charts/repo-guardian/cliff.toml</code>) with the
+  <code>--include-path 'charts/**'</code> filter applied at invocation time
+  cleanly separated root and chart changelogs without per-PR
+  fragment overhead.</li>
+<li><strong>SLSA generator reusable workflow</strong> plugged in with minimal
+  configuration — just <code>image</code>, <code>digest</code>, and registry credentials.
+  Verification via <code>cosign verify-attestation --type slsaprovenance</code>
+  passed first try.</li>
+</ul>
+<p>What broke and why:</p>
+<ul>
+<li><strong>Cosign sign failed on the 0.3.0 first publish (PR #60).</strong>
+  <code>helm registry login</code> writes credentials to
+  <code>~/.config/helm/registry/config.json</code>. Cosign reads
+  <code>~/.docker/config.json</code>. The two stores are disjoint, so cosign
+  had no GHCR credentials when it tried to push the <code>.sig</code> blob.
+  Fixed in PR #61 by adding <code>docker/login-action@v4</code> (which writes
+  to <code>~/.docker/config.json</code>) before the cosign step. Both logins
+  are kept — they serve different binaries with different credential
+  stores.</li>
+<li><strong>Roll-forward yank exercised in practice.</strong> Rather than delete
+  the unsigned 0.3.0 from GHCR (which would silently re-publish on
+  the next merge to main, since the idempotency check is keyed on
+  "tag exists in registry"), bumped <code>Chart.yaml</code> to <code>0.3.1</code> and
+  republished. This validated the documented yank semantics under
+  real conditions.</li>
+<li><strong>Chart resources landed in the wrong namespace on first homelab
+  deploy (PR #67, chart 0.3.1 → 0.3.2).</strong> Helm convention says omit
+  <code>metadata.namespace</code> from templates and let <code>helm install --namespace
+  X</code> stamp it at apply time. That convention only holds when the
+  consumer actually runs <code>helm install</code>. The homelab pulls the chart
+  via <code>kustomize</code>'s <code>helmCharts:</code> block, which calls <code>helm template</code>
+  (no apply phase, no namespace stamping), and ArgoCD then routes
+  unstamped resources to <code>spec.destination.namespace</code> — <code>argocd</code> for
+  every app in our ApplicationSet. The Deployment, Service,
+  ServiceAccount, and ConfigMaps all landed in <code>argocd</code> while the
+  <code>OnePasswordItem</code> CRDs (which carry an explicit <code>metadata.namespace</code>)
+  landed correctly in <code>repo-guardian</code>, so secret resolution failed
+  and the pod never scheduled. Symptom was misleading because
+  <code>argocd app get</code> reports the Application's own namespace, not the
+  resource placement, and the renovate ApplicationSet sibling app
+  worked fine (renovate's chart already stamps namespaces). Fixed by
+  adding <code>namespace: {{ .Release.Namespace }}</code> to every template
+  metadata block (and to the <code>RoleBinding</code> subject for the tailscale
+  ServiceAccount). Lesson: a Helm chart that promises kustomize+ArgoCD
+  consumption must stamp its own namespace; the "convention" only
+  applies to the <code>helm install</code> consumption path.</li>
+</ul>
+<p>Process notes:</p>
+<ul>
+<li><strong>Six PRs, all <code>dont-release</code> labeled.</strong> No Go code changed in
+  this IMPL, so the binary version (<code>appVersion: 1.4.0</code> from
+  IMPL-0009) was unchanged. Chart and binary version cadences
+  stayed independent — exactly the pattern DESIGN-0011 called for.</li>
+<li><strong>GHCR initial visibility = private.</strong> First publish auto-created
+  the package as private. The visibility flip is a one-time manual
+  step via the GHCR settings UI (no API for it). After flip,
+  subsequent publishes inherit the public setting.</li>
+<li><strong><code>workflow_dispatch</code> validates feature branches.</strong> Triggering
+  the chart-release workflow on <code>feat/helm-chart-oci-distribution</code>
+  with <code>dry_run=true</code> worked without merging first — useful
+  pattern for any workflow that publishes artifacts.</li>
+</ul>
+<!--toc:start-->
+<ul>
+<li><a href="#objective">Objective</a></li>
+<li><a href="#scope">Scope</a><ul>
+<li><a href="#in-scope">In Scope</a></li>
+<li><a href="#out-of-scope">Out of Scope</a></li>
+</ul>
+</li>
+<li><a href="#implementation-phases">Implementation Phases</a><ul>
+<li><a href="#phase-1-pre-flight-chart-version-bump-and-changelog-setup">Phase 1: Pre-flight, Chart Version Bump, and Changelog Setup</a><ul>
+<li><a href="#tasks">Tasks</a></li>
+<li><a href="#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-2-workflow-rewrite">Phase 2: Workflow Rewrite</a><ul>
+<li><a href="#tasks-1">Tasks</a></li>
+<li><a href="#success-criteria-1">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-3-dry-run-validation-on-the-pr">Phase 3: Dry-run Validation on the PR</a><ul>
+<li><a href="#tasks-2">Tasks</a></li>
+<li><a href="#success-criteria-2">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-4-first-publish-and-visibility-flip">Phase 4: First Publish and Visibility Flip</a><ul>
+<li><a href="#tasks-3">Tasks</a></li>
+<li><a href="#success-criteria-3">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-5-cosign--slsa-verification-and-smoke-test">Phase 5: Cosign + SLSA Verification and Smoke Test</a><ul>
+<li><a href="#tasks-4">Tasks</a></li>
+<li><a href="#success-criteria-4">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-6-documentation-refresh">Phase 6: Documentation Refresh</a><ul>
+<li><a href="#tasks-5">Tasks</a></li>
+<li><a href="#success-criteria-5">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-7-root-changelog-and-binary-release-hook">Phase 7: Root Changelog and Binary Release Hook</a><ul>
+<li><a href="#tasks-6">Tasks</a></li>
+<li><a href="#success-criteria-6">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-8-homelab-consumer-migration">Phase 8: Homelab Consumer Migration</a><ul>
+<li><a href="#tasks-7">Tasks</a></li>
+<li><a href="#success-criteria-7">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-9-decommission-legacy-chart-releaser-path">Phase 9: Decommission Legacy chart-releaser Path</a><ul>
+<li><a href="#tasks-8">Tasks</a></li>
+<li><a href="#success-criteria-8">Success Criteria</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#file-changes">File Changes</a></li>
+<li><a href="#testing-plan">Testing Plan</a></li>
+<li><a href="#dependencies">Dependencies</a></li>
+<li><a href="#resolved-questions">Resolved Questions</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="objective">Objective<a class="headerlink" href="#objective" title="Permanent link">&para;</a></h2>
+<p>Implement DESIGN-0011: replace the never-run <code>chart-releaser</code> →
+<code>gh-pages</code> workflow with an OCI publish to
+<code>oci://ghcr.io/donaldgifford/charts/repo-guardian</code>, signed with cosign
+keyless and accompanied by a SLSA provenance attestation, both produced
+via the workflow's OIDC identity. The chart becomes consumable from
+the homelab cluster's Kustomize <code>helmCharts:</code> block, mirroring the
+Atlantis pattern, and the <code>gh-pages</code> branch is left untouched so it can
+continue serving the mkdocs site.</p>
+<p>This IMPL also introduces git-cliff for changelog generation: a chart
+CHANGELOG is generated on-the-fly during the publish workflow and
+packaged into the <code>.tgz</code>, and a root CHANGELOG is regenerated on
+binary release tag push.</p>
+<p><strong>Implements:</strong> DESIGN-0011</p>
+<h2 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h2>
+<h3 id="in-scope">In Scope<a class="headerlink" href="#in-scope" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Chart version bump (<code>0.2.0 → 0.3.0</code>) and <code>appVersion</code> bump
+  (<code>1.3.7 → 1.4.0</code>) in <code>charts/repo-guardian/Chart.yaml</code></li>
+<li>git-cliff installation via <code>mise.toml</code> and two cliff configs:
+  root <code>cliff.toml</code> and <code>charts/repo-guardian/cliff.toml</code> with
+  <code>--include-path 'charts/**'</code></li>
+<li>Initial seed <code>CHANGELOG.md</code> (root) and
+  <code>charts/repo-guardian/CHANGELOG.md</code> files</li>
+<li>Full rewrite of <code>.github/workflows/chart-release.yml</code>:<ul>
+<li><code>push</code> to <code>main</code> trigger scoped to <code>charts/**</code> and the workflow
+  file itself</li>
+<li><code>workflow_dispatch</code> retained with a <code>dry_run</code> input for manual
+  smoke-testing</li>
+<li>GHCR auth via <code>GITHUB_TOKEN</code> (<code>packages: write</code>)</li>
+<li>Idempotent publish (skip when chart version already published)</li>
+<li>cosign keyless signing (<code>id-token: write</code>)</li>
+<li>SLSA Level 3 provenance attestation via
+  <code>slsa-framework/slsa-github-generator</code></li>
+<li>On-the-fly chart CHANGELOG generation before <code>helm package</code>,
+  so the published <code>.tgz</code> always ships with a current changelog</li>
+<li><code>.tgz</code> upload as a workflow run artifact only on
+  <code>workflow_dispatch</code> runs (not on the common <code>push</code> path)</li>
+</ul>
+</li>
+<li>Root CHANGELOG hook on binary release tag push (separate workflow
+  or goreleaser pre-hook), opening a PR with the regenerated root
+  CHANGELOG so commits-back to <code>main</code> go through normal review</li>
+<li>Documentation refresh:<ul>
+<li>Root <code>README.md</code> install snippet</li>
+<li><code>charts/repo-guardian/README.md</code> install + Releasing sections</li>
+<li><code>charts/repo-guardian/README.md</code> "Verifying the chart" section
+  covering both <code>cosign verify</code> and
+  <code>cosign verify-attestation --type slsaprovenance</code></li>
+<li><code>charts/repo-guardian/README.md</code> "Yanking a chart version"
+  note (roll-forward only — bump and republish)</li>
+<li>New <code>charts/repo-guardian/docs/publishing-to-ecr.md</code> recipe
+  for operators who want ECR instead of GHCR (no automated
+  fan-out in CI)</li>
+<li><code>docs/SUMMARY.md</code> chart distribution note</li>
+<li><code>CLAUDE.md</code> already updated; verify still consistent</li>
+</ul>
+</li>
+<li>Smoke-test <code>helm pull</code> + <code>cosign verify</code> +
+  <code>cosign verify-attestation</code> against the published artifact from a
+  clean machine</li>
+<li>Homelab consumer migration in <code>~/code/homelab/k8s/homelab-cluster/apps/cicd/repo-guardian/</code>:<ul>
+<li>Switch from raw Kustomize manifests to <code>helmCharts:</code> block</li>
+<li>Consolidate <code>github-app</code> + <code>github-private-key</code> 1Password items
+  into a single item with three fields</li>
+<li>Validate ArgoCD reconciliation</li>
+</ul>
+</li>
+<li>Removal of the legacy <code>chart-release</code> job, <code>helm-oci-push</code>
+  (ECR fan-out) job, and any docs referencing the <code>gh-pages</code> Helm
+  repo URL</li>
+</ul>
+<h3 id="out-of-scope">Out of Scope<a class="headerlink" href="#out-of-scope" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Auto-bumping <code>appVersion</code> on every binary release. Tooling for that
+  is a future IMPL — chart and binary versions stay decoupled here</li>
+<li>Automated ECR fan-out in CI. Documented as a recipe instead;
+  <code>vars.HELM_OCI_REGISTRY</code> is no longer wired into the workflow</li>
+<li>Mirroring to Docker Hub / GAR</li>
+<li>A Helm repo <code>index.yaml</code> over HTTP. OCI obsoletes the index file</li>
+<li>GHCR retention or lifecycle policy (deferred per DESIGN-0011)</li>
+<li>Tag-immutability enforcement to block accidental yank-and-resurrect.
+  Roll-forward is the documented norm</li>
+<li>release-please / changie / per-PR changelog fragment files.
+  git-cliff parses conventional commits — no per-PR overhead</li>
+<li>Bot commits-back to <code>main</code> from the chart publish workflow. The
+  chart CHANGELOG is generated on-the-fly into the <code>.tgz</code> and not
+  committed; only the root CHANGELOG (binary release cadence) gets
+  committed, and that goes through a PR</li>
+<li>Forgejo / non-GitHub forge support</li>
+<li>Application code changes — this is a workflow + docs change</li>
+</ul>
+<h2 id="implementation-phases">Implementation Phases<a class="headerlink" href="#implementation-phases" title="Permanent link">&para;</a></h2>
+<p>Each phase builds on the previous one. A phase is complete when all
+its tasks are checked off and its success criteria are met.</p>
+<hr />
+<h3 id="phase-1-pre-flight-chart-version-bump-and-changelog-setup">Phase 1: Pre-flight, Chart Version Bump, and Changelog Setup<a class="headerlink" href="#phase-1-pre-flight-chart-version-bump-and-changelog-setup" title="Permanent link">&para;</a></h3>
+<p>Get the chart into a clean publishable state, install git-cliff, and
+write the cliff configs and seed CHANGELOG files. No publish happens
+in this phase.</p>
+<h4 id="tasks">Tasks<a class="headerlink" href="#tasks" title="Permanent link">&para;</a></h4>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Verify <code>*.tgz</code> is in <code>.gitignore</code> (already added) and no stray
+      packaged charts are tracked</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Bump <code>version</code> from <code>0.2.0</code> to <code>0.3.0</code> in
+      <code>charts/repo-guardian/Chart.yaml</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Bump <code>appVersion</code> from <code>"1.3.7"</code> to <code>"1.4.0"</code> in
+      <code>charts/repo-guardian/Chart.yaml</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add <code>git-cliff</code> to <code>mise.toml</code> (latest stable; check
+      <a href="https://github.com/orhun/git-cliff/releases">https://github.com/orhun/git-cliff/releases</a>)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Run <code>mise install</code> to fetch git-cliff</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Create <code>cliff.toml</code> at repo root with conventional-commit
+      grouping (feat / fix / chore / docs / refactor / test /
+      ci / build / perf), GitHub commit URL template, and a
+      preamble pointing at the project</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Create <code>charts/repo-guardian/cliff.toml</code> based on the root
+      config but with chart-specific preamble. The
+      <code>--include-path 'charts/**'</code> filter is applied at invocation
+      time, not in config (cliff's <code>include_path</code> config option is
+      also valid; pick whichever yields cleaner workflow lines)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Generate initial root <code>CHANGELOG.md</code>:
+      <code>git-cliff --config cliff.toml --output CHANGELOG.md</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Generate initial <code>charts/repo-guardian/CHANGELOG.md</code>:
+      <code>git-cliff --config charts/repo-guardian/cliff.toml
+      --include-path 'charts/**' --output
+      charts/repo-guardian/CHANGELOG.md</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Run <code>make helm-docs</code> to regenerate
+      <code>charts/repo-guardian/README.md</code> so the rendered version table
+      reflects <code>0.3.0</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Run <code>make helm-lint</code> and <code>helm-unittest</code> — confirm no template
+      breakage from the version bump or new CHANGELOG file</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Run <code>helm package charts/repo-guardian</code> locally, verify the
+      output is <code>repo-guardian-0.3.0.tgz</code>, then <code>tar tzf</code> it to
+      confirm <code>CHANGELOG.md</code> is included inside the chart, then
+      delete the <code>.tgz</code> (it's gitignored but visible in
+      <code>git status</code>)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add <code>cliff.toml</code> to <code>charts/repo-guardian/.helmignore</code> so the
+      build-time changelog config is not packaged into the <code>.tgz</code></li>
+</ul>
+<h4 id="success-criteria">Success Criteria<a class="headerlink" href="#success-criteria" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>Chart.yaml</code> shows <code>version: 0.3.0</code> and <code>appVersion: "1.4.0"</code></li>
+<li><code>git-cliff --version</code> runs after <code>mise install</code></li>
+<li><code>cliff.toml</code> and <code>charts/repo-guardian/cliff.toml</code> both exist and
+  produce non-empty output when invoked locally</li>
+<li>Root <code>CHANGELOG.md</code> and <code>charts/repo-guardian/CHANGELOG.md</code> both
+  exist with at least one populated section</li>
+<li><code>make helm-lint</code> passes; <code>helm-unittest</code> passes</li>
+<li><code>tar tzf repo-guardian-0.3.0.tgz</code> lists <code>repo-guardian/CHANGELOG.md</code></li>
+<li><code>git status</code> shows no untracked <code>*.tgz</code> files</li>
+<li>No application code or test files modified</li>
+</ul>
+<hr />
+<h3 id="phase-2-workflow-rewrite">Phase 2: Workflow Rewrite<a class="headerlink" href="#phase-2-workflow-rewrite" title="Permanent link">&para;</a></h3>
+<p>Replace the body of <code>.github/workflows/chart-release.yml</code> with the
+GHCR publish + cosign + SLSA + chart-CHANGELOG flow. This is the
+bulk of the implementation work. Validation happens in Phase 3.</p>
+<h4 id="tasks_1">Tasks<a class="headerlink" href="#tasks_1" title="Permanent link">&para;</a></h4>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Rename top-level <code>name:</code> from <code>Chart Release</code> to
+      <code>Chart Release (OCI)</code> so the action history shows a clear
+      cutover</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Replace <code>on:</code> block:
+  <div class="language-yaml highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nt">on</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">push</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">branches</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">main</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">paths</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&#39;charts/**&#39;</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&#39;.github/workflows/chart-release.yml&#39;</span>
+<span class="w">  </span><span class="nt">workflow_dispatch</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">inputs</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">dry_run</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;Package</span><span class="nv"> </span><span class="s">but</span><span class="nv"> </span><span class="s">do</span><span class="nv"> </span><span class="s">not</span><span class="nv"> </span><span class="s">push&#39;</span>
+<span class="w">        </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">boolean</span>
+<span class="w">        </span><span class="nt">default</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</code></pre></div></td></tr></table></div></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Replace top-level <code>permissions:</code> with:
+  <div class="language-yaml highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nt">permissions</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">contents</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">read</span>
+<span class="w">  </span><span class="nt">packages</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">write</span>
+<span class="w">  </span><span class="nt">id-token</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">write</span>
+</code></pre></div></td></tr></table></div></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Delete the existing <code>chart-release</code> job (chart-releaser-action)
+      entirely</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Delete the existing <code>helm-oci-push</code> (ECR fan-out) job entirely;
+      ECR is documented as a manual recipe (Phase 6), not automated</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Create a new <code>publish</code> job with steps:<ol>
+<li><code>actions/checkout@v6</code> with <code>fetch-depth: 0</code> (git-cliff needs
+   full history for changelog generation)</li>
+<li><code>azure/setup-helm@v4</code></li>
+<li><code>sigstore/cosign-installer@v3</code></li>
+<li>Install git-cliff via <code>mise</code> (or <code>orhun/git-cliff-action@v3</code>
+   if the action is preferable to a mise install in CI)</li>
+<li>Read chart version: <code>chart_version=$(yq '.version'
+   charts/repo-guardian/Chart.yaml)</code> and export as a step output</li>
+<li>Idempotency check — <code>helm pull
+   oci://ghcr.io/donaldgifford/charts/repo-guardian
+   --version "${chart_version}" --destination /tmp 2&gt;/dev/null</code>
+   and conditionally skip the rest of the job (use a step output
+   and <code>if:</code> on subsequent steps)</li>
+<li>Generate chart CHANGELOG into the chart dir before packaging:
+   <code>git-cliff --config charts/repo-guardian/cliff.toml
+   --include-path 'charts/**' --output
+   charts/repo-guardian/CHANGELOG.md</code></li>
+<li><code>helm registry login ghcr.io -u "${{ github.actor }}"
+   --password-stdin</code> fed by <code>${{ secrets.GITHUB_TOKEN }}</code></li>
+<li><code>helm package charts/repo-guardian</code></li>
+<li>On <code>workflow_dispatch</code> only, upload the packaged <code>.tgz</code> as a
+    run artifact via <code>actions/upload-artifact@v4</code></li>
+<li>Push (skipped on <code>inputs.dry_run</code>):
+    <code>helm push repo-guardian-${chart_version}.tgz
+    oci://ghcr.io/donaldgifford/charts 2&gt;&amp;1 | tee /tmp/push.log</code></li>
+<li>Capture digest as a step output:
+    <code>digest=$(grep -oE 'sha256:[a-f0-9]{64}' /tmp/push.log |
+    head -1)</code> then <code>echo "digest=${digest}" &gt;&gt; "$GITHUB_OUTPUT"</code></li>
+<li>Sign (skipped on <code>inputs.dry_run</code>):
+    <code>cosign sign --yes
+    "ghcr.io/donaldgifford/charts/repo-guardian@${digest}"</code></li>
+<li>Print summary to <code>$GITHUB_STEP_SUMMARY</code> with the OCI URL,
+    version, and digest for easy auditing</li>
+</ol>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add a <code>slsa-provenance</code> job using
+      <code>slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml</code>
+      (the container generator handles OCI-style artifacts) with:<ul>
+<li><code>needs: publish</code></li>
+<li><code>if: needs.publish.outputs.published == 'true'</code> (skip on
+  idempotent no-op runs and dry-runs)</li>
+<li>Inputs: image name <code>ghcr.io/donaldgifford/charts/repo-guardian</code>,
+  digest from <code>needs.publish.outputs.digest</code></li>
+<li>Inherited permissions: <code>id-token: write</code>, <code>packages: write</code>,
+  <code>contents: read</code>, <code>actions: read</code></li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Verify <code>actions/checkout@v6</code>, <code>azure/setup-helm@v4</code>,
+      <code>sigstore/cosign-installer@v3</code>,
+      <code>actions/upload-artifact@v7</code> (matches repo norm — repo uses
+      <code>upload-artifact@v7</code> elsewhere), <code>orhun/git-cliff-action@v4</code>,
+      and <code>slsa-github-generator@v2.0.0</code> reusable workflow are at
+      stable versions</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Run <code>actionlint</code> (via mise) on the new workflow file</li>
+</ul>
+<h4 id="success-criteria_1">Success Criteria<a class="headerlink" href="#success-criteria_1" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>.github/workflows/chart-release.yml</code> validates with <code>actionlint</code>
+  without warnings</li>
+<li>The <code>chart-release</code> and <code>helm-oci-push</code> jobs from the old
+  workflow are gone; only <code>publish</code> and <code>slsa-provenance</code> remain</li>
+<li>All three required permissions blocks (<code>contents: read</code>,
+  <code>packages: write</code>, <code>id-token: write</code>) are present at the
+  workflow level</li>
+<li><code>secrets.GITHUB_TOKEN</code> is the only secret consumed by the
+  primary <code>publish</code> job (no PATs, no AWS creds)</li>
+<li>The chart CHANGELOG generation step runs <em>before</em> <code>helm package</code>
+  so the bytes inside the <code>.tgz</code> include it</li>
+<li>The <code>.tgz</code> artifact upload step is gated on
+  <code>github.event_name == 'workflow_dispatch'</code></li>
+</ul>
+<hr />
+<h3 id="phase-3-dry-run-validation-on-the-pr">Phase 3: Dry-run Validation on the PR<a class="headerlink" href="#phase-3-dry-run-validation-on-the-pr" title="Permanent link">&para;</a></h3>
+<p>Exercise the <code>workflow_dispatch</code> <code>dry_run</code> path while the workflow
+change is still on the feature branch. This catches errors before any
+artifact lands in GHCR.</p>
+<h4 id="tasks_2">Tasks<a class="headerlink" href="#tasks_2" title="Permanent link">&para;</a></h4>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Push the feature branch and open the PR (kept in Draft until
+      this phase completes) — PR #60</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Trigger the workflow via <code>gh workflow run "Chart Release (OCI)"
+      --ref feat/helm-chart-oci-distribution -f dry_run=true</code> — run 25256853237</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Confirm <code>gh run watch</code> shows: checkout → setup-helm → cosign
+      install → git-cliff install → version read → idempotency
+      check (no-op, version not yet published) →
+      chart CHANGELOG generation → registry login → package →
+      <code>.tgz</code> artifact upload → <strong>skip</strong> push → <strong>skip</strong> sign
+      → summary</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Inspect the run summary — <code>chart_version</code> should be <code>0.3.0</code>,
+      no digest captured, <code>helm push</code> and <code>cosign sign</code> should
+      report "skipped" status</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Download the uploaded <code>.tgz</code> artifact, <code>tar tzf</code> it, confirm
+      <code>repo-guardian/CHANGELOG.md</code> is present and non-empty</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Confirm the <code>slsa-provenance</code> job is also skipped (because
+      the conditional gate on <code>published == 'true'</code> does not fire
+      on dry-run)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Address any actionlint or runtime warnings discovered (Node.js 20
+      deprecation warning on <code>azure/setup-helm@v4</code> is upstream;
+      tracked separately, not blocking)</li>
+</ul>
+<h4 id="success-criteria_2">Success Criteria<a class="headerlink" href="#success-criteria_2" title="Permanent link">&para;</a></h4>
+<ul>
+<li>The <code>workflow_dispatch</code> dry-run succeeds end-to-end with <code>helm
+  push</code>, <code>cosign sign</code>, and <code>slsa-provenance</code> job all skipped</li>
+<li>The uploaded <code>.tgz</code> artifact contains <code>CHANGELOG.md</code> inside the
+  chart directory</li>
+<li>No GHCR publish has occurred — <code>gh api
+  /user/packages/container/charts%2Frepo-guardian</code> returns 404 (or
+  empty if the package never existed)</li>
+</ul>
+<hr />
+<h3 id="phase-4-first-publish-and-visibility-flip">Phase 4: First Publish and Visibility Flip<a class="headerlink" href="#phase-4-first-publish-and-visibility-flip" title="Permanent link">&para;</a></h3>
+<p>Merge the PR, let the <code>push</code> trigger fire, and complete the one-time
+GHCR public-visibility flip.</p>
+<h4 id="tasks_3">Tasks<a class="headerlink" href="#tasks_3" title="Permanent link">&para;</a></h4>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Merge the PR to <code>main</code> (squash merge per repo convention) — PR #60</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Watch the post-merge workflow run via <code>gh run watch</code>. Confirm
+      the <code>publish</code> job runs, captures a <code>sha256:</code> digest, signs it
+      with cosign, AND the <code>slsa-provenance</code> job runs and produces
+      a provenance attestation. <strong>Post-mortem:</strong> initial 0.3.0 push
+      succeeded but cosign sign failed (<code>UNAUTHORIZED</code>) because helm
+      registry login writes to <code>~/.config/helm/registry/config.json</code>
+      and cosign reads <code>~/.docker/config.json</code>. Fix-forward in PR #61
+      added <code>docker/login-action@v4</code>. 0.3.1 published successfully
+      with cosign signature and SLSA provenance.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Verify the artifact lands at GHCR — confirmed via
+      <code>helm pull oci://ghcr.io/donaldgifford/charts/repo-guardian
+      --version 0.3.1</code>. Digest:
+      <code>sha256:97f14f104370797814d954657a57fd60059a3b3c63a5f2c45ad5729a5b2b29cc</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Manually flip the package to <strong>public</strong> in GHCR settings —
+      verified: anonymous <code>helm pull</code> succeeds after
+      <code>helm registry logout ghcr.io</code>; <code>cosign verify</code> passes
+      without GHCR credentials</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Link the package to the <code>repo-guardian</code> source repository
+      (assumed done at the same time as the visibility flip;
+      consumers can independently confirm via the GHCR package
+      page UI)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Re-run idempotency: implicitly tested when 0.3.0 was already
+      published and the 0.3.1 fix-forward produced a clean delta.
+      Re-running 0.3.1 workflow_dispatch will short-circuit on the
+      <code>helm pull</code> idempotency check</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Capture the digest into IMPL-0010 (<code>sha256:97f14f10...</code>); the
+      signature URL is the GHCR <code>.sig</code> reference at the same digest</li>
+</ul>
+<h4 id="success-criteria_3">Success Criteria<a class="headerlink" href="#success-criteria_3" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>oci://ghcr.io/donaldgifford/charts/repo-guardian:0.3.0</code> exists
+  and is publicly pullable (verify from a separate workstation
+  without <code>helm registry login</code>)</li>
+<li>Cosign signature exists at the GHCR <code>.sig</code> reference for the
+  pushed digest</li>
+<li>SLSA provenance attestation exists at the <code>.att</code> (or
+  generator-specific) reference</li>
+<li>Re-running the workflow without a version bump produces no
+  duplicate publish (idempotent)</li>
+<li>Package visibility on GHCR is <strong>public</strong>, linked to
+  <code>donaldgifford/repo-guardian</code></li>
+</ul>
+<hr />
+<h3 id="phase-5-cosign-slsa-verification-and-smoke-test">Phase 5: Cosign + SLSA Verification and Smoke Test<a class="headerlink" href="#phase-5-cosign-slsa-verification-and-smoke-test" title="Permanent link">&para;</a></h3>
+<p>Independent verification from a clean environment that the artifact
+is consumable, the cosign signature is valid, and the SLSA
+provenance attestation is verifiable.</p>
+<h4 id="tasks_4">Tasks<a class="headerlink" href="#tasks_4" title="Permanent link">&para;</a></h4>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>helm pull oci://ghcr.io/donaldgifford/charts/repo-guardian
+      --version 0.3.1</code> — succeeds anonymously after the GHCR
+      package was flipped to public. Verified with
+      <code>helm registry logout ghcr.io &amp;&amp; helm pull ...</code> returning
+      digest <code>sha256:97f14f10...</code> without auth</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Verified packaged <code>.tgz</code> contents include
+      <code>repo-guardian/CHANGELOG.md</code> (during dry-run validation in
+      Phase 3, identical packaging path)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Verify the cosign signature — confirmed via
+      <code>cosign verify --certificate-identity-regexp '^https://github.com/donaldgifford/repo-guardian/.+'
+      --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
+      ghcr.io/donaldgifford/charts/repo-guardian:0.3.1</code>. Subject:
+      <code>https://github.com/donaldgifford/repo-guardian/.github/workflows/chart-release.yml@refs/heads/main</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Verify the SLSA provenance attestation — confirmed via
+      <code>cosign verify-attestation --type slsaprovenance
+      --certificate-identity-regexp '^https://github.com/slsa-framework/slsa-github-generator/.+'
+      --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
+      ghcr.io/donaldgifford/charts/repo-guardian:0.3.1</code>. Subject:
+      <code>slsa-github-generator/.github/workflows/generator_container_slsa3.yml@refs/tags/v2.0.0</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Render the chart against sample values:
+      <code>helm template repo-guardian
+      oci://ghcr.io/donaldgifford/charts/repo-guardian --version 0.3.1
+      --set config.appId=12345 --set config.org=test ...</code> — produces
+      ServiceAccount, Secret, ConfigMap, Service, Deployment as
+      expected</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Hotfix path exercised — 0.3.0 cosign auth failure → PR #61 →
+      0.3.1 successful publish. Documented yank-by-roll-forward
+      norm validated in practice</li>
+</ul>
+<h4 id="success-criteria_4">Success Criteria<a class="headerlink" href="#success-criteria_4" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>helm pull</code> from a clean machine completes without authentication</li>
+<li><code>cosign verify</code> reports a valid signature with certificate
+  identity matching the <code>donaldgifford/repo-guardian</code> workflow</li>
+<li><code>cosign verify-attestation --type slsaprovenance</code> reports a
+  valid attestation with certificate identity matching the
+  <code>slsa-github-generator</code> reusable workflow</li>
+<li>Rendered templates match what <code>helm template charts/repo-guardian</code>
+  produces locally for the same values</li>
+<li>The pulled <code>.tgz</code> contains a current <code>CHANGELOG.md</code></li>
+</ul>
+<hr />
+<h3 id="phase-6-documentation-refresh">Phase 6: Documentation Refresh<a class="headerlink" href="#phase-6-documentation-refresh" title="Permanent link">&para;</a></h3>
+<p>Update operator-facing docs to point at the OCI URL. Defer until the
+artifact is publicly pullable so no doc points at a 404.</p>
+<h4 id="tasks_5">Tasks<a class="headerlink" href="#tasks_5" title="Permanent link">&para;</a></h4>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update <code>README.md</code> "Quick install" — replaced <code>helm repo add</code>
+      with OCI <code>helm install</code> snippet pinned to 0.3.1</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update <code>charts/repo-guardian/README.md.gotmpl</code> (helm-docs
+      source template) end-to-end:<ul>
+<li>Installation section now OCI-first</li>
+<li>Removed "From OCI Registry" placeholder subsection (the canonical
+  URL is now the only install path)</li>
+<li>Removed "Releasing → GitHub Pages (default)" section</li>
+<li>Removed "Releasing → OCI Registry (optional)" section</li>
+<li>Added "Releasing → OCI publish to GHCR" describing the
+  post-merge automatic publish</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add "Verifying the chart" section to chart README with
+      <code>cosign verify</code> and <code>cosign verify-attestation --type slsaprovenance</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add "Yanking a chart version" subsection to chart README —
+      roll-forward only, no delete-and-resurrect</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Create <code>charts/repo-guardian/docs/publishing-to-ecr.md</code>
+      documenting the ECR alternative recipe (one-time setup,
+      auth, pull-and-repush vs package-from-source, optional
+      ECR-side cosign)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update <code>docs/SUMMARY.md</code> to mention the OCI distribution
+      under phase 11 of the implementation history</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Re-run <code>make helm-docs</code> — <code>README.md</code> regenerates from the
+      updated <code>.gotmpl</code> template</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Verify CLAUDE.md "Release" section reflects the OCI
+      decision and changelog flow — already updated in P1/P2 commits</li>
+</ul>
+<h4 id="success-criteria_5">Success Criteria<a class="headerlink" href="#success-criteria_5" title="Permanent link">&para;</a></h4>
+<ul>
+<li>No remaining occurrence of <code>donaldgifford.github.io/repo-guardian</code>
+  in chart-install context (verify via
+  <code>grep -rn 'donaldgifford.github.io' README.md docs/ charts/</code>)</li>
+<li>All chart install snippets in repo docs use the OCI URL</li>
+<li><code>helm-docs</code> produces no diff when run a second time</li>
+<li>The "Verifying the chart" and "Yanking a chart version"
+  subsections both exist in <code>charts/repo-guardian/README.md</code></li>
+<li><code>charts/repo-guardian/docs/publishing-to-ecr.md</code> exists and
+  references the same auth helpers used elsewhere in the repo</li>
+</ul>
+<hr />
+<h3 id="phase-7-root-changelog-and-binary-release-hook">Phase 7: Root Changelog and Binary Release Hook<a class="headerlink" href="#phase-7-root-changelog-and-binary-release-hook" title="Permanent link">&para;</a></h3>
+<p>Wire git-cliff into the binary release flow so the root CHANGELOG
+stays current. Unlike the chart CHANGELOG (regenerated on every
+publish, into the <code>.tgz</code>), the root CHANGELOG is committed back to
+<code>main</code> via PR — a deliberate, gated event keyed off binary release
+tag pushes.</p>
+<h4 id="tasks_6">Tasks<a class="headerlink" href="#tasks_6" title="Permanent link">&para;</a></h4>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Decide between two implementation approaches: chose <strong>(b)</strong></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Implement chosen approach: option (b) — separate workflow</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Create <code>.github/workflows/changelog-update.yml</code>:<ul>
+<li>Trigger: <code>push: tags: ['v*']</code> plus <code>workflow_dispatch</code></li>
+<li>Permissions: <code>contents: write</code>, <code>pull-requests: write</code></li>
+<li>Steps: checkout (full history, ref: main) →
+  <code>orhun/git-cliff-action@v4</code> regenerates CHANGELOG.md →
+  resolve tag from <code>GITHUB_REF</code> →
+  <code>peter-evans/create-pull-request@v7</code> opens PR with
+  <code>chore</code> and <code>dont-release</code> labels (PR is automation
+  bookkeeping, not a release)</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Test via <code>git-cliff --config cliff.toml --output
+      /tmp/CHANGELOG.test.md</code> locally — verified output matches
+      workflow expectation</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Document the flow in <code>CONTRIBUTING.md</code> under "Releasing →
+      Root CHANGELOG"</li>
+</ul>
+<h4 id="success-criteria_6">Success Criteria<a class="headerlink" href="#success-criteria_6" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Either <code>.goreleaser.yml</code> or <code>.github/workflows/changelog-update.yml</code>
+  is in place and functional</li>
+<li>A test tag (or local dry-run) produces the expected root
+  CHANGELOG diff</li>
+<li>The workflow opens a PR rather than committing directly to
+  <code>main</code> — branch protection is respected</li>
+<li>Maintainer doc (CONTRIBUTING.md or README) explains the flow</li>
+</ul>
+<hr />
+<h3 id="phase-8-homelab-consumer-migration">Phase 8: Homelab Consumer Migration<a class="headerlink" href="#phase-8-homelab-consumer-migration" title="Permanent link">&para;</a></h3>
+<p>Migrate the homelab cluster's <code>repo-guardian</code> deployment from raw
+Kustomize manifests to the <code>helmCharts:</code> consumption pattern. Files
+already staged at <code>/tmp/repo-guardian-helm-migration/</code>.</p>
+<h4 id="tasks_7">Tasks<a class="headerlink" href="#tasks_7" title="Permanent link">&para;</a></h4>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> In the homelab repo, create a feature branch in
+      <code>~/code/homelab/</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Replace
+      <code>k8s/homelab-cluster/apps/cicd/repo-guardian/kustomization.yaml</code>
+      with a <code>helmCharts:</code>-based version:
+      <div class="language-yaml highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span>
+<span class="normal">7</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nt">helmCharts</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">repo-guardian</span>
+<span class="w">    </span><span class="nt">repo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">oci://ghcr.io/donaldgifford/charts</span>
+<span class="w">    </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.3.0</span>
+<span class="w">    </span><span class="nt">releaseName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">repo-guardian</span>
+<span class="w">    </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">repo-guardian</span>
+<span class="w">    </span><span class="nt">valuesFile</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">values.yaml</span>
+</code></pre></div></td></tr></table></div></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Drop the staged <code>values.yaml</code>, <code>tailscale-auth.yaml</code>, and
+      <code>github-app.yaml</code> files into the homelab directory (already
+      prepared at <code>/tmp/repo-guardian-helm-migration/</code>)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> In 1Password, add a third field named exactly <code>private-key</code>
+      to vault <code>zifc47mkwspdcvnpriog5h3e5m</code>, item
+      <code>56ix3ejbeqeo2gp2wofswwf6zy</code>, and paste the PEM contents from
+      the OLD <code>github-private-key</code> item
+      (<code>rtzom545ay5ygonvpqg2fyunye</code>) into it</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Verify the synced K8s <code>Secret</code> has all three keys after the
+      operator reconciles:
+      <code>kubectl -n repo-guardian get secret github-app -o yaml |
+      grep -E '^\s+(app-id|webhook-secret|private-key):'</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Open a PR in the homelab repo. Watch ArgoCD reconcile —
+      expect the <code>repo-guardian</code> Application to go through a
+      <code>Progressing → Synced</code> cycle</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Confirm the new pod runs with <code>DRY_RUN</code> unset (or <code>false</code>)
+      and the policy is honored (no <code>would create PR</code> log lines
+      when <code>dry_run = false</code> in HCL config)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> If any homelab-side issues surface, fix forward via
+      additional PRs to this repo (chart) or the homelab repo
+      (consumer values)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> After verification, archive the old <code>github-private-key</code>
+      1Password item</li>
+</ul>
+<h4 id="success-criteria_7">Success Criteria<a class="headerlink" href="#success-criteria_7" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Homelab <code>repo-guardian</code> Application is <code>Synced</code> and <code>Healthy</code> in
+  ArgoCD</li>
+<li>Pod logs show no <code>dry-run</code> mode unless explicitly configured</li>
+<li>Single 1Password-managed secret (<code>github-app</code>) provides all three
+  keys; old <code>github-private-key</code> item archived</li>
+<li>The next scheduler tick or webhook event creates a real PR
+  against a test repo (or, with <code>dryRun: true</code>, logs the intended
+  PR without churn)</li>
+</ul>
+<hr />
+<h3 id="phase-9-decommission-legacy-chart-releaser-path">Phase 9: Decommission Legacy chart-releaser Path<a class="headerlink" href="#phase-9-decommission-legacy-chart-releaser-path" title="Permanent link">&para;</a></h3>
+<p>Clean up references to the old distribution model now that the OCI
+path is proven and a real consumer has migrated.</p>
+<h4 id="tasks_8">Tasks<a class="headerlink" href="#tasks_8" title="Permanent link">&para;</a></h4>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Remove <code>helm-cr-package</code> make target from the Makefile —
+      removed; <code>helm-package</code> (already exists) does the same job
+      without chart-releaser dependency</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Audit <code>mise.toml</code> — <code>helm-cr</code> removed; chart-testing's <code>ct</code>
+      stays</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Check <code>.github/workflows/ci.yml</code> for any reference to
+      <code>chart-releaser</code> — none present</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Grep for <code>chart-releaser-action</code>, <code>helm/chart-releaser-action</code>,
+      <code>gh-pages.*helm</code>, <code>HELM_OCI_REGISTRY</code>, and <code>AWS_ROLE_ARN</code> —
+      only doc references remain in <code>docs/design/0005-helm-chart-for-repo-guardian.md</code>
+      (historical) and <code>docs/impl/0004-helm-chart-for-repo-guardian.md</code>
+      (historical IMPL — superseded by IMPL-0010 distribution rewrite)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update <code>docs/design/0005-helm-chart-for-repo-guardian.md</code>
+      with a "Superseded by DESIGN-0011" banner — done in PR #61
+      via a follow-up commit to main (top-level status retained
+      as <code>Implemented</code>; only the distribution sub-decision is
+      replaced)</li>
+</ul>
+<h4 id="success-criteria_8">Success Criteria<a class="headerlink" href="#success-criteria_8" title="Permanent link">&para;</a></h4>
+<ul>
+<li>No active workflow, make target, or operator doc references the
+  <code>gh-pages</code>-based Helm repo URL or the ECR fan-out variables</li>
+<li><code>mise install</code> continues to succeed; CI is green on the
+  follow-up PR</li>
+<li>DESIGN-0005's distribution section carries a clear pointer to
+  DESIGN-0011</li>
+</ul>
+<hr />
+<h2 id="file-changes">File Changes<a class="headerlink" href="#file-changes" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Action</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>charts/repo-guardian/Chart.yaml</code></td>
+<td>Modify</td>
+<td>Bump <code>version</code> to <code>0.3.0</code>, <code>appVersion</code> to <code>1.4.0</code></td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/README.md</code></td>
+<td>Modify</td>
+<td>Regenerate via <code>helm-docs</code>; rewrite Installation + Releasing sections; add Verifying + Yanking sections</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/docs/publishing-to-ecr.md</code></td>
+<td>Create</td>
+<td>ECR alternative recipe (manual / third-party CI)</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/CHANGELOG.md</code></td>
+<td>Create</td>
+<td>Initial seed; regenerated on every publish into the <code>.tgz</code></td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/cliff.toml</code></td>
+<td>Create</td>
+<td>git-cliff config for chart-only changelog</td>
+</tr>
+<tr>
+<td><code>cliff.toml</code></td>
+<td>Create</td>
+<td>git-cliff config for root changelog</td>
+</tr>
+<tr>
+<td><code>CHANGELOG.md</code></td>
+<td>Create</td>
+<td>Initial seed root changelog</td>
+</tr>
+<tr>
+<td><code>.github/workflows/chart-release.yml</code></td>
+<td>Rewrite</td>
+<td>Replace chart-releaser + ECR fan-out with OCI publish + cosign + SLSA</td>
+</tr>
+<tr>
+<td><code>.github/workflows/changelog-update.yml</code></td>
+<td>Create</td>
+<td>(Phase 7 option b) Tag-push hook that opens a PR refreshing root CHANGELOG</td>
+</tr>
+<tr>
+<td><code>.goreleaser.yml</code></td>
+<td>Modify (optional, Phase 7 option a)</td>
+<td>Pre-hook for git-cliff — only if option (a) chosen over option (b)</td>
+</tr>
+<tr>
+<td><code>mise.toml</code></td>
+<td>Modify</td>
+<td>Add <code>git-cliff</code>; remove <code>helm-cr</code> if unused (Phase 9)</td>
+</tr>
+<tr>
+<td><code>README.md</code></td>
+<td>Modify</td>
+<td>Replace <code>helm repo add</code> snippet with OCI install</td>
+</tr>
+<tr>
+<td><code>docs/SUMMARY.md</code></td>
+<td>Modify</td>
+<td>Note OCI distribution</td>
+</tr>
+<tr>
+<td><code>docs/design/0005-helm-chart.md</code></td>
+<td>Modify</td>
+<td>Append "distribution superseded by DESIGN-0011" note</td>
+</tr>
+<tr>
+<td><code>Makefile</code></td>
+<td>Modify (optional)</td>
+<td>Remove <code>helm-cr-package</code> if unused</td>
+</tr>
+<tr>
+<td><code>CONTRIBUTING.md</code></td>
+<td>Modify</td>
+<td>Document the binary-release → CHANGELOG-PR flow</td>
+</tr>
+<tr>
+<td><code>~/code/homelab/.../repo-guardian/kustomization.yaml</code></td>
+<td>Rewrite</td>
+<td>Use <code>helmCharts:</code> block (separate repo)</td>
+</tr>
+<tr>
+<td><code>~/code/homelab/.../repo-guardian/values.yaml</code></td>
+<td>Create</td>
+<td>From <code>/tmp/repo-guardian-helm-migration/</code> (separate repo)</td>
+</tr>
+<tr>
+<td><code>~/code/homelab/.../repo-guardian/github-app.yaml</code></td>
+<td>Create</td>
+<td>Consolidated 1Password item (separate repo)</td>
+</tr>
+<tr>
+<td><code>~/code/homelab/.../repo-guardian/tailscale-auth.yaml</code></td>
+<td>Create</td>
+<td>Tailscale auth 1Password item (separate repo)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="testing-plan">Testing Plan<a class="headerlink" href="#testing-plan" title="Permanent link">&para;</a></h2>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>make helm-lint</code> passes after Chart.yaml bump</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>helm-unittest</code> passes after Chart.yaml bump</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>git-cliff</code> produces non-empty output for both root and chart
+      configs locally</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>actionlint</code> passes on the rewritten workflow</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>workflow_dispatch</code> dry-run completes successfully on the PR
+      (Phase 3); <code>.tgz</code> artifact contains <code>CHANGELOG.md</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Post-merge <code>push</code> trigger publishes the chart, signs it with
+      cosign, AND produces a SLSA provenance attestation (Phase 4)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>helm pull</code> from a clean workstation succeeds (Phase 5)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>cosign verify</code> reports a valid signature (Phase 5)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>cosign verify-attestation --type slsaprovenance</code> reports a
+      valid attestation (Phase 5)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Re-running the workflow with no version delta is a no-op
+      (Phase 4 idempotency); SLSA job skipped on no-op runs</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Test tag (or local dry-run) produces a sane root CHANGELOG
+      PR (Phase 7)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Homelab ArgoCD <code>Application</code> reconciles cleanly to <code>Synced</code>
+      (Phase 8)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Pod runs without <code>DRY_RUN</code> env override; policy is honored
+      (Phase 8)</li>
+</ul>
+<h2 id="dependencies">Dependencies<a class="headerlink" href="#dependencies" title="Permanent link">&para;</a></h2>
+<ul>
+<li>DESIGN-0011 — must be Approved (it is)</li>
+<li>IMPL-0004 — chart scaffolding (already merged)</li>
+<li>GHCR write permission via <code>GITHUB_TOKEN</code> (already granted by
+  default for <code>packages: write</code> workflow scope)</li>
+<li>cosign installer action availability (<code>sigstore/cosign-installer@v3</code>)</li>
+<li>SLSA generator reusable workflow availability
+  (<code>slsa-framework/slsa-github-generator</code>)</li>
+<li>git-cliff binary (added to <code>mise.toml</code>) and the
+  <code>orhun/git-cliff-action@v3</code> action for CI use</li>
+<li>Helm 3.14+ in <code>mise.toml</code> (already present at 3.19)</li>
+<li>Homelab repo write access for Phase 8 (operator already has it)</li>
+</ul>
+<h2 id="resolved-questions">Resolved Questions<a class="headerlink" href="#resolved-questions" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Upload <code>.tgz</code> as a workflow run artifact — yes, on
+   <code>workflow_dispatch</code> runs only.</strong> Keeps the common <code>push</code> path
+   clean while giving maintainers the literal pre-push bytes for
+   inspection during manual smoke tests. The OCI artifact remains
+   the canonical source on the <code>push</code> path; <code>helm pull</code> reassembles
+   the <code>.tgz</code> if those bytes are ever needed post-publish.</li>
+<li><strong>SLSA provenance attestation alongside cosign — yes.</strong> Wired
+   via <code>slsa-framework/slsa-github-generator</code> as a separate job
+   that consumes the digest from <code>publish</code>. Strictly additive to
+   cosign keyless signing — gives consumers a verifiable record of
+   <em>how</em> the artifact was built (workflow path, commit SHA, builder
+   image), not just <em>who</em> signed it.</li>
+<li><strong>Yank semantics — document roll-forward only; no
+   tag-immutability enforcement.</strong> A <code>charts/repo-guardian/README.md</code>
+   subsection states: "don't delete-and-resurrect. Bump the chart
+   version and republish." The publish workflow does not block a
+   deleted-and-recreated version (the idempotency check is keyed on
+   "tag exists in registry," not "tag has ever existed"), so manual
+   deletes will silently re-publish on the next merge to <code>main</code>.
+   Roll-forward is the documented norm everywhere else in the
+   project (binary releases, deployments).</li>
+<li><strong>ECR fan-out — drop from CI; document as a recipe.</strong>
+   <code>vars.HELM_OCI_REGISTRY</code> is no longer referenced by any
+   workflow. A new <code>charts/repo-guardian/docs/publishing-to-ecr.md</code>
+   captures the auth-and-push recipe for operators who want ECR.
+   This trims the workflow surface and avoids dead CI branches
+   gated on a variable that has never been set.</li>
+<li><strong>Changelog automation — git-cliff for both root and chart.</strong>
+   Two configs (<code>cliff.toml</code> and <code>charts/repo-guardian/cliff.toml</code>
+   with <code>--include-path 'charts/**'</code>). Chart CHANGELOG is generated
+   on-the-fly by the publish workflow and packaged into the <code>.tgz</code>,
+   so the canonical source ships with a current changelog. Root
+   CHANGELOG is regenerated on binary release tag push and committed
+   back via PR (deliberate, gated event — branch protection is
+   respected). git-cliff was chosen over goreleaser's built-in
+   changelog (binary-only), release-please (heavy bot-PR
+   machinery), and changie (per-PR fragment files) because it's
+   one tool for both jobs and supports path filtering as a
+   first-class flag.</li>
+<li><strong>Phase ordering — docs first (Phase 6), homelab after (Phase
+   8).</strong> Phase 5's clean-machine smoke test already validates the
+   consumer flow before docs go out, so the README isn't pointing
+   at anything broken. Any homelab-discovered issues get fixed via
+   follow-up PRs rather than blocking the docs refresh.</li>
+</ol>
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<ul>
+<li>DESIGN-0011 — <code>docs/design/0011-publish-helm-chart-via-oci-registry.md</code></li>
+<li>DESIGN-0005 — <code>docs/design/0005-helm-chart.md</code> (parent chart design)</li>
+<li>IMPL-0004 — <code>docs/impl/0004-helm-chart-for-repo-guardian.md</code>
+  (chart scaffolding)</li>
+<li><code>.github/workflows/chart-release.yml</code> — workflow being replaced</li>
+<li><code>charts/repo-guardian/Chart.yaml</code> — version source of truth</li>
+<li><a href="https://github.com/donaldgifford/homelab/blob/main/k8s/homelab-cluster/apps/cicd/atlantis/kustomization.yaml">Atlantis chart consumption pattern</a></li>
+<li><a href="https://helm.sh/docs/topics/registries/">Helm OCI registries</a></li>
+<li><a href="https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry">GHCR + Helm guide</a></li>
+<li><a href="https://docs.sigstore.dev/cosign/signing/overview/">cosign keyless signing</a></li>
+<li><a href="https://github.com/sigstore/cosign-installer">sigstore/cosign-installer action</a></li>
+<li><a href="https://github.com/slsa-framework/slsa-github-generator">SLSA GitHub Generator</a></li>
+<li><a href="https://git-cliff.org/">git-cliff</a> and
+  <a href="https://github.com/orhun/git-cliff-action">orhun/git-cliff-action</a></li>
+<li><a href="https://github.com/peter-evans/create-pull-request">peter-evans/create-pull-request</a></li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../0009-per-org-rule-scoping-and-observability/" class="md-footer__link md-footer__link--prev" aria-label="Previous: IMPL-0009: Per-org rule scoping and observability">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                IMPL-0009: Per-org rule scoping and observability
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../0011-persistent-reconcile-state-and-multi-replica-coordination/" class="md-footer__link md-footer__link--next" aria-label="Next: IMPL-0011: Persistent reconcile state and multi-replica coordination">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                IMPL-0011: Persistent reconcile state and multi-replica coordination
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.footer", "content.action.edit"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../search/main.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,4525 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+        <link rel="prev" href="../0018-deprecate-memory-backend/">
+      
+      
+        <link rel="next" href="../0020-absent-check-mode-and-conditional-file-rules/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Configurable annotation-sourced custom properties - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#design-0019-configurable-annotation-sourced-custom-properties" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Configurable annotation-sourced custom properties
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started with repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference (guardian.hcl)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0010-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0010: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0011-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0011: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0012-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0012: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0013-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0013: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0015-per-installation-valkey-queue-partitioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0015: Per-installation Valkey queue partitioning
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0016-separate-postgres-read-and-write-endpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0016: Separate Postgres read and write endpoints
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0017-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0017: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0018-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0018: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0019: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0019: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goals-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals and Non-Goals
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Goals and Non-Goals">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#config-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Config surface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#catalog-extraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Catalog extraction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reconciler-sync-both-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconciler sync (both modes)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#schema-preflight-warn-filter-metric" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema preflight: warn + filter + metric
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#template-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Template context
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#design-decisions-from-inv-0008-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design decisions (from INV-0008 review)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-interface-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API / Interface Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-0-policy-config-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 0 — Policy config surface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-generic-catalog-extraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1 — Generic catalog extraction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-map-driven-reconciler-template-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 — Map-driven reconciler + template context
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-schema-preflight-warn-filter-metric" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3 — Schema preflight (warn + filter + metric)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-observability-alert-loki-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4 — Observability: alert + Loki contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-docs-examples-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5 — Docs, examples, migration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-rollout-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration / Rollout Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0020-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0020: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0009-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0009: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0010-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0010: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0011-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0011: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0012-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0012: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0013-reconcile-open-prs-when-file-rules-become-satisfied/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0013: Reconcile open PRs when file rules become satisfied
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0015-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0015: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Progress"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0016-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0016: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0017-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0017: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0018-fix-silently-ignored-operator-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0018: Fix silently ignored operator config
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0019-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0019: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0020-pre-impl-0019-high-severity-fixes-inv-0011-group-a-high/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0020: Pre-IMPL-0019 high-severity fixes (INV-0011 Group A High)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0021: Post-IMPL-0019 hardening and structural cleanup (INV-0011 Group A Medium + Group B)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0002-multi-org-and-forgejo-support-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0002: Multi-org and Forgejo support for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0003-pre-existing-branch-422-on-subsequent-reconciles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0003: Pre-existing branch 422 on subsequent reconciles
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0004-forge-interface-and-package-refactor-for-forgejo-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0004: Forge interface and package refactor for Forgejo backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0005-stale-prs-when-file-rules-become-satisfied-on-main/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0005: Stale PRs when file rules become satisfied on main
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0006-per-org-github-app-credentials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0006: Per-org GitHub App credentials
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Deferred"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0007-gitlab-forge-backend-support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0007: GitLab provider backend support
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0008-annotation-sourced-custom-properties-should-be-configurable-not/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0008: Annotation-sourced custom properties should be configurable, not hardcoded
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0009-read-only-status-api-and-web-ui-options/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0009: Read-only status API and web UI options
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0010-silently-ignored-operator-config-autoclosepr-hcl-attribute-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0010: Silently ignored operator config: auto_close_pr HCL attribute and cross-mode existingSecret
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0011-tech-debt-cleanup-inventory-post-impl-0019/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0011: Tech debt cleanup inventory post IMPL-0019
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/absent-rules-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Absent rules and conditional gates migration (IMPL-0019)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/chart-0.5.0-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.5.0 migration runbook (IMPL-0011)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/pr-convergence-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/annotation-properties-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property annotation migration (appVersion 1.9.1 → next minor)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/custom-properties-security-fix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-properties security fix (IMPL-0020)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/property-name-charset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property name charset correction (IMPL-0021)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ecr-publish-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ECR publish setup (maintainer-side)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/cnpg-homelab-cutover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Homelab CNPG cutover runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postgres schema operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running repo-guardian on AWS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/template-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Template migration guide (chart 0.3.x → 0.4.0)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goals-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals and Non-Goals
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Goals and Non-Goals">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#config-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Config surface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#catalog-extraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Catalog extraction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reconciler-sync-both-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconciler sync (both modes)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#schema-preflight-warn-filter-metric" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema preflight: warn + filter + metric
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#template-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Template context
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#design-decisions-from-inv-0008-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design decisions (from INV-0008 review)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-interface-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API / Interface Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-0-policy-config-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 0 — Policy config surface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-generic-catalog-extraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1 — Generic catalog extraction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-map-driven-reconciler-template-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 — Map-driven reconciler + template context
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-schema-preflight-warn-filter-metric" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3 — Schema preflight (warn + filter + metric)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-observability-alert-loki-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4 — Observability: alert + Loki contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-docs-examples-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5 — Docs, examples, migration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-rollout-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration / Rollout Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="design-0019-configurable-annotation-sourced-custom-properties">DESIGN 0019: Configurable annotation-sourced custom properties<a class="headerlink" href="#design-0019-configurable-annotation-sourced-custom-properties" title="Permanent link">&para;</a></h1>
+<p><strong>Status:</strong> Implemented
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-07-19</p>
+<!--toc:start-->
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#goals-and-non-goals">Goals and Non-Goals</a><ul>
+<li><a href="#goals">Goals</a></li>
+<li><a href="#non-goals">Non-Goals</a></li>
+</ul>
+</li>
+<li><a href="#background">Background</a></li>
+<li><a href="#detailed-design">Detailed Design</a><ul>
+<li><a href="#config-surface">Config surface</a></li>
+<li><a href="#catalog-extraction">Catalog extraction</a></li>
+<li><a href="#reconciler-sync-both-modes">Reconciler sync (both modes)</a></li>
+<li><a href="#schema-preflight-warn--filter--metric">Schema preflight: warn + filter + metric</a></li>
+<li><a href="#template-context">Template context</a></li>
+<li><a href="#design-decisions-from-inv-0008-review">Design decisions (from INV-0008 review)</a></li>
+</ul>
+</li>
+<li><a href="#api--interface-changes">API / Interface Changes</a></li>
+<li><a href="#data-model">Data Model</a></li>
+<li><a href="#phases">Phases</a><ul>
+<li><a href="#phase-0--policy-config-surface">Phase 0 — Policy config surface</a></li>
+<li><a href="#phase-1--generic-catalog-extraction">Phase 1 — Generic catalog extraction</a></li>
+<li><a href="#phase-2--map-driven-reconciler--template-context">Phase 2 — Map-driven reconciler + template context</a></li>
+<li><a href="#phase-3--schema-preflight-warn--filter--metric">Phase 3 — Schema preflight (warn + filter + metric)</a></li>
+<li><a href="#phase-4--observability-alert--loki-contract">Phase 4 — Observability: alert + Loki contract</a></li>
+<li><a href="#phase-5--docs-examples-migration">Phase 5 — Docs, examples, migration</a></li>
+</ul>
+</li>
+<li><a href="#testing-strategy">Testing Strategy</a></li>
+<li><a href="#migration--rollout-plan">Migration / Rollout Plan</a></li>
+<li><a href="#open-questions">Open Questions</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>Replace the hardcoded Jira annotation extraction in the <code>custom_properties</code>
+reconciler with an operator-defined <code>annotation_properties</code> map on the
+<code>reconcile "custom_properties"</code> HCL block. Built-in extraction shrinks to the
+two fields guaranteed by the Backstage Component contract (<code>Owner ←
+spec.owner</code>, <code>Component ← metadata.name</code>). Add an org-schema preflight that
+warn-logs mapped properties missing from the org's custom-property schema,
+filters them out of the values PATCH so defined properties still converge, and
+counts occurrences in a new Prometheus metric.</p>
+<p>Mapped properties are a <strong>full state sync</strong>: adding, updating, and clearing.
+Removing an annotation from catalog-info clears the corresponding property
+value on GitHub — the properties exist so downstream apps can consume
+accurate state, and stale values defeat the purpose.</p>
+<p>Implements the INV-0008 conclusion (open questions resolved 2026-07-19) and
+the DESIGN-0019 open-question resolutions (also 2026-07-19; see Open
+Questions). Rollout is roll-forward only — this is a feature fix, not a
+compatibility project.</p>
+<h2 id="goals-and-non-goals">Goals and Non-Goals<a class="headerlink" href="#goals-and-non-goals" title="Permanent link">&para;</a></h2>
+<h3 id="goals">Goals<a class="headerlink" href="#goals" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Operators declare which catalog-info <strong>annotations</strong> map to which GitHub
+  custom <strong>property names</strong>; nothing annotation-sourced is hardcoded.</li>
+<li><code>Owner</code> / <code>Component</code> stay built-in, fixed-name, with <code>Unclassified</code>
+  fallbacks (INV-0008 Q2 → a).</li>
+<li>A repo with annotations mapped to undefined schema properties still gets
+  its defined properties synced (no all-or-nothing 422), with a
+  Loki-matchable warning and a Prometheus counter (INV-0008 Q3 → a+b).</li>
+<li>Mapped properties are a full state sync — add, update, <strong>and clear on
+  removal</strong> — so downstream consumers can trust the values (OQ 3 → b).</li>
+<li>Both reconciler modes (<code>api</code>, <code>github-action</code>) honor the map (OQ 1 → a).</li>
+<li>Config errors (reserved names, duplicates, empties) fail at policy load
+  with location-prefixed diagnostics, not at reconcile time.</li>
+</ul>
+<h3 id="non-goals">Non-Goals<a class="headerlink" href="#non-goals" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Creating or mutating org/enterprise property <strong>schema</strong> definitions —
+  repo-guardian remains values-only, least-privilege (INV-0008 Q4 → a).</li>
+<li>Renaming the built-in <code>Owner</code>/<code>Component</code> property names (Q2 → a).</li>
+<li>Touching property names outside the <strong>managed set</strong> (<code>{Owner, Component}</code>
+  ∪ mapped names) — values set by humans or other tooling are never diffed,
+  written, or cleared.</li>
+<li>Value transformations (prefixing, casing, defaulting per property). The map
+  is name→name only; transforms would motivate the sub-block shape rejected
+  in INV-0008 Q1.</li>
+<li>Backward compatibility with the removed Jira built-ins — roll-forward only;
+  no deprecation window, no compat shims (see Migration / Rollout Plan).</li>
+</ul>
+<h2 id="background">Background<a class="headerlink" href="#background" title="Permanent link">&para;</a></h2>
+<p>INV-0008 found the catalog-info → custom-properties mapping is entirely
+compile-time: <code>internal/catalog/catalog.go.Parse</code> extracts
+<code>jira/project-key</code> / <code>jira/label</code> annotations into <code>JiraProject</code> /
+<code>JiraLabel</code>, and <code>desiredToPropertyValues</code>
+(<code>internal/reconciler/custom_properties.go:404-424</code>) hardcodes the GitHub
+property names. Annotations are free-form, deployment-specific metadata — not
+part of the Component kind contract — and GitHub's values PATCH is
+all-or-nothing, so one undefined property name 422s the whole payload
+including <code>Owner</code>/<code>Component</code>.</p>
+<p>Two additional facts surfaced while scoping this design, beyond INV-0008:</p>
+<ol>
+<li><strong>The GHA-mode workflow template hardcodes all four properties.</strong>
+   <code>internal/rules/templates/set-custom-properties.tmpl</code> emits fixed
+   <code>-f 'properties[][property_name]=JiraProject'</code> pairs and its prerequisites
+   comment names all four. Map-driven sync requires rewriting this template
+   to range over the resolved property set (OQ 1).</li>
+<li><strong>The schema preflight needs a new App permission.</strong> <code>GET
+   /orgs/{org}/properties/schema</code> (go-github v68:
+   <code>Organizations.GetAllCustomProperties</code>) requires org-level <strong>Custom
+   properties: read</strong> — the App currently needs only repo-level values
+   write. The preflight must degrade gracefully when the permission is
+   absent (OQ 2).</li>
+</ol>
+<h2 id="detailed-design">Detailed Design<a class="headerlink" href="#detailed-design" title="Permanent link">&para;</a></h2>
+<h3 id="config-surface">Config surface<a class="headerlink" href="#config-surface" title="Permanent link">&para;</a></h3>
+<p>New optional map attribute on the existing reconcile block (INV-0008 Q1 → a):</p>
+<div class="language-hcl highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="err">rule</span><span class="w"> </span><span class="s2">&quot;file&quot; &quot;catalog_info&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="na">paths</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;catalog-info.yaml&quot;, &quot;catalog-info.yml&quot;</span><span class="p">]</span>
+<span class="w">  </span><span class="na">template</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;catalog-info&quot;</span>
+
+<span class="w">  </span><span class="err">reconcile</span><span class="w"> </span><span class="s2">&quot;custom_properties&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="na">mode</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;api&quot;</span>
+<span class="w">    </span><span class="na">watch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="no">true</span>
+
+<span class="c1">    # catalog-info annotation key → GitHub custom property name</span>
+<span class="w">    </span><span class="nb">annotation_properties</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="s2">&quot;jira/project-key&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;JiraProject&quot;</span>
+<span class="w">      </span><span class="s2">&quot;jira/label&quot;</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;JiraLabel&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></td></tr></table></div>
+<ul>
+<li>Absent or empty map ⇒ only <code>Owner</code> + <code>Component</code> are written. This is the
+  new built-in default (<code>BuiltinDefaults()</code> and the <code>CUSTOM_PROPERTIES_MODE</code>
+  back-compat injection both carry an empty map).</li>
+<li>Load-time validation rejects, with location-prefixed diagnostics:<ul>
+<li>property names <code>Owner</code> or <code>Component</code> (reserved — follows Q2 → a);</li>
+<li>empty annotation keys or property names;</li>
+<li>two annotation keys targeting the same property name;</li>
+<li>property names that don't match GitHub's constraint
+  (<code>^[a-zA-Z0-9_.-]+$</code>, ≤75 chars — validated so failures surface at load,
+  not as a per-repo 422).</li>
+</ul>
+</li>
+</ul>
+<p>Decode follows the existing <code>decodeReconcileBlock</code> pattern
+(<code>loader.go:584-617</code>): add <code>{Name: "annotation_properties"}</code> to
+<code>reconcileBodySchema</code>, iterate <code>val.AsValueMap()</code> in the attribute switch.
+No <code>hcl:"-"</code> traps — plain <code>map[string]string</code> on <code>ReconcilerConfig</code>.</p>
+<h3 id="catalog-extraction">Catalog extraction<a class="headerlink" href="#catalog-extraction" title="Permanent link">&para;</a></h3>
+<p><code>internal/catalog/catalog.go</code> changes:</p>
+<div class="language-go highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">type</span><span class="w"> </span><span class="nx">Properties</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">Owner</span><span class="w">     </span><span class="kt">string</span>
+<span class="w">    </span><span class="nx">Component</span><span class="w"> </span><span class="kt">string</span>
+<span class="w">    </span><span class="c1">// Extra maps GitHub property name → value, extracted from</span>
+<span class="w">    </span><span class="c1">// metadata.annotations per the operator&#39;s annotation_properties map.</span>
+<span class="w">    </span><span class="c1">// Only present-and-non-empty annotations produce entries.</span>
+<span class="w">    </span><span class="nx">Extra</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span>
+<span class="p">}</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="nx">Parse</span><span class="p">(</span><span class="nx">content</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">annotationProps</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="nx">Properties</span>
+</code></pre></div></td></tr></table></div>
+<p>The <code>JiraProject</code>/<code>JiraLabel</code> struct fields and the two hardcoded annotation
+lookups are deleted. <code>Parse</code> iterates the operator map; a missing or empty
+annotation simply produces no entry (mirrors today's "only when present and
+non-empty" behavior). The <code>Unclassified</code> fallbacks for <code>Owner</code>/<code>Component</code>
+are unchanged.</p>
+<h3 id="reconciler-sync-both-modes">Reconciler sync (both modes)<a class="headerlink" href="#reconciler-sync-both-modes" title="Permanent link">&para;</a></h3>
+<p><code>CustomPropertiesReconciler</code> gains an <code>annotationProps map[string]string</code>
+field populated from <code>ReconcilerConfig</code> in the factory constructor.</p>
+<p>The <strong>managed set</strong> is <code>{Owner, Component}</code> ∪ the property names in
+<code>annotation_properties</code>. Reconciliation is a full state sync over the
+managed set — and only the managed set:</p>
+<ul>
+<li><code>diffProperties</code> compares every managed property. <code>Owner</code>/<code>Component</code> are
+  never absent (the <code>Unclassified</code> fallbacks guarantee a value). For each
+  mapped property name: present in <code>desired.Extra</code> with a different current
+  value ⇒ drift; <strong>absent from <code>Extra</code> (annotation removed or empty) while
+  the current GitHub value is non-empty ⇒ drift — the value must be
+  cleared</strong> (OQ 3 → b). Properties outside the managed set are ignored
+  entirely, regardless of what <code>GetCustomPropertyValues</code> returns.</li>
+<li><code>desiredToPropertyValues</code> emits <code>Owner</code>, <code>Component</code>, then every mapped
+  property name in <strong>sorted key order</strong> (deterministic payloads; keeps
+  GHA-mode rendered workflows and tests stable). Present entries carry
+  their value; absent entries carry an explicit <strong>JSON null</strong>, which is
+  GitHub's documented mechanism for removing a repo property value.</li>
+<li>The thin wrapper struct <code>github.CustomPropertyValue.Value</code> changes from
+  <code>string</code> to <code>*string</code> (nil ⇒ null on the wire); <code>SetCustomPropertyValues</code>
+  passes nil through to go-github's <code>interface{}</code> value field, and
+  <code>GetCustomPropertyValues</code> maps unset/null back to nil.</li>
+<li><code>buildGHABody</code> / <code>buildCatalogInfoBody</code> (PR bodies) render the map
+  generically instead of naming Jira fields, including explicit "will
+  clear" rows for removals.</li>
+</ul>
+<p>Interplay with file assertions is unchanged and orthogonal: removing
+<code>spec.owner</code> from catalog-info still trips the rule's assertion and flows
+through the normal check → PR path, while the property sync writes the
+<code>Unclassified</code> fallback in the meantime. Clearing only ever applies to
+mapped (annotation-sourced) properties.</p>
+<h3 id="schema-preflight-warn-filter-metric">Schema preflight: warn + filter + metric<a class="headerlink" href="#schema-preflight-warn-filter-metric" title="Permanent link">&para;</a></h3>
+<p>API mode only (GHA mode's PATCH runs inside the target repo's workflow with
+<code>GITHUB_TOKEN</code>; repo-guardian can't preflight on the workflow's behalf —
+the rendered workflow's prerequisites comment carries the warning instead).</p>
+<p>Flow in <code>handleAPIMode</code>, before <code>SetCustomPropertyValues</code>:</p>
+<ol>
+<li>Fetch the org's defined property names via a new
+   <code>Client.GetOrgPropertySchema(ctx, org) ([]string, error)</code>, wrapped in a
+   <strong>per-org TTL cache</strong> inside the reconciler (<code>map[string]schemaEntry</code> +
+   <code>sync.Mutex</code>, TTL per OQ 4). One API call per org per TTL window — not
+   per repo — keeping rate-limit cost flat (INV-0008 recommendation).</li>
+<li>Partition the payload: entries whose property name is in the schema vs
+   not. <code>Owner</code>/<code>Component</code> are partitioned identically — if the operator
+   never defined them, the same warn/filter path reports it instead of a
+   permanent silent 422 loop.</li>
+<li>If the missing set is non-empty:<ul>
+<li><code>slog.Warn("custom properties missing from org schema", "org", org,
+   "repo", repo, "missing_properties", []string{...})</code> — stable message
+   text and keys form the Loki matching contract (Phase 4).</li>
+<li><code>metrics.CustomPropertyMissingSchemaTotal.WithLabelValues(org,
+   property).Inc()</code> for each missing property.</li>
+</ul>
+</li>
+<li>PATCH only the defined subset. If the subset is empty, skip the API call
+   entirely (log covers it).</li>
+<li><strong>Fail-open:</strong> if the schema fetch errors (403 missing permission, 5xx,
+   timeout), log once per org per TTL window and send the <strong>unfiltered</strong>
+   payload — exactly today's semantics. The preflight is an enhancement
+   layer; its failure must never block syncs that would have succeeded
+   (mirrors the <code>ErrNoSnapshot</code> fall-open convention in <code>internal/budget</code>).</li>
+</ol>
+<p>New metric (registered in <code>internal/metrics</code>):</p>
+<div class="language-text highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code>custom_property_missing_schema_total{org, property}  CounterVec
+</code></pre></div></td></tr></table></div>
+<p>Cardinality: <code>org</code> is an established label; <code>property</code> is bounded by the
+operator's config map (single digits). Safe per INV-0008 Q3 resolution.</p>
+<h3 id="template-context">Template context<a class="headerlink" href="#template-context" title="Permanent link">&para;</a></h3>
+<p><code>tmpl.CatalogInfo</code> (<code>internal/template/contexts.go:67-75</code>) replaces
+<code>JiraProject</code>/<code>JiraLabel</code> with <code>Properties map[string]string</code> (property name
+→ value, same content as <code>catalog.Properties.Extra</code>). Template access:
+<code>{{ index .Catalog.Properties "JiraProject" }}</code> or
+<code>{{ range $name, $value := .Catalog.Properties }}</code>.</p>
+<p><code>set-custom-properties.tmpl</code> is rewritten to range over the managed set
+(OQ 1 → a): present values render as <code>-f 'properties[][value]=...'</code> string
+fields; clears render as <code>-F 'properties[][value]=null'</code> (<code>gh api -F</code>
+converts the literal <code>null</code> to JSON null). The prerequisites comment is
+generated from the actual resolved property set instead of naming four
+fixed properties.</p>
+<p>The <code>.Catalog.JiraProject</code>/<code>.Catalog.JiraLabel</code> fields are removed in the
+same release with no deprecation window (OQ 5 → a, roll-forward): operator
+templates referencing them fail at load/render and are fixed by switching
+to <code>index .Catalog.Properties "JiraProject"</code>.</p>
+<h3 id="design-decisions-from-inv-0008-review">Design decisions (from INV-0008 review)<a class="headerlink" href="#design-decisions-from-inv-0008-review" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Decision</th>
+<th>Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Config shape</td>
+<td>map attribute on the reconcile block (Q1 → a)</td>
+</tr>
+<tr>
+<td>Built-in names renameable</td>
+<td>no; <code>Owner</code>/<code>Component</code> reserved, load-time reject (Q2 → a)</td>
+</tr>
+<tr>
+<td>Preflight behavior</td>
+<td>warn + filter + metric + Loki/Prometheus alerting (Q3 → a+b)</td>
+</tr>
+<tr>
+<td>Schema creation by the App</td>
+<td>never (Q4 → a)</td>
+</tr>
+</tbody>
+</table>
+<p>Plus the DESIGN-0019 open-question resolutions (2026-07-19):</p>
+<table>
+<thead>
+<tr>
+<th>Decision</th>
+<th>Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GHA-mode parity</td>
+<td>yes — <code>set-custom-properties.tmpl</code> rewritten map-driven (OQ 1 → a)</td>
+</tr>
+<tr>
+<td>Missing org-read permission</td>
+<td>fail-open to today's semantics, log once per org per TTL window (OQ 2 → a)</td>
+</tr>
+<tr>
+<td>Removed annotations</td>
+<td><strong>clear the property value</strong> — full state sync over the managed set (OQ 3 → b)</td>
+</tr>
+<tr>
+<td>Schema-cache TTL</td>
+<td>fixed 30 minutes, unexported constant (OQ 4 → a)</td>
+</tr>
+<tr>
+<td>Template-context change</td>
+<td>Jira fields removed same release, roll-forward, no shims (OQ 5 → a)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="api-interface-changes">API / Interface Changes<a class="headerlink" href="#api-interface-changes" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HCL policy</td>
+<td><code>annotation_properties = map(string)</code> attribute on <code>reconcile "custom_properties"</code> blocks (all scopes where reconcile blocks are legal today)</td>
+</tr>
+<tr>
+<td><code>policy.ReconcilerConfig</code></td>
+<td>+ <code>AnnotationProperties map[string]string</code></td>
+</tr>
+<tr>
+<td><code>catalog.Parse</code></td>
+<td>signature: <code>Parse(content string, annotationProps map[string]string)</code>; <code>Properties.{JiraProject,JiraLabel}</code> → <code>Properties.Extra map[string]string</code></td>
+</tr>
+<tr>
+<td><code>github.Client</code> interface</td>
+<td>+ <code>GetOrgPropertySchema(ctx context.Context, org string) ([]string, error)</code> — <strong>mockClient parity: stubs needed in <code>internal/checker/engine_test.go</code>, <code>internal/scheduler/sweep_test.go</code>, <code>internal/reconciler/custom_properties_test.go</code></strong></td>
+</tr>
+<tr>
+<td><code>github.CustomPropertyValue</code></td>
+<td><code>Value string</code> → <code>Value *string</code> (nil ⇒ JSON null ⇒ GitHub removes the value); both client methods map accordingly</td>
+</tr>
+<tr>
+<td><code>tmpl.CatalogInfo</code></td>
+<td><code>JiraProject</code>/<code>JiraLabel</code> fields → <code>Properties map[string]string</code> (breaking for operator templates; roll-forward, OQ 5 → a)</td>
+</tr>
+<tr>
+<td>Metrics</td>
+<td>+ <code>custom_property_missing_schema_total{org, property}</code> CounterVec</td>
+</tr>
+<tr>
+<td>Embedded templates</td>
+<td><code>set-custom-properties.tmpl</code> rewritten map-driven</td>
+</tr>
+<tr>
+<td>App permissions (docs)</td>
+<td>org-level <strong>Custom properties: read</strong> documented as optional (enables preflight); absent ⇒ fail-open</td>
+</tr>
+</tbody>
+</table>
+<p>No store, queue, scheduler, webhook, or chart-values changes. The chart is
+untouched except docs — the HCL arrives via the existing <code>policy.config</code>
+ConfigMap path.</p>
+<h2 id="data-model">Data Model<a class="headerlink" href="#data-model" title="Permanent link">&para;</a></h2>
+<p>None. No store schema, migration, or persisted-state changes. The per-org
+schema cache is in-memory, per-process, best-effort (replicas each hold
+their own; acceptable because the cache only optimizes a read).</p>
+<h2 id="phases">Phases<a class="headerlink" href="#phases" title="Permanent link">&para;</a></h2>
+<p>Each phase is a separately mergeable PR (or squash-batch) keeping
+<code>make ci</code> green. Later phases depend on earlier ones in order.</p>
+<h3 id="phase-0-policy-config-surface">Phase 0 — Policy config surface<a class="headerlink" href="#phase-0-policy-config-surface" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Add <code>AnnotationProperties map[string]string</code> to
+      <code>policy.ReconcilerConfig</code> (<code>internal/policy/types.go</code>)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Add <code>{Name: "annotation_properties"}</code> to <code>reconcileBodySchema</code> and
+      decode via <code>AsValueMap()</code> in <code>decodeReconcileBlock</code>
+      (<code>internal/policy/loader.go</code>)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Load-time validation: reserved names (<code>Owner</code>, <code>Component</code>), empty
+      keys/values, duplicate property-name targets, GitHub property-name
+      charset/length — location-prefixed diagnostics</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>BuiltinDefaults()</code> and the <code>CUSTOM_PROPERTIES_MODE</code> back-compat
+      injection carry an empty map (Owner/Component-only default)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Loader tests: happy path, empty map, absent attribute, each
+      validation rejection with message assertions</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>make lint &amp;&amp; make test</code> green</li>
+</ul>
+<p><strong>Success criteria:</strong> a policy declaring <code>annotation_properties</code> loads and
+round-trips into <code>ReconcilerConfig</code>; every invalid shape fails <code>policy.Load</code>
+with a diagnostic naming the file/line; existing policies (no map) load
+unchanged.</p>
+<h3 id="phase-1-generic-catalog-extraction">Phase 1 — Generic catalog extraction<a class="headerlink" href="#phase-1-generic-catalog-extraction" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>catalog.Parse(content, annotationProps)</code> signature; <code>Properties.Extra
+      map[string]string</code>; delete <code>JiraProject</code>/<code>JiraLabel</code> fields and the
+      hardcoded <code>jira/*</code> lookups (<code>internal/catalog/catalog.go</code>)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Preserve <code>Unclassified</code> fallbacks and the
+      apiVersion/kind gate exactly as-is</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Update catalog unit tests: mapped annotation present/absent/empty,
+      nil map, non-Component entity, unparseable YAML</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Update all <code>catalog.Parse</code> call sites to compile (reconciler passes
+      its map; tests pass literals)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>make lint &amp;&amp; make test</code> green</li>
+</ul>
+<p><strong>Success criteria:</strong> <code>catalog</code> package has zero knowledge of any specific
+annotation key; <code>Parse(content, nil)</code> yields Owner/Component only; all
+extraction behavior is driven by the caller's map.</p>
+<h3 id="phase-2-map-driven-reconciler-template-context">Phase 2 — Map-driven reconciler + template context<a class="headerlink" href="#phase-2-map-driven-reconciler-template-context" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>CustomPropertiesReconciler</code> carries <code>annotationProps</code> from
+      <code>ReconcilerConfig</code>; factory threads it through</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>github.CustomPropertyValue.Value</code> → <code>*string</code>;
+      <code>SetCustomPropertyValues</code> maps nil → JSON null (value removal),
+      <code>GetCustomPropertyValues</code> maps unset/null → nil</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>diffProperties</code> and <code>desiredToPropertyValues</code> become managed-set
+      driven (sorted key order for determinism): present ⇒ value, absent ⇒
+      explicit null clear; unmanaged properties never diffed or emitted</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> PR-body builders render the map generically, including "will clear"
+      rows for removals</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>tmpl.CatalogInfo</code>: <code>Properties map[string]string</code> replaces the two
+      Jira fields (<code>internal/template/contexts.go</code>)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Rewrite <code>set-custom-properties.tmpl</code> to range over the managed set
+      (<code>-f</code> for values, <code>-F 'properties[][value]=null'</code> for clears);
+      prerequisites comment generated from the actual set</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Reconciler tests: api + gha mode with 0, 1, N mapped annotations;
+      clear-on-removal diff and payload; unmanaged-property isolation;
+      rendered-workflow golden assertions (including a clear entry)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>make lint &amp;&amp; make test</code> green</li>
+</ul>
+<p><strong>Success criteria:</strong> with an empty map, behavior is Owner/Component-only in
+both modes; with the Jira map configured and annotations present, rendered
+workflows and API payloads are set-identical to today's output; removing a
+mapped annotation produces a PATCH that nulls exactly that property; no
+payload ever contains a property outside the managed set; no <code>Jira*</code>
+identifier remains outside tests and docs.</p>
+<h3 id="phase-3-schema-preflight-warn-filter-metric">Phase 3 — Schema preflight (warn + filter + metric)<a class="headerlink" href="#phase-3-schema-preflight-warn-filter-metric" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>Client.GetOrgPropertySchema</code> on the <code>github.Client</code> interface +
+      <code>GitHubClient</code> impl via <code>Organizations.GetAllCustomProperties</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> mockClient parity stubs in the three files (<code>internal/checker/
+      engine_test.go</code>, <code>internal/scheduler/sweep_test.go</code>,
+      <code>internal/reconciler/custom_properties_test.go</code>)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Per-org TTL cache in the reconciler (<code>sync.Mutex</code> +
+      <code>map[string]schemaEntry</code>); TTL per OQ 4</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Partition/filter/warn/metric flow in <code>handleAPIMode</code>;
+      <code>custom_property_missing_schema_total{org, property}</code> registered in
+      <code>internal/metrics</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Fail-open path: schema fetch error ⇒ log once per org per TTL window,
+      send unfiltered payload</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Tests: missing-property filter (stateful mock returning schema —
+      mock-fidelity rule: list-then-act mocks must reflect configured
+      state, not return nil), fail-open on 403, cache hit avoids second
+      schema call, counter assertions via <code>testutil.ToFloat64</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>make lint &amp;&amp; make test</code> green</li>
+</ul>
+<p><strong>Success criteria:</strong> a repo with one undefined mapped property still syncs
+its defined properties in a single PATCH; the warn line carries <code>org</code> +
+<code>missing_properties</code>; the counter increments once per missing property per
+attempt; a 403 on the schema endpoint produces today's exact behavior
+(unfiltered PATCH) plus one log line; at most one schema API call per org
+per TTL window.</p>
+<h3 id="phase-4-observability-alert-loki-contract">Phase 4 — Observability: alert + Loki contract<a class="headerlink" href="#phase-4-observability-alert-loki-contract" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Starter alert in <code>charts/repo-guardian/templates/prometheusrule.yaml</code>:
+      <code>RepoGuardianPropertySchemaMissing</code> —
+      <code>rate(custom_property_missing_schema_total[15m]) &gt; 0</code> for 30m,
+      warning severity (tunable, matches existing alert conventions)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Document the Loki matching contract (exact message text + structured
+      keys <code>org</code>, <code>missing_properties</code>) and a sample LogQL rule in
+      <code>docs/operations/</code> (extend the metrics tables where the IMPL-0015
+      metrics live)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> helm-unittest case for the new PrometheusRule entry</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Chart version patch bump + chart CHANGELOG entry (<code>dont-release</code>
+      label; chart-only change)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>make lint &amp;&amp; make test</code> + helm-unittest green</li>
+</ul>
+<p><strong>Success criteria:</strong> the alert renders in the chart with valid PromQL; the
+ops doc names the exact log line and keys so a Loki ruler config can be
+written without reading Go source; log message text is asserted in a Go test
+so it can't drift silently under the Loki rule.</p>
+<h3 id="phase-5-docs-examples-migration">Phase 5 — Docs, examples, migration<a class="headerlink" href="#phase-5-docs-examples-migration" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>docs/usage/policy-reference.md</code>: <code>annotation_properties</code> attribute
+      (type, default, validation rules, reserved names) + schema-preflight
+      behavior + new metric</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>examples/guardian-full.hcl</code>: add the Jira map to the
+      <code>catalog_info</code> reconcile block (preserves current homelab behavior
+      through the upgrade)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Release-notes entry (roll-forward): removed built-in Jira extraction,
+      template-context change
+      (<code>.Catalog.JiraProject</code> → <code>index .Catalog.Properties "JiraProject"</code>),
+      clear-on-removal behavior, optional new App permission for preflight</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>CLAUDE.md</code>: update reconciler architecture notes (built-ins vs map,
+      managed-set clearing, preflight, new client method + mock-parity list)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Getting-started walkthrough: refresh the custom-properties demo
+      section if it names Jira properties</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Homelab smoke checklist (operator-side): upgrade with map configured,
+      verify no behavior change; remove an annotation, verify the property
+      value clears; remove one schema definition, verify
+      warn + filter + metric</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>make lint &amp;&amp; make test</code> green; mkdocs strict build clean</li>
+</ul>
+<p><strong>Success criteria:</strong> an operator can configure the feature from
+<code>policy-reference.md</code> alone; the example config reproduces pre-change
+behavior verbatim; the release notes cover all four behavioral edges
+(extraction, template context, clearing, permission).</p>
+<h2 id="testing-strategy">Testing Strategy<a class="headerlink" href="#testing-strategy" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Unit:</strong> catalog parse matrix (Phase 1); loader validation matrix
+  (Phase 0); diff/payload construction with sorted-order assertions
+  (Phase 2); preflight partition + fail-open + cache (Phase 3).</li>
+<li><strong>Mock fidelity:</strong> the schema-preflight tests use a stateful mock whose
+  <code>GetOrgPropertySchema</code> returns configured schema state — never a bare
+  <code>return nil, nil</code> — per the list-then-act mock-fidelity rule (IMPL-0013
+  post-mortem). A call counter asserts the TTL cache (N repos, 1 call).</li>
+<li><strong>Counters:</strong> <code>testutil.ToFloat64</code> on labeled children;
+  <code>metric.Reset()</code> between cases.</li>
+<li><strong>Golden:</strong> rendered <code>set-custom-properties.yml</code> for 0/1/N mapped
+  properties, including one with a clear (<code>null</code>) entry.</li>
+<li><strong>Removal:</strong> mapped annotation deleted ⇒ payload nulls exactly that
+  property; a property present on GitHub but outside the managed set never
+  appears in any payload or diff.</li>
+<li><strong>Log contract:</strong> a test asserts the literal warn message text + keys
+  (Phase 4 depends on it for Loki).</li>
+<li><strong>Regression:</strong> with the Jira map configured and annotations present,
+  end-to-end reconciler tests must produce API payloads / rendered
+  workflows set-identical to the current hardcoded behavior.</li>
+</ul>
+<h2 id="migration-rollout-plan">Migration / Rollout Plan<a class="headerlink" href="#migration-rollout-plan" title="Permanent link">&para;</a></h2>
+<p><strong>Roll-forward only.</strong> This is a feature fix, not a compatibility project:
+no deprecation window, no compat shims, no rollback support. It is accepted
+that a deployment relying on the old built-in Jira extraction — or on the
+<code>.Catalog.Jira*</code> template fields — breaks or errors after upgrading until
+its policy/templates declare the map.</p>
+<ol>
+<li>Phases 0–3 land as Go changes on one appVersion <strong>minor</strong> bump
+   (behavioral change; PR label <code>minor</code>). Phase 4 is chart-only
+   (<code>dont-release</code>, chart patch bump). Phase 5 rides with either.</li>
+<li>Release notes state the three things an upgrading operator may need to
+   do: declare <code>annotation_properties</code> where the built-in Jira extraction
+   was relied on, rewrite <code>.Catalog.Jira*</code> template references to
+   <code>index .Catalog.Properties "..."</code>, and optionally grant the App
+   org-level <strong>Custom properties: read</strong> for the preflight (without it,
+   behavior is today's unfiltered PATCH plus a periodic log line).</li>
+<li>Older binaries reject policies carrying <code>annotation_properties</code> at load —
+   fix forward, don't roll back.</li>
+<li>No data migration; no store or webhook impact.</li>
+</ol>
+<h2 id="open-questions">Open Questions<a class="headerlink" href="#open-questions" title="Permanent link">&para;</a></h2>
+<p>All resolved 2026-07-19.</p>
+<ol>
+<li>Should <code>annotation_properties</code> work in <code>github-action</code> mode in v1? —
+   <strong>Decided: (a)</strong><ul>
+<li>(a) yes — rewrite <code>set-custom-properties.tmpl</code> to range over the
+   resolved map; both modes stay at feature parity and the template
+   rewrite is needed anyway for the Jira-field removal (recommended)</li>
+<li>(b) api-mode only in v1; declaring the map with
+   <code>mode = "github-action"</code> fails at policy load with a clear
+   diagnostic; GHA parity ships later</li>
+<li>other:</li>
+</ul>
+</li>
+<li>Preflight behavior when the App lacks org-level Custom properties: read? —
+   <strong>Decided: (a)</strong><ul>
+<li>(a) fail-open — log once per org per TTL window, send the unfiltered
+   payload (today's exact semantics); document the optional permission
+   (recommended)</li>
+<li>(b) fail-closed — treat as empty schema, filter everything, warn; no
+   sync until permission granted (protects against 422s but silently
+   stops syncs that work today)</li>
+<li>&copy; require the permission — reconcile errors until granted</li>
+<li>other:</li>
+</ul>
+</li>
+<li>Removed-annotation semantics: an annotation previously synced is deleted
+   from catalog-info — what happens to the GitHub property value? —
+   <strong>Decided: (b).</strong> The custom properties exist so downstream apps can
+   consume accurate state; leaving stale values makes the sync useless.
+   Removal clears the value (JSON null). If deleting a catalog field also
+   trips a file assertion (e.g. a removed <code>spec.owner</code>), that flows through
+   the normal assert → check → PR path independently — the two mechanisms
+   are orthogonal. Clearing applies only to the managed set.<ul>
+<li>(a) leave it in place — matches today's behavior, non-destructive; a
+   future <code>delete_extra</code>-style knob can add clearing if wanted</li>
+<li>(b) clear it (set empty/null) when the mapped annotation is absent —
+   true convergence; scoped to the managed set so shared/manually-set
+   properties outside the map are never touched</li>
+<li>other:</li>
+</ul>
+</li>
+<li>Schema-cache TTL? — <strong>Decided: (a)</strong><ul>
+<li>(a) fixed 30 minutes, unexported constant, no config knob — schema
+   changes are rare, operators shouldn't need to think about this;
+   revisit only if someone hits it (recommended)</li>
+<li>(b) configurable via HCL (<code>schema_cache_ttl</code> on the reconcile block)</li>
+<li>&copy; tie it to <code>schedule_interval</code> (one fetch per sweep)</li>
+<li>other:</li>
+</ul>
+</li>
+<li>Template-context migration for <code>.Catalog.JiraProject</code> / <code>.Catalog.JiraLabel</code>? —
+   <strong>Decided: (a)</strong> (follows the roll-forward directive)<ul>
+<li>(a) remove the fields in the same release, document the
+   <code>index .Catalog.Properties</code> replacement in the release notes — usage
+   outside the embedded template (rewritten here anyway) is almost
+   certainly zero, and carrying deprecated fields means populating them
+   from the map by magic names (recommended)</li>
+<li>(b) keep the two fields for one minor release, populated when the map
+   targets those exact property names; delete in the next release</li>
+<li>other:</li>
+</ul>
+</li>
+</ol>
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<ul>
+<li>INV-0008 — Annotation-sourced custom properties should be configurable,
+  not hardcoded (parent investigation; open questions resolved 2026-07-19)</li>
+<li><code>internal/catalog/catalog.go</code> — current hardcoded extraction</li>
+<li><code>internal/reconciler/custom_properties.go</code> — reconciler, both modes</li>
+<li><code>internal/policy/loader.go:573-617</code> — reconcile block schema/decode</li>
+<li><code>internal/policy/types.go:297-304</code> — <code>ReconcilerConfig</code></li>
+<li><code>internal/template/contexts.go:64-75</code> — <code>CatalogInfo</code> template context</li>
+<li><code>internal/rules/templates/set-custom-properties.tmpl</code> — GHA workflow
+  template (hardcodes four properties today)</li>
+<li><code>internal/budget</code> — <code>ErrNoSnapshot</code> fall-open convention mirrored by the
+  preflight fail-open</li>
+<li>go-github v68 <code>Organizations.GetAllCustomProperties</code> — schema read API</li>
+<li>GitHub REST: <a href="https://docs.github.com/en/rest/repos/custom-properties">repository custom properties</a>,
+  <a href="https://docs.github.com/en/rest/orgs/custom-properties">organization custom properties</a></li>
+<li>DESIGN-0007 / IMPL-0006 — reconciler interface origin</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../0018-deprecate-memory-backend/" class="md-footer__link md-footer__link--prev" aria-label="Previous: DESIGN-0018: Deprecate memory backend">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                DESIGN-0018: Deprecate memory backend
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../0020-absent-check-mode-and-conditional-file-rules/" class="md-footer__link md-footer__link--next" aria-label="Next: DESIGN-0020: Absent check mode and conditional file rules">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                DESIGN-0020: Absent check mode and conditional file rules
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.footer", "content.action.edit"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../search/main.js"></script>
+      
+    
+  </body>
+</html>

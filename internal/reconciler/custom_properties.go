@@ -37,6 +37,14 @@ type schemaEntry struct {
 }
 
 const (
+	// propOwner and propComponent are the two always-managed GitHub
+	// custom properties, sourced from the Backstage contract
+	// (spec.owner and metadata.name respectively).
+	propOwner     = "Owner"
+	propComponent = "Component"
+)
+
+const (
 	// ModeAPI is the API mode for custom properties.
 	ModeAPI = "api"
 
@@ -54,6 +62,15 @@ const (
 
 	// CatalogInfoPRTitle is the PR title for catalog-info.yaml additions.
 	CatalogInfoPRTitle = "chore: add catalog-info.yaml"
+)
+
+const (
+	// propertiesWorkflowPath is the workflow the github-action mode
+	// commits to the properties branch.
+	propertiesWorkflowPath = ".github/workflows/set-custom-properties.yml"
+
+	propertiesCreateCommitMsg  = "chore: add workflow to set custom properties"
+	propertiesRefreshCommitMsg = "chore: refresh custom properties workflow"
 )
 
 // CustomPropertiesReconciler reads catalog-info.yaml content, extracts
@@ -144,6 +161,14 @@ func (*CustomPropertiesReconciler) Name() string {
 	return "custom_properties"
 }
 
+// RunsOnAbsence reports true: a repo whose catalog-info file has been
+// removed has a well-defined desired state — Owner/Component fall back
+// to catalog.Defaults() and every mapped property clears — and that
+// state can only be reached by reconciling on absence (INV-0011 A3).
+func (*CustomPropertiesReconciler) RunsOnAbsence() bool {
+	return true
+}
+
 // Reconcile reads catalog-info.yaml content, diffs custom properties, and
 // either sets them via API or creates a PR with a workflow.
 func (r *CustomPropertiesReconciler) Reconcile(ctx context.Context, params *ReconcileParams) error {
@@ -182,7 +207,15 @@ func (r *CustomPropertiesReconciler) Reconcile(ctx context.Context, params *Reco
 		return fmt.Errorf("reading custom properties: %w", err)
 	}
 
-	if !r.diffProperties(desired, current) {
+	// Resolve the org's property schema once and apply the same view to
+	// both the drift computation and the payload. Filtering only the
+	// payload (the pre-IMPL-0021 shape) left a schema-missing mapped
+	// property reporting drift on every sweep, re-PATCHing the
+	// already-correct defined properties forever (INV-0011 A5).
+	defined := r.definedProperties(ctx, log, params.Client, params.Owner)
+	r.reportMissingSchema(log, params.Owner, defined)
+
+	if !r.diffProperties(desired, current, defined) {
 		log.Info("custom properties already correct")
 		metrics.PropertiesAlreadyCorrectTotal.Inc()
 
@@ -200,7 +233,7 @@ func (r *CustomPropertiesReconciler) Reconcile(ctx context.Context, params *Reco
 	case ModeGHA:
 		return r.handleGHAMode(ctx, params, desired)
 	case ModeAPI:
-		return r.handleAPIMode(ctx, params, desired, catalogFound)
+		return r.handleAPIMode(ctx, params, desired, catalogFound, defined)
 	default:
 		return nil
 	}
@@ -241,10 +274,20 @@ func (r *CustomPropertiesReconciler) handleGHAMode(
 ) error {
 	log := params.Logger.With("owner", params.Owner, "repo", params.Repo)
 
-	existingPR := findPropertiesPR(params.OpenPRs, PropertiesBranchName)
-	if existingPR != nil {
-		log.Info("properties PR already exists", "pr_number", existingPR.Number)
-		return nil
+	rendered, err := r.renderPropertiesWorkflow(params, desired)
+	if err != nil {
+		return err
+	}
+
+	fallbackBody := buildPropertiesPRBody(desired, r.managedNames, ModeGHA)
+
+	prText, err := resolveReconcilerPR(log, params, "custom_properties", PropertiesPRTitle, fallbackBody)
+	if err != nil {
+		return fmt.Errorf("resolving reconciler PR template: %w", err)
+	}
+
+	if existingPR := findPropertiesPR(params.OpenPRs, PropertiesBranchName); existingPR != nil {
+		return refreshPropertiesPR(ctx, log, params, existingPR, rendered, prText)
 	}
 
 	if params.DryRun {
@@ -260,9 +303,51 @@ func (r *CustomPropertiesReconciler) handleGHAMode(
 		return err
 	}
 
+	baseSHA, err := params.Client.GetBranchSHA(ctx, params.Owner, params.Repo, params.DefaultBranch)
+	if err != nil {
+		return fmt.Errorf("getting default branch SHA: %w", err)
+	}
+
+	if baseSHA == "" {
+		return fmt.Errorf("default branch %s has no SHA", params.DefaultBranch)
+	}
+
+	if err := params.Client.CreateBranch(ctx, params.Owner, params.Repo, PropertiesBranchName, baseSHA); err != nil {
+		return fmt.Errorf("creating properties branch: %w", err)
+	}
+
+	err = params.Client.CreateOrUpdateFile(
+		ctx, params.Owner, params.Repo, PropertiesBranchName,
+		propertiesWorkflowPath, rendered, propertiesCreateCommitMsg,
+	)
+	if err != nil {
+		return fmt.Errorf("creating workflow file: %w", err)
+	}
+
+	pr, err := params.Client.CreatePullRequest(ctx, params.Owner, params.Repo, prText.Title, prText.Body, PropertiesBranchName, params.DefaultBranch)
+	if err != nil {
+		return fmt.Errorf("creating properties PR: %w", err)
+	}
+
+	applyLabels(ctx, log, params.Client, params.Owner, params.Repo, pr.Number, prText.Labels)
+
+	metrics.PropertiesPRsCreatedTotal.Inc()
+	log.Info("created properties PR", "pr_number", pr.Number)
+
+	return nil
+}
+
+// renderPropertiesWorkflow renders the set-custom-properties workflow
+// for the current desired state. Shared by the create and refresh paths
+// so a refreshed PR can never drift from what a freshly-created one
+// would have contained.
+func (r *CustomPropertiesReconciler) renderPropertiesWorkflow(
+	params *ReconcileParams,
+	desired *catalog.Properties,
+) (string, error) {
 	compiled, err := r.templates.Get("set-custom-properties")
 	if err != nil {
-		return fmt.Errorf("getting set-custom-properties template: %w", err)
+		return "", fmt.Errorf("getting set-custom-properties template: %w", err)
 	}
 
 	rendered, err := compiled.Render(tmpl.FileVars{
@@ -280,45 +365,56 @@ func (r *CustomPropertiesReconciler) handleGHAMode(
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("rendering set-custom-properties template: %w", err)
+		return "", fmt.Errorf("rendering set-custom-properties template: %w", err)
 	}
 
-	baseSHA, err := params.Client.GetBranchSHA(ctx, params.Owner, params.Repo, params.DefaultBranch)
+	return rendered, nil
+}
+
+// refreshPropertiesPR brings an already-open properties PR back in line
+// with the current desired state.
+//
+// Before IMPL-0021 this path returned early, so an annotation edited
+// after the PR opened was never reflected in the branch workflow or the
+// PR body: the PR sat advertising stale values, and merging it wrote
+// the *old* properties (INV-0011 A4).
+//
+// Both writes are idempotent, so a steady-state sweep over an open PR
+// costs zero mutating calls: CreateOrUpdateFile skips byte-identical
+// content (INV-0003), and the PR is PATCHed only when the rendered
+// title or body actually differs from what GitHub holds. Auto-close for
+// properties PRs stays out of scope (IMPL-0021 Decision 2).
+func refreshPropertiesPR(
+	ctx context.Context,
+	log *slog.Logger,
+	params *ReconcileParams,
+	pr *ghclient.PullRequest,
+	rendered string,
+	prText renderedPR,
+) error {
+	if params.DryRun {
+		log.Info("dry run: would refresh properties PR", "pr_number", pr.Number)
+		return nil
+	}
+
+	err := params.Client.CreateOrUpdateFile(
+		ctx, params.Owner, params.Repo, PropertiesBranchName,
+		propertiesWorkflowPath, rendered, propertiesRefreshCommitMsg,
+	)
 	if err != nil {
-		return fmt.Errorf("getting default branch SHA: %w", err)
+		return fmt.Errorf("refreshing workflow file: %w", err)
 	}
 
-	if baseSHA == "" {
-		return fmt.Errorf("default branch %s has no SHA", params.DefaultBranch)
+	if pr.Title == prText.Title && pr.Body == prText.Body {
+		log.Info("properties PR already current", "pr_number", pr.Number)
+		return nil
 	}
 
-	if err := params.Client.CreateBranch(ctx, params.Owner, params.Repo, PropertiesBranchName, baseSHA); err != nil {
-		return fmt.Errorf("creating properties branch: %w", err)
+	if err := params.Client.UpdatePullRequest(ctx, params.Owner, params.Repo, pr.Number, prText.Title, prText.Body); err != nil {
+		return fmt.Errorf("refreshing properties PR: %w", err)
 	}
 
-	commitMsg := "chore: add workflow to set custom properties"
-	targetPath := ".github/workflows/set-custom-properties.yml"
-
-	if err := params.Client.CreateOrUpdateFile(ctx, params.Owner, params.Repo, PropertiesBranchName, targetPath, rendered, commitMsg); err != nil {
-		return fmt.Errorf("creating workflow file: %w", err)
-	}
-
-	fallbackBody := buildPropertiesPRBody(desired, r.managedNames, "github-action")
-
-	prText, err := resolveReconcilerPR(log, params, "custom_properties", PropertiesPRTitle, fallbackBody)
-	if err != nil {
-		return fmt.Errorf("resolving reconciler PR template: %w", err)
-	}
-
-	pr, err := params.Client.CreatePullRequest(ctx, params.Owner, params.Repo, prText.Title, prText.Body, PropertiesBranchName, params.DefaultBranch)
-	if err != nil {
-		return fmt.Errorf("creating properties PR: %w", err)
-	}
-
-	applyLabels(ctx, log, params.Client, params.Owner, params.Repo, pr.Number, prText.Labels)
-
-	metrics.PropertiesPRsCreatedTotal.Inc()
-	log.Info("created properties PR", "pr_number", pr.Number)
+	log.Info("refreshed stale properties PR", "pr_number", pr.Number)
 
 	return nil
 }
@@ -328,12 +424,16 @@ func (r *CustomPropertiesReconciler) handleAPIMode(
 	params *ReconcileParams,
 	desired *catalog.Properties,
 	catalogFound bool,
+	defined map[string]struct{},
 ) error {
 	log := params.Logger.With("owner", params.Owner, "repo", params.Repo)
 
-	props := desiredToPropertyValues(desired, r.managedNames)
-	props = r.filterBySchema(ctx, log, params.Client, params.Owner, props)
+	props := filterBySchema(defined, desiredToPropertyValues(desired, r.managedNames))
 
+	// Defensive: since IMPL-0021 the same schema view gates the drift
+	// computation, so a fully-filtered payload can no longer reach this
+	// far (nothing defined ⇒ nothing drifts). The guard stays so a
+	// future caller can never send GitHub an empty PATCH.
 	if len(props) == 0 {
 		log.Info("no managed properties present in org schema; nothing to sync")
 		return nil
@@ -369,60 +469,128 @@ func (r *CustomPropertiesReconciler) handleAPIMode(
 	log.Info("set custom properties via API", logArgs...)
 
 	if !catalogFound {
+		// The engine reached us *because* the file is missing, so the
+		// file rule that triggered this reconciler is already opening a
+		// PR that adds it. Opening a second one on a second branch
+		// would race that PR to add the same path (IMPL-0021 A3).
+		if params.FileAbsent {
+			log.Info("catalog-info missing; properties cleared, file rule owns adding the file")
+			return nil
+		}
+
 		return r.createCatalogInfoPR(ctx, params)
 	}
 
 	return nil
 }
 
-// filterBySchema drops properties the org's custom-property schema
-// does not define, warning once and incrementing
-// CustomPropertyMissingSchemaTotal once per missing property. A
-// schema-fetch error fails open: the payload passes through
-// unfiltered, preserving pre-Phase-3 behavior rather than blocking a
-// sync that would otherwise succeed.
-func (r *CustomPropertiesReconciler) filterBySchema(
+// definedProperties returns the set of custom-property names the org
+// schema defines, or nil when the schema is unavailable. A nil set is
+// the fail-open signal: every managed property is then treated as
+// defined, preserving pre-preflight behavior rather than blocking a
+// sync on a broken schema endpoint.
+func (r *CustomPropertiesReconciler) definedProperties(
 	ctx context.Context,
 	log *slog.Logger,
 	client ghclient.Client,
 	org string,
-	props []*ghclient.CustomPropertyValue,
-) []*ghclient.CustomPropertyValue {
+) map[string]struct{} {
 	defined, err := r.orgSchema(ctx, log, client, org)
 	if err != nil {
+		return nil
+	}
+
+	return defined
+}
+
+// propertyDefined reports whether the org schema defines name. A nil
+// defined set means the schema lookup failed, in which case every
+// property is treated as defined (fail open).
+func propertyDefined(defined map[string]struct{}, name string) bool {
+	if defined == nil {
+		return true
+	}
+
+	_, ok := defined[name]
+
+	return ok
+}
+
+// filterBySchema drops properties the org's custom-property schema does
+// not define. A nil defined set (schema unavailable) passes the payload
+// through unfiltered.
+func filterBySchema(
+	defined map[string]struct{},
+	props []*ghclient.CustomPropertyValue,
+) []*ghclient.CustomPropertyValue {
+	if defined == nil {
 		return props
 	}
 
 	filtered := make([]*ghclient.CustomPropertyValue, 0, len(props))
 
-	var missing []string
-
 	for _, p := range props {
 		if _, ok := defined[p.PropertyName]; ok {
 			filtered = append(filtered, p)
-			continue
 		}
-
-		missing = append(missing, p.PropertyName)
-		metrics.CustomPropertyMissingSchemaTotal.WithLabelValues(org, p.PropertyName).Inc()
-	}
-
-	if len(missing) > 0 {
-		// "org" is added explicitly even though the caller's logger
-		// already carries the same value as "owner": this is the
-		// literal Loki-matching-contract line operators query on
-		// (docs/operations/scaling.md), and it must carry "org" +
-		// "missing_properties" as flat fields independent of whatever
-		// context happens to be chained in via .With(). "repo" is not
-		// re-added here — the caller's logger already carries it, and
-		// adding it again would duplicate the JSON key.
-		log.Warn("custom properties missing from org schema",
-			"org", org,
-			"missing_properties", missing,
-		)
 	}
 
 	return filtered
+}
+
+// managedSetNames returns the full managed property set in payload
+// order: Owner, Component, then the sorted mapped names.
+func (r *CustomPropertiesReconciler) managedSetNames() []string {
+	names := make([]string, 0, len(r.managedNames)+2)
+	names = append(names, propOwner, propComponent)
+	names = append(names, r.managedNames...)
+
+	return names
+}
+
+// reportMissingSchema warns once and increments
+// CustomPropertyMissingSchemaTotal once per managed property the org
+// schema does not define.
+//
+// This runs on every reconcile, independent of whether any drift was
+// found, because the A5 fix deliberately stops schema-missing
+// properties from registering as drift. Leaving the report on the
+// drift path (its pre-IMPL-0021 home) would have silenced the signal
+// entirely and left RepoGuardianPropertySchemaMissing unfireable.
+func (r *CustomPropertiesReconciler) reportMissingSchema(
+	log *slog.Logger,
+	org string,
+	defined map[string]struct{},
+) {
+	if defined == nil {
+		return
+	}
+
+	var missing []string
+
+	for _, name := range r.managedSetNames() {
+		if _, ok := defined[name]; ok {
+			continue
+		}
+
+		missing = append(missing, name)
+		metrics.CustomPropertyMissingSchemaTotal.WithLabelValues(org, name).Inc()
+	}
+
+	if len(missing) == 0 {
+		return
+	}
+
+	// "org" is added explicitly even though the caller's logger
+	// already carries the same value as "owner": this is the literal
+	// Loki-matching-contract line operators query on
+	// (docs/operations/scaling.md), and it must carry "org" +
+	// "missing_properties" as flat fields independent of whatever
+	// context happens to be chained in via .With().
+	log.Warn("custom properties missing from org schema",
+		"org", org,
+		"missing_properties", missing,
+	)
 }
 
 // orgSchema returns the org's custom-property schema names as a set,
@@ -637,24 +805,34 @@ func currentValue(v *string) string {
 // current values. The managed set is {Owner, Component} plus
 // r.managedNames; properties outside that set are never compared,
 // regardless of what GetCustomPropertyValues returns.
+//
+// Properties the org schema does not define are skipped: no PATCH can
+// ever satisfy them, so counting them as drift would re-PATCH the
+// already-correct defined properties on every sweep (INV-0011 A5). A
+// nil defined set fails open and compares the whole managed set.
 func (r *CustomPropertiesReconciler) diffProperties(
 	desired *catalog.Properties,
 	current []*ghclient.CustomPropertyValue,
+	defined map[string]struct{},
 ) bool {
 	currentMap := make(map[string]*string, len(current))
 	for _, p := range current {
 		currentMap[p.PropertyName] = p.Value
 	}
 
-	if currentValue(currentMap["Owner"]) != desired.Owner {
+	if propertyDefined(defined, propOwner) && currentValue(currentMap[propOwner]) != desired.Owner {
 		return true
 	}
 
-	if currentValue(currentMap["Component"]) != desired.Component {
+	if propertyDefined(defined, propComponent) && currentValue(currentMap[propComponent]) != desired.Component {
 		return true
 	}
 
 	for _, name := range r.managedNames {
+		if !propertyDefined(defined, name) {
+			continue
+		}
+
 		value, present := desired.Extra[name]
 		cur := currentValue(currentMap[name])
 
@@ -687,8 +865,8 @@ func desiredToPropertyValues(desired *catalog.Properties, managedNames []string)
 
 	props := make([]*ghclient.CustomPropertyValue, 0, len(managedNames)+2)
 	props = append(props,
-		&ghclient.CustomPropertyValue{PropertyName: "Owner", Value: &owner},
-		&ghclient.CustomPropertyValue{PropertyName: "Component", Value: &component},
+		&ghclient.CustomPropertyValue{PropertyName: propOwner, Value: &owner},
+		&ghclient.CustomPropertyValue{PropertyName: propComponent, Value: &component},
 	)
 
 	for _, name := range managedNames {

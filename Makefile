@@ -97,9 +97,9 @@ fmt: ## Format code with gofmt and goimports
 	@goimports -w $(GOIMPORTS_LOCAL_ARG) .
 	@goimports -w $(GOIMPORTS_LOCAL_ARG)  cmd/ internal/
 
-mocks: ## Regenerate mockery mocks for the IMPL-0011 interfaces (Store, Queue, Scheduler)
+mocks: ## Regenerate mockery mocks (Store, Queue, Scheduler, github.Client)
 	@ $(MAKE) --no-print-directory log-$@
-	@mockery
+	@mockery --config .mockery.yaml
 	@echo "✓ Mocks regenerated under internal/*/mocks/"
 
 clean: ## Remove build artifacts

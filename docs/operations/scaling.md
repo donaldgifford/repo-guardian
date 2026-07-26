@@ -224,7 +224,10 @@ level=WARN msg="custom properties missing from org schema" org=<org> repo=<repo>
 - **Structured keys:** `org` (string), `repo` (string), `missing_properties` (list of property names present in the sync attempt but absent from the org schema)
 
 Sample LogQL alerting rule (Loki ruler), grouped by org so each org's
-missing-schema streak pages independently:
+missing-schema streak pages independently. Note the lookback window is
+longer than `for`, for the same reason as the metric alert below — a
+window shorter than the pending period resets it before it can elapse,
+so the alert never fires (INV-0011 A7):
 
 ```yaml
 groups:
@@ -233,14 +236,31 @@ groups:
       - alert: RepoGuardianPropertySchemaMissingLogs
         expr: |
           sum by (org) (
-            count_over_time({app="repo-guardian"} |= "custom properties missing from org schema" [15m])
+            count_over_time({app="repo-guardian"} |= "custom properties missing from org schema" [1h])
           ) > 0
-        for: 30m
+        for: 5m
         labels:
           severity: warning
         annotations:
           summary: "repo-guardian: org {{ $labels.org }} has custom properties missing from its schema"
 ```
+
+**Window sizing vs. reconcile freshness.** A schema mismatch is observed
+once per repo per *reconcile*, and `RECONCILE_FRESHNESS` defaults to
+`24h` — so an affected repo contributes roughly one sample per day, not a
+continuous stream. Two consequences:
+
+- The window has to be much longer than the sampling gap for the alert to
+  be reachable at all. The pre-IMPL-0021 pairing
+  (`rate(...[15m])` with `for: 30m`) could never fire under any freshness
+  setting, because a 15-minute window drops back to zero long before a
+  30-minute pending period elapses.
+- With the corrected `[1h]` window the alert fires within `for: 5m` of a
+  mismatch and then **resolves about an hour later**, re-firing on the
+  next sweep that sees it. That sawtooth is expected. If you would rather
+  it stay firing continuously until fixed, widen the window past your
+  freshness setting (e.g. `increase(...[25h])` for the default `24h`)
+  via `prometheusRule.alerts.PropertySchemaMissing`.
 
 The fail-open path (schema fetch itself errors — 403, 5xx, timeout) is a
 separate, distinct log line and is intentionally rarer (once per org per

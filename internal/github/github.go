@@ -10,8 +10,12 @@ import (
 // PullRequest represents a GitHub pull request with the fields
 // relevant to repo-guardian's operations.
 type PullRequest struct {
-	Number    int
-	Title     string
+	Number int
+	Title  string
+	// Body is the PR description. Carried so a reconcile can tell
+	// whether a refresh would actually change anything and skip the
+	// PATCH when it would not (INV-0011 A4/B4).
+	Body      string
 	Head      string    // Branch name.
 	State     string    // "open", "closed".
 	CreatedAt time.Time // PR creation timestamp; used for age-bucketed metrics.
@@ -242,6 +246,13 @@ type Client interface {
 	// request. Used by IMPL-0013 Phase 3 to refresh the PR body when
 	// the actionable rule set shrinks between sweeps.
 	UpdatePullRequest(ctx context.Context, owner, repo string, number int, title, body string) error
+
+	// UpdatePRBranch merges the pull request's base branch into its
+	// head branch, keeping a long-lived reconcile PR mergeable as the
+	// default branch advances. Returns an error when the merge cannot
+	// be performed (most often a conflict with base); callers treat
+	// the call as best-effort and continue rather than abort.
+	UpdatePRBranch(ctx context.Context, owner, repo string, number int) error
 
 	// ClosePullRequest transitions the pull request to the closed
 	// state without merging. Used by IMPL-0013 Phase 3 when every file

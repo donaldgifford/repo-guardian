@@ -8,11 +8,21 @@ import (
 	"time"
 
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/github/mocks"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 )
 
 // mockClient implements ghclient.Client for testing.
 type mockClient struct {
+	// Embedded generated mock. Every method this fake needs is
+	// overridden below, so the embedded value is never actually
+	// called; it exists so that adding a method to ghclient.Client
+	// does not break compilation here (IMPL-0021 Phase 7 / INV-0011
+	// B2). A test that reaches an un-overridden method panics with
+	// testify's "no return value specified" — a loud signal that the
+	// new API needs fake behavior, rather than a silent zero value.
+	mocks.MockClient
+
 	contents         map[string]bool                            // "owner/repo/path" -> exists
 	branchContents   map[string]string                          // "owner/repo/branch/path" -> sha (IMPL-0013 P3 orphan discovery)
 	fileContents     map[string]string                          // "owner/repo/path" -> content
@@ -44,11 +54,17 @@ type mockClient struct {
 	updatedRuleset   *ghclient.Ruleset
 	updatedRulesetID int64
 
+	// IMPL-0021 B4 base-drift field: PR numbers passed to
+	// UpdatePRBranch, in call order.
+	updatedPRBranches []int
+	updatePRBranchErr error
+
 	// IMPL-0013 P3 convergence fields.
 	deletedFiles       []string
 	updatedPRNumber    int
 	updatedPRTitle     string
 	updatedPRBody      string
+	updatePRCalls      int
 	closedPRNumber     int
 	upsertedComments   []upsertedComment
 	upsertCommentCalls int
@@ -329,6 +345,28 @@ func (m *mockClient) UpdatePullRequest(_ context.Context, _, _ string, number in
 	m.updatedPRNumber = number
 	m.updatedPRTitle = title
 	m.updatedPRBody = body
+	m.updatePRCalls++
+
+	// List-then-act fidelity (CLAUDE.md): a later ListOpenPullRequests
+	// must observe this write the way GitHub would, or the "skip the
+	// PATCH when nothing changed" assertion is vacuous — every sweep
+	// would re-diff against the pre-refresh body and patch again.
+	for _, pr := range m.openPRs {
+		if pr.Number == number {
+			pr.Title = title
+			pr.Body = body
+		}
+	}
+
+	return nil
+}
+
+func (m *mockClient) UpdatePRBranch(_ context.Context, _, _ string, number int) error {
+	if m.updatePRBranchErr != nil {
+		return m.updatePRBranchErr
+	}
+
+	m.updatedPRBranches = append(m.updatedPRBranches, number)
 
 	return nil
 }

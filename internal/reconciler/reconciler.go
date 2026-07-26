@@ -20,6 +20,20 @@ type Reconciler interface {
 
 	// Reconcile performs the reconciler's action for a single repository.
 	Reconcile(ctx context.Context, params *ReconcileParams) error
+
+	// RunsOnAbsence reports whether this reconciler has meaningful
+	// behavior when the rule's configured file is missing from the
+	// default branch. Reconcilers that only interpret file *content*
+	// return false and are skipped, as they were before IMPL-0021.
+	//
+	// Returning true opts into an extra invocation per repo per sweep
+	// with ReconcileParams.FileAbsent set and Content empty, so only
+	// reconcilers whose contract includes an absence behavior — today
+	// just custom_properties, which clears the managed property set —
+	// should do so. This is a required interface method rather than an
+	// optional capability assertion so a new reconciler cannot silently
+	// inherit either answer (IMPL-0021 Decision 3).
+	RunsOnAbsence() bool
 }
 
 // ReconcileParams holds the inputs for a reconciler invocation.
@@ -39,6 +53,20 @@ type ReconcileParams struct {
 	// Content is the file content that triggered this reconciler.
 	// Empty string if the file was not found.
 	Content string
+
+	// FileAbsent reports that this invocation was triggered by the
+	// rule's file being *missing* from the default branch, rather than
+	// by its content. Only reconcilers returning true from
+	// RunsOnAbsence are invoked this way.
+	//
+	// It is distinct from an empty Content: a reconciler that resolves
+	// its own file would otherwise be unable to tell "the caller passed
+	// nothing, go look it up" from "the engine already looked and it is
+	// not there." Reconcilers must not open a PR to *create* the
+	// missing file when this is set — the file rule that triggered them
+	// already owns that remediation, and a second PR on a second branch
+	// would race it.
+	FileAbsent bool
 
 	// OpenPRs is the list of currently open pull requests in the repository.
 	OpenPRs []*ghclient.PullRequest

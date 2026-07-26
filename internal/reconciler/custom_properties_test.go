@@ -15,6 +15,7 @@ import (
 
 	"github.com/donaldgifford/repo-guardian/internal/catalog"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/github/mocks"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/reconciler"
@@ -38,6 +39,15 @@ spec:
 
 // mockClient implements ghclient.Client for testing.
 type mockClient struct {
+	// Embedded generated mock. Every method this fake needs is
+	// overridden below, so the embedded value is never actually
+	// called; it exists so that adding a method to ghclient.Client
+	// does not break compilation here (IMPL-0021 Phase 7 / INV-0011
+	// B2). A test that reaches an un-overridden method panics with
+	// testify's "no return value specified" — a loud signal that the
+	// new API needs fake behavior, rather than a silent zero value.
+	mocks.MockClient
+
 	contents         map[string]bool
 	fileContents     map[string]string
 	customProperties map[string][]*ghclient.CustomPropertyValue
@@ -51,6 +61,10 @@ type mockClient struct {
 	createdFileBody  map[string]string
 	createdPR        *ghclient.PullRequest
 	createdPRBody    string
+	updatedPRNumber  int
+	updatedPRTitle   string
+	updatedPRBody    string
+	updatePRCalls    int
 	addedLabels      []string
 	installations    []*ghclient.Installation
 	installRepos     map[int64][]*ghclient.Repository
@@ -61,9 +75,16 @@ type mockClient struct {
 	orgSchemaCalls atomic.Int32
 	orgSchemaDelay time.Duration // artificial latency to widen the concurrent-miss race window in tests
 
-	// setPropsMu guards setProperties: the one test that calls
-	// Reconcile concurrently across goroutines sharing this client
-	// exercises real concurrent SetCustomPropertyValues calls.
+	// setPropsCalls counts SetCustomPropertyValues invocations, kept
+	// separate from setProperties (which accumulates payload entries)
+	// so a test can assert "how many PATCH round-trips" independently
+	// of how many properties each carried.
+	setPropsCalls atomic.Int32
+
+	// setPropsMu guards setProperties AND customProperties: a write
+	// lands in both (list-then-act fidelity), and the one test that
+	// calls Reconcile concurrently across goroutines sharing this
+	// client exercises real concurrent reads and writes.
 	setPropsMu sync.Mutex
 
 	getRepoErr        error
@@ -166,9 +187,14 @@ func (m *mockClient) CreatePullRequest(_ context.Context, _, _, title, body, hea
 	}
 
 	m.createdPRBody = body
+	// Body is carried on the returned PR so a later refresh can compare
+	// against it the way the real client does (list-then-act fidelity);
+	// without it every refresh would look like a change and the
+	// "no PATCH in steady state" assertion would be vacuous.
 	m.createdPR = &ghclient.PullRequest{
 		Number: 1,
 		Title:  title,
+		Body:   body,
 		Head:   head,
 		State:  "open",
 	}
@@ -210,19 +236,57 @@ func (m *mockClient) GetCustomPropertyValues(_ context.Context, owner, repo stri
 
 	key := fmt.Sprintf("%s/%s", owner, repo)
 
+	m.setPropsMu.Lock()
+	defer m.setPropsMu.Unlock()
+
 	return m.customProperties[key], nil
 }
 
-func (m *mockClient) SetCustomPropertyValues(_ context.Context, _, _ string, properties []*ghclient.CustomPropertyValue) error {
+func (m *mockClient) SetCustomPropertyValues(_ context.Context, owner, repo string, properties []*ghclient.CustomPropertyValue) error {
 	if m.setCustomPropsErr != nil {
 		return m.setCustomPropsErr
 	}
 
+	m.setPropsCalls.Add(1)
+
 	m.setPropsMu.Lock()
+	defer m.setPropsMu.Unlock()
+
 	m.setProperties = append(m.setProperties, properties...)
-	m.setPropsMu.Unlock()
+
+	// List-then-act fidelity (CLAUDE.md): a later GetCustomPropertyValues
+	// must observe this write the way GitHub would. Without it a
+	// "converges to zero PATCHes" assertion is vacuous — the second
+	// sweep would re-diff against stale state and act again for reasons
+	// that have nothing to do with the behavior under test.
+	key := fmt.Sprintf("%s/%s", owner, repo)
+	m.customProperties[key] = mergeProperties(m.customProperties[key], properties)
 
 	return nil
+}
+
+// mergeProperties applies a PATCH payload onto the current property
+// list, replacing values by name and appending names not yet present.
+func mergeProperties(current, writes []*ghclient.CustomPropertyValue) []*ghclient.CustomPropertyValue {
+	merged := make([]*ghclient.CustomPropertyValue, 0, len(current)+len(writes))
+	index := make(map[string]int, len(current))
+
+	for _, p := range current {
+		index[p.PropertyName] = len(merged)
+		merged = append(merged, p)
+	}
+
+	for _, w := range writes {
+		if i, ok := index[w.PropertyName]; ok {
+			merged[i] = w
+			continue
+		}
+
+		index[w.PropertyName] = len(merged)
+		merged = append(merged, w)
+	}
+
+	return merged
 }
 
 // GetOrgPropertySchema fails open (returns an error) for any org the
@@ -315,7 +379,16 @@ func (*mockClient) DeleteFile(_ context.Context, _, _, _, _, _, _ string) error 
 	return nil
 }
 
-func (*mockClient) UpdatePullRequest(_ context.Context, _, _ string, _ int, _, _ string) error {
+func (m *mockClient) UpdatePullRequest(_ context.Context, _, _ string, number int, title, body string) error {
+	m.updatePRCalls++
+	m.updatedPRNumber = number
+	m.updatedPRTitle = title
+	m.updatedPRBody = body
+
+	return nil
+}
+
+func (*mockClient) UpdatePRBranch(_ context.Context, _, _ string, _ int) error {
 	return nil
 }
 
@@ -699,6 +772,88 @@ func TestGHAMode_ExistingPR(t *testing.T) {
 	}
 }
 
+// TestGHAMode_ExistingPR_RefreshesStaleWorkflowAndBody is the INV-0011
+// A4 regression. handleGHAMode used to return early whenever a
+// properties PR was open, so an annotation edited after the PR opened
+// never reached the branch workflow or the PR body — merging the PR
+// then wrote the stale values. The third sweep pins the other half of
+// the contract: a refresh that would change nothing issues no PATCH.
+func TestGHAMode_ExistingPR_RefreshesStaleWorkflowAndBody(t *testing.T) {
+	t.Parallel()
+
+	const workflowPath = ".github/workflows/set-custom-properties.yml"
+
+	r := newTestReconcilerWithProps(t, "github-action", jiraAnnotationProps())
+	client := basePropertiesClient()
+
+	// Sweep 1: no PR yet, so the branch, workflow and PR are created.
+	if err := r.Reconcile(context.Background(), newParams(client, validCatalogInfo, false, nil)); err != nil {
+		t.Fatalf("Reconcile sweep 1: %v", err)
+	}
+
+	if client.createdPR == nil {
+		t.Fatal("sweep 1 should have created the properties PR")
+	}
+
+	if got := client.createdFileBody[workflowPath]; !strings.Contains(got, `"PROJ"`) {
+		t.Fatalf("sweep 1 workflow should carry the original value, got:\n%s", got)
+	}
+
+	// The catalog annotation changes while the PR sits open.
+	updatedCatalog := strings.Replace(validCatalogInfo, `jira/project-key: "PROJ"`, `jira/project-key: "NEWPROJ"`, 1)
+	if updatedCatalog == validCatalogInfo {
+		t.Fatal("test fixture did not change; the annotation edit is a no-op")
+	}
+
+	if err := r.Reconcile(
+		context.Background(),
+		newParams(client, updatedCatalog, false, []*ghclient.PullRequest{client.createdPR}),
+	); err != nil {
+		t.Fatalf("Reconcile sweep 2: %v", err)
+	}
+
+	workflow := client.createdFileBody[workflowPath]
+	if !strings.Contains(workflow, `"NEWPROJ"`) {
+		t.Errorf("branch workflow was not refreshed; want NEWPROJ, got:\n%s", workflow)
+	}
+
+	if strings.Contains(workflow, `"PROJ"`) {
+		t.Errorf("branch workflow still carries the stale value, got:\n%s", workflow)
+	}
+
+	if client.updatePRCalls != 1 {
+		t.Fatalf("UpdatePullRequest calls = %d, want 1 (stale body must be refreshed)", client.updatePRCalls)
+	}
+
+	if client.updatedPRNumber != client.createdPR.Number {
+		t.Errorf("refreshed PR number = %d, want %d", client.updatedPRNumber, client.createdPR.Number)
+	}
+
+	if !strings.Contains(client.updatedPRBody, "NEWPROJ") {
+		t.Errorf("refreshed PR body does not mention the new value, got:\n%s", client.updatedPRBody)
+	}
+
+	// Sweep 3: the PR now matches desired state, so nothing is PATCHed.
+	current := &ghclient.PullRequest{
+		Number: client.createdPR.Number,
+		Title:  client.updatedPRTitle,
+		Body:   client.updatedPRBody,
+		Head:   reconciler.PropertiesBranchName,
+		State:  "open",
+	}
+
+	if err := r.Reconcile(
+		context.Background(),
+		newParams(client, updatedCatalog, false, []*ghclient.PullRequest{current}),
+	); err != nil {
+		t.Fatalf("Reconcile sweep 3: %v", err)
+	}
+
+	if client.updatePRCalls != 1 {
+		t.Errorf("UpdatePullRequest calls after steady-state sweep = %d, want 1 (no-op refresh must not PATCH)", client.updatePRCalls)
+	}
+}
+
 func TestGHAMode_DryRun(t *testing.T) {
 	t.Parallel()
 
@@ -950,6 +1105,96 @@ func TestAPIMode_FiltersUndefinedMappedProperty(t *testing.T) {
 	}
 }
 
+// TestAPIMode_SchemaMissingProperty_ConvergesToZeroPatches is the
+// INV-0011 A5 regression: a mapped property the org schema does not
+// define must not report drift forever. Before the fix, diffProperties
+// compared the full managed set while only the payload was filtered, so
+// JiraLabel — undefined in the org and therefore never writable — kept
+// the reconciler in a no-op PATCH loop, re-sending the already-correct
+// Owner/Component/JiraProject on every sweep.
+func TestAPIMode_SchemaMissingProperty_ConvergesToZeroPatches(t *testing.T) {
+	t.Parallel()
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+	client.orgSchema["org"] = []string{"Owner", "Component", "JiraProject"} // JiraLabel undefined
+
+	// Sweep 1 converges the three defined properties from empty.
+	if err := r.Reconcile(context.Background(), newParams(client, validCatalogInfo, false, nil)); err != nil {
+		t.Fatalf("Reconcile sweep 1: %v", err)
+	}
+
+	if got := client.setPropsCalls.Load(); got != 1 {
+		t.Fatalf("sweep 1 SetCustomPropertyValues calls = %d, want 1 (initial convergence)", got)
+	}
+
+	seen := make(map[string]bool)
+	for _, p := range client.setProperties {
+		seen[p.PropertyName] = true
+	}
+
+	if seen["JiraLabel"] {
+		t.Error("JiraLabel is undefined in the org schema and must never be sent")
+	}
+
+	// Sweep 2 over identical state must be a complete no-op: the only
+	// property still "differing" is the one the org cannot store.
+	if err := r.Reconcile(context.Background(), newParams(client, validCatalogInfo, false, nil)); err != nil {
+		t.Fatalf("Reconcile sweep 2: %v", err)
+	}
+
+	if got := client.setPropsCalls.Load(); got != 1 {
+		t.Errorf("SetCustomPropertyValues calls after 2 sweeps = %d, want 1 (second sweep must issue zero PATCHes)", got)
+	}
+}
+
+// TestAPIMode_SchemaMissingProperty_StillReportsMissingSchema pins the
+// observability half of the A5 fix: because a schema-missing property
+// no longer registers as drift, the missing-schema warn and counter had
+// to move onto the every-reconcile path. If they regress back onto the
+// drift path this test fails, and RepoGuardianPropertySchemaMissing
+// would silently stop firing.
+func TestAPIMode_SchemaMissingProperty_StillReportsMissingSchema(t *testing.T) {
+	t.Parallel()
+
+	metrics.CustomPropertyMissingSchemaTotal.Reset()
+
+	var buf bytes.Buffer
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+	client.orgSchema["converged-org"] = []string{"Owner", "Component", "JiraProject"}
+	client.customProperties["converged-org/my-service"] = []*ghclient.CustomPropertyValue{
+		{PropertyName: "Owner", Value: strPtr("platform-team")},
+		{PropertyName: "Component", Value: strPtr("my-service")},
+		{PropertyName: "JiraProject", Value: strPtr("PROJ")},
+	}
+
+	params := newParams(client, validCatalogInfo, false, nil)
+	params.Owner = "converged-org" // unique per test: parallel-safe counter assertions
+	params.Logger = slog.New(slog.NewTextHandler(&buf, nil))
+
+	if err := r.Reconcile(context.Background(), params); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	// Fully converged: nothing to write.
+	if got := client.setPropsCalls.Load(); got != 0 {
+		t.Errorf("SetCustomPropertyValues calls = %d, want 0 (already converged)", got)
+	}
+
+	// ...yet the schema gap is still reported.
+	if got := testutil.ToFloat64(
+		metrics.CustomPropertyMissingSchemaTotal.WithLabelValues("converged-org", "JiraLabel"),
+	); got != 1 {
+		t.Errorf("CustomPropertyMissingSchemaTotal{converged-org,JiraLabel} = %v, want 1 on a no-drift reconcile", got)
+	}
+
+	if logOutput := buf.String(); !strings.Contains(logOutput, "custom properties missing from org schema") {
+		t.Errorf("expected missing-schema warn on a no-drift reconcile, got log: %s", logOutput)
+	}
+}
+
 // TestAPIMode_EmptySchemaSkipsPatch covers the degenerate case where
 // the org schema is reachable but defines nothing: every managed
 // property is "missing," so the PATCH is skipped entirely rather than
@@ -1085,6 +1330,87 @@ func TestAPIMode_SchemaCache_ConcurrentMissesCollapseToOneFetch(t *testing.T) {
 	if got := client.orgSchemaCalls.Load(); got != 1 {
 		t.Errorf("GetOrgPropertySchema calls = %d, want 1 (singleflight-collapsed concurrent cache misses)", got)
 	}
+}
+
+// TestAPIMode_FileRemoved_ClearsManagedProperties is the INV-0011 A3
+// regression at the reconciler boundary: a repo whose catalog-info was
+// synced and then deleted must have its mapped properties cleared, not
+// left stale, and must not race the file rule by opening its own
+// "add catalog-info" PR. The malformed sweep re-asserts the IMPL-0020
+// A1 boundary from the other side — a broken file is never a clear.
+func TestAPIMode_FileRemoved_ClearsManagedProperties(t *testing.T) {
+	t.Parallel()
+
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+
+	// Sweep 1: the file exists and the properties converge.
+	if err := r.Reconcile(context.Background(), newParams(client, validCatalogInfo, false, nil)); err != nil {
+		t.Fatalf("Reconcile sweep 1: %v", err)
+	}
+
+	if got := propertyValue(client, "JiraProject"); got != "PROJ" {
+		t.Fatalf("after sweep 1 JiraProject = %q, want PROJ", got)
+	}
+
+	// Sweep 2: the file is gone from the default branch. The engine
+	// signals this with FileAbsent; the mock has no catalog-info to
+	// serve, so the reconciler's own lookup also comes up empty.
+	absent := newParams(client, "", false, nil)
+	absent.FileAbsent = true
+
+	if err := r.Reconcile(context.Background(), absent); err != nil {
+		t.Fatalf("Reconcile sweep 2: %v", err)
+	}
+
+	for _, name := range []string{"JiraProject", "JiraLabel"} {
+		if got := propertyValue(client, name); got != "" {
+			t.Errorf("%s = %q after the file was removed, want cleared", name, got)
+		}
+	}
+
+	// Owner/Component always carry a value once managed, so they fall
+	// back to the catalog defaults rather than clearing.
+	if got := propertyValue(client, "Owner"); got != catalog.DefaultOwner {
+		t.Errorf("Owner = %q after removal, want %q", got, catalog.DefaultOwner)
+	}
+
+	if client.createdPR != nil {
+		t.Errorf("reconciler must not open its own catalog-info PR on the absence path; the file rule owns that (got %+v)", client.createdPR)
+	}
+
+	// Sweep 3: a malformed file reappears. It is not a statement of
+	// desired state, so nothing is written (IMPL-0020 A1).
+	callsBefore := client.setPropsCalls.Load()
+
+	if err := r.Reconcile(context.Background(), newParams(client, "{{{ not yaml", false, nil)); err != nil {
+		t.Fatalf("Reconcile sweep 3: %v", err)
+	}
+
+	if got := client.setPropsCalls.Load(); got != callsBefore {
+		t.Errorf("malformed catalog-info triggered %d PATCH call(s); it must skip without writing", got-callsBefore)
+	}
+}
+
+// propertyValue reports the value the mock currently holds for name,
+// treating cleared (nil) and unset alike as the empty string.
+func propertyValue(client *mockClient, name string) string {
+	props, err := client.GetCustomPropertyValues(context.Background(), "org", "my-service")
+	if err != nil {
+		return ""
+	}
+
+	for _, p := range props {
+		if p.PropertyName == name {
+			if p.Value == nil {
+				return ""
+			}
+
+			return *p.Value
+		}
+	}
+
+	return ""
 }
 
 func TestAPIMode_NoCatalogFile(t *testing.T) {

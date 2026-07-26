@@ -1165,6 +1165,47 @@ func TestLoad_AnnotationProperties_NonStringValue_Fails(t *testing.T) {
 	}
 }
 
+// TestLoad_AnnotationProperties_NullValues_FailCleanly is the INV-0011
+// A8 regression. Two cty shapes reach a panicking accessor without a
+// dedicated null/unknown check: a *typed* null map (from a conditional
+// whose branches unify) satisfies IsMapType/IsObjectType and then
+// panics in AsValueMap, and a null string value satisfies
+// `v.Type() == cty.String` and then panics in AsString. A bad policy
+// must fail load with a diagnostic, never take the process down.
+func TestLoad_AnnotationProperties_NullValues_FailCleanly(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{
+			name: "bare null",
+			body: `annotation_properties = null`,
+		},
+		{
+			name: "typed-null map from a conditional",
+			body: `annotation_properties = false ? { "jira/label" = "JiraLabel" } : null`,
+		},
+		{
+			name: "null string value",
+			body: `annotation_properties = { "jira/label" = null }`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// A panic here fails the test rather than crashing the run.
+			_, err := Load(writeReconcileHCL(t, "\n    "+tt.body+"\n"))
+			if err == nil {
+				t.Fatalf("Load() succeeded, want error for %s", tt.name)
+			}
+
+			if !strings.Contains(err.Error(), "annotation_properties") {
+				t.Errorf("error %q does not mention annotation_properties", err)
+			}
+		})
+	}
+}
+
 // TestLoad_AnnotationProperties_ListValue_FailsCleanly guards against a
 // panic regression: cty.Value.CanIterateElements() is also true for
 // List/Set/Tuple types, whose AsValueMap() panics internally (it calls

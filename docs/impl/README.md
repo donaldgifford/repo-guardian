@@ -52,5 +52,5 @@ docz create impl "Your Implementation Title"
 | IMPL-0018 | Fix silently ignored operator config | Completed | 2026-07-20 | Donald Gifford | [0018-fix-silently-ignored-operator-config.md](0018-fix-silently-ignored-operator-config.md) |
 | IMPL-0019 | Absent check mode and conditional file rules | Completed | 2026-07-23 | Donald Gifford | [0019-absent-check-mode-and-conditional-file-rules.md](0019-absent-check-mode-and-conditional-file-rules.md) |
 | IMPL-0020 | Pre-IMPL-0019 high-severity fixes (INV-0011 Group A High) | Completed | 2026-07-23 | Donald Gifford | [0020-pre-impl-0019-high-severity-fixes-inv-0011-group-a-high.md](0020-pre-impl-0019-high-severity-fixes-inv-0011-group-a-high.md) |
-| IMPL-0021 | Post-IMPL-0019 hardening and structural cleanup (INV-0011 Group A Medium + Group B) | Draft | 2026-07-23 | Donald Gifford | [0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group.md](0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group.md) |
+| IMPL-0021 | Post-IMPL-0019 hardening and structural cleanup (INV-0011 Group A Medium + Group B) | Completed | 2026-07-23 | Donald Gifford | [0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group.md](0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group.md) |
 <!-- END DOCZ AUTO-GENERATED -->

@@ -312,7 +312,7 @@ func TestGate_Memoization_OneRefereeEvalPerRepoCheck(t *testing.T) {
 }
 
 // TestFindActionableRules_GateOpenDespiteOpenRefereePR pins the short-circuit
-// distinction: ruleSatisfiedOnDefault omits the hasExistingPRForPolicy
+// distinction: ruleSatisfiedOnDefault omits the foreignPRForRule
 // short-circuit, so an open PR matching the referee's search terms — which
 // makes the referee's OWN evaluation short-circuit to not-actionable — does
 // NOT flip the gate closed. The gated rule still fires because the referee is

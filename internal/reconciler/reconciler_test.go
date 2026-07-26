@@ -15,12 +15,15 @@ var _ reconciler.Reconciler = (*stubReconciler)(nil)
 
 // stubReconciler is a test double implementing the Reconciler interface.
 type stubReconciler struct {
-	name      string
-	called    bool
-	returnErr error
+	name          string
+	called        bool
+	returnErr     error
+	runsOnAbsence bool
 }
 
 func (s *stubReconciler) Name() string { return s.name }
+
+func (s *stubReconciler) RunsOnAbsence() bool { return s.runsOnAbsence }
 
 func (s *stubReconciler) Reconcile(_ context.Context, _ *reconciler.ReconcileParams) error {
 	s.called = true

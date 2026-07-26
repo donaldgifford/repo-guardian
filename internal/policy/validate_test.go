@@ -614,6 +614,55 @@ func TestValidate_AnnotationProperties_InvalidCharset(t *testing.T) {
 	}
 }
 
+// TestValidate_AnnotationProperties_Charset is the INV-0011 A6
+// regression. The original pattern allowed a period and omitted `$`
+// and `#`, inverting GitHub's actual charset on both edges: a `$`/`#`
+// name was rejected at load even though GitHub accepts it, and a dotted
+// name loaded cleanly only to 422 at sync time.
+func TestValidate_AnnotationProperties_Charset(t *testing.T) {
+	tests := []struct {
+		name     string
+		property string
+		wantErr  bool
+	}{
+		{name: "dollar sign accepted", property: "Cost$Center"},
+		{name: "number sign accepted", property: "Team#1"},
+		{name: "hyphen accepted", property: "cost-center"},
+		{name: "underscore accepted", property: "cost_center"},
+		{name: "alphanumeric accepted", property: "JiraProject2"},
+		{name: "period rejected", property: "jira.project", wantErr: true},
+		{name: "space rejected", property: "Jira Project", wantErr: true},
+		{name: "slash rejected", property: "jira/project", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := BuiltinDefaults()
+			cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(map[string]string{
+				"jira/project-key": tt.property,
+			})}
+
+			err := Validate(cfg)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("Validate(property=%q) = nil, want a charset error", tt.property)
+				}
+
+				if !strings.Contains(err.Error(), "must match") {
+					t.Errorf("Validate(property=%q) error = %q, want it to mention the charset constraint", tt.property, err)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Validate(property=%q) = %v, want nil (GitHub accepts this name)", tt.property, err)
+			}
+		})
+	}
+}
+
 func TestValidate_AnnotationProperties_TooLong(t *testing.T) {
 	cfg := BuiltinDefaults()
 	cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(map[string]string{
@@ -627,5 +676,31 @@ func TestValidate_AnnotationProperties_TooLong(t *testing.T) {
 
 	if !strings.Contains(err.Error(), "must match") {
 		t.Errorf("error %q should mention charset constraint", err)
+	}
+}
+
+// A blank search term substring-matches every open PR, so the rule
+// would skip itself on any repo that has any PR open — silently, with
+// no log line or metric to notice it by (INV-0011 B4).
+func TestValidate_FileRuleBlankSearchTerm(t *testing.T) {
+	for _, term := range []string{"", "   "} {
+		cfg := BuiltinDefaults()
+		cfg.FileRules = []FileRuleConfig{{
+			Type:     "file",
+			Name:     "test",
+			Paths:    []string{"test"},
+			Target:   "test",
+			Template: "test.tmpl",
+			PR:       &PRConfig{SearchTerms: []string{"codeowners", term}},
+		}}
+
+		err := Validate(cfg)
+		if err == nil {
+			t.Fatalf("expected error for blank search term %q", term)
+		}
+
+		if !strings.Contains(err.Error(), "search_terms[1] must be non-blank") {
+			t.Errorf("error %q should identify the blank term by index", err)
+		}
 	}
 }

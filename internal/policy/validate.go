@@ -99,6 +99,8 @@ func validateFileRule(r *FileRuleConfig, prefix string) []error {
 		errs = append(errs, fmt.Errorf("%s: paths must be non-empty", prefix))
 	}
 
+	errs = append(errs, validateSearchTerms(r.PR, prefix)...)
+
 	// Absent rules delete by path and have nothing to render, assert, or
 	// reconcile: target/template/assertion/reconcile are all forbidden,
 	// and none of the content sub-validation below applies (DESIGN-0020).
@@ -130,6 +132,31 @@ func validateFileRule(r *FileRuleConfig, prefix string) []error {
 		rec := &r.Reconcilers[j]
 		rPrefix := fmt.Sprintf("%s reconcile %q", prefix, rec.Type)
 		errs = append(errs, validateAnnotationProperties(rec.AnnotationProperties, rPrefix)...)
+	}
+
+	return errs
+}
+
+// validateSearchTerms rejects blank `pr { search_terms }` entries. A
+// blank term substring-matches every open pull request, so the rule
+// would skip itself on every repo that has any PR open at all — a
+// silently disabled rule with no log line and no metric to notice it by
+// (INV-0011 B4). Failing at load is the same stance IMPL-0018 took for
+// unknown `guardian {}` attributes.
+func validateSearchTerms(pr *PRConfig, prefix string) []error {
+	if pr == nil {
+		return nil
+	}
+
+	var errs []error
+
+	for i, term := range pr.SearchTerms {
+		if strings.TrimSpace(term) == "" {
+			errs = append(errs, fmt.Errorf(
+				"%s pr: search_terms[%d] must be non-blank (a blank term matches every open PR)",
+				prefix, i,
+			))
+		}
 	}
 
 	return errs
@@ -185,9 +212,16 @@ var reservedPropertyNames = map[string]bool{
 }
 
 // githubPropertyNamePattern matches GitHub's constraint on custom
-// property names: alphanumeric, underscore, period, hyphen: up to 75
-// characters (GitHub REST: organization custom properties).
-var githubPropertyNamePattern = regexp.MustCompile(`^[a-zA-Z0-9_.-]{1,75}$`)
+// property names: alphanumeric, and the special characters hyphen,
+// underscore, dollar sign and number sign, up to 75 characters (GitHub
+// REST: organization custom properties).
+//
+// The original pattern here allowed a period and omitted `$` and `#`,
+// which got both edges wrong (INV-0011 A6): `$`/`#` names were rejected
+// at load even though GitHub accepts them, while a dotted name loaded
+// cleanly and then failed with a 422 at sync time. Failing loudly at
+// load is the better trade — see docs/operations/property-name-charset.md.
+var githubPropertyNamePattern = regexp.MustCompile(`^[a-zA-Z0-9_$#-]{1,75}$`)
 
 // validateAnnotationProperties validates a reconciler's
 // annotation_properties map (DESIGN-0019): annotation keys and property

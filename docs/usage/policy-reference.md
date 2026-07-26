@@ -193,10 +193,14 @@ skipped — and it is the engine's only destructive remediation, so:
 
 - **Dry-run first.** With `dry_run = true` the engine logs the planned
   deletions per rule and mutates nothing.
-- **`search_terms` must not collide with the add-era PR.** If an `absent`
-  rule forbidding `dependabot.yml` reused `search_terms = ["dependabot"]`,
-  its removal PR would be mistaken for the old *add* PR and skipped. Use a
-  distinct phrase such as `["remove dependabot"]`.
+- **`search_terms` no longer collide with the add-era PR.** Since
+  v1.10.1 the search only scans *third-party* pull requests;
+  repo-guardian's own `repo-guardian/add-missing-files` PR is excluded
+  and handled by the converge path instead. An `absent` rule forbidding
+  `dependabot.yml` can safely reuse `search_terms = ["dependabot"]`
+  without its removal PR being mistaken for the old *add* PR. A distinct
+  phrase such as `["remove dependabot"]` is still clearer to humans
+  reading the policy, just no longer load-bearing.
 
 ### `when {}` — conditional gating
 
@@ -390,8 +394,18 @@ touched — repo-guardian only manages what it's told to.
 disappears from `catalog-info.yaml` (removed, or the file itself removed),
 the corresponding GitHub property is cleared (set to `null`) on the next
 reconcile — not left stale. This applies to every property in the managed
-set except `Owner`/`Component`, which always carry a value once
-catalog-info exists.
+set except `Owner`/`Component`, which always carry a value: they fall back
+to `Unclassified` rather than clearing.
+
+The file-removal half of that contract needs the reconciler to run even
+though there is no file to read. `custom_properties` is invoked on absence
+because clearing is part of its contract; reconcilers whose behavior is
+purely a function of file *content* (`label_sync`, `branch_protection`,
+`workflow_sync`) are not, since a missing config file is not a statement
+that the repo should have no labels, no rulesets, or no workflow. When the
+file rule that owns those paths is `exists`-mode, it opens its own PR to
+restore the missing file; the reconciler only clears the properties and
+never opens a competing PR for the same path.
 
 **Malformed catalog-info is skipped, never cleared.** A clear only ever
 comes from a *valid* `catalog-info.yaml` that no longer names the
@@ -439,7 +453,11 @@ together):
 
 - Annotation keys and property names must be non-empty.
 - Property names must match GitHub's charset/length constraint
-  (`^[a-zA-Z0-9_.-]{1,75}$`).
+  (`^[a-zA-Z0-9_$#-]{1,75}$`) — alphanumerics plus `-`, `_`, `$` and `#`.
+  A period is **not** allowed. Releases before appVersion 1.10.1 used a
+  pattern that had this backwards; see
+  [property-name charset](../operations/property-name-charset.md) if a
+  policy that used to load now fails.
 - Property names may not be (case-insensitively) `Owner` or `Component` —
   those are the built-in, non-remappable names.
 - Two annotations may not target the same property name.
@@ -491,7 +509,7 @@ Valid at three scopes: `defaults { pr {} }`, `rule "file" { pr {} }`, and
 
 | Attribute | Type | Description |
 |-----------|------|-------------|
-| `search_terms` | list(string) | Substrings used to find an existing open guardian PR for this rule (rule scope only in practice). |
+| `search_terms` | list(string) | Substrings matched case-insensitively against the title and head branch of **third-party** open PRs; a match skips the rule so repo-guardian yields to whoever is already doing the work. repo-guardian's own reconcile PR is never matched. Blank entries are rejected at load (they would match every PR). Rule scope only in practice. |
 | `title` | string (template) | PR title template. Parse errors fail policy load with a location-prefixed message. |
 | `body` | string (template) | PR body template. Bodies over 65,000 characters are truncated with an HTML-comment marker appended. |
 | `labels` | list(string) | Labels applied to the PR. `labels = []` is an explicit "no labels" override, distinct from omitting the attribute. |

@@ -738,6 +738,20 @@ func decodeAnnotationProperties(val cty.Value, rng hcl.Range) (map[string]string
 		}}
 	}
 
+	// A *typed* null or unknown map slips past the type check above —
+	// cty.NullVal(cty.Map(cty.String)) reports IsMapType() == true — and
+	// AsValueMap panics on both. A bare `= null` is caught by the type
+	// guard (it decodes as DynamicPseudoType), but a conditional whose
+	// branches unify to a null map is not (INV-0011 A8).
+	if val.IsNull() || !val.IsKnown() {
+		return nil, hcl.Diagnostics{{
+			Severity: hcl.DiagError,
+			Summary:  "Invalid annotation_properties",
+			Detail:   "annotation_properties must be a non-null map of string to string.",
+			Subject:  rng.Ptr(),
+		}}
+	}
+
 	raw := val.AsValueMap()
 
 	var diags hcl.Diagnostics
@@ -752,6 +766,22 @@ func decodeAnnotationProperties(val cty.Value, rng hcl.Range) (map[string]string
 				Detail: fmt.Sprintf(
 					"annotation_properties[%q] must be a string, got %s.",
 					k, v.Type().FriendlyName(),
+				),
+				Subject: rng.Ptr(),
+			})
+
+			continue
+		}
+
+		// cty.NullVal(cty.String) satisfies the type check above but
+		// panics in AsString, so null/unknown entries need their own
+		// guard rather than riding on the type test (INV-0011 A8).
+		if v.IsNull() || !v.IsKnown() {
+			diags = append(diags, &hcl.Diagnostic{
+				Severity: hcl.DiagError,
+				Summary:  "Invalid annotation_properties value",
+				Detail: fmt.Sprintf(
+					"annotation_properties[%q] must be a non-null string.", k,
 				),
 				Subject: rng.Ptr(),
 			})

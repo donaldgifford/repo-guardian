@@ -1,34 +1,43 @@
 ---
-# Mockery v2 configuration. Generates mocks for the IMPL-0011
-# interfaces introduced in DESIGN-0012 (Store, Queue, Scheduler).
+# Mockery v3 configuration.
 #
 # Run: make mocks
-# Lint: regenerated mocks must match committed mocks (CI gate).
 #
-# Hand-written mocks for the legacy github.Client interface are NOT
-# managed here — see CLAUDE.md "Mock generation policy" for the
-# coexistence rules.
-
-with-expecter: true
-inpackage: false
+# Covers the DESIGN-0012 interfaces (Store, Queue, Scheduler) and
+# github.Client. The Client mock is not driven by expectations in any
+# test — the checker/scheduler/reconciler packages keep hand-written
+# stateful fakes and embed MockClient only so that adding a method to
+# github.Client stops breaking three test files at once. See CLAUDE.md
+# "Mock generation policy" and IMPL-0021 Phase 7.
+#
+# Pinned to mockery v3 in mise.toml: v2's final release (2.53.6) is
+# built against go1.25 and cannot load this module at all
+# ("package requires newer Go version go1.26"), so `make mocks` was
+# silently broken until the upgrade.
+structname: "Mock{{ .InterfaceName }}"
 filename: "{{ .InterfaceName | snakecase }}_mock.go"
-mockname: "Mock{{ .InterfaceName }}"
-outpkg: mocks
-disable-version-string: true
-
+pkgname: mocks
+template: testify
+template-data:
+  unroll-variadic: true
 packages:
   github.com/donaldgifford/repo-guardian/internal/store:
     config:
-      dir: "internal/store/mocks"
+      dir: internal/store/mocks
     interfaces:
-      Store:
+      Store: {}
   github.com/donaldgifford/repo-guardian/internal/queue:
     config:
-      dir: "internal/queue/mocks"
+      dir: internal/queue/mocks
     interfaces:
-      Queue:
+      Queue: {}
   github.com/donaldgifford/repo-guardian/internal/scheduler:
     config:
-      dir: "internal/scheduler/mocks"
+      dir: internal/scheduler/mocks
     interfaces:
-      Scheduler:
+      Scheduler: {}
+  github.com/donaldgifford/repo-guardian/internal/github:
+    config:
+      dir: internal/github/mocks
+    interfaces:
+      Client: {}

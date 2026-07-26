@@ -1,0 +1,4667 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+        <link rel="prev" href="../0019-configurable-annotation-sourced-custom-properties/">
+      
+      
+        <link rel="next" href="../../impl/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Absent check mode and conditional file rules - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#design-0020-absent-check-mode-and-conditional-file-rules" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Absent check mode and conditional file rules
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started with repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference (guardian.hcl)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0010-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0010: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0011-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0011: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0012-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0012: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0013-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0013: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0015-per-installation-valkey-queue-partitioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0015: Per-installation Valkey queue partitioning
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0016-separate-postgres-read-and-write-endpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0016: Separate Postgres read and write endpoints
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0017-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0017: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0018-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0018: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0019-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0019: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0020: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0020: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goals-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals and Non-Goals
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Goals and Non-Goals">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Background">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#driving-use-case-renovate-first-orgs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Driving use case: Renovate-first orgs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-the-engine-supports-today" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the engine supports today
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#existing-building-blocks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Existing building blocks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hcl-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HCL surface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#semantics-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Semantics matrix
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluation-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Evaluation flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#remediation-flow-deletion-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remediation flow (deletion commits)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#convergence-orphans-auto-close-and-the-inverse-orphan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Convergence: orphans, auto-close, and the inverse orphan
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validation-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pr-text-commit-messages-and-the-reconcile-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PR text, commit messages, and the reconcile log
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-interface-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API / Interface Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-0-policy-schema-loader-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 0 — Policy schema, loader, validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-engine-evaluation-when-gate-and-absent-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1 — Engine evaluation: when-gate and absent mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-remediation-deletion-commits-pr-wording-convergence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 — Remediation: deletion commits, PR wording, convergence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-push-event-fast-convergence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3 — Push-event fast convergence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-documentation-and-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4 — Documentation and examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-rollout-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration / Rollout Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolved-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolved Decisions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0009-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0009: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0010-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0010: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0011-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0011: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0012-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0012: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0013-reconcile-open-prs-when-file-rules-become-satisfied/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0013: Reconcile open PRs when file rules become satisfied
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0015-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0015: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Progress"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0016-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0016: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0017-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0017: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0018-fix-silently-ignored-operator-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0018: Fix silently ignored operator config
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0019-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0019: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0020-pre-impl-0019-high-severity-fixes-inv-0011-group-a-high/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0020: Pre-IMPL-0019 high-severity fixes (INV-0011 Group A High)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0021: Post-IMPL-0019 hardening and structural cleanup (INV-0011 Group A Medium + Group B)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0002-multi-org-and-forgejo-support-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0002: Multi-org and Forgejo support for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0003-pre-existing-branch-422-on-subsequent-reconciles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0003: Pre-existing branch 422 on subsequent reconciles
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0004-forge-interface-and-package-refactor-for-forgejo-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0004: Forge interface and package refactor for Forgejo backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0005-stale-prs-when-file-rules-become-satisfied-on-main/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0005: Stale PRs when file rules become satisfied on main
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0006-per-org-github-app-credentials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0006: Per-org GitHub App credentials
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Deferred"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0007-gitlab-forge-backend-support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0007: GitLab provider backend support
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0008-annotation-sourced-custom-properties-should-be-configurable-not/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0008: Annotation-sourced custom properties should be configurable, not hardcoded
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0009-read-only-status-api-and-web-ui-options/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0009: Read-only status API and web UI options
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0010-silently-ignored-operator-config-autoclosepr-hcl-attribute-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0010: Silently ignored operator config: auto_close_pr HCL attribute and cross-mode existingSecret
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0011-tech-debt-cleanup-inventory-post-impl-0019/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0011: Tech debt cleanup inventory post IMPL-0019
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/absent-rules-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Absent rules and conditional gates migration (IMPL-0019)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/chart-0.5.0-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.5.0 migration runbook (IMPL-0011)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/pr-convergence-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/annotation-properties-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property annotation migration (appVersion 1.9.1 → next minor)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/custom-properties-security-fix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-properties security fix (IMPL-0020)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/property-name-charset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property name charset correction (IMPL-0021)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ecr-publish-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ECR publish setup (maintainer-side)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/cnpg-homelab-cutover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Homelab CNPG cutover runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postgres schema operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running repo-guardian on AWS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/template-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Template migration guide (chart 0.3.x → 0.4.0)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goals-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals and Non-Goals
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Goals and Non-Goals">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Background">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#driving-use-case-renovate-first-orgs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Driving use case: Renovate-first orgs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-the-engine-supports-today" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the engine supports today
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#existing-building-blocks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Existing building blocks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hcl-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HCL surface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#semantics-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Semantics matrix
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluation-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Evaluation flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#remediation-flow-deletion-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remediation flow (deletion commits)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#convergence-orphans-auto-close-and-the-inverse-orphan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Convergence: orphans, auto-close, and the inverse orphan
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validation-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pr-text-commit-messages-and-the-reconcile-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PR text, commit messages, and the reconcile log
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-interface-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API / Interface Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-0-policy-schema-loader-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 0 — Policy schema, loader, validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-engine-evaluation-when-gate-and-absent-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1 — Engine evaluation: when-gate and absent mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-remediation-deletion-commits-pr-wording-convergence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 — Remediation: deletion commits, PR wording, convergence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-push-event-fast-convergence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3 — Push-event fast convergence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-documentation-and-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4 — Documentation and examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-rollout-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration / Rollout Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolved-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolved Decisions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="design-0020-absent-check-mode-and-conditional-file-rules">DESIGN 0020: Absent check mode and conditional file rules<a class="headerlink" href="#design-0020-absent-check-mode-and-conditional-file-rules" title="Permanent link">&para;</a></h1>
+<p><strong>Status:</strong> Implemented
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-07-23</p>
+<!--toc:start-->
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#goals-and-non-goals">Goals and Non-Goals</a><ul>
+<li><a href="#goals">Goals</a></li>
+<li><a href="#non-goals">Non-Goals</a></li>
+</ul>
+</li>
+<li><a href="#background">Background</a><ul>
+<li><a href="#driving-use-case-renovate-first-orgs">Driving use case: Renovate-first orgs</a></li>
+<li><a href="#what-the-engine-supports-today">What the engine supports today</a></li>
+<li><a href="#existing-building-blocks">Existing building blocks</a></li>
+</ul>
+</li>
+<li><a href="#detailed-design">Detailed Design</a><ul>
+<li><a href="#hcl-surface">HCL surface</a></li>
+<li><a href="#semantics-matrix">Semantics matrix</a></li>
+<li><a href="#evaluation-flow">Evaluation flow</a></li>
+<li><a href="#remediation-flow-deletion-commits">Remediation flow (deletion commits)</a></li>
+<li><a href="#convergence-orphans-auto-close-and-the-inverse-orphan">Convergence: orphans, auto-close, and the inverse orphan</a></li>
+<li><a href="#validation-rules">Validation rules</a></li>
+<li><a href="#metrics">Metrics</a></li>
+<li><a href="#pr-text-commit-messages-and-the-reconcile-log">PR text, commit messages, and the reconcile log</a></li>
+</ul>
+</li>
+<li><a href="#api--interface-changes">API / Interface Changes</a></li>
+<li><a href="#data-model">Data Model</a></li>
+<li><a href="#implementation-phases">Implementation Phases</a><ul>
+<li><a href="#phase-0--policy-schema-loader-validation">Phase 0 — Policy schema, loader, validation</a></li>
+<li><a href="#phase-1--engine-evaluation-when-gate-and-absent-mode">Phase 1 — Engine evaluation: when-gate and absent mode</a></li>
+<li><a href="#phase-2--remediation-deletion-commits-pr-wording-convergence">Phase 2 — Remediation: deletion commits, PR wording, convergence</a></li>
+<li><a href="#phase-3--push-event-fast-convergence">Phase 3 — Push-event fast convergence</a></li>
+<li><a href="#phase-4--documentation-and-examples">Phase 4 — Documentation and examples</a></li>
+</ul>
+</li>
+<li><a href="#testing-strategy">Testing Strategy</a></li>
+<li><a href="#migration--rollout-plan">Migration / Rollout Plan</a></li>
+<li><a href="#resolved-decisions">Resolved Decisions</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>Add a fourth file-rule check mode, <code>check = "absent"</code>, whose remediation is a
+PR that <strong>deletes</strong> the matching file(s), plus a <code>when {}</code> gating block that
+makes any file rule conditional on the state of another rule in the same
+policy. Together these express "renovate-first" policies: never add a
+Dependabot config, and actively remove one from any repo that already
+satisfies the Renovate rule.</p>
+<h2 id="goals-and-non-goals">Goals and Non-Goals<a class="headerlink" href="#goals-and-non-goals" title="Permanent link">&para;</a></h2>
+<h3 id="goals">Goals<a class="headerlink" href="#goals" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Express "this file must NOT exist" as a first-class file rule whose
+  remediation is a file-deletion PR on the existing reconcile branch.</li>
+<li>Express "this rule only applies when another rule is satisfied on the
+  default branch" (cross-file conditionality) without duplicating path
+  lists or assertions between rules.</li>
+<li>Full convergence parity with existing modes: orphan handling, auto-close,
+  sticky reconcile-log comment, and the drift metrics all behave sensibly
+  for deletion-based rules.</li>
+<li>Pure policy-schema extension: no new rule <em>type</em> (stays <code>rule "file"</code>),
+  no engine constructor changes, no new deployment surface.</li>
+</ul>
+<h3 id="non-goals">Non-Goals<a class="headerlink" href="#non-goals" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Conditionality on anything other than sibling file rules (no expressions,
+  no repo-property conditions, no org-level conditions — <code>scope</code>/<code>ignore</code>
+  already cover the org/repo-name axes).</li>
+<li>Same-PR atomicity between the gating rule's addition and the gated rule's
+  deletion (see <a href="#convergence-orphans-auto-close-and-the-inverse-orphan">Convergence</a>;
+  the two-sweep eventual-consistency flow is deliberate).</li>
+<li>Deleting files outside a PR flow (no direct-to-default-branch deletes,
+  matching the existing "everything goes through a reviewable PR" stance).</li>
+<li>Generalizing <code>when {}</code> to setting or branch-protection rules (can follow
+  later; file rules are the only ones with cross-file interplay today).</li>
+</ul>
+<h2 id="background">Background<a class="headerlink" href="#background" title="Permanent link">&para;</a></h2>
+<h3 id="driving-use-case-renovate-first-orgs">Driving use case: Renovate-first orgs<a class="headerlink" href="#driving-use-case-renovate-first-orgs" title="Permanent link">&para;</a></h3>
+<p>The org standard is Renovate (<code>renovate_config</code> + <code>renovate_workflow</code> rules
+in <code>examples/guardian-full.hcl</code>). Dependabot and Renovate overlap; running
+both produces duplicate PR noise. The desired policy:</p>
+<table>
+<thead>
+<tr>
+<th>Repo has renovate config</th>
+<th>Repo has dependabot.yml</th>
+<th>Desired action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>yes</td>
+<td>yes</td>
+<td>PR removing <code>.github/dependabot.yml</code></td>
+</tr>
+<tr>
+<td>yes</td>
+<td>no</td>
+<td>nothing (converged)</td>
+</tr>
+<tr>
+<td>no</td>
+<td>either</td>
+<td>dependabot rule inert; <code>renovate_config</code> rule adds Renovate</td>
+</tr>
+</tbody>
+</table>
+<p>Today's engine cannot express either half:</p>
+<ol>
+<li><strong>No deletion remediation.</strong> All three check modes (<code>exists</code>,
+   <code>contains</code>, <code>exact</code> — <code>internal/policy/types.go:15-25</code>) remediate by
+   <em>adding or fixing</em> a file via <code>CreateOrUpdateFile</code>
+   (<code>engine_policy.go.syncActionableFiles</code>). Nothing authors a deletion.</li>
+<li><strong>No content-based conditionality.</strong> The only per-rule gates are
+   <code>scope</code> (org globs) and <code>ignore</code> (repo-name globs). The
+   <code>ignore { repos = ["myorg/renovate-*"] }</code> workaround in
+   <code>guardian-full.hcl</code> is name-based — it cannot see whether a repo
+   actually contains a renovate config.</li>
+</ol>
+<h3 id="what-the-engine-supports-today">What the engine supports today<a class="headerlink" href="#what-the-engine-supports-today" title="Permanent link">&para;</a></h3>
+<p>Verified against the code (post-IMPL-0017, appVersion 1.9.0):</p>
+<ul>
+<li><code>findActionableRules</code> (<code>engine_policy.go:221</code>) iterates
+  <code>policy.FileRules</code>, applies scope → ignore gates, then <code>evaluateRule</code>
+  which short-circuits on <code>hasExistingPRForPolicy</code> (search-terms match)
+  before checking file state via <code>findExistingFile</code> (first matching path
+  only).</li>
+<li><code>syncActionableFiles</code> (<code>engine_policy.go:582</code>) renders each actionable
+  rule's template and commits it to the deterministic reconcile branch
+  (<code>repo-guardian/add-missing-files</code>) with <code>chore: add &lt;target&gt;</code>.</li>
+<li><code>discoverOrphans</code>/<code>cleanupOrphans</code> (<code>drift.go:71,128</code>) remove files from
+  the reconcile branch when their rule is no longer actionable — fail-safe
+  per IMPL-0013 Q9 (API error ⇒ treat as still actionable, never delete).</li>
+<li><code>autoClosePR</code> (<code>drift.go:305</code>) closes the PR and deletes the branch when
+  the actionable set is empty.</li>
+<li>The rule HCL schema requires <code>target</code> and <code>template</code>
+  (<code>loader.go:484-491</code>, <code>Required: true</code>) and validation requires both
+  non-empty plus <code>paths</code> (<code>validate.go:96-106</code>).</li>
+</ul>
+<h3 id="existing-building-blocks">Existing building blocks<a class="headerlink" href="#existing-building-blocks" title="Permanent link">&para;</a></h3>
+<p>The expensive plumbing already exists — this design is mostly wiring:</p>
+<ul>
+<li><code>github.Client.DeleteFile(ctx, owner, repo, branch, path, sha, msg)</code> —
+  shipped in IMPL-0013 Phase 2 for orphan cleanup; exactly the primitive a
+  deletion commit needs.</li>
+<li><code>GetContentsOnBranch(ctx, owner, repo, path, branch) (sha, exists, err)</code>
+  — provides the blob SHA required by the Contents-API delete.</li>
+<li>The reconcile branch + PR + labels + sticky-comment machinery is
+  action-agnostic; a branch whose commits are deletions flows through
+  <code>CreatePullRequest</code>/<code>UpdatePullRequest</code> unchanged.</li>
+<li>Per-rule <code>pr {}</code> templating (DESIGN-0013) gives removal PRs their own
+  title/body/labels without new schema.</li>
+</ul>
+<h2 id="detailed-design">Detailed Design<a class="headerlink" href="#detailed-design" title="Permanent link">&para;</a></h2>
+<h3 id="hcl-surface">HCL surface<a class="headerlink" href="#hcl-surface" title="Permanent link">&para;</a></h3>
+<div class="language-hcl highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="c1"># Renovate-first: dependabot config is forbidden wherever Renovate</span>
+<span class="c1"># is already set up. Never adds dependabot anywhere.</span>
+<span class="err">rule</span><span class="w"> </span><span class="s2">&quot;file&quot; &quot;no_dependabot&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="na">check</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;absent&quot;</span>
+<span class="w">  </span><span class="na">paths</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;.github/dependabot.yml&quot;, &quot;.github/dependabot.yaml&quot;</span><span class="p">]</span>
+
+<span class="c1">  # Rule is in force only when the named sibling rule is satisfied</span>
+<span class="c1">  # on the default branch (its paths exist AND its assertions pass).</span>
+<span class="c1">  # Otherwise this rule is skipped entirely.</span>
+<span class="w">  </span><span class="nb">when</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="na">rule_satisfied</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;renovate_config&quot;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="nb">pr</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="na">search_terms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;remove dependabot&quot;</span><span class="p">]</span>
+<span class="w">    </span><span class="na">title</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;chore({{ .Repo }}): remove dependabot config (repo uses Renovate)&quot;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></td></tr></table></div>
+<p>Grammar additions:</p>
+<ul>
+<li><code>check = "absent"</code> — new <code>CheckMode</code> constant <code>CheckAbsent</code>. The rule is
+  <strong>actionable when any path in <code>paths</code> exists</strong> on the default branch.
+  <code>target</code> and <code>template</code> are meaningless for deletions and are <strong>rejected</strong>
+  if present (see <a href="#validation-rules">Validation rules</a>); the HCL schema's
+  <code>Required: true</code> on both attributes is relaxed to optional, with
+  per-check-mode requiredness enforced in <code>validateFileRule</code>.</li>
+<li><code>when { rule_satisfied = "&lt;rule-name&gt;" }</code> — new optional block on
+  <code>rule "file"</code> blocks (any check mode, not just <code>absent</code> — Decision 7).
+  References a sibling file rule by its HCL label. The gate is true when
+  the referenced rule is <strong>satisfied on the default branch</strong>: at least one
+  of its <code>paths</code> exists and (for <code>contains</code>) its assertions pass / (for
+  <code>exact</code>) content matches its template. Gate false ⇒ the gated rule is
+  skipped for this repo on this sweep (not actionable, not an orphan
+  producer, reconcilers skipped).</li>
+</ul>
+<p>The referenced-rule form (<code>rule_satisfied</code>) is preferred over an inline
+path list (<code>any_exists = [...]</code>) because it reuses the sibling rule's
+<code>paths</code> <em>and</em> its assertions — a repo with a <code>renovate.json</code> that doesn't
+extend the org preset is not yet "using Renovate", and a duplicated path
+list is exactly the copy-paste divergence this repo's post-mortems keep
+catching (Decision 1).</p>
+<h3 id="semantics-matrix">Semantics matrix<a class="headerlink" href="#semantics-matrix" title="Permanent link">&para;</a></h3>
+<p>For <code>no_dependabot</code> gated on <code>renovate_config</code>:</p>
+<table>
+<thead>
+<tr>
+<th>renovate satisfied on default</th>
+<th>dependabot file present</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>yes</td>
+<td>yes</td>
+<td>actionable → deletion commit on reconcile branch → PR</td>
+</tr>
+<tr>
+<td>yes</td>
+<td>no</td>
+<td>gate open, nothing to delete → not actionable (converged)</td>
+</tr>
+<tr>
+<td>no (missing)</td>
+<td>yes</td>
+<td>gate closed → rule skipped; <code>renovate_config</code> itself is actionable and adds Renovate</td>
+</tr>
+<tr>
+<td>no (assertion fails)</td>
+<td>any</td>
+<td>gate closed → rule skipped; <code>renovate_config</code> opens its own fix PR</td>
+</tr>
+<tr>
+<td>no</td>
+<td>no</td>
+<td>gate closed → rule skipped</td>
+</tr>
+</tbody>
+</table>
+<p>The dependabot-only repo converges over <strong>two PR cycles</strong>: sweep 1 opens
+the add-renovate PR; after a human merges it, a later sweep sees the gate
+open and opens the remove-dependabot PR. This is deliberate — the gate
+evaluates the <strong>default branch</strong>, never the reconcile branch, so
+repo-guardian never deletes Dependabot before Renovate is actually live
+and reviewed (see Non-Goals).</p>
+<h3 id="evaluation-flow">Evaluation flow<a class="headerlink" href="#evaluation-flow" title="Permanent link">&para;</a></h3>
+<p>Changes concentrate in <code>findActionableRules</code> and a new shared helper:</p>
+<ol>
+<li><strong><code>ruleSatisfiedOnDefault(ctx, client, owner, repo, rule) (bool, error)</code></strong>
+   — extracted from the existing <code>evaluateRule</code> logic <em>minus</em> the
+   <code>hasExistingPRForPolicy</code> short-circuit (that short-circuit exists to
+   avoid duplicate PRs; reusing it here would make the gate flip merely
+   because a PR is open, which is wrong). Semantics per check mode:<ul>
+<li><code>exists</code>: any path in <code>paths</code> exists.</li>
+<li><code>contains</code>: a path exists AND <code>EvaluateAssertions</code> passes.</li>
+<li><code>exact</code>: a path exists AND content matches the template.</li>
+<li><code>absent</code>: no path exists. (Gating on an absent rule is legal but
+   unusual; defined for completeness.)</li>
+</ul>
+</li>
+<li><strong>Per-repo-check memoization.</strong> Gate evaluation duplicates API calls
+   the referenced rule's own evaluation already makes (<code>GetContents</code> per
+   path, <code>GetFileContent</code> for assertions). A small
+   <code>map[ruleName]satisfiedResult</code> cache scoped to the single
+   <code>checkRepoWithPolicy</code> invocation caps the overhead at one evaluation
+   per referenced rule per repo-check. No cross-repo or cross-sweep
+   caching — repo state changes between checks.</li>
+<li><strong>Gate placement.</strong> In <code>findActionableRules</code>, after the scope and
+   ignore gates and before <code>evaluateRule</code>. Gate-closed skips increment a
+   new counter (see <a href="#metrics">Metrics</a>) and log at Info with the
+   referenced rule and its evaluation. Per the file-rule double-iteration
+   contract (CLAUDE.md), <code>runReconcilers</code> must apply the same gate
+   <strong>silently</strong> (no counter increment) — forgetting this double-counts.</li>
+<li><strong>Gate error handling — fail closed.</strong> If evaluating the referenced
+   rule errors (API glitch), the gate is treated as <strong>closed</strong> (rule
+   skipped this sweep, Warn log). Rationale: the gated action is
+   typically destructive (deletion); a transient error must never cause a
+   delete PR against a repo whose Renovate state is unknown. This mirrors
+   the IMPL-0013 Q9 fail-safe stance and the broader principle INV-0011
+   A1 makes explicit: a destructive action never proceeds from an
+   unknown or error state — unparseable/unreachable input is never
+   treated as desired state.</li>
+<li><strong><code>evaluateAbsent</code>.</strong> New evaluation arm: walk <strong>all</strong> of <code>paths</code>
+   (unlike <code>findExistingFile</code>, which stops at the first hit) and collect
+   every existing path. Actionable when the set is non-empty. The
+   collected paths ride along to remediation (a repo can have both
+   <code>dependabot.yml</code> and <code>dependabot.yaml</code>; deleting only the first leaves
+   the rule permanently actionable — Decision 5).</li>
+</ol>
+<h3 id="remediation-flow-deletion-commits">Remediation flow (deletion commits)<a class="headerlink" href="#remediation-flow-deletion-commits" title="Permanent link">&para;</a></h3>
+<p><code>syncActionableFiles</code> gains an action split per rule:</p>
+<ul>
+<li><strong>Add/fix modes (existing):</strong> render template → <code>CreateOrUpdateFile</code> —
+  unchanged.</li>
+<li><strong>Absent mode (new):</strong> for each existing matching path:<ol>
+<li><code>GetContentsOnBranch(branch)</code> → blob SHA on the reconcile branch
+   (the branch was cut from default, so the file is there).</li>
+<li><code>DeleteFile(branch, path, sha, msg)</code> with
+   <code>chore: remove &lt;path&gt; (forbidden by rule "&lt;name&gt;")</code>.</li>
+<li>Idempotency: if <code>GetContentsOnBranch</code> reports the file already absent
+   on the branch (a prior sweep deleted it), skip — mirrors the
+   skip-if-identical arm of <code>CreateOrUpdateFile</code> (INV-0003).</li>
+</ol>
+</li>
+</ul>
+<p>Deletions and additions coexist on the same branch/PR naturally (e.g., a
+repo missing CODEOWNERS <em>and</em> carrying dependabot+renovate gets one PR
+that adds <code>.github/CODEOWNERS</code> and removes <code>.github/dependabot.yml</code>).</p>
+<h3 id="convergence-orphans-auto-close-and-the-inverse-orphan">Convergence: orphans, auto-close, and the inverse orphan<a class="headerlink" href="#convergence-orphans-auto-close-and-the-inverse-orphan" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Empty actionable + open PR</strong> — unchanged: <code>autoClosePR</code> posts the
+  final sticky comment, closes, deletes the branch. Deleting the branch
+  discards pending deletion commits, which is exactly right (e.g., someone
+  hand-deleted dependabot on main, or removed renovate so the gate
+  closed).</li>
+<li><strong>Existing orphan discovery is deletion-blind but safe.</strong>
+  <code>discoverOrphans</code> looks for a rule's <code>Target</code> file <em>present</em> on the
+  branch; an absent rule has no <code>Target</code> and its branch state is a
+  <em>missing</em> file, so it never matches — no change needed to avoid false
+  positives.</li>
+<li><strong>The inverse orphan (new).</strong> In a bundle PR, if the absent rule stops
+  being actionable (gate closed or file gone from main) while another
+  rule keeps the PR open, the branch still carries a stale deletion
+  commit — the PR diff would delete a file the policy no longer wants
+  deleted. Mitigation: <code>discoverOrphans</code> grows an absent-rule arm — for a
+  no-longer-actionable absent rule, check each of its <code>paths</code> on the
+  branch; where default-branch has the file but the branch does not,
+  <strong>restore</strong> it (<code>GetFileContent</code> from default →
+  <code>CreateOrUpdateFile</code> on branch, <code>chore: restore &lt;path&gt; (rule "&lt;name&gt;"
+  no longer applies)</code>). Same fail-safe stance: any API error ⇒ leave it,
+  Warn, retry next sweep (Decision 6).</li>
+</ul>
+<h3 id="validation-rules">Validation rules<a class="headerlink" href="#validation-rules" title="Permanent link">&para;</a></h3>
+<p>Added to <code>validateFileRule</code> (<code>internal/policy/validate.go</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>check = "absent"</code> + <code>template</code> set</td>
+<td>error — nothing to render</td>
+</tr>
+<tr>
+<td><code>check = "absent"</code> + <code>target</code> set</td>
+<td>error — deletions operate on <code>paths</code></td>
+</tr>
+<tr>
+<td><code>check = "absent"</code> + <code>assertion</code> blocks</td>
+<td>error — no content to assert</td>
+</tr>
+<tr>
+<td><code>check = "absent"</code> + <code>reconcile</code> blocks</td>
+<td>error — reconcilers consume file content that must not exist</td>
+</tr>
+<tr>
+<td><code>check != "absent"</code> + <code>target</code>/<code>template</code> missing</td>
+<td>error — preserves today's contract (requiredness moves from HCL schema to validation)</td>
+</tr>
+<tr>
+<td><code>when.rule_satisfied</code> names a nonexistent rule</td>
+<td>error, with the list of known rule names</td>
+</tr>
+<tr>
+<td><code>when.rule_satisfied</code> names a <code>setting</code>/<code>branch_protection</code> rule</td>
+<td>error — file rules only</td>
+</tr>
+<tr>
+<td><code>when.rule_satisfied</code> names a disabled rule</td>
+<td>error — a permanently-closed gate is a policy bug, fail loud at load</td>
+</tr>
+<tr>
+<td><code>when.rule_satisfied</code> self-reference</td>
+<td>error</td>
+</tr>
+<tr>
+<td><code>when</code> cycles (A gates on B, B gates on A; any length)</td>
+<td>error — detected via DFS over the gate graph at load time</td>
+</tr>
+<tr>
+<td>Empty <code>when {}</code> block (no <code>rule_satisfied</code>)</td>
+<td>error</td>
+</tr>
+</tbody>
+</table>
+<p>The check-mode allowlist in <code>validateFileRule</code> and the <code>CheckMode()</code>
+switch in <code>types.go</code> both gain <code>absent</code>. Strict-templates validation
+(<code>ValidatePRTemplates</code>) is unaffected — absent rules may carry <code>pr {}</code>
+blocks and those validate exactly as today.</p>
+<h3 id="metrics">Metrics<a class="headerlink" href="#metrics" title="Permanent link">&para;</a></h3>
+<ul>
+<li>New <code>files_forbidden_present_total{rule_name, org}</code> CounterVec —
+  incremented when an absent rule is actionable. <code>files_missing_total</code>
+  is <strong>not</strong> incremented for absent rules; its name would invert its
+  meaning (Decision 3).</li>
+<li>New <code>rule_gate_closed_total{rule_name, org}</code> CounterVec — incremented
+  in the primary pass only when a <code>when</code> gate skips a rule. Distinct from
+  <code>OutOfScopeTotal</code>/<code>IgnoredTotal</code> because gate state is repo-content
+  -driven and expected to flip; operators alert on scope/ignore anomalies
+  but <em>watch</em> gate counts.</li>
+<li><code>prs_created_total</code> / <code>prs_updated_total</code> / <code>prs_closed_total</code> /
+  <code>pr_orphan_left_total</code> — unchanged; deletion PRs are just PRs.</li>
+<li>File restoration (inverse orphan) failures reuse
+  <code>pr_orphan_left_total{org}</code> — same "branch content is stale, next sweep
+  retries" meaning.</li>
+</ul>
+<h3 id="pr-text-commit-messages-and-the-reconcile-log">PR text, commit messages, and the reconcile log<a class="headerlink" href="#pr-text-commit-messages-and-the-reconcile-log" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><code>tmpl.Rule</code> gains <code>Action string</code></strong> (<code>"add"</code> | <code>"remove"</code>), populated
+  in <code>buildPRVars</code>; <code>PRVars.Files</code> continues to list every touched path
+  (additions and deletions). Additive, so <code>ValidateZero</code> strict-mode
+  passes and existing operator templates keep rendering unchanged;
+  templates that want per-action wording use <code>{{ if eq .Rule.Action
+  "remove" }}</code>.</li>
+<li><strong>Fallback body</strong> (<code>buildPRBodyFromPolicy</code>) splits the file list into
+  "Added files" and "Removed files" sections; the CODEOWNERS-placeholder
+  note renders only when an add-mode rule is present.</li>
+<li><strong>Reconcile-log statuses</strong> (<code>drift.go</code>) get absent-aware wording:
+  actionable absent rule → <code>present on main, pending removal</code>; satisfied →
+  <code>absent from main</code>; gate-closed → <code>skipped (when-gate closed:
+  &lt;referenced rule&gt; not satisfied)</code>. The status strings feed the
+  content-hash tag, so new wording changes hashes exactly once per PR —
+  acceptable (single extra comment edit after upgrade).</li>
+<li><strong><code>hasExistingPRForPolicy</code> guidance, not code:</strong> an absent rule's
+  <code>search_terms</code> must not collide with terms from the era when the same
+  file was being <em>added</em> (e.g., bare <code>"dependabot"</code> would match an old
+  "add dependabot" PR title and permanently suppress the removal). The
+  docs and example use <code>"remove dependabot"</code>.</li>
+</ul>
+<h2 id="api-interface-changes">API / Interface Changes<a class="headerlink" href="#api-interface-changes" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong><code>internal/policy</code></strong>: new <code>CheckAbsent CheckMode = "absent"</code>; new
+  <code>WhenConfig struct { RuleSatisfied string }</code> + <code>When *WhenConfig</code> field
+  on <code>FileRuleConfig</code>; <code>ruleBodySchema</code> adds the <code>when</code> block type and
+  drops <code>Required: true</code> from <code>target</code>/<code>template</code>; new decode + validation
+  paths per above.</li>
+<li><strong><code>internal/checker</code></strong>: <code>evaluateAbsent</code>, <code>ruleSatisfiedOnDefault</code> (+
+  per-check memo), gate wiring in <code>findActionableRules</code> <strong>and</strong>
+  <code>runReconcilers</code>, action split in <code>syncActionableFiles</code>, absent arm in
+  <code>discoverOrphans</code>, wording changes in <code>buildPRBodyFromPolicy</code> /
+  reconcile-log builders.</li>
+<li><strong><code>internal/template</code></strong>: <code>Rule.Action</code> field (additive).</li>
+<li><strong><code>internal/metrics</code></strong>: two new CounterVecs.</li>
+<li><strong><code>internal/github</code></strong>: no interface changes — <code>DeleteFile</code>,
+  <code>GetContentsOnBranch</code>, <code>GetFileContent</code>, <code>CreateOrUpdateFile</code> cover
+  everything. No mockClient-parity sweep needed.</li>
+<li><strong>Chart</strong>: no new values; no new alerts required (deletion PRs surface
+  through the existing PR metrics). Chart README/docs only.</li>
+</ul>
+<h2 id="data-model">Data Model<a class="headerlink" href="#data-model" title="Permanent link">&para;</a></h2>
+<p>No store schema changes. <code>policy.Version</code> hashes the JSON-serialized
+config (<code>version.go:32</code>); adding the <code>When</code> field and new check-mode
+string changes the hash for <strong>every</strong> loaded policy on upgrade, which
+marks all <code>repo_state</code> rows drifted and triggers one full re-sweep. This
+is the established behavior for any policy-struct change (same thing
+happened on IMPL-0017's schema additions) and is harmless — but the
+migration doc must state it so a fleet-wide sweep right after upgrade
+isn't mistaken for a bug.</p>
+<h2 id="implementation-phases">Implementation Phases<a class="headerlink" href="#implementation-phases" title="Permanent link">&para;</a></h2>
+<h3 id="phase-0-policy-schema-loader-validation">Phase 0 — Policy schema, loader, validation<a class="headerlink" href="#phase-0-policy-schema-loader-validation" title="Permanent link">&para;</a></h3>
+<p>Tasks:</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Add <code>CheckAbsent</code> to <code>types.go</code> (<code>CheckMode</code> const + <code>CheckMode()</code>
+      switch) and the <code>validateFileRule</code> allowlist.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Add <code>WhenConfig</code> type and <code>When *WhenConfig</code> field to
+      <code>FileRuleConfig</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Relax <code>target</code>/<code>template</code> to optional in <code>ruleBodySchema</code>; add
+      <code>{Type: "when"}</code> to its block list; decode via new
+      <code>decodeWhenBlock</code> in <code>loader.go</code> (wired into <code>decodeRuleSubBlocks</code>).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Move <code>target</code>/<code>template</code> requiredness into <code>validateFileRule</code>,
+      conditioned on check mode (absent forbids, others require).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Implement the full validation matrix (template/target/assertions/
+      reconcilers forbidden on absent; referenced-rule existence, type,
+      enabled, self-reference, cycle detection via DFS; empty <code>when</code>).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Loader tests: happy-path absent rule, gated rule, every validation
+      error with location-prefixed messages, cycle of length 2 and 3.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>policy.Version</code> test: adding a <code>when</code> block or flipping check mode
+      to absent changes the hash.</li>
+</ul>
+<p>Success criteria: <code>make lint</code> and <code>make test</code> pass; a <code>guardian.hcl</code>
+containing the <a href="#hcl-surface">HCL surface</a> example loads without error;
+each row of the validation matrix has a test asserting its exact error;
+<code>policy.BuiltinDefaults()</code> is untouched (no absent rules ship as
+defaults).</p>
+<h3 id="phase-1-engine-evaluation-when-gate-and-absent-mode">Phase 1 — Engine evaluation: when-gate and absent mode<a class="headerlink" href="#phase-1-engine-evaluation-when-gate-and-absent-mode" title="Permanent link">&para;</a></h3>
+<p>Tasks:</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Implement <code>ruleSatisfiedOnDefault</code> with the per-repo-check
+      memoization map; unit tests per check mode including the
+      no-PR-short-circuit distinction (gate must evaluate true even when
+      an open PR exists for the referenced rule).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Wire the gate into <code>findActionableRules</code> (counter + Info log) and
+      <code>runReconcilers</code> (silent), honoring the double-iteration contract.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Fail-closed gate error handling with Warn log; test with an
+      erroring mock client asserting the rule is skipped and no deletion
+      is planned.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Implement <code>evaluateAbsent</code> collecting <strong>all</strong> existing matching
+      paths; actionable iff non-empty.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Add <code>files_forbidden_present_total</code> and <code>rule_gate_closed_total</code>
+      metrics; assert increments via <code>testutil.ToFloat64</code> with unique
+      label values (parallel-safe per the established convention).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Verify <code>FilesMissingTotal</code> is not incremented for absent rules.</li>
+</ul>
+<p>Success criteria: <code>make lint</code> and <code>make test</code> pass; table-driven engine
+tests cover all five rows of the <a href="#semantics-matrix">semantics matrix</a>
+using the existing <code>mockClient</code> pattern in <code>internal/checker/engine_test.go</code>;
+gate evaluation issues at most one content fetch per referenced rule per
+repo-check (asserted via mock call counting).</p>
+<h3 id="phase-2-remediation-deletion-commits-pr-wording-convergence">Phase 2 — Remediation: deletion commits, PR wording, convergence<a class="headerlink" href="#phase-2-remediation-deletion-commits-pr-wording-convergence" title="Permanent link">&para;</a></h3>
+<p>Tasks:</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Action split in <code>syncActionableFiles</code>: absent rules delete each
+      collected path on the reconcile branch via
+      <code>GetContentsOnBranch</code> + <code>DeleteFile</code>, with the already-absent
+      idempotent skip.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>tmpl.Rule.Action</code> field + <code>buildPRVars</code> population; fallback-body
+      Added/Removed sections; CODEOWNERS note gated on add-mode presence.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Inverse-orphan restoration arm in <code>discoverOrphans</code>/<code>cleanupOrphans</code>
+      per the design, reusing <code>pr_orphan_left_total</code> on failure.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Reconcile-log absent-aware status strings.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Multi-sweep convergence tests in <code>internal/checker/convergence_test.go</code>
+      following the IMPL-0013 pattern: sweep 1 renovate-add PR → merge →
+      sweep 2 dependabot-remove PR → merge → sweep 3 converged;
+      hand-deleted dependabot → auto-close; gate closes mid-flight →
+      restoration; both <code>.yml</code> and <code>.yaml</code> present → both deleted.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Stateful-mock fidelity check: the mock's branch-contents state must
+      reflect prior <code>DeleteFile</code>/<code>CreateOrUpdateFile</code> calls on the same
+      mock, per the list-then-act mock-fidelity rule (CLAUDE.md) — an
+      always-static mock would vacuously pass the idempotency tests.</li>
+</ul>
+<p>Success criteria: <code>make ci</code> passes; convergence suite demonstrates the
+full renovate-first lifecycle end-to-end against mocks; a bundle PR mixing
+one add-rule and one absent-rule renders both sections and both commit
+kinds; re-running an identical sweep produces zero mutating API calls
+(idempotency, asserted via mock counters).</p>
+<h3 id="phase-3-push-event-fast-convergence">Phase 3 — Push-event fast convergence<a class="headerlink" href="#phase-3-push-event-fast-convergence" title="Permanent link">&para;</a></h3>
+<p>Auto-watch is in (Decision 4); this phase is unconditional.</p>
+<p>Tasks:</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Extend watched-path extraction so a rule referenced by any
+      <code>when.rule_satisfied</code> contributes its <code>paths</code> to the webhook
+      handler's watched set (merging renovate's own add-PR then triggers
+      an immediate re-check instead of waiting for the sweep cadence).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Webhook handler test: push touching <code>renovate.json</code> on the default
+      branch enqueues a re-check for a policy where only the <em>gated</em> rule
+      watches it.</li>
+</ul>
+<p>Success criteria: <code>make lint</code> and <code>make test</code> pass; the dependabot-removal
+PR opens on the first post-merge webhook delivery in the handler test, not
+on the next scheduled sweep.</p>
+<h3 id="phase-4-documentation-and-examples">Phase 4 — Documentation and examples<a class="headerlink" href="#phase-4-documentation-and-examples" title="Permanent link">&para;</a></h3>
+<p>Tasks:</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>docs/usage/policy-reference.md</code>: <code>absent</code> check mode section,
+      <code>when {}</code> block reference, validation-matrix table, search-terms
+      collision guidance.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>examples/guardian-full.hcl</code>: replace the name-glob
+      <code>ignore { repos = ["myorg/renovate-*"] }</code> workaround on the
+      dependabot rule with the <code>no_dependabot</code> + <code>when</code> form; keep the
+      old form nearby as a commented alternative; <code>go test ./examples/...</code>
+      must pass.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Migration note (upgrade doc or release notes per the
+      <code>docs/operations/*-migration.md</code> precedent): policy-hash bump ⇒
+      one-time full re-sweep; reconcile-log hash bump ⇒ one comment edit
+      per open PR; search-terms guidance.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> CLAUDE.md architecture notes: absent mode, when-gate fail-closed
+      semantics, inverse-orphan restoration, and the
+      counter-only-in-primary-pass reminder extended to the gate.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>docz update design</code> / index regeneration; mkdocs strict-mode
+      warning count unchanged from the 14-file baseline.</li>
+</ul>
+<p>Success criteria: <code>make ci</code> passes; policy-reference renders the full
+semantics matrix; the example file loads in the example test; docs build
+clean.</p>
+<h2 id="testing-strategy">Testing Strategy<a class="headerlink" href="#testing-strategy" title="Permanent link">&para;</a></h2>
+<p>Unit tests live beside each phase (see per-phase tasks). The
+cross-cutting strategies, named here so phases can reference them:</p>
+<ul>
+<li><strong>Mock fidelity for list-then-act paths</strong> — deletion idempotency and
+  inverse-orphan restoration are exactly the shape the IMPL-0013 Phase 4
+  post-mortem warns about: the mock's <code>GetContentsOnBranch</code> must reflect
+  prior writes to the same mock or the skip-arm assertions are vacuous.</li>
+<li><strong>Multi-sweep convergence</strong> — extend <code>convergence_test.go</code>, which
+  already models sweep sequences with a stateful mock; the renovate-first
+  lifecycle is a new scenario family, not new infrastructure.</li>
+<li><strong>Metric assertions</strong> — unique label values per test
+  (<code>testutil.ToFloat64</code> + targeted <code>Reset()</code>), per the established
+  parallel-safety convention.</li>
+<li><strong>No integration-tag additions</strong> — nothing here touches store/queue/
+  scheduler backends.</li>
+</ul>
+<h2 id="migration-rollout-plan">Migration / Rollout Plan<a class="headerlink" href="#migration-rollout-plan" title="Permanent link">&para;</a></h2>
+<p>Additive and opt-in: policies that never write <code>check = "absent"</code> or
+<code>when {}</code> parse and behave identically. Rollout:</p>
+<ol>
+<li>Ship binary + docs (minor appVersion bump; new HCL surface).</li>
+<li>On upgrade, <code>policy.Version</code> changes ⇒ one-time full re-sweep
+   (documented; expected).</li>
+<li>Operators adopt by editing <code>guardian.hcl</code>; recommended first step is
+   <code>dry_run = true</code> (or the <code>DRY_RUN</code> env) to review planned deletions in
+   logs before letting removal PRs open — deletion is the first
+   destructive remediation the file engine ships, so the migration doc
+   leads with the dry-run recipe.</li>
+<li>Rollback = remove the new blocks from HCL (or pin the previous
+   appVersion; unknown check mode fails validation at load, so a
+   downgraded binary with an absent-rule policy fails loudly at startup
+   rather than silently ignoring the rule — this is the desired
+   fail-loud behavior, called out in the migration doc).</li>
+</ol>
+<h2 id="resolved-decisions">Resolved Decisions<a class="headerlink" href="#resolved-decisions" title="Permanent link">&para;</a></h2>
+<p>All seven open questions were resolved on 2026-07-23 with the recommended
+option (a). The two-PR eventual-consistency consequence (gate reads the
+default branch only; dependabot-only repos converge over two PR cycles)
+was reviewed and accepted at the same time.</p>
+<ol>
+<li>
+<p><strong>Gate mechanism</strong> — <code>rule_satisfied = "&lt;name&gt;"</code> only. Reuses the
+   referenced rule's paths <em>and</em> assertions (a renovate.json that fails
+   the org-preset assertion isn't "using Renovate"); no duplicated path
+   lists to drift; cycle detection is straightforward on a named graph.
+   The <code>any_exists</code> inline form was rejected as re-introducing the
+   copy-paste divergence class of bug.</p>
+</li>
+<li>
+<p><strong>Gate is content-only</strong> — the referenced rule's own scope/ignore do
+   NOT affect the gate. The referee serves purely as a named bundle of
+   paths+assertions; the gated rule's own scope/ignore control where the
+   gated rule applies. This avoids surprising cross-effects (a renovate
+   rule ignored on one repo silently flipping the dependabot gate there).</p>
+</li>
+<li>
+<p><strong>New metric</strong> — <code>files_forbidden_present_total{rule_name, org}</code>;
+   <code>files_missing_total</code> is untouched for absent rules so its name stays
+   truthful for dashboards keying on it (contrib/).</p>
+</li>
+<li>
+<p><strong>Auto-watch is in</strong> — a rule referenced by <code>when.rule_satisfied</code>
+   contributes its paths to the webhook watched set, so merging the
+   renovate-add PR triggers the removal PR within minutes rather than at
+   the next weekly sweep. Phase 3 is unconditional.</p>
+</li>
+<li>
+<p><strong>Delete every matching path in one PR</strong> — the rule's contract is "no
+   file at any of these paths"; deleting only the first match would leave
+   the rule permanently actionable when both <code>.yml</code> and <code>.yaml</code> variants
+   exist.</p>
+</li>
+<li>
+<p><strong>Restore stale deletions (inverse orphan)</strong> — when the gate closes or
+   the file disappears from main while a bundle PR stays open, the file
+   is restored on the reconcile branch from default-branch content,
+   fail-safe on errors. The PR diff always equals current policy intent —
+   the same invariant orphan cleanup enforces for additions.</p>
+</li>
+<li>
+<p><strong><code>when {}</code> is allowed on any check mode</strong> — the gate is orthogonal to
+   check mode (a when-gated <code>exists</code> rule expresses the mirror-image
+   "require dependabot unless renovate is satisfied" policy). Validation
+   and engine wiring are check-mode-agnostic.</p>
+</li>
+</ol>
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../0013-customizable-pr-templates-and-extensible-template-configmap/">DESIGN-0013 — PR templates</a> — per-rule <code>pr {}</code> inheritance the removal PRs reuse</li>
+<li>IMPL-0013 — orphan cleanup, auto-close, sticky reconcile-log; the Q9 fail-safe stance this design extends to gates and restoration</li>
+<li>INV-0003 — <code>CreateOrUpdateFile</code> three-branch idempotency the deletion path mirrors</li>
+<li><code>examples/guardian-full.hcl</code> — the name-glob <code>ignore</code> workaround this design replaces</li>
+<li><code>internal/policy/types.go:15-25</code>, <code>internal/policy/loader.go:484-499</code>, <code>internal/policy/validate.go:79-127</code>, <code>internal/checker/engine_policy.go:221-302,582-621</code>, <code>internal/checker/drift.go:71-156,305-338</code> — code paths audited for this design (as of appVersion 1.9.0)</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../0019-configurable-annotation-sourced-custom-properties/" class="md-footer__link md-footer__link--prev" aria-label="Previous: DESIGN-0019: Configurable annotation-sourced custom properties">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                DESIGN-0019: Configurable annotation-sourced custom properties
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../impl/" class="md-footer__link md-footer__link--next" aria-label="Next: Overview">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Overview
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.footer", "content.action.edit"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../search/main.js"></script>
+      
+    
+  </body>
+</html>

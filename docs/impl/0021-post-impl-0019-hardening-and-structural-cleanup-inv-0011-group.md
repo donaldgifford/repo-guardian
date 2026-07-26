@@ -1,7 +1,7 @@
 ---
 id: IMPL-0021
 title: "Post-IMPL-0019 hardening and structural cleanup (INV-0011 Group A Medium + Group B)"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-07-23
 ---
@@ -9,7 +9,7 @@ created: 2026-07-23
 
 # IMPL 0021: Post-IMPL-0019 hardening and structural cleanup (INV-0011 Group A Medium + Group B)
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-07-23
 
@@ -35,6 +35,7 @@ created: 2026-07-23
   - [Phase 5: Dead-code removal (B3)](#phase-5-dead-code-removal-b3)
     - [Tasks](#tasks-4)
     - [Success Criteria](#success-criteria-4)
+    - [Finding: BudgetTracker is never refreshed in production (not fixed here)](#finding-budgettracker-is-never-refreshed-in-production-not-fixed-here)
   - [Phase 6: Structural refactors (B1, B4)](#phase-6-structural-refactors-b1-b4)
     - [Tasks](#tasks-5)
     - [Success Criteria](#success-criteria-5)

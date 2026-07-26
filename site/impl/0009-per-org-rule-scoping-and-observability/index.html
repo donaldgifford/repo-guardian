@@ -1,0 +1,4985 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+        <link rel="prev" href="../0008-distributed-renovate-via-per-repo-github-actions/">
+      
+      
+        <link rel="next" href="../0010-publish-helm-chart-via-oci-registry/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Per-org rule scoping and observability - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#impl-0009-per-org-rule-scoping-and-observability" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Per-org rule scoping and observability
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started with repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference (guardian.hcl)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0010-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0010: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0011-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0011: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0012-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0012: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0013-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0013: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0015-per-installation-valkey-queue-partitioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0015: Per-installation Valkey queue partitioning
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0016-separate-postgres-read-and-write-endpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0016: Separate Postgres read and write endpoints
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0017-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0017: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0018-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0018: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0019-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0019: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0020-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0020: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0009: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0009: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-data-model-and-matcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Data Model and Matcher
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Data Model and Matcher">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-top-level-scope-loader" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Top-level Scope Loader
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: Top-level Scope Loader">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-per-rule-scope-loader" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: Per-rule Scope Loader
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3: Per-rule Scope Loader">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-strict-mode-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: Strict-mode Validation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4: Strict-mode Validation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-engine-evaluation-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Engine Evaluation Gates
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 5: Engine Evaluation Gates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-metrics-relabeling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: Metrics Relabeling
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 6: Metrics Relabeling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-7-contrib-updates-and-metrics-catalog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7: contrib/ Updates and Metrics Catalog
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 7: contrib/ Updates and Metrics Catalog">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-8-documentation-and-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 8: Documentation and Examples
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 8: Documentation and Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-9-final-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 9: Final Validation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 9: Final Validation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolved-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolved Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0010-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0010: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0011-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0011: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0012-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0012: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0013-reconcile-open-prs-when-file-rules-become-satisfied/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0013: Reconcile open PRs when file rules become satisfied
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0015-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0015: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Progress"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0016-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0016: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0017-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0017: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0018-fix-silently-ignored-operator-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0018: Fix silently ignored operator config
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0019-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0019: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0020-pre-impl-0019-high-severity-fixes-inv-0011-group-a-high/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0020: Pre-IMPL-0019 high-severity fixes (INV-0011 Group A High)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0021: Post-IMPL-0019 hardening and structural cleanup (INV-0011 Group A Medium + Group B)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0002-multi-org-and-forgejo-support-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0002: Multi-org and Forgejo support for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0003-pre-existing-branch-422-on-subsequent-reconciles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0003: Pre-existing branch 422 on subsequent reconciles
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0004-forge-interface-and-package-refactor-for-forgejo-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0004: Forge interface and package refactor for Forgejo backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0005-stale-prs-when-file-rules-become-satisfied-on-main/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0005: Stale PRs when file rules become satisfied on main
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0006-per-org-github-app-credentials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0006: Per-org GitHub App credentials
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Deferred"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0007-gitlab-forge-backend-support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0007: GitLab provider backend support
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0008-annotation-sourced-custom-properties-should-be-configurable-not/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0008: Annotation-sourced custom properties should be configurable, not hardcoded
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0009-read-only-status-api-and-web-ui-options/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0009: Read-only status API and web UI options
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0010-silently-ignored-operator-config-autoclosepr-hcl-attribute-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0010: Silently ignored operator config: auto_close_pr HCL attribute and cross-mode existingSecret
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0011-tech-debt-cleanup-inventory-post-impl-0019/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0011: Tech debt cleanup inventory post IMPL-0019
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/absent-rules-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Absent rules and conditional gates migration (IMPL-0019)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/chart-0.5.0-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.5.0 migration runbook (IMPL-0011)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/pr-convergence-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/annotation-properties-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property annotation migration (appVersion 1.9.1 → next minor)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/custom-properties-security-fix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-properties security fix (IMPL-0020)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/property-name-charset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property name charset correction (IMPL-0021)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ecr-publish-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ECR publish setup (maintainer-side)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/cnpg-homelab-cutover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Homelab CNPG cutover runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postgres schema operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running repo-guardian on AWS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/template-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Template migration guide (chart 0.3.x → 0.4.0)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-data-model-and-matcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Data Model and Matcher
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Data Model and Matcher">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-top-level-scope-loader" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Top-level Scope Loader
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: Top-level Scope Loader">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-per-rule-scope-loader" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: Per-rule Scope Loader
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3: Per-rule Scope Loader">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-strict-mode-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: Strict-mode Validation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4: Strict-mode Validation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-engine-evaluation-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Engine Evaluation Gates
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 5: Engine Evaluation Gates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-metrics-relabeling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: Metrics Relabeling
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 6: Metrics Relabeling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-7-contrib-updates-and-metrics-catalog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7: contrib/ Updates and Metrics Catalog
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 7: contrib/ Updates and Metrics Catalog">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-8-documentation-and-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 8: Documentation and Examples
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 8: Documentation and Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-9-final-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 9: Final Validation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 9: Final Validation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolved-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolved Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="impl-0009-per-org-rule-scoping-and-observability">IMPL 0009: Per-org rule scoping and observability<a class="headerlink" href="#impl-0009-per-org-rule-scoping-and-observability" title="Permanent link">&para;</a></h1>
+<p><strong>Status:</strong> Completed
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-04-25</p>
+<h2 id="objective">Objective<a class="headerlink" href="#objective" title="Permanent link">&para;</a></h2>
+<p>Implement DESIGN-0010: optional top-level <code>scope { orgs = [...] }</code>
+block engages strict mode where every rule must declare its own
+scope; absence preserves current behavior unchanged (legacy mode).
+Plus an <code>org</code> label on per-rule and per-repo Prometheus metrics,
+plus a new <code>repo_guardian_out_of_scope_total</code> counter. Bundled
+<code>contrib/</code> Grafana dashboard and Prometheus alerts are updated;
+a new <code>contrib/README.md</code> catalogs every exposed metric.</p>
+<p><strong>Implements:</strong> DESIGN-0010</p>
+<h2 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h2>
+<h3 id="in-scope">In Scope<a class="headerlink" href="#in-scope" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>ScopeConfig</code> type and matcher (<code>internal/policy/scope.go</code>)</li>
+<li><code>Scope *ScopeConfig</code> field on <code>PolicyConfig</code>, <code>FileRuleConfig</code>,
+  <code>SettingRuleConfig</code>, <code>BranchProtectionRuleConfig</code></li>
+<li>HCL loader support: top-level <code>scope {}</code> block + per-rule
+  <code>scope {}</code> sub-blocks on all three rule types</li>
+<li>Strict-mode validation (load-time errors and warnings)</li>
+<li>Two new evaluation gates in the policy engine (policy-level and
+  rule-level)</li>
+<li>New <code>OutOfScopeTotal</code> counter; <code>org</code> label on existing
+  per-rule / per-repo metrics</li>
+<li>Promotion of <code>PRsCreatedTotal</code> and <code>PRsUpdatedTotal</code> from
+  <code>Counter</code> to <code>CounterVec</code> with <code>["org"]</code></li>
+<li>Updated <code>contrib/grafana/repo-guardian-dashboard.json</code> and
+  <code>contrib/prometheus/alerts.yaml</code> reflecting new labels</li>
+<li>New <code>contrib/README.md</code> cataloging every exposed metric with
+  example queries</li>
+<li>Unit, loader, engine, and metrics tests covering legacy and
+  strict modes</li>
+<li>HCL examples (single-file and directory layouts) and
+  documentation updates</li>
+<li>Backward-compatibility verification — every existing test passes
+  unchanged in legacy mode</li>
+</ul>
+<h3 id="out-of-scope">Out of Scope<a class="headerlink" href="#out-of-scope" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Multi-App support (DESIGN-0010 non-goal)</li>
+<li>Forgejo / non-GitHub forge support (INV-0002, separate work)</li>
+<li>Per-repo inverse <code>ignore</code> (DESIGN-0010 non-goal)</li>
+<li>Repo-name as a metric label (DESIGN-0010 non-goal)</li>
+<li>Changes to <code>check_duration_seconds</code> histogram or rate-limit
+  metrics (DESIGN-0010 explicit deferral)</li>
+<li>Helm chart changes (none required)</li>
+</ul>
+<h2 id="implementation-phases">Implementation Phases<a class="headerlink" href="#implementation-phases" title="Permanent link">&para;</a></h2>
+<p>Each phase builds on the previous one. A phase is complete when
+all its tasks are checked off and its success criteria are met.</p>
+<hr />
+<h3 id="phase-1-data-model-and-matcher">Phase 1: Data Model and Matcher<a class="headerlink" href="#phase-1-data-model-and-matcher" title="Permanent link">&para;</a></h3>
+<p>Define the <code>ScopeConfig</code> type and its glob matcher. This phase
+introduces no behavior change — the type is unused until later
+phases wire it into the loader and engine.</p>
+<h4 id="tasks">Tasks<a class="headerlink" href="#tasks" title="Permanent link">&para;</a></h4>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add <code>ScopeConfig</code> struct to <code>internal/policy/types.go</code> next
+      to <code>IgnoreConfig</code> (line ~109). Single field
+      <code>Orgs []string</code> with <code>hcl:"orgs,optional"</code> tag</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add <code>Scope *ScopeConfig</code> field to <code>PolicyConfig</code> (line ~24)
+      with <code>hcl:"scope,block"</code> tag</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add <code>Scope *ScopeConfig</code> field to <code>FileRuleConfig</code> (line ~52)
+      with <code>hcl:"scope,block"</code> tag</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add <code>Scope *ScopeConfig</code> field to <code>SettingRuleConfig</code>
+      (line ~115) with <code>hcl:"scope,block"</code> tag</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add <code>Scope *ScopeConfig</code> field to <code>BranchProtectionRuleConfig</code>
+      (line ~146) with <code>hcl:"scope,block"</code> tag</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Create <code>internal/policy/scope.go</code> with:<ul>
+<li><code>(*ScopeConfig) Matches(owner string) bool</code> — returns <code>true</code>
+  if <code>owner</code> matches any pattern in <code>Orgs</code>. Returns <code>false</code> for
+  nil or empty <code>Orgs</code> (mirror <code>IgnoreConfig.Matches</code> shape but
+  inverted polarity)</li>
+<li><code>(*ScopeConfig) HasUniversal() bool</code> — returns <code>true</code> if
+  <code>Orgs</code> contains the literal <code>"*"</code></li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Create <code>internal/policy/scope_test.go</code> mirroring
+      <code>ignore_test.go</code>:<ul>
+<li><code>TestScopeConfig_Matches_ExactMatch</code></li>
+<li><code>TestScopeConfig_Matches_GlobWildcard</code></li>
+<li><code>TestScopeConfig_Matches_NoMatch</code></li>
+<li><code>TestScopeConfig_Matches_CharacterSet</code></li>
+<li><code>TestScopeConfig_Matches_CaseInsensitive</code></li>
+<li><code>TestScopeConfig_Matches_EmptyOrgs</code></li>
+<li><code>TestScopeConfig_Matches_NilConfig</code></li>
+<li><code>TestScopeConfig_Matches_MultiplePatterns</code></li>
+<li><code>TestScopeConfig_Matches_InvalidPattern</code></li>
+<li><code>TestScopeConfig_Matches_QuestionMark</code></li>
+<li><code>TestScopeConfig_HasUniversal_True</code></li>
+<li><code>TestScopeConfig_HasUniversal_False</code></li>
+<li><code>TestScopeConfig_HasUniversal_NilReceiver</code></li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>make test</code> passes — all new tests green, every existing
+      test untouched</li>
+</ul>
+<h4 id="success-criteria">Success Criteria<a class="headerlink" href="#success-criteria" title="Permanent link">&para;</a></h4>
+<ul>
+<li>New types compile and existing tests still pass (no behavior
+  change yet)</li>
+<li><code>scope_test.go</code> reaches &gt; 95% coverage on <code>scope.go</code></li>
+<li><code>make lint</code> passes — no <code>gocyclo</code>, <code>prealloc</code>, <code>gocritic</code>
+  hits on the new code</li>
+</ul>
+<hr />
+<h3 id="phase-2-top-level-scope-loader">Phase 2: Top-level Scope Loader<a class="headerlink" href="#phase-2-top-level-scope-loader" title="Permanent link">&para;</a></h3>
+<p>Wire HCL decoding for the <strong>top-level</strong> <code>scope {}</code> block. Per-rule
+scope is added in Phase 3.</p>
+<h4 id="tasks_1">Tasks<a class="headerlink" href="#tasks_1" title="Permanent link">&para;</a></h4>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update <code>decodeBody</code> schema in <code>internal/policy/loader.go</code>
+      (line ~150) to add <code>{Type: "scope"}</code> to the top-level
+      <code>BodySchema.Blocks</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add <code>decodeScopeBlock(block *hcl.Block, ctx *hcl.EvalContext)
+      (*ScopeConfig, hcl.Diagnostics)</code> next to
+      <code>decodeIgnoreBlock</code> (line ~314). Reads the <code>orgs</code> attribute
+      as a list of strings, identical to <code>decodeIgnoreBlock</code>'s
+      <code>repos</code> handling</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update <code>decodeBlock</code> (line ~209) to dispatch
+      <code>block.Type == "scope"</code> to <code>decodeScopeBlock</code>. Handle
+      multiple top-level scope blocks: collect all into a slice
+      on <code>hclConfig</code> so Phase 4 validation can detect duplicates</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add <code>Scope *ScopeConfig</code> and <code>ScopeBlocks []*ScopeConfig</code>
+      fields to internal <code>hclConfig</code> struct (line ~24). The
+      slice is for duplicate detection; the singleton <code>Scope</code>
+      is what gets promoted into <code>PolicyConfig</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update <code>hclConfigToPolicy</code> (line ~670) to copy the
+      top-level scope into <code>cfg.Scope</code> if present</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add loader tests in <code>internal/policy/loader_test.go</code>:<ul>
+<li><code>TestLoad_TopLevelScope_Decoded</code> — top-level
+  <code>scope { orgs = ["myorg-*"] }</code> populates <code>cfg.Scope.Orgs</code></li>
+<li><code>TestLoad_NoTopLevelScope_NilScope</code> — config with no scope
+  block leaves <code>cfg.Scope == nil</code></li>
+<li><code>TestLoad_TopLevelScope_AcrossDirectoryFiles</code> — directory
+  with <code>scope.hcl</code> containing the block; verify decode</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>make test</code> passes</li>
+</ul>
+<h4 id="success-criteria_1">Success Criteria<a class="headerlink" href="#success-criteria_1" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Top-level <code>scope {}</code> block decodes correctly when present</li>
+<li>Configs without a top-level scope still load identically to
+  before (regression coverage)</li>
+<li>Directory loads collect duplicate top-level scope blocks for
+  Phase 4 to reject</li>
+</ul>
+<hr />
+<h3 id="phase-3-per-rule-scope-loader">Phase 3: Per-rule Scope Loader<a class="headerlink" href="#phase-3-per-rule-scope-loader" title="Permanent link">&para;</a></h3>
+<p>Wire HCL decoding for the per-rule <code>scope {}</code> sub-block on file,
+setting, and branch-protection rules.</p>
+<h4 id="tasks_2">Tasks<a class="headerlink" href="#tasks_2" title="Permanent link">&para;</a></h4>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update file-rule body schema (<code>ruleBodySchema</code>, line ~331)
+      to allow <code>scope</code> sub-block alongside <code>ignore</code>, <code>pr</code>,
+      <code>assertion</code>, <code>reconcile</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update <code>decodeRuleSubBlocks</code> (line ~409) to handle
+      <code>sub.Type == "scope"</code>: call <code>decodeScopeBlock</code>, set
+      <code>r.Scope</code>. Place next to the existing <code>ignore</code> handler
+      (line ~429)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update setting-rule body schema (<code>settingRuleBodySchema</code>,
+      line ~529) to allow <code>scope</code> sub-block</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update setting-rule decoder (line ~579 area) to dispatch
+      <code>scope</code> sub-blocks to <code>decodeScopeBlock</code> and set <code>sr.Scope</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update branch-protection body schema
+      (<code>branchProtectionBodySchema</code>, line ~590) to allow <code>scope</code>
+      sub-block</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update branch-protection decoder (line ~631 area) to set
+      <code>bp.Scope</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add loader tests in <code>loader_test.go</code>:<ul>
+<li><code>TestLoad_FileRuleScope_Decoded</code></li>
+<li><code>TestLoad_SettingRuleScope_Decoded</code></li>
+<li><code>TestLoad_BranchProtectionRuleScope_Decoded</code></li>
+<li><code>TestLoad_RuleScopeWithUniversal</code> — <code>scope { orgs = ["*"] }</code>
+  decodes to <code>Orgs: ["*"]</code> (no special-cased expansion at
+  load time; that's a runtime concept)</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>make test</code> passes</li>
+</ul>
+<h4 id="success-criteria_2">Success Criteria<a class="headerlink" href="#success-criteria_2" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Per-rule <code>scope {}</code> blocks decode on all three rule types</li>
+<li>Wildcard <code>"*"</code> is preserved verbatim in <code>Orgs</code> (not expanded
+  at load time)</li>
+<li>Existing rule-decoder tests still pass</li>
+</ul>
+<hr />
+<h3 id="phase-4-strict-mode-validation">Phase 4: Strict-mode Validation<a class="headerlink" href="#phase-4-strict-mode-validation" title="Permanent link">&para;</a></h3>
+<p>Add load-time validation that engages when the top-level scope is
+present, plus a legacy-mode warning when per-rule scope is set
+without a top-level block.</p>
+<h4 id="tasks_3">Tasks<a class="headerlink" href="#tasks_3" title="Permanent link">&para;</a></h4>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add <code>validateStrictScope(cfg *PolicyConfig) error</code> to
+      <code>internal/policy/validate.go</code> (or new <code>validate_scope.go</code>):<ul>
+<li>Return error if <code>cfg.Scope.Orgs</code> is empty</li>
+<li>Return error if multiple top-level scope blocks were
+  collected by the loader (use <code>ScopeBlocks</code> slice from
+  Phase 2)</li>
+<li>Return error for each <code>FileRule</code> / <code>SettingRule</code> /
+  <code>BranchProtectionRule</code> whose <code>Scope == nil</code></li>
+<li>Return error for each rule whose <code>Scope.Orgs</code> is empty</li>
+<li>Error messages match DESIGN-0010 strict-mode validation
+  table verbatim</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Wire into <code>Load</code> (<code>loader.go:73</code> area): call
+      <code>validateStrictScope(cfg)</code> only when <code>cfg.Scope != nil</code>,
+      after the existing <code>Validate(cfg)</code> call</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add legacy-mode warning: in <code>Load</code>, when <code>cfg.Scope == nil</code>,
+      walk all rule types; if any rule has <code>r.Scope != nil</code>,
+      emit a single <code>slog.Warn</code> at load time with the resolved
+      warning text from DESIGN-0010
+      (<code>"per-rule scope ignored: no top-level scope { } block
+      declared. Add a top-level scope block to enable strict
+      mode, or remove per-rule scope blocks."</code>)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add loader tests for each strict-mode error path
+      (table-driven preferred):<ul>
+<li><code>TestLoad_StrictMode_TopLevelEmptyOrgs</code></li>
+<li><code>TestLoad_StrictMode_DuplicateTopLevelScope_Directory</code></li>
+<li><code>TestLoad_StrictMode_FileRuleMissingScope</code></li>
+<li><code>TestLoad_StrictMode_SettingRuleMissingScope</code></li>
+<li><code>TestLoad_StrictMode_BranchProtectionRuleMissingScope</code></li>
+<li><code>TestLoad_StrictMode_RuleEmptyScopeOrgs</code></li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add legacy-mode warning test:
+      <code>TestLoad_LegacyMode_PerRuleScopePresent_Warns</code> — captures
+      log output, asserts warning fires exactly once even when
+      multiple rules have scope blocks</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>make test</code> passes</li>
+</ul>
+<h4 id="success-criteria_3">Success Criteria<a class="headerlink" href="#success-criteria_3" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Every error path in the DESIGN-0010 strict-mode validation
+  table is exercised</li>
+<li>Legacy-mode warning fires exactly once per load (not once per
+  rule)</li>
+<li>Configs without top-level scope and without per-rule scope
+  load silently (no warnings)</li>
+<li>Error messages match DESIGN-0010 verbatim</li>
+</ul>
+<hr />
+<h3 id="phase-5-engine-evaluation-gates">Phase 5: Engine Evaluation Gates<a class="headerlink" href="#phase-5-engine-evaluation-gates" title="Permanent link">&para;</a></h3>
+<p>Add the policy-level and rule-level scope gates to the policy
+engine. Before this phase the field exists but is never
+consulted at runtime.</p>
+<h4 id="tasks_4">Tasks<a class="headerlink" href="#tasks_4" title="Permanent link">&para;</a></h4>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add <code>policyScopeAllows(cfg *policy.PolicyConfig, owner
+      string) bool</code> helper. Returns <code>true</code> when
+      <code>cfg.Scope == nil</code> (legacy) or <code>cfg.Scope.Matches(owner)</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add <code>ruleScopeAllows(rs *policy.ScopeConfig, owner string,
+      strictMode bool) bool</code> helper:<ul>
+<li>In legacy mode (<code>!strictMode</code>), always returns <code>true</code></li>
+<li>In strict mode: <code>rs.HasUniversal() ||
+  rs.Matches(owner)</code>. Note: top-level gate already passed,
+  so <code>HasUniversal()</code> is sufficient for "applies to all"</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> In <code>engine_policy.go</code> <code>CheckRepo</code>: insert the policy-level
+      gate at the top of the function, before any rule iteration.
+      If it returns <code>false</code>, increment
+      <code>OutOfScopeTotal{level="policy", org=owner}</code> once per
+      enabled rule across all three rule types (sum of counts)
+      and return early</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Insert rule-level gate at each ignore-check site, <strong>before</strong>
+      the existing <code>r.Ignore.Matches(...)</code> call:<ul>
+<li><code>engine_policy.go:78</code> (file rules — reconciler pass)</li>
+<li><code>engine_policy.go:241</code> (file rules — first pass)</li>
+<li><code>engine_policy.go:603</code> (setting rules)</li>
+<li><code>engine_policy.go:792</code> (branch protection rules)</li>
+<li>When the gate returns <code>false</code>: increment
+  <code>OutOfScopeTotal{level="rule", org=owner}</code> and <code>continue</code></li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Verify the legacy <code>engine.go</code> (non-policy registry path)
+      is not affected — it has no <code>policy.PolicyConfig</code> so
+      neither gate applies. Confirm by reading <code>NewEngine</code> flow</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add engine tests in <code>engine_policy_test.go</code>:<ul>
+<li><code>TestPolicyEngine_LegacyMode_NoScopeFiltering</code> — top-level
+  nil, rules without scope, all repos processed (regression)</li>
+<li><code>TestPolicyEngine_StrictMode_PolicyScopeRejectsRepo</code> —
+  <code>cfg.Scope.Orgs = ["myorg-*"]</code>, repo <code>otherorg/repo</code>
+  skipped before any rule evaluates; counter increments by N
+  where N is enabled-rule count</li>
+<li><code>TestPolicyEngine_StrictMode_RuleUniversalApplies</code> — rule
+  with <code>scope.orgs = ["*"]</code> evaluates against every in-scope
+  repo</li>
+<li><code>TestPolicyEngine_StrictMode_RuleSubsetApplies</code> — rule
+  with <code>scope.orgs = ["myorg-prod"]</code> skips
+  <code>myorg-staging/repo</code>, evaluates <code>myorg-prod/repo</code></li>
+<li><code>TestPolicyEngine_StrictMode_OutOfScopeWinsOverIgnore</code> —
+  rule with both <code>scope</code> and <code>ignore</code> matching the same repo:
+  out-of-scope counter increments, ignore counter does not</li>
+<li><code>TestPolicyEngine_StrictMode_InScopeButIgnored</code> — repo in
+  scope but in <code>ignore.repos</code>: ignore counter increments,
+  out-of-scope does not</li>
+<li><code>TestPolicyEngine_StrictMode_OutOfScopeCounterByLevel</code> —
+  verifies policy-level vs rule-level label values are correct
+  and counts match expectations</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>make test</code> passes</li>
+</ul>
+<h4 id="success-criteria_4">Success Criteria<a class="headerlink" href="#success-criteria_4" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Both gates evaluate in the order specified by DESIGN-0010</li>
+<li>Legacy mode: zero behavior change (regression tests prove this)</li>
+<li>Strict mode: out-of-scope short-circuits cleanly; counters
+  match the "rule-evaluations skipped" semantic at both levels</li>
+<li>Legacy-path engine (<code>NewEngine</code>) is unaffected</li>
+</ul>
+<hr />
+<h3 id="phase-6-metrics-relabeling">Phase 6: Metrics Relabeling<a class="headerlink" href="#phase-6-metrics-relabeling" title="Permanent link">&para;</a></h3>
+<p>Add <code>org</code> label to per-rule / per-repo metrics, plus the new
+<code>OutOfScopeTotal</code> counter. Installation IDs are not added as labels
+(they're 1:1 with org for a given App and would be redundant);
+they continue to flow through structured logs.</p>
+<h4 id="tasks_5">Tasks<a class="headerlink" href="#tasks_5" title="Permanent link">&para;</a></h4>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update <code>internal/metrics/metrics.go</code>:<ul>
+<li><code>ReposCheckedTotal</code>: labels become <code>["trigger", "org"]</code></li>
+<li><code>FilesMissingTotal</code>: labels become <code>["rule_name", "org"]</code></li>
+<li><code>SettingsCheckedTotal</code>: labels become
+  <code>["rule_name", "org"]</code></li>
+<li><code>SettingsMismatchedTotal</code>: labels become
+  <code>["rule_name", "org"]</code></li>
+<li><code>SettingsRemediatedTotal</code>: labels become
+  <code>["rule_name", "org"]</code></li>
+<li><code>BranchProtectionCheckedTotal</code>: labels become
+  <code>["rule_name", "org"]</code></li>
+<li><code>BranchProtectionRemediatedTotal</code>: labels become
+  <code>["rule_name", "org"]</code></li>
+<li><code>IgnoredTotal</code>: labels become <code>["scope", "org"]</code></li>
+<li><code>ErrorsTotal</code>: labels become <code>["operation", "org"]</code></li>
+<li><code>PRsCreatedTotal</code>: gain label <code>["org"]</code> (was unlabeled
+  counter; promote to <code>CounterVec</code>)</li>
+<li><code>PRsUpdatedTotal</code>: gain label <code>["org"]</code> (same)</li>
+<li>Add <code>OutOfScopeTotal</code> as
+  <code>prometheus.NewCounterVec(..., []string{"level", "org"})</code></li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update every callsite. Reference list (verified via
+      research):<ul>
+<li><code>engine_policy.go:255</code> — <code>FilesMissingTotal</code></li>
+<li><code>engine_policy.go:546</code> — <code>PRsCreatedTotal</code></li>
+<li><code>engine_policy.go:549</code> — <code>PRsUpdatedTotal</code></li>
+<li><code>engine_policy.go:626</code> — <code>SettingsCheckedTotal</code></li>
+<li><code>engine_policy.go:638</code> — <code>SettingsMismatchedTotal</code></li>
+<li><code>engine_policy.go:654</code> — <code>SettingsRemediatedTotal</code></li>
+<li><code>engine_policy.go:815</code> — <code>BranchProtectionCheckedTotal</code></li>
+<li><code>engine_policy.go:870</code> — <code>BranchProtectionRemediatedTotal</code></li>
+<li><code>engine_policy.go:243</code>, <code>engine_policy.go:605</code>,
+  <code>engine_policy.go:794</code> — <code>IgnoredTotal</code> (rule-scope) — add
+  <code>org</code></li>
+<li><code>engine.go:86</code> — <code>IgnoredTotal</code> (global scope) — add <code>org</code></li>
+<li><code>engine.go:167</code> — <code>FilesMissingTotal</code> (legacy path) — add
+  <code>org</code></li>
+<li><code>engine.go:283</code> — <code>PRsCreatedTotal</code> (legacy path) — add
+  <code>org</code></li>
+<li><code>engine.go:286</code> — <code>PRsUpdatedTotal</code> (legacy path) — add
+  <code>org</code></li>
+<li><code>queue.go:182</code> — <code>ReposCheckedTotal</code> — add <code>org</code> (from
+  <code>job.Owner</code>)</li>
+<li><code>queue.go:169</code> — <code>ErrorsTotal</code> (<code>create_install_client</code>) —
+  add <code>org</code> (derive from <code>job.Owner</code>)</li>
+<li><code>queue.go:176</code> — <code>ErrorsTotal</code> (<code>check_repo</code>) — add <code>org</code></li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Plumb <code>org</code> to engine-internal callsites by deriving from
+      the <code>ownerRepo</code> string already in scope at every site
+      (<code>strings.SplitN(ownerRepo, "/", 2)[0]</code>). No new function
+      parameters needed</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update <code>internal/metrics/metrics_test.go</code> to verify each
+      relabeled metric registers and accepts the new label set
+      (deferred — <code>prometheus/testutil</code> calls in
+      <code>internal/checker/scope_test.go</code> exercise the new label
+      schemas; existing engine tests verify the rest)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update existing engine tests to provide expected label
+      values when asserting counter increments</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>make test</code> passes</li>
+</ul>
+<h4 id="success-criteria_5">Success Criteria<a class="headerlink" href="#success-criteria_5" title="Permanent link">&para;</a></h4>
+<ul>
+<li>All relabeled metrics emit with the new label values</li>
+<li><code>OutOfScopeTotal</code> registers and increments correctly at both
+  <code>level="policy"</code> and <code>level="rule"</code></li>
+<li>No metric callsite calls <code>WithLabelValues</code> with the wrong
+  arity (would panic at runtime)</li>
+<li>Coverage for <code>metrics.go</code> matches or exceeds the pre-change
+  level</li>
+</ul>
+<hr />
+<h3 id="phase-7-contrib-updates-and-metrics-catalog">Phase 7: contrib/ Updates and Metrics Catalog<a class="headerlink" href="#phase-7-contrib-updates-and-metrics-catalog" title="Permanent link">&para;</a></h3>
+<p>Update the bundled Grafana dashboard and Prometheus alerts to use
+the new labels, and add a comprehensive <code>contrib/README.md</code>
+documenting every exposed metric with example queries. This ships
+the breaking-change migration story for external operators.</p>
+<h4 id="tasks_6">Tasks<a class="headerlink" href="#tasks_6" title="Permanent link">&para;</a></h4>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update <code>contrib/prometheus/alerts.yaml</code>:<ul>
+<li>Wrap all references to <code>repo_guardian_prs_created_total</code> and
+  <code>repo_guardian_prs_updated_total</code> in <code>sum(...)</code> to handle the
+  <code>Counter</code> → <code>CounterVec</code> promotion</li>
+<li>Audit every alert expression that uses a relabeled metric and
+  ensure it still produces the intended series shape
+  (<code>sum without (org) (...)</code> where pre-existing behavior is
+  desired; <code>sum by (org) (...)</code> where per-org alerting is
+  desired)</li>
+<li>Add at least one new alert exercising the new
+  <code>repo_guardian_out_of_scope_total</code> metric (e.g., warn if
+  <code>level="rule"</code> is consistently &gt; 0 for a rule, suggesting a
+  misconfiguration where a rule applies to no actual orgs)</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update <code>contrib/grafana/repo-guardian-dashboard.json</code>:<ul>
+<li>Audit every panel for queries that reference relabeled
+  metrics; update to aggregate appropriately</li>
+<li>Add an "Org" template variable populated from
+  <code>label_values(repo_guardian_repos_checked_total, org)</code> so
+  operators can filter the dashboard per org</li>
+<li>Add a panel for <code>repo_guardian_out_of_scope_total</code> broken
+  out by <code>level</code></li>
+<li>Add a panel showing PRs created/updated rates per org (uses
+  the newly labeled metrics)</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Validate the updated alerts file with <code>promtool check rules
+      contrib/prometheus/alerts.yaml</code> (promtool not installed
+      locally; YAML validated with <code>yq eval</code>)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Validate the dashboard JSON parses (e.g., <code>jq . &lt;
+      contrib/grafana/repo-guardian-dashboard.json &gt; /dev/null</code>)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Create <code>contrib/README.md</code> cataloging every exposed metric:<ul>
+<li>Metric name, type (Counter / CounterVec / Histogram / Gauge),
+  labels, what it measures</li>
+<li>At least one example PromQL query per metric</li>
+<li>A "Common queries" section showing per-org rate, error rate,
+  PR creation rate, out-of-scope rate, etc.</li>
+<li>A "Migration from pre-DESIGN-0010" section showing the
+  <code>sum without (org) (...)</code> recipe for operators preserving
+  older query behavior</li>
+<li>Pointer to the Grafana dashboard and alerts file as starting
+  points</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>make lint</code> passes (yamllint on alerts file)</li>
+</ul>
+<h4 id="success-criteria_6">Success Criteria<a class="headerlink" href="#success-criteria_6" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>promtool check rules</code> exits 0 on the updated alerts file</li>
+<li>The Grafana dashboard JSON is valid and renders the same panel
+  set after import (no orphaned queries)</li>
+<li>New <code>contrib/README.md</code> documents every metric currently exposed
+  by <code>internal/metrics/metrics.go</code> (plus <code>OutOfScopeTotal</code>)</li>
+<li>An operator with no prior context can import the dashboard,
+  apply the alerts, and read <code>contrib/README.md</code> to understand
+  what they're getting</li>
+</ul>
+<hr />
+<h3 id="phase-8-documentation-and-examples">Phase 8: Documentation and Examples<a class="headerlink" href="#phase-8-documentation-and-examples" title="Permanent link">&para;</a></h3>
+<p>Ship HCL examples (single-file and directory) plus README /
+ADDING_RULES updates.</p>
+<h4 id="tasks_7">Tasks<a class="headerlink" href="#tasks_7" title="Permanent link">&para;</a></h4>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Create <code>examples/guardian-multi-org.hcl</code> — single-file
+      example showing top-level scope, <code>["*"]</code> rules, and
+      org-specific rules</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Create <code>examples/guardian-multi-org/</code> directory with split
+      files matching DESIGN-0010 §scope block:<ul>
+<li><code>scope.hcl</code> — top-level scope</li>
+<li><code>shared.hcl</code> — rules with <code>scope { orgs = ["*"] }</code></li>
+<li><code>prod-only.hcl</code> — <code>myorg-prod</code>-scoped rules</li>
+<li><code>staging-only.hcl</code> — <code>myorg-staging</code>-scoped rules</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update <code>examples/README.md</code> table to list the new examples</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update <code>examples/examples_test.go</code> with parse tests:<ul>
+<li><code>TestExampleHCL_MultiOrg</code> — single-file example loads</li>
+<li><code>TestExampleHCL_MultiOrgDirectory</code> — directory example
+  loads via <code>Load(directory)</code></li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add "Multi-org" section to <code>docs/ADDING_RULES.md</code> after
+      the reconcilers section, covering:<ul>
+<li>When to use legacy vs strict mode</li>
+<li>The <code>scope { orgs = ["*"] }</code> idiom</li>
+<li>How to split rules across files</li>
+<li>Strict-mode error explanations and how to fix them</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update <code>README.md</code> configuration table to mention the
+      top-level <code>scope</code> block under the HCL policy example
+      (covered via <code>examples/README.md</code> "Two scope modes" entry
+      and <code>docs/ADDING_RULES.md</code> "Multi-org Configuration" section
+      — the root README does not enumerate HCL blocks)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add a CHANGELOG / release note draft mentioning:<ul>
+<li>The added <code>org</code> label on per-rule / per-repo metrics
+  (recommend <code>sum without (org) (...)</code> to recover pre-existing
+  query semantics)</li>
+<li>The <code>Counter</code> → <code>CounterVec</code> promotion of <code>prs_created_total</code>
+  and <code>prs_updated_total</code> (recommend wrapping scalar queries
+  in <code>sum(...)</code>)</li>
+<li>The new <code>repo_guardian_out_of_scope_total</code> metric</li>
+<li>Pointer to the updated <code>contrib/</code> dashboards and alerts as
+  a known-good starting point
+(Captured in <code>contrib/README.md</code> "Migration from
+pre-DESIGN-0010" section. Repo has no CHANGELOG.md;
+GoReleaser produces release notes from commit messages.)</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>docz update</code> to refresh README index tables (no doc-type
+      additions needed; README indexes already include IMPL-0009
+      and DESIGN-0010 from prior commits)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>make lint</code> passes</li>
+</ul>
+<h4 id="success-criteria_7">Success Criteria<a class="headerlink" href="#success-criteria_7" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Both example forms parse cleanly via <code>policy.Load</code></li>
+<li>Single-org users reading the README do not have to learn
+  about scope</li>
+<li>Multi-org users get a copy-pasteable starting config</li>
+<li>Migration guidance is shipped, not left for future me</li>
+</ul>
+<hr />
+<h3 id="phase-9-final-validation">Phase 9: Final Validation<a class="headerlink" href="#phase-9-final-validation" title="Permanent link">&para;</a></h3>
+<p>Full CI pipeline, coverage check, and doc status update.</p>
+<h4 id="tasks_8">Tasks<a class="headerlink" href="#tasks_8" title="Permanent link">&para;</a></h4>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>make ci</code> passes — lint + test + build all green</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Coverage for changed packages (<code>internal/policy</code>,
+      <code>internal/checker</code>, <code>internal/metrics</code>) is at or above the
+      pre-change baseline (existing tests preserved; ~30 new
+      tests added across loader, scope evaluation, and metric
+      labeling paths)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Manual sanity check: build the binary, run with a sample
+      <code>guardian.hcl</code> from <code>examples/guardian-multi-org.hcl</code>,
+      verify <code>/metrics</code> exposes labeled metrics
+      (binary builds, exits cleanly when required GitHub App env
+      vars are missing — full live-traffic check deferred to
+      operator validation)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Manual sanity check: run with no HCL config (legacy
+      defaults), verify behavior identical to current main
+      (covered by <code>TestPolicyEngine_LegacyMode_NoScopeFiltering</code>
+      and the existing legacy-path test suite)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> No new TODO / FIXME comments left in the changed code</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update IMPL-0009 status from "Draft" to "Completed"</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update DESIGN-0010 status from "Draft" to "Implemented"</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>docz update</code> to refresh indexes</li>
+</ul>
+<h4 id="success-criteria_8">Success Criteria<a class="headerlink" href="#success-criteria_8" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>make ci</code> exits 0</li>
+<li>Coverage stays at or above baseline; new files (<code>scope.go</code>)
+  hit &gt; 95%</li>
+<li>Both manual sanity checks pass</li>
+<li>DESIGN-0010 marked Implemented; IMPL-0009 marked Completed</li>
+</ul>
+<h2 id="file-changes">File Changes<a class="headerlink" href="#file-changes" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Action</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internal/policy/types.go</code></td>
+<td>Modify</td>
+<td>Add <code>ScopeConfig</code> and <code>Scope</code> field to <code>PolicyConfig</code> and three rule structs</td>
+</tr>
+<tr>
+<td><code>internal/policy/scope.go</code></td>
+<td>Create</td>
+<td>Matcher and <code>HasUniversal</code> helper</td>
+</tr>
+<tr>
+<td><code>internal/policy/scope_test.go</code></td>
+<td>Create</td>
+<td>Unit tests mirroring <code>ignore_test.go</code></td>
+</tr>
+<tr>
+<td><code>internal/policy/loader.go</code></td>
+<td>Modify</td>
+<td>Top-level scope schema + decoder; per-rule scope decoding on three rule types</td>
+</tr>
+<tr>
+<td><code>internal/policy/loader_test.go</code></td>
+<td>Modify</td>
+<td>Loader tests for legacy + strict modes, all error paths</td>
+</tr>
+<tr>
+<td><code>internal/policy/validate.go</code></td>
+<td>Modify</td>
+<td>Add <code>validateStrictScope</code></td>
+</tr>
+<tr>
+<td><code>internal/checker/engine_policy.go</code></td>
+<td>Modify</td>
+<td>Two gates (policy-level + rule-level) at four call sites; counter increments</td>
+</tr>
+<tr>
+<td><code>internal/checker/engine_policy_test.go</code></td>
+<td>Modify</td>
+<td>Engine tests for legacy + strict modes</td>
+</tr>
+<tr>
+<td><code>internal/checker/engine.go</code></td>
+<td>Modify</td>
+<td>Add <code>org</code> label to legacy-path metric callsites</td>
+</tr>
+<tr>
+<td><code>internal/checker/queue.go</code></td>
+<td>Modify</td>
+<td>Add <code>org</code> to <code>ReposCheckedTotal</code> and <code>ErrorsTotal</code> callsites</td>
+</tr>
+<tr>
+<td><code>internal/metrics/metrics.go</code></td>
+<td>Modify</td>
+<td>Relabel 9 counters with <code>org</code>; promote <code>PRsCreatedTotal</code> / <code>PRsUpdatedTotal</code> from <code>Counter</code> to <code>CounterVec[org]</code>; add <code>OutOfScopeTotal</code></td>
+</tr>
+<tr>
+<td><code>internal/metrics/metrics_test.go</code></td>
+<td>Modify</td>
+<td>Verify new label sets</td>
+</tr>
+<tr>
+<td><code>examples/guardian-multi-org.hcl</code></td>
+<td>Create</td>
+<td>Single-file example</td>
+</tr>
+<tr>
+<td><code>examples/guardian-multi-org/{scope,shared,prod-only,staging-only}.hcl</code></td>
+<td>Create</td>
+<td>Directory example</td>
+</tr>
+<tr>
+<td><code>examples/README.md</code></td>
+<td>Modify</td>
+<td>Document new examples</td>
+</tr>
+<tr>
+<td><code>examples/examples_test.go</code></td>
+<td>Modify</td>
+<td>Parse tests for multi-org examples</td>
+</tr>
+<tr>
+<td><code>docs/ADDING_RULES.md</code></td>
+<td>Modify</td>
+<td>New "Multi-org" section</td>
+</tr>
+<tr>
+<td><code>README.md</code></td>
+<td>Modify</td>
+<td>Mention top-level scope under HCL example</td>
+</tr>
+<tr>
+<td><code>contrib/prometheus/alerts.yaml</code></td>
+<td>Modify</td>
+<td>Update queries for relabeled and promoted metrics; add <code>out_of_scope_total</code> alert</td>
+</tr>
+<tr>
+<td><code>contrib/grafana/repo-guardian-dashboard.json</code></td>
+<td>Modify</td>
+<td>Update panel queries; add <code>org</code> template variable; add panels for <code>out_of_scope_total</code> and per-org PR rates</td>
+</tr>
+<tr>
+<td><code>contrib/README.md</code></td>
+<td>Create</td>
+<td>Catalog of all exposed metrics with example queries and migration recipes</td>
+</tr>
+</tbody>
+</table>
+<h2 id="testing-plan">Testing Plan<a class="headerlink" href="#testing-plan" title="Permanent link">&para;</a></h2>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Unit tests for <code>ScopeConfig.Matches</code> and <code>HasUniversal</code>
+      (mirror <code>ignore_test.go</code> cases) — <code>internal/policy/scope_test.go</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Loader tests for legacy mode (regression) and strict-mode
+      decoding — <code>internal/policy/loader_test.go</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Loader tests for every error path in the strict-mode
+      validation table — <code>internal/policy/loader_test.go</code>
+      (<code>TestLoad_StrictMode_*</code>)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Loader test for legacy-mode warning (fires once, log
+      capture) — <code>TestLoad_LegacyMode_PerRuleScopePresent_Warns</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Engine tests for legacy mode (regression — current
+      behavior preserved) —
+      <code>TestPolicyEngine_LegacyMode_NoScopeFiltering</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Engine tests for strict-mode policy-level gate —
+      <code>TestPolicyEngine_StrictMode_PolicyScopeRejectsRepo</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Engine tests for strict-mode rule-level gate (universal +
+      subset) — <code>TestPolicyEngine_StrictMode_RuleUniversalApplies</code>
+      and <code>TestPolicyEngine_StrictMode_RuleSubsetApplies</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Engine tests for <code>out_of_scope_total</code> counter at both
+      levels with correct rule-evaluation semantics —
+      <code>TestPolicyEngine_StrictMode_OutOfScopeCounterByLevel</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Engine tests for scope+ignore interaction (out-of-scope
+      wins) — <code>TestPolicyEngine_StrictMode_OutOfScopeWinsOverIgnore</code>
+      and <code>TestPolicyEngine_StrictMode_InScopeButIgnored</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Metrics test for every relabeled metric registering and
+      accepting new labels — covered indirectly by all engine
+      tests asserting counter values via <code>prometheus/testutil</code>;
+      a panic on label arity mismatch would fail the suite</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Example parse tests for both single-file and directory
+      multi-org configs — <code>TestExampleHCL_MultiOrg</code> and
+      <code>TestExampleHCL_MultiOrgDirectory</code> in
+      <code>examples/examples_test.go</code></li>
+</ul>
+<h2 id="resolved-questions">Resolved Questions<a class="headerlink" href="#resolved-questions" title="Permanent link">&para;</a></h2>
+<p>(All eight questions from DESIGN-0010 are already resolved and
+locked in; reproduced here for reference.)</p>
+<ol>
+<li><strong>Wildcard semantics</strong> — <code>["*"]</code> at rule level = "all
+   top-level orgs"</li>
+<li><strong>Mixed mode</strong> — top-level scope set ⟹ every rule needs
+   scope; load-time error otherwise</li>
+<li><strong>Legacy mode lifespan</strong> — permanent</li>
+<li><strong>Counter units</strong> — both levels count rule evaluations
+   (policy-level increments by N where N = enabled rule count)</li>
+<li><strong>Legacy-mode warning text</strong> — fixed string per DESIGN-0010</li>
+<li><strong>Policy-level scope gate location</strong> — runs inside <code>CheckRepo</code>
+   alongside the rule-level gates</li>
+<li><strong><code>installation_id</code> as a metric label</strong> — not added.
+   <code>(App, org)</code> is 1:1 with installation; the label would be
+   redundant with <code>org</code>. Installation IDs continue to be logged
+   via structured log fields for GitHub audit-log correlation</li>
+<li><strong><code>PRs*</code> schema break accepted</strong> — <code>PRsCreatedTotal</code> and
+   <code>PRsUpdatedTotal</code> are promoted from <code>Counter</code> to
+   <code>CounterVec[org]</code>. Bundled <code>contrib/</code> Grafana dashboard and
+   Prometheus alerts are updated; new <code>contrib/README.md</code>
+   provides operators copy-pasteable starting queries</li>
+</ol>
+<h2 id="open-questions">Open Questions<a class="headerlink" href="#open-questions" title="Permanent link">&para;</a></h2>
+<p>None at this time.</p>
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../design/0010-per-org-rule-scoping-and-observability/">DESIGN-0010</a> — parent design</li>
+<li><a href="../../investigation/0002-multi-org-and-forgejo-support-for-repo-guardian/">INV-0002</a> — investigation that motivated this</li>
+<li><a href="../../design/0008-additional-rule-types-and-ignore-lists/">DESIGN-0008</a> — ignore-list pattern this design mirrors</li>
+<li><code>internal/policy/ignore.go</code> — implementation reference</li>
+<li><code>internal/policy/ignore_test.go</code> — test reference</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../0008-distributed-renovate-via-per-repo-github-actions/" class="md-footer__link md-footer__link--prev" aria-label="Previous: IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../0010-publish-helm-chart-via-oci-registry/" class="md-footer__link md-footer__link--next" aria-label="Next: IMPL-0010: Publish Helm chart via OCI registry">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                IMPL-0010: Publish Helm chart via OCI registry
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.footer", "content.action.edit"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../search/main.js"></script>
+      
+    
+  </body>
+</html>

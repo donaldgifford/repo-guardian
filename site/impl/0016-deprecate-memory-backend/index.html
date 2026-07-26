@@ -1,0 +1,4283 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+        <link rel="prev" href="../0015-stale-sweep-cutover-and-repository-discovery/">
+      
+      
+        <link rel="next" href="../0017-configurable-annotation-sourced-custom-properties/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Deprecate memory backend - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#impl-0016-deprecate-memory-backend" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Deprecate memory backend
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started with repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference (guardian.hcl)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0010-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0010: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0011-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0011: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0012-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0012: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0013-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0013: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0015-per-installation-valkey-queue-partitioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0015: Per-installation Valkey queue partitioning
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0016-separate-postgres-read-and-write-endpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0016: Separate Postgres read and write endpoints
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0017-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0017: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0018-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0018: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0019-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0019: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0020-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0020: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0009-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0009: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0010-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0010: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0011-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0011: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0012-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0012: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0013-reconcile-open-prs-when-file-rules-become-satisfied/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0013: Reconcile open PRs when file rules become satisfied
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0015-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0015: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Progress"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0016: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0016: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sequencing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sequencing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-removal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Removal
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Removal">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0017-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0017: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0018-fix-silently-ignored-operator-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0018: Fix silently ignored operator config
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0019-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0019: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0020-pre-impl-0019-high-severity-fixes-inv-0011-group-a-high/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0020: Pre-IMPL-0019 high-severity fixes (INV-0011 Group A High)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0021: Post-IMPL-0019 hardening and structural cleanup (INV-0011 Group A Medium + Group B)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0002-multi-org-and-forgejo-support-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0002: Multi-org and Forgejo support for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0003-pre-existing-branch-422-on-subsequent-reconciles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0003: Pre-existing branch 422 on subsequent reconciles
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0004-forge-interface-and-package-refactor-for-forgejo-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0004: Forge interface and package refactor for Forgejo backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0005-stale-prs-when-file-rules-become-satisfied-on-main/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0005: Stale PRs when file rules become satisfied on main
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0006-per-org-github-app-credentials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0006: Per-org GitHub App credentials
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Deferred"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0007-gitlab-forge-backend-support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0007: GitLab provider backend support
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0008-annotation-sourced-custom-properties-should-be-configurable-not/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0008: Annotation-sourced custom properties should be configurable, not hardcoded
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0009-read-only-status-api-and-web-ui-options/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0009: Read-only status API and web UI options
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0010-silently-ignored-operator-config-autoclosepr-hcl-attribute-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0010: Silently ignored operator config: auto_close_pr HCL attribute and cross-mode existingSecret
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0011-tech-debt-cleanup-inventory-post-impl-0019/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0011: Tech debt cleanup inventory post IMPL-0019
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/absent-rules-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Absent rules and conditional gates migration (IMPL-0019)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/chart-0.5.0-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.5.0 migration runbook (IMPL-0011)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/pr-convergence-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/annotation-properties-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property annotation migration (appVersion 1.9.1 → next minor)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/custom-properties-security-fix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-properties security fix (IMPL-0020)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/property-name-charset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property name charset correction (IMPL-0021)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ecr-publish-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ECR publish setup (maintainer-side)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/cnpg-homelab-cutover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Homelab CNPG cutover runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postgres schema operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running repo-guardian on AWS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/template-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Template migration guide (chart 0.3.x → 0.4.0)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sequencing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sequencing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-removal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Removal
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Removal">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="impl-0016-deprecate-memory-backend">IMPL 0016: Deprecate memory backend<a class="headerlink" href="#impl-0016-deprecate-memory-backend" title="Permanent link">&para;</a></h1>
+<p><strong>Status:</strong> Completed
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-06-23</p>
+<!--toc:start-->
+<ul>
+<li><a href="#objective">Objective</a></li>
+<li><a href="#sequencing">Sequencing</a></li>
+<li><a href="#scope">Scope</a><ul>
+<li><a href="#in-scope">In Scope</a></li>
+<li><a href="#out-of-scope">Out of Scope</a></li>
+</ul>
+</li>
+<li><a href="#implementation-phases">Implementation Phases</a><ul>
+<li><a href="#phase-1-removal">Phase 1: Removal</a><ul>
+<li><a href="#tasks">Tasks</a></li>
+<li><a href="#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#file-changes">File Changes</a></li>
+<li><a href="#testing-plan">Testing Plan</a></li>
+<li><a href="#dependencies">Dependencies</a></li>
+<li><a href="#open-questions">Open Questions</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="objective">Objective<a class="headerlink" href="#objective" title="Permanent link">&para;</a></h2>
+<p>Implement <a href="../../design/0018-deprecate-memory-backend/">DESIGN-0018: Deprecate memory
+backend</a>. Remove the in-memory
+<code>store</code> / <code>queue</code> / <code>scheduler</code> backends in a single removal release. Net
+~1,600 LOC removed from the codebase plus a simpler test matrix and
+tighter startup validation.</p>
+<p><strong>Implements:</strong> DESIGN-0018 (Approved 2026-06-23)</p>
+<p>Surfaced during the DESIGN-0017 pre-implementation review (question (e))
+— the maintenance friction of keeping the dual-backend code path drove
+the user to propose memory removal. This IMPL retires
+<code>internal/store/memory/</code>, <code>internal/queue/memory/</code>,
+<code>internal/scheduler/ticker/</code>, the <code>main.go</code> backend-dispatch branches,
+and the helm-unittest cases that exercise memory shapes.</p>
+<h2 id="sequencing">Sequencing<a class="headerlink" href="#sequencing" title="Permanent link">&para;</a></h2>
+<p><strong>IMPL-0016 ships first</strong>, before IMPL-0015. Per DESIGN-0018 resolved
+<a href="../../design/0018-deprecate-memory-backend/#open-questions">OQ (g)</a>, the
+memory backend is removed before IMPL-0015's state-management work
+starts. This avoids carrying "what does memory backend do here?" branches
+through every IMPL-0015 task; IMPL-0015 lands on a clean Postgres+Valkey
+codebase.</p>
+<p>The deprecation-warning Phase 0 originally proposed here was dropped per
+DESIGN-0018 resolved <a href="../../design/0018-deprecate-memory-backend/#open-questions">OQ
+(a)</a> — there
+are no known external operators (only the homelab Postgres+Valkey
+deployment), so the deprecation window had no audience. No
+<code>slog.Warn</code>, no <code>NOTES.txt</code> banner, no chart-minor bump for warning. The
+removal lands directly as <strong>single Phase 1</strong>, tagged <code>1.0.0-rc.1</code>.</p>
+<p>Both IMPLs bundle into the <strong>1.0.0 release</strong>, validated via
+manually-tagged <code>1.0.0-rc.N</code> versions:</p>
+<table>
+<thead>
+<tr>
+<th>RC</th>
+<th>What landed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>1.0.0-rc.1</code></td>
+<td><strong>This IMPL</strong> — memory backend removed; chart defaults flipped; schema validation added; <code>docker-compose.dev.yaml</code> shipped</td>
+</tr>
+<tr>
+<td><code>1.0.0-rc.2</code></td>
+<td>IMPL-0015 Phase 0 (state writeback prerequisites)</td>
+</tr>
+<tr>
+<td><code>1.0.0-rc.3+</code></td>
+<td>IMPL-0015 Phase 1 (Discoverer + BudgetTracker)</td>
+</tr>
+<tr>
+<td><code>1.0.0</code></td>
+<td>Stable cut when all phases validated in homelab</td>
+</tr>
+</tbody>
+</table>
+<p>Binary <code>appVersion</code> stays on the 1.x line (1.8.1 → 1.9.0). Chart version
+moves to 1.0.0 to signal the meaningful operator-facing release. Binary
+v2.0.0 was deferred to avoid Go module <code>/v2</code> path migration; revisit if
+we ever expose a public library.</p>
+<h2 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h2>
+<h3 id="in-scope">In Scope<a class="headerlink" href="#in-scope" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Delete the three backend packages
+  (<code>internal/store/memory/</code>, <code>internal/queue/memory/</code>,
+  <code>internal/scheduler/ticker/</code>).</li>
+<li>Simplify <code>cmd/repo-guardian/main.go</code> backend-dispatch helpers
+  (<code>newStore</code>, <code>newQueue</code>, <code>newScheduler</code>) into straight-line code.</li>
+<li>Tighten <code>internal/config/</code> validation; <code>STORE_BACKEND=memory</code> (or
+  any deprecated value) hard-fails at startup with a migration URL.</li>
+<li>Flip chart defaults to Postgres + Valkey; add baked <code>mode=baked</code>
+  for both Postgres and Valkey.</li>
+<li>Add <code>values.schema.json</code> schema-level rejection of memory/ticker
+  values so operators see the error at <code>helm install</code> time, not pod
+  CrashLoopBackoff time.</li>
+<li>New <code>docker-compose.dev.yaml</code> at repo root + <code>make dev-services</code> /
+  <code>make dev-stop</code> targets so <code>make run-local</code> continues to work
+  without memory backend.</li>
+<li>Documentation sweep: README, CLAUDE.md, operations docs, chart
+  README, examples — remove memory-mode references.</li>
+<li>Migration runbook at
+  <code>docs/operations/migrations.md#removing-memory-backend</code> shipped
+  with the removal so operators upgrading from 0.7.x have a path.</li>
+<li>Chart version flip to 1.0.0 (via 1.0.0-rc.N validation); binary
+  <code>appVersion</code> bump to 1.9.0.</li>
+<li>Tighten the <code>tests/backend_shapes_test.yaml</code> helm-unittest matrix.</li>
+</ul>
+<h3 id="out-of-scope">Out of Scope<a class="headerlink" href="#out-of-scope" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Deprecation warning. No <code>slog.Warn</code>, no <code>NOTES.txt</code> banner. No
+  audience for the warning — see <a href="#sequencing">Sequencing</a> and
+  DESIGN-0018 resolved
+  <a href="../../design/0018-deprecate-memory-backend/#open-questions">OQ (a)</a>.</li>
+<li>The state-management work covered by IMPL-0015. IMPL-0015 lands
+  in subsequent <code>1.0.0-rc.N</code> tags after this IMPL ships as
+  <code>1.0.0-rc.1</code>. See <a href="#sequencing">Sequencing</a>.</li>
+<li>Removing testcontainers-based integration tests. They continue to
+  spin up real Postgres / Valkey containers in Docker.</li>
+<li>Adding a new in-process test fake to replace the memory backend.
+  Tests use mockery-generated mocks per DESIGN-0012 conventions; this
+  IMPL doesn't build a "memory backend for tests only" replacement.</li>
+<li>Supporting more backends (Redis, etcd, in-cluster sqlite, etc.).
+  Postgres + Valkey are the production targets.</li>
+<li>Touching <code>docs/legacy/</code> — that tree was retired in IMPL-0014.</li>
+</ul>
+<h2 id="implementation-phases">Implementation Phases<a class="headerlink" href="#implementation-phases" title="Permanent link">&para;</a></h2>
+<p>Single phase. The previous IMPL plan had a Phase 0 deprecation warning,
+dropped during planning per DESIGN-0018 resolved
+<a href="../../design/0018-deprecate-memory-backend/#open-questions">OQ (a)</a>. See
+<a href="#sequencing">Sequencing</a> for the full release narrative.</p>
+<hr />
+<h3 id="phase-1-removal">Phase 1: Removal<a class="headerlink" href="#phase-1-removal" title="Permanent link">&para;</a></h3>
+<p>Delete the three backend packages, simplify the dispatch helpers,
+tighten config validation, flip chart defaults, and add
+<code>docker-compose.dev.yaml</code> for local development. Chart-major bump.</p>
+<h4 id="tasks">Tasks<a class="headerlink" href="#tasks" title="Permanent link">&para;</a></h4>
+<p><strong>1.1 — <code>docker-compose.dev.yaml</code> + make targets</strong></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Create <code>docker-compose.dev.yaml</code> at the repo root (see Open
+  Question 8 for placement). Services: Postgres + Valkey with
+  sensible defaults matching <code>make test</code> env vars.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add <code>make dev-services</code> target that runs <code>docker compose -f
+  docker-compose.dev.yaml up -d</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add <code>make dev-stop</code> target that runs <code>docker compose -f
+  docker-compose.dev.yaml down</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update <code>make run-local</code> to depend on <code>dev-services</code> so
+  newcomers can <code>make run-local</code> and have services come up
+  automatically.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update README's dev-setup section to document the new
+  workflow.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Manually validate the compose flow end-to-end on a clean
+  checkout: <code>make dev-services &amp;&amp; make run-local</code>. (operator-side)</li>
+</ul>
+<p><strong>1.2 — Delete <code>internal/store/memory/</code></strong></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Delete the directory entirely (329 LOC: <code>memory.go</code> 133 LOC +
+  <code>memory_test.go</code> 196 LOC).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Remove the import from <code>cmd/repo-guardian/main.go</code> (line 30
+  per the audit).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Verify no other files import <code>internal/store/memory</code> via
+  <code>grep -r "internal/store/memory"</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>go build ./...</code> succeeds.</li>
+</ul>
+<p><strong>1.3 — Delete <code>internal/queue/memory/</code></strong></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Delete the directory (387 LOC: <code>memory.go</code> 113 + <code>memory_test.go</code>
+  274).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Remove the import from <code>main.go</code> (line 25 per audit).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Verify no other importers.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>go build ./...</code> succeeds.</li>
+</ul>
+<p><strong>1.4 — Delete <code>internal/scheduler/ticker/</code></strong></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Delete the directory (251 LOC: <code>ticker.go</code> 109 + <code>ticker_test.go</code>
+  142).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Remove the import from <code>main.go</code> (line 33 per audit).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Verify no other importers.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>go build ./...</code> succeeds.</li>
+</ul>
+<p><strong>1.5 — Delete ticker arm of scheduler contract test</strong></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Remove the <code>ticker.New()</code>-based test factory from
+  <code>internal/scheduler/contract_test.go</code> (line 94 per audit, ~22
+  LOC). The whole file was deleted — the <code>runSchedulerContract</code>
+  helper was unused once the ticker arm was gone.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> The valkey-arm in
+  <code>internal/scheduler/valkey/valkey_integration_test.go</code> is now the
+  single source of truth for contract compliance.</li>
+</ul>
+<p><strong>1.6 — Simplify <code>cmd/repo-guardian/main.go</code> dispatch helpers</strong></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>newStore()</code> (lines 354-368): delete the memory branch (lines
+  355-358). Function becomes straight-line Postgres-only. (Folded
+  into Task 1.2 commit.)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>newQueue()</code> (lines 282-314): delete the memory branch (lines
+  283-287). Function becomes straight-line Valkey-only. (Folded
+  into Task 1.3 commit; also dropped the now-unused <code>queueSize</code>
+  parameter from the signature.)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>newScheduler()</code> (lines 320-337): delete the ticker branch
+  (lines 321-325). Function becomes straight-line Valkey-only.
+  (Folded into Task 1.4 commit.)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Verify <code>funlen</code> lint doesn't trip on <code>main()</code> after the
+  simplifications (clean: <code>make lint</code> reports 0 issues).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>make lint &amp;&amp; make test</code> pass.</li>
+</ul>
+<p><strong>1.7 — Tighten <code>internal/config/</code> validation</strong></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Delete the constants <code>StoreBackendMemory</code>, <code>QueueBackendMemory</code>,
+  <code>SchedulerBackendTicker</code> from <code>internal/config/config.go</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>loadBackendConfig()</code>: defaults flip to
+  <code>postgres</code>/<code>valkey</code>/<code>valkey</code>. Operators upgrading without
+  setting env vars land in the post-IMPL-0016 configuration by
+  default (chart still ships explicit env vars).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>validateBackends()</code>: refactored into <code>validateBackend()</code>
+  helper that returns a migration-aware error for deprecated
+  values (<code>memory</code>, <code>ticker</code>) and a generic "must be X" error
+  otherwise. Error messages tighten:<ul>
+<li><code>STORE_BACKEND</code> must be <code>postgres</code>.</li>
+<li><code>QUEUE_BACKEND</code> must be <code>valkey</code>.</li>
+<li><code>SCHEDULER_BACKEND</code> must be <code>valkey</code>.</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Error messages include the migration URL (constant
+  <code>MigrationURL</code> points at the new <code>docs/operations/migrations.md</code>
+  anchor).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>STORE_DSN</code> required when <code>STORE_BACKEND=postgres</code>; same for
+  the other two backends. Validated at startup (pre-existing
+  behaviour, retained).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Updated unit tests:<ul>
+<li><code>TestLoadRejects_DeprecatedStoreBackend</code> — <code>STORE_BACKEND=memory</code>
+  → friendly startup error containing both "no longer supported"
+  and the migration URL.</li>
+<li><code>TestLoadRejects_DeprecatedSchedulerBackend</code> — same for ticker.</li>
+<li><code>TestLoadDefaults</code> updated to reflect postgres/valkey defaults
+  and supplies placeholder DSNs.</li>
+<li><code>TestLoadOverrides</code>, <code>TestLoadValkeyBackendsAcceptDSN</code>,
+  <code>TestLoadPrivateKeyFromEnvVar</code> updated to set DSN env vars
+  (validation now requires them).</li>
+</ul>
+</li>
+</ul>
+<p><strong>1.8 — Flip chart defaults</strong></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>charts/repo-guardian/values.yaml</code>:<ul>
+<li><code>store.backend: memory</code> → <code>store.backend: postgres</code>.</li>
+<li><code>store.postgres.mode: baked</code> already the default (no change
+  needed).</li>
+<li><code>queue.backend: memory</code> → <code>queue.backend: valkey</code>.</li>
+<li><code>queue.valkey.mode: baked</code> already the default (no change
+  needed).</li>
+<li><code>scheduler.backend: ticker</code> → <code>scheduler.backend: valkey</code>.</li>
+<li><code>queue.size</code> retained with a deprecation comment (chart-schema
+  compatibility; will be removed in a future chart-major).</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Regenerate chart README via <code>make helm-docs</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Verify the rendered Deployment template populates the env
+  vars from the new defaults (STORE_DSN + QUEUE_VALKEY_DSN both
+  resolve to chart-rendered Secrets out-of-the-box).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Confirm baked Postgres + baked Valkey resources render
+  out-of-the-box (<code>helm template charts/repo-guardian</code> with no
+  values overrides emits StatefulSet × 2 + chart-rendered
+  Secrets).</li>
+</ul>
+<p><strong>1.9 — JSON schema validation</strong></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Confirm whether <code>charts/repo-guardian/values.schema.json</code>
+  already exists — absent on <code>main</code>. Created a focused schema
+  covering only the backend enum fields; full-schema authoring
+  deferred.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Reject <code>memory</code> and <code>ticker</code> values in the schema:<ul>
+<li><code>store.backend</code>: enum <code>["postgres"]</code></li>
+<li><code>queue.backend</code>: enum <code>["valkey"]</code></li>
+<li><code>scheduler.backend</code>: enum <code>["valkey"]</code></li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Schema rejection verified manually via <code>helm template ...
+  --set store.backend=memory</code> → "value must be 'postgres'" error.
+  helm-unittest cannot easily assert schema-rejection (plugin
+  doesn't surface schema errors as catchable failures), so the
+  test suite documents the manual verification path inline and
+  the schema lives as the contract.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Document the schema validation in chart README — done in
+  Task 1.11 (<code>charts/repo-guardian/README.md.gotmpl</code> gained a
+  "Schema validation" subsection under "Choosing a deployment
+  shape").</li>
+</ul>
+<p><strong>1.10 — Helm-unittest rewrites</strong></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Delete the test case <code>memory shape renders only the
+  Deployment, no backing services</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Rewrite the <code>postgres backend injects STORE_DSN env var...</code>
+  case to require valkey queue.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Rewrite the <code>cnpg mode points STORE_DSN...</code> case to require
+  valkey queue.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Rewrite the <code>termination grace period...</code> case to require
+  postgres + valkey.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add new case: <code>chart with no backend values set produces
+  baked Postgres + baked Valkey resources</code> — codifies the new
+  default at the head of the suite.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Add new case: <code>chart with memory value fails schema
+  validation</code> — helm-unittest can't catch schema-validation
+  errors, so this lives as an inline comment in the suite
+  referencing the manual verification path.</li>
+</ul>
+<p><strong>1.11 — Documentation sweep</strong></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>README.md</code>: Quickstart already points at postgres+valkey
+  path (touched in Task 1.1). No further changes needed.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>CLAUDE.md</code>: Architecture section's <code>store/</code> and <code>queue/</code>
+  entries no longer mention <code>memory/</code>; <code>scheduler/</code> entry no
+  longer mentions <code>ticker/</code>. New IMPL-0016 release note block
+  added. The IMPL-0011 P4 contract-test convention block was
+  rewritten to reflect the single-backend reality.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>docs/operations/scaling.md</code>: dropped the "Memory mode is
+  single-replica" gotcha; replaced with a single-line statement
+  that backends are postgres+valkey only.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>docs/operations/aws.md</code>: spot-check confirms it already
+  describes RDS + ElastiCache for Valkey only — no memory-mode
+  references.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>docs/operations/chart-0.5.0-migration.md</code>: prepended a
+  "superseded by chart 1.0.0-rc.1" banner; flagged the
+  memory/ticker defaults paragraph as historical.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>docs/operations/cnpg-homelab-cutover.md</code>: prepended a
+  "superseded" banner; scoped the runbook to operators still on
+  chart <code>0.6.x</code> / <code>0.7.x</code> who haven't yet cut to <code>1.0</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>charts/repo-guardian/README.md.gotmpl</code>: deployment-shape
+  table no longer lists "Single-replica memory"; added a "Schema
+  validation" subsection describing the new schema rejection;
+  added a chart-1.0.0-rc.1 upgrade-notes block at the top of the
+  release notes.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>examples/</code>: grep confirms no memory-backend references.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>docs/operations/migrations.md</code>: new section
+  <code>#removing-memory-backend</code> shipped with the three migration
+  paths (baked / cnpg / external) + the dev-services workflow.
+  Includes the explicit "no data loss because the memory store
+  was never durable" note.</li>
+</ul>
+<p><strong>1.12 — Chart-major version bump</strong></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Bump chart <code>version</code> to <code>1.0.0-rc.1</code> (release-candidate path
+  to <code>1.0.0</code>; see <a href="#sequencing">Sequencing</a>).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Bump <code>appVersion</code> to <code>1.9.0</code> for the binary changes.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Update CHANGELOG entries (root + chart) with a
+  breaking-change callout (Task 1.13).</li>
+</ul>
+<p><strong>1.13 — CHANGELOG breaking-change callouts</strong></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Root <code>CHANGELOG.md</code>: <code>[1.9.0] - 2026-06-23</code> with the
+  Removed (BREAKING) callouts for memory store / queue / ticker
+  scheduler + the friendly-error config change.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Chart <code>CHANGELOG.md</code>: <code>[1.0.0-rc.1] - 2026-06-23</code> with the
+  full breaking-change explainer and the migration runbook link.
+  (git-cliff regenerates on publish; the manual entry seeds the
+  section.)</li>
+</ul>
+<h4 id="success-criteria">Success Criteria<a class="headerlink" href="#success-criteria" title="Permanent link">&para;</a></h4>
+<ul>
+<li>All Phase 1 tasks checked off.</li>
+<li><code>make ci</code> passes.</li>
+<li>Net LOC reduction is in the ~1,600 LOC ballpark per the audit
+  (967 LOC packages + 634 LOC tests + ~17 LOC main.go + ~6 LOC
+  config constants + ~100 LOC helm-unittest matrix, minus ~100 LOC
+  additions for <code>docker-compose.dev.yaml</code> + schema + new test cases).</li>
+<li><code>STORE_BACKEND=memory</code> (or any deprecated value) on Phase 1
+  binary → startup error with migration URL; binary refuses to
+  start.</li>
+<li><code>helm install</code> with <code>--set store.backend=memory</code> → schema error
+  before pod creation.</li>
+<li>A fresh <code>helm install</code> (no values overrides) on Postgres + Valkey
+  produces a working deployment with baked Postgres + baked Valkey
+  resources.</li>
+<li><code>make dev-services &amp;&amp; make run-local</code> works on a fresh checkout
+  without manual setup.</li>
+<li>Chart-major version bumped; CHANGELOG entries published.</li>
+<li>Documentation no longer references memory mode anywhere outside
+  historical context (CHANGELOG, design docs, migration runbook).</li>
+</ul>
+<hr />
+<h2 id="file-changes">File Changes<a class="headerlink" href="#file-changes" title="Permanent link">&para;</a></h2>
+<p>All changes ship in Phase 1 (the single removal phase). See
+<a href="#sequencing">Sequencing</a> for the chart-version progression.</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Action</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docker-compose.dev.yaml</code></td>
+<td>Create</td>
+<td>Postgres + Valkey local-dev stack</td>
+</tr>
+<tr>
+<td><code>Makefile</code></td>
+<td>Modify</td>
+<td>Add <code>dev-services</code> / <code>dev-stop</code>; update <code>run-local</code></td>
+</tr>
+<tr>
+<td><code>internal/store/memory/</code></td>
+<td>Delete</td>
+<td>329 LOC (package + tests)</td>
+</tr>
+<tr>
+<td><code>internal/queue/memory/</code></td>
+<td>Delete</td>
+<td>387 LOC</td>
+</tr>
+<tr>
+<td><code>internal/scheduler/ticker/</code></td>
+<td>Delete</td>
+<td>251 LOC</td>
+</tr>
+<tr>
+<td><code>internal/scheduler/contract_test.go</code></td>
+<td>Modify</td>
+<td>Drop ticker arm (~22 LOC)</td>
+</tr>
+<tr>
+<td><code>cmd/repo-guardian/main.go</code></td>
+<td>Modify</td>
+<td>Simplify <code>newStore</code> / <code>newQueue</code> / <code>newScheduler</code> to straight-line code; remove memory/ticker imports</td>
+</tr>
+<tr>
+<td><code>internal/config/config.go</code></td>
+<td>Modify</td>
+<td>Delete <code>StoreBackendMemory</code> / <code>QueueBackendMemory</code> / <code>SchedulerBackendTicker</code> constants; tighten validation; emit migration-URL errors</td>
+</tr>
+<tr>
+<td><code>internal/config/config_test.go</code></td>
+<td>Modify</td>
+<td>Add deprecated-value-error tests</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/values.yaml</code></td>
+<td>Modify</td>
+<td>Flip defaults to postgres + valkey + baked modes</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/values.schema.json</code></td>
+<td>Create or Modify</td>
+<td>Reject memory/ticker values (see OQ 4)</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/Chart.yaml</code></td>
+<td>Modify</td>
+<td>Bump <code>version</code> to 1.0.0-rc.1 (then through rc.N to 1.0.0); <code>appVersion</code> to 1.9.0</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/tests/backend_shapes_test.yaml</code></td>
+<td>Modify</td>
+<td>Delete memory-shape test case; rewrite three mixed-backend cases; add baked-defaults + schema-rejection cases</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/README.md.gotmpl</code></td>
+<td>Modify</td>
+<td>Remove memory-mode docs; document new defaults</td>
+</tr>
+<tr>
+<td><code>docs/operations/migrations.md</code></td>
+<td>Modify</td>
+<td>New <code>Removing memory backend</code> section as upgrade guide</td>
+</tr>
+<tr>
+<td><code>docs/operations/scaling.md</code></td>
+<td>Modify</td>
+<td>Remove memory mode; single-backend story</td>
+</tr>
+<tr>
+<td><code>docs/operations/aws.md</code></td>
+<td>Modify</td>
+<td>Verify no memory refs (already managed but double-check)</td>
+</tr>
+<tr>
+<td><code>docs/operations/chart-0.5.0-migration.md</code></td>
+<td>Modify</td>
+<td>Note 1.0.0 removal supersedes the IMPL-0011 multi-backend doc</td>
+</tr>
+<tr>
+<td><code>docs/operations/cnpg-homelab-cutover.md</code></td>
+<td>Modify</td>
+<td>Verify references are clean</td>
+</tr>
+<tr>
+<td><code>README.md</code></td>
+<td>Modify</td>
+<td>Remove memory-mode references; quickstart points at postgres+valkey path</td>
+</tr>
+<tr>
+<td><code>CLAUDE.md</code></td>
+<td>Modify</td>
+<td>Update Architecture section; remove memory backend mentions</td>
+</tr>
+<tr>
+<td><code>examples/</code></td>
+<td>Modify</td>
+<td>Update any memory-backend refs (likely none per audit)</td>
+</tr>
+<tr>
+<td><code>CHANGELOG.md</code> (root)</td>
+<td>Modify</td>
+<td><code>Removed</code> section entry referencing DESIGN-0018 + IMPL-0016</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/CHANGELOG.md</code></td>
+<td>Modify</td>
+<td>Breaking-changes entry with values.yaml + env var diff</td>
+</tr>
+</tbody>
+</table>
+<h2 id="testing-plan">Testing Plan<a class="headerlink" href="#testing-plan" title="Permanent link">&para;</a></h2>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Unit tests for config validation: each deprecated backend value
+  path returns a friendly error with the migration URL.
+  (<code>TestLoadRejects_DeprecatedStoreBackend</code> +
+  <code>TestLoadRejects_DeprecatedSchedulerBackend</code> in
+  <code>internal/config/config_test.go</code>.)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Helm-unittest cases for the default flip: fresh <code>helm template</code>
+  produces baked Postgres + baked Valkey resources. Schema rejection
+  verified manually via <code>helm template ... --set
+  store.backend=memory</code> (helm-unittest can't catch schema
+  errors — documented inline in the suite).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Manual test of <code>make dev-services &amp;&amp; make run-local</code> on a
+  fresh repo checkout (no pre-existing services). (Operator-side.)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> CI runs <code>go build ./...</code> to confirm no orphaned imports after
+  package deletes (<code>make ci</code> green at end of Task 1.13).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> No coverage regression — postgres + valkey backends are
+  already covered by integration tests via testcontainers.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> End-to-end validation in homelab after the <code>1.0.0-rc.1</code> tag
+  deploys: <code>helm install</code> with old (memory) values fails at schema
+  validation; fresh install works out of the box; binary starts
+  with no warnings on a Postgres+Valkey-only deployment.
+  (Operator-side, post-merge.)</li>
+</ul>
+<h2 id="dependencies">Dependencies<a class="headerlink" href="#dependencies" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>This IMPL ships FIRST</strong>, before IMPL-0015. Per DESIGN-0018
+  resolved <a href="../../design/0018-deprecate-memory-backend/#open-questions">OQ (g)</a>
+  (revised 2026-06-23), the memory backend is removed before IMPL-0015's
+  state-management work begins. IMPL-0015 then implements its phases on
+  a clean Postgres+Valkey-only codebase. See
+  <a href="#sequencing">Sequencing</a>.</li>
+<li>DESIGN-0018 (Approved 2026-06-23 in PR #128).</li>
+<li>DESIGN-0017 (sibling design; surfaced this IMPL via question (e)).</li>
+<li>The pre-implementation audit findings (referenced in DESIGN-0018
+  Background).</li>
+<li>No dependency on a prior deprecation phase — Phase 0 was dropped
+  per DESIGN-0018 resolved
+  <a href="../../design/0018-deprecate-memory-backend/#open-questions">OQ (a)</a>.</li>
+</ul>
+<h2 id="open-questions">Open Questions<a class="headerlink" href="#open-questions" title="Permanent link">&para;</a></h2>
+<p><strong>1.</strong> ⛔ <strong>Superseded.</strong> Sequencing IMPL-0016 Phase 0 chart bump with
+IMPL-0015's chart bumps.</p>
+<p>Phase 0 was dropped entirely per DESIGN-0018 resolved
+<a href="../../design/0018-deprecate-memory-backend/#open-questions">OQ (a)</a>. The
+chart progression is now 0.7.x → 1.0.0-rc.1 (this IMPL) → 1.0.0-rc.N
+(IMPL-0015 phases) → 1.0.0 stable. See <a href="#sequencing">Sequencing</a>.</p>
+<p><strong>2.</strong> ⛔ <strong>Superseded.</strong> Where does the deprecation <code>slog.Warn</code> live in
+<code>main.go</code>?</p>
+<p>No deprecation warning ships. Phase 0 dropped per DESIGN-0018 resolved
+<a href="../../design/0018-deprecate-memory-backend/#open-questions">OQ (a)</a>.</p>
+<p><strong>3.</strong> ✅ <strong>Resolved.</strong> Migration runbook location — new section in
+<code>docs/operations/migrations.md</code> or a new file?</p>
+<ul>
+<li><strong>(a) = New section in existing <code>docs/operations/migrations.md</code>
+  (chosen).</strong> Operators have one place to look for migration content;
+  the file is already in nav. Single anchor URL for the
+  configuration-error messages.</li>
+</ul>
+<p><strong>4.</strong> ✅ <strong>Resolved.</strong> <code>charts/repo-guardian/values.schema.json</code>
+existence — does it exist today?</p>
+<ul>
+<li><strong>(a) = Verify first; create or extend as needed (chosen).</strong> First
+  step of Task 1.9: <code>ls charts/repo-guardian/values.schema.json</code>. If
+  absent, author a full schema; if present, extend the
+  <code>store.backend</code> / <code>queue.backend</code> / <code>scheduler.backend</code> enum
+  fields. Schema validation at <code>helm install</code> time is the friendlier
+  error path for operators.</li>
+</ul>
+<p><strong>5.</strong> ✅ <strong>Resolved.</strong> Order of operations within Phase 1 — package
+deletes first or chart changes first?</p>
+<ul>
+<li><strong>(a) = Package deletes first → main.go → config → chart →
+  schema (chosen).</strong> Lockstep "code is correct first, then chart"
+  ordering. Reduces risk of a chart upgrade landing on operators
+  before the binary refuses memory values. Task sequence (1.2 →
+  1.7 → 1.8 → 1.9) already follows this order in the phase
+  outline above.</li>
+</ul>
+<p><strong>6.</strong> ⛔ <strong>Superseded.</strong> Phase 0 PR strategy — single PR or split?</p>
+<p>Phase 0 was dropped. Only Phase 1's PR strategy is relevant — see
+question 7.</p>
+<p><strong>7.</strong> ✅ <strong>Resolved.</strong> Phase 1 PR strategy — Phase 1 is much larger.</p>
+<ul>
+<li><strong>(a) = Single PR (chosen).</strong> Phase 1 is a cohesive change
+  ("remove memory backend"); reviewer reads DESIGN-0018 once and
+  sees the full removal in one diff. The single-PR shape matches
+  the <code>1.0.0-rc.1</code> tag — a single squash-merge is the boundary
+  between "memory backend exists" and "memory backend does not."
+  Risk of a large diff is mitigated by the deletion-heavy LOC
+  count (~1,600 LOC removed, only a few hundred added).</li>
+</ul>
+<p><strong>8.</strong> ✅ <strong>Resolved.</strong> <code>docker-compose.dev.yaml</code> placement — repo
+root or sub-directory?</p>
+<ul>
+<li><strong>(a) = Repo root as <code>docker-compose.dev.yaml</code> (chosen).</strong>
+  Convention; CI tooling, IDEs (VS Code Docker extension, IntelliJ
+  Docker plugin), and editors expect compose files at the root.
+  <code>docker compose -f docker-compose.dev.yaml up -d</code> works from any
+  shell with no path gymnastics. Easiest for newcomers cloning the
+  repo for the first time.</li>
+</ul>
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../design/0018-deprecate-memory-backend/">DESIGN-0018: Deprecate memory
+  backend</a> — the design
+  this IMPL implements. Read first.</li>
+<li><a href="../../design/0017-stale-sweep-cutover-and-repository-discovery/">DESIGN-0017: Stale-sweep cutover and repository
+  discovery</a>
+  — sibling design that surfaced this work via question (e).</li>
+<li><a href="../0015-stale-sweep-cutover-and-repository-discovery/">IMPL-0015: Stale-sweep cutover and repository
+  discovery</a> —
+  ships <strong>after</strong> this IMPL on the path to 1.0.0. See
+  <a href="#sequencing">Sequencing</a>.</li>
+<li><a href="../../design/0012-persistent-reconcile-state-and-multi-replica-coordination/">DESIGN-0012: Persistent reconcile state and multi-replica
+  coordination</a>
+  — introduced the multi-backend pattern this IMPL retires.</li>
+<li>DESIGN-0018 audit summary — references file:line citations for
+  every code path this IMPL touches; reference during Phase 1
+  execution.</li>
+<li><code>docs/operations/aws.md</code> — operator-facing AWS deployment guide
+  already assumes Postgres + Valkey (managed equivalents); ground
+  truth for the post-removal architecture.</li>
+<li><code>charts/repo-guardian/docs/homelab-smoke.md</code> — first-install
+  runbook already walks operators through Postgres + Valkey path.</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../0015-stale-sweep-cutover-and-repository-discovery/" class="md-footer__link md-footer__link--prev" aria-label="Previous: IMPL-0015: Stale-sweep cutover and repository discovery">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                IMPL-0015: Stale-sweep cutover and repository discovery
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../0017-configurable-annotation-sourced-custom-properties/" class="md-footer__link md-footer__link--next" aria-label="Next: IMPL-0017: Configurable annotation-sourced custom properties">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                IMPL-0017: Configurable annotation-sourced custom properties
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.footer", "content.action.edit"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../search/main.js"></script>
+      
+    
+  </body>
+</html>

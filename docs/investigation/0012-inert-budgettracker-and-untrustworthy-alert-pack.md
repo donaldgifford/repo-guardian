@@ -13,6 +13,13 @@ created: 2026-07-25
 **Author:** Donald Gifford
 **Date:** 2026-07-25
 
+> **Scope note.** This investigation outgrew its title. It opened on two
+> narrow follow-ups from IMPL-0021 and ended up in the queue's lease
+> semantics (findings I–K), because the inert BudgetTracker turned out to
+> be a symptom of three rate-limit mechanisms that were never reconciled
+> with each other. The title is kept for traceability with PR #171; the
+> recommendation is about the queue.
+
 <!--toc:start-->
 - [Question](#question)
 - [Hypothesis](#hypothesis)
@@ -28,6 +35,9 @@ created: 2026-07-25
   - [F. The chart and contrib alert packs are near-duplicates with no drift gate](#f-the-chart-and-contrib-alert-packs-are-near-duplicates-with-no-drift-gate)
   - [G. Rate-limit protection is three layers, and the other two work](#g-rate-limit-protection-is-three-layers-and-the-other-two-work)
   - [H. HasFreshSnapshot is a phantom method](#h-hasfreshsnapshot-is-a-phantom-method)
+  - [I. In-handler sleeping amplifies duplicates under exhaustion](#i-in-handler-sleeping-amplifies-duplicates-under-exhaustion)
+  - [J. Duplicate claims steal each other's ack](#j-duplicate-claims-steal-each-others-ack)
+  - [K. The nack contract was never defined, and the worker predates the queue](#k-the-nack-contract-was-never-defined-and-the-worker-predates-the-queue)
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
 - [Open Questions](#open-questions)
@@ -36,7 +46,8 @@ created: 2026-07-25
 
 ## Question
 
-Two questions, joined because the first is a worked example of the second:
+Started as two questions and grew a third, which turned out to be the
+one that matters:
 
 1. Is the IMPL-0015 Phase 1 BudgetTracker doing anything in production, and
    if not, what should happen to it?
@@ -44,6 +55,15 @@ Two questions, joined because the first is a worked example of the second:
    green CI run implies every shipped alert is syntactically valid, can
    fire under realistic conditions, and is fed by a metric something
    actually writes?
+3. *(emergent, findings G–K)* How many ways does repo-guardian manage API
+   rate limits, do they compose, and does the answer to Q1 change once
+   they are counted?
+
+Q3 subsumes Q1. The short version: there are three mechanisms, they were
+designed against two different execution models three months apart, and
+the oldest one is actively hostile to the newest one's lease semantics.
+Wiring the inert third mechanism would have been the fourth path through
+the same problem.
 
 ## Hypothesis
 
@@ -94,6 +114,12 @@ what CI would have to do to catch the class.
    establish whether a CI job is even mechanically possible.
 6. Script a window-vs-`for` comparison across both alert files to size the
    class.
+7. *(added mid-investigation)* Read the Valkey claim/ack/reaper protocol
+   and the transport limiter together, to work out what actually happens
+   to a lease held by a worker that is sleeping rather than working.
+8. *(added mid-investigation)* Date the rate limiter, the legacy
+   in-process queue, and the durable queue against each other to test
+   whether the layers were designed for the same execution model.
 
 ## Environment
 
@@ -345,6 +371,97 @@ refreshes by calling a method that does not exist:
 it matters for the wiring option: the guard the design assumed would keep
 a per-tick refresh cheap has to be written, not just called.
 
+### I. In-handler sleeping amplifies duplicates under exhaustion
+
+Finding G.2 named layer 1's degenerate mode in the abstract. Reading the
+lease machinery makes it concrete, and it is worse than "throughput
+collapse". Four defaults collide:
+
+| Knob | Default | Source |
+|---|---|---|
+| `JOB_ACK_TIMEOUT` | 5m | `config.go:298` |
+| `REAPER_INTERVAL` | 1m | `config.go:305` |
+| `WORKER_COUNT` | 5 | `policy/defaults.go:10` |
+| transport sleep when `remaining == 0` | `untilReset` — **up to 1h** | `ratelimit.go:126` |
+
+There is **no handler timeout anywhere** — nothing in `internal/worker`
+or the Valkey `Subscribe` loop wraps the job in a `context.WithTimeout`.
+So a worker that enters the pre-emptive throttle holds its in-flight
+claim for the whole sleep, and the reaper — which cannot distinguish
+"sleeping" from "crashed", and shouldn't have to — resurfaces the job
+every ack timeout:
+
+```text
+t=0     worker A claims J, ZADD in-flight (score t0), transport sleeps 50m
+t=5m    reaper: J is older than JOB_ACK_TIMEOUT → LPUSH J, ZREM J  (atomic)
+t=5m    worker B claims J, ZADD in-flight (score t5), also sleeps
+t=10m   reaper requeues J again → worker C …
+```
+
+One duplicate per ack timeout for as long as the sleep lasts: roughly ten
+clones of the same job over a 50-minute exhaustion window, against a pool
+of five worker slots. Every clone that eventually wakes issues *more* API
+calls against the exhausted budget. It is a positive feedback loop whose
+trigger is exactly the condition layer 3 was designed to prevent.
+
+Two mitigating facts, for honesty: `sleepWithContext` does respect
+context cancellation, so SIGTERM aborts the sleep cleanly and the job is
+left in-flight for the reaper — shutdown behaves correctly. And the
+pathological delay needs `remaining == 0`; the milder branch
+(`untilReset / remaining`, engaged below `RATE_LIMIT_THRESHOLD`, default
+0.10) yields seconds per request, which stays inside the ack timeout at
+the default `estimatedCostPerRepo` of 10 calls per repo. The cliff is
+sharp rather than gradual.
+
+### J. Duplicate claims steal each other's ack
+
+The in-flight ZSET member is the JSON payload, and `Enqueue` rewrites
+`Job.ID` to a SHA-256 of `(InstallationID, Owner, Repo)` — deterministic
+by design, so duplicate enqueues are visible in dedupe-aware metrics.
+The consequence for finding I's timeline is that workers A and B hold the
+*same ZSET member*. When A finally wakes and `ZREM`s, it deletes **B's**
+claim; B is then invisible to the reaper, so if B dies its job is not
+resurfaced. Benign while both do identical idempotent work, but it means
+the in-flight set does not actually track concurrent claims — it tracks
+distinct payloads.
+
+Also worth recording while in here: `reapOnce` has **no attempt cap and
+no dead-letter path**. A job that fails forever requeues forever. Not
+currently a problem (engine errors are per-repo and usually transient),
+but it is the other half of an undefined nack contract — see finding K.
+
+### K. The nack contract was never defined, and the worker predates the queue
+
+The user framing that prompted this section is borne out by the history:
+
+| Component | Introduced | Assumed execution model |
+|---|---|---|
+| `internal/github/ratelimit.go` | 2026-02-10 (`7c777e5`) | in-process buffered channel — blocking a goroutine is free, there is no lease to hold |
+| `internal/checker/queue.go` (legacy) | 2026-02-08 (`11dfb4d`) | same |
+| `internal/queue`, `internal/worker` | 2026-05-06 (`69a5afd`, IMPL-0011) | durable queue, leases, reaper, at-least-once |
+
+The transport limiter's in-handler blocking was correct for the world it
+was written in: sleeping a goroutine that owns nothing but itself costs
+one goroutine. Three months later work became a durable job with a lease
+and a watchdog, and nothing revisited the assumption. Findings I and J
+are the bill for that.
+
+The deeper gap is that the retry contract was never actually specified.
+`queue.Queue` is three methods, and the only statement of nack semantics
+is a parenthetical on the interface doc comment:
+
+```go
+// A nil return from handler is an implicit ack; an error is a nack
+// (durable implementations may retry; the in-memory implementation
+// logs and drops).
+```
+
+That sentence is now stale on both halves: the in-memory implementation
+was deleted in IMPL-0016, and "may retry" specifies nothing — no delay,
+no backoff, no attempt cap, no distinction between *retry this soon*
+and *retry this later*. `queue.Job` carries no `Attempts` and no
+`AvailableAt`. So there is no contract to break here, only one to write.
+
 ## Conclusion
 
 **Answer to Q1: confirmed — the BudgetTracker is inert.** No production
@@ -375,49 +492,81 @@ that motivated the question — it passes A7's exact shape. Trustworthiness
 needs three separate mechanisms, one per class in finding C, and only the
 cheapest is a promtool job.
 
+**Answer to Q3: three mechanisms, they do not compose, and yes it changes
+Q1's answer.** Layer 1 *slows* (transport, 2026-02-10), layer 2 *skips*
+(sweep gate, IMPL-0011), layer 3 *declines* (BudgetTracker, IMPL-0015).
+Layer 1 predates the durable queue by three months and blocks in-handler,
+which was free when work was a buffered channel and is actively harmful
+now that work carries a lease and a watchdog: findings I and J show it
+producing duplicate execution and worker-pool saturation precisely under
+the exhaustion it exists to handle.
+
+So the honest answer to "should we wire the BudgetTracker" is **no —
+delete it, and fix the queue instead.** Its unique value was keeping
+depleted-budget work out of the queue; a delayed-requeue contract does
+that structurally, and yields better observability as a side effect
+because it measures deferred work rather than modelling it from a
+hand-tuned cost estimate. That reverses this document's own earlier
+recommendation, which is what the investigation was for.
+
 ## Recommendation
 
-Split into two efforts; they share only the `RepoGuardianBudgetGated`
+Findings I–K change the shape of this. The original framing — "should we
+wire the third rate-limit mechanism?" — asks the wrong question. Three
+mechanisms already exist, they do not compose (layer 1 *slows*, layer 2
+*skips*, layer 3 *declines*), and layer 1's slowing is precisely what
+breaks the job-duration assumption the queue's lease semantics depend on.
+Adding a fourth path is not the fix; consolidating onto one is.
+
+Split into two efforts. They share only the `RepoGuardianBudgetGated`
 alert and can proceed independently.
 
-**1. Decide the BudgetTracker's fate (needs a decision, not just code).**
+**1. Consolidate rate-limit handling onto a delayed-requeue contract.**
 
-Finding G reframes this. The question is *not* "do we need rate-limit
-protection" — two working layers already provide it, and the operator can
-already see API pressure via `github_rate_limit_waits_total` and
-`rate_limit_reserve_blocked_total`. The question is whether the two things
-only layer 3 offers are worth the wiring: forward-looking spendable
-capacity, and keeping depleted-budget work *out of the queue* rather than
-letting layer 1 park workers in multi-minute sleeps while holding leases.
+The proposal, which subsumes the BudgetTracker question rather than
+answering it:
 
-- *Wire it.* Add a leader-scoped refresh — the natural home is the
-  `stale-sweep` handler refreshing per installation before its enqueue
-  loop, which is what both consumer comments already assume exists.
-  Requires writing the `HasFreshSnapshot` guard the design assumed
-  (finding H) so a per-tick refresh does not itself become the cost it is
-  meant to protect: at the planned 20+ orgs that is 20 extra calls per
-  tick against the very budget in question.
-- *Delete it.* Layers 1 and 2 cover protection; the unique value is
-  narrow. Removes 9 metrics, 1 alert, 4 env vars, 2 chart values, and
-  their schema ranges. Honest about what ships, at the cost of a
-  user-facing removal of published chart values.
-- *Leave it, documented.* Worst option — an operator tuning
-  `DISCOVERY_RESERVE_FRACTION` deserves to know nothing reads it.
+- **Workers never block on rate limits.** When a job cannot proceed
+  because the installation is throttled, the worker *returns the job to
+  the queue with `available_at = now + delay`* and frees its slot
+  immediately. Nothing sleeps while holding a lease.
+- **The queue grows a delayed set.** A `queue:delayed` ZSET scored by
+  due-time, promoted to `queue:jobs` by the reaper — which is already
+  leader-elected and already runs on a timer, so the machinery exists.
+  This is the same primitive the in-flight ZSET uses.
+- **The contract gets written.** `queue.Job` gains `Attempts` and
+  `AvailableAt`; the `Queue` doc comment stops saying "durable
+  implementations may retry" and starts specifying delay, backoff, and
+  an attempt cap with a terminal disposition (finding J notes there is
+  no cap today). Per finding K there is no existing contract to break —
+  only one to define, and Go's interfaces mean this can land under
+  `queue.Queue` without disturbing producers.
+- **The observability falls out of it.** `jobs_delayed_total{reason,
+  installation_id}` and a `queue_delayed_depth` gauge answer "are we
+  hitting API limits, how hard, and for whom" with *better* data than
+  `api_budget_spendable` would have: they measure work actually deferred
+  rather than a modelled estimate built on a hand-tuned
+  `estimatedCostPerRepo`. The goal is watching for backpressure and
+  alerting before it matters — realistically never, at the current or
+  planned fleet size, but with data to reason from if it does.
 
-Recommend **wire it**, but on the queue-health argument (G.2), not the
-"otherwise unprotected" one — that argument does not survive finding G.
-If the wiring turns out to need more than a refresh call plus the
-`HasFreshSnapshot` guard, delete rather than leave: a half-wired budget
-gate is worse than an honest absence, because its metrics look like
-coverage.
+What that implies for the three existing layers:
 
-A cheaper middle option worth considering explicitly: **wire the refresh
-for the metrics and leave both gates falling open.** That buys the
-observability the feature was designed to provide (G.1) with none of the
-behavioural risk of a gate that has never run in production against a
-real fleet — and the gates can be enabled later once
-`estimatedCostPerRepo` has been calibrated against observed consumption,
-which is exactly what the design says the knob is for.
+| Layer | Disposition under this proposal |
+|---|---|
+| 1 — transport pre-emptive sleep | **Remove the sleep, keep the accounting.** The 403 retry paths stay (they are transport concerns); the pre-emptive `sleepWithContext` becomes a typed error the worker translates into a delayed requeue. This alone defuses findings I and J. |
+| 2 — sweep reserve gate | **Probably redundant.** Skipping the enqueue and deferring it converge, except deferral doesn't silently drop the repo until the next sweep. Candidate for removal, but it works today — decide with data, not ahead of it. |
+| 3 — BudgetTracker | **Delete.** Its unique value was G.1 (forward-looking capacity) and G.2 (keeping work out of the queue). The delayed-requeue mechanism delivers G.2 structurally and replaces G.1's modelled estimate with measurement. Wiring it now would be building the fourth path. |
+
+That reverses this document's earlier recommendation to wire it, and the
+reversal is the point: the inert tracker was the symptom that led here,
+but the fix is in the queue, not the tracker.
+
+**Sequencing note.** The unbounded sleep is a live amplification hazard
+independent of any redesign. Capping the transport delay below
+`JOB_ACK_TIMEOUT` (or adding a handler timeout) is a small change that
+defuses findings I and J on its own and should not wait for the
+consolidation work.
 
 **2. Make the alert pack trustworthy, cheapest class first.**
 
@@ -439,33 +588,42 @@ which is exactly what the design says the knob is for.
 
 ## Open Questions
 
-1. **BudgetTracker disposition** — (a) wire the refresh **and** both
-   gates, via a leader-scoped refresh in the `stale-sweep` handler;
-   (b) wire the refresh for metrics only, leaving both gates falling open
-   until `estimatedCostPerRepo` is calibrated against observed
-   consumption; (c) delete the feature and its user-facing knobs;
-   (d) leave it and document that it is inert. other:
-1a. **If wiring — who owns the refresh?** (a) `stale-sweep` refreshes and
-   `Discoverer` reuses the shared snapshot (matches what the
-   `Discoverer` comment already claims); (b) each refreshes
-   independently, doubling the calls but removing the ordering
-   dependency between two separately-scheduled handlers. other:
-1b. **If wiring — refresh cadence.** `HasFreshSnapshot` does not exist
-   (finding H) and must be written. What counts as fresh: (a) one
-   refresh per installation per tick; (b) TTL-based, decoupled from tick
-   cadence; (c) refresh only when `SpendableForEnqueue` reports
-   `ErrNoSnapshot`, which is what the current `resetAt`-elapsed branch
-   already implies. other:
-2. **Alert-pack source of truth** — (a) leave the chart and `contrib/`
+1. **Scope of the consolidation** — (a) one effort covering the delayed
+   requeue, the `queue.Job`/`Queue` contract, and the disposition of all
+   three layers; (b) split the immediate sleep-cap hotfix from the
+   redesign; (c) hotfix only, defer the redesign until a real fleet
+   produces backpressure data. other:
+2. **Layer 2's fate** — the `StaleSweeper` reserve gate becomes largely
+   redundant under delayed requeue: (a) remove it once the requeue path
+   ships; (b) keep it as cheap enqueue-side admission control; (c) decide
+   after observing `jobs_delayed_total` in production. other:
+3. **Attempt cap and terminal disposition** — the contract needs one
+   (finding J: none today): (a) cap attempts and drop with a counter;
+   (b) cap and move to a `queue:dead` ZSET for inspection; (c) cap and
+   write terminal failure to `repo_state` so the existing store is the
+   dead-letter record. other:
+4. **`AvailableAt` ownership** — (a) worker computes the delay and the
+   queue honours it; (b) queue owns backoff policy and the worker only
+   signals "throttled"; (c) transport returns a typed error carrying
+   GitHub's own `resetAt`, which the worker passes through unmodified.
+   other:
+5. **BudgetTracker removal timing** — (a) delete in the same effort as
+   the requeue work, so no window exists where neither mechanism runs;
+   (b) delete immediately as dead code, since it has never run; (c) keep
+   the `internal/budget` package but strip its gates, reusing the
+   snapshot cache for the delayed-requeue delay calculation. other:
+6. **Alert-pack source of truth** — (a) leave the chart and `contrib/`
    packs as independent copies and add a CI drift check; (b) generate
    `contrib/` from the chart template; (c) leave as-is, accept drift.
    other:
-3. **Class-3 detection** — is a "every alerted metric has a production
+7. **Class-3 detection** — is a "every alerted metric has a production
    writer" check worth building, or is it enough to have found this one by
    hand? other:
-4. **Scope** — should the alert work be its own DESIGN, or is it small
-   enough to go straight to an IMPL once the open questions above are
-   answered? other:
+8. **Doc scope** — the consolidation is now clearly a DESIGN, not an
+   IMPL: (a) one DESIGN covering queue contract + rate-limit
+   consolidation; (b) that DESIGN plus a separate small IMPL for the
+   alert-pack work, which is independent; (c) fold the alert work into
+   the same DESIGN. other:
 
 ## References
 

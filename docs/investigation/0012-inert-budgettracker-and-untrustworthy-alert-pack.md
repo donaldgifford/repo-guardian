@@ -26,6 +26,8 @@ created: 2026-07-25
   - [D. helm template | yq | promtool works today](#d-helm-template--yq--promtool-works-today)
   - [E. Six alerts pair a window shorter than their for](#e-six-alerts-pair-a-window-shorter-than-their-for)
   - [F. The chart and contrib alert packs are near-duplicates with no drift gate](#f-the-chart-and-contrib-alert-packs-are-near-duplicates-with-no-drift-gate)
+  - [G. Rate-limit protection is three layers, and the other two work](#g-rate-limit-protection-is-three-layers-and-the-other-two-work)
+  - [H. HasFreshSnapshot is a phantom method](#h-hasfreshsnapshot-is-a-phantom-method)
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
 - [Open Questions](#open-questions)
@@ -47,14 +49,21 @@ Two questions, joined because the first is a worked example of the second:
 
 1. The tracker is inert: `RefreshFromAPI` has no production caller, so
    every `SpendableForEnqueue` returns `ErrNoSnapshot`, both gates fall
-   open, and the four budget gauges are never published.
+   open, and the four budget gauges are never published. Corollary
+   assumed at the outset: that this leaves rate-limit pressure
+   under-observed.
 2. Adding promtool coverage for the chart's `PrometheusRule` would close
    the alert gap.
 
-Hypothesis 1 is confirmed below. **Hypothesis 2 is refuted** — promtool
-passes the exact defect INV-0011 A7 fixed. That refutation is the most
-useful thing in this document; it means "add promtool to CI" is not the
-remediation, only a floor.
+Hypothesis 1's mechanism is confirmed below, but **its corollary is
+refuted** (finding G): two other rate-limit layers work, and the operator
+can already see API pressure without the tracker. **Hypothesis 2 is
+refuted outright** — promtool passes the exact defect INV-0011 A7 fixed.
+
+Those two refutations are the most useful things in this document. The
+first means the tracker's disposition turns on queue health and
+forward-looking capacity, not on protection. The second means "add
+promtool to CI" is a floor, not the remediation.
 
 ## Context
 
@@ -125,12 +134,13 @@ the write paths:
 
 So the entire IMPL-0015 Phase 1 budget feature — 9 metrics, 1 alert, 4 env
 vars, 2 chart values, and the values.schema.json ranges validating them —
-is dead weight at runtime. Nothing is *broken* by this (falling open is the
-documented fail-safe, and the live `RateLimitRemaining` reserve gate in
-`StaleSweeper` is a separate, working defence), but operators are tuning
-`DISCOVERY_RESERVE_FRACTION` and `DISCOVERY_ESTIMATED_COST_PER_REPO`
-against a component that never reads them, and an empty budget dashboard
-reads as "healthy" rather than "not wired".
+is dead weight at runtime. Nothing is *broken* by this — falling open is
+the documented fail-safe, and two other rate-limit layers work (finding G,
+which revises this paragraph's first draft, where I had counted one) — but
+operators are tuning `DISCOVERY_RESERVE_FRACTION` and
+`DISCOVERY_ESTIMATED_COST_PER_REPO` against a component that never reads
+them, and an empty budget dashboard reads as "healthy" rather than "not
+wired".
 
 ### B. Both consumers defer the refresh to each other
 
@@ -280,14 +290,84 @@ fix to a shared alert can silently apply to one copy. Whether these should
 be one source with the other generated is a design question, not a defect
 — recorded here so the eventual alert work considers it.
 
+### G. Rate-limit protection is three layers, and the other two work
+
+Finding A called the `StaleSweeper` reserve gate "a separate, working
+defence." That understated it — there are **two** working layers, and the
+one that most directly answers "are we hammering the API?" is the one this
+investigation nearly missed:
+
+| # | Layer | Where | Behaviour under pressure | Metrics | Status |
+|---|---|---|---|---|---|
+| 1 | Transport limiter | `internal/github/ratelimit.go`, wrapping **every** client (app + per-installation, `client.go:59` and `:1019`) | pre-emptively *sleeps* `untilReset / remaining` per request; retries primary (403 + `Remaining: 0`) and secondary (`Retry-After`) limits | `github_rate_remaining`, `github_rate_limit_waits_total{reason}`, `github_rate_limit_wait_seconds` | **works** |
+| 2 | Sweep reserve gate | `StaleSweeper.allowedByRateLimit`, IMPL-0011 P5 | *skips* the repo when `remaining < reserve × limit` | `rate_limit_remaining`, `rate_limit_reserve_blocked_total` | **works** |
+| 3 | BudgetTracker | IMPL-0015 P1 | would *decline the enqueue* before work is created | the 9 `api_budget_*` / `enqueue_gated_by_budget_total` metrics | **inert** (finding A) |
+
+Two consequences that change the disposition question:
+
+- **The "smashing into API limits" signal already exists.**
+  `github_rate_limit_waits_total` literally counts throttle events by
+  reason, and `RepoGuardianRateLimitLow` / `RepoGuardianRateLimitThrottling`
+  / `RepoGuardianRateLimitNearExhaustion` all fire off working metrics.
+  Losing layer 3 does not blind the operator to rate-limit pressure.
+- **The `Discoverer` is not ungated.** It has no layer-2 equivalent
+  (`DiscovererOptions` carries `Budget` but no `RateLimit`), but layer 1
+  wraps its `ListInstallationRepos` calls like everything else. Under
+  pressure discovery goes *slow*, not unbounded.
+
+What layer 3 uniquely adds is therefore **not** protection or basic
+visibility, but two narrower things:
+
+1. *Forward-looking capacity* — `api_budget_spendable` answers "how many
+   repos can I still afford this hour", which neither reactive layer
+   does, and `estimatedCostPerRepo` is the knob for calibrating it
+   against observed consumption.
+2. *Avoiding layer 1's degenerate mode* — layer 1 spreads a depleted
+   budget by sleeping `untilReset / remaining` **per request**. With a
+   full queue that parks worker goroutines in long sleeps while holding
+   queue leases, which is a throughput collapse plus reaper churn, not a
+   graceful slowdown. Layer 3 prevents the enqueue instead, so the work
+   is never created. This is the strongest argument for wiring it, and
+   it is about *queue health*, not about the rate limit itself.
+
+### H. `HasFreshSnapshot` is a phantom method
+
+`RefreshFromAPI`'s doc comment instructs callers to avoid redundant
+refreshes by calling a method that does not exist:
+
+```go
+// Always replaces the existing snapshot; callers that want to avoid
+// redundant refreshes should call HasFreshSnapshot first.
+```
+
+`Tracker` has exactly four methods — `RefreshFromAPI`,
+`SpendableForEnqueue`, `Decrement`, `publishGauges`. Minor on its own, but
+it matters for the wiring option: the guard the design assumed would keep
+a per-tick refresh cheap has to be written, not just called.
+
 ## Conclusion
 
 **Answer to Q1: confirmed — the BudgetTracker is inert.** No production
 code path writes a snapshot, so all nine budget metrics stay unpublished,
 both gates permanently fall open, and `RepoGuardianBudgetGated` cannot
-fire. The failure is fail-safe (nothing over-enqueues; the independent
-live rate-limit reserve gate still works), so this is wasted capability
-and misleading observability rather than an outage.
+fire.
+
+The severity is lower than it first reads, though, and finding G is why:
+rate-limit protection is **three** layers deep, not two, and the other two
+work. The transport limiter (`internal/github/ratelimit.go`) wraps every
+API call with pre-emptive throttling and 403 retry; the `StaleSweeper`
+reserve gate skips repos below the reserve floor. Between them the
+operator can already answer "are we hammering the API?" —
+`github_rate_limit_waits_total` counts throttle events directly, and three
+alerts fire off working metrics. So this is wasted capability plus a
+misleading empty dashboard, not an unprotected system.
+
+What is genuinely lost is narrower and worth naming precisely: the
+forward-looking `api_budget_spendable` view, the ability to calibrate
+`estimatedCostPerRepo` against real consumption, and — the one that would
+actually bite at fleet scale — protection against layer 1's degenerate
+mode, where a depleted budget parks worker goroutines in per-request
+sleeps while they hold queue leases.
 
 **Answer to Q2: the original framing was wrong.** Chart alerts genuinely
 have no promtool coverage, but promtool does not catch the class of defect
@@ -301,27 +381,43 @@ Split into two efforts; they share only the `RepoGuardianBudgetGated`
 alert and can proceed independently.
 
 **1. Decide the BudgetTracker's fate (needs a decision, not just code).**
-Three options, in ascending cost:
 
-- *Delete it.* The live `RateLimitRemaining` reserve gate in `StaleSweeper`
-  already provides rate-limit protection. Removes 9 metrics, 1 alert, 4 env
-  vars, 2 chart values, and their schema ranges. Cheapest, and honest about
-  what ships.
+Finding G reframes this. The question is *not* "do we need rate-limit
+protection" — two working layers already provide it, and the operator can
+already see API pressure via `github_rate_limit_waits_total` and
+`rate_limit_reserve_blocked_total`. The question is whether the two things
+only layer 3 offers are worth the wiring: forward-looking spendable
+capacity, and keeping depleted-budget work *out of the queue* rather than
+letting layer 1 park workers in multi-minute sleeps while holding leases.
+
 - *Wire it.* Add a leader-scoped refresh — the natural home is the
   `stale-sweep` handler refreshing per installation before its enqueue
   loop, which is what both consumer comments already assume exists.
-  Preserves the design intent of IMPL-0015 Phase 1; needs care that a
-  refresh per sweep does not itself become the rate-limit cost it is
-  meant to protect.
-- *Leave it, documented.* Cheapest in effort, worst in honesty — an
-  operator tuning `DISCOVERY_RESERVE_FRACTION` deserves to know it is read
-  by nothing.
+  Requires writing the `HasFreshSnapshot` guard the design assumed
+  (finding H) so a per-tick refresh does not itself become the cost it is
+  meant to protect: at the planned 20+ orgs that is 20 extra calls per
+  tick against the very budget in question.
+- *Delete it.* Layers 1 and 2 cover protection; the unique value is
+  narrow. Removes 9 metrics, 1 alert, 4 env vars, 2 chart values, and
+  their schema ranges. Honest about what ships, at the cost of a
+  user-facing removal of published chart values.
+- *Leave it, documented.* Worst option — an operator tuning
+  `DISCOVERY_RESERVE_FRACTION` deserves to know nothing reads it.
 
-Recommend **wire it**, on the grounds that the reserve fraction and
-cost-per-repo knobs are already published in the chart's values schema and
-documented in `scaling.md`; deleting them is a user-facing removal, and
-the wiring is a single refresh call in a handler that already iterates
-installations. If that proves awkward, delete rather than leave.
+Recommend **wire it**, but on the queue-health argument (G.2), not the
+"otherwise unprotected" one — that argument does not survive finding G.
+If the wiring turns out to need more than a refresh call plus the
+`HasFreshSnapshot` guard, delete rather than leave: a half-wired budget
+gate is worse than an honest absence, because its metrics look like
+coverage.
+
+A cheaper middle option worth considering explicitly: **wire the refresh
+for the metrics and leave both gates falling open.** That buys the
+observability the feature was designed to provide (G.1) with none of the
+behavioural risk of a gate that has never run in production against a
+real fleet — and the gates can be enabled later once
+`estimatedCostPerRepo` has been calibrated against observed consumption,
+which is exactly what the design says the knob is for.
 
 **2. Make the alert pack trustworthy, cheapest class first.**
 
@@ -343,10 +439,23 @@ installations. If that proves awkward, delete rather than leave.
 
 ## Open Questions
 
-1. **BudgetTracker disposition** — (a) wire it via a leader-scoped refresh
-   in the `stale-sweep` handler; (b) delete the feature and its
-   user-facing knobs; (c) leave it and document that it is inert.
-   other:
+1. **BudgetTracker disposition** — (a) wire the refresh **and** both
+   gates, via a leader-scoped refresh in the `stale-sweep` handler;
+   (b) wire the refresh for metrics only, leaving both gates falling open
+   until `estimatedCostPerRepo` is calibrated against observed
+   consumption; (c) delete the feature and its user-facing knobs;
+   (d) leave it and document that it is inert. other:
+1a. **If wiring — who owns the refresh?** (a) `stale-sweep` refreshes and
+   `Discoverer` reuses the shared snapshot (matches what the
+   `Discoverer` comment already claims); (b) each refreshes
+   independently, doubling the calls but removing the ordering
+   dependency between two separately-scheduled handlers. other:
+1b. **If wiring — refresh cadence.** `HasFreshSnapshot` does not exist
+   (finding H) and must be written. What counts as fresh: (a) one
+   refresh per installation per tick; (b) TTL-based, decoupled from tick
+   cadence; (c) refresh only when `SpendableForEnqueue` reports
+   `ErrNoSnapshot`, which is what the current `resetAt`-elapsed branch
+   already implies. other:
 2. **Alert-pack source of truth** — (a) leave the chart and `contrib/`
    packs as independent copies and add a CI drift check; (b) generate
    `contrib/` from the chart template; (c) leave as-is, accept drift.

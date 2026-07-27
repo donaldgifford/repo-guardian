@@ -205,15 +205,31 @@ if resetAt, remaining, limit, throttled := t.shouldThrottle(); throttled {
 }
 ```
 
-`net/http.Client` wraps a `RoundTrip` error in `*url.Error`, which
-implements `Unwrap`, and the client and engine wrap with `%w` throughout
-(45 sites in `internal/github/client.go` alone). So `errors.As` at the
-worker should recover the typed error through the whole chain.
+The chain from `RoundTrip` to the worker was audited rather than assumed,
+because a break in it is silent — the job would nack normally instead of
+deferring, which reads as ordinary retry rather than a bug. Three hops,
+all verified:
 
-**Phase 3 must prove that end to end with a test rather than assume it.**
-A single `fmt.Errorf` without `%w` anywhere on the path silently breaks
-it, and the failure mode is subtle: the job nacks normally instead of
-deferring, which looks like ordinary retry rather than a bug.
+1. **`net/http.Client.Do`** wraps a `RoundTrip` error in `*url.Error`,
+   which implements `Unwrap`.
+2. **go-github's `BareDo`** returns that `*url.Error` unchanged apart
+   from URL sanitisation (`github.go:856`), so the chain survives the
+   third-party hop. One exception, benign: on a cancelled context it
+   discards the transport error and returns `ctx.Err()` instead
+   (`github.go:850`). Deferral is moot during shutdown, so this needs no
+   handling — but it does mean a cancelled job nacks rather than defers.
+3. **Our client and engine** wrap with `%w`. Of the 102 `fmt.Errorf`
+   calls across `internal/{github,checker,worker,queue}`, 8 omit `%w` and
+   all 8 originate a new error with no cause in scope to discard (e.g.
+   `unsupported property: %s`). Zero broken wraps.
+
+The chain is also lint-enforced going forward: `errorlint` is enabled
+with `errorf: true`, so formatting an error with `%v` instead of `%w`
+fails the build. What no enabled linter catches is *discarding* an error
+and originating a fresh one — which is exactly why task 3.4 pins the
+invariant with an end-to-end test instead of an audit. A test that drives
+a real throttle through the real path fails if any link breaks, whichever
+link it is; an audit only proves the state of the code on the day it ran.
 
 `internal/github` must not import `internal/queue` — the client is the
 lower layer. The worker performs the translation:
@@ -501,13 +517,16 @@ the real fix.
       `github_rate_limit_wait_seconds` by recording the *would-be* delay
       at the point of the return, so the three existing rate-limit alerts
       keep receiving samples.
-- [ ] 3.4 **Prove the error survives the full chain**: drive a real
+- [ ] 3.4 **Pin the chain with an end-to-end test**: drive a real
       `Engine.CheckRepo` against an `httptest` server returning
       rate-limit headers and assert `errors.As` recovers
-      `*ThrottledError` at the worker boundary. Most likely task to
-      surface a missing `%w`.
-- [ ] 3.5 Audit the client and engine error paths for non-`%w`
-      `fmt.Errorf`; fix whatever 3.4 exposes.
+      `*ThrottledError` at the worker boundary. This is a permanent
+      invariant test, not a one-off check — it fails if any link in the
+      chain breaks later, whichever link it is.
+- [ ] 3.5 Verify the test is non-vacuous by neutralising one `%w` on the
+      path, confirming the test fails, and restoring it. Without this the
+      assertion can pass by constructing the error too close to the
+      assertion rather than driving it through the real chain.
 
 #### Success Criteria
 
@@ -672,7 +691,7 @@ why it ships on its own.
 
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| The typed error does not survive the wrap chain | medium | Task 3.4 proves it end to end before Phase 4 depends on it |
+| The typed error does not survive the wrap chain | low — audited clean across all three hops, and `errorlint` guards the common regression | Task 3.4 pins it as a permanent invariant test so a later break fails CI rather than degrading silently |
 | Promotion granularity (60s) too coarse | low | Open Question 3; reconcile work is measured in hours |
 | A job defers forever without progressing | low | Attempt cap (4.4) plus `queue_attempts_exhausted_total` |
 | Partial work repeated after deferral | certain, low impact | The engine is idempotent by design (INV-0003); wasted calls are bounded |

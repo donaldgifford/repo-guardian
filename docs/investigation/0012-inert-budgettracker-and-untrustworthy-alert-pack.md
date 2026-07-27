@@ -40,7 +40,6 @@ created: 2026-07-25
   - [K. The nack contract was never defined, and the worker predates the queue](#k-the-nack-contract-was-never-defined-and-the-worker-predates-the-queue)
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
-- [Open Questions](#open-questions)
 - [References](#references)
 <!--toc:end-->
 
@@ -585,45 +584,6 @@ consolidation work.
   cheap approximation: assert every metric named in an alert expression
   has at least one non-test writer in the Go source. Whether that is worth
   building is an open question.
-
-## Open Questions
-
-1. **Scope of the consolidation** — (a) one effort covering the delayed
-   requeue, the `queue.Job`/`Queue` contract, and the disposition of all
-   three layers; (b) split the immediate sleep-cap hotfix from the
-   redesign; (c) hotfix only, defer the redesign until a real fleet
-   produces backpressure data. other:
-2. **Layer 2's fate** — the `StaleSweeper` reserve gate becomes largely
-   redundant under delayed requeue: (a) remove it once the requeue path
-   ships; (b) keep it as cheap enqueue-side admission control; (c) decide
-   after observing `jobs_delayed_total` in production. other:
-3. **Attempt cap and terminal disposition** — the contract needs one
-   (finding J: none today): (a) cap attempts and drop with a counter;
-   (b) cap and move to a `queue:dead` ZSET for inspection; (c) cap and
-   write terminal failure to `repo_state` so the existing store is the
-   dead-letter record. other:
-4. **`AvailableAt` ownership** — (a) worker computes the delay and the
-   queue honours it; (b) queue owns backoff policy and the worker only
-   signals "throttled"; (c) transport returns a typed error carrying
-   GitHub's own `resetAt`, which the worker passes through unmodified.
-   other:
-5. **BudgetTracker removal timing** — (a) delete in the same effort as
-   the requeue work, so no window exists where neither mechanism runs;
-   (b) delete immediately as dead code, since it has never run; (c) keep
-   the `internal/budget` package but strip its gates, reusing the
-   snapshot cache for the delayed-requeue delay calculation. other:
-6. **Alert-pack source of truth** — (a) leave the chart and `contrib/`
-   packs as independent copies and add a CI drift check; (b) generate
-   `contrib/` from the chart template; (c) leave as-is, accept drift.
-   other:
-7. **Class-3 detection** — is a "every alerted metric has a production
-   writer" check worth building, or is it enough to have found this one by
-   hand? other:
-8. **Doc scope** — the consolidation is now clearly a DESIGN, not an
-   IMPL: (a) one DESIGN covering queue contract + rate-limit
-   consolidation; (b) that DESIGN plus a separate small IMPL for the
-   alert-pack work, which is independent; (c) fold the alert work into
-   the same DESIGN. other:
 
 ## References
 

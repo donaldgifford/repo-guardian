@@ -52,4 +52,5 @@ docz create design "Your Design Title"
 | DESIGN-0018 | Deprecate memory backend | Approved | 2026-06-22 | Donald Gifford | [0018-deprecate-memory-backend.md](0018-deprecate-memory-backend.md) |
 | DESIGN-0019 | Configurable annotation-sourced custom properties | Implemented | 2026-07-19 | Donald Gifford | [0019-configurable-annotation-sourced-custom-properties.md](0019-configurable-annotation-sourced-custom-properties.md) |
 | DESIGN-0020 | Absent check mode and conditional file rules | Implemented | 2026-07-23 | Donald Gifford | [0020-absent-check-mode-and-conditional-file-rules.md](0020-absent-check-mode-and-conditional-file-rules.md) |
+| DESIGN-0021 | Delayed-requeue job contract and rate-limit consolidation | Draft | 2026-07-26 | Donald Gifford | [0021-delayed-requeue-job-contract-and-rate-limit-consolidation.md](0021-delayed-requeue-job-contract-and-rate-limit-consolidation.md) |
 <!-- END DOCZ AUTO-GENERATED -->

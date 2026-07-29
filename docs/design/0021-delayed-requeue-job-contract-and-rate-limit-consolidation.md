@@ -99,9 +99,18 @@ modelled from a hand-tuned cost estimate that has never been calibrated.
 - Rewriting the worker pool's concurrency model. `WORKER_COUNT`
   goroutines consuming `Subscribe` stays.
 - Per-installation fair scheduling or priority queues. A single FIFO with
-  a delayed side-set is the scope; fairness is a separate design if
-  observed data ever justifies it (see
-  [DESIGN-0015](0015-per-installation-valkey-queue-partitioning.md)).
+  a delayed side-set is the scope; fairness is
+  [DESIGN-0015](0015-per-installation-valkey-queue-partitioning.md)'s
+  territory (re-baselined against this design 2026-07-29). This design
+  deliberately stays partition-compatible — key construction is
+  centralised (task 2.1), the Lua scripts are key-parametric, and under
+  partitioning the delayed set splits per installation inside the same
+  hash tag — and Phase 5's `queue_wait_seconds{installation_id}` supplies
+  the measurement that decides whether 0015 is ever needed. Worth noting:
+  this design also *narrows* 0015's motivation — a rate-limited noisy org
+  can no longer park the worker pool, because its jobs defer from cached
+  transport state with zero API calls; what remains for 0015 is plain
+  FIFO burst starvation by an unthrottled large org.
 - Removing the transport's 403 retry handling. Retrying a *rejected*
   request is a transport concern and stays there — only the pre-emptive
   sleep moves.
@@ -396,6 +405,14 @@ New metrics:
 | `queue_delayed_depth` | Gauge | — | how much work is parked right now |
 | `queue_delay_seconds` | Histogram | `reason` | how long are the deferrals |
 | `queue_attempts_exhausted_total` | Counter | `installation_id` | is anything being dropped |
+| `queue_wait_seconds` | Histogram | `installation_id` | enqueue→dispatch latency per tenant — the [DESIGN-0015](0015-per-installation-valkey-queue-partitioning.md) go/no-go datum |
+
+`queue_wait_seconds` is cheap to add here (the job already carries
+`InstallationID` and `EnqueuedAt`; the worker observes the delta at
+claim time) and does double duty: it directly measures the FIFO
+starvation DESIGN-0015 exists to fix, so that design proceeds or stays
+Draft on soak data instead of speculation. Cardinality is
+installations × buckets (~25 × 12), well within budget.
 
 Together these answer the question the BudgetTracker was built for — "are
 we hitting API limits, how hard, and for whom" — from measurement rather
@@ -484,7 +501,11 @@ the real fix.
 #### Tasks
 
 - [ ] 2.1 Add `DelayedKey` to `valkey.Options`, defaulting to
-      `repo-guardian:queue:delayed`.
+      `repo-guardian:queue:delayed`, and centralise construction of all
+      queue keys (jobs, in-flight, delayed, reaper lock) in one helper —
+      DESIGN-0015's per-installation partitioning then changes key
+      selection in exactly one place, since the Lua scripts already take
+      their keys as `KEYS[]` parameters.
 - [ ] 2.2 Implement `deferScript` (ZREM in-flight + ZADD delayed, atomic)
       and wire it to `EnqueueAfter`.
 - [ ] 2.3 Implement `promoteScript` (ZRANGEBYSCORE due + ZREM + LPUSH,
@@ -571,6 +592,9 @@ the real fix.
       `queue_delay_seconds{reason}`, and
       `queue_attempts_exhausted_total{installation_id}`
       (`queue_delayed_depth` lands in 2.4).
+- [ ] 5.1b Add `queue_wait_seconds{installation_id}` — observed at claim
+      time as `now - EnqueuedAt`. This is the DESIGN-0015 go/no-go
+      measurement; no partitioning is needed to collect it.
 - [ ] 5.2 Add `RepoGuardianQueueBackpressure` and
       `RepoGuardianJobsExhausted` to the chart's `prometheusrule.yaml`
       **and** `contrib/prometheus/alerts.yaml` (INV-0012 finding F: the
@@ -795,7 +819,9 @@ why it ships on its own.
 - [DESIGN-0017](0017-stale-sweep-cutover-and-repository-discovery.md)
   — Layer 1/Layer 2 budget design whose BudgetTracker is removed here
 - [DESIGN-0015](0015-per-installation-valkey-queue-partitioning.md)
-  — adjacent queue work; fairness is explicitly out of scope here
+  — adjacent queue work, re-baselined 2026-07-29 against this design;
+  fairness stays out of scope here, but task 2.1 (key centralisation) and
+  task 5.1b (`queue_wait_seconds`) are its forward hooks
 - [IMPL-0011](../impl/0011-persistent-reconcile-state-and-multi-replica-coordination.md)
   — introduced the queue, lease, and reaper
 - [IMPL-0015](../impl/0015-stale-sweep-cutover-and-repository-discovery.md)

@@ -80,6 +80,8 @@ nav:
         - Custom-property annotation migration (appVersion 1.9.1 → next minor): operations/annotation-properties-migration.md
         - Custom-property name charset correction (appVersion 1.10.1): operations/property-name-charset.md
         - ECR publish setup (maintainer-side): operations/ecr-publish-setup.md
+        - Enterprise setup — one App across N orgs: operations/ent-setup.md
+        - External Postgres on RDS — Terraform variable reference: operations/rds-terraform-variables.md
         - Homelab CNPG cutover runbook: operations/cnpg-homelab-cutover.md
         - Postgres schema operations: operations/migrations.md
         - Running repo-guardian on AWS: operations/aws.md

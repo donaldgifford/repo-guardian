@@ -358,15 +358,36 @@ app is a **new registration** — new App ID, new private key, and new
 installation IDs; there is no transfer path from a personal- or
 org-owned registration. The cutover is: register per Step 1, swap the
 chart's `config.appId` + `secrets.privateKey` + `secrets.webhookSecret`,
-run the Step 3 loop, then uninstall the old app. The old `repo_state`
-rows are orphaned but harmless (the primary key includes
-`installation_id`; new installations re-seed fresh rows), and existing
-reconcile PRs converge unchanged — the engine finds them by the
-deterministic `repo-guardian/add-missing-files` branch name, not by
-stored state. A credential swap plus a re-seed, not a data migration.
+run the Step 3 loop, then uninstall the old app. Existing reconcile
+PRs converge unchanged — the engine finds them by the deterministic
+`repo-guardian/add-missing-files` branch name, not by stored state. A
+credential swap plus a re-seed, not a data migration — with two
+cleanup steps that are easy to skip and expensive to debug:
 
-**Drain the Valkey queue during the cutover.** Unlike `repo_state`
-rows, queued jobs are *not* harmless across the swap: each job carries
+**Delete the old installation's `repo_state` rows.** They are *not*
+harmless: the stale-sweeper selects rows by `(last_checked_at,
+policy_version)` with no notion of whether the installation still
+exists, so every old-installation row is re-enqueued (drifted rows in
+a burst on the first sweep, then once per freshness window each), and
+every minted job fails with "installation not found" against the
+deleted app. The primary key is `(installation_id, owner, repo)`, so
+the same repos coexist under the new installation's rows — deleting
+the old ones loses nothing:
+
+```sql
+-- see which installation IDs the store knows about
+SELECT installation_id, count(*) FROM repo_state GROUP BY 1 ORDER BY 2 DESC;
+-- drop the dead one(s)
+DELETE FROM repo_state WHERE installation_id = <old_installation_id>;
+```
+
+Note the rows can appear even in a *fresh* database: a first deploy
+that briefly ran with the old app's credentials (discovery seeds its
+installations), or old-app webhook deliveries landing before the app
+was deleted, is enough to plant them.
+
+**Drain the Valkey queue during the cutover.** Like the store rows,
+queued jobs are *not* harmless across the swap: each job carries
 the old app's installation ID baked into its JSON, and a persistent
 Valkey (EBS-backed, AOF/RDB enabled) keeps them across redeploys. The
 new deployment's workers will dequeue them, fail to mint an

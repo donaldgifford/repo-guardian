@@ -10,8 +10,8 @@ to match your environment.
 
 | Path | Purpose |
 |------|---------|
-| `prometheus/alerts.yaml` | Alerting rules for availability, error rate, GitHub rate limiting, latency, webhooks, and strict-mode scope misconfigurations. |
-| `grafana/repo-guardian-dashboard.json` | Grafana dashboard with overview, repo checks, compliance, webhook, custom-properties, error/rate-limit panels, plus per-org activity panels. |
+| `prometheus/alerts.yaml` | Alerting rules for availability, error rate, GitHub rate limiting, latency, webhooks, strict-mode scope misconfigurations, PR convergence, and custom-property sync (schema preflight + catalog parse failures). |
+| `grafana/repo-guardian-dashboard.json` | Grafana dashboard with overview, repo checks, compliance, webhook, custom-properties, error/rate-limit, multi-replica/queue, PR-convergence, and absent-rule/when-gate/property-sync panels, plus per-org activity panels. |
 
 ## Exposed Metrics
 
@@ -42,6 +42,8 @@ histogram_quantile(0.99,
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
 | `files_missing_total` | CounterVec | `rule_name`, `org` | Number of times a file rule found a missing file requiring action. |
+| `files_forbidden_present_total` | CounterVec | `rule_name`, `org` | Forbidden files detected present by an `absent`-mode rule (IMPL-0019). The absent-rule analogue of `files_missing_total`. |
+| `rule_gate_closed_total` | CounterVec | `rule_name`, `org`, `reason` | File-rule evaluations skipped because a `when { rule_satisfied }` gate was closed (IMPL-0019). `reason=not_satisfied` is normal operation; `reason=error` means the referee rule's evaluation failed and the gate failed closed. |
 | `prs_created_total` | CounterVec | `org` | Pull requests created by repo-guardian for missing files. |
 | `prs_updated_total` | CounterVec | `org` | Existing PRs updated with new files. |
 
@@ -53,6 +55,12 @@ sum by (org) (rate(repo_guardian_prs_created_total[5m]))
 
 # Top 10 rules by missing-file detections
 topk(10, sum by (rule_name) (rate(repo_guardian_files_missing_total[1h])))
+
+# Forbidden files still present, by absent-mode rule (IMPL-0019)
+sum by (rule_name, org) (rate(repo_guardian_files_forbidden_present_total[1h]))
+
+# Gate fail-closed errors — referee rule evaluation failing (should be ~zero)
+sum by (rule_name, org) (rate(repo_guardian_rule_gate_closed_total{reason="error"}[1h]))
 ```
 
 ### PR drift and convergence (IMPL-0013 Phase 1)
@@ -144,6 +152,24 @@ sum by (org) (rate(repo_guardian_files_missing_total[1h])) > 0
 | `properties_set_total` | Counter | — | Repositories where properties were set via API. |
 | `properties_already_correct_total` | Counter | — | Repositories where properties already matched. |
 
+### Custom-property sync (DESIGN-0019 / IMPL-0017 / IMPL-0020)
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `custom_property_cleared_total` | CounterVec | `org` | Managed properties cleared (JSON `null`) because their source annotation was removed from `catalog-info.yaml` — the DESIGN-0019 full-state-sync contract. A sustained rate here with no catalog edits suggests a fight with an org-schema `default_value` (clears re-inherit the default and re-trigger drift). |
+| `custom_property_missing_schema_total` | CounterVec | `org`, `property` | Sync attempts for a managed property the org's custom-property schema does not define. The preflight skips these (rest of the payload still syncs) and warns once per org per 30-minute schema-cache window. |
+| `catalog_parse_failed_total` | CounterVec | `org` | Custom-properties reconciles skipped because `catalog-info.yaml` failed to parse (IMPL-0020 A1 — malformed files are never overwritten with defaults). |
+
+Example:
+
+```promql
+# Which properties are missing from which org's schema
+sum by (org, property) (increase(repo_guardian_custom_property_missing_schema_total[24h]))
+
+# Repos drifting because their catalog-info.yaml is broken
+sum by (org) (increase(repo_guardian_catalog_parse_failed_total[24h]))
+```
+
 ### Multi-replica / scheduler / store / queue (IMPL-0011)
 
 | Metric | Type | Labels | Description |
@@ -231,6 +257,15 @@ sum by (endpoint) (rate(repo_guardian_discovery_api_calls_total[1h]))
 ```
 
 ### BudgetTracker (IMPL-0015 Phase 1)
+
+> **Inert in production (INV-0012).** Nothing outside tests calls
+> `Tracker.RefreshFromAPI`, so no snapshot is ever cached: every gate
+> falls open, all six metrics below stay unpublished (or zero), and
+> `enqueue_gated_by_budget_total` can never increment. Do not build
+> paging alerts on these — an empty budget dashboard means "not
+> wired", not "healthy". DESIGN-0021 replaces this mechanism with
+> measured queue-delay metrics; the tables below document the intended
+> semantics until then.
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|

@@ -15,7 +15,7 @@ your Helm values under `policy.config`.
 | [`guardian-full.hcl`](guardian-full.hcl) | Kitchen sink — all rule types, assertions, reconcilers, ignore lists, settings, branch protection. |
 | [`guardian-multi-org.hcl`](guardian-multi-org.hcl) | Strict-mode multi-org example in a single file. Top-level `scope { }` + per-rule scopes (universal `["*"]` and per-org subsets). |
 | [`guardian-multi-org/`](guardian-multi-org/) | Same as above, split across `scope.hcl`, `shared.hcl`, `prod-only.hcl`, `staging-only.hcl`. Point `GUARDIAN_CONFIG` at the directory. |
-| [`guardian-enterprise.hcl`](guardian-enterprise.hcl) | Enterprise App topology: one App installed across every org in the enterprise, but the policy enumerates which orgs to reconcile. Per-org rule scoping for diverging policies. Repos from unconfigured enterprise orgs are silently skipped (visible via `repo_guardian_out_of_scope_total{level="policy"}`). |
+| [`guardian-enterprise.hcl`](guardian-enterprise.hcl) | Enterprise App topology: one App installed across every org in the enterprise, but the policy enumerates which orgs to reconcile. Per-org rule scoping for diverging policies, PR templates at all three scopes (with the PR-vs-file template variable sets documented — `.Org` is file-template-only), catalog-info assertions + custom-property sync, and a when-gated absent rule. Setup runbook: `docs/operations/ent-setup.md`. Repos from unconfigured enterprise orgs are silently skipped (visible via `repo_guardian_out_of_scope_total{level="policy"}`). |
 
 ### Usage
 

@@ -242,6 +242,35 @@ interval, goes blind between restart and first sweep, and only exists
 on the leader replica. Honest enough for a KPI dashboard's "as of last
 sweep" panel; not honest enough for point-in-time compliance reporting.
 
+Considered and rejected as primary: **C4 — Loki last-state
+projection.** Emit a structured per-repo per-rule outcome log line
+(does not exist today) and reconstruct current state in LogQL
+(`last_over_time`-style, `repo` as a parsed field). It works as an
+event-sourced approximation, but every posture query must scan a
+window longer than the sweep interval — which is *weekly* — across
+5k repos, with retention pinned ≥ the window forever, versus one
+indexed `count(*) GROUP BY` on a table the workers already write in
+the same code path. Loki-derived metrics stay correct for log-shaped
+event signals (Finding E4); they are a fallback for posture, not a
+design.
+
+**The downstream report requirement settles the C1-vs-C2 choice.** The
+stated goal is a compliance dashboard *and* a generated per-org report
+sent to org owners. A report needs repo *names* (identity — never
+representable in metrics, marginal in Loki) and *durations* ("missing
+since 2026-06-14" is what makes an owner act), which means per-rule
+rows with timestamps: C1, not C2's JSONB blob. Two riders fall out:
+a nightly `compliance_snapshot(org, rule_name, actionable_count, ts)`
+insert gives quarter-over-quarter history independent of Prometheus
+retention, and the report generator itself is a
+`repo-guardian report` sibling of Finding H's `monitoring generate`
+subcommand (loads the same config, queries the same tables, renders
+per-org output; Grafana's native reporting is an Enterprise-license
+feature, so the CLI shape is the OSS path). The compliance dashboard
+is then a mixed-datasource dashboard: Prom for the projected count
+gauges and trends, the Grafana Postgres datasource for the "which
+repos" table panels.
+
 ### D. The 1+N query fear is solvable three ways — and one is already built
 
 The stated concern: with N replicas scraped every 30s, a naive

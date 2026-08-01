@@ -66,6 +66,7 @@ nav:
         - 'INV-0010: Silently ignored operator config: auto_close_pr HCL attribute and cross-mode existingSecret': investigation/0010-silently-ignored-operator-config-autoclosepr-hcl-attribute-and.md
         - 'INV-0011: Tech debt cleanup inventory post IMPL-0019': investigation/0011-tech-debt-cleanup-inventory-post-impl-0019.md
         - 'INV-0012: Inert BudgetTracker and untrustworthy alert pack': investigation/0012-inert-budgettracker-and-untrustworthy-alert-pack.md
+        - 'INV-0013: State-vs-event metrics, dashboard suite, and system observability': investigation/0013-state-vs-event-metrics-dashboard-suite-and-system-observability.md
     - Plans:
         - Overview: plan/README.md
     - RFCs:
@@ -80,13 +81,13 @@ nav:
         - Custom-property annotation migration (appVersion 1.9.1 → next minor): operations/annotation-properties-migration.md
         - Custom-property name charset correction (appVersion 1.10.1): operations/property-name-charset.md
         - ECR publish setup (maintainer-side): operations/ecr-publish-setup.md
-        - Enterprise setup — one App across N orgs: operations/ent-setup.md
         - External Postgres on RDS — Terraform variable reference: operations/rds-terraform-variables.md
         - Homelab CNPG cutover runbook: operations/cnpg-homelab-cutover.md
         - Postgres schema operations: operations/migrations.md
         - Running repo-guardian on AWS: operations/aws.md
         - Scaling repo-guardian: operations/scaling.md
         - Template migration guide (chart 0.3.x → 0.4.0): operations/template-migration.md
+        - repo-guardian GitHub App — Enterprise Setup Guide: operations/ent-setup.md
 plugins:
     - techdocs-core
 site_description: Documentation for repo-guardian

@@ -27,6 +27,7 @@ created: 2026-08-01
   - [E. Dashboard suite architecture](#e-dashboard-suite-architecture)
   - [F. System / USE / RED coverage gaps](#f-system--use--red-coverage-gaps)
   - [G. OTEL is the cross-hop answer, but RED does not have to wait for it](#g-otel-is-the-cross-hop-answer-but-red-does-not-have-to-wait-for-it)
+  - [H. Config-generated dashboards and alerts — established pattern, strong fit](#h-config-generated-dashboards-and-alerts--established-pattern-strong-fit)
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
 - [References](#references)
@@ -363,6 +364,79 @@ OTEL tracing as a separate opt-in effort when per-request "why was
 the webhook path is cheap and forward-compatible (it emits both traces
 and metrics), but wiring the full chain should not gate the dashboards.
 
+### H. Config-generated dashboards and alerts — established pattern, strong fit
+
+The follow-up question: instead of static dashboards (or purely
+label-discovered template variables), should repo-guardian *generate*
+its monitoring artifacts from `guardian.hcl` — per-org rows for exactly
+the configured orgs, panels only for enabled rules, alerts only for
+mechanisms actually in use?
+
+**Prior art — this is a named, established pattern, not a novelty:**
+
+- **Monitoring mixins** (kubernetes-mixin, node-mixin, kube-prometheus)
+  — the granddaddy: jsonnet packages that take a config object and
+  emit dashboards JSON + PrometheusRule YAML via `mixtool`. "Read
+  config, generate dashboards + alerts" has been the prometheus-
+  ecosystem convention for years.
+- **Sloth / Pyrra** — generate PrometheusRule CRs from an SLO spec:
+  the exact "validate a config and spit out a prom alerts CR" shape.
+- **Elastic beats** `setup --dashboards` — the shipping binary knows
+  its own enabled modules and pushes matching dashboards; precedent
+  for the CLI-subcommand shape.
+- **Grafana Foundation SDK** (`grafana/grafana-foundation-sdk`) — the
+  current official, strongly-typed Go builder library: chained
+  builders → `Build()` → standard dashboard JSON, or wrapped in
+  `apiVersion/kind/metadata` for Grafana's Kubernetes-compatible API /
+  grafana-operator `GrafanaDashboard` CRs. Grafana ≥ 10. (The older
+  community lineage — grabana, DARK — is superseded by this.)
+
+**Why the fit is unusually strong here.** The E2 template-variable
+approach (`label_values(...)`) can only show orgs that have *emitted
+data*. An org that is configured in `scope.orgs` but silent is
+invisible — and "configured but silent" is precisely the failure mode
+of this week's enterprise migration (dead installation IDs, orgs
+producing nothing). Config-generated dashboards invert the direction:
+a row exists for every org that *should* report, so absence renders as
+a no-data panel — a signal instead of a blind spot. The same inversion
+applies to rules and alerts: no `custom_properties` reconciler
+configured → no property-sync panels and no `PropertySchemaMissing`
+alert; no absent-mode rules → no forbidden-files panels; no empty
+graphs, no dead alerts. The generator also subsumes config
+*validation*: it must `policy.Load()` the same HCL the server loads,
+so `repo-guardian monitoring generate` in CI is a free config check
+(the strict-templates precedent, extended).
+
+**Where generation runs — three shapes:**
+
+- **H1 — CLI subcommand (recommended).** `repo-guardian monitoring
+  generate --config guardian.hcl --out ./monitoring/ --format
+  json|k8s` emitting dashboard JSON (or GrafanaDashboard CRs) + a
+  PrometheusRule CR. Artifacts are committed to the GitOps repo and
+  consumed by kustomize/ArgoCD like any manifest; a CI check re-runs
+  the generator and fails on diff (the `helm-docs`/`docz update` drift
+  convention this repo already uses). The binary already links the
+  policy loader; the foundation SDK is a codegen'd type dependency —
+  if its weight on the server binary matters, the subcommand can live
+  in a separate `cmd/` binary sharing `internal/policy`.
+- **H2 — kustomize KRM/exec plugin** wrapping H1 — generation at
+  render time, no committed artifacts. Works, but exec plugins need
+  `--enable-alpha-plugins` everywhere including ArgoCD's repo-server,
+  which is operationally clunky; only worth it if config churn makes
+  committed artifacts annoying.
+- **H3 — operator/sidecar** applying grafana-operator CRs at runtime
+  from the live ConfigMap. Most automatic, most infra, hardest to
+  review; not justified at current config-change frequency.
+
+**Trade-offs to carry into the design:** SDK output is coupled to
+Grafana schema versions (pin and test-render); generated and static
+artifacts must not fork silently — the static `contrib/` suite remains
+the zero-config fallback tier, the generated suite is the config-aware
+tier, and both should share panel definitions (generate the static one
+from an empty/default config so there is exactly one source of truth);
+`repo` must still never become a metric label — generation does not
+change cardinality rules, it only scopes which series get panels.
+
 ## Conclusion
 
 **Answer:** Confirmed on all three fronts.
@@ -380,6 +454,11 @@ and metrics), but wiring the full chain should not gate the dashboards.
    gaps are enumerable and metrics-only (Finding F); OTEL is required
    only for cross-hop tracing and should not gate anything else
    (Finding G).
+4. Generating dashboards and alert CRs from `guardian.hcl` is an
+   established ecosystem pattern (mixins, Sloth/Pyrra, beats setup)
+   with an unusually strong fit here: it makes configured-but-silent
+   orgs visible — the exact blind spot of this week's enterprise
+   migration — and doubles as CI config validation (Finding H).
 
 ## Recommendation
 
@@ -391,12 +470,16 @@ Three follow-up efforts, in dependency order:
    path for the four legacy `properties_*` counters. This is the only
    binary-changing prerequisite for the KPI dashboard's headline
    panels.
-2. **contrib/ dashboard suite (no binary changes).** E2 detailed
-   per-org, E3 system/health (with the three pgxpool/go-redis/GitHub
-   RoundTripper collectors from Finding F as a small accompanying
-   binary change if accepted), E4 Loki — plus E1 KPI in "as of last
-   sweep" degraded mode until effort 1 lands. Test-lock the
-   catalog-parse log line before E4 depends on it.
+2. **Dashboard suite DESIGN.** E2 detailed per-org, E3 system/health
+   (with the three pgxpool/go-redis/GitHub RoundTripper collectors
+   from Finding F as a small accompanying binary change if accepted),
+   E4 Loki — plus E1 KPI in "as of last sweep" degraded mode until
+   effort 1 lands. Test-lock the catalog-parse log line before E4
+   depends on it. The design's central decision is Finding H: static
+   contrib dashboards vs a `repo-guardian monitoring generate` CLI
+   subcommand (H1, foundation SDK) emitting the config-aware suite —
+   recommended shape is H1 with the static contrib tier generated
+   from a default config so there is one source of truth.
 3. **DESIGN (later): OTEL tracing adoption.** Scope per Finding G;
    explicitly decoupled so it cannot stall efforts 1–2.
 
@@ -415,3 +498,7 @@ designing panels for series that are about to be deleted.
 - `internal/metrics/metrics.go`, `internal/worker/worker.go`, `internal/store/postgres/migrations/0001_init.up.sql` — primary sources
 - Grafana repeated rows: <https://grafana.com/docs/grafana/latest/dashboards/build-dashboards/create-dashboard/#configure-repeating-rows>
 - Loki ruler recording rules: <https://grafana.com/docs/loki/latest/alert/#recording-rules>
+- Grafana Foundation SDK: <https://github.com/grafana/grafana-foundation-sdk> — official Go builders → dashboard JSON / k8s-resource output
+- Foundation SDK CI/CD provisioning: <https://grafana.com/docs/grafana/latest/as-code/observability-as-code/foundation-sdk/dashboard-automation/>
+- Monitoring mixins (config → dashboards + alerts precedent): <https://github.com/kubernetes-monitoring/kubernetes-mixin>
+- Sloth (SLO spec → PrometheusRule generation precedent): <https://github.com/slok/sloth>

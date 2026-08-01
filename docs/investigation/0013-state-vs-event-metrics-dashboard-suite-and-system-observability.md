@@ -28,6 +28,7 @@ created: 2026-08-01
   - [F. System / USE / RED coverage gaps](#f-system--use--red-coverage-gaps)
   - [G. OTEL is the cross-hop answer, but RED does not have to wait for it](#g-otel-is-the-cross-hop-answer-but-red-does-not-have-to-wait-for-it)
   - [H. Config-generated dashboards and alerts — established pattern, strong fit](#h-config-generated-dashboards-and-alerts--established-pattern-strong-fit)
+  - [I. Signal taxonomy — business / service / infra](#i-signal-taxonomy--business--service--infra)
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
 - [References](#references)
@@ -454,6 +455,96 @@ ones (`db.client.operation.duration` vs `store_query_seconds`). Keep
 the domain metrics, adopt OTEL at the transport layers, and pick one
 source per dashboard panel — never both.
 
+**What OTEL actually lets us remove.** Less than intuition suggests,
+because nearly every hand-rolled metric is *domain*-level (org, rule,
+trigger, reason labels OTEL cannot know). The honest ledger:
+
+- *Removable existing metrics (2):* `github_rate_limit_waits_total`
+  and `github_rate_limit_wait_seconds` — but their real executioner is
+  DESIGN-0021, which stops the transport from sleeping at all; OTEL
+  client histograms then carry the residual signal (slow GitHub calls
+  by status). Nothing else existing goes away: `store_query_seconds`
+  keeps its domain `op` labels (semconv sees SQL verbs, not
+  `stale_repos`), `check_duration_seconds` is job-level not
+  transport-level, `webhook_*` reasons are security semantics.
+- *Planned work cancelled (3–4 items from Finding F):* the
+  hand-rolled GitHub RoundTripper RED histogram → `otelhttp` client
+  transport; the webhook duration middleware → `otelhttp` server; the
+  `redisprometheus` collector → `redisotel` metrics; possibly the
+  `pgxpool.Stat()` collector if `otelpgx`'s pool-stats option covers
+  it (verify at design time — one or the other, not both).
+- *Removed by other efforts, not OTEL:* the 7 dead budget series
+  (DESIGN-0021 Phase 6) and the 4 legacy `properties_*` counters
+  (posture design). Postgres loses nothing to OTEL — posture facts
+  are business state, not telemetry.
+
+**"OTEL now" without the infra bill:** the OTel Go SDK can export its
+metrics through the *existing* Prometheus endpoint (the
+`go.opentelemetry.io/otel/exporters/prometheus` bridge registers into
+the same registry `promhttp` serves). So the instrumentation set —
+`otelhttp` both directions, `redisotel`, `otelpgx` — can ship
+metrics-first with zero new cluster infrastructure; the collector +
+Tempo backend becomes a later, purely additive step that turns the
+already-emitted spans on.
+
+### I. Signal taxonomy — business / service / infra
+
+Classification of every signal (live, planned, retiring) by tier, so
+each dashboard has one obvious source list: **E1 KPI = business**,
+**E2 detailed = business + service sliced by org**, **E3 = service +
+infra**, **E4 Loki = evidence across all tiers**.
+
+**Business — fleet compliance and value delivered (org-facing):**
+
+| Signal | Source | Covers |
+|--------|--------|--------|
+| `repos_actionable{rule_name,org}` *(planned)* | PG → leader gauge | posture: repos failing each rule, per org |
+| compliance % per org/rule *(planned)* | PG → leader gauge + PG datasource | the KPI headline |
+| `compliance_snapshot` history *(planned)* | PG table | quarter-over-quarter reporting |
+| "which repos" tables + per-org report | PG datasource / `report` CLI | identity + missing-since |
+| `open_prs_by_rule{org,rule,age_bucket}` | binary (sweep snapshot) | open remediation PRs by age |
+| `files_missing_total`, `files_forbidden_present_total` | binary counter | detection activity per rule/org |
+| `settings_mismatched_total` | binary counter | setting-drift detections |
+| `prs_created_total`, `prs_updated_total`, `prs_closed_total{reason}` | binary counter | remediation delivered |
+| `settings_remediated_total`, `branch_protection_remediated_total` | binary counter | remediation delivered |
+| `custom_property_cleared_total` | binary counter | property sync actions |
+| `custom_property_missing_schema_total` | binary counter (+ planned TTL gauge) | org schema governance gap |
+| `catalog_parse_failed_total` | binary counter (+ Loki for repo identity) | broken catalog files, per org |
+| `properties_*` (4 legacy) | binary counter | *deprecate with posture design* |
+
+**Service — repo-guardian's own operation:**
+
+| Signal | Source | Covers |
+|--------|--------|--------|
+| `repos_checked_total{trigger,org}` | binary counter | throughput by trigger |
+| `check_duration_seconds` | binary histogram | job latency (decomposed by OTEL spans later) |
+| `errors_total{operation,org}` | binary counter | operation failures |
+| `queue_depth`, `queue_{enqueued,claimed,acked,reaped}_total` | binary | queue USE |
+| `queue_wait_seconds`, `queue_delayed_*`, `attempts_exhausted` *(DESIGN-0021)* | binary | queue latency + deferral behavior |
+| `scheduler_is_leader`, `scheduler_sweep_batch_size` | binary | leader + sweep sizing |
+| `store_writeback_total`, `store_writeback_duration_seconds` | binary | state write-back health |
+| `repo_discovered_total`, `discovery_duration_seconds`, `discovery_api_calls_total` | binary | discovery behavior |
+| `rate_limit_reserve_blocked_total` | binary counter | self-throttling decisions |
+| `ignored_total`, `out_of_scope_total`, `rule_gate_closed_total` | binary counter | policy-engine gating |
+| `pr_open_with_empty_actionable_total`, `pr_orphan_left_total` | binary counter | convergence-path faults |
+| `webhook_received_total{event_type}`, `webhook_rejected_total{reason}` | binary counter | ingress domain semantics |
+| `http.server.request.duration{route,status}` *(planned OTEL)* | OTEL → prom bridge | inbound RED incl. the uncounted 401s |
+
+**Infra — dependencies and runtime:**
+
+| Signal | Source | Covers |
+|--------|--------|--------|
+| `store_query_seconds{op,outcome}` | binary histogram | Postgres latency/errors (R+E) |
+| pgx pool stats *(planned — `pgxpool.Stat()` or otelpgx, pick one)* | collector / OTEL | Postgres pool USE |
+| `db.client.operation.duration` + acquire spans *(planned OTEL)* | OTEL | query-vs-acquire decomposition |
+| Valkey command latency + pool *(planned — `redisotel`)* | OTEL | queue/scheduler dependency health |
+| `http.client.request.duration{host,status}` *(planned OTEL)* | OTEL | GitHub API RED, status truth, retry visibility |
+| `rate_limit_remaining{installation_id}`, `github_rate_remaining` | binary gauge | GitHub quota headroom |
+| `github_rate_limit_waits_total`, `github_rate_limit_wait_seconds` | binary | *retiring with DESIGN-0021* |
+| `api_budget_*` (7 series) | binary | *dead — removed by DESIGN-0021 Phase 6* |
+| `go_*`, `process_*` | default registry | runtime USE (GC, goroutines, RSS, FDs) |
+| k8s/node/ALB/gateway signals | cluster stacks | outside the binary; join via traces (Finding G) |
+
 ### H. Config-generated dashboards and alerts — established pattern, strong fit
 
 The follow-up question: instead of static dashboards (or purely
@@ -570,8 +661,15 @@ Three follow-up efforts, in dependency order:
    subcommand (H1, foundation SDK) emitting the config-aware suite —
    recommended shape is H1 with the static contrib tier generated
    from a default config so there is one source of truth.
-3. **DESIGN (later): OTEL tracing adoption.** Scope per Finding G;
-   explicitly decoupled so it cannot stall efforts 1–2.
+3. **OTEL adoption, split in two.** Metrics-first now: `otelhttp`
+   (both directions), `redisotel`, `otelpgx` exporting through the
+   existing Prometheus endpoint via the OTel prometheus bridge — zero
+   new infra, closes the Finding G unmask list, and cancels 3–4 items
+   of Finding F's planned hand-rolled work. Tracing infra (collector +
+   Tempo) as a later, purely additive DESIGN; explicitly decoupled so
+   it cannot stall efforts 1–2. Dashboard source lists follow the
+   Finding I taxonomy (E1=business, E2=business+service by org,
+   E3=service+infra).
 
 Sequencing note: DESIGN-0021 (delayed requeue) already replaces the
 dead budget metrics with measured queue-delay observability; effort 1

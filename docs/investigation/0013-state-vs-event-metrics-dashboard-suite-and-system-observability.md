@@ -195,6 +195,30 @@ The counters are still valuable *as events* (detection rate, activity,
 alerting on `increase()`); the fix is not to remove them but to add a
 posture representation alongside — which leads to Finding C.
 
+**Source assignment — the decision run over each posture metric.** The
+operational test is three questions: (1) is the number only meaningful
+"as of now"? (2) is the system of record *our check outcomes* (vs
+GitHub's state, vs the process itself)? (3) do consumers need identity
+or since-when durations? Both yes on 1+2 → Postgres-backed; system of
+record GitHub → snapshot/TTL gauge projection; otherwise pure Prom.
+
+| Posture reading | System of record | Source verdict |
+|-----------------|------------------|----------------|
+| repos missing a file (`files_missing_total`) | our check outcomes | **PG** — `rule_state` rows → `repos_actionable{rule_name,org}` gauge |
+| repos with forbidden file (`files_forbidden_present_total`) | our check outcomes | **PG** — same table, absent-mode rows |
+| repos with setting drift (`settings_mismatched_total`) | our check outcomes | **PG** — `rule_state` must include setting rules |
+| branch-protection drift | our check outcomes | **PG** — closes a hole: no `*_mismatched` metric even exists for BP today (only checked/remediated) |
+| repos with unparseable catalog (`catalog_parse_failed_total`) | our check outcomes | **PG** — parse-ok as a per-repo fact |
+| fleet compliance % (`properties_already_correct_total`) | our check outcomes | **PG** — derived; deprecate the counter |
+| open drifted PRs (`pr_open_with_empty_actionable_total` posture reading) | **GitHub** | snapshot gauge — `open_prs_by_rule` pattern is already correct; no PG mirror (the report can hit GitHub at generation time for PR links) |
+| org schema missing properties (`custom_property_missing_schema_total` posture reading) | **GitHub** | TTL gauge set at preflight-cache refresh (`property_schema_missing{org,property}` 0/1) — the cache already knows; PG adds nothing |
+
+Summarized: **Postgres backs exactly the facts the engine computes and
+currently throws away — per-rule check outcomes.** GitHub-owned
+posture gets projections (sweep snapshot or preflight-TTL gauges).
+Process behavior — every rate, latency, and saturation signal — stays
+pure Prometheus and never touches the DB.
+
 ### C. Postgres cannot serve posture today — the write-back is status-only
 
 The full extent of persisted state (migration 0001):
@@ -392,6 +416,43 @@ OTEL tracing as a separate opt-in effort when per-request "why was
 *this* webhook slow" matters. Adopting `otelhttp` middleware early on
 the webhook path is cheap and forward-compatible (it emits both traces
 and metrics), but wiring the full chain should not gate the dashboards.
+
+**What OTEL instrumentation would unmask — signals current metrics
+hide (verified against the code):**
+
+1. `check_duration_seconds` conflates engine compute, GitHub API
+   latency, and the DESIGN-0002 transport's rate-limit sleeps (up to
+   an hour *inside* `RoundTrip`). INV-0012 found the sleep by code
+   reading; a client-span would have shown it as an hour-long span on
+   day one. `otelhttp` client instrumentation on the installation
+   transport decomposes all three.
+2. `errors_total{operation}` collapses status truth: GitHub 429 vs
+   403 vs 5xx vs network error are indistinguishable, and go-github
+   retries are invisible. Client `http.client.request.duration
+   {status_code}` + span events carry both.
+3. **HMAC 401 rejections are counted nowhere.** `webhook_rejected_total`
+   increments only in the allowlist middleware (`allowlist.go`); a
+   signature-validation failure returns 401 with no metric. Server
+   middleware (`otelhttp` or `promhttp.InstrumentHandler*`) emits
+   duration + status for *every* request — 401 volume, 404 scans,
+   panic-500s — closing the gap wholesale rather than per-reason.
+4. Enqueue latency inside the webhook path: a Valkey stall makes the
+   202 slow and nothing measures it — `redisotel` (or a go-redis
+   hook) times every command including the reaper Lua and leader
+   SETNX, none of which are measured today.
+5. `store_query_seconds` starts its timer before pool acquire
+   (`observeQuery` wraps the pool call), so pool exhaustion
+   masquerades as slow queries with no discriminator. `otelpgx`
+   separates acquire from query spans; the `pgxpool.Stat()` collector
+   (Finding F) is the aggregate USE view of the same thing.
+6. End-to-end "webhook received → PR opened" latency is a pure trace
+   concept: DESIGN-0021's `queue_wait_seconds` measures one hop;
+   traces stitch webhook → enqueue → claim → check → GitHub writes.
+
+Dedup rule for the design: OTEL semconv metrics overlap hand-rolled
+ones (`db.client.operation.duration` vs `store_query_seconds`). Keep
+the domain metrics, adopt OTEL at the transport layers, and pick one
+source per dashboard panel — never both.
 
 ### H. Config-generated dashboards and alerts — established pattern, strong fit
 

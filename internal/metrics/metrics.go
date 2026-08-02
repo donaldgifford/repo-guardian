@@ -250,10 +250,12 @@ var (
 		Help: "Total jobs claimed by a worker.",
 	})
 
-	// QueueAckedTotal counts handler returns by outcome (success or
-	// error). A `success` ack means ZREM in-flight succeeded; an
-	// `error` ack means the handler returned an error and the entry
-	// was left in-flight for the reaper.
+	// QueueAckedTotal counts handler returns by outcome (success,
+	// error, or deferred). A `success` ack means ZREM in-flight
+	// succeeded; an `error` ack means the handler returned an error
+	// and the entry was left in-flight for the reaper; a `deferred`
+	// ack means the handler returned RetryAfterError and the job
+	// moved to the delayed set (IMPL-0022).
 	QueueAckedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_queue_acked_total",
 		Help: "Total jobs acknowledged by a worker, by outcome.",

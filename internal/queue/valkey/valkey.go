@@ -397,6 +397,13 @@ func (q *Queue) processPayload(ctx context.Context, payload string, handler func
 	}
 
 	if err := handler(ctx, j); err != nil {
+		var retry *queue.RetryAfterError
+		if errors.As(err, &retry) {
+			q.deferInFlight(ctx, payload, j, retry)
+
+			return
+		}
+
 		q.logger.WarnContext(ctx, "queue handler error; leaving in-flight for reaper",
 			"job_id", j.ID,
 			"owner", j.Owner,
@@ -418,6 +425,51 @@ func (q *Queue) processPayload(ctx context.Context, payload string, handler func
 	}
 
 	metrics.QueueAckedTotal.WithLabelValues("success").Inc()
+}
+
+// deferInFlight parks a claimed job in the delayed set per the
+// handler's RetryAfterError: Attempts is incremented (IMPL-0022 task
+// 4.3, defer half), AvailableAt is stamped, and the re-serialised
+// payload atomically replaces the original in-flight entry
+// (deferScript). On marshal or script failure the job is left
+// in-flight for the reaper — the deferral degrades to a nack rather
+// than risking job loss.
+//
+//nolint:gocritic // hugeParam: Job-by-value matches the claim path
+func (q *Queue) deferInFlight(ctx context.Context, inFlightMember string, j queue.Job, retry *queue.RetryAfterError) {
+	j.Attempts++
+	j.AvailableAt = retry.After.UTC()
+
+	parked, err := json.Marshal(j)
+	if err != nil {
+		q.logger.WarnContext(ctx, "defer marshal failed; leaving in-flight for reaper",
+			"job_id", j.ID,
+			"error", err,
+		)
+		metrics.QueueAckedTotal.WithLabelValues("error").Inc()
+
+		return
+	}
+
+	if err := q.deferPayload(ctx, inFlightMember, string(parked), retry.After); err != nil {
+		q.logger.WarnContext(ctx, "defer failed; leaving in-flight for reaper",
+			"job_id", j.ID,
+			"error", err,
+		)
+		metrics.QueueAckedTotal.WithLabelValues("error").Inc()
+
+		return
+	}
+
+	q.logger.InfoContext(ctx, "job deferred to delayed set",
+		"job_id", j.ID,
+		"owner", j.Owner,
+		"repo", j.Repo,
+		"due", retry.After,
+		"reason", retry.Reason,
+		"attempts", j.Attempts,
+	)
+	metrics.QueueAckedTotal.WithLabelValues("deferred").Inc()
 }
 
 // recoverPayload re-LPUSHes a payload that was BRPOPed but failed to

@@ -349,9 +349,14 @@ what Phase 0 capped.
       repo_state write-back — the check never ran. Jitter follows
       the repo's crypto/rand convention. `delay <= 0` falls through
       to nack until 4.5 adds backoff.)
-- [ ] 4.2 The Valkey `processPayload` handler-return path recognises
+- [x] 4.2 The Valkey `processPayload` handler-return path recognises
       `*RetryAfterError` via `errors.As` and takes the defer path
       (task 2.2) instead of ack or nack-by-leaving-in-flight.
+      (`deferInFlight` re-serialises with `Attempts+1` +
+      `AvailableAt` and swaps the in-flight entry atomically via
+      `deferScript`'s two-member form; marshal/script failure
+      degrades to nack. New `QueueAckedTotal{outcome="deferred"}`
+      accounting.)
 - [ ] 4.3 Increment `Attempts` on every defer and every reaper
       requeue (the requeue side re-serialises the payload — extend
       `requeueScript`'s caller accordingly).

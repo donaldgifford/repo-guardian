@@ -39,6 +39,14 @@ func (r *recordingQueue) Enqueue(_ context.Context, j queue.Job) error { //nolin
 	return nil
 }
 
+// EnqueueAfter records like Enqueue, stamping the due-time on the
+// recorded job so tests can assert deferral scheduling.
+func (r *recordingQueue) EnqueueAfter(ctx context.Context, j queue.Job, at time.Time) error { //nolint:gocritic // interface contract
+	j.AvailableAt = at
+
+	return r.Enqueue(ctx, j)
+}
+
 func (*recordingQueue) Subscribe(ctx context.Context, _ func(context.Context, queue.Job) error) error {
 	<-ctx.Done()
 

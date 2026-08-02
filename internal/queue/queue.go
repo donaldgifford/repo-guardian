@@ -82,15 +82,37 @@ func (e *RetryAfterError) Unwrap() error { return e.Err }
 
 // Queue is the producer/consumer boundary for reconcile work.
 //
-// Subscribe blocks for the lifetime of ctx; the implementation invokes
-// handler once per claimed job. A nil return from handler is an
-// implicit ack; an error is a nack (durable implementations may
-// retry; the in-memory implementation logs and drops).
+// Subscribe blocks for the lifetime of ctx; the implementation
+// invokes handler once per claimed job. Handler outcomes:
+//
+//   - nil — the job is done; the implementation acks it (removes the
+//     in-flight claim).
+//   - *RetryAfterError — the job is deferred: moved to the delayed
+//     set with a due-time no earlier than After, its Attempts count
+//     incremented, and its worker slot freed immediately. Deferral
+//     is not a failure.
+//   - any other error — the job is nacked: it stays in-flight and
+//     the reaper re-delivers it after the ack timeout, incrementing
+//     Attempts.
+//
+// Attempts accounting: implementations increment Job.Attempts on
+// every deferral and every reaper requeue. When Attempts exceeds the
+// configured cap (MAX_JOB_ATTEMPTS), the job takes its terminal
+// disposition: the consumer records the failure to the store
+// (repo_state.last_check_status = StatusError) and drops the job —
+// the next stale sweep re-enqueues the repo naturally if it is still
+// due. No job retries forever.
 //
 // Close releases resources (network connections, channels). Calling
 // Close while Subscribe is active must cause Subscribe to return.
 type Queue interface {
 	Enqueue(ctx context.Context, j Job) error
+
+	// EnqueueAfter schedules j to become runnable no earlier than
+	// at. Implementations MUST NOT deliver j before at. An at in the
+	// past is equivalent to Enqueue.
+	EnqueueAfter(ctx context.Context, j Job, at time.Time) error
+
 	Subscribe(ctx context.Context, handler func(context.Context, Job) error) error
 	Close() error
 }

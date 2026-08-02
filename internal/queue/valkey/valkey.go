@@ -185,6 +185,20 @@ func (q *Queue) Enqueue(ctx context.Context, j queue.Job) error { //nolint:gocri
 	return nil
 }
 
+// EnqueueAfter schedules j to become runnable no earlier than at. A
+// past-or-now at falls through to Enqueue per the interface contract.
+// The delayed-set mechanism lands with IMPL-0022 task 2.2; until then
+// a future at is rejected explicitly rather than silently delivered
+// early — nothing in the binary calls this path yet.
+func (q *Queue) EnqueueAfter(ctx context.Context, j queue.Job, at time.Time) error { //nolint:gocritic // interface contract
+	if !at.After(time.Now()) {
+		return q.Enqueue(ctx, j)
+	}
+
+	return fmt.Errorf("valkey.EnqueueAfter: delayed enqueue not yet implemented (IMPL-0022 phase 2): job %s due %s",
+		j.ID, at.UTC().Format(time.RFC3339))
+}
+
 // Subscribe runs the consumer loop until ctx is cancelled or the
 // queue is closed. It calls handler once per claimed job; handler
 // errors leave the job in-flight for the reaper to requeue, which

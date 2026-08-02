@@ -245,13 +245,21 @@ All changes in `internal/queue/valkey/` (`valkey.go`, `reaper.go`).
       replica emits per interval; best-effort, a failed ZCARD logs
       Warn without failing the reap. `Queue.Delayed` mirrors
       `Depth`/`InFlight`.)
-- [ ] 2.5 Integration test (`integration` tag, real Valkey): a job
+- [x] 2.5 Integration test (`integration` tag, real Valkey): a job
       deferred 2s is not delivered before due-time, is delivered
-      after.
-- [ ] 2.6 Integration test: a job is in exactly one of `jobs`,
+      after. (`TestValkey_DeferredJobNotDeliveredEarly`; non-vacuity
+      verified — neutralising the due-time bound in `promoteScript`
+      fails the test with a 1.74s-early delivery.)
+- [x] 2.6 Integration test: a job is in exactly one of `jobs`,
       `in-flight`, `delayed` at every lifecycle point.
-- [ ] 2.7 Integration test: promotion is leader-gated — two reapers,
-      one promotion.
+      (`TestValkey_ExactlyOneKeyInvariant`, four checkpoints:
+      parked/promoted/claimed/acked; non-vacuity verified — dropping
+      the ZREM from `promoteScript` fails checkpoint 2 with 36
+      duplicate promotions.)
+- [x] 2.7 Integration test: promotion is leader-gated — two reapers,
+      one promotion. (`TestValkey_PromotionLeaderGated`: two reapers
+      on one lock, five parked jobs, each delivered exactly once,
+      keyspace empty afterwards.)
 
 #### Success Criteria
 

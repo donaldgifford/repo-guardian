@@ -293,6 +293,257 @@ func TestValkey_ReaperRequeues(t *testing.T) {
 	}
 }
 
+// fastReaper starts a reaper with ticks fast enough that promotion
+// cadence never dominates a test's timeline. LockTTL is shorter than
+// the interval on purpose: reapOnce never releases its lock early, so
+// a TTL longer than the tick would make every second tick a no-op.
+func fastReaper(t *testing.T, ctx context.Context, q *valkey.Queue, podID string) {
+	t.Helper()
+
+	reaper := valkey.NewReaper(q, valkey.ReaperOptions{
+		PodID:         podID,
+		Interval:      250 * time.Millisecond,
+		JobAckTimeout: time.Minute,
+		LockTTL:       100 * time.Millisecond,
+		Logger:        slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn})),
+	})
+
+	go func() { _ = reaper.Start(ctx) }()
+}
+
+// keyCounts snapshots how many members each of the three job-holding
+// keys contains. The reaper lock is a STRING and never holds a job.
+type keyCounts struct {
+	jobs     int64
+	inFlight int64
+	delayed  int64
+}
+
+func countKeys(ctx context.Context, t *testing.T, client *redis.Client, prefix string) keyCounts {
+	t.Helper()
+
+	return keyCounts{
+		jobs:     client.LLen(ctx, prefix+":jobs").Val(),
+		inFlight: client.ZCard(ctx, prefix+":in-flight").Val(),
+		delayed:  client.ZCard(ctx, prefix+":delayed").Val(),
+	}
+}
+
+// waitForCounts polls until the keyspace matches want or the deadline
+// passes. Polling (rather than continuous assertion) respects the
+// documented microsecond BRPOP→ZADD claim gap.
+func waitForCounts(ctx context.Context, t *testing.T, client *redis.Client, prefix string, want keyCounts, timeout time.Duration) {
+	t.Helper()
+
+	deadline := time.Now().Add(timeout)
+
+	var got keyCounts
+
+	for time.Now().Before(deadline) {
+		got = countKeys(ctx, t, client, prefix)
+		if got == want {
+			return
+		}
+
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	t.Fatalf("keyspace never reached %+v within %s; last seen %+v", want, timeout, got)
+}
+
+// TestValkey_DeferredJobNotDeliveredEarly locks the IMPL-0022 task
+// 2.5 contract: a job parked via EnqueueAfter is never delivered
+// before its due time, and is delivered after it (within one
+// promotion tick).
+func TestValkey_DeferredJobNotDeliveredEarly(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	client := startValkey(ctx, t)
+	q := newTestQueue(t, client)
+
+	due := time.Now().Add(2 * time.Second)
+	if err := q.EnqueueAfter(ctx, queue.Job{InstallationID: 1, Owner: "o", Repo: "deferred"}, due); err != nil {
+		t.Fatalf("EnqueueAfter: %v", err)
+	}
+
+	reapCtx, reapCancel := context.WithCancel(ctx)
+	defer reapCancel()
+	fastReaper(t, reapCtx, q, "test")
+
+	subCtx, subCancel := context.WithCancel(ctx)
+	defer subCancel()
+
+	type delivery struct {
+		at  time.Time
+		job queue.Job
+	}
+
+	delivered := make(chan delivery, 1)
+
+	go func() {
+		_ = q.Subscribe(subCtx, func(_ context.Context, j queue.Job) error {
+			delivered <- delivery{at: time.Now(), job: j}
+
+			return nil
+		})
+	}()
+
+	select {
+	case d := <-delivered:
+		if d.at.Before(due) {
+			t.Fatalf("job delivered at %s, %s before due time %s",
+				d.at.Format(time.RFC3339Nano), due.Sub(d.at), due.Format(time.RFC3339Nano))
+		}
+
+		if !d.job.AvailableAt.Equal(due.UTC()) {
+			t.Errorf("delivered AvailableAt = %v, want %v", d.job.AvailableAt, due.UTC())
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatalf("deferred job never delivered within 15s of enqueue (due %s)", due.Format(time.RFC3339Nano))
+	}
+}
+
+// TestValkey_ExactlyOneKeyInvariant walks a deferred job through its
+// full lifecycle and asserts it occupies exactly one of jobs,
+// in-flight, delayed at each checkpoint (IMPL-0022 task 2.6).
+func TestValkey_ExactlyOneKeyInvariant(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	client := startValkey(ctx, t)
+	q := newTestQueue(t, client)
+	prefix := "test:" + t.Name()
+
+	// Checkpoint 1: parked — delayed only.
+	due := time.Now().Add(time.Second)
+	if err := q.EnqueueAfter(ctx, queue.Job{InstallationID: 1, Owner: "o", Repo: "lifecycle"}, due); err != nil {
+		t.Fatalf("EnqueueAfter: %v", err)
+	}
+
+	if got := countKeys(ctx, t, client, prefix); got != (keyCounts{delayed: 1}) {
+		t.Fatalf("after EnqueueAfter: %+v, want delayed only", got)
+	}
+
+	// Checkpoint 2: promoted — jobs only. No subscriber yet, so the
+	// promoted entry stays observable on the list.
+	reapCtx, reapCancel := context.WithCancel(ctx)
+	defer reapCancel()
+	fastReaper(t, reapCtx, q, "test")
+	waitForCounts(ctx, t, client, prefix, keyCounts{jobs: 1}, 10*time.Second)
+
+	// Checkpoint 3: claimed — in-flight only, held there by a handler
+	// that blocks until released.
+	subCtx, subCancel := context.WithCancel(ctx)
+	defer subCancel()
+
+	release := make(chan struct{})
+	claimed := make(chan struct{}, 1)
+
+	go func() {
+		_ = q.Subscribe(subCtx, func(_ context.Context, _ queue.Job) error {
+			claimed <- struct{}{}
+			<-release
+
+			return nil
+		})
+	}()
+
+	select {
+	case <-claimed:
+	case <-time.After(10 * time.Second):
+		t.Fatalf("job never claimed by subscriber")
+	}
+
+	if got := countKeys(ctx, t, client, prefix); got != (keyCounts{inFlight: 1}) {
+		t.Fatalf("while handler running: %+v, want in-flight only", got)
+	}
+
+	// Checkpoint 4: acked — gone from all three.
+	close(release)
+	waitForCounts(ctx, t, client, prefix, keyCounts{}, 10*time.Second)
+}
+
+// TestValkey_PromotionLeaderGated runs two reapers against the same
+// lock and asserts every parked job is delivered exactly once — the
+// IMPL-0022 task 2.7 invariant that promotion is not duplicated
+// across replicas.
+func TestValkey_PromotionLeaderGated(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	client := startValkey(ctx, t)
+	q := newTestQueue(t, client)
+	prefix := "test:" + t.Name()
+
+	const parked = 5
+
+	due := time.Now().Add(time.Second)
+
+	for i := range parked {
+		if err := q.EnqueueAfter(ctx, queue.Job{InstallationID: 1, Owner: "o", Repo: fmt.Sprintf("r%d", i)}, due); err != nil {
+			t.Fatalf("EnqueueAfter %d: %v", i, err)
+		}
+	}
+
+	reapCtx, reapCancel := context.WithCancel(ctx)
+	defer reapCancel()
+	fastReaper(t, reapCtx, q, "pod-a")
+	fastReaper(t, reapCtx, q, "pod-b")
+
+	subCtx, subCancel := context.WithCancel(ctx)
+	defer subCancel()
+
+	var (
+		mu        sync.Mutex
+		delivered = make(map[string]int)
+		count     atomic.Int32
+	)
+
+	all := make(chan struct{}, 1)
+
+	go func() {
+		_ = q.Subscribe(subCtx, func(_ context.Context, j queue.Job) error {
+			mu.Lock()
+			delivered[j.Repo]++
+			mu.Unlock()
+
+			if int(count.Add(1)) == parked {
+				all <- struct{}{}
+			}
+
+			return nil
+		})
+	}()
+
+	select {
+	case <-all:
+	case <-time.After(15 * time.Second):
+		t.Fatalf("only %d/%d parked jobs delivered within 15s", count.Load(), parked)
+	}
+
+	// Linger past several promotion ticks to catch a double-delivery,
+	// then verify counts and an empty keyspace.
+	time.Sleep(1500 * time.Millisecond)
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if len(delivered) != parked {
+		t.Fatalf("expected %d unique jobs delivered, got %d: %v", parked, len(delivered), delivered)
+	}
+
+	for repo, n := range delivered {
+		if n != 1 {
+			t.Fatalf("job %s delivered %d times, expected exactly 1", repo, n)
+		}
+	}
+
+	if got := countKeys(ctx, t, client, prefix); got != (keyCounts{}) {
+		t.Fatalf("keyspace not empty after all deliveries: %+v", got)
+	}
+}
+
 func TestValkey_NoDoubleClaim(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()

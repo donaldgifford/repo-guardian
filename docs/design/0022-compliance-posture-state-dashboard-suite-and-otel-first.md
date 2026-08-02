@@ -213,7 +213,9 @@ propagated**. A `rule_state` write failure logs Warn, counts
 the queue job remains the source of truth for "did we do the work"
 (IMPL-0015 Phase 0 contract). The upsert is one batched statement per
 job, executed in a single transaction that also reconciles rows for
-rules no longer in the evaluated set (Open Question 3).
+rules no longer in the evaluated set (OQ3 → a: delete-not-in within
+the same transaction; a background GC pass is the documented fallback
+if post-policy-change convergence proves too slow).
 
 Posture is then one indexed query:
 
@@ -242,7 +244,7 @@ that disappears from the fleet stops emitting stale series instead of
 freezing at its last value. Non-leader replicas never serve the
 series; dashboards aggregate with `max by (...)`, exactly as
 `scheduler_is_leader` panels already do. Compliance ratio is computed
-in PromQL from the two gauges (Open Question 2).
+in PromQL from the two gauges (OQ2 → a).
 
 The GitHub-owned posture reading from Finding B — org schema gaps —
 gets its projection at the source that already knows: the
@@ -325,7 +327,7 @@ renders one report per org — compliance percentage per rule, trend
 versus the previous snapshot, and the table a metric can never hold:
 *which* repos, failing *which* rules, since *when*. Open-PR links are
 fetched live from GitHub at generation time (low volume, installation
-client). Output shape is Open Question 6.
+client). Output is markdown per org written to `--out` (OQ6 → a).
 
 ### Config-generated monitoring (Finding H, shape H1)
 
@@ -358,13 +360,13 @@ Grafana schema versions is handled by pinning and a render test
 (Grafana ≥ 10 required; acceptable — the homelab runs
 kube-prometheus-stack).
 
-Format `k8s` wraps the dashboard JSON for in-cluster consumption
-(Open Question 7 picks ConfigMap-sidecar vs grafana-operator CRs) and
-emits the PrometheusRule as a CR. Format `json` emits plain files for
+Format `k8s` emits grafana-operator `GrafanaDashboard` CRs (OQ7 → b —
+the cluster's kube-prometheus-stack deployment runs grafana-operator)
+plus the PrometheusRule CR. Format `json` emits plain files for
 manual import.
 
-Where the generator lives (main binary vs a separate `cmd/`) is Open
-Question 5.
+The generator and report live as subcommands on the main binary
+(OQ5 → a, with a size-delta check before merge).
 
 ### Dashboard suite (Finding E)
 
@@ -444,7 +446,7 @@ with no new knobs; the standard `OTEL_SDK_DISABLED=true` escape hatch
 is honoured.
 
 New CLI surface: `repo-guardian monitoring generate` and
-`repo-guardian report` subcommands (placement per Open Question 5).
+`repo-guardian report` subcommands on the main binary (OQ5 → a).
 
 Mock/fake fallout: `make mocks` regenerates the Store mock; the
 test-local `recordingQueue` / `fakeStore` recorders and the
@@ -522,7 +524,7 @@ New metrics (all on the existing `/metrics` endpoint):
 | `repo_guardian_posture_export_duration_seconds` | Histogram | — | exporter query cost |
 | semconv HTTP server/client, redis, pgx series | (bridge) | per semconv | Finding F's USE/RED gaps |
 
-Removed (Phase 7, per Open Question 4): the four legacy unlabeled
+Removed (Phase 7, OQ4 → a): the four legacy unlabeled
 `properties_*` counters, superseded by real posture.
 
 One new starter alert: `RepoGuardianPostureExportStalled` — no
@@ -550,9 +552,8 @@ numbered task.
       rules (BP gains an actionable verdict — its first posture
       signal) and the catalog-parse fact.
 - [ ] 1.3 `Store.UpsertRuleStates`: single-transaction batched upsert
-      with the `actionable_since` transition CASE, plus reconciliation
-      of rows absent from the evaluated set (per Open Question 3
-      resolution).
+      with the `actionable_since` transition CASE, plus delete-not-in
+      reconciliation of rows absent from the evaluated set (OQ3 → a).
 - [ ] 1.4 Worker write-back: persist the `CheckResult` in the existing
       `writeBack` path — best-effort, `store_writeback_total` outcome
       accounting, never propagated.
@@ -725,9 +726,8 @@ numbered task.
 
 #### Tasks
 
-- [ ] 7.1 Remove the four legacy `properties_*` counters (per Open
-      Question 4 resolution) with migration notes in
-      `contrib/README.md`.
+- [ ] 7.1 Remove the four legacy `properties_*` counters (OQ4 → a)
+      with migration notes in `contrib/README.md`.
 - [ ] 7.2 `docs/operations/scaling.md`: posture architecture, exporter
       leader semantics, OTEL series catalog, dedup rule.
 - [ ] 7.3 Chart: version + appVersion bump, new values documented via
@@ -808,6 +808,7 @@ numbered task.
 ## Open Questions
 
 1. **Posture storage shape.**
+   **Resolved 2026-08-02 → (a).**
    (a) C1 — the `rule_state` per-rule table as specified. The report
    requirement (repo identity + missing-since) already settled this
    in INV-0013 Finding C; JSONB cannot express `actionable_since`
@@ -821,6 +822,7 @@ numbered task.
    other:
 
 2. **Compliance ratio computation.**
+   **Resolved 2026-08-02 → (a).**
    (a) Export the two raw gauges (`repos_actionable`,
    `repos_tracked`) and compute the ratio in PromQL
    (`1 - actionable/tracked`) — raw series compose into any panel,
@@ -835,6 +837,9 @@ numbered task.
    other:
 
 3. **`rule_state` reconciliation when rules leave the policy.**
+   **Resolved 2026-08-02 → (a)**, with (b) — the background GC pass —
+   as the documented fallback if convergence after a policy change
+   proves too slow in practice.
    (a) Reconcile in the write-back transaction: after the batched
    upsert, delete this repo's rows whose `rule_name` is not in the
    evaluated set. Exact, incremental, no background job, and the
@@ -848,6 +853,7 @@ numbered task.
    other:
 
 4. **Legacy `properties_*` counters (4 unlabeled Counters).**
+   **Resolved 2026-08-02 → (a).**
    (a) Remove in Phase 7, same minor that completes the suite —
    they are posture-shaped (Finding B), unlabeled (pre-IMPL-0009),
    and fully superseded by `repos_actionable` + the property-sync
@@ -861,6 +867,8 @@ numbered task.
    other:
 
 5. **Generator and report binary placement.**
+   **Resolved 2026-08-02 → (a)** — the size-delta check before merge
+   stands; fall back to (b) only if the delta is egregious.
    (a) Subcommands on the main `repo-guardian` binary — one artifact,
    one version, the policy loader is already linked, and operators
    run it from the same image in CI. Measure the foundation-sdk size
@@ -872,6 +880,7 @@ numbered task.
    other:
 
 6. **Report output shape.**
+   **Resolved 2026-08-02 → (a).**
    (a) Markdown files per org written to `--out` — simplest, renders
    everywhere (GitHub, Slack paste, Backstage TechDocs), delivery
    stays a human/automation choice outside the binary.
@@ -884,6 +893,9 @@ numbered task.
    other:
 
 7. **`--format k8s` dashboard artifact shape.**
+   **Resolved 2026-08-02 → (b)** — the cluster's kube-prometheus-stack
+   deployment runs grafana-operator, so `GrafanaDashboard` CRs cover
+   both consumption paths.
    (a) ConfigMaps with the `grafana_dashboard: "1"` sidecar label —
    the kube-prometheus-stack convention already running in the
    homelab; no new operator, kustomize-native.
@@ -918,5 +930,7 @@ numbered task.
   <https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp>
 - `redisotel`: <https://github.com/redis/go-redis/tree/master/extra/redisotel>
 - `otelpgx`: <https://github.com/exaring/otelpgx>
+- grafana-operator (`GrafanaDashboard` CRs, OQ7 → b):
+  <https://github.com/grafana/grafana-operator>
 - kube-prometheus-stack dashboard sidecar convention:
   <https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack>

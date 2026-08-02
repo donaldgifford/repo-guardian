@@ -463,16 +463,17 @@ emission cadence.
 
 ## Implementation Phases
 
-Each phase is independently mergeable. Phase 0 ships alone and
-immediately; phases 1–5 are the build; phase 6 removes what they replace;
-phase 7 is documentation. Run `make lint` and `make fmt` after each task;
-commit per numbered task.
+Each phase is independently mergeable. Phase 0 is bundled with Phase 1
+for review (OQ8 → b); phases 1–5 are the build; phase 6 removes what
+they replace; phase 7 is documentation. Run `make lint` and `make fmt`
+after each task; commit per numbered task.
 
 ### Phase 0: Stop the bleeding
 
-The amplification hazard is live today and must not wait for the
-redesign. This is a hotfix, mergeable on its own, and deliberately *not*
-the real fix.
+The amplification hazard is live today. Per OQ8 → (b) this lands
+bundled with Phase 1 so one review covers the whole rate-limit-path
+change — but it remains deliberately *not* the real fix; Phase 3
+supersedes it.
 
 #### Tasks
 
@@ -666,8 +667,13 @@ working — see the rollout plan.
 - [ ] 6.5 Remove `discovery.reserveFraction` and
       `discovery.estimatedCostPerRepo` from `values.yaml`,
       `values.schema.json`, and `tests/deployment_env_test.yaml`.
-- [ ] 6.6 Resolve Open Question 4 for the layer-2 sweep gate; remove or
-      annotate accordingly.
+- [ ] 6.6 Remove the layer-2 sweep reserve gate (`allowedByRateLimit`)
+      and `rate_limit_reserve_blocked_total` (OQ4 → a), preserving a
+      producer for `rate_limit_remaining{installation_id}`: keep the
+      per-installation sampling call in the sweep loop with no gating
+      decision, or retire the gauge together with
+      `RepoGuardianRateLimitNearExhaustion` — never leave the alert
+      consuming an unfed gauge (the INV-0012 A7 class).
 - [ ] 6.7 `make ci` and a `deadcode` pass clean after removal.
 - [ ] 6.8 Mark [DESIGN-0002](0002-github-api-rate-limit-handling.md)
       Superseded by this document, and update the CLAUDE.md architecture
@@ -691,7 +697,9 @@ working — see the rollout plan.
 - [ ] 7.3 Operator runbook: what a deferred job looks like, how to read
       the new metrics, what to do when backpressure alerts fire.
 - [ ] 7.4 Update `docs/operations/scaling.md` and
-      `docs/operations/migrations.md` for the removed knobs.
+      `docs/operations/migrations.md` for the removed knobs, and
+      document `REAPER_INTERVAL`'s dual duty — lease reaping *and*
+      delayed-set promotion cadence (OQ3 → a).
 - [ ] 7.5 CLAUDE.md: record the delayed-requeue contract and the
       one-mechanism rule, so a future change does not reintroduce
       in-handler blocking.
@@ -727,8 +735,9 @@ working — see the rollout plan.
 
 ## Migration / Rollout Plan
 
-1. **Phase 0 ships first, alone**, as a patch. It defuses the live hazard
-   and is safe to deploy immediately.
+1. **Phases 0–1 land together** as the first PR of the sequence
+   (OQ8 → b: one review of the whole rate-limit path). Phase 0's cap
+   defuses the live hazard from the first release that carries it.
 2. **Phases 1–5 ship as a minor.** New behaviour, one scrape-visible
    removal: the wait pair stops receiving samples (task 3.3), and its
    only consuming alert is re-pointed in the same release (task 5.2b).
@@ -761,6 +770,7 @@ why it ships on its own.
 ## Open Questions
 
 1. **Phase 0 hotfix shape.**
+   **Resolved 2026-08-02 → (a).**
    (a) Cap the transport's pre-emptive delay at `min(computed, 60s)` and
    return an error beyond it — smallest change, lives entirely in the
    layer that already computes the delay, and Phase 3 supersedes it
@@ -792,6 +802,9 @@ why it ships on its own.
    other:
 
 3. **Promotion cadence.**
+   **Resolved 2026-08-02 → (a)**, with the rider that the knob's dual
+   duty is documented: `REAPER_INTERVAL` now controls both lease
+   reaping and delayed-set promotion cadence (task 7.4).
    (a) Reuse `REAPER_INTERVAL` (60s) — no new knob, no new goroutine, and
    60s granularity is irrelevant for work scheduled in hours.
    (b) A separate `PROMOTION_INTERVAL` — finer control, one more knob to
@@ -802,6 +815,16 @@ why it ships on its own.
    other:
 
 4. **Layer 2, the sweep reserve gate.**
+   **Resolved 2026-08-02 → (a)**, with one rider (task 6.6): the
+   gate's `RateLimitRemaining` call is the only live producer feeding
+   `rate_limit_remaining{installation_id}` — the gauge is set inside
+   `Client.RateLimitRemaining` (client.go), and the only other caller
+   is the inert BudgetTracker, also deleted in Phase 6. Removing the
+   gate must not orphan the gauge: keep the per-installation sampling
+   call in the sweep loop (observability-only, no gating decision), or
+   retire the gauge together with `RepoGuardianRateLimitNearExhaustion`
+   and the DESIGN-0022 E1 headroom panel source. Recommended: keep the
+   sampling.
    (a) Remove it in Phase 6 — deferral covers the same ground and does
    not silently drop the repo until the next sweep, so the gate is
    redundant once Phase 4 lands.
@@ -812,6 +835,7 @@ why it ships on its own.
    other:
 
 5. **In-flight member identity (INV-0012 finding J).**
+   **Resolved 2026-08-02 → (a).**
    (a) Leave it — once nothing sleeps in-handler the overlap window
    closes on its own, and the residual case (two genuinely concurrent
    claims of the same repo) is harmless because reconcile is idempotent.
@@ -823,6 +847,7 @@ why it ships on its own.
    other:
 
 6. **Shape of the `Queue` interface change.**
+   **Resolved 2026-08-02 → (a).**
    (a) Add `EnqueueAfter` as a fourth method — explicit at the call site,
    and the mock regenerates cleanly.
    (b) Overload `Enqueue` to honour a non-zero `Job.AvailableAt` — no
@@ -834,6 +859,7 @@ why it ships on its own.
    other:
 
 7. **Phase 6 release shape.**
+   **Resolved 2026-08-02 → (a).**
    (a) Minor with a prominent upgrade note — the removed knobs were
    provably inert, so no operator's actual behaviour changes; a major for
    a no-op removal overstates the impact.
@@ -844,6 +870,9 @@ why it ships on its own.
    other:
 
 8. **Does Phase 0 ship before the rest of this design is approved?**
+   **Resolved 2026-08-02 → (b)** — bundled with Phase 1, one review of
+   the whole rate-limit path (reflected in the phases intro, the
+   Phase 0 preamble, and rollout step 1).
    (a) Yes — it is an independent hotfix for a live hazard and should not
    wait on decisions about the redesign.
    (b) No — bundle it with Phase 1 so there is one review of the whole

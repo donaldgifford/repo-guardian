@@ -37,10 +37,11 @@
 // One pod at a time runs the reaper, gated by the `lock:reaper` SETNX
 // key. Every REAPER_INTERVAL, the leader scans
 // `ZRANGEBYSCORE queue:in-flight 0 (now - JOB_ACK_TIMEOUT)`,
-// re-LPUSHes each entry to `queue:jobs`, then ZREMs from in-flight.
-// The Lua script `requeueScript` performs the re-LPUSH + ZREM
-// atomically so the requeue is visible to a consumer at exactly the
-// moment the in-flight entry disappears.
+// re-LPUSHes each entry to `queue:jobs` with Attempts incremented
+// (IMPL-0022 retry accounting), then ZREMs from in-flight. The Lua
+// script `requeueScript` performs the re-LPUSH + ZREM atomically so
+// the requeue is visible to a consumer at exactly the moment the
+// in-flight entry disappears.
 //
 // # Delayed jobs
 //
@@ -99,11 +100,14 @@ const brpopTimeout = 5 * time.Second
 const recoveryTimeout = 5 * time.Second
 
 // requeueScript atomically removes a member from the in-flight ZSET
-// and pushes it back onto the jobs list. KEYS[1]=in-flight,
-// KEYS[2]=jobs; ARGV[1]=member.
+// and pushes a member onto the jobs list. KEYS[1]=in-flight,
+// KEYS[2]=jobs; ARGV[1]=member to remove, ARGV[2]=member to push.
+// The two differ because the reaper re-serialises the job with
+// Attempts incremented (IMPL-0022 task 4.3); an undecodable payload
+// passes the same bytes for both.
 var requeueScript = redis.NewScript(`
 redis.call("ZREM", KEYS[1], ARGV[1])
-redis.call("LPUSH", KEYS[2], ARGV[1])
+redis.call("LPUSH", KEYS[2], ARGV[2])
 return 1
 `)
 

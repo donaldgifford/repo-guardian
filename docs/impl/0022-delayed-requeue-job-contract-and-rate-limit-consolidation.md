@@ -357,9 +357,13 @@ what Phase 0 capped.
       `deferScript`'s two-member form; marshal/script failure
       degrades to nack. New `QueueAckedTotal{outcome="deferred"}`
       accounting.)
-- [ ] 4.3 Increment `Attempts` on every defer and every reaper
+- [x] 4.3 Increment `Attempts` on every defer and every reaper
       requeue (the requeue side re-serialises the payload — extend
-      `requeueScript`'s caller accordingly).
+      `requeueScript`'s caller accordingly). (Defer half landed in
+      4.2's `deferInFlight`; requeue half is `requeuePayload` in
+      reaper.go with `requeueScript` extended to two members.
+      Undecodable payloads requeue verbatim — the claim path drops
+      garbage at decode.)
 - [ ] 4.4 `MAX_JOB_ATTEMPTS` config (default 10) in
       `internal/config/config.go` + validation. On exceeding the cap:
       write `StatusError` with a descriptive `LastError` to

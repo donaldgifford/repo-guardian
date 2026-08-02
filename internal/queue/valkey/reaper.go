@@ -2,6 +2,7 @@ package valkey
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
+	"github.com/donaldgifford/repo-guardian/internal/queue"
 )
 
 // ReaperOptions configures the Reaper goroutine.
@@ -169,6 +171,7 @@ func (r *Reaper) requeueStuck(ctx context.Context) error {
 			r.queue.client,
 			[]string{r.queue.opts.InFlightKey, r.queue.opts.JobsKey},
 			payload,
+			requeuePayload(payload),
 		).Result(); err != nil {
 			r.logger.WarnContext(ctx, "reaper requeue failed", "error", err)
 
@@ -179,6 +182,27 @@ func (r *Reaper) requeueStuck(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// requeuePayload returns the payload to push back onto the jobs list
+// for a stuck in-flight entry, with Attempts incremented (IMPL-0022
+// task 4.3, requeue half). An undecodable payload is returned
+// verbatim — the claim path already drops garbage at decode time, so
+// the reaper doesn't need to.
+func requeuePayload(payload string) string {
+	var j queue.Job
+	if err := json.Unmarshal([]byte(payload), &j); err != nil {
+		return payload
+	}
+
+	j.Attempts++
+
+	out, err := json.Marshal(j)
+	if err != nil {
+		return payload
+	}
+
+	return string(out)
 }
 
 // promoteDue moves every delayed-set entry at or past its due time

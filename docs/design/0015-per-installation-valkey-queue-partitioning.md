@@ -19,6 +19,7 @@ created: 2026-06-22
   - [Goals](#goals)
   - [Non-Goals](#non-goals)
 - [Background](#background)
+- [Relationship to DESIGN-0021 (re-baselined 2026-07-29)](#relationship-to-design-0021-re-baselined-2026-07-29)
 - [Detailed Design](#detailed-design)
   - [Key layout](#key-layout)
   - [Worker scheduling strategies](#worker-scheduling-strategies)
@@ -35,7 +36,7 @@ created: 2026-06-22
 - [Data Model](#data-model)
 - [Testing Strategy](#testing-strategy)
   - [Unit tests (internal/queue/valkey/)](#unit-tests-internalqueuevalkey)
-  - [Contract tests (contract_test.go extension)](#contract-tests-contracttestgo-extension)
+  - [Behaviour tests (inline in valkeyintegrationtest.go)](#behaviour-tests-inline-in-valkeyintegrationtestgo)
   - [Integration tests (integrationtest.go)](#integration-tests-integrationtestgo)
   - [Chaos tests](#chaos-tests)
 - [Migration / Rollout Plan](#migration--rollout-plan)
@@ -78,24 +79,27 @@ cluster-mode sharding. See `docs/operations/aws.md` for the distinction.
   doesn't require redesign.
 - Per-installation priority weights or QoS tiers. Future enhancement; the initial
   scheduler is round-robin with a uniform cap.
-- Cross-installation work stealing. Strategy A (BLPOP-many) is naturally
+- Cross-installation work stealing. Strategy A (BRPOP-many) is naturally
   work-conserving; explicit work-stealing is out of scope for v1.
-- Memory-backend partitioning. Memory mode is single-replica and the noisy-org
-  problem doesn't arise there.
 
 ## Background
 
-repo-guardian's queue today is a single LIST + ZSET pair:
+repo-guardian's queue today is a LIST + two ZSETs (the delayed set arrives with
+DESIGN-0021):
 
-```
-repo-guardian:queue:jobs        LIST  (FIFO of pending jobs)
-repo-guardian:queue:inflight    ZSET  (jobID → dispatch_ts; reaper input)
+```text
+repo-guardian:queue:jobs        LIST   (FIFO of pending jobs; LPUSH / BRPOP)
+repo-guardian:queue:in-flight   ZSET   (member = job JSON, score = claim nanos)
+repo-guardian:queue:delayed     ZSET   (member = job JSON, score = due nanos — DESIGN-0021)
+repo-guardian:lock:reaper       STRING (reaper leader lock, SETNX)
 ```
 
-`Queue.Enqueue(job)` LPUSHes onto `jobs`. `Subscribe`-driven workers BRPOPLPUSH from
-`jobs` into `inflight`, process, then ZREM the in-flight entry. The reaper goroutine
-scans `inflight` periodically and requeues jobs whose dispatch_ts is older than
-`JOB_ACK_TIMEOUT`.
+`Queue.Enqueue(job)` LPUSHes onto `jobs`. `Subscribe` consumers `BRPOP` a job, then
+`ZADD` it into `in-flight` to claim it; a nil handler return ZREMs the entry (ack).
+The reaper — one pod at a time, leader-elected via `lock:reaper` — ticks every
+`REAPER_INTERVAL` (default 1m) and atomically requeues in-flight entries older than
+`JOB_ACK_TIMEOUT` (default 5m) via a Lua script; under DESIGN-0021 the same tick also
+promotes due entries from `delayed` back to `jobs`.
 
 At fleet scale (3000 repos across 25 GitHub orgs — see `docs/operations/aws.md`), one
 large org can have 500+ actionable repos per sweep while smaller orgs have only a
@@ -108,6 +112,57 @@ fairness — every org's work clears within a sweep cycle — but not strict rou
 For operators with per-org SLAs or sensitive webhook-driven workflows, eventual
 fairness is insufficient.
 
+## Relationship to DESIGN-0021 (re-baselined 2026-07-29)
+
+[DESIGN-0021](0021-delayed-requeue-job-contract-and-rate-limit-consolidation.md)
+was drafted after this design and changes both the facts underneath it and part of
+its motivation. This design now sequences **after** 0021, and its go/no-go becomes
+data-driven rather than speculative.
+
+**What 0021 removes from the motivation.** The worst starvation mode in the original
+framing was a *rate-limited* noisy org: workers pull its jobs and block in the
+transport's pre-emptive sleep, so one org's exhausted budget parks the entire worker
+pool. 0021 eliminates that mode outright. Because installation clients are cached
+(`client.go.getInstallClient` — one `rateLimitTransport` per installation, shared
+across jobs), once one job observes exhaustion every subsequent job for that
+installation gets `ThrottledError` from cached state with **zero API calls**, defers
+to the delayed set, and frees its worker slot in milliseconds. The residual
+motivation for this design is narrower: plain FIFO burst starvation by a large org
+doing *real, unthrottled* work.
+
+**The go/no-go datum.** 0021 Phase 5 adds `queue_wait_seconds{installation_id}`
+(enqueue→dispatch latency, measurable today because `Job` carries both
+`InstallationID` and `EnqueuedAt`). That histogram directly measures the starvation
+this design exists to fix, without partitioning anything. Proceed with this design
+only if soak data shows small installations' wait times degrading under large
+installations' bursts; otherwise it stays Draft.
+
+**Mechanical deltas this design must absorb from 0021:**
+
+- **A third per-installation key.** Each installation gets
+  `{install-N}:delayed` alongside `jobs` and `inflight`, sharing the installation's
+  hash tag — 0021's `deferScript` is a multi-key Lua across in-flight + delayed, so
+  the pair must co-locate in cluster mode exactly like the requeue pair.
+- **Scripts are already partition-ready.** `deferScript` / `promoteScript` /
+  `requeueScript` take their keys as `KEYS[]` parameters, so partitioning changes
+  only Go-side key selection (the `installKeys` helper), not the Lua.
+- **Promotion joins the reaper's per-installation iteration.** The reaper loop that
+  scans each installation's inflight ZSET also promotes each installation's delayed
+  ZSET. Same O(installations)-per-tick cost analysis; still negligible.
+- **`EnqueueAfter` routes like `Enqueue`.** Key selection by `job.InstallationID`
+  applies to both producer methods.
+- **`Attempts`/`AvailableAt`** travel inside the job JSON and are key-layout
+  agnostic — no interaction.
+
+**New capability unlocked (future extension, not v1).** Once queues are
+per-installation, a deferral for installation N can pause N's *entire queue*: record
+`paused_until = ThrottledError.ResetAt` and drop N from the BRPOP-many key list until
+it passes. Today each of N's queued jobs must individually claim → defer; with
+partitioning one deferral parks all of them for free. This subsumes Strategy C's
+"rate-limit headroom" weighting with a measured signal instead of a modelled one,
+and is the strongest 0021-era argument *for* this design if the wait-time data ever
+justifies it.
+
 ## Detailed Design
 
 ### Key layout
@@ -115,19 +170,22 @@ fairness is insufficient.
 Each known installation gets its own LIST + ZSET. A registry SET tracks known
 installation IDs so workers and the reaper can iterate.
 
-```
+```text
 repo-guardian:queue:{install-12345}:jobs       LIST
 repo-guardian:queue:{install-12345}:inflight   ZSET
+repo-guardian:queue:{install-12345}:delayed    ZSET  (DESIGN-0021 delayed set)
 repo-guardian:queue:{install-67890}:jobs       LIST
 repo-guardian:queue:{install-67890}:inflight   ZSET
+repo-guardian:queue:{install-67890}:delayed    ZSET
 repo-guardian:queue:installations              SET  (member: stringified install ID)
 ```
 
 Note the `{install-N}` hash-tag braces. Valkey treats text inside `{ }` as the hash
-slot key in cluster mode. Tagging the LIST and ZSET for installation N together
-guarantees they land on the same shard — required for multi-key Lua scripts that
-operate atomically across the pair. The installations-registry SET has no tag because
-no multi-key operation needs it alongside the per-installation keys.
+slot key in cluster mode. Tagging all three keys for installation N together
+guarantees they land on the same shard — required for the multi-key Lua scripts that
+operate atomically across pairs (`requeueScript`: inflight→jobs; `deferScript`:
+inflight→delayed; `promoteScript`: delayed→jobs). The installations-registry SET has
+no tag because no multi-key operation needs it alongside the per-installation keys.
 
 `Enqueue(job)` becomes:
 
@@ -146,14 +204,14 @@ per-installation soft cap**; B and C are future extensions if A proves insuffici
 
 | Strategy | How it works | Pros | Cons |
 |---|---|---|---|
-| **A. BLPOP across all keys** | Worker reads `SMEMBERS installations`, issues `BLPOP key1 key2 … keyN <timeout>` — Valkey returns from whichever queue has work first | Trivial code; natural fairness for ready work; no extra coordination state | No strict cap on per-installation parallelism — a noisy org can still claim every worker slot |
+| **A. BRPOP across all keys** | Worker reads `SMEMBERS installations`, issues `BRPOP key1 key2 … keyN <timeout>` — Valkey returns from whichever queue has work first | Trivial code; natural fairness for ready work; no extra coordination state | No strict cap on per-installation parallelism — a noisy org can still claim every worker slot |
 | **B. Round-robin with per-installation concurrency cap** | Maintain `repo-guardian:queue:{install-N}:in_flight_count` counter; worker iterates installations in round-robin order, skips any at cap | Strict fairness; bounds noisy-installation parallelism | More state; atomic check-and-incr Lua script required |
 | **C. Weighted random by depth + rate-limit headroom** | Worker picks an installation at random, weighted by `(queue_depth × rate_limit_remaining)` | Adapts dynamically to rate limits; statistically fair | Most state; depth + headroom snapshots; harder to reason about |
 
-**Recommendation: A with a soft cap.** Combines BLPOP-many's simplicity with an
+**Recommendation: A with a soft cap.** Combines BRPOP-many's simplicity with an
 explicit per-installation in-flight ceiling. The cap is enforced application-side:
-when a worker successfully BLPOPs from installation N's queue, it increments a local
-counter for N; subsequent BLPOPs exclude N from the key list once N is at cap. The
+when a worker successfully BRPOPs from installation N's queue, it increments a local
+counter for N; subsequent BRPOPs exclude N from the key list once N is at cap. The
 counter decrements on job completion. No Valkey-side coordination needed.
 
 ```go
@@ -164,7 +222,7 @@ func (w *Worker) loop(ctx context.Context) {
         eligible := w.filterAtCap(installs)                // exclude installations at perInstallationCap
         if len(eligible) == 0 { time.Sleep(idleBackoff); continue }
         keys := installToKeys(eligible)
-        result, err := w.redis.BLPop(ctx, w.blpopTimeout, keys...).Result()
+        result, err := w.redis.BRPop(ctx, w.brpopTimeout, keys...).Result()
         // ... dispatch
     }
 }
@@ -174,7 +232,7 @@ func (w *Worker) loop(ctx context.Context) {
 
 Default formula:
 
-```
+```text
 perInstallationCap = max(2, ceil(workerCount / max(installations_count, 1)))
 ```
 
@@ -188,33 +246,36 @@ Operator override: `queue.partitioning.perInstallationCap` in values.yaml.
 
 ### Reaper changes
 
-The current reaper scans one ZSET (`inflight`) on every tick. With partitioning, it
-scans all per-installation inflight ZSETs:
+The current reaper scans two ZSETs on every tick: `in-flight` (requeue expired
+claims) and, post-DESIGN-0021, `delayed` (promote due jobs). With partitioning, it
+scans both per installation:
 
 ```go
 installs, err := r.redis.SMembers(ctx, "repo-guardian:queue:installations").Result()
 for _, install := range installs {
-    expired, err := r.redis.ZRangeByScore(ctx, fmt.Sprintf("repo-guardian:queue:{install-%s}:inflight", install), ...)
-    // ... requeue expired
+    jobs, inflight, delayed := installKeys(install)
+    // requeueScript: expired inflight entries → jobs (existing)
+    // promoteScript: due delayed entries → jobs (DESIGN-0021)
 }
 ```
 
-Per-tick cost grows O(installations). At 25 installations × 1 ZRANGEBYSCORE call = 25
-Valkey ops per tick. With the default 30-second reaper interval, that's <1 op/sec.
+Per-tick cost grows O(installations). At 25 installations × 2 script calls = 50
+Valkey ops per tick. With the default 1-minute `REAPER_INTERVAL`, that's <1 op/sec.
 Negligible.
 
 ### Installation lifecycle
 
 **Discovery:** installations are added to the registry on first Enqueue (idempotent
-SADD). The legacy `Sweeper` (and the proposed replacement per DESIGN-0017) handles
-populating the registry initially.
+SADD). The `Discoverer` (shipped in IMPL-0015 Phase 1, replacing the legacy
+`Sweeper` this draft originally referenced) populates `repo_state`, and the
+`StaleSweeper`'s enqueues populate the registry from there.
 
 **Removal:** uninstalling a GitHub App should remove the installation from the
 registry. Handled via the existing `installation.deleted` webhook event — webhook
 handler issues `SREM` and deletes the per-installation LIST + ZSET keys.
 
 **Stale registry entries:** if a worker crashes mid-removal, an installation may
-linger in the registry with no LIST. BLPOP on a non-existent key blocks waiting for
+linger in the registry with no LIST. BRPOP on a non-existent key blocks waiting for
 LPUSH; this is fine — no jobs ever arrive, the worker times out and moves on. A
 janitor goroutine could periodically `EXISTS` each registry entry and SREM stale
 ones, but it's not on the critical path.
@@ -223,9 +284,12 @@ ones, but it's not on the critical path.
 
 The hash-tag layout (`{install-N}`) ensures cluster-mode safety even though this
 design doesn't target cluster mode in v1. If a future operator deploys against
-ElastiCache cluster-mode-enabled, the per-installation keys still co-locate on one
-shard (required for the multi-key BLPOP across multiple keys in a single ZRANGE+ZREM
-Lua script).
+ElastiCache cluster-mode-enabled, each installation's three keys still co-locate on
+one shard — required for every multi-key Lua transition (`requeueScript`,
+`deferScript`, `promoteScript`) and for multi-key `BRPOP` within that installation.
+Note the *global* keys of the pre-partitioned layout are cluster-mode-unsafe for the
+same scripts; partitioning is what makes cluster mode possible at all, which is why
+the tags are in the v1 layout despite v1 not targeting cluster mode.
 
 Also requires the `cmd/repo-guardian/main.go` wiring to use `redis.NewUniversalClient`
 (or detect cluster topology) instead of `redis.NewClient`. Out of scope for this
@@ -235,32 +299,36 @@ DESIGN — captured as a follow-up.
 
 ### `internal/queue/Queue` interface
 
-Unchanged externally:
+Unchanged externally — this design adds no methods to the post-DESIGN-0021 surface:
 
 ```go
 type Queue interface {
-    Enqueue(ctx context.Context, job Job) error
-    Subscribe(ctx context.Context, handler Handler) error
+    Enqueue(ctx context.Context, j Job) error
+    Subscribe(ctx context.Context, handler func(context.Context, Job) error) error
     Close() error
+    EnqueueAfter(ctx context.Context, j Job, at time.Time) error // DESIGN-0021
 }
 ```
 
-The `Job` struct already carries `InstallationID`. The implementation selects the key
-based on this field.
+The `Job` struct already carries `InstallationID`. The implementation selects keys
+from this field — for `Enqueue`, `EnqueueAfter`, claim, defer, and promote alike.
 
 ### `internal/queue/valkey/`
 
-- LUA scripts rewritten to operate on per-installation keys.
-- New private method `installKeys(installationID int64) (jobsKey, inflightKey string)`
-  centralises key naming.
-- BLPOP-multi loop in `Subscribe` polls all installations registered in
+- Lua scripts need **no rewrite** — `requeueScript`, `deferScript`, and
+  `promoteScript` take their keys as `KEYS[]` parameters. Only the Go-side key
+  selection changes.
+- The key-naming helper (`installKeys(installationID) (jobs, inflight, delayed
+  string)`) extends the single key-construction point DESIGN-0021 Phase 2
+  establishes.
+- BRPOP-multi loop in `Subscribe` polls all installations registered in
   `repo-guardian:queue:installations`.
 
 ### `internal/worker/`
 
 - Per-worker local state: `inFlightByInstall map[int64]int`.
 - Configurable `PerInstallationCap` (default per formula above).
-- Filter eligible installations before BLPOP.
+- Filter eligible installations before BRPOP.
 
 ### `internal/metrics/`
 
@@ -284,7 +352,8 @@ queue:
 
 No schema changes (queue is Valkey, not Postgres). Key namespace evolves as
 described in [Key layout](#key-layout). Existing single-queue deployments retain the
-`repo-guardian:queue:jobs` and `repo-guardian:queue:inflight` keys until the
+`repo-guardian:queue:jobs`, `repo-guardian:queue:in-flight`, and
+`repo-guardian:queue:delayed` keys until the
 [migration](#migration--rollout-plan) drains them.
 
 ## Testing Strategy
@@ -293,11 +362,14 @@ described in [Key layout](#key-layout). Existing single-queue deployments retain
 
 - Key-name selector correctness for various `installationID` values.
 - Idempotent SADD on repeated Enqueue.
-- BLPOP-multi returns from any non-empty installation queue.
+- BRPOP-multi returns from any non-empty installation queue.
 
-### Contract tests (`contract_test.go` extension)
+### Behaviour tests (inline in `valkey_integration_test.go`)
 
-Add fairness assertions to the existing Queue contract suite:
+The multi-backend contract suite this draft originally targeted is gone —
+post-IMPL-0016 there is one Queue backend and contract assertions live inline under
+the `integration` build tag (see `internal/queue/valkey/valkey_integration_test.go`).
+Add fairness assertions there:
 
 - **Strict fairness under burst:** enqueue 100 jobs for install-A, 1 job for
   install-B; with `perInstallationCap=2` and 5 workers, install-B's job dispatches
@@ -370,9 +442,9 @@ of the Phase 2 drain).
 
 **(b)** Worker scheduling strategy at GA.
 
-- **(a) = Strategy A (BLPOP-many) with soft cap (recommended).** Simplest implementation;
+- **(a) = Strategy A (BRPOP-many) with soft cap (recommended).** Simplest implementation;
   good enough for the vast majority of fleets.
-- (b) Strategy B (round-robin with hard cap). Reach for it if BLPOP-many's
+- (b) Strategy B (round-robin with hard cap). Reach for it if BRPOP-many's
   "exclude-at-cap" application-side check proves insufficient (e.g., under sustained
   noisy-org bursts where the local cap counter races against worker startup).
 - (c) Strategy C (weighted random by depth + headroom). Future enhancement only.
@@ -381,7 +453,7 @@ of the Phase 2 drain).
 **(c)** Installation registry consistency mechanism.
 
 - **(a) = Idempotent SADD on Enqueue, SREM on `installation.deleted` webhook, no
-  periodic janitor (recommended).** Simplest; stale entries cause BLPOP timeouts
+  periodic janitor (recommended).** Simplest; stale entries cause BRPOP timeouts
   but no correctness issue.
 - (b) Periodic janitor SCAN/EXISTS pass. Defensive but more code. Easy to add later
   if stale entries accumulate.
@@ -414,5 +486,12 @@ of the Phase 2 drain).
 - [IMPL-0011: Persistent reconcile state and multi-replica coordination](../impl/0011-persistent-reconcile-state-and-multi-replica-coordination.md)
   — implementation of DESIGN-0012; baseline for this design's deltas
 - [DESIGN-0017: Stale-sweep cutover and repository discovery](0017-stale-sweep-cutover-and-repository-discovery.md)
-  — sibling design; partitioning + discovery cutover together close out the
-  multi-replica scaling story
+  — shipped via IMPL-0015; its Discoverer populates the repo_state this design's
+  registry hangs off
+- [DESIGN-0021: Delayed-requeue job contract and rate-limit consolidation](0021-delayed-requeue-job-contract-and-rate-limit-consolidation.md)
+  — sequences before this design; supplies the delayed set, the key-naming
+  centralisation, and the `queue_wait_seconds{installation_id}` go/no-go datum (see
+  [Relationship to DESIGN-0021](#relationship-to-design-0021-re-baselined-2026-07-29))
+- [INV-0012](../investigation/0012-inert-budgettracker-and-untrustworthy-alert-pack.md)
+  — the investigation that produced DESIGN-0021; finding I (lease-outliving sleeps)
+  is the starvation mode 0021 removes from this design's motivation

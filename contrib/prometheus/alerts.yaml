@@ -288,12 +288,18 @@ groups:
       # A rule is consistently producing rule-level out-of-scope events,
       # meaning it applies to no in-scope orgs. This usually indicates a
       # typo in the rule's scope.orgs list — the rule will never fire.
+      #
+      # Window/for shape (INV-0012): out_of_scope_total increments in
+      # bursts at sweep time, so the window must outlive the gap between
+      # bursts AND the `for` period. The original rate[1h] + for: 6h
+      # could never fire on a weekly sweep cadence — the 1h window went
+      # quiet long before the 6h pending period elapsed.
       - alert: RepoGuardianRuleNeverApplies
         expr: |
-          sum by (org) (rate(repo_guardian_out_of_scope_total{level="rule"}[1h])) > 0
+          sum by (org) (increase(repo_guardian_out_of_scope_total{level="rule"}[24h])) > 0
           and
-          sum by (org) (rate(repo_guardian_files_missing_total[1h])) == 0
-        for: 6h
+          sum by (org) (increase(repo_guardian_files_missing_total[24h])) == 0
+        for: 2h
         labels:
           severity: warning
           service: repo-guardian
@@ -432,24 +438,78 @@ groups:
             is enabled (chart) or `AUTO_CLOSE_PR=true` (env).
 
   # =====================================================================
-  # Discoverer + BudgetTracker (IMPL-0015 Phase 1)
+  # Custom-property sync (DESIGN-0019 / IMPL-0017 / IMPL-0020)
   # =====================================================================
-  - name: repo-guardian.discovery
+  - name: repo-guardian.custom-property-sync
     rules:
-      # The BudgetTracker has been blocking enqueues for 30+ minutes.
-      # The deployment is rate-limit-bound: either reduce sweep
-      # frequency, reduce rule count, or move to per-org App
-      # credentials (INV-0006).
-      - alert: RepoGuardianBudgetGated
-        expr: sum(rate(repo_guardian_enqueue_gated_by_budget_total[15m])) > 0
-        for: 30m
+      # A managed custom property (from annotation_properties or the
+      # built-in Owner/Component pair) is not defined in the org's
+      # custom-property schema, so the preflight is skipping its sync.
+      # Mirrors the chart's starter alert of the same name.
+      #
+      # increase(...[1h]) with a short `for`, not rate(...[15m]) with
+      # for: 30m: a schema mismatch is observed once per repo per sweep,
+      # so a short window goes quiet before a long pending period
+      # elapses and the alert can never fire (INV-0011 A7).
+      - alert: RepoGuardianPropertySchemaMissing
+        expr: increase(repo_guardian_custom_property_missing_schema_total[1h]) > 0
+        for: 5m
         labels:
           severity: warning
           service: repo-guardian
         annotations:
-          summary: "repo-guardian budget-gating enqueues (rate-limit bound)"
+          summary: "repo-guardian custom property missing from org schema"
           description: >-
-            The BudgetTracker has been blocking enqueues for 30+
-            minutes; the deployment is rate-limit-bound. See
-            docs/operations/scaling.md §Discoverer + BudgetTracker
-            for remediation.
+            A managed custom property has no matching definition in the
+            org's custom-property schema; its sync is being skipped.
+            Define the property at the org (or enterprise) level, or
+            remove it from annotation_properties. The structured log
+            line "custom properties missing from org schema" carries
+            the org and property names.
+
+      # A repo's catalog-info.yaml failed to parse, so its
+      # custom-properties reconcile was skipped entirely (IMPL-0020 A1:
+      # a malformed file must never overwrite the managed set with
+      # defaults). Sustained failures mean repos are drifting from
+      # their catalog metadata. Same sparse-metric shape as above.
+      - alert: RepoGuardianCatalogParseFailures
+        expr: increase(repo_guardian_catalog_parse_failed_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: repo-guardian
+        annotations:
+          summary: "repo-guardian skipping repos with unparseable catalog-info.yaml"
+          description: >-
+            At least one repo's catalog-info.yaml failed to parse in the
+            last hour; custom-property sync for those repos is skipped
+            (never overwritten). The structured log line "catalog-info
+            parse failed" names the repo — fix the YAML there.
+
+  # =====================================================================
+  # Discoverer + BudgetTracker (IMPL-0015 Phase 1)
+  # =====================================================================
+  # DISABLED (INV-0012): the BudgetTracker is inert in production —
+  # nothing calls RefreshFromAPI outside tests, so
+  # enqueue_gated_by_budget_total has no producer and this alert can
+  # never fire. Importing it would ship a permanently-silent alert that
+  # reads as "we're never rate-limit-bound", which is not established.
+  # DESIGN-0021 replaces the mechanism with measured queue-delay
+  # metrics (queue_delayed_total{reason}); re-enable the equivalent
+  # alert when that lands.
+  #
+  # - name: repo-guardian.discovery
+  #   rules:
+  #     - alert: RepoGuardianBudgetGated
+  #       expr: sum(rate(repo_guardian_enqueue_gated_by_budget_total[15m])) > 0
+  #       for: 30m
+  #       labels:
+  #         severity: warning
+  #         service: repo-guardian
+  #       annotations:
+  #         summary: "repo-guardian budget-gating enqueues (rate-limit bound)"
+  #         description: >-
+  #           The BudgetTracker has been blocking enqueues for 30+
+  #           minutes; the deployment is rate-limit-bound. See
+  #           docs/operations/scaling.md §Discoverer + BudgetTracker
+  #           for remediation.

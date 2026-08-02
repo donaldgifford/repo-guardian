@@ -1,0 +1,552 @@
+---
+id: IMPL-0022
+title: "Delayed-requeue job contract and rate-limit consolidation"
+status: Draft
+author: Donald Gifford
+created: 2026-08-02
+---
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+# IMPL 0022: Delayed-requeue job contract and rate-limit consolidation
+
+**Status:** Draft
+**Author:** Donald Gifford
+**Date:** 2026-08-02
+
+<!--toc:start-->
+- [Objective](#objective)
+- [Scope](#scope)
+  - [In Scope](#in-scope)
+  - [Out of Scope](#out-of-scope)
+- [Sequencing and Release Shape](#sequencing-and-release-shape)
+- [Implementation Phases](#implementation-phases)
+  - [Phase 0: Stop the bleeding (bundled with Phase 1)](#phase-0-stop-the-bleeding-bundled-with-phase-1)
+    - [Tasks](#tasks)
+    - [Success Criteria](#success-criteria)
+  - [Phase 1: Job contract](#phase-1-job-contract)
+    - [Tasks](#tasks-1)
+    - [Success Criteria](#success-criteria-1)
+  - [Phase 2: Delayed set and promotion](#phase-2-delayed-set-and-promotion)
+    - [Tasks](#tasks-2)
+    - [Success Criteria](#success-criteria-2)
+  - [Phase 3: Throttle signal path](#phase-3-throttle-signal-path)
+    - [Tasks](#tasks-3)
+    - [Success Criteria](#success-criteria-3)
+  - [Phase 4: Worker requeue and attempt cap](#phase-4-worker-requeue-and-attempt-cap)
+    - [Tasks](#tasks-4)
+    - [Success Criteria](#success-criteria-4)
+  - [Phase 5: Observability](#phase-5-observability)
+    - [Tasks](#tasks-5)
+    - [Success Criteria](#success-criteria-5)
+  - [Phase 6: Remove the superseded layers](#phase-6-remove-the-superseded-layers)
+    - [Tasks](#tasks-6)
+    - [Success Criteria](#success-criteria-6)
+  - [Phase 7: Docs and chart](#phase-7-docs-and-chart)
+    - [Tasks](#tasks-7)
+    - [Success Criteria](#success-criteria-7)
+- [File Changes](#file-changes)
+- [Testing Plan](#testing-plan)
+- [Dependencies](#dependencies)
+- [Open Questions](#open-questions)
+- [References](#references)
+<!--toc:end-->
+
+## Objective
+
+Implement
+[DESIGN-0021](../design/0021-delayed-requeue-job-contract-and-rate-limit-consolidation.md)
+(all open questions resolved 2026-08-02): replace the three
+non-composing rate-limit layers with one delayed-requeue mechanism. A
+worker that cannot proceed returns the job to a new Valkey delayed
+ZSET with a due-time and frees its slot; the reaper promotes due jobs;
+`queue.Job` gains `Attempts`/`AvailableAt` with a `MAX_JOB_ATTEMPTS`
+cap whose terminal disposition writes to `repo_state` (OQ2 → a). The
+transport's in-handler sleep — the live duplicate-amplification hazard
+(INV-0012 finding I) — is first capped (Phase 0) and then removed
+(Phase 3). The BudgetTracker and the sweep reserve gate are deleted
+(Phase 6), leaving exactly one rate-limit mechanism.
+
+**Implements:** DESIGN-0021 (resolved: 1a, 2a, 3a, 4a+rider, 5a, 6a,
+7a, 8b)
+
+## Scope
+
+### In Scope
+
+- `internal/github/ratelimit.go`: Phase 0 sleep cap, then Phase 3
+  `ThrottledError` return replacing the pre-emptive sleep and the
+  wait-pair recording.
+- `internal/queue`: `Job.Attempts`/`Job.AvailableAt`,
+  `RetryAfterError`, `EnqueueAfter` (OQ6 → a), rewritten interface
+  contract doc.
+- `internal/queue/valkey`: delayed ZSET, `deferScript` /
+  `promoteScript` Lua, promotion from `reapOnce`, key-construction
+  centralisation (DESIGN-0015 forward hook).
+- `internal/worker`: `ThrottledError` → `RetryAfterError` translation,
+  attempt accounting, terminal disposition via the existing
+  `writeBack` path.
+- Phase 5 metrics + alerts (including re-pointing
+  `RepoGuardianRateLimitThrottling`), Phase 6 removals
+  (`internal/budget`, sweep gate, budget metrics/alert/config/chart
+  values, wait-pair definitions), Phase 7 docs/chart.
+
+### Out of Scope
+
+- Per-installation fairness/partitioning (DESIGN-0015 — this work only
+  leaves its forward hooks: key centralisation and
+  `queue_wait_seconds`).
+- The transport's reactive 403 retry handling — stays as-is.
+- Store/scheduler/discovery changes beyond deleting the budget gates.
+- OTEL client instrumentation of the transport
+  (IMPL-0023 Phase 3 — only the ordering contract matters here).
+
+## Sequencing and Release Shape
+
+- **Phases 0+1 land as one PR** (design OQ8 → b): one review of the
+  whole rate-limit-path change. Phase 0 is superseded by Phase 3 and
+  is deliberately crude.
+- **Phases 1–5 ship as one binary minor** (design rollout step 2).
+  Release labeling across the per-phase PRs is Open Question 1.
+- **Soak before Phase 6**: observe `queue_delayed_total` /
+  `queue_delayed_depth` in the homelab across a full reconcile cycle;
+  force a deferral with a deliberately low `RATE_LIMIT_THRESHOLD`
+  since organic deferrals may not occur at current scale.
+- **Phase 6 ships as its own minor** with a prominent upgrade note
+  (OQ7 → a) — it removes published chart values.
+- Coordination with IMPL-0023: whichever of this Phase 3 and
+  IMPL-0023 Phase 3 lands second adds the transport-ordering test
+  (`otelhttp` outermost, rate-limit transport inside).
+
+Run `make fmt` + `make lint` after each task; commit per numbered task
+with conventional commits.
+
+---
+
+## Implementation Phases
+
+### Phase 0: Stop the bleeding (bundled with Phase 1)
+
+The transport (`internal/github/ratelimit.go`) sleeps in-handler for
+up to `untilReset` (1h) inside `waitIfNeeded` and the
+`rateLimitDelay` + `sleepWithContext` retry path (lines 73, 147) while
+`JOB_ACK_TIMEOUT` is 5m — so the reaper clones the sleeping job every
+`REAPER_INTERVAL`. Cap the sleep below the lease.
+
+#### Tasks
+
+- [ ] 0.1 Add a package const `maxPreemptiveSleep = 60 * time.Second`
+      (hardcoded, not a knob — Open Question 2) and cap the
+      pre-emptive sleep site (`waitIfNeeded`) at
+      `min(computed, maxPreemptiveSleep)`. The reactive 403 retry
+      delay is left alone.
+- [ ] 0.2 When the computed delay exceeds the cap, return an error
+      after the capped sleep instead of sleeping the remainder — the
+      job nacks and the reaper retries it. Crude but correct until
+      Phase 4.
+- [ ] 0.3 Test: a computed delay above the cap does not sleep past it
+      (fake clock / injected sleeper).
+- [ ] 0.4 Test reproducing the INV-0012 finding I timeline: a handler
+      outliving `JOB_ACK_TIMEOUT` is claimed twice without the cap,
+      once with it. This is the canonical regression test for the
+      whole design — it must survive every later phase.
+
+#### Success Criteria
+
+- No code path can sleep longer than `JOB_ACK_TIMEOUT` while holding
+  an in-flight claim.
+- The finding-I timeline test fails with task 0.1 reverted, passes
+  with it (non-vacuity verified).
+- `make ci` passes.
+
+---
+
+### Phase 1: Job contract
+
+All changes in `internal/queue/queue.go` plus mock/fake fallout.
+
+#### Tasks
+
+- [ ] 1.1 Add `Attempts int` and `AvailableAt time.Time` to
+      `queue.Job` (JSON-tagged like the existing fields).
+- [ ] 1.2 Add `queue.RetryAfterError{After, Reason, Err}` with an
+      `Unwrap() error` method.
+- [ ] 1.3 Rewrite the `Queue` interface doc comment: the three handler
+      outcomes (ack / nack / defer), attempt counting on both defer
+      and reaper requeue, terminal disposition = write
+      `StatusError` to `repo_state` and drop (design OQ2 → a). Delete
+      the stale in-memory-implementation parenthetical.
+- [ ] 1.4 Add `EnqueueAfter(ctx, j, at)` to the interface (OQ6 → a)
+      with the contract comment: never deliver before `at`; past `at`
+      ≡ `Enqueue`. Valkey implementation may stub until task 2.2 iff
+      it lands in the same PR.
+- [ ] 1.5 `make mocks`; extend the test-local `recordingQueue` fakes
+      (`internal/checker/sweep_test.go`,
+      `internal/scheduler/sweep_test.go`,
+      `internal/webhook/handler_test.go`,
+      `internal/worker/worker_test.go`) with `EnqueueAfter`.
+- [ ] 1.6 Test: a `Job` JSON payload from the previous field set
+      decodes with `Attempts=0` and zero `AvailableAt` (no queue drain
+      on upgrade).
+
+#### Success Criteria
+
+- The interface documents delay, backoff, attempt cap, and terminal
+  disposition — the contract INV-0012 finding K found missing.
+- Old-format payloads decode correctly.
+- `make ci` passes.
+
+---
+
+### Phase 2: Delayed set and promotion
+
+All changes in `internal/queue/valkey/` (`valkey.go`, `reaper.go`).
+
+#### Tasks
+
+- [ ] 2.1 Add `DelayedKey` to `valkey.Options` (default
+      `repo-guardian:queue:delayed`) and centralise construction of
+      all four keys (jobs, in-flight, delayed, reaper lock) in one
+      helper — the DESIGN-0015 partition hook; Lua scripts stay
+      key-parametric via `KEYS[]`.
+- [ ] 2.2 `deferScript` (`ZREM` in-flight + `ZADD` delayed, atomic,
+      mirroring `requeueScript` at valkey.go:90) wired to
+      `EnqueueAfter`.
+- [ ] 2.3 `promoteScript` (`ZRANGEBYSCORE` due + `ZREM` + `LPUSH`,
+      atomic) called from `reapOnce` (reaper.go:107) under the
+      existing leader lock — no new goroutine, no new election.
+- [ ] 2.4 Publish `queue_delayed_depth` from the reaper tick (`ZCARD`,
+      alongside the existing depth accounting).
+- [ ] 2.5 Integration test (`integration` tag, real Valkey): a job
+      deferred 2s is not delivered before due-time, is delivered
+      after.
+- [ ] 2.6 Integration test: a job is in exactly one of `jobs`,
+      `in-flight`, `delayed` at every lifecycle point.
+- [ ] 2.7 Integration test: promotion is leader-gated — two reapers,
+      one promotion.
+
+#### Success Criteria
+
+- A deferred job is never delivered before `AvailableAt`; no job is
+  ever in two keys at once; promotion happens exactly once with
+  multiple replicas.
+- `make ci` passes; integration tests pass against real Valkey.
+
+---
+
+### Phase 3: Throttle signal path
+
+`internal/github/ratelimit.go` + an end-to-end chain test. Removes
+what Phase 0 capped.
+
+#### Tasks
+
+- [ ] 3.1 Add exported `github.ThrottledError{ResetAt, Remaining,
+      Limit}` with an `Error()` naming the reset time.
+- [ ] 3.2 Replace the pre-emptive sleep (`waitIfNeeded` plus the
+      Phase 0 cap) with a `ThrottledError` return from `RoundTrip`.
+      The reactive 403 retry paths stay untouched.
+- [ ] 3.3 Remove the `github_rate_limit_waits_total` /
+      `github_rate_limit_wait_seconds` recording along with the sleep
+      — no would-be-delay bridge (design amendment 2026-08-02; the
+      deferral is measured once, by Phase 5's `queue_delayed_*`).
+      `github_rate_remaining` emission is untouched.
+- [ ] 3.4 End-to-end invariant test: drive `Engine.CheckRepo` against
+      an `httptest` server returning exhausted rate-limit headers and
+      assert `errors.As` recovers `*ThrottledError` at the worker
+      boundary through the full wrap chain (url.Error → go-github →
+      client → engine).
+- [ ] 3.5 Non-vacuity check for 3.4: neutralise one `%w` on the path,
+      confirm the test fails, restore. Record the check in the PR
+      description.
+
+#### Success Criteria
+
+- The transport never sleeps pre-emptively.
+- `errors.As` recovers `*ThrottledError` from a fully-wrapped
+  `CheckRepo` error, proven by the chain test.
+- The two retained quota alerts (`RepoGuardianRateLimitLow`,
+  `RepoGuardianRateLimitNearExhaustion`) still receive samples;
+  nothing feeds the wait pair.
+- `make ci` passes.
+
+---
+
+### Phase 4: Worker requeue and attempt cap
+
+`internal/worker/worker.go` (`processJob`) +
+`internal/queue/valkey/valkey.go` (`processPayload`) + config.
+
+#### Tasks
+
+- [ ] 4.1 `processJob` translates `*github.ThrottledError` into
+      `*queue.RetryAfterError{Reason: "rate_limit"}` with the jittered
+      due-time: `due = now + delay + rand[0, min(delay/4, 60s))`.
+- [ ] 4.2 The Valkey `processPayload` handler-return path recognises
+      `*RetryAfterError` via `errors.As` and takes the defer path
+      (task 2.2) instead of ack or nack-by-leaving-in-flight.
+- [ ] 4.3 Increment `Attempts` on every defer and every reaper
+      requeue (the requeue side re-serialises the payload — extend
+      `requeueScript`'s caller accordingly).
+- [ ] 4.4 `MAX_JOB_ATTEMPTS` config (default 10) in
+      `internal/config/config.go` + validation. On exceeding the cap:
+      write `StatusError` with a descriptive `LastError` to
+      `repo_state` via the existing best-effort `writeBack`, drop the
+      job, increment `queue_attempts_exhausted_total` (OQ2 → a — the
+      next sweep re-enqueues naturally if the repo is still stale;
+      this makes the enterprise-migration nack-loop self-healing).
+- [ ] 4.5 Exponential backoff for deferrals with no server-supplied
+      time: constants per Open Question 3, same jitter shape as 4.1.
+- [ ] 4.6 Test: a throttled job is deferred, not nacked — in-flight
+      empty, delayed has one entry.
+- [ ] 4.7 Test: the worker slot frees immediately on deferral — a
+      second job is processed while the first is parked.
+- [ ] 4.8 Test: attempts accumulate across defers and reaper
+      requeues; the cap triggers the terminal disposition exactly
+      once, and the `repo_state` row carries `StatusError`.
+
+#### Success Criteria
+
+- A throttled job never occupies a worker slot while waiting.
+- Attempts are counted across both paths; no job retries forever.
+- A dead-installation job (the enterprise-migration incident shape)
+  reaches the cap and drops with a store record instead of
+  nack-looping indefinitely.
+- `make ci` passes.
+
+---
+
+### Phase 5: Observability
+
+`internal/metrics/metrics.go`, both alert packs, scaling docs.
+
+#### Tasks
+
+- [ ] 5.1 Add `queue_delayed_total{reason, installation_id}`
+      (Counter), `queue_delay_seconds{reason}` (Histogram),
+      `queue_attempts_exhausted_total{installation_id}` (Counter).
+      (`queue_delayed_depth` landed in 2.4.)
+- [ ] 5.2 Add `queue_wait_seconds{installation_id}` (Histogram)
+      observed at claim time as `now − EnqueuedAt` — the DESIGN-0015
+      go/no-go datum. Bucket layout per Open Question 4.
+- [ ] 5.3 Add `RepoGuardianQueueBackpressure`
+      (`queue_delayed_depth` sustained) and
+      `RepoGuardianJobsExhausted` (any
+      `queue_attempts_exhausted_total` increase) to **both**
+      `charts/repo-guardian/templates/prometheusrule.yaml` and
+      `contrib/prometheus/alerts.yaml`; windows must outlive `for`
+      and match real emission cadence (INV-0012 findings C/E),
+      reasoned explicitly in the PR.
+- [ ] 5.4 Re-point `RepoGuardianRateLimitThrottling`
+      (contrib pack only, alerts.yaml:115) from the removed wait
+      counter to `queue_delayed_total{reason="rate_limit"}`.
+- [ ] 5.5 helm-unittest assertions on rendered alert *expressions*,
+      not just names (IMPL-0021 A7 convention).
+- [ ] 5.6 Document the new metrics in `docs/operations/scaling.md`
+      (healthy vs backpressured reference values, including the
+      expected `queue_wait_seconds` top-bucket skew during fleet
+      onboarding / policy-version upgrades — OQ4 caveat) and add
+      `contrib/README.md` rows.
+
+#### Success Criteria
+
+- An operator can answer "are we hitting API limits, how hard, for
+  whom" from metrics alone.
+- All touched alerts are fireable under real emission cadence.
+- `make ci` and helm-unittest pass.
+
+---
+
+### Phase 6: Remove the superseded layers
+
+Only after the soak (see Sequencing). Ships as its own minor.
+
+#### Tasks
+
+- [ ] 6.1 Delete `internal/budget/` (budget.go, labels.go, tests) and
+      its `budget.New` wiring in `cmd/repo-guardian/main.go.bringUp`.
+- [ ] 6.2 Remove `Budget` from `StaleSweeperOptions` and
+      `DiscovererOptions` and both `budgetAllows` gates.
+- [ ] 6.3 Remove the layer-2 sweep gate
+      (`StaleSweeper.allowedByRateLimit`, sweep.go:243) and
+      `rate_limit_reserve_blocked_total` — **preserving the
+      per-installation `RateLimitRemaining` sampling call in the sweep
+      loop** (design OQ4 rider: that call is the only live producer of
+      `rate_limit_remaining{installation_id}`; the gate goes, the
+      sampling stays, `RepoGuardianRateLimitNearExhaustion` keeps its
+      feed).
+- [ ] 6.4 Remove the nine `api_budget_*` /
+      `enqueue_gated_by_budget_total` metric definitions, the now-unfed
+      wait-pair definitions
+      (`github_rate_limit_waits_total` / `_wait_seconds`), and
+      `RepoGuardianBudgetGated` from both alert files (it is already
+      commented out in contrib).
+- [ ] 6.5 Remove `DISCOVERY_RESERVE_FRACTION` and
+      `DISCOVERY_ESTIMATED_COST_PER_REPO` from config, validation, and
+      tests.
+- [ ] 6.6 Remove `discovery.reserveFraction` /
+      `discovery.estimatedCostPerRepo` from `values.yaml`,
+      `values.schema.json`, and `tests/deployment_env_test.yaml`.
+- [ ] 6.7 `make ci` plus a `deadcode` pass clean after removal.
+- [ ] 6.8 Mark DESIGN-0002 Superseded by DESIGN-0021; update the
+      CLAUDE.md BudgetTracker architecture notes.
+
+#### Success Criteria
+
+- Exactly one rate-limit mechanism remains.
+- `rate_limit_remaining{installation_id}` still receives samples
+  every sweep (rider honoured — no unfed-gauge alert).
+- No dangling config, chart value, schema entry, metric, or alert
+  referencing the removed layers; `helm template` renders without the
+  removed values.
+
+---
+
+### Phase 7: Docs and chart
+
+#### Tasks
+
+- [ ] 7.1 Chart version + appVersion bump; `make helm-docs` (edit
+      `README.md.gotmpl`, never the rendered README).
+- [ ] 7.2 `MAX_JOB_ATTEMPTS` chart value with `values.schema.json`
+      range validation and helm-unittest case.
+- [ ] 7.3 Operator runbook: what a deferred job looks like in
+      Valkey/metrics/logs, reading the new metrics, responding to the
+      backpressure and exhausted alerts.
+- [ ] 7.4 Update `docs/operations/scaling.md` and
+      `docs/operations/migrations.md` for the removed knobs, and
+      document `REAPER_INTERVAL`'s dual duty — lease reaping *and*
+      promotion cadence (design OQ3 → a).
+- [ ] 7.5 CLAUDE.md: the delayed-requeue contract and the
+      one-mechanism rule (no future in-handler blocking).
+- [ ] 7.6 Flip INV-0012 to Concluded and DESIGN-0021 to Implemented;
+      `docz update design inv impl`.
+
+#### Success Criteria
+
+- Chart renders and installs with the new values.
+- mkdocs holds the 14-warning baseline.
+- Every removed knob has a documented upgrade path.
+
+---
+
+## File Changes
+
+| File | Action | Description |
+|------|--------|-------------|
+| `internal/github/ratelimit.go` | Modify | P0 sleep cap → P3 `ThrottledError`; wait-pair recording removed |
+| `internal/queue/queue.go` | Modify | Job fields, `RetryAfterError`, `EnqueueAfter`, contract doc |
+| `internal/queue/valkey/valkey.go` | Modify | key centralisation, `deferScript`, `EnqueueAfter`, defer path in `processPayload` |
+| `internal/queue/valkey/reaper.go` | Modify | `promoteScript` in `reapOnce`, delayed-depth gauge, attempt increment on requeue |
+| `internal/worker/worker.go` | Modify | throttle translation, attempt cap, terminal disposition via `writeBack` |
+| `internal/config/config.go` | Modify | `MAX_JOB_ATTEMPTS`; P6 removes two discovery knobs |
+| `internal/metrics/metrics.go` | Modify | P5 adds four queue metrics; P6 removes budget + wait-pair definitions |
+| `internal/checker/sweep.go` | Modify | P6: gate removed, sampling call retained |
+| `internal/scheduler/discoverer.go` | Modify | P6: budget gate removed |
+| `internal/budget/` | Delete | P6 |
+| `charts/repo-guardian/templates/prometheusrule.yaml` | Modify | two new alerts; `BudgetGated` removed |
+| `contrib/prometheus/alerts.yaml` | Modify | two new alerts; `RateLimitThrottling` re-pointed |
+| `charts/repo-guardian/values.yaml` + `values.schema.json` | Modify | `MAX_JOB_ATTEMPTS` in; two discovery knobs out |
+| `docs/operations/scaling.md`, `migrations.md` | Modify | new metrics, removed knobs, `REAPER_INTERVAL` dual duty |
+
+## Testing Plan
+
+- [ ] Phase 0 finding-I timeline regression test (fake clock),
+      preserved through all later phases.
+- [ ] Old-payload JSON decode compatibility test (1.6).
+- [ ] Valkey integration tests: due-time honoured, exactly-one-key
+      invariant, leader-gated promotion (2.5–2.7) — Lua atomicity is
+      only provable against real Valkey.
+- [ ] End-to-end wrap-chain test (3.4) with recorded non-vacuity
+      check (3.5).
+- [ ] Worker defer/attempt/terminal tests (4.6–4.8), including the
+      dead-installation self-heal shape.
+- [ ] Mock fidelity: promotion-then-delivery is list-then-act — fakes
+      must reflect prior writes or the due-time assertion is vacuous
+      (CLAUDE.md rule).
+- [ ] helm-unittest on rendered alert expressions.
+- [ ] Each behavioural test neutralise-verify-restore per standing
+      practice.
+
+## Dependencies
+
+- INV-0012 (Concluded by Phase 7) — findings A–K are the evidence
+  base.
+- No dependency on IMPL-0023 except the transport-ordering test
+  (whichever Phase 3 lands second adds it).
+- DESIGN-0015 stays Draft; this work only leaves its hooks.
+
+## Open Questions
+
+1. **Release labeling across the per-phase PRs.**
+   **Resolved 2026-08-02 → (a).**
+   (a) Label the Phase 0+1, 2, 3, and 4 PRs `dont-release`; the
+   Phase 5 PR carries `minor` and cuts the one binary release for
+   phases 1–5 (matching the design's rollout step 2). Phase 6's PR
+   carries its own `minor`. Keeps released binaries at exactly the
+   design's two behavioural checkpoints instead of shipping a
+   half-built defer path.
+   (b) Each phase PR carries `patch`/`minor` and releases
+   independently — more releases, each smaller, but versions ship
+   with `EnqueueAfter` present and nothing calling it.
+   (c) One giant PR for phases 1–5 — single review, single release,
+   but far too large to review well.
+   other:
+
+2. **Phase 0 cap: constant or knob.**
+   **Resolved 2026-08-02 → (a).**
+   (a) Hardcoded `maxPreemptiveSleep = 60s` const — it is scaffolding
+   that Phase 3 deletes weeks later; an env knob would need schema,
+   chart plumbing, and a deprecation path for something with a
+   planned lifespan of one phase.
+   (b) `RATE_LIMIT_MAX_SLEEP` env var — tunable if the cap misbehaves
+   in the homelab, at the cost of shipping-then-removing a documented
+   knob.
+   other:
+
+3. **Backoff constants for deferrals with no server-supplied time.**
+   **Resolved 2026-08-02 → (a).**
+   (a) `base 30s, factor 2, cap 30m`, jitter `rand[0, min(delay/4,
+   60s))` — reaches the 30m ceiling on attempt 7 of 10, so a job
+   exhausts in roughly 2–3 hours; hardcoded consts next to the
+   translation in `internal/worker`, no config surface until someone
+   needs one.
+   (b) `base 60s, factor 2, cap 1h` — gentler on the API, but a
+   10-attempt exhaustion stretches past 8 hours, longer than the gap
+   between sweeps' fresh enqueues, muddying "who re-enqueued this."
+   (c) Make base/factor/cap env-configurable now — three knobs nobody
+   has asked for.
+   other:
+
+4. **`queue_wait_seconds` bucket layout.**
+   **Resolved 2026-08-02 → (a)**, with a caveat to carry into task
+   5.6's docs: during initial fleet onboarding or a policy-version
+   upgrade the entire fleet re-enqueues at once, so waits legitimately
+   pile into the top buckets — that skew is expected, not a
+   regression, and the low-end granularity is mostly noise in those
+   windows. If the fine low-end buckets prove useless once steady
+   state is reached, collapse them in a follow-up (bucket changes are
+   non-breaking; only `histogram_quantile` precision shifts).
+   (a) Custom buckets `[1s, 5s, 15s, 60s, 5m, 15m, 1h, 4h]` — the
+   decision this histogram exists for (DESIGN-0015 go/no-go) lives in
+   the minutes-to-hours range that `prometheus.DefBuckets` (capped at
+   10s) cannot see; 8 buckets × ~25 installations stays well inside
+   cardinality budget.
+   (b) `prometheus.ExponentialBuckets(1, 4, 8)` (1s → ~4.5h) — same
+   coverage, less legible boundaries.
+   other:
+
+## References
+
+- [DESIGN-0021](../design/0021-delayed-requeue-job-contract-and-rate-limit-consolidation.md)
+  — the design; all OQs resolved 2026-08-02
+- [INV-0012](../investigation/0012-inert-budgettracker-and-untrustworthy-alert-pack.md)
+  — findings A–K (amplification timeline = finding I; missing
+  contract = finding K)
+- [INV-0013](../investigation/0013-state-vs-event-metrics-dashboard-suite-and-system-observability.md)
+  — Finding G one-source rule behind task 3.3
+- [IMPL-0023](0023-compliance-posture-state-dashboard-suite-and-otel-first.md)
+  — shared transport-ordering contract (its Phase 3)
+- [IMPL-0011](0011-persistent-reconcile-state-and-multi-replica-coordination.md)
+  — introduced the queue, lease, and reaper being extended
+- `docs/operations/ent-setup.md` — the dead-installation incident that
+  resolved design OQ2 to (a)

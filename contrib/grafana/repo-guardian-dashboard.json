@@ -2543,7 +2543,7 @@
     {
       "id": 113,
       "type": "row",
-      "title": "BudgetTracker (IMPL-0015 Phase 1)",
+      "title": "BudgetTracker (IMPL-0015 Phase 1 \u2014 INERT, no producer; see INV-0012 / DESIGN-0021)",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -2717,6 +2717,278 @@
           },
           "expr": "sum by (installation_id) (rate(repo_guardian_enqueue_gated_by_budget_total[5m]))",
           "legendFormat": "{{ installation_id }}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 114,
+      "type": "row",
+      "title": "Absent Rules, When-Gates & Custom-Property Sync (IMPL-0017/0019/0020)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 136
+      }
+    },
+    {
+      "id": 115,
+      "type": "timeseries",
+      "title": "Forbidden Files Detected by Rule",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 137
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "sum by (rule_name) (rate(repo_guardian_files_forbidden_present_total[5m]))",
+          "legendFormat": "{{ rule_name }}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 116,
+      "type": "timeseries",
+      "title": "When-Gate Closed by Reason",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 137
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "sum by (reason) (rate(repo_guardian_rule_gate_closed_total[5m]))",
+          "legendFormat": "{{ reason }}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 117,
+      "type": "timeseries",
+      "title": "Custom Properties Cleared by Org",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 137
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "sum by (org) (rate(repo_guardian_custom_property_cleared_total[5m]))",
+          "legendFormat": "{{ org }}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 118,
+      "type": "timeseries",
+      "title": "Properties Missing From Org Schema",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 145
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "sum by (org, property) (rate(repo_guardian_custom_property_missing_schema_total[5m]))",
+          "legendFormat": "{{ org }}/{{ property }}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 119,
+      "type": "timeseries",
+      "title": "Catalog Parse Failures by Org",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 145
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "sum by (org) (rate(repo_guardian_catalog_parse_failed_total[5m]))",
+          "legendFormat": "{{ org }}",
           "refId": "A"
         }
       ]

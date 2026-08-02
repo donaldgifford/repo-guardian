@@ -17,6 +17,12 @@ For prior reading: `docs/operations/scaling.md` covers the sizing
 math for multi-org GHEC fleets — this doc covers how to land that
 sizing on AWS infrastructure specifically.
 
+If you provision with `libtftest-tf-modules/modules/rds/*`, the
+variable-level companion to this guide is
+[External Postgres on RDS — Terraform variable reference](rds-terraform-variables.md):
+exact settings for `instance` / `cluster` / `serverless`, each with and
+without `proxy`.
+
 ## Postgres on AWS
 
 ### Option matrix
@@ -30,6 +36,16 @@ sizing on AWS infrastructure specifically.
 All three speak vanilla Postgres protocol, so the binary's
 `internal/store/postgres/` works unchanged. The decision is
 operational, not architectural.
+
+**Version and parameter parity with the chart.** The chart's two
+managed shapes both pin Postgres 18 (`baked.image: postgres:18.4`,
+`cnpg.imageName: ...postgresql:18.4`) — pin the RDS `engine_version`
+to the same major so dev/test on the chart-managed shapes exercises
+the major prod runs on. Neither chart mode sets any custom Postgres
+parameters, so the default-valued parameter groups the Terraform
+modules create are already correct; there is nothing to mirror. Both
+points in detail:
+[Parameter groups and engine version](rds-terraform-variables.md#parameter-groups-and-engine-version).
 
 ### Connection pooling: use RDS Proxy
 
@@ -77,7 +93,13 @@ spec:
     name: repo-guardian-store-dsn
     template:
       data:
-        STORE_DSN: "postgres://{{ .username }}:{{ .password }}@{{ .endpoint }}:5432/{{ .dbname }}?sslmode=require"
+        # urlquery percent-encodes reserved characters; the replace
+        # re-maps space from "+" (query-string form) to %20 (userinfo
+        # form). Without this, a password containing @ : / % or space
+        # produces a DSN that fails to parse or authenticates with the
+        # wrong password. ESO templates are Go text/template + Sprig,
+        # so both functions are available.
+        STORE_DSN: "postgres://{{ .username }}:{{ .password | urlquery | replace \"+\" \"%20\" }}@{{ .endpoint }}:5432/{{ .dbname }}?sslmode=require"
   data:
     - secretKey: username
       remoteRef:
@@ -132,9 +154,15 @@ direct admin connections.
 - **Secrets Manager rotation gap.** If AWS rotates the DB password
   via Secrets Manager → ESO re-syncs the k8s Secret → but the
   binary's open pgxpool connections still use the OLD password
-  until they hit a transient failure and reconnect. RDS Proxy
-  eliminates this because the Proxy holds the DB creds; clients
-  talk to the Proxy with their own (static) creds.
+  until they hit a transient failure and reconnect, and the
+  Deployment needs a restart to pick up the new env value at all.
+  **RDS Proxy does not eliminate this.** Clients authenticate to the
+  Proxy with the same credentials the Proxy holds in Secrets Manager
+  — there is no separate static client credential — so a rotation
+  invalidates the password the pods are using. The escape hatches
+  are automating the restart, or setting
+  `manage_master_user_password = false` and rotating on your own
+  schedule.
 
 ## ElastiCache for Valkey
 

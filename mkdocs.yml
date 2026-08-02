@@ -53,6 +53,8 @@ nav:
         - 'IMPL-0019: Absent check mode and conditional file rules': impl/0019-absent-check-mode-and-conditional-file-rules.md
         - 'IMPL-0020: Pre-IMPL-0019 high-severity fixes (INV-0011 Group A High)': impl/0020-pre-impl-0019-high-severity-fixes-inv-0011-group-a-high.md
         - 'IMPL-0021: Post-IMPL-0019 hardening and structural cleanup (INV-0011 Group A Medium + Group B)': impl/0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group.md
+        - 'IMPL-0022: Delayed-requeue job contract and rate-limit consolidation': impl/0022-delayed-requeue-job-contract-and-rate-limit-consolidation.md
+        - 'IMPL-0023: Compliance posture state, dashboard suite, and OTEL-first observability': impl/0023-compliance-posture-state-dashboard-suite-and-otel-first.md
     - Investigations:
         - Overview: investigation/README.md
         - 'INV-0001: Tailscale Funnel for Webhook Testing': investigation/0001-tailscale-funnel-for-webhook-testing.md

@@ -175,27 +175,35 @@ All changes in `internal/queue/queue.go` plus mock/fake fallout.
 
 #### Tasks
 
-- [ ] 1.1 Add `Attempts int` and `AvailableAt time.Time` to
-      `queue.Job` (JSON-tagged like the existing fields).
-- [ ] 1.2 Add `queue.RetryAfterError{After, Reason, Err}` with an
+- [x] 1.1 Add `Attempts int` and `AvailableAt time.Time` to
+      `queue.Job`. *Amended:* the existing fields are untagged (JSON
+      uses Go field names), so the new fields follow that convention
+      rather than gaining tags; the zero-value upgrade semantics are
+      documented on the struct.
+- [x] 1.2 Add `queue.RetryAfterError{After, Reason, Err}` with an
       `Unwrap() error` method.
-- [ ] 1.3 Rewrite the `Queue` interface doc comment: the three handler
+- [x] 1.3 Rewrite the `Queue` interface doc comment: the three handler
       outcomes (ack / nack / defer), attempt counting on both defer
       and reaper requeue, terminal disposition = write
-      `StatusError` to `repo_state` and drop (design OQ2 → a). Delete
-      the stale in-memory-implementation parenthetical.
-- [ ] 1.4 Add `EnqueueAfter(ctx, j, at)` to the interface (OQ6 → a)
-      with the contract comment: never deliver before `at`; past `at`
-      ≡ `Enqueue`. Valkey implementation may stub until task 2.2 iff
-      it lands in the same PR.
-- [ ] 1.5 `make mocks`; extend the test-local `recordingQueue` fakes
+      `StatusError` to `repo_state` and drop (design OQ2 → a). Stale
+      in-memory-implementation parenthetical deleted.
+- [x] 1.4 Add `EnqueueAfter(ctx, j, at)` to the interface (OQ6 → a).
+      Valkey impl: past `at` falls through to `Enqueue`; future `at`
+      errors explicitly until task 2.2 (nothing calls it yet; stub
+      lands in the same Phase 0+1 PR as required).
+- [x] 1.5 `make mocks` (queue mock regenerated with `EnqueueAfter`);
+      the three test-local `recordingQueue` fakes
       (`internal/checker/sweep_test.go`,
-      `internal/scheduler/sweep_test.go`,
       `internal/webhook/handler_test.go`,
-      `internal/worker/worker_test.go`) with `EnqueueAfter`.
-- [ ] 1.6 Test: a `Job` JSON payload from the previous field set
-      decodes with `Attempts=0` and zero `AvailableAt` (no queue drain
-      on upgrade).
+      `internal/worker/worker_test.go`) gain a due-time-stamping
+      `EnqueueAfter`; `slowQueue` inherits via embedding. *Amended:*
+      `internal/scheduler/sweep_test.go` has no queue fake — the
+      compiler surfaced the true list.
+- [x] 1.6 `internal/queue/queue_test.go`:
+      `TestJob_OldPayloadDecodesWithZeroRetryFields` (old six-field
+      payload → `Attempts=0`, zero `AvailableAt`), round-trip of the
+      new fields, and `errors.As`/`Unwrap` chain behaviour for
+      `RetryAfterError`.
 
 #### Success Criteria
 

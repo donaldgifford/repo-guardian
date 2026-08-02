@@ -8,6 +8,7 @@ package valkey_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -541,6 +542,207 @@ func TestValkey_PromotionLeaderGated(t *testing.T) {
 
 	if got := countKeys(ctx, t, client, prefix); got != (keyCounts{}) {
 		t.Fatalf("keyspace not empty after all deliveries: %+v", got)
+	}
+}
+
+// delayedJobs decodes every member of the delayed ZSET.
+func delayedJobs(ctx context.Context, t *testing.T, client *redis.Client, prefix string) []queue.Job {
+	t.Helper()
+
+	members := client.ZRange(ctx, prefix+":delayed", 0, -1).Val()
+	jobs := make([]queue.Job, 0, len(members))
+
+	for _, m := range members {
+		var j queue.Job
+		if err := json.Unmarshal([]byte(m), &j); err != nil {
+			t.Fatalf("decoding delayed member %q: %v", m, err)
+		}
+
+		jobs = append(jobs, j)
+	}
+
+	return jobs
+}
+
+// TestValkey_DeferredNotNacked locks IMPL-0022 task 4.6: a handler
+// returning RetryAfterError parks the job in the delayed set — not
+// left in-flight for the reaper, not acked away — with Attempts
+// incremented and AvailableAt stamped.
+func TestValkey_DeferredNotNacked(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	client := startValkey(ctx, t)
+	q := newTestQueue(t, client)
+	prefix := "test:" + t.Name()
+
+	if err := q.Enqueue(ctx, queue.Job{InstallationID: 1, Owner: "o", Repo: "throttled"}); err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+
+	due := time.Unix(time.Now().Add(time.Hour).Unix(), 0).UTC()
+
+	subCtx, subCancel := context.WithCancel(ctx)
+	defer subCancel()
+
+	deferred := make(chan struct{}, 1)
+
+	go func() {
+		_ = q.Subscribe(subCtx, func(_ context.Context, _ queue.Job) error {
+			deferred <- struct{}{}
+
+			return &queue.RetryAfterError{After: due, Reason: "rate_limit"}
+		})
+	}()
+
+	select {
+	case <-deferred:
+	case <-time.After(10 * time.Second):
+		t.Fatal("job never delivered")
+	}
+
+	waitForCounts(ctx, t, client, prefix, keyCounts{delayed: 1}, 10*time.Second)
+
+	parked := delayedJobs(ctx, t, client, prefix)
+	if len(parked) != 1 {
+		t.Fatalf("delayed jobs = %d, want 1", len(parked))
+	}
+
+	if parked[0].Attempts != 1 {
+		t.Errorf("parked Attempts = %d, want 1 (incremented on defer)", parked[0].Attempts)
+	}
+
+	if !parked[0].AvailableAt.Equal(due) {
+		t.Errorf("parked AvailableAt = %v, want %v", parked[0].AvailableAt, due)
+	}
+}
+
+// TestValkey_DeferralFreesWorkerSlot locks IMPL-0022 task 4.7: a
+// deferred job does not occupy the consumer — the same single
+// Subscribe loop processes the next job immediately while the first
+// stays parked.
+func TestValkey_DeferralFreesWorkerSlot(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	client := startValkey(ctx, t)
+	q := newTestQueue(t, client)
+	prefix := "test:" + t.Name()
+
+	// FIFO: "parked" delivers first and defers; "acked" must still be
+	// processed by the same subscriber with no reaper running.
+	for _, repo := range []string{"parked", "acked"} {
+		if err := q.Enqueue(ctx, queue.Job{InstallationID: 1, Owner: "o", Repo: repo}); err != nil {
+			t.Fatalf("enqueue %s: %v", repo, err)
+		}
+	}
+
+	subCtx, subCancel := context.WithCancel(ctx)
+	defer subCancel()
+
+	acked := make(chan struct{}, 1)
+
+	go func() {
+		_ = q.Subscribe(subCtx, func(_ context.Context, j queue.Job) error {
+			if j.Repo == "parked" {
+				return &queue.RetryAfterError{After: time.Now().Add(time.Hour), Reason: "rate_limit"}
+			}
+
+			acked <- struct{}{}
+
+			return nil
+		})
+	}()
+
+	select {
+	case <-acked:
+	case <-time.After(10 * time.Second):
+		t.Fatal("second job not processed while first was parked — deferral did not free the slot")
+	}
+
+	waitForCounts(ctx, t, client, prefix, keyCounts{delayed: 1}, 10*time.Second)
+}
+
+// TestValkey_AttemptsAccumulateAcrossNackAndRequeue locks IMPL-0022
+// task 4.8 (queue half): Attempts increments on a reaper requeue and
+// again on a defer, accumulating across the two paths.
+func TestValkey_AttemptsAccumulateAcrossNackAndRequeue(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	client := startValkey(ctx, t)
+	q := newTestQueue(t, client)
+	prefix := "test:" + t.Name()
+
+	if err := q.Enqueue(ctx, queue.Job{InstallationID: 1, Owner: "o", Repo: "flaky"}); err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+
+	// Delivery 1: nack. Stop subscribing immediately so this loop
+	// can't re-claim the requeued payload before phase 2.
+	sub1Ctx, sub1Cancel := context.WithCancel(ctx)
+	nacked := make(chan int, 1)
+
+	go func() {
+		_ = q.Subscribe(sub1Ctx, func(_ context.Context, j queue.Job) error {
+			nacked <- j.Attempts
+			sub1Cancel()
+
+			return errors.New("simulated failure")
+		})
+	}()
+
+	select {
+	case attempts := <-nacked:
+		if attempts != 0 {
+			t.Fatalf("first delivery Attempts = %d, want 0", attempts)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("job never delivered")
+	}
+
+	// Reaper requeues the abandoned in-flight entry with Attempts+1.
+	reapCtx, reapCancel := context.WithCancel(ctx)
+	defer reapCancel()
+
+	reaper := valkey.NewReaper(q, valkey.ReaperOptions{
+		PodID:         "test",
+		Interval:      250 * time.Millisecond,
+		JobAckTimeout: 100 * time.Millisecond,
+		LockTTL:       100 * time.Millisecond,
+		Logger:        slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn})),
+	})
+
+	go func() { _ = reaper.Start(reapCtx) }()
+
+	// Delivery 2: expect the requeue increment, then defer.
+	sub2Ctx, sub2Cancel := context.WithCancel(ctx)
+	defer sub2Cancel()
+
+	redelivered := make(chan int, 1)
+
+	go func() {
+		_ = q.Subscribe(sub2Ctx, func(_ context.Context, j queue.Job) error {
+			redelivered <- j.Attempts
+
+			return &queue.RetryAfterError{After: time.Now().Add(time.Hour), Reason: "rate_limit"}
+		})
+	}()
+
+	select {
+	case attempts := <-redelivered:
+		if attempts != 1 {
+			t.Fatalf("redelivered Attempts = %d, want 1 (reaper requeue increments)", attempts)
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("reaper never redelivered the nacked job")
+	}
+
+	waitForCounts(ctx, t, client, prefix, keyCounts{delayed: 1}, 10*time.Second)
+
+	parked := delayedJobs(ctx, t, client, prefix)
+	if len(parked) != 1 || parked[0].Attempts != 2 {
+		t.Fatalf("parked jobs = %+v, want exactly one with Attempts=2 (requeue + defer accumulate)", parked)
 	}
 }
 

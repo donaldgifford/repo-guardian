@@ -381,13 +381,27 @@ what Phase 0 capped.
       time: constants per Open Question 3, same jitter shape as 4.1.
       (`backoffDelay(attempts) = min(30s × 2^attempts, 30m)` replaces
       the 4.1 fall-through-to-nack when `time.Until(ResetAt) <= 0`.)
-- [ ] 4.6 Test: a throttled job is deferred, not nacked — in-flight
-      empty, delayed has one entry.
-- [ ] 4.7 Test: the worker slot frees immediately on deferral — a
+- [x] 4.6 Test: a throttled job is deferred, not nacked — in-flight
+      empty, delayed has one entry. (`TestValkey_DeferredNotNacked`,
+      integration; also pins parked `Attempts=1` + `AvailableAt`.
+      Non-vacuity: removing `deferInFlight`'s increment fails it
+      with "parked Attempts = 0".)
+- [x] 4.7 Test: the worker slot frees immediately on deferral — a
       second job is processed while the first is parked.
-- [ ] 4.8 Test: attempts accumulate across defers and reaper
+      (`TestValkey_DeferralFreesWorkerSlot`, integration: one
+      Subscribe loop, no reaper — the second job can only be
+      processed if the deferral freed the loop.)
+- [x] 4.8 Test: attempts accumulate across defers and reaper
       requeues; the cap triggers the terminal disposition exactly
       once, and the `repo_state` row carries `StatusError`.
+      (Queue half: `TestValkey_AttemptsAccumulateAcrossNackAndRequeue`
+      — nack → reaper requeue (Attempts=1 observed at redelivery) →
+      defer (parked Attempts=2); non-vacuity verified on
+      `requeuePayload`'s increment. Worker half:
+      `TestPool_AttemptCap_TerminalDisposition` — nil engine/ghClient
+      prove the cap refuses before processing; exactly one
+      StatusError write naming MAX_JOB_ATTEMPTS; exhausted counter
+      = 1; nil handler return = ack-and-drop.)
 
 #### Success Criteria
 

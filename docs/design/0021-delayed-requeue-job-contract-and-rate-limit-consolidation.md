@@ -240,6 +240,15 @@ invariant with an end-to-end test instead of an audit. A test that drives
 a real throttle through the real path fails if any link breaks, whichever
 link it is; an audit only proves the state of the code on the day it ran.
 
+One adjacency to keep straight:
+[DESIGN-0022](0022-compliance-posture-state-dashboard-suite-and-otel-first.md)
+Phase 3 wraps this same installation transport with `otelhttp` client
+instrumentation. The ordering contract, specified in both documents:
+`otelhttp` outermost, this design's rate-limit transport inside it,
+`ghinstallation` innermost — so a `ThrottledError` return surfaces as
+an errored client measurement, which is exactly the residual signal
+that replaces the retired wait pair.
+
 `internal/github` must not import `internal/queue` — the client is the
 lower layer. The worker performs the translation:
 
@@ -422,10 +431,24 @@ Removed: the nine `api_budget_*` / `enqueue_gated_by_budget_total`
 metrics and the `RepoGuardianBudgetGated` alert, none of which has ever
 emitted a sample in production.
 
-Retained: `github_rate_remaining`, `github_rate_limit_waits_total`,
-`github_rate_limit_wait_seconds` and their three alerts. These are
-layer 1's accounting and stay meaningful — Phase 3 task 3.3 keeps them
-fed at the point the sleep is replaced.
+Retained: `github_rate_remaining` and its two threshold alerts
+(`RepoGuardianRateLimitLow`, `RepoGuardianRateLimitNearExhaustion`) —
+quota headroom stays layer 1's accounting.
+
+Also removed (INV-0013 Finding G amendment, 2026-08-02):
+`github_rate_limit_waits_total` and `github_rate_limit_wait_seconds`.
+Once nothing sleeps, "wait" semantics vanish, and the earlier plan to
+keep the pair fed by recording the *would-be* delay was rejected as a
+duplicate: the same deferral event would be measured by both the wait
+pair and Phase 5's `queue_delayed_total{reason}` /
+`queue_delay_seconds{reason}`, violating the one-source-per-signal
+rule. The single alert consuming the pair
+(`RepoGuardianRateLimitThrottling`, contrib pack only) is re-pointed
+at `queue_delayed_total{reason="rate_limit"}` in task 5.2b; the
+residual "slow GitHub call by status" signal arrives with
+[DESIGN-0022](0022-compliance-posture-state-dashboard-suite-and-otel-first.md)'s
+`otelhttp` client histograms. Phases 1–5 ship as one minor, so metric
+death and alert re-point land in the same release — no coverage gap.
 
 Two new starter alerts:
 
@@ -534,10 +557,10 @@ the real fix.
 - [ ] 3.2 Replace the transport's pre-emptive `sleepWithContext` with a
       `ThrottledError` return. Leave the 403 primary/secondary retry
       paths untouched.
-- [ ] 3.3 Preserve `github_rate_limit_waits_total` and
-      `github_rate_limit_wait_seconds` by recording the *would-be* delay
-      at the point of the return, so the three existing rate-limit alerts
-      keep receiving samples.
+- [ ] 3.3 Remove the wait-pair recording along with the sleep — no
+      would-be-delay bridge. It would double-measure the deferral that
+      Phase 5's `queue_delayed_total` / `queue_delay_seconds` own (see
+      Observability). `github_rate_remaining` emission is untouched.
 - [ ] 3.4 **Pin the chain with an end-to-end test**: drive a real
       `Engine.CheckRepo` against an `httptest` server returning
       rate-limit headers and assert `errors.As` recovers
@@ -554,7 +577,9 @@ the real fix.
 - The transport never sleeps pre-emptively.
 - `errors.As` recovers `*ThrottledError` from a fully-wrapped `CheckRepo`
   error, proven by test rather than assumed.
-- The three existing rate-limit alerts still receive samples.
+- The two retained quota alerts (`RepoGuardianRateLimitLow`,
+  `RepoGuardianRateLimitNearExhaustion`) still receive samples; nothing
+  feeds the wait pair.
 - `make ci` passes.
 
 ### Phase 4: Worker requeue and attempt cap
@@ -599,6 +624,10 @@ the real fix.
       `RepoGuardianJobsExhausted` to the chart's `prometheusrule.yaml`
       **and** `contrib/prometheus/alerts.yaml` (INV-0012 finding F: the
       two packs are near-duplicates with no drift gate).
+- [ ] 5.2b Re-point `RepoGuardianRateLimitThrottling` (contrib pack
+      only) from the removed `github_rate_limit_waits_total` to
+      `queue_delayed_total{reason="rate_limit"}`, under the same
+      window/`for` discipline as 5.3.
 - [ ] 5.3 Verify both alerts against INV-0012 finding C — window outlives
       `for`, and the window suits the metric's real emission cadence.
 - [ ] 5.4 helm-unittest assertions on the rendered expressions, not just
@@ -626,7 +655,11 @@ working — see the rollout plan.
       `DiscovererOptions`, and both `budgetAllows` gates.
 - [ ] 6.3 Remove the nine `api_budget_*` /
       `enqueue_gated_by_budget_total` metrics and
-      `RepoGuardianBudgetGated` from both alert files.
+      `RepoGuardianBudgetGated` from both alert files, plus the
+      now-unfed `github_rate_limit_waits_total` /
+      `github_rate_limit_wait_seconds` definitions from
+      `internal/metrics` (emission stopped in task 3.3; the sole
+      consuming alert was re-pointed in 5.2b).
 - [ ] 6.4 Remove `DISCOVERY_RESERVE_FRACTION` and
       `DISCOVERY_ESTIMATED_COST_PER_REPO` from config, their validation,
       and their tests.
@@ -696,8 +729,10 @@ working — see the rollout plan.
 
 1. **Phase 0 ships first, alone**, as a patch. It defuses the live hazard
    and is safe to deploy immediately.
-2. **Phases 1–5 ship as a minor.** New behaviour, no removals — the inert
-   budget gates and the new delayed path coexist harmlessly.
+2. **Phases 1–5 ship as a minor.** New behaviour, one scrape-visible
+   removal: the wait pair stops receiving samples (task 3.3), and its
+   only consuming alert is re-pointed in the same release (task 5.2b).
+   The inert budget gates and the new delayed path coexist harmlessly.
 3. **Soak.** Observe `queue_delayed_total` and `queue_delayed_depth` in
    the homelab across at least one full reconcile cycle. At current scale
    deferrals may never trigger naturally; forcing one with a deliberately
@@ -738,6 +773,13 @@ why it ships on its own.
    other:
 
 2. **Terminal disposition at the attempt cap.**
+   **Resolved 2026-08-02 → (a)**, on live evidence: during the
+   enterprise-app cutover, jobs for a deleted installation nack-looped
+   indefinitely and had to be cleared by hand (Valkey flush +
+   `repo_state` row deletion, `docs/operations/ent-setup.md`).
+   Disposition (a) makes exactly that incident self-healing — the
+   attempt cap fires, the failure is written to the store, and the job
+   drops.
    (a) Write terminal failure to `repo_state.last_check_status` and drop
    the job — reuses the store as the dead-letter record, keeps Valkey
    free of graveyard keys, and the next sweep re-enqueues naturally if
@@ -812,6 +854,14 @@ why it ships on its own.
 
 - [INV-0012](../investigation/0012-inert-budgettracker-and-untrustworthy-alert-pack.md)
   — findings A–K; this design implements its recommendation
+- [INV-0013](../investigation/0013-state-vs-event-metrics-dashboard-suite-and-system-observability.md)
+  — Finding G's one-source-per-signal rule drives the wait-pair
+  retirement (tasks 3.3 / 5.2b / 6.3); Finding I slots this design's
+  queue metrics into the service tier
+- [DESIGN-0022](0022-compliance-posture-state-dashboard-suite-and-otel-first.md)
+  — shared installation-transport ordering contract (its Phase 3, this
+  design's task 3.3 note); consumes the Phase 5 metrics on its E3
+  system dashboard
 - [DESIGN-0002](0002-github-api-rate-limit-handling.md) — layer 1, the
   pre-emptive throttle being superseded (Phase 6 task 6.8)
 - [DESIGN-0012](0012-persistent-reconcile-state-and-multi-replica-coordination.md)

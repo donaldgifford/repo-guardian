@@ -1049,6 +1049,16 @@ func (c *GitHubClient) getInstallClient(installationID int64) (*gh.Client, error
 		return client, nil
 	}
 
+	// A client built without App auth (NewClientForBaseURL) cannot
+	// scope to an installation — fail here rather than letting the
+	// nil transport panic on the first request, far from its cause.
+	if c.appTransport == nil {
+		return nil, fmt.Errorf(
+			"installation %d client requested but this client has no App transport (built via NewClientForBaseURL?)",
+			installationID,
+		)
+	}
+
 	transport := ghinstallation.NewFromAppsTransport(c.appTransport, installationID)
 	rlTransport := newRateLimitTransport(
 		transport,

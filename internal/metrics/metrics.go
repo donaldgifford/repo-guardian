@@ -228,6 +228,15 @@ var (
 		Help: "Pending jobs in the work queue.",
 	}, []string{"queue"})
 
+	// QueueDelayedDepth tracks jobs parked in the delayed set awaiting
+	// promotion (IMPL-0022). Published by the reaper leader each tick
+	// via ZCARD, so with N replicas exactly one pod emits per
+	// interval.
+	QueueDelayedDepth = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "repo_guardian_queue_delayed_depth",
+		Help: "Jobs parked in the delayed set awaiting promotion.",
+	})
+
 	// QueueEnqueuedTotal counts jobs enqueued by trigger
 	// (webhook, sweep, push).
 	QueueEnqueuedTotal = promauto.NewCounterVec(prometheus.CounterOpts{

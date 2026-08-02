@@ -239,8 +239,12 @@ All changes in `internal/queue/valkey/` (`valkey.go`, `reaper.go`).
       (`reapOnce` split into `requeueStuck` + `promoteDue`; package
       doc gains a "Delayed jobs" section noting the REAPER_INTERVAL
       dual duty per DESIGN-0021 OQ3.)
-- [ ] 2.4 Publish `queue_delayed_depth` from the reaper tick (`ZCARD`,
-      alongside the existing depth accounting).
+- [x] 2.4 Publish `queue_delayed_depth` from the reaper tick (`ZCARD`,
+      alongside the existing depth accounting). (Leader-published —
+      unlike `queue_depth`, which every pod polls — so exactly one
+      replica emits per interval; best-effort, a failed ZCARD logs
+      Warn without failing the reap. `Queue.Delayed` mirrors
+      `Depth`/`InFlight`.)
 - [ ] 2.5 Integration test (`integration` tag, real Valkey): a job
       deferred 2s is not delivered before due-time, is delivered
       after.

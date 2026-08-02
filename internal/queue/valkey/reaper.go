@@ -124,7 +124,20 @@ func (r *Reaper) reapOnce(ctx context.Context) error {
 		return err
 	}
 
-	return r.promoteDue(ctx)
+	if err := r.promoteDue(ctx); err != nil {
+		return err
+	}
+
+	// Delayed depth is leader-published (unlike queue_depth, which
+	// every pod polls) so exactly one replica emits per interval.
+	// Best-effort: a failed ZCARD shouldn't fail the reap.
+	if depth, err := r.queue.Delayed(ctx); err == nil {
+		metrics.QueueDelayedDepth.Set(float64(depth))
+	} else {
+		r.logger.WarnContext(ctx, "delayed depth poll failed", "error", err)
+	}
+
+	return nil
 }
 
 // requeueStuck requeues every in-flight entry older than

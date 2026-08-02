@@ -480,6 +480,16 @@ func (q *Queue) InFlight(ctx context.Context) (int64, error) {
 	return n, nil
 }
 
+// Delayed returns the current parked-job count via ZCARD.
+func (q *Queue) Delayed(ctx context.Context) (int64, error) {
+	n, err := q.client.ZCard(ctx, q.opts.DelayedKey).Result()
+	if err != nil {
+		return 0, fmt.Errorf("valkey.Delayed: ZCARD: %w", err)
+	}
+
+	return n, nil
+}
+
 // StartDepthPoller polls Depth and InFlight every interval and writes
 // the values to the registered queue_depth gauge. Returns when ctx is
 // cancelled. Errors are logged at WARN — transient Valkey hiccups

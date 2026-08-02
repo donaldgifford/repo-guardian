@@ -2,12 +2,15 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
+
+	gh "github.com/google/go-github/v68/github"
 
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 )
@@ -43,6 +46,39 @@ type ThrottledError struct {
 func (e *ThrottledError) Error() string {
 	return fmt.Sprintf("github rate limit throttled: %d/%d remaining, resets at %s",
 		e.Remaining, e.Limit, e.ResetAt.UTC().Format(time.RFC3339))
+}
+
+// AsThrottled reports whether err carries a rate-limit deferral
+// signal, normalising the two shapes it can take:
+//
+//   - this package's *ThrottledError — the transport's pre-emptive
+//     reserve (remaining at or below the threshold);
+//   - go-github's *github.RateLimitError — its client-side pre-check,
+//     which short-circuits ABOVE our transport whenever a prior
+//     response showed remaining=0 (the bypass context key is
+//     unexported in go-github v68, so this path is unavoidable and
+//     our transport never sees the request).
+//
+// Workers call this instead of errors.As directly so exactly one
+// deferral signal crosses the client boundary and go-github stays
+// encapsulated in this package (DESIGN-0021 Phase 3; the second
+// shape was discovered by the IMPL-0022 task 3.4 chain test).
+func AsThrottled(err error) (*ThrottledError, bool) {
+	var thr *ThrottledError
+	if errors.As(err, &thr) {
+		return thr, true
+	}
+
+	var rle *gh.RateLimitError
+	if errors.As(err, &rle) {
+		return &ThrottledError{
+			ResetAt:   rle.Rate.Reset.Time,
+			Remaining: rle.Rate.Remaining,
+			Limit:     rle.Rate.Limit,
+		}, true
+	}
+
+	return nil, false
 }
 
 // rateLimitTransport is an http.RoundTripper that handles GitHub API rate

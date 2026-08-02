@@ -298,14 +298,29 @@ what Phase 0 capped.
       recording went with `waitIfNeeded` in 3.2; the reactive-path
       recording is removed here. Definitions stay until Phase 6;
       the contrib alert re-points in 5.2b.)
-- [ ] 3.4 End-to-end invariant test: drive `Engine.CheckRepo` against
+- [x] 3.4 End-to-end invariant test: drive `Engine.CheckRepo` against
       an `httptest` server returning exhausted rate-limit headers and
       assert `errors.As` recovers `*ThrottledError` at the worker
       boundary through the full wrap chain (url.Error → go-github →
-      client → engine).
-- [ ] 3.5 Non-vacuity check for 3.4: neutralise one `%w` on the path,
+      client → engine). (**Discovery**: the test's first run caught a
+      real fourth signal path — go-github's own `checkRateLimitBeforeDo`
+      short-circuits above our transport with `*gh.RateLimitError`
+      whenever its cache saw `remaining=0`, unbypassable in v68. Added
+      `github.AsThrottled(err)` normalising both shapes; the chain
+      test (`TestCheckRepo_ThrottledErrorSurvivesWrapChain` in
+      `internal/checker/ratelimit_chain_test.go`) is a two-timeline
+      table pinning the reserve-threshold case (direct
+      `*ThrottledError`) AND the exhausted case (converted
+      `RateLimitError`). Design amendment recorded in DESIGN-0021's
+      signal-path section; Phase 4 task 4.1 must use `AsThrottled`,
+      not raw `errors.As`. Enabler: exported
+      `github.NewClientForBaseURL` so the checker-package test can
+      build a real transport-wired client against httptest.)
+- [x] 3.5 Non-vacuity check for 3.4: neutralise one `%w` on the path,
       confirm the test fails, restore. Record the check in the PR
-      description.
+      description. (Neutralised the engine's `listing open PRs: %w`
+      → `%v`: both subtests fail with "AsThrottled(...) = false";
+      restored, green.)
 
 #### Success Criteria
 

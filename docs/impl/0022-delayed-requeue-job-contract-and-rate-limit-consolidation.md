@@ -134,15 +134,18 @@ up to `untilReset` (1h) inside `waitIfNeeded` and the
 
 #### Tasks
 
-- [ ] 0.1 Add a package const `maxPreemptiveSleep = 60 * time.Second`
-      (hardcoded, not a knob — Open Question 2) and cap the
-      pre-emptive sleep site (`waitIfNeeded`) at
-      `min(computed, maxPreemptiveSleep)`. The reactive 403 retry
-      delay is left alone.
-- [ ] 0.2 When the computed delay exceeds the cap, return an error
-      after the capped sleep instead of sleeping the remainder — the
+- [x] 0.1 Add a package const `maxRateLimitSleep = 60 * time.Second`
+      (hardcoded, not a knob — Open Question 2) and cap **both** sleep
+      sites (`waitIfNeeded` and the 403 retry delay). *Amended during
+      implementation:* the original task text left the reactive path
+      alone, but the reactive primary-limit delay is also
+      until-reset (~1h) and violates the phase's "no code path
+      outlives the lease" success criterion — both are capped.
+- [x] 0.2 When the computed delay exceeds the cap, return an error
+      **without sleeping at all** (sleeping the cap first would burn a
+      worker slot for 60s with the error already inevitable) — the
       job nacks and the reaper retries it. Crude but correct until
-      Phase 4.
+      Phase 4. Wait metrics increment only on real sleeps.
 - [ ] 0.3 Test: a computed delay above the cap does not sleep past it
       (fake clock / injected sleeper).
 - [ ] 0.4 Test reproducing the INV-0012 finding I timeline: a handler

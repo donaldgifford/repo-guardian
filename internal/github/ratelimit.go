@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -10,6 +11,20 @@ import (
 
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 )
+
+// maxRateLimitSleep caps how long the transport may block a caller
+// waiting out a rate limit, on both the pre-emptive throttle and the
+// 403 retry path. It MUST stay below the queue's JOB_ACK_TIMEOUT
+// (default 5m): a transport sleep that outlives the in-flight lease
+// makes the reaper hand the same job to another worker, amplifying
+// load against an already-exhausted budget (INV-0012 finding I).
+// When the computed delay exceeds the cap the transport fails fast
+// instead of sleeping at all — the queue's nack/reaper cycle is the
+// retry mechanism at that timescale.
+//
+// DESIGN-0021 Phase 0 scaffolding: Phase 3 replaces the pre-emptive
+// sleep with a ThrottledError return and removes this cap.
+const maxRateLimitSleep = 60 * time.Second
 
 // rateLimitTransport is an http.RoundTripper that handles GitHub API rate
 // limits transparently. It wraps another transport and provides:
@@ -20,6 +35,10 @@ type rateLimitTransport struct {
 	next      http.RoundTripper
 	logger    *slog.Logger
 	threshold float64 // Fraction of limit at which to start throttling (e.g., 0.10).
+
+	// sleep is swapped out by tests to observe requested delays
+	// without waiting them out.
+	sleep func(ctx context.Context, d time.Duration) error
 
 	mu        sync.Mutex
 	remaining int
@@ -33,6 +52,7 @@ func newRateLimitTransport(next http.RoundTripper, logger *slog.Logger, threshol
 		next:      next,
 		logger:    logger,
 		threshold: threshold,
+		sleep:     sleepWithContext,
 	}
 }
 
@@ -61,6 +81,19 @@ func (t *rateLimitTransport) RoundTrip(req *http.Request) (*http.Response, error
 	delay := t.rateLimitDelay(resp)
 	reason := t.rateLimitReason(resp)
 
+	if delay > maxRateLimitSleep {
+		t.logger.Warn("rate limit retry delay exceeds sleep cap; failing fast for queue retry",
+			"reason", reason,
+			"delay", delay,
+			"cap", maxRateLimitSleep,
+			"status", resp.StatusCode,
+		)
+
+		return nil, fmt.Errorf(
+			"github rate limited (%s): retry delay %s exceeds sleep cap %s; failing fast so the queue can retry",
+			reason, delay.Round(time.Second), maxRateLimitSleep)
+	}
+
 	t.logger.Warn("github api rate limited, waiting to retry",
 		"reason", reason,
 		"delay", delay,
@@ -70,7 +103,7 @@ func (t *rateLimitTransport) RoundTrip(req *http.Request) (*http.Response, error
 	metrics.GitHubRateLimitWaitsTotal.WithLabelValues(reason).Inc()
 	metrics.GitHubRateLimitWaitSeconds.Observe(delay.Seconds())
 
-	if err := sleepWithContext(req.Context(), delay); err != nil {
+	if err := t.sleep(req.Context(), delay); err != nil {
 		return nil, err
 	}
 
@@ -134,6 +167,20 @@ func (t *rateLimitTransport) waitIfNeeded(ctx context.Context) error {
 		delay = time.Second
 	}
 
+	if delay > maxRateLimitSleep {
+		t.logger.Warn("pre-emptive rate limit delay exceeds sleep cap; failing fast for queue retry",
+			"remaining", remaining,
+			"limit", limit,
+			"delay", delay,
+			"cap", maxRateLimitSleep,
+			"reset_at", resetAt,
+		)
+
+		return fmt.Errorf(
+			"github rate limit: pre-emptive delay %s exceeds sleep cap %s; failing fast so the queue can retry",
+			delay.Round(time.Second), maxRateLimitSleep)
+	}
+
 	t.logger.Warn("pre-emptive rate limit throttle",
 		"remaining", remaining,
 		"limit", limit,
@@ -144,7 +191,7 @@ func (t *rateLimitTransport) waitIfNeeded(ctx context.Context) error {
 	metrics.GitHubRateLimitWaitsTotal.WithLabelValues("preemptive").Inc()
 	metrics.GitHubRateLimitWaitSeconds.Observe(delay.Seconds())
 
-	return sleepWithContext(ctx, delay)
+	return t.sleep(ctx, delay)
 }
 
 // updateFromResponse parses rate limit headers and updates internal state.

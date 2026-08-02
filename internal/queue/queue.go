@@ -101,7 +101,9 @@ func (e *RetryAfterError) Unwrap() error { return e.Err }
 // disposition: the consumer records the failure to the store
 // (repo_state.last_check_status = StatusError) and drops the job —
 // the next stale sweep re-enqueues the repo naturally if it is still
-// due. No job retries forever.
+// due. No job retries forever. (The increment, cap, and terminal
+// disposition are wired by IMPL-0022 Phase 4; until then the valkey
+// backend re-delivers payloads verbatim.)
 //
 // Close releases resources (network connections, channels). Calling
 // Close while Subscribe is active must cause Subscribe to return.

@@ -258,8 +258,12 @@ func (q *Queue) Enqueue(ctx context.Context, j queue.Job) error { //nolint:gocri
 //
 // Parking is atomic with removal of any byte-identical in-flight
 // payload (deferScript) so a deferred job is never in two keys at
-// once. Re-parking the same payload updates its due time — ZADD
-// member semantics.
+// once. Re-parking a byte-identical payload updates its due time
+// (ZADD member semantics) — but note two EnqueueAfter calls for the
+// same triple normally produce distinct members, because EnqueuedAt
+// is stamped per call; distinct members for the same Job ID coexist
+// and each promotes, which the at-least-once contract and the
+// engine's idempotent reconcile absorb.
 func (q *Queue) EnqueueAfter(ctx context.Context, j queue.Job, at time.Time) error { //nolint:gocritic // interface contract
 	if !at.After(time.Now()) {
 		return q.Enqueue(ctx, j)

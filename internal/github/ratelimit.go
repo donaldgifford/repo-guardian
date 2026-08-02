@@ -125,9 +125,6 @@ func (t *rateLimitTransport) RoundTrip(req *http.Request) (*http.Response, error
 		"status", resp.StatusCode,
 	)
 
-	metrics.GitHubRateLimitWaitsTotal.WithLabelValues(reason).Inc()
-	metrics.GitHubRateLimitWaitSeconds.Observe(delay.Seconds())
-
 	if err := t.sleep(req.Context(), delay); err != nil {
 		return nil, err
 	}

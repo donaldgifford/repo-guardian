@@ -290,11 +290,14 @@ what Phase 0 capped.
       the Phase-0 sleep-cap table; `PreemptiveThrottle` asserts the
       deferral signal; finding-I timeline test now also asserts
       `errors.As` recovers `*ThrottledError`.)
-- [ ] 3.3 Remove the `github_rate_limit_waits_total` /
+- [x] 3.3 Remove the `github_rate_limit_waits_total` /
       `github_rate_limit_wait_seconds` recording along with the sleep
       — no would-be-delay bridge (design amendment 2026-08-02; the
       deferral is measured once, by Phase 5's `queue_delayed_*`).
-      `github_rate_remaining` emission is untouched.
+      `github_rate_remaining` emission is untouched. (Pre-emptive
+      recording went with `waitIfNeeded` in 3.2; the reactive-path
+      recording is removed here. Definitions stay until Phase 6;
+      the contrib alert re-points in 5.2b.)
 - [ ] 3.4 End-to-end invariant test: drive `Engine.CheckRepo` against
       an `httptest` server returning exhausted rate-limit headers and
       assert `errors.As` recovers `*ThrottledError` at the worker

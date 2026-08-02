@@ -277,7 +277,7 @@ what Phase 0 capped.
 
 #### Tasks
 
-- [ ] 3.1 Add exported `github.ThrottledError{ResetAt, Remaining,
+- [x] 3.1 Add exported `github.ThrottledError{ResetAt, Remaining,
       Limit}` with an `Error()` naming the reset time.
 - [ ] 3.2 Replace the pre-emptive sleep (`waitIfNeeded` plus the
       Phase 0 cap) with a `ThrottledError` return from `RoundTrip`.

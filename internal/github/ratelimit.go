@@ -26,6 +26,26 @@ import (
 // sleep with a ThrottledError return and removes this cap.
 const maxRateLimitSleep = 60 * time.Second
 
+// ThrottledError signals that the transport pre-emptively refused to
+// send a request because the remaining rate-limit budget is at or
+// below the throttle threshold. It is a deferral signal, not a
+// failure: the request was never sent, and the work should be retried
+// once GitHub's quota window resets at ResetAt. The worker translates
+// it into a queue.RetryAfterError so the job parks in the delayed set
+// instead of blocking a leased worker slot (DESIGN-0021 Phase 3).
+type ThrottledError struct {
+	ResetAt   time.Time
+	Remaining int
+	Limit     int
+}
+
+// Error names the reset time so a bare log line is actionable without
+// unwrapping.
+func (e *ThrottledError) Error() string {
+	return fmt.Sprintf("github rate limit throttled: %d/%d remaining, resets at %s",
+		e.Remaining, e.Limit, e.ResetAt.UTC().Format(time.RFC3339))
+}
+
 // rateLimitTransport is an http.RoundTripper that handles GitHub API rate
 // limits transparently. It wraps another transport and provides:
 //   - Pre-emptive throttling when remaining budget is below a threshold

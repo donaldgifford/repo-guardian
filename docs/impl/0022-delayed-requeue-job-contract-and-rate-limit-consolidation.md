@@ -377,8 +377,10 @@ what Phase 0 capped.
       rejects < 1; metric defined here rather than 5.1 since 4.4
       increments it. `TestLoadMaxJobAttempts` covers default +
       rejection.)
-- [ ] 4.5 Exponential backoff for deferrals with no server-supplied
+- [x] 4.5 Exponential backoff for deferrals with no server-supplied
       time: constants per Open Question 3, same jitter shape as 4.1.
+      (`backoffDelay(attempts) = min(30s × 2^attempts, 30m)` replaces
+      the 4.1 fall-through-to-nack when `time.Until(ResetAt) <= 0`.)
 - [ ] 4.6 Test: a throttled job is deferred, not nacked — in-flight
       empty, delayed has one entry.
 - [ ] 4.7 Test: the worker slot frees immediately on deferral — a

@@ -241,10 +241,10 @@ func (*Pool) deferralFor(log *slog.Logger, j *queue.Job, err error) *queue.Retry
 
 	delay := time.Until(thr.ResetAt)
 	if delay <= 0 {
-		// Stale reset — no server-supplied delay to honour. The
-		// exponential-backoff fallback lands with task 4.5; nack for
-		// now so the reaper cycle retries.
-		return nil
+		// Stale or absent reset — no server-supplied delay to
+		// honour; fall back to attempt-keyed exponential backoff
+		// (IMPL-0022 OQ3).
+		delay = backoffDelay(j.Attempts)
 	}
 
 	due := time.Now().Add(delay + retryJitter(delay))
@@ -258,6 +258,30 @@ func (*Pool) deferralFor(log *slog.Logger, j *queue.Job, err error) *queue.Retry
 	)
 
 	return &queue.RetryAfterError{After: due, Reason: "rate_limit", Err: err}
+}
+
+// Backoff shape for deferrals with no usable server-supplied reset
+// (IMPL-0022 OQ3): base 30s doubling per burned attempt to a 30m cap.
+const (
+	backoffBase = 30 * time.Second
+	backoffCap  = 30 * time.Minute
+)
+
+// backoffDelay returns min(backoffBase × 2^attempts, backoffCap).
+// The doubling loop (rather than a shift) sidesteps overflow for
+// adversarial attempt counts; MAX_JOB_ATTEMPTS caps it long before
+// that matters in practice.
+func backoffDelay(attempts int) time.Duration {
+	d := backoffBase
+
+	for range attempts {
+		d *= 2
+		if d >= backoffCap {
+			return backoffCap
+		}
+	}
+
+	return d
 }
 
 // retryJitter returns a uniform draw from [0, min(delay/4, 60s)) —

@@ -101,7 +101,8 @@ func (r *Reaper) Start(ctx context.Context) error {
 }
 
 // reapOnce attempts to acquire the leader lock and, if successful,
-// requeues every in-flight entry older than JobAckTimeout. The lock
+// requeues every in-flight entry older than JobAckTimeout and
+// promotes every delayed entry whose due time has passed. The lock
 // is intentionally not released early — it expires via TTL so a
 // process death mid-reap leaves the lock available within LockTTL.
 func (r *Reaper) reapOnce(ctx context.Context) error {
@@ -119,6 +120,17 @@ func (r *Reaper) reapOnce(ctx context.Context) error {
 		return nil
 	}
 
+	if err := r.requeueStuck(ctx); err != nil {
+		return err
+	}
+
+	return r.promoteDue(ctx)
+}
+
+// requeueStuck requeues every in-flight entry older than
+// JobAckTimeout back onto the jobs list. Caller holds the leader
+// lock.
+func (r *Reaper) requeueStuck(ctx context.Context) error {
 	cutoff := time.Now().Add(-r.opts.JobAckTimeout).UnixNano()
 
 	stuck, err := r.queue.client.ZRangeByScore(ctx, r.queue.opts.InFlightKey, &redis.ZRangeBy{
@@ -151,6 +163,28 @@ func (r *Reaper) reapOnce(ctx context.Context) error {
 		}
 
 		metrics.QueueReapedTotal.Inc()
+	}
+
+	return nil
+}
+
+// promoteDue moves every delayed-set entry at or past its due time
+// back onto the jobs list. Caller holds the leader lock, so at most
+// one replica promotes per interval; the Lua script keeps the move
+// atomic regardless (IMPL-0022 Phase 2).
+func (r *Reaper) promoteDue(ctx context.Context) error {
+	promoted, err := promoteScript.Run(
+		ctx,
+		r.queue.client,
+		[]string{r.queue.opts.DelayedKey, r.queue.opts.JobsKey},
+		time.Now().UnixNano(),
+	).Int64()
+	if err != nil {
+		return fmt.Errorf("reaper promote: %w", err)
+	}
+
+	if promoted > 0 {
+		r.logger.InfoContext(ctx, "reaper promoted delayed jobs", "count", promoted)
 	}
 
 	return nil

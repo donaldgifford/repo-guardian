@@ -42,6 +42,16 @@
 // atomically so the requeue is visible to a consumer at exactly the
 // moment the in-flight entry disappears.
 //
+// # Delayed jobs
+//
+// EnqueueAfter parks jobs in `queue:delayed`, a ZSET scored by due
+// unix-nanos (IMPL-0022). Every reap interval the leader promotes
+// due entries back onto `queue:jobs` via `promoteScript`
+// (ZRANGEBYSCORE + ZREM + LPUSH in one atomic script), so delivery
+// lags the due time by up to one REAPER_INTERVAL. The reap interval
+// deliberately does double duty — stuck-job reaping and delayed-job
+// promotion — per DESIGN-0021 OQ3: one leader election, one cadence.
+//
 // # Job-ID determinism
 //
 // Enqueue rewrites Job.ID to a SHA-256 hash of
@@ -112,6 +122,21 @@ var deferScript = redis.NewScript(`
 redis.call("ZREM", KEYS[1], ARGV[1])
 redis.call("ZADD", KEYS[2], ARGV[3], ARGV[2])
 return 1
+`)
+
+// promoteScript atomically moves every delayed-set entry whose score
+// (due unix-nanos) is at or before now back onto the jobs list.
+// KEYS[1]=delayed, KEYS[2]=jobs; ARGV[1]=now unix-nanos. Returns the
+// promoted count. The whole batch moves in one script execution, so
+// a member can never be observed in both keys and two racing
+// promoters can never double-deliver.
+var promoteScript = redis.NewScript(`
+local due = redis.call("ZRANGEBYSCORE", KEYS[1], 0, ARGV[1])
+for i = 1, #due do
+  redis.call("ZREM", KEYS[1], due[i])
+  redis.call("LPUSH", KEYS[2], due[i])
+end
+return #due
 `)
 
 // ErrClosed is returned by Enqueue and Subscribe after Close.

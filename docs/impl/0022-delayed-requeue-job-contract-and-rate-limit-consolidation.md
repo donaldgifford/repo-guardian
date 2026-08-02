@@ -233,9 +233,12 @@ All changes in `internal/queue/valkey/` (`valkey.go`, `reaper.go`).
       the Phase-4 defer path can re-serialise with `Attempts+1`
       without touching the Lua; `deferPayload` helper is the shared
       invocation point.)
-- [ ] 2.3 `promoteScript` (`ZRANGEBYSCORE` due + `ZREM` + `LPUSH`,
+- [x] 2.3 `promoteScript` (`ZRANGEBYSCORE` due + `ZREM` + `LPUSH`,
       atomic) called from `reapOnce` (reaper.go:107) under the
       existing leader lock — no new goroutine, no new election.
+      (`reapOnce` split into `requeueStuck` + `promoteDue`; package
+      doc gains a "Delayed jobs" section noting the REAPER_INTERVAL
+      dual duty per DESIGN-0021 OQ3.)
 - [ ] 2.4 Publish `queue_delayed_depth` from the reaper tick (`ZCARD`,
       alongside the existing depth accounting).
 - [ ] 2.5 Integration test (`integration` tag, real Valkey): a job

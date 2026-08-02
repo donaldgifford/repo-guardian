@@ -146,12 +146,18 @@ up to `untilReset` (1h) inside `waitIfNeeded` and the
       worker slot for 60s with the error already inevitable) — the
       job nacks and the reaper retries it. Crude but correct until
       Phase 4. Wait metrics increment only on real sleeps.
-- [ ] 0.3 Test: a computed delay above the cap does not sleep past it
-      (fake clock / injected sleeper).
-- [ ] 0.4 Test reproducing the INV-0012 finding I timeline: a handler
-      outliving `JOB_ACK_TIMEOUT` is claimed twice without the cap,
-      once with it. This is the canonical regression test for the
-      whole design — it must survive every later phase.
+- [x] 0.3 Test: a computed delay above the cap does not sleep past it
+      (injected `recordingSleeper` observes requested delays as
+      virtual time) — `TestRateLimitTransport_PreemptiveSleepCap` +
+      `TestRateLimitTransport_RetryDelayAboveCap_FailsFast`.
+- [x] 0.4 Test reproducing the INV-0012 finding I timeline:
+      `TestRateLimitTransport_FindingITimeline_CapPreventsDoubleClaim`
+      (virtual blocked time vs the 5m lease, plus a static guard that
+      `maxRateLimitSleep` stays below `JOB_ACK_TIMEOUT`). Non-vacuity
+      verified two ways: raising the const trips the static guard;
+      disabling the cap branch makes the blocked-time assertion fire
+      at 49m59s. This is the canonical regression test for the whole
+      design — it must survive every later phase.
 
 #### Success Criteria
 

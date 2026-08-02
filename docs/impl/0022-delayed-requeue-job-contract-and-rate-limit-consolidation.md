@@ -220,11 +220,13 @@ All changes in `internal/queue/valkey/` (`valkey.go`, `reaper.go`).
 
 #### Tasks
 
-- [ ] 2.1 Add `DelayedKey` to `valkey.Options` (default
+- [x] 2.1 Add `DelayedKey` to `valkey.Options` (default
       `repo-guardian:queue:delayed`) and centralise construction of
       all four keys (jobs, in-flight, delayed, reaper lock) in one
       helper — the DESIGN-0015 partition hook; Lua scripts stay
-      key-parametric via `KEYS[]`.
+      key-parametric via `KEYS[]`. (Helper is
+      `Options.applyKeyDefaults`; package doc updated to the
+      four-key layout.)
 - [ ] 2.2 `deferScript` (`ZREM` in-flight + `ZADD` delayed, atomic,
       mirroring `requeueScript` at valkey.go:90) wired to
       `EnqueueAfter`.

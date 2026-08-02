@@ -81,6 +81,7 @@ func newTestQueue(t *testing.T, client *redis.Client) *valkey.Queue {
 	return valkey.New(client, valkey.Options{
 		JobsKey:       prefix + ":jobs",
 		InFlightKey:   prefix + ":in-flight",
+		DelayedKey:    prefix + ":delayed",
 		ReaperLockKey: prefix + ":lock:reaper",
 		Logger:        slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn})),
 	})

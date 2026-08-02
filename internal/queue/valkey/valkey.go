@@ -5,11 +5,14 @@
 //
 // # Storage layout
 //
-// Three Valkey keys are owned by this package:
+// Four Valkey keys are owned by this package:
 //
 //   - repo-guardian:queue:jobs        LIST  — pending jobs (LPUSH/BRPOP)
 //   - repo-guardian:queue:in-flight   ZSET  — claimed jobs awaiting ack;
 //     score is the unix-nanos claim timestamp; member is the job JSON
+//   - repo-guardian:queue:delayed     ZSET  — jobs parked until a due
+//     time (IMPL-0022); score is the unix-nanos due timestamp; member
+//     is the job JSON
 //   - repo-guardian:lock:reaper       STRING — reaper leadership lock
 //     (SET NX EX), held by exactly one pod per reap interval
 //
@@ -69,6 +72,7 @@ import (
 const (
 	DefaultJobsKey     = "repo-guardian:queue:jobs"
 	DefaultInFlightKey = "repo-guardian:queue:in-flight"
+	DefaultDelayedKey  = "repo-guardian:queue:delayed"
 	DefaultReaperLock  = "repo-guardian:lock:reaper"
 )
 
@@ -105,6 +109,10 @@ type Options struct {
 	// DefaultInFlightKey.
 	InFlightKey string
 
+	// DelayedKey is the Valkey ZSET parking jobs until a due time.
+	// Empty → DefaultDelayedKey.
+	DelayedKey string
+
 	// ReaperLockKey is the Valkey STRING holding the reaper SETNX lock.
 	// Empty → DefaultReaperLock.
 	ReaperLockKey string
@@ -123,21 +131,36 @@ type Queue struct {
 	closed    chan struct{}
 }
 
+// applyKeyDefaults returns o with any unset Valkey key name filled
+// from the package defaults. All four keys (jobs, in-flight, delayed,
+// reaper lock) are constructed here and nowhere else — the DESIGN-0015
+// partition hook: a partitioned deployment derives its per-partition
+// key names by overriding this one spot.
+func (o Options) applyKeyDefaults() Options {
+	if o.JobsKey == "" {
+		o.JobsKey = DefaultJobsKey
+	}
+
+	if o.InFlightKey == "" {
+		o.InFlightKey = DefaultInFlightKey
+	}
+
+	if o.DelayedKey == "" {
+		o.DelayedKey = DefaultDelayedKey
+	}
+
+	if o.ReaperLockKey == "" {
+		o.ReaperLockKey = DefaultReaperLock
+	}
+
+	return o
+}
+
 // New constructs a Queue against the given client. The client is
 // owned by the caller for testability — Close on the queue does NOT
 // close the client.
 func New(client redis.UniversalClient, opts Options) *Queue {
-	if opts.JobsKey == "" {
-		opts.JobsKey = DefaultJobsKey
-	}
-
-	if opts.InFlightKey == "" {
-		opts.InFlightKey = DefaultInFlightKey
-	}
-
-	if opts.ReaperLockKey == "" {
-		opts.ReaperLockKey = DefaultReaperLock
-	}
+	opts = opts.applyKeyDefaults()
 
 	logger := opts.Logger
 	if logger == nil {

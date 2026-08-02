@@ -108,6 +108,12 @@ type Config struct {
 	// ReaperInterval is the cadence between Valkey reaper attempts.
 	ReaperInterval time.Duration
 
+	// MaxJobAttempts caps how many times a queued job may be retried
+	// (deferrals + reaper requeues) before the worker takes the
+	// terminal disposition: StatusError written to repo_state and the
+	// job dropped (IMPL-0022). Must be >= 1 — no job retries forever.
+	MaxJobAttempts int
+
 	// PodID identifies the running replica for leader-election locks
 	// (Valkey reaper, Valkey scheduler). Sourced from POD_NAME via the
 	// Kubernetes downward API; falls back to a process-time random
@@ -308,6 +314,13 @@ func loadBackendConfig(cfg *Config) error {
 	}
 
 	cfg.ReaperInterval = reaperInterval
+
+	maxJobAttempts, err := envOrDefaultInt("MAX_JOB_ATTEMPTS", 10)
+	if err != nil {
+		return err
+	}
+
+	cfg.MaxJobAttempts = maxJobAttempts
 	cfg.PodID = os.Getenv("POD_NAME")
 
 	freshness, err := envOrDefaultDuration("RECONCILE_FRESHNESS", 24*time.Hour)
@@ -445,6 +458,13 @@ func (c *Config) validateBackends() []error {
 
 	if c.SchedulerBackend == SchedulerBackendValkey && c.QueueValkeyDSN == "" {
 		errs = append(errs, errors.New("QUEUE_VALKEY_DSN is required when SCHEDULER_BACKEND=valkey (shared Valkey instance)"))
+	}
+
+	if c.MaxJobAttempts < 1 {
+		errs = append(
+			errs,
+			fmt.Errorf("MAX_JOB_ATTEMPTS must be >= 1 (got %d) — the attempt cap is what keeps failing jobs from retrying forever", c.MaxJobAttempts),
+		)
 	}
 
 	return errs

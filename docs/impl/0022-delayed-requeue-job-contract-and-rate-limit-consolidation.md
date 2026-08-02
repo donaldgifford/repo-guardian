@@ -364,13 +364,19 @@ what Phase 0 capped.
       reaper.go with `requeueScript` extended to two members.
       Undecodable payloads requeue verbatim — the claim path drops
       garbage at decode.)
-- [ ] 4.4 `MAX_JOB_ATTEMPTS` config (default 10) in
+- [x] 4.4 `MAX_JOB_ATTEMPTS` config (default 10) in
       `internal/config/config.go` + validation. On exceeding the cap:
       write `StatusError` with a descriptive `LastError` to
       `repo_state` via the existing best-effort `writeBack`, drop the
       job, increment `queue_attempts_exhausted_total` (OQ2 → a — the
       next sweep re-enqueues naturally if the repo is still stale;
       this makes the enterprise-migration nack-loop self-healing).
+      (Cap enforced at delivery time in `processJob` →
+      `dropExhausted` returns nil so the queue acks-and-drops.
+      `worker.New` gained the `maxJobAttempts` param; validation
+      rejects < 1; metric defined here rather than 5.1 since 4.4
+      increments it. `TestLoadMaxJobAttempts` covers default +
+      rejection.)
 - [ ] 4.5 Exponential backoff for deferrals with no server-supplied
       time: constants per Open Question 3, same jitter shape as 4.1.
 - [ ] 4.6 Test: a throttled job is deferred, not nacked — in-flight

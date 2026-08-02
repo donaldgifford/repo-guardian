@@ -267,6 +267,16 @@ var (
 		Help: "Total in-flight jobs requeued by the reaper.",
 	})
 
+	// QueueAttemptsExhaustedTotal counts jobs dropped at the
+	// MAX_JOB_ATTEMPTS cap with a terminal StatusError written to
+	// repo_state (IMPL-0022). The next stale sweep re-enqueues the
+	// repo naturally if it is still due, so a sustained rate here
+	// means a persistently failing installation or repo.
+	QueueAttemptsExhaustedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_queue_attempts_exhausted_total",
+		Help: "Total jobs dropped after exceeding the attempt cap.",
+	}, []string{"installation_id"})
+
 	// SchedulerSweepBatchSize records the count of repos enqueued per
 	// sweep handler invocation. Useful for spotting partial-enumeration
 	// bugs (consistently 0 batches → upstream API error or

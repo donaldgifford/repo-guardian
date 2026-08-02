@@ -173,7 +173,7 @@ func bringUp(
 		return nil, err
 	}
 
-	workerPool := worker.New(qw.queue, engine, client, stateStore, policyVersion, policyCfg.Guardian.WorkerCount, logger)
+	workerPool := worker.New(qw.queue, engine, client, stateStore, policyVersion, cfg.MaxJobAttempts, policyCfg.Guardian.WorkerCount, logger)
 	workerPool.Start(ctx)
 
 	if qw.reaper != nil {

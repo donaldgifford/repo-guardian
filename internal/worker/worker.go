@@ -52,6 +52,7 @@ type Pool struct {
 	policyVersion string
 	logger        *slog.Logger
 	workers       int
+	maxAttempts   int
 
 	wg     sync.WaitGroup
 	cancel context.CancelFunc
@@ -62,7 +63,11 @@ type Pool struct {
 // New constructs a Pool wired to the given queue, engine, client,
 // state store, and policy version. The state store + policy version
 // drive the per-job write-back added in IMPL-0015 Phase 0; pass a nil
-// stateStore in tests that don't exercise that path.
+// stateStore in tests that don't exercise that path. maxJobAttempts
+// is the MAX_JOB_ATTEMPTS retry cap (IMPL-0022); a job delivered with
+// Attempts at or past it takes the terminal disposition instead of
+// being processed. Zero disables the cap — config validation rejects
+// that in production, so only tests run uncapped.
 //
 // Use Start to launch the workers; Stop to drain and shut down.
 func New(
@@ -71,6 +76,7 @@ func New(
 	ghClient ghclient.Client,
 	stateStore store.Store,
 	policyVersion string,
+	maxJobAttempts int,
 	workers int,
 	logger *slog.Logger,
 ) *Pool {
@@ -80,6 +86,7 @@ func New(
 		ghClient:      ghClient,
 		stateStore:    stateStore,
 		policyVersion: policyVersion,
+		maxAttempts:   maxJobAttempts,
 		workers:       workers,
 		logger:        logger,
 	}
@@ -158,6 +165,10 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 
 	jobLog.Info("processing job")
 
+	if p.maxAttempts > 0 && j.Attempts >= p.maxAttempts {
+		return p.dropExhausted(ctx, jobLog, j)
+	}
+
 	installClient, err := p.ghClient.CreateInstallationClient(ctx, j.InstallationID)
 	if err != nil {
 		jobLog.Error("failed to create installation client", "error", err)
@@ -184,6 +195,30 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 	metrics.CheckDurationSeconds.Observe(duration.Seconds())
 	p.writeBack(ctx, jobLog, j, nil)
 	jobLog.Info("job completed", "duration", duration)
+
+	return nil
+}
+
+// dropExhausted takes the terminal disposition for a job delivered at
+// or past the MAX_JOB_ATTEMPTS cap: a descriptive StatusError row via
+// the best-effort writeBack, an exhausted-counter increment, and a
+// nil return so the queue acks and drops the job. The next stale
+// sweep re-enqueues the repo naturally if it is still due — this is
+// what makes a nack-looping job (e.g. a dead installation) self-heal
+// instead of retrying forever (INV-0012 finding K, DESIGN-0021 OQ2).
+//
+//nolint:gocritic // hugeParam: queue.Job-by-value matches Subscribe's contract
+func (p *Pool) dropExhausted(ctx context.Context, log *slog.Logger, j queue.Job) error {
+	log.Error("job exceeded attempt cap; dropping with terminal status",
+		"attempts", j.Attempts,
+		"max_attempts", p.maxAttempts,
+	)
+
+	p.writeBack(ctx, log, j, fmt.Errorf(
+		"job dropped after %d attempts (MAX_JOB_ATTEMPTS=%d); see worker logs for the underlying failures",
+		j.Attempts, p.maxAttempts))
+
+	metrics.QueueAttemptsExhaustedTotal.WithLabelValues(strconv.FormatInt(j.InstallationID, 10)).Inc()
 
 	return nil
 }

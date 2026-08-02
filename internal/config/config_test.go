@@ -130,6 +130,32 @@ func TestLoadDiscovery_InvalidCostPerRepo(t *testing.T) {
 	}
 }
 
+// TestLoadMaxJobAttempts covers the IMPL-0022 retry cap: default 10,
+// and < 1 rejected at load time — an uncapped queue is how the
+// enterprise-migration nack-loop retried forever (INV-0012 finding K).
+func TestLoadMaxJobAttempts(t *testing.T) {
+	t.Setenv("GITHUB_APP_ID", "12345")
+	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/path/to/key.pem")
+	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
+	t.Setenv("STORE_DSN", "postgres://u:p@localhost:5432/db?sslmode=disable")
+	t.Setenv("QUEUE_VALKEY_DSN", "redis://localhost:6379/0")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if cfg.MaxJobAttempts != 10 {
+		t.Errorf("MaxJobAttempts = %d, want 10", cfg.MaxJobAttempts)
+	}
+
+	t.Setenv("MAX_JOB_ATTEMPTS", "0")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("expected error for MAX_JOB_ATTEMPTS=0")
+	}
+}
+
 // TestLoadRejects_DeprecatedStoreBackend asserts a migration-aware
 // error fires when an operator sets STORE_BACKEND to a removed value.
 func TestLoadRejects_DeprecatedStoreBackend(t *testing.T) {

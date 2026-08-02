@@ -342,7 +342,9 @@ what Phase 0 capped.
 - [ ] 5.5 helm-unittest assertions on rendered alert *expressions*,
       not just names (IMPL-0021 A7 convention).
 - [ ] 5.6 Document the new metrics in `docs/operations/scaling.md`
-      (healthy vs backpressured reference values) and add
+      (healthy vs backpressured reference values, including the
+      expected `queue_wait_seconds` top-bucket skew during fleet
+      onboarding / policy-version upgrades — OQ4 caveat) and add
       `contrib/README.md` rows.
 
 #### Success Criteria
@@ -476,6 +478,7 @@ Only after the soak (see Sequencing). Ships as its own minor.
 ## Open Questions
 
 1. **Release labeling across the per-phase PRs.**
+   **Resolved 2026-08-02 → (a).**
    (a) Label the Phase 0+1, 2, 3, and 4 PRs `dont-release`; the
    Phase 5 PR carries `minor` and cuts the one binary release for
    phases 1–5 (matching the design's rollout step 2). Phase 6's PR
@@ -490,6 +493,7 @@ Only after the soak (see Sequencing). Ships as its own minor.
    other:
 
 2. **Phase 0 cap: constant or knob.**
+   **Resolved 2026-08-02 → (a).**
    (a) Hardcoded `maxPreemptiveSleep = 60s` const — it is scaffolding
    that Phase 3 deletes weeks later; an env knob would need schema,
    chart plumbing, and a deprecation path for something with a
@@ -500,6 +504,7 @@ Only after the soak (see Sequencing). Ships as its own minor.
    other:
 
 3. **Backoff constants for deferrals with no server-supplied time.**
+   **Resolved 2026-08-02 → (a).**
    (a) `base 30s, factor 2, cap 30m`, jitter `rand[0, min(delay/4,
    60s))` — reaches the 30m ceiling on attempt 7 of 10, so a job
    exhausts in roughly 2–3 hours; hardcoded consts next to the
@@ -513,6 +518,14 @@ Only after the soak (see Sequencing). Ships as its own minor.
    other:
 
 4. **`queue_wait_seconds` bucket layout.**
+   **Resolved 2026-08-02 → (a)**, with a caveat to carry into task
+   5.6's docs: during initial fleet onboarding or a policy-version
+   upgrade the entire fleet re-enqueues at once, so waits legitimately
+   pile into the top buckets — that skew is expected, not a
+   regression, and the low-end granularity is mostly noise in those
+   windows. If the fine low-end buckets prove useless once steady
+   state is reached, collapse them in a follow-up (bucket changes are
+   non-breaking; only `histogram_quantile` precision shifts).
    (a) Custom buckets `[1s, 5s, 15s, 60s, 5m, 15m, 1h, 4h]` — the
    decision this histogram exists for (DESIGN-0015 go/no-go) lives in
    the minutes-to-hours range that `prometheus.DefBuckets` (capped at

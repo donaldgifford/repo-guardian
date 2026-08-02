@@ -356,9 +356,9 @@ dashboard JSON anywhere**. The static `contrib/` tier is the
 generator's output for a default (empty-scope) config, regenerated in
 CI with a fail-on-diff gate — the same drift convention `helm-docs`
 and `docz update` already use in this repo. The SDK's coupling to
-Grafana schema versions is handled by pinning and a render test
-(Grafana ≥ 10 required; acceptable — the homelab runs
-kube-prometheus-stack).
+Grafana schema versions is handled by pinning and a render test —
+Grafana ≥ 13 is the supported floor for the generated suite
+(IMPL-0023 OQ3, resolved 2026-08-02).
 
 Format `k8s` emits grafana-operator `GrafanaDashboard` CRs (OQ7 → b —
 the cluster's kube-prometheus-stack deployment runs grafana-operator)

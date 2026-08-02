@@ -293,11 +293,11 @@ with Phases 1–2.
       model (orgs from `scope`, enabled rules and kinds, attached
       reconcilers, mechanisms in use); flags `--config`, `--out`,
       `--format json|k8s`.
-- [ ] 5.2 grafana-foundation-sdk dependency (pinned; Grafana version
-      target per Open Question 3) + the panel-library package
-      (location per Open Question 2); render test against the pinned
-      schema version; measure the binary size delta (OQ5's escape
-      hatch to a separate `cmd/` if egregious).
+- [ ] 5.2 grafana-foundation-sdk dependency pinned to the Grafana-13
+      cohort (OQ3 — Grafana ≥ 13 is the supported floor) + the
+      panel-library package in `internal/monitoring/` (OQ2); render
+      test against the 13 schema; measure the binary size delta
+      (design OQ5's escape hatch to a separate `cmd/` if egregious).
 - [ ] 5.3 PrometheusRule generation: existing starter alerts
       re-authored as generator output, mechanism-scoped (no
       `PropertySchemaMissing` without a `custom_properties`
@@ -305,8 +305,10 @@ with Phases 1–2.
       `RepoGuardianPostureExportStalled` and — once the metrics
       exist — the IMPL-0022 queue alerts.
 - [ ] 5.4 `--format k8s`: grafana-operator `GrafanaDashboard` CRs
-      (OQ7 → b) + a `PrometheusRule` CR; `--format json` emits plain
-      files. Datasource references per Open Question 4.
+      (design OQ7 → b) + a `PrometheusRule` CR; `--format json` emits
+      plain files. Datasources are concrete UIDs defaulting to
+      `prometheus` and `loki`, overridable via `--prometheus-uid` /
+      `--loki-uid` (OQ4); the static tier carries the defaults.
 - [ ] 5.5 CI drift gate: regenerate the static tier from the default
       config in `ci.yml`, fail on diff (the helm-docs convention);
       wire into the `changes` paths-filter matrix.
@@ -454,13 +456,15 @@ hand-written dashboard JSON anywhere.
 - IMPL-0022 (DESIGN-0021): no ordering requirement except the shared
   transport-ordering test and E3/alert content for its queue metrics
   (generator scoping absorbs the gap).
-- grafana-foundation-sdk requires Grafana ≥ 10 (homelab
-  kube-prometheus-stack satisfies this); grafana-operator present in
-  the cluster for `--format k8s` output (OQ7 → b).
+- grafana-foundation-sdk pinned to the Grafana-13 cohort; Grafana
+  ≥ 13 is the supported floor for the generated suite (OQ3);
+  grafana-operator present in the cluster for `--format k8s` output
+  (design OQ7 → b).
 
 ## Open Questions
 
 1. **CLI subcommand dispatch.**
+   **Resolved 2026-08-02 → (a).**
    (a) Stdlib `flag.FlagSet` per subcommand with an `os.Args[1]`
    switch in `main()` — `run()` keeps today's flat flags for the
    server path (zero behaviour change for existing deployments), and
@@ -476,6 +480,7 @@ hand-written dashboard JSON anywhere.
    other:
 
 2. **Panel-library package location.**
+   **Resolved 2026-08-02 → (a).**
    (a) `internal/monitoring/` — importable by the generator
    subcommand, the render tests, and any future operator/sidecar;
    keeps `cmd/` thin per house convention (`main.go` is already
@@ -486,6 +491,13 @@ hand-written dashboard JSON anywhere.
    other:
 
 3. **Grafana schema/version pin for the foundation SDK.**
+   **Resolved 2026-08-02 → other: Grafana 13+ only.** Pin the SDK's
+   Grafana-13 cohort; Grafana ≥ 13 is the supported floor for the
+   generated suite (record it in the panel-library doc comment,
+   `contrib/README.md`, and the generator's `--help`). Render tests
+   run against the 13 schema. The renovate packageRule against
+   transitive cohort jumps from option (a) still applies — cohort
+   bumps are deliberate, render-tested upgrades.
    (a) Pin the SDK cohort matching the deployed homelab Grafana major
    (verify the running version at task 5.2 time; currently the
    kube-prometheus-stack default, Grafana 11.x) and record it in the
@@ -498,6 +510,15 @@ hand-written dashboard JSON anywhere.
    other:
 
 4. **Datasource references in generated dashboards.**
+   **Resolved 2026-08-02 → other: concrete datasource UIDs,
+   defaulting to `prometheus` and `loki`.** Template-variable
+   datasources were rejected from operator experience (the
+   bind-at-import prompt is the annoyance, recently re-confirmed).
+   The generator emits real UIDs, defaulting to `prometheus` and
+   `loki`, overridable via `--prometheus-uid` / `--loki-uid` flags —
+   zero-flag runs work on conventional kube-prometheus-stack /
+   grafana-operator setups, and the committed static tier carries the
+   defaults.
    (a) Template-variable datasources (`${DS_PROMETHEUS}`,
    `${DS_LOKI}`) declared per dashboard — artifacts stay portable
    across clusters and the operator binds them at import/CR-apply
@@ -511,6 +532,7 @@ hand-written dashboard JSON anywhere.
    other:
 
 5. **Release labeling across the per-phase PRs.**
+   **Resolved 2026-08-02 → (a).**
    (a) `dont-release` on the Phase 1 PR, `minor` on the Phase 2 PR
    (cutting the schema+exporter release), `minor` on Phase 3,
    `dont-release` on Phases 4–6 PRs where they are dashboard/contrib

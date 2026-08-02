@@ -279,9 +279,17 @@ what Phase 0 capped.
 
 - [x] 3.1 Add exported `github.ThrottledError{ResetAt, Remaining,
       Limit}` with an `Error()` naming the reset time.
-- [ ] 3.2 Replace the pre-emptive sleep (`waitIfNeeded` plus the
+- [x] 3.2 Replace the pre-emptive sleep (`waitIfNeeded` plus the
       Phase 0 cap) with a `ThrottledError` return from `RoundTrip`.
-      The reactive 403 retry paths stay untouched.
+      The reactive 403 retry paths stay untouched. (`waitIfNeeded` →
+      `shouldThrottle`; below-threshold-with-budget now defers whole
+      jobs instead of spread-pacing requests — the threshold is a
+      hard reserve. `maxRateLimitSleep` stays, reactive-only, with
+      its comment rewritten as permanent. Tests:
+      `TestRateLimitTransport_PreemptiveNeverSleeps` table replaces
+      the Phase-0 sleep-cap table; `PreemptiveThrottle` asserts the
+      deferral signal; finding-I timeline test now also asserts
+      `errors.As` recovers `*ThrottledError`.)
 - [ ] 3.3 Remove the `github_rate_limit_waits_total` /
       `github_rate_limit_wait_seconds` recording along with the sleep
       — no would-be-delay bridge (design amendment 2026-08-02; the

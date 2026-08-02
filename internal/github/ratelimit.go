@@ -13,17 +13,16 @@ import (
 )
 
 // maxRateLimitSleep caps how long the transport may block a caller
-// waiting out a rate limit, on both the pre-emptive throttle and the
-// 403 retry path. It MUST stay below the queue's JOB_ACK_TIMEOUT
-// (default 5m): a transport sleep that outlives the in-flight lease
-// makes the reaper hand the same job to another worker, amplifying
-// load against an already-exhausted budget (INV-0012 finding I).
-// When the computed delay exceeds the cap the transport fails fast
-// instead of sleeping at all — the queue's nack/reaper cycle is the
-// retry mechanism at that timescale.
+// waiting out a reactive 403 retry. It MUST stay below the queue's
+// JOB_ACK_TIMEOUT (default 5m): a transport sleep that outlives the
+// in-flight lease makes the reaper hand the same job to another
+// worker, amplifying load against an already-exhausted budget
+// (INV-0012 finding I). When the computed retry delay exceeds the cap
+// the transport fails fast instead of sleeping at all — the queue's
+// retry cycle is the mechanism at that timescale.
 //
-// DESIGN-0021 Phase 0 scaffolding: Phase 3 replaces the pre-emptive
-// sleep with a ThrottledError return and removes this cap.
+// The pre-emptive path never sleeps: it returns a ThrottledError so
+// the job defers to the delayed set (DESIGN-0021 Phase 3).
 const maxRateLimitSleep = 60 * time.Second
 
 // ThrottledError signals that the transport pre-emptively refused to
@@ -78,8 +77,14 @@ func newRateLimitTransport(next http.RoundTripper, logger *slog.Logger, threshol
 
 // RoundTrip executes an HTTP request with rate limit awareness.
 func (t *rateLimitTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if err := t.waitIfNeeded(req.Context()); err != nil {
-		return nil, err
+	if thr := t.shouldThrottle(); thr != nil {
+		t.logger.Warn("pre-emptive rate limit throttle; deferring for queue retry",
+			"remaining", thr.Remaining,
+			"limit", thr.Limit,
+			"reset_at", thr.ResetAt,
+		)
+
+		return nil, thr
 	}
 
 	resp, err := t.next.RoundTrip(req)
@@ -147,9 +152,12 @@ func (t *rateLimitTransport) RoundTrip(req *http.Request) (*http.Response, error
 	return retryResp, nil
 }
 
-// waitIfNeeded applies pre-emptive throttling when the remaining budget
-// is below the configured threshold.
-func (t *rateLimitTransport) waitIfNeeded(ctx context.Context) error {
+// shouldThrottle returns a ThrottledError when the remaining budget
+// is at or below the configured threshold and the reset is still
+// ahead, nil otherwise. It never sleeps — deferring the work until
+// the reset is the queue's job, not the transport's (DESIGN-0021
+// Phase 3, INV-0012 finding I).
+func (t *rateLimitTransport) shouldThrottle() *ThrottledError {
 	t.mu.Lock()
 	limit := t.limit
 	remaining := t.remaining
@@ -161,57 +169,17 @@ func (t *rateLimitTransport) waitIfNeeded(ctx context.Context) error {
 		return nil
 	}
 
-	thresholdCount := int(float64(limit) * t.threshold)
-	if remaining > thresholdCount {
+	if remaining > int(float64(limit)*t.threshold) {
 		return nil
 	}
 
-	untilReset := time.Until(resetAt)
-
-	if untilReset <= 0 {
+	// Reset already elapsed — the next response repopulates the
+	// snapshot with the fresh window.
+	if time.Until(resetAt) <= 0 {
 		return nil
 	}
 
-	var delay time.Duration
-
-	if remaining == 0 {
-		// Fully exhausted — wait until reset.
-		delay = untilReset
-	} else {
-		// Spread remaining budget evenly until reset.
-		delay = untilReset / time.Duration(remaining)
-	}
-
-	// Floor at 1 second to handle clock skew.
-	if delay < time.Second {
-		delay = time.Second
-	}
-
-	if delay > maxRateLimitSleep {
-		t.logger.Warn("pre-emptive rate limit delay exceeds sleep cap; failing fast for queue retry",
-			"remaining", remaining,
-			"limit", limit,
-			"delay", delay,
-			"cap", maxRateLimitSleep,
-			"reset_at", resetAt,
-		)
-
-		return fmt.Errorf(
-			"github rate limit: pre-emptive delay %s exceeds sleep cap %s; failing fast so the queue can retry",
-			delay.Round(time.Second), maxRateLimitSleep)
-	}
-
-	t.logger.Warn("pre-emptive rate limit throttle",
-		"remaining", remaining,
-		"limit", limit,
-		"delay", delay,
-		"reset_at", resetAt,
-	)
-
-	metrics.GitHubRateLimitWaitsTotal.WithLabelValues("preemptive").Inc()
-	metrics.GitHubRateLimitWaitSeconds.Observe(delay.Seconds())
-
-	return t.sleep(ctx, delay)
+	return &ThrottledError{ResetAt: resetAt, Remaining: remaining, Limit: limit}
 }
 
 // updateFromResponse parses rate limit headers and updates internal state.

@@ -22,8 +22,10 @@ package worker
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"strconv"
 	"sync"
 	"time"
@@ -166,6 +168,10 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 	}
 
 	if err := p.engine.CheckRepo(ctx, installClient, j.Owner, j.Repo); err != nil {
+		if retry := p.deferralFor(jobLog, &j, err); retry != nil {
+			return retry
+		}
+
 		jobLog.Error("job failed", "error", err, "duration", time.Since(start))
 		metrics.ErrorsTotal.WithLabelValues("check_repo", j.Owner).Inc()
 		p.writeBack(ctx, jobLog, j, err)
@@ -180,6 +186,62 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 	jobLog.Info("job completed", "duration", duration)
 
 	return nil
+}
+
+// deferralFor translates a rate-limit throttle surfaced by CheckRepo
+// into the queue's deferral signal (DESIGN-0021 Phase 3→4 handoff,
+// via ghclient.AsThrottled so both throttle shapes are caught). The
+// due time is GitHub's own reset plus a uniform jitter of
+// [0, min(delay/4, 60s)) so a fleet throttled by the same reset
+// instant doesn't thundering-herd the first promotion tick after it.
+//
+// Returns nil when err carries no throttle signal — the caller nacks
+// as before. A deferral is not a failure: no error metrics and no
+// repo_state write-back, because the check never ran.
+func (*Pool) deferralFor(log *slog.Logger, j *queue.Job, err error) *queue.RetryAfterError {
+	thr, ok := ghclient.AsThrottled(err)
+	if !ok {
+		return nil
+	}
+
+	delay := time.Until(thr.ResetAt)
+	if delay <= 0 {
+		// Stale reset — no server-supplied delay to honour. The
+		// exponential-backoff fallback lands with task 4.5; nack for
+		// now so the reaper cycle retries.
+		return nil
+	}
+
+	due := time.Now().Add(delay + retryJitter(delay))
+
+	log.Info("rate limit throttled; deferring job",
+		"reset_at", thr.ResetAt,
+		"due", due,
+		"attempts", j.Attempts,
+		"remaining", thr.Remaining,
+		"limit", thr.Limit,
+	)
+
+	return &queue.RetryAfterError{After: due, Reason: "rate_limit", Err: err}
+}
+
+// retryJitter returns a uniform draw from [0, min(delay/4, 60s)) —
+// the IMPL-0022 OQ3 jitter shape shared by the reset-anchored and
+// backoff deferral paths. Uses crypto/rand per the repo's jitter
+// convention (see webhook.randomJitter); the reader-failure path
+// collapses to no jitter, fail-safe for a load-spreading optimisation.
+func retryJitter(delay time.Duration) time.Duration {
+	span := min(delay/4, time.Minute)
+	if span <= 0 {
+		return 0
+	}
+
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(span)))
+	if err != nil {
+		return 0
+	}
+
+	return time.Duration(n.Int64())
 }
 
 // writeBack persists the per-job outcome to the Store. checkErr=nil

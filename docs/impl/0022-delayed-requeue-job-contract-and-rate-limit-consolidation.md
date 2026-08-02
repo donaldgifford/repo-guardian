@@ -341,9 +341,14 @@ what Phase 0 capped.
 
 #### Tasks
 
-- [ ] 4.1 `processJob` translates `*github.ThrottledError` into
+- [x] 4.1 `processJob` translates `*github.ThrottledError` into
       `*queue.RetryAfterError{Reason: "rate_limit"}` with the jittered
       due-time: `due = now + delay + rand[0, min(delay/4, 60s))`.
+      (Uses `ghclient.AsThrottled` per the 3.4 amendment so both
+      throttle shapes translate. Deferral skips error metrics and
+      repo_state write-back — the check never ran. Jitter follows
+      the repo's crypto/rand convention. `delay <= 0` falls through
+      to nack until 4.5 adds backoff.)
 - [ ] 4.2 The Valkey `processPayload` handler-return path recognises
       `*RetryAfterError` via `errors.As` and takes the defer path
       (task 2.2) instead of ack or nack-by-leaving-in-flight.

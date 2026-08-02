@@ -227,9 +227,12 @@ All changes in `internal/queue/valkey/` (`valkey.go`, `reaper.go`).
       key-parametric via `KEYS[]`. (Helper is
       `Options.applyKeyDefaults`; package doc updated to the
       four-key layout.)
-- [ ] 2.2 `deferScript` (`ZREM` in-flight + `ZADD` delayed, atomic,
+- [x] 2.2 `deferScript` (`ZREM` in-flight + `ZADD` delayed, atomic,
       mirroring `requeueScript` at valkey.go:90) wired to
-      `EnqueueAfter`.
+      `EnqueueAfter`. (Script takes separate remove/park members so
+      the Phase-4 defer path can re-serialise with `Attempts+1`
+      without touching the Lua; `deferPayload` helper is the shared
+      invocation point.)
 - [ ] 2.3 `promoteScript` (`ZRANGEBYSCORE` due + `ZREM` + `LPUSH`,
       atomic) called from `reapOnce` (reaper.go:107) under the
       existing leader lock — no new goroutine, no new election.

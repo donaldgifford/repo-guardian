@@ -97,6 +97,23 @@ redis.call("LPUSH", KEYS[2], ARGV[1])
 return 1
 `)
 
+// deferScript atomically moves a job payload from the in-flight ZSET
+// into the delayed ZSET, scored by its due time. KEYS[1]=in-flight,
+// KEYS[2]=delayed; ARGV[1]=member to remove from in-flight,
+// ARGV[2]=member to park, ARGV[3]=due unix-nanos score.
+//
+// Two member arguments because the worker defer path re-serialises
+// the job with updated retry accounting (IMPL-0022 Phase 4 increments
+// Attempts): the in-flight entry holds the original payload bytes
+// while the parked entry carries the updated ones. Callers with no
+// in-flight entry pass the same payload for both — the ZREM is then
+// a no-op.
+var deferScript = redis.NewScript(`
+redis.call("ZREM", KEYS[1], ARGV[1])
+redis.call("ZADD", KEYS[2], ARGV[3], ARGV[2])
+return 1
+`)
+
 // ErrClosed is returned by Enqueue and Subscribe after Close.
 var ErrClosed = errors.New("valkey queue closed")
 
@@ -208,18 +225,65 @@ func (q *Queue) Enqueue(ctx context.Context, j queue.Job) error { //nolint:gocri
 	return nil
 }
 
-// EnqueueAfter schedules j to become runnable no earlier than at. A
-// past-or-now at falls through to Enqueue per the interface contract.
-// The delayed-set mechanism lands with IMPL-0022 task 2.2; until then
-// a future at is rejected explicitly rather than silently delivered
-// early — nothing in the binary calls this path yet.
+// EnqueueAfter parks j in the delayed ZSET to become runnable no
+// earlier than at. A past-or-now at falls through to Enqueue per the
+// interface contract. Promotion back onto the jobs list happens on
+// the reaper leader's tick, so delivery lags at by up to one
+// REAPER_INTERVAL — the contract only promises "not before at".
+//
+// Parking is atomic with removal of any byte-identical in-flight
+// payload (deferScript) so a deferred job is never in two keys at
+// once. Re-parking the same payload updates its due time — ZADD
+// member semantics.
 func (q *Queue) EnqueueAfter(ctx context.Context, j queue.Job, at time.Time) error { //nolint:gocritic // interface contract
 	if !at.After(time.Now()) {
 		return q.Enqueue(ctx, j)
 	}
 
-	return fmt.Errorf("valkey.EnqueueAfter: delayed enqueue not yet implemented (IMPL-0022 phase 2): job %s due %s",
-		j.ID, at.UTC().Format(time.RFC3339))
+	select {
+	case <-q.closed:
+		return ErrClosed
+	default:
+	}
+
+	j.ID = JobID(j.InstallationID, j.Owner, j.Repo)
+
+	if j.EnqueuedAt.IsZero() {
+		j.EnqueuedAt = time.Now().UTC()
+	}
+
+	j.AvailableAt = at.UTC()
+
+	payload, err := json.Marshal(j)
+	if err != nil {
+		return fmt.Errorf("valkey.EnqueueAfter: marshal: %w", err)
+	}
+
+	if err := q.deferPayload(ctx, string(payload), string(payload), at); err != nil {
+		return fmt.Errorf("valkey.EnqueueAfter: %w", err)
+	}
+
+	return nil
+}
+
+// deferPayload runs deferScript: remove inFlightMember from the
+// in-flight ZSET and park parked in the delayed ZSET due at. The two
+// members differ when the caller re-serialised the job with updated
+// retry accounting (IMPL-0022 Phase 4); external producers pass the
+// same payload for both.
+func (q *Queue) deferPayload(ctx context.Context, inFlightMember, parked string, at time.Time) error {
+	if _, err := deferScript.Run(
+		ctx,
+		q.client,
+		[]string{q.opts.InFlightKey, q.opts.DelayedKey},
+		inFlightMember,
+		parked,
+		at.UnixNano(),
+	).Result(); err != nil {
+		return fmt.Errorf("defer script: %w", err)
+	}
+
+	return nil
 }
 
 // Subscribe runs the consumer loop until ctx is cancelled or the

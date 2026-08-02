@@ -10,6 +10,7 @@ package queue
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -22,10 +23,15 @@ const (
 )
 
 // Job is a single unit of reconcile work. Identity is the ID — durable
-// queues use it for idempotent claim/ack; the in-memory queue uses it
-// for logging and metrics. Producers should generate IDs with enough
-// entropy to be unique across the fleet (e.g., a UUID or
-// `<owner>/<repo>/<unix-nanos>`).
+// queues use it for idempotent claim/ack. Producers should generate
+// IDs with enough entropy to be unique across the fleet (e.g., a UUID
+// or `<owner>/<repo>/<unix-nanos>`).
+//
+// Jobs are serialised as JSON into the durable queue; fields added
+// later (Attempts, AvailableAt) are deliberately untagged like the
+// originals so payloads written by an older binary decode with zero
+// values — which are the correct semantics ("never retried",
+// "runnable now"). No queue drain is required on upgrade.
 type Job struct {
 	ID             string
 	InstallationID int64
@@ -33,7 +39,46 @@ type Job struct {
 	Repo           string
 	Trigger        string
 	EnqueuedAt     time.Time
+
+	// Attempts counts delivery attempts that did not complete the
+	// job: it is incremented on every deferral and every reaper
+	// requeue. When it exceeds the configured cap the job takes the
+	// terminal disposition documented on Queue.
+	Attempts int
+
+	// AvailableAt is the earliest instant the job may be delivered.
+	// The zero value means "runnable now".
+	AvailableAt time.Time
 }
+
+// RetryAfterError signals that a job could not proceed and must not
+// be retried before After. Returning it from a Subscribe handler is
+// a deliberate deferral, not a failure: the job moves to the delayed
+// set with a due-time, its Attempts count is incremented, and the
+// worker slot is freed immediately.
+type RetryAfterError struct {
+	// After is the earliest instant the job may run again.
+	After time.Time
+
+	// Reason labels why the job was deferred (e.g. "rate_limit",
+	// "secondary_limit"). It is used as a metric label, so values
+	// must come from a small fixed set.
+	Reason string
+
+	// Err is the optional underlying cause.
+	Err error
+}
+
+func (e *RetryAfterError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("retry after %s (%s): %v", e.After.Format(time.RFC3339), e.Reason, e.Err)
+	}
+
+	return fmt.Sprintf("retry after %s (%s)", e.After.Format(time.RFC3339), e.Reason)
+}
+
+// Unwrap exposes the underlying cause to errors.Is/As chains.
+func (e *RetryAfterError) Unwrap() error { return e.Err }
 
 // Queue is the producer/consumer boundary for reconcile work.
 //

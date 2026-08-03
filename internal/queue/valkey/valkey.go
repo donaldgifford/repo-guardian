@@ -373,6 +373,8 @@ func (q *Queue) brpopOnce(ctx context.Context) (string, error) {
 // processPayload claims, decodes, and dispatches a single job
 // payload. Decode failures are dropped (no point requeueing
 // undecodable garbage); handler failures leave the job in-flight.
+// Successfully decoded payloads carrying a non-zero EnqueuedAt also
+// observe enqueue-to-claim latency (QueueWaitSeconds).
 //
 // If ZADD to in-flight fails after BRPOP already removed the payload
 // from queue:jobs (e.g. because the caller's ctx was cancelled

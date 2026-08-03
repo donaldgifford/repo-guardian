@@ -102,11 +102,13 @@ func (r *Reaper) Start(ctx context.Context) error {
 	}
 }
 
-// reapOnce attempts to acquire the leader lock and, if successful,
-// requeues every in-flight entry older than JobAckTimeout and
-// promotes every delayed entry whose due time has passed. The lock
-// is intentionally not released early — it expires via TTL so a
-// process death mid-reap leaves the lock available within LockTTL.
+// reapOnce publishes the delayed-set depth gauge on every call
+// regardless of leadership, then attempts to acquire the leader lock
+// and, if successful, requeues every in-flight entry older than
+// JobAckTimeout and promotes every delayed entry whose due time has
+// passed. The lock is intentionally not released early — it expires
+// via TTL so a process death mid-reap leaves the lock available
+// within LockTTL.
 func (r *Reaper) reapOnce(ctx context.Context) error {
 	// Delayed depth is published by EVERY pod, before the leader
 	// lock — a leader-only gauge goes stale on the non-leader

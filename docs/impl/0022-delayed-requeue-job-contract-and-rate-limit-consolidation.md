@@ -240,11 +240,14 @@ All changes in `internal/queue/valkey/` (`valkey.go`, `reaper.go`).
       doc gains a "Delayed jobs" section noting the REAPER_INTERVAL
       dual duty per DESIGN-0021 OQ3.)
 - [x] 2.4 Publish `queue_delayed_depth` from the reaper tick (`ZCARD`,
-      alongside the existing depth accounting). (Leader-published —
-      unlike `queue_depth`, which every pod polls — so exactly one
-      replica emits per interval; best-effort, a failed ZCARD logs
-      Warn without failing the reap. `Queue.Delayed` mirrors
-      `Depth`/`InFlight`.)
+      alongside the existing depth accounting). (Originally
+      leader-published; amended in 5.3 to publish from EVERY pod's
+      tick, before the leader lock — a leader-only gauge goes stale on
+      non-leader replicas' /metrics endpoints, and a Prometheus scrape
+      of a stale replica during a leadership flap would pin
+      `RepoGuardianQueueBackpressure` in an unresolvable firing state.
+      Still best-effort: a failed ZCARD logs Warn without failing the
+      reap. `Queue.Delayed` mirrors `Depth`/`InFlight`.)
 - [x] 2.5 Integration test (`integration` tag, real Valkey): a job
       deferred 2s is not delivered before due-time, is delivered
       after. (`TestValkey_DeferredJobNotDeliveredEarly`; non-vacuity
@@ -442,7 +445,7 @@ what Phase 0 capped.
       experienced it as queue wait — with the onboarding top-bucket
       skew caveat documented on the bucket layout and slated for
       scaling.md in 5.6.*
-- [ ] 5.3 Add `RepoGuardianQueueBackpressure`
+- [x] 5.3 Add `RepoGuardianQueueBackpressure`
       (`queue_delayed_depth` sustained) and
       `RepoGuardianJobsExhausted` (any
       `queue_attempts_exhausted_total` increase) to **both**
@@ -450,6 +453,22 @@ what Phase 0 capped.
       `contrib/prometheus/alerts.yaml`; windows must outlive `for`
       and match real emission cadence (INV-0012 findings C/E),
       reasoned explicitly in the PR.
+      *Done. Cadence reasoning (also inlined as comments in both
+      packs): (C) Backpressure alerts on a gauge published by EVERY
+      pod's reaper tick — the delayed-depth ZCARD was moved BEFORE
+      the leader lock in `reapOnce` for exactly this reason (a
+      leader-only gauge goes stale on non-leader replicas and pins
+      the alert firing across a leadership flap; task 2.4 note
+      amended). No rate() window to outlive; `for: 30m` on a
+      60s-fresh series is safe. (E) JobsExhausted is two-legged:
+      `increase(...[1h]) > 0 or sum(metric unless metric offset 1h)
+      > 0` — increase() cannot see a brand-new CounterVec series'
+      first increment (born at 1, diffs to 0), and the `unless
+      offset` leg covers exactly the sub-1h window increase() is
+      blind in, then self-retires. Both packs promtool-checked
+      (contrib directly: 24 rules SUCCESS; chart via `helm template`
+      + spec.groups extraction: 11 rules SUCCESS) — first promtool
+      validation the chart pack has ever had (INV-0012 open lead).*
 - [ ] 5.4 Re-point `RepoGuardianRateLimitThrottling`
       (contrib pack only, alerts.yaml:115) from the removed wait
       counter to `queue_delayed_total{reason="rate_limit"}`.

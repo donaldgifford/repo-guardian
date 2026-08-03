@@ -351,6 +351,53 @@ groups:
             minutes. Workers may be crashing or hanging — check pod
             logs and OOMKilled events.
 
+      # Deferrals (rate-limit throttling) are outpacing promotion —
+      # the delayed set keeps a sustained backlog (IMPL-0022). The
+      # gauge is published by every pod's reaper tick (each
+      # REAPER_INTERVAL, default 60s), so the series is always fresh
+      # and a long `for` is safe; max() because every replica reports
+      # the same ZCARD.
+      - alert: RepoGuardianQueueBackpressure
+        expr: max(repo_guardian_queue_delayed_depth) > 100
+        for: 30m
+        labels:
+          severity: warning
+          service: repo-guardian
+        annotations:
+          summary: "repo-guardian delayed-job backlog sustained"
+          description: >-
+            More than 100 jobs have sat parked in the delayed set for
+            30+ minutes; deferrals are outpacing promotion. Check
+            queue_delayed_total by installation to find the throttled
+            tenant. See docs/operations/scaling.md §Delayed requeue.
+
+      # A job hit MAX_JOB_ATTEMPTS and was dropped with a terminal
+      # StatusError (IMPL-0022). Two-legged on purpose: increase()
+      # cannot see a brand-new series' first increment (needs two
+      # samples to diff, and birth-at-1 diffs to 0 — INV-0012 finding
+      # E class). The second leg fires for any exhausted-counter
+      # series younger than 1h — exactly the window the first leg is
+      # blind in; once the series is older than 1h the offset sample
+      # exists and `unless` retires that leg.
+      - alert: RepoGuardianJobsExhausted
+        expr: |
+          sum(increase(repo_guardian_queue_attempts_exhausted_total[1h])) > 0
+            or sum(repo_guardian_queue_attempts_exhausted_total
+              unless repo_guardian_queue_attempts_exhausted_total offset 1h) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: repo-guardian
+        annotations:
+          summary: "repo-guardian dropped a job at the attempt cap"
+          description: >-
+            A job exhausted MAX_JOB_ATTEMPTS and was dropped with a
+            terminal StatusError in repo_state; the next stale sweep
+            retries the repo, but a sustained rate means a
+            persistently failing installation. Check
+            queue_attempts_exhausted_total by installation and the
+            worker logs.
+
       # No replica holds the scheduler leader lock. Reconciliation has
       # stalled — webhooks still work, but the StaleSweeper and
       # Discoverer will not run.

@@ -229,9 +229,10 @@ var (
 	}, []string{"queue"})
 
 	// QueueDelayedDepth tracks jobs parked in the delayed set awaiting
-	// promotion (IMPL-0022). Published by the reaper leader each tick
-	// via ZCARD, so with N replicas exactly one pod emits per
-	// interval.
+	// promotion (IMPL-0022). Published by EVERY pod's reaper tick via
+	// ZCARD, before the leader lock — a leader-only gauge would go
+	// stale on non-leader replicas and pin depth-based alerts firing
+	// across a leadership flap.
 	QueueDelayedDepth = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "repo_guardian_queue_delayed_depth",
 		Help: "Jobs parked in the delayed set awaiting promotion.",

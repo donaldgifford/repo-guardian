@@ -108,6 +108,18 @@ func (r *Reaper) Start(ctx context.Context) error {
 // is intentionally not released early — it expires via TTL so a
 // process death mid-reap leaves the lock available within LockTTL.
 func (r *Reaper) reapOnce(ctx context.Context) error {
+	// Delayed depth is published by EVERY pod, before the leader
+	// lock — a leader-only gauge goes stale on the non-leader
+	// replicas' /metrics endpoints, and Prometheus scraping a stale
+	// replica during a leadership flap would hold an alert like
+	// RepoGuardianQueueBackpressure in an unresolvable firing state.
+	// Best-effort: a failed ZCARD shouldn't fail the reap.
+	if depth, err := r.queue.Delayed(ctx); err == nil {
+		metrics.QueueDelayedDepth.Set(float64(depth))
+	} else {
+		r.logger.WarnContext(ctx, "delayed depth poll failed", "error", err)
+	}
+
 	acquired, err := r.queue.client.SetNX(
 		ctx,
 		r.queue.opts.ReaperLockKey,
@@ -126,20 +138,7 @@ func (r *Reaper) reapOnce(ctx context.Context) error {
 		return err
 	}
 
-	if err := r.promoteDue(ctx); err != nil {
-		return err
-	}
-
-	// Delayed depth is leader-published (unlike queue_depth, which
-	// every pod polls) so exactly one replica emits per interval.
-	// Best-effort: a failed ZCARD shouldn't fail the reap.
-	if depth, err := r.queue.Delayed(ctx); err == nil {
-		metrics.QueueDelayedDepth.Set(float64(depth))
-	} else {
-		r.logger.WarnContext(ctx, "delayed depth poll failed", "error", err)
-	}
-
-	return nil
+	return r.promoteDue(ctx)
 }
 
 // requeueStuck requeues every in-flight entry older than

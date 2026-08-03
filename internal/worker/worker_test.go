@@ -344,3 +344,53 @@ func TestProcessJob_RuleStateFailureDoesNotFailJob(t *testing.T) {
 		t.Errorf("repo_state writes = %+v, want one StatusSuccess row despite the posture failure", st.states)
 	}
 }
+
+// TestProcessJob_SetsInstallationInfoEvenWhenClientFails pins the
+// worker half of the org↔installation join (IMPL-0023 task 2.1).
+//
+// The failing-client case is the one under test on purpose. That is the
+// state an operator debugs — a dead or unauthorized installation
+// spiking errors_total{operation="create_install_client"} — and those
+// panels are keyed by installation_id, so the org label has to exist
+// precisely when the installation does not work. Emitting after a
+// successful client construction would blank the label exactly then.
+func TestProcessJob_SetsInstallationInfoEvenWhenClientFails(t *testing.T) {
+	// Cannot use t.Parallel() — resets the global InstallationInfo gauge.
+	metrics.InstallationInfo.Reset()
+
+	rootClient := &ghmocks.MockClient{}
+	rootClient.On("CreateInstallationClient", mock.Anything, int64(42)).
+		Return(ghclient.Client(nil), errors.New("installation suspended"))
+
+	q := &deliverOnceQueue{
+		job: queue.Job{
+			ID: "j1", InstallationID: 42, Owner: "octo", Repo: "alpha",
+			Trigger: queue.TriggerScheduler,
+		},
+		result: make(chan error, 1),
+	}
+
+	p := worker.New(q, engineForRepo(t), rootClient, &capturingStore{}, "pv1", 10, 1,
+		slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	p.Start(ctx)
+
+	select {
+	case res := <-q.result:
+		if res == nil {
+			t.Fatal("processJob returned nil, want the client-construction error")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("handler never invoked")
+	}
+
+	cancel()
+	p.Stop()
+
+	if got := testutil.ToFloat64(metrics.InstallationInfo.WithLabelValues("42", "octo")); got != 1 {
+		t.Errorf(`installation_info{installation_id="42", org="octo"} = %v, want 1`, got)
+	}
+}

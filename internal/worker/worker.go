@@ -186,6 +186,15 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 		return p.dropExhausted(ctx, jobLog, j)
 	}
 
+	// The org↔installation join label (DESIGN-0022 E2). It is set here
+	// rather than inside CreateInstallationClient because that method
+	// takes only an installation ID — resolving the account login from
+	// it costs an Apps.GetInstallation call per job, and the job already
+	// carries the owner. Discovery sets the same series independently,
+	// so the join survives with discovery disabled or with a cold
+	// discoverer that has not ticked yet.
+	metrics.SetInstallationInfo(j.InstallationID, j.Owner)
+
 	installClient, err := p.ghClient.CreateInstallationClient(ctx, j.InstallationID)
 	if err != nil {
 		jobLog.Error("failed to create installation client", "error", err)

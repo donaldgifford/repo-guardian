@@ -291,3 +291,48 @@ func TestDiscoverer_ContextCancelled_ReturnsErr(t *testing.T) {
 		t.Error("expected ctx.Err(), got nil")
 	}
 }
+
+// TestDiscoverer_SetsInstallationInfo pins the org↔installation join
+// label (IMPL-0023 task 2.1). Every repo listing fails here, and the
+// assertion that both installations still get a join series is the
+// point: the rate-limit and discovery-error panels an operator opens
+// *because* an installation is failing are the ones that need the org
+// label most, so the emission must not sit behind the failing call.
+func TestDiscoverer_SetsInstallationInfo(t *testing.T) {
+	// Cannot use t.Parallel() — resets the global InstallationInfo gauge.
+	metrics.InstallationInfo.Reset()
+
+	client := newMockClient()
+	client.installations = []*ghclient.Installation{
+		{ID: 1, Account: "org1"},
+		{ID: 2, Account: "org2"},
+	}
+	client.listReposErr = errors.New("rate limited")
+
+	d := NewDiscoverer(DiscovererOptions{
+		Client: client, Store: newFakeDiscoveryStore(),
+		Logger: slog.Default(), Freshness: time.Hour,
+	})
+
+	if err := d.Discover(t.Context()); err != nil {
+		t.Fatalf("Discover: %v", err)
+	}
+
+	for _, want := range []struct {
+		installationID string
+		org            string
+	}{
+		{"1", "org1"},
+		{"2", "org2"},
+	} {
+		got := testutil.ToFloat64(metrics.InstallationInfo.WithLabelValues(want.installationID, want.org))
+		if got != 1 {
+			t.Errorf("installation_info{installation_id=%q, org=%q} = %v, want 1",
+				want.installationID, want.org, got)
+		}
+	}
+
+	if n := testutil.CollectAndCount(metrics.InstallationInfo); n != 2 {
+		t.Errorf("installation_info has %d series, want 2 (one per installation)", n)
+	}
+}

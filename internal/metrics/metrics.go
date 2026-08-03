@@ -2,6 +2,8 @@
 package metrics
 
 import (
+	"strconv"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -319,6 +321,22 @@ var (
 		Help: "GitHub API rate limit remaining, per installation.",
 	}, []string{labelInstallationID})
 
+	// InstallationInfo is a constant-1 info gauge pairing an
+	// installation ID with the org that installed the App. It carries no
+	// measurement of its own; it exists so dashboards can `group_left`
+	// the installation_id-keyed series (RateLimitRemaining,
+	// DiscoveryAPICallsTotal, QueueAttemptsExhaustedTotal) into per-org
+	// rows (DESIGN-0022 finding E2).
+	//
+	// Every replica that touches an installation emits it, so the series
+	// differ by scrape target. Join against
+	// `max by (installation_id, org) (repo_guardian_installation_info)`,
+	// not the raw vector, or the group_left is many-to-many.
+	InstallationInfo = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_installation_info",
+		Help: "Constant 1, labeled with the org that owns each installation. Join label only.",
+	}, []string{labelInstallationID, labelOrg})
+
 	// SchedulerIsLeader is a gauge labeled by pod that exports 1 when
 	// the named pod holds the scheduler leader lock and 0 otherwise.
 	// Registered in IMPL-0011 Phase 4; wiring deferred to Phase 5.
@@ -461,4 +479,19 @@ func PRAgeBucket(ageDays float64) string {
 	default:
 		return PRAgeBucketGT30
 	}
+}
+
+// SetInstallationInfo records the org that owns an installation so
+// dashboards can join installation_id-keyed series into per-org rows.
+// Callers pass the org they already have in hand; a blank org is
+// dropped rather than published, because a series labeled org="" joins
+// nothing and would only widen cardinality.
+func SetInstallationInfo(installationID int64, org string) {
+	if org == "" {
+		return
+	}
+
+	InstallationInfo.
+		WithLabelValues(strconv.FormatInt(installationID, 10), org).
+		Set(1)
 }

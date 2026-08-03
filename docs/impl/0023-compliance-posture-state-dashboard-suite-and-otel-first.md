@@ -176,9 +176,16 @@ already stores `{status, error, policy_version}`.
 
 #### Tasks
 
-- [ ] 2.1 `repo_guardian_installation_info{installation_id, org} 1`
+- [x] 2.1 `repo_guardian_installation_info{installation_id, org} 1`
       set at installation-client construction
       (`CreateInstallationClient`) and during discovery.
+      **Divergence:** emitted at the worker's `CreateInstallationClient`
+      *call site*, not inside the method. The method takes only an
+      installation ID; resolving the account login there costs an
+      `Apps.GetInstallation` call per job, while the caller already
+      holds `j.Owner`. Both emissions precede the call they accompany so
+      a failing installation still carries its org label — which is when
+      the `installation_id`-keyed panels are actually being read.
 - [ ] 2.2 `posture-export` handler registered via
       `Scheduler.Schedule` (same SETNX election as `stale-sweep`),
       interval `POSTURE_EXPORT_INTERVAL` (default 60s): full

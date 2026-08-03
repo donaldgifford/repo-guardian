@@ -3,6 +3,7 @@ package worker_test
 import (
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"slices"
 	"strings"
@@ -11,9 +12,15 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/stretchr/testify/mock"
 
+	"github.com/donaldgifford/repo-guardian/internal/checker"
+	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	ghmocks "github.com/donaldgifford/repo-guardian/internal/github/mocks"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
+	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/queue"
+	"github.com/donaldgifford/repo-guardian/internal/rules"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/worker"
 )
@@ -244,3 +251,96 @@ func TestPool_AttemptCap_TerminalDisposition(t *testing.T) {
 // pump-correctness behaviour is covered by the queue/valkey
 // integration tests (EnqueueDequeue + CloseUnblocksSubscribe under
 // the integration build tag).
+
+// engineForRepo builds a real policy engine with a single file rule, so
+// processJob exercises the genuine CheckRepo → writeBack path rather
+// than a stub.
+func engineForRepo(t *testing.T) *checker.Engine {
+	t.Helper()
+
+	ts := rules.NewTemplateStore()
+	if err := ts.Load(""); err != nil {
+		t.Fatalf("template store load: %v", err)
+	}
+
+	cfg := &policy.PolicyConfig{
+		Guardian:  policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{{Name: "codeowners", Type: "file", Paths: []string{"CODEOWNERS"}, Template: "codeowners.tmpl"}},
+	}
+	cfg.Guardian.DryRun = true // stay off the PR-creation path
+
+	e, err := checker.NewEngine(cfg, ts, slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
+	if err != nil {
+		t.Fatalf("checker.NewEngine: %v", err)
+	}
+
+	return e
+}
+
+// TestProcessJob_RuleStateFailureDoesNotFailJob closes IMPL-0023 task
+// 1.6 end to end. TestWriteBack_RuleStateFailureIsBestEffort proves
+// writeBack swallows the error; this proves the job outcome above it is
+// unaffected, which is the property that actually matters to the queue.
+//
+// If someone later gives writeBack an error return and wires it into
+// processJob's, a posture write failing would nack the job — and since
+// the posture write happens on the SUCCESS path, a Postgres hiccup
+// would turn completed work into an infinite retry loop that burns
+// GitHub rate limit re-doing checks that already succeeded.
+func TestProcessJob_RuleStateFailureDoesNotFailJob(t *testing.T) {
+	installClient := &ghmocks.MockClient{}
+	installClient.On("GetRepository", mock.Anything, "octo", "alpha").
+		Return(&ghclient.Repository{Owner: "octo", Name: "alpha", HasBranch: true, DefaultRef: "main"}, nil)
+	installClient.On("ListOpenPullRequests", mock.Anything, "octo", "alpha").
+		Return([]*ghclient.PullRequest(nil), nil)
+	installClient.On("GetContents", mock.Anything, "octo", "alpha", "CODEOWNERS").
+		Return(true, nil)
+
+	rootClient := &ghmocks.MockClient{}
+	rootClient.On("CreateInstallationClient", mock.Anything, int64(42)).
+		Return(ghclient.Client(installClient), nil)
+
+	q := &deliverOnceQueue{
+		job: queue.Job{
+			ID: "j1", InstallationID: 42, Owner: "octo", Repo: "alpha",
+			Trigger: queue.TriggerScheduler,
+		},
+		result: make(chan error, 1),
+	}
+
+	st := &capturingStore{ruleErr: errors.New("deadlock detected")}
+	p := worker.New(q, engineForRepo(t), rootClient, st, "pv1", 10, 1, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	p.Start(ctx)
+
+	var res error
+	select {
+	case res = <-q.result:
+	case <-time.After(5 * time.Second):
+		t.Fatal("handler never invoked")
+	}
+
+	cancel()
+	p.Stop()
+
+	if res != nil {
+		t.Errorf("processJob returned %v, want nil — a posture write failure must not nack a job whose check succeeded", res)
+	}
+
+	st.mu.Lock()
+	defer st.mu.Unlock()
+
+	// The failing write must still have been attempted, or this test
+	// would pass for the wrong reason: a worker that silently stopped
+	// writing posture altogether also never fails a job.
+	if len(st.ruleWrites) != 1 {
+		t.Fatalf("UpsertRuleStates calls = %d, want 1 (the attempt that failed)", len(st.ruleWrites))
+	}
+
+	if len(st.states) != 1 || st.states[0].LastCheckStatus != store.StatusSuccess {
+		t.Errorf("repo_state writes = %+v, want one StatusSuccess row despite the posture failure", st.states)
+	}
+}

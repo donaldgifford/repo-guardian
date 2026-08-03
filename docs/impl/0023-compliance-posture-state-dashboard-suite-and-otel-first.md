@@ -151,7 +151,7 @@ already stores `{status, error, policy_version}`.
 - [x] 1.5 `make mocks` for the Store; update the test-local
       `fakeStore` recorders and every `CheckRepo` call site
       (worker, checker tests) for the new signature.
-- [ ] 1.6 Tests: `actionable_since` transition semantics
+- [x] 1.6 Tests: `actionable_since` transition semantics
       (table-driven over the four edges); delete-not-in removes a
       renamed rule's row on the next check; concurrent batched
       upsert race (16-goroutine pattern from
@@ -429,9 +429,9 @@ hand-written dashboard JSON anywhere.
 
 ## Testing Plan
 
-- [ ] Migration 0002 up/down integration test (real Postgres,
+- [x] Migration 0002 up/down integration test (real Postgres,
       `integration` tag).
-- [ ] `actionable_since` transition table-driven tests + delete-not-in
+- [x] `actionable_since` transition table-driven tests + delete-not-in
       + 16-goroutine upsert race.
 - [ ] Exporter leader-gating and stale-series reset tests (non-vacuity:
       skip the `Reset()`, confirm failure, restore).

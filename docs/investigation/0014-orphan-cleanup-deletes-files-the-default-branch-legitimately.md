@@ -15,6 +15,7 @@ created: 2026-08-03
 
 <!--toc:start-->
 - [Question](#question)
+- [What it looks like in practice](#what-it-looks-like-in-practice)
 - [Hypothesis](#hypothesis)
 - [Context](#context)
 - [Approach](#approach)
@@ -27,11 +28,18 @@ created: 2026-08-03
   - [E'. The fix already exists in this file, one function down](#e-the-fix-already-exists-in-this-file-one-function-down)
   - [E. Latent since IMPL-0013 Phase 3](#e-latent-since-impl-0013-phase-3)
 - [Conclusion](#conclusion)
+- [Blast radius](#blast-radius)
 - [Recommendation](#recommendation)
   - [R1. Fix the test fake first, and let it reproduce the bug](#r1-fix-the-test-fake-first-and-let-it-reproduce-the-bug)
   - [R2. Fix discoverOrphans](#r2-fix-discoverorphans)
   - [R3. Operational, ahead of the code](#r3-operational-ahead-of-the-code)
   - [Scope still to decide](#scope-still-to-decide)
+- [Testing strategy: breaking the circularity](#testing-strategy-breaking-the-circularity)
+  - [The circularity](#the-circularity)
+  - [The fix: one contract suite, two implementations](#the-fix-one-contract-suite-two-implementations)
+  - [Make the fake's blind spots loud, not plausible](#make-the-fakes-blind-spots-loud-not-plausible)
+  - [The existing CLAUDE.md rule is too narrow](#the-existing-claudemd-rule-is-too-narrow)
+  - [Tiered plan](#tiered-plan)
 - [Open questions for the operator](#open-questions-for-the-operator)
 - [References](#references)
 <!--toc:end-->
@@ -47,6 +55,49 @@ therefore satisfied and should be a no-op.
 
 Why does a *satisfied* rule produce a *deletion*, and what is the blast
 radius?
+
+## What it looks like in practice
+
+Take a repository that already has `.github/CODEOWNERS` and is missing
+`.github/dependabot.yml`.
+
+**First sweep**
+
+1. CODEOWNERS is present → the rule is satisfied, nothing to do.
+2. dependabot.yml is missing → actionable.
+3. repo-guardian creates `repo-guardian/add-missing-files` **from main**.
+   A new branch is a copy of main, so the branch now contains
+   `.github/CODEOWNERS` — not because repo-guardian added it, but
+   because main has it.
+4. It writes `dependabot.yml` to the branch and opens the PR.
+
+Correct so far.
+
+**Second sweep** — the PR is open, so orphan cleanup runs. For every
+rule that is *not* actionable it asks one question:
+
+> Is this rule's file sitting on the PR branch even though the rule is
+> satisfied? Then I must have added it in an earlier sweep and it is no
+> longer needed — delete it.
+
+It asks whether `.github/CODEOWNERS` is on the branch. It is. So it
+deletes it, and the PR now reads *"add dependabot.yml, delete
+CODEOWNERS."*
+
+The file is on the branch because **the branch is a copy of main**, not
+because repo-guardian put it there — and nothing in the code can tell
+those two apart. repo-guardian never recorded "I added this file," so
+"it is on the branch" is the only evidence available, and that evidence
+does not mean what the code takes it to mean.
+
+**The case the feature still needs to handle.** A repository with no
+CODEOWNERS anywhere: repo-guardian writes `.github/CODEOWNERS` to the
+branch and opens a PR; a human then commits `CODEOWNERS` at the repo
+root straight to main. Now the rule is satisfied by the root file,
+`.github/CODEOWNERS` is on the branch, and it is **not** on main — so
+repo-guardian is the only party that could have put it there. Deleting
+it is correct, and the PR stops proposing a duplicate. Any fix has to
+keep this working.
 
 ## Hypothesis
 
@@ -295,6 +346,34 @@ Finding C's prediction — that only `.github/CODEOWNERS` repos are
 affected — was confirmed by the operator against the real fleet, which
 moves this from a plausible reading of the code to a diagnosis.
 
+## Blast radius
+
+Operator reports the affected PRs were **closed, not merged**. If that
+holds fleet-wide this is containment, not recovery: the deletion never
+reached a default branch, and closing the PR is sufficient. It is worth
+verifying rather than trusting recall, because the failure mode is
+silent — a merged orphan-deletion looks like an ordinary chore commit in
+the repo's history.
+
+`scripts/inv-0014-scan.sh ORG [ORG...]` measures it. Strictly read-only:
+no merges, no closes, no branch deletions. For every PR in the org whose
+head is `repo-guardian/add-missing-files` it reports the PR state, every
+path removed by a `chore: remove ...` commit, and — the question that
+actually matters — whether that path exists on the default branch
+**today**:
+
+| PR state | Path on default | Meaning |
+|---|---|---|
+| merged | absent | confirmed data loss; restore from history |
+| open | present | containment; close before anyone merges |
+| closed | present | no action — the expected state per the report |
+| any | probe failed | indeterminate, never assumed safe |
+
+Both fragile parts were verified before use: the commit-message regex
+against the exact format `cleanupOrphans` emits (and against add-mode,
+restore-mode and merge commits, which must not match), and the
+200/404 status extraction against a public repository.
+
 ## Recommendation
 
 Two changes, in this order. The ordering is not cosmetic: done this way
@@ -476,6 +555,121 @@ call on.**
   branch-vs-default semantics? Current reading is checker-only, but that
   should be checked rather than assumed.
 - Whether Option 4's flag ships in the same patch or not at all.
+
+## Testing strategy: breaking the circularity
+
+R1 fixes the fake's model of branch inheritance. That corrects *this*
+wrong belief and leaves the mechanism that produced it fully intact. The
+mechanism is worth naming, because it will produce the next one.
+
+### The circularity
+
+The fake is a hand-written encoding of our mental model of GitHub. Our
+model said *"a branch contains what we put on it."* GitHub says *"a
+branch contains what main had, plus what we put on it."* Every test then
+validated the engine against the model — so the tests agreed with the
+code because both were built from the same wrong belief. **Nothing
+inside that loop is capable of disagreeing.**
+
+Note the shape: the tests were not sloppy and the assertions were not
+weak. A correct assertion evaluated against a fictional world is still
+fiction. No amount of additional testing *of that kind* would have found
+this.
+
+### The fix: one contract suite, two implementations
+
+State the GitHub behaviours we depend on **once**, as tests, and run
+them against both the fake and real GitHub. If the fake drifts from
+reality the shared test fails, so the fake cannot quietly encode a
+fantasy — it is held to the same contract as the real thing.
+
+```go
+// Same bodies, two drivers.
+func contractBranchInheritsDefaultContents(t *testing.T, c ghclient.Client)
+func contractDeleteOnBranchLeavesDefaultUntouched(t *testing.T, c ghclient.Client)
+func contractUpdateBranchMergesDefaultIn(t *testing.T, c ghclient.Client)
+func contractFileAddedToBranchIsNotOnDefault(t *testing.T, c ghclient.Client)
+```
+
+- **Against the fake** — runs in `make test`, milliseconds, every PR.
+- **Against real GitHub** — `//go:build ghcontract`, a scratch org and a
+  throwaway repo, run nightly or pre-release.
+
+The real-GitHub driver is the only true oracle anywhere in this
+codebase; every other test asks us what we believe. It is also small,
+because it does not test the engine — it tests *our assumptions about
+the API*. "Does creating a branch from main make main's files readable
+on that branch?" is a single test, and it would have caught INV-0014
+before IMPL-0013 shipped.
+
+There is direct precedent: Postgres and Valkey both have real-backend
+integration suites under a build tag, with contract assertions living in
+each backend's own test file (CLAUDE.md § single-backend contract test
+convention). GitHub is currently the only major dependency with **no
+real-thing test at all** — the `httptest.Server` suite in
+`internal/github/client_test.go` tests our request/response plumbing
+against handlers we also wrote, which is the same circularity one layer
+down.
+
+### Make the fake's blind spots loud, not plausible
+
+`GetContentsOnBranch` returned `false` for a state it could not
+represent: a confident, plausible, wrong answer. The repo has already
+learned this lesson once — the generated mocks panic on un-overridden
+methods, explicitly because "a silent zero value is how the IMPL-0013 P4
+vacuous-assertion bug happened" (CLAUDE.md). The same reasoning applies
+here and was never carried across.
+
+Concretely: if a test never declares the repository's default-branch
+contents, the fake should not assume "empty." It should fail and force
+the test to say what the repo contains. A fake that cannot represent a
+state must refuse to answer questions about it.
+
+### The existing CLAUDE.md rule is too narrow
+
+The rule written after the last occurrence of this failure shape:
+
+> when a production code path is shaped like "list existing → decide to
+> skip-or-act → mutate," the mock's list method MUST return prior
+> writes **from the same mock instance**.
+
+That covers state **the test** created. INV-0014 is state **the world**
+created — a file that existed before repo-guardian ever ran. Identical
+failure shape, entirely outside the rule's scope, which is why
+following the rule did not prevent it.
+
+Proposed extension, to land with the fix:
+
+> ...and MUST also return state the mock never wrote but the real system
+> would have — repository state that pre-existed the test. Where a fake
+> cannot represent such state, it MUST fail loudly rather than return a
+> plausible default.
+
+### Tiered plan
+
+**Now, shipping with the fix**
+
+1. Fake inheritance + tombstones (R1).
+2. The four contract tests above, running against the fake.
+3. A safety-net assertion in the checker test harness: no test may
+   finish having deleted a path that exists on the default branch. This
+   catches the whole class rather than this one instance, and it is
+   stated in domain terms, so it keeps working as the fake improves.
+4. The CLAUDE.md rule extension above.
+
+**Next, on its own PR**
+
+5. The same contract tests against a scratch org under `//go:build
+   ghcontract`. Needs a throwaway repo and a token; roughly a couple of
+   hours. This is the step that actually breaks the circle — without it
+   items 1-3 are still our model checking our model.
+
+**Later, only if it earns it**
+
+6. Replace the interface-level fake with an HTTP-level fake GitHub that
+   stores refs and trees, so branch semantics become structurally
+   impossible to get wrong rather than correct-by-maintenance. Real
+   work; explicitly not under this bug's time pressure.
 
 ## Open questions for the operator
 

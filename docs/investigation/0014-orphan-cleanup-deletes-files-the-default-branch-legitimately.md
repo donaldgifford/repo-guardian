@@ -530,13 +530,25 @@ deliberately collapses.
 
 **Option 4 — gate orphan cleanup behind a config flag, defaulting off.**
 
-Worth naming because the risk/benefit is genuinely lopsided: the feature
-prevents a stale PR body, and the failure mode is deleting a real file.
-Rejected as the primary fix because Option 1 is small enough that
-disabling a working convergence feature is not warranted — but if we
-want defence in depth on a fleet already burned once, a flag composes
-with Option 1 rather than replacing it. **This one I would like your
-call on.**
+**Accepted (operator decision, 2026-08-03) — ships alongside Option 1,
+not instead of it.**
+
+The risk/benefit is lopsided: the feature prevents a stale PR body, and
+its failure mode deletes a real file. Option 1 makes the destructive
+path unreachable, so the flag is defence in depth on a fleet that has
+already been burned once — an operator who does not trust the fix can
+turn the whole behaviour off without downgrading.
+
+Shape follows the existing `auto_close_pr` precedent exactly, which is
+the closest analogue (a `guardian {}` bool gating a PR-mutating
+behaviour, default-on, env override): an `orphan_cleanup` attribute on
+the `guardian {}` block plus an `ORPHAN_CLEANUP` env override. Per
+INV-0010, adding a `GuardianConfig` field needs **three** edits in
+lockstep — `guardianBodySchema`, a `setGuardianAttr` case, and a
+`mergeGuardianConfig` carry — and missing the merge is exactly how
+`auto_close_pr` silently did nothing. Default is **on**, because with
+Option 1 in place the behaviour is correct and turning it off by default
+would regress the INV-0005 convergence fix for every operator.
 
 ### R3. Operational, ahead of the code
 
@@ -657,12 +669,17 @@ Proposed extension, to land with the fix:
    stated in domain terms, so it keeps working as the fake improves.
 4. The CLAUDE.md rule extension above.
 
-**Next, on its own PR**
+**Next, deferred out of the patch (operator decision, 2026-08-03)**
 
 5. The same contract tests against a scratch org under `//go:build
-   ghcontract`. Needs a throwaway repo and a token; roughly a couple of
-   hours. This is the step that actually breaks the circle — without it
-   items 1-3 are still our model checking our model.
+   ghcontract`. **Deferred**: the operator will verify this fix manually
+   against real repositories so the patch can ship promptly, rather than
+   holding a data-destructive fix behind new test infrastructure.
+
+   This remains the step that actually breaks the circle. Items 1-4 are
+   still our model checking our model, and manual verification confirms
+   *this* fix without leaving anything behind that would catch the next
+   one. Track it as follow-up work, not as closed.
 
 **Later, only if it earns it**
 

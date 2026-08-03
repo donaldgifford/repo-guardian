@@ -100,18 +100,27 @@ jobs:
       - name: Capture image digest
         id: digest
         if: steps.bake.conclusion == 'success' && inputs.dry_run != true
-        # Metadata is passed via env, NOT interpolated into the script:
-        # the bake metadata JSON can contain quotes/parens that break
-        # shell syntax when inlined (broke the v1.8.2 release run).
+        # fromJSON runs in the expression layer, so only the 71-char
+        # digest ever reaches the process environment. Two prior shapes
+        # both broke a release:
+        #   v1.8.2 — inlining ${{ steps.bake.outputs.metadata }} into the
+        #     run: script; a paren in the JSON broke shell quoting.
+        #   v1.11.0 — passing the whole blob through env:. mode=max
+        #     provenance embeds the push event payload, which carries the
+        #     squash-merge commit message twice, once per build platform;
+        #     BAKE_METADATA reached 133,602 bytes and execve refused it
+        #     at the 131,072-byte limit ("Argument list too long"), so
+        #     bash never started and the image published unsigned.
+        # Keep the value in env: rather than inlining it — the shell must
+        # never parse registry-derived text — but extract it first.
         env:
-          BAKE_METADATA: ${{ steps.bake.outputs.metadata }}
+          DIGEST: ${{ fromJSON(steps.bake.outputs.metadata).release['containerimage.digest'] }}
         run: |
-          digest=$(jq -r '.release."containerimage.digest"' <<< "${BAKE_METADATA}")
-          if [ -z "${digest}" ] || [ "${digest}" = "null" ]; then
+          if [ -z "${DIGEST}" ] || [ "${DIGEST}" = "null" ]; then
             echo "ERROR: failed to capture image digest from bake metadata"
             exit 1
           fi
-          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
           echo "published=true" >> "$GITHUB_OUTPUT"
 
       - name: Sign image with cosign

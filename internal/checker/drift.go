@@ -185,12 +185,32 @@ func cleanupOrphans(
 	return removed
 }
 
-// restoreInverseOrphans restores forbidden files that an absent rule
-// previously deleted from the reconcile branch but which should no longer
-// be removed because the rule is no longer actionable (its when-gate
-// closed, or the file is gone from the default branch). It is the mirror
-// image of discoverOrphans/cleanupOrphans: instead of deleting a
-// no-longer-wanted added file, it re-adds a no-longer-forbidden file.
+// restoreInverseOrphans re-adds files the reconcile branch is proposing to
+// delete even though the default branch owns them, so the PR stops
+// proposing the deletion. It is the mirror image of
+// discoverOrphans/cleanupOrphans.
+//
+// It covers two cases that arrive at the same broken state:
+//
+//   - Absent rules (IMPL-0019 Phase 2), whose forbidden file the branch
+//     deleted but which are no longer actionable — the when-gate closed, or
+//     the file is gone from the default branch.
+//   - Every other mode (INV-0014). A defect in discoverOrphans deleted files
+//     that the repository legitimately owned, purely because they appeared on
+//     the reconcile branch — where they were only ever visible because the
+//     branch is cut from the default branch. Fixing discoverOrphans stops new
+//     damage; this repairs branches already carrying it, on the next sweep,
+//     without an operator having to triage each PR by hand.
+//
+// Together with the discoverOrphans fix this upgrades the guarantee from
+// "repo-guardian will not propose deleting a file the default branch owns"
+// to "repo-guardian actively repairs a branch that does" — so a future
+// regression of this class self-heals instead of accumulating.
+//
+// Scope differs by mode, deliberately. Absent rules restore every path they
+// could have deleted (all of r.Paths). Other modes restore only r.Target,
+// which is the exact inverse of what cleanupOrphans deletes; restoring the
+// wider Paths set would re-add files repo-guardian never removes.
 //
 // Fail-safe (mirrors cleanupOrphans / IMPL-0013 Q9): any API error leaves
 // the path untouched, logs at Warn, increments PROrphanLeftTotal, and the
@@ -207,12 +227,23 @@ func restoreInverseOrphans(
 		actionableSet[actionable[i].Name] = struct{}{}
 	}
 
+	// Paths an actionable absent rule intends to delete on this very sweep.
+	// Without this exclusion a non-actionable add rule and an actionable
+	// absent rule covering the same path would fight: one restores, the
+	// other deletes, on every sweep forever. The deletion wins — an
+	// actionable rule is a live instruction, whereas restoration only
+	// repairs a state nothing is asking for any more.
+	deleting := make(map[string]struct{})
+	for _, path := range plannedDeletions(actionable) {
+		deleting[path] = struct{}{}
+	}
+
 	var restored []string
 
 	for i := range allRules {
 		r := &allRules[i]
 
-		if !r.IsEnabled() || r.CheckMode() != policy.CheckAbsent {
+		if !r.IsEnabled() {
 			continue
 		}
 
@@ -220,7 +251,7 @@ func restoreInverseOrphans(
 			continue
 		}
 
-		if restoreRulePaths(ctx, log, client, r, owner, repo) {
+		if restoreRulePaths(ctx, log, client, r, restorablePaths(r), deleting, owner, repo) {
 			restored = append(restored, r.Name)
 		}
 	}
@@ -228,20 +259,44 @@ func restoreInverseOrphans(
 	return restored
 }
 
-// restoreRulePaths restores every path of a no-longer-actionable absent
-// rule that is present on the default branch but missing from the
-// reconcile branch. Returns true if at least one path was restored. Every
-// API error is fail-safe: the path is left untouched and retried next sweep.
+// restorablePaths returns the paths a no-longer-actionable rule may restore.
+// Absent rules could have deleted any of their paths; every other mode only
+// ever has its Target deleted by cleanupOrphans, so only Target can need
+// restoring.
+func restorablePaths(r *policy.FileRuleConfig) []string {
+	if r.CheckMode() == policy.CheckAbsent {
+		return r.Paths
+	}
+
+	if r.Target == "" {
+		return nil
+	}
+
+	return []string{r.Target}
+}
+
+// restoreRulePaths restores each of the given paths of a
+// no-longer-actionable rule that is present on the default branch but
+// missing from the reconcile branch. Paths in `deleting` are skipped:
+// another rule is actively removing them on this sweep. Returns true if at
+// least one path was restored. Every API error is fail-safe: the path is
+// left untouched and retried next sweep.
 func restoreRulePaths(
 	ctx context.Context,
 	log *slog.Logger,
 	client ghclient.Client,
 	r *policy.FileRuleConfig,
+	paths []string,
+	deleting map[string]struct{},
 	owner, repo string,
 ) bool {
 	var restoredAny bool
 
-	for _, path := range r.Paths {
+	for _, path := range paths {
+		if _, beingDeleted := deleting[path]; beingDeleted {
+			continue
+		}
+
 		onDefault, err := client.GetContents(ctx, owner, repo, path)
 		if err != nil {
 			logRestoreSkip(log, owner, r.Name, path, "default-branch probe failed", err)

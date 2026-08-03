@@ -631,13 +631,43 @@ Only after the soak (see Sequencing). Ships as its own minor.
       task 4.4 remains the second line of defence for operators
       bypassing the chart. Two helm-unittest cases (default + a 3
       override).*
-- [ ] 7.3 Operator runbook: what a deferred job looks like in
+- [x] 7.3 Operator runbook: what a deferred job looks like in
       Valkey/metrics/logs, reading the new metrics, responding to the
       backpressure and exhausted alerts.
-- [ ] 7.4 Update `docs/operations/scaling.md` and
+      *Done: `docs/operations/delayed-requeue-runbook.md`, added to
+      the mkdocs nav. Covers the six-step lifecycle, the exact two log
+      lines (worker decision then queue confirmation, verified against
+      the source strings), `redis-cli` recipes against the real
+      prefixed keys, per-alert response procedures with PromQL and the
+      `repo_state` SQL for reading a terminal drop, and a
+      force-a-deferral procedure. That last one uses `extraEnv` because
+      `RATE_LIMIT_THRESHOLD` has no dedicated chart value — a claim
+      checked against the templates rather than assumed.*
+- [x] 7.4 Update `docs/operations/scaling.md` and
       `docs/operations/migrations.md` for the removed knobs, and
       document `REAPER_INTERVAL`'s dual duty — lease reaping *and*
       promotion cadence (design OQ3 → a).
+      *Done. scaling.md was updated during Phase 6 (sizing table,
+      cold-start table, the enterprise-bottleneck lever, and the
+      BudgetTracker section replaced with a Discoverer-only one).
+      migrations.md gains "Removing the rate-limit reserve knobs
+      (IMPL-0022)": removed-value table, the five metric families that
+      go silent (a forked dashboard degrades quietly, so this is
+      called out explicitly), confirmation that
+      `rate_limit_remaining` survives, plus the new `MAX_JOB_ATTEMPTS`
+      knob and the `REAPER_INTERVAL` dual-duty note.
+      **Correction found while writing it:** the Phase 6 commit message
+      claimed `values.schema.json` rejects the removed knobs. It does
+      not — the chart has no `additionalProperties: false`, so a stale
+      values file rendered clean (verified by `helm template --set
+      staleSweep.rateLimitReserve=0.1`, exit 0). Rather than document
+      a silent no-op, added
+      `repo-guardian.validateRemovedValues` to `_helpers.tpl`
+      (same shape as `validateBackendSecrets`, included from
+      `deployment.yaml`) so each removed knob fails render with a
+      message naming the removal and linking the migration section.
+      Four helm-unittest cases cover the three failures and the clean
+      path.*
 - [ ] 7.5 CLAUDE.md: the delayed-requeue contract and the
       one-mechanism rule (no future in-handler blocking).
 - [ ] 7.6 Flip INV-0012 to Concluded and DESIGN-0021 to Implemented;

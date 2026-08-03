@@ -205,3 +205,24 @@ Renders empty on success; failure aborts the entire template render.
 {{- fail (printf "queue.valkey.baked.existingSecret is set but queue.valkey.mode=%s never reads it — use queue.valkey.existingSecret for external mode, or set queue.valkey.mode=baked" .Values.queue.valkey.mode) -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Fail render when a values file still sets a knob removed in
+IMPL-0022 Phase 6. JSON Schema accepts unknown keys (there is no
+additionalProperties: false on this chart), so without this guard a
+stale values file renders happily and the operator silently loses
+the behaviour they think they configured. Same shape as
+validateBackendSecrets — extend when a knob is removed, and delete
+the entry once operators have had a release or two to notice.
+*/}}
+{{- define "repo-guardian.validateRemovedValues" -}}
+{{- if hasKey .Values.staleSweep "rateLimitReserve" -}}
+{{- fail "staleSweep.rateLimitReserve was removed in IMPL-0022: the sweep no longer gates on the rate-limit reserve — throttled work defers itself with a due-time instead. Delete the value. See docs/operations/migrations.md#removing-the-rate-limit-reserve-knobs-impl-0022" -}}
+{{- end -}}
+{{- if hasKey .Values.discovery "reserveFraction" -}}
+{{- fail "discovery.reserveFraction was removed in IMPL-0022: the BudgetTracker it configured is gone (it never gated anything — INV-0012 finding A). Delete the value. See docs/operations/migrations.md#removing-the-rate-limit-reserve-knobs-impl-0022" -}}
+{{- end -}}
+{{- if hasKey .Values.discovery "estimatedCostPerRepo" -}}
+{{- fail "discovery.estimatedCostPerRepo was removed in IMPL-0022: the BudgetTracker it configured is gone. Delete the value. See docs/operations/migrations.md#removing-the-rate-limit-reserve-knobs-impl-0022" -}}
+{{- end -}}
+{{- end }}

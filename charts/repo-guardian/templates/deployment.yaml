@@ -1,5 +1,6 @@
 {{- include "repo-guardian.validateTemplatingVars" . -}}
 {{- include "repo-guardian.validateBackendSecrets" . -}}
+{{- include "repo-guardian.validateRemovedValues" . -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

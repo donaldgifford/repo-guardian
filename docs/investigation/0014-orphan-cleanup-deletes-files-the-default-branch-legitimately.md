@@ -1,7 +1,7 @@
 ---
 id: INV-0014
 title: "Orphan cleanup deletes files the default branch legitimately owns"
-status: In Progress
+status: Concluded
 author: Donald Gifford
 created: 2026-08-03
 ---
@@ -9,7 +9,7 @@ created: 2026-08-03
 
 # INV 0014: Orphan cleanup deletes files the default branch legitimately owns
 
-**Status:** In Progress
+**Status:** Concluded
 **Author:** Donald Gifford
 **Date:** 2026-08-03
 
@@ -40,6 +40,7 @@ created: 2026-08-03
   - [Make the fake's blind spots loud, not plausible](#make-the-fakes-blind-spots-loud-not-plausible)
   - [The existing CLAUDE.md rule is too narrow](#the-existing-claudemd-rule-is-too-narrow)
   - [Tiered plan](#tiered-plan)
+- [What shipped](#what-shipped)
 - [Open questions for the operator](#open-questions-for-the-operator)
 - [References](#references)
 <!--toc:end-->
@@ -687,6 +688,30 @@ Proposed extension, to land with the fix:
    stores refs and trees, so branch semantics become structurally
    impossible to get wrong rather than correct-by-maintenance. Real
    work; explicitly not under this bug's time pressure.
+
+## What shipped
+
+| Commit | Change |
+|---|---|
+| `26c5869` | **Prevention** — `discoverOrphans` probes the default branch first; a path the default branch owns is never an orphan (R2 option 1) |
+| `6840117` | **Kill switch** — `orphan_cleanup` HCL attribute, `ORPHAN_CLEANUP` env, `policy.orphanCleanup` chart value, default on (R2 option 4) |
+| `34005a8` | **Repair** — `restoreInverseOrphans` generalised beyond absent rules, so branches already carrying the deletion self-heal on the next sweep |
+
+The fake-fidelity work in R1 shipped inside `26c5869`: `GetContentsOnBranch`
+now inherits from the default branch, with a tombstone map so deletions
+stick. Fixing it reproduced the bug immediately with production code
+untouched — `TestConvergence_RenovateFirst_RemovesDependabot` began deleting
+`renovate.json`, the reported failure on a different rule.
+
+Every behavioural change was neutralise-verified. Three of the tests written
+during this work were vacuous on first draft and were rebuilt after the
+neutralisation showed them passing against broken code — the same failure
+shape as the original defect, one level up.
+
+**Not shipped, tracked as follow-up:** the real-GitHub contract suite
+(Testing strategy, tier 2). Without it the repo is still in the position
+described under "The circularity" — our model checking our model — and
+nothing yet catches the next wrong belief about the GitHub API.
 
 ## Open questions for the operator
 

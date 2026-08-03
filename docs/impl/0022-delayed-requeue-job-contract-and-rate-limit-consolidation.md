@@ -618,8 +618,17 @@ Only after the soak (see Sequencing). Ships as its own minor.
 
 #### Tasks
 
-- [ ] 7.1 Chart version + appVersion bump; `make helm-docs` (edit
+- [x] 7.1 Chart version + appVersion bump; `make helm-docs` (edit
       `README.md.gotmpl`, never the rendered README).
+      *Done last within Phase 7 so the regenerated README captures
+      every chart edit in one pass. Chart `1.0.0-rc.9 → 1.0.0-rc.10`;
+      appVersion `1.10.1 → 1.11.0`, matching the tag a `minor` PR
+      label will cut (`deployment.yaml` defaults the image tag to
+      `.Chart.AppVersion`, and IMPL-0017 shipped an appVersion that
+      never corresponded to a real tag — don't repeat that). The
+      `deployment_test.yaml` image-tag regex pins appVersion, so it
+      was bumped in the same commit. README regenerated via
+      `make helm-docs`; the rendered file was not hand-edited.*
 - [x] 7.2 `MAX_JOB_ATTEMPTS` chart value with `values.schema.json`
       range validation and helm-unittest case.
       *Done. `config.maxJobAttempts: 10` in values.yaml, rendered to

@@ -3,6 +3,7 @@ package reconciler_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -1670,5 +1671,110 @@ func TestRegistry_CustomPropertiesFactory(t *testing.T) {
 
 	if r.Name() != "custom_properties" {
 		t.Errorf("Name() = %q, want %q", r.Name(), "custom_properties")
+	}
+}
+
+// TestSchemaPreflight_GaugeClearsWhenGapIsFixed pins the
+// property_schema_missing posture gauge (IMPL-0023 task 2.3).
+//
+// The second half is the load-bearing half. Setting 1 on a gap is the
+// obvious behaviour; explicitly setting 0 when the org defines the
+// property is what lets a fixed gap — an operator adding the missing
+// definition — actually clear. Without the zero-write the series would
+// hold 1 until the process restarted and
+// RepoGuardianPropertySchemaMissing would fire forever on a resolved
+// problem, which is how an alert gets muted permanently.
+//
+// Two reconcilers rather than two Reconcile calls: the schema cache has
+// a 30-minute TTL, so a second call on the same instance would read the
+// cache and never re-derive the gauge.
+func TestSchemaPreflight_GaugeClearsWhenGapIsFixed(t *testing.T) {
+	t.Parallel()
+
+	// Unique per test — a GaugeVec.Reset() here would blank sibling
+	// t.Parallel() tests' series, the trap documented in
+	// TestAPIMode_FiltersUndefinedMappedProperty.
+	const org = "gauge-org"
+
+	gap := func() float64 {
+		return testutil.ToFloat64(metrics.PropertySchemaMissing.WithLabelValues(org, "JiraLabel"))
+	}
+
+	reconcileWithSchema := func(t *testing.T, defined []string) {
+		t.Helper()
+
+		r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+		client := basePropertiesClient()
+		client.orgSchema[org] = defined
+
+		params := newParams(client, validCatalogInfo, false, nil)
+		params.Owner = org
+
+		if err := r.Reconcile(context.Background(), params); err != nil {
+			t.Fatalf("Reconcile: %v", err)
+		}
+	}
+
+	reconcileWithSchema(t, []string{"Owner", "Component", "JiraProject"})
+
+	if got := gap(); got != 1 {
+		t.Fatalf("property_schema_missing{org=%q, property=\"JiraLabel\"} = %v, want 1 while undefined", org, got)
+	}
+
+	// The operator defines the missing property.
+	reconcileWithSchema(t, []string{"Owner", "Component", "JiraProject", "JiraLabel"})
+
+	if got := gap(); got != 0 {
+		t.Errorf("property_schema_missing{org=%q, property=\"JiraLabel\"} = %v after the org defined it, want 0", org, got)
+	}
+
+	// A property that was never missing must read 0, not be absent —
+	// `== 1` alerts work either way, but `min_over_time` and ratio
+	// panels need the series present.
+	if got := testutil.ToFloat64(metrics.PropertySchemaMissing.WithLabelValues(org, "Owner")); got != 0 {
+		t.Errorf("property_schema_missing{org=%q, property=\"Owner\"} = %v, want 0", org, got)
+	}
+}
+
+// TestSchemaPreflight_FetchErrorLeavesGaugeUntouched pins the fail-open
+// half of task 2.3: a schema fetch that errors must not rewrite the
+// posture. Clearing to 0 on error would report "no schema gaps" during
+// a GitHub outage — the reading most likely to be trusted and least
+// likely to be true.
+func TestSchemaPreflight_FetchErrorLeavesGaugeUntouched(t *testing.T) {
+	t.Parallel()
+
+	const org = "gauge-err-org"
+
+	// Establish a real gap first.
+	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	client := basePropertiesClient()
+	client.orgSchema[org] = []string{"Owner", "Component", "JiraProject"}
+
+	params := newParams(client, validCatalogInfo, false, nil)
+	params.Owner = org
+
+	if err := r.Reconcile(context.Background(), params); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	if got := testutil.ToFloat64(metrics.PropertySchemaMissing.WithLabelValues(org, "JiraLabel")); got != 1 {
+		t.Fatalf("setup: expected a recorded gap of 1, got %v", got)
+	}
+
+	// Now the schema fetch fails for a fresh reconciler (cold cache).
+	failing := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
+	failClient := basePropertiesClient()
+	failClient.orgSchemaErr = errors.New("502 bad gateway")
+
+	failParams := newParams(failClient, validCatalogInfo, false, nil)
+	failParams.Owner = org
+
+	if err := failing.Reconcile(context.Background(), failParams); err != nil {
+		t.Fatalf("Reconcile with failing schema fetch: %v", err)
+	}
+
+	if got := testutil.ToFloat64(metrics.PropertySchemaMissing.WithLabelValues(org, "JiraLabel")); got != 1 {
+		t.Errorf("property_schema_missing = %v after a failed schema fetch, want the prior 1 preserved", got)
 	}
 }

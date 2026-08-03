@@ -193,10 +193,13 @@ already stores `{status, error, policy_version}`.
       `repos_actionable{rule_name, org}` and `repos_tracked{org}`
       (the `ResetOpenPRsByRule` precedent — stale series die on the
       next tick). Compliance ratio stays in PromQL (OQ2 → a).
-- [ ] 2.3 `property_schema_missing{org, property}` 0/1 gauge set at
+- [x] 2.3 `property_schema_missing{org, property}` 0/1 gauge set at
       each schema-preflight cache refresh in
       `internal/reconciler/custom_properties.go` (the cache already
-      knows; no DB involvement).
+      knows; no DB involvement). Written only on the success branch of
+      `fetchOrgSchema`; a failed fetch leaves the series at its last
+      known value rather than clearing it. Zeros are written
+      explicitly so a gap an operator fixes actually drops out.
 - [ ] 2.4 Exporter health: `posture_export_total{outcome}` +
       `posture_export_duration_seconds`.
 - [ ] 2.5 Config `POSTURE_EXPORT_INTERVAL` +

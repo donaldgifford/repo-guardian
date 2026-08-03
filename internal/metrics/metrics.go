@@ -136,6 +136,27 @@ var (
 		Help: "Total sync attempts for a managed custom property absent from the org's property schema.",
 	}, []string{labelOrg, labelProperty})
 
+	// PropertySchemaMissing reports whether an org's custom-property
+	// schema currently lacks a definition for a managed property:
+	// 1 = missing, 0 = defined. Set at each schema-preflight cache
+	// refresh (30-minute TTL), which is the only moment the answer is
+	// known (DESIGN-0022 finding B — GitHub-owned posture).
+	//
+	// It is the posture counterpart to CustomPropertyMissingSchemaTotal.
+	// The counter answers "how often did we try to sync a property the
+	// schema lacks"; it goes quiet when the affected repos stop being
+	// reconciled, even though the gap is still there. The gauge answers
+	// "is the gap there now", which is the question a compliance
+	// dashboard asks.
+	//
+	// A failed schema fetch leaves these series untouched rather than
+	// clearing them: not being able to ask does not mean the answer
+	// changed.
+	PropertySchemaMissing = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_property_schema_missing",
+		Help: "1 when an org's custom-property schema does not define a managed property, 0 when it does.",
+	}, []string{labelOrg, labelProperty})
+
 	// CatalogParseFailedTotal counts custom-properties reconciles
 	// skipped because catalog-info.yaml could not be parsed (INV-0011
 	// A1). A parse failure is never treated as desired state: the

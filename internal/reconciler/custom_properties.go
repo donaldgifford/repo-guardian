@@ -554,6 +554,35 @@ func (r *CustomPropertiesReconciler) managedSetNames() []string {
 	return names
 }
 
+// recordSchemaGaps publishes the schema-gap posture for one org:
+// property_schema_missing{org, property} = 1 for each managed property
+// the org schema does not define, 0 for each one it does
+// (DESIGN-0022 finding B).
+//
+// Called only from the success branch of fetchOrgSchema, so the series
+// turns over once per org per schemaCacheTTL rather than once per
+// reconciled repo. Explicitly writing the 0s is what makes a gap that
+// gets fixed drop to zero — without them a resolved gap would sit at 1
+// until the process restarted, and the RepoGuardianPropertySchemaMissing
+// alert would never clear.
+//
+// Nothing resets the vector: a property that leaves the managed set
+// keeps its last value until restart. That is a deliberate trade
+// against the alternative — the per-org refreshes are independent and
+// staggered by TTL, so a global Reset() here would blank every *other*
+// org's posture on each refresh. Removing a mapped annotation is a
+// deploy-time event, and the deploy restarts the process.
+func (r *CustomPropertiesReconciler) recordSchemaGaps(org string, defined map[string]struct{}) {
+	for _, name := range r.managedSetNames() {
+		gap := 0.0
+		if _, ok := defined[name]; !ok {
+			gap = 1
+		}
+
+		metrics.PropertySchemaMissing.WithLabelValues(org, name).Set(gap)
+	}
+}
+
 // reportMissingSchema warns once and increments
 // CustomPropertyMissingSchemaTotal once per managed property the org
 // schema does not define.
@@ -670,6 +699,7 @@ func (r *CustomPropertiesReconciler) fetchOrgSchema(
 		}
 
 		entry.names = set
+		r.recordSchemaGaps(org, set)
 	}
 
 	r.schemaMu.Lock()

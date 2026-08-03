@@ -144,3 +144,85 @@ tests:
             labels:
               severity: critical
           any: true
+
+  # IMPL-0022 Phase 5: the backpressure alert reads a gauge published
+  # by every pod's reaper tick, so there is no rate() window to
+  # outlive `for` — the expression must stay a plain gauge threshold.
+  - it: should render the QueueBackpressure gauge-threshold expression
+    set:
+      prometheusRule:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianQueueBackpressure
+            expr: max(repo_guardian_queue_delayed_depth) > 100
+            for: 30m
+            labels:
+              severity: warning
+          any: true
+
+  - it: should apply the QueueBackpressure threshold override
+    set:
+      prometheusRule:
+        enabled: true
+        alerts:
+          QueueBackpressure:
+            threshold: 500
+    asserts:
+      - contains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianQueueBackpressure
+            expr: max(repo_guardian_queue_delayed_depth) > 500
+          any: true
+
+  - it: should allow QueueBackpressure to be disabled
+    set:
+      prometheusRule:
+        enabled: true
+        alerts:
+          QueueBackpressure:
+            enabled: false
+    asserts:
+      - notContains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianQueueBackpressure
+
+  # IMPL-0022 Phase 5: JobsExhausted must keep both legs — increase()
+  # cannot see a brand-new counter series' first increment (INV-0012
+  # finding E), so the `unless offset` leg covers the sub-1h window a
+  # freshly-born exhausted counter is otherwise invisible in. This
+  # locks the exact rendered expression, not just the alert name.
+  - it: should render the JobsExhausted two-legged expression
+    set:
+      prometheusRule:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianJobsExhausted
+            expr: |
+              sum(increase(repo_guardian_queue_attempts_exhausted_total[1h])) > 0
+                or sum(repo_guardian_queue_attempts_exhausted_total
+                  unless repo_guardian_queue_attempts_exhausted_total offset 1h) > 0
+            for: 5m
+            labels:
+              severity: warning
+          any: true
+
+  - it: should allow JobsExhausted to be disabled
+    set:
+      prometheusRule:
+        enabled: true
+        alerts:
+          JobsExhausted:
+            enabled: false
+    asserts:
+      - notContains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianJobsExhausted

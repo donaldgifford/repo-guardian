@@ -488,8 +488,16 @@ what Phase 0 capped.
       windows for the sparser per-job cadence. promtool re-checked
       (24 rules SUCCESS); zero `rate_limit_wait` references remain in
       contrib.*
-- [ ] 5.5 helm-unittest assertions on rendered alert *expressions*,
+- [x] 5.5 helm-unittest assertions on rendered alert *expressions*,
       not just names (IMPL-0021 A7 convention).
+      *Done. Five new cases in `tests/prometheusrule_test.yaml`:
+      QueueBackpressure full-expression (gauge threshold + for +
+      severity), threshold override (500), disable; JobsExhausted
+      exact two-legged multi-line expression (block scalar matches
+      the rendered `expr: |` byte-for-byte), disable. Non-vacuity
+      verified: deleting the second leg from the template fails
+      exactly the two-legged-expression case (1 failed / 95 passed),
+      restore → 96/96.*
 - [ ] 5.6 Document the new metrics in `docs/operations/scaling.md`
       (healthy vs backpressured reference values, including the
       expected `queue_wait_seconds` top-bucket skew during fleet

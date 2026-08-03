@@ -28,7 +28,10 @@ created: 2026-08-03
   - [E. Latent since IMPL-0013 Phase 3](#e-latent-since-impl-0013-phase-3)
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
-- [Blast radius](#blast-radius)
+  - [R1. Fix the test fake first, and let it reproduce the bug](#r1-fix-the-test-fake-first-and-let-it-reproduce-the-bug)
+  - [R2. Fix discoverOrphans](#r2-fix-discoverorphans)
+  - [R3. Operational, ahead of the code](#r3-operational-ahead-of-the-code)
+  - [Scope still to decide](#scope-still-to-decide)
 - [Open questions for the operator](#open-questions-for-the-operator)
 - [References](#references)
 <!--toc:end-->
@@ -294,56 +297,185 @@ moves this from a plausible reading of the code to a diagnosis.
 
 ## Recommendation
 
-Not yet decided — this section is the next working session. The leading
-candidate is to make the orphan predicate compare against the default
-branch rather than the reconcile branch alone: a path that exists on the
-default branch is by definition not an orphan, because deleting it
-proposes removing a file the repository legitimately owns. That is a
-small, local change to `discoverOrphans` with an obvious fail-safe
-direction (when in doubt, do not delete), and it composes correctly with
-`updateReconcileBranch` rather than fighting it.
+Two changes, in this order. The ordering is not cosmetic: done this way
+the first change *proves* the bug and the second fixes it, so the
+regression test is non-vacuous by construction rather than by
+assertion.
 
-Whatever fix is chosen, three things are required alongside it:
+### R1. Fix the test fake first, and let it reproduce the bug
 
-1. **Operator guidance now, before the fix ships.** Any open
-   repo-guardian PR containing a `chore: remove ...` commit must not be
-   merged. This needs to go out ahead of the code change.
-2. **A test fake that can represent inherited content.** Until
-   `branchContents` (or its replacement) models default-branch
-   inheritance, no regression test for this can be non-vacuous — it
-   would pass before the fix. Per standing practice the regression test
-   must be verified by neutralising the fix and watching it fail.
-3. **A blast-radius query.** Identify already-open PRs across the fleet
-   that carry an orphan-deletion commit, so remediation is not limited
-   to whatever the operator happened to notice.
+Finding D established that the failing state — a file on the reconcile
+branch that repo-guardian did not write — is inexpressible in the
+current fake. Until that changes, **any regression test written for
+this bug would pass before the fix**, which is the definition of a
+vacuous test.
 
-## Blast radius
+Three ways to address it:
 
-Operator reports the affected PRs were **closed, not merged**. If that
-holds fleet-wide this is containment, not recovery: the deletion never
-reached a default branch, and closing the PR is sufficient. It is worth
-verifying rather than trusting recall, because the failure mode is
-silent — a merged orphan-deletion looks like an ordinary chore commit in
-the repo's history.
+**Option A — seed `branchContents` directly in the new test.** One line
+of test setup, no fake change.
 
-`scripts/inv-0014-scan.sh ORG [ORG...]` measures it. Strictly read-only:
-no merges, no closes, no branch deletions. For every PR in the org whose
-head is `repo-guardian/add-missing-files` it reports the PR state, every
-path removed by a `chore: remove ...` commit, and — the question that
-actually matters — whether that path exists on the default branch
-**today**:
+*Rejected.* It makes exactly one test correct and leaves the trap armed
+for everyone else. Nobody wrote that line for the existing convergence
+tests precisely because nobody knew the invariant existed; a fix that
+depends on future authors knowing it does not hold.
 
-| PR state | Path on default | Meaning |
-|---|---|---|
-| merged | absent | confirmed data loss; restore from history |
-| open | present | containment; close before anyone merges |
-| closed | present | no action — the expected state per the report |
-| any | probe failed | indeterminate, never assumed safe |
+**Option B — teach `GetContentsOnBranch` that branches inherit from the
+default branch.** *Recommended.*
 
-Both fragile parts were verified before use: the commit-message regex
-against the exact format `cleanupOrphans` emits (and against add-mode,
-restore-mode and merge commits, which must not match), and the
-200/404 status extraction against a public repository.
+```go
+func (m *mockClient) GetContentsOnBranch(_ context.Context, owner, repo, path, branch string) (string, bool, error) {
+	if m.getContentsOnBranchErr != nil {
+		return "", false, m.getContentsOnBranchErr
+	}
+
+	key := owner + "/" + repo + "/" + branch + "/" + path
+
+	// A tombstone means the path was deleted on this branch and must NOT
+	// be inherited back from the default branch.
+	if m.branchDeleted[key] {
+		return "", false, nil
+	}
+
+	if sha, ok := m.branchContents[key]; ok {
+		return sha, true, nil
+	}
+
+	// The reconcile branch is cut from the default branch, so anything on
+	// default is visible on it unless the branch overrode or deleted it.
+	// Modelling this is what makes INV-0014's failing state expressible.
+	if m.contents[owner+"/"+repo+"/"+path] {
+		return "sha-inherited-" + path, true, nil
+	}
+
+	return "", false, nil
+}
+```
+
+The tombstone map is load-bearing, not incidental. `DeleteFile`
+currently does a bare `delete(m.branchContents, key)`
+(`engine_test.go:338`); with an inheritance fallback and no tombstone, a
+file deleted from the branch would immediately reappear from the default
+branch, breaking the `restoreInverseOrphans` tests — which depend on
+exactly the state "deleted on branch, present on default". So
+`DeleteFile` must set the tombstone and `CreateOrUpdateFile` must clear
+it.
+
+One more required edit: `GetContentsOnBranch` currently early-returns
+`false` when `branchContents == nil` (`engine_test.go:320`). That guard
+has to go, or every test that leaves the map nil silently skips
+inheritance.
+
+**Expect existing tests to fail, and read that as the reproduction.**
+Most convergence tests never populate `branchContents`, so today they
+run in a world where the reconcile branch is empty except for what
+repo-guardian wrote. Giving the fake inheritance puts them in the real
+world, and any that assert an orphan deletion against a file the repo
+owns will go red. That red is INV-0014 reproducing under test. Triage
+each failure as either "this is the bug" or "this fixture now needs
+adjusting"; do not blanket-adjust fixtures to restore green.
+
+**Option C — replace the string maps with a small git-shaped model**
+(default tree + per-branch overlay of adds/deletes).
+
+Defensible, and strictly more faithful. Rejected *for this fix* because
+CLAUDE.md records six behaviours across three fake sites that depend on
+current semantics (IMPL-0021 task 7.1), and rebuilding them under
+time pressure on a data-destructive bug trades a small risk for a large
+one. Worth revisiting later on its own schedule.
+
+### R2. Fix `discoverOrphans`
+
+**Option 1 — probe the default branch before the reconcile branch.**
+*Recommended.* Mirrors `restoreInverseOrphans` (Finding E'), which
+already does this correctly twelve lines away.
+
+```go
+// A path that exists on the default branch is never an orphan: deleting
+// it from the reconcile branch makes the PR propose removing a file the
+// repository legitimately owns (INV-0014).
+onDefault, err := client.GetContents(ctx, owner, repo, r.Target)
+if err != nil {
+	log.Warn("orphan discovery: default-branch probe failed, treating as still-actionable",
+		"rule", r.Name, "path", r.Target, "err", err)
+
+	continue
+}
+
+if onDefault {
+	continue
+}
+
+// ... existing GetContentsOnBranch probe unchanged
+```
+
+The rule is unconditional and easy to state: **if the default branch has
+the path, never delete it.** There is no case where deleting a
+default-branch file from the reconcile branch is the right action —
+doing so always produces a PR that proposes removing a real file.
+
+It still catches the genuine orphan. Rule satisfied by a root-level
+`CODEOWNERS` on main, `.github/CODEOWNERS` written to the branch by an
+earlier sweep, `.github/CODEOWNERS` absent from main: not on default →
+still an orphan → deleted. That is the convergence case IMPL-0013 Phase
+3 was built for, and it is preserved.
+
+Ordering matters for cost: probing default *first* means the common case
+(rule satisfied because the file is on main) costs one API call instead
+of two. Genuine orphans cost two. The probe only runs for
+non-actionable rules on repos that already have an open PR, so fleet-wide
+impact is small.
+
+Fail-safe direction is the same as everywhere else in this file: a probe
+error means "do not delete."
+
+**Option 2 — compare blob SHAs between branch and default.** *Rejected,
+and worth recording because it is the tempting "more precise" answer.*
+
+The idea is that a differing SHA proves repo-guardian authored the branch
+copy. It does — and it still must not delete. If main holds a human-
+authored `.github/CODEOWNERS` and the branch holds repo-guardian's
+version, deleting from the branch proposes removing main's file. SHA
+comparison is more precise about provenance and wrong about the action.
+Presence on the default branch, not authorship, is the correct predicate.
+
+**Option 3 — record provenance properly** (track which files
+repo-guardian wrote to the branch, in the store or via a commit-message
+convention).
+
+The "real" fix for the root cause named in Finding A. Rejected as the
+immediate remedy: it needs persistent state or branch-history parsing,
+and Option 1 makes the destructive outcome unreachable without it. Worth
+a follow-up if orphan cleanup ever needs to distinguish cases Option 1
+deliberately collapses.
+
+**Option 4 — gate orphan cleanup behind a config flag, defaulting off.**
+
+Worth naming because the risk/benefit is genuinely lopsided: the feature
+prevents a stale PR body, and the failure mode is deleting a real file.
+Rejected as the primary fix because Option 1 is small enough that
+disabling a working convergence feature is not warranted — but if we
+want defence in depth on a fleet already burned once, a flag composes
+with Option 1 rather than replacing it. **This one I would like your
+call on.**
+
+### R3. Operational, ahead of the code
+
+1. Close any open repo-guardian PR carrying a `chore: remove ...`
+   commit. Confirmed closed already per the operator, pending the scan.
+2. Ship as a patch release once R1+R2 land. Every repo in a fleet meets
+   the precondition on its second sweep, so this is not a "wait for the
+   next feature release" fix.
+3. Correct the misattributed `PR #71` comment at the
+   `updateReconcileBranch` call site while in the file (Finding B).
+
+### Scope still to decide
+
+- Do the `scheduler` and `reconciler` fakes need the same inheritance
+  fix, or is `internal/checker` the only package whose tests exercise
+  branch-vs-default semantics? Current reading is checker-only, but that
+  should be checked rather than assumed.
+- Whether Option 4's flag ships in the same patch or not at all.
 
 ## Open questions for the operator
 

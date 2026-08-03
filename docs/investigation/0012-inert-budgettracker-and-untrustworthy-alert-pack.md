@@ -1,7 +1,7 @@
 ---
 id: INV-0012
 title: "Inert BudgetTracker and untrustworthy alert pack"
-status: Open
+status: Concluded
 author: Donald Gifford
 created: 2026-07-25
 ---
@@ -9,7 +9,7 @@ created: 2026-07-25
 
 # INV 0012: Inert BudgetTracker and untrustworthy alert pack
 
-**Status:** Open
+**Status:** Concluded
 **Author:** Donald Gifford
 **Date:** 2026-07-25
 

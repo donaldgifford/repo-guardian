@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0002
 title: "GitHub API Rate Limit Handling"
-status: Approved
+status: Implemented
 author: Donald Gifford
 created: 2026-03-01
 ---
@@ -9,9 +9,28 @@ created: 2026-03-01
 
 # DESIGN 0002: GitHub API Rate Limit Handling
 
-**Status:** Approved
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-03-01
+
+> **Throttling mechanism superseded by [DESIGN-0021](0021-delayed-requeue-job-contract-and-rate-limit-consolidation.md)**
+> (implemented by IMPL-0022, 2026-08-02). The transport middleware
+> below shipped and worked, but the **pre-emptive sleep** it performs
+> is gone: sleeping inside the handler holds a worker slot and — with
+> the reserve threshold applied per-request — could exceed the
+> `JOB_ACK_TIMEOUT`, so the reaper would requeue a job that was still
+> running (INV-0012 finding I). The transport now returns a
+> `ThrottledError` and the worker defers the whole job into a Valkey
+> delayed set with a due-time at the rate-limit reset. What survives
+> from this design: the RoundTripper placement, the reactive 403 /
+> secondary-limit retry (capped at 60s), and the
+> `X-RateLimit-*` header scraping that feeds
+> `github_rate_remaining`. What is gone: `github_rate_limit_waits_total`
+> and `github_rate_limit_wait_seconds` (the transport no longer waits,
+> so nothing produced them). The layered budget gates that grew
+> alongside this design — the IMPL-0015 BudgetTracker and the
+> IMPL-0011 sweep reserve gate — were removed in IMPL-0022 Phase 6:
+> one mechanism, not four.
 
 ## Summary
 

@@ -2,14 +2,84 @@ package github
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
 
+	gh "github.com/google/go-github/v68/github"
+
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 )
+
+// maxRateLimitSleep caps how long the transport may block a caller
+// waiting out a reactive 403 retry. It MUST stay below the queue's
+// JOB_ACK_TIMEOUT (default 5m): a transport sleep that outlives the
+// in-flight lease makes the reaper hand the same job to another
+// worker, amplifying load against an already-exhausted budget
+// (INV-0012 finding I). When the computed retry delay exceeds the cap
+// the transport fails fast instead of sleeping at all — the queue's
+// retry cycle is the mechanism at that timescale.
+//
+// The pre-emptive path never sleeps: it returns a ThrottledError so
+// the job defers to the delayed set (DESIGN-0021 Phase 3).
+const maxRateLimitSleep = 60 * time.Second
+
+// ThrottledError signals that the transport pre-emptively refused to
+// send a request because the remaining rate-limit budget is at or
+// below the throttle threshold. It is a deferral signal, not a
+// failure: the request was never sent, and the work should be retried
+// once GitHub's quota window resets at ResetAt. The worker translates
+// it into a queue.RetryAfterError so the job parks in the delayed set
+// instead of blocking a leased worker slot (DESIGN-0021 Phase 3).
+type ThrottledError struct {
+	ResetAt   time.Time
+	Remaining int
+	Limit     int
+}
+
+// Error names the reset time so a bare log line is actionable without
+// unwrapping.
+func (e *ThrottledError) Error() string {
+	return fmt.Sprintf("github rate limit throttled: %d/%d remaining, resets at %s",
+		e.Remaining, e.Limit, e.ResetAt.UTC().Format(time.RFC3339))
+}
+
+// AsThrottled reports whether err carries a rate-limit deferral
+// signal, normalising the two shapes it can take:
+//
+//   - this package's *ThrottledError — the transport's pre-emptive
+//     reserve (remaining at or below the threshold);
+//   - go-github's *github.RateLimitError — its client-side pre-check,
+//     which short-circuits ABOVE our transport whenever a prior
+//     response showed remaining=0 (the bypass context key is
+//     unexported in go-github v68, so this path is unavoidable and
+//     our transport never sees the request).
+//
+// Workers call this instead of errors.As directly so exactly one
+// deferral signal crosses the client boundary and go-github stays
+// encapsulated in this package (DESIGN-0021 Phase 3; the second
+// shape was discovered by the IMPL-0022 task 3.4 chain test).
+func AsThrottled(err error) (*ThrottledError, bool) {
+	var thr *ThrottledError
+	if errors.As(err, &thr) {
+		return thr, true
+	}
+
+	var rle *gh.RateLimitError
+	if errors.As(err, &rle) {
+		return &ThrottledError{
+			ResetAt:   rle.Rate.Reset.Time,
+			Remaining: rle.Rate.Remaining,
+			Limit:     rle.Rate.Limit,
+		}, true
+	}
+
+	return nil, false
+}
 
 // rateLimitTransport is an http.RoundTripper that handles GitHub API rate
 // limits transparently. It wraps another transport and provides:
@@ -20,6 +90,10 @@ type rateLimitTransport struct {
 	next      http.RoundTripper
 	logger    *slog.Logger
 	threshold float64 // Fraction of limit at which to start throttling (e.g., 0.10).
+
+	// sleep is swapped out by tests to observe requested delays
+	// without waiting them out.
+	sleep func(ctx context.Context, d time.Duration) error
 
 	mu        sync.Mutex
 	remaining int
@@ -33,13 +107,20 @@ func newRateLimitTransport(next http.RoundTripper, logger *slog.Logger, threshol
 		next:      next,
 		logger:    logger,
 		threshold: threshold,
+		sleep:     sleepWithContext,
 	}
 }
 
 // RoundTrip executes an HTTP request with rate limit awareness.
 func (t *rateLimitTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if err := t.waitIfNeeded(req.Context()); err != nil {
-		return nil, err
+	if thr := t.shouldThrottle(); thr != nil {
+		t.logger.Warn("pre-emptive rate limit throttle; deferring for queue retry",
+			"remaining", thr.Remaining,
+			"limit", thr.Limit,
+			"reset_at", thr.ResetAt,
+		)
+
+		return nil, thr
 	}
 
 	resp, err := t.next.RoundTrip(req)
@@ -61,16 +142,26 @@ func (t *rateLimitTransport) RoundTrip(req *http.Request) (*http.Response, error
 	delay := t.rateLimitDelay(resp)
 	reason := t.rateLimitReason(resp)
 
+	if delay > maxRateLimitSleep {
+		t.logger.Warn("rate limit retry delay exceeds sleep cap; failing fast for queue retry",
+			"reason", reason,
+			"delay", delay,
+			"cap", maxRateLimitSleep,
+			"status", resp.StatusCode,
+		)
+
+		return nil, fmt.Errorf(
+			"github rate limited (%s): retry delay %s exceeds sleep cap %s; failing fast so the queue can retry",
+			reason, delay.Round(time.Second), maxRateLimitSleep)
+	}
+
 	t.logger.Warn("github api rate limited, waiting to retry",
 		"reason", reason,
 		"delay", delay,
 		"status", resp.StatusCode,
 	)
 
-	metrics.GitHubRateLimitWaitsTotal.WithLabelValues(reason).Inc()
-	metrics.GitHubRateLimitWaitSeconds.Observe(delay.Seconds())
-
-	if err := sleepWithContext(req.Context(), delay); err != nil {
+	if err := t.sleep(req.Context(), delay); err != nil {
 		return nil, err
 	}
 
@@ -94,9 +185,12 @@ func (t *rateLimitTransport) RoundTrip(req *http.Request) (*http.Response, error
 	return retryResp, nil
 }
 
-// waitIfNeeded applies pre-emptive throttling when the remaining budget
-// is below the configured threshold.
-func (t *rateLimitTransport) waitIfNeeded(ctx context.Context) error {
+// shouldThrottle returns a ThrottledError when the remaining budget
+// is at or below the configured threshold and the reset is still
+// ahead, nil otherwise. It never sleeps — deferring the work until
+// the reset is the queue's job, not the transport's (DESIGN-0021
+// Phase 3, INV-0012 finding I).
+func (t *rateLimitTransport) shouldThrottle() *ThrottledError {
 	t.mu.Lock()
 	limit := t.limit
 	remaining := t.remaining
@@ -108,43 +202,17 @@ func (t *rateLimitTransport) waitIfNeeded(ctx context.Context) error {
 		return nil
 	}
 
-	thresholdCount := int(float64(limit) * t.threshold)
-	if remaining > thresholdCount {
+	if remaining > int(float64(limit)*t.threshold) {
 		return nil
 	}
 
-	untilReset := time.Until(resetAt)
-
-	if untilReset <= 0 {
+	// Reset already elapsed — the next response repopulates the
+	// snapshot with the fresh window.
+	if time.Until(resetAt) <= 0 {
 		return nil
 	}
 
-	var delay time.Duration
-
-	if remaining == 0 {
-		// Fully exhausted — wait until reset.
-		delay = untilReset
-	} else {
-		// Spread remaining budget evenly until reset.
-		delay = untilReset / time.Duration(remaining)
-	}
-
-	// Floor at 1 second to handle clock skew.
-	if delay < time.Second {
-		delay = time.Second
-	}
-
-	t.logger.Warn("pre-emptive rate limit throttle",
-		"remaining", remaining,
-		"limit", limit,
-		"delay", delay,
-		"reset_at", resetAt,
-	)
-
-	metrics.GitHubRateLimitWaitsTotal.WithLabelValues("preemptive").Inc()
-	metrics.GitHubRateLimitWaitSeconds.Observe(delay.Seconds())
-
-	return sleepWithContext(ctx, delay)
+	return &ThrottledError{ResetAt: resetAt, Remaining: remaining, Limit: limit}
 }
 
 // updateFromResponse parses rate limit headers and updates internal state.

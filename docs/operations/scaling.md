@@ -13,7 +13,7 @@ needs none of this — keep `replicaCount: 1` and run.
 | `store.postgres.maxConns` | `16` | Postgres pool cap per replica. Should be ≥ `workerCount + 4` (workers + sweep + scheduler + reaper); below that the pool starves. |
 | `staleSweep.batchSize` | `200` | Max repos returned per `StaleRepos` query. Higher batches = bigger spike per sweep tick. |
 | `staleSweep.freshness` | `24h` | Max age of `last_checked_at` before re-queue. Lower = more frequent reconciles, higher = less GitHub API consumption. |
-| `staleSweep.rateLimitReserve` | `0.1` | Fraction of installation's GitHub rate-limit reserved against sweep. Raise if you keep tripping reserve_blocked alerts. |
+| `config.maxJobAttempts` | `10` | Deliveries a job may accumulate (defers + reaper requeues) before it is dropped with a terminal `repo_state` error. The next stale sweep re-enqueues it. |
 | `queue.valkey.jobAckTimeout` | `5m` | Max time a job may stay in-flight before reaper requeues. Should be > worst-case `engine.CheckRepo` runtime. |
 | `queue.valkey.reaperInterval` | `60s` | Cadence between reaper iterations. Lower = faster recovery on worker death; higher = less Valkey load. |
 
@@ -70,7 +70,6 @@ config:
 staleSweep:
   freshness: "24h"
   batchSize: 500                     # higher = fewer Store round-trips per tick
-  rateLimitReserve: 0.15             # 15% reserve for webhook-triggered work
 
 store:
   backend: postgres
@@ -118,8 +117,8 @@ Before turning on multi-replica for a fleet this size, run a full cold-start swe
 
 | Metric | Healthy | Action if breached |
 |---|---|---|
-| `repo_guardian_rate_limit_remaining{installation_id="..."}` | Stays above `(1 - rateLimitReserve) × limit` for every install | Raise `staleSweep.rateLimitReserve` (e.g. 0.20) |
-| `repo_guardian_rate_limit_reserve_blocked_total` | Increments only briefly during cold start, plateaus after | Lower `staleSweep.batchSize` to spread work over more ticks |
+| `repo_guardian_rate_limit_remaining{installation_id="..."}` | Stays above `RATE_LIMIT_THRESHOLD × limit` for every install (sampled once per installation per sweep) | Raise `staleSweep.freshness`, or lower `staleSweep.batchSize` to spread work over more ticks |
+| `repo_guardian_queue_delayed_depth` | Brief blips during cold start, drains to 0 | Sustained depth = the fleet exceeds its API budget; see §Delayed requeue |
 | `repo_guardian_queue_depth` | Drains within a sweep cycle | Raise `config.workerCount` per replica |
 | `repo_guardian_store_query_seconds` p99 | < 100ms | Bump CNPG `instances`, add SSD storage class |
 
@@ -127,7 +126,7 @@ Only once those metrics behave on a single replica should you raise `replicaCoun
 
 ### When the API rate limit is genuinely the bottleneck
 
-If after tuning you still see `reserve_blocked_total` climbing on a steady-state sweep, the only real levers are:
+If after tuning you still see `queue_delayed_total{reason="rate_limit"}` climbing on a steady-state sweep, the only real levers are:
 
 1. **Increase `staleSweep.freshness`** — re-check repos less often. 24h → 48h halves steady-state load.
 2. **Disable rules you don't actually need.** Each rule = ~1 API call per repo. Trimming `dependabot` (if you use Renovate exclusively) saves 3000 calls per sweep.
@@ -155,11 +154,11 @@ Worker write-backs are tracked separately from generic Store queries:
 | `repo_guardian_store_writeback_total{outcome="error"}` | Worker finished a job but `UpdateRepoState` failed. The work was real (PR opened/updated, files committed) but persistent state did not converge; the stale-sweeper will re-enqueue. | Zero in steady state; transient spikes during DB rolls. |
 | `repo_guardian_store_writeback_duration_seconds` | Latency of `UpdateRepoState` from the worker pool. | p99 < 50ms. Bumps in this metric — but flat `store_query_seconds` — point at write-contention or a missing index, not a generic DB problem. |
 
-## Discoverer + BudgetTracker (IMPL-0015 Phase 1)
+## Discoverer (IMPL-0015 Phase 1)
 
 The Discoverer runs on the leader pod at `DISCOVERY_INTERVAL` (default 1h), enumerates installations + repos via the GitHub API, and persists discovery rows via `Store.UpsertIfMissing`. Newly-discovered rows enter `repo_state` with `LastCheckStatus=pending` and a jittered `LastCheckedAt` so the stale-sweeper picks them up on its next tick without synchronizing every repo's due-time.
 
-The `BudgetTracker` (`internal/budget/`) is a per-installation, leader-scoped cache of the GitHub rate-limit window. Both the StaleSweeper and Discoverer share a single tracker via `bringUp` wire-up so the cost-per-repo accounting reflects total enqueue pressure.
+Discovery is not throttle-gated. It costs one `list_installation_repos` call per installation per interval, and any real rate-limit pressure surfaces on the *check* jobs, which defer themselves (see §Delayed requeue). The IMPL-0015 BudgetTracker that used to gate it was removed in IMPL-0022 Phase 6 — it never gated anything in production (INV-0012 finding A: nothing called `RefreshFromAPI` outside tests, so every lookup fell open).
 
 ### Discovery metrics
 
@@ -169,22 +168,38 @@ The `BudgetTracker` (`internal/budget/`) is a per-installation, leader-scoped ca
 | `repo_guardian_discovery_duration_seconds` | Wall-clock per `Discoverer.Discover` invocation. | Scales with installations × repos; p99 should fit comfortably inside `DISCOVERY_INTERVAL`. |
 | `repo_guardian_discovery_api_calls_total{installation_id, endpoint}` | GitHub API calls the Discoverer made. | Steady rate; `endpoint="list_installation_repos"` is the dominant contributor. |
 
-### Budget metrics
-
-| Metric | Meaning | Healthy signal |
-|---|---|---|
-| `repo_guardian_api_budget_remaining{installation_id}` | Cached rate-limit budget remaining after local Decrement. Tighter than `rate_limit_remaining` because it includes pending-but-not-yet-completed Enqueues. | Tracks `rate_limit_remaining` but never exceeds it. |
-| `repo_guardian_api_budget_spendable{installation_id}` | Additional enqueues the tracker will allow without breaching reserve. | Positive in steady state; dropping to zero is the gate-closing signal. |
-| `repo_guardian_api_budget_reserve_fraction{installation_id}` | Operator-configured reserve floor (chart value `discovery.reserveFraction`). | Constant; useful to confirm chart values landed without grepping logs. |
-| `repo_guardian_api_budget_utilisation{installation_id}` | `1 - (remaining / limit)`. | Steady; rising values approaching `reserve_fraction` signal the deployment is becoming rate-limit-bound. |
-| `repo_guardian_api_budget_refresh_total{installation_id, outcome="error"}` | Failed tracker refresh attempts. | Zero in steady state. Non-zero means the gate is falling open (no snapshot to check against) and the deployment may exceed budget. |
-| `repo_guardian_enqueue_gated_by_budget_total{installation_id}` | Enqueues blocked by the BudgetTracker reserve gate. | Zero in normal operation. Non-zero means the deployment is rate-limit-bound — only fixes are `staleSweep.freshness↑`, rules↓, or per-org App credentials (INV-0006). |
-
 ### Tuning
 
-- `discovery.reserveFraction` (default 0.20) — operators with smooth load can lower this for higher utilisation; bursty workloads should raise it. Cannot exceed 1.0.
-- `discovery.estimatedCostPerRepo` (default 10) — calibrate against `repo_guardian_repos_checked_total` ÷ `rate_limit_remaining` drop per sweep. Bump higher if you see budget exhaustion despite the tracker reporting positive `api_budget_spendable`.
 - `discovery.interval` (default 1h) — primary discovery channel is webhooks (`installation_repositories.added` / `repository.created`); the Discoverer is the safety net for missed deliveries. Operators confident in webhook fidelity can stretch this to 6h+.
+
+## Delayed requeue (IMPL-0022)
+
+When a job's GitHub calls run into the rate-limit reserve (pre-emptive threshold) or a hard 403, the worker no longer sleeps in the transport — it defers the whole job into a Valkey delayed set with a due-time at the rate-limit reset (plus jitter), freeing the worker slot immediately. The reaper leader promotes due jobs back onto the pending list each `REAPER_INTERVAL` tick, so delivery lags due-time by up to one interval (default 60s). A job that keeps failing re-defers with exponential backoff and is dropped with a terminal `repo_state` error at `MAX_JOB_ATTEMPTS` (default 10); the stale sweep re-enqueues it naturally on its next pass.
+
+### Metrics
+
+| Metric | Type | Meaning | Healthy | Backpressured |
+|---|---|---|---|---|
+| `queue_delayed_depth` | Gauge | Jobs parked in the delayed set, published by **every** pod's reaper tick. | 0, with brief single-digit blips after a sweep lands near the reserve. | Sustained > 100 — deferrals outpace promotion; the fleet's check volume exceeds the API budget. Drives `RepoGuardianQueueBackpressure`. |
+| `queue_delayed_total{reason, installation_id}` | Counter | Deferral events per job. The single source for throttle counting (replaced the `github_rate_limit_waits` pair). | Flat, or isolated small bursts. | Recurring hourly batches from one `installation_id` — that tenant is rate-limit-bound. Drives the re-pointed `RepoGuardianRateLimitThrottling`. |
+| `queue_delay_seconds{reason}` | Histogram | Deferral horizon (due-time minus now) at defer time. | Mass in the ≤ 3600s buckets (a reset window is at most an hour). | p99 pinned at the 1800s backoff cap means resets are stale/absent and jobs are backing off blind — check `AsThrottled` reset propagation. |
+| `queue_wait_seconds{installation_id}` | Histogram | Enqueue-to-claim latency — the DESIGN-0015 go/no-go datum for per-installation queue partitioning. Parked time counts deliberately: the tenant experienced it as wait. | p99 under a few seconds in steady state. | One installation's p99 in the 3600s+ buckets while others stay low = noisy-neighbor starvation, the DESIGN-0015 partition trigger. |
+| `queue_attempts_exhausted_total{installation_id}` | Counter | Jobs dropped at `MAX_JOB_ATTEMPTS` with a terminal `StatusError` write-back. | Zero. | Any sustained rate = a persistently failing installation (dead credentials, suspended App). Drives `RepoGuardianJobsExhausted`. |
+| `queue_acked_total{outcome="deferred"}` | Counter | Third ack outcome: the job was parked, not completed or failed. | Matches `queue_delayed_total` 1:1. | — |
+
+**Expect `queue_wait_seconds` top-bucket skew during fleet onboarding and policy-version bumps.** Both events mark the whole fleet due at once; the queue drains over hours by design (that is the backpressure working), so every job claimed late in the drain reports a large wait. Don't read a fat 4h bucket during a rollout as noisy-neighbor starvation — compare installations *against each other* in steady state instead.
+
+### Reading the go/no-go datum
+
+DESIGN-0015 asks whether per-installation queue partitioning is needed. The measurement:
+
+```promql
+# Per-installation p99 wait — divergence between tenants, not absolute value, is the signal
+histogram_quantile(0.99,
+  sum by (installation_id, le) (rate(repo_guardian_queue_wait_seconds_bucket[6h])))
+```
+
+If one installation's p99 sits orders above the rest in steady state (not during onboarding), partitioning has its evidence.
 
 ## Custom-property schema preflight (IMPL-0017 Phase 3)
 

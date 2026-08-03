@@ -110,21 +110,34 @@ groups:
             service will begin pre-emptive throttling. If quota reaches
             zero, all checks will stall until the rate limit resets.
 
-      # Rate limit waits are increasing, indicating the service is
-      # actively being throttled by GitHub.
+      # Jobs are being deferred into the delayed set because GitHub
+      # rate limits are near exhaustion (IMPL-0022 — re-pointed from
+      # the removed github_rate_limit_waits_total; the transport no
+      # longer sleeps, it defers whole jobs). Deferrals are per-JOB,
+      # not per-request, so rates run orders of magnitude lower than
+      # the old wait counter — hence a count-based threshold. The 1h
+      # window covers the re-deferral cadence: a genuinely throttled
+      # tenant re-defers each reset window (up to 1h apart), which a
+      # shorter window would see as flapping and never hold through
+      # `for` (INV-0012 finding C).
       - alert: RepoGuardianRateLimitThrottling
         expr: |
-          sum(rate(repo_guardian_github_rate_limit_waits_total[15m])) > 0.5
-        for: 10m
+          sum(increase(repo_guardian_queue_delayed_total{reason="rate_limit"}[1h])) > 10
+        for: 30m
         labels:
           severity: warning
           service: repo-guardian
         annotations:
           summary: "Service is being rate-limited by GitHub"
           description: >-
-            repo-guardian is hitting GitHub rate limits and actively
-            waiting before retrying. Consider reducing WORKER_COUNT or
-            increasing RATE_LIMIT_THRESHOLD to throttle earlier.
+            repo-guardian has deferred more than 10 jobs in the last
+            hour because installation rate limits were near
+            exhaustion. Deferred jobs self-reschedule after the reset
+            window, so this is backpressure working — but a sustained
+            rate means check volume exceeds the API budget. Break down
+            queue_delayed_total by installation_id to find the tenant;
+            tune the threshold to fleet size. See
+            docs/operations/scaling.md §Delayed requeue.
 
       # -------------------------------------------------------------------
       # Check latency
@@ -351,6 +364,53 @@ groups:
             minutes. Workers may be crashing or hanging — check pod
             logs and OOMKilled events.
 
+      # Deferrals (rate-limit throttling) are outpacing promotion —
+      # the delayed set keeps a sustained backlog (IMPL-0022). The
+      # gauge is published by every pod's reaper tick (each
+      # REAPER_INTERVAL, default 60s), so the series is always fresh
+      # and a long `for` is safe; max() because every replica reports
+      # the same ZCARD.
+      - alert: RepoGuardianQueueBackpressure
+        expr: max(repo_guardian_queue_delayed_depth) > 100
+        for: 30m
+        labels:
+          severity: warning
+          service: repo-guardian
+        annotations:
+          summary: "repo-guardian delayed-job backlog sustained"
+          description: >-
+            More than 100 jobs have sat parked in the delayed set for
+            30+ minutes; deferrals are outpacing promotion. Check
+            queue_delayed_total by installation to find the throttled
+            tenant. See docs/operations/scaling.md §Delayed requeue.
+
+      # A job hit MAX_JOB_ATTEMPTS and was dropped with a terminal
+      # StatusError (IMPL-0022). Two-legged on purpose: increase()
+      # cannot see a brand-new series' first increment (needs two
+      # samples to diff, and birth-at-1 diffs to 0 — INV-0012 finding
+      # E class). The second leg fires for any exhausted-counter
+      # series younger than 1h — exactly the window the first leg is
+      # blind in; once the series is older than 1h the offset sample
+      # exists and `unless` retires that leg.
+      - alert: RepoGuardianJobsExhausted
+        expr: |
+          sum(increase(repo_guardian_queue_attempts_exhausted_total[1h])) > 0
+            or sum(repo_guardian_queue_attempts_exhausted_total
+              unless repo_guardian_queue_attempts_exhausted_total offset 1h) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: repo-guardian
+        annotations:
+          summary: "repo-guardian dropped a job at the attempt cap"
+          description: >-
+            A job exhausted MAX_JOB_ATTEMPTS and was dropped with a
+            terminal StatusError in repo_state; the next stale sweep
+            retries the repo, but a sustained rate means a
+            persistently failing installation. Check
+            queue_attempts_exhausted_total by installation and the
+            worker logs.
+
       # No replica holds the scheduler leader lock. Reconciliation has
       # stalled — webhooks still work, but the StaleSweeper and
       # Discoverer will not run.
@@ -487,29 +547,13 @@ groups:
             parse failed" names the repo — fix the YAML there.
 
   # =====================================================================
-  # Discoverer + BudgetTracker (IMPL-0015 Phase 1)
+  # Removed: Discoverer + BudgetTracker (IMPL-0015 Phase 1)
   # =====================================================================
-  # DISABLED (INV-0012): the BudgetTracker is inert in production —
-  # nothing calls RefreshFromAPI outside tests, so
-  # enqueue_gated_by_budget_total has no producer and this alert can
-  # never fire. Importing it would ship a permanently-silent alert that
-  # reads as "we're never rate-limit-bound", which is not established.
-  # DESIGN-0021 replaces the mechanism with measured queue-delay
-  # metrics (queue_delayed_total{reason}); re-enable the equivalent
-  # alert when that lands.
-  #
-  # - name: repo-guardian.discovery
-  #   rules:
-  #     - alert: RepoGuardianBudgetGated
-  #       expr: sum(rate(repo_guardian_enqueue_gated_by_budget_total[15m])) > 0
-  #       for: 30m
-  #       labels:
-  #         severity: warning
-  #         service: repo-guardian
-  #       annotations:
-  #         summary: "repo-guardian budget-gating enqueues (rate-limit bound)"
-  #         description: >-
-  #           The BudgetTracker has been blocking enqueues for 30+
-  #           minutes; the deployment is rate-limit-bound. See
-  #           docs/operations/scaling.md §Discoverer + BudgetTracker
-  #           for remediation.
+  # RepoGuardianBudgetGated is gone. The BudgetTracker it watched was
+  # inert in production (INV-0012 finding A: nothing ever called
+  # RefreshFromAPI outside tests, so enqueue_gated_by_budget_total had
+  # no producer and the alert could never fire) and was deleted in
+  # IMPL-0022 Phase 6 along with its nine api_budget_* metrics.
+  # The replacement signals are RepoGuardianQueueBackpressure and the
+  # re-pointed RepoGuardianRateLimitThrottling above, both fed by the
+  # delayed-requeue path that actually throttles work.

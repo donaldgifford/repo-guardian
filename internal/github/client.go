@@ -55,6 +55,40 @@ func NewClientFromKeyBytes(appID int64, privateKey []byte, logger *slog.Logger, 
 	return newClientFromTransport(transport, logger, rateLimitThreshold), nil
 }
 
+// NewClientForBaseURL constructs a GitHubClient whose requests flow
+// through the production rate-limit transport to baseURL, without
+// GitHub App authentication. next is the transport below the
+// rate-limit layer (nil → http.DefaultTransport).
+//
+// It exists so tests outside this package can drive the full
+// transport → go-github → client error chain against an httptest
+// server — the DESIGN-0021 Phase 3 ThrottledError chain invariant
+// (IMPL-0022 task 3.4). Production construction goes through
+// NewClient / NewClientFromKeyBytes; installation scoping
+// (CreateInstallationClient) is not supported on this client because
+// it carries no App transport.
+func NewClientForBaseURL(baseURL string, next http.RoundTripper, logger *slog.Logger, rateLimitThreshold float64) (*GitHubClient, error) {
+	if next == nil {
+		next = http.DefaultTransport
+	}
+
+	rlTransport := newRateLimitTransport(next, logger.With("component", "ratelimit"), rateLimitThreshold)
+
+	ghClient := gh.NewClient(&http.Client{Transport: rlTransport})
+
+	ghClient, err := ghClient.WithEnterpriseURLs(baseURL+"/", baseURL+"/")
+	if err != nil {
+		return nil, fmt.Errorf("setting base URL: %w", err)
+	}
+
+	return &GitHubClient{
+		appClient:      ghClient,
+		scopedGHClient: ghClient,
+		logger:         logger,
+		installClients: make(map[int64]*gh.Client),
+	}, nil
+}
+
 func newClientFromTransport(transport *ghinstallation.AppsTransport, logger *slog.Logger, rateLimitThreshold float64) *GitHubClient {
 	rlTransport := newRateLimitTransport(transport, logger.With("component", "ratelimit"), rateLimitThreshold)
 	appClient := gh.NewClient(&http.Client{Transport: rlTransport})
@@ -1013,6 +1047,16 @@ func (c *GitHubClient) getInstallClient(installationID int64) (*gh.Client, error
 
 	if client, ok := c.installClients[installationID]; ok {
 		return client, nil
+	}
+
+	// A client built without App auth (NewClientForBaseURL) cannot
+	// scope to an installation — fail here rather than letting the
+	// nil transport panic on the first request, far from its cause.
+	if c.appTransport == nil {
+		return nil, fmt.Errorf(
+			"installation %d client requested but this client has no App transport (built via NewClientForBaseURL?)",
+			installationID,
+		)
 	}
 
 	transport := ghinstallation.NewFromAppsTransport(c.appTransport, installationID)

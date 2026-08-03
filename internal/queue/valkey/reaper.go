@@ -2,6 +2,7 @@ package valkey
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
+	"github.com/donaldgifford/repo-guardian/internal/queue"
 )
 
 // ReaperOptions configures the Reaper goroutine.
@@ -100,11 +102,26 @@ func (r *Reaper) Start(ctx context.Context) error {
 	}
 }
 
-// reapOnce attempts to acquire the leader lock and, if successful,
-// requeues every in-flight entry older than JobAckTimeout. The lock
-// is intentionally not released early — it expires via TTL so a
-// process death mid-reap leaves the lock available within LockTTL.
+// reapOnce publishes the delayed-set depth gauge on every call
+// regardless of leadership, then attempts to acquire the leader lock
+// and, if successful, requeues every in-flight entry older than
+// JobAckTimeout and promotes every delayed entry whose due time has
+// passed. The lock is intentionally not released early — it expires
+// via TTL so a process death mid-reap leaves the lock available
+// within LockTTL.
 func (r *Reaper) reapOnce(ctx context.Context) error {
+	// Delayed depth is published by EVERY pod, before the leader
+	// lock — a leader-only gauge goes stale on the non-leader
+	// replicas' /metrics endpoints, and Prometheus scraping a stale
+	// replica during a leadership flap would hold an alert like
+	// RepoGuardianQueueBackpressure in an unresolvable firing state.
+	// Best-effort: a failed ZCARD shouldn't fail the reap.
+	if depth, err := r.queue.Delayed(ctx); err == nil {
+		metrics.QueueDelayedDepth.Set(float64(depth))
+	} else {
+		r.logger.WarnContext(ctx, "delayed depth poll failed", "error", err)
+	}
+
 	acquired, err := r.queue.client.SetNX(
 		ctx,
 		r.queue.opts.ReaperLockKey,
@@ -119,6 +136,17 @@ func (r *Reaper) reapOnce(ctx context.Context) error {
 		return nil
 	}
 
+	if err := r.requeueStuck(ctx); err != nil {
+		return err
+	}
+
+	return r.promoteDue(ctx)
+}
+
+// requeueStuck requeues every in-flight entry older than
+// JobAckTimeout back onto the jobs list. Caller holds the leader
+// lock.
+func (r *Reaper) requeueStuck(ctx context.Context) error {
 	cutoff := time.Now().Add(-r.opts.JobAckTimeout).UnixNano()
 
 	stuck, err := r.queue.client.ZRangeByScore(ctx, r.queue.opts.InFlightKey, &redis.ZRangeBy{
@@ -144,6 +172,7 @@ func (r *Reaper) reapOnce(ctx context.Context) error {
 			r.queue.client,
 			[]string{r.queue.opts.InFlightKey, r.queue.opts.JobsKey},
 			payload,
+			requeuePayload(payload),
 		).Result(); err != nil {
 			r.logger.WarnContext(ctx, "reaper requeue failed", "error", err)
 
@@ -151,6 +180,49 @@ func (r *Reaper) reapOnce(ctx context.Context) error {
 		}
 
 		metrics.QueueReapedTotal.Inc()
+	}
+
+	return nil
+}
+
+// requeuePayload returns the payload to push back onto the jobs list
+// for a stuck in-flight entry, with Attempts incremented (IMPL-0022
+// task 4.3, requeue half). An undecodable payload is returned
+// verbatim — the claim path already drops garbage at decode time, so
+// the reaper doesn't need to.
+func requeuePayload(payload string) string {
+	var j queue.Job
+	if err := json.Unmarshal([]byte(payload), &j); err != nil {
+		return payload
+	}
+
+	j.Attempts++
+
+	out, err := json.Marshal(j)
+	if err != nil {
+		return payload
+	}
+
+	return string(out)
+}
+
+// promoteDue moves every delayed-set entry at or past its due time
+// back onto the jobs list. Caller holds the leader lock, so at most
+// one replica promotes per interval; the Lua script keeps the move
+// atomic regardless (IMPL-0022 Phase 2).
+func (r *Reaper) promoteDue(ctx context.Context) error {
+	promoted, err := promoteScript.Run(
+		ctx,
+		r.queue.client,
+		[]string{r.queue.opts.DelayedKey, r.queue.opts.JobsKey},
+		time.Now().UnixNano(),
+	).Int64()
+	if err != nil {
+		return fmt.Errorf("reaper promote: %w", err)
+	}
+
+	if promoted > 0 {
+		r.logger.InfoContext(ctx, "reaper promoted delayed jobs", "count", promoted)
 	}
 
 	return nil

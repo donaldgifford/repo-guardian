@@ -93,6 +93,12 @@ config:
   workerCount: 5
   # -- Queue size for check queue
   queueSize: 100
+  # -- Deliveries a single job may accumulate (rate-limit deferrals
+  # plus reaper requeues) before it is dropped with a terminal error
+  # written to repo_state. The next stale sweep re-enqueues the repo,
+  # so this bounds retry cost without permanently abandoning work.
+  # Must be >= 1.
+  maxJobAttempts: 10
   # -- Reconciliation schedule interval (Go duration)
   scheduleInterval: "168h"
   # -- Skip forked repositories
@@ -385,9 +391,6 @@ staleSweep:
   freshness: "24h"
   # -- Cap on rows returned per StaleRepos query.
   batchSize: 200
-  # -- Fraction of an installation's GitHub rate-limit budget
-  # reserved against the stale-sweep enqueue path.
-  rateLimitReserve: 0.1
 
 # -- Repository discovery (IMPL-0015 Phase 1). The Discoverer runs on
 # the leader pod, enumerates installations + repos via the GitHub
@@ -406,13 +409,6 @@ discovery:
   # list_installation_repos; higher values delay discovery of repos
   # the webhook path missed.
   interval: "1h"
-  # -- Fraction of the rate-limit budget the BudgetTracker holds in
-  # reserve when gating discovery enqueues. Must be in [0, 1].
-  reserveFraction: 0.20
-  # -- Operator estimate of the rate-limit cost of a single
-  # reconcile. Drives the BudgetTracker's spendable-enqueue
-  # accounting. Must be > 0.
-  estimatedCostPerRepo: 10
 
 # -- HCL policy configuration
 policy:

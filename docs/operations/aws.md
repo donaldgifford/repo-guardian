@@ -371,7 +371,7 @@ The mitigations referenced above:
 
 | Lever | Where | Effect |
 |---|---|---|
-| `staleSweep.rateLimitReserve` | values.yaml | The reserve gate skips repos when an installation drops below the reserve threshold. Already throttles the noisy org's sweep enqueues against the SAME installation's webhook-triggered work. |
+| `config.maxJobAttempts` | values.yaml | Caps how many times a job may be redelivered (deferred or reaper-requeued) before it is dropped with a terminal `repo_state` error. Rate-limited work from a noisy org defers itself instead of starving the queue — see docs/operations/scaling.md §Delayed requeue. |
 | `staleSweep.batchSize` smaller | values.yaml | Spreads the noisy org's enqueues across more sweep ticks instead of dumping 500 jobs in one tick. The queue depth stays lower; smaller orgs aren't buried. |
 | `config.workerCount` higher | values.yaml | Drains bursts faster. 30 workers × 3 replicas = 90 concurrent processors. Even a 500-job burst clears in <30 sec at 3 sec/repo. |
 | Vertical-scale Valkey | ElastiCache instance class | A larger single shard sustains more ops/sec. Almost certainly not the bottleneck, but cheap to bump if it is. |
@@ -394,7 +394,6 @@ config:
 staleSweep:
   freshness: "24h"
   batchSize: 500
-  rateLimitReserve: 0.15
 
 store:
   backend: postgres

@@ -193,3 +193,67 @@ non-durable by design — restarting a memory-backed binary already
 discarded the state. Moving to Postgres means future restarts
 *preserve* state; there's nothing to migrate forward, just a
 fresh database to populate via normal reconcile activity.
+
+## Removing the rate-limit reserve knobs (IMPL-0022)
+
+The chart version shipping IMPL-0022 removes three published values.
+**A values file that still sets any of them fails at render time** —
+JSON Schema alone would have accepted the unknown keys and silently
+ignored them, so the chart carries an explicit
+`repo-guardian.validateRemovedValues` guard that names the removal and
+points here. Delete the values:
+
+| Removed value | Removed env var | What replaces it |
+|---|---|---|
+| `staleSweep.rateLimitReserve` | `RATE_LIMIT_RESERVE` | Nothing to set. Rate-limited work now defers itself with a due-time instead of being skipped at enqueue. |
+| `discovery.reserveFraction` | `DISCOVERY_RESERVE_FRACTION` | Nothing to set. The BudgetTracker it configured is gone. |
+| `discovery.estimatedCostPerRepo` | `DISCOVERY_ESTIMATED_COST_PER_REPO` | Nothing to set. Same. |
+
+**There is no replacement knob, and that is the point.** The two gates
+these values configured were two of three overlapping throttling
+layers; IMPL-0022 collapses them into one delayed-requeue mechanism
+that measures actual pressure rather than projecting it from operator
+estimates. The BudgetTracker in particular never gated anything in
+production — nothing outside tests populated its cache, so every
+lookup fell open (INV-0012 finding A).
+
+### What to check after upgrading
+
+1. **Dashboards and alerts referencing the removed metrics.** These
+   series stop being produced: `repo_guardian_api_budget_*` (five),
+   `repo_guardian_enqueue_gated_by_budget_total`,
+   `repo_guardian_rate_limit_reserve_blocked_total`,
+   `repo_guardian_github_rate_limit_waits_total`,
+   `repo_guardian_github_rate_limit_wait_seconds`. A panel or alert
+   built on them will go silent, not error. The `contrib/` dashboard
+   and alert pack are already updated; if you forked them, re-point at
+   `queue_delayed_total` / `queue_delay_seconds` / `queue_delayed_depth`.
+2. **The `RepoGuardianBudgetGated` alert is gone.** It could never fire
+   anyway. Its replacements are `RepoGuardianQueueBackpressure` and
+   the re-pointed `RepoGuardianRateLimitThrottling`.
+3. **`repo_guardian_rate_limit_remaining` still works.** The sweep
+   keeps sampling it once per installation per sweep; only the gating
+   decision was removed. `RepoGuardianRateLimitNearExhaustion` keeps
+   its feed.
+4. **Set `config.maxJobAttempts` if the default of 10 does not suit
+   you.** This is the one new knob — see the runbook below.
+
+### New: `MAX_JOB_ATTEMPTS` and `REAPER_INTERVAL`'s second job
+
+`config.maxJobAttempts` (default 10, env `MAX_JOB_ATTEMPTS`, schema
+minimum 1) caps how many deliveries a job may accumulate — deferrals
+and reaper requeues both count — before it is dropped with a terminal
+error in `repo_state`. The next stale sweep re-enqueues the repo, so a
+drop is a bounded retry, not an abandonment.
+
+`REAPER_INTERVAL` (default 60s) now does double duty: it is both the
+stuck-job reaping cadence *and* the delayed-job promotion cadence.
+Delayed jobs are therefore delivered up to one interval after their
+due-time. This is deliberate (DESIGN-0021 OQ3): one leader election and
+one timer serve both jobs. If you tightened `REAPER_INTERVAL` for fast
+worker-crash recovery you now also get tighter promotion latency; if
+you stretched it to reduce Valkey load, deferred work waits longer.
+
+Full operational detail — reading the new metrics, responding to the
+two new alerts, forcing a deferral to verify the path — is in
+[Delayed requeue — operator runbook](delayed-requeue-runbook.md).

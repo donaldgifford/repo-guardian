@@ -90,19 +90,6 @@ var (
 		Help: "GitHub API rate limit remaining.",
 	})
 
-	// GitHubRateLimitWaitsTotal counts rate limit waits by reason.
-	GitHubRateLimitWaitsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "repo_guardian_github_rate_limit_waits_total",
-		Help: "Total rate limit waits by reason.",
-	}, []string{labelReason})
-
-	// GitHubRateLimitWaitSeconds records the duration of rate limit waits.
-	GitHubRateLimitWaitSeconds = promauto.NewHistogram(prometheus.HistogramOpts{
-		Name:    "repo_guardian_github_rate_limit_wait_seconds",
-		Help:    "Duration of rate limit waits in seconds.",
-		Buckets: []float64{0.1, 0.5, 1, 5, 10, 30, 60, 120, 300},
-	})
-
 	// PropertiesCheckedTotal counts repos where custom properties were evaluated.
 	PropertiesCheckedTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "repo_guardian_properties_checked_total",
@@ -228,6 +215,16 @@ var (
 		Help: "Pending jobs in the work queue.",
 	}, []string{"queue"})
 
+	// QueueDelayedDepth tracks jobs parked in the delayed set awaiting
+	// promotion (IMPL-0022). Published by EVERY pod's reaper tick via
+	// ZCARD, before the leader lock — a leader-only gauge would go
+	// stale on non-leader replicas and pin depth-based alerts firing
+	// across a leadership flap.
+	QueueDelayedDepth = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "repo_guardian_queue_delayed_depth",
+		Help: "Jobs parked in the delayed set awaiting promotion.",
+	})
+
 	// QueueEnqueuedTotal counts jobs enqueued by trigger
 	// (webhook, sweep, push).
 	QueueEnqueuedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -241,10 +238,12 @@ var (
 		Help: "Total jobs claimed by a worker.",
 	})
 
-	// QueueAckedTotal counts handler returns by outcome (success or
-	// error). A `success` ack means ZREM in-flight succeeded; an
-	// `error` ack means the handler returned an error and the entry
-	// was left in-flight for the reaper.
+	// QueueAckedTotal counts handler returns by outcome (success,
+	// error, or deferred). A `success` ack means ZREM in-flight
+	// succeeded; an `error` ack means the handler returned an error
+	// and the entry was left in-flight for the reaper; a `deferred`
+	// ack means the handler returned RetryAfterError and the job
+	// moved to the delayed set (IMPL-0022).
 	QueueAckedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_queue_acked_total",
 		Help: "Total jobs acknowledged by a worker, by outcome.",
@@ -256,6 +255,51 @@ var (
 		Help: "Total in-flight jobs requeued by the reaper.",
 	})
 
+	// QueueAttemptsExhaustedTotal counts jobs dropped at the
+	// MAX_JOB_ATTEMPTS cap with a terminal StatusError written to
+	// repo_state (IMPL-0022). The next stale sweep re-enqueues the
+	// repo naturally if it is still due, so a sustained rate here
+	// means a persistently failing installation or repo.
+	QueueAttemptsExhaustedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_queue_attempts_exhausted_total",
+		Help: "Total jobs dropped after exceeding the attempt cap.",
+	}, []string{labelInstallationID})
+
+	// queueRetrySecondsBuckets is the shared layout for the deferral
+	// and wait histograms (IMPL-0022 OQ4): 1s → 4h, matched to
+	// rate-limit reset windows (≤1h) and the 30m backoff cap. Expect
+	// top-bucket skew in queue_wait_seconds during fleet onboarding
+	// or a policy-version bump — see docs/operations/scaling.md.
+	queueRetrySecondsBuckets = []float64{1, 5, 15, 60, 300, 900, 3600, 14400}
+
+	// QueueDelayedTotal counts deferrals into the delayed set by
+	// reason and installation (IMPL-0022) — "how often is work
+	// deferred, and why". The single source for deferral counting;
+	// it replaced the github_rate_limit_waits pair (INV-0013 G).
+	QueueDelayedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_queue_delayed_total",
+		Help: "Total jobs deferred into the delayed set, by reason.",
+	}, []string{labelReason, labelInstallationID})
+
+	// QueueDelaySeconds records how far in the future deferred jobs
+	// are parked, by reason — "how long are the deferrals".
+	QueueDelaySeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "repo_guardian_queue_delay_seconds",
+		Help:    "Deferral horizon in seconds (due time minus now) at defer time.",
+		Buckets: queueRetrySecondsBuckets,
+	}, []string{labelReason})
+
+	// QueueWaitSeconds records enqueue→claim latency per installation
+	// — the DESIGN-0015 go/no-go datum for per-installation queue
+	// partitioning. Observed at claim time as now − EnqueuedAt; a
+	// deferred job's parked time counts, deliberately, because the
+	// tenant experienced it as queue wait.
+	QueueWaitSeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "repo_guardian_queue_wait_seconds",
+		Help:    "Enqueue-to-claim latency in seconds, per installation.",
+		Buckets: queueRetrySecondsBuckets,
+	}, []string{labelInstallationID})
+
 	// SchedulerSweepBatchSize records the count of repos enqueued per
 	// sweep handler invocation. Useful for spotting partial-enumeration
 	// bugs (consistently 0 batches → upstream API error or
@@ -265,14 +309,6 @@ var (
 		Help:    "Repos enqueued per sweep invocation.",
 		Buckets: []float64{0, 1, 5, 10, 25, 50, 100, 250, 500, 1000},
 	})
-
-	// RateLimitReserveBlockedTotal counts repos skipped during sweep
-	// because the GitHub API rate-limit reserve gate triggered for
-	// the installation.
-	RateLimitReserveBlockedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "repo_guardian_rate_limit_reserve_blocked_total",
-		Help: "Repos skipped by the sweep rate-limit reserve gate, by installation.",
-	}, []string{labelInstallationID})
 
 	// RateLimitRemaining tracks the GitHub API rate-limit remaining
 	// budget per installation, scraped from X-RateLimit-Remaining on
@@ -322,60 +358,6 @@ var (
 		Name: "repo_guardian_prs_closed_total",
 		Help: "Pull requests closed by repo-guardian, by reason.",
 	}, []string{labelOrg, labelReason})
-
-	// APIBudgetRemaining is the per-installation rate-limit budget
-	// remaining, as cached by the BudgetTracker (IMPL-0015 Phase 1).
-	// Differs from `rate_limit_remaining` only in source: this gauge
-	// is the in-process tracker state including local Decrements; the
-	// other reflects the most recent GitHub-reported value. Operators
-	// watching for budget exhaustion want this one.
-	APIBudgetRemaining = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "repo_guardian_api_budget_remaining",
-		Help: "Cached rate-limit budget remaining per installation, after local Decrement accounting.",
-	}, []string{labelInstallationID})
-
-	// APIBudgetSpendable is the number of additional enqueues the
-	// tracker will allow before breaching the reserve fraction. The
-	// StaleSweeper / Discoverer consults this before each Enqueue.
-	APIBudgetSpendable = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "repo_guardian_api_budget_spendable",
-		Help: "Enqueues the tracker will allow before breaching the reserve fraction.",
-	}, []string{labelInstallationID})
-
-	// APIBudgetReserveFraction is the operator-configured floor that
-	// the tracker holds back from enqueue. Constant per
-	// installation; exposed as a gauge so operators can confirm the
-	// chart values landed without grepping logs.
-	APIBudgetReserveFraction = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "repo_guardian_api_budget_reserve_fraction",
-		Help: "Operator-configured reserve fraction (chart value discovery.reserveFraction).",
-	}, []string{labelInstallationID})
-
-	// APIBudgetUtilisation is `1 - (remaining / limit)`. A rising
-	// value approaching reserve_fraction signals the deployment is
-	// becoming rate-limit-bound.
-	APIBudgetUtilisation = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "repo_guardian_api_budget_utilisation",
-		Help: "Fraction of the rate-limit window used (1 - remaining/limit).",
-	}, []string{labelInstallationID})
-
-	// APIBudgetRefreshTotal counts BudgetTracker refresh attempts by
-	// outcome. Non-zero `outcome="error"` rate indicates the
-	// tracker cannot read the rate-limit window — gate is falling
-	// open and the deployment may exceed the budget.
-	APIBudgetRefreshTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "repo_guardian_api_budget_refresh_total",
-		Help: "BudgetTracker rate-limit refresh attempts, by installation and outcome.",
-	}, []string{labelInstallationID, labelOutcome})
-
-	// EnqueueGatedByBudgetTotal counts enqueue attempts blocked by
-	// the BudgetTracker reserve gate. A non-zero rate means the
-	// deployment is rate-limit-bound; the only fixes are
-	// freshness↑, rules↓, or per-org App credentials (INV-0006).
-	EnqueueGatedByBudgetTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "repo_guardian_enqueue_gated_by_budget_total",
-		Help: "Enqueue attempts blocked by the BudgetTracker reserve gate, by installation.",
-	}, []string{labelInstallationID})
 
 	// RepoDiscoveredTotal counts new rows inserted by the Discoverer
 	// via Store.UpsertIfMissing. Per-installation. Increments on

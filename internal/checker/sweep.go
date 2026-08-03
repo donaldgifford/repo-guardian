@@ -9,9 +9,11 @@
 //
 // StaleSweeper replaces that path. It queries
 // `Store.StaleRepos(freshness, currentPolicyVersion, batchSize)` and
-// enqueues only the repos whose stored state is overdue. The
-// rate-limit reserve gate further skips repos whose installation has
-// burned through its hourly budget.
+// enqueues only the repos whose stored state is overdue. Rate-limit
+// pressure is handled downstream by the IMPL-0022 delayed-requeue
+// path (throttled jobs defer with a due-time instead of being
+// skipped at enqueue); the sweep only samples each installation's
+// remaining budget for observability.
 //
 // Bootstrap (populating the store with rows for newly-installed
 // repos) is the legacy Sweeper's job. The two coexist during the
@@ -21,41 +23,33 @@ package checker
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"time"
 
-	"github.com/donaldgifford/repo-guardian/internal/budget"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/queue"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 )
 
 // RateLimitProvider returns the current rate-limit budget for an
-// installation. The github.Client implements this; tests provide an
-// in-memory stub. Returning a negative remaining means "unknown" —
-// the gate falls open.
+// installation. The github.Client implements this (setting the
+// rate_limit_remaining{installation_id} gauge as a side effect);
+// tests provide an in-memory stub.
 type RateLimitProvider interface {
 	RateLimitRemaining(ctx context.Context, installationID int64) (remaining, limit int, resetAt time.Time, err error)
 }
 
 // StaleSweeper reads the stale-repo list from a Store and enqueues
-// the survivors of the per-installation rate-limit reserve gate. An
-// optional *budget.Tracker provides per-enqueue gating from a cached
-// rate-limit snapshot (IMPL-0015 Phase 1.2); when nil the sweeper
-// falls back to the simpler reserve gate via RateLimitProvider.
+// each due repo.
 type StaleSweeper struct {
 	store         store.Store
 	queue         queue.Queue
 	rateLimit     RateLimitProvider
-	budget        *budget.Tracker
 	logger        *slog.Logger
 	freshness     time.Duration
 	policyVersion string
 	batchSize     int
-	reserve       float64
 }
 
 // StaleSweeperOptions bundles the StaleSweeper constructor inputs.
@@ -63,12 +57,10 @@ type StaleSweeperOptions struct {
 	Store         store.Store
 	Queue         queue.Queue
 	RateLimit     RateLimitProvider
-	Budget        *budget.Tracker
 	Logger        *slog.Logger
 	Freshness     time.Duration
 	PolicyVersion string
 	BatchSize     int
-	Reserve       float64
 }
 
 // NewStaleSweeper constructs a StaleSweeper. Defaults are applied to
@@ -90,20 +82,14 @@ func NewStaleSweeper(opts StaleSweeperOptions) *StaleSweeper {
 		opts.BatchSize = 200
 	}
 
-	if opts.Reserve <= 0 {
-		opts.Reserve = 0.1
-	}
-
 	return &StaleSweeper{
 		store:         opts.Store,
 		queue:         opts.Queue,
 		rateLimit:     opts.RateLimit,
-		budget:        opts.Budget,
 		logger:        opts.Logger,
 		freshness:     opts.Freshness,
 		policyVersion: opts.PolicyVersion,
 		batchSize:     opts.BatchSize,
-		reserve:       opts.Reserve,
 	}
 }
 
@@ -131,23 +117,12 @@ func (s *StaleSweeper) SweepStale(ctx context.Context) error {
 	}
 
 	enqueued := 0
-	gated := 0
-	budgetGated := 0
+	sampled := make(map[int64]bool)
 
 	for i := range stale {
 		repo := stale[i]
 
-		if !s.allowedByRateLimit(ctx, repo.InstallationID) {
-			gated++
-
-			continue
-		}
-
-		if !s.allowedByBudget(ctx, repo.InstallationID) {
-			budgetGated++
-
-			continue
-		}
+		s.sampleRateLimit(ctx, repo.InstallationID, sampled)
 
 		job := queue.Job{
 			ID: fmt.Sprintf(
@@ -172,10 +147,6 @@ func (s *StaleSweeper) SweepStale(ctx context.Context) error {
 			continue
 		}
 
-		if s.budget != nil {
-			s.budget.Decrement(repo.InstallationID)
-		}
-
 		metrics.QueueEnqueuedTotal.WithLabelValues(queue.TriggerScheduler).Inc()
 		enqueued++
 	}
@@ -185,8 +156,6 @@ func (s *StaleSweeper) SweepStale(ctx context.Context) error {
 	s.logger.InfoContext(ctx, "stale-sweep complete",
 		"stale", len(stale),
 		"enqueued", enqueued,
-		"gated_rate_limit", gated,
-		"gated_budget", budgetGated,
 		"freshness", s.freshness,
 		"policy_version", s.policyVersion,
 		"duration", time.Since(start),
@@ -195,78 +164,25 @@ func (s *StaleSweeper) SweepStale(ctx context.Context) error {
 	return nil
 }
 
-// allowedByBudget consults the optional BudgetTracker. Returns true
-// (allow) when no tracker is wired, the snapshot is missing/stale
-// (ErrNoSnapshot — fall open), or the tracker has at least one
-// spendable enqueue. Returns false (gate closed) and increments
-// enqueue_gated_by_budget_total when the tracker reports zero
-// spendable slots.
-//
-// Note: this gate is in ADDITION to allowedByRateLimit. The rate-
-// limit reserve catches "the actual API budget is below floor"
-// via the live RateLimitProvider call; the budget tracker catches
-// "the projected budget after expected per-repo cost is below
-// floor" via the cached snapshot + local Decrement accounting.
-func (s *StaleSweeper) allowedByBudget(ctx context.Context, installationID int64) bool {
-	if s.budget == nil {
-		return true
+// sampleRateLimit refreshes the rate_limit_remaining
+// {installation_id} gauge once per installation per sweep — the
+// gauge is set inside Client.RateLimitRemaining as a side effect.
+// Observability only, never a gating decision: the IMPL-0022
+// delayed-requeue path replaced the reserve gate, but this call is
+// the gauge's only producer, and removing it would leave
+// RepoGuardianRateLimitNearExhaustion consuming an unfed gauge
+// (DESIGN-0021 OQ4 rider).
+func (s *StaleSweeper) sampleRateLimit(ctx context.Context, installationID int64, sampled map[int64]bool) {
+	if s.rateLimit == nil || sampled[installationID] {
+		return
 	}
 
-	spendable, err := s.budget.SpendableForEnqueue(installationID)
-	if err != nil {
-		if errors.Is(err, budget.ErrNoSnapshot) {
-			return true // fall open — caller drives refresh elsewhere
-		}
+	sampled[installationID] = true
 
-		s.logger.WarnContext(ctx, "budget gate lookup failed; falling open",
+	if _, _, _, err := s.rateLimit.RateLimitRemaining(ctx, installationID); err != nil {
+		s.logger.WarnContext(ctx, "rate-limit sample failed",
 			"installation_id", installationID,
 			"error", err,
 		)
-
-		return true
 	}
-
-	if spendable > 0 {
-		return true
-	}
-
-	metrics.EnqueueGatedByBudgetTotal.
-		WithLabelValues(strconv.FormatInt(installationID, 10)).
-		Inc()
-
-	return false
-}
-
-// allowedByRateLimit returns true if the installation has at least
-// `reserve × limit` of budget left. Errors fall open (true) so a
-// transient rate-limit lookup glitch doesn't halt the sweep.
-func (s *StaleSweeper) allowedByRateLimit(ctx context.Context, installationID int64) bool {
-	if s.rateLimit == nil {
-		return true
-	}
-
-	remaining, limit, _, err := s.rateLimit.RateLimitRemaining(ctx, installationID)
-	if err != nil {
-		s.logger.WarnContext(ctx, "rate-limit lookup failed; falling open",
-			"installation_id", installationID,
-			"error", err,
-		)
-
-		return true
-	}
-
-	if limit <= 0 {
-		return true
-	}
-
-	threshold := int(float64(limit) * s.reserve)
-	if remaining > threshold {
-		return true
-	}
-
-	metrics.RateLimitReserveBlockedTotal.
-		WithLabelValues(strconv.FormatInt(installationID, 10)).
-		Inc()
-
-	return false
 }

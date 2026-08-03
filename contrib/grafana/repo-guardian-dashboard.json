@@ -1342,7 +1342,7 @@
           "sort": "desc"
         }
       },
-      "title": "Rate Limit Waits by Reason",
+      "title": "Job Deferrals by Reason",
       "type": "timeseries",
       "targets": [
         {
@@ -1350,7 +1350,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "sum by (reason) (rate(repo_guardian_github_rate_limit_waits_total[5m]))",
+          "expr": "sum by (reason) (rate(repo_guardian_queue_delayed_total[15m]))",
           "legendFormat": "{{ reason }}",
           "refId": "A"
         }
@@ -1400,7 +1400,7 @@
           "sort": "desc"
         }
       },
-      "title": "Rate Limit Wait Duration (p50 / p95 / p99)",
+      "title": "Job Deferral Horizon (p50 / p95 / p99)",
       "type": "timeseries",
       "targets": [
         {
@@ -1408,7 +1408,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "histogram_quantile(0.50, sum(rate(repo_guardian_github_rate_limit_wait_seconds_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(repo_guardian_queue_delay_seconds_bucket[15m])) by (le))",
           "legendFormat": "p50",
           "refId": "A"
         },
@@ -1417,7 +1417,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "histogram_quantile(0.95, sum(rate(repo_guardian_github_rate_limit_wait_seconds_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(repo_guardian_queue_delay_seconds_bucket[15m])) by (le))",
           "legendFormat": "p95",
           "refId": "B"
         },
@@ -1426,7 +1426,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "histogram_quantile(0.99, sum(rate(repo_guardian_github_rate_limit_wait_seconds_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.99, sum(rate(repo_guardian_queue_delay_seconds_bucket[15m])) by (le))",
           "legendFormat": "p99",
           "refId": "C"
         }

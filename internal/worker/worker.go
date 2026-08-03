@@ -22,8 +22,10 @@ package worker
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"strconv"
 	"sync"
 	"time"
@@ -50,6 +52,7 @@ type Pool struct {
 	policyVersion string
 	logger        *slog.Logger
 	workers       int
+	maxAttempts   int
 
 	wg     sync.WaitGroup
 	cancel context.CancelFunc
@@ -60,7 +63,11 @@ type Pool struct {
 // New constructs a Pool wired to the given queue, engine, client,
 // state store, and policy version. The state store + policy version
 // drive the per-job write-back added in IMPL-0015 Phase 0; pass a nil
-// stateStore in tests that don't exercise that path.
+// stateStore in tests that don't exercise that path. maxJobAttempts
+// is the MAX_JOB_ATTEMPTS retry cap (IMPL-0022); a job delivered with
+// Attempts at or past it takes the terminal disposition instead of
+// being processed. Zero disables the cap — config validation rejects
+// that in production, so only tests run uncapped.
 //
 // Use Start to launch the workers; Stop to drain and shut down.
 func New(
@@ -69,6 +76,7 @@ func New(
 	ghClient ghclient.Client,
 	stateStore store.Store,
 	policyVersion string,
+	maxJobAttempts int,
 	workers int,
 	logger *slog.Logger,
 ) *Pool {
@@ -78,6 +86,7 @@ func New(
 		ghClient:      ghClient,
 		stateStore:    stateStore,
 		policyVersion: policyVersion,
+		maxAttempts:   maxJobAttempts,
 		workers:       workers,
 		logger:        logger,
 	}
@@ -156,6 +165,10 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 
 	jobLog.Info("processing job")
 
+	if p.maxAttempts > 0 && j.Attempts >= p.maxAttempts {
+		return p.dropExhausted(ctx, jobLog, j)
+	}
+
 	installClient, err := p.ghClient.CreateInstallationClient(ctx, j.InstallationID)
 	if err != nil {
 		jobLog.Error("failed to create installation client", "error", err)
@@ -166,6 +179,10 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 	}
 
 	if err := p.engine.CheckRepo(ctx, installClient, j.Owner, j.Repo); err != nil {
+		if retry := p.deferralFor(jobLog, &j, err); retry != nil {
+			return retry
+		}
+
 		jobLog.Error("job failed", "error", err, "duration", time.Since(start))
 		metrics.ErrorsTotal.WithLabelValues("check_repo", j.Owner).Inc()
 		p.writeBack(ctx, jobLog, j, err)
@@ -180,6 +197,110 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 	jobLog.Info("job completed", "duration", duration)
 
 	return nil
+}
+
+// dropExhausted takes the terminal disposition for a job delivered at
+// or past the MAX_JOB_ATTEMPTS cap: a descriptive StatusError row via
+// the best-effort writeBack, an exhausted-counter increment, and a
+// nil return so the queue acks and drops the job. The next stale
+// sweep re-enqueues the repo naturally if it is still due — this is
+// what makes a nack-looping job (e.g. a dead installation) self-heal
+// instead of retrying forever (INV-0012 finding K, DESIGN-0021 OQ2).
+//
+//nolint:gocritic // hugeParam: queue.Job-by-value matches Subscribe's contract
+func (p *Pool) dropExhausted(ctx context.Context, log *slog.Logger, j queue.Job) error {
+	log.Error("job exceeded attempt cap; dropping with terminal status",
+		"attempts", j.Attempts,
+		"max_attempts", p.maxAttempts,
+	)
+
+	p.writeBack(ctx, log, j, fmt.Errorf(
+		"job dropped after %d attempts (MAX_JOB_ATTEMPTS=%d); see worker logs for the underlying failures",
+		j.Attempts, p.maxAttempts))
+
+	metrics.QueueAttemptsExhaustedTotal.WithLabelValues(strconv.FormatInt(j.InstallationID, 10)).Inc()
+
+	return nil
+}
+
+// deferralFor translates a rate-limit throttle surfaced by CheckRepo
+// into the queue's deferral signal (DESIGN-0021 Phase 3→4 handoff,
+// via ghclient.AsThrottled so both throttle shapes are caught). The
+// due time is GitHub's own reset plus a uniform jitter of
+// [0, min(delay/4, 60s)) so a fleet throttled by the same reset
+// instant doesn't thundering-herd the first promotion tick after it.
+//
+// Returns nil when err carries no throttle signal — the caller nacks
+// as before. A deferral is not a failure: no error metrics and no
+// repo_state write-back, because the check never ran.
+func (*Pool) deferralFor(log *slog.Logger, j *queue.Job, err error) *queue.RetryAfterError {
+	thr, ok := ghclient.AsThrottled(err)
+	if !ok {
+		return nil
+	}
+
+	delay := time.Until(thr.ResetAt)
+	if delay <= 0 {
+		// Stale or absent reset — no server-supplied delay to
+		// honour; fall back to attempt-keyed exponential backoff
+		// (IMPL-0022 OQ3).
+		delay = backoffDelay(j.Attempts)
+	}
+
+	due := time.Now().Add(delay + retryJitter(delay))
+
+	log.Info("rate limit throttled; deferring job",
+		"reset_at", thr.ResetAt,
+		"due", due,
+		"attempts", j.Attempts,
+		"remaining", thr.Remaining,
+		"limit", thr.Limit,
+	)
+
+	return &queue.RetryAfterError{After: due, Reason: "rate_limit", Err: err}
+}
+
+// Backoff shape for deferrals with no usable server-supplied reset
+// (IMPL-0022 OQ3): base 30s doubling per burned attempt to a 30m cap.
+const (
+	backoffBase = 30 * time.Second
+	backoffCap  = 30 * time.Minute
+)
+
+// backoffDelay returns min(backoffBase × 2^attempts, backoffCap).
+// The doubling loop (rather than a shift) sidesteps overflow for
+// adversarial attempt counts; MAX_JOB_ATTEMPTS caps it long before
+// that matters in practice.
+func backoffDelay(attempts int) time.Duration {
+	d := backoffBase
+
+	for range attempts {
+		d *= 2
+		if d >= backoffCap {
+			return backoffCap
+		}
+	}
+
+	return d
+}
+
+// retryJitter returns a uniform draw from [0, min(delay/4, 60s)) —
+// the IMPL-0022 OQ3 jitter shape shared by the reset-anchored and
+// backoff deferral paths. Uses crypto/rand per the repo's jitter
+// convention (see webhook.randomJitter); the reader-failure path
+// collapses to no jitter, fail-safe for a load-spreading optimisation.
+func retryJitter(delay time.Duration) time.Duration {
+	span := min(delay/4, time.Minute)
+	if span <= 0 {
+		return 0
+	}
+
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(span)))
+	if err != nil {
+		return 0
+	}
+
+	return time.Duration(n.Int64())
 }
 
 // writeBack persists the per-job outcome to the Store. checkErr=nil

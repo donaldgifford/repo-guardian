@@ -5,11 +5,14 @@
 //
 // # Storage layout
 //
-// Three Valkey keys are owned by this package:
+// Four Valkey keys are owned by this package:
 //
 //   - repo-guardian:queue:jobs        LIST  — pending jobs (LPUSH/BRPOP)
 //   - repo-guardian:queue:in-flight   ZSET  — claimed jobs awaiting ack;
 //     score is the unix-nanos claim timestamp; member is the job JSON
+//   - repo-guardian:queue:delayed     ZSET  — jobs parked until a due
+//     time (IMPL-0022); score is the unix-nanos due timestamp; member
+//     is the job JSON
 //   - repo-guardian:lock:reaper       STRING — reaper leadership lock
 //     (SET NX EX), held by exactly one pod per reap interval
 //
@@ -34,10 +37,21 @@
 // One pod at a time runs the reaper, gated by the `lock:reaper` SETNX
 // key. Every REAPER_INTERVAL, the leader scans
 // `ZRANGEBYSCORE queue:in-flight 0 (now - JOB_ACK_TIMEOUT)`,
-// re-LPUSHes each entry to `queue:jobs`, then ZREMs from in-flight.
-// The Lua script `requeueScript` performs the re-LPUSH + ZREM
-// atomically so the requeue is visible to a consumer at exactly the
-// moment the in-flight entry disappears.
+// re-LPUSHes each entry to `queue:jobs` with Attempts incremented
+// (IMPL-0022 retry accounting), then ZREMs from in-flight. The Lua
+// script `requeueScript` performs the re-LPUSH + ZREM atomically so
+// the requeue is visible to a consumer at exactly the moment the
+// in-flight entry disappears.
+//
+// # Delayed jobs
+//
+// EnqueueAfter parks jobs in `queue:delayed`, a ZSET scored by due
+// unix-nanos (IMPL-0022). Every reap interval the leader promotes
+// due entries back onto `queue:jobs` via `promoteScript`
+// (ZRANGEBYSCORE + ZREM + LPUSH in one atomic script), so delivery
+// lags the due time by up to one REAPER_INTERVAL. The reap interval
+// deliberately does double duty — stuck-job reaping and delayed-job
+// promotion — per DESIGN-0021 OQ3: one leader election, one cadence.
 //
 // # Job-ID determinism
 //
@@ -55,6 +69,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"sync"
 	"time"
 
@@ -69,6 +84,7 @@ import (
 const (
 	DefaultJobsKey     = "repo-guardian:queue:jobs"
 	DefaultInFlightKey = "repo-guardian:queue:in-flight"
+	DefaultDelayedKey  = "repo-guardian:queue:delayed"
 	DefaultReaperLock  = "repo-guardian:lock:reaper"
 )
 
@@ -85,12 +101,47 @@ const brpopTimeout = 5 * time.Second
 const recoveryTimeout = 5 * time.Second
 
 // requeueScript atomically removes a member from the in-flight ZSET
-// and pushes it back onto the jobs list. KEYS[1]=in-flight,
-// KEYS[2]=jobs; ARGV[1]=member.
+// and pushes a member onto the jobs list. KEYS[1]=in-flight,
+// KEYS[2]=jobs; ARGV[1]=member to remove, ARGV[2]=member to push.
+// The two differ because the reaper re-serialises the job with
+// Attempts incremented (IMPL-0022 task 4.3); an undecodable payload
+// passes the same bytes for both.
 var requeueScript = redis.NewScript(`
 redis.call("ZREM", KEYS[1], ARGV[1])
-redis.call("LPUSH", KEYS[2], ARGV[1])
+redis.call("LPUSH", KEYS[2], ARGV[2])
 return 1
+`)
+
+// deferScript atomically moves a job payload from the in-flight ZSET
+// into the delayed ZSET, scored by its due time. KEYS[1]=in-flight,
+// KEYS[2]=delayed; ARGV[1]=member to remove from in-flight,
+// ARGV[2]=member to park, ARGV[3]=due unix-nanos score.
+//
+// Two member arguments because the worker defer path re-serialises
+// the job with updated retry accounting (IMPL-0022 Phase 4 increments
+// Attempts): the in-flight entry holds the original payload bytes
+// while the parked entry carries the updated ones. Callers with no
+// in-flight entry pass the same payload for both — the ZREM is then
+// a no-op.
+var deferScript = redis.NewScript(`
+redis.call("ZREM", KEYS[1], ARGV[1])
+redis.call("ZADD", KEYS[2], ARGV[3], ARGV[2])
+return 1
+`)
+
+// promoteScript atomically moves every delayed-set entry whose score
+// (due unix-nanos) is at or before now back onto the jobs list.
+// KEYS[1]=delayed, KEYS[2]=jobs; ARGV[1]=now unix-nanos. Returns the
+// promoted count. The whole batch moves in one script execution, so
+// a member can never be observed in both keys and two racing
+// promoters can never double-deliver.
+var promoteScript = redis.NewScript(`
+local due = redis.call("ZRANGEBYSCORE", KEYS[1], 0, ARGV[1])
+for i = 1, #due do
+  redis.call("ZREM", KEYS[1], due[i])
+  redis.call("LPUSH", KEYS[2], due[i])
+end
+return #due
 `)
 
 // ErrClosed is returned by Enqueue and Subscribe after Close.
@@ -104,6 +155,10 @@ type Options struct {
 	// InFlightKey is the Valkey ZSET tracking claimed jobs. Empty →
 	// DefaultInFlightKey.
 	InFlightKey string
+
+	// DelayedKey is the Valkey ZSET parking jobs until a due time.
+	// Empty → DefaultDelayedKey.
+	DelayedKey string
 
 	// ReaperLockKey is the Valkey STRING holding the reaper SETNX lock.
 	// Empty → DefaultReaperLock.
@@ -123,21 +178,36 @@ type Queue struct {
 	closed    chan struct{}
 }
 
+// applyKeyDefaults returns o with any unset Valkey key name filled
+// from the package defaults. All four keys (jobs, in-flight, delayed,
+// reaper lock) are constructed here and nowhere else — the DESIGN-0015
+// partition hook: a partitioned deployment derives its per-partition
+// key names by overriding this one spot.
+func (o Options) applyKeyDefaults() Options {
+	if o.JobsKey == "" {
+		o.JobsKey = DefaultJobsKey
+	}
+
+	if o.InFlightKey == "" {
+		o.InFlightKey = DefaultInFlightKey
+	}
+
+	if o.DelayedKey == "" {
+		o.DelayedKey = DefaultDelayedKey
+	}
+
+	if o.ReaperLockKey == "" {
+		o.ReaperLockKey = DefaultReaperLock
+	}
+
+	return o
+}
+
 // New constructs a Queue against the given client. The client is
 // owned by the caller for testability — Close on the queue does NOT
 // close the client.
 func New(client redis.UniversalClient, opts Options) *Queue {
-	if opts.JobsKey == "" {
-		opts.JobsKey = DefaultJobsKey
-	}
-
-	if opts.InFlightKey == "" {
-		opts.InFlightKey = DefaultInFlightKey
-	}
-
-	if opts.ReaperLockKey == "" {
-		opts.ReaperLockKey = DefaultReaperLock
-	}
+	opts = opts.applyKeyDefaults()
 
 	logger := opts.Logger
 	if logger == nil {
@@ -180,6 +250,71 @@ func (q *Queue) Enqueue(ctx context.Context, j queue.Job) error { //nolint:gocri
 
 	if err := q.client.LPush(ctx, q.opts.JobsKey, payload).Err(); err != nil {
 		return fmt.Errorf("valkey.Enqueue: LPUSH: %w", err)
+	}
+
+	return nil
+}
+
+// EnqueueAfter parks j in the delayed ZSET to become runnable no
+// earlier than at. A past-or-now at falls through to Enqueue per the
+// interface contract. Promotion back onto the jobs list happens on
+// the reaper leader's tick, so delivery lags at by up to one
+// REAPER_INTERVAL — the contract only promises "not before at".
+//
+// Parking is atomic with removal of any byte-identical in-flight
+// payload (deferScript) so a deferred job is never in two keys at
+// once. Re-parking a byte-identical payload updates its due time
+// (ZADD member semantics) — but note two EnqueueAfter calls for the
+// same triple normally produce distinct members, because EnqueuedAt
+// is stamped per call; distinct members for the same Job ID coexist
+// and each promotes, which the at-least-once contract and the
+// engine's idempotent reconcile absorb.
+func (q *Queue) EnqueueAfter(ctx context.Context, j queue.Job, at time.Time) error { //nolint:gocritic // interface contract
+	if !at.After(time.Now()) {
+		return q.Enqueue(ctx, j)
+	}
+
+	select {
+	case <-q.closed:
+		return ErrClosed
+	default:
+	}
+
+	j.ID = JobID(j.InstallationID, j.Owner, j.Repo)
+
+	if j.EnqueuedAt.IsZero() {
+		j.EnqueuedAt = time.Now().UTC()
+	}
+
+	j.AvailableAt = at.UTC()
+
+	payload, err := json.Marshal(j)
+	if err != nil {
+		return fmt.Errorf("valkey.EnqueueAfter: marshal: %w", err)
+	}
+
+	if err := q.deferPayload(ctx, string(payload), string(payload), at); err != nil {
+		return fmt.Errorf("valkey.EnqueueAfter: %w", err)
+	}
+
+	return nil
+}
+
+// deferPayload runs deferScript: remove inFlightMember from the
+// in-flight ZSET and park parked in the delayed ZSET due at. The two
+// members differ when the caller re-serialised the job with updated
+// retry accounting (IMPL-0022 Phase 4); external producers pass the
+// same payload for both.
+func (q *Queue) deferPayload(ctx context.Context, inFlightMember, parked string, at time.Time) error {
+	if _, err := deferScript.Run(
+		ctx,
+		q.client,
+		[]string{q.opts.InFlightKey, q.opts.DelayedKey},
+		inFlightMember,
+		parked,
+		at.UnixNano(),
+	).Result(); err != nil {
+		return fmt.Errorf("defer script: %w", err)
 	}
 
 	return nil
@@ -238,6 +373,8 @@ func (q *Queue) brpopOnce(ctx context.Context) (string, error) {
 // processPayload claims, decodes, and dispatches a single job
 // payload. Decode failures are dropped (no point requeueing
 // undecodable garbage); handler failures leave the job in-flight.
+// Successfully decoded payloads carrying a non-zero EnqueuedAt also
+// observe enqueue-to-claim latency (QueueWaitSeconds).
 //
 // If ZADD to in-flight fails after BRPOP already removed the payload
 // from queue:jobs (e.g. because the caller's ctx was cancelled
@@ -266,7 +403,22 @@ func (q *Queue) processPayload(ctx context.Context, payload string, handler func
 		return
 	}
 
+	// Enqueue→claim latency, per tenant — the DESIGN-0015 go/no-go
+	// datum (IMPL-0022 task 5.2). A zero EnqueuedAt means an old
+	// payload shape; skip rather than observe an epoch-anchored delta.
+	if !j.EnqueuedAt.IsZero() {
+		metrics.QueueWaitSeconds.WithLabelValues(strconv.FormatInt(j.InstallationID, 10)).
+			Observe(time.Since(j.EnqueuedAt).Seconds())
+	}
+
 	if err := handler(ctx, j); err != nil {
+		var retry *queue.RetryAfterError
+		if errors.As(err, &retry) {
+			q.deferInFlight(ctx, payload, j, retry)
+
+			return
+		}
+
 		q.logger.WarnContext(ctx, "queue handler error; leaving in-flight for reaper",
 			"job_id", j.ID,
 			"owner", j.Owner,
@@ -288,6 +440,53 @@ func (q *Queue) processPayload(ctx context.Context, payload string, handler func
 	}
 
 	metrics.QueueAckedTotal.WithLabelValues("success").Inc()
+}
+
+// deferInFlight parks a claimed job in the delayed set per the
+// handler's RetryAfterError: Attempts is incremented (IMPL-0022 task
+// 4.3, defer half), AvailableAt is stamped, and the re-serialised
+// payload atomically replaces the original in-flight entry
+// (deferScript). On marshal or script failure the job is left
+// in-flight for the reaper — the deferral degrades to a nack rather
+// than risking job loss.
+//
+//nolint:gocritic // hugeParam: Job-by-value matches the claim path
+func (q *Queue) deferInFlight(ctx context.Context, inFlightMember string, j queue.Job, retry *queue.RetryAfterError) {
+	j.Attempts++
+	j.AvailableAt = retry.After.UTC()
+
+	parked, err := json.Marshal(j)
+	if err != nil {
+		q.logger.WarnContext(ctx, "defer marshal failed; leaving in-flight for reaper",
+			"job_id", j.ID,
+			"error", err,
+		)
+		metrics.QueueAckedTotal.WithLabelValues("error").Inc()
+
+		return
+	}
+
+	if err := q.deferPayload(ctx, inFlightMember, string(parked), retry.After); err != nil {
+		q.logger.WarnContext(ctx, "defer failed; leaving in-flight for reaper",
+			"job_id", j.ID,
+			"error", err,
+		)
+		metrics.QueueAckedTotal.WithLabelValues("error").Inc()
+
+		return
+	}
+
+	q.logger.InfoContext(ctx, "job deferred to delayed set",
+		"job_id", j.ID,
+		"owner", j.Owner,
+		"repo", j.Repo,
+		"due", retry.After,
+		"reason", retry.Reason,
+		"attempts", j.Attempts,
+	)
+	metrics.QueueAckedTotal.WithLabelValues("deferred").Inc()
+	metrics.QueueDelayedTotal.WithLabelValues(retry.Reason, strconv.FormatInt(j.InstallationID, 10)).Inc()
+	metrics.QueueDelaySeconds.WithLabelValues(retry.Reason).Observe(time.Until(retry.After).Seconds())
 }
 
 // recoverPayload re-LPUSHes a payload that was BRPOPed but failed to
@@ -349,6 +548,16 @@ func (q *Queue) InFlight(ctx context.Context) (int64, error) {
 	n, err := q.client.ZCard(ctx, q.opts.InFlightKey).Result()
 	if err != nil {
 		return 0, fmt.Errorf("valkey.InFlight: ZCARD: %w", err)
+	}
+
+	return n, nil
+}
+
+// Delayed returns the current parked-job count via ZCARD.
+func (q *Queue) Delayed(ctx context.Context) (int64, error) {
+	n, err := q.client.ZCard(ctx, q.opts.DelayedKey).Result()
+	if err != nil {
+		return 0, fmt.Errorf("valkey.Delayed: ZCARD: %w", err)
 	}
 
 	return n, nil

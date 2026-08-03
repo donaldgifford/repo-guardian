@@ -33,7 +33,7 @@ docz create design "Your Design Title"
 | ID | Title | Status | Date | Author | Link |
 |----|-------|--------|------|--------|------|
 | DESIGN-0001 | Custom Properties from Backstage | Approved | 2026-03-01 | Donald Gifford | [0001-custom-properties-from-backstage.md](0001-custom-properties-from-backstage.md) |
-| DESIGN-0002 | GitHub API Rate Limit Handling | Approved | 2026-03-01 | Donald Gifford | [0002-github-api-rate-limit-handling.md](0002-github-api-rate-limit-handling.md) |
+| DESIGN-0002 | GitHub API Rate Limit Handling | Implemented | 2026-03-01 | Donald Gifford | [0002-github-api-rate-limit-handling.md](0002-github-api-rate-limit-handling.md) |
 | DESIGN-0003 | Tailscale Integration Research | Draft | 2026-03-01 | Donald Gifford | [0003-tailscale-integration-research.md](0003-tailscale-integration-research.md) |
 | DESIGN-0004 | GitHub Webhook IP Allowlist Middleware | Implemented | 2026-03-14 | Donald Gifford | [0004-github-webhook-ip-allowlist-middleware.md](0004-github-webhook-ip-allowlist-middleware.md) |
 | DESIGN-0005 | Helm Chart for repo-guardian | Implemented | 2026-03-14 | Donald Gifford | [0005-helm-chart-for-repo-guardian.md](0005-helm-chart-for-repo-guardian.md) |
@@ -52,6 +52,6 @@ docz create design "Your Design Title"
 | DESIGN-0018 | Deprecate memory backend | Approved | 2026-06-22 | Donald Gifford | [0018-deprecate-memory-backend.md](0018-deprecate-memory-backend.md) |
 | DESIGN-0019 | Configurable annotation-sourced custom properties | Implemented | 2026-07-19 | Donald Gifford | [0019-configurable-annotation-sourced-custom-properties.md](0019-configurable-annotation-sourced-custom-properties.md) |
 | DESIGN-0020 | Absent check mode and conditional file rules | Implemented | 2026-07-23 | Donald Gifford | [0020-absent-check-mode-and-conditional-file-rules.md](0020-absent-check-mode-and-conditional-file-rules.md) |
-| DESIGN-0021 | Delayed-requeue job contract and rate-limit consolidation | Draft | 2026-07-26 | Donald Gifford | [0021-delayed-requeue-job-contract-and-rate-limit-consolidation.md](0021-delayed-requeue-job-contract-and-rate-limit-consolidation.md) |
+| DESIGN-0021 | Delayed-requeue job contract and rate-limit consolidation | Implemented | 2026-07-26 | Donald Gifford | [0021-delayed-requeue-job-contract-and-rate-limit-consolidation.md](0021-delayed-requeue-job-contract-and-rate-limit-consolidation.md) |
 | DESIGN-0022 | Compliance posture state, dashboard suite, and OTEL-first observability | Draft | 2026-08-02 | Donald Gifford | [0022-compliance-posture-state-dashboard-suite-and-otel-first.md](0022-compliance-posture-state-dashboard-suite-and-otel-first.md) |
 <!-- END DOCZ AUTO-GENERATED -->

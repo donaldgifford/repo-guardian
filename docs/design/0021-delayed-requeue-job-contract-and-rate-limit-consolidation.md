@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0021
 title: "Delayed-requeue job contract and rate-limit consolidation"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-07-26
 ---
@@ -9,7 +9,7 @@ created: 2026-07-26
 
 # DESIGN 0021: Delayed-requeue job contract and rate-limit consolidation
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-07-26
 
@@ -240,6 +240,20 @@ invariant with an end-to-end test instead of an audit. A test that drives
 a real throttle through the real path fails if any link breaks, whichever
 link it is; an audit only proves the state of the code on the day it ran.
 
+**Amendment (2026-08-02, discovered by the task 3.4 chain test):** the
+audit above missed a fourth signal path. go-github maintains its own
+client-side rate cache and its `checkRateLimitBeforeDo` short-circuits
+*above* our transport whenever a prior response showed `remaining=0` —
+returning `*gh.RateLimitError` without the request ever reaching
+`RoundTrip` (the bypass context key is unexported in v68, so this is
+unavoidable). The deferral signal therefore has two real shapes:
+`*ThrottledError` for the reserve-threshold case (0 < remaining ≤
+threshold, where go-github still sends) and `*gh.RateLimitError` for
+the exhausted case. `internal/github.AsThrottled(err)` normalises
+both into `*ThrottledError` so go-github stays encapsulated in the
+client package; the worker translation below uses it instead of a raw
+`errors.As`, and the chain test pins both timelines.
+
 One adjacency to keep straight:
 [DESIGN-0022](0022-compliance-posture-state-dashboard-suite-and-otel-first.md)
 Phase 3 wraps this same installation transport with `otelhttp` client
@@ -254,8 +268,7 @@ lower layer. The worker performs the translation:
 
 ```go
 // internal/worker — processJob
-var thr *ghclient.ThrottledError
-if errors.As(err, &thr) {
+if thr, ok := ghclient.AsThrottled(err); ok {
     return &queue.RetryAfterError{After: thr.ResetAt, Reason: "rate_limit", Err: err}
 }
 ```

@@ -92,41 +92,31 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.DiscoveryInterval != time.Hour {
 		t.Errorf("DiscoveryInterval = %v, want 1h", cfg.DiscoveryInterval)
 	}
-
-	if cfg.DiscoveryReserveFraction != 0.20 {
-		t.Errorf("DiscoveryReserveFraction = %v, want 0.20", cfg.DiscoveryReserveFraction)
-	}
-
-	if cfg.DiscoveryEstimatedCostPerRepo != 10 {
-		t.Errorf("DiscoveryEstimatedCostPerRepo = %d, want 10", cfg.DiscoveryEstimatedCostPerRepo)
-	}
 }
 
-func TestLoadDiscovery_InvalidReserveFraction(t *testing.T) {
+// TestLoadMaxJobAttempts covers the IMPL-0022 retry cap: default 10,
+// and < 1 rejected at load time — an uncapped queue is how the
+// enterprise-migration nack-loop retried forever (INV-0012 finding K).
+func TestLoadMaxJobAttempts(t *testing.T) {
 	t.Setenv("GITHUB_APP_ID", "12345")
 	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/path/to/key.pem")
 	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
 	t.Setenv("STORE_DSN", "postgres://u:p@localhost:5432/db?sslmode=disable")
 	t.Setenv("QUEUE_VALKEY_DSN", "redis://localhost:6379/0")
-	t.Setenv("DISCOVERY_RESERVE_FRACTION", "1.5")
 
-	_, err := Load()
-	if err == nil {
-		t.Fatal("expected error for out-of-range DISCOVERY_RESERVE_FRACTION")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
 	}
-}
 
-func TestLoadDiscovery_InvalidCostPerRepo(t *testing.T) {
-	t.Setenv("GITHUB_APP_ID", "12345")
-	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/path/to/key.pem")
-	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
-	t.Setenv("STORE_DSN", "postgres://u:p@localhost:5432/db?sslmode=disable")
-	t.Setenv("QUEUE_VALKEY_DSN", "redis://localhost:6379/0")
-	t.Setenv("DISCOVERY_ESTIMATED_COST_PER_REPO", "0")
+	if cfg.MaxJobAttempts != 10 {
+		t.Errorf("MaxJobAttempts = %d, want 10", cfg.MaxJobAttempts)
+	}
 
-	_, err := Load()
-	if err == nil {
-		t.Fatal("expected error for DISCOVERY_ESTIMATED_COST_PER_REPO=0")
+	t.Setenv("MAX_JOB_ATTEMPTS", "0")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("expected error for MAX_JOB_ATTEMPTS=0")
 	}
 }
 

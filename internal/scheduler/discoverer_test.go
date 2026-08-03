@@ -11,21 +11,10 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
-	"github.com/donaldgifford/repo-guardian/internal/budget"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 )
-
-// budgetFakeClient is a RateLimitClient stub for seeding tracker snapshots.
-type budgetFakeClient struct {
-	remaining int
-	limit     int
-}
-
-func (b *budgetFakeClient) RateLimitRemaining(_ context.Context, _ int64) (int, int, time.Time, error) {
-	return b.remaining, b.limit, time.Now().Add(time.Hour), nil
-}
 
 // fakeDiscoveryStore implements store.Store with just enough surface
 // for Discoverer tests — UpsertIfMissing is the only method exercised;
@@ -277,65 +266,6 @@ func TestDiscoverer_StoreError_FailSafe(t *testing.T) {
 	// Store errors MUST NOT halt the iteration.
 	if err := d.Discover(t.Context()); err != nil {
 		t.Fatalf("Discover propagated Store error: %v", err)
-	}
-}
-
-func TestDiscoverer_BudgetExhausted_SkipsInstallation(t *testing.T) {
-	// Cannot use t.Parallel() — touches the global
-	// EnqueueGatedByBudgetTotal CounterVec.
-	metrics.EnqueueGatedByBudgetTotal.Reset()
-
-	client := newMockClient()
-	client.installations = []*ghclient.Installation{{ID: 42, Account: "org1"}}
-	client.installRepos[42] = []*ghclient.Repository{{Owner: "org1", Name: "r1"}}
-
-	tracker := budget.New(budget.Options{ReserveFraction: 0.5, CostPerRepo: 10})
-	// Seed snapshot with Remaining below the reserve floor → spendable = 0.
-	if err := tracker.RefreshFromAPI(t.Context(), &budgetFakeClient{remaining: 100, limit: 5000}, 42); err != nil {
-		t.Fatalf("RefreshFromAPI: %v", err)
-	}
-
-	st := newFakeDiscoveryStore()
-	d := NewDiscoverer(DiscovererOptions{
-		Client: client, Store: st, Budget: tracker,
-		Logger: slog.Default(), Freshness: time.Hour,
-	})
-
-	if err := d.Discover(t.Context()); err != nil {
-		t.Fatalf("Discover: %v", err)
-	}
-
-	if got := len(st.Upserted()); got != 0 {
-		t.Errorf("len upserted = %d, want 0 (budget exhausted)", got)
-	}
-
-	if got := testutil.ToFloat64(metrics.EnqueueGatedByBudgetTotal.WithLabelValues("42")); got != 1 {
-		t.Errorf("enqueue_gated_by_budget_total{inst=42} = %v, want 1", got)
-	}
-}
-
-func TestDiscoverer_BudgetNoSnapshot_FallsOpen(t *testing.T) {
-	t.Parallel()
-
-	client := newMockClient()
-	client.installations = []*ghclient.Installation{{ID: 7, Account: "org1"}}
-	client.installRepos[7] = []*ghclient.Repository{{Owner: "org1", Name: "r1"}}
-
-	tracker := budget.New(budget.Options{ReserveFraction: 0.2, CostPerRepo: 10})
-	// No RefreshFromAPI call → ErrNoSnapshot → discoverer falls open.
-
-	st := newFakeDiscoveryStore()
-	d := NewDiscoverer(DiscovererOptions{
-		Client: client, Store: st, Budget: tracker,
-		Logger: slog.Default(), Freshness: time.Hour,
-	})
-
-	if err := d.Discover(t.Context()); err != nil {
-		t.Fatalf("Discover: %v", err)
-	}
-
-	if got := len(st.Upserted()); got != 1 {
-		t.Errorf("len upserted = %d, want 1 (fall-open on no snapshot)", got)
 	}
 }
 

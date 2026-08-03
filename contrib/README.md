@@ -139,9 +139,9 @@ sum by (org) (rate(repo_guardian_files_missing_total[1h])) > 0
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `github_rate_remaining` | Gauge | — | Remaining GitHub API quota. |
-| `github_rate_limit_waits_total` | CounterVec | `reason` | Total rate-limit waits by reason. |
-| `github_rate_limit_wait_seconds` | Histogram | — | Duration of rate-limit waits. |
+| `github_rate_remaining` | Gauge | — | Remaining GitHub API quota (app-scoped client). |
+
+The `github_rate_limit_waits_total` / `_wait_seconds` pair was removed in IMPL-0022: the transport no longer sleeps on rate-limit pressure, it defers the whole job. See `queue_delayed_total` / `queue_delay_seconds` under §Delayed requeue.
 
 ### Custom properties
 
@@ -177,13 +177,12 @@ sum by (org) (increase(repo_guardian_catalog_parse_failed_total[24h]))
 | `queue_depth` | Gauge | `queue` | Current queue depth (jobs waiting to be claimed). |
 | `queue_enqueued_total` | CounterVec | `queue` | Jobs enqueued. |
 | `queue_claimed_total` | CounterVec | `queue` | Jobs claimed by a worker. |
-| `queue_acked_total` | CounterVec | `queue`, `outcome` | Jobs ack'd after processing. `outcome={success,error}`. |
+| `queue_acked_total` | CounterVec | `queue`, `outcome` | Jobs ack'd after processing. `outcome={success,error,deferred}` (`deferred` = parked into the delayed set, IMPL-0022). |
 | `queue_reaped_total` | CounterVec | `queue` | Jobs requeued by the in-flight reaper after ack-window expiry. |
 | `scheduler_is_leader` | Gauge | `name` | 1 on the replica holding the leader lock, 0 elsewhere. One per schedule (`sweep`, `stale-sweep`, `discovery`). |
 | `scheduler_sweep_batch_size` | Histogram | — | Distribution of `StaleRepos` batch sizes per sweep tick. |
 | `store_query_seconds` | Histogram | `op`, `outcome` | Persistent store query latency. `op` enumerates `GetRepoState`, `UpdateRepoState`, `StaleRepos`, `UpsertIfMissing`, etc. |
-| `rate_limit_remaining` | Gauge | `installation_id` | Per-installation GitHub rate-limit budget observed at sweep time. |
-| `rate_limit_reserve_blocked_total` | CounterVec | `installation_id` | Enqueues blocked by the `RATE_LIMIT_RESERVE` gate (live API check, distinct from BudgetTracker). |
+| `rate_limit_remaining` | Gauge | `installation_id` | Per-installation GitHub rate-limit budget, sampled once per installation per sweep. Observability only — the sweep no longer gates on it (IMPL-0022 Phase 6); throttled work defers instead. |
 
 Example:
 
@@ -200,6 +199,27 @@ sum by (name) (repo_guardian_scheduler_is_leader)
 # Per-op store latency p99
 histogram_quantile(0.99,
   sum by (op, le) (rate(repo_guardian_store_query_seconds_bucket[5m])))
+```
+
+### Delayed requeue (IMPL-0022)
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `queue_delayed_depth` | Gauge | — | Jobs parked in the delayed set awaiting promotion. Published by every pod's reaper tick. Sustained > 100 drives `RepoGuardianQueueBackpressure`. |
+| `queue_delayed_total` | CounterVec | `reason`, `installation_id` | Deferral events (whole jobs parked with a due-time, e.g. `reason=rate_limit`). The single source for throttle counting — replaced `github_rate_limit_waits_total`. |
+| `queue_delay_seconds` | Histogram | `reason` | Deferral horizon (due-time minus now) at defer time. Buckets 1s–4h. |
+| `queue_wait_seconds` | Histogram | `installation_id` | Enqueue-to-claim latency, including parked time — the DESIGN-0015 partition go/no-go datum. Expect top-bucket skew during fleet onboarding / policy bumps. |
+| `queue_attempts_exhausted_total` | CounterVec | `installation_id` | Jobs dropped at `MAX_JOB_ATTEMPTS` with a terminal `repo_state` error. Drives `RepoGuardianJobsExhausted`. |
+
+Example:
+
+```promql
+# Who is being throttled, and how hard
+sum by (installation_id) (increase(repo_guardian_queue_delayed_total{reason="rate_limit"}[1h]))
+
+# Per-installation p99 queue wait — tenant divergence is the partition signal
+histogram_quantile(0.99,
+  sum by (installation_id, le) (rate(repo_guardian_queue_wait_seconds_bucket[6h])))
 ```
 
 ### PR convergence (IMPL-0013 Phase 3)

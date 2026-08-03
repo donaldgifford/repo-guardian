@@ -13,7 +13,7 @@ SLSA Level 3 provenance attestations.
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 1.0.0-rc.9 \
+  --version 1.0.0-rc.10 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -28,7 +28,7 @@ aws ecr get-login-password --region <region> | \
 
 helm install repo-guardian \
   oci://<account>.dkr.ecr.<region>.amazonaws.com/repo-guardian-chart \
-  --version 1.0.0-rc.9 \
+  --version 1.0.0-rc.10 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -64,7 +64,7 @@ secrets:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 1.0.0-rc.9 \
+  --version 1.0.0-rc.10 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -220,7 +220,7 @@ cosign verify \
     '^https://github.com/donaldgifford/repo-guardian/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.9
+  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.10
 ```
 
 ### SLSA provenance
@@ -231,7 +231,7 @@ cosign verify-attestation --type slsaprovenance \
     '^https://github.com/slsa-framework/slsa-github-generator/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.9
+  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.10
 ```
 
 The provenance attestation records the build workflow path, source
@@ -409,10 +409,11 @@ incoming webhook.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` | Affinity rules |
-| config | object | `{"appId":"","dryRun":false,"logLevel":"info","metricsPort":9090,"port":8080,"queueSize":100,"scheduleInterval":"168h","skipArchived":true,"skipForks":true,"workerCount":5}` | repo-guardian application configuration (env vars) |
+| config | object | `{"appId":"","dryRun":false,"logLevel":"info","maxJobAttempts":10,"metricsPort":9090,"port":8080,"queueSize":100,"scheduleInterval":"168h","skipArchived":true,"skipForks":true,"workerCount":5}` | repo-guardian application configuration (env vars) |
 | config.appId | string | `""` | GitHub App ID |
 | config.dryRun | bool | `false` | Dry run mode |
 | config.logLevel | string | `"info"` | Log level (debug, info, warn, error) |
+| config.maxJobAttempts | int | `10` | Deliveries a single job may accumulate (rate-limit deferrals plus reaper requeues) before it is dropped with a terminal error written to repo_state. The next stale sweep re-enqueues the repo, so this bounds retry cost without permanently abandoning work. Must be >= 1. |
 | config.metricsPort | int | `9090` | Metrics listen port |
 | config.port | int | `8080` | Webhook listen port |
 | config.queueSize | int | `100` | Queue size for check queue |
@@ -420,11 +421,9 @@ incoming webhook.
 | config.skipArchived | bool | `true` | Skip archived repositories |
 | config.skipForks | bool | `true` | Skip forked repositories |
 | config.workerCount | int | `5` | Worker count for check queue |
-| discovery | object | `{"enabled":true,"estimatedCostPerRepo":10,"interval":"1h","reserveFraction":0.2}` | Repository discovery (IMPL-0015 Phase 1). The Discoverer runs on the leader pod, enumerates installations + repos via the GitHub API, and persists discovery rows via Store.UpsertIfMissing so the stale-sweeper picks them up on the next tick. Webhook-driven discovery (`installation_repositories.added` + `repository.created`) is the primary on-ramp; the periodic Discoverer is the safety net for missed deliveries. |
+| discovery | object | `{"enabled":true,"interval":"1h"}` | Repository discovery (IMPL-0015 Phase 1). The Discoverer runs on the leader pod, enumerates installations + repos via the GitHub API, and persists discovery rows via Store.UpsertIfMissing so the stale-sweeper picks them up on the next tick. Webhook-driven discovery (`installation_repositories.added` + `repository.created`) is the primary on-ramp; the periodic Discoverer is the safety net for missed deliveries. |
 | discovery.enabled | bool | `true` | Toggle the Discoverer schedule. When false the binary still responds to discovery via webhooks; only the periodic enumeration path is disabled. |
-| discovery.estimatedCostPerRepo | int | `10` | Operator estimate of the rate-limit cost of a single reconcile. Drives the BudgetTracker's spendable-enqueue accounting. Must be > 0. |
 | discovery.interval | string | `"1h"` | Cadence between Discoverer.Discover invocations. Lower values burn more API budget on list_installations + list_installation_repos; higher values delay discovery of repos the webhook path missed. |
-| discovery.reserveFraction | float | `0.2` | Fraction of the rate-limit budget the BudgetTracker holds in reserve when gating discovery enqueues. Must be in [0, 1]. |
 | extraEnv | list | `[]` | Additional environment variables |
 | extraVolumeMounts | list | `[]` | Additional volume mounts |
 | extraVolumes | list | `[]` | Additional volumes |
@@ -492,10 +491,9 @@ incoming webhook.
 | serviceMonitor.enabled | bool | `false` | Create Prometheus ServiceMonitor |
 | serviceMonitor.interval | string | `"30s"` | Scrape interval |
 | serviceMonitor.labels | object | `{}` | Additional labels for ServiceMonitor |
-| staleSweep | object | `{"batchSize":200,"freshness":"24h","rateLimitReserve":0.1}` | Stale-sweep tuning (IMPL-0011 Phase 5d). |
+| staleSweep | object | `{"batchSize":200,"freshness":"24h"}` | Stale-sweep tuning (IMPL-0011 Phase 5d). |
 | staleSweep.batchSize | int | `200` | Cap on rows returned per StaleRepos query. |
 | staleSweep.freshness | string | `"24h"` | Maximum age of a stored last_checked_at before the sweep requeues. Default 24h. Effective only with store.backend=postgres. |
-| staleSweep.rateLimitReserve | float | `0.1` | Fraction of an installation's GitHub rate-limit budget reserved against the stale-sweep enqueue path. |
 | store | object | `{"backend":"postgres","postgres":{"baked":{"existingSecret":"","existingSecretKey":"POSTGRES_PASSWORD","image":"postgres:18.4","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:18.4","instances":1,"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}}` | Persistent state store (per-repo reconcile state). See DESIGN-0012 §Backend modes. The in-memory backend was removed in IMPL-0016 (chart 1.0); postgres is the only supported value. |
 | store.backend | string | `"postgres"` | Backend implementation. Only "postgres" is supported. |
 | store.postgres | object | `{"baked":{"existingSecret":"","existingSecretKey":"POSTGRES_PASSWORD","image":"postgres:18.4","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:18.4","instances":1,"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}` | Postgres-specific configuration. Ignored when backend != postgres. |

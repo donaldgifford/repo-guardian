@@ -981,8 +981,16 @@ func TestAPIMode_UnmanagedPropertyNeverTouched(t *testing.T) {
 // annotation must be nulled once the annotation disappears from
 // catalog-info.yaml, and the clear is counted + logged.
 func TestAPIMode_RemovedAnnotationClearsProperty(t *testing.T) {
-	t.Parallel()
-
+	// Deliberately NOT parallel, matching the repo convention for
+	// counter assertions that need isolated state.
+	// CustomPropertyClearedTotal is labelled by owner, and this test
+	// asserts an absolute count under the shared "org" owner that
+	// sibling tests also write to — so neither Reset-plus-parallel
+	// (siblings' clears leak in: observed as "= 4, want 2") nor a
+	// delta (siblings increment the same label mid-test) is sound
+	// here. Running serially is: Go schedules non-parallel tests to
+	// completion before parallel siblings resume, so the Reset below
+	// cannot race them.
 	metrics.CustomPropertyClearedTotal.Reset()
 
 	r := newTestReconcilerWithProps(t, "api", jiraAnnotationProps())
@@ -1049,12 +1057,16 @@ spec:
 func TestAPIMode_FiltersUndefinedMappedProperty(t *testing.T) {
 	t.Parallel()
 
-	// Reset is safe here even under t.Parallel(): "filter-org" is a
-	// label value unique to this test, so no other test observes the
-	// zeroing. It's needed because CounterVec state is process-global
-	// and would otherwise accumulate across repeated test-binary runs
-	// (e.g. `go test -count=N`).
-	metrics.CustomPropertyMissingSchemaTotal.Reset()
+	// Measure a delta rather than resetting. The comment that used to
+	// live here claimed a Reset was safe because "filter-org" is a
+	// label unique to this test — but CounterVec.Reset() drops EVERY
+	// label combination in the vector, not just this test's, so it
+	// zeroed sibling t.Parallel() tests' increments mid-flight. A
+	// delta is both parallel-safe and `go test -count=N`-safe, which
+	// is what the Reset was reaching for.
+	beforeMissingSchema := testutil.ToFloat64(
+		metrics.CustomPropertyMissingSchemaTotal.WithLabelValues("filter-org", "JiraLabel"),
+	)
 
 	var buf bytes.Buffer
 
@@ -1100,8 +1112,11 @@ func TestAPIMode_FiltersUndefinedMappedProperty(t *testing.T) {
 		t.Errorf("expected missing_properties to mention JiraLabel, got: %s", logOutput)
 	}
 
-	if got := testutil.ToFloat64(metrics.CustomPropertyMissingSchemaTotal.WithLabelValues("filter-org", "JiraLabel")); got != 1 {
-		t.Errorf("CustomPropertyMissingSchemaTotal{filter-org,JiraLabel} = %v, want 1", got)
+	got := testutil.ToFloat64(
+		metrics.CustomPropertyMissingSchemaTotal.WithLabelValues("filter-org", "JiraLabel"),
+	) - beforeMissingSchema
+	if got != 1 {
+		t.Errorf("CustomPropertyMissingSchemaTotal{filter-org,JiraLabel} delta = %v, want 1", got)
 	}
 }
 
@@ -1157,7 +1172,10 @@ func TestAPIMode_SchemaMissingProperty_ConvergesToZeroPatches(t *testing.T) {
 func TestAPIMode_SchemaMissingProperty_StillReportsMissingSchema(t *testing.T) {
 	t.Parallel()
 
-	metrics.CustomPropertyMissingSchemaTotal.Reset()
+	// Delta, not Reset — see TestAPIMode_FiltersUndefinedMappedProperty.
+	beforeMissingSchema := testutil.ToFloat64(
+		metrics.CustomPropertyMissingSchemaTotal.WithLabelValues("converged-org", "JiraLabel"),
+	)
 
 	var buf bytes.Buffer
 
@@ -1184,10 +1202,11 @@ func TestAPIMode_SchemaMissingProperty_StillReportsMissingSchema(t *testing.T) {
 	}
 
 	// ...yet the schema gap is still reported.
-	if got := testutil.ToFloat64(
+	got := testutil.ToFloat64(
 		metrics.CustomPropertyMissingSchemaTotal.WithLabelValues("converged-org", "JiraLabel"),
-	); got != 1 {
-		t.Errorf("CustomPropertyMissingSchemaTotal{converged-org,JiraLabel} = %v, want 1 on a no-drift reconcile", got)
+	) - beforeMissingSchema
+	if got != 1 {
+		t.Errorf("CustomPropertyMissingSchemaTotal{converged-org,JiraLabel} delta = %v, want 1 on a no-drift reconcile", got)
 	}
 
 	if logOutput := buf.String(); !strings.Contains(logOutput, "custom properties missing from org schema") {

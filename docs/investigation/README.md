@@ -26,6 +26,7 @@ Design docs, plans, and implementation docs can reference investigations by ID
 | INV-0011 | Tech debt cleanup inventory post IMPL-0019 | Open | 2026-07-23 | Donald Gifford | [0011-tech-debt-cleanup-inventory-post-impl-0019.md](0011-tech-debt-cleanup-inventory-post-impl-0019.md) |
 | INV-0012 | Inert BudgetTracker and untrustworthy alert pack | Concluded | 2026-07-25 | Donald Gifford | [0012-inert-budgettracker-and-untrustworthy-alert-pack.md](0012-inert-budgettracker-and-untrustworthy-alert-pack.md) |
 | INV-0013 | State-vs-event metrics, dashboard suite, and system observability | Open | 2026-08-01 | Donald Gifford | [0013-state-vs-event-metrics-dashboard-suite-and-system-observability.md](0013-state-vs-event-metrics-dashboard-suite-and-system-observability.md) |
+| INV-0014 | Orphan cleanup deletes files the default branch legitimately owns | In Progress | 2026-08-03 | Donald Gifford | [0014-orphan-cleanup-deletes-files-the-default-branch-legitimately.md](0014-orphan-cleanup-deletes-files-the-default-branch-legitimately.md) |
 <!-- END DOCZ AUTO-GENERATED -->
 <!-- BEGIN DOCZ AUTO-GENERATED -->
 <!-- END DOCZ AUTO-GENERATED -->

@@ -70,6 +70,7 @@ nav:
         - 'INV-0011: Tech debt cleanup inventory post IMPL-0019': investigation/0011-tech-debt-cleanup-inventory-post-impl-0019.md
         - 'INV-0012: Inert BudgetTracker and untrustworthy alert pack': investigation/0012-inert-budgettracker-and-untrustworthy-alert-pack.md
         - 'INV-0013: State-vs-event metrics, dashboard suite, and system observability': investigation/0013-state-vs-event-metrics-dashboard-suite-and-system-observability.md
+        - 'INV-0014: Orphan cleanup deletes files the default branch legitimately owns': investigation/0014-orphan-cleanup-deletes-files-the-default-branch-legitimately.md
     - Plans:
         - Overview: plan/README.md
     - RFCs:
@@ -83,7 +84,7 @@ nav:
         - Custom-properties security fix (IMPL-0020): operations/custom-properties-security-fix.md
         - Custom-property annotation migration (appVersion 1.9.1 → next minor): operations/annotation-properties-migration.md
         - Custom-property name charset correction (appVersion 1.10.1): operations/property-name-charset.md
-        - Delayed requeue — operator runbook (IMPL-0022): operations/delayed-requeue-runbook.md
+        - Delayed requeue — operator runbook: operations/delayed-requeue-runbook.md
         - ECR publish setup (maintainer-side): operations/ecr-publish-setup.md
         - External Postgres on RDS — Terraform variable reference: operations/rds-terraform-variables.md
         - Homelab CNPG cutover runbook: operations/cnpg-homelab-cutover.md

@@ -498,11 +498,22 @@ what Phase 0 capped.
       verified: deleting the second leg from the template fails
       exactly the two-legged-expression case (1 failed / 95 passed),
       restore → 96/96.*
-- [ ] 5.6 Document the new metrics in `docs/operations/scaling.md`
+- [x] 5.6 Document the new metrics in `docs/operations/scaling.md`
       (healthy vs backpressured reference values, including the
       expected `queue_wait_seconds` top-bucket skew during fleet
       onboarding / policy-version upgrades — OQ4 caveat) and add
       `contrib/README.md` rows.
+      *Done. New scaling.md "§ Delayed requeue (IMPL-0022)" — this is
+      the section both new alerts' descriptions point at — with a
+      five-metric Healthy/Backpressured table, the onboarding
+      top-bucket-skew caveat as a highlighted paragraph, and a
+      "Reading the go/no-go datum" PromQL recipe (per-installation
+      p99 divergence, not absolute value, is the DESIGN-0015
+      partition signal). contrib/README.md gains a "Delayed requeue"
+      table + example queries, and `queue_acked_total`'s outcome
+      enumeration now includes `deferred`. The wait-pair rows in
+      contrib/README.md §GitHub API stay until Phase 6 removes the
+      definitions (they still exist as metrics until then).*
 
 #### Success Criteria
 

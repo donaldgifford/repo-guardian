@@ -186,6 +186,35 @@ The `BudgetTracker` (`internal/budget/`) is a per-installation, leader-scoped ca
 - `discovery.estimatedCostPerRepo` (default 10) — calibrate against `repo_guardian_repos_checked_total` ÷ `rate_limit_remaining` drop per sweep. Bump higher if you see budget exhaustion despite the tracker reporting positive `api_budget_spendable`.
 - `discovery.interval` (default 1h) — primary discovery channel is webhooks (`installation_repositories.added` / `repository.created`); the Discoverer is the safety net for missed deliveries. Operators confident in webhook fidelity can stretch this to 6h+.
 
+## Delayed requeue (IMPL-0022)
+
+When a job's GitHub calls run into the rate-limit reserve (pre-emptive threshold) or a hard 403, the worker no longer sleeps in the transport — it defers the whole job into a Valkey delayed set with a due-time at the rate-limit reset (plus jitter), freeing the worker slot immediately. The reaper leader promotes due jobs back onto the pending list each `REAPER_INTERVAL` tick, so delivery lags due-time by up to one interval (default 60s). A job that keeps failing re-defers with exponential backoff and is dropped with a terminal `repo_state` error at `MAX_JOB_ATTEMPTS` (default 10); the stale sweep re-enqueues it naturally on its next pass.
+
+### Metrics
+
+| Metric | Type | Meaning | Healthy | Backpressured |
+|---|---|---|---|---|
+| `queue_delayed_depth` | Gauge | Jobs parked in the delayed set, published by **every** pod's reaper tick. | 0, with brief single-digit blips after a sweep lands near the reserve. | Sustained > 100 — deferrals outpace promotion; the fleet's check volume exceeds the API budget. Drives `RepoGuardianQueueBackpressure`. |
+| `queue_delayed_total{reason, installation_id}` | Counter | Deferral events per job. The single source for throttle counting (replaced the `github_rate_limit_waits` pair). | Flat, or isolated small bursts. | Recurring hourly batches from one `installation_id` — that tenant is rate-limit-bound. Drives the re-pointed `RepoGuardianRateLimitThrottling`. |
+| `queue_delay_seconds{reason}` | Histogram | Deferral horizon (due-time minus now) at defer time. | Mass in the ≤ 3600s buckets (a reset window is at most an hour). | p99 pinned at the 1800s backoff cap means resets are stale/absent and jobs are backing off blind — check `AsThrottled` reset propagation. |
+| `queue_wait_seconds{installation_id}` | Histogram | Enqueue-to-claim latency — the DESIGN-0015 go/no-go datum for per-installation queue partitioning. Parked time counts deliberately: the tenant experienced it as wait. | p99 under a few seconds in steady state. | One installation's p99 in the 3600s+ buckets while others stay low = noisy-neighbor starvation, the DESIGN-0015 partition trigger. |
+| `queue_attempts_exhausted_total{installation_id}` | Counter | Jobs dropped at `MAX_JOB_ATTEMPTS` with a terminal `StatusError` write-back. | Zero. | Any sustained rate = a persistently failing installation (dead credentials, suspended App). Drives `RepoGuardianJobsExhausted`. |
+| `queue_acked_total{outcome="deferred"}` | Counter | Third ack outcome: the job was parked, not completed or failed. | Matches `queue_delayed_total` 1:1. | — |
+
+**Expect `queue_wait_seconds` top-bucket skew during fleet onboarding and policy-version bumps.** Both events mark the whole fleet due at once; the queue drains over hours by design (that is the backpressure working), so every job claimed late in the drain reports a large wait. Don't read a fat 4h bucket during a rollout as noisy-neighbor starvation — compare installations *against each other* in steady state instead.
+
+### Reading the go/no-go datum
+
+DESIGN-0015 asks whether per-installation queue partitioning is needed. The measurement:
+
+```promql
+# Per-installation p99 wait — divergence between tenants, not absolute value, is the signal
+histogram_quantile(0.99,
+  sum by (installation_id, le) (rate(repo_guardian_queue_wait_seconds_bucket[6h])))
+```
+
+If one installation's p99 sits orders above the rest in steady state (not during onboarding), partitioning has its evidence.
+
 ## Custom-property schema preflight (IMPL-0017 Phase 3)
 
 The `custom_properties` reconciler (API mode) checks every managed property

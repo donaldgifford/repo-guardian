@@ -4,6 +4,16 @@
   "description": "Subset of values.yaml that is enforced at `helm install`/`helm upgrade` time. IMPL-0016 added schema-level rejection of the removed memory / ticker backend identifiers so operators see schema errors at chart-render time instead of pod CrashLoopBackoff.",
   "type": "object",
   "properties": {
+    "config": {
+      "type": "object",
+      "properties": {
+        "maxJobAttempts": {
+          "description": "Deliveries a job may accumulate (deferrals + reaper requeues) before it is dropped with a terminal repo_state error (IMPL-0022). Must be >= 1; the binary rejects 0 at startup.",
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
     "store": {
       "type": "object",
       "properties": {

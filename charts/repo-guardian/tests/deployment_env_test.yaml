@@ -107,6 +107,33 @@ tests:
             name: DISCOVERY_INTERVAL
             value: "1h"
 
+  # IMPL-0022 Phase 7: the attempt cap. Schema enforces >= 1, so the
+  # binary's own MAX_JOB_ATTEMPTS < 1 startup error is a second line
+  # of defence for operators bypassing the chart.
+  - it: renders MAX_JOB_ATTEMPTS from config.maxJobAttempts
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: MAX_JOB_ATTEMPTS
+            value: "10"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: MAX_JOB_ATTEMPTS
+          any: true
+
+  - it: honours a maxJobAttempts override
+    set:
+      config:
+        maxJobAttempts: 3
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: MAX_JOB_ATTEMPTS
+            value: "3"
+
   # IMPL-0022 Phase 6: the BudgetTracker and the sweep reserve gate
   # are gone — one throttle mechanism (delayed requeue) replaced
   # three. These env vars must not come back with the values removed.

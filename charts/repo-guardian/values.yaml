@@ -93,6 +93,12 @@ config:
   workerCount: 5
   # -- Queue size for check queue
   queueSize: 100
+  # -- Deliveries a single job may accumulate (rate-limit deferrals
+  # plus reaper requeues) before it is dropped with a terminal error
+  # written to repo_state. The next stale sweep re-enqueues the repo,
+  # so this bounds retry cost without permanently abandoning work.
+  # Must be >= 1.
+  maxJobAttempts: 10
   # -- Reconciliation schedule interval (Go duration)
   scheduleInterval: "168h"
   # -- Skip forked repositories

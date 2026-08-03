@@ -620,8 +620,17 @@ Only after the soak (see Sequencing). Ships as its own minor.
 
 - [ ] 7.1 Chart version + appVersion bump; `make helm-docs` (edit
       `README.md.gotmpl`, never the rendered README).
-- [ ] 7.2 `MAX_JOB_ATTEMPTS` chart value with `values.schema.json`
+- [x] 7.2 `MAX_JOB_ATTEMPTS` chart value with `values.schema.json`
       range validation and helm-unittest case.
+      *Done. `config.maxJobAttempts: 10` in values.yaml, rendered to
+      the `MAX_JOB_ATTEMPTS` env var, with a new `config` block in
+      values.schema.json (`minimum: 1`). Verified the schema actually
+      bites: `--set config.maxJobAttempts=0` fails render with "at
+      '/config/maxJobAttempts': minimum: got 0, want 1" instead of
+      reaching the pod. The binary's own `< 1` startup error from
+      task 4.4 remains the second line of defence for operators
+      bypassing the chart. Two helm-unittest cases (default + a 3
+      override).*
 - [ ] 7.3 Operator runbook: what a deferred job looks like in
       Valkey/metrics/logs, reading the new metrics, responding to the
       backpressure and exhausted alerts.

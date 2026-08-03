@@ -83,6 +83,8 @@ spec:
               value: {{ .Values.config.workerCount | quote }}
             - name: QUEUE_SIZE
               value: {{ .Values.config.queueSize | quote }}
+            - name: MAX_JOB_ATTEMPTS
+              value: {{ .Values.config.maxJobAttempts | quote }}
             - name: SCHEDULE_INTERVAL
               value: {{ .Values.config.scheduleInterval | quote }}
             - name: SKIP_FORKS

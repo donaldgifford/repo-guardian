@@ -101,6 +101,8 @@ func (d *deliverOnceQueue) Subscribe(ctx context.Context, h func(context.Context
 
 func (*deliverOnceQueue) Close() error { return nil }
 
+var errUnimplemented = errors.New("not implemented in capturingStore")
+
 // capturingStore records UpdateRepoState calls; every other Store
 // method is a no-op.
 type capturingStore struct {
@@ -111,8 +113,6 @@ type capturingStore struct {
 func (*capturingStore) GetRepoState(context.Context, int64, string, string) (*store.RepoState, error) {
 	return nil, errUnimplemented
 }
-
-var errUnimplemented = errors.New("not implemented in capturingStore")
 
 func (c *capturingStore) UpdateRepoState(_ context.Context, s *store.RepoState) error {
 	c.mu.Lock()

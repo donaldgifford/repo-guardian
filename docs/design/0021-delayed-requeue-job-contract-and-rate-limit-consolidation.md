@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0021
 title: "Delayed-requeue job contract and rate-limit consolidation"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-07-26
 ---
@@ -9,7 +9,7 @@ created: 2026-07-26
 
 # DESIGN 0021: Delayed-requeue job contract and rate-limit consolidation
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-07-26
 

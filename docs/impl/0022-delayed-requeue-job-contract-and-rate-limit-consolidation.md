@@ -1,7 +1,7 @@
 ---
 id: IMPL-0022
 title: "Delayed-requeue job contract and rate-limit consolidation"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-08-02
 ---
@@ -9,7 +9,7 @@ created: 2026-08-02
 
 # IMPL 0022: Delayed-requeue job contract and rate-limit consolidation
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-08-02
 
@@ -691,8 +691,15 @@ Only after the soak (see Sequencing). Ships as its own minor.
       the source ordering), `REAPER_INTERVAL`'s dual duty, and the
       `AsThrottled` requirement with the go-github v68 pre-check path
       that makes a bare `errors.As` silently wrong.*
-- [ ] 7.6 Flip INV-0012 to Concluded and DESIGN-0021 to Implemented;
+- [x] 7.6 Flip INV-0012 to Concluded and DESIGN-0021 to Implemented;
       `docz update design inv impl`.
+      *Done, plus this IMPL to Completed (it was still Draft). INV-0012
+      concludes with all eleven findings A–K dispositioned by this
+      IMPL: A (inert tracker) deleted in 6.1, C/E (unfireable alert
+      windows) are the reasoning behind every window/`for` pair in 5.3
+      and 5.4, I (the sleep/lease overlap) fixed in Phase 0 and closed
+      out in Phase 3, J (in-flight member identity) resolved as
+      leave-it per design OQ5, K (uncapped nack loop) capped in 4.4.*
 
 #### Success Criteria
 
@@ -723,22 +730,61 @@ Only after the soak (see Sequencing). Ships as its own minor.
 
 ## Testing Plan
 
-- [ ] Phase 0 finding-I timeline regression test (fake clock),
+- [x] Phase 0 finding-I timeline regression test (fake clock),
       preserved through all later phases.
-- [ ] Old-payload JSON decode compatibility test (1.6).
-- [ ] Valkey integration tests: due-time honoured, exactly-one-key
+      `TestRateLimitTransport_FindingITimeline_CapPreventsDoubleClaim`
+      survived Phase 3's rewrite of the pre-emptive path (it was
+      amended, not deleted — the assertion moved to `errors.As` on
+      `ThrottledError`), and its static guard that
+      `maxRateLimitSleep < JOB_ACK_TIMEOUT` still holds.
+- [x] Old-payload JSON decode compatibility test (1.6).
+      `TestJob_OldPayloadDecodesWithZeroRetryFields` +
+      `TestJob_RetryFieldsRoundTrip`.
+- [x] Valkey integration tests: due-time honoured, exactly-one-key
       invariant, leader-gated promotion (2.5–2.7) — Lua atomicity is
       only provable against real Valkey.
-- [ ] End-to-end wrap-chain test (3.4) with recorded non-vacuity
-      check (3.5).
-- [ ] Worker defer/attempt/terminal tests (4.6–4.8), including the
+      `TestValkey_DeferredJobNotDeliveredEarly`,
+      `TestValkey_ExactlyOneKeyInvariant`,
+      `TestValkey_PromotionLeaderGated`. Full integration suite green
+      against real Valkey (52.9s).
+- [x] End-to-end wrap-chain test (3.4) with recorded non-vacuity
+      check (3.5). `TestCheckRepo_ThrottledErrorSurvivesWrapChain`,
+      two timelines. It earned its keep: the first run FAILED and
+      exposed the undesigned go-github v68 pre-check path, which is
+      why `AsThrottled` exists.
+- [x] Worker defer/attempt/terminal tests (4.6–4.8), including the
       dead-installation self-heal shape.
-- [ ] Mock fidelity: promotion-then-delivery is list-then-act — fakes
+      `TestValkey_DeferredNotNacked`,
+      `TestValkey_DeferralFreesWorkerSlot`,
+      `TestValkey_AttemptsAccumulateAcrossNackAndRequeue`,
+      `TestPool_AttemptCap_TerminalDisposition`. **Partial on one
+      point, stated plainly:** the terminal *drop* is covered
+      (StatusError row, counter, ack-and-drop); the *self-heal* half —
+      the next stale sweep re-enqueuing the dropped repo — is not
+      separately tested, because it is the ordinary `StaleRepos`
+      path with no IMPL-0022 code in it (a row with
+      `last_check_status='error'` and an old `last_checked_at` is
+      stale by the existing predicate). Worth an end-to-end test if
+      the sweep predicate is ever narrowed.
+- [x] Mock fidelity: promotion-then-delivery is list-then-act — fakes
       must reflect prior writes or the due-time assertion is vacuous
-      (CLAUDE.md rule).
-- [ ] helm-unittest on rendered alert expressions.
-- [ ] Each behavioural test neutralise-verify-restore per standing
-      practice.
+      (CLAUDE.md rule). Satisfied by construction rather than by
+      careful faking: every promotion assertion runs against **real
+      Valkey** under the `integration` tag, so there is no mock whose
+      list method could return a stale view. The unit-level fakes
+      (`deliverOnceQueue`, `capturingStore`) never model
+      promotion — they only observe a single delivery's outcome.
+- [x] helm-unittest on rendered alert expressions (task 5.5;
+      101 chart tests green).
+- [x] Each behavioural test neutralise-verify-restore per standing
+      practice. Recorded this cycle: `promoteScript` due-bound (+inf →
+      1.74s-early delivery), `promoteScript` ZREM (36 duplicate
+      promotions), engine `%w`→`%v` (both chain subtests fail),
+      `deferInFlight` Attempts++ ("parked Attempts = 0"),
+      `requeuePayload` Attempts++ ("redelivered Attempts = 0"),
+      `sampleRateLimit` dedup ("calls for installation 1 = 2, want
+      1"), and the JobsExhausted alert's second leg (1 failed / 95
+      passed). Phase 0's cap was verified two ways at the time.
 
 ## Dependencies
 

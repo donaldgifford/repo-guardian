@@ -69,6 +69,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"sync"
 	"time"
 
@@ -400,6 +401,14 @@ func (q *Queue) processPayload(ctx context.Context, payload string, handler func
 		return
 	}
 
+	// Enqueue→claim latency, per tenant — the DESIGN-0015 go/no-go
+	// datum (IMPL-0022 task 5.2). A zero EnqueuedAt means an old
+	// payload shape; skip rather than observe an epoch-anchored delta.
+	if !j.EnqueuedAt.IsZero() {
+		metrics.QueueWaitSeconds.WithLabelValues(strconv.FormatInt(j.InstallationID, 10)).
+			Observe(time.Since(j.EnqueuedAt).Seconds())
+	}
+
 	if err := handler(ctx, j); err != nil {
 		var retry *queue.RetryAfterError
 		if errors.As(err, &retry) {
@@ -474,6 +483,8 @@ func (q *Queue) deferInFlight(ctx context.Context, inFlightMember string, j queu
 		"attempts", j.Attempts,
 	)
 	metrics.QueueAckedTotal.WithLabelValues("deferred").Inc()
+	metrics.QueueDelayedTotal.WithLabelValues(retry.Reason, strconv.FormatInt(j.InstallationID, 10)).Inc()
+	metrics.QueueDelaySeconds.WithLabelValues(retry.Reason).Observe(time.Until(retry.After).Seconds())
 }
 
 // recoverPayload re-LPUSHes a payload that was BRPOPed but failed to

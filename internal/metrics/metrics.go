@@ -275,7 +275,42 @@ var (
 	QueueAttemptsExhaustedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_queue_attempts_exhausted_total",
 		Help: "Total jobs dropped after exceeding the attempt cap.",
-	}, []string{"installation_id"})
+	}, []string{labelInstallationID})
+
+	// queueRetrySecondsBuckets is the shared layout for the deferral
+	// and wait histograms (IMPL-0022 OQ4): 1s → 4h, matched to
+	// rate-limit reset windows (≤1h) and the 30m backoff cap. Expect
+	// top-bucket skew in queue_wait_seconds during fleet onboarding
+	// or a policy-version bump — see docs/operations/scaling.md.
+	queueRetrySecondsBuckets = []float64{1, 5, 15, 60, 300, 900, 3600, 14400}
+
+	// QueueDelayedTotal counts deferrals into the delayed set by
+	// reason and installation (IMPL-0022) — "how often is work
+	// deferred, and why". The single source for deferral counting;
+	// it replaced the github_rate_limit_waits pair (INV-0013 G).
+	QueueDelayedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_queue_delayed_total",
+		Help: "Total jobs deferred into the delayed set, by reason.",
+	}, []string{labelReason, labelInstallationID})
+
+	// QueueDelaySeconds records how far in the future deferred jobs
+	// are parked, by reason — "how long are the deferrals".
+	QueueDelaySeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "repo_guardian_queue_delay_seconds",
+		Help:    "Deferral horizon in seconds (due time minus now) at defer time.",
+		Buckets: queueRetrySecondsBuckets,
+	}, []string{labelReason})
+
+	// QueueWaitSeconds records enqueue→claim latency per installation
+	// — the DESIGN-0015 go/no-go datum for per-installation queue
+	// partitioning. Observed at claim time as now − EnqueuedAt; a
+	// deferred job's parked time counts, deliberately, because the
+	// tenant experienced it as queue wait.
+	QueueWaitSeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "repo_guardian_queue_wait_seconds",
+		Help:    "Enqueue-to-claim latency in seconds, per installation.",
+		Buckets: queueRetrySecondsBuckets,
+	}, []string{labelInstallationID})
 
 	// SchedulerSweepBatchSize records the count of repos enqueued per
 	// sweep handler invocation. Useful for spotting partial-enumeration

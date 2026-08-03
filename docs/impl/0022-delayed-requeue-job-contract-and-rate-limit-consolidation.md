@@ -420,13 +420,28 @@ what Phase 0 capped.
 
 #### Tasks
 
-- [ ] 5.1 Add `queue_delayed_total{reason, installation_id}`
+- [x] 5.1 Add `queue_delayed_total{reason, installation_id}`
       (Counter), `queue_delay_seconds{reason}` (Histogram),
       `queue_attempts_exhausted_total{installation_id}` (Counter).
       (`queue_delayed_depth` landed in 2.4.)
-- [ ] 5.2 Add `queue_wait_seconds{installation_id}` (Histogram)
+      *Done. `queue_attempts_exhausted_total` landed early in 4.4
+      (defined alongside its only producer, `dropExhausted`).
+      `queue_delayed_total` + `queue_delay_seconds` are incremented in
+      `deferInFlight` after a successful defer — never on the marshal-
+      or Lua-failure nack paths, so counts reflect jobs actually
+      parked. Both use the shared `queueRetrySecondsBuckets` layout
+      (OQ4a: 1s → 4h, matched to rate-limit reset windows and the 30m
+      backoff cap).*
+- [x] 5.2 Add `queue_wait_seconds{installation_id}` (Histogram)
       observed at claim time as `now − EnqueuedAt` — the DESIGN-0015
       go/no-go datum. Bucket layout per Open Question 4.
+      *Done. Observed in `processPayload` right after the single
+      payload decode, guarded on non-zero `EnqueuedAt` (pre-4.2
+      payloads in a live queue lack the stamp; a zero would record
+      ~56 years). Parked time deliberately counts — the tenant
+      experienced it as queue wait — with the onboarding top-bucket
+      skew caveat documented on the bucket layout and slated for
+      scaling.md in 5.6.*
 - [ ] 5.3 Add `RepoGuardianQueueBackpressure`
       (`queue_delayed_depth` sustained) and
       `RepoGuardianJobsExhausted` (any

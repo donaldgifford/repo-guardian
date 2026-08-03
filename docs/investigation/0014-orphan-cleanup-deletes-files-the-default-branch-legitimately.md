@@ -28,6 +28,7 @@ created: 2026-08-03
   - [E. Latent since IMPL-0013 Phase 3](#e-latent-since-impl-0013-phase-3)
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
+- [Blast radius](#blast-radius)
 - [Open questions for the operator](#open-questions-for-the-operator)
 - [References](#references)
 <!--toc:end-->
@@ -316,17 +317,43 @@ Whatever fix is chosen, three things are required alongside it:
    that carry an orphan-deletion commit, so remediation is not limited
    to whatever the operator happened to notice.
 
+## Blast radius
+
+Operator reports the affected PRs were **closed, not merged**. If that
+holds fleet-wide this is containment, not recovery: the deletion never
+reached a default branch, and closing the PR is sufficient. It is worth
+verifying rather than trusting recall, because the failure mode is
+silent — a merged orphan-deletion looks like an ordinary chore commit in
+the repo's history.
+
+`scripts/inv-0014-scan.sh ORG [ORG...]` measures it. Strictly read-only:
+no merges, no closes, no branch deletions. For every PR in the org whose
+head is `repo-guardian/add-missing-files` it reports the PR state, every
+path removed by a `chore: remove ...` commit, and — the question that
+actually matters — whether that path exists on the default branch
+**today**:
+
+| PR state | Path on default | Meaning |
+|---|---|---|
+| merged | absent | confirmed data loss; restore from history |
+| open | present | containment; close before anyone merges |
+| closed | present | no action — the expected state per the report |
+| any | probe failed | indeterminate, never assumed safe |
+
+Both fragile parts were verified before use: the commit-message regex
+against the exact format `cleanupOrphans` emits (and against add-mode,
+restore-mode and merge commits, which must not match), and the
+200/404 status extraction against a public repository.
+
 ## Open questions for the operator
 
-1. Do the affected repositories keep CODEOWNERS at `.github/CODEOWNERS`
-   rather than at the repository root? Finding C predicts only the
-   former are affected — a cheap confirmation of the whole diagnosis.
-2. Which appVersion was running before the upgrade, and which is running
-   now? If the prior version was < 1.7.0, that fully explains "first run
-   fine, second run bad" without any second mechanism.
-3. Were any of these delete-commit PRs merged? That determines whether
-   this is a "stop the bleeding" situation or a "restore deleted files"
-   one.
+1. ~~Do the affected repositories keep CODEOWNERS at
+   `.github/CODEOWNERS`?~~ Confirmed — matches Finding C's prediction.
+2. ~~Which appVersion was running?~~ v1.10.1, which contains the
+   defect. No version change is needed to explain the timeline.
+3. ~~Were any of these delete-commit PRs merged?~~ Operator reports
+   closed, not merged — containment rather than recovery. To be
+   confirmed fleet-wide with `scripts/inv-0014-scan.sh`.
 4. Are the affected repos ones where some *other* rule (dependabot,
    renovate) is still actionable? The model says they must be; a
    counter-example would mean there is a second path to investigate.

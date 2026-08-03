@@ -130,7 +130,7 @@ already stores `{status, error, policy_version}`.
       partial index on `(owner, rule_name) WHERE actionable`,
       `compliance_snapshot`, and
       `ALTER TABLE repo_state ADD COLUMN catalog_parse_ok BOOLEAN`.
-- [ ] 1.2 Change `Engine.CheckRepo` (engine.go:97) to return
+- [x] 1.2 Change `Engine.CheckRepo` (engine.go:97) to return
       `(*CheckResult, error)`: `Outcomes []RuleOutcome{RuleName,
       Kind, Actionable}` covering file, setting, and
       branch-protection rules (BP gains its first actionable verdict

@@ -178,7 +178,9 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 		return fmt.Errorf("create installation client for %d: %w", j.InstallationID, err)
 	}
 
-	if err := p.engine.CheckRepo(ctx, installClient, j.Owner, j.Repo); err != nil {
+	// The *CheckResult is consumed by writeBack in IMPL-0023 task 1.4;
+	// this task only moves the signature.
+	if _, err := p.engine.CheckRepo(ctx, installClient, j.Owner, j.Repo); err != nil {
 		if retry := p.deferralFor(jobLog, &j, err); retry != nil {
 			return retry
 		}

@@ -96,7 +96,7 @@ func TestCheckRepo_ThrottledErrorSurvivesWrapChain(t *testing.T) {
 
 			engine := testPolicyEngine(policy.BuiltinDefaults())
 
-			checkErr := engine.CheckRepo(context.Background(), client, "o", "r")
+			_, checkErr := engine.CheckRepo(context.Background(), client, "o", "r")
 			if checkErr == nil {
 				t.Fatal("CheckRepo() = nil error, want throttle deferral surfacing through the chain")
 			}

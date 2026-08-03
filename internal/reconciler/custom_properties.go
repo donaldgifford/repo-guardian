@@ -189,15 +189,21 @@ func (r *CustomPropertiesReconciler) Reconcile(ctx context.Context, params *Reco
 		case errors.Is(parseErr, catalog.ErrNotComponent):
 			// Not something we manage here — a valid non-Component
 			// entity is never a statement of desired property state
-			// (IMPL-0020 Decision 1).
+			// (IMPL-0020 Decision 1). The YAML itself parsed, so this
+			// is not a parse failure for posture purposes; leaving the
+			// outcome unset keeps "we don't manage this repo" out of
+			// the broken-catalog count.
 			log.Info("catalog-info is not a Backstage Component entity; skipping custom-properties reconcile", "err", parseErr)
 			return nil
 		case parseErr != nil:
 			log.Warn("catalog-info parse failed; skipping reconcile to avoid clearing properties", "err", parseErr)
 			metrics.CatalogParseFailedTotal.WithLabelValues(params.Owner).Inc()
+			params.Outcome.SetCatalogParseOK(false)
 
 			return nil
 		}
+
+		params.Outcome.SetCatalogParseOK(true)
 
 		desired = parsed
 	}

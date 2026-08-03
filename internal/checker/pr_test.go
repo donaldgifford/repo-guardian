@@ -63,7 +63,7 @@ func TestEnginePR_RuleCustomTitle_RendersInPR(t *testing.T) {
 	client.repo = newPolicyMockRepo()
 	client.branchSHAs["org/repo/main"] = "abc123"
 
-	if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -96,7 +96,7 @@ func TestEnginePR_RuleCustomLabels_AppliedToPR(t *testing.T) {
 	client.repo = newPolicyMockRepo()
 	client.branchSHAs["org/repo/main"] = "abc123"
 
-	if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -153,7 +153,7 @@ func TestEnginePR_BundleConflict_FallsBackToDefaults(t *testing.T) {
 	client.repo = newPolicyMockRepo()
 	client.branchSHAs["org/repo/main"] = "abc123"
 
-	if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -191,7 +191,7 @@ func TestEnginePR_InheritsFalse_ShortCircuitsToBuiltin(t *testing.T) {
 	client.repo = newPolicyMockRepo()
 	client.branchSHAs["org/repo/main"] = "abc123"
 
-	if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -227,7 +227,7 @@ func TestEnginePR_BodyTruncation_AppendsMarker(t *testing.T) {
 	client.repo = newPolicyMockRepo()
 	client.branchSHAs["org/repo/main"] = "abc123"
 
-	if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -269,7 +269,7 @@ func TestEnginePR_JiraStyleTitle_FromTemplatingVars(t *testing.T) {
 	client.repo = newPolicyMockRepo()
 	client.branchSHAs["org/repo/main"] = "abc123"
 
-	if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 

@@ -21,22 +21,27 @@ func (e *Engine) checkRepoWithPolicy(
 	client ghclient.Client,
 	owner, repo, defaultBranch string,
 	openPRs []*ghclient.PullRequest,
-) error {
+) (*CheckResult, error) {
 	if !policyScopeAllows(e.policy, owner) {
 		log.Info("repository out of policy scope, skipping all rules")
 		recordOutOfScopePolicy(e.policy, owner)
 
-		return nil
+		return &CheckResult{}, nil
 	}
+
+	// result accumulates per-rule verdicts across all three rule kinds
+	// for the caller to persist. Like gate below, it is per-repo-check
+	// state and must never live on the shared Engine.
+	result := &CheckResult{}
 
 	// gate memoizes when-gate referee evaluations for this single
 	// repo-check and is threaded into both file-rule passes. It must be
 	// per-repo-check (never stored on the shared Engine) — see gate.go.
 	gate := newGateEvaluator(e, client, owner, repo)
 
-	actionable, err := e.findActionableRules(ctx, log, client, owner, repo, openPRs, gate)
+	actionable, err := e.findActionableRules(ctx, log, client, owner, repo, openPRs, gate, result)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	ourPR := findOurPR(openPRs)
@@ -78,7 +83,7 @@ func (e *Engine) checkRepoWithPolicy(
 			"planned_deletions", plannedDeletions(actionable))
 	default:
 		if err := e.createOrUpdatePRFromPolicy(ctx, client, owner, repo, defaultBranch, actionable, openPRs, gate); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -89,20 +94,22 @@ func (e *Engine) checkRepoWithPolicy(
 		recordOpenPRsByRule(ourPR, actionable, owner)
 	}
 
-	// Run reconcilers for rules where the file check passed.
-	e.runReconcilers(ctx, log, client, owner, repo, defaultBranch, openPRs, gate)
+	// Run reconcilers for rules where the file check passed. The
+	// reconcile pass is also where catalog parseability is observed, so
+	// result is threaded in to collect it.
+	e.runReconcilers(ctx, log, client, owner, repo, defaultBranch, openPRs, gate, result)
 
 	// Evaluate setting rules.
-	if err := e.evaluateSettingRules(ctx, log, client, owner, repo); err != nil {
-		return fmt.Errorf("evaluating setting rules: %w", err)
+	if err := e.evaluateSettingRules(ctx, log, client, owner, repo, result); err != nil {
+		return nil, fmt.Errorf("evaluating setting rules: %w", err)
 	}
 
 	// Evaluate branch protection rules.
-	if err := e.evaluateBranchProtectionRules(ctx, log, client, owner, repo); err != nil {
-		return fmt.Errorf("evaluating branch protection rules: %w", err)
+	if err := e.evaluateBranchProtectionRules(ctx, log, client, owner, repo, result); err != nil {
+		return nil, fmt.Errorf("evaluating branch protection rules: %w", err)
 	}
 
-	return nil
+	return result, nil
 }
 
 // runReconcilers executes reconcilers for rules where the file check passed.
@@ -116,32 +123,27 @@ func (e *Engine) runReconcilers(
 	owner, repo, defaultBranch string,
 	openPRs []*ghclient.PullRequest,
 	gate *gateEvaluator,
+	result *CheckResult,
 ) {
 	ownerRepo := owner + "/" + repo
 	strict := strictMode(e.policy)
 
+	// One sink shared across every reconciler invocation for this repo.
+	// Reconcilers only ever write, and the last writer wins — which is
+	// correct for catalog parseability, since a repo has one
+	// catalog-info.yaml no matter how many rules point reconcilers at
+	// it.
+	outcome := &reconciler.Outcome{}
+	defer func() {
+		if result != nil {
+			result.CatalogParseOK = outcome.CatalogParseOK
+		}
+	}()
+
 	for i := range e.policy.FileRules {
 		r := &e.policy.FileRules[i]
 
-		if !r.IsEnabled() {
-			continue
-		}
-
-		// Scope was already counted in findActionableRules' rule-level gate
-		// for this same rule; this pass only short-circuits the reconciler.
-		if !ruleScopeAllows(r.Scope, owner, strict) {
-			continue
-		}
-
-		if r.Ignore != nil && r.Ignore.Matches(ownerRepo) {
-			continue
-		}
-
-		// when-gate (IMPL-0019): reuse the memoized result from the primary
-		// pass. Silent by design — the RuleGateClosedTotal counter is owned
-		// by findActionableRules; incrementing here too would double-count
-		// under the file-rule double-iteration contract.
-		if open, _ := gate.gateOpen(ctx, log, r); !open {
+		if !e.reconcilerRuleApplies(ctx, log, r, owner, ownerRepo, strict, gate) {
 			continue
 		}
 
@@ -183,6 +185,7 @@ func (e *Engine) runReconcilers(
 			OpenPRs:       openPRs,
 			DryRun:        e.dryRun,
 			Logger:        log.With("rule", r.Name),
+			Outcome:       outcome,
 		}
 
 		for _, rec := range recs {
@@ -198,6 +201,41 @@ func (e *Engine) runReconcilers(
 			}
 		}
 	}
+}
+
+// reconcilerRuleApplies reports whether the reconcile pass should visit
+// this rule for this repo. It is the silent twin of the gates in
+// findActionableRules: same four conditions, none of them counted here.
+//
+// That silence is the file-rule double-iteration contract (see
+// CLAUDE.md). OutOfScopeTotal, IgnoredTotal, and RuleGateClosedTotal are
+// owned by the primary pass; incrementing them again in this one would
+// double every skip counter in the fleet.
+func (*Engine) reconcilerRuleApplies(
+	ctx context.Context,
+	log *slog.Logger,
+	r *policy.FileRuleConfig,
+	owner, ownerRepo string,
+	strict bool,
+	gate *gateEvaluator,
+) bool {
+	if !r.IsEnabled() {
+		return false
+	}
+
+	if !ruleScopeAllows(r.Scope, owner, strict) {
+		return false
+	}
+
+	if r.Ignore != nil && r.Ignore.Matches(ownerRepo) {
+		return false
+	}
+
+	// when-gate (IMPL-0019): reuse the memoized result from the primary
+	// pass rather than re-evaluating the referee.
+	open, _ := gate.gateOpen(ctx, log, r)
+
+	return open
 }
 
 // getFileContentForReconciler reads file content and validates assertions
@@ -250,6 +288,7 @@ func (e *Engine) findActionableRules(
 	owner, repo string,
 	openPRs []*ghclient.PullRequest,
 	gate *gateEvaluator,
+	result *CheckResult,
 ) ([]policy.FileRuleConfig, error) {
 	var actionable []policy.FileRuleConfig
 
@@ -296,6 +335,20 @@ func (e *Engine) findActionableRules(
 		if err != nil {
 			return nil, fmt.Errorf("evaluating rule %q: %w", r.Name, err)
 		}
+
+		// Recorded for every rule that reached evaluation, not just the
+		// actionable ones — a satisfied rule is the "tracked but
+		// compliant" denominator every compliance percentage needs. The
+		// four `continue`s above deliberately record nothing: those
+		// rules do not apply to this repo.
+		//
+		// Note this inherits evaluateRule's existing semantics, where a
+		// foreign PR already open for the rule yields false. Such a repo
+		// reads as compliant even though its default branch is not yet
+		// fixed. That is the same set the actionable metrics have always
+		// counted; posture mirrors it rather than forking a second,
+		// subtly different definition of "failing".
+		result.add(r.Name, RuleKindFile, action)
 
 		if action {
 			e.recordActionable(ruleLog, r, owner)

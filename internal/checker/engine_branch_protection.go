@@ -20,6 +20,7 @@ func (e *Engine) evaluateBranchProtectionRules(
 	log *slog.Logger,
 	client ghclient.Client,
 	owner, repo string,
+	result *CheckResult,
 ) error {
 	if len(e.policy.BranchProtectionRules) == 0 {
 		return nil
@@ -51,39 +52,55 @@ func (e *Engine) evaluateBranchProtectionRules(
 			continue
 		}
 
-		if err := e.evaluateBranchProtectionRule(ctx, ruleLog, client, owner, repo, r); err != nil {
+		actionable, err := e.evaluateBranchProtectionRule(ctx, ruleLog, client, owner, repo, r)
+		if err != nil {
 			return fmt.Errorf("evaluating branch protection rule %q: %w", r.Name, err)
 		}
+
+		result.add(r.Name, RuleKindBranchProtection, actionable)
 	}
 
 	return nil
 }
 
-// evaluateBranchProtectionRule checks a single branch protection rule.
+// evaluateBranchProtectionRule checks a single branch protection rule
+// and reports whether the repo is left non-compliant.
+//
+// This is branch protection's first actionable verdict of any kind:
+// before IMPL-0023 it emitted `branch_protection_checked_total` and
+// `..._remediated_total` but nothing that said "this repo's protection
+// is wrong and still wrong" (INV-0013 Finding B). Remediation semantics
+// match setting rules — a mismatch fixed in this pass is not
+// actionable; one left standing is.
+//
+// A missing target branch returns false rather than true: the rule
+// cannot be satisfied *or* violated on a branch that does not exist,
+// and reporting it as failing would make every repo without a `develop`
+// branch look non-compliant with a `develop` protection rule.
 func (e *Engine) evaluateBranchProtectionRule(
 	ctx context.Context,
 	log *slog.Logger,
 	client ghclient.Client,
 	owner, repo string,
 	rule *policy.BranchProtectionRuleConfig,
-) error {
+) (bool, error) {
 	metrics.BranchProtectionCheckedTotal.WithLabelValues(rule.Name, owner).Inc()
 
 	// Check if the branch exists.
 	sha, err := client.GetBranchSHA(ctx, owner, repo, rule.Branch)
 	if err != nil {
-		return fmt.Errorf("checking branch %s: %w", rule.Branch, err)
+		return false, fmt.Errorf("checking branch %s: %w", rule.Branch, err)
 	}
 
 	if sha == "" {
 		log.Warn("branch does not exist, skipping branch protection rule")
-		return nil
+		return false, nil
 	}
 
 	// Fetch existing rulesets.
 	rulesets, err := client.ListRepositoryRulesets(ctx, owner, repo)
 	if err != nil {
-		return fmt.Errorf("listing rulesets: %w", err)
+		return false, fmt.Errorf("listing rulesets: %w", err)
 	}
 
 	// Find a matching ruleset for this branch.
@@ -92,31 +109,31 @@ func (e *Engine) evaluateBranchProtectionRule(
 	mismatches := compareBranchProtection(existing, rule)
 	if len(mismatches) == 0 {
 		log.Debug("branch protection matches expected configuration")
-		return nil
+		return false, nil
 	}
 
 	log.Info("branch protection mismatch", "mismatches", mismatches)
 
 	if !rule.Remediate {
-		return nil
+		return true, nil
 	}
 
 	if e.dryRun {
 		log.Info("dry run: would remediate branch protection", "mismatches", mismatches)
-		return nil
+		return true, nil
 	}
 
 	desired := buildDesiredRuleset(rule)
 
 	if existing != nil {
 		if _, err := client.UpdateRepositoryRuleset(ctx, owner, repo, existing.ID, desired); err != nil {
-			return fmt.Errorf("updating ruleset: %w", err)
+			return false, fmt.Errorf("updating ruleset: %w", err)
 		}
 
 		log.Info("updated branch protection ruleset")
 	} else {
 		if _, err := client.CreateRepositoryRuleset(ctx, owner, repo, desired); err != nil {
-			return fmt.Errorf("creating ruleset: %w", err)
+			return false, fmt.Errorf("creating ruleset: %w", err)
 		}
 
 		log.Info("created branch protection ruleset")
@@ -124,7 +141,7 @@ func (e *Engine) evaluateBranchProtectionRule(
 
 	metrics.BranchProtectionRemediatedTotal.WithLabelValues(rule.Name, owner).Inc()
 
-	return nil
+	return false, nil
 }
 
 // findMatchingRuleset finds a ruleset that targets the same branch pattern.

@@ -445,7 +445,7 @@ func TestCheckRepo_AllFilesExist(t *testing.T) {
 	client.contents["org/repo/CODEOWNERS"] = true
 	client.contents["org/repo/.github/dependabot.yml"] = true
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -467,7 +467,7 @@ func TestCheckRepo_MissingFiles_NoPR(t *testing.T) {
 	// No files exist, no open PRs.
 	client.branchSHAs["org/repo/main"] = "abc123"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -506,7 +506,7 @@ func TestCheckRepo_MissingFiles_ExistingPR(t *testing.T) {
 		{Number: 5, Title: PRTitle, Head: BranchName, State: "open"},
 	}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -541,7 +541,7 @@ func TestCheckRepo_MissingFiles_ThirdPartyPR(t *testing.T) {
 		{Number: 10, Title: "Add CODEOWNERS file", Head: "add-codeowners", State: "open"},
 	}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -569,7 +569,7 @@ func TestCheckRepo_Archived(t *testing.T) {
 		Owner: "org", Name: "repo", Archived: true, HasBranch: true, DefaultRef: "main",
 	}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -588,7 +588,7 @@ func TestCheckRepo_Fork(t *testing.T) {
 		Owner: "org", Name: "repo", Fork: true, HasBranch: true, DefaultRef: "main",
 	}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -607,7 +607,7 @@ func TestCheckRepo_EmptyRepo(t *testing.T) {
 		Owner: "org", Name: "repo", HasBranch: false, DefaultRef: "",
 	}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -626,7 +626,7 @@ func TestCheckRepo_DryRun(t *testing.T) {
 		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
 	}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -653,7 +653,7 @@ func TestCheckRepo_StaleBranchCleanup(t *testing.T) {
 
 	// Branch exists but no open PR (previously closed).
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}

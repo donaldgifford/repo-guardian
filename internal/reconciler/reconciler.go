@@ -83,4 +83,36 @@ type ReconcileParams struct {
 	// to their hardcoded defaults in that case. Reconciler PRs
 	// deliberately skip rule.pr (DESIGN-0013 Q4 resolution).
 	PRTemplate *policy.PRTemplate
+
+	// Outcome, when non-nil, collects facts a reconciler learns that
+	// the caller wants to persist beyond the invocation (IMPL-0023
+	// Phase 1). Reconcilers write to it; nothing reads it back.
+	//
+	// This is a sink on the params rather than a return value on
+	// Reconcile because exactly one reconciler has anything to report
+	// so far — widening the interface would make three others carry a
+	// nil return forever. It is a fresh struct per invocation, so
+	// nothing here is shared across the worker pool's goroutines.
+	Outcome *Outcome
+}
+
+// Outcome carries per-invocation reconciler facts back to the engine.
+// Every field is optional; a nil *Outcome means the caller is not
+// collecting, and reconcilers must tolerate that.
+type Outcome struct {
+	// CatalogParseOK reports whether a catalog-info.yaml was found and
+	// parsed into a Backstage Component. Left nil when no catalog file
+	// was evaluated at all, which is a different operator signal from
+	// "found one and it is malformed" (false).
+	CatalogParseOK *bool
+}
+
+// SetCatalogParseOK records catalog parseability. Nil-safe so callers
+// need no guard at each of the reconciler's several exit paths.
+func (o *Outcome) SetCatalogParseOK(ok bool) {
+	if o == nil {
+		return
+	}
+
+	o.CatalogParseOK = &ok
 }

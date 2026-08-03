@@ -40,7 +40,7 @@ func TestPolicyEngine_LegacyMode_NoScopeFiltering(t *testing.T) {
 	}
 	client.branchSHAs["anyorg/repo/main"] = "abc123"
 
-	if err := engine.CheckRepo(context.Background(), client, "anyorg", "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, "anyorg", "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -111,7 +111,7 @@ func TestPolicyEngine_StrictMode_PolicyScopeRejectsRepo(t *testing.T) {
 	}
 	client.branchSHAs["otherorg/repo/main"] = "abc123"
 
-	if err := engine.CheckRepo(context.Background(), client, "otherorg", "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, "otherorg", "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -154,7 +154,7 @@ func TestPolicyEngine_StrictMode_RuleUniversalApplies(t *testing.T) {
 	}
 	client.branchSHAs["myorg-prod/repo/main"] = "abc123"
 
-	if err := engine.CheckRepo(context.Background(), client, "myorg-prod", "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, "myorg-prod", "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -198,7 +198,7 @@ func TestPolicyEngine_StrictMode_RuleSubsetApplies(t *testing.T) {
 	}
 	client.branchSHAs["myorg-staging/repo/main"] = "abc123"
 
-	if err := engine.CheckRepo(context.Background(), client, "myorg-staging", "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, "myorg-staging", "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -244,7 +244,7 @@ func TestPolicyEngine_StrictMode_OutOfScopeWinsOverIgnore(t *testing.T) {
 	}
 	client.branchSHAs["myorg-staging/repo/main"] = "abc123"
 
-	if err := engine.CheckRepo(context.Background(), client, "myorg-staging", "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, "myorg-staging", "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -286,7 +286,7 @@ func TestPolicyEngine_StrictMode_InScopeButIgnored(t *testing.T) {
 	}
 	client.branchSHAs["myorg-prod/skipped/main"] = "abc123"
 
-	if err := engine.CheckRepo(context.Background(), client, "myorg-prod", "skipped"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, "myorg-prod", "skipped"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -328,7 +328,7 @@ func TestPolicyEngine_StrictMode_OutOfScopeCounterByLevel(t *testing.T) {
 	}
 	policyClient.branchSHAs["external/repo/main"] = "abc"
 
-	if err := engine.CheckRepo(context.Background(), policyClient, "external", "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), policyClient, "external", "repo"); err != nil {
 		t.Fatalf("policy-level CheckRepo: %v", err)
 	}
 
@@ -339,7 +339,7 @@ func TestPolicyEngine_StrictMode_OutOfScopeCounterByLevel(t *testing.T) {
 	}
 	ruleClient.branchSHAs["myorg-staging/repo/main"] = "abc"
 
-	if err := engine.CheckRepo(context.Background(), ruleClient, "myorg-staging", "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), ruleClient, "myorg-staging", "repo"); err != nil {
 		t.Fatalf("rule-level CheckRepo: %v", err)
 	}
 

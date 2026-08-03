@@ -110,21 +110,34 @@ groups:
             service will begin pre-emptive throttling. If quota reaches
             zero, all checks will stall until the rate limit resets.
 
-      # Rate limit waits are increasing, indicating the service is
-      # actively being throttled by GitHub.
+      # Jobs are being deferred into the delayed set because GitHub
+      # rate limits are near exhaustion (IMPL-0022 — re-pointed from
+      # the removed github_rate_limit_waits_total; the transport no
+      # longer sleeps, it defers whole jobs). Deferrals are per-JOB,
+      # not per-request, so rates run orders of magnitude lower than
+      # the old wait counter — hence a count-based threshold. The 1h
+      # window covers the re-deferral cadence: a genuinely throttled
+      # tenant re-defers each reset window (up to 1h apart), which a
+      # shorter window would see as flapping and never hold through
+      # `for` (INV-0012 finding C).
       - alert: RepoGuardianRateLimitThrottling
         expr: |
-          sum(rate(repo_guardian_github_rate_limit_waits_total[15m])) > 0.5
-        for: 10m
+          sum(increase(repo_guardian_queue_delayed_total{reason="rate_limit"}[1h])) > 10
+        for: 30m
         labels:
           severity: warning
           service: repo-guardian
         annotations:
           summary: "Service is being rate-limited by GitHub"
           description: >-
-            repo-guardian is hitting GitHub rate limits and actively
-            waiting before retrying. Consider reducing WORKER_COUNT or
-            increasing RATE_LIMIT_THRESHOLD to throttle earlier.
+            repo-guardian has deferred more than 10 jobs in the last
+            hour because installation rate limits were near
+            exhaustion. Deferred jobs self-reschedule after the reset
+            window, so this is backpressure working — but a sustained
+            rate means check volume exceeds the API budget. Break down
+            queue_delayed_total by installation_id to find the tenant;
+            tune the threshold to fleet size. See
+            docs/operations/scaling.md §Delayed requeue.
 
       # -------------------------------------------------------------------
       # Check latency

@@ -469,9 +469,25 @@ what Phase 0 capped.
       (contrib directly: 24 rules SUCCESS; chart via `helm template`
       + spec.groups extraction: 11 rules SUCCESS) — first promtool
       validation the chart pack has ever had (INV-0012 open lead).*
-- [ ] 5.4 Re-point `RepoGuardianRateLimitThrottling`
+- [x] 5.4 Re-point `RepoGuardianRateLimitThrottling`
       (contrib pack only, alerts.yaml:115) from the removed wait
       counter to `queue_delayed_total{reason="rate_limit"}`.
+      *Done. Expression changed from `rate(waits[15m]) > 0.5 / for:
+      10m` to `increase(queue_delayed_total{reason="rate_limit"}[1h])
+      > 10 / for: 30m` — deferrals are per-JOB, not per-request, so
+      rates run orders lower than the old wait counter (a rate
+      threshold carried over blindly would never fire), and the 1h
+      window covers the re-deferral cadence (a throttled tenant
+      re-defers each reset window, up to 1h apart; a 15m window would
+      flap and never hold through `for` — finding C). Also re-pointed
+      the four wait-pair Grafana panels in
+      `contrib/grafana/repo-guardian-dashboard.json` (style-review
+      catch): panel 42 → "Job Deferrals by Reason"
+      (`queue_delayed_total`), panel 43 → "Job Deferral Horizon
+      p50/p95/p99" (`queue_delay_seconds_bucket`), both on 15m
+      windows for the sparser per-job cadence. promtool re-checked
+      (24 rules SUCCESS); zero `rate_limit_wait` references remain in
+      contrib.*
 - [ ] 5.5 helm-unittest assertions on rendered alert *expressions*,
       not just names (IMPL-0021 A7 convention).
 - [ ] 5.6 Document the new metrics in `docs/operations/scaling.md`

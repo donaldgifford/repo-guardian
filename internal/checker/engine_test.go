@@ -25,6 +25,7 @@ type mockClient struct {
 
 	contents         map[string]bool                            // "owner/repo/path" -> exists
 	branchContents   map[string]string                          // "owner/repo/branch/path" -> sha (IMPL-0013 P3 orphan discovery)
+	branchDeleted    map[string]bool                            // "owner/repo/branch/path" -> tombstone (INV-0014)
 	fileContents     map[string]string                          // "owner/repo/path" -> content
 	customProperties map[string][]*ghclient.CustomPropertyValue // "owner/repo" -> values
 	setProperties    []*ghclient.CustomPropertyValue            // records what was set
@@ -170,6 +171,8 @@ func (m *mockClient) CreateOrUpdateFile(_ context.Context, owner, repo, branch, 
 	if m.branchContents != nil {
 		m.branchContents[owner+"/"+repo+"/"+branch+"/"+path] = "sha-" + path
 	}
+
+	delete(m.branchDeleted, owner+"/"+repo+"/"+branch+"/"+path)
 
 	m.createdFiles = append(m.createdFiles, path)
 
@@ -317,13 +320,28 @@ func (m *mockClient) GetContentsOnBranch(_ context.Context, owner, repo, path, b
 		return "", false, m.getContentsOnBranchErr
 	}
 
-	if m.branchContents == nil {
+	key := owner + "/" + repo + "/" + branch + "/" + path
+
+	// A tombstone means the path was deleted on this branch. It must not
+	// be inherited back from the default branch below, or a file the
+	// engine just deleted would immediately reappear — which is exactly
+	// the state restoreInverseOrphans depends on being able to observe.
+	if m.branchDeleted[key] {
 		return "", false, nil
 	}
 
-	key := owner + "/" + repo + "/" + branch + "/" + path
 	if sha, ok := m.branchContents[key]; ok {
 		return sha, true, nil
+	}
+
+	// INV-0014: a branch is cut from the default branch, so everything on
+	// default is readable on it unless the branch overrode or deleted the
+	// path. Before this, the only way a file appeared on a branch was for
+	// the engine to write it there — a world in which every file on the
+	// reconcile branch is by definition repo-guardian's own work, and
+	// therefore a world in which discoverOrphans could not be wrong.
+	if m.contents[owner+"/"+repo+"/"+path] {
+		return "sha-inherited-" + path, true, nil
 	}
 
 	return "", false, nil
@@ -336,6 +354,12 @@ func (m *mockClient) DeleteFile(_ context.Context, owner, repo, branch, path, _,
 
 	key := owner + "/" + repo + "/" + branch + "/" + path
 	delete(m.branchContents, key)
+
+	if m.branchDeleted == nil {
+		m.branchDeleted = make(map[string]bool)
+	}
+
+	m.branchDeleted[key] = true
 	m.deletedFiles = append(m.deletedFiles, path)
 
 	return nil

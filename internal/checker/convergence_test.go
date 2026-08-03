@@ -121,6 +121,26 @@ func (s *stagedConvergenceState) addOrphanToBranch(path, sha string) {
 	s.client.branchContents[s.org+"/"+s.repo+"/"+s.branch+"/"+path] = sha
 }
 
+// deletedFromBranch marks a path as deleted on the reconcile branch by a
+// previous sweep, while leaving it present on the default branch.
+//
+// This has to be stated explicitly since INV-0014. Before the fake modelled
+// branch inheritance, "present on main" implied "absent from the branch"
+// purely because the fake had no way to represent the branch inheriting
+// anything — so a fixture could describe this state in a comment and get it
+// by accident. Now the branch really does inherit from main, and a test that
+// wants a file gone from the branch has to say so.
+func (s *stagedConvergenceState) deletedFromBranch(path string) {
+	key := s.org + "/" + s.repo + "/" + s.branch + "/" + path
+	delete(s.client.branchContents, key)
+
+	if s.client.branchDeleted == nil {
+		s.client.branchDeleted = make(map[string]bool)
+	}
+
+	s.client.branchDeleted[key] = true
+}
+
 func TestConvergence_Sweep1_OpensPR(t *testing.T) {
 	metrics.PRsCreatedTotal.Reset()
 
@@ -417,6 +437,7 @@ func TestConvergence_RenovateFirst_GateClosesMidFlight_RestoresDependabot(t *tes
 	// alive) and no_dependabot's gate closed. dependabot present on main but
 	// already deleted from the branch by a prior sweep.
 	s.satisfyOnMain(".github/dependabot.yml")
+	s.deletedFromBranch(".github/dependabot.yml")
 	s.client.fileContents[s.org+"/"+s.repo+"/.github/dependabot.yml"] = "restored-body"
 	s.openOurPR(6)
 
@@ -467,5 +488,69 @@ func TestConvergence_Bundle_AddAndRemove_RendersBothSections(t *testing.T) {
 
 	if !slices.Contains(s.client.deletedFiles, ".github/dependabot.yml") {
 		t.Errorf("expected dependabot.yml deleted, deletedFiles=%v", s.client.deletedFiles)
+	}
+}
+
+// TestConvergence_SatisfiedRuleNeverDeletesDefaultBranchFile is the
+// INV-0014 regression test: the reported production bug, in the shape it
+// was reported.
+//
+// A repo already has .github/CODEOWNERS and is missing dependabot. Sweep
+// one opens a PR adding dependabot; the reconcile branch is cut from main
+// and therefore carries CODEOWNERS, which repo-guardian did not write.
+// Sweep two finds the codeowners rule satisfied and — before the fix —
+// read "CODEOWNERS is on the branch" as "I put it there in an earlier
+// sweep", and committed a deletion. Merging that PR would have removed
+// CODEOWNERS from the default branch.
+//
+// This test can only fail against a fake that models branch inheritance.
+// Against the pre-INV-0014 fake the branch appeared empty, nothing was
+// ever a candidate for deletion, and the assertion below passed whether
+// or not the bug was present.
+func TestConvergence_SatisfiedRuleNeverDeletesDefaultBranchFile(t *testing.T) {
+	s := newStagedConvergence(t, nil)
+
+	// The repository owns CODEOWNERS at the rule's Target path. Only that
+	// layout is affected: a root-level CODEOWNERS is not the rule's Target
+	// and never becomes an orphan candidate (INV-0014 finding C).
+	s.satisfyOnMain(".github/CODEOWNERS")
+	s.openOurPR(1)
+
+	s.sweep()
+
+	if slices.Contains(s.client.deletedFiles, ".github/CODEOWNERS") {
+		t.Fatalf("deleted .github/CODEOWNERS, which the default branch owns; "+
+			"merging this PR would remove it from main. deletedFiles=%v", s.client.deletedFiles)
+	}
+}
+
+// TestConvergence_GenuineOrphanIsStillDeleted guards the other side of the
+// INV-0014 fix: the convergence behaviour IMPL-0013 Phase 3 was built for
+// must survive.
+//
+// repo-guardian wrote .github/CODEOWNERS to the branch in an earlier sweep;
+// a human then satisfied the rule by committing CODEOWNERS at the repo root
+// straight to main. The branch copy is now redundant, and — crucially —
+// .github/CODEOWNERS is NOT on main, so repo-guardian is the only party
+// that could have placed it there. That is a real orphan and must still be
+// removed, or the PR keeps proposing a duplicate CODEOWNERS forever.
+//
+// Without this test the INV-0014 fix could be "improved" into skipping
+// orphan cleanup entirely and nothing would complain.
+func TestConvergence_GenuineOrphanIsStillDeleted(t *testing.T) {
+	s := newStagedConvergence(t, nil)
+
+	// Rule satisfied by the root-level path on main...
+	s.satisfyOnMain("CODEOWNERS")
+	// ...while the branch still carries repo-guardian's earlier write at the
+	// Target path, which main does not have.
+	s.addOrphanToBranch(".github/CODEOWNERS", "sha-codeowners")
+	s.openOurPR(1)
+
+	s.sweep()
+
+	if !slices.Contains(s.client.deletedFiles, ".github/CODEOWNERS") {
+		t.Errorf("genuine orphan not cleaned up: .github/CODEOWNERS is absent from main "+
+			"and was written to the branch by an earlier sweep. deletedFiles=%v", s.client.deletedFiles)
 	}
 }

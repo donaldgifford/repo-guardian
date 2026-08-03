@@ -61,13 +61,21 @@ type orphanFile struct {
 	SHA      string
 }
 
-// discoverOrphans returns files on the reconcile branch authored for
-// rules that are no longer actionable. Per IMPL-0013 Resolved
-// Decisions Q9, GetContentsOnBranch errors are treated as "still
-// actionable" — the file is omitted from the orphan list so the
-// downstream cleanup never deletes a file under a transient API
-// glitch. Errors are logged at Warn so operators can spot
-// systematic failures.
+// discoverOrphans returns files on the reconcile branch that
+// repo-guardian itself added for rules that are no longer actionable.
+//
+// A file qualifies only when it is absent from the default branch and
+// present on the reconcile branch. Both halves are load-bearing. The
+// branch is cut from the default branch, so presence on the branch alone
+// is not evidence of authorship — that mistake shipped in IMPL-0013 and
+// caused repo-guardian to propose deleting files repositories legitimately
+// owned (INV-0014). Absence from the default branch is what makes
+// repo-guardian the only party that could have placed the file there.
+//
+// Every API error is fail-safe in the same direction: treat the rule as
+// still actionable and omit it from the orphan list, so a transient glitch
+// can never cause a deletion. Errors are logged at Warn so operators can
+// spot systematic failures (IMPL-0013 Resolved Decisions Q9).
 func discoverOrphans(
 	ctx context.Context,
 	log *slog.Logger,
@@ -95,6 +103,28 @@ func discoverOrphans(
 		}
 
 		if r.Target == "" {
+			continue
+		}
+
+		// INV-0014: a path that exists on the default branch is NEVER an
+		// orphan. The reconcile branch is cut from the default branch (and
+		// re-merged with it by updateReconcileBranch), so "the file is on
+		// the branch" does not mean "we put it there" — it is equally the
+		// signature of a file the repository has always owned. Deleting one
+		// of those makes the PR propose removing a legitimate file.
+		//
+		// Probing default FIRST also makes the common case — a rule
+		// satisfied because the file is on the default branch — cost one
+		// API call instead of two.
+		onDefault, err := client.GetContents(ctx, owner, repo, r.Target)
+		if err != nil {
+			log.Warn("orphan discovery: default-branch probe failed, treating as still-actionable",
+				"rule", r.Name, "path", r.Target, "err", err)
+
+			continue
+		}
+
+		if onDefault {
 			continue
 		}
 

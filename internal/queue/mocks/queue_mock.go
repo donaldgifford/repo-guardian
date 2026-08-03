@@ -8,8 +8,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/donaldgifford/repo-guardian/internal/queue"
 	mock "github.com/stretchr/testify/mock"
+
+	"github.com/donaldgifford/repo-guardian/internal/queue"
 )
 
 // NewMockQueue creates a new instance of MockQueue. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

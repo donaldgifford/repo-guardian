@@ -8,8 +8,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/donaldgifford/repo-guardian/internal/store"
 	mock "github.com/stretchr/testify/mock"
+
+	"github.com/donaldgifford/repo-guardian/internal/store"
 )
 
 // NewMockStore creates a new instance of MockStore. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

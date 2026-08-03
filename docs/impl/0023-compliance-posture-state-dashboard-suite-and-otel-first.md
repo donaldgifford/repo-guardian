@@ -125,7 +125,7 @@ already stores `{status, error, policy_version}`.
 
 #### Tasks
 
-- [ ] 1.1 Migration `0002` (up + down) in
+- [x] 1.1 Migration `0002` (up + down) in
       `internal/store/postgres/migrations/`: `rule_state` with the
       partial index on `(owner, rule_name) WHERE actionable`,
       `compliance_snapshot`, and

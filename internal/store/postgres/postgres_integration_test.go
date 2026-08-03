@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -360,6 +361,102 @@ func TestPostgresStore_MigrateIdempotent(t *testing.T) {
 		LastCheckedAt: &ts, LastCheckStatus: store.StatusSuccess, PolicyVersion: "v1",
 	}); err != nil {
 		t.Fatalf("upsert after repeated migrate: %v", err)
+	}
+}
+
+// TestPostgresStore_MigrateUpDownUp locks IMPL-0023 task 1.1: every
+// .down.sql is the true inverse of its .up.sql. A drifted down file is
+// worse than none — it fails partway and strands a half-dropped schema
+// — and nothing else in the suite would catch it, since the normal
+// startup path only ever migrates up.
+//
+// The final Up is the load-bearing assertion: it only succeeds if Down
+// left the database genuinely empty rather than merely renumbered in
+// schema_migrations.
+func TestPostgresStore_MigrateUpDownUp(t *testing.T) {
+	ctx := context.Background()
+	dsn := startPostgres(ctx, t)
+
+	if err := postgres.Migrate(dsn); err != nil {
+		t.Fatalf("migrate up: %v", err)
+	}
+
+	if err := postgres.MigrateDown(dsn); err != nil {
+		t.Fatalf("migrate down: %v", err)
+	}
+
+	assertRelationAbsent(ctx, t, dsn, "repo_state")
+	assertRelationAbsent(ctx, t, dsn, "rule_state")
+	assertRelationAbsent(ctx, t, dsn, "compliance_snapshot")
+
+	if err := postgres.Migrate(dsn); err != nil {
+		t.Fatalf("migrate up after down: %v", err)
+	}
+
+	// catalog_parse_ok is added by 0002 as an ALTER on a table 0001
+	// owns. Dropping the column and re-adding it is the edge a
+	// table-level up/down check would miss entirely.
+	assertColumnPresent(ctx, t, dsn, "repo_state", "catalog_parse_ok")
+
+	s := newStore(ctx, t, dsn)
+
+	ts := time.Now().UTC()
+	if err := s.UpdateRepoState(ctx, &store.RepoState{
+		InstallationID: 1, Owner: "o", Repo: "after-round-trip",
+		LastCheckedAt: &ts, LastCheckStatus: store.StatusSuccess, PolicyVersion: "v1",
+	}); err != nil {
+		t.Fatalf("upsert after up/down/up: %v", err)
+	}
+}
+
+// assertRelationAbsent fails the test if relation exists in the public
+// schema.
+func assertRelationAbsent(ctx context.Context, t *testing.T, dsn, relation string) {
+	t.Helper()
+
+	conn, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+
+	defer func() { _ = conn.Close(ctx) }()
+
+	var exists bool
+	if err := conn.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM information_schema.tables
+		 WHERE table_schema = 'public' AND table_name = $1)`,
+		relation,
+	).Scan(&exists); err != nil {
+		t.Fatalf("query relation %q: %v", relation, err)
+	}
+
+	if exists {
+		t.Errorf("relation %q still exists after migrate down, want dropped", relation)
+	}
+}
+
+// assertColumnPresent fails the test if table lacks column.
+func assertColumnPresent(ctx context.Context, t *testing.T, dsn, table, column string) {
+	t.Helper()
+
+	conn, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+
+	defer func() { _ = conn.Close(ctx) }()
+
+	var exists bool
+	if err := conn.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM information_schema.columns
+		 WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2)`,
+		table, column,
+	).Scan(&exists); err != nil {
+		t.Fatalf("query column %s.%s: %v", table, column, err)
+	}
+
+	if !exists {
+		t.Errorf("column %s.%s missing after re-migrate, want present", table, column)
 	}
 }
 

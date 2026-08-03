@@ -143,12 +143,12 @@ already stores `{status, error, policy_version}`.
       on true→false, preserved on true→true), then delete-not-in
       reconciliation of this repo's rows absent from the evaluated
       set (OQ3 → a).
-- [ ] 1.4 Worker `writeBack` extension: persist the `CheckResult`
+- [x] 1.4 Worker `writeBack` extension: persist the `CheckResult`
       (rule rows + `catalog_parse_ok`) best-effort in the same call
       path — failures log Warn + count
       `store_writeback_total{outcome="error"}`, never fail the job
       (IMPL-0015 Phase 0 contract).
-- [ ] 1.5 `make mocks` for the Store; update the test-local
+- [x] 1.5 `make mocks` for the Store; update the test-local
       `fakeStore` recorders and every `CheckRepo` call site
       (worker, checker tests) for the new signature.
 - [ ] 1.6 Tests: `actionable_since` transition semantics

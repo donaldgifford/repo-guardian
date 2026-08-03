@@ -173,21 +173,24 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 	if err != nil {
 		jobLog.Error("failed to create installation client", "error", err)
 		metrics.ErrorsTotal.WithLabelValues("create_install_client", j.Owner).Inc()
-		p.writeBack(ctx, jobLog, j, err)
+		// No engine run happened, so there is no posture to record —
+		// which is not the same as "this repo has no failing rules".
+		p.writeBack(ctx, jobLog, j, err, nil)
 
 		return fmt.Errorf("create installation client for %d: %w", j.InstallationID, err)
 	}
 
-	// The *CheckResult is consumed by writeBack in IMPL-0023 task 1.4;
-	// this task only moves the signature.
-	if _, err := p.engine.CheckRepo(ctx, installClient, j.Owner, j.Repo); err != nil {
+	res, err := p.engine.CheckRepo(ctx, installClient, j.Owner, j.Repo)
+	if err != nil {
 		if retry := p.deferralFor(jobLog, &j, err); retry != nil {
 			return retry
 		}
 
 		jobLog.Error("job failed", "error", err, "duration", time.Since(start))
 		metrics.ErrorsTotal.WithLabelValues("check_repo", j.Owner).Inc()
-		p.writeBack(ctx, jobLog, j, err)
+		// CheckRepo already returns nil on its error paths; passing res
+		// rather than a literal nil keeps that contract in one place.
+		p.writeBack(ctx, jobLog, j, err, res)
 
 		return fmt.Errorf("check %s/%s: %w", j.Owner, j.Repo, err)
 	}
@@ -195,7 +198,7 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 	duration := time.Since(start)
 	metrics.ReposCheckedTotal.WithLabelValues(j.Trigger, j.Owner).Inc()
 	metrics.CheckDurationSeconds.Observe(duration.Seconds())
-	p.writeBack(ctx, jobLog, j, nil)
+	p.writeBack(ctx, jobLog, j, nil, res)
 	jobLog.Info("job completed", "duration", duration)
 
 	return nil
@@ -216,9 +219,12 @@ func (p *Pool) dropExhausted(ctx context.Context, log *slog.Logger, j queue.Job)
 		"max_attempts", p.maxAttempts,
 	)
 
+	// nil posture: the job never ran the engine on this delivery, so the
+	// repo's existing rule rows stay put. Wiping them here would report
+	// a repo we gave up on as fully compliant.
 	p.writeBack(ctx, log, j, fmt.Errorf(
 		"job dropped after %d attempts (MAX_JOB_ATTEMPTS=%d); see worker logs for the underlying failures",
-		j.Attempts, p.maxAttempts))
+		j.Attempts, p.maxAttempts), nil)
 
 	metrics.QueueAttemptsExhaustedTotal.WithLabelValues(strconv.FormatInt(j.InstallationID, 10)).Inc()
 
@@ -313,8 +319,17 @@ func retryJitter(delay time.Duration) time.Duration {
 // is the source of truth for "did we do the work" — losing the
 // persisted state just means the next sweep will re-enqueue.
 //
+// res carries the per-rule posture from CheckRepo (IMPL-0023 task
+// 1.4) and is nil on every error path, where the engine has no
+// trustworthy verdict to persist. Both writes are independently
+// best-effort: neither can fail the job, and a rule-state failure does
+// not suppress the repo_state write or vice versa. They are separate
+// statements rather than one transaction on purpose — a partial
+// write-back costs one repo one stale sweep, which is cheaper than
+// coupling the sweep's freshness bookkeeping to posture durability.
+//
 //nolint:gocritic // hugeParam: queue.Job-by-value matches Subscribe's contract
-func (p *Pool) writeBack(ctx context.Context, log *slog.Logger, j queue.Job, checkErr error) {
+func (p *Pool) writeBack(ctx context.Context, log *slog.Logger, j queue.Job, checkErr error, res *checker.CheckResult) {
 	if p.stateStore == nil {
 		return
 	}
@@ -336,6 +351,10 @@ func (p *Pool) writeBack(ctx context.Context, log *slog.Logger, j queue.Job, che
 		state.LastError = store.Truncate(checkErr.Error(), errMaxRunes)
 	}
 
+	if res != nil {
+		state.CatalogParseOK = res.CatalogParseOK
+	}
+
 	installLabel := strconv.FormatInt(j.InstallationID, 10)
 	wbStart := time.Now()
 
@@ -347,6 +366,57 @@ func (p *Pool) writeBack(ctx context.Context, log *slog.Logger, j queue.Job, che
 		outcome = "error"
 
 		log.Warn("store write-back failed; sweep will re-enqueue", "error", err)
+	}
+
+	metrics.StoreWritebackTotal.WithLabelValues(installLabel, outcome).Inc()
+
+	p.writeBackRuleStates(ctx, log, j, res, installLabel)
+}
+
+// writeBackRuleStates persists the per-rule posture for one repo.
+//
+// A nil res means the check produced no trustworthy verdict — an error
+// path, or a caller that never ran the engine — so nothing is written
+// at all. That is materially different from an empty Outcomes slice,
+// which IS written: it clears the repo's rows, which is how a repo that
+// went archived or left policy scope stops counting against compliance
+// instead of freezing at its last verdict forever.
+//
+//nolint:gocritic // hugeParam: queue.Job-by-value matches Subscribe's contract
+func (p *Pool) writeBackRuleStates(
+	ctx context.Context,
+	log *slog.Logger,
+	j queue.Job,
+	res *checker.CheckResult,
+	installLabel string,
+) {
+	if res == nil {
+		return
+	}
+
+	states := make([]store.RuleState, 0, len(res.Outcomes))
+	for _, o := range res.Outcomes {
+		states = append(states, store.RuleState{
+			InstallationID: j.InstallationID,
+			Owner:          j.Owner,
+			Repo:           j.Repo,
+			RuleName:       o.RuleName,
+			RuleKind:       string(o.Kind),
+			Actionable:     o.Actionable,
+			PolicyVersion:  p.policyVersion,
+		})
+	}
+
+	start := time.Now()
+	err := p.stateStore.UpsertRuleStates(ctx, j.InstallationID, j.Owner, j.Repo, states)
+	metrics.StoreWritebackDurationSeconds.Observe(time.Since(start).Seconds())
+
+	outcome := "ok"
+	if err != nil {
+		outcome = "error"
+
+		log.Warn("rule-state write-back failed; posture will be stale until the next check",
+			"error", err, "rules", len(states))
 	}
 
 	metrics.StoreWritebackTotal.WithLabelValues(installLabel, outcome).Inc()

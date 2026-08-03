@@ -9,9 +9,11 @@
 //
 // StaleSweeper replaces that path. It queries
 // `Store.StaleRepos(freshness, currentPolicyVersion, batchSize)` and
-// enqueues only the repos whose stored state is overdue. The
-// rate-limit reserve gate further skips repos whose installation has
-// burned through its hourly budget.
+// enqueues only the repos whose stored state is overdue. Rate-limit
+// pressure is handled downstream by the IMPL-0022 delayed-requeue
+// path (throttled jobs defer with a due-time instead of being
+// skipped at enqueue); the sweep only samples each installation's
+// remaining budget for observability.
 //
 // Bootstrap (populating the store with rows for newly-installed
 // repos) is the legacy Sweeper's job. The two coexist during the
@@ -23,7 +25,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"time"
 
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
@@ -32,15 +33,15 @@ import (
 )
 
 // RateLimitProvider returns the current rate-limit budget for an
-// installation. The github.Client implements this; tests provide an
-// in-memory stub. Returning a negative remaining means "unknown" —
-// the gate falls open.
+// installation. The github.Client implements this (setting the
+// rate_limit_remaining{installation_id} gauge as a side effect);
+// tests provide an in-memory stub.
 type RateLimitProvider interface {
 	RateLimitRemaining(ctx context.Context, installationID int64) (remaining, limit int, resetAt time.Time, err error)
 }
 
 // StaleSweeper reads the stale-repo list from a Store and enqueues
-// the survivors of the per-installation rate-limit reserve gate.
+// each due repo.
 type StaleSweeper struct {
 	store         store.Store
 	queue         queue.Queue
@@ -49,7 +50,6 @@ type StaleSweeper struct {
 	freshness     time.Duration
 	policyVersion string
 	batchSize     int
-	reserve       float64
 }
 
 // StaleSweeperOptions bundles the StaleSweeper constructor inputs.
@@ -61,7 +61,6 @@ type StaleSweeperOptions struct {
 	Freshness     time.Duration
 	PolicyVersion string
 	BatchSize     int
-	Reserve       float64
 }
 
 // NewStaleSweeper constructs a StaleSweeper. Defaults are applied to
@@ -83,10 +82,6 @@ func NewStaleSweeper(opts StaleSweeperOptions) *StaleSweeper {
 		opts.BatchSize = 200
 	}
 
-	if opts.Reserve <= 0 {
-		opts.Reserve = 0.1
-	}
-
 	return &StaleSweeper{
 		store:         opts.Store,
 		queue:         opts.Queue,
@@ -95,7 +90,6 @@ func NewStaleSweeper(opts StaleSweeperOptions) *StaleSweeper {
 		freshness:     opts.Freshness,
 		policyVersion: opts.PolicyVersion,
 		batchSize:     opts.BatchSize,
-		reserve:       opts.Reserve,
 	}
 }
 
@@ -123,16 +117,12 @@ func (s *StaleSweeper) SweepStale(ctx context.Context) error {
 	}
 
 	enqueued := 0
-	gated := 0
+	sampled := make(map[int64]bool)
 
 	for i := range stale {
 		repo := stale[i]
 
-		if !s.allowedByRateLimit(ctx, repo.InstallationID) {
-			gated++
-
-			continue
-		}
+		s.sampleRateLimit(ctx, repo.InstallationID, sampled)
 
 		job := queue.Job{
 			ID: fmt.Sprintf(
@@ -166,7 +156,6 @@ func (s *StaleSweeper) SweepStale(ctx context.Context) error {
 	s.logger.InfoContext(ctx, "stale-sweep complete",
 		"stale", len(stale),
 		"enqueued", enqueued,
-		"gated_rate_limit", gated,
 		"freshness", s.freshness,
 		"policy_version", s.policyVersion,
 		"duration", time.Since(start),
@@ -175,36 +164,25 @@ func (s *StaleSweeper) SweepStale(ctx context.Context) error {
 	return nil
 }
 
-// allowedByRateLimit returns true if the installation has at least
-// `reserve × limit` of budget left. Errors fall open (true) so a
-// transient rate-limit lookup glitch doesn't halt the sweep.
-func (s *StaleSweeper) allowedByRateLimit(ctx context.Context, installationID int64) bool {
-	if s.rateLimit == nil {
-		return true
+// sampleRateLimit refreshes the rate_limit_remaining
+// {installation_id} gauge once per installation per sweep — the
+// gauge is set inside Client.RateLimitRemaining as a side effect.
+// Observability only, never a gating decision: the IMPL-0022
+// delayed-requeue path replaced the reserve gate, but this call is
+// the gauge's only producer, and removing it would leave
+// RepoGuardianRateLimitNearExhaustion consuming an unfed gauge
+// (DESIGN-0021 OQ4 rider).
+func (s *StaleSweeper) sampleRateLimit(ctx context.Context, installationID int64, sampled map[int64]bool) {
+	if s.rateLimit == nil || sampled[installationID] {
+		return
 	}
 
-	remaining, limit, _, err := s.rateLimit.RateLimitRemaining(ctx, installationID)
-	if err != nil {
-		s.logger.WarnContext(ctx, "rate-limit lookup failed; falling open",
+	sampled[installationID] = true
+
+	if _, _, _, err := s.rateLimit.RateLimitRemaining(ctx, installationID); err != nil {
+		s.logger.WarnContext(ctx, "rate-limit sample failed",
 			"installation_id", installationID,
 			"error", err,
 		)
-
-		return true
 	}
-
-	if limit <= 0 {
-		return true
-	}
-
-	threshold := int(float64(limit) * s.reserve)
-	if remaining > threshold {
-		return true
-	}
-
-	metrics.RateLimitReserveBlockedTotal.
-		WithLabelValues(strconv.FormatInt(installationID, 10)).
-		Inc()
-
-	return false
 }

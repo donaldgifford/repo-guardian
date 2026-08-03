@@ -227,7 +227,6 @@ func scheduleHandlers(
 		Freshness:     cfg.ReconcileFreshness,
 		PolicyVersion: policyVersion,
 		BatchSize:     cfg.StaleSweepBatchSize,
-		Reserve:       cfg.RateLimitReserve,
 	})
 
 	if err := sched.Schedule(ctx, "stale-sweep", policyCfg.Guardian.ParsedScheduleInterval, staleSweeper.SweepStale); err != nil {

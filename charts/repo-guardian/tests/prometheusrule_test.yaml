@@ -71,30 +71,6 @@ tests:
               severity: critical
           any: true
 
-  - it: should render the BudgetGated alert by default
-    set:
-      prometheusRule:
-        enabled: true
-    asserts:
-      - contains:
-          path: spec.groups[0].rules
-          content:
-            alert: RepoGuardianBudgetGated
-          any: true
-
-  - it: should allow BudgetGated to be disabled
-    set:
-      prometheusRule:
-        enabled: true
-        alerts:
-          BudgetGated:
-            enabled: false
-    asserts:
-      - notContains:
-          path: spec.groups[0].rules
-          content:
-            alert: RepoGuardianBudgetGated
-
   # The window must outlive `for` or an isolated schema mismatch can
   # never drive the alert to firing (INV-0011 A7): the mismatch is
   # observed once per repo per sweep, so rate(...[15m]) fell back to

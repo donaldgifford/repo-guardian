@@ -10,10 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus/testutil"
-
 	"github.com/donaldgifford/repo-guardian/internal/checker"
-	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/queue"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 )
@@ -152,9 +149,16 @@ type fakeRateLimit struct {
 	remaining map[int64]int
 	limit     int
 	err       error
+	calls     map[int64]int
 }
 
 func (f *fakeRateLimit) RateLimitRemaining(_ context.Context, id int64) (int, int, time.Time, error) {
+	if f.calls == nil {
+		f.calls = make(map[int64]int)
+	}
+
+	f.calls[id]++
+
 	if f.err != nil {
 		return 0, 0, time.Time{}, f.err
 	}
@@ -171,7 +175,7 @@ func warnLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
 }
 
-func TestStaleSweeper_EnqueuesAllWhenRateLimitAmple(t *testing.T) {
+func TestStaleSweeper_EnqueuesAllStale(t *testing.T) {
 	st := newFakeStore()
 	q := newRecordingQueue()
 	rl := &fakeRateLimit{remaining: map[int64]int{}, limit: 5000}
@@ -193,7 +197,7 @@ func TestStaleSweeper_EnqueuesAllWhenRateLimitAmple(t *testing.T) {
 
 	sw := checker.NewStaleSweeper(checker.StaleSweeperOptions{
 		Store: st, Queue: q, RateLimit: rl, Logger: warnLogger(),
-		Freshness: time.Hour, PolicyVersion: "v1", BatchSize: 10, Reserve: 0.1,
+		Freshness: time.Hour, PolicyVersion: "v1", BatchSize: 10,
 	})
 
 	if err := sw.SweepStale(t.Context()); err != nil {
@@ -205,43 +209,53 @@ func TestStaleSweeper_EnqueuesAllWhenRateLimitAmple(t *testing.T) {
 	}
 }
 
-func TestStaleSweeper_SkipsInstallationOverReserve(t *testing.T) {
+// TestStaleSweeper_SamplesRateLimitOncePerInstallation locks the
+// DESIGN-0021 OQ4 rider: the reserve gate is gone, but the sweep must
+// still call RateLimitRemaining exactly once per installation per
+// sweep — that call is the only producer feeding
+// rate_limit_remaining{installation_id}, and it must never gate.
+func TestStaleSweeper_SamplesRateLimitOncePerInstallation(t *testing.T) {
 	st := newFakeStore()
 	q := newRecordingQueue()
 
-	// remaining=499, limit=5000, reserve=0.1 → threshold=500.
-	// remaining (499) ≤ threshold (500) → gated.
-	rl := &fakeRateLimit{remaining: map[int64]int{1: 499}, limit: 5000}
-
-	metrics.RateLimitReserveBlockedTotal.Reset()
+	// remaining=0: pre-IMPL-0022 the reserve gate would have skipped
+	// everything; now every repo still enqueues.
+	rl := &fakeRateLimit{remaining: map[int64]int{1: 0, 2: 0}, limit: 5000}
 
 	old := time.Now().Add(-2 * time.Hour)
-	if err := st.UpdateRepoState(t.Context(), &store.RepoState{
-		InstallationID: 1, Owner: "o", Repo: "r1",
-		LastCheckedAt: &old, LastCheckStatus: store.StatusSuccess, PolicyVersion: "v1",
-	}); err != nil {
-		t.Fatalf("seed: %v", err)
+	for _, seed := range []struct {
+		install int64
+		repo    string
+	}{{1, "r1"}, {1, "r2"}, {2, "r3"}} {
+		if err := st.UpdateRepoState(t.Context(), &store.RepoState{
+			InstallationID: seed.install, Owner: "o", Repo: seed.repo,
+			LastCheckedAt: &old, LastCheckStatus: store.StatusSuccess, PolicyVersion: "v1",
+		}); err != nil {
+			t.Fatalf("seed %s: %v", seed.repo, err)
+		}
 	}
 
 	sw := checker.NewStaleSweeper(checker.StaleSweeperOptions{
 		Store: st, Queue: q, RateLimit: rl, Logger: warnLogger(),
-		Freshness: time.Hour, PolicyVersion: "v1", BatchSize: 10, Reserve: 0.1,
+		Freshness: time.Hour, PolicyVersion: "v1", BatchSize: 10,
 	})
 
 	if err := sw.SweepStale(t.Context()); err != nil {
 		t.Fatalf("sweep: %v", err)
 	}
 
-	if got := q.Len(); got != 0 {
-		t.Fatalf("expected 0 enqueued (rate-limited), got %d", got)
+	if got := q.Len(); got != 3 {
+		t.Fatalf("queue len = %d, want 3 (exhausted budget must not gate enqueue)", got)
 	}
 
-	if got := testutil.ToFloat64(metrics.RateLimitReserveBlockedTotal.WithLabelValues(strconv.Itoa(1))); got != 1 {
-		t.Fatalf("expected blocked counter=1, got %v", got)
+	for _, install := range []int64{1, 2} {
+		if got := rl.calls[install]; got != 1 {
+			t.Errorf("RateLimitRemaining calls for installation %d = %d, want 1", install, got)
+		}
 	}
 }
 
-func TestStaleSweeper_RateLimitErrorFallsOpen(t *testing.T) {
+func TestStaleSweeper_RateLimitSampleErrorDoesNotBlock(t *testing.T) {
 	st := newFakeStore()
 	q := newRecordingQueue()
 	rl := &fakeRateLimit{err: errors.New("transient")}
@@ -256,7 +270,7 @@ func TestStaleSweeper_RateLimitErrorFallsOpen(t *testing.T) {
 
 	sw := checker.NewStaleSweeper(checker.StaleSweeperOptions{
 		Store: st, Queue: q, RateLimit: rl, Logger: warnLogger(),
-		Freshness: time.Hour, PolicyVersion: "v1", BatchSize: 10, Reserve: 0.1,
+		Freshness: time.Hour, PolicyVersion: "v1", BatchSize: 10,
 	})
 
 	if err := sw.SweepStale(t.Context()); err != nil {
@@ -264,7 +278,7 @@ func TestStaleSweeper_RateLimitErrorFallsOpen(t *testing.T) {
 	}
 
 	if got := q.Len(); got != 1 {
-		t.Fatalf("expected 1 enqueued (rate-limit lookup falls open), got %d", got)
+		t.Fatalf("expected 1 enqueued (sampling is observability-only), got %d", got)
 	}
 }
 
@@ -282,7 +296,7 @@ func TestStaleSweeper_PolicyVersionMismatchEnqueuesAll(t *testing.T) {
 
 	sw := checker.NewStaleSweeper(checker.StaleSweeperOptions{
 		Store: st, Queue: q, Logger: warnLogger(),
-		Freshness: time.Hour, PolicyVersion: "v2", BatchSize: 10, Reserve: 0.1,
+		Freshness: time.Hour, PolicyVersion: "v2", BatchSize: 10,
 	})
 
 	if err := sw.SweepStale(t.Context()); err != nil {

@@ -129,13 +129,6 @@ type Config struct {
 	// StaleRepos query. Default 200.
 	StaleSweepBatchSize int
 
-	// RateLimitReserve is the fraction of an installation's GitHub
-	// rate limit reserved against sweep enqueue. When the remaining
-	// budget < (limit × reserve), the StaleSweeper skips that
-	// installation's repos and increments
-	// rate_limit_reserve_blocked_total. Default 0.1.
-	RateLimitReserve float64
-
 	// DiscoveryEnabled gates whether main.go schedules the
 	// Discoverer at startup. Default true (IMPL-0015 Phase 1 — no
 	// memory-backend deployments to opt-out for post-IMPL-0016).
@@ -147,17 +140,6 @@ type Config struct {
 	// delay first-sweep of newly-installed repos beyond the webhook
 	// path.
 	DiscoveryInterval time.Duration
-
-	// DiscoveryReserveFraction is the fraction of the rate-limit
-	// budget the BudgetTracker holds in reserve when gating
-	// discovery enqueues. Default 0.20. Must be in [0, 1].
-	DiscoveryReserveFraction float64
-
-	// DiscoveryEstimatedCostPerRepo is the operator's estimate of
-	// the rate-limit cost of a single reconcile. Drives the
-	// BudgetTracker's spendable-enqueue accounting. Default 10.
-	// Must be > 0.
-	DiscoveryEstimatedCostPerRepo int
 }
 
 // Backend identifier constants. Defined as package-level strings so
@@ -337,19 +319,12 @@ func loadBackendConfig(cfg *Config) error {
 
 	cfg.StaleSweepBatchSize = batchSize
 
-	reserve, err := envOrDefaultFloat("RATE_LIMIT_RESERVE", 0.1)
-	if err != nil {
-		return err
-	}
-
-	cfg.RateLimitReserve = reserve
-
 	return loadDiscoveryConfig(cfg)
 }
 
-// loadDiscoveryConfig populates the IMPL-0015 Phase 1 Discoverer +
-// BudgetTracker knobs from env vars. Validation (range checks) lives
-// in Config.Validate to surface misconfig at startup.
+// loadDiscoveryConfig populates the Discoverer knobs from env vars.
+// The IMPL-0015 BudgetTracker reserve knobs it used to carry were
+// removed with the tracker in IMPL-0022 Phase 6.
 func loadDiscoveryConfig(cfg *Config) error {
 	discoveryEnabled, err := envOrDefaultBool("DISCOVERY_ENABLED", true)
 	if err != nil {
@@ -364,20 +339,6 @@ func loadDiscoveryConfig(cfg *Config) error {
 	}
 
 	cfg.DiscoveryInterval = discoveryInterval
-
-	reserveFraction, err := envOrDefaultFloat("DISCOVERY_RESERVE_FRACTION", 0.20)
-	if err != nil {
-		return err
-	}
-
-	cfg.DiscoveryReserveFraction = reserveFraction
-
-	costPerRepo, err := envOrDefaultInt("DISCOVERY_ESTIMATED_COST_PER_REPO", 10)
-	if err != nil {
-		return err
-	}
-
-	cfg.DiscoveryEstimatedCostPerRepo = costPerRepo
 
 	return nil
 }
@@ -403,34 +364,8 @@ func (c *Config) Validate() error {
 	}
 
 	errs = append(errs, c.validateBackends()...)
-	errs = append(errs, c.validateDiscovery()...)
 
 	return errors.Join(errs...)
-}
-
-// validateDiscovery checks the range invariants on the IMPL-0015
-// Phase 1 discovery knobs. ReserveFraction must be in [0, 1];
-// EstimatedCostPerRepo must be > 0. Both are operator-tunable via
-// chart values so range errors emit at boot rather than crashing
-// budget.New() mid-run.
-func (c *Config) validateDiscovery() []error {
-	var errs []error
-
-	if c.DiscoveryReserveFraction < 0 || c.DiscoveryReserveFraction > 1 {
-		errs = append(errs, fmt.Errorf(
-			"DISCOVERY_RESERVE_FRACTION must be in [0, 1] (got %v)",
-			c.DiscoveryReserveFraction,
-		))
-	}
-
-	if c.DiscoveryEstimatedCostPerRepo <= 0 {
-		errs = append(errs, fmt.Errorf(
-			"DISCOVERY_ESTIMATED_COST_PER_REPO must be > 0 (got %d)",
-			c.DiscoveryEstimatedCostPerRepo,
-		))
-	}
-
-	return errs
 }
 
 func (c *Config) validateBackends() []error {

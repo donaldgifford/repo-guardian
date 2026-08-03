@@ -547,29 +547,13 @@ groups:
             parse failed" names the repo — fix the YAML there.
 
   # =====================================================================
-  # Discoverer + BudgetTracker (IMPL-0015 Phase 1)
+  # Removed: Discoverer + BudgetTracker (IMPL-0015 Phase 1)
   # =====================================================================
-  # DISABLED (INV-0012): the BudgetTracker is inert in production —
-  # nothing calls RefreshFromAPI outside tests, so
-  # enqueue_gated_by_budget_total has no producer and this alert can
-  # never fire. Importing it would ship a permanently-silent alert that
-  # reads as "we're never rate-limit-bound", which is not established.
-  # DESIGN-0021 replaces the mechanism with measured queue-delay
-  # metrics (queue_delayed_total{reason}); re-enable the equivalent
-  # alert when that lands.
-  #
-  # - name: repo-guardian.discovery
-  #   rules:
-  #     - alert: RepoGuardianBudgetGated
-  #       expr: sum(rate(repo_guardian_enqueue_gated_by_budget_total[15m])) > 0
-  #       for: 30m
-  #       labels:
-  #         severity: warning
-  #         service: repo-guardian
-  #       annotations:
-  #         summary: "repo-guardian budget-gating enqueues (rate-limit bound)"
-  #         description: >-
-  #           The BudgetTracker has been blocking enqueues for 30+
-  #           minutes; the deployment is rate-limit-bound. See
-  #           docs/operations/scaling.md §Discoverer + BudgetTracker
-  #           for remediation.
+  # RepoGuardianBudgetGated is gone. The BudgetTracker it watched was
+  # inert in production (INV-0012 finding A: nothing ever called
+  # RefreshFromAPI outside tests, so enqueue_gated_by_budget_total had
+  # no producer and the alert could never fire) and was deleted in
+  # IMPL-0022 Phase 6 along with its nine api_budget_* metrics.
+  # The replacement signals are RepoGuardianQueueBackpressure and the
+  # re-pointed RepoGuardianRateLimitThrottling above, both fed by the
+  # delayed-requeue path that actually throttles work.

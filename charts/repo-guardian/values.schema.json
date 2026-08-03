@@ -64,15 +64,6 @@
         "interval": {
           "type": "string",
           "description": "Go duration (e.g. \"1h\", \"30m\")."
-        },
-        "reserveFraction": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
-        },
-        "estimatedCostPerRepo": {
-          "type": "integer",
-          "minimum": 1
         }
       }
     }

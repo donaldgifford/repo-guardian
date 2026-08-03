@@ -90,19 +90,6 @@ var (
 		Help: "GitHub API rate limit remaining.",
 	})
 
-	// GitHubRateLimitWaitsTotal counts rate limit waits by reason.
-	GitHubRateLimitWaitsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "repo_guardian_github_rate_limit_waits_total",
-		Help: "Total rate limit waits by reason.",
-	}, []string{labelReason})
-
-	// GitHubRateLimitWaitSeconds records the duration of rate limit waits.
-	GitHubRateLimitWaitSeconds = promauto.NewHistogram(prometheus.HistogramOpts{
-		Name:    "repo_guardian_github_rate_limit_wait_seconds",
-		Help:    "Duration of rate limit waits in seconds.",
-		Buckets: []float64{0.1, 0.5, 1, 5, 10, 30, 60, 120, 300},
-	})
-
 	// PropertiesCheckedTotal counts repos where custom properties were evaluated.
 	PropertiesCheckedTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "repo_guardian_properties_checked_total",
@@ -323,14 +310,6 @@ var (
 		Buckets: []float64{0, 1, 5, 10, 25, 50, 100, 250, 500, 1000},
 	})
 
-	// RateLimitReserveBlockedTotal counts repos skipped during sweep
-	// because the GitHub API rate-limit reserve gate triggered for
-	// the installation.
-	RateLimitReserveBlockedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "repo_guardian_rate_limit_reserve_blocked_total",
-		Help: "Repos skipped by the sweep rate-limit reserve gate, by installation.",
-	}, []string{labelInstallationID})
-
 	// RateLimitRemaining tracks the GitHub API rate-limit remaining
 	// budget per installation, scraped from X-RateLimit-Remaining on
 	// every response. Replaces the singleton GitHubRateRemaining gauge
@@ -379,60 +358,6 @@ var (
 		Name: "repo_guardian_prs_closed_total",
 		Help: "Pull requests closed by repo-guardian, by reason.",
 	}, []string{labelOrg, labelReason})
-
-	// APIBudgetRemaining is the per-installation rate-limit budget
-	// remaining, as cached by the BudgetTracker (IMPL-0015 Phase 1).
-	// Differs from `rate_limit_remaining` only in source: this gauge
-	// is the in-process tracker state including local Decrements; the
-	// other reflects the most recent GitHub-reported value. Operators
-	// watching for budget exhaustion want this one.
-	APIBudgetRemaining = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "repo_guardian_api_budget_remaining",
-		Help: "Cached rate-limit budget remaining per installation, after local Decrement accounting.",
-	}, []string{labelInstallationID})
-
-	// APIBudgetSpendable is the number of additional enqueues the
-	// tracker will allow before breaching the reserve fraction. The
-	// StaleSweeper / Discoverer consults this before each Enqueue.
-	APIBudgetSpendable = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "repo_guardian_api_budget_spendable",
-		Help: "Enqueues the tracker will allow before breaching the reserve fraction.",
-	}, []string{labelInstallationID})
-
-	// APIBudgetReserveFraction is the operator-configured floor that
-	// the tracker holds back from enqueue. Constant per
-	// installation; exposed as a gauge so operators can confirm the
-	// chart values landed without grepping logs.
-	APIBudgetReserveFraction = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "repo_guardian_api_budget_reserve_fraction",
-		Help: "Operator-configured reserve fraction (chart value discovery.reserveFraction).",
-	}, []string{labelInstallationID})
-
-	// APIBudgetUtilisation is `1 - (remaining / limit)`. A rising
-	// value approaching reserve_fraction signals the deployment is
-	// becoming rate-limit-bound.
-	APIBudgetUtilisation = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "repo_guardian_api_budget_utilisation",
-		Help: "Fraction of the rate-limit window used (1 - remaining/limit).",
-	}, []string{labelInstallationID})
-
-	// APIBudgetRefreshTotal counts BudgetTracker refresh attempts by
-	// outcome. Non-zero `outcome="error"` rate indicates the
-	// tracker cannot read the rate-limit window — gate is falling
-	// open and the deployment may exceed the budget.
-	APIBudgetRefreshTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "repo_guardian_api_budget_refresh_total",
-		Help: "BudgetTracker rate-limit refresh attempts, by installation and outcome.",
-	}, []string{labelInstallationID, labelOutcome})
-
-	// EnqueueGatedByBudgetTotal counts enqueue attempts blocked by
-	// the BudgetTracker reserve gate. A non-zero rate means the
-	// deployment is rate-limit-bound; the only fixes are
-	// freshness↑, rules↓, or per-org App credentials (INV-0006).
-	EnqueueGatedByBudgetTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "repo_guardian_enqueue_gated_by_budget_total",
-		Help: "Enqueue attempts blocked by the BudgetTracker reserve gate, by installation.",
-	}, []string{labelInstallationID})
 
 	// RepoDiscoveredTotal counts new rows inserted by the Discoverer
 	// via Store.UpsertIfMissing. Per-installation. Increments on

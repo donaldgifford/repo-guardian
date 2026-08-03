@@ -106,16 +106,27 @@ tests:
           content:
             name: DISCOVERY_INTERVAL
             value: "1h"
-      - contains:
+
+  # IMPL-0022 Phase 6: the BudgetTracker and the sweep reserve gate
+  # are gone — one throttle mechanism (delayed requeue) replaced
+  # three. These env vars must not come back with the values removed.
+  - it: does not render the removed reserve knobs
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RATE_LIMIT_RESERVE
+          any: true
+      - notContains:
           path: spec.template.spec.containers[0].env
           content:
             name: DISCOVERY_RESERVE_FRACTION
-            value: "0.2"
-      - contains:
+          any: true
+      - notContains:
           path: spec.template.spec.containers[0].env
           content:
             name: DISCOVERY_ESTIMATED_COST_PER_REPO
-            value: "10"
+          any: true
 
   - it: respects discovery.enabled=false override
     set:

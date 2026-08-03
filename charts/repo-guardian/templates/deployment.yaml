@@ -150,17 +150,11 @@ spec:
               value: {{ .Values.staleSweep.freshness | quote }}
             - name: STALE_SWEEP_BATCH_SIZE
               value: {{ .Values.staleSweep.batchSize | quote }}
-            - name: RATE_LIMIT_RESERVE
-              value: {{ .Values.staleSweep.rateLimitReserve | quote }}
             {{- end }}
             - name: DISCOVERY_ENABLED
               value: {{ .Values.discovery.enabled | quote }}
             - name: DISCOVERY_INTERVAL
               value: {{ .Values.discovery.interval | quote }}
-            - name: DISCOVERY_RESERVE_FRACTION
-              value: {{ .Values.discovery.reserveFraction | quote }}
-            - name: DISCOVERY_ESTIMATED_COST_PER_REPO
-              value: {{ .Values.discovery.estimatedCostPerRepo | quote }}
             {{- if eq .Values.queue.backend "valkey" }}
             {{- if and (eq .Values.queue.valkey.mode "baked") .Values.queue.valkey.baked.existingSecret }}
             # Baked Valkey with an operator-supplied password: assemble

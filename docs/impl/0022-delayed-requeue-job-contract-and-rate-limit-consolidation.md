@@ -547,7 +547,7 @@ Only after the soak (see Sequencing). Ships as its own minor.
       with their subjects; `TestStaleSweeper_EnqueuesAllWhenBudgetIsAmple`
       renamed `...WhenRateLimitAmple` (it exercises the rate-limit
       gate, which survives until 6.3).*
-- [ ] 6.3 Remove the layer-2 sweep gate
+- [x] 6.3 Remove the layer-2 sweep gate
       (`StaleSweeper.allowedByRateLimit`, sweep.go:243) and
       `rate_limit_reserve_blocked_total` — **preserving the
       per-installation `RateLimitRemaining` sampling call in the sweep
@@ -555,21 +555,53 @@ Only after the soak (see Sequencing). Ships as its own minor.
       `rate_limit_remaining{installation_id}`; the gate goes, the
       sampling stays, `RepoGuardianRateLimitNearExhaustion` keeps its
       feed).
-- [ ] 6.4 Remove the nine `api_budget_*` /
+- [x] 6.4 Remove the nine `api_budget_*` /
       `enqueue_gated_by_budget_total` metric definitions, the now-unfed
       wait-pair definitions
       (`github_rate_limit_waits_total` / `_wait_seconds`), and
       `RepoGuardianBudgetGated` from both alert files (it is already
       commented out in contrib).
-- [ ] 6.5 Remove `DISCOVERY_RESERVE_FRACTION` and
+      *Done. Six `api_budget_*`/`enqueue_gated_by_budget_total`
+      definitions (the 9 series count includes per-label expansion)
+      plus `github_rate_limit_waits_total` / `_wait_seconds`
+      removed from metrics.go. `RepoGuardianBudgetGated` deleted from
+      the chart template and its two helm-unittest cases; the contrib
+      commented-out block became a tombstone comment naming the
+      replacement alerts, so an operator diffing an old pack learns
+      why it vanished. contrib/README.md's wait-pair rows replaced
+      with a pointer to `queue_delayed_total`.*
+- [x] 6.5 Remove `DISCOVERY_RESERVE_FRACTION` and
       `DISCOVERY_ESTIMATED_COST_PER_REPO` from config, validation, and
-      tests.
-- [ ] 6.6 Remove `discovery.reserveFraction` /
+      tests. *Done — including the whole `validateDiscovery` helper
+      and its call site, which had no other invariants left.*
+- [x] 6.6 Remove `discovery.reserveFraction` /
       `discovery.estimatedCostPerRepo` from `values.yaml`,
       `values.schema.json`, and `tests/deployment_env_test.yaml`.
-- [ ] 6.7 `make ci` plus a `deadcode` pass clean after removal.
-- [ ] 6.8 Mark DESIGN-0002 Superseded by DESIGN-0021; update the
+      *Done, plus `staleSweep.rateLimitReserve` (the 6.3 chart-side
+      half) and the three matching `deployment.yaml` env blocks. A new
+      unittest case asserts none of the three env vars render — a
+      removal is only as durable as the guard against its return.*
+- [x] 6.7 `make ci` plus a `deadcode` pass clean after removal.
+      *Done. `make ci` exit 0. `deadcode ./cmd/...` reports one entry,
+      `github.NewClientForBaseURL` — expected and not a regression:
+      it is the Phase-3 chain-test constructor, reachable only from
+      tests, which the binary-rooted analysis cannot see. No
+      budget-related dead code remains.*
+- [x] 6.8 Mark DESIGN-0002 Superseded by DESIGN-0021; update the
       CLAUDE.md BudgetTracker architecture notes.
+      *Done. `.docz.yaml` does not offer a `Superseded` status for
+      the `design` type (Draft / In Review / Approved / Implemented /
+      Abandoned), and "Abandoned" would misdescribe a design that
+      shipped — so DESIGN-0002 follows the DESIGN-0005 precedent
+      instead: `status: Implemented` plus a blockquote banner naming
+      DESIGN-0021, spelling out what survives (RoundTripper
+      placement, reactive 403/secondary retry, header scraping) and
+      what is gone (the pre-emptive sleep and the wait pair).
+      CLAUDE.md's IMPL-0015 Phase 1 entry is rewritten Discoverer-only
+      with an explicit REMOVED paragraph so a future reader hitting a
+      stale `api_budget_*` reference knows it is stale; the
+      StaleSweeper entry now documents the sampling-not-gating
+      contract and why the call cannot be deleted.*
 
 #### Success Criteria
 

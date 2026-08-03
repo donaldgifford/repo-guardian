@@ -139,9 +139,9 @@ sum by (org) (rate(repo_guardian_files_missing_total[1h])) > 0
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `github_rate_remaining` | Gauge | — | Remaining GitHub API quota. |
-| `github_rate_limit_waits_total` | CounterVec | `reason` | Total rate-limit waits by reason. |
-| `github_rate_limit_wait_seconds` | Histogram | — | Duration of rate-limit waits. |
+| `github_rate_remaining` | Gauge | — | Remaining GitHub API quota (app-scoped client). |
+
+The `github_rate_limit_waits_total` / `_wait_seconds` pair was removed in IMPL-0022: the transport no longer sleeps on rate-limit pressure, it defers the whole job. See `queue_delayed_total` / `queue_delay_seconds` under §Delayed requeue.
 
 ### Custom properties
 
@@ -182,8 +182,7 @@ sum by (org) (increase(repo_guardian_catalog_parse_failed_total[24h]))
 | `scheduler_is_leader` | Gauge | `name` | 1 on the replica holding the leader lock, 0 elsewhere. One per schedule (`sweep`, `stale-sweep`, `discovery`). |
 | `scheduler_sweep_batch_size` | Histogram | — | Distribution of `StaleRepos` batch sizes per sweep tick. |
 | `store_query_seconds` | Histogram | `op`, `outcome` | Persistent store query latency. `op` enumerates `GetRepoState`, `UpdateRepoState`, `StaleRepos`, `UpsertIfMissing`, etc. |
-| `rate_limit_remaining` | Gauge | `installation_id` | Per-installation GitHub rate-limit budget observed at sweep time. |
-| `rate_limit_reserve_blocked_total` | CounterVec | `installation_id` | Enqueues blocked by the `RATE_LIMIT_RESERVE` gate (live API check, distinct from BudgetTracker). |
+| `rate_limit_remaining` | Gauge | `installation_id` | Per-installation GitHub rate-limit budget, sampled once per installation per sweep. Observability only — the sweep no longer gates on it (IMPL-0022 Phase 6); throttled work defers instead. |
 
 Example:
 

@@ -4,9 +4,16 @@
 // that need re-checking either because their state is stale or
 // because the active policy has changed.
 //
+// Since IMPL-0023 it also holds compliance posture: RuleState records
+// one rule's verdict for one repo, with actionable_since tracking how
+// long a repo has been failing. That is the fact a metric cannot carry
+// — Prometheus can say "40 repos lack CODEOWNERS" but never "these
+// forty, since these dates" — and it is why posture lives in the
+// database and is projected to Prometheus rather than the reverse.
+//
 // Implementations live in subpackages (`store/postgres`)
 // and are selected at runtime via `STORE_BACKEND`. See DESIGN-0012 for
-// the architectural rationale.
+// the architectural rationale and DESIGN-0022 for the posture model.
 package store
 
 import (

@@ -18,6 +18,23 @@
 // counted but never propagated up — the queue.Job is the source of
 // truth for "did we do the work", and the persisted state is best-
 // effort observability.
+//
+// IMPL-0023 Phase 1 extended that write-back with per-rule posture:
+// the *checker.CheckResult becomes rule_state rows via
+// stateStore.UpsertRuleStates, under the same best-effort rules. Two
+// distinctions carry the weight there and are easy to collapse by
+// accident:
+//
+//   - A nil result means the check produced no trustworthy verdict —
+//     an error path, or no engine run at all. Nothing is written, so
+//     the repo keeps whatever posture it had.
+//   - An EMPTY result is itself a verdict: no rule applies to this repo
+//     any more (archived, globally ignored, out of policy scope). It is
+//     written, and the store's delete-not-in clears the repo's rows so
+//     it stops counting against compliance.
+//
+// Treating those two the same either strands rows for departed repos
+// forever or wipes real posture on a transient API error.
 package worker
 
 import (

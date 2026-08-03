@@ -70,6 +70,7 @@ duplicate `type:name` pair fails validation.
 | `webhook_ip_allowlist_fail_open` | bool | `false` | Allow webhook requests when the allowlist can't be fetched. |
 | `trust_proxy_headers` | bool | `false` | Read client IP from `X-Forwarded-For` (required behind Tailscale Funnel or similar proxies). |
 | `auto_close_pr` | bool | `true` | Auto-close a guardian PR (and delete its branch) when every rule it addresses is satisfied on the default branch. Set `false` to keep PRs open for manual close-out. The `AUTO_CLOSE_PR` env var overrides the HCL value. |
+| `orphan_cleanup` | bool | `true` | Remove a file from repo-guardian's own reconcile branch once the rule that added it is satisfied on the default branch, so the PR stops proposing files that are no longer needed. Set `false` to disable all deletion from the reconcile branch. The `ORPHAN_CLEANUP` env var overrides the HCL value. |
 
 Unknown attributes in `guardian {}` fail load with an "Unsupported
 argument" error naming the file and line — typos are caught at startup,
@@ -611,6 +612,7 @@ overrides:
 | `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN` | `guardian.webhook_ip_allowlist_fail_open` |
 | `TRUST_PROXY_HEADERS` | `guardian.trust_proxy_headers` |
 | `AUTO_CLOSE_PR` | `guardian.auto_close_pr` |
+| `ORPHAN_CLEANUP` | `guardian.orphan_cleanup` |
 
 Related policy/template env vars (not `guardian {}` attributes):
 

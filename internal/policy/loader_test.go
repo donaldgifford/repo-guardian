@@ -1223,3 +1223,55 @@ func TestLoad_AnnotationProperties_ListValue_FailsCleanly(t *testing.T) {
 		t.Errorf("error %q does not mention annotation_properties", err)
 	}
 }
+
+// TestLoad_OrphanCleanup_FromHCL closes the INV-0010 trap for the
+// INV-0014 kill switch: adding a GuardianConfig field needs the schema
+// attribute, the setGuardianAttr case AND the mergeGuardianConfig carry
+// in lockstep. auto_close_pr shipped with the field and the env override
+// but neither of the other two, so the HCL attribute silently did
+// nothing for four releases. This test drives the HCL path specifically,
+// which is the one that broke.
+func TestLoad_OrphanCleanup_FromHCL(t *testing.T) {
+	tests := []struct {
+		name        string
+		body        string
+		wantSet     bool
+		wantEnabled bool
+	}{
+		{name: "explicit false", body: `orphan_cleanup = false`, wantSet: true, wantEnabled: false},
+		{name: "explicit true", body: `orphan_cleanup = true`, wantSet: true, wantEnabled: true},
+		{name: "unset defaults true", body: `log_level = "info"`, wantSet: false, wantEnabled: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := Load(writeGuardianHCL(t, tt.body))
+			if err != nil {
+				t.Fatalf("Load() error: %v", err)
+			}
+
+			if got := cfg.Guardian.OrphanCleanup != nil; got != tt.wantSet {
+				t.Errorf("OrphanCleanup set = %v, want %v", got, tt.wantSet)
+			}
+
+			if got := cfg.Guardian.OrphanCleanupEnabled(); got != tt.wantEnabled {
+				t.Errorf("OrphanCleanupEnabled() = %v, want %v", got, tt.wantEnabled)
+			}
+		})
+	}
+}
+
+// Env override must win over the HCL attribute because applyEnvOverrides
+// runs last in Load. Cannot use t.Parallel with t.Setenv.
+func TestLoad_OrphanCleanup_EnvOverridesHCL(t *testing.T) {
+	t.Setenv("ORPHAN_CLEANUP", "false")
+
+	cfg, err := Load(writeGuardianHCL(t, `orphan_cleanup = true`))
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Guardian.OrphanCleanupEnabled() {
+		t.Error("ORPHAN_CLEANUP=false must override orphan_cleanup = true in HCL")
+	}
+}

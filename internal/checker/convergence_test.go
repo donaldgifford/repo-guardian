@@ -554,3 +554,26 @@ func TestConvergence_GenuineOrphanIsStillDeleted(t *testing.T) {
 			"and was written to the branch by an earlier sweep. deletedFiles=%v", s.client.deletedFiles)
 	}
 }
+
+// TestConvergence_OrphanCleanupDisabled_NoDeletion pins the INV-0014
+// kill switch. It uses the genuine-orphan fixture — a file that SHOULD be
+// deleted — because a test built on a file that must not be deleted would
+// pass with the flag ignored entirely.
+func TestConvergence_OrphanCleanupDisabled_NoDeletion(t *testing.T) {
+	disabled := false
+
+	pol := policy.BuiltinDefaults()
+	pol.Guardian.DryRun = false
+	pol.Guardian.OrphanCleanup = &disabled
+
+	s := newStagedConvergenceWithPolicy(t, pol)
+	s.satisfyOnMain("CODEOWNERS")
+	s.addOrphanToBranch(".github/CODEOWNERS", "sha-codeowners")
+	s.openOurPR(1)
+
+	s.sweep()
+
+	if len(s.client.deletedFiles) != 0 {
+		t.Errorf("orphan_cleanup=false must delete nothing, deletedFiles=%v", s.client.deletedFiles)
+	}
+}

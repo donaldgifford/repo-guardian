@@ -17,27 +17,25 @@ package scheduler
 import (
 	"context"
 	"crypto/rand"
-	"errors"
 	"log/slog"
 	"math/big"
 	"strconv"
 	"time"
 
-	"github.com/donaldgifford/repo-guardian/internal/budget"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 )
 
 // Discoverer enumerates installations + repos via the GitHub API and
-// upserts discovery rows into store.Store. Optional *budget.Tracker
-// gates per-installation discovery work against the cached rate-
-// limit snapshot. When nil, discovery runs unthrottled (suitable for
-// tests; production main.go always supplies a tracker).
+// upserts discovery rows into store.Store. Discovery is not
+// throttle-gated: it only lists repos (one API call per
+// installation), and any rate-limit pressure it does hit surfaces
+// through the IMPL-0022 delayed-requeue path on the check jobs
+// themselves.
 type Discoverer struct {
 	client       ghclient.Client
 	store        store.Store
-	budget       *budget.Tracker
 	logger       *slog.Logger
 	skipForks    bool
 	skipArchived bool
@@ -50,7 +48,6 @@ type Discoverer struct {
 type DiscovererOptions struct {
 	Client       ghclient.Client
 	Store        store.Store
-	Budget       *budget.Tracker
 	Logger       *slog.Logger
 	SkipForks    bool
 	SkipArchived bool
@@ -75,7 +72,6 @@ func NewDiscoverer(opts DiscovererOptions) *Discoverer {
 	return &Discoverer{
 		client:       opts.Client,
 		store:        opts.Store,
-		budget:       opts.Budget,
 		logger:       opts.Logger,
 		skipForks:    opts.SkipForks,
 		skipArchived: opts.SkipArchived,
@@ -145,10 +141,6 @@ func (d *Discoverer) Discover(ctx context.Context) error {
 // (excludes pre-existing rows). Best-effort: errors are logged and
 // the installation is skipped.
 func (d *Discoverer) discoverInstallation(ctx context.Context, install *ghclient.Installation) int {
-	if !d.budgetAllows(ctx, install.ID) {
-		return 0
-	}
-
 	repos, err := d.client.ListInstallationRepos(ctx, install.ID)
 
 	d.observeAPICall(install.ID, "list_installation_repos")
@@ -237,49 +229,4 @@ func (*Discoverer) observeAPICall(installationID int64, endpoint string) {
 	}
 
 	metrics.DiscoveryAPICallsTotal.WithLabelValues(label, endpoint).Inc()
-}
-
-// budgetAllows consults the BudgetTracker for installationID. Returns
-// true when discovery work is permitted; false when the tracker has a
-// cached snapshot reporting zero spendable budget. Fall-open semantics
-// apply when the tracker is nil (test mode) or when no snapshot is
-// cached yet (ErrNoSnapshot — the next Discover tick will have caught
-// up via the leader-driven refresh path). On gating, increments the
-// shared EnqueueGatedByBudgetTotal counter so the existing
-// RepoGuardianBudgetGated alert fires for discovery as well as
-// stale-sweep enqueues.
-func (d *Discoverer) budgetAllows(ctx context.Context, installationID int64) bool {
-	if d.budget == nil {
-		return true
-	}
-
-	spendable, err := d.budget.SpendableForEnqueue(installationID)
-	if err != nil {
-		if errors.Is(err, budget.ErrNoSnapshot) {
-			// No snapshot — fall open; the StaleSweeper's leader-driven
-			// refresh path will populate it.
-			return true
-		}
-
-		d.logger.WarnContext(ctx, "discovery: budget query failed; falling open",
-			"installation_id", installationID,
-			"error", err,
-		)
-
-		return true
-	}
-
-	if spendable <= 0 {
-		metrics.EnqueueGatedByBudgetTotal.
-			WithLabelValues(strconv.FormatInt(installationID, 10)).
-			Inc()
-
-		d.logger.WarnContext(ctx, "discovery: budget exhausted; skipping installation",
-			"installation_id", installationID,
-		)
-
-		return false
-	}
-
-	return true
 }

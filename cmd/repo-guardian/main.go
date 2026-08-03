@@ -17,7 +17,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/donaldgifford/repo-guardian/internal/budget"
 	"github.com/donaldgifford/repo-guardian/internal/checker"
 	"github.com/donaldgifford/repo-guardian/internal/config"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
@@ -161,12 +160,7 @@ func bringUp(
 		logger.Warn("policy.Version failed; stale-sweep policy_version will be empty", "error", vErr)
 	}
 
-	tracker := budget.New(budget.Options{
-		ReserveFraction: cfg.DiscoveryReserveFraction,
-		CostPerRepo:     cfg.DiscoveryEstimatedCostPerRepo,
-	})
-
-	if err := scheduleHandlers(ctx, cfg, policyCfg, stateStore, qw.queue, client, sched, tracker, policyVersion, logger); err != nil {
+	if err := scheduleHandlers(ctx, cfg, policyCfg, stateStore, qw.queue, client, sched, policyVersion, logger); err != nil {
 		closeAndLog(logger, "scheduler stop after handler-schedule failure", sched.Stop)
 		closeAndLog(logger, "store close after handler-schedule failure", stateStore.Close)
 
@@ -222,7 +216,6 @@ func scheduleHandlers(
 	q queue.Queue,
 	client ghclient.Client,
 	sched scheduler.Scheduler,
-	tracker *budget.Tracker,
 	policyVersion string,
 	logger *slog.Logger,
 ) error {
@@ -230,7 +223,6 @@ func scheduleHandlers(
 		Store:         stateStore,
 		Queue:         q,
 		RateLimit:     client,
-		Budget:        tracker,
 		Logger:        logger,
 		Freshness:     cfg.ReconcileFreshness,
 		PolicyVersion: policyVersion,
@@ -252,7 +244,6 @@ func scheduleHandlers(
 	discoverer := scheduler.NewDiscoverer(scheduler.DiscovererOptions{
 		Client:       client,
 		Store:        stateStore,
-		Budget:       tracker,
 		Logger:       logger,
 		SkipForks:    policyCfg.Guardian.SkipForks,
 		SkipArchived: policyCfg.Guardian.SkipArchived,

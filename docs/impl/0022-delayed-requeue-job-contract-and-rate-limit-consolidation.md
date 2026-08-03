@@ -530,10 +530,23 @@ Only after the soak (see Sequencing). Ships as its own minor.
 
 #### Tasks
 
-- [ ] 6.1 Delete `internal/budget/` (budget.go, labels.go, tests) and
+- [x] 6.1 Delete `internal/budget/` (budget.go, labels.go, tests) and
       its `budget.New` wiring in `cmd/repo-guardian/main.go.bringUp`.
-- [ ] 6.2 Remove `Budget` from `StaleSweeperOptions` and
+      *Done (one commit with 6.2 — deleting the package and removing
+      its consumers are inseparable if every commit is to compile;
+      same precedent as the 5.1+5.2 commit).*
+- [x] 6.2 Remove `Budget` from `StaleSweeperOptions` and
       `DiscovererOptions` and both `budgetAllows` gates.
+      *Done. `allowedByBudget` (sweep.go) and `budgetAllows`
+      (discoverer.go) removed along with the `budget` fields,
+      `Budget` options, `Decrement` call, and the `gated_budget` log
+      field. Discoverer doc updated: discovery is not throttle-gated
+      — it lists once per installation and any real pressure
+      surfaces via the delayed-requeue path on check jobs. Four
+      budget-gating tests + two package-local fake clients deleted
+      with their subjects; `TestStaleSweeper_EnqueuesAllWhenBudgetIsAmple`
+      renamed `...WhenRateLimitAmple` (it exercises the rate-limit
+      gate, which survives until 6.3).*
 - [ ] 6.3 Remove the layer-2 sweep gate
       (`StaleSweeper.allowedByRateLimit`, sweep.go:243) and
       `rate_limit_reserve_blocked_total` — **preserving the

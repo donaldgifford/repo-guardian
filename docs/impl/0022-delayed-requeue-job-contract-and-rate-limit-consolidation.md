@@ -668,8 +668,20 @@ Only after the soak (see Sequencing). Ships as its own minor.
       message naming the removal and linking the migration section.
       Four helm-unittest cases cover the three failures and the clean
       path.*
-- [ ] 7.5 CLAUDE.md: the delayed-requeue contract and the
+- [x] 7.5 CLAUDE.md: the delayed-requeue contract and the
       one-mechanism rule (no future in-handler blocking).
+      *Done. Seven invariants, led by "NOTHING BLOCKS IN-HANDLER,
+      EVER" with the finding-I amplification story attached so the
+      rule reads as a consequence rather than a preference, and an
+      explicit instruction for what to do instead when a future
+      backpressure source shows up (another `Reason`, not another
+      layer). Also pins: the four-key/exactly-one-key invariant and
+      its single construction point, `Attempts` accounting and why
+      `dropExhausted` returns nil, why a deferral skips both
+      `ErrorsTotal` and the `repo_state` write-back (verified against
+      the source ordering), `REAPER_INTERVAL`'s dual duty, and the
+      `AsThrottled` requirement with the go-github v68 pre-check path
+      that makes a bare `errors.As` silently wrong.*
 - [ ] 7.6 Flip INV-0012 to Concluded and DESIGN-0021 to Implemented;
       `docz update design inv impl`.
 

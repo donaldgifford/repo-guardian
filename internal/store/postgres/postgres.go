@@ -88,7 +88,8 @@ func (s *Store) GetRepoState(ctx context.Context, installationID int64, owner, r
 func (s *Store) getRepoStateInner(ctx context.Context, installationID int64, owner, repo string) (*store.RepoState, error) {
 	const q = `
 		SELECT installation_id, owner, repo,
-		       last_checked_at, last_check_status, last_error, policy_version
+		       last_checked_at, last_check_status, last_error, policy_version,
+		       catalog_parse_ok
 		FROM repo_state
 		WHERE installation_id = $1 AND owner = $2 AND repo = $3
 	`
@@ -101,7 +102,8 @@ func (s *Store) getRepoStateInner(ctx context.Context, installationID int64, own
 		err error
 	)
 
-	err = row.Scan(&rs.InstallationID, &rs.Owner, &rs.Repo, &ts, &rs.LastCheckStatus, &rs.LastError, &rs.PolicyVersion)
+	err = row.Scan(&rs.InstallationID, &rs.Owner, &rs.Repo, &ts,
+		&rs.LastCheckStatus, &rs.LastError, &rs.PolicyVersion, &rs.CatalogParseOK)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, store.ErrNotFound
 	}
@@ -127,21 +129,29 @@ func (s *Store) UpdateRepoState(ctx context.Context, rs *store.RepoState) error 
 }
 
 func (s *Store) updateRepoStateInner(ctx context.Context, rs *store.RepoState) error {
+	// COALESCE on catalog_parse_ok, not a plain EXCLUDED assignment:
+	// a nil value means "this check learned nothing about the catalog"
+	// (no catalog rule was evaluated), which must not erase a verdict a
+	// previous check did establish. Every other column is unconditional
+	// because every check re-establishes all of them.
 	const q = `
 		INSERT INTO repo_state (
 			installation_id, owner, repo,
-			last_checked_at, last_check_status, last_error, policy_version
-		) VALUES ($1, $2, $3, $4, $5, $6, $7)
+			last_checked_at, last_check_status, last_error, policy_version,
+			catalog_parse_ok
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (installation_id, owner, repo) DO UPDATE SET
 			last_checked_at   = EXCLUDED.last_checked_at,
 			last_check_status = EXCLUDED.last_check_status,
 			last_error        = EXCLUDED.last_error,
-			policy_version    = EXCLUDED.policy_version
+			policy_version    = EXCLUDED.policy_version,
+			catalog_parse_ok  = COALESCE(EXCLUDED.catalog_parse_ok, repo_state.catalog_parse_ok)
 	`
 
 	_, err := s.pool.Exec(ctx, q,
 		rs.InstallationID, rs.Owner, rs.Repo,
 		rs.LastCheckedAt, rs.LastCheckStatus, rs.LastError, rs.PolicyVersion,
+		rs.CatalogParseOK,
 	)
 	if err != nil {
 		return fmt.Errorf("postgres.UpdateRepoState: exec: %w", err)
@@ -149,6 +159,125 @@ func (s *Store) updateRepoStateInner(ctx context.Context, rs *store.RepoState) e
 
 	return nil
 }
+
+// UpsertRuleStates replaces the full set of rule verdicts for one
+// repository in a single transaction: upsert every row in states, then
+// delete any row for this repo whose rule name is not among them.
+//
+// The two halves must be atomic. A posture query that landed between
+// them would see a repo with some rules deleted and others not yet
+// written, and since the exporter aggregates across the whole fleet
+// that shows up as a compliance percentage briefly dipping for no
+// reason. The transaction is also why an empty states slice is a
+// legitimate call rather than a no-op — it is how a repo that left
+// policy scope stops counting.
+func (s *Store) UpsertRuleStates(
+	ctx context.Context,
+	installationID int64,
+	owner, repo string,
+	states []store.RuleState,
+) error {
+	start := time.Now()
+	err := s.upsertRuleStatesInner(ctx, installationID, owner, repo, states)
+	observeQuery("upsert_rule_states", start, err)
+
+	return err
+}
+
+func (s *Store) upsertRuleStatesInner(
+	ctx context.Context,
+	installationID int64,
+	owner, repo string,
+	states []store.RuleState,
+) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("postgres.UpsertRuleStates: begin: %w", err)
+	}
+
+	// Rollback after a successful Commit is a no-op that returns
+	// ErrTxClosed, so this is safe unconditionally and guarantees the
+	// transaction is released on every error path below.
+	defer func() {
+		_ = tx.Rollback(ctx) //nolint:errcheck // deferred best-effort cleanup; a no-op ErrTxClosed after Commit
+	}()
+
+	names := make([]string, 0, len(states))
+
+	batch := &pgx.Batch{}
+
+	for i := range states {
+		st := &states[i]
+		names = append(names, st.RuleName)
+		batch.Queue(upsertRuleStateQuery,
+			installationID, owner, repo,
+			st.RuleName, st.RuleKind, st.Actionable, st.PolicyVersion,
+		)
+	}
+
+	// Queued last so it runs after every upsert in the same round
+	// trip. names is never NULL here — pgx encodes an empty slice as an
+	// empty array, and `NOT (x = ANY('{}'))` is true for all x, which
+	// is exactly the "clear every row" semantics an empty states slice
+	// is supposed to have.
+	batch.Queue(deleteRuleStatesNotInQuery, installationID, owner, repo, names)
+
+	if err := tx.SendBatch(ctx, batch).Close(); err != nil {
+		return fmt.Errorf("postgres.UpsertRuleStates: batch: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("postgres.UpsertRuleStates: commit: %w", err)
+	}
+
+	return nil
+}
+
+// upsertRuleStateQuery writes one rule verdict, managing the
+// actionable_since transition entirely in SQL. Doing it here rather
+// than in Go is what makes concurrent checks of the same repo safe:
+// the CASE reads rule_state.actionable under the row lock ON CONFLICT
+// already holds, so there is no read-then-write window in which two
+// workers could both observe "was false" and both stamp a fresh
+// timestamp.
+//
+// The three arms are the three edges that matter:
+//   - false→true: the repo just started failing; stamp now().
+//   - anything→false: the repo complies; clear it, so the next failure
+//     starts a fresh clock instead of reporting a months-old date.
+//   - true→true: still failing; preserve the original timestamp. This
+//     is the whole point of the column — "missing since 2026-06-14"
+//     must not reset to today on every sweep.
+const upsertRuleStateQuery = `
+	INSERT INTO rule_state (
+		installation_id, owner, repo, rule_name, rule_kind,
+		actionable, actionable_since, policy_version, updated_at
+	) VALUES (
+		$1, $2, $3, $4, $5,
+		$6, CASE WHEN $6 THEN now() ELSE NULL END, $7, now()
+	)
+	ON CONFLICT (installation_id, owner, repo, rule_name) DO UPDATE SET
+		actionable = EXCLUDED.actionable,
+		actionable_since = CASE
+			WHEN NOT rule_state.actionable AND EXCLUDED.actionable THEN now()
+			WHEN NOT EXCLUDED.actionable                           THEN NULL
+			ELSE rule_state.actionable_since
+		END,
+		rule_kind      = EXCLUDED.rule_kind,
+		policy_version = EXCLUDED.policy_version,
+		updated_at     = now()
+`
+
+// deleteRuleStatesNotInQuery reconciles away rows for rules that were
+// not part of this check's evaluated set — a rule renamed, deleted from
+// the policy, or newly scoped away from this repo (DESIGN-0022 OQ3 →
+// a). Without it a removed rule would keep its last verdict forever and
+// go on failing a compliance report nobody can fix.
+const deleteRuleStatesNotInQuery = `
+	DELETE FROM rule_state
+	WHERE installation_id = $1 AND owner = $2 AND repo = $3
+	  AND NOT (rule_name = ANY($4))
+`
 
 // UpsertIfMissing inserts rs as a discovery row (LastCheckedAt=nil,
 // LastCheckStatus=StatusPending, LastError="") iff no row exists for

@@ -134,11 +134,7 @@ func (e *Engine) runReconcilers(
 	// catalog-info.yaml no matter how many rules point reconcilers at
 	// it.
 	outcome := &reconciler.Outcome{}
-	defer func() {
-		if result != nil {
-			result.CatalogParseOK = outcome.CatalogParseOK
-		}
-	}()
+	defer func() { result.setCatalogParseOK(outcome.CatalogParseOK) }()
 
 	for i := range e.policy.FileRules {
 		r := &e.policy.FileRules[i]

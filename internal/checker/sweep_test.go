@@ -143,6 +143,14 @@ func (f *fakeStore) StaleRepos(_ context.Context, freshness time.Duration, curre
 	return out, nil
 }
 
+// The stale sweeper reads and enqueues; rule states are the worker's
+// write-back, never the sweeper's.
+func (*fakeStore) UpsertRuleStates(
+	_ context.Context, _ int64, _, _ string, _ []store.RuleState,
+) error {
+	return nil
+}
+
 func (*fakeStore) Close() error { return nil }
 
 type fakeRateLimit struct {

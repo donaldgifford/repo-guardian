@@ -70,3 +70,16 @@ func (r *CheckResult) add(name string, kind RuleKind, actionable bool) {
 		Actionable: actionable,
 	})
 }
+
+// setCatalogParseOK records catalog parseability, copying nil through
+// unchanged so "no catalog rule ran" stays distinct from a verdict.
+// Nil-safe on the same terms as add — every mutation of a CheckResult
+// goes through a method, so no caller has to know which fields tolerate
+// a nil receiver and which do not.
+func (r *CheckResult) setCatalogParseOK(ok *bool) {
+	if r == nil {
+		return
+	}
+
+	r.CatalogParseOK = ok
+}

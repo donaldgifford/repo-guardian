@@ -66,6 +66,13 @@ func (*fakeDiscoveryStore) StaleRepos(_ context.Context, _ time.Duration, _ stri
 	return nil, nil
 }
 
+// Discovery never writes rule states — it only seeds pending rows.
+func (*fakeDiscoveryStore) UpsertRuleStates(
+	_ context.Context, _ int64, _, _ string, _ []store.RuleState,
+) error {
+	return nil
+}
+
 func (*fakeDiscoveryStore) Close() error { return nil }
 
 func (f *fakeDiscoveryStore) Upserted() []*store.RepoState {

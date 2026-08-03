@@ -137,7 +137,7 @@ already stores `{status, error, policy_version}`.
       — it has no mismatch signal today) plus
       `CatalogParseOK *bool` from the reconciler outcome. Error paths
       return `(nil, err)`.
-- [ ] 1.3 `Store.UpsertRuleStates(ctx, states)` on the interface +
+- [x] 1.3 `Store.UpsertRuleStates(ctx, states)` on the interface +
       postgres impl: single-transaction batched upsert with the
       `actionable_since` transition CASE (set on false→true, cleared
       on true→false, preserved on true→true), then delete-not-in

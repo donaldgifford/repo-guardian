@@ -45,6 +45,33 @@ type RepoState struct {
 	LastCheckStatus string
 	LastError       string
 	PolicyVersion   string
+
+	// CatalogParseOK reports whether this repo's catalog-info.yaml
+	// parsed into a Backstage Component on the last check. nil means no
+	// catalog rule was evaluated, which is a different operator signal
+	// from "evaluated and malformed" (false) — see DESIGN-0022
+	// §Per-rule posture state.
+	CatalogParseOK *bool
+}
+
+// RuleState is the persistent record of one rule's verdict for one
+// repository (IMPL-0023 Phase 1 / DESIGN-0022 §Per-rule posture state).
+// Identity is the (InstallationID, Owner, Repo, RuleName) tuple.
+//
+// Actionable means the repo is currently non-compliant with the rule.
+// ActionableSince is the "missing since 2026-06-14" a compliance report
+// needs: implementations set it on the false→true transition, clear it
+// on true→false, and preserve it across true→true. Callers do NOT
+// supply it — passing a value is meaningless, because only the store
+// can see the prior row needed to decide the transition.
+type RuleState struct {
+	InstallationID int64
+	Owner          string
+	Repo           string
+	RuleName       string
+	RuleKind       string
+	Actionable     bool
+	PolicyVersion  string
 }
 
 // Store is the persistence boundary for per-repo reconcile state.
@@ -65,10 +92,28 @@ type RepoState struct {
 // emit a slog.Info on first-sight. Implementations MUST execute this
 // as a single atomic statement (no read-then-write race), and MUST NOT
 // overwrite any existing fields on conflict.
+//
+// UpsertRuleStates is the posture write-path (DESIGN-0022). It replaces
+// the complete set of rule verdicts for ONE repository, identified by
+// the (InstallationID, Owner, Repo) shared by every element of states:
+// rows in states are upserted, and any pre-existing row for that repo
+// whose rule name is absent from states is deleted. That
+// delete-not-in is what makes a renamed or removed rule stop counting
+// against compliance on the very next check instead of lingering
+// forever (DESIGN-0022 OQ3 → a).
+//
+// An empty (or nil) states slice is therefore meaningful, not a no-op:
+// it clears every rule row for the repo. Callers that merely failed to
+// learn anything must not call this at all.
+//
+// Implementations MUST apply the whole batch in a single transaction,
+// so a concurrent posture query never observes a repo mid-rewrite with
+// some rules deleted and others not yet written.
 type Store interface {
 	GetRepoState(ctx context.Context, installationID int64, owner, repo string) (*RepoState, error)
 	UpdateRepoState(ctx context.Context, s *RepoState) error
 	UpsertIfMissing(ctx context.Context, s *RepoState) (created bool, err error)
+	UpsertRuleStates(ctx context.Context, installationID int64, owner, repo string, states []RuleState) error
 	StaleRepos(ctx context.Context, freshness time.Duration, currentPolicyVersion string, limit int) ([]RepoState, error)
 	Close() error
 }

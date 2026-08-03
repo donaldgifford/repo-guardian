@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -103,11 +104,45 @@ func (*deliverOnceQueue) Close() error { return nil }
 
 var errUnimplemented = errors.New("not implemented in capturingStore")
 
-// capturingStore records UpdateRepoState calls; every other Store
-// method is a no-op.
+// capturingStore records UpdateRepoState and UpsertRuleStates calls;
+// every other Store method is a no-op.
+//
+// ruleWrites keeps every call, including the ones with an empty slice:
+// "the worker called us with nothing" and "the worker never called us"
+// are different outcomes for a repo whose rules all became
+// inapplicable, and a recorder that dropped empty calls could not tell
+// the two apart.
 type capturingStore struct {
-	mu     sync.Mutex
-	states []store.RepoState
+	mu         sync.Mutex
+	states     []store.RepoState
+	ruleWrites []ruleWrite
+	ruleErr    error
+}
+
+// ruleWrite is one UpsertRuleStates invocation.
+type ruleWrite struct {
+	InstallationID int64
+	Owner          string
+	Repo           string
+	States         []store.RuleState
+}
+
+func (c *capturingStore) UpsertRuleStates(
+	_ context.Context,
+	installationID int64,
+	owner, repo string,
+	states []store.RuleState,
+) error {
+	c.mu.Lock()
+	c.ruleWrites = append(c.ruleWrites, ruleWrite{
+		InstallationID: installationID,
+		Owner:          owner,
+		Repo:           repo,
+		States:         slices.Clone(states),
+	})
+	c.mu.Unlock()
+
+	return c.ruleErr
 }
 
 func (*capturingStore) GetRepoState(context.Context, int64, string, string) (*store.RepoState, error) {

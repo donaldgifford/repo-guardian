@@ -35,6 +35,10 @@ go.work.sum
 build/
 dist/
 
+# Root-level binary from a bare `go build` (the Makefile targets write
+# to build/bin/, but `go build ./cmd/...` drops it here).
+/repo-guardian
+
 # mkdocs build output (`mkdocs build` / `mkdocs build --strict`).
 # The published site is built by CI from source, never from a
 # committed tree.

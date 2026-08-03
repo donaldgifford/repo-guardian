@@ -21,9 +21,10 @@ created: 2026-08-03
 - [Environment](#environment)
 - [Findings](#findings)
   - [A. discoverOrphans has no provenance signal](#a-discoverorphans-has-no-provenance-signal)
-  - [B. UpdatePRBranch guarantees the false positive](#b-updateprbranch-guarantees-the-false-positive)
+  - [B. The branch inherits the file; UpdatePRBranch only widens the window](#b-the-branch-inherits-the-file-updateprbranch-only-widens-the-window)
   - [C. The blast radius is Target-shaped, not Paths-shaped](#c-the-blast-radius-is-target-shaped-not-paths-shaped)
   - [D. Why the test suite cannot express this](#d-why-the-test-suite-cannot-express-this)
+  - [E'. The fix already exists in this file, one function down](#e-the-fix-already-exists-in-this-file-one-function-down)
   - [E. Latent since IMPL-0013 Phase 3](#e-latent-since-impl-0013-phase-3)
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
@@ -55,9 +56,11 @@ default branch is therefore misclassified as an orphan and deleted.
 ## Context
 
 Reported from production. Timeline as described by the operator: an
-initial run behaved correctly, an upgrade was applied, and the following
+initial run behaved correctly, updates were applied, and the following
 weekend's run began emitting delete commits against repositories whose
-`CODEOWNERS` file already existed.
+`CODEOWNERS` file already existed. The operator reports running v1.10.1
+and confirms the affected repositories keep CODEOWNERS at
+`.github/CODEOWNERS`.
 
 This is a **data-destructive** defect, not a cosmetic one: the deletion
 lands on the reconcile branch of an *open* PR. Merging that PR removes
@@ -67,8 +70,9 @@ downstream effect of a merge is silent loss of required-reviewer
 enforcement.
 
 **Triggered by:** production report, 2026-08-03. Related to IMPL-0013
-Phase 3 (orphan cleanup) and INV-0011 B4 / PR #71 (reconcile-branch
-freshening).
+Phase 3 (orphan cleanup, PR #82) and IMPL-0021 (reconcile-branch
+freshening, PR #169) — see Finding B on the misattributed PR number in
+the source comment.
 
 ## Approach
 
@@ -91,6 +95,9 @@ freshening).
 | Defect introduced | `ee80603` (IMPL-0013, PR #82) |
 | First affected release | appVersion 1.7.0 / chart 0.6.0 |
 | Affected rule (built-in defaults) | `codeowners`, `Target = .github/CODEOWNERS` |
+| Operator-reported running version | v1.10.1 |
+| `updateReconcileBranch` introduced | `49a6424` / PR #169 / v1.10.1 |
+| Repo layout confirmed by operator | `.github/CODEOWNERS` (matches Finding C) |
 | Code paths | `internal/checker/drift.go`, `internal/checker/engine_pr.go` |
 
 ## Findings
@@ -134,9 +141,17 @@ The message is accurate about *why* the rule stopped being actionable
 and wrong about what should follow from it. "Satisfied on the default
 branch" is precisely the state in which the file must be left alone.
 
-### B. `UpdatePRBranch` guarantees the false positive
+### B. The branch inherits the file; `UpdatePRBranch` only widens the window
 
-`engine_pr.go:161-163` runs immediately before orphan discovery:
+The reconcile branch is created from the default branch HEAD —
+`engine_pr.go:143` passes `baseSHA` to `CreateBranch`, which is a plain
+`Git.CreateRef`. So from the instant it exists, the branch contains
+every file the default branch had, `.github/CODEOWNERS` included. No
+merge step is required for the false positive: **it is already certain
+for any repo that had the file at branch-creation time**, and has been
+since IMPL-0013 shipped.
+
+`engine_pr.go:161-163` then runs immediately before orphan discovery:
 
 ```go
 if existingPR != nil {
@@ -144,16 +159,18 @@ if existingPR != nil {
 }
 ```
 
-This merges the default branch into the reconcile branch — the INV-0011
-B4 fix (PR #71), added so the file sync always operates on current
-content and cannot silently revert a manual edit on merge.
+This merges the default branch into the reconcile branch so the file
+sync always operates on current content and cannot silently revert a
+manual edit on merge. It is correct in isolation, and it *widens* the
+trigger rather than creating it: it additionally captures repos where
+the file appeared on the default branch **after** the reconcile branch
+was cut. Without it those repos would escape; with it they do not.
 
-That fix is correct in isolation, and it converts this defect from
-*possible* to *certain*. Any file on the default branch is merged onto
-the reconcile branch a few lines before `discoverOrphans` asks whether
-that path exists on the reconcile branch. The answer is now
-unconditionally yes. Two individually-sound behaviours compose into a
-deletion.
+Provenance note, because the source comment is misleading: that call
+site is annotated `(INV-0011 B4, PR #71)`, but `git log -S` puts its
+introduction at `49a6424` — PR **#169**, IMPL-0021 — which
+`git describe --contains` resolves to **v1.10.1**. Anyone dating the
+regression from the comment will land on the wrong release.
 
 ### C. The blast radius is `Target`-shaped, not `Paths`-shaped
 
@@ -219,6 +236,29 @@ return"). The existing rule is stated in terms of *the mock's own prior
 writes*; this case shows it needs to extend to **state the mock never
 wrote** — inherited default-branch content.
 
+### E'. The fix already exists in this file, one function down
+
+`restoreInverseOrphans` — the absent-mode mirror added later by
+IMPL-0019 — does the check `discoverOrphans` is missing.
+`restoreRulePaths` (`drift.go:214-235`) probes the **default branch
+first** and only then the reconcile branch:
+
+```go
+onDefault, err := client.GetContents(ctx, owner, repo, path)   // default-branch-only helper
+...
+_, onBranch, err := client.GetContentsOnBranch(ctx, owner, repo, path, BranchName)
+```
+
+Both probes fail safe: any API error leaves the path untouched.
+
+So the newer mirror function establishes the correct pattern — never
+act on a path from branch state alone, always cross-reference the
+default branch — while the older function it was explicitly modelled on
+never had it. This is strong corroboration that the missing probe is an
+oversight in `discoverOrphans` rather than a deliberate asymmetry, and
+it means the fix has a working in-repo reference implementation twelve
+lines away.
+
 ### E. Latent since IMPL-0013 Phase 3
 
 `internal/checker/drift.go` was added whole in `ee80603` (IMPL-0013,
@@ -241,10 +281,15 @@ the default branch — and is force-freshened from it by
 deleted, producing an open PR that proposes removing a legitimate file.
 
 The bug is real, destructive, and reachable in the default
-configuration. It is not caused by the recent upgrade in the sense of
-being newly introduced by it — it has been latent since 1.7.0 — but an
-upgrade that restarted sweeps, or a fleet reaching its second sweep,
-would surface it exactly as reported.
+configuration. It has been latent since 1.7.0 and is present in the
+operator's reported v1.10.1; no version change is needed to explain the
+timeline. The single precondition that separates "first run fine" from
+"second run destructive" is the existence of an open repo-guardian PR,
+which only holds from the second sweep onward.
+
+Finding C's prediction — that only `.github/CODEOWNERS` repos are
+affected — was confirmed by the operator against the real fleet, which
+moves this from a plausible reading of the code to a diagnosis.
 
 ## Recommendation
 

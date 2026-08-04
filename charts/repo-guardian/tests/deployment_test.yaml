@@ -34,7 +34,7 @@ tests:
     asserts:
       - matchRegex:
           path: spec.template.spec.containers[0].image
-          pattern: "ghcr.io/donaldgifford/repo-guardian:1\\.11\\.0"
+          pattern: "ghcr.io/donaldgifford/repo-guardian:1\\.11\\.1"
 
   - it: should use custom image tag when set
     set:

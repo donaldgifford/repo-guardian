@@ -697,3 +697,75 @@ func TestConvergence_RepairScopedToRuleTarget(t *testing.T) {
 			s.client.createdFiles)
 	}
 }
+
+// writeCollisionPolicy pairs an actionable add rule whose Target is a path
+// a second, satisfied rule would restore.
+//
+// The asymmetry that makes this reachable is the one behind INV-0014: a rule
+// is satisfied by ANY of its Paths but writes to its single Target. So
+// needs_docs is actionable (docs/README.md is missing) yet commits to
+// .github/CODEOWNERS, while needs_codeowners is satisfied by that same path
+// existing on the default branch and is therefore a restore candidate.
+func writeCollisionPolicy() *policy.PolicyConfig {
+	return &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "needs_docs",
+				Check:    string(policy.CheckExists),
+				Paths:    []string{"docs/README.md"},
+				Target:   ".github/CODEOWNERS",
+				Template: "codeowners",
+			},
+			{
+				Type:     "file",
+				Name:     "needs_codeowners",
+				Check:    string(policy.CheckExists),
+				Paths:    []string{".github/CODEOWNERS"},
+				Target:   ".github/CODEOWNERS",
+				Template: "codeowners",
+			},
+		},
+	}
+}
+
+// TestConvergence_RestoreSkipsPathAnActionableRuleJustWrote pins the
+// INV-0015 A4b fix.
+//
+// syncActionableFiles commits .github/CODEOWNERS for needs_docs, then
+// restoreInverseOrphans considers the same path for the satisfied
+// needs_codeowners. Real GitHub lags that write by ~120ms, so the branch
+// probe reports the path missing and the restore overwrites the rule's
+// fresh output with default-branch content — or fails outright with the
+// INV-0003 422 "sha wasn't supplied".
+//
+// staleBranchReads is what gives this test teeth: without it the fake
+// reflects the write instantly, the probe correctly reports the path
+// present, and the test passes whether or not the exclusion exists.
+func TestConvergence_RestoreSkipsPathAnActionableRuleJustWrote(t *testing.T) {
+	s := newStagedConvergenceWithPolicy(t, writeCollisionPolicy())
+
+	s.satisfyOnMain(".github/CODEOWNERS") // satisfies needs_codeowners
+	s.deletedFromBranch(".github/CODEOWNERS")
+	s.client.fileContents[s.org+"/"+s.repo+"/.github/CODEOWNERS"] = "* @team"
+	s.openOurPR(4)
+
+	s.client.staleBranchReads = true
+
+	s.sweep()
+
+	var writes int
+
+	for _, path := range s.client.createdFiles {
+		if path == ".github/CODEOWNERS" {
+			writes++
+		}
+	}
+
+	if writes != 1 {
+		t.Errorf("writes to .github/CODEOWNERS = %d, want 1 (needs_docs owns it); "+
+			"a restore raced its sibling and would clobber the rule output or 422. createdFiles=%v",
+			writes, s.client.createdFiles)
+	}
+}

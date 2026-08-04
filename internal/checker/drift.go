@@ -227,15 +227,32 @@ func restoreInverseOrphans(
 		actionableSet[actionable[i].Name] = struct{}{}
 	}
 
-	// Paths an actionable absent rule intends to delete on this very sweep.
+	// Paths an actionable rule is already managing on this very sweep.
+	// Restoration must not touch them, for two different reasons.
+	//
+	// Deletions: an actionable absent rule intends to remove the path.
 	// Without this exclusion a non-actionable add rule and an actionable
 	// absent rule covering the same path would fight: one restores, the
 	// other deletes, on every sweep forever. The deletion wins — an
 	// actionable rule is a live instruction, whereas restoration only
 	// repairs a state nothing is asking for any more.
-	deleting := make(map[string]struct{})
+	//
+	// Writes: syncActionableFiles already committed the path earlier in
+	// this same reconcile. Restoring would overwrite fresh rule output
+	// with default-branch content. INV-0015 A4b showed it can also fail
+	// outright — the contents API lags writes by ~120ms, so the branch
+	// probe in restoreRulePaths can report a path missing that was just
+	// created, sending CreateOrUpdateFile down its create path against a
+	// file that exists and back into the INV-0003 422. Excluding the path
+	// is the correct fix rather than retrying the write, because a
+	// successful retry would silently clobber the rule's own output.
+	claimed := make(map[string]struct{})
 	for _, path := range plannedDeletions(actionable) {
-		deleting[path] = struct{}{}
+		claimed[path] = struct{}{}
+	}
+
+	for _, path := range plannedWrites(actionable) {
+		claimed[path] = struct{}{}
 	}
 
 	var restored []string
@@ -251,7 +268,7 @@ func restoreInverseOrphans(
 			continue
 		}
 
-		if restoreRulePaths(ctx, log, client, r, restorablePaths(r), deleting, owner, repo) {
+		if restoreRulePaths(ctx, log, client, r, restorablePaths(r), claimed, owner, repo) {
 			restored = append(restored, r.Name)
 		}
 	}
@@ -277,9 +294,9 @@ func restorablePaths(r *policy.FileRuleConfig) []string {
 
 // restoreRulePaths restores each of the given paths of a
 // no-longer-actionable rule that is present on the default branch but
-// missing from the reconcile branch. Paths in `deleting` are skipped:
-// another rule is actively removing them on this sweep. Returns true if at
-// least one path was restored. Every API error is fail-safe: the path is
+// missing from the reconcile branch. Paths in `claimed` are skipped:
+// another rule is actively writing or removing them on this sweep.
+// Returns true if at least one path was restored. Every API error is fail-safe: the path is
 // left untouched and retried next sweep.
 func restoreRulePaths(
 	ctx context.Context,
@@ -287,13 +304,13 @@ func restoreRulePaths(
 	client ghclient.Client,
 	r *policy.FileRuleConfig,
 	paths []string,
-	deleting map[string]struct{},
+	claimed map[string]struct{},
 	owner, repo string,
 ) bool {
 	var restoredAny bool
 
 	for _, path := range paths {
-		if _, beingDeleted := deleting[path]; beingDeleted {
+		if _, byAnotherRule := claimed[path]; byAnotherRule {
 			continue
 		}
 

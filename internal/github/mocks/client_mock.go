@@ -8,8 +8,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/donaldgifford/repo-guardian/internal/github"
 	mock "github.com/stretchr/testify/mock"
+
+	"github.com/donaldgifford/repo-guardian/internal/github"
 )
 
 // NewMockClient creates a new instance of MockClient. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

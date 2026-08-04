@@ -94,6 +94,8 @@ spec:
               value: {{ .Values.config.skipArchived | quote }}
             - name: AUTO_CLOSE_PR
               value: {{ .Values.policy.autoClosePR | quote }}
+            - name: ORPHAN_CLEANUP
+              value: {{ .Values.policy.orphanCleanup | quote }}
             - name: TEMPLATE_DIR
               value: /etc/repo-guardian/templates
             - name: WEBHOOK_IP_ALLOWLIST

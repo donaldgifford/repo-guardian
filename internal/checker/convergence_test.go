@@ -121,6 +121,26 @@ func (s *stagedConvergenceState) addOrphanToBranch(path, sha string) {
 	s.client.branchContents[s.org+"/"+s.repo+"/"+s.branch+"/"+path] = sha
 }
 
+// deletedFromBranch marks a path as deleted on the reconcile branch by a
+// previous sweep, while leaving it present on the default branch.
+//
+// This has to be stated explicitly since INV-0014. Before the fake modelled
+// branch inheritance, "present on main" implied "absent from the branch"
+// purely because the fake had no way to represent the branch inheriting
+// anything — so a fixture could describe this state in a comment and get it
+// by accident. Now the branch really does inherit from main, and a test that
+// wants a file gone from the branch has to say so.
+func (s *stagedConvergenceState) deletedFromBranch(path string) {
+	key := s.org + "/" + s.repo + "/" + s.branch + "/" + path
+	delete(s.client.branchContents, key)
+
+	if s.client.branchDeleted == nil {
+		s.client.branchDeleted = make(map[string]bool)
+	}
+
+	s.client.branchDeleted[key] = true
+}
+
 func TestConvergence_Sweep1_OpensPR(t *testing.T) {
 	metrics.PRsCreatedTotal.Reset()
 
@@ -417,6 +437,7 @@ func TestConvergence_RenovateFirst_GateClosesMidFlight_RestoresDependabot(t *tes
 	// alive) and no_dependabot's gate closed. dependabot present on main but
 	// already deleted from the branch by a prior sweep.
 	s.satisfyOnMain(".github/dependabot.yml")
+	s.deletedFromBranch(".github/dependabot.yml")
 	s.client.fileContents[s.org+"/"+s.repo+"/.github/dependabot.yml"] = "restored-body"
 	s.openOurPR(6)
 
@@ -467,5 +488,212 @@ func TestConvergence_Bundle_AddAndRemove_RendersBothSections(t *testing.T) {
 
 	if !slices.Contains(s.client.deletedFiles, ".github/dependabot.yml") {
 		t.Errorf("expected dependabot.yml deleted, deletedFiles=%v", s.client.deletedFiles)
+	}
+}
+
+// TestConvergence_SatisfiedRuleNeverDeletesDefaultBranchFile is the
+// INV-0014 regression test: the reported production bug, in the shape it
+// was reported.
+//
+// A repo already has .github/CODEOWNERS and is missing dependabot. Sweep
+// one opens a PR adding dependabot; the reconcile branch is cut from main
+// and therefore carries CODEOWNERS, which repo-guardian did not write.
+// Sweep two finds the codeowners rule satisfied and — before the fix —
+// read "CODEOWNERS is on the branch" as "I put it there in an earlier
+// sweep", and committed a deletion. Merging that PR would have removed
+// CODEOWNERS from the default branch.
+//
+// This test can only fail against a fake that models branch inheritance.
+// Against the pre-INV-0014 fake the branch appeared empty, nothing was
+// ever a candidate for deletion, and the assertion below passed whether
+// or not the bug was present.
+func TestConvergence_SatisfiedRuleNeverDeletesDefaultBranchFile(t *testing.T) {
+	s := newStagedConvergence(t, nil)
+
+	// The repository owns CODEOWNERS at the rule's Target path. Only that
+	// layout is affected: a root-level CODEOWNERS is not the rule's Target
+	// and never becomes an orphan candidate (INV-0014 finding C).
+	s.satisfyOnMain(".github/CODEOWNERS")
+	s.openOurPR(1)
+
+	s.sweep()
+
+	if slices.Contains(s.client.deletedFiles, ".github/CODEOWNERS") {
+		t.Fatalf("deleted .github/CODEOWNERS, which the default branch owns; "+
+			"merging this PR would remove it from main. deletedFiles=%v", s.client.deletedFiles)
+	}
+}
+
+// TestConvergence_GenuineOrphanIsStillDeleted guards the other side of the
+// INV-0014 fix: the convergence behaviour IMPL-0013 Phase 3 was built for
+// must survive.
+//
+// repo-guardian wrote .github/CODEOWNERS to the branch in an earlier sweep;
+// a human then satisfied the rule by committing CODEOWNERS at the repo root
+// straight to main. The branch copy is now redundant, and — crucially —
+// .github/CODEOWNERS is NOT on main, so repo-guardian is the only party
+// that could have placed it there. That is a real orphan and must still be
+// removed, or the PR keeps proposing a duplicate CODEOWNERS forever.
+//
+// Without this test the INV-0014 fix could be "improved" into skipping
+// orphan cleanup entirely and nothing would complain.
+func TestConvergence_GenuineOrphanIsStillDeleted(t *testing.T) {
+	s := newStagedConvergence(t, nil)
+
+	// Rule satisfied by the root-level path on main...
+	s.satisfyOnMain("CODEOWNERS")
+	// ...while the branch still carries repo-guardian's earlier write at the
+	// Target path, which main does not have.
+	s.addOrphanToBranch(".github/CODEOWNERS", "sha-codeowners")
+	s.openOurPR(1)
+
+	s.sweep()
+
+	if !slices.Contains(s.client.deletedFiles, ".github/CODEOWNERS") {
+		t.Errorf("genuine orphan not cleaned up: .github/CODEOWNERS is absent from main "+
+			"and was written to the branch by an earlier sweep. deletedFiles=%v", s.client.deletedFiles)
+	}
+}
+
+// TestConvergence_OrphanCleanupDisabled_NoDeletion pins the INV-0014
+// kill switch. It uses the genuine-orphan fixture — a file that SHOULD be
+// deleted — because a test built on a file that must not be deleted would
+// pass with the flag ignored entirely.
+func TestConvergence_OrphanCleanupDisabled_NoDeletion(t *testing.T) {
+	disabled := false
+
+	pol := policy.BuiltinDefaults()
+	pol.Guardian.DryRun = false
+	pol.Guardian.OrphanCleanup = &disabled
+
+	s := newStagedConvergenceWithPolicy(t, pol)
+	s.satisfyOnMain("CODEOWNERS")
+	s.addOrphanToBranch(".github/CODEOWNERS", "sha-codeowners")
+	s.openOurPR(1)
+
+	s.sweep()
+
+	if len(s.client.deletedFiles) != 0 {
+		t.Errorf("orphan_cleanup=false must delete nothing, deletedFiles=%v", s.client.deletedFiles)
+	}
+}
+
+// TestConvergence_RepairsBranchThatDeletedADefaultBranchFile is the
+// INV-0014 in-place repair: a PR whose branch already carries the bad
+// deletion is fixed by the next sweep, rather than needing an operator to
+// close and rebuild it.
+//
+// This is the state every affected PR is in right now: .github/CODEOWNERS
+// present on main, deleted from the reconcile branch by a pre-fix sweep,
+// and the rule satisfied so nothing would otherwise touch it again.
+func TestConvergence_RepairsBranchThatDeletedADefaultBranchFile(t *testing.T) {
+	s := newStagedConvergence(t, nil)
+
+	// The repo owns CODEOWNERS; a pre-fix sweep deleted it from the branch.
+	s.satisfyOnMain(".github/CODEOWNERS")
+	s.deletedFromBranch(".github/CODEOWNERS")
+	s.client.fileContents[s.org+"/"+s.repo+"/.github/CODEOWNERS"] = "* @team"
+	s.openOurPR(1)
+
+	s.sweep()
+
+	if !slices.Contains(s.client.createdFiles, ".github/CODEOWNERS") {
+		t.Errorf("branch still proposes deleting .github/CODEOWNERS, which main owns; "+
+			"the open PR is not self-healing. createdFiles=%v", s.client.createdFiles)
+	}
+}
+
+// conflictingPolicy pairs an add rule whose Target is a path an absent
+// rule forbids. The add rule is satisfied on main (so non-actionable, and
+// therefore a restore candidate) while the absent rule is actionable and
+// wants that exact path gone.
+func conflictingPolicy() *policy.PolicyConfig {
+	return &policy.PolicyConfig{
+		Guardian: policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{
+			{
+				Type:     "file",
+				Name:     "needs_dependabot",
+				Check:    string(policy.CheckExists),
+				Paths:    []string{".github/dependabot.yml"},
+				Target:   ".github/dependabot.yml",
+				Template: "codeowners",
+			},
+			{
+				Type:   "file",
+				Name:   "needs_codeowners",
+				Check:  string(policy.CheckExists),
+				Paths:  []string{".github/CODEOWNERS"},
+				Target: ".github/CODEOWNERS",
+				// Keeps the PR alive so the existing-PR path runs.
+				Template: "codeowners",
+			},
+			{
+				Type:  "file",
+				Name:  "no_dependabot",
+				Check: string(policy.CheckAbsent),
+				Paths: []string{".github/dependabot.yml"},
+			},
+		},
+	}
+}
+
+// TestConvergence_RepairDoesNotFightAnActionableAbsentRule pins the
+// exclusion that keeps repair from flip-flopping.
+//
+// needs_dependabot is satisfied on main, so it is non-actionable and its
+// Target is a restore candidate. no_dependabot is actionable and wants that
+// same path deleted this sweep. Without the planned-deletion exclusion the
+// two undo each other on every sweep forever — a loop that burns rate limit
+// and never converges. The deletion must win: an actionable rule is a live
+// instruction, restoration only repairs a state nothing is asking for.
+func TestConvergence_RepairDoesNotFightAnActionableAbsentRule(t *testing.T) {
+	s := newStagedConvergenceWithPolicy(t, conflictingPolicy())
+
+	// dependabot.yml on main: satisfies needs_dependabot AND makes
+	// no_dependabot actionable. CODEOWNERS missing keeps the PR alive.
+	s.forbiddenOnMainAndBranch(".github/dependabot.yml", "dep-sha")
+	s.openOurPR(2)
+
+	s.sweep()
+
+	if slices.Contains(s.client.createdFiles, ".github/dependabot.yml") {
+		t.Errorf("restored a path an actionable absent rule is deleting this sweep; "+
+			"the two will undo each other forever. createdFiles=%v", s.client.createdFiles)
+	}
+
+	if !slices.Contains(s.client.deletedFiles, ".github/dependabot.yml") {
+		t.Errorf("the actionable absent rule must still delete its forbidden file, deletedFiles=%v",
+			s.client.deletedFiles)
+	}
+}
+
+// TestConvergence_RepairScopedToRuleTarget pins the deliberate scope
+// boundary: for non-absent rules, repair restores only the rule's Target.
+//
+// Target is the only path cleanupOrphans ever deletes, so Target is the
+// exact inverse and covers all the damage INV-0014 caused. A rule's wider
+// Paths set can be missing from the branch for reasons repo-guardian did
+// not cause — a human editing the branch, most obviously — and re-adding
+// those would turn a repair mechanism into a resurrection mechanism that
+// silently reverts deliberate edits.
+//
+// Here the codeowners rule is satisfied by the root-level CODEOWNERS, which
+// is in Paths but is not Target, and which is absent from the branch.
+// Restoring it is out of scope.
+func TestConvergence_RepairScopedToRuleTarget(t *testing.T) {
+	s := newStagedConvergence(t, nil)
+
+	s.satisfyOnMain("CODEOWNERS") // in Paths, not Target -> rule satisfied
+	s.deletedFromBranch("CODEOWNERS")
+	s.client.fileContents[s.org+"/"+s.repo+"/CODEOWNERS"] = "* @team"
+	s.openOurPR(3)
+
+	s.sweep()
+
+	if slices.Contains(s.client.createdFiles, "CODEOWNERS") {
+		t.Errorf("restored root CODEOWNERS, which is in the rule's Paths but is not its Target; "+
+			"repair must mirror cleanupOrphans, which only ever deletes Target. createdFiles=%v",
+			s.client.createdFiles)
 	}
 }

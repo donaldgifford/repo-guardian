@@ -75,6 +75,28 @@ tests:
             configMap:
               name: my-shared-templates
 
+  - it: emits ORPHAN_CLEANUP=true by default (INV-0014)
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ORPHAN_CLEANUP
+            value: "true"
+
+  # The false case is asserted explicitly: a bool rendered through sprig
+  # `default` collapses false to the default, and this kill switch is
+  # worthless if setting it to false silently renders "true".
+  - it: respects policy.orphanCleanup=false override (INV-0014 kill switch)
+    set:
+      policy:
+        orphanCleanup: false
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ORPHAN_CLEANUP
+            value: "false"
+
   - it: emits AUTO_CLOSE_PR=true by default (IMPL-0013 Phase 5)
     asserts:
       - contains:

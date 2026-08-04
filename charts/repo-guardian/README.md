@@ -441,10 +441,11 @@ incoming webhook.
 | podAnnotations | object | `{}` | Pod annotations |
 | podLabels | object | `{}` | Pod labels |
 | podSecurityContext | object | `{}` | Pod security context |
-| policy | object | `{"autoClosePR":true,"config":"","existingConfigMap":""}` | HCL policy configuration |
+| policy | object | `{"autoClosePR":true,"config":"","existingConfigMap":"","orphanCleanup":true}` | HCL policy configuration |
 | policy.autoClosePR | bool | `true` | Auto-close repo-guardian PRs when every file rule is satisfied on the default branch (IMPL-0013 Phase 3). When `true` (default), the PR is closed with a sticky comment and the reconcile branch is deleted. When `false`, the PR stays open until a human closes it. |
 | policy.config | string | `""` | Inline HCL policy config (creates a ConfigMap) |
 | policy.existingConfigMap | string | `""` | Use an existing ConfigMap for policy config |
+| policy.orphanCleanup | bool | `true` | Remove files from repo-guardian's own reconcile branch once the rule that added them is satisfied on the default branch (IMPL-0013 Phase 3). When `true` (default), a PR stops proposing files that are no longer needed. When `false`, no file is ever deleted from the reconcile branch and PR bodies may list rules already satisfied on the default branch.  This is a kill switch, not a tuning knob: orphan cleanup is the only path that deletes files, and INV-0014 is a fixed defect in it that produced PRs proposing to remove files repositories legitimately owned. Leave it enabled unless you have reason not to. |
 | prometheusRule | object | `{"alerts":{},"enabled":false,"labels":{}}` | Prometheus PrometheusRule with starter alerts (IMPL-0011 P6). |
 | prometheusRule.alerts | object | `{}` | Per-alert overrides: each key under `alerts.<name>` accepts `for`, `severity`, `threshold`, and `enabled`. See the rendered PrometheusRule template for the canonical alert names. |
 | prometheusRule.enabled | bool | `false` | Create PrometheusRule with starter alerts. |

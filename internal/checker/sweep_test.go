@@ -312,3 +312,5 @@ func TestStaleSweeper_PolicyVersionMismatchEnqueuesAll(t *testing.T) {
 		t.Fatalf("trigger: got %q want %q", jobs[0].Trigger, queue.TriggerScheduler)
 	}
 }
+
+func (*fakeStore) Deactivate(context.Context, int64, string, string) error { return nil }

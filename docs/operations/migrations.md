@@ -27,6 +27,7 @@ CREATE TABLE repo_state (
     last_check_status TEXT    NOT NULL DEFAULT 'pending',
     last_error        TEXT,
     policy_version    TEXT    NOT NULL DEFAULT '',
+    active            BOOLEAN NOT NULL DEFAULT true,
     PRIMARY KEY (installation_id, owner, repo)
 );
 
@@ -35,6 +36,10 @@ CREATE INDEX idx_repo_state_freshness
 
 CREATE INDEX idx_repo_state_policy_version
     ON repo_state(policy_version);
+
+CREATE INDEX idx_repo_state_active_freshness
+    ON repo_state(last_checked_at NULLS FIRST)
+    WHERE active;
 ```
 
 The two indexes drive the stale-sweep query in
@@ -43,15 +48,60 @@ The two indexes drive the stale-sweep query in
 ```sql
 SELECT ...
 FROM repo_state
-WHERE last_checked_at IS NULL
-   OR last_checked_at < $1
-   OR policy_version <> $2
+WHERE active
+  AND (last_checked_at IS NULL
+       OR last_checked_at < $1
+       OR policy_version <> $2)
 ORDER BY last_checked_at NULLS FIRST
 LIMIT $3
 ```
 
 Both `last_checked_at` and `policy_version` are indexed so the OR-of-three
 filter doesn't degrade to a sequential scan even at 100k+ rows.
+
+Note the parentheses. `AND` binds tighter than `OR`, so writing
+`... OR policy_version <> $2 AND active` would gate only the last arm and
+a parked repository would return to the sweep the moment the policy hash
+changed. `TestPostgresStore_DeactivateExcludesFromSweep` covers exactly
+this.
+
+### `active` — the access-denied circuit breaker (INV-0015)
+
+`active` is `true` for every row unless the worker parked it. A
+repository is parked when a check fails with 403/404, meaning the
+installation cannot read it: the App was uninstalled from that
+repository, lost a permission, or the repository was deleted.
+
+Before this column, such a repository failed every attempt, exhausted
+`MAX_JOB_ATTEMPTS`, and was then handed straight back by the next stale
+sweep — burning the full attempt budget every cycle, forever, with
+failures indistinguishable from a transient 500.
+
+Parked rows are **kept, never deleted**, so the history stays queryable:
+
+```sql
+SELECT installation_id, owner, repo, last_error
+FROM repo_state
+WHERE NOT active
+ORDER BY owner, repo;
+```
+
+**Only discovery can un-park a row.** Discovery is the one component that
+observes the installation's real repository set, so a repository whose
+access is restored rejoins the sweep on the next discovery pass with no
+operator action. Reactivation deliberately does not touch
+`last_checked_at` or `policy_version`; overwriting those would reset the
+freshness gate and re-check the whole fleet on every discovery pass.
+
+There is intentionally no way to reactivate from the check path, and none
+from SQL that we document — if you set `active = true` by hand on a
+repository the App still cannot read, it will simply be parked again on
+its next check.
+
+Watch `repo_guardian_repo_access_denied_total` and the
+`RepoGuardianRepoAccessDenied` alert. A steady trickle is normal in a
+large org (repositories get deleted); a step change means the App lost
+access to something it used to have.
 
 ## Out-of-band migration runs
 

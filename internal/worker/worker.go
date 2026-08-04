@@ -183,6 +183,13 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 			return retry
 		}
 
+		// Access denial is terminal, so it must not take the retry path
+		// below. Order matters: deferralFor runs first because a
+		// secondary rate limit is also a 403 (INV-0015).
+		if ghclient.IsAccessDenied(err) {
+			return p.dropInaccessible(ctx, jobLog, j, err)
+		}
+
 		jobLog.Error("job failed", "error", err, "duration", time.Since(start))
 		metrics.ErrorsTotal.WithLabelValues("check_repo", j.Owner).Inc()
 		p.writeBack(ctx, jobLog, j, err)
@@ -195,6 +202,40 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 	metrics.CheckDurationSeconds.Observe(duration.Seconds())
 	p.writeBack(ctx, jobLog, j, nil)
 	jobLog.Info("job completed", "duration", duration)
+
+	return nil
+}
+
+// dropInaccessible parks a repository the App cannot reach.
+//
+// Without this the job takes the generic error path: nack, requeue,
+// Attempts++, up to MAX_JOB_ATTEMPTS — and then the next stale sweep
+// hands it straight back, so an inaccessible repository burns the whole
+// attempt budget every cycle, forever, and its failures are
+// indistinguishable from a transient 500 in both logs and metrics.
+//
+// Returns nil so the queue acks and drops, exactly as dropExhausted
+// does; returning an error here would rebuild the retry loop this
+// exists to break.
+//
+//nolint:gocritic // hugeParam: queue.Job-by-value matches Subscribe's contract
+func (p *Pool) dropInaccessible(ctx context.Context, log *slog.Logger, j queue.Job, cause error) error {
+	log.Error("repository is not accessible to this installation; parking it until discovery sees it again",
+		"error", cause,
+	)
+
+	metrics.RepoAccessDeniedTotal.WithLabelValues(j.Owner, strconv.FormatInt(j.InstallationID, 10)).Inc()
+
+	p.writeBack(ctx, log, j, fmt.Errorf("repository not accessible to installation %d: %w", j.InstallationID, cause))
+
+	// Best-effort, and deliberately after the write-back: if this fails
+	// the repo simply stays in the sweep and we retry next cycle, which
+	// is the pre-existing behaviour rather than a new failure mode.
+	if p.stateStore != nil {
+		if err := p.stateStore.Deactivate(ctx, j.InstallationID, j.Owner, j.Repo); err != nil {
+			log.Warn("deactivate failed; repo stays in the sweep and will retry", "error", err)
+		}
+	}
 
 	return nil
 }

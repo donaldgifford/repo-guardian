@@ -70,5 +70,17 @@ type Store interface {
 	UpdateRepoState(ctx context.Context, s *RepoState) error
 	UpsertIfMissing(ctx context.Context, s *RepoState) (created bool, err error)
 	StaleRepos(ctx context.Context, freshness time.Duration, currentPolicyVersion string, limit int) ([]RepoState, error)
+
+	// Deactivate marks a repository inactive so StaleRepos stops
+	// returning it. It is deliberately one-way: nothing here can set a
+	// row active again, because only discovery observes the
+	// installation's real repository set and is therefore the only
+	// component entitled to say a repository is reachable (INV-0015).
+	// Reactivation happens in UpsertIfMissing.
+	//
+	// Idempotent: deactivating an already-inactive or absent row is not
+	// an error.
+	Deactivate(ctx context.Context, installationID int64, owner, repo string) error
+
 	Close() error
 }

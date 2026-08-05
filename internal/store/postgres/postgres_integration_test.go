@@ -482,3 +482,43 @@ func TestPostgresStore_DiscoveryReactivates(t *testing.T) {
 		t.Errorf("PolicyVersion = %q, want %q unchanged", got.PolicyVersion, "v1")
 	}
 }
+
+// TestPostgresStore_UpdateRepoStateDoesNotUnpark pins the boundary
+// between the two writers.
+//
+// UpdateRepoState is called on every processed job (worker write-back)
+// and on every push webhook, so if it reset active the parking would be
+// undone within one cycle by the very path that set it. The column is
+// deliberately absent from its ON CONFLICT list; this test fails if
+// someone adds it, or switches the statement to a whole-row upsert.
+func TestPostgresStore_UpdateRepoStateDoesNotUnpark(t *testing.T) {
+	ctx := context.Background()
+	dsn := startPostgres(ctx, t)
+	s := newStore(ctx, t, dsn)
+
+	old := time.Now().UTC().Add(-2 * time.Hour)
+
+	mustUpdate(ctx, t, s, &store.RepoState{
+		InstallationID: 1, Owner: "o", Repo: "r",
+		LastCheckedAt: &old, LastCheckStatus: store.StatusSuccess, PolicyVersion: "v1",
+	})
+
+	if err := s.Deactivate(ctx, 1, "o", "r"); err != nil {
+		t.Fatalf("Deactivate() = %v, want nil error", err)
+	}
+
+	// Exactly what the worker write-back and the push webhook do.
+	mustUpdate(ctx, t, s, &store.RepoState{
+		InstallationID: 1, Owner: "o", Repo: "r",
+		LastCheckedAt: &old, LastCheckStatus: store.StatusError, PolicyVersion: "v1",
+	})
+
+	stale, err := s.StaleRepos(ctx, time.Hour, "v1", 10)
+	if err != nil {
+		t.Fatalf("StaleRepos() = _, %v, want nil error", err)
+	}
+
+	if len(stale) != 0 {
+		t.Errorf("StaleRepos() returned %+v, want none — UpdateRepoState un-parked the row it was told nothing about", stale)
+	}
+}

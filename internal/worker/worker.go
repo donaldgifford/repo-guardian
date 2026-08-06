@@ -187,7 +187,14 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 		// below. Order matters: deferralFor runs first because a
 		// secondary rate limit is also a 403 (INV-0015).
 		if ghclient.IsAccessDenied(err) {
-			return p.dropInaccessible(ctx, jobLog, j, err)
+			return p.park(ctx, jobLog, j, parkAccessDenied, err)
+		}
+
+		// A durable skip (archived, fork) is not a failure at all — the
+		// repo is in its desired state and nothing will change that until
+		// discovery sees it differently.
+		if skip, ok := checker.AsSkipped(err); ok {
+			return p.park(ctx, jobLog, j, skip.Reason, nil)
 		}
 
 		jobLog.Error("job failed", "error", err, "duration", time.Since(start))
@@ -206,27 +213,44 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 	return nil
 }
 
-// dropInaccessible parks a repository the App cannot reach.
+// parkAccessDenied is the park reason for a repository the installation
+// cannot read. The others come from checker.SkippedError.
+const parkAccessDenied = "access_denied"
+
+// park takes a repository out of the stale sweep.
 //
-// Without this the job takes the generic error path: nack, requeue,
-// Attempts++, up to MAX_JOB_ATTEMPTS — and then the next stale sweep
-// hands it straight back, so an inaccessible repository burns the whole
-// attempt budget every cycle, forever, and its failures are
-// indistinguishable from a transient 500 in both logs and metrics.
+// Without this, both parked conditions cost forever. An unreadable repo
+// took the generic error path — nack, requeue, Attempts++, to
+// MAX_JOB_ATTEMPTS — and the next sweep handed it straight back, so it
+// burned the whole attempt budget every cycle with failures
+// indistinguishable from a transient 500. An archived or forked repo was
+// cheaper but equally endless: enqueue, installation client,
+// GetRepository, skip, write back success, and round again every
+// freshness cycle for as long as the repository exists.
+//
+// cause is nil for a skip, which is not a failure: the repository is in
+// its desired state, so the row records StatusSkipped rather than an
+// error, and the log is Info rather than Error.
 //
 // Returns nil so the queue acks and drops, exactly as dropExhausted
-// does; returning an error here would rebuild the retry loop this
-// exists to break.
+// does; returning an error would rebuild the retry loop this exists to
+// break.
 //
 //nolint:gocritic // hugeParam: queue.Job-by-value matches Subscribe's contract
-func (p *Pool) dropInaccessible(ctx context.Context, log *slog.Logger, j queue.Job, cause error) error {
-	log.Error("repository is not accessible to this installation; parking it until discovery sees it again",
-		"error", cause,
-	)
+func (p *Pool) park(ctx context.Context, log *slog.Logger, j queue.Job, reason string, cause error) error {
+	if cause != nil {
+		log.Error("parking repository until discovery sees it again", "reason", reason, "error", cause)
+	} else {
+		log.Info("parking repository until discovery sees it again", "reason", reason)
+	}
 
-	metrics.RepoAccessDeniedTotal.WithLabelValues(j.Owner, strconv.FormatInt(j.InstallationID, 10)).Inc()
+	metrics.ReposParkedTotal.WithLabelValues(j.Owner, strconv.FormatInt(j.InstallationID, 10), reason).Inc()
 
-	p.writeBack(ctx, log, j, fmt.Errorf("repository not accessible to installation %d: %w", j.InstallationID, cause))
+	if cause != nil {
+		p.writeBack(ctx, log, j, fmt.Errorf("repository not accessible to installation %d: %w", j.InstallationID, cause))
+	} else {
+		p.writeBackStatus(ctx, log, j, store.StatusSkipped, reason)
+	}
 
 	// Best-effort, and deliberately after the write-back: if this fails
 	// the repo simply stays in the sweep and we retry next cycle, which
@@ -375,7 +399,42 @@ func (p *Pool) writeBack(ctx context.Context, log *slog.Logger, j queue.Job, che
 		state.LastError = store.Truncate(checkErr.Error(), errMaxRunes)
 	}
 
-	installLabel := strconv.FormatInt(j.InstallationID, 10)
+	p.persist(ctx, log, j.InstallationID, state)
+}
+
+// writeBackStatus records an explicit terminal status, for an outcome
+// that is neither a success nor a failure. A durable skip is the only
+// such case today: nothing went wrong, so StatusError would be a lie,
+// and StatusSuccess would claim rules were evaluated when none were.
+//
+// detail lands in LastError despite not being an error. There is no
+// park_reason column, and last_error is the only free-text slot, so it
+// is what lets an operator see why a row was parked from SQL alone;
+// LastCheckStatus is what says whether it was a failure.
+//
+//nolint:gocritic // hugeParam: queue.Job-by-value matches Subscribe's contract
+func (p *Pool) writeBackStatus(ctx context.Context, log *slog.Logger, j queue.Job, status, detail string) {
+	if p.stateStore == nil {
+		return
+	}
+
+	now := time.Now().UTC()
+
+	p.persist(ctx, log, j.InstallationID, &store.RepoState{
+		InstallationID:  j.InstallationID,
+		Owner:           j.Owner,
+		Repo:            j.Repo,
+		LastCheckedAt:   &now,
+		PolicyVersion:   p.policyVersion,
+		LastCheckStatus: status,
+		LastError:       store.Truncate(detail, errMaxRunes),
+	})
+}
+
+// persist is the shared best-effort tail of every write-back: one Store
+// call, timed and counted, never propagated. The queue.Job remains the
+// source of truth for "did we do the work".
+func (p *Pool) persist(ctx context.Context, log *slog.Logger, installationID int64, state *store.RepoState) {
 	wbStart := time.Now()
 
 	err := p.stateStore.UpdateRepoState(ctx, state)
@@ -388,5 +447,5 @@ func (p *Pool) writeBack(ctx context.Context, log *slog.Logger, j queue.Job, che
 		log.Warn("store write-back failed; sweep will re-enqueue", "error", err)
 	}
 
-	metrics.StoreWritebackTotal.WithLabelValues(installLabel, outcome).Inc()
+	metrics.StoreWritebackTotal.WithLabelValues(strconv.FormatInt(installationID, 10), outcome).Inc()
 }

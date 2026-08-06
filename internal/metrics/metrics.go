@@ -84,15 +84,18 @@ var (
 		Help: "Errors encountered.",
 	}, []string{"operation", labelOrg})
 
-	// RepoAccessDeniedTotal counts repositories parked because the
-	// installation cannot read them. Its own series rather than a label
-	// on ErrorsTotal: this needs to be alertable on its own, and adding
-	// a label value would force every existing ErrorsTotal query to be
-	// rewritten to exclude it (INV-0015).
-	RepoAccessDeniedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "repo_guardian_repo_access_denied_total",
-		Help: "Repositories parked because the installation cannot read them.",
-	}, []string{labelOrg, "installation_id"})
+	// ReposParkedTotal counts repositories taken out of the sweep, by
+	// reason. Its own metric rather than a label on ErrorsTotal, which is
+	// pre-existing and widely queried; carrying `reason` from birth costs
+	// nothing and keeps one series as parking reasons grow (INV-0015).
+	//
+	// reason="access_denied" is the actionable one and what the shipped
+	// alert watches. archived and fork are routine and expected to climb
+	// slowly in any long-lived org.
+	ReposParkedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_repos_parked_total",
+		Help: "Repositories parked (removed from the stale sweep), by reason.",
+	}, []string{labelOrg, "installation_id", "reason"})
 
 	// GitHubRateRemaining tracks the GitHub API rate limit remaining.
 	GitHubRateRemaining = promauto.NewGauge(prometheus.GaugeOpts{

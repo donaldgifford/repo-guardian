@@ -265,7 +265,7 @@ func (*notFoundClient) GetRepository(context.Context, string, string) (*ghclient
 // stops re-enqueuing it, and the failure lands on its own metric series.
 func TestPool_AccessDenied_ParksRepoWithoutRetrying(t *testing.T) {
 	// Not parallel: reads a package-global metric after Reset.
-	metrics.RepoAccessDeniedTotal.Reset()
+	metrics.ReposParkedTotal.Reset()
 
 	// No file rules: CheckRepo fails at the GetRepository probe before it
 	// evaluates any, so rules would only add reconciler wiring this test
@@ -329,11 +329,187 @@ func TestPool_AccessDenied_ParksRepoWithoutRetrying(t *testing.T) {
 
 	// 3. Its own series, so an operator can alert on "the App lost access"
 	// without it being buried among transient 500s.
-	if v := testutil.ToFloat64(metrics.RepoAccessDeniedTotal.WithLabelValues("acme", "9")); v != 1 {
-		t.Errorf("repo_access_denied_total{org=acme, installation_id=9} = %v, want 1", v)
+	if v := testutil.ToFloat64(metrics.ReposParkedTotal.WithLabelValues("acme", "9", "access_denied")); v != 1 {
+		t.Errorf("repos_parked_total{org=acme, installation_id=9, reason=access_denied} = %v, want 1", v)
 	}
 
 	if v := testutil.ToFloat64(metrics.ErrorsTotal.WithLabelValues("check_repo", "acme")); v != 0 {
 		t.Errorf("errors_total{operation=check_repo} = %v, want 0 — access denial must not land in the generic bucket", v)
+	}
+}
+
+// repoStateClient reports a repository that exists and is readable, in
+// whatever lifecycle state the test needs. Every skip reason the engine can
+// return is a property of this struct, so the parked and not-parked cases are
+// the same fake with one field flipped.
+type repoStateClient struct {
+	mocks.MockClient
+
+	repo ghclient.Repository
+}
+
+func (c *repoStateClient) CreateInstallationClient(context.Context, int64) (ghclient.Client, error) {
+	return c, nil
+}
+
+func (c *repoStateClient) GetRepository(_ context.Context, owner, repo string) (*ghclient.Repository, error) {
+	r := c.repo
+	r.Owner, r.Name = owner, repo
+
+	return &r, nil
+}
+
+// TestPool_ArchivedRepo_IsParkedNotRechecked pins the second half of the
+// INV-0015 parking work.
+//
+// An archived repository was skipped correctly but never stopped costing
+// anything: enqueue, installation client, GetRepository, skip, write back
+// success, and round again every freshness cycle for as long as the repo
+// exists. Discovery filters archived repos, so parking is stable — and it
+// self-heals, because an unarchived repo stops being filtered and
+// UpsertIfMissing reactivates it.
+//
+// StatusSkipped, not StatusError: nothing went wrong.
+func TestPool_ArchivedRepo_IsParkedNotRechecked(t *testing.T) {
+	// Not parallel: reads a package-global metric after Reset.
+	metrics.ReposParkedTotal.Reset()
+
+	cfg := &policy.PolicyConfig{Guardian: policy.BuiltinDefaults().Guardian}
+
+	eng, err := checker.NewEngine(cfg, rules.NewTemplateStore(), slog.Default(), reconciler.NewRegistry())
+	if err != nil {
+		t.Fatalf("NewEngine() = _, %v, want nil error", err)
+	}
+
+	q := &deliverOnceQueue{
+		job: queue.Job{
+			ID: "arch", InstallationID: 4, Owner: "acme", Repo: "old",
+			Trigger: queue.TriggerScheduler,
+		},
+		result: make(chan error, 1),
+	}
+	st := &capturingStore{}
+	client := &repoStateClient{repo: ghclient.Repository{Archived: true, HasBranch: true, DefaultRef: "main"}}
+	p := worker.New(q, eng, client, st, "pv1", 10, 1, slog.Default())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	p.Start(ctx)
+
+	var res error
+	select {
+	case res = <-q.result:
+	case <-time.After(5 * time.Second):
+		t.Fatal("handler never invoked")
+	}
+
+	cancel()
+	p.Stop()
+
+	if res != nil {
+		t.Errorf("handler returned %v, want nil — a skip is not a failure", res)
+	}
+
+	st.mu.Lock()
+	defer st.mu.Unlock()
+
+	want := "4/acme/old"
+	if len(st.deactivated) != 1 || st.deactivated[0] != want {
+		t.Errorf("Deactivate calls = %v, want exactly [%s]; an archived repo must leave the sweep", st.deactivated, want)
+	}
+
+	if len(st.states) != 1 {
+		t.Fatalf("UpdateRepoState calls = %d, want exactly 1", len(st.states))
+	}
+
+	if got := st.states[0].LastCheckStatus; got != store.StatusSkipped {
+		t.Errorf("LastCheckStatus = %q, want %q — nothing failed, and no rules were evaluated either",
+			got, store.StatusSkipped)
+	}
+
+	// There is no park_reason column; last_error is the only free-text slot,
+	// and it is what makes `SELECT ... WHERE NOT active` answer *why* a row
+	// is parked. The documented operator query in docs/operations/migrations.md
+	// depends on this.
+	if got := st.states[0].LastError; got != checker.SkipArchived {
+		t.Errorf("LastError = %q, want %q — the park reason must be recoverable from SQL",
+			got, checker.SkipArchived)
+	}
+
+	if v := testutil.ToFloat64(metrics.ReposParkedTotal.WithLabelValues("acme", "4", "archived")); v != 1 {
+		t.Errorf("repos_parked_total{reason=archived} = %v, want 1", v)
+	}
+
+	if v := testutil.ToFloat64(metrics.ErrorsTotal.WithLabelValues("check_repo", "acme")); v != 0 {
+		t.Errorf("errors_total{operation=check_repo} = %v, want 0 — an archived repo is not an error", v)
+	}
+}
+
+// TestPool_EmptyRepo_IsSkippedButNotParked is the boundary of the parking
+// change, and the reason skipReason returns a durable flag rather than just a
+// reason string.
+//
+// Parking is only stable when the engine's skip conditions are a SUBSET of
+// discovery's filters. Discovery filters archived and fork repos, so a parked
+// one stays parked. Discovery does NOT filter empty repos — it would re-upsert
+// this repo on its very next pass, flipping active back to true, and the pair
+// would churn against each other at the discovery interval forever.
+//
+// So an empty repo is skipped the old way: no park, no error, and a normal
+// success write-back that lets freshness govern the next check. An empty repo
+// also stops being empty on its first push, which is a webhook away.
+func TestPool_EmptyRepo_IsSkippedButNotParked(t *testing.T) {
+	t.Parallel()
+
+	cfg := &policy.PolicyConfig{Guardian: policy.BuiltinDefaults().Guardian}
+
+	eng, err := checker.NewEngine(cfg, rules.NewTemplateStore(), slog.Default(), reconciler.NewRegistry())
+	if err != nil {
+		t.Fatalf("NewEngine() = _, %v, want nil error", err)
+	}
+
+	q := &deliverOnceQueue{
+		job: queue.Job{
+			ID: "empty", InstallationID: 4, Owner: "acme", Repo: "fresh",
+			Trigger: queue.TriggerScheduler,
+		},
+		result: make(chan error, 1),
+	}
+	st := &capturingStore{}
+	client := &repoStateClient{repo: ghclient.Repository{HasBranch: false}}
+	p := worker.New(q, eng, client, st, "pv1", 10, 1, slog.Default())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	p.Start(ctx)
+
+	select {
+	case err := <-q.result:
+		if err != nil {
+			t.Errorf("handler returned %v, want nil", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("handler never invoked")
+	}
+
+	cancel()
+	p.Stop()
+
+	st.mu.Lock()
+	defer st.mu.Unlock()
+
+	if len(st.deactivated) != 0 {
+		t.Errorf("Deactivate calls = %v, want none; discovery does not filter empty repos, "+
+			"so parking one makes discovery and the sweep fight over it every interval", st.deactivated)
+	}
+
+	if len(st.states) != 1 {
+		t.Fatalf("UpdateRepoState calls = %d, want exactly 1", len(st.states))
+	}
+
+	if got := st.states[0].LastCheckStatus; got != store.StatusSuccess {
+		t.Errorf("LastCheckStatus = %q, want %q", got, store.StatusSuccess)
 	}
 }

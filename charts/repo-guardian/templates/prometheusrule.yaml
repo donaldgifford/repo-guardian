@@ -89,13 +89,13 @@ spec:
         {{- $alert := default dict $a.RepoAccessDenied -}}
         {{- if ne (default true (get $alert "enabled")) false }}
         - alert: RepoGuardianRepoAccessDenied
-          expr: increase(repo_guardian_repo_access_denied_total[1h]) > {{ default 0 (get $alert "threshold") }}
+          expr: increase(repo_guardian_repos_parked_total{reason="access_denied"}[1h]) > {{ default 0 (get $alert "threshold") }}
           for: {{ default "15m" (get $alert "for") | quote }}
           labels:
             severity: {{ default "warning" (get $alert "severity") | quote }}
           annotations:
             summary: "repo-guardian cannot read repositories it was asked to check"
-            description: "repositories were parked because the installation cannot read them — the App was uninstalled from them, lost a permission, or they were deleted. Parked repos are skipped by the sweep and rejoin automatically when discovery sees them again."
+            description: "repositories were parked because the installation cannot read them — the App was uninstalled from them, lost a permission, or they were deleted. Only reason=access_denied is alerted; archived and fork parking is routine. Parked repos are skipped by the sweep and rejoin automatically when discovery sees them again."
         {{- end }}
         {{- /* StaleOpenPRs — IMPL-0013 Phase 1 drift visibility */ -}}
         {{- $alert := default dict $a.StaleOpenPRs -}}

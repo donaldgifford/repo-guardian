@@ -32,6 +32,19 @@ const (
 )
 
 // PostureExporter publishes fleet compliance posture from the store.
+//
+// Register Export as a scheduled handler under the same leader election
+// as stale-sweep; it is not safe to run on every replica. Not because
+// it writes anything — it does not — but because each replica publishes
+// its own copy of the series, and a rule's count is only meaningful
+// once. Non-leaders publish nothing rather than something stale.
+//
+// The consequence for anyone querying these gauges: aggregate with
+// `max by (...)`, never `sum`. During a failover the outgoing and
+// incoming leaders can both hold series briefly, and a demoted replica
+// keeps serving whatever it last published until its process restarts.
+// `max` is correct in both states; `sum` double-counts through every
+// leader change.
 type PostureExporter struct {
 	store  store.Store
 	logger *slog.Logger

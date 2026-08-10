@@ -172,6 +172,59 @@ Discovery is not throttle-gated. It costs one `list_installation_repos` call per
 
 - `discovery.interval` (default 1h) — primary discovery channel is webhooks (`installation_repositories.added` / `repository.created`); the Discoverer is the safety net for missed deliveries. Operators confident in webhook fidelity can stretch this to 6h+.
 
+## Repository parking (INV-0015)
+
+A repository whose check can never succeed is *parked*: its `repo_state` row gets `active = false` and the stale sweep stops offering it. The row is kept, never deleted, so the history stays queryable. Three reasons park:
+
+| `reason` | Trigger | Expected volume |
+|---|---|---|
+| `access_denied` | Check failed 403/404 — the App was uninstalled from the repository, lost a permission, or the repository was deleted. | A trickle in a large org; a step change means access changed. |
+| `archived` | `skip_archived` is on and the repository is archived. | Grows slowly and monotonically in any long-lived org. |
+| `fork` | `skip_forks` is on and the repository is a fork. | Same. |
+
+Parking is the reason a large org's sweep cost tracks *active* repositories rather than total ones. Before it, each of the three burned budget forever, in two different shapes:
+
+- an **unreadable** repository took the generic error path — nack, requeue, `Attempts++` to `MAX_JOB_ATTEMPTS` — and the next sweep handed it straight back, burning the full attempt budget every cycle with failures indistinguishable from a transient 500;
+- an **archived or forked** repository was cheaper but equally endless: enqueue, installation client, `GetRepository`, skip, write-back, and round again every freshness cycle for as long as the repository existed.
+
+### Only discovery un-parks
+
+Discovery is the one component that observes the installation's real repository set, so restored access or an un-archived repository rejoins the sweep on the next discovery pass with **no operator action**. Reactivation deliberately leaves `last_checked_at` and `policy_version` alone; overwriting them would reset the freshness gate and re-check the whole fleet on every discovery pass.
+
+This means parking is self-healing but lags by up to one `discovery.interval` (default 1h). It also means the alert below is informational: it tells you access changed, not that you must do something.
+
+### Metric
+
+| Metric | Meaning | Healthy signal |
+|---|---|---|
+| `repo_guardian_repos_parked_total{org, installation_id, reason}` | Repositories removed from the stale sweep, by reason. | `archived`/`fork` climb slowly and plateau. `access_denied` is flat or a slow trickle. |
+
+```promql
+# Which reason is moving — archived/fork are routine, access_denied is not
+sum by (reason) (increase(repo_guardian_repos_parked_total[24h]))
+```
+
+Only `reason="access_denied"` is alerted (`RepoGuardianRepoAccessDenied`). Archived and fork parks are routine bookkeeping and would page on every normal onboarding sweep.
+
+To see what is currently parked and why:
+
+```sql
+SELECT owner, repo, last_check_status, last_error
+FROM repo_state
+WHERE NOT active
+ORDER BY owner, repo;
+```
+
+`last_check_status` separates the kinds — `error` with the API failure in `last_error` for access-denied, `skipped` with the bare reason for archived and fork.
+
+### Why empty repositories are not parked
+
+Parking is stable only when the check path's skip conditions are a **subset** of discovery's filters. Discovery filters archived and fork repositories, so a repository parked for either reason is not offered back and it settles.
+
+An *empty* repository (no default branch yet) is skipped by the engine too, but discovery does **not** filter it. Parking it would have discovery re-upsert the row on its very next pass, flipping `active` back to `true`, and the two would churn against each other at the discovery interval forever — turning a cheap no-op into an hourly write. So empty repositories are skipped the old way and freshness governs the next check, which is also right on the merits: a repository stops being empty on its first push, and that push is a webhook away.
+
+If you add a skip condition to the engine, check `Discoverer.discoverInstallation` before marking it durable. The invariant is restated on `checker.SkippedError`.
+
 ## Delayed requeue (IMPL-0022)
 
 When a job's GitHub calls run into the rate-limit reserve (pre-emptive threshold) or a hard 403, the worker no longer sleeps in the transport — it defers the whole job into a Valkey delayed set with a due-time at the rate-limit reset (plus jitter), freeing the worker slot immediately. The reaper leader promotes due jobs back onto the pending list each `REAPER_INTERVAL` tick, so delivery lags due-time by up to one interval (default 60s). A job that keeps failing re-defers with exponential backoff and is dropped with a terminal `repo_state` error at `MAX_JOB_ATTEMPTS` (default 10); the stale sweep re-enqueues it naturally on its next pass.

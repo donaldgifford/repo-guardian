@@ -546,6 +546,36 @@ groups:
             (never overwritten). The structured log line "catalog-info
             parse failed" names the repo — fix the YAML there.
 
+      # repo-guardian parked repositories it could not read: the App was
+      # uninstalled from them, lost a permission, or they were deleted.
+      # Parked rows stay in repo_state but leave the stale sweep, and only
+      # discovery can un-park them, so this is self-healing — the alert
+      # exists to tell you access changed, not to demand an action.
+      # Mirrors the chart's starter alert of the same name.
+      #
+      # The reason selector is load-bearing. repos_parked_total also
+      # counts reason="archived" and reason="fork", which are routine and
+      # would otherwise fire this on every normal onboarding sweep. Those
+      # two are worth a dashboard panel rather than an alert -- a large
+      # step means somebody archived a batch of repositories:
+      #
+      #   sum by (reason) (increase(repo_guardian_repos_parked_total[24h]))
+      - alert: RepoGuardianRepoAccessDenied
+        expr: increase(repo_guardian_repos_parked_total{reason="access_denied"}[1h]) > 0
+        for: 15m
+        labels:
+          severity: warning
+          service: repo-guardian
+        annotations:
+          summary: "repo-guardian cannot read repositories it was asked to check"
+          description: >-
+            Repositories were parked because the installation cannot read
+            them. A trickle is normal in a large org (repositories get
+            deleted); a step change means the App lost access to something
+            it used to have. List them with:
+            SELECT owner, repo, last_error FROM repo_state WHERE NOT active
+            AND last_check_status = 'error';
+
   # =====================================================================
   # Removed: Discoverer + BudgetTracker (IMPL-0015 Phase 1)
   # =====================================================================

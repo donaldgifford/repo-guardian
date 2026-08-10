@@ -735,10 +735,11 @@ func writeCollisionPolicy() *policy.PolicyConfig {
 //
 // syncActionableFiles commits .github/CODEOWNERS for needs_docs, then
 // restoreInverseOrphans considers the same path for the satisfied
-// needs_codeowners. Real GitHub lags that write by ~120ms, so the branch
-// probe reports the path missing and the restore overwrites the rule's
-// fresh output with default-branch content — or fails outright with the
-// INV-0003 422 "sha wasn't supplied".
+// needs_codeowners. Real GitHub lags that write — 116ms on a user repo,
+// 1.301s on an org repo (A7) — so the branch probe reports the path
+// missing and the restore overwrites the rule's fresh output with
+// default-branch content, or fails outright with the INV-0003 422 "sha
+// wasn't supplied".
 //
 // staleBranchReads is what gives this test teeth: without it the fake
 // reflects the write instantly, the probe correctly reports the path

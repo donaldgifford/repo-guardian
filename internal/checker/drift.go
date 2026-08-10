@@ -240,12 +240,19 @@ func restoreInverseOrphans(
 	// Writes: syncActionableFiles already committed the path earlier in
 	// this same reconcile. Restoring would overwrite fresh rule output
 	// with default-branch content. INV-0015 A4b showed it can also fail
-	// outright — the contents API lags writes by ~120ms, so the branch
-	// probe in restoreRulePaths can report a path missing that was just
-	// created, sending CreateOrUpdateFile down its create path against a
-	// file that exists and back into the INV-0003 422. Excluding the path
-	// is the correct fix rather than retrying the write, because a
-	// successful retry would silently clobber the rule's own output.
+	// outright — the contents API is read-after-write EVENTUALLY
+	// consistent, so the branch probe in restoreRulePaths can report a
+	// path missing that was just created, sending CreateOrUpdateFile down
+	// its create path against a file that exists and back into the
+	// INV-0003 422.
+	//
+	// Do not "fix" this by waiting out the window. A7 measured the lag at
+	// 116ms on a user repo and 1.301s on an org repo — variable and
+	// unbounded from our side, so no sleep is long enough to be correct.
+	// Nor by retrying the write: a retry that succeeded would silently
+	// clobber the rule's own output, turning a loud 422 into quiet
+	// corruption. Excluding the path is the only fix that is right
+	// regardless of timing.
 	claimed := make(map[string]struct{})
 	for _, path := range plannedDeletions(actionable) {
 		claimed[path] = struct{}{}

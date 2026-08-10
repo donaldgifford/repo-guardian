@@ -553,9 +553,6 @@ func policyRuleNames(rr []policy.FileRuleConfig) []string {
 	return names
 }
 
-// plannedDeletions lists the forbidden paths every actionable absent rule
-// would delete, so the dry-run log is reviewable before the engine's first
-// destructive remediation actually runs (IMPL-0019 Phase 2 task 2.2).
 // plannedWrites returns the paths syncActionableFiles commits on this
 // sweep: the Target of every actionable rule that is not in absent mode.
 // Mirror of plannedDeletions.
@@ -571,6 +568,9 @@ func plannedWrites(actionable []policy.FileRuleConfig) []string {
 	return paths
 }
 
+// plannedDeletions lists the forbidden paths every actionable absent rule
+// would delete, so the dry-run log is reviewable before the engine's first
+// destructive remediation actually runs (IMPL-0019 Phase 2 task 2.2).
 func plannedDeletions(actionable []policy.FileRuleConfig) []string {
 	var paths []string
 

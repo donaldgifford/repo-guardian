@@ -28,8 +28,10 @@ type mockClient struct {
 	branchDeleted  map[string]bool   // "owner/repo/branch/path" -> tombstone (INV-0014)
 
 	// staleBranchReads makes a write invisible to GetContentsOnBranch for
-	// the rest of the sweep, modelling the ~120ms contents-API lag that
-	// INV-0015 A7 measured against real GitHub. Opt-in, because every
+	// the rest of the sweep, modelling the contents-API lag INV-0015 A7
+	// measured against real GitHub (116ms user repo, 1.301s org repo —
+	// variable and unbounded, which is why the fix excludes the path
+	// rather than waiting). Opt-in, because every
 	// other test needs a write to be immediately readable (IMPL-0019 task
 	// 2.8) — which is true, just not instantly. Without this the fake is
 	// read-after-write consistent and cannot disagree with us about

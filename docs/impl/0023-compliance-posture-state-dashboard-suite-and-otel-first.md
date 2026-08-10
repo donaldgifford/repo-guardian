@@ -316,7 +316,36 @@ already stores `{status, error, policy_version}`.
       `CollectAndCount` taken after such a read measures the test's own
       footprint, not the exporter's output — this cost a failing
       assertion here. Count series BEFORE asserting individual values.
-- [ ] 2.7 `contrib/README.md` rows for all Phase 2 metrics.
+- [x] 2.7 `contrib/README.md` rows for all Phase 2 metrics, as a
+      §Compliance posture section: the three posture gauges, the two
+      health signals, `installation_info`, and `property_schema_missing`.
+
+      Three operator-facing contracts are recorded there because they
+      are not inferable from the metric names: aggregate with
+      `max by (...)` and never `sum` (during failover two pods can
+      briefly both hold series, and a demoted pod keeps whatever it last
+      published); `posture_export_total{outcome="ok"}` is the only
+      heartbeat the gauges have; and the per-rule ratio understates a
+      scoped rule (the 2.2 follow-up, now written down where the queries
+      are). Also stated explicitly that **"repos failing at least one
+      rule" is not derivable** from these series — the per-rule counts
+      overlap by an unknown amount, so summing over-counts and taking
+      the max under-counts. A draft example claiming to compute it was
+      caught and removed; if a panel needs that number in Phase 6 it
+      needs a new aggregate, not a clever query.
+
+      Two accuracy defects in the same catalog fixed in passing:
+      `scheduler_is_leader` has carried a `pod` label since IMPL-0011
+      and the table listed only `name`, and `repos_parked_total`
+      (INV-0015) had no row at all — it belongs beside
+      `repos_unmeasurable` as the event counterpart to that standing
+      population, which is the cross-check 2.2 called for. Every PromQL
+      example validated through `promtool check rules`.
+
+      Still stale and deliberately left: the §BudgetTracker table
+      documents six metrics deleted in IMPL-0022 Phase 6. Removing it is
+      task 7.1's success criterion ("no dangling references to removed
+      counters in ... contrib").
 
 #### Success Criteria
 

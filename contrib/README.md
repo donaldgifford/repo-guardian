@@ -179,7 +179,7 @@ sum by (org) (increase(repo_guardian_catalog_parse_failed_total[24h]))
 | `queue_claimed_total` | CounterVec | `queue` | Jobs claimed by a worker. |
 | `queue_acked_total` | CounterVec | `queue`, `outcome` | Jobs ack'd after processing. `outcome={success,error,deferred}` (`deferred` = parked into the delayed set, IMPL-0022). |
 | `queue_reaped_total` | CounterVec | `queue` | Jobs requeued by the in-flight reaper after ack-window expiry. |
-| `scheduler_is_leader` | Gauge | `name` | 1 on the replica holding the leader lock, 0 elsewhere. One per schedule (`sweep`, `stale-sweep`, `discovery`). |
+| `scheduler_is_leader` | Gauge | `name`, `pod` | 1 on the replica holding the leader lock, 0 elsewhere. One series per schedule per pod (`stale-sweep`, `discovery`, `posture-export`) — sum across pods for a given `name` should be exactly 1. |
 | `scheduler_sweep_batch_size` | Histogram | — | Distribution of `StaleRepos` batch sizes per sweep tick. |
 | `store_query_seconds` | Histogram | `op`, `outcome` | Persistent store query latency. `op` enumerates `GetRepoState`, `UpdateRepoState`, `StaleRepos`, `UpsertIfMissing`, etc. |
 | `rate_limit_remaining` | Gauge | `installation_id` | Per-installation GitHub rate-limit budget, sampled once per installation per sweep. Observability only — the sweep no longer gates on it (IMPL-0022 Phase 6); throttled work defers instead. |
@@ -274,6 +274,82 @@ sum by (installation_id) (repo_guardian_repo_discovered_total)
 
 # Discovery cost per tick
 sum by (endpoint) (rate(repo_guardian_discovery_api_calls_total[1h]))
+```
+
+### Compliance posture (IMPL-0023 Phase 2)
+
+The posture gauges answer "how many repositories are failing right
+now", which the pre-existing counters cannot: a counter only grows, so
+a repository fixed yesterday still shows in its rate (INV-0013 Finding
+B). They are projected from the `rule_state` table by a leader-scoped
+`posture-export` handler on `POSTURE_EXPORT_INTERVAL` (default 60s),
+which resets and re-sets every series each tick so a rule or org that
+leaves the fleet stops being reported instead of freezing at its last
+value.
+
+**Aggregate with `max by (...)`, never `sum`.** Only the leader
+publishes, but during a failover the outgoing and incoming leaders can
+briefly both hold series, and non-leaders retain whatever they last
+published before losing the lock. `max` is correct in both states;
+`sum` double-counts through every leader change.
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `repos_actionable` | GaugeVec | `rule_name`, `org` | Repositories currently failing each rule. Covers file, setting, and branch-protection rules. Absent series means no repo fails that rule — not that the rule is unevaluated. |
+| `repos_tracked` | GaugeVec | `org` | Active repositories with any posture — the compliance denominator. Excludes parked repos. |
+| `repos_unmeasurable` | GaugeVec | `org`, `reason` | Standing population of parked repositories, excluded from both numerator and denominator. `reason={access_denied,archived,fork,unknown}`. |
+| `repos_parked_total` | CounterVec | `org`, `installation_id`, `reason` | Park *events* (INV-0015), as opposed to the standing population above. |
+| `posture_export_total` | CounterVec | `outcome` | Export ticks. `outcome={ok,error}`. The liveness signal for every gauge in this section. |
+| `posture_export_duration_seconds` | Histogram | — | Wall-clock per export, buckets to 60s. Observed on the failure path too, so a store read that times out is measured rather than silently dropped. |
+| `installation_info` | GaugeVec | `installation_id`, `org` | Constant 1. A join label only — it carries no measurement, it exists so `installation_id`-keyed series can be grouped by org. |
+| `property_schema_missing` | GaugeVec | `org`, `property` | 1 when an org's custom-property schema does not define a managed property, 0 when it does. Written at each schema-cache refresh; a failed fetch leaves the last known value rather than clearing it. |
+
+Two things to know before building panels on these.
+
+**`posture_export_total{outcome="ok"}` is the only heartbeat.** The
+gauges keep serving their last successful values indefinitely, so a
+leader whose store reads all fail looks exactly like a fleet that is
+stable. Alert on the absence of `ok` increments, not on the gauges.
+
+**The per-rule ratio understates non-compliance for a scoped rule.**
+`repos_tracked{org}` counts every repo with posture, while
+`repos_actionable{rule_name}` counts only repos the rule applies to. A
+rule scoped to 10 of 100 repos with 5 failing reads as 5% rather than
+50%. Use the org-wide denominator for fleet health and an absolute
+count when a single scoped rule is the subject.
+
+There is deliberately no "repos failing at least one rule" series, and
+it cannot be derived from the ones here: the per-rule counts overlap by
+an unknown amount, so summing them over-counts and taking the max
+under-counts. If a panel needs that number it needs a new aggregate.
+
+Example:
+
+```promql
+# Per-rule non-compliance within an org. Read with the scoping caveat
+# above — the denominator is every measurable repo, not the subset the
+# rule applies to.
+max by (rule_name, org) (repo_guardian_repos_actionable)
+  / on (org) group_left max by (org) (repo_guardian_repos_tracked)
+
+# Worst rules fleet-wide
+topk(10, sum by (rule_name) (max by (rule_name, org) (repo_guardian_repos_actionable)))
+
+# How much of the fleet we cannot see, and why
+sum by (reason) (max by (org, reason) (repo_guardian_repos_unmeasurable))
+
+# Park events vs standing parks — these disagreeing is a real signal
+# (parks that never un-parked, or un-parks nobody counted).
+sum by (reason) (increase(repo_guardian_repos_parked_total[24h]))
+
+# Exporter stalled: gauges are still being served but nothing updates
+# them. This is the alert condition, not any gauge going flat.
+absent(rate(repo_guardian_posture_export_total{outcome="ok"}[10m]) > 0)
+
+# Attach an org to any installation_id-keyed series
+sum by (org) (
+  rate(repo_guardian_queue_delayed_total[1h])
+    * on (installation_id) group_left(org) repo_guardian_installation_info)
 ```
 
 ### BudgetTracker (IMPL-0015 Phase 1)

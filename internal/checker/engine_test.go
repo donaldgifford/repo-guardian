@@ -23,9 +23,21 @@ type mockClient struct {
 	// new API needs fake behavior, rather than a silent zero value.
 	mocks.MockClient
 
-	contents         map[string]bool                            // "owner/repo/path" -> exists
-	branchContents   map[string]string                          // "owner/repo/branch/path" -> sha (IMPL-0013 P3 orphan discovery)
-	branchDeleted    map[string]bool                            // "owner/repo/branch/path" -> tombstone (INV-0014)
+	contents       map[string]bool   // "owner/repo/path" -> exists
+	branchContents map[string]string // "owner/repo/branch/path" -> sha (IMPL-0013 P3 orphan discovery)
+	branchDeleted  map[string]bool   // "owner/repo/branch/path" -> tombstone (INV-0014)
+
+	// staleBranchReads makes a write invisible to GetContentsOnBranch for
+	// the rest of the sweep, modelling the contents-API lag INV-0015 A7
+	// measured against real GitHub (116ms user repo, 1.301s org repo —
+	// variable and unbounded, which is why the fix excludes the path
+	// rather than waiting). Opt-in, because every
+	// other test needs a write to be immediately readable (IMPL-0019 task
+	// 2.8) — which is true, just not instantly. Without this the fake is
+	// read-after-write consistent and cannot disagree with us about
+	// same-sweep write-then-read ordering, which is the exact circularity
+	// INV-0014 was caused by.
+	staleBranchReads bool
 	fileContents     map[string]string                          // "owner/repo/path" -> content
 	customProperties map[string][]*ghclient.CustomPropertyValue // "owner/repo" -> values
 	setProperties    []*ghclient.CustomPropertyValue            // records what was set
@@ -167,12 +179,16 @@ func (m *mockClient) CreateOrUpdateFile(_ context.Context, owner, repo, branch, 
 
 	// Reflect the write on the branch so a later GetContentsOnBranch sees
 	// it — required for the inverse-orphan restoration path to be testable
-	// (IMPL-0019 task 2.8 mock-fidelity contract).
-	if m.branchContents != nil {
-		m.branchContents[owner+"/"+repo+"/"+branch+"/"+path] = "sha-" + path
-	}
+	// (IMPL-0019 task 2.8 mock-fidelity contract). Unless the test asked
+	// for A7 semantics, in which case the write lands but stays unreadable
+	// for the rest of the sweep.
+	if !m.staleBranchReads {
+		if m.branchContents != nil {
+			m.branchContents[owner+"/"+repo+"/"+branch+"/"+path] = "sha-" + path
+		}
 
-	delete(m.branchDeleted, owner+"/"+repo+"/"+branch+"/"+path)
+		delete(m.branchDeleted, owner+"/"+repo+"/"+branch+"/"+path)
+	}
 
 	m.createdFiles = append(m.createdFiles, path)
 

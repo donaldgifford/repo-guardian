@@ -289,8 +289,16 @@ already stores `{status, error, policy_version}`.
       hold, and skipping it leaves the p99 looking healthy exactly when
       it is not. Buckets run to 60s because that is the tick interval;
       past it the exporter is permanently behind.
-- [ ] 2.5 Config `POSTURE_EXPORT_INTERVAL` +
+- [x] 2.5 Config `POSTURE_EXPORT_INTERVAL` +
       `values.yaml` / `values.schema.json` + helm-unittest cases.
+      Chart key is `posture.exportInterval`. The default lives in
+      `internal/config` rather than `internal/checker`, so config stays
+      a leaf package and the exporter reads its interval from `Config`
+      like every other scheduled handler. Both the default AND the
+      override are asserted in helm-unittest: the binary defaults the
+      var on its own, so a chart that silently stopped emitting it
+      would keep working and the drift would only surface when an
+      operator set the value and nothing happened.
 - [ ] 2.6 Tests: only the leader emits (two schedulers, one series
       source); a removed org/rule stops emitting after the next tick
       (non-vacuity: skip the `Reset()`, watch it fail); gauge values

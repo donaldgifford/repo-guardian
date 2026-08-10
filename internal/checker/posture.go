@@ -31,16 +31,6 @@ const (
 	outcomeError = "error"
 )
 
-// DefaultPostureExportInterval is the posture tick cadence
-// (DESIGN-0022). Short relative to the sweep interval on purpose: the
-// gauges are only as fresh as the last tick, and the query is a few
-// aggregates over an indexed table rather than anything touching the
-// GitHub API, so there is no rate-limit reason to be conservative.
-//
-// IMPL-0023 task 2.5 makes this configurable via
-// POSTURE_EXPORT_INTERVAL; until then it is the wired-in value.
-const DefaultPostureExportInterval = 60 * time.Second
-
 // PostureExporter publishes fleet compliance posture from the store.
 type PostureExporter struct {
 	store  store.Store

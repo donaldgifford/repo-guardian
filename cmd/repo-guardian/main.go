@@ -240,11 +240,11 @@ func scheduleHandlers(
 		Logger: logger,
 	})
 
-	if err := sched.Schedule(ctx, "posture-export", checker.DefaultPostureExportInterval, postureExporter.Export); err != nil {
+	if err := sched.Schedule(ctx, "posture-export", cfg.PostureExportInterval, postureExporter.Export); err != nil {
 		return fmt.Errorf("schedule posture-export: %w", err)
 	}
 
-	logger.Info("scheduled posture-export handler", "interval", checker.DefaultPostureExportInterval)
+	logger.Info("scheduled posture-export handler", "interval", cfg.PostureExportInterval)
 
 	if !cfg.DiscoveryEnabled {
 		logger.Info("discoverer disabled via DISCOVERY_ENABLED=false")

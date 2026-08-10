@@ -129,6 +129,30 @@ tests:
             name: DISCOVERY_INTERVAL
             value: "1h"
 
+  # IMPL-0023 task 2.5. The default is asserted as well as the
+  # override: the binary defaults POSTURE_EXPORT_INTERVAL on its own,
+  # so a chart that stopped emitting the var would keep working and
+  # the drift would only surface when an operator set the value and
+  # nothing happened.
+  - it: emits the posture export interval with its default
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTURE_EXPORT_INTERVAL
+            value: "60s"
+
+  - it: respects posture.exportInterval override
+    set:
+      posture:
+        exportInterval: 5m
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTURE_EXPORT_INTERVAL
+            value: "5m"
+
   # IMPL-0022 Phase 7: the attempt cap. Schema enforces >= 1, so the
   # binary's own MAX_JOB_ATTEMPTS < 1 startup error is a second line
   # of defence for operators bypassing the chart.

@@ -160,6 +160,8 @@ spec:
               value: {{ .Values.discovery.enabled | quote }}
             - name: DISCOVERY_INTERVAL
               value: {{ .Values.discovery.interval | quote }}
+            - name: POSTURE_EXPORT_INTERVAL
+              value: {{ .Values.posture.exportInterval | quote }}
             {{- if eq .Values.queue.backend "valkey" }}
             {{- if and (eq .Values.queue.valkey.mode "baked") .Values.queue.valkey.baked.existingSecret }}
             # Baked Valkey with an operator-supplied password: assemble

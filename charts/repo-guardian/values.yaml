@@ -410,6 +410,18 @@ discovery:
   # the webhook path missed.
   interval: "1h"
 
+# -- Compliance posture export (IMPL-0023 / DESIGN-0022). The elected
+# leader projects the rule_state table onto the repos_actionable /
+# repos_tracked / repos_unmeasurable gauges on this cadence.
+posture:
+  # -- Cadence between posture exporter ticks. Unlike the sweep and
+  # discovery intervals this costs no GitHub API budget — it is a few
+  # aggregates over an indexed table — so it is tuned against how stale
+  # the compliance gauges may be, not against rate limit. Values above
+  # 60s leave the exporter behind its own duration histogram, whose
+  # buckets stop there.
+  exportInterval: "60s"
+
 # -- HCL policy configuration
 policy:
   # -- Inline HCL policy config (creates a ConfigMap)

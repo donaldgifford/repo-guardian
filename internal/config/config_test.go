@@ -92,6 +92,44 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.DiscoveryInterval != time.Hour {
 		t.Errorf("DiscoveryInterval = %v, want 1h", cfg.DiscoveryInterval)
 	}
+
+	if cfg.PostureExportInterval != defaultPostureExportInterval {
+		t.Errorf("PostureExportInterval = %v, want %v", cfg.PostureExportInterval, defaultPostureExportInterval)
+	}
+}
+
+// TestLoadPostureExportInterval covers the IMPL-0023 task 2.5 knob.
+//
+// Unlike the sweep and discovery intervals this one costs no GitHub
+// API budget — it is a few aggregates over an indexed table — so it is
+// tuned against gauge staleness rather than rate limit, and an
+// operator lowering it is doing something reasonable rather than
+// dangerous. An unparseable value must still fail load rather than
+// silently falling back, or a typo produces a fleet whose compliance
+// numbers are quietly an hour stale.
+func TestLoadPostureExportInterval(t *testing.T) {
+	// Cannot use t.Parallel with t.Setenv.
+	t.Setenv("GITHUB_APP_ID", "12345")
+	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/path/to/key.pem")
+	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
+	t.Setenv("STORE_DSN", "postgres://u:p@localhost:5432/db?sslmode=disable")
+	t.Setenv("QUEUE_VALKEY_DSN", "redis://localhost:6379/0")
+	t.Setenv("POSTURE_EXPORT_INTERVAL", "15s")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() = _, %v, want nil", err)
+	}
+
+	if cfg.PostureExportInterval != 15*time.Second {
+		t.Errorf("PostureExportInterval = %v, want 15s", cfg.PostureExportInterval)
+	}
+
+	t.Setenv("POSTURE_EXPORT_INTERVAL", "not-a-duration")
+
+	if _, err := Load(); err == nil {
+		t.Error("Load() = _, nil for an unparseable interval, want an error")
+	}
 }
 
 // TestLoadMaxJobAttempts covers the IMPL-0022 retry cap: default 10,

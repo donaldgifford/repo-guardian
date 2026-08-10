@@ -584,60 +584,70 @@ func TestCheckRepo_MissingFiles_ThirdPartyPR(t *testing.T) {
 	}
 }
 
-func TestCheckRepo_Archived(t *testing.T) {
+// TestCheckRepo_Skips covers every repository state the engine declines to
+// act on, and how it reports that decision.
+//
+// Two of the three are DURABLE: archived and fork are properties the
+// repository will keep until somebody changes them, and discovery filters
+// both, so the worker parks them out of the sweep. Empty is not durable —
+// discovery does not filter empty repositories, so parking one would have
+// discovery re-activate it every pass. It reports a plain nil and stays in
+// the rotation, which is also correct on the merits: an empty repository
+// stops being empty on its first push.
+//
+// The wantSkip == "" case therefore isn't a filler row; it's the boundary.
+func TestCheckRepo_Skips(t *testing.T) {
 	t.Parallel()
 
-	engine := testEngine(false)
-	client := newMockClient()
-	client.repo = &ghclient.Repository{
-		Owner: "org", Name: "repo", Archived: true, HasBranch: true, DefaultRef: "main",
+	tests := []struct {
+		name     string
+		repo     ghclient.Repository
+		wantSkip string // "" means skipped silently, no parking
+	}{
+		{
+			name:     "archived",
+			repo:     ghclient.Repository{Archived: true, HasBranch: true, DefaultRef: "main"},
+			wantSkip: SkipArchived,
+		},
+		{
+			name:     "fork",
+			repo:     ghclient.Repository{Fork: true, HasBranch: true, DefaultRef: "main"},
+			wantSkip: SkipFork,
+		},
+		{
+			name: "empty repo is skipped but not durable",
+			repo: ghclient.Repository{HasBranch: false, DefaultRef: ""},
+		},
 	}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
-	if err != nil {
-		t.Fatalf("CheckRepo: %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	if client.createdPR != nil {
-		t.Error("should not create PR for archived repo")
-	}
-}
+			engine := testEngine(false)
+			client := newMockClient()
+			client.repo = &tt.repo
+			client.repo.Owner, client.repo.Name = "org", "repo"
 
-func TestCheckRepo_Fork(t *testing.T) {
-	t.Parallel()
+			err := engine.CheckRepo(context.Background(), client, "org", "repo")
 
-	engine := testEngine(false)
-	client := newMockClient()
-	client.repo = &ghclient.Repository{
-		Owner: "org", Name: "repo", Fork: true, HasBranch: true, DefaultRef: "main",
-	}
+			skip, durable := AsSkipped(err)
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
-	if err != nil {
-		t.Fatalf("CheckRepo: %v", err)
-	}
+			switch {
+			case tt.wantSkip == "":
+				if err != nil {
+					t.Fatalf("CheckRepo() = %v, want nil; a non-durable skip must not surface an error", err)
+				}
+			case !durable:
+				t.Fatalf("CheckRepo() = %v, want *SkippedError{Reason: %q}", err, tt.wantSkip)
+			case skip.Reason != tt.wantSkip:
+				t.Errorf("skip reason = %q, want %q", skip.Reason, tt.wantSkip)
+			}
 
-	if client.createdPR != nil {
-		t.Error("should not create PR for forked repo")
-	}
-}
-
-func TestCheckRepo_EmptyRepo(t *testing.T) {
-	t.Parallel()
-
-	engine := testEngine(false)
-	client := newMockClient()
-	client.repo = &ghclient.Repository{
-		Owner: "org", Name: "repo", HasBranch: false, DefaultRef: "",
-	}
-
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
-	if err != nil {
-		t.Fatalf("CheckRepo: %v", err)
-	}
-
-	if client.createdPR != nil {
-		t.Error("should not create PR for empty repo")
+			if client.createdPR != nil {
+				t.Errorf("created PR %v; a skipped repository must not be touched", client.createdPR)
+			}
+		})
 	}
 }
 

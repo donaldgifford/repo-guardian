@@ -172,6 +172,17 @@ func (s *Store) UpsertIfMissing(ctx context.Context, rs *store.RepoState) (bool,
 }
 
 func (s *Store) upsertIfMissingInner(ctx context.Context, rs *store.RepoState) (bool, error) {
+	// The ON CONFLICT arm reactivates: discovery seeing a repository is
+	// proof the App can reach it again, so a row parked by the
+	// access-denied circuit breaker rejoins the sweep with no operator
+	// action (INV-0015). The WHERE keeps this a no-op write for rows that
+	// are already active, so a discovery pass over an untouched fleet
+	// still costs nothing.
+	//
+	// It does NOT touch last_checked_at or policy_version: overwriting
+	// those would reset the freshness gate and re-check the whole fleet
+	// on every discovery pass.
+	//
 	// Single-statement upsert-or-discover. The trailing SELECT runs only
 	// when the INSERT was suppressed by ON CONFLICT DO NOTHING (i.e. the
 	// row already existed) — UNION ALL on the empty-ins case returns the
@@ -183,7 +194,9 @@ func (s *Store) upsertIfMissingInner(ctx context.Context, rs *store.RepoState) (
 				installation_id, owner, repo,
 				last_checked_at, last_check_status, last_error, policy_version
 			) VALUES ($1, $2, $3, NULL, $4, '', $5)
-			ON CONFLICT (installation_id, owner, repo) DO NOTHING
+			ON CONFLICT (installation_id, owner, repo) DO UPDATE
+				SET active = true
+				WHERE NOT repo_state.active
 			RETURNING (xmax = 0) AS created
 		)
 		SELECT created FROM ins
@@ -213,10 +226,30 @@ func (s *Store) upsertIfMissingInner(ctx context.Context, rs *store.RepoState) (
 	return created, nil
 }
 
-// StaleRepos returns up to limit rows whose last_checked_at is older
-// than freshness OR whose policy_version differs from
+// Deactivate parks a repository so the sweep stops returning it.
+// One-way by design: only discovery may reactivate a row, via
+// UpsertIfMissing (INV-0015).
+func (s *Store) Deactivate(ctx context.Context, installationID int64, owner, repo string) error {
+	start := time.Now()
+
+	const q = `UPDATE repo_state SET active = false
+	           WHERE installation_id = $1 AND owner = $2 AND repo = $3`
+
+	_, err := s.pool.Exec(ctx, q, installationID, owner, repo)
+	observeQuery("deactivate", start, err)
+
+	if err != nil {
+		return fmt.Errorf("deactivating %s/%s: %w", owner, repo, err)
+	}
+
+	return nil
+}
+
+// StaleRepos returns up to limit ACTIVE rows whose last_checked_at is
+// older than freshness OR whose policy_version differs from
 // currentPolicyVersion. NULL last_checked_at sorts first to ensure
-// never-checked repos are reconciled before stale ones.
+// never-checked repos are reconciled before stale ones. Inactive rows
+// are never returned; see Deactivate.
 func (s *Store) StaleRepos(ctx context.Context, freshness time.Duration, currentPolicyVersion string, limit int) ([]store.RepoState, error) {
 	start := time.Now()
 
@@ -231,9 +264,10 @@ func (s *Store) staleReposInner(ctx context.Context, freshness time.Duration, cu
 		SELECT installation_id, owner, repo,
 		       last_checked_at, last_check_status, last_error, policy_version
 		FROM repo_state
-		WHERE last_checked_at IS NULL
-		   OR last_checked_at < $1
-		   OR policy_version <> $2
+		WHERE active
+		  AND (last_checked_at IS NULL
+		       OR last_checked_at < $1
+		       OR policy_version <> $2)
 		ORDER BY last_checked_at NULLS FIRST
 		LIMIT $3
 	`

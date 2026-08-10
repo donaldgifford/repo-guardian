@@ -84,6 +84,19 @@ var (
 		Help: "Errors encountered.",
 	}, []string{"operation", labelOrg})
 
+	// ReposParkedTotal counts repositories taken out of the sweep, by
+	// reason. Its own metric rather than a label on ErrorsTotal, which is
+	// pre-existing and widely queried; carrying `reason` from birth costs
+	// nothing and keeps one series as parking reasons grow (INV-0015).
+	//
+	// reason="access_denied" is the actionable one and what the shipped
+	// alert watches. archived and fork are routine and expected to climb
+	// slowly in any long-lived org.
+	ReposParkedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_repos_parked_total",
+		Help: "Repositories parked (removed from the stale sweep), by reason.",
+	}, []string{labelOrg, "installation_id", "reason"})
+
 	// GitHubRateRemaining tracks the GitHub API rate limit remaining.
 	GitHubRateRemaining = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "repo_guardian_github_rate_remaining",

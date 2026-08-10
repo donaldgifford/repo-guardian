@@ -284,3 +284,5 @@ func TestDiscoverer_ContextCancelled_ReturnsErr(t *testing.T) {
 		t.Error("expected ctx.Err(), got nil")
 	}
 }
+
+func (*fakeDiscoveryStore) Deactivate(context.Context, int64, string, string) error { return nil }

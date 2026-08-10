@@ -25,6 +25,12 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/store"
 )
 
+// Outcome label values for PostureExportTotal.
+const (
+	outcomeOK    = "ok"
+	outcomeError = "error"
+)
+
 // DefaultPostureExportInterval is the posture tick cadence
 // (DESIGN-0022). Short relative to the sweep interval on purpose: the
 // gauges are only as fresh as the last tick, and the query is a few
@@ -72,8 +78,19 @@ func NewPostureExporter(opts PostureExporterOptions) *PostureExporter {
 // simply persist until the next tick, which is the correct failure
 // mode for a gauge: last known truth beats a confident zero.
 func (e *PostureExporter) Export(ctx context.Context) error {
+	start := time.Now()
+
 	p, err := e.store.Posture(ctx)
+
+	// Observed before the error check so a slow failure is measured
+	// too. A store read that times out at 30s is the single most
+	// useful sample the histogram can hold, and skipping it would make
+	// the p99 look healthy precisely when it is not.
+	metrics.PostureExportDurationSeconds.Observe(time.Since(start).Seconds())
+
 	if err != nil {
+		metrics.PostureExportTotal.WithLabelValues(outcomeError).Inc()
+
 		return fmt.Errorf("posture export: %w", err)
 	}
 
@@ -90,6 +107,8 @@ func (e *PostureExporter) Export(ctx context.Context) error {
 	for _, c := range p.Unmeasurable {
 		metrics.ReposUnmeasurable.WithLabelValues(c.Org, c.Reason).Set(float64(c.Count))
 	}
+
+	metrics.PostureExportTotal.WithLabelValues(outcomeOK).Inc()
 
 	e.logger.Debug("posture exported",
 		"orgs", len(p.Tracked),

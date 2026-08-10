@@ -276,8 +276,19 @@ already stores `{status, error, policy_version}`.
       `fetchOrgSchema`; a failed fetch leaves the series at its last
       known value rather than clearing it. Zeros are written
       explicitly so a gap an operator fixes actually drops out.
-- [ ] 2.4 Exporter health: `posture_export_total{outcome}` +
-      `posture_export_duration_seconds`.
+- [x] 2.4 Exporter health: `posture_export_total{outcome}` +
+      `posture_export_duration_seconds`. The counter is the liveness
+      signal for every posture gauge, which have no other heartbeat: a
+      leader whose store reads all fail keeps serving its last
+      successful values indefinitely, so "the fleet is stable" and
+      "nothing has updated in six hours" look identical from a
+      dashboard. `RepoGuardianPostureExportStalled` (task 5.3) must
+      therefore watch the absence of `outcome="ok"` increments, not the
+      gauges. Duration is observed on the failure path too — a store
+      read that times out is the most useful sample the histogram can
+      hold, and skipping it leaves the p99 looking healthy exactly when
+      it is not. Buckets run to 60s because that is the tick interval;
+      past it the exporter is permanently behind.
 - [ ] 2.5 Config `POSTURE_EXPORT_INTERVAL` +
       `values.yaml` / `values.schema.json` + helm-unittest cases.
 - [ ] 2.6 Tests: only the leader emits (two schedulers, one series

@@ -401,6 +401,34 @@ var (
 		Help: "Open repo-guardian PRs by org, rule, and age bucket.",
 	}, []string{labelOrg, "rule", "age_bucket"})
 
+	// PostureExportTotal counts posture exporter ticks by outcome.
+	//
+	// This is the liveness signal for every posture gauge. Those gauges
+	// have no other heartbeat: a leader whose store reads all fail
+	// keeps serving the last successful values indefinitely, and a
+	// dashboard reading them cannot tell "the fleet is stable" from
+	// "nothing has updated in six hours". Alert on the absence of
+	// outcome="ok" increments, not on the gauges themselves
+	// (RepoGuardianPostureExportStalled).
+	PostureExportTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_posture_export_total",
+		Help: "Posture exporter ticks by outcome.",
+	}, []string{"outcome"})
+
+	// PostureExportDurationSeconds records the wall-clock duration of
+	// one posture export, dominated by the store aggregate.
+	//
+	// Buckets run to 60s because that is the default tick interval:
+	// once a tick takes longer than the gap to the next one, the
+	// exporter is permanently behind and the gauges are stale by an
+	// unbounded amount. Seeing the distribution approach the interval
+	// is the warning; the top bucket is where it has already happened.
+	PostureExportDurationSeconds = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "repo_guardian_posture_export_duration_seconds",
+		Help:    "Duration of a single posture export in seconds.",
+		Buckets: []float64{0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30, 60},
+	})
+
 	// ReposActionable is fleet compliance posture: repositories
 	// currently failing each rule, per org (DESIGN-0022 §Leader-scoped
 	// posture exporter). Served by the elected leader only, so

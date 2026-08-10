@@ -6,7 +6,9 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	dto "github.com/prometheus/client_model/go"
 
 	"github.com/donaldgifford/repo-guardian/internal/checker"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
@@ -214,4 +216,71 @@ func TestPostureExport_EmptyFleetPublishesNothing(t *testing.T) {
 	if st.reads != 1 {
 		t.Errorf("store reads = %d, want exactly 1 per tick", st.reads)
 	}
+}
+
+// TestPostureExport_HealthMetrics covers the liveness signal for every
+// posture gauge (IMPL-0023 task 2.4).
+//
+// The gauges have no other heartbeat. A leader whose store reads all
+// fail keeps serving its last successful values indefinitely, so from
+// a dashboard "the fleet is stable" and "nothing has updated in six
+// hours" look identical. The outcome counter is what tells them apart,
+// which is why the alert watches it rather than the gauges.
+//
+// The duration observation is deliberately taken on the failure path
+// too: a store read that times out is the most useful sample the
+// histogram can hold, and skipping it would leave the p99 looking
+// healthy exactly when it is not.
+func TestPostureExport_HealthMetrics(t *testing.T) {
+	metrics.ResetPosture()
+	metrics.PostureExportTotal.Reset()
+
+	st := &posturePortStore{posture: &store.Posture{
+		Tracked: []store.OrgCount{{Org: "acme", Count: 3}},
+	}}
+
+	exporter := newPostureExporter(st)
+
+	// A plain Histogram has no Reset, and this one is package-global,
+	// so the assertion is on the delta rather than the absolute count.
+	before := histogramCount(t, metrics.PostureExportDurationSeconds)
+
+	if err := exporter.Export(context.Background()); err != nil {
+		t.Fatalf("Export() = %v, want nil", err)
+	}
+
+	if got := testutil.ToFloat64(metrics.PostureExportTotal.WithLabelValues("ok")); got != 1 {
+		t.Errorf("posture_export_total{outcome=ok} = %v, want 1", got)
+	}
+
+	st.err = errors.New("connection refused")
+
+	if err := exporter.Export(context.Background()); err == nil {
+		t.Fatal("Export() = nil on a store failure, want an error")
+	}
+
+	if got := testutil.ToFloat64(metrics.PostureExportTotal.WithLabelValues("error")); got != 1 {
+		t.Errorf("posture_export_total{outcome=error} = %v, want 1", got)
+	}
+
+	if got := testutil.ToFloat64(metrics.PostureExportTotal.WithLabelValues("ok")); got != 1 {
+		t.Errorf("posture_export_total{outcome=ok} = %v, want 1; a failed tick counted as a success", got)
+	}
+
+	// Both ticks observed, the failing one included.
+	if got := histogramCount(t, metrics.PostureExportDurationSeconds) - before; got != 2 {
+		t.Errorf("duration observations = %d, want 2 (the failed read must be measured too)", got)
+	}
+}
+
+// histogramCount reads the sample count out of a plain Histogram.
+func histogramCount(t *testing.T, h prometheus.Histogram) uint64 {
+	t.Helper()
+
+	var m dto.Metric
+	if err := h.(prometheus.Metric).Write(&m); err != nil {
+		t.Fatalf("write histogram: %v", err)
+	}
+
+	return m.GetHistogram().GetSampleCount()
 }

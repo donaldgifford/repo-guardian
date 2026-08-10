@@ -98,7 +98,7 @@ as the generator's default-config output.
   and consumes 2–4's series; 7 is last. Phase 3 is independent and
   may run in parallel with 1–2.
 - **Phases 1+2 ship as one binary minor** (schema + exporter;
-  migration 0002 is additive, rollback is binary-only). **Phase 3
+  migration 0003 is additive, rollback is binary-only). **Phase 3
   ships as a minor.** Phases 4–6 are additive and ship at their own
   pace. **Phase 7 is a minor with a prominent note** — the only
   scrape-visible removal (the four legacy counters). PR labeling

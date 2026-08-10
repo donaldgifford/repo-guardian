@@ -1,7 +1,7 @@
 # Postgres schema operations
 
 This is the operator-facing guide for managing the `repo_state` table
-under `STORE_BACKEND=postgres`. The schema is small (one table, two
+under `STORE_BACKEND=postgres`. The schema is small (one table, three
 indexes) and migrations apply at binary startup; most operators won't
 touch this page in normal operation.
 
@@ -27,6 +27,7 @@ CREATE TABLE repo_state (
     last_check_status TEXT    NOT NULL DEFAULT 'pending',
     last_error        TEXT,
     policy_version    TEXT    NOT NULL DEFAULT '',
+    active            BOOLEAN NOT NULL DEFAULT true,
     PRIMARY KEY (installation_id, owner, repo)
 );
 
@@ -35,23 +36,113 @@ CREATE INDEX idx_repo_state_freshness
 
 CREATE INDEX idx_repo_state_policy_version
     ON repo_state(policy_version);
+
+CREATE INDEX idx_repo_state_active_freshness
+    ON repo_state(last_checked_at NULLS FIRST)
+    WHERE active;
 ```
 
-The two indexes drive the stale-sweep query in
+The indexes drive the stale-sweep query in
 `internal/store/postgres/postgres.go.StaleRepos`:
 
 ```sql
 SELECT ...
 FROM repo_state
-WHERE last_checked_at IS NULL
-   OR last_checked_at < $1
-   OR policy_version <> $2
+WHERE active
+  AND (last_checked_at IS NULL
+       OR last_checked_at < $1
+       OR policy_version <> $2)
 ORDER BY last_checked_at NULLS FIRST
 LIMIT $3
 ```
 
 Both `last_checked_at` and `policy_version` are indexed so the OR-of-three
-filter doesn't degrade to a sequential scan even at 100k+ rows.
+filter doesn't degrade to a sequential scan even at 100k+ rows. The
+partial index carries the `WHERE active` predicate, so parked rows are
+absent from it entirely rather than scanned and discarded — the sweep
+does not get slower as an org accumulates archived repositories.
+
+Note the parentheses. `AND` binds tighter than `OR`, so writing
+`... OR policy_version <> $2 AND active` would gate only the last arm and
+a parked repository would return to the sweep the moment the policy hash
+changed. `TestPostgresStore_DeactivateExcludesFromSweep` covers exactly
+this.
+
+### `active` — the parking column (INV-0015)
+
+`active` is `true` for every row unless the worker parked it. Parking
+means "stop handing this repository to the sweep," and there are three
+reasons, all carried on `repo_guardian_repos_parked_total{reason}`:
+
+| `reason` | Trigger | Normal? |
+|---|---|---|
+| `access_denied` | Check failed with 403/404 — the App was uninstalled from that repository, lost a permission, or the repository was deleted | A trickle is expected; a step change is not |
+| `archived` | `skip_archived` is on and the repository is archived | Yes |
+| `fork` | `skip_forks` is on and the repository is a fork | Yes |
+
+Before this column each of the three burned budget indefinitely, in two
+different ways. An unreadable repository failed every attempt, exhausted
+`MAX_JOB_ATTEMPTS`, and was handed straight back by the next stale sweep
+— the full attempt budget every cycle, forever, with failures
+indistinguishable from a transient 500. An archived or forked repository
+was cheaper but just as permanent: enqueue, installation client,
+`GetRepository`, skip, write back success, and round again every
+freshness cycle for as long as the repository exists.
+
+Parked rows are **kept, never deleted**, so the history stays queryable:
+
+```sql
+SELECT installation_id, owner, repo, last_check_status, last_error
+FROM repo_state
+WHERE NOT active
+ORDER BY owner, repo;
+```
+
+`last_check_status` distinguishes the two kinds: access-denied parks
+record `'error'` with the underlying API failure in `last_error`, while
+archived and fork parks record `'skipped'`, because nothing went wrong.
+Both put something in `last_error` — there is no separate reason column,
+and the reason is what makes the query above answer *why* a row is
+parked, so a skip stores its bare reason (`archived`, `fork`) there.
+
+**Only discovery can un-park a row.** Discovery is the one component that
+observes the installation's real repository set, so a repository whose
+access is restored rejoins the sweep on the next discovery pass with no
+operator action. Reactivation deliberately does not touch
+`last_checked_at` or `policy_version`; overwriting those would reset the
+freshness gate and re-check the whole fleet on every discovery pass.
+
+There is intentionally no way to reactivate from the check path, and none
+from SQL that we document — if you set `active = true` by hand on a
+repository the App still cannot read, it will simply be parked again on
+its next check.
+
+Un-archiving a repository, or the App regaining access to one, therefore
+needs no operator action at all: discovery stops filtering it, upserts
+it, and the row goes live again.
+
+#### Why only these three reasons park
+
+Parking is stable only when the check path's skip conditions are a
+**subset** of discovery's filters. Discovery filters archived and fork
+repositories, so a repository parked for either reason is not offered
+back — it settles.
+
+An *empty* repository (no default branch yet) is skipped by the engine
+too, but discovery does **not** filter it. Parking it would have
+discovery re-upsert the row on its very next pass, flipping `active`
+back to `true`, and the two would churn against each other at the
+discovery interval forever. So empty repositories are skipped the old
+way, with an ordinary success write-back, and freshness governs the next
+check. `TestPool_EmptyRepo_IsSkippedButNotParked` pins this boundary; the
+invariant is restated on `checker.skipReason`, which is where a fourth
+skip reason would be added.
+
+Watch `repo_guardian_repos_parked_total`. Only
+`reason="access_denied"` is alerted (`RepoGuardianRepoAccessDenied`) —
+archived and fork parks are routine bookkeeping. A steady access-denied
+trickle is normal in a large org (repositories get deleted); a step
+change means the App lost access to something it used to have.
 
 ## Out-of-band migration runs
 
@@ -89,9 +180,9 @@ every repo from scratch (slow but harmless). Production deployments
 should either move to `mode=cnpg` or `mode=external` with a managed
 Postgres provider.
 
-## Migration 0002 — posture state (IMPL-0023)
+## Migration 0003 — posture state (IMPL-0023)
 
-`0002_rule_state.up.sql` is additive only, so applying it is safe on a
+`0003_rule_state.up.sql` is additive only, so applying it is safe on a
 live fleet and needs no downtime:
 
 - `rule_state` — one row per `(installation_id, owner, repo,

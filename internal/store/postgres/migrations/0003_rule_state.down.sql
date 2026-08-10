@@ -1,4 +1,4 @@
--- Reverse of 0002_rule_state.up.sql. Drops in dependency order:
+-- Reverse of 0003_rule_state.up.sql. Drops in dependency order:
 -- the partial index before its table, and the repo_state column last
 -- so a partially-applied up leaves nothing behind.
 

@@ -202,3 +202,35 @@ tests:
           path: spec.groups[0].rules
           content:
             alert: RepoGuardianJobsExhausted
+
+  # INV-0015: parking has three reasons (access_denied, archived, fork) but
+  # only one is a problem. Archived and fork parks are routine bookkeeping and
+  # would page on every normal onboarding sweep, so the reason selector is
+  # load-bearing — this locks the expression, not just the alert name.
+  - it: should render RepoAccessDenied filtered to reason=access_denied
+    set:
+      prometheusRule:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianRepoAccessDenied
+            expr: increase(repo_guardian_repos_parked_total{reason="access_denied"}[1h]) > 0
+            for: 15m
+            labels:
+              severity: warning
+          any: true
+
+  - it: should allow RepoAccessDenied to be disabled
+    set:
+      prometheusRule:
+        enabled: true
+        alerts:
+          RepoAccessDenied:
+            enabled: false
+    asserts:
+      - notContains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianRepoAccessDenied

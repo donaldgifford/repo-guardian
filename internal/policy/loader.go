@@ -379,6 +379,7 @@ var guardianBodySchema = &hcl.BodySchema{
 		{Name: "webhook_ip_allowlist_fail_open"},
 		{Name: "trust_proxy_headers"},
 		{Name: "auto_close_pr"},
+		{Name: "orphan_cleanup"},
 	},
 }
 
@@ -434,6 +435,9 @@ func setGuardianAttr(g *GuardianConfig, name string, val cty.Value) {
 	case "auto_close_pr":
 		b := val.True()
 		g.AutoClosePR = &b
+	case "orphan_cleanup":
+		b := val.True()
+		g.OrphanCleanup = &b
 	}
 }
 
@@ -1167,6 +1171,10 @@ func mergeGuardianConfig(dst, src *GuardianConfig) {
 	if src.AutoClosePR != nil {
 		dst.AutoClosePR = src.AutoClosePR
 	}
+
+	if src.OrphanCleanup != nil {
+		dst.OrphanCleanup = src.OrphanCleanup
+	}
 }
 
 func applyEnvOverrides(g *GuardianConfig) {
@@ -1182,6 +1190,7 @@ func applyEnvOverrides(g *GuardianConfig) {
 	applyEnvBool("WEBHOOK_IP_ALLOWLIST_FAIL_OPEN", &g.WebhookIPAllowlistFailOpen)
 	applyEnvBool("TRUST_PROXY_HEADERS", &g.TrustProxyHeaders)
 	applyEnvBoolPtr("AUTO_CLOSE_PR", &g.AutoClosePR)
+	applyEnvBoolPtr("ORPHAN_CLEANUP", &g.OrphanCleanup)
 }
 
 func applyEnvBool(key string, dst *bool) {

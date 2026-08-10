@@ -336,3 +336,5 @@ func TestDiscoverer_SetsInstallationInfo(t *testing.T) {
 		t.Errorf("installation_info has %d series, want 2 (one per installation)", n)
 	}
 }
+
+func (*fakeDiscoveryStore) Deactivate(context.Context, int64, string, string) error { return nil }

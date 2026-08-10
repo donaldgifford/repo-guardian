@@ -23,8 +23,21 @@ type mockClient struct {
 	// new API needs fake behavior, rather than a silent zero value.
 	mocks.MockClient
 
-	contents         map[string]bool                            // "owner/repo/path" -> exists
-	branchContents   map[string]string                          // "owner/repo/branch/path" -> sha (IMPL-0013 P3 orphan discovery)
+	contents       map[string]bool   // "owner/repo/path" -> exists
+	branchContents map[string]string // "owner/repo/branch/path" -> sha (IMPL-0013 P3 orphan discovery)
+	branchDeleted  map[string]bool   // "owner/repo/branch/path" -> tombstone (INV-0014)
+
+	// staleBranchReads makes a write invisible to GetContentsOnBranch for
+	// the rest of the sweep, modelling the contents-API lag INV-0015 A7
+	// measured against real GitHub (116ms user repo, 1.301s org repo —
+	// variable and unbounded, which is why the fix excludes the path
+	// rather than waiting). Opt-in, because every
+	// other test needs a write to be immediately readable (IMPL-0019 task
+	// 2.8) — which is true, just not instantly. Without this the fake is
+	// read-after-write consistent and cannot disagree with us about
+	// same-sweep write-then-read ordering, which is the exact circularity
+	// INV-0014 was caused by.
+	staleBranchReads bool
 	fileContents     map[string]string                          // "owner/repo/path" -> content
 	customProperties map[string][]*ghclient.CustomPropertyValue // "owner/repo" -> values
 	setProperties    []*ghclient.CustomPropertyValue            // records what was set
@@ -166,9 +179,15 @@ func (m *mockClient) CreateOrUpdateFile(_ context.Context, owner, repo, branch, 
 
 	// Reflect the write on the branch so a later GetContentsOnBranch sees
 	// it — required for the inverse-orphan restoration path to be testable
-	// (IMPL-0019 task 2.8 mock-fidelity contract).
-	if m.branchContents != nil {
-		m.branchContents[owner+"/"+repo+"/"+branch+"/"+path] = "sha-" + path
+	// (IMPL-0019 task 2.8 mock-fidelity contract). Unless the test asked
+	// for A7 semantics, in which case the write lands but stays unreadable
+	// for the rest of the sweep.
+	if !m.staleBranchReads {
+		if m.branchContents != nil {
+			m.branchContents[owner+"/"+repo+"/"+branch+"/"+path] = "sha-" + path
+		}
+
+		delete(m.branchDeleted, owner+"/"+repo+"/"+branch+"/"+path)
 	}
 
 	m.createdFiles = append(m.createdFiles, path)
@@ -317,13 +336,28 @@ func (m *mockClient) GetContentsOnBranch(_ context.Context, owner, repo, path, b
 		return "", false, m.getContentsOnBranchErr
 	}
 
-	if m.branchContents == nil {
+	key := owner + "/" + repo + "/" + branch + "/" + path
+
+	// A tombstone means the path was deleted on this branch. It must not
+	// be inherited back from the default branch below, or a file the
+	// engine just deleted would immediately reappear — which is exactly
+	// the state restoreInverseOrphans depends on being able to observe.
+	if m.branchDeleted[key] {
 		return "", false, nil
 	}
 
-	key := owner + "/" + repo + "/" + branch + "/" + path
 	if sha, ok := m.branchContents[key]; ok {
 		return sha, true, nil
+	}
+
+	// INV-0014: a branch is cut from the default branch, so everything on
+	// default is readable on it unless the branch overrode or deleted the
+	// path. Before this, the only way a file appeared on a branch was for
+	// the engine to write it there — a world in which every file on the
+	// reconcile branch is by definition repo-guardian's own work, and
+	// therefore a world in which discoverOrphans could not be wrong.
+	if m.contents[owner+"/"+repo+"/"+path] {
+		return "sha-inherited-" + path, true, nil
 	}
 
 	return "", false, nil
@@ -336,6 +370,12 @@ func (m *mockClient) DeleteFile(_ context.Context, owner, repo, branch, path, _,
 
 	key := owner + "/" + repo + "/" + branch + "/" + path
 	delete(m.branchContents, key)
+
+	if m.branchDeleted == nil {
+		m.branchDeleted = make(map[string]bool)
+	}
+
+	m.branchDeleted[key] = true
 	m.deletedFiles = append(m.deletedFiles, path)
 
 	return nil
@@ -560,60 +600,84 @@ func TestCheckRepo_MissingFiles_ThirdPartyPR(t *testing.T) {
 	}
 }
 
-func TestCheckRepo_Archived(t *testing.T) {
+// TestCheckRepo_Skips covers every repository state the engine declines to
+// act on, and how it reports that decision.
+//
+// Two of the three are DURABLE: archived and fork are properties the
+// repository will keep until somebody changes them, and discovery filters
+// both, so the worker parks them out of the sweep. Empty is not durable —
+// discovery does not filter empty repositories, so parking one would have
+// discovery re-activate it every pass. It reports a plain nil and stays in
+// the rotation, which is also correct on the merits: an empty repository
+// stops being empty on its first push.
+//
+// The wantSkip == "" case therefore isn't a filler row; it's the boundary.
+func TestCheckRepo_Skips(t *testing.T) {
 	t.Parallel()
 
-	engine := testEngine(false)
-	client := newMockClient()
-	client.repo = &ghclient.Repository{
-		Owner: "org", Name: "repo", Archived: true, HasBranch: true, DefaultRef: "main",
+	tests := []struct {
+		name     string
+		repo     ghclient.Repository
+		wantSkip string // "" means skipped silently, no parking
+	}{
+		{
+			name:     "archived",
+			repo:     ghclient.Repository{Archived: true, HasBranch: true, DefaultRef: "main"},
+			wantSkip: SkipArchived,
+		},
+		{
+			name:     "fork",
+			repo:     ghclient.Repository{Fork: true, HasBranch: true, DefaultRef: "main"},
+			wantSkip: SkipFork,
+		},
+		{
+			name: "empty repo is skipped but not durable",
+			repo: ghclient.Repository{HasBranch: false, DefaultRef: ""},
+		},
 	}
 
-	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
-	if err != nil {
-		t.Fatalf("CheckRepo: %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	if client.createdPR != nil {
-		t.Error("should not create PR for archived repo")
-	}
-}
+			engine := testEngine(false)
+			client := newMockClient()
+			client.repo = &tt.repo
+			client.repo.Owner, client.repo.Name = "org", "repo"
 
-func TestCheckRepo_Fork(t *testing.T) {
-	t.Parallel()
+			res, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 
-	engine := testEngine(false)
-	client := newMockClient()
-	client.repo = &ghclient.Repository{
-		Owner: "org", Name: "repo", Fork: true, HasBranch: true, DefaultRef: "main",
-	}
+			skip, durable := AsSkipped(err)
 
-	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
-	if err != nil {
-		t.Fatalf("CheckRepo: %v", err)
-	}
+			switch {
+			case tt.wantSkip == "":
+				if err != nil {
+					t.Fatalf("CheckRepo() = _, %v, want nil; a non-durable skip must not surface an error", err)
+				}
+			case !durable:
+				t.Fatalf("CheckRepo() = _, %v, want *SkippedError{Reason: %q}", err, tt.wantSkip)
+			case skip.Reason != tt.wantSkip:
+				t.Errorf("skip reason = %q, want %q", skip.Reason, tt.wantSkip)
+			}
 
-	if client.createdPR != nil {
-		t.Error("should not create PR for forked repo")
-	}
-}
+			// The posture half of the same decision. A non-durable skip
+			// returns an empty-but-non-nil result, which clears the
+			// repo's rule rows so it stops counting against compliance.
+			// A durable skip returns nil and leaves that call to the
+			// worker, which is what decides disposition — see Pool.park.
+			switch {
+			case tt.wantSkip == "" && res == nil:
+				t.Error("CheckRepo() = nil, _; a non-durable skip must return an empty result so posture clears")
+			case tt.wantSkip == "" && len(res.Outcomes) != 0:
+				t.Errorf("skipped repo evaluated %d rules, want 0", len(res.Outcomes))
+			case tt.wantSkip != "" && res != nil:
+				t.Errorf("CheckRepo() = %v, _; a durable skip must return nil per the error contract", res)
+			}
 
-func TestCheckRepo_EmptyRepo(t *testing.T) {
-	t.Parallel()
-
-	engine := testEngine(false)
-	client := newMockClient()
-	client.repo = &ghclient.Repository{
-		Owner: "org", Name: "repo", HasBranch: false, DefaultRef: "",
-	}
-
-	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
-	if err != nil {
-		t.Fatalf("CheckRepo: %v", err)
-	}
-
-	if client.createdPR != nil {
-		t.Error("should not create PR for empty repo")
+			if client.createdPR != nil {
+				t.Errorf("created PR %v; a skipped repository must not be touched", client.createdPR)
+			}
+		})
 	}
 }
 

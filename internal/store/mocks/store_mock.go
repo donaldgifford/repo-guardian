@@ -84,6 +84,75 @@ func (_c *MockStore_Close_Call) RunAndReturn(run func() error) *MockStore_Close_
 	return _c
 }
 
+// Deactivate provides a mock function for the type MockStore
+func (_mock *MockStore) Deactivate(ctx context.Context, installationID int64, owner string, repo string) error {
+	ret := _mock.Called(ctx, installationID, owner, repo)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Deactivate")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, string, string) error); ok {
+		r0 = returnFunc(ctx, installationID, owner, repo)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockStore_Deactivate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Deactivate'
+type MockStore_Deactivate_Call struct {
+	*mock.Call
+}
+
+// Deactivate is a helper method to define mock.On call
+//   - ctx context.Context
+//   - installationID int64
+//   - owner string
+//   - repo string
+func (_e *MockStore_Expecter) Deactivate(ctx any, installationID any, owner any, repo any) *MockStore_Deactivate_Call {
+	return &MockStore_Deactivate_Call{Call: _e.mock.On("Deactivate", ctx, installationID, owner, repo)}
+}
+
+func (_c *MockStore_Deactivate_Call) Run(run func(ctx context.Context, installationID int64, owner string, repo string)) *MockStore_Deactivate_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int64
+		if args[1] != nil {
+			arg1 = args[1].(int64)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_Deactivate_Call) Return(err error) *MockStore_Deactivate_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockStore_Deactivate_Call) RunAndReturn(run func(ctx context.Context, installationID int64, owner string, repo string) error) *MockStore_Deactivate_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetRepoState provides a mock function for the type MockStore
 func (_mock *MockStore) GetRepoState(ctx context.Context, installationID int64, owner string, repo string) (*store.RepoState, error) {
 	ret := _mock.Called(ctx, installationID, owner, repo)

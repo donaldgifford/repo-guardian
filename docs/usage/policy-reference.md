@@ -63,17 +63,44 @@ duplicate `type:name` pair fails validation.
 | `worker_count` | int | `5` | Concurrent repo-check workers. Must be > 0. |
 | `queue_size` | int | `1000` | Work queue buffer size. Must be > 0. |
 | `log_level` | string | `"info"` | One of `debug`, `info`, `warn`, `error`. |
-| `skip_forks` | bool | `true` | Skip forked repositories. |
-| `skip_archived` | bool | `true` | Skip archived repositories. |
+| `skip_forks` | bool | `true` | Skip forked repositories, and park them out of the stale sweep (see below). |
+| `skip_archived` | bool | `true` | Skip archived repositories, and park them out of the stale sweep (see below). |
 | `rate_limit_threshold` | float | `0.10` | Fraction of remaining rate-limit budget at which pre-emptive throttling begins. Must be in [0.0, 1.0]. |
 | `webhook_ip_allowlist` | bool | `true` | Enable the GitHub webhook IP allowlist middleware (see `SECURITY.md`). |
 | `webhook_ip_allowlist_fail_open` | bool | `false` | Allow webhook requests when the allowlist can't be fetched. |
 | `trust_proxy_headers` | bool | `false` | Read client IP from `X-Forwarded-For` (required behind Tailscale Funnel or similar proxies). |
 | `auto_close_pr` | bool | `true` | Auto-close a guardian PR (and delete its branch) when every rule it addresses is satisfied on the default branch. Set `false` to keep PRs open for manual close-out. The `AUTO_CLOSE_PR` env var overrides the HCL value. |
+| `orphan_cleanup` | bool | `true` | Remove a file from repo-guardian's own reconcile branch once the rule that added it is satisfied on the default branch, so the PR stops proposing files that are no longer needed. Set `false` to disable all deletion from the reconcile branch. The `ORPHAN_CLEANUP` env var overrides the HCL value. |
 
 Unknown attributes in `guardian {}` fail load with an "Unsupported
 argument" error naming the file and line — typos are caught at startup,
 not silently ignored.
+
+### `skip_forks` / `skip_archived` park, they don't just skip
+
+Both flags do two things. The engine declines to check a matching
+repository, and — because neither condition can change without somebody
+changing the repository — the worker also *parks* it: `repo_state.active`
+goes false and the stale sweep stops offering it.
+
+Parking is what keeps sweep cost proportional to the repositories you
+actually manage. A skipped-but-unparked repository still cost an enqueue,
+an installation client, and a `GetRepository` every freshness cycle,
+forever.
+
+The row is kept, not deleted, and **only discovery can un-park it**.
+Un-archiving a repository therefore needs no operator action: discovery
+stops filtering it, upserts it, and the row goes live again within one
+`DISCOVERY_INTERVAL` (default 1h).
+
+Turning a flag off un-parks nothing by itself — discovery does that on
+its next pass, for the same reason. Both the engine and discovery read
+these same two flags, so they never disagree: with a flag off, neither
+skips and nothing is parked.
+
+See [Scaling § Repository parking](../operations/scaling.md#repository-parking-inv-0015)
+for the metric, the operator query, and why *empty* repositories are
+deliberately skipped without being parked.
 
 ## `ignore {}` — ignore lists
 
@@ -611,6 +638,7 @@ overrides:
 | `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN` | `guardian.webhook_ip_allowlist_fail_open` |
 | `TRUST_PROXY_HEADERS` | `guardian.trust_proxy_headers` |
 | `AUTO_CLOSE_PR` | `guardian.auto_close_pr` |
+| `ORPHAN_CLEANUP` | `guardian.orphan_cleanup` |
 
 Related policy/template env vars (not `guardian {}` attributes):
 

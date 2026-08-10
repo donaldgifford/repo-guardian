@@ -220,8 +220,15 @@ func TestCheckResult_IgnoredRuleProducesNoOutcome(t *testing.T) {
 // write-back reconciliation depends on. An empty result means "this
 // repo has no applicable rules" and clears its rows; nil means "we
 // learned nothing" and leaves them alone. Collapsing the two either
-// strands rows for archived repos forever or wipes them on every
+// strands rows for out-of-scope repos forever or wipes them on every
 // transient API error.
+//
+// Archived and forked repos used to be a case here. INV-0015 made them
+// DURABLE skips, which return a *SkippedError and a nil result so the
+// worker can park the row — the empty-result-clears-posture call moved
+// with them, to Pool.park. TestCheckRepo_Skips covers the engine half
+// and TestPool_ArchivedRepo_ClearsPosture the worker half; what is left
+// here is the skips that stay in the normal flow.
 func TestCheckResult_SkipPathsReturnEmptyNotNil(t *testing.T) {
 	t.Parallel()
 
@@ -229,12 +236,6 @@ func TestCheckResult_SkipPathsReturnEmptyNotNil(t *testing.T) {
 		name  string
 		setup func(*policy.PolicyConfig, *mockClient)
 	}{
-		{
-			name: "archived repository",
-			setup: func(_ *policy.PolicyConfig, c *mockClient) {
-				c.repo.Archived = true
-			},
-		},
 		{
 			name: "global ignore list",
 			setup: func(cfg *policy.PolicyConfig, _ *mockClient) {
@@ -254,7 +255,6 @@ func TestCheckResult_SkipPathsReturnEmptyNotNil(t *testing.T) {
 			t.Parallel()
 
 			cfg := mixedKindPolicy()
-			cfg.Guardian.SkipArchived = true
 			cfg.FileRules[0].Scope = &policy.ScopeConfig{Orgs: []string{"*"}}
 			cfg.SettingRules[0].Scope = &policy.ScopeConfig{Orgs: []string{"*"}}
 			cfg.BranchProtectionRules[0].Scope = &policy.ScopeConfig{Orgs: []string{"*"}}

@@ -101,12 +101,17 @@ func NewEngine(
 // for the rules it never reached, and writing a partial set would let
 // delete-not-in reconciliation drop rows that are merely unvisited.
 //
-// The three skip paths — archived/forked/empty, global ignore, and
+// The non-durable skip paths — empty repo, global ignore, and
 // out-of-policy-scope — return an *empty* result rather than nil. That
 // is deliberate: an empty evaluated set reconciles every existing row
 // for the repo away, which is exactly right for a repo that just left
 // the fleet's scope. It should stop counting against compliance, not
 // freeze at its last verdict forever.
+//
+// Durable skips (archived, fork) instead return a *SkippedError so the
+// worker parks the row (INV-0015). Their posture must ALSO be cleared,
+// for the same reason — but that is the worker's call, since it is what
+// decides disposition; see Pool.park.
 func (e *Engine) CheckRepo(
 	ctx context.Context,
 	client ghclient.Client,
@@ -121,8 +126,21 @@ func (e *Engine) CheckRepo(
 
 	// Authoritative skip checks — the scheduler pre-filters as an
 	// optimization, but the engine is the single source of truth.
-	if skip, reason := e.shouldSkip(repoInfo); skip {
-		log.Info(reason)
+	if reason, durable := e.skipReason(repoInfo); reason != "" {
+		log.Info("skipping repository", "reason", reason, "durable", durable)
+
+		if durable {
+			// Surfaced as an error so the worker can park the row. The
+			// repo is otherwise re-enqueued and re-fetched every
+			// freshness cycle for as long as it exists (INV-0015).
+			//
+			// Returns a nil result, per this method's error contract.
+			// The empty-result-clears-posture decision for a parked repo
+			// belongs to the worker, which is what classifies the
+			// disposition — see Pool.park.
+			return nil, &SkippedError{Reason: reason}
+		}
+
 		return &CheckResult{}, nil
 	}
 
@@ -140,23 +158,6 @@ func (e *Engine) CheckRepo(
 	}
 
 	return e.checkRepoWithPolicy(ctx, log, client, owner, repo, repoInfo.DefaultRef, openPRs)
-}
-
-// shouldSkip returns true and a reason if the repository should be skipped.
-func (e *Engine) shouldSkip(repo *ghclient.Repository) (bool, string) {
-	if e.skipArchived && repo.Archived {
-		return true, "skipping archived repository"
-	}
-
-	if e.skipForks && repo.Fork {
-		return true, "skipping forked repository"
-	}
-
-	if !repo.HasBranch || repo.DefaultRef == "" {
-		return true, "skipping empty repository with no default branch"
-	}
-
-	return false, ""
 }
 
 // findOurPR returns the open repo-guardian PR (head ref ==

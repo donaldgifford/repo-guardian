@@ -42,8 +42,16 @@ jobs:
               - 'charts/**'
             workflows:
               - '.github/workflows/**'
+            # Both alert surfaces: the standalone contrib recipe and the
+            # chart template operators actually deploy. The chart entry is
+            # not redundant with `helm` — lint-alerts-chart is the only job
+            # that parses the rendered PromQL, and it was silently skipped
+            # on every chart-alert change until this filter covered it.
             alerts:
               - 'contrib/prometheus/**'
+              - 'charts/repo-guardian/templates/prometheusrule.yaml'
+              - 'charts/repo-guardian/values.yaml'
+              - 'Makefile'
 
   labeler:
     permissions:
@@ -86,10 +94,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # mise supplies promtool, helm and yq, all three of which lint-alerts
+      # needs — the chart half renders the PrometheusRule before parsing it.
       - name: Set up mise
         uses: jdx/mise-action@v3
 
-      - name: Validate Prometheus alert rules
+      - name: Validate Prometheus alert rules (contrib recipe + rendered chart)
         run: make lint-alerts
 
   test-go:

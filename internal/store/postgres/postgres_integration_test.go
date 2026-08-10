@@ -843,3 +843,155 @@ func mustUpdate(ctx context.Context, t *testing.T, s *postgres.Store, rs *store.
 		t.Fatalf("UpdateRepoState %s/%s: %v", rs.Owner, rs.Repo, err)
 	}
 }
+
+// TestPostgresStore_DeactivateExcludesFromSweep pins the INV-0015
+// circuit breaker's store half: a parked repository must stop being
+// handed back by the sweep, and must stay parked across sweeps.
+func TestPostgresStore_DeactivateExcludesFromSweep(t *testing.T) {
+	ctx := context.Background()
+	dsn := startPostgres(ctx, t)
+	s := newStore(ctx, t, dsn)
+
+	old := time.Now().UTC().Add(-2 * time.Hour)
+
+	for _, repo := range []string{"reachable", "denied"} {
+		mustUpdate(ctx, t, s, &store.RepoState{
+			InstallationID: 1, Owner: "o", Repo: repo,
+			LastCheckedAt: &old, LastCheckStatus: store.StatusSuccess, PolicyVersion: "v1",
+		})
+	}
+
+	if err := s.Deactivate(ctx, 1, "o", "denied"); err != nil {
+		t.Fatalf("Deactivate() = %v, want nil error", err)
+	}
+
+	stale, err := s.StaleRepos(ctx, time.Hour, "v1", 10)
+	if err != nil {
+		t.Fatalf("StaleRepos() = _, %v, want nil error", err)
+	}
+
+	if len(stale) != 1 || stale[0].Repo != "reachable" {
+		t.Fatalf("StaleRepos() returned %+v, want only [reachable]; a parked repo must not be re-enqueued", stale)
+	}
+
+	// A policy-version bump must not resurrect it either: the freshness
+	// clause is a disjunction, so `active` has to gate the whole group
+	// rather than binding to the last OR arm.
+	stale, err = s.StaleRepos(ctx, time.Hour, "v2", 10)
+	if err != nil {
+		t.Fatalf("StaleRepos() = _, %v, want nil error", err)
+	}
+
+	for _, rs := range stale {
+		if rs.Repo == "denied" {
+			t.Errorf("a policy-version change resurrected a parked repo; `active` is binding to one OR arm instead of the group")
+		}
+	}
+
+	// Idempotent, and harmless on a row that does not exist.
+	if err := s.Deactivate(ctx, 1, "o", "denied"); err != nil {
+		t.Errorf("second Deactivate() = %v, want nil error", err)
+	}
+
+	if err := s.Deactivate(ctx, 1, "o", "ghost"); err != nil {
+		t.Errorf("Deactivate() on an absent row = %v, want nil error", err)
+	}
+}
+
+// TestPostgresStore_DiscoveryReactivates pins the other half: discovery
+// is the only thing that may un-park a repository, and doing so must not
+// disturb the freshness gate.
+func TestPostgresStore_DiscoveryReactivates(t *testing.T) {
+	ctx := context.Background()
+	dsn := startPostgres(ctx, t)
+	s := newStore(ctx, t, dsn)
+
+	checked := time.Now().UTC().Add(-2 * time.Hour)
+
+	mustUpdate(ctx, t, s, &store.RepoState{
+		InstallationID: 1, Owner: "o", Repo: "r",
+		LastCheckedAt: &checked, LastCheckStatus: store.StatusSuccess, PolicyVersion: "v1",
+	})
+
+	if err := s.Deactivate(ctx, 1, "o", "r"); err != nil {
+		t.Fatalf("Deactivate() = %v, want nil error", err)
+	}
+
+	// Discovery seeing the repo again is proof the App can reach it.
+	created, err := s.UpsertIfMissing(ctx, &store.RepoState{
+		InstallationID: 1, Owner: "o", Repo: "r",
+		LastCheckStatus: store.StatusPending,
+	})
+	if err != nil {
+		t.Fatalf("UpsertIfMissing() = _, %v, want nil error", err)
+	}
+
+	if created {
+		t.Errorf("UpsertIfMissing() = true, want false — reactivating an existing row is not a creation")
+	}
+
+	stale, err := s.StaleRepos(ctx, time.Hour, "v1", 10)
+	if err != nil {
+		t.Fatalf("StaleRepos() = _, %v, want nil error", err)
+	}
+
+	if len(stale) != 1 || stale[0].Repo != "r" {
+		t.Fatalf("StaleRepos() returned %+v, want [r] — discovery must return a parked repo to the sweep", stale)
+	}
+
+	// Reactivation must not reset the freshness gate. Overwriting
+	// last_checked_at or policy_version here would re-check the entire
+	// fleet on every discovery pass.
+	got, err := s.GetRepoState(ctx, 1, "o", "r")
+	if err != nil {
+		t.Fatalf("GetRepoState() = _, %v, want nil error", err)
+	}
+
+	if got.LastCheckedAt == nil || !got.LastCheckedAt.Equal(checked) {
+		t.Errorf("LastCheckedAt = %v, want %v unchanged", got.LastCheckedAt, checked)
+	}
+
+	if got.PolicyVersion != "v1" {
+		t.Errorf("PolicyVersion = %q, want %q unchanged", got.PolicyVersion, "v1")
+	}
+}
+
+// TestPostgresStore_UpdateRepoStateDoesNotUnpark pins the boundary
+// between the two writers.
+//
+// UpdateRepoState is called on every processed job (worker write-back)
+// and on every push webhook, so if it reset active the parking would be
+// undone within one cycle by the very path that set it. The column is
+// deliberately absent from its ON CONFLICT list; this test fails if
+// someone adds it, or switches the statement to a whole-row upsert.
+func TestPostgresStore_UpdateRepoStateDoesNotUnpark(t *testing.T) {
+	ctx := context.Background()
+	dsn := startPostgres(ctx, t)
+	s := newStore(ctx, t, dsn)
+
+	old := time.Now().UTC().Add(-2 * time.Hour)
+
+	mustUpdate(ctx, t, s, &store.RepoState{
+		InstallationID: 1, Owner: "o", Repo: "r",
+		LastCheckedAt: &old, LastCheckStatus: store.StatusSuccess, PolicyVersion: "v1",
+	})
+
+	if err := s.Deactivate(ctx, 1, "o", "r"); err != nil {
+		t.Fatalf("Deactivate() = %v, want nil error", err)
+	}
+
+	// Exactly what the worker write-back and the push webhook do.
+	mustUpdate(ctx, t, s, &store.RepoState{
+		InstallationID: 1, Owner: "o", Repo: "r",
+		LastCheckedAt: &old, LastCheckStatus: store.StatusError, PolicyVersion: "v1",
+	})
+
+	stale, err := s.StaleRepos(ctx, time.Hour, "v1", 10)
+	if err != nil {
+		t.Fatalf("StaleRepos() = _, %v, want nil error", err)
+	}
+
+	if len(stale) != 0 {
+		t.Errorf("StaleRepos() returned %+v, want none — UpdateRepoState un-parked the row it was told nothing about", stale)
+	}
+}

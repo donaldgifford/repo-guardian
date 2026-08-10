@@ -91,9 +91,35 @@ type GuardianConfig struct {
 	// a human closes it. Override via env AUTO_CLOSE_PR.
 	AutoClosePR *bool `hcl:"auto_close_pr,optional"`
 
+	// OrphanCleanup controls whether repo-guardian removes files from
+	// its own reconcile branch once the rule that added them is
+	// satisfied on the default branch (IMPL-0013 Phase 3). Default
+	// true; set to false to disable the behaviour entirely.
+	// Override via env ORPHAN_CLEANUP.
+	//
+	// The kill switch exists because this path deletes files, and a
+	// defect in it (INV-0014) once produced PRs proposing to remove
+	// files the repository legitimately owned. The defect is fixed —
+	// discoverOrphans now skips any path present on the default branch
+	// — so the default stays true, and turning it off costs only PR
+	// bodies that keep listing rules already satisfied on main.
+	OrphanCleanup *bool `hcl:"orphan_cleanup,optional"`
+
 	// ParsedScheduleInterval is the parsed duration from ScheduleInterval.
 	// It is not set from HCL directly but computed after loading.
 	ParsedScheduleInterval time.Duration `hcl:"-"`
+}
+
+// OrphanCleanupEnabled returns whether orphan cleanup is active.
+// Defaults to true when the field is unset — the behaviour is correct
+// post-INV-0014, and defaulting it off would regress the INV-0005
+// convergence fix for every operator.
+func (g *GuardianConfig) OrphanCleanupEnabled() bool {
+	if g == nil || g.OrphanCleanup == nil {
+		return true
+	}
+
+	return *g.OrphanCleanup
 }
 
 // AutoClosePREnabled returns whether the auto-close behaviour is

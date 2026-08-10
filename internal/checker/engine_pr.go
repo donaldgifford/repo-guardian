@@ -175,13 +175,19 @@ func (e *Engine) createOrUpdatePRFromPolicy(
 	// IMPL-0013 Phase 3: existing PR is being updated. Remove orphan
 	// files (rules that were in a previous version of the PR but are
 	// now satisfied on the default branch) and refresh the PR body.
-	orphans := discoverOrphans(ctx, log, client, e.policy.FileRules, actionable, owner, repo)
-
 	var removedOrphans []string
 
-	if len(orphans) > 0 {
-		log.Info("cleaning up orphan files", "count", len(orphans))
-		removedOrphans = cleanupOrphans(ctx, log, client, orphans, owner, repo)
+	// INV-0014 kill switch: orphan cleanup is the only path that deletes
+	// files, so it is the only one with an off switch. Gated before
+	// discovery, not before cleanup, so disabling it also stops the
+	// default-branch probes it would otherwise issue.
+	if e.policy.Guardian.OrphanCleanupEnabled() {
+		orphans := discoverOrphans(ctx, log, client, e.policy.FileRules, actionable, owner, repo)
+
+		if len(orphans) > 0 {
+			log.Info("cleaning up orphan files", "count", len(orphans))
+			removedOrphans = cleanupOrphans(ctx, log, client, orphans, owner, repo)
+		}
 	}
 
 	// IMPL-0019 Phase 2: inverse orphans — absent rules that stopped being

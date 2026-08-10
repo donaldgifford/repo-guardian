@@ -401,6 +401,51 @@ var (
 		Help: "Open repo-guardian PRs by org, rule, and age bucket.",
 	}, []string{labelOrg, "rule", "age_bucket"})
 
+	// ReposActionable is fleet compliance posture: repositories
+	// currently failing each rule, per org (DESIGN-0022 §Leader-scoped
+	// posture exporter). Served by the elected leader only, so
+	// dashboards aggregate with `max by (rule_name, org)` — the same
+	// shape `scheduler_is_leader` panels already use.
+	//
+	// A gauge derived from rule_state, not a counter incremented at
+	// check time. That is the whole point of IMPL-0023: the legacy
+	// counters answered "how often did we act" when every compliance
+	// question asked is "how many are failing right now".
+	ReposActionable = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_repos_actionable",
+		Help: "Repositories currently failing each rule, by org.",
+	}, []string{"rule_name", labelOrg})
+
+	// ReposTracked is the compliance denominator: distinct repositories
+	// per org that have been checked at least once and are still
+	// active.
+	//
+	// Parked repositories are excluded — see ReposUnmeasurable.
+	// Repositories discovered but never checked are also absent,
+	// because "not yet measured" must not read as "compliant".
+	ReposTracked = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_repos_tracked",
+		Help: "Active repositories with posture, by org (compliance denominator).",
+	}, []string{labelOrg})
+
+	// ReposUnmeasurable is the population deliberately excluded from
+	// ReposActionable and ReposTracked: repositories parked out of the
+	// sweep (INV-0015), by why.
+	//
+	// It exists so the exclusion is visible rather than silent. A
+	// compliance ratio computed over a shrinking denominator looks
+	// identical to one that is genuinely improving; this series is what
+	// tells the two apart.
+	//
+	// Standing population, not events — compare with
+	// repos_parked_total, which counts park events. Persistent
+	// disagreement means parks that never un-parked, or un-parks
+	// nobody counted.
+	ReposUnmeasurable = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_repos_unmeasurable",
+		Help: "Parked repositories excluded from posture, by org and reason.",
+	}, []string{labelOrg, "reason"})
+
 	// PRsClosedTotal counts pull requests closed by repo-guardian
 	// labeled by org and reason. IMPL-0013 Phase 3 introduces the
 	// reason="satisfied" path (auto-close when every file rule has
@@ -498,6 +543,20 @@ var PRAgeBuckets = [...]string{
 // one sweep cycle.
 func ResetOpenPRsByRule() {
 	OpenPRsByRule.Reset()
+}
+
+// ResetPosture clears every posture gauge. The exporter calls it at the
+// top of each tick, before Set — the ResetOpenPRsByRule precedent.
+//
+// Without it a rule that stops applying, or an org that leaves the
+// fleet, freezes at its last value forever and keeps counting against
+// compliance. The three gauges reset together so a tick can never
+// publish a numerator from this pass against a denominator from the
+// last one.
+func ResetPosture() {
+	ReposActionable.Reset()
+	ReposTracked.Reset()
+	ReposUnmeasurable.Reset()
 }
 
 // PRAgeBucket returns the hard-coded age bucket label for the given

@@ -995,3 +995,183 @@ func TestPostgresStore_UpdateRepoStateDoesNotUnpark(t *testing.T) {
 		t.Errorf("StaleRepos() returned %+v, want none — UpdateRepoState un-parked the row it was told nothing about", stale)
 	}
 }
+
+// TestPostgresStore_Posture_ExcludesParkedRepos is the SQL half of the
+// IMPL-0023 task 2.2 decision, and the only place the `WHERE active`
+// join is actually exercised against Postgres rather than asserted
+// about.
+//
+// Three repos in one org, all failing the same rule. One is parked
+// after an access denial — the case the filter exists for, because
+// unlike an archived park it KEEPS its rule rows (we never learned
+// anything to replace them with, so clearing them would report a repo
+// we cannot even see as compliant).
+//
+// Without the filter that repo would sit in both numerator and
+// denominator forever, holding its last verdict, with nothing to
+// correct it: parking is precisely the state in which a repo is never
+// re-checked again.
+func TestPostgresStore_Posture_ExcludesParkedRepos(t *testing.T) {
+	ctx := context.Background()
+	dsn := startPostgres(ctx, t)
+	s := newStore(ctx, t, dsn)
+
+	ts := time.Now().UTC()
+
+	seed := func(repo string, actionable bool) {
+		t.Helper()
+
+		if err := s.UpdateRepoState(ctx, &store.RepoState{
+			InstallationID: 1, Owner: "acme", Repo: repo,
+			LastCheckedAt: &ts, LastCheckStatus: store.StatusSuccess, PolicyVersion: "v1",
+		}); err != nil {
+			t.Fatalf("seed repo_state %s: %v", repo, err)
+		}
+
+		if err := s.UpsertRuleStates(ctx, 1, "acme", repo, []store.RuleState{{
+			InstallationID: 1, Owner: "acme", Repo: repo,
+			RuleName: "codeowners", RuleKind: "file",
+			Actionable: actionable, PolicyVersion: "v1",
+		}}); err != nil {
+			t.Fatalf("seed rule_state %s: %v", repo, err)
+		}
+	}
+
+	seed("alpha", true)
+	seed("beta", true)
+	seed("gone", true)
+
+	before, err := s.Posture(ctx)
+	if err != nil {
+		t.Fatalf("Posture before park: %v", err)
+	}
+
+	if got := ruleCount(before.Actionable, "acme", "codeowners"); got != 3 {
+		t.Fatalf("actionable before park = %d, want 3", got)
+	}
+
+	if got := orgCount(before.Tracked, "acme"); got != 3 {
+		t.Fatalf("tracked before park = %d, want 3", got)
+	}
+
+	// Park "gone" the way Pool.park does for an access denial: a
+	// StatusError write-back, then Deactivate. Its rule rows stay.
+	if err := s.UpdateRepoState(ctx, &store.RepoState{
+		InstallationID: 1, Owner: "acme", Repo: "gone",
+		LastCheckedAt: &ts, LastCheckStatus: store.StatusError,
+		LastError: "repository not accessible to installation 1: 404", PolicyVersion: "v1",
+	}); err != nil {
+		t.Fatalf("park write-back: %v", err)
+	}
+
+	if err := s.Deactivate(ctx, 1, "acme", "gone"); err != nil {
+		t.Fatalf("Deactivate: %v", err)
+	}
+
+	after, err := s.Posture(ctx)
+	if err != nil {
+		t.Fatalf("Posture after park: %v", err)
+	}
+
+	if got := ruleCount(after.Actionable, "acme", "codeowners"); got != 2 {
+		t.Errorf("actionable after park = %d, want 2; a parked repo is still in the numerator", got)
+	}
+
+	if got := orgCount(after.Tracked, "acme"); got != 2 {
+		t.Errorf("tracked after park = %d, want 2; a parked repo is still in the denominator", got)
+	}
+
+	if got := reasonCount(after.Unmeasurable, "acme", store.ReasonAccessDenied); got != 1 {
+		t.Errorf("unmeasurable{reason=access_denied} = %d, want 1; the exclusion must be visible, not silent", got)
+	}
+}
+
+// TestPostgresStore_Posture_ReasonMapping pins the closed label set.
+//
+// last_error is free text — for an access-denied park it carries a
+// whole API error message — so the CASE maps only the values park
+// actually writes and collapses everything else to "unknown". Getting
+// this wrong turns a Prometheus label into an unbounded set, which is
+// a cardinality incident rather than a wrong number.
+func TestPostgresStore_Posture_ReasonMapping(t *testing.T) {
+	ctx := context.Background()
+	dsn := startPostgres(ctx, t)
+	s := newStore(ctx, t, dsn)
+
+	ts := time.Now().UTC()
+
+	park := func(repo, status, lastErr string) {
+		t.Helper()
+
+		if err := s.UpdateRepoState(ctx, &store.RepoState{
+			InstallationID: 1, Owner: "acme", Repo: repo,
+			LastCheckedAt: &ts, LastCheckStatus: status, LastError: lastErr,
+			PolicyVersion: "v1",
+		}); err != nil {
+			t.Fatalf("seed %s: %v", repo, err)
+		}
+
+		if err := s.Deactivate(ctx, 1, "acme", repo); err != nil {
+			t.Fatalf("deactivate %s: %v", repo, err)
+		}
+	}
+
+	park("denied", store.StatusError, "repository not accessible to installation 1: 404 Not Found")
+	park("old", store.StatusSkipped, "archived")
+	park("mirror", store.StatusSkipped, "fork")
+	park("weird", store.StatusSkipped, "something nobody mapped")
+
+	p, err := s.Posture(ctx)
+	if err != nil {
+		t.Fatalf("Posture: %v", err)
+	}
+
+	for _, tc := range []struct {
+		reason string
+		want   int
+	}{
+		{store.ReasonAccessDenied, 1},
+		{store.ReasonArchived, 1},
+		{store.ReasonFork, 1},
+		{store.ReasonUnknown, 1},
+	} {
+		if got := reasonCount(p.Unmeasurable, "acme", tc.reason); got != tc.want {
+			t.Errorf("unmeasurable{reason=%s} = %d, want %d", tc.reason, got, tc.want)
+		}
+	}
+
+	if len(p.Unmeasurable) != 4 {
+		t.Errorf("unmeasurable series = %d, want exactly 4; an unmapped last_error leaked into the label",
+			len(p.Unmeasurable))
+	}
+}
+
+func ruleCount(counts []store.RuleCount, org, rule string) int {
+	for _, c := range counts {
+		if c.Org == org && c.RuleName == rule {
+			return c.Count
+		}
+	}
+
+	return 0
+}
+
+func orgCount(counts []store.OrgCount, org string) int {
+	for _, c := range counts {
+		if c.Org == org {
+			return c.Count
+		}
+	}
+
+	return 0
+}
+
+func reasonCount(counts []store.ReasonCount, org, reason string) int {
+	for _, c := range counts {
+		if c.Org == org && c.Reason == reason {
+			return c.Count
+		}
+	}
+
+	return 0
+}

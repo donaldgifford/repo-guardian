@@ -789,3 +789,5 @@ func TestPool_ParkPostureHandling(t *testing.T) {
 		})
 	}
 }
+
+func (*capturingStore) Posture(context.Context) (*store.Posture, error) { return nil, errUnimplemented }

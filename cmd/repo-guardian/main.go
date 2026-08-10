@@ -235,6 +235,17 @@ func scheduleHandlers(
 
 	logger.Info("scheduled stale-sweep handler", "interval", policyCfg.Guardian.ParsedScheduleInterval)
 
+	postureExporter := checker.NewPostureExporter(checker.PostureExporterOptions{
+		Store:  stateStore,
+		Logger: logger,
+	})
+
+	if err := sched.Schedule(ctx, "posture-export", checker.DefaultPostureExportInterval, postureExporter.Export); err != nil {
+		return fmt.Errorf("schedule posture-export: %w", err)
+	}
+
+	logger.Info("scheduled posture-export handler", "interval", checker.DefaultPostureExportInterval)
+
 	if !cfg.DiscoveryEnabled {
 		logger.Info("discoverer disabled via DISCOVERY_ENABLED=false")
 		return nil

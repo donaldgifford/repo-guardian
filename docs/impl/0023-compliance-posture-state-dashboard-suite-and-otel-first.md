@@ -192,7 +192,7 @@ already stores `{status, error, policy_version}`.
       holds `j.Owner`. Both emissions precede the call they accompany so
       a failing installation still carries its org label — which is when
       the `installation_id`-keyed panels are actually being read.
-- [ ] 2.2 `posture-export` handler registered via
+- [x] 2.2 `posture-export` handler registered via
       `Scheduler.Schedule` (same SETNX election as `stale-sweep`),
       interval `POSTURE_EXPORT_INTERVAL` (default 60s): full
       GaugeVec `Reset()` then `Set()` of
@@ -239,6 +239,36 @@ already stores `{status, error, policy_version}`.
         park *events*; the new gauge is the standing population, and the
         two disagreeing is a real signal (parks that never un-parked, or
         un-parks nobody counted).
+
+      **Shipped.** `Store.Posture(ctx) (*Posture, error)` returns all
+      three aggregates from ONE read-only transaction rather than the
+      sketch's separate `ActionableCounts`: the exporter divides
+      Actionable by Tracked, and `UpsertRuleStates` rewrites a repo's
+      whole rule set atomically, so two independent reads could straddle
+      a write-back and publish a compliance ratio above 100%.
+      `internal/checker/posture.go` holds the handler, wired in
+      `main.go` at `checker.DefaultPostureExportInterval` until task 2.5
+      makes it configurable. Reason labels come from a closed set
+      (`store.Reason*`) mapped in SQL, with unmapped `last_error` values
+      collapsing to `unknown` — free text reaching a Prometheus label
+      would be a cardinality incident, not a wrong number.
+
+      **Divergence:** the read happens BEFORE `ResetPosture()`, not
+      after. Resetting first blanks every series for the duration of the
+      query, so a scrape landing in that window reports zero repos
+      tracked — indistinguishable from a fleet that vanished, and on a
+      60s tick against a slow query that is not a rare interleaving. A
+      failed read now leaves the previous values standing, which is the
+      right failure mode for a gauge.
+
+      **Follow-up for the dashboard phase (6.1/6.2), not a defect
+      here:** `repos_tracked{org}` counts distinct repos with any
+      posture, so `repos_actionable{rule} / repos_tracked{org}`
+      understates non-compliance for a rule scoped to a subset of the
+      org. A rule applying to 10 of 100 repos with 5 failing reads as 5%
+      rather than 50%. The per-rule denominator is available from the
+      same aggregate if the panels need it; decide there, where the
+      ratio is actually written.
 - [x] 2.3 `property_schema_missing{org, property}` 0/1 gauge set at
       each schema-preflight cache refresh in
       `internal/reconciler/custom_properties.go` (the cache already

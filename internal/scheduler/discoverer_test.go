@@ -338,3 +338,7 @@ func TestDiscoverer_SetsInstallationInfo(t *testing.T) {
 }
 
 func (*fakeDiscoveryStore) Deactivate(context.Context, int64, string, string) error { return nil }
+
+func (*fakeDiscoveryStore) Posture(context.Context) (*store.Posture, error) {
+	return nil, errors.New("fakeDiscoveryStore: Posture not used by these tests")
+}

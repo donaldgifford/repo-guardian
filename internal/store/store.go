@@ -81,6 +81,73 @@ type RuleState struct {
 	PolicyVersion  string
 }
 
+// Park reasons as they appear on the Unmeasurable label. They are
+// derived from RepoState, which has no park_reason column: a park
+// writes StatusError for an unreadable repo and StatusSkipped with the
+// bare reason in LastError for archived and forked ones (INV-0015).
+//
+// Implementations MUST map to exactly this closed set. LastError is
+// free text, so passing it through unmapped would make an unbounded
+// Prometheus label out of an error message.
+const (
+	ReasonAccessDenied = "access_denied"
+	ReasonArchived     = "archived"
+	ReasonFork         = "fork"
+	ReasonUnknown      = "unknown"
+)
+
+// RuleCount is one row of the posture aggregate: how many repositories
+// in Org currently fail RuleName.
+type RuleCount struct {
+	Org      string
+	RuleName string
+	Count    int
+}
+
+// OrgCount is a per-org scalar from the posture aggregate.
+type OrgCount struct {
+	Org   string
+	Count int
+}
+
+// ReasonCount is a per-org scalar broken down by park reason.
+type ReasonCount struct {
+	Org    string
+	Reason string
+	Count  int
+}
+
+// Posture is one consistent read of fleet compliance state — the whole
+// input to a single exporter tick (DESIGN-0022 §Leader-scoped posture
+// exporter).
+//
+// The three slices are read in one transaction so a ratio computed
+// across them can never straddle a concurrent write-back and report
+// more actionable repos than tracked ones.
+//
+// Actionable and Tracked cover ACTIVE repositories only. Parked ones
+// are excluded from both and surfaced separately in Unmeasurable, so a
+// compliance ratio is only ever computed over repositories the fleet
+// can actually measure. Letting a parked repo hold its last verdict
+// would skew the ratio in a way nothing corrects — parking is exactly
+// the state in which a repository is never re-checked.
+type Posture struct {
+	// Actionable is per (org, rule): repos currently failing that rule.
+	Actionable []RuleCount
+
+	// Tracked is per org: distinct repos that have any posture at all,
+	// i.e. that have been checked at least once. It is the compliance
+	// denominator. Repos discovered but not yet checked are absent,
+	// because "not measured" is not "compliant".
+	Tracked []OrgCount
+
+	// Unmeasurable is per (org, reason): parked repos, excluded from
+	// the two above. Its total should track the standing population
+	// implied by repos_parked_total; a persistent disagreement means
+	// parks that never un-parked or un-parks nobody counted.
+	Unmeasurable []ReasonCount
+}
+
 // Store is the persistence boundary for per-repo reconcile state.
 // All methods are context-cancellable; implementations must respect
 // ctx.Done() for in-flight queries.
@@ -122,6 +189,13 @@ type Store interface {
 	UpsertIfMissing(ctx context.Context, s *RepoState) (created bool, err error)
 	UpsertRuleStates(ctx context.Context, installationID int64, owner, repo string, states []RuleState) error
 	StaleRepos(ctx context.Context, freshness time.Duration, currentPolicyVersion string, limit int) ([]RepoState, error)
+
+	// Posture is the read side of UpsertRuleStates: one consistent
+	// snapshot of fleet compliance, sized for a single exporter tick.
+	// Implementations MUST read the three aggregates in one
+	// transaction — see Posture for why — and MUST restrict Actionable
+	// and Tracked to rows whose repository is still active.
+	Posture(ctx context.Context) (*Posture, error)
 
 	// Deactivate marks a repository inactive so StaleRepos stops
 	// returning it. It is deliberately one-way: nothing here can set a

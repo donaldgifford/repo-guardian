@@ -447,3 +447,189 @@ func (s *Store) Close() error {
 
 	return nil
 }
+
+// Posture reads one consistent snapshot of fleet compliance.
+//
+// All three aggregates run inside a single read-only transaction. That
+// is not belt-and-braces: the exporter divides Actionable by Tracked,
+// and UpsertRuleStates rewrites a repo's whole rule set atomically, so
+// two independent reads could straddle a write-back and yield a ratio
+// above 1 — a compliance percentage over 100% is the kind of number
+// that destroys trust in the whole dashboard.
+func (s *Store) Posture(ctx context.Context) (*store.Posture, error) {
+	start := time.Now()
+	p, err := s.postureInner(ctx)
+	observeQuery("posture", start, err)
+
+	return p, err
+}
+
+func (s *Store) postureInner(ctx context.Context) (*store.Posture, error) {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return nil, fmt.Errorf("postgres.Posture: begin: %w", err)
+	}
+
+	defer func() {
+		_ = tx.Rollback(ctx) //nolint:errcheck // read-only tx; nothing to lose on cleanup
+	}()
+
+	var p store.Posture
+
+	if p.Actionable, err = scanRuleCounts(ctx, tx); err != nil {
+		return nil, err
+	}
+
+	if p.Tracked, err = scanOrgCounts(ctx, tx, trackedQuery); err != nil {
+		return nil, err
+	}
+
+	if p.Unmeasurable, err = scanReasonCounts(ctx, tx); err != nil {
+		return nil, err
+	}
+
+	return &p, nil
+}
+
+// actionableQuery counts repos failing each rule, per org.
+//
+// The join to repo_state is what enforces the active filter: `active`
+// lives there, and rule_state has no such column. Archived and forked
+// repos already have their rule rows cleared when they park, so for
+// them this is belt-and-braces; it is load-bearing for access-denied
+// parks, which deliberately keep their rows because we never learned
+// anything to replace them with.
+const actionableQuery = `
+SELECT rs.owner, rs.rule_name, count(*)
+FROM rule_state rs
+JOIN repo_state r
+  ON r.installation_id = rs.installation_id
+ AND r.owner = rs.owner
+ AND r.repo = rs.repo
+WHERE rs.actionable AND r.active
+GROUP BY rs.owner, rs.rule_name`
+
+// trackedQuery counts DISTINCT active repos holding any posture at
+// all, per org — the compliance denominator.
+//
+// Distinct repos rather than rule rows: the numerator counts repos, so
+// a rule-row denominator would divide repos by rows. Sourced from
+// rule_state rather than repo_state so a discovered-but-never-checked
+// repo is absent entirely, because "not yet measured" must not read as
+// "compliant".
+const trackedQuery = `
+SELECT owner, count(*)
+FROM (
+    SELECT DISTINCT rs.installation_id, rs.owner, rs.repo
+    FROM rule_state rs
+    JOIN repo_state r
+      ON r.installation_id = rs.installation_id
+     AND r.owner = rs.owner
+     AND r.repo = rs.repo
+    WHERE r.active
+) repos
+GROUP BY owner`
+
+// unmeasurableQuery counts parked repos per (org, reason).
+//
+// There is no park_reason column, so the reason is reconstructed from
+// what park writes: StatusError for a repo the installation cannot
+// read, StatusSkipped with the bare reason in last_error for archived
+// and forked ones (INV-0015).
+//
+// The IN clause is a cardinality guard, not a formality. last_error is
+// free text — for an access-denied park it holds a whole API error
+// message — and passing it through unmapped would turn a Prometheus
+// label into an unbounded set. Anything unrecognised collapses to
+// 'unknown', which is a visible bug report rather than a metrics
+// explosion.
+const unmeasurableQuery = `
+SELECT owner,
+       CASE
+           WHEN last_check_status = $1 THEN $2
+           WHEN last_check_status = $3 AND last_error IN ($4, $5) THEN last_error
+           ELSE $6
+       END AS reason,
+       count(*)
+FROM repo_state
+WHERE NOT active
+GROUP BY owner, reason`
+
+func scanRuleCounts(ctx context.Context, tx pgx.Tx) ([]store.RuleCount, error) {
+	rows, err := tx.Query(ctx, actionableQuery)
+	if err != nil {
+		return nil, fmt.Errorf("postgres.Posture: actionable: %w", err)
+	}
+	defer rows.Close()
+
+	var out []store.RuleCount
+
+	for rows.Next() {
+		var c store.RuleCount
+		if err := rows.Scan(&c.Org, &c.RuleName, &c.Count); err != nil {
+			return nil, fmt.Errorf("postgres.Posture: scan actionable: %w", err)
+		}
+
+		out = append(out, c)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("postgres.Posture: actionable rows: %w", err)
+	}
+
+	return out, nil
+}
+
+func scanOrgCounts(ctx context.Context, tx pgx.Tx, query string) ([]store.OrgCount, error) {
+	rows, err := tx.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("postgres.Posture: tracked: %w", err)
+	}
+	defer rows.Close()
+
+	var out []store.OrgCount
+
+	for rows.Next() {
+		var c store.OrgCount
+		if err := rows.Scan(&c.Org, &c.Count); err != nil {
+			return nil, fmt.Errorf("postgres.Posture: scan tracked: %w", err)
+		}
+
+		out = append(out, c)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("postgres.Posture: tracked rows: %w", err)
+	}
+
+	return out, nil
+}
+
+func scanReasonCounts(ctx context.Context, tx pgx.Tx) ([]store.ReasonCount, error) {
+	rows, err := tx.Query(ctx, unmeasurableQuery,
+		store.StatusError, store.ReasonAccessDenied,
+		store.StatusSkipped, store.ReasonArchived, store.ReasonFork,
+		store.ReasonUnknown,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("postgres.Posture: unmeasurable: %w", err)
+	}
+	defer rows.Close()
+
+	var out []store.ReasonCount
+
+	for rows.Next() {
+		var c store.ReasonCount
+		if err := rows.Scan(&c.Org, &c.Reason, &c.Count); err != nil {
+			return nil, fmt.Errorf("postgres.Posture: scan unmeasurable: %w", err)
+		}
+
+		out = append(out, c)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("postgres.Posture: unmeasurable rows: %w", err)
+	}
+
+	return out, nil
+}

@@ -233,6 +233,68 @@ func (_c *MockStore_GetRepoState_Call) RunAndReturn(run func(ctx context.Context
 	return _c
 }
 
+// Posture provides a mock function for the type MockStore
+func (_mock *MockStore) Posture(ctx context.Context) (*store.Posture, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Posture")
+	}
+
+	var r0 *store.Posture
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (*store.Posture, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) *store.Posture); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*store.Posture)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockStore_Posture_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Posture'
+type MockStore_Posture_Call struct {
+	*mock.Call
+}
+
+// Posture is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockStore_Expecter) Posture(ctx any) *MockStore_Posture_Call {
+	return &MockStore_Posture_Call{Call: _e.mock.On("Posture", ctx)}
+}
+
+func (_c *MockStore_Posture_Call) Run(run func(ctx context.Context)) *MockStore_Posture_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_Posture_Call) Return(posture *store.Posture, err error) *MockStore_Posture_Call {
+	_c.Call.Return(posture, err)
+	return _c
+}
+
+func (_c *MockStore_Posture_Call) RunAndReturn(run func(ctx context.Context) (*store.Posture, error)) *MockStore_Posture_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // StaleRepos provides a mock function for the type MockStore
 func (_mock *MockStore) StaleRepos(ctx context.Context, freshness time.Duration, currentPolicyVersion string, limit int) ([]store.RepoState, error) {
 	ret := _mock.Called(ctx, freshness, currentPolicyVersion, limit)

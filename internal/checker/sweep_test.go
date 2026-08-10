@@ -322,3 +322,7 @@ func TestStaleSweeper_PolicyVersionMismatchEnqueuesAll(t *testing.T) {
 }
 
 func (*fakeStore) Deactivate(context.Context, int64, string, string) error { return nil }
+
+func (*fakeStore) Posture(context.Context) (*store.Posture, error) {
+	return nil, errors.New("fakeStore: Posture not used by these tests")
+}

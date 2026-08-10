@@ -125,11 +125,17 @@ already stores `{status, error, policy_version}`.
 
 #### Tasks
 
-- [x] 1.1 Migration `0002` (up + down) in
+- [x] 1.1 Migration `0003` (up + down) in
       `internal/store/postgres/migrations/`: `rule_state` with the
       partial index on `(owner, rule_name) WHERE actionable`,
       `compliance_snapshot`, and
       `ALTER TABLE repo_state ADD COLUMN catalog_parse_ok BOOLEAN`.
+      **Divergence:** written as `0002`, renumbered to `0003` when main
+      was merged — INV-0015 shipped its own `0002_repo_active` while
+      this branch was parked. Different filenames, so git merged both
+      silently and golang-migrate would have refused the source at
+      startup. The two are independent; `MigrateUpDownUp` covers the
+      full 0001-0003 chain.
 - [x] 1.2 Change `Engine.CheckRepo` (engine.go:97) to return
       `(*CheckResult, error)`: `Outcomes []RuleOutcome{RuleName,
       Kind, Actionable}` covering file, setting, and
@@ -193,6 +199,21 @@ already stores `{status, error, policy_version}`.
       `repos_actionable{rule_name, org}` and `repos_tracked{org}`
       (the `ResetOpenPRsByRule` precedent — stale series die on the
       next tick). Compliance ratio stays in PromQL (OQ2 → a).
+      **Decide first (new, from the INV-0015 merge):** whether the
+      posture query filters on `repo_state.active`. Parking splits into
+      two cases and they do not want the same answer. Archived and fork
+      parks already clear their `rule_state` rows (`Pool.park` passes an
+      empty result), so they drop out with no filter needed.
+      Access-denied parks deliberately *keep* their rows — we could not
+      read the repo, so reporting it compliant would be a lie — which
+      means an unreadable repo holds its last verdict in the posture
+      numbers for as long as it stays parked, and parking is exactly the
+      state in which it is never re-checked. Options: leave it (last
+      known state, arguably honest), filter `WHERE active` (drops it
+      from both numerator and denominator), or surface it as its own
+      series so the report can say "N repos unmeasurable". Cross-check
+      `repo_guardian_repos_parked_total{reason="access_denied"}`, which
+      already counts the population.
 - [x] 2.3 `property_schema_missing{org, property}` 0/1 gauge set at
       each schema-preflight cache refresh in
       `internal/reconciler/custom_properties.go` (the cache already
@@ -313,7 +334,13 @@ with Phases 1–2.
       `PropertySchemaMissing` without a `custom_properties`
       reconciler), windows per INV-0012 findings C/E; includes
       `RepoGuardianPostureExportStalled` and — once the metrics
-      exist — the IMPL-0022 queue alerts.
+      exist — the IMPL-0022 queue alerts. **New since the merge:**
+      `RepoGuardianRepoAccessDenied` (INV-0015) joins the starter set
+      to re-author, and it carries a load-bearing label selector —
+      `repos_parked_total{reason="access_denied"}`, because the same
+      metric also counts routine archived/fork parks. Any generator
+      that emits the alert without the selector pages on every normal
+      onboarding sweep.
 - [ ] 5.4 `--format k8s`: grafana-operator `GrafanaDashboard` CRs
       (design OQ7 → b) + a `PrometheusRule` CR; `--format json` emits
       plain files. Datasources are concrete UIDs defaulting to
@@ -321,7 +348,15 @@ with Phases 1–2.
       `--loki-uid` (OQ4); the static tier carries the defaults.
 - [ ] 5.5 CI drift gate: regenerate the static tier from the default
       config in `ci.yml`, fail on diff (the helm-docs convention);
-      wire into the `changes` paths-filter matrix.
+      wire into the `changes` paths-filter matrix. **Reuse what
+      landed:** `make lint-alerts` now has a `lint-alerts-chart` half
+      that renders the chart, extracts `spec.groups` with `yq`, and
+      runs `promtool check rules` — with an explicit guard against the
+      vacuous pass, since promtool exits 0 on "0 rules found".
+      Generated PrometheusRules should go through the same shape rather
+      than a new one, and the `alerts` paths-filter already covers the
+      Makefile. Note helm-unittest cannot substitute: it passes 105/105
+      against syntactically invalid PromQL.
 - [ ] 5.6 Document generator-as-validation: a failing `policy.Load`
       fails generation, so running it in CI is a free config check
       (strict-templates precedent).
@@ -352,7 +387,13 @@ hand-written dashboard JSON anywhere.
       (`sum without (org)`) + per-org rows generated per configured
       org; `installation_info` `group_left` joins for
       `installation_id`-keyed series; queue/store/scheduler metrics
-      deliberately absent (they are E3's).
+      deliberately absent (they are E3's). **New since the merge:** a
+      parked-repo panel from `repos_parked_total{org, reason}` —
+      `sum by (reason)` over 24h. It belongs on E2 rather than E3
+      because it is fleet composition, not system health, and it is the
+      denominator context for the posture numbers: a fleet whose
+      tracked count drops needs the archived/fork series next to it to
+      distinguish "repos left the fleet" from "the exporter broke".
 - [ ] 6.3 E3 system dashboard — service + infra tiers: OTEL semconv
       HTTP server/client, redisotel, pgx pool + `store_query_seconds`,
       queue USE (including IMPL-0022's series when present), go
@@ -401,7 +442,13 @@ hand-written dashboard JSON anywhere.
       parity with the generator output.
 - [ ] 7.4 CLAUDE.md: posture-state contract (write-back best-effort,
       leader-scoped export, taxonomy pointer) and the
-      transport-ordering contract shared with IMPL-0022.
+      transport-ordering contract shared with IMPL-0022. Also the
+      nil-vs-empty `*CheckResult` rule and its interaction with
+      INV-0015 parking — `Pool.park` passes an empty result for
+      archived/fork and nil for access-denied, and getting that
+      backwards is silently wrong in both directions. CLAUDE.md already
+      carries the parking entry; this extends it rather than adding a
+      second one.
 - [ ] 7.5 Flip INV-0013 to Concluded and DESIGN-0022 to Implemented;
       `docz update design inv impl`; mkdocs stays at the 14-warning
       baseline.

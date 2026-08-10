@@ -199,21 +199,46 @@ already stores `{status, error, policy_version}`.
       `repos_actionable{rule_name, org}` and `repos_tracked{org}`
       (the `ResetOpenPRsByRule` precedent — stale series die on the
       next tick). Compliance ratio stays in PromQL (OQ2 → a).
-      **Decide first (new, from the INV-0015 merge):** whether the
-      posture query filters on `repo_state.active`. Parking splits into
-      two cases and they do not want the same answer. Archived and fork
-      parks already clear their `rule_state` rows (`Pool.park` passes an
-      empty result), so they drop out with no filter needed.
-      Access-denied parks deliberately *keep* their rows — we could not
-      read the repo, so reporting it compliant would be a lie — which
-      means an unreadable repo holds its last verdict in the posture
-      numbers for as long as it stays parked, and parking is exactly the
-      state in which it is never re-checked. Options: leave it (last
-      known state, arguably honest), filter `WHERE active` (drops it
-      from both numerator and denominator), or surface it as its own
-      series so the report can say "N repos unmeasurable". Cross-check
-      `repo_guardian_repos_parked_total{reason="access_denied"}`, which
-      already counts the population.
+      **Decided (from the INV-0015 merge): filter on
+      `repo_state.active`, and export the excluded population as its own
+      series.** Parked repos leave both the numerator and the
+      denominator, so a compliance ratio is only ever computed over
+      repos we can actually measure. The alternative — letting an
+      access-denied repo hold its last verdict — makes the ratio quietly
+      wrong in a way nothing corrects, because parking is exactly the
+      state in which a repo is never re-checked. Chosen for usability
+      over brevity: the filter is more verbose at the query, but it
+      makes "N repos unmeasurable" a first-class number instead of an
+      invisible distortion, and `active = false` is then reusable as the
+      general "not in the fleet right now" predicate for the report and
+      any later exporter.
+
+      Implementation notes for this task:
+
+      - The filter needs a join. `active` lives on `repo_state`;
+        `rule_state` has no such column. The aggregate becomes
+        `rule_state JOIN repo_state USING (installation_id, owner, repo)
+        WHERE repo_state.active`, which is a join on the `repo_state`
+        primary key but does change the shape from the single-table
+        aggregate `idx_rule_state_actionable` was built for. Check the
+        plan at fleet size before assuming the partial index still
+        carries it; if it does not, that is an index change, not a
+        reason to revisit the decision.
+      - Archived and fork parks already clear their `rule_state` rows
+        (`Pool.park` passes an empty result), so for them the filter is
+        belt-and-braces. It is load-bearing for `access_denied`, which
+        deliberately keeps its rows.
+      - The unmeasurable series is per-org and should distinguish *why*.
+        `repo_state` has no `park_reason` column, so the discriminator
+        is `last_check_status`: `'error'` is access-denied, `'skipped'`
+        is archived/fork (see docs/operations/migrations.md). Suggested
+        shape `repos_unmeasurable{org, reason}`, reset-and-set on the
+        same tick as the posture gauges so stale series die together.
+      - Cross-check the total against
+        `repo_guardian_repos_parked_total{reason}`, which already counts
+        park *events*; the new gauge is the standing population, and the
+        two disagreeing is a real signal (parks that never un-parked, or
+        un-parks nobody counted).
 - [x] 2.3 `property_schema_missing{org, property}` 0/1 gauge set at
       each schema-preflight cache refresh in
       `internal/reconciler/custom_properties.go` (the cache already

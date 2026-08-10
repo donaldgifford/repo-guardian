@@ -299,10 +299,23 @@ already stores `{status, error, policy_version}`.
       var on its own, so a chart that silently stopped emitting it
       would keep working and the drift would only surface when an
       operator set the value and nothing happened.
-- [ ] 2.6 Tests: only the leader emits (two schedulers, one series
+- [x] 2.6 Tests: only the leader emits (two schedulers, one series
       source); a removed org/rule stops emitting after the next tick
       (non-vacuity: skip the `Reset()`, watch it fail); gauge values
-      equal SQL truth.
+      equal SQL truth. Unit tests in `posture_test.go`; the two the
+      unit tests structurally cannot cover live in
+      `posture_integration_test.go` — leader gating against real
+      Valkey, and gauges against real SQL (with a fake store the
+      exporter publishes what it is handed *by construction*, so only
+      Postgres can say whether the numbers are right). Both verified by
+      neutralising the thing under test.
+
+      **Gotcha worth remembering:** `GaugeVec.WithLabelValues`
+      INSTANTIATES the child at zero as a side effect, so reading an
+      absent series to prove it is absent creates it. A
+      `CollectAndCount` taken after such a read measures the test's own
+      footprint, not the exporter's output — this cost a failing
+      assertion here. Count series BEFORE asserting individual values.
 - [ ] 2.7 `contrib/README.md` rows for all Phase 2 metrics.
 
 #### Success Criteria

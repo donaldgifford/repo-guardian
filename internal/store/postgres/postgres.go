@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
+	"github.com/donaldgifford/repo-guardian/internal/observability"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 )
 
@@ -60,6 +61,10 @@ func New(ctx context.Context, dsn string, maxConns int32, logger *slog.Logger) (
 		cfg.MaxConns = maxConns
 	}
 
+	// Before the pool is built: the tracer is a config field, so a pool
+	// constructed first would never see it.
+	observability.InstrumentPostgresConfig(cfg)
+
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("postgres.New: connect pool: %w", err)
@@ -69,6 +74,12 @@ func New(ctx context.Context, dsn string, maxConns int32, logger *slog.Logger) (
 		pool.Close()
 
 		return nil, fmt.Errorf("postgres.New: ping: %w", err)
+	}
+
+	// Non-fatal: a store that works but is unmeasured beats a pod that
+	// will not start because its telemetry did not register.
+	if err := observability.InstrumentPostgresPool(pool); err != nil {
+		logger.Warn("postgres pool metrics unavailable; store continues uninstrumented", "error", err)
 	}
 
 	return &Store{pool: pool, logger: logger}, nil

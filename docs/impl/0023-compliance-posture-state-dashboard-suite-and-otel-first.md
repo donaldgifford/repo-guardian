@@ -546,10 +546,47 @@ with Phases 1–2.
       reach Valkey still reports its pool — exactly the state an
       operator most wants a number for. Command latency needs a live
       server and is left to the queue integration tests.
-- [ ] 3.5 `otelpgx` on the pgxpool; verify whether its pool-stats
-      option covers `pgxpool.Stat()` — use it if yes, add the small
-      Stat collector if no. Exactly one pool-stats source ships;
-      record the verification outcome in the PR.
+- [x] 3.5 `otelpgx` on the pgxpool.
+
+      **Open question resolved: otelpgx covers `pgxpool.Stat()`. No
+      hand-rolled Stat collector ships.** `otelpgx.RecordStats` takes an
+      interface (`Stat() *pgxpool.Stat` + `Config() *pgxpool.Config`)
+      that `*pgxpool.Pool` already satisfies, and the emitted series
+      carry real values read from the live pool — verified by scraping
+      `pgxpool_max_connections` and getting the configured cap rather
+      than a zero. Exactly one pool-stats source, as required.
+
+      Two separate wirings, both needed:
+
+      - `otelpgx.NewTracer()` on `ConnConfig` gives per-query
+        `db.client.operation.duration` and `.errors`. Worth checking
+        before wiring, since spans go nowhere here: the tracer records
+        METRICS as well as spans, so it is not dead weight under a no-op
+        TracerProvider. It must be set BEFORE the pool is built — it is
+        a config field read at connection time, so a pool constructed
+        first would never consult it and query metrics would be silently
+        absent with no error anywhere. Pinned by a test.
+      - `otelpgx.RecordStats(pool)` for pool statistics, registered as
+        an asynchronous callback rather than a goroutine.
+
+      **Naming surprise worth recording for Phase 6:** the pool series
+      are `pgxpool_*` (`pgxpool_max_connections`,
+      `pgxpool_acquire_duration_nanoseconds_total`, …), NOT the
+      `db.client.connection.*` semconv family. Dashboard panels written
+      against the semconv names would match nothing. Found by asserting
+      the semconv name and watching the test fail.
+
+      Complementary to `store_query_seconds{op}`, not redundant with it,
+      and the DESIGN-0022 dedup rule decides which is authoritative:
+      the domain metric knows the difference between `StaleRepos` and
+      `UpsertIfMissing` where semconv sees only SQL verbs, so it stays
+      authoritative for *which* operation is slow; semconv separates
+      pool-acquire wait from execution time, so it is authoritative for
+      *why*.
+
+      Instrumentation failure is logged, not fatal — an unmeasured store
+      beats a pod that will not start because its telemetry did not
+      register.
 - [ ] 3.6 Cardinality audit of the bridge output (no `url.path` on
       server metrics, bounded label sets; drop attributes via views
       if needed) + document the one-source-per-panel dedup rule in

@@ -451,10 +451,36 @@ with Phases 1–2.
       is NOT yet a property of the whole set and no test here claims it
       is. Closing it needs a view dropping those two attributes, which
       is 3.6's shape of work, not a wrapper change.
-- [ ] 3.3 `otelhttp` client transport wrapping the installation
-      transport, **outermost** (above the rate-limit transport —
-      the IMPL-0022 ordering contract; whichever lands second adds
-      the ordering test).
+- [x] 3.3 `otelhttp` client transport wrapping the installation
+      transport, **outermost** (above the rate-limit transport — the
+      IMPL-0022 ordering contract). OTEL landed second, so the ordering
+      test is here: `internal/github/transport_order_test.go`.
+
+      All three constructors (`NewClient*`, `CreateInstallationClient`,
+      `NewClientForBaseURL`) funnel through one `instrumentedClient`
+      helper so the ordering cannot drift between the App client, the
+      installation client, and the base-URL client tests drive.
+
+      **The test discriminates on sample COUNT, not on attributes.** The
+      rate-limit transport does not send once remaining is under the
+      reserve — it returns `*ThrottledError` in place of a response. With
+      otelhttp on top that refusal is still an attempt and lands in the
+      client histogram; underneath, the request never reaches otelhttp
+      and the deferral is not measured at all. So two requests are
+      issued, one sent and one refused, and both must be measured.
+      Verified by actually inverting the chain: the count drops to 1 and
+      the test names the inversion in its failure message.
+
+      Consequence worth stating plainly, since it is the reason the
+      order matters: with otelhttp underneath, a throttled installation
+      produces NO client metrics, so a rate-limited period looks
+      identical to an idle one — the exact failure the IMPL-0022
+      deferral work exists to make visible.
+
+      The fixture uses remaining=20 (under the reserve) rather than
+      remaining=0 deliberately: zero trips go-github's internal
+      pre-check, which short-circuits above our transport AND above
+      otelhttp, exercising a different path than the one under test.
 - [ ] 3.4 `redisotel` metrics on both Valkey clients (queue,
       scheduler) — reaper Lua and leader SETNX command latency
       included.

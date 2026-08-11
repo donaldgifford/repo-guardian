@@ -16,6 +16,7 @@ import (
 	gh "github.com/google/go-github/v68/github"
 
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
+	"github.com/donaldgifford/repo-guardian/internal/observability"
 )
 
 // GitHubClient implements the Client interface using the go-github library
@@ -74,7 +75,7 @@ func NewClientForBaseURL(baseURL string, next http.RoundTripper, logger *slog.Lo
 
 	rlTransport := newRateLimitTransport(next, logger.With("component", "ratelimit"), rateLimitThreshold)
 
-	ghClient := gh.NewClient(&http.Client{Transport: rlTransport})
+	ghClient := gh.NewClient(instrumentedClient(rlTransport))
 
 	ghClient, err := ghClient.WithEnterpriseURLs(baseURL+"/", baseURL+"/")
 	if err != nil {
@@ -89,9 +90,21 @@ func NewClientForBaseURL(baseURL string, next http.RoundTripper, logger *slog.Lo
 	}, nil
 }
 
+// instrumentedClient returns the http.Client go-github should use for a
+// chain whose top authenticated layer is rl.
+//
+// otelhttp goes OUTERMOST, above the rate-limit transport — see
+// observability.Transport for why the order is load-bearing. All three
+// GitHubClient constructors funnel through here so the ordering cannot
+// drift between the App client, the installation client, and the
+// base-URL client used by tests.
+func instrumentedClient(rl http.RoundTripper) *http.Client {
+	return &http.Client{Transport: observability.Transport(rl)}
+}
+
 func newClientFromTransport(transport *ghinstallation.AppsTransport, logger *slog.Logger, rateLimitThreshold float64) *GitHubClient {
 	rlTransport := newRateLimitTransport(transport, logger.With("component", "ratelimit"), rateLimitThreshold)
-	appClient := gh.NewClient(&http.Client{Transport: rlTransport})
+	appClient := gh.NewClient(instrumentedClient(rlTransport))
 
 	return &GitHubClient{
 		appTransport:       transport,
@@ -1065,7 +1078,7 @@ func (c *GitHubClient) getInstallClient(installationID int64) (*gh.Client, error
 		c.logger.With("component", "ratelimit", "installation_id", installationID),
 		c.rateLimitThreshold,
 	)
-	client := gh.NewClient(&http.Client{Transport: rlTransport})
+	client := gh.NewClient(instrumentedClient(rlTransport))
 	c.installClients[installationID] = client
 
 	return client, nil

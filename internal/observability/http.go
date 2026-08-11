@@ -39,3 +39,27 @@ import (
 func Handler(h http.Handler, route string) http.Handler {
 	return otelhttp.NewHandler(h, route)
 }
+
+// Transport wraps an HTTP transport with semconv client metrics.
+//
+// It must be the OUTERMOST layer of the GitHub transport chain:
+//
+//	otelhttp                 ← here
+//	  └─ rate-limit          ← IMPL-0022, the ThrottledError source
+//	       └─ ghinstallation ← token minting
+//
+// The ordering is not cosmetic. The rate-limit transport refuses to
+// send once the remaining budget is under the reserve, returning a
+// *github.ThrottledError instead of a response. Outermost, that refusal
+// is still an attempt otelhttp measures, carrying error.type and no
+// status code — which is the residual throttle signal replacing the
+// retired github_rate_limit_wait_* pair. Put otelhttp underneath and
+// the request never reaches it: deferred calls disappear from the
+// client metrics entirely, and the throttled period reads as a traffic
+// lull rather than as backpressure.
+//
+// The meter provider is the global one, so this is a no-op wrapper when
+// OTEL_SDK_DISABLED is set — call sites never branch.
+func Transport(next http.RoundTripper) http.RoundTripper {
+	return otelhttp.NewTransport(next)
+}

@@ -732,12 +732,59 @@ the pool directly. `make ci`, the integration suite, and `go mod tidy
       replica inserts its own rows at its own timestamp and a
       quarter-over-quarter query would then count one state N times or
       once depending on whether the clocks happened to agree.
-- [ ] 4.2 `repo-guardian report` subcommand (CLI dispatch per Open
+- [x] 4.2 `repo-guardian report` subcommand (CLI dispatch per Open
       Question 1): loads `guardian.hcl`, queries `rule_state` +
       `compliance_snapshot`, renders one markdown file per org to
       `--out` (OQ6 → a) — compliance % per rule, trend vs previous
       snapshot, and the repo/rule/missing-since table; open-PR links
       fetched live via the installation client.
+
+      **It fixed a live bug on the way in.** `dispatch` deliberately
+      does NOT `flag.Parse()` before the subcommand switch, because
+      `flag.CommandLine` stops at the first non-flag argument. Parsing
+      first would swallow the subcommand name and leave its flags in an
+      unread tail — which is not hypothetical: before this switch
+      existed, `repo-guardian report --out ./x` silently started the
+      HTTP server, because nothing inspected `flag.Args()`. Anything
+      that is not a known subcommand still falls through to the server,
+      so `repo-guardian` and `repo-guardian --strict-templates` behave
+      exactly as before. Consequence of that same rule: `--help` and
+      `-h` start with a dash and so never reach the switch, so `run()`
+      prepends the subcommand banner to `flag.CommandLine.Usage` —
+      otherwise the report subcommand would be invisible to the one
+      thing a user actually types.
+
+      **Divergence — PR links are opt-in behind `--with-pr-links`, and
+      the report package never imports `internal/github`.** Enrichment
+      goes through a `report.PRLinker` interface the CLI satisfies with
+      a `GitHubLinker`, so the golden tests in 4.3 need no client, no
+      credentials and no network. Live fetching is a per-org
+      installation lookup plus a list call, which is the one part of
+      this command that can be slow, rate-limited or 403 — making it a
+      flag means the common case (`report --out ./x`) is pure database
+      work. A failing installation is memoised so one broken org costs
+      one API error, not one per repo.
+
+      **Divergence — `runReport` calls neither `config.Load()` nor
+      `pgstore.Migrate`.** `config.Load()` demands a webhook secret and
+      a Valkey DSN, neither of which a read-only report needs, and
+      failing a report because the queue is unconfigured would be
+      absurd; the DSN comes from `--dsn` or `STORE_DSN` directly.
+      Skipping `Migrate` is the more important half: a CLI run by an
+      operator from a newer binary would otherwise migrate the schema
+      out from under a running older server.
+
+      `filename()` REJECTS an org name containing a path separator
+      rather than sanitizing it. Sanitizing is the tempting choice and
+      the wrong one — it can collide two distinct orgs onto one file
+      and silently overwrite one report with the other. GitHub org
+      names cannot contain a separator, so the rejection path is
+      unreachable in practice and exists to stay that way.
+
+      `github.PullRequest` grew an `HTMLURL` field, populated at both
+      literal sites. The field did not exist, and synthesizing
+      `github.com/owner/repo/pull/N` would hardcode the provider into
+      a struct that DESIGN-0017's GitLab backend is meant to reuse.
 - [ ] 4.3 Golden-file tests for report rendering; trend test across
       two synthetic snapshots; empty-org and zero-snapshot edge
       cases.

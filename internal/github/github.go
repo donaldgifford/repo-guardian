@@ -19,6 +19,16 @@ type PullRequest struct {
 	Head      string    // Branch name.
 	State     string    // "open", "closed".
 	CreatedAt time.Time // PR creation timestamp; used for age-bucketed metrics.
+
+	// HTMLURL is the browser link to the PR, taken from the API rather
+	// than assembled from owner/repo/number. Assembling it would bake
+	// github.com into a codebase that is deliberately heading towards a
+	// provider abstraction (INV-0006/0007), and would be wrong on GitHub
+	// Enterprise today.
+	//
+	// Populate this at EVERY &PullRequest literal. Forgetting one is how
+	// CreatedAt silently collapsed the PR-age gauge to its <1d bucket.
+	HTMLURL string
 }
 
 // Installation represents a GitHub App installation on an org or user account.

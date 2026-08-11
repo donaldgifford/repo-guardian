@@ -165,6 +165,7 @@ func (c *GitHubClient) ListOpenPullRequests(ctx context.Context, owner, repo str
 				Head:      pr.GetHead().GetRef(),
 				State:     pr.GetState(),
 				CreatedAt: pr.GetCreatedAt().Time,
+				HTMLURL:   pr.GetHTMLURL(),
 			})
 		}
 
@@ -308,6 +309,7 @@ func (c *GitHubClient) CreatePullRequest(
 		Head:      pr.GetHead().GetRef(),
 		State:     pr.GetState(),
 		CreatedAt: pr.GetCreatedAt().Time,
+		HTMLURL:   pr.GetHTMLURL(),
 	}, nil
 }
 

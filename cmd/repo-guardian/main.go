@@ -6,11 +6,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -51,10 +53,70 @@ const (
 )
 
 func main() {
-	if err := run(); err != nil {
+	if err := dispatch(os.Args); err != nil {
 		slog.Error("repo-guardian exited with error", "error", err)
 		os.Exit(1)
 	}
+}
+
+// dispatch routes argv to a subcommand. Anything that is not a known
+// subcommand name — no arguments at all, or a leading flag — falls
+// through to the server, so `repo-guardian` and
+// `repo-guardian --strict-templates` behave exactly as they did before
+// subcommands existed.
+//
+// Deliberately NOT flag.Parse()'d first. flag.CommandLine stops at the
+// first non-flag argument, so parsing here would swallow the subcommand
+// name and leave its own flags sitting in an unread tail. That is not
+// hypothetical: before this switch existed, `repo-guardian report --out
+// ./x` silently started the HTTP server, because nothing inspected
+// flag.Args() and the unknown arguments were simply ignored.
+//
+// argv is a parameter for testability only. run() still reads os.Args
+// through the global flag.CommandLine, so the server path must be
+// reached with os.Args untouched — do not "normalise" argv here.
+func dispatch(argv []string) error {
+	if len(argv) < 2 || strings.HasPrefix(argv[1], "-") {
+		return run()
+	}
+
+	switch argv[1] {
+	case "report":
+		return runReport(argv[2:])
+	case "help":
+		usage(os.Stdout)
+
+		return nil
+	default:
+		usage(os.Stderr)
+
+		return fmt.Errorf("unknown subcommand %q", argv[1])
+	}
+}
+
+// usage lists the subcommands.
+//
+// `--help` and `-h` never reach dispatch's switch — they start with a
+// dash, so dispatch hands them to the server path, where the flag
+// package prints its own usage. run() therefore prepends this banner to
+// flag.CommandLine's output, so the one thing a user is most likely to
+// type still names the report subcommand.
+//
+// The write is unchecked on purpose: this is usage text on its way to
+// stdout or stderr, there is no recovery path, and the flag package
+// ignores the identical error in PrintDefaults.
+func usage(w io.Writer) {
+	//nolint:errcheck // usage text; no recovery path, see doc comment
+	fmt.Fprint(w, `repo-guardian — GitHub App for repository compliance
+
+Usage:
+  repo-guardian [flags]            run the server (default; see --help)
+  repo-guardian report [flags]     write per-org compliance reports
+  repo-guardian help               show this message
+
+Running with no subcommand starts the server, which is the behaviour
+every existing deployment relies on.
+`)
 }
 
 func run() error {
@@ -65,6 +127,12 @@ func run() error {
 		strictTemplatesFromEnv(),
 		"Validate every compiled PR template against a zero-value PRVars context at startup; exit non-zero on failure",
 	)
+
+	flag.CommandLine.Usage = func() {
+		usage(flag.CommandLine.Output())
+		flag.PrintDefaults()
+	}
+
 	flag.Parse()
 
 	cfg, err := config.Load()

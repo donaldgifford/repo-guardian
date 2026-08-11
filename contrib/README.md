@@ -386,6 +386,33 @@ sum by (installation_id) (
   rate(repo_guardian_api_budget_refresh_total{outcome="error"}[15m]))
 ```
 
+### OpenTelemetry semconv series (IMPL-0023 Phase 3)
+
+Four transport boundaries — inbound HTTP, the GitHub client, Valkey and
+Postgres — are instrumented with off-the-shelf OTel libraries and
+exported through a Prometheus bridge into this same endpoint. Those
+series are **not** `repo_guardian_`-prefixed: they are `http_server_*`,
+`http_client_*`, `db_client_*`, `redis_*` and `pgxpool_*`.
+
+The catalog, the cardinality decisions, and the one-source-per-panel
+dedup rule live in `docs/operations/scaling.md` §OpenTelemetry series
+rather than being repeated here, so there is one copy to keep true.
+
+Two things to know before writing a query against them:
+
+- **Every panel picks one source.** Domain metrics stay authoritative
+  for domain questions — `store_query_seconds{op}` knows `stale_repos`
+  from `upsert_if_missing`, while the semconv database metrics see only
+  SQL verbs. Semconv is authoritative for transport questions the
+  domain metrics cannot see, like pool-acquire wait versus execution
+  time. No panel mixes the two for the same signal.
+- **`http_client_request_duration_seconds_count` is not "GitHub API
+  calls attempted."** go-github's own client-side pre-check
+  short-circuits above the transport once its header cache sees
+  `remaining=0`, so those calls are never measured — the under-count
+  happens exactly when the system is rate-limited. Use
+  `queue_delayed_total{reason="rate_limit"}` for throttle volume.
+
 ## Common Queries
 
 ### Per-org activity

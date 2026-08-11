@@ -673,6 +673,19 @@ with Phases 1–2.
   consciously superseded (3.5's one-source decision recorded).
 - `make ci` passes.
 
+**Phase 3 outcome (all criteria met).** All four boundaries export
+through the bridge into the registry `/metrics` already serves — no
+collector, no second scrape target, no scrape-config change. Every item
+on INV-0013 Finding F's cancelled list is superseded rather than
+quietly dropped: the hand-rolled GitHub RoundTripper histogram by the
+otelhttp client transport (3.3), the webhook duration middleware by the
+otelhttp server handler (3.2), the `redisprometheus` collector by
+`redisotel` (3.4), and the `pgxpool.Stat()` collector by
+`otelpgx.RecordStats` — the "one or the other, not both" question the
+investigation left open, answered in 3.5 by confirming otelpgx reads
+the pool directly. `make ci`, the integration suite, and `go mod tidy
+-diff` are all clean.
+
 ---
 
 ### Phase 4: Compliance snapshots and the report CLI

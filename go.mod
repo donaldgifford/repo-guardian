@@ -4,12 +4,15 @@ go 1.26.5
 
 require (
 	github.com/bradleyfalzon/ghinstallation/v2 v2.17.0
+	github.com/exaring/otelpgx v0.11.1
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/go-github/v68 v68.0.0
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/prometheus/client_golang v1.24.1
 	github.com/prometheus/client_model v0.6.2
+	github.com/prometheus/otlptranslator v1.0.0
+	github.com/redis/go-redis/extra/redisotel/v9 v9.19.0
 	github.com/redis/go-redis/v9 v9.19.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.42.0
@@ -45,7 +48,6 @@ require (
 	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/ebitengine/purego v0.10.0 // indirect
-	github.com/exaring/otelpgx v0.11.1 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -78,10 +80,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/prometheus/common v0.70.1 // indirect
-	github.com/prometheus/otlptranslator v1.0.0 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/redis/go-redis/extra/rediscmd/v9 v9.19.0 // indirect
-	github.com/redis/go-redis/extra/redisotel/v9 v9.19.0 // indirect
 	github.com/shirou/gopsutil/v4 v4.26.3 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect

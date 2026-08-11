@@ -366,6 +366,14 @@ func newQueue(ctx context.Context, cfg *config.Config, logger *slog.Logger) (que
 	}
 
 	client := redis.NewClient(parsed)
+
+	// Covers the scheduler too — newScheduler reuses this same client
+	// (IMPL-0011 Phase 4), so there is exactly one to instrument.
+	// Non-fatal: telemetry must never stop the queue coming up.
+	if err := observability.InstrumentValkey(client); err != nil {
+		logger.Warn("valkey metrics instrumentation failed; queue continues uninstrumented", "error", err)
+	}
+
 	if err := client.Ping(ctx).Err(); err != nil {
 		if closeErr := client.Close(); closeErr != nil {
 			logger.Warn("valkey client close failed during ping-fail cleanup", "error", closeErr)

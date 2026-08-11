@@ -515,9 +515,37 @@ with Phases 1–2.
       remaining=0 deliberately: zero trips go-github's internal
       pre-check, which short-circuits above our transport AND above
       otelhttp, exercising a different path than the one under test.
-- [ ] 3.4 `redisotel` metrics on both Valkey clients (queue,
-      scheduler) — reaper Lua and leader SETNX command latency
-      included.
+- [x] 3.4 `redisotel` metrics on the Valkey client — reaper Lua and
+      leader SETNX command latency included.
+
+      **Correction to the task text: there is only ONE Valkey client.**
+      `newScheduler` takes the queue's `*redis.Client` (main.go, an
+      IMPL-0011 Phase 4 decision), so queue and scheduler share it and
+      one `InstrumentValkey` call covers both. Nothing was skipped; the
+      plural in the plan was wrong about the code.
+
+      Metrics only, no tracing: spans go nowhere in this build and
+      redisotel's tracing carries per-command overhead that buys nothing
+      until a tracing backend exists.
+
+      **No background goroutine.** redisotel spawns one only when given
+      a `WithCloseChan`, whose sole job is unregistering the metric
+      callbacks. This client lives for the whole process and its
+      callbacks die with the meter provider at shutdown, so passing a
+      channel would create a goroutine per client whose only purpose is
+      to tidy up immediately before exit. Omitted deliberately, which is
+      also what keeps the "no fire-and-forget goroutines" rule satisfied
+      here.
+
+      Instrumentation failure is logged, not fatal — telemetry must
+      never stop the queue coming up.
+
+      The unit test needs no server, which is the interesting part: the
+      pool instruments are asynchronous observables read from the
+      client's own stats at collection time, so a client that cannot
+      reach Valkey still reports its pool — exactly the state an
+      operator most wants a number for. Command latency needs a live
+      server and is left to the queue integration tests.
 - [ ] 3.5 `otelpgx` on the pgxpool; verify whether its pool-stats
       option covers `pgxpool.Stat()` — use it if yes, add the small
       Stat collector if no. Exactly one pool-stats source ships;

@@ -323,6 +323,10 @@ func TestStaleSweeper_PolicyVersionMismatchEnqueuesAll(t *testing.T) {
 
 func (*fakeStore) Deactivate(context.Context, int64, string, string) error { return nil }
 
+func (*fakeStore) InsertComplianceSnapshot(context.Context, time.Time) (int, error) {
+	return 0, errors.New("fakeStore: InsertComplianceSnapshot not used by these tests")
+}
+
 func (*fakeStore) Posture(context.Context) (*store.Posture, error) {
 	return nil, errors.New("fakeStore: Posture not used by these tests")
 }

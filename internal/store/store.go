@@ -197,6 +197,23 @@ type Store interface {
 	// and Tracked to rows whose repository is still active.
 	Posture(ctx context.Context) (*Posture, error)
 
+	// InsertComplianceSnapshot appends one dated row per (org, rule) to
+	// the history table and returns how many rows it wrote.
+	//
+	// Written as a single INSERT ... SELECT so the whole snapshot is one
+	// statement against one MVCC view: reading the counts into Go and
+	// writing them back would let a worker's write-back land between the
+	// read and the insert, dating a mixture of two states as one moment.
+	//
+	// The caller supplies the timestamp rather than the database, so
+	// every row of one snapshot shares an instant exactly and tests can
+	// seed a history without sleeping.
+	//
+	// Idempotent on (org, rule, at): re-running with the same timestamp
+	// inserts nothing rather than erroring, so a retry after a partial
+	// failure is safe.
+	InsertComplianceSnapshot(ctx context.Context, at time.Time) (rows int, err error)
+
 	// Deactivate marks a repository inactive so StaleRepos stops
 	// returning it. It is deliberately one-way: nothing here can set a
 	// row active again, because only discovery observes the

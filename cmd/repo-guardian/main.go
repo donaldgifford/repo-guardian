@@ -277,6 +277,17 @@ func scheduleHandlers(
 
 	logger.Info("scheduled posture-export handler", "interval", cfg.PostureExportInterval)
 
+	snapshotTaker := checker.NewSnapshotTaker(checker.SnapshotTakerOptions{
+		Store:  stateStore,
+		Logger: logger,
+	})
+
+	if err := sched.Schedule(ctx, "compliance-snapshot", cfg.ComplianceSnapshotInterval, snapshotTaker.Take); err != nil {
+		return fmt.Errorf("schedule compliance-snapshot: %w", err)
+	}
+
+	logger.Info("scheduled compliance-snapshot handler", "interval", cfg.ComplianceSnapshotInterval)
+
 	if !cfg.DiscoveryEnabled {
 		logger.Info("discoverer disabled via DISCOVERY_ENABLED=false")
 		return nil

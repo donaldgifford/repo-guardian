@@ -692,10 +692,46 @@ the pool directly. `make ci`, the integration suite, and `go mod tidy
 
 #### Tasks
 
-- [ ] 4.1 `compliance-snapshot` leader-gated handler
+- [x] 4.1 `compliance-snapshot` leader-gated handler
       (`COMPLIANCE_SNAPSHOT_INTERVAL`, default 24h):
-      `INSERT ... SELECT` from the posture query via
-      `Store.InsertComplianceSnapshot`.
+      `INSERT ... SELECT` via `Store.InsertComplianceSnapshot`.
+
+      **Divergence, and it fixes a known gap: the denominator is
+      PER-RULE, not the posture query's per-org `Tracked`.**
+      `rule_state` holds a row for every rule actually evaluated against
+      a repository, satisfied ones included, so `count(*)` grouped by
+      (owner, rule) is "repos this rule applies to" and the `FILTER` is
+      "repos it applies to and fails on". That is the honest ratio for a
+      scoped rule, and it closes the follow-up recorded under task 2.2 —
+      a rule applying to 10 of 100 repos with 5 failures reads as 50%
+      here where the org-wide denominator says 5%. The posture gauges
+      cannot close that without a new series; the snapshot table already
+      has a per-rule row to hold it. The integration test asserts a
+      2-of-4 rule and fails with `tracked:4` if the denominator reverts.
+
+      Written as one `INSERT ... SELECT` rather than reading counts into
+      Go and writing them back: the whole snapshot is then one statement
+      against one MVCC view, so a worker write-back cannot land midway
+      and date a mixture of two states as a single moment.
+
+      The caller supplies the timestamp, so every row of a run shares an
+      instant exactly. The report groups by `snapshot_at` to compare a
+      run against the previous one — a database-side `now()` per row
+      would scatter one run across microsecond-apart instants and force
+      every trend query to bucket by time instead of grouping by a
+      value. It also lets the tests seed a history without sleeping.
+
+      `ON CONFLICT DO NOTHING` makes a retry after a partial failure
+      safe. The handler itself does not retry: a missed snapshot leaves
+      a visible, harmless gap in a daily series, whereas a retry loop
+      against a database that is already struggling is neither.
+
+      Leader-gating matters more here than for the other two handlers.
+      Running posture-export everywhere merely duplicates effort;
+      running this everywhere would corrupt the history, since each
+      replica inserts its own rows at its own timestamp and a
+      quarter-over-quarter query would then count one state N times or
+      once depending on whether the clocks happened to agree.
 - [ ] 4.2 `repo-guardian report` subcommand (CLI dispatch per Open
       Question 1): loads `guardian.hcl`, queries `rule_state` +
       `compliance_snapshot`, renders one markdown file per org to

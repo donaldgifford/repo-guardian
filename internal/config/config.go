@@ -151,6 +151,18 @@ type Config struct {
 	// stop at 60s because a tick slower than the interval leaves the
 	// exporter permanently behind.
 	PostureExportInterval time.Duration
+
+	// ComplianceSnapshotInterval is the cadence between compliance
+	// history rows (DESIGN-0022). Default 24h.
+	//
+	// This is a history cadence, not a freshness knob: it decides the
+	// resolution of the quarter-over-quarter trend the report shows, so
+	// the tuning question is "how finely do we want to see the past",
+	// not "how current is the data". Daily is already finer than any
+	// question the report answers, and the rows are permanent — there
+	// is no retention machinery — so shortening it buys resolution
+	// nobody asked for at a storage cost that never stops accruing.
+	ComplianceSnapshotInterval time.Duration
 }
 
 // defaultPostureExportInterval is the posture tick cadence when
@@ -159,6 +171,11 @@ type Config struct {
 // exporter reads its interval from Config like every other scheduled
 // handler.
 const defaultPostureExportInterval = 60 * time.Second
+
+// defaultComplianceSnapshotInterval is the compliance-history cadence
+// when COMPLIANCE_SNAPSHOT_INTERVAL is unset (DESIGN-0022). Daily,
+// which at target scale is roughly 120 rows a day.
+const defaultComplianceSnapshotInterval = 24 * time.Hour
 
 // Backend identifier constants. Defined as package-level strings so
 // chart and binary share a single source of truth. Memory and
@@ -364,6 +381,13 @@ func loadDiscoveryConfig(cfg *Config) error {
 	}
 
 	cfg.PostureExportInterval = postureExportInterval
+
+	snapshotInterval, err := envOrDefaultDuration("COMPLIANCE_SNAPSHOT_INTERVAL", defaultComplianceSnapshotInterval)
+	if err != nil {
+		return err
+	}
+
+	cfg.ComplianceSnapshotInterval = snapshotInterval
 
 	return nil
 }

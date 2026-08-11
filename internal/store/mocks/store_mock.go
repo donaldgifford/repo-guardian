@@ -233,6 +233,72 @@ func (_c *MockStore_GetRepoState_Call) RunAndReturn(run func(ctx context.Context
 	return _c
 }
 
+// InsertComplianceSnapshot provides a mock function for the type MockStore
+func (_mock *MockStore) InsertComplianceSnapshot(ctx context.Context, at time.Time) (int, error) {
+	ret := _mock.Called(ctx, at)
+
+	if len(ret) == 0 {
+		panic("no return value specified for InsertComplianceSnapshot")
+	}
+
+	var r0 int
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time) (int, error)); ok {
+		return returnFunc(ctx, at)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time) int); ok {
+		r0 = returnFunc(ctx, at)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, time.Time) error); ok {
+		r1 = returnFunc(ctx, at)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockStore_InsertComplianceSnapshot_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InsertComplianceSnapshot'
+type MockStore_InsertComplianceSnapshot_Call struct {
+	*mock.Call
+}
+
+// InsertComplianceSnapshot is a helper method to define mock.On call
+//   - ctx context.Context
+//   - at time.Time
+func (_e *MockStore_Expecter) InsertComplianceSnapshot(ctx any, at any) *MockStore_InsertComplianceSnapshot_Call {
+	return &MockStore_InsertComplianceSnapshot_Call{Call: _e.mock.On("InsertComplianceSnapshot", ctx, at)}
+}
+
+func (_c *MockStore_InsertComplianceSnapshot_Call) Run(run func(ctx context.Context, at time.Time)) *MockStore_InsertComplianceSnapshot_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 time.Time
+		if args[1] != nil {
+			arg1 = args[1].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_InsertComplianceSnapshot_Call) Return(rows int, err error) *MockStore_InsertComplianceSnapshot_Call {
+	_c.Call.Return(rows, err)
+	return _c
+}
+
+func (_c *MockStore_InsertComplianceSnapshot_Call) RunAndReturn(run func(ctx context.Context, at time.Time) (int, error)) *MockStore_InsertComplianceSnapshot_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Posture provides a mock function for the type MockStore
 func (_mock *MockStore) Posture(ctx context.Context) (*store.Posture, error) {
 	ret := _mock.Called(ctx)

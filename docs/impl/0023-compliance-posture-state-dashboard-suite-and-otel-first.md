@@ -785,9 +785,44 @@ the pool directly. `make ci`, the integration suite, and `go mod tidy
       literal sites. The field did not exist, and synthesizing
       `github.com/owner/repo/pull/N` would hardcode the provider into
       a struct that DESIGN-0017's GitLab backend is meant to reuse.
-- [ ] 4.3 Golden-file tests for report rendering; trend test across
+- [x] 4.3 Golden-file tests for report rendering; trend test across
       two synthetic snapshots; empty-org and zero-snapshot edge
       cases.
+
+      Ten golden fixtures under `internal/report/testdata/`,
+      regenerated with `go test ./internal/report -update`. The flag's
+      doc comment says to READ the diff after regenerating: a golden
+      file's whole value is that an unintended change to wording or
+      column layout shows up for review, and regenerating without
+      reading turns the suite into a slow way of asserting that the
+      code equals itself.
+
+      **Beyond the listed scope, because the listed cases would have
+      missed them:** a rule present only in the previous snapshot
+      (`retired-rule`) must NOT appear — it stopped being evaluated, so
+      a percentage for it describes a measurement nobody took today —
+      and a rule present only in Current renders "new", never 0. Also
+      pinned: the two link shapes (a nil linker omits the PR column
+      entirely, since a column of dashes is indistinguishable from "no
+      repository has an open PR"), the per-repository link-call budget
+      including the failure path, per-rule comparison dates, pipe/newline
+      escaping in cells, and the 0640/0750 output modes.
+
+      **A vacuous fixture was caught and fixed here, exactly the
+      IMPL-0013 P4 failure mode.** The case named "floors rather than
+      rounds" originally used 999-of-1000 — which is 99.9% under BOTH
+      rules, so it pinned nothing despite its name. Verified by
+      swapping the floor for `math.Round` and watching it pass. Now
+      1999-of-2000 (99.95%), which floors to 99.9% and rounds to
+      100.0%; under the same swap it fails, along with `second_org`
+      (66.6% vs 66.7%) and the `repeating_decimal` unit case. The
+      per-repository link cache was neutralised the same way and takes
+      three tests plus one golden with it.
+
+      Reading the generated fixtures also found a live wording defect:
+      the "no previous snapshot exists" note rendered even for an org
+      with no rules evaluated at all, where trends are not the reason
+      the table is empty. The template now gates that note on `.Rules`.
 - [ ] 4.4 Operator doc: generating and distributing reports; snapshot
       cadence and no-retention rationale (~120 rows/day at target
       scale).

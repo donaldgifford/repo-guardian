@@ -19,7 +19,7 @@ No rules have been evaluated for this organisation yet.
 {{- else -}}
 Nothing to report.
 {{- end }}
-{{ if not .HasHistory }}
+{{ if and .Rules (not .HasHistory) }}
 No previous snapshot exists, so no trend is shown. Trends appear once
 the `compliance-snapshot` handler has run at least twice.
 {{ end }}

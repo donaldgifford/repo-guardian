@@ -1,7 +1,7 @@
 ---
 id: IMPL-0023
 title: "Compliance posture state, dashboard suite, and OTEL-first observability"
-status: Draft
+status: In Progress
 author: Donald Gifford
 created: 2026-08-02
 ---
@@ -9,7 +9,7 @@ created: 2026-08-02
 
 # IMPL 0023: Compliance posture state, dashboard suite, and OTEL-first observability
 
-**Status:** Draft
+**Status:** In Progress
 **Author:** Donald Gifford
 **Date:** 2026-08-02
 
@@ -606,11 +606,31 @@ hand-written dashboard JSON anywhere.
       `integration` tag).
 - [x] `actionable_since` transition table-driven tests + delete-not-in
       + 16-goroutine upsert race.
-- [ ] Exporter leader-gating and stale-series reset tests (non-vacuity:
-      skip the `Reset()`, confirm failure, restore).
-- [ ] Mock fidelity: `UpsertRuleStates` → `ActionableCounts` is
-      list-then-act — fakes must reflect prior writes (CLAUDE.md
-      rule) or exporter tests are vacuous.
+- [x] Exporter leader-gating and stale-series reset tests (non-vacuity:
+      skip the `Reset()`, confirm failure, restore). Stale-series in
+      `posture_test.go`, leader-gating in `posture_integration_test.go`
+      (two real schedulers against one Valkey — a fake scheduler would
+      only be testing itself).
+- [x] Mock fidelity: `UpsertRuleStates` → `Posture` (the aggregate
+      shipped as one read, not the sketch's `ActionableCounts`) is
+      list-then-act — fakes must reflect prior writes (CLAUDE.md rule)
+      or exporter tests are vacuous.
+
+      **Divergence: satisfied with real Postgres instead of a stateful
+      fake.** The CLAUDE.md rule exists because a fake that forgets
+      prior writes makes the read side assert nothing. Here the failure
+      is worse than that rule anticipates: the exporter's whole job is
+      to publish what the store returns, so against ANY fake — stateful
+      or not — the gauges match by construction and the assertion is
+      circular. Teaching the fake to re-derive the aggregate would just
+      mean reimplementing the SQL in Go and testing that the two
+      implementations agree, which is the wrong bug to catch. So the
+      write→read chain is pinned end-to-end against real Postgres in
+      two places (`TestPostureExport_GaugesEqualSQLTruth`, and the
+      Phase 1 worker write-back test), and the fakes in
+      `posture_test.go` are kept deliberately dumb — they serve a
+      scripted aggregate to test reset/ordering/error semantics, which
+      is all they can honestly test.
 - [ ] `/metrics` bridge coexistence test + bad-HMAC 401 measurement
       test.
 - [ ] Report golden files; generator render tests against the pinned

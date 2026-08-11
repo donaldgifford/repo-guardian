@@ -637,9 +637,33 @@ with Phases 1–2.
       rate-limited. scaling.md says so and points at
       `queue_delayed_total{reason="rate_limit"}` as the intended source
       for throttle volume.
-- [ ] 3.7 Tests: `/metrics` serves semconv series alongside
-      `repo_guardian_*` in one registry; a bad-HMAC webhook request
-      increments the server duration histogram with a 401 label.
+- [x] 3.7 Tests: `/metrics` serves semconv series alongside
+      `repo_guardian_*` in one registry
+      (`TestNew_BridgeAndDomainMetricsShareOneEndpoint`); a bad-HMAC
+      webhook request increments the server duration histogram with a
+      401 label (`TestHandler_MeasuresRejectedWebhooks`, driven through
+      the real `webhook.NewHandler` — a stub would only prove otelhttp
+      works, which is upstream's test).
+
+      Two strengthenings beyond the task text:
+
+      - **The coexistence test asserts `Gather()` is clean**, not just
+        that both families appear. The bridge is an unchecked collector
+        (`Describe` is a deliberate no-op), so a name collision produces
+        no panic and no error at registration; it surfaces at scrape
+        time, where `promhttp.HandlerOpts{}` defaults to
+        `HTTPErrorOnError` and one bad series returns 500 for the ENTIRE
+        endpoint. A substring assertion alone would have been reading an
+        error page and passing.
+      - **A separate test exercises the DEFAULT registry**, which is the
+        path main.go actually takes (nil `Registerer`). Every other test
+        injects a private registry — correct for isolation, but it left
+        the nil branch and the real coexistence setting untested. The
+        domain metrics in that test are not synthesised: `internal/metrics`
+        registers all of them at init, so it is the genuine article
+        sharing a registry with the bridge. It lives alone in its own
+        file with a comment saying why, since default-registry
+        registration is process-global and one-shot.
 
 #### Success Criteria
 

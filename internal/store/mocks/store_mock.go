@@ -361,6 +361,68 @@ func (_c *MockStore_Posture_Call) RunAndReturn(run func(ctx context.Context) (*s
 	return _c
 }
 
+// ReportData provides a mock function for the type MockStore
+func (_mock *MockStore) ReportData(ctx context.Context) (*store.ReportData, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ReportData")
+	}
+
+	var r0 *store.ReportData
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (*store.ReportData, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) *store.ReportData); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*store.ReportData)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockStore_ReportData_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReportData'
+type MockStore_ReportData_Call struct {
+	*mock.Call
+}
+
+// ReportData is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockStore_Expecter) ReportData(ctx any) *MockStore_ReportData_Call {
+	return &MockStore_ReportData_Call{Call: _e.mock.On("ReportData", ctx)}
+}
+
+func (_c *MockStore_ReportData_Call) Run(run func(ctx context.Context)) *MockStore_ReportData_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_ReportData_Call) Return(reportData *store.ReportData, err error) *MockStore_ReportData_Call {
+	_c.Call.Return(reportData, err)
+	return _c
+}
+
+func (_c *MockStore_ReportData_Call) RunAndReturn(run func(ctx context.Context) (*store.ReportData, error)) *MockStore_ReportData_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // StaleRepos provides a mock function for the type MockStore
 func (_mock *MockStore) StaleRepos(ctx context.Context, freshness time.Duration, currentPolicyVersion string, limit int) ([]store.RepoState, error) {
 	ret := _mock.Called(ctx, freshness, currentPolicyVersion, limit)

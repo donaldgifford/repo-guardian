@@ -81,6 +81,52 @@ type RuleState struct {
 	PolicyVersion  string
 }
 
+// ReportFinding is one repository failing one rule, with the date it
+// started failing. The rows behind the report's "which repos, failing
+// which rules, since when" table — the question a metric structurally
+// cannot answer, because a gauge knows how many and never which.
+type ReportFinding struct {
+	InstallationID  int64
+	Owner           string
+	Repo            string
+	RuleName        string
+	RuleKind        string
+	ActionableSince *time.Time
+}
+
+// SnapshotRow is one historical (org, rule) compliance measurement.
+type SnapshotRow struct {
+	Org             string
+	RuleName        string
+	ActionableCount int
+	TrackedCount    int
+	SnapshotAt      time.Time
+}
+
+// ReportData is everything the report renderer needs for one run,
+// read in a single transaction.
+//
+// One read rather than three keeps the narrative consistent: the
+// findings table and the headline percentage are computed from the
+// same instant, so a report can never say "3 repos failing" above a
+// table listing four.
+type ReportData struct {
+	// Findings are the currently-actionable (repo, rule) pairs across
+	// every active repository, ordered by org, rule, then repo.
+	Findings []ReportFinding
+
+	// Current is the live per-(org, rule) tally, computed the same way
+	// InsertComplianceSnapshot computes it — so today's numbers are
+	// comparable with the history even though no snapshot has been
+	// taken yet today.
+	Current []SnapshotRow
+
+	// Previous is the most recent stored snapshot per (org, rule),
+	// which is what Current is compared against for the trend. Empty on
+	// a deployment that has never taken one.
+	Previous []SnapshotRow
+}
+
 // Park reasons as they appear on the Unmeasurable label. They are
 // derived from RepoState, which has no park_reason column: a park
 // writes StatusError for an unreadable repo and StatusSkipped with the
@@ -213,6 +259,15 @@ type Store interface {
 	// inserts nothing rather than erroring, so a retry after a partial
 	// failure is safe.
 	InsertComplianceSnapshot(ctx context.Context, at time.Time) (rows int, err error)
+
+	// ReportData reads everything the report CLI renders, in one
+	// transaction. See ReportData for why it is one call.
+	//
+	// Restricted to active repositories, consistently with Posture and
+	// InsertComplianceSnapshot: a parked repository is one nobody can
+	// measure, so naming it in a compliance report as failing would be
+	// asserting something we did not check.
+	ReportData(ctx context.Context) (*ReportData, error)
 
 	// Deactivate marks a repository inactive so StaleRepos stops
 	// returning it. It is deliberately one-way: nothing here can set a

@@ -792,6 +792,10 @@ func TestPool_ParkPostureHandling(t *testing.T) {
 
 func (*capturingStore) Posture(context.Context) (*store.Posture, error) { return nil, errUnimplemented }
 
+func (*capturingStore) ReportData(context.Context) (*store.ReportData, error) {
+	return nil, errUnimplemented
+}
+
 func (*capturingStore) InsertComplianceSnapshot(context.Context, time.Time) (int, error) {
 	return 0, errUnimplemented
 }

@@ -339,6 +339,10 @@ func TestDiscoverer_SetsInstallationInfo(t *testing.T) {
 
 func (*fakeDiscoveryStore) Deactivate(context.Context, int64, string, string) error { return nil }
 
+func (*fakeDiscoveryStore) ReportData(context.Context) (*store.ReportData, error) {
+	return nil, errors.New("fakeDiscoveryStore: ReportData not used by these tests")
+}
+
 func (*fakeDiscoveryStore) InsertComplianceSnapshot(context.Context, time.Time) (int, error) {
 	return 0, errors.New("fakeDiscoveryStore: InsertComplianceSnapshot not used by these tests")
 }

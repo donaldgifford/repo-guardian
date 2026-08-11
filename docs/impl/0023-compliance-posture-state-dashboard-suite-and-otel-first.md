@@ -363,11 +363,63 @@ with Phases 1–2.
 
 #### Tasks
 
-- [ ] 3.1 Dependencies + SDK setup in `cmd/repo-guardian/main.go`:
-      MeterProvider with the
-      `go.opentelemetry.io/otel/exporters/prometheus` bridge
-      registered into the default registry `promhttp` already serves;
-      no-op TracerProvider; honour `OTEL_SDK_DISABLED`.
+- [x] 3.1 Dependencies + SDK setup: MeterProvider with the
+      `go.opentelemetry.io/otel/exporters/prometheus` bridge registered
+      into the default registry `promhttp` already serves; no-op
+      TracerProvider; honour `OTEL_SDK_DISABLED`.
+
+      **Divergence: the bootstrap is `internal/observability`, not
+      `cmd/repo-guardian/main.go`.** main.go is coverage-ignored
+      (CLAUDE.md), so putting it there would have made task 3.7's
+      coexistence test unable to reach the code it is meant to prove.
+      main.go keeps only the call and the shutdown defer.
+
+      **`OTEL_SDK_DISABLED` is not implemented by the Go SDK.** The
+      design called it "the standard escape hatch", which is true of the
+      specification and of other language SDKs, but opentelemetry-go
+      does not read it — grepping every vendored `go.opentelemetry.io`
+      module for the string matches nothing. An operator setting it and
+      assuming it took effect would have been wrong, so this package
+      implements it: no-op providers, exporter never registered. An
+      unparseable value fails startup rather than defaulting, because
+      the two ways to guess are not symmetric — guessing enabled ignores
+      someone turning telemetry off, guessing disabled silently blinds a
+      deployment.
+
+      **Instrumentation wraps unconditionally; only the provider
+      changes.** The alternative was an `if enabled` branch at four call
+      sites in four packages, where the cost of getting one wrong is a
+      boundary that is silently unmeasured forever. `Shutdown` is a
+      no-op rather than nil in the disabled state so main.go needs no
+      branch either.
+
+      **Ordering constraint, load-bearing:** the bootstrap runs before
+      `newGitHubClient`/`newQueue`/`newStore`. otelhttp, redisotel and
+      otelpgx each capture `otel.GetMeterProvider()` at construction
+      time, so installing the provider after them leaves those call
+      sites permanently attached to the no-op default — with no error
+      and no missing-series alert to notice it by.
+
+      Bridge options: only `WithoutTargetInfo()`. `target_info` restates
+      per-pod-static resource attributes that Prometheus already covers
+      with job/instance from the scrape config.
+
+      **Handed to 3.6 with evidence:** the bridge stamps THREE scope
+      labels on every semconv series — `otel_scope_name`,
+      `otel_scope_version`, `otel_scope_schema_url` — and the latter two
+      are empty strings. Checked whether `WithoutScopeInfo()` is safe by
+      enumerating the metric names of all four instrumentations:
+      redisotel emits `db.client.connections.*` / `redis.dial`, otelpgx
+      emits `db.client.operation.*` / `pgxpool.*`, and the two otelhttp
+      directions differ by `http.server.*` vs `http.client.*`. Nothing
+      collides, so the scope labels are not acting as a discriminator
+      and dropping them is safe — but it is 3.6's call to make with the
+      rest of the cardinality audit, not a decision to slip in here.
+
+      Also noted, not fixed: `.goreleaser.yml` sets no ldflags and there
+      is no version variable anywhere in the binary, so `service.version`
+      is left unset rather than given a placeholder. Stamping it is a
+      release-pipeline change, out of scope for this phase.
 - [ ] 3.2 `otelhttp` server middleware on the webhook server mux only
       (not the metrics/health server) — HMAC 401s and every other
       status become measured for the first time.

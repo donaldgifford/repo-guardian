@@ -277,8 +277,17 @@ func TestPostureExport_HealthMetrics(t *testing.T) {
 func histogramCount(t *testing.T, h prometheus.Histogram) uint64 {
 	t.Helper()
 
+	// Comma-ok rather than a bare assertion: a plain Histogram satisfies
+	// prometheus.Metric today, but if this ever gets handed a
+	// HistogramVec child or a wrapper that does not, the bare form
+	// panics with no indication of what was actually passed.
+	metric, ok := h.(prometheus.Metric)
+	if !ok {
+		t.Fatalf("histogram %T does not implement prometheus.Metric", h)
+	}
+
 	var m dto.Metric
-	if err := h.(prometheus.Metric).Write(&m); err != nil {
+	if err := metric.Write(&m); err != nil {
 		t.Fatalf("write histogram: %v", err)
 	}
 

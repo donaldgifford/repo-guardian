@@ -20,6 +20,7 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/checker"
 	"github.com/donaldgifford/repo-guardian/internal/config"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/observability"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/queue"
 	valkeyqueue "github.com/donaldgifford/repo-guardian/internal/queue/valkey"
@@ -36,6 +37,12 @@ import (
 const (
 	shutdownTimeout   = 15 * time.Second
 	depthPollInterval = 15 * time.Second
+
+	// observabilityShutdownTimeout bounds the SDK flush. It is short
+	// because the Prometheus exporter is pull-based and has nothing to
+	// flush; the bound exists so a future push exporter cannot hang
+	// process exit.
+	observabilityShutdownTimeout = 5 * time.Second
 )
 
 func main() {
@@ -67,6 +74,25 @@ func run() error {
 		"listen_addr", cfg.ListenAddr,
 		"metrics_addr", cfg.MetricsAddr,
 	)
+
+	// Before every instrumented resource below it. otelhttp, redisotel
+	// and otelpgx each capture otel.GetMeterProvider() at construction
+	// time, so a provider installed after them would leave those call
+	// sites permanently attached to the no-op default — silently, with
+	// no error and no missing-series alert to notice it by.
+	obs, err := observability.New(observability.Options{Logger: logger})
+	if err != nil {
+		return fmt.Errorf("bootstrap observability: %w", err)
+	}
+
+	defer func() {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), observabilityShutdownTimeout)
+		defer shutdownCancel()
+
+		if err := obs.Shutdown(shutdownCtx); err != nil {
+			logger.Warn("observability shutdown error", "error", err)
+		}
+	}()
 
 	client, err := newGitHubClient(cfg, logger)
 	if err != nil {

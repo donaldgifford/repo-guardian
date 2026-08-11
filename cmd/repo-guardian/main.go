@@ -43,6 +43,11 @@ const (
 	// flush; the bound exists so a future push exporter cannot hang
 	// process exit.
 	observabilityShutdownTimeout = 5 * time.Second
+
+	// webhookRoute is the ServeMux pattern for the webhook endpoint.
+	// Shared between the route registration and its instrumentation so
+	// the span name and the http.route attribute cannot drift apart.
+	webhookRoute = "POST /webhooks/github"
 )
 
 func main() {
@@ -424,7 +429,12 @@ func newStore(ctx context.Context, cfg *config.Config, logger *slog.Logger) (sto
 
 func newMainServer(runCtx context.Context, addr string, webhookHandler http.Handler) *http.Server {
 	mux := http.NewServeMux()
-	mux.Handle("POST /webhooks/github", webhookHandler)
+
+	// Only the webhook route is instrumented. healthz/readyz share this
+	// server but are kubelet traffic — a few requests a second forever,
+	// answering no question anyone asks — and including them would bury
+	// the webhook signal they sit next to.
+	mux.Handle(webhookRoute, observability.Handler(webhookHandler, webhookRoute))
 	mux.HandleFunc("GET /healthz", handleHealthz)
 	mux.HandleFunc("GET /readyz", handleReadyz(runCtx))
 

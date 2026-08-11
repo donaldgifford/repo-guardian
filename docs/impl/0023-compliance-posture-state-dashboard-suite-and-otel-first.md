@@ -420,9 +420,37 @@ with Phases 1–2.
       is no version variable anywhere in the binary, so `service.version`
       is left unset rather than given a placeholder. Stamping it is a
       release-pipeline change, out of scope for this phase.
-- [ ] 3.2 `otelhttp` server middleware on the webhook server mux only
-      (not the metrics/health server) — HMAC 401s and every other
-      status become measured for the first time.
+- [x] 3.2 `otelhttp` server middleware on the webhook **route** only —
+      HMAC 401s and every other status become measured for the first
+      time. Verified end-to-end against the real `webhook.NewHandler`
+      rather than a stub: a stub would only prove otelhttp works, which
+      is upstream's test.
+
+      **Divergence: the route, not the mux.** `healthz`/`readyz` live on
+      the same server as the webhook (only `/metrics` is on the other
+      one), so wrapping the mux would have instrumented kubelet probes —
+      constant traffic answering no question anyone asks, burying the
+      webhook signal it sits beside. Wrapping at the route registration
+      also puts the middleware OUTSIDE the IP allowlist, so 403s are
+      measured alongside 401s.
+
+      **`otelhttp.WithRouteTag` no longer exists** (removed by v0.70.0).
+      `http.route` now comes from `http.Request.Pattern`, which net/http
+      populates when a Go 1.22-pattern ServeMux routes the request — so
+      the tests must route through a real mux or `http.route` is silently
+      empty and they measure something production never does. The
+      attribute is the pattern's PATH only: registering
+      `POST /webhooks/github` yields `http_route="/webhooks/github"`.
+
+      **Cardinality finding, handed to 3.6 with a reproduction:** the
+      emitted attribute set is method / route / status / protocol /
+      scheme / **server.address** / **server.port**, and the last two
+      come from the request Host header — which is client-controlled on
+      an endpoint anyone who finds the hostname can POST to. `url.path`
+      is correctly absent, so the route keying is right, but boundedness
+      is NOT yet a property of the whole set and no test here claims it
+      is. Closing it needs a view dropping those two attributes, which
+      is 3.6's shape of work, not a wrapper change.
 - [ ] 3.3 `otelhttp` client transport wrapping the installation
       transport, **outermost** (above the rate-limit transport —
       the IMPL-0022 ordering contract; whichever lands second adds

@@ -86,6 +86,19 @@ func TestNew_BridgeAndDomainMetricsShareOneEndpoint(t *testing.T) {
 
 	counter.Add(context.Background(), 1)
 
+	// Gather() before the substring checks. The bridge registers as an
+	// UNCHECKED collector — its Describe is a deliberate no-op — so
+	// Prometheus performs no descriptor collision check at registration
+	// and a clashing metric name produces no error and no panic when it
+	// is registered. It surfaces at scrape time instead, and
+	// promhttp.HandlerOpts{} defaults to HTTPErrorOnError: one bad
+	// series 500s the ENTIRE endpoint, taking every repo_guardian_
+	// metric down with it. A substring assertion alone would not notice,
+	// because it would be reading an error page.
+	if _, err := reg.Gather(); err != nil {
+		t.Fatalf("Gather() = %v, want nil; a collision here 500s the whole /metrics endpoint", err)
+	}
+
 	body := scrape(t, reg)
 
 	for _, want := range []string{
@@ -165,26 +178,28 @@ func TestNew_DisabledRegistersNothing(t *testing.T) {
 }
 
 // TestNew_DisabledParsing covers the accepted spellings and the
-// refusal.
+// fallback.
 //
-// An unparseable value fails startup instead of defaulting, because
-// the two ways to guess are not symmetric: guessing "enabled" ignores
-// an operator trying to turn telemetry off, and guessing "disabled"
-// silently blinds a deployment. Neither is a good failure to debug
-// from a dashboard.
+// An unparseable value warns and leaves telemetry ENABLED, per the
+// OpenTelemetry environment-variable specification. Failing startup
+// would trade a metrics problem for an outage, which is a bad deal for
+// a telemetry switch; and the fallback direction is the safe one,
+// since a typo leaves the deployment observable and complaining in the
+// log rather than silently blind.
 func TestNew_DisabledParsing(t *testing.T) {
 	for _, tc := range []struct {
 		value       string
 		wantEnabled bool
-		wantErr     bool
 	}{
 		{value: "true", wantEnabled: false},
 		{value: "1", wantEnabled: false},
+		{value: "TRUE", wantEnabled: false},
 		{value: "false", wantEnabled: true},
 		{value: "0", wantEnabled: true},
 		{value: "", wantEnabled: true},
-		{value: "yes", wantErr: true},
-		{value: "disabled", wantErr: true},
+		// Unparseable: warn, stay enabled, do not take the pod down.
+		{value: "yes", wantEnabled: true},
+		{value: "disabled", wantEnabled: true},
 	} {
 		t.Run("value="+tc.value, func(t *testing.T) {
 			t.Setenv("OTEL_SDK_DISABLED", tc.value)
@@ -193,21 +208,8 @@ func TestNew_DisabledParsing(t *testing.T) {
 				Logger:     slog.Default(),
 				Registerer: promclient.NewRegistry(),
 			})
-
-			if tc.wantErr {
-				if err == nil {
-					t.Fatalf("New() with OTEL_SDK_DISABLED=%q = nil error, want a startup failure", tc.value)
-				}
-
-				if !strings.Contains(err.Error(), "OTEL_SDK_DISABLED") {
-					t.Errorf("error %q does not name the variable an operator has to fix", err)
-				}
-
-				return
-			}
-
 			if err != nil {
-				t.Fatalf("New() = %v, want nil", err)
+				t.Fatalf("New() = %v, want nil; a telemetry env var must never fail startup", err)
 			}
 
 			if got := provider.Enabled(); got != tc.wantEnabled {

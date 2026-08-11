@@ -420,6 +420,40 @@ with Phases 1–2.
       is no version variable anywhere in the binary, so `service.version`
       is left unset rather than given a placeholder. Stamping it is a
       release-pipeline change, out of scope for this phase.
+
+      **Two defects found by a post-3.3 architecture review and fixed in
+      place:**
+
+      1. *The resource merge was a latent startup crash.*
+         `resource.Merge` refuses two resources with different schema
+         URLs, and `resource.Default()` carries whichever schema the SDK
+         release was built against — 1.43.0 today, which matched the
+         imported semconv package by coincidence, not by construction.
+         The next SDK bump that moves `Default()` forward would have
+         made `New` return "conflicting Schema URL" and `main.go` abort:
+         a crash-looping pod after a routine renovate PR, with the cause
+         being two version numbers in different modules. Reproduced
+         directly (merging against a 1.99.0 schema errors), then fixed
+         with `resource.NewSchemaless`, which merges with anything. Cost
+         is a schema URL on two attributes stable since semconv 1.0.
+      2. *`OTEL_SDK_DISABLED` parsing failed startup, against spec.* The
+         original reasoning here — "the two ways to guess are not
+         symmetric" — was simply wrong: the spec's fallback is the
+         DEFAULT, and the default is enabled, so warning and continuing
+         leaves the deployment fully observable rather than blind. There
+         was never a blinding risk to trade an outage for. Now warns and
+         stays enabled, per the OTel env-var specification.
+
+      A third review finding hardened the coexistence test rather than
+      the code: the bridge registers as an **unchecked collector** (its
+      `Describe` is a deliberate no-op), so Prometheus does no
+      descriptor-collision check at registration — a clashing metric
+      name produces no panic and no error there. It surfaces at scrape
+      time, where `promhttp.HandlerOpts{}` defaults to
+      `HTTPErrorOnError` and one bad series **500s the entire endpoint**,
+      taking all 56 `repo_guardian_*` metrics with it. The test now
+      asserts `reg.Gather()` returns no error, because a substring check
+      alone would have been reading an error page.
 - [x] 3.2 `otelhttp` server middleware on the webhook **route** only —
       HMAC 401s and every other status become measured for the first
       time. Verified end-to-end against the real `webhook.NewHandler`

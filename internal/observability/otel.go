@@ -122,10 +122,7 @@ func New(opts Options) (*Provider, error) {
 	// global as whatever otel defaults to.
 	otel.SetTracerProvider(tracenoop.NewTracerProvider())
 
-	disabled, err := sdkDisabled()
-	if err != nil {
-		return nil, err
-	}
+	disabled := sdkDisabled(opts.Logger)
 
 	if disabled {
 		provider := metricnoop.NewMeterProvider()
@@ -205,6 +202,21 @@ func (p *Provider) Shutdown(ctx context.Context) error {
 }
 
 // newResource builds the resource describing this process.
+//
+// The attributes are deliberately SCHEMALESS. resource.Merge refuses to
+// merge two resources carrying different schema URLs, and
+// resource.Default() carries whichever schema the SDK release was built
+// against — 1.43.0 today, which happens to match the semconv package
+// imported here. Nothing keeps those two in step: the next SDK bump
+// that moves Default() forward would make Merge return "conflicting
+// Schema URL", New return an error, and main.go abort startup. The
+// symptom is a crash-looping pod after a routine dependency bump, and
+// the cause is two version numbers in different modules.
+//
+// A schemaless resource merges with anything. The cost is that
+// service.name and service.version carry no schema URL — attributes
+// that have been stable since semconv 1.0 and are not worth a startup
+// failure mode.
 func newResource(version string) (*resource.Resource, error) {
 	attrs := []attribute.KeyValue{semconv.ServiceName(serviceName)}
 	if version != "" {
@@ -214,7 +226,7 @@ func newResource(version string) (*resource.Resource, error) {
 	// Merge over resource.Default() rather than replacing it: the
 	// default carries telemetry.sdk.*, and Merge's precedence gives our
 	// attributes the win on any key collision.
-	res, err := resource.Merge(resource.Default(), resource.NewWithAttributes(semconv.SchemaURL, attrs...))
+	res, err := resource.Merge(resource.Default(), resource.NewSchemaless(attrs...))
 	if err != nil {
 		return nil, fmt.Errorf("observability: resource: %w", err)
 	}
@@ -224,20 +236,29 @@ func newResource(version string) (*resource.Resource, error) {
 
 // sdkDisabled reads OTEL_SDK_DISABLED.
 //
-// An unparseable value is an error rather than a silent default. The
-// two ways to be wrong are not symmetric: defaulting to enabled ignores
-// an operator who is trying to turn telemetry off, and defaulting to
-// disabled silently blinds a deployment. Refusing to start says so.
-func sdkDisabled() (bool, error) {
+// An unparseable value warns and falls back to the default (enabled),
+// per the OpenTelemetry environment-variable specification. Failing
+// startup instead would be disproportionate: this is a telemetry
+// switch, and taking the whole service down over a malformed value for
+// it trades a metrics problem for an outage. Falling back is also not
+// the dangerous direction — the default is enabled, so a typo leaves
+// the deployment fully observable and shouting about it in the log,
+// rather than silently blind.
+func sdkDisabled(logger *slog.Logger) bool {
 	raw, ok := os.LookupEnv(disabledEnv)
 	if !ok || raw == "" {
-		return false, nil
+		return false
 	}
 
 	disabled, err := strconv.ParseBool(raw)
 	if err != nil {
-		return false, fmt.Errorf("observability: parse %s=%q: %w", disabledEnv, raw, err)
+		logger.Warn("ignoring unparseable "+disabledEnv+"; telemetry stays enabled",
+			"value", raw,
+			"error", err,
+		)
+
+		return false
 	}
 
-	return disabled, nil
+	return disabled
 }

@@ -39,6 +39,7 @@ import (
 	"strconv"
 
 	promclient "github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/otlptranslator"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	promexporter "go.opentelemetry.io/otel/exporters/prometheus"
@@ -150,6 +151,36 @@ func New(opts Options) (*Provider, error) {
 		// the lifetime of a pod, so it buys nothing here and costs a
 		// series plus a join for anyone who trips over it.
 		promexporter.WithoutTargetInfo(),
+
+		// Scope labels are dropped because otel_scope_version is the
+		// INSTRUMENTATION LIBRARY's version, stamped on every series that
+		// library produces. Every renovate bump of otelhttp, redisotel or
+		// otelpgx would therefore change a label value on every one of
+		// their series: the old series goes stale, a new one starts at
+		// zero, and rate()/increase() across the deploy sees a counter
+		// reset. Phase 6 bakes PromQL into generated dashboards with a
+		// fail-on-diff gate, so a label that churns on dependency updates
+		// is a recurring breakage, not a cosmetic one.
+		//
+		// Safe because nothing needs them as a discriminator: the four
+		// instrumentations emit disjoint metric names (http.server.* vs
+		// http.client.* vs db.client.connections.*/redis.* vs
+		// db.client.operation.*/pgxpool.*), so the metric name already
+		// identifies the producer. Revisit if two scopes ever emit the
+		// same name.
+		promexporter.WithoutScopeInfo(),
+
+		// Pin the name-translation strategy instead of inheriting it.
+		// The exporter's default is documented as depending on
+		// prometheus/common's NameValidationScheme and as subject to
+		// change in a future release — and this repo now pins a
+		// prometheus/common whose scheme is already UTF8Validation. If
+		// that default ever flips, every metric name loses its
+		// underscore escaping and its _total/_seconds suffixes at once,
+		// which would break every generated dashboard panel, every alert
+		// in prometheusrule.yaml, and the repo's own naming convention
+		// in a single dependency bump. Being explicit costs one import.
+		promexporter.WithTranslationStrategy(otlptranslator.UnderscoreEscapingWithSuffixes),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("observability: prometheus exporter: %w", err)

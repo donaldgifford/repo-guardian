@@ -349,6 +349,97 @@ lives in `charts/repo-guardian/templates/prometheusrule.yaml`; both signals
 key off the same `org` value, so a Loki log line and a Prometheus alert for
 the same incident always agree on which org to investigate.
 
+## OpenTelemetry series (IMPL-0023 Phase 3)
+
+Four transport boundaries carry off-the-shelf OTel instrumentation, and
+all of it exports through the Prometheus bridge into the **same registry
+`/metrics` already serves**. There is no collector, no second scrape
+target, and no scrape-config change. `OTEL_SDK_DISABLED=true` turns it
+all off; an unparseable value warns and leaves telemetry on.
+
+| Boundary | Package | Series |
+|---|---|---|
+| Inbound HTTP (webhook route only) | `otelhttp` | `http_server_request_duration_seconds`, `http_server_request_body_size_bytes`, `http_server_response_body_size_bytes` |
+| GitHub client | `otelhttp` | `http_client_request_duration_seconds`, `http_client_request_body_size_bytes` |
+| Valkey (queue + scheduler, one shared client) | `redisotel` | `db_client_connections_*`, `redis_dial_*` |
+| Postgres | `otelpgx` | `db_client_operation_duration_seconds`, `db_client_operation_errors_total`, `pgxpool_*` |
+
+Three things about this table are counter-intuitive enough to be worth
+stating outright.
+
+**Pool stats are `pgxpool_*`, not `db_client_connection_*`.** otelpgx
+publishes the pgx-native names for pool statistics, so a panel written
+against the semconv connection family matches nothing. It is the only
+pool-stats source that ships — otelpgx's `RecordStats` reads
+`pgxpool.Stat()` directly, so no hand-rolled collector was added.
+
+**Only the webhook route is instrumented inbound.** `/healthz`,
+`/readyz` and `/metrics` are not. Instrumenting kubelet probes and
+Prometheus scraping themselves would produce constant traffic answering
+no question anyone asks, and bury the webhook signal beside it.
+
+**The client histogram under-counts GitHub calls under rate-limit
+pressure.** go-github v68 has its own client-side pre-check that
+short-circuits inside `BareDo`, above the `http.Client` entirely, once
+its response-header cache has seen `remaining=0`. Those calls never
+reach any transport and so are never measured, at any wrapping
+position. Reading `http_client_request_duration_seconds_count` as
+"GitHub API calls attempted" is therefore wrong exactly when the system
+is throttled. Use `queue_delayed_total{reason="rate_limit"}` for
+throttle volume — it is the deliberate source for that question.
+
+### The dedup rule
+
+Domain metrics and semconv metrics overlap on purpose, and they are not
+interchangeable. **Every panel picks exactly one source. No panel mixes
+a `repo_guardian_*` series with a semconv series for the same signal.**
+
+The split is by what each can see:
+
+- `store_query_seconds{op}` knows the difference between `StaleRepos`
+  and `UpsertIfMissing`. The semconv database metrics see only SQL
+  verbs. So the domain metric stays authoritative for *which* store
+  operation is slow.
+- The semconv metrics separate pool-acquire wait from execution time,
+  which the domain metric — timed around the whole store method —
+  cannot. So semconv is authoritative for *why* it is slow.
+
+The same applies to HTTP: `webhook_received_total{event_type}` knows
+what kind of event arrived; `http_server_request_duration_seconds` knows
+the status and the latency. Neither can answer the other's question.
+
+### Cardinality
+
+Two label sources were closed deliberately, and both would have been
+remotely triggerable or self-inflicted rather than merely noisy.
+
+- **`server.address` / `server.port` are pinned** via
+  `otelhttp.WithServerName`. Left at their defaults they derive from the
+  request `Host` header, which is client-controlled on an endpoint
+  reachable from the internet — a caller sending a distinct spoofed Host
+  per request would mint a series per value across three histograms.
+- **Scope labels are dropped** via `WithoutScopeInfo`.
+  `otel_scope_version` carries the *instrumentation library's* version,
+  so every dependency bump of otelhttp/redisotel/otelpgx would change a
+  label value on every series that library emits: the old series goes
+  stale, the new one starts at zero, and `rate()` across the deploy sees
+  a counter reset. Safe to drop because the four instrumentations emit
+  disjoint metric names, so the name already identifies the producer.
+
+`url.path` is absent by default — server metrics key on `http.route`,
+taken from the ServeMux pattern — and the name-translation strategy is
+pinned explicitly rather than inherited, because the exporter documents
+its default as subject to change and a flip would strip the
+`_total`/`_seconds` suffixes from every series at once.
+
+A registry note that matters more than it looks: the bridge registers
+as an **unchecked collector**, so a metric-name collision between a
+semconv series and a `repo_guardian_*` one raises no error and no panic
+at registration. It surfaces at scrape time, where a single bad series
+returns HTTP 500 for the **entire endpoint** — every metric, not just
+the offender. The `repo_guardian_` prefix makes a collision unlikely;
+the coexistence test asserts `Gather()` is clean so it stays that way.
+
 ## Sizing for Valkey
 
 Valkey is small. The queue + in-flight ZSET + reaper lock fit in single-digit MB even for tens of thousands of jobs. The `queue.valkey.baked` 1Gi PVC is conservative; you'll never fill it.

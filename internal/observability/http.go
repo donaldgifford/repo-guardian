@@ -37,7 +37,20 @@ import (
 // The meter provider is the global one, so this is a no-op wrapper
 // when OTEL_SDK_DISABLED is set — call sites never branch.
 func Handler(h http.Handler, route string) http.Handler {
-	return otelhttp.NewHandler(h, route)
+	// WithServerName pins server.address and suppresses server.port.
+	//
+	// Without it both are derived from the request's Host header, which
+	// is client-controlled on an endpoint reachable from the internet.
+	// A caller sending a different spoofed Host on each request would
+	// mint a new series per value across three histograms — a remotely
+	// triggerable cardinality bomb in the same registry that serves
+	// every repo_guardian_ metric, where a sick registry does not
+	// degrade but 500s the whole /metrics endpoint.
+	//
+	// The identity it replaces was never useful anyway: this process
+	// answers on one address, and Prometheus already attaches
+	// job/instance/pod from the scrape config.
+	return otelhttp.NewHandler(h, route, otelhttp.WithServerName(serviceName))
 }
 
 // Transport wraps an HTTP transport with semconv client metrics.

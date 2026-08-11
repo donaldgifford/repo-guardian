@@ -587,10 +587,56 @@ with Phases 1–2.
       Instrumentation failure is logged, not fatal — an unmeasured store
       beats a pod that will not start because its telemetry did not
       register.
-- [ ] 3.6 Cardinality audit of the bridge output (no `url.path` on
-      server metrics, bounded label sets; drop attributes via views
-      if needed) + document the one-source-per-panel dedup rule in
-      `docs/operations/scaling.md`.
+- [x] 3.6 Cardinality audit of the bridge output + the
+      one-source-per-panel dedup rule in `docs/operations/scaling.md`
+      (with the full OTEL series catalog).
+
+      **No views were needed.** The task text anticipated dropping
+      attributes via SDK views; both real problems turned out to have
+      option-level fixes, which are cheaper and closer to the cause.
+
+      Audit outcome, three findings:
+
+      1. **`server.address` / `server.port` were remotely triggerable.**
+         They derive from the request `Host` header, and
+         `/webhooks/github` is reachable from the internet, so a caller
+         sending a distinct spoofed Host per request would mint a series
+         per value across three histograms — in the same registry that
+         serves every `repo_guardian_*` metric. Fixed with
+         `otelhttp.WithServerName`, which pins the address and
+         suppresses the port. Regression test sends three spoofed Hosts
+         and asserts none reaches the metrics; without the fix all three
+         do.
+      2. **Scope labels churn on every dependency bump.**
+         `otel_scope_version` is the *instrumentation library's*
+         version, so each renovate bump of otelhttp/redisotel/otelpgx
+         changes a label value on every series that library emits — old
+         series stale, new series from zero, `rate()` sees a counter
+         reset. Phase 6 bakes PromQL into generated dashboards behind a
+         fail-on-diff gate, so this is recurring breakage. Dropped with
+         `WithoutScopeInfo`, safe because the four instrumentations emit
+         disjoint metric names (verified in task 3.1) so the name
+         already identifies the producer.
+      3. **The name-translation strategy was inherited, and the exporter
+         documents its default as subject to change.** A flip would
+         strip `_total`/`_seconds` from every series at once, breaking
+         every generated panel, every alert in `prometheusrule.yaml`,
+         and the repo's own naming convention in one dependency bump.
+         Now pinned explicitly to `UnderscoreEscapingWithSuffixes`.
+
+      `url.path` was already absent — server metrics key on `http.route`
+      from the ServeMux pattern — so the original concern in the task
+      text did not materialise.
+
+      **Documented caveat that no fix can address:** go-github v68's own
+      client-side pre-check short-circuits inside `BareDo`, above the
+      `http.Client` entirely, once its header cache has seen
+      `remaining=0`. Those calls reach no transport at any wrapping
+      position, so `http_client_request_duration_seconds_count`
+      under-counts attempted GitHub calls exactly when the system is
+      rate-limited. scaling.md says so and points at
+      `queue_delayed_total{reason="rate_limit"}` as the intended source
+      for throttle volume.
 - [ ] 3.7 Tests: `/metrics` serves semconv series alongside
       `repo_guardian_*` in one registry; a bad-HMAC webhook request
       increments the server duration histogram with a 401 label.

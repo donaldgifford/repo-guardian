@@ -892,11 +892,97 @@ the pool directly. `make ci`, the integration suite, and `go mod tidy
 
 #### Tasks
 
-- [ ] 5.1 `repo-guardian monitoring generate` subcommand skeleton
+- [x] 5.1 `repo-guardian monitoring generate` subcommand skeleton
       (CLI dispatch per Open Question 1): `policy.Load` → generation
       model (orgs from `scope`, enabled rules and kinds, attached
       reconcilers, mechanisms in use); flags `--config`, `--out`,
       `--format json|k8s`.
+
+      **Package split on the SDK line, so OQ5's escape hatch stays a
+      package move.** `internal/monitoring` (model + derivation) imports
+      `internal/policy` and the standard library only. Task 5.2's
+      grafana-foundation-sdk goes in a `dashboard/` sub-package and 5.3's
+      alert specs in `alert/`, so if the binary-size delta is egregious
+      the cheap relocation is `dashboard/` alone — leaving
+      `monitoring generate --format k8s` still emitting the
+      PrometheusRule from the main binary, which is a genuinely useful
+      degraded mode. It must NOT import `internal/checker` or
+      `internal/metrics` either: the engine drags the reconcilers and
+      56 `promauto` registrations into a read-only CLI (same reasoning
+      already recorded on `runReport`).
+
+      **The scope predicates moved to `internal/policy`
+      (`applies.go`).** `policyScopeAllows` / `ruleScopeAllows` /
+      `strictMode` were unexported helpers in `internal/checker`, which
+      was fine while the engine was their only caller. A dashboard row
+      is a claim about which rules the engine evaluates for an org, so a
+      second copy would not fail loudly — it would render a plausible,
+      wrong row. `internal/checker/scope.go` now aliases them. Same
+      shape as `policy.ExtractWatchedPaths`.
+
+      **Mechanism = sole producer of a series, and nothing else.**
+      `label_sync`, `workflow_sync`, the `branch_protection` reconciler
+      and content assertions are all real configurable features that
+      instrument NOTHING today, so they are deliberately absent from
+      the enum. Adding them for symmetry would invite a panel that is
+      empty by construction — the same shape as the BudgetTracker alert
+      that watched a counter with no producer for months (INV-0012 A).
+      Two subtleties the plan did not mention: `custom_properties`'
+      schema preflight runs in BOTH api and github-action modes, so
+      `PropertySchemaMissing` gates on the reconciler, not the mode
+      (gating on mode is the easy thing to get backwards and silently
+      drops the alert for every api-mode deployment); and `dry_run` is
+      an INVERTED mechanism that suppresses `prs_created_total`, so a
+      generator that only knows how to add alerts will page a dry-run
+      deployment forever.
+
+      **Fixed a trap in `policy.Load` at the CLI boundary.** Load
+      treats a missing file as "use built-in defaults" and returns a
+      nil error — correct for the server, wrong here in two ways.
+      `monitoring generate --config guardain.hcl` (typo) would emit the
+      DEFAULT artifacts with exit 0, and that same path skips
+      `Validate`, `validateStrictScope` and `compilePolicyTemplates`,
+      so task 5.6's generator-as-validation property would evaporate on
+      exactly the invocation that most needs it. `requireConfigExists`
+      stats an explicitly-given path first; an EMPTY path stays legal
+      and still means defaults, which is how the static tier is built.
+
+      **Two gaps in DESIGN-0022 answered, both flagged for the design
+      to absorb.** (1) *Legacy mode has no org list anywhere*, so "one
+      row per configured org" and the silent-org signal are
+      structurally impossible there — a silent org is one you never
+      named, and legacy mode names none. The generator warns and falls
+      back to rows discovered from series, with a repeatable `--org`
+      flag as the escape hatch so a legacy operator can get the signal
+      without adding a `scope` block to every rule. (2) *Scope orgs can
+      be globs* (`path.Match`), so `orgs = ["myent-*"]` is legal and a
+      literal row for it is undefined. `Org.Pattern` marks them and the
+      CLI warns that a silent org among them is invisible.
+
+      **`Rule.Orgs` nil vs empty is load-bearing.** nil means "every
+      org" (legacy); empty means "no org", which a strict-mode rule
+      scoped to nothing produces and is a real reportable condition.
+      Collapsing them turns a misconfigured rule into one that looks
+      universal. Pinned by neutralisation.
+
+      **`Derive` refuses cross-kind duplicate rule names.** Uniqueness
+      is validated within each kind but not across them, and every
+      posture series is keyed on `rule_name` with NO kind label
+      (`repos_actionable{rule_name, org}`) — so a `rule "file" "x"` and
+      a `rule "setting" "x"` would merge into one number that is the
+      sum of two unrelated things. That also means "panels only for
+      enabled rule kinds" is not expressible as a label selector;
+      `Model.RuleNames(kinds...)` materialises the names, and its
+      `false` return is the instruction to omit the panel entirely
+      rather than emit a matcher that matches everything.
+
+      Determinism is enforced at construction, not at emit, because the
+      5.5 drift gate diffs bytes and a gate that flaps on nothing
+      trains everyone to regenerate without reading the diff.
+      `Source.EnvInfluence` records which of the seven env vars that
+      can change the derived model behind the config file's back were
+      actually set — `CUSTOM_PROPERTIES_MODE` alone adds a whole
+      reconciler and two alerts.
 - [ ] 5.2 grafana-foundation-sdk dependency pinned to the Grafana-13
       cohort (OQ3 — Grafana ≥ 13 is the supported floor) + the
       panel-library package in `internal/monitoring/` (OQ2); render

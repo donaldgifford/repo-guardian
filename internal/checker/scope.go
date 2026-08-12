@@ -5,37 +5,19 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 )
 
-// policyScopeAllows is the policy-level (top-level) scope gate. Returns
-// true in legacy mode (cfg.Scope == nil) so existing single-org configs
-// pass through unchanged. In strict mode, returns true only if the owner
-// matches at least one pattern in the top-level scope.orgs list.
-func policyScopeAllows(cfg *policy.PolicyConfig, owner string) bool {
-	if cfg == nil || cfg.Scope == nil {
-		return true
-	}
-
-	return cfg.Scope.Matches(owner)
-}
-
-// ruleScopeAllows is the rule-level scope gate. Always returns true in
-// legacy mode. In strict mode, the top-level gate has already passed
-// for this repo, so a rule with the universal "*" applies to every
-// in-scope owner; otherwise the rule's own scope.orgs list must match.
-func ruleScopeAllows(rs *policy.ScopeConfig, owner string, strictMode bool) bool {
-	if !strictMode {
-		return true
-	}
-
-	if rs == nil {
-		return false
-	}
-
-	if rs.HasUniversal() {
-		return true
-	}
-
-	return rs.Matches(owner)
-}
+// The three scope predicates moved to internal/policy in IMPL-0023 task
+// 5.1 so the monitoring generator can ask the same question the engine
+// asks. These aliases keep the call sites in this package reading the
+// way they always have; the answer comes from one place.
+//
+// Do NOT reintroduce local copies. A dashboard row is a claim about
+// which rules the engine evaluates for an org, and a divergent copy
+// would not fail loudly — it would render a plausible, wrong row.
+var (
+	policyScopeAllows = policy.ScopeAllowsOrg
+	ruleScopeAllows   = policy.RuleScopeAllowsOrg
+	strictMode        = policy.IsStrictScope
+)
 
 // recordOutOfScopePolicy increments OutOfScopeTotal once per enabled rule
 // across every rule type. The policy-level gate skips the entire repo, so
@@ -75,9 +57,4 @@ func countEnabledRules(cfg *policy.PolicyConfig) int {
 	}
 
 	return count
-}
-
-// strictMode returns true when the top-level scope is declared.
-func strictMode(cfg *policy.PolicyConfig) bool {
-	return cfg != nil && cfg.Scope != nil
 }

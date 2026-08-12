@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -150,5 +151,80 @@ func TestInitLogger_UsesStdout(t *testing.T) {
 
 	if !strings.Contains(string(got), "server line") {
 		t.Errorf("initLogger() did not write to os.Stdout; got %q", got)
+	}
+}
+
+// TestDispatch_MonitoringRequiresAVerb pins that `monitoring` alone is
+// an error rather than a started server.
+func TestDispatch_MonitoringRequiresAVerb(t *testing.T) {
+	t.Parallel()
+
+	err := dispatch([]string{"repo-guardian", "monitoring"})
+	if err == nil {
+		t.Fatal("dispatch(monitoring) = nil, want an error naming the missing verb")
+	}
+
+	if !strings.Contains(err.Error(), "generate") {
+		t.Errorf("dispatch(monitoring) = %q, want it to suggest the generate verb", err)
+	}
+}
+
+// TestMonitoringGenerate_RejectsAMissingConfig pins the fix for
+// policy.Load's silent fallback.
+//
+// Load treats a missing file as "use built-in defaults" and returns a
+// nil error — right for the server, wrong here. Without this guard
+// `monitoring generate --config guardain.hcl` emits the DEFAULT
+// artifacts with exit 0, so a typo silently produces a dashboard for a
+// policy nobody runs, and the generator-as-validation property of task
+// 5.6 evaporates on exactly the invocation that most needs it.
+func TestMonitoringGenerate_RejectsAMissingConfig(t *testing.T) {
+	t.Parallel()
+
+	err := runMonitoring([]string{"generate", "--config", filepath.Join(t.TempDir(), "absent.hcl")})
+	if err == nil {
+		t.Fatal("runMonitoring() = nil for a missing --config, want an error rather than default artifacts")
+	}
+
+	if !strings.Contains(err.Error(), "absent.hcl") {
+		t.Errorf("runMonitoring() = %q, want the error to name the path", err)
+	}
+}
+
+// TestMonitoringGenerate_EmptyConfigMeansDefaults pins that the
+// missing-file guard does not break the built-in-defaults path, which
+// is how the static tier is generated.
+func TestMonitoringGenerate_EmptyConfigMeansDefaults(t *testing.T) {
+	t.Setenv("GUARDIAN_CONFIG", "")
+
+	if err := runMonitoring([]string{"generate", "--out", t.TempDir()}); err != nil {
+		t.Errorf("runMonitoring() = %v with no --config, want nil (built-in defaults)", err)
+	}
+}
+
+// TestMonitoringGenerate_RejectsAnUnknownFormat pins that an
+// unsupported --format fails rather than silently emitting json.
+func TestMonitoringGenerate_RejectsAnUnknownFormat(t *testing.T) {
+	t.Parallel()
+
+	err := runMonitoring([]string{"generate", "--format", "yaml"})
+	if err == nil {
+		t.Fatal("runMonitoring(--format yaml) = nil, want an error")
+	}
+
+	for _, want := range []string{"json", "k8s"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not name the %q format", err, want)
+		}
+	}
+}
+
+// TestMonitoringGenerate_HelpFlagIsNotAFailure mirrors the report
+// subcommand: -h is a request.
+func TestMonitoringGenerate_HelpFlagIsNotAFailure(t *testing.T) {
+	t.Parallel()
+
+	if err := runMonitoring([]string{"generate", "-h"}); err != nil {
+		t.Errorf("runMonitoring(generate -h) = %v, want nil", err)
 	}
 }

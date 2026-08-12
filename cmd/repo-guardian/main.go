@@ -81,9 +81,11 @@ func dispatch(argv []string) error {
 	}
 
 	switch argv[1] {
-	case "report":
+	case cmdReport:
 		return runReport(argv[2:])
-	case "help":
+	case cmdMonitoring:
+		return runMonitoring(argv[2:])
+	case cmdHelp:
 		usage(os.Stdout)
 
 		return nil
@@ -110,9 +112,10 @@ func usage(w io.Writer) {
 	fmt.Fprint(w, `repo-guardian — GitHub App for repository compliance
 
 Usage:
-  repo-guardian [flags]            run the server (default; see --help)
-  repo-guardian report [flags]     write per-org compliance reports
-  repo-guardian help               show this message
+  repo-guardian [flags]              run the server (default; see --help)
+  repo-guardian report [flags]       write per-org compliance reports
+  repo-guardian monitoring generate  emit dashboards and alerts from the policy
+  repo-guardian help                 show this message
 
 Running with no subcommand starts the server, which is the behaviour
 every existing deployment relies on.

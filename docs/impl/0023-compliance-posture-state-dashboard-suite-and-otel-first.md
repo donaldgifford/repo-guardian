@@ -983,11 +983,70 @@ the pool directly. `make ci`, the integration suite, and `go mod tidy
       can change the derived model behind the config file's back were
       actually set — `CUSTOM_PROPERTIES_MODE` alone adds a whole
       reconciler and two alerts.
-- [ ] 5.2 grafana-foundation-sdk dependency pinned to the Grafana-13
+- [x] 5.2 grafana-foundation-sdk dependency pinned to the Grafana-13
       cohort (OQ3 — Grafana ≥ 13 is the supported floor) + the
       panel-library package in `internal/monitoring/` (OQ2); render
       test against the 13 schema; measure the binary size delta
       (design OQ5's escape hatch to a separate `cmd/` if egregious).
+
+      **Divergence 1 — "the Grafana-13 cohort" does not exist.** The
+      SDK's per-Grafana cohort branches (`v10.1.x+cog-v0.0.x` …
+      `v11.6.x+cog-v0.0.x`) stop at 11.6; there is no v12 or v13
+      branch. That scheme was superseded by a single consolidated
+      module whose README states it is "best suited for Grafana >= 12,
+      but will work with Grafana >= 10". Pinned to **`v0.0.18`**, the
+      current release of that line. OQ3's "Grafana ≥ 13 floor" survives
+      intact — it was always a decision about which Grafana the
+      generated dashboards target, not about an SDK branch, and a
+      floor of 13 sits above the SDK's stated suitability.
+
+      **Divergence 2 — authored against dashboard schema v1, and the
+      SDK marks that builder superseded.** `dashboardv2` exists, but it
+      is not a drop-in: every panel package in the SDK (`timeseries`,
+      `stat`, `table`, `gauge`, …) declares
+      `var _ cog.Builder[dashboard.Panel]` — they build the **v1**
+      Panel type. Authoring against v2 would mean abandoning the panel
+      builders and hand-writing v2 element structs, which is precisely
+      the hand-maintained dashboard authoring this package exists to
+      remove. The consumers agree: grafana-operator's
+      `GrafanaDashboard` takes classic dashboard JSON, and the static
+      `contrib/` tier is imported by hand. Revisit when the panel
+      packages emit v2 builders, not before; the deprecation is
+      forward-looking and v1 renders fine on the ≥ 13 floor. Recorded
+      as an `//nolint:staticcheck` with that reasoning at the single
+      call site.
+
+      **Binary-size delta, measured (darwin/arm64, three panel types
+      reachable):**
+
+      | build | before | after | delta |
+      |---|---:|---:|---:|
+      | unstripped | 43,379,586 | 44,581,298 | +1,201,712 (+2.8%) |
+      | stripped (`-s -w`, goreleaser's flags) | 29,223,458 | 30,132,962 | +909,504 (+3.1%) |
+
+      **Not egregious — OQ5's escape hatch stays closed.** Under 1 MiB
+      on the artifact that actually ships. Measuring this needed a
+      reachable call: a blank import measured +0 bytes because the
+      linker eliminates a package whose symbols nobody uses, which is a
+      trap worth naming — the first measurement said "free" and was
+      meaningless. Phase 6 will add more panel types, but the packages
+      are thin generated wrappers over one shared core, so most of the
+      cost is already paid.
+
+      **The escape hatch is nonetheless kept cheap.** The SDK enters
+      only `internal/monitoring/dashboard`; the model package and 5.3's
+      alert package stay import-clean of it, so relocating is a
+      directory move that leaves `monitoring generate --format k8s`
+      still emitting the PrometheusRule from the main binary.
+
+      Panels set `noValue: "no data"` rather than rendering an empty
+      series as 0 — a zero is a measurement and an absent series is the
+      absence of one, and conflating them is how a dashboard reports a
+      healthy fleet while the exporter is dead. Same reasoning as the
+      report's `n/a` for an unmeasured rule. The org template variable
+      is driven by `repos_tracked` (a gauge present for every known
+      org, including compliant ones) rather than by any event counter,
+      which would silently drop exactly the orgs with nothing wrong.
 - [ ] 5.3 PrometheusRule generation: existing starter alerts
       re-authored as generator output, mechanism-scoped (no
       `PropertySchemaMissing` without a `custom_properties`

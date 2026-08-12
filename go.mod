@@ -7,6 +7,7 @@ require (
 	github.com/exaring/otelpgx v0.11.1
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/go-github/v68 v68.0.0
+	github.com/grafana/grafana-foundation-sdk/go v0.0.18
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/prometheus/client_golang v1.24.1

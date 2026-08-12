@@ -1088,11 +1088,31 @@ hand-written dashboard JSON anywhere.
       `posture_test.go` are kept deliberately dumb — they serve a
       scripted aggregate to test reset/ordering/error semantics, which
       is all they can honestly test.
-- [ ] `/metrics` bridge coexistence test + bad-HMAC 401 measurement
+- [x] `/metrics` bridge coexistence test + bad-HMAC 401 measurement
       test.
-- [ ] Report golden files; generator render tests against the pinned
-      Grafana schema; zero-mechanism fixture emits zero mechanism
-      panels/alerts.
+
+      Coexistence: `TestNew_BridgeAndDomainMetricsShareOneEndpoint`
+      plus `TestNew_DefaultRegistryIsTheProductionPath` — the latter
+      exists because the bridge is an UNCHECKED collector (its
+      `Describe` is a no-op), so a name collision raises nothing at
+      registration and instead 500s the entire `/metrics` endpoint at
+      scrape time. A test against a fresh registry would never see it.
+
+      401: `TestHandler_MeasuresRejectedWebhooks` drives the real
+      webhook handler with a bad signature and asserts the 401 lands
+      in `http_server_request_duration_seconds` with
+      `http_response_status_code="401"`. A stub handler would only
+      prove otelhttp works, which is upstream's test.
+- [x] Report golden files.
+
+      Ten fixtures in `internal/report/testdata/`, plus
+      `TestReport_MatchesDatabaseTruth` closing the seam between the
+      goldens (format, hand-built input) and the store integration
+      tests (queries, real database) — each half supplies the other's
+      input, so a seam defect passes both.
+- [ ] Generator render tests against the pinned Grafana schema;
+      zero-mechanism fixture emits zero mechanism panels/alerts.
+      (Phase 5.)
 - [ ] Catalog-parse log-line contract test (message + keys).
 - [ ] helm-unittest for new chart values; CI drift gate on the static
       tier.

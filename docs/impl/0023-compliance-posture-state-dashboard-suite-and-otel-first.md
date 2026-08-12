@@ -1047,7 +1047,7 @@ the pool directly. `make ci`, the integration suite, and `go mod tidy
       is driven by `repos_tracked` (a gauge present for every known
       org, including compliant ones) rather than by any event counter,
       which would silently drop exactly the orgs with nothing wrong.
-- [ ] 5.3 PrometheusRule generation: existing starter alerts
+- [x] 5.3 PrometheusRule generation: existing starter alerts
       re-authored as generator output, mechanism-scoped (no
       `PropertySchemaMissing` without a `custom_properties`
       reconciler), windows per INV-0012 findings C/E; includes
@@ -1059,6 +1059,76 @@ the pool directly. `make ci`, the integration suite, and `go mod tidy
       metric also counts routine archived/fork parks. Any generator
       that emits the alert without the selector pages on every normal
       onboarding sweep.
+
+      Landed as `internal/monitoring/alert/` — `alert.go` (the
+      catalogue as data, `Generate`) and `render.go` (YAML projection
+      to groups and to a `monitoring.coreos.com/v1` PrometheusRule).
+      25 alerts across four groups. The catalogue is data rather than
+      a template so "which alerts did we skip and why" is answerable
+      — `Generate` returns `([]Spec, []Skip)` and every omission
+      carries a reason.
+
+      Divergences and decisions worth recording:
+
+      1. **Two INV-0012 finding-E windows widened**, not one:
+         `WebhookRejectionsHigh` 15m → 30m and `StoreQueryErrors`
+         5m → 10m. Finding E says to judge window-versus-`for` per
+         metric cadence rather than blanket-rewriting, and that is
+         right, but `window >= for` is the conservative direction:
+         it can only smooth an alert, never stop a correct one from
+         firing. It is enforced uniformly by
+         `TestCatalogue_WindowIsAtLeastFor`.
+      2. **`Spec.Window` is a declared field**, not parsed out of the
+         expression, so the invariant above is checkable without a
+         PromQL parser. That makes it a hand-maintained copy of
+         something already in `Expr` — exactly the shape that drifts —
+         so `TestCatalogue_DeclaredWindowMatchesTheExpression` diffs
+         the declaration against every literal `[...]` in the
+         expression.
+      3. **`NoSchedulerLeader` retargeted** from `name="sweep"` to
+         `name="stale-sweep"`. The legacy full-enumeration `sweep`
+         schedule was removed in IMPL-0015 Phase 0, so the contrib
+         alert has been watching a series with no producer since —
+         a second instance of INV-0012 finding A, found by
+         re-authoring.
+      4. **`PRDrift` is gated on `auto_close_pr`.** The subtle one:
+         with auto-close OFF an open PR whose rules are all satisfied
+         is the *designed* behaviour, so the alert would fire
+         permanently on a correctly-configured deployment.
+      5. **`PropertySchemaMissing` gates on the reconciler, not its
+         mode** — the schema preflight runs in both `api` and
+         `github-action` mode. Gating on mode silently drops the
+         alert for every api-mode deployment; the mis-gating is
+         probe-verified to fail the test.
+      6. **`Excludes` exists because `dry_run` is inverted.** It does
+         not enable a series, it suppresses `prs_created_total`, so
+         every PR-shaped alert is empty by construction on a dry-run
+         deployment. A generator that only knows how to *add* alerts
+         gets this backwards.
+      7. **`RepoAccessDenied` is deliberately unconditional** — an
+         installation can lose read access at any time regardless of
+         configuration — and its `{reason="access_denied"}` selector
+         is pinned by its own test.
+      8. **`RenderPrometheusRule` hand-builds the manifest** rather
+         than importing prometheus-operator's API types, which would
+         drag the whole `k8s.io/api` + apimachinery tree in for four
+         fields. The namespace is stamped explicitly per the
+         chart-template convention in CLAUDE.md.
+      9. **`TestCatalogue_PromtoolAcceptsEveryExpression`** shells out
+         to `promtool check rules` (skips when absent; mise supplies
+         it). Nothing else in Go-land distinguishes valid PromQL from
+         invalid: a missing paren compiles, renders, round-trips
+         through YAML and passes every other test in the package. It
+         renders `Catalogue()` rather than `Generate()` so
+         dry-run-suppressed alerts are checked too, and guards the
+         empty-render vacuous pass the same way `lint-alerts-chart`
+         does.
+
+      Every guarantee was probe-verified by neutralization: broken
+      PromQL, the reverted finding-E window, the dropped
+      `access_denied` selector, the mis-gated preflight, the dropped
+      dry-run exclusion, the mis-gated `PRDrift`, Go-format durations,
+      and the unstamped namespace each fail their test.
 - [ ] 5.4 `--format k8s`: grafana-operator `GrafanaDashboard` CRs
       (design OQ7 → b) + a `PrometheusRule` CR; `--format json` emits
       plain files. Datasources are concrete UIDs defaulting to

@@ -627,7 +627,18 @@ func newGitHubClient(cfg *config.Config, logger *slog.Logger) (*ghclient.GitHubC
 	return ghclient.NewClient(cfg.GitHubAppID, cfg.GitHubPrivateKeyPath, logger, cfg.RateLimitThreshold)
 }
 
+// initLogger builds the server's logger, on stdout.
+//
+// Stdout is deliberate for the server and load-bearing for whoever
+// collects its logs; do not "fix" it to stderr. The report subcommand
+// writes its path list to stdout and therefore needs the other stream —
+// it calls initLoggerTo(os.Stderr, ...) instead.
 func initLogger(level string) *slog.Logger {
+	return initLoggerTo(os.Stdout, level)
+}
+
+// initLoggerTo builds a logger writing to w.
+func initLoggerTo(w io.Writer, level string) *slog.Logger {
 	var logLevel slog.Level
 
 	switch level {
@@ -641,7 +652,7 @@ func initLogger(level string) *slog.Logger {
 		logLevel = slog.LevelInfo
 	}
 
-	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+	handler := slog.NewJSONHandler(w, &slog.HandlerOptions{
 		Level: logLevel,
 	})
 

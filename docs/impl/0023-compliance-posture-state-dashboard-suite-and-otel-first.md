@@ -823,17 +823,68 @@ the pool directly. `make ci`, the integration suite, and `go mod tidy
       the "no previous snapshot exists" note rendered even for an org
       with no rules evaluated at all, where trends are not the reason
       the table is empty. The template now gates that note on `.Rules`.
-- [ ] 4.4 Operator doc: generating and distributing reports; snapshot
+- [x] 4.4 Operator doc: generating and distributing reports; snapshot
       cadence and no-retention rationale (~120 rows/day at target
       scale).
 
+      `docs/operations/compliance-reports.md`, wired into the mkdocs
+      nav; strict build still aborts at the documented 14-warning
+      baseline, none of them from this file.
+
+      **Writing it found and fixed a live defect.** `initLogger` writes
+      to stdout — correct and load-bearing for the server, wrong for a
+      subcommand whose stdout carries a pipeable path list, since a
+      JSON log record interleaved into it makes `report | xargs` treat
+      a log line as a filename. `report.go`'s comment already claimed
+      "the logger writes to stderr", so the code contradicted itself.
+      Split into `initLogger` (server, stdout — unchanged) and
+      `initLoggerTo(w, level)`, with `runReport` taking stderr.
+      `TestInitLogger_UsesStdout` swaps the real `os.Stdout` rather
+      than trusting the argument, because a "CLIs log to stderr"
+      refactor would otherwise silently empty every operator's log
+      pipeline.
+
+      A drafted claim that an em dash in "Failing since" means "already
+      failing when rule_state first recorded it" was **wrong** and was
+      removed: `upsertRuleStateQuery` stamps `now()` on every
+      false→true edge including the first insert, so a NULL against
+      `actionable = true` cannot come from this binary at all. The doc
+      now says so.
+
+      Known gap recorded rather than papered over:
+      `COMPLIANCE_SNAPSHOT_INTERVAL` has no first-class chart value
+      yet, so the doc gives the `extraEnv` workaround and points at
+      task 7.3, which owns the chart bump.
+
 #### Success Criteria
 
-- A generated report for a seeded org matches DB truth exactly
-  (identity, since-dates, percentages).
-- Snapshot rows accumulate at the configured cadence on the leader
-  only.
-- `make ci` passes.
+- [x] A generated report for a seeded org matches DB truth exactly
+      (identity, since-dates, percentages).
+
+      `TestReport_MatchesDatabaseTruth` in
+      `internal/store/postgres/report_render_integration_test.go`.
+      **This test exists because neither existing half proved it:** the
+      golden tests pin the format against hand-built view models and
+      the store integration tests pin the queries against a real
+      database, so each supplies the other's input and a seam defect —
+      a renderer reading the wrong field, a query whose column order
+      drifted — passes both. Seeds 4 repos (3 failing) plus a snapshot
+      at 4 failing, then asserts the rendered markdown: `3 | 4 | 25.0%`,
+      `1 fewer since <date>`, every failing repo named with the date
+      Postgres stamped, the compliant one absent, and no PR column.
+      `TestReport_ParkedReposAreExcludedFromTheNumbers` pins that a
+      deactivated repo leaves the denominator rather than joining the
+      compliant count — the flattering direction is the one that gets
+      believed.
+- [x] Snapshot rows accumulate at the configured cadence on the leader
+      only.
+
+      Cadence from `COMPLIANCE_SNAPSHOT_INTERVAL` (default 24h);
+      leader-gating from `Scheduler.Schedule("compliance-snapshot",
+      ...)`, which is the same SETNX election as `stale-sweep` and
+      `posture-export`. Accumulation and idempotency are covered by
+      `TestPostgresStore_InsertComplianceSnapshot_ExcludesParkedAndIsIdempotent`.
+- [x] `make ci` passes.
 
 ---
 

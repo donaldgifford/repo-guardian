@@ -56,7 +56,12 @@ func runReport(args []string) error {
 	}
 
 	ctx := context.Background()
-	logger := initLogger(os.Getenv("LOG_LEVEL"))
+
+	// Stderr, not the server's stdout. The path list below is this
+	// command's output and has to be pipeable; JSON log lines
+	// interleaved into it would make `report | xargs` parse a log
+	// record as a filename.
+	logger := initLoggerTo(os.Stderr, os.Getenv("LOG_LEVEL"))
 
 	st, err := pgstore.New(ctx, *dsn, reportPoolConns, logger)
 	if err != nil {

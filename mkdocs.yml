@@ -85,6 +85,7 @@ nav:
         - Custom-properties security fix (IMPL-0020): operations/custom-properties-security-fix.md
         - Custom-property annotation migration (appVersion 1.9.1 → next minor): operations/annotation-properties-migration.md
         - Custom-property name charset correction (appVersion 1.10.1): operations/property-name-charset.md
+        - Generating dashboards and alerts: operations/monitoring-generation.md
         - Delayed requeue — operator runbook: operations/delayed-requeue-runbook.md
         - ECR publish setup (maintainer-side): operations/ecr-publish-setup.md
         - External Postgres on RDS — Terraform variable reference: operations/rds-terraform-variables.md

@@ -1253,18 +1253,50 @@ the pool directly. `make ci`, the integration suite, and `go mod tidy
          expected `Warn` about undeclarable orgs under the built-in
          policy. The job's verdict is the file diff; a future edit
          must not "fix" a red run by silencing the logger.
-- [ ] 5.6 Document generator-as-validation: a failing `policy.Load`
+- [x] 5.6 Document generator-as-validation: a failing `policy.Load`
       fails generation, so running it in CI is a free config check
       (strict-templates precedent).
 
+      Landed as `docs/operations/monitoring-generation.md` (wired into
+      `mkdocs.yml`), which covers the whole subcommand: quick start,
+      the flag table, why `--instance-selector` is mandatory, why
+      datasource UIDs are concrete rather than `${DS_}` inputs, what
+      mechanism scoping does and does not emit, the silent-org
+      warnings, the static tier and its drift gate, and
+      troubleshooting.
+
+      The generator-as-validation section is verified rather than
+      asserted — every claim in it was run against the binary: an
+      unknown `guardian {}` attribute, a strict-mode rule with no
+      `scope {}`, and an unclosed PR-template action each fail
+      generation with a located error. The section also records the
+      caveat that motivated the `--config` existence check:
+      `policy.Load` treats a missing file as "use built-in defaults"
+      and returns nil, so without the guard a typo'd path would emit
+      the DEFAULT artifacts with exit 0 and skip the validation
+      entirely — on exactly the invocation that most needs it.
+
 #### Success Criteria
 
-- `monitoring generate` against `examples/guardian-enterprise.hcl`
+- [~] `monitoring generate` against `examples/guardian-enterprise.hcl`
   emits dashboards with a row for every configured org (including
   silent ones) and an alert manifest containing only
   configured-mechanism alerts.
-- Hand-editing a generated artifact turns CI red.
-- `make ci` passes.
+
+  **Alert half met, dashboard half deferred to Phase 6** — the panel
+  library, the `dashboard.Suite` seam and the k8s CR wrapping all ship
+  here, but the four dashboards are Phase 6 content, so `Suite`
+  returns nothing yet. Verified for the alert half: the enterprise
+  example (strict scope, 3 orgs, 12 mechanisms) emits 23 alerts
+  against the built-in policy's 19. The four extra are exactly the
+  ones its mechanisms unlock, and the scoping is visibly discriminating
+  rather than permissive — `BranchProtectionChurn` stays out because
+  the example configures branch-protection *rules* without
+  *remediation*, and `PropertiesPRBurst` stays out because its
+  `custom_properties` reconciler runs in api mode.
+- [x] Hand-editing a generated artifact turns CI red. Probe-verified in
+  all three directions: modified file, stale extra file, missing file.
+- [x] `make ci` passes.
 
 ---
 

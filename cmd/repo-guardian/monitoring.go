@@ -122,6 +122,7 @@ type generateFlags struct {
 
 	prometheusUID string
 	lokiUID       string
+	lokiSelector  string
 
 	namespace        string
 	name             string
@@ -151,6 +152,8 @@ func parseGenerateFlags(args []string) (*generateFlags, error) {
 		"uid of the Prometheus datasource the panels query")
 	fs.StringVar(&f.lokiUID, "loki-uid", dashboard.DefaultLokiUID,
 		"uid of the Loki datasource the log panels query")
+	fs.StringVar(&f.lokiSelector, "loki-selector", dashboard.DefaultLogStream,
+		"Loki stream selector matching repo-guardian's logs, without braces, e.g. job=\"ns/repo-guardian\"")
 
 	fs.StringVar(&f.namespace, "namespace", "", "namespace to stamp on generated Kubernetes objects ("+formatK8s+" only)")
 	fs.StringVar(&f.name, "name", emit.DefaultName, "base name for generated Kubernetes objects ("+formatK8s+" only)")
@@ -203,7 +206,11 @@ func runMonitoringGenerate(args []string) error {
 
 	warnUndeclarableOrgs(model, logger)
 
-	ds := dashboard.Datasources{Prometheus: f.prometheusUID, Loki: f.lokiUID}.WithDefaults()
+	ds := dashboard.Datasources{
+		Prometheus: f.prometheusUID,
+		Loki:       f.lokiUID,
+		LogStream:  f.lokiSelector,
+	}.WithDefaults()
 
 	artifacts, err := emit.Generate(model, dashboard.Suite(model, ds), &emit.Options{
 		Format:                    f.format,

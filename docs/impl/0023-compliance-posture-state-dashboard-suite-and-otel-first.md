@@ -1448,10 +1448,92 @@ hand-written dashboard JSON anywhere.
 
       `TestE3_CarriesNoComplianceSeries` asserts the Finding I tier
       split from the other side: no business gauge appears on E3.
-- [ ] 6.4 E4 Loki dashboard (error rate by component, sweep
+- [x] 6.4 E4 Loki dashboard (error rate by component, sweep
       summaries, write-back failures, webhook rejections, top
       erroring repos as log fields) + Loki-ruler recording-rule
       examples in `contrib/`.
+
+      `internal/monitoring/dashboard/e4.go` — 13 panels in five rows
+      (Errors, Repository faults, Write-back and job loss, Webhook,
+      Sweeps), wired into `Suite` as the fourth dashboard. Every
+      matcher is a named constant, and every message was read off the
+      emitting source rather than remembered.
+
+      **Divergence 1 — "error rate by component" became "by level and
+      by message".** There is no `component` field in repo-guardian's
+      log records; the structured keys are `level`, `msg`, `owner`,
+      `repo`, `reconciler`, `rule`. Grouping by a field that does not
+      exist yields one unlabelled series, which is worse than useless
+      on an incident dashboard. Grouping by `msg` gets the intended
+      shape — one line per repeating fault — and is bounded because
+      messages are static strings with the variable parts in fields.
+
+      **Divergence 2 — "top erroring repos" is per-fault, not global.**
+      A single `topk by (owner, repo)` over all ERROR lines reads as a
+      leaderboard with no action attached to it. The three panels that
+      do group by repository are each tied to one fault an operator can
+      act on: an unparseable catalog-info, a parked repository, and a
+      job dropped at the attempt cap.
+
+      **Divergence 3 — the stream selector is a new flag.** Stream
+      labels are minted by the log shipper, so `{app="repo-guardian"}`
+      is a convention this repository cannot verify. `Datasources`
+      grew a `LogStream` field (default `app="repo-guardian"`) and the
+      CLI a `--loki-selector`. It is the one input most likely to be
+      wrong on a fresh import, so the first panel's description prints
+      the selector in use, and `TestE4_EveryQueryStartsFromTheStream
+      Selector` fails if any panel hard-codes the default instead of
+      taking the configured one.
+
+      **The `promtool` gate needed a datasource split.**
+      `TestSuite_EveryPanelQueryParses` fed every panel expression to
+      `promtool check rules`, which parses PromQL; E4's LogQL would
+      have failed it. `panelTarget` now carries the panel's datasource
+      TYPE and panel type, the three PromQL assertions run through a
+      `promTargets` filter, and `suiteTargets` additionally fails any
+      panel that declares no datasource at all (such a panel inherits
+      whatever the dashboard default is at import time).
+
+      **No offline LogQL parser exists here** — `logcli`/`lokitool`
+      are not in `mise.toml` and vendoring Loki's parser to check a
+      dozen strings is not a trade worth making. Three structural
+      tests stand in for it:
+      `TestE4_GraphPanelsUseMetricQueries` (a log-selector expression
+      on a graph plots nothing and a metric expression on a logs panel
+      lists nothing — neither errors),
+      `TestE4_ChartsNoPrometheusSeries`, and
+      `TestE4_IsTheOnlyLokiDashboard`.
+
+      **`TestLogLines_AreStillEmittedByTheBinary` is the one that
+      matters.** It walks `internal/` and fails if any of the eleven
+      matched log lines is no longer emitted anywhere. It lives in
+      package `dashboard` (not `dashboard_test`) so it reads the same
+      constants the panels do — a duplicated list could drift and
+      pass. First version was vacuous: `internal/monitoring/dashboard`
+      is itself under `internal/`, so every literal matched its own
+      const declaration; the walk now skips the declaring tree. Probe-
+      verified by renaming the attempt-cap message in
+      `internal/worker/worker.go`.
+
+      `contrib/loki/rules.yaml` carries the recording-rule examples,
+      hand-maintained and outside the drift-gated `contrib/generated/`
+      tree. The cardinality argument is stated in the header: these
+      series are bounded by how many repositories are currently BROKEN,
+      not by how many exist, which is why the per-repository answer the
+      app refuses to mint (Finding G) is safe to record here. One
+      correctness fix during authoring: the alerting rules originally
+      referenced the recorded series by name, which the Loki ruler
+      cannot do — it parses `expr` as LogQL, and the recorded names
+      only exist after remote-write lands them in Prometheus. They are
+      now full LogQL, with a note that alerting in Prometheus over the
+      recorded series is the alternative and that doing both
+      double-fires.
+
+      Also corrected the `dashboard` package doc, which claimed every
+      panel takes "exactly one datasource and one query" — `TimeSeries`
+      has been variadic since 6.1 and E1/E3 use multi-query panels. The
+      rule is one datasource and one TIER per panel; the datasource
+      half is enforced by construction, the tier half by tests.
 - [x] 6.5 Test-lock the catalog-parse log line ("catalog-info parse
       failed; skipping reconcile to avoid clearing properties" —
       exact message + keys, the same contract style as

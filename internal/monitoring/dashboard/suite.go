@@ -32,17 +32,19 @@ type Dashboard struct {
 // emission: adding a dashboard is a line here, and the emitter never
 // learns how many there are or what they chart.
 //
-// The four dashboards (E1 KPI, E2 detail, E3 system, E4 Loki) are
-// authored in IMPL-0023 Phase 6. Until then this returns nothing, which
-// is why the drift gate asserts a non-zero artifact count rather than
-// trusting that a green run wrote something — an emitter with an empty
-// suite is exactly the vacuous pass promtool's "0 rules found" trap
-// taught us to guard against.
+// The four dashboards are the Finding I tiers, in the order an incident
+// is actually worked: E1 says a rule is failing, E2 says which
+// organisation, E3 says whether the service itself is healthy, and E4
+// says which repository and why. E4 is the only one that reads Loki, and
+// it is not optional garnish — the "which repository" answer cannot
+// exist in a metric, because a repo label would be unbounded
+// cardinality (Finding G).
 func Suite(m *monitoring.Model, ds Datasources) []Dashboard {
 	return []Dashboard{
 		e1KPI(m, ds),
 		e2Detail(m, ds),
 		e3System(m, ds),
+		e4Loki(m, ds),
 	}
 }
 

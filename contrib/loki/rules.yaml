@@ -1,0 +1,178 @@
+# Loki ruler recording and alerting rules for repo-guardian.
+#
+# HAND-MAINTAINED, and deliberately not generated. Everything under
+# contrib/generated/ is rewritten by `make monitoring-generate` and
+# guarded by a CI drift check; this file is an example you are meant to
+# copy and edit, because what it is worth recording depends on how big
+# your fleet is and how much cardinality your Prometheus will tolerate.
+#
+# ---------------------------------------------------------------------
+# Why these exist
+# ---------------------------------------------------------------------
+#
+# repo-guardian's metrics deliberately carry no repository label. A
+# 20,000-repo fleet times a dozen rules is a cardinality bomb, so the
+# per-repository answer lives in the logs instead (DESIGN-0022 Finding
+# G). That is the right default, and it has one cost: you cannot alert
+# on "repository X has had a broken catalog-info for a week" from
+# Prometheus, because no such series exists.
+#
+# These rules are the opt-in bridge. The Loki ruler evaluates LogQL and
+# remote-writes the result as ordinary Prometheus series, so you get
+# per-repository alerting WITHOUT the app minting per-repository labels.
+# The cardinality is bounded by how many repositories are currently
+# BROKEN rather than by how many exist — on a healthy fleet these series
+# do not exist at all.
+#
+# That bound is the whole safety argument, so keep it: never record a
+# rule that is non-zero for a healthy repository. `count_over_time` of
+# a failure line is safe; anything derived from "processing job" is not.
+#
+# ---------------------------------------------------------------------
+# Installing
+# ---------------------------------------------------------------------
+#
+# Loki must be configured with a ruler and a remote-write target:
+#
+#   ruler:
+#     storage: { type: local, local: { directory: /etc/loki/rules } }
+#     rule_path: /tmp/loki-rules
+#     remote_write:
+#       enabled: true
+#       client:
+#         url: http://prometheus:9090/api/v1/write
+#
+# Then place this file at /etc/loki/rules/<tenant>/repo-guardian.yaml
+# (use `fake` as the tenant when auth_enabled is false).
+#
+# ---------------------------------------------------------------------
+# The stream selector
+# ---------------------------------------------------------------------
+#
+# Every expression below starts from {app="repo-guardian"}. That label
+# comes from your log shipper, not from repo-guardian, so it is the
+# first thing to change and the first thing to suspect when a rule
+# records nothing. It must match whatever you passed to
+# `monitoring generate --loki-selector`, or the dashboards and these
+# rules will disagree about which logs are ours.
+#
+# Verify before trusting: `logcli query '{app="repo-guardian"}' --limit 5`
+
+---
+groups:
+  - name: repo-guardian-evidence
+    # 5m rather than the ruler default: these feed alerts with `for`
+    # clauses measured in hours, so a faster interval buys nothing and
+    # costs query load on the busiest streams.
+    interval: 5m
+    rules:
+      # Which repositories have an unparseable catalog-info.yaml.
+      #
+      # The counter repo_guardian_catalog_parse_failed_total{org} already
+      # says HOW MANY. This says WHICH, and it is the series to alert on
+      # if you want a ticket per repository rather than a number that
+      # nobody can act on.
+      #
+      # A repository here has had its custom properties left ALONE
+      # rather than cleared — that is deliberate (INV-0011 A1) and means
+      # the failure is silent from GitHub's side. Nothing changes; the
+      # properties simply stop tracking reality.
+      - record: repo_guardian:catalog_parse_failed:rate5m
+        expr: |
+          sum by (owner, repo) (
+            rate({app="repo-guardian"} |= "catalog-info parse failed" | json [5m])
+          )
+
+      # Repositories parked out of the sweep.
+      #
+      # Parking is why repos_tracked can fall without anything being
+      # wrong — archived, forked, transferred or un-installed. Recording
+      # it per repository turns "the tracked count dropped by 40" into a
+      # list you can read.
+      - record: repo_guardian:repository_parked:rate1h
+        expr: |
+          sum by (owner, repo, reason) (
+            rate({app="repo-guardian"} |= "parking repository until discovery sees it again" | json [1h])
+          )
+
+      # Repositories whose jobs were dropped at the attempt cap.
+      #
+      # The job is not lost — the stale sweep re-enqueues it — but a
+      # repository that reaches the cap repeatedly is one that will
+      # never converge, and queue_attempts_exhausted_total cannot tell
+      # you which one it is.
+      - record: repo_guardian:job_attempts_exhausted:rate1h
+        expr: |
+          sum by (owner, repo) (
+            rate({app="repo-guardian"} |= "job exceeded attempt cap" | json [1h])
+          )
+
+      # State write-back failures. Two rules rather than one clever one
+      # with a label_format: the two lines mean different things (a repo
+      # row versus its per-rule posture rows) and an example nobody can
+      # eyeball is an example nobody should copy.
+      #
+      # Best-effort by design: these never fail a job and never appear
+      # in errors_total, because the queue is the source of truth for
+      # "did we do the work". What they do is make every posture gauge
+      # on E1 and E2 stale while it keeps being served, which is the one
+      # failure those gauges cannot report about themselves.
+      - record: repo_guardian:repo_state_writeback_failed:rate15m
+        expr: |
+          sum(rate({app="repo-guardian"} |= "store write-back failed" [15m]))
+
+      - record: repo_guardian:rule_state_writeback_failed:rate15m
+        expr: |
+          sum(rate({app="repo-guardian"} |= "rule-state write-back failed" [15m]))
+
+  - name: repo-guardian-evidence-alerts
+    interval: 5m
+    rules:
+      # NOTE the expressions here are full LogQL, not references to the
+      # recorded series above. The Loki ruler parses `expr` as LogQL, so
+      # an alerting rule naming a recorded series is a load-time error
+      # — the recorded names only exist once they have been remote-
+      # written into Prometheus, and only Prometheus can read them.
+      #
+      # Alert in whichever place you prefer. Alerting here keeps the
+      # rules next to the data; alerting in Prometheus over the recorded
+      # series keeps every alert in one place. Do not do both.
+
+      # Fires per repository, which is the point — and the reason it is
+      # a warning with a long `for` rather than a page. A broken
+      # catalog-info is a repository-owner problem, not an on-call one.
+      #
+      # 6h, not 1h: the reconcile only runs when the repo is checked, so
+      # a shorter window would depend on sweep timing rather than on
+      # anything being wrong.
+      - alert: RepoGuardianCatalogUnparseable
+        expr: |
+          sum by (owner, repo) (
+            rate({app="repo-guardian"} |= "catalog-info parse failed" | json [5m])
+          ) > 0
+        for: 6h
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.owner }}/{{ $labels.repo }} has an unparseable catalog-info.yaml"
+          description: >-
+            Its custom properties are being left alone rather than cleared, so they will
+            silently stop tracking reality. See the E4 logs dashboard, panel
+            "catalog-info parse failures", for the parse error itself.
+
+      # A repository that keeps hitting the attempt cap is one the sweep
+      # keeps picking up and the worker keeps failing on. Left alone it
+      # burns API budget on every sweep forever.
+      - alert: RepoGuardianRepositoryNeverConverges
+        expr: |
+          sum by (owner, repo) (
+            rate({app="repo-guardian"} |= "job exceeded attempt cap" | json [1h])
+          ) > 0
+        for: 12h
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.owner }}/{{ $labels.repo }} keeps exhausting its job attempts"
+          description: >-
+            Every delivery for this repository is failing MAX_JOB_ATTEMPTS times before
+            being dropped. Check the E4 logs dashboard, panel "Deferrals and drops".

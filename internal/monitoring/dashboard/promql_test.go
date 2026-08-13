@@ -18,9 +18,21 @@ type panelTarget struct {
 	Dashboard string
 	Panel     string
 	Expr      string
+
+	// Datasource is the panel's datasource TYPE ("prometheus", "loki"),
+	// not its UID. Every assertion below is language-specific — PromQL
+	// and LogQL share neither a parser nor a series vocabulary — so
+	// mixing the two silently would either fail valid queries or, worse,
+	// let a whole dashboard's worth of them go unchecked.
+	Datasource string
+
+	// PanelType is the Grafana panel type ("timeseries", "logs", ...).
+	// A LogQL expression is legal on one and illegal on the other, and
+	// neither Grafana nor the SDK checks.
+	PanelType string
 }
 
-// suiteTargets extracts every PromQL expression in the suite.
+// suiteTargets extracts every query in the suite, of either language.
 func suiteTargets(t *testing.T, m *monitoring.Model) []panelTarget {
 	t.Helper()
 
@@ -38,8 +50,11 @@ func suiteTargets(t *testing.T, m *monitoring.Model) []panelTarget {
 
 		var decoded struct {
 			Panels []struct {
-				Title   string `json:"title"`
-				Type    string `json:"type"`
+				Title      string `json:"title"`
+				Type       string `json:"type"`
+				Datasource struct {
+					Type string `json:"type"`
+				} `json:"datasource"`
 				Targets []struct {
 					Expr string `json:"expr"`
 				} `json:"targets"`
@@ -59,13 +74,51 @@ func suiteTargets(t *testing.T, m *monitoring.Model) []panelTarget {
 				t.Errorf("%s: panel %q has no query; it would render permanently empty", d.Slug, p.Title)
 			}
 
+			if p.Datasource.Type == "" {
+				t.Errorf("%s: panel %q declares no datasource, so it inherits whatever the dashboard's "+
+					"default is at import time", d.Slug, p.Title)
+			}
+
 			for _, tgt := range p.Targets {
-				out = append(out, panelTarget{Dashboard: d.Slug, Panel: p.Title, Expr: tgt.Expr})
+				out = append(out, panelTarget{
+					Dashboard:  d.Slug,
+					Panel:      p.Title,
+					Expr:       tgt.Expr,
+					Datasource: p.Datasource.Type,
+					PanelType:  p.Type,
+				})
 			}
 		}
 	}
 
 	return out
+}
+
+// Datasource types, as Grafana names them in the rendered JSON.
+const (
+	dsPrometheus = "prometheus"
+	dsLoki       = "loki"
+)
+
+// ofType filters targets to one query language.
+func ofType(targets []panelTarget, dsType string) []panelTarget {
+	var out []panelTarget
+
+	for _, tgt := range targets {
+		if tgt.Datasource == dsType {
+			out = append(out, tgt)
+		}
+	}
+
+	return out
+}
+
+// promTargets is every PromQL expression in the suite, from both model
+// shapes.
+func promTargets(t *testing.T) []panelTarget {
+	t.Helper()
+
+	return ofType(append(suiteTargets(t, legacyModel()), suiteTargets(t, strictModel())...), dsPrometheus)
 }
 
 // grafanaVars are the interpolations Grafana performs before a query
@@ -93,7 +146,7 @@ func TestSuite_EveryPanelQueryParses(t *testing.T) {
 		t.Skip("promtool not on PATH; mise supplies it (see mise.toml)")
 	}
 
-	targets := append(suiteTargets(t, legacyModel()), suiteTargets(t, strictModel())...)
+	targets := promTargets(t)
 
 	// A suite that generated nothing would pass this test vacuously,
 	// which is the failure mode promtool's own "0 rules found" exit-0
@@ -153,7 +206,7 @@ func TestSuite_PostureQueriesDedupeAcrossReplicas(t *testing.T) {
 		"repo_guardian_repos_unmeasurable",
 	}
 
-	for _, tgt := range append(suiteTargets(t, legacyModel()), suiteTargets(t, strictModel())...) {
+	for _, tgt := range promTargets(t) {
 		for _, gauge := range postureGauges {
 			if !strings.Contains(tgt.Expr, gauge) {
 				continue
@@ -172,7 +225,7 @@ func TestSuite_PostureQueriesDedupeAcrossReplicas(t *testing.T) {
 func TestSuite_LeaderGaugesAreNotSummed(t *testing.T) {
 	t.Parallel()
 
-	for _, tgt := range append(suiteTargets(t, legacyModel()), suiteTargets(t, strictModel())...) {
+	for _, tgt := range promTargets(t) {
 		if !strings.Contains(tgt.Expr, "repo_guardian_scheduler_is_leader") {
 			continue
 		}

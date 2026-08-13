@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"regexp"
 
-	sdk "github.com/grafana/grafana-foundation-sdk/go/dashboard"
-
 	"github.com/donaldgifford/repo-guardian/internal/monitoring"
 )
 
@@ -25,8 +23,7 @@ type Dashboard struct {
 	// under. Empty means the operator's default.
 	Folder string
 
-	//nolint:staticcheck // SA1019: schema v1 is what the panel builders produce, see New
-	Builder *sdk.DashboardBuilder
+	Builder *Builder
 }
 
 // Suite returns every dashboard the generator emits, in a fixed order.
@@ -41,9 +38,15 @@ type Dashboard struct {
 // trusting that a green run wrote something — an emitter with an empty
 // suite is exactly the vacuous pass promtool's "0 rules found" trap
 // taught us to guard against.
-func Suite(_ *monitoring.Model, _ Datasources) []Dashboard {
-	return nil
+func Suite(m *monitoring.Model, ds Datasources) []Dashboard {
+	return []Dashboard{
+		e1KPI(m, ds),
+	}
 }
+
+// GrafanaFolder is the folder the generated dashboards ask the operator
+// to file them under.
+const GrafanaFolder = "repo-guardian"
 
 // rfc1123 is the Kubernetes object-name grammar.
 var rfc1123 = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)

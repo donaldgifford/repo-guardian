@@ -89,6 +89,16 @@ func (d Datasources) LokiRef() common.DataSourceRef {
 	return common.DataSourceRef{Type: &t, Uid: &d.Loki}
 }
 
+// Builder is a dashboard under construction.
+//
+// An alias rather than a wrapper, so it composes with the SDK's own
+// builder methods. It exists so the dashboards in this package can name
+// the type without every file needing the schema-v1 deprecation
+// suppression that New and Render carry — the alias takes it once.
+//
+//nolint:staticcheck // SA1019: v1 is the only schema the panel builders produce, see New
+type Builder = sdk.DashboardBuilder
+
 // Query is one PromQL expression and how to label its series.
 type Query struct {
 	Expr   string

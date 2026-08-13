@@ -245,8 +245,15 @@ func TestMonitoringGenerate_WritesArtifacts(t *testing.T) {
 			alert: "alerts/rules.yaml",
 		},
 		{
-			name:  "k8s",
-			args:  []string{"--format", "k8s", "--namespace", "monitoring"},
+			// --instance-selector is not optional once the suite has a
+			// dashboard in it: the generator refuses to emit a
+			// GrafanaDashboard the operator has no Grafana to file into.
+			name: "k8s",
+			args: []string{
+				"--format", "k8s",
+				"--namespace", "monitoring",
+				"--instance-selector", "dashboards=grafana",
+			},
 			alert: "alerts/prometheusrule.yaml",
 		},
 	}
@@ -296,6 +303,7 @@ func TestMonitoringGenerate_KubernetesFieldsReachTheManifest(t *testing.T) {
 		"--namespace", "observability",
 		"--name", "rg-alerts",
 		"--label", "release=kube-prometheus-stack",
+		"--instance-selector", "dashboards=grafana",
 	}
 
 	if err := runMonitoring(args); err != nil {
@@ -317,6 +325,26 @@ func TestMonitoringGenerate_KubernetesFieldsReachTheManifest(t *testing.T) {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("manifest is missing %q:\n%s", want, body)
 		}
+	}
+}
+
+// TestMonitoringGenerate_K8sRequiresAnInstanceSelector pins that the
+// refusal reaches the command line rather than only the emitter.
+//
+// Worth its own test because the failure it prevents is silent on the
+// cluster: a GrafanaDashboard with no instanceSelector applies cleanly,
+// then sits unreconciled forever with nothing in `kubectl get` to say
+// the operator never picked it up.
+func TestMonitoringGenerate_K8sRequiresAnInstanceSelector(t *testing.T) {
+	t.Setenv("GUARDIAN_CONFIG", "")
+
+	err := runMonitoring([]string{"generate", "--out", t.TempDir(), "--format", "k8s"})
+	if err == nil {
+		t.Fatal("runMonitoring(--format k8s) = nil with no selector, want an error")
+	}
+
+	if !strings.Contains(err.Error(), "instance selector") {
+		t.Errorf("runMonitoring() = %q, want the error to name the missing selector", err)
 	}
 }
 

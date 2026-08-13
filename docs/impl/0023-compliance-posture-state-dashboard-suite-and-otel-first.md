@@ -1307,10 +1307,64 @@ hand-written dashboard JSON anywhere.
 
 #### Tasks
 
-- [ ] 6.1 E1 KPI dashboard — business-tier sources only (INV-0013
+- [x] 6.1 E1 KPI dashboard — business-tier sources only (INV-0013
       Finding I): compliance % from the Phase 2 gauges,
       `open_prs_by_rule` ages, convergence rate, error budget,
       rate-limit headroom, queue depth, leader status.
+
+      Landed as `internal/monitoring/dashboard/e1.go`, wired into
+      `Suite`. Three rows: Fleet compliance, Convergence, Service
+      health. 13 panels.
+
+      Notes and one defect found:
+
+      1. **Two-stage posture aggregation, and the order matters.**
+         Every posture query is `sum(max by (<the gauge's own labels>)
+         (...))`. The inner `max` collapses replicas — the gauges are
+         published by the leader only, and a demoted replica keeps
+         serving its last values until its process restarts, so `sum`
+         on the inside multiplies the fleet by the number of replicas
+         that ever held the lock. The outer `sum` then adds orgs.
+         `max` on the outside would report the largest org rather than
+         the fleet. Pinned by
+         `TestSuite_PostureQueriesDedupeAcrossReplicas` and
+         `TestSuite_LeaderGaugesAreNotSummed`.
+      2. **Compliance reads "no data", never 100%, when nothing is
+         tracked.** The `and on() (tracked > 0)` clause drops the
+         series entirely, matching `report.CompliantPercent`'s
+         `(0, false)`. The two must agree or the dashboard and the
+         report describe the same fleet differently.
+      3. **DEFECT FOUND — `open_prs_by_rule` is not a state gauge on
+         multi-replica.** `recordOpenPRsByRule` (`drift.go:38`) `Inc()`s
+         it from whichever replica performs a check, but
+         `metrics.ResetOpenPRsByRule` is called only from
+         `StaleSweeper.SweepStale` (`sweep.go:110`), which runs on the
+         leader. A non-leader's copy therefore accumulates without
+         ever being reset: it counts "times we observed an open PR",
+         not "how many are open now" — the exact Finding B confusion
+         this design exists to remove, in a metric the design lists as
+         an E1 source. The panel ships with the caveat in its
+         description (which lands in the dashboard JSON where an
+         operator reads it) rather than being quietly dropped or
+         quietly trusted. **Recommended fix, out of scope here:**
+         derive it in `PostureExporter.Export` from the store like the
+         other posture gauges, and delete the check-time `Inc`. That
+         also fixes `RepoGuardianStaleOpenPRs`, which currently
+         thresholds an inflated number.
+      4. **`Builder` is now a type alias** for the SDK's
+         `DashboardBuilder`, so dashboard files can name the type
+         without each carrying the schema-v1 deprecation suppression;
+         the alias takes it once.
+      5. **`TestSuite_EveryPanelQueryParses`** wraps every panel's
+         expression as an alert rule and runs `promtool check rules`
+         over the lot. Nothing else can tell valid PromQL from
+         invalid: a dashboard with a broken query renders perfectly
+         and shows nothing, which is indistinguishable from a
+         compliant fleet. Grafana variables are substituted first.
+         `TestSuite_EveryPanelIsDescribed` refuses an undescribed
+         panel — the guesses that matter here (rate or state? does it
+         include parked repos?) are the ones INV-0013 found people
+         getting wrong.
 - [ ] 6.2 E2 detailed dashboard — fleet aggregate section
       (`sum without (org)`) + per-org rows generated per configured
       org; `installation_info` `group_left` joins for

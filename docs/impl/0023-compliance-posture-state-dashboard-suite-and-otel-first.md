@@ -1452,11 +1452,35 @@ hand-written dashboard JSON anywhere.
       summaries, write-back failures, webhook rejections, top
       erroring repos as log fields) + Loki-ruler recording-rule
       examples in `contrib/`.
-- [ ] 6.5 Test-lock the catalog-parse log line ("catalog-info parse
+- [x] 6.5 Test-lock the catalog-parse log line ("catalog-info parse
       failed; skipping reconcile to avoid clearing properties" —
       exact message + keys, the same contract style as
       `TestAPIMode_FiltersUndefinedMappedProperty`) before E4
       references it.
+
+      Landed as `internal/reconciler/log_contract_test.go`, done
+      BEFORE E4 as the task requires. Three tests:
+
+      1. `TestCatalogParseFailure_LogContract` — exact message, WARN
+         level, and the `reconciler` / `mode` / `err` keys.
+      2. `TestNotComponent_LogContract` — the sibling line, at INFO,
+         plus an assertion that a valid non-Component entity does NOT
+         also emit the parse-failure line. Without that second half a
+         LogQL query would count healthy repositories as broken ones.
+      3. `TestCatalogParseFailure_CarriesCallerFields` — `owner`,
+         `repo` and `rule` reach the record even though this package
+         does not set them (they come from the engine's per-repo
+         logger and the rule loop). They are what an E4 panel groups
+         by, so the pass-through is part of the same contract.
+
+      Why it is a contract at all: the counter says HOW MANY
+      repositories have a broken catalog, and only the log says WHICH
+      and WHY. A LogQL matcher that stops matching returns no rows,
+      which renders identically to "no repository has a broken
+      catalog" — the same silent-failure shape as every other gap this
+      design closes. All four assertions are probe-verified by
+      rewording the message, dropping the `mode` key, and flipping the
+      non-Component level.
 - [ ] 6.6 Commit the generated static tier to `contrib/generated/`
       (see task 5.5 divergence 1 — one `generate` run writes both
       dashboards and alerts, so they share a root rather than landing

@@ -1,17 +1,91 @@
 # contrib/
 
-Contributed assets for operating repo-guardian in production.
+Assets for operating repo-guardian in production.
 
-These files are reference starting points, not normative
-configuration. Adjust thresholds, panel layouts, and selectors
-to match your environment.
+## The two tiers
 
-## Contents
+Dashboards and alerts are **generated from your `guardian.hcl`**, not
+hand-maintained. That is the point of IMPL-0023: a panel charting a
+rule you do not run renders empty forever, and an empty panel is
+indistinguishable from a compliant fleet. Generating from the config
+means a panel cannot outlive the rule it charts, and an alert whose
+mechanism is switched off is never emitted at all.
 
-| Path | Purpose |
-|------|---------|
-| `prometheus/alerts.yaml` | Alerting rules for availability, error rate, GitHub rate limiting, latency, webhooks, strict-mode scope misconfigurations, PR convergence, and custom-property sync (schema preflight + catalog parse failures). |
-| `grafana/repo-guardian-dashboard.json` | Grafana dashboard with overview, repo checks, compliance, webhook, custom-properties, error/rate-limit, multi-replica/queue, PR-convergence, and absent-rule/when-gate/property-sync panels, plus per-org activity panels. |
+```bash
+repo-guardian monitoring generate --config guardian.hcl --out ./monitoring
+```
+
+Two tiers live here:
+
+| Tier | Path | What it is |
+|------|------|------------|
+| **Generated** | `generated/` | Committed output of `make monitoring-generate` against the **built-in defaults**. A worked example, and what CI diffs against to prove the generator still runs. Do not edit — the drift gate will fail and your edit will be overwritten. |
+| **Hand-maintained** | `loki/rules.yaml` | Loki ruler recording and alerting examples. Not generated, because what is worth recording depends on your fleet size and your Prometheus's cardinality budget. |
+
+`generated/` is generated from the built-in defaults, so it shows the
+19 alerts and four dashboards that a default policy engages. Six more
+alerts exist and are emitted only when the policy engages the mechanism
+they watch:
+
+| Alert | Emitted when the policy |
+|-------|-------------------------|
+| `RepoGuardianCatalogParseFailures` | runs the `custom_properties` reconciler in `api` mode |
+| `RepoGuardianPropertySchemaMissing` | runs the `custom_properties` reconciler in `api` mode |
+| `RepoGuardianPropertiesPRBurst` | runs `custom_properties` in `github-action` mode |
+| `RepoGuardianSettingRemediationChurn` | declares `rule "setting"` blocks |
+| `RepoGuardianBranchProtectionChurn` | declares `rule "branch_protection"` blocks |
+| `RepoGuardianRuleNeverApplies` | declares a top-level `scope { orgs }` block |
+
+Generate against your own config to get the ones that apply to you.
+That gating is the fix for INV-0012 finding A: an alert watching a
+series with no producer never fires, and never fires looks exactly like
+never fails.
+
+## The dashboards
+
+Four, each answering a different question, and deliberately not
+combinable. A business gauge next to a service counter cannot be read:
+when the picture looks wrong there is no way to tell which half is
+lying (DESIGN-0022 Finding I).
+
+| Dashboard | Answers | Reads |
+|-----------|---------|-------|
+| `repo-guardian-kpi` (E1) | Is the fleet compliant, and which rule is failing? | Prometheus, business tier |
+| `repo-guardian-detail` (E2) | Which organisation? | Prometheus, business tier |
+| `repo-guardian-system` (E3) | Is the service itself healthy? | Prometheus, service + infra tiers |
+| `repo-guardian-logs` (E4) | Which repository, and why? | Loki |
+
+E4 exists because that last question cannot be answered by a metric: a
+repository label on a 20,000-repo fleet is a cardinality bomb
+(Finding G), so the per-repository answer lives in the logs. Its
+panels match on specific log lines, and
+`TestLogLines_AreStillEmittedByTheBinary` fails the build if any of
+those lines stops being emitted.
+
+**E4's stream selector is the one thing you will probably have to
+change.** Stream labels are minted by your log shipper, not by
+repo-guardian, so the `{app="repo-guardian"}` default is a convention:
+
+```bash
+repo-guardian monitoring generate --config guardian.hcl \
+  --loki-selector 'job="platform/repo-guardian"'
+```
+
+A blank E4 is far more likely to be a selector mismatch than a silent
+fleet. The first panel's description prints the selector in use.
+
+## Where the old files went
+
+| Was | Now |
+|-----|-----|
+| `grafana/repo-guardian-dashboard.json` | Replaced by the four generated dashboards. The 61-panel original mixed business and service tiers on one screen, and its panels drifted from the rules that fed them — both problems the generator removes structurally. |
+| `prometheus/alerts.yaml` | Replaced by `generated/alerts/rules.yaml`. A second hand-maintained copy of the alert set is precisely the drift the generator exists to remove. |
+
+One alert did not survive the move: `RepoGuardianRateLimitLow` watched
+the unlabelled `github_rate_remaining` gauge. The generated tier alerts
+on `min(repo_guardian_rate_limit_remaining) < 200` instead, which
+carries `installation_id` and so names the installation that is out of
+budget rather than reporting that some installation is.
 
 ## Exposed Metrics
 
@@ -482,27 +556,51 @@ sum by (rule_name) (rate(repo_guardian_files_missing_total[5m]))
 sum without (org) (rate(repo_guardian_files_missing_total[5m]))
 ```
 
-## Importing the dashboard
+## Importing the dashboards
 
 ```bash
-# Grafana CLI
-grafana-cli admin import-dashboard contrib/grafana/repo-guardian-dashboard.json
-
-# Or via API
+# By hand
 curl -X POST -H "Content-Type: application/json" \
-  -d @contrib/grafana/repo-guardian-dashboard.json \
+  -d @contrib/generated/dashboards/repo-guardian-kpi.json \
   https://grafana.example.com/api/dashboards/db
 ```
 
-The dashboard expects a Prometheus datasource named via the
-`DS_PROMETHEUS` template variable; pick yours during import.
-The dashboard defines an `org` template variable populated from
-`label_values(repo_guardian_repos_checked_total, org)` so panels
-in the "Per-org Activity" section can be filtered.
+The generated dashboards carry **concrete datasource UIDs**, not a
+`${DS_PROMETHEUS}` input placeholder. A dashboard with an input prompts
+on every import, which makes it un-provisionable — grafana-operator
+applies a CR and nobody is there to answer the prompt. Point them at
+your datasources at generation time instead:
+
+```bash
+repo-guardian monitoring generate --config guardian.hcl \
+  --prometheus-uid my-prom --loki-uid my-loki
+```
+
+For grafana-operator, generate `GrafanaDashboard` CRs directly. The
+instance selector is required — it is how the operator knows which
+Grafana to file the dashboards into:
+
+```bash
+repo-guardian monitoring generate --config guardian.hcl \
+  --format k8s --namespace monitoring \
+  --instance-selector dashboards=grafana
+```
+
+Per-org rows on E2 are **declared from your config** when it has a
+top-level `scope { orgs = [...] }` block, and discovered from a
+template variable when it does not. Declared is better: a declared row
+that renders empty says "this org has stopped reporting", where a
+discovered row simply disappears and the dashboard looks exactly as
+healthy as before. Use `--org` to declare rows for a config that has no
+scope block.
 
 ## Applying the alerts
 
-If using the Prometheus Operator, wrap `prometheus/alerts.yaml`
-in a `PrometheusRule` resource. See the file's preamble for an
-example. Otherwise, drop the `groups:` content into your existing
-`rule_files`.
+`generated/alerts/rules.yaml` is a plain `groups:` document — drop it
+into your `rule_files`, or wrap it in a `PrometheusRule`. If you deploy
+the Helm chart, it already ships an equivalent `PrometheusRule`; do not
+apply both.
+
+For the Loki examples, see the header of `loki/rules.yaml` — they need
+a ruler with remote-write configured, and their expressions are LogQL
+rather than PromQL.

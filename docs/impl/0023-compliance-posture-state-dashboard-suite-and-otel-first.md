@@ -1563,15 +1563,67 @@ hand-written dashboard JSON anywhere.
       design closes. All four assertions are probe-verified by
       rewording the message, dropping the `mode` key, and flipping the
       non-Component level.
-- [ ] 6.6 Commit the generated static tier to `contrib/generated/`
+- [x] 6.6 Commit the generated static tier to `contrib/generated/`
       (see task 5.5 divergence 1 — one `generate` run writes both
       dashboards and alerts, so they share a root rather than landing
       in `contrib/grafana/`); delete the legacy 61-panel dashboard
       with a pointer in `contrib/README.md`. The alert half of the
       tier and its drift gate are already in place; this task adds the
       dashboards to it via `dashboard.Suite`.
-- [ ] 6.7 Rewrite `contrib/README.md` around the four-dashboard suite
+
+      The four dashboards landed in the tier incrementally as 6.1-6.4
+      wired each into `dashboard.Suite`; `make lint-monitoring` has
+      gated them since. What this task adds is the deletions.
+
+      **Divergence — `contrib/prometheus/alerts.yaml` is deleted, not
+      modified.** The file-change table says "Modify | generator-
+      authored parity". A second hand-maintained copy of the alert set
+      IS the drift the generator exists to remove, and parity has no
+      meaning here: the checked-in tier is generated from built-in
+      defaults, so it is a proper subset of the catalogue by design.
+      Six alerts appear only when the policy engages their mechanism,
+      which is the INV-0012-finding-A fix working, not a gap. The
+      README now names those six and their gates instead of shipping a
+      file that fires none of them.
+
+      Audited before deleting rather than assumed: 24 of the legacy
+      file's 25 alerts exist in `alert.Catalogue()`. The one that does
+      not is `RepoGuardianRateLimitLow`, which watches the unlabelled
+      `github_rate_remaining` gauge — a real, fed series (set by the
+      transport in `internal/github/ratelimit.go`), so this is NOT a
+      third finding-A instance; I checked. The catalogue's
+      `RepoGuardianRateLimitNearExhaustion` supersedes it on the
+      per-installation `rate_limit_remaining`, which names the
+      installation that is out of budget rather than reporting that
+      some installation is. Recorded in the README's "where the old
+      files went" table so the loss is deliberate and visible.
+
+      Consequent retargeting: `make lint-alerts-contrib` became
+      `lint-alerts-generated` and now parses
+      `contrib/generated/alerts/rules.yaml`, and the CI `alerts`
+      paths-filter entry moved from `contrib/prometheus/**` to
+      `contrib/generated/alerts/**`. Keeping the target is worth it
+      even though the Go tests promtool the catalogue: this parses the
+      COMMITTED artifact, so it catches a hand-edit to a file whose
+      header says not to hand-edit it. Also fixed the stale pointer in
+      `docs/ADDING_RULES.md`, which told rule authors their rule would
+      appear in two named panels of a dashboard that no longer exists.
+- [x] 6.7 Rewrite `contrib/README.md` around the four-dashboard suite
       and the generated/static two-tier model.
+
+      New front matter: the two tiers (generated vs hand-maintained)
+      and why generation is the point at all; the six mechanism-gated
+      alerts and what engages each; the four dashboards as a table of
+      questions rather than of contents; E4's stream selector as the
+      thing most likely to need changing. Rewrote "Importing" around
+      concrete datasource UIDs and the grafana-operator `--format k8s`
+      path, and "Applying the alerts" around the generated file plus
+      the do-not-apply-both warning for chart users.
+
+      The metric reference tables (lines ~200 onward) are untouched:
+      they are still accurate and still the only place the label sets
+      are written down. Task 7.1 edits them when the four legacy
+      counters go.
 
 #### Success Criteria
 

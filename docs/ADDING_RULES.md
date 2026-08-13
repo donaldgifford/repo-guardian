@@ -266,10 +266,20 @@ Once deployed, the new rule participates in every repository check:
 
 The `repo_guardian_files_missing_total{rule_name, org}` Prometheus
 counter records detections; `repo_guardian_prs_created_total{org}`
-records PR creation. If you are using the contributed Grafana
-dashboard (`contrib/grafana/repo-guardian-dashboard.json`), the new
-rule appears automatically in the "Missing Files Detected by Rule"
-and "Missing Files Total by Rule" panels.
+records PR creation.
+
+Dashboards are generated from the policy, so a new rule reaches them by
+regenerating rather than by editing a panel:
+
+```bash
+repo-guardian monitoring generate --config guardian.hcl --out ./monitoring
+```
+
+Rule-keyed panels (compliance by rule, actionable repositories by rule)
+pick the rule up automatically, because they aggregate by the
+`rule_name` label. What regeneration adds is the per-rule row on E1 and
+the alert gating — a rule the config does not declare gets no panel and
+no alert at all, which is the point. See `contrib/README.md`.
 
 ---
 

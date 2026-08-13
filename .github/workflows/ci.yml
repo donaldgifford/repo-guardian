@@ -49,7 +49,7 @@ jobs:
             # that parses the rendered PromQL, and it was silently skipped
             # on every chart-alert change until this filter covered it.
             alerts:
-              - 'contrib/prometheus/**'
+              - 'contrib/generated/alerts/**'
               - 'charts/repo-guardian/templates/prometheusrule.yaml'
               - 'charts/repo-guardian/values.yaml'
               - 'Makefile'

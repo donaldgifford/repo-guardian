@@ -1,0 +1,176 @@
+---
+groups:
+  - name: repo-guardian
+    rules:
+      - alert: RepoGuardianNoRepoChecks
+        expr: sum(increase(repo_guardian_repos_checked_total[2h])) == 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          description: The sweep, the queue, or the worker pool has stopped. Check scheduler_is_leader and queue_depth first.
+          summary: repo-guardian has checked no repositories in 2 hours
+      - alert: RepoGuardianHighErrorRate
+        expr: |-
+          (
+            sum(rate(repo_guardian_errors_total[15m]))
+            /
+            clamp_min(sum(rate(repo_guardian_repos_checked_total[15m])), 1)
+          ) > 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          description: clamp_min keeps the ratio defined when no check has completed in the window.
+          summary: More than 10% of repository checks are failing
+      - alert: RepoGuardianAllChecksFailing
+        expr: |-
+          (
+            sum(rate(repo_guardian_errors_total[30m])) > 0
+            and
+            sum(rate(repo_guardian_repos_checked_total[30m])) == 0
+          )
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          description: Errors are being recorded and no check is completing. Usually credentials, connectivity, or a policy that fails to load.
+          summary: Every repository check is failing
+      - alert: RepoGuardianSlowChecks
+        expr: histogram_quantile(0.99, sum(rate(repo_guardian_check_duration_seconds_bucket[15m])) by (le)) > 30
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          description: Usually GitHub API latency or a repository with an unusually large file set.
+          summary: p99 repository check duration is above 30s
+      - alert: RepoGuardianNoWebhooks
+        expr: increase(repo_guardian_webhook_received_total[24h]) == 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          description: Either the App's webhook delivery is broken or the endpoint is unreachable. Check the App's recent deliveries in GitHub.
+          summary: No webhook has been received in 24 hours
+      - alert: RepoGuardianWebhookRejectionsHigh
+        expr: sum by (reason) (rate(repo_guardian_webhook_rejected_total[30m])) > 0.1
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          description: 'Check the reason label: allowlist rejections are 403s, signature failures are 401s.'
+          summary: Webhook requests are being rejected
+      - alert: RepoGuardianPostureExportStalled
+        expr: sum(increase(repo_guardian_posture_export_total{outcome="ok"}[1h])) == 0
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          description: Every compliance gauge is now stale but still being served, so dashboards show old numbers as if they were current. Check the leader and the store.
+          summary: The posture exporter has not completed a successful tick in an hour
+  - name: repo-guardian.pr-convergence
+    rules:
+      - alert: RepoGuardianPRBurst
+        expr: sum(increase(repo_guardian_prs_created_total[1h])) > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          description: Usually a policy change that made a rule actionable fleet-wide. Verify it was intended before the PRs land.
+          summary: More than 50 PRs opened in an hour
+      - alert: RepoGuardianStaleOpenPRs
+        expr: max(repo_guardian_open_prs_by_rule{age_bucket="30d+"}) > 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          description: 'Nobody is merging them, or they are stuck. Note this threshold assumes auto-close is on: with auto_close_pr = false a satisfied PR stays open by design and will trip this eventually.'
+          summary: A repo-guardian PR has been open for over 30 days
+      - alert: RepoGuardianPRDrift
+        expr: sum(rate(repo_guardian_pr_open_with_empty_actionable_total[1h])) > 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          description: Every rule is satisfied on the default branch but the PR is still open, so auto-close is not converging. This is the INV-0005 drift surface.
+          summary: Open PRs have no actionable rule left
+  - name: repo-guardian.multi-replica
+    rules:
+      - alert: RepoGuardianQueueDepthHigh
+        expr: max(repo_guardian_queue_depth{queue="jobs"}) > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          description: Workers are not keeping up. Scale replicas or raise worker concurrency.
+          summary: Job queue depth is above 1000
+      - alert: RepoGuardianReaperRequeues
+        expr: rate(repo_guardian_queue_reaped_total[15m]) > 0.1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          description: Workers are dying mid-job or exceeding JOB_ACK_TIMEOUT. Every reap duplicates work against an API budget that is probably already tight.
+          summary: Jobs are being reaped and requeued
+      - alert: RepoGuardianQueueBackpressure
+        expr: max(repo_guardian_queue_delayed_depth) > 100
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          description: Sustained rate-limit backpressure (IMPL-0022). Jobs are deferring rather than failing, which is correct, but the fleet is not converging.
+          summary: More than 100 jobs are parked in the delayed set
+      - alert: RepoGuardianJobsExhausted
+        expr: |-
+          sum(increase(repo_guardian_queue_attempts_exhausted_total[1h])) > 0
+          or
+          sum(repo_guardian_queue_attempts_exhausted_total unless repo_guardian_queue_attempts_exhausted_total offset 1h) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          description: The second disjunct catches the first-ever increment, which increase() alone reports as 0 because it has no prior sample to compare against.
+          summary: A job hit MAX_JOB_ATTEMPTS and was dropped
+      - alert: RepoGuardianNoSchedulerLeader
+        expr: max(repo_guardian_scheduler_is_leader{name="stale-sweep"}) == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          description: 'Nothing is enqueuing stale repositories. Aggregate with max, never sum: during failover both replicas can briefly hold a series.'
+          summary: No replica holds the stale-sweep leader lock
+      - alert: RepoGuardianStoreQueryErrors
+        expr: |-
+          sum(rate(repo_guardian_store_query_seconds_count{outcome="error"}[10m]))
+          /
+          sum(rate(repo_guardian_store_query_seconds_count[10m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          description: Postgres is unreachable, saturated, or the schema is behind the binary.
+          summary: More than 10% of store queries are failing
+      - alert: RepoGuardianRateLimitNearExhaustion
+        expr: min(repo_guardian_rate_limit_remaining) < 200
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          description: Fed solely by the sweep's per-installation sample. If that sampling is ever removed this series goes unfed and the alert silently stops working.
+          summary: GitHub API budget is nearly exhausted
+      - alert: RepoGuardianRateLimitThrottling
+        expr: sum(increase(repo_guardian_queue_delayed_total{reason="rate_limit"}[1h])) > 10
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          description: The IMPL-0022 delayed-requeue path is active. Work is not being lost, but throughput is capped by the API budget.
+          summary: Jobs are being deferred for rate limiting
+      - alert: RepoGuardianRepoAccessDenied
+        expr: increase(repo_guardian_repos_parked_total{reason="access_denied"}[1h]) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          description: The App lost access, or was never granted it. The repository is excluded from every compliance number until discovery sees it again (INV-0015).
+          summary: A repository was parked because the installation cannot read it

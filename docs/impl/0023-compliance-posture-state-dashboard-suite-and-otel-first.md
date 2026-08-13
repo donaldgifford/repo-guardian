@@ -1197,7 +1197,7 @@ the pool directly. `make ci`, the integration suite, and `go mod tidy
          rule in the fleet. This governs `--out` only — the static
          tier committed to `contrib/` is public and git does not carry
          mode bits across a checkout.
-- [ ] 5.5 CI drift gate: regenerate the static tier from the default
+- [x] 5.5 CI drift gate: regenerate the static tier from the default
       config in `ci.yml`, fail on diff (the helm-docs convention);
       wire into the `changes` paths-filter matrix. **Reuse what
       landed:** `make lint-alerts` now has a `lint-alerts-chart` half
@@ -1208,6 +1208,51 @@ the pool directly. `make ci`, the integration suite, and `go mod tidy
       than a new one, and the `alerts` paths-filter already covers the
       Makefile. Note helm-unittest cannot substitute: it passes 105/105
       against syntactically invalid PromQL.
+
+      Landed as `make monitoring-generate` / `make lint-monitoring` +
+      a `monitoring-drift` job in `ci.yml` gated on a new `monitoring`
+      paths filter (`contrib/generated/**`, `internal/monitoring/**`,
+      `internal/policy/**`, `cmd/repo-guardian/monitoring.go`,
+      `Makefile`) OR the `go` filter OR `workflows`.
+
+      Divergences and decisions:
+
+      1. **The static tier lives at `contrib/generated/`, not
+         `contrib/grafana/`** as task 6.6 says. One `generate`
+         invocation writes both artifact kinds under one root, so the
+         literal path would have put `alerts/rules.yaml` inside
+         `grafana/`. A separate root also makes the gate precise: it
+         can never be confused by an edit to the hand-written recipes
+         in `contrib/prometheus/` and `contrib/grafana/`, which is
+         what 6.6's "delete the legacy dashboard" step will be moving
+         around. 6.6's wording is updated to match.
+      2. **The gate generates into `build/` and uses `diff -r`, not
+         `git diff --exit-code` over the working tree.** `git diff` is
+         blind to untracked files, so a gate built on it would stay
+         green for exactly the change that ADDS a dashboard — the
+         first thing Phase 6 does. `diff -r` reports files present on
+         only one side, so a dashboard deleted from the suite but left
+         committed fails too. Both directions are probe-verified,
+         along with the modified-file case.
+      3. **`monitoring-generate` clears `dashboards/` and `alerts/`
+         first.** Regenerating in place leaves a deleted dashboard's
+         file behind, and the gate would then call a stale tier
+         current.
+      4. **`--config ''` is passed explicitly**, overriding the flag's
+         `$GUARDIAN_CONFIG` default. Without it the tier is generated
+         from whatever policy the developer happens to have exported,
+         and the gate then fails for everyone else.
+      5. **The anti-vacuous guard is a `yq` rule count**, the same
+         shape `lint-alerts-chart` carries. An emitter that wrote
+         nothing produces no diff against a tier that is also empty,
+         and "no diff" is what this target treats as success.
+      6. **`make ci` deliberately does not include it**, matching
+         `lint-alerts`: both need tools (`yq`, `promtool`) beyond the
+         Go toolchain and both run as their own CI job.
+      7. The generator logs to stderr on every run, including an
+         expected `Warn` about undeclarable orgs under the built-in
+         policy. The job's verdict is the file diff; a future edit
+         must not "fix" a red run by silencing the logger.
 - [ ] 5.6 Document generator-as-validation: a failing `policy.Load`
       fails generation, so running it in CI is a free config check
       (strict-templates precedent).
@@ -1261,9 +1306,13 @@ hand-written dashboard JSON anywhere.
       exact message + keys, the same contract style as
       `TestAPIMode_FiltersUndefinedMappedProperty`) before E4
       references it.
-- [ ] 6.6 Commit the generated static tier to `contrib/grafana/`;
-      delete the legacy 61-panel dashboard with a pointer in
-      `contrib/README.md`.
+- [ ] 6.6 Commit the generated static tier to `contrib/generated/`
+      (see task 5.5 divergence 1 — one `generate` run writes both
+      dashboards and alerts, so they share a root rather than landing
+      in `contrib/grafana/`); delete the legacy 61-panel dashboard
+      with a pointer in `contrib/README.md`. The alert half of the
+      tier and its drift gate are already in place; this task adds the
+      dashboards to it via `dashboard.Suite`.
 - [ ] 6.7 Rewrite `contrib/README.md` around the four-dashboard suite
       and the generated/static two-tier model.
 

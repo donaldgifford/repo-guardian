@@ -1409,13 +1409,45 @@ hand-written dashboard JSON anywhere.
       6. The promtool panel-parse test now runs over both a legacy and
          a strict model, so the `$org` branch and the literal-org
          branch are both parsed.
-- [ ] 6.3 E3 system dashboard — service + infra tiers: OTEL semconv
+- [x] 6.3 E3 system dashboard — service + infra tiers: OTEL semconv
       HTTP server/client, redisotel, pgx pool + `store_query_seconds`,
       queue USE (including IMPL-0022's series when present), go
       runtime/process, the three orphan histograms
       (`scheduler_sweep_batch_size`,
       `store_writeback_duration_seconds`,
       `discovery_duration_seconds`), posture-exporter health.
+
+      Landed as `internal/monitoring/dashboard/e3.go`. Four rows —
+      HTTP, Queue, Store, Runtime and sweeps — 22 panels. All three
+      orphan histograms now have one.
+
+      The finding worth carrying forward: **the OTEL exposition names
+      are not the semconv names, and building a panel from the spec
+      produces an empty one.** Every foreign series charted here was
+      read off a live scrape of the bridge, not inferred:
+
+      - otelpgx publishes the pgx-NATIVE `pgxpool_*` family (13
+        series), NOT `db.client.connection.*`, and keys it on
+        `db_client_connection_pool_name` with
+        `db_system_name="postgresql"`.
+      - redisotel publishes `db_client_connections_*` — plural
+        "connections", the older semconv shape — keyed on `pool_name`
+        with `db_system="redis"`. Note "redis": the library reports
+        the protocol, not the server, and repo-guardian runs Valkey.
+        A panel matching `db_system="valkey"` would be empty forever.
+      - otelhttp emits `http_server_request_duration_seconds` and
+        `http_client_request_duration_seconds`.
+
+      `TestE3_ChartsOnlyVerifiedForeignSeries` holds every non-
+      `repo_guardian_` name to an allowlist whose doc comment says
+      where each came from, so a later tidy-up toward the spec fails
+      the build rather than going quiet. It needed a small PromQL
+      identifier scanner that distinguishes series names from label
+      names (labels appear inside `{...}` AND inside the parenthesised
+      list after `by`/`on`/`group_left`).
+
+      `TestE3_CarriesNoComplianceSeries` asserts the Finding I tier
+      split from the other side: no business gauge appears on E3.
 - [ ] 6.4 E4 Loki dashboard (error rate by component, sweep
       summaries, write-back failures, webhook rejections, top
       erroring repos as log fields) + Loki-ruler recording-rule

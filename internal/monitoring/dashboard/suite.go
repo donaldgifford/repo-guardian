@@ -42,12 +42,26 @@ func Suite(m *monitoring.Model, ds Datasources) []Dashboard {
 	return []Dashboard{
 		e1KPI(m, ds),
 		e2Detail(m, ds),
+		e3System(m, ds),
 	}
 }
 
 // GrafanaFolder is the folder the generated dashboards ask the operator
 // to file them under.
 const GrafanaFolder = "repo-guardian"
+
+// Tags every generated dashboard carries.
+//
+// tagGenerated is the one that matters: it is how an operator tells a
+// dashboard that will be overwritten on the next `monitoring generate`
+// from one they are free to edit.
+const (
+	tagProject   = "repo-guardian"
+	tagGenerated = "generated"
+)
+
+// legendP99 labels a 99th-percentile series.
+const legendP99 = "p99"
 
 // rfc1123 is the Kubernetes object-name grammar.
 var rfc1123 = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)

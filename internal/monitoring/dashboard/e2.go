@@ -20,7 +20,7 @@ const orgVar = "$org"
 func e2Detail(m *monitoring.Model, ds Datasources) Dashboard {
 	b := New("repo-guardian-detail", "repo-guardian — detail",
 		"Fleet aggregates and a section per organisation.",
-		[]string{"repo-guardian", "generated"})
+		[]string{tagProject, tagGenerated})
 
 	orgs := declarableOrgs(m)
 

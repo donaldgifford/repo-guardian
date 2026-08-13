@@ -60,7 +60,7 @@ and on() (` + trackedTotal + ` > 0)`
 func e1KPI(_ *monitoring.Model, ds Datasources) Dashboard {
 	b := New("repo-guardian-kpi", "repo-guardian — KPI",
 		"Fleet compliance posture and the health of the service that measures it.",
-		[]string{"repo-guardian", "generated"})
+		[]string{tagProject, tagGenerated})
 
 	b = b.
 		WithRow(Row("Fleet compliance")).

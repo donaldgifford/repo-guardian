@@ -228,3 +228,144 @@ func TestMonitoringGenerate_HelpFlagIsNotAFailure(t *testing.T) {
 		t.Errorf("runMonitoring(generate -h) = %v, want nil", err)
 	}
 }
+
+// TestMonitoringGenerate_WritesArtifacts is the end-to-end check that
+// the subcommand produces files rather than only a log line.
+func TestMonitoringGenerate_WritesArtifacts(t *testing.T) {
+	t.Setenv("GUARDIAN_CONFIG", "")
+
+	tests := []struct {
+		name  string
+		args  []string
+		alert string
+	}{
+		{
+			name:  "json",
+			args:  []string{"--format", "json"},
+			alert: "alerts/rules.yaml",
+		},
+		{
+			name:  "k8s",
+			args:  []string{"--format", "k8s", "--namespace", "monitoring"},
+			alert: "alerts/prometheusrule.yaml",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+
+			args := append([]string{"generate", "--out", dir}, tt.args...)
+			if err := runMonitoring(args); err != nil {
+				t.Fatalf("runMonitoring(%v) = %v, want nil", args, err)
+			}
+
+			path := filepath.Join(dir, filepath.FromSlash(tt.alert))
+
+			body, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("ReadFile(%s) = %v, want nil", path, err)
+			}
+
+			// The default policy configures file rules and auto-close but
+			// no custom_properties reconciler, so the always-on service
+			// health alerts must be present and the property alerts must
+			// not. An artifact carrying both would mean the mechanism
+			// scoping never ran.
+			if !strings.Contains(string(body), "RepoGuardianNoRepoChecks") {
+				t.Errorf("%s has no service-health alert:\n%s", tt.alert, body)
+			}
+
+			if strings.Contains(string(body), "RepoGuardianPropertySchemaMissing") {
+				t.Errorf("%s carries an alert whose reconciler is not configured:\n%s", tt.alert, body)
+			}
+		})
+	}
+}
+
+// TestMonitoringGenerate_KubernetesFieldsReachTheManifest pins that the
+// k8s-only flags are threaded rather than accepted and dropped.
+func TestMonitoringGenerate_KubernetesFieldsReachTheManifest(t *testing.T) {
+	t.Setenv("GUARDIAN_CONFIG", "")
+
+	dir := t.TempDir()
+
+	args := []string{
+		"generate", "--out", dir,
+		"--format", "k8s",
+		"--namespace", "observability",
+		"--name", "rg-alerts",
+		"--label", "release=kube-prometheus-stack",
+	}
+
+	if err := runMonitoring(args); err != nil {
+		t.Fatalf("runMonitoring(%v) = %v, want nil", args, err)
+	}
+
+	path := filepath.Join(dir, "alerts", "prometheusrule.yaml")
+
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile(%s) = %v, want nil", path, err)
+	}
+
+	for _, want := range []string{
+		"namespace: observability",
+		"name: rg-alerts",
+		"release: kube-prometheus-stack",
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("manifest is missing %q:\n%s", want, body)
+		}
+	}
+}
+
+// TestLabelMap_Set pins the key=value flag parsing.
+func TestLabelMap_Set(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		in      string
+		wantKey string
+		wantVal string
+		wantErr bool
+	}{
+		{name: "pair", in: "release=kube-prometheus-stack", wantKey: "release", wantVal: "kube-prometheus-stack"},
+		{name: "empty value is legal", in: "team=", wantKey: "team", wantVal: ""},
+		{
+			// A label value can contain "=" in neither Kubernetes nor
+			// common sense, but splitting on the FIRST separator is what
+			// makes an accidental one an operator's problem rather than
+			// a silent truncation.
+			name: "splits on the first separator", in: "a=b=c", wantKey: "a", wantVal: "b=c",
+		},
+		{name: "no separator", in: "release", wantErr: true},
+		{name: "no key", in: "=value", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			m := labelMap{}
+
+			err := m.Set(tt.in)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("Set(%q) = nil, want an error", tt.in)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Set(%q) = %v, want nil", tt.in, err)
+			}
+
+			if got, ok := m[tt.wantKey]; !ok || got != tt.wantVal {
+				t.Errorf("Set(%q) stored %v, want %s=%s", tt.in, map[string]string(m), tt.wantKey, tt.wantVal)
+			}
+		})
+	}
+}

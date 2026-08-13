@@ -7,16 +7,20 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/donaldgifford/repo-guardian/internal/monitoring"
+	"github.com/donaldgifford/repo-guardian/internal/monitoring/dashboard"
+	"github.com/donaldgifford/repo-guardian/internal/monitoring/emit"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 )
 
-// Output formats.
+// Output formats, aliased from the emit package so the flag help and
+// the emitter cannot disagree about what is accepted.
 const (
-	formatJSON = "json"
-	formatK8s  = "k8s"
+	formatJSON = emit.FormatJSON
+	formatK8s  = emit.FormatK8s
 )
 
 // Subcommand and verb names, shared with dispatch and the usage text.
@@ -84,6 +88,95 @@ func (o *orgList) Set(v string) error {
 	return nil
 }
 
+// labelMap collects a repeatable key=value flag.
+type labelMap map[string]string
+
+func (m labelMap) String() string {
+	pairs := make([]string, 0, len(m))
+	for k, v := range m {
+		pairs = append(pairs, k+"="+v)
+	}
+
+	sort.Strings(pairs)
+
+	return strings.Join(pairs, ",")
+}
+
+func (m labelMap) Set(v string) error {
+	key, val, ok := strings.Cut(v, "=")
+	if !ok || key == "" {
+		return fmt.Errorf("want key=value, got %q", v)
+	}
+
+	m[key] = val
+
+	return nil
+}
+
+// generateFlags is the parsed command line.
+type generateFlags struct {
+	config string
+	out    string
+	format string
+	orgs   orgList
+
+	prometheusUID string
+	lokiUID       string
+
+	namespace        string
+	name             string
+	instanceSelector labelMap
+	labels           labelMap
+	crossNamespace   bool
+	resyncPeriod     string
+}
+
+// parseGenerateFlags builds and parses the flag set.
+func parseGenerateFlags(args []string) (*generateFlags, error) {
+	fs := flag.NewFlagSet(cmdMonitoring+" "+verbGenerate, flag.ContinueOnError)
+
+	f := &generateFlags{
+		instanceSelector: labelMap{},
+		labels:           labelMap{},
+	}
+
+	fs.StringVar(&f.config, "config", os.Getenv("GUARDIAN_CONFIG"),
+		"path to guardian.hcl (defaults to $GUARDIAN_CONFIG; built-in defaults when empty)")
+	fs.StringVar(&f.out, "out", "./monitoring", "directory to write artifacts into")
+	fs.StringVar(&f.format, "format", formatJSON, "output format: json|k8s")
+	fs.Var(&f.orgs, "org",
+		"org to generate a row for, repeatable; the escape hatch for configs with no top-level scope block")
+
+	fs.StringVar(&f.prometheusUID, "prometheus-uid", dashboard.DefaultPrometheusUID,
+		"uid of the Prometheus datasource the panels query")
+	fs.StringVar(&f.lokiUID, "loki-uid", dashboard.DefaultLokiUID,
+		"uid of the Loki datasource the log panels query")
+
+	fs.StringVar(&f.namespace, "namespace", "", "namespace to stamp on generated Kubernetes objects ("+formatK8s+" only)")
+	fs.StringVar(&f.name, "name", emit.DefaultName, "base name for generated Kubernetes objects ("+formatK8s+" only)")
+	fs.Var(f.instanceSelector, "instance-selector",
+		"key=value matchLabels naming the Grafana instance to file dashboards into, repeatable ("+formatK8s+" only)")
+	fs.Var(f.labels, "label", "key=value label to add to every generated object, repeatable ("+formatK8s+" only)")
+	fs.BoolVar(&f.crossNamespace, "allow-cross-namespace-import", false,
+		"let the operator file dashboards into a Grafana in another namespace ("+formatK8s+" only)")
+	fs.StringVar(&f.resyncPeriod, "resync-period", "",
+		"how often the operator re-applies a dashboard, e.g. 10m ("+formatK8s+" only)")
+
+	if err := fs.Parse(args); err != nil {
+		return nil, err
+	}
+
+	// emit.Generate rejects an unknown format too, but only after the
+	// policy has been loaded and the model derived. Checking here means
+	// a typo'd --format reports the typo rather than whatever the
+	// config file happens to say first.
+	if f.format != formatJSON && f.format != formatK8s {
+		return nil, fmt.Errorf("unknown --format %q; want %s or %s", f.format, formatJSON, formatK8s)
+	}
+
+	return f, nil
+}
+
 // runMonitoringGenerate implements `repo-guardian monitoring generate`.
 //
 // Deliberately does NOT call config.Load(), for the reason recorded on
@@ -91,19 +184,8 @@ func (o *orgList) Set(v string) error {
 // Valkey DSN, none of which generating a dashboard from a config file
 // requires.
 func runMonitoringGenerate(args []string) error {
-	fs := flag.NewFlagSet(cmdMonitoring+" "+verbGenerate, flag.ContinueOnError)
-
-	config := fs.String("config", os.Getenv("GUARDIAN_CONFIG"),
-		"path to guardian.hcl (defaults to $GUARDIAN_CONFIG; built-in defaults when empty)")
-	out := fs.String("out", "./monitoring", "directory to write artifacts into")
-	format := fs.String("format", formatJSON, "output format: json|k8s")
-
-	var orgs orgList
-
-	fs.Var(&orgs, "org",
-		"org to generate a row for, repeatable; the escape hatch for configs with no top-level scope block")
-
-	if err := fs.Parse(args); err != nil {
+	f, err := parseGenerateFlags(args)
+	if err != nil {
 		// -h is a request, not a failure.
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -112,46 +194,78 @@ func runMonitoringGenerate(args []string) error {
 		return fmt.Errorf("monitoring generate: %w", err)
 	}
 
-	if *format != formatJSON && *format != formatK8s {
-		return fmt.Errorf("monitoring generate: unknown --format %q; want %s or %s", *format, formatJSON, formatK8s)
-	}
-
 	logger := initLoggerTo(os.Stderr, os.Getenv("LOG_LEVEL"))
 
-	if err := requireConfigExists(*config); err != nil {
-		return err
-	}
-
-	cfg, err := policy.Load(*config)
-	if err != nil {
-		return fmt.Errorf("monitoring generate: %w", err)
-	}
-
-	model, err := monitoring.Derive(cfg, monitoring.Options{
-		ConfigPath: *config,
-		ExtraOrgs:  orgs,
-	})
+	model, err := deriveModel(f)
 	if err != nil {
 		return err
 	}
 
 	warnUndeclarableOrgs(model, logger)
 
-	logger.Info("monitoring model derived",
-		"config", describeConfig(*config),
+	ds := dashboard.Datasources{Prometheus: f.prometheusUID, Loki: f.lokiUID}.WithDefaults()
+
+	artifacts, err := emit.Generate(model, dashboard.Suite(model, ds), &emit.Options{
+		Format:                    f.format,
+		Name:                      f.name,
+		Namespace:                 f.namespace,
+		Labels:                    f.labels,
+		InstanceSelector:          f.instanceSelector,
+		AllowCrossNamespaceImport: f.crossNamespace,
+		ResyncPeriod:              f.resyncPeriod,
+	})
+	if err != nil {
+		return err
+	}
+
+	paths, err := emit.Write(f.out, artifacts)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("monitoring artifacts generated",
+		"config", describeConfig(f.config),
 		"strict_scope", model.Strict,
 		"orgs", len(model.Orgs),
 		"rules", len(model.Rules),
 		"mechanisms", model.Mechanisms.Sorted(),
 		"env_influence", model.Source.EnvInfluence,
-		"format", *format,
-		"out", *out,
+		"format", f.format,
+		"out", f.out,
+		"files", len(paths),
 	)
 
-	// Emission lands in tasks 5.3 (PrometheusRule) and 5.4 (dashboards
-	// and the k8s CR wrapping). The model is the deliverable here, and
-	// deriving it already validates the config — see task 5.6.
+	// The path list goes to stdout so it can be piped; every diagnostic
+	// above it went to stderr. Same split as `report`.
+	for _, p := range paths {
+		if _, err := fmt.Fprintln(os.Stdout, p); err != nil {
+			return fmt.Errorf("monitoring generate: write path list: %w", err)
+		}
+	}
+
 	return nil
+}
+
+// deriveModel loads the policy and derives the monitoring model.
+func deriveModel(f *generateFlags) (*monitoring.Model, error) {
+	if err := requireConfigExists(f.config); err != nil {
+		return nil, err
+	}
+
+	cfg, err := policy.Load(f.config)
+	if err != nil {
+		return nil, fmt.Errorf("monitoring generate: %w", err)
+	}
+
+	model, err := monitoring.Derive(cfg, monitoring.Options{
+		ConfigPath: f.config,
+		ExtraOrgs:  f.orgs,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return model, nil
 }
 
 // requireConfigExists refuses an explicitly-given path that is not

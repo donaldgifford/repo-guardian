@@ -1129,11 +1129,74 @@ the pool directly. `make ci`, the integration suite, and `go mod tidy
       `access_denied` selector, the mis-gated preflight, the dropped
       dry-run exclusion, the mis-gated `PRDrift`, Go-format durations,
       and the unstamped namespace each fail their test.
-- [ ] 5.4 `--format k8s`: grafana-operator `GrafanaDashboard` CRs
+- [x] 5.4 `--format k8s`: grafana-operator `GrafanaDashboard` CRs
       (design OQ7 → b) + a `PrometheusRule` CR; `--format json` emits
       plain files. Datasources are concrete UIDs defaulting to
       `prometheus` and `loki`, overridable via `--prometheus-uid` /
       `--loki-uid` (OQ4); the static tier carries the defaults.
+
+      Landed as `internal/monitoring/emit/` (`emit.go`, `k8s.go`,
+      `write.go`) plus `dashboard.Suite` / `dashboard.ValidateSuite`.
+      Output layout is `dashboards/<slug>.{json,yaml}` +
+      `alerts/{rules,prometheusrule}.yaml`.
+
+      Design notes and divergences:
+
+      1. **`emit` is a third package, not a file in either half.**
+         `monitoring` may not import the Grafana SDK and `alert` may
+         not import `dashboard` — that separation is what makes
+         DESIGN-0022 OQ5's escape hatch a directory move rather than
+         an untangling — so something has to be allowed to see both.
+         `emit` is the only package that does.
+      2. **Pure `Generate`, thin `Write`**, the same split
+         `internal/report` uses. The drift gate compares bytes, so
+         determinism and ordering are testable without a temp
+         directory.
+      3. **`dashboard.Suite(model, ds) []Dashboard` is the whole
+         Phase 6 seam.** Adding a dashboard is a line in `Suite`; the
+         emitter never learns how many there are. It returns nothing
+         until Phase 6 authors E1–E4, which is exactly why task 5.5's
+         gate must assert a non-zero artifact count rather than
+         trusting that a green run wrote something.
+      4. **The slug is both a filename stem and a CR
+         `metadata.name`,** so `ValidateSuite` constrains it to the
+         narrower grammar (RFC 1123, ≤253 chars, no duplicates) and
+         *refuses* rather than sanitizes — any sanitizing rule can map
+         two slugs onto one name and the second dashboard would
+         silently overwrite the first. Same call
+         `report.filename` makes for org names.
+      5. **`--format k8s` refuses to render a dashboard with no
+         `--instance-selector`.** The CRD does not require the field
+         in the sense of erroring without it: the operator simply has
+         no Grafana to file the dashboard into, so the CR sits
+         unreconciled forever with nothing in `kubectl get` to say so.
+         Refusing beats emitting something inert.
+      6. **`spec.datasources` is deliberately never emitted.** It
+         remaps `${DS_X}` import placeholders, and the panel library
+         bakes concrete UIDs precisely so no placeholder exists.
+         Adding it "for completeness" would reintroduce the
+         prompt-on-import problem the concrete-UID decision (OQ4)
+         exists to avoid. Verified against the published CRD:
+         `grafana.integreatly.org/v1beta1`, `instanceSelector`
+         required, `json` a string, `resyncPeriod` defaulting to
+         `10m0s`, `allowCrossNamespaceImport` defaulting to false —
+         so all three optional fields are omitted unless asked for,
+         and a test pins that.
+      7. **The Catalogue-versus-Generate trap.** `alertArtifact` must
+         consume `alert.Generate`'s kept set; `alert.Catalogue()`
+         returns everything and task 5.3's promtool test renders it
+         deliberately. Feeding `Catalogue()` into the emitted manifest
+         would ship `PropertySchemaMissing` to a deployment with no
+         `custom_properties` reconciler — the INV-0012 finding-A shape
+         this generator exists to prevent. Probe-verified.
+      8. **`--format` is validated in the flag parser as well as in
+         `emit.Generate`,** so a typo reports the typo rather than
+         whatever the config file happens to complain about first.
+      9. Artifacts are written `0640` under `0750`, matching
+         `internal/report`: a generated dashboard names every org and
+         rule in the fleet. This governs `--out` only — the static
+         tier committed to `contrib/` is public and git does not carry
+         mode bits across a checkout.
 - [ ] 5.5 CI drift gate: regenerate the static tier from the default
       config in `ci.yml`, fail on diff (the helm-docs convention);
       wire into the `changes` paths-filter matrix. **Reuse what

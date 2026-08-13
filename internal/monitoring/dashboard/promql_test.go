@@ -21,12 +21,12 @@ type panelTarget struct {
 }
 
 // suiteTargets extracts every PromQL expression in the suite.
-func suiteTargets(t *testing.T) []panelTarget {
+func suiteTargets(t *testing.T, m *monitoring.Model) []panelTarget {
 	t.Helper()
 
 	var out []panelTarget
 
-	suite := dashboard.Suite(&monitoring.Model{}, dashboard.Datasources{}.WithDefaults())
+	suite := dashboard.Suite(m, dashboard.Datasources{}.WithDefaults())
 
 	for i := range suite {
 		d := &suite[i]
@@ -93,7 +93,7 @@ func TestSuite_EveryPanelQueryParses(t *testing.T) {
 		t.Skip("promtool not on PATH; mise supplies it (see mise.toml)")
 	}
 
-	targets := suiteTargets(t)
+	targets := append(suiteTargets(t, legacyModel()), suiteTargets(t, strictModel())...)
 
 	// A suite that generated nothing would pass this test vacuously,
 	// which is the failure mode promtool's own "0 rules found" exit-0
@@ -153,7 +153,7 @@ func TestSuite_PostureQueriesDedupeAcrossReplicas(t *testing.T) {
 		"repo_guardian_repos_unmeasurable",
 	}
 
-	for _, tgt := range suiteTargets(t) {
+	for _, tgt := range append(suiteTargets(t, legacyModel()), suiteTargets(t, strictModel())...) {
 		for _, gauge := range postureGauges {
 			if !strings.Contains(tgt.Expr, gauge) {
 				continue
@@ -172,7 +172,7 @@ func TestSuite_PostureQueriesDedupeAcrossReplicas(t *testing.T) {
 func TestSuite_LeaderGaugesAreNotSummed(t *testing.T) {
 	t.Parallel()
 
-	for _, tgt := range suiteTargets(t) {
+	for _, tgt := range append(suiteTargets(t, legacyModel()), suiteTargets(t, strictModel())...) {
 		if !strings.Contains(tgt.Expr, "repo_guardian_scheduler_is_leader") {
 			continue
 		}
@@ -193,7 +193,7 @@ func TestSuite_LeaderGaugesAreNotSummed(t *testing.T) {
 func TestSuite_EveryPanelIsDescribed(t *testing.T) {
 	t.Parallel()
 
-	suite := dashboard.Suite(&monitoring.Model{}, dashboard.Datasources{}.WithDefaults())
+	suite := dashboard.Suite(strictModel(), dashboard.Datasources{}.WithDefaults())
 
 	for i := range suite {
 		d := &suite[i]

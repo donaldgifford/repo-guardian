@@ -10,6 +10,9 @@ const (
 	unitPercent = "percentunit" // a 0-1 ratio, rendered as a percentage
 )
 
+// legendRuleName labels a series by the rule it measures.
+const legendRuleName = "{{ rule_name }}"
+
 // Posture aggregation, and why it looks like this everywhere below.
 //
 // The posture gauges are published by ONE replica — the one holding the
@@ -72,7 +75,7 @@ func e1KPI(_ *monitoring.Model, ds Datasources) Dashboard {
 		WithPanel(TimeSeries(ds, "Compliance by rule",
 			"Share of tracked repositories satisfying each rule. Reads 'no data' rather "+
 				"than 100% when nothing is tracked, because an unmeasured rule is not a compliant one.",
-			unitPercent, Query{Expr: complianceByRule, Legend: "{{ rule_name }}"})).
+			unitPercent, Query{Expr: complianceByRule, Legend: legendRuleName})).
 		WithPanel(Table(ds, "Repositories failing each rule",
 			"Current non-compliant count per rule. This is state read back from the store, "+
 				"not a rate over check events: a repository fixed yesterday is not in it.",

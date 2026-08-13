@@ -1365,7 +1365,7 @@ hand-written dashboard JSON anywhere.
          panel — the guesses that matter here (rate or state? does it
          include parked repos?) are the ones INV-0013 found people
          getting wrong.
-- [ ] 6.2 E2 detailed dashboard — fleet aggregate section
+- [x] 6.2 E2 detailed dashboard — fleet aggregate section
       (`sum without (org)`) + per-org rows generated per configured
       org; `installation_info` `group_left` joins for
       `installation_id`-keyed series; queue/store/scheduler metrics
@@ -1376,6 +1376,39 @@ hand-written dashboard JSON anywhere.
       denominator context for the posture numbers: a fleet whose
       tracked count drops needs the archived/fork series next to it to
       distinguish "repos left the fleet" from "the exporter broke".
+
+      Landed as `internal/monitoring/dashboard/e2.go`. A Fleet row plus
+      one row per declarable org.
+
+      Notes:
+
+      1. **Only NON-pattern orgs get a declared row.** A row titled
+         `acme-labs-*` would query `{org="acme-labs-*"}` — an exact
+         match against a name no repository has — so it would render
+         permanently empty and look exactly like an org that went
+         silent, which is the one thing declared rows exist to make
+         visible. Patterns fall through to the discovered-row path.
+      2. **The `$org` template variable is declared only when no org
+         is declarable.** A variable nothing references invites an
+         operator to switch it and wonder why no panel moved. Both
+         directions are pinned and probe-verified.
+      3. **`sum without (org)` from the plan is written as
+         `max by (org)` / `sum by (rule_name)` instead.** `without` on
+         a leader-published gauge would sum across replicas — the
+         same trap E1 documents. The intent (fleet aggregate) is
+         preserved; the aggregation is the one the exporter's
+         contract allows.
+      4. **The `installation_info` `group_left(org)` join** carries the
+         org label onto `rate_limit_remaining`, which is otherwise
+         keyed only by `installation_id` and unreadable per org.
+      5. **Queue, store and scheduler series are asserted ABSENT** by
+         `TestE2_OmitsFleetScopedInfrastructure` rather than merely
+         left out. Repeated under a per-org heading they would show
+         the same number in every row and invite someone to read it as
+         that org's share.
+      6. The promtool panel-parse test now runs over both a legacy and
+         a strict model, so the `$org` branch and the literal-org
+         branch are both parsed.
 - [ ] 6.3 E3 system dashboard — service + infra tiers: OTEL semconv
       HTTP server/client, redisotel, pgx pool + `store_query_seconds`,
       queue USE (including IMPL-0022's series when present), go

@@ -1,0 +1,436 @@
+{
+  "uid": "repo-guardian-detail",
+  "title": "repo-guardian — detail",
+  "description": "Fleet aggregates and a section per organisation.",
+  "tags": [
+    "repo-guardian",
+    "generated"
+  ],
+  "timezone": "utc",
+  "editable": true,
+  "graphTooltip": 0,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "fiscalYearStartMonth": 0,
+  "refresh": "1m",
+  "schemaVersion": 42,
+  "panels": [
+    {
+      "type": "row",
+      "collapsed": false,
+      "title": "Fleet",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 0,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "max by (org) (repo_guardian_repos_tracked)",
+          "instant": false,
+          "legendFormat": "{{ org }}",
+          "range": true
+        }
+      ],
+      "title": "Repositories tracked by org",
+      "description": "Active repositories per organisation. A line that drops to zero is an org that stopped reporting — which is the signal a declared row exists to preserve.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (rule_name) (max by (rule_name, org) (repo_guardian_repos_actionable))",
+          "instant": false,
+          "legendFormat": "{{ rule_name }}",
+          "range": true
+        }
+      ],
+      "title": "Repositories failing each rule",
+      "description": "Fleet totals per rule, summed across orgs after the per-replica max.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (reason) (increase(repo_guardian_repos_parked_total[24h]))",
+          "instant": false,
+          "legendFormat": "{{ reason }}",
+          "range": true
+        }
+      ],
+      "title": "Repositories parked in the last 24h",
+      "description": "Why repositories left the measurable fleet. This is the denominator context for every compliance number above: a fleet whose tracked count drops needs the archived and fork series beside it to tell 'repositories left the fleet' from 'the exporter broke'. A rising access_denied share is the one to act on.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 10
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "min by (org) (\n  repo_guardian_rate_limit_remaining\n  * on (installation_id) group_left(org) repo_guardian_installation_info\n)",
+          "instant": false,
+          "legendFormat": "{{ org }}",
+          "range": true
+        }
+      ],
+      "title": "GitHub API budget by org",
+      "description": "Remaining API budget, joined from the installation-keyed gauge onto orgs via installation_info. group_left is what makes an installation_id-keyed series answerable per org at all; without the join this panel could only be read by someone who knows which installation belongs to whom.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 10
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "row",
+      "collapsed": false,
+      "title": "Organisation: $org",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "id": 0,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "max by (org) (repo_guardian_repos_tracked{org=\"$org\"})",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "title": "Repositories tracked",
+      "description": "Active repositories in this organisation. Reads 'no data' if the org has stopped reporting entirely, which is a different condition from zero repositories.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "repeatDirection": "h",
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": []
+        },
+        "percentChangeColorMode": "standard",
+        "orientation": ""
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "(\n  1 - (\n    max by (rule_name) (repo_guardian_repos_actionable{org=\"$org\"})\n    / scalar(max by (org) (repo_guardian_repos_tracked{org=\"$org\"}))\n  )\n)\nand on() (max by (org) (repo_guardian_repos_tracked{org=\"$org\"}) \u003e 0)",
+          "instant": false,
+          "legendFormat": "{{ rule_name }}",
+          "range": true
+        }
+      ],
+      "title": "Compliance by rule",
+      "description": "Share of this organisation's tracked repositories satisfying each rule. Undefined, and therefore blank, when the org tracks nothing — an unmeasured rule is not a compliant one.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "table",
+      "targets": [
+        {
+          "expr": "max by (rule_name) (repo_guardian_repos_actionable{org=\"$org\"})",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "title": "Repositories failing each rule",
+      "description": "Current non-compliant count per rule for this organisation. State read back from the store, not a rate over check events.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 29
+      },
+      "repeatDirection": "h",
+      "options": {
+        "frameIndex": 0,
+        "showHeader": true,
+        "showTypeIcons": false,
+        "footer": {
+          "show": false,
+          "reducer": null,
+          "countRows": false
+        },
+        "cellHeight": "sm"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "no data",
+          "custom": {
+            "align": "auto",
+            "inspect": false
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (level) (increase(repo_guardian_out_of_scope_total{org=\"$org\"}[24h]))",
+          "instant": false,
+          "legendFormat": "out of scope ({{ level }})",
+          "range": true
+        },
+        {
+          "expr": "sum by (scope) (increase(repo_guardian_ignored_total{org=\"$org\"}[24h]))",
+          "instant": false,
+          "legendFormat": "ignored ({{ scope }})",
+          "range": true
+        }
+      ],
+      "title": "Rules skipped for scope or ignore",
+      "description": "Rules that never ran against this organisation's repositories. A rule skipped everywhere is a rule that is not protecting anything, and it looks identical to a rule that is passing.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 29
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "type": "query",
+        "name": "org",
+        "label": "Organisation",
+        "skipUrlSync": false,
+        "query": "label_values(repo_guardian_repos_tracked, org)",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "multi": true,
+        "allowCustomValue": true,
+        "refresh": 2,
+        "sort": 1,
+        "includeAll": true,
+        "auto": false,
+        "auto_min": "10s",
+        "auto_count": 30
+      }
+    ]
+  },
+  "annotations": {}
+}

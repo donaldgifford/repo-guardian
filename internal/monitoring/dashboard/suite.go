@@ -41,6 +41,7 @@ type Dashboard struct {
 func Suite(m *monitoring.Model, ds Datasources) []Dashboard {
 	return []Dashboard{
 		e1KPI(m, ds),
+		e2Detail(m, ds),
 	}
 }
 

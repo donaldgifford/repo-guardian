@@ -1634,6 +1634,38 @@ hand-written dashboard JSON anywhere.
   one-source-per-panel rule.
 - Drift gate green on the committed static tier; `make ci` passes.
 
+**Met, with one half operator-side.** 56 panels across four
+dashboards (12 KPI, 8 detail, 23 system, 13 logs, against the built-in
+policy). Every one has at least one query and an explicit datasource,
+both asserted by `suiteTargets` rather than eyeballed — a panel with no
+datasource inherits whatever the dashboard default happens to be at
+import time, which is how a Prometheus panel ends up silently pointed
+at Loki.
+
+Dead-series scan is clean: no `api_budget_*`, no
+`enqueue_gated_by_budget_total`, no `rate_limit_wait*` anywhere in the
+generated tier. The only rate-limit series charted is
+`repo_guardian_rate_limit_remaining`.
+
+The taxonomy is enforced from both sides rather than asserted once —
+`TestE3_CarriesNoComplianceSeries`, `TestE2_OmitsFleetScopedInfra
+structure`, `TestE4_ChartsNoPrometheusSeries`,
+`TestE4_IsTheOnlyLokiDashboard`. The one-source rule was restated
+during 6.4: it is one datasource and one TIER per panel, not one
+query — `TimeSeries` has been variadic since 6.1 and the package doc
+had not caught up.
+
+`make ci` passes and the drift gate is green.
+
+**Not verifiable here: "render against a live stack."** There is no
+Grafana, Prometheus or Loki in this environment. What is verified is
+that every dashboard builds through the SDK, marshals to JSON, carries
+concrete datasource UIDs, and that every PromQL expression parses under
+`promtool`. The LogQL half has no offline parser available at all (see
+6.4), so E4's expressions are structurally checked only. Live import
+remains an operator-side smoke step, the same shape as the homelab
+smoke IMPL-0019 and IMPL-0020 left open.
+
 ---
 
 ### Phase 7: Cleanup, deprecations, docs, chart

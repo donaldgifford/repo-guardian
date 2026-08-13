@@ -51,6 +51,7 @@ ready for `kubectl apply` or an ArgoCD source.
 | `--org` | — | Repeatable. Adds an org to the per-org rows. See *Silent orgs* below. |
 | `--prometheus-uid` | `prometheus` | UID of the Prometheus datasource the panels query. |
 | `--loki-uid` | `loki` | UID of the Loki datasource the log panels query. |
+| `--loki-selector` | `app="repo-guardian"` | Stream selector, without braces, matching repo-guardian's logs. See *The log dashboard's stream selector* below. |
 | `--namespace` | — | `k8s` only. Stamped on every generated object. |
 | `--name` | `repo-guardian` | `k8s` only. Base name for generated objects. |
 | `--label` | — | `k8s` only, repeatable `key=value`. Added to every object's metadata. |
@@ -100,6 +101,54 @@ time. Note its `{reason="access_denied"}` selector is load-bearing:
 `repo_guardian_repos_parked_total` also counts routine archived and fork
 parks, so the same expression without the selector would page on every
 normal onboarding sweep.
+
+### The four dashboards
+
+Each answers one question, and they are deliberately not combinable: a
+business gauge next to a service counter cannot be read, because when
+the picture looks wrong there is no way to tell which half is lying.
+
+| Dashboard | Answers | Reads |
+| --- | --- | --- |
+| `repo-guardian-kpi` | Is the fleet compliant, and which rule is failing? | Prometheus |
+| `repo-guardian-detail` | Which organisation? | Prometheus |
+| `repo-guardian-system` | Is the service itself healthy? | Prometheus |
+| `repo-guardian-logs` | Which repository, and why? | Loki |
+
+The last one is not garnish. repo-guardian's metrics carry no
+repository label on purpose — a 20,000-repo fleet times a dozen rules
+is a cardinality bomb — so "which repository" is a question only the
+logs can answer.
+
+### The log dashboard's stream selector
+
+The log dashboard's panels start from a Loki stream selector, and that
+selector is the one input on any of these dashboards that this project
+cannot verify for you: stream labels are minted by your log shipper.
+The `app="repo-guardian"` default is a promtail/alloy convention, not
+something the binary controls.
+
+```bash
+repo-guardian monitoring generate --config guardian.hcl \
+  --loki-selector 'job="platform/repo-guardian"'
+```
+
+Check yours before believing an empty dashboard:
+
+```bash
+logcli query '{app="repo-guardian"}' --limit 5
+```
+
+A blank log dashboard is far more likely to be a selector mismatch than
+a quiet fleet. The first panel's description prints the selector that
+was compiled into it.
+
+The panels match on specific log lines — the catalog-parse failure, the
+parking line, the attempt-cap drop, the sweep summary. Those strings
+are a contract, not an implementation detail: a matcher that stops
+matching returns no rows, and no rows renders exactly like "this never
+happens". `TestLogLines_AreStillEmittedByTheBinary` walks `internal/`
+and fails the build if any of them stops being emitted.
 
 ### Silent orgs
 
@@ -180,6 +229,12 @@ at all. Panels show `no data` rather than `0` for an absent series
 deliberately: a zero is a measurement, an absent series is the absence
 of one, and rendering the second as the first is how a dashboard reports
 a healthy fleet while the exporter is dead.
+
+**Every panel on the log dashboard is empty.** Almost always the stream
+selector — see *The log dashboard's stream selector*. Confirm with
+`logcli query '{...}' --limit 5` before concluding the fleet is quiet.
+If only the repository-fault panels are empty, that is the good case:
+those match on failure lines, so a healthy fleet produces none.
 
 **CI says the committed tier is stale.** Run `make monitoring-generate`
 and commit the result.

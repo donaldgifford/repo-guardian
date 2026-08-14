@@ -1,6 +1,6 @@
 module github.com/donaldgifford/repo-guardian
 
-go 1.26.5
+go 1.26.6
 
 require (
 	github.com/bradleyfalzon/ghinstallation/v2 v2.17.0

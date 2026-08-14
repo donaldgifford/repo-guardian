@@ -421,6 +421,16 @@ posture:
   # 60s leave the exporter behind its own duration histogram, whose
   # buckets stop there.
   exportInterval: "60s"
+  # -- Cadence between compliance-history snapshots, the rows
+  # `repo-guardian report --since` reads. This is not the posture
+  # gauges: Prometheus already keeps those for its retention window,
+  # typically weeks, and this table exists for "how compliant were we
+  # last quarter", which no operational metrics store can answer.
+  # Daily is already finer than any question the report asks, and the
+  # rows are permanent — there is no retention machinery — so
+  # shortening it accrues storage forever for resolution nobody
+  # requested.
+  snapshotInterval: "24h"
 
 # -- HCL policy configuration
 policy:

@@ -23,6 +23,7 @@ package alert
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/donaldgifford/repo-guardian/internal/monitoring"
@@ -278,6 +279,42 @@ func prSpecs() []Spec {
 	}
 }
 
+// firstOrIncrease builds "this counter moved in the window, OR it just
+// appeared for the first time".
+//
+// increase() cannot see a counter's first-ever increment. A CounterVec
+// child does not exist until something calls WithLabelValues, so its
+// first scrape lands at 1 and every scrape after it also reads 1 —
+// there is no earlier sample to subtract, and increase() over that
+// window is 0. For an alert whose threshold is "> 0 of a rare event",
+// that is precisely the occurrence worth alerting on, and it is the one
+// occurrence the expression structurally cannot catch.
+//
+// The second disjunct fixes it: a series present now and absent one
+// window ago is new, and its value is its whole history.
+//
+// Neither disjunct aggregates, so the alert keeps the counter's own
+// labels — `org` and `property` on the schema alert, `org` and
+// `installation_id` on the parking one. Those are the whole value of
+// the notification, and a sum() would throw them away.
+//
+// Only for RARE counters where the FIRST event matters. On a busy
+// counter the second disjunct is noise, and on a threshold alert
+// (`> 50`) it would be wrong outright — a brand-new counter at 1 is not
+// a burst.
+func firstOrIncrease(selector, window string) string {
+	series, matchers, _ := strings.Cut(selector, "{")
+	if matchers != "" {
+		matchers = "{" + matchers
+	}
+
+	sel := series + matchers
+
+	return "increase(" + sel + "[" + window + "]) > 0\n" +
+		"or\n" +
+		"(" + sel + " unless " + sel + " offset " + window + ") > 0"
+}
+
 func propertySpecs() []Spec {
 	const group = "repo-guardian.custom-property-sync"
 
@@ -285,7 +322,7 @@ func propertySpecs() []Spec {
 		{
 			Name:     "RepoGuardianPropertySchemaMissing",
 			Group:    group,
-			Expr:     `increase(repo_guardian_custom_property_missing_schema_total[1h]) > 0`,
+			Expr:     firstOrIncrease("repo_guardian_custom_property_missing_schema_total", "1h"),
 			Window:   time.Hour,
 			For:      5 * time.Minute,
 			Severity: SeverityWarning,
@@ -301,7 +338,7 @@ func propertySpecs() []Spec {
 		{
 			Name:     "RepoGuardianCatalogParseFailures",
 			Group:    group,
-			Expr:     `increase(repo_guardian_catalog_parse_failed_total[1h]) > 0`,
+			Expr:     firstOrIncrease("repo_guardian_catalog_parse_failed_total", "1h"),
 			Window:   time.Hour,
 			For:      5 * time.Minute,
 			Severity: SeverityWarning,
@@ -372,16 +409,19 @@ func queueSpecs() []Spec {
 		{
 			Name:  "RepoGuardianJobsExhausted",
 			Group: group,
+			// Summed, unlike the label-preserving firstOrIncrease
+			// alerts: this counter's labels identify a queue, not a
+			// tenant, so one alert for the fleet is what an operator
+			// wants. Same first-increment reasoning either way.
 			Expr: "sum(increase(repo_guardian_queue_attempts_exhausted_total[1h])) > 0\n" +
 				"or\n" +
 				"sum(repo_guardian_queue_attempts_exhausted_total " +
 				"unless repo_guardian_queue_attempts_exhausted_total offset 1h) > 0",
-			Window:   time.Hour,
-			For:      5 * time.Minute,
-			Severity: SeverityWarning,
-			Summary:  "A job hit MAX_JOB_ATTEMPTS and was dropped",
-			Description: "The second disjunct catches the first-ever increment, which increase() " +
-				"alone reports as 0 because it has no prior sample to compare against.",
+			Window:      time.Hour,
+			For:         5 * time.Minute,
+			Severity:    SeverityWarning,
+			Summary:     "A job hit MAX_JOB_ATTEMPTS and was dropped",
+			Description: "The second disjunct catches the first-ever increment; see firstOrIncrease.",
 		},
 	}
 }
@@ -442,7 +482,7 @@ func runtimeSpecs() []Spec {
 			// also counts routine archived and fork parks, which happen
 			// on every normal onboarding sweep, so the same expression
 			// without the selector pages on healthy behaviour.
-			Expr:     `increase(repo_guardian_repos_parked_total{reason="access_denied"}[1h]) > 0`,
+			Expr:     firstOrIncrease(`repo_guardian_repos_parked_total{reason="access_denied"}`, "1h"),
 			Window:   time.Hour,
 			For:      15 * time.Minute,
 			Severity: SeverityWarning,

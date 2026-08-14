@@ -129,7 +129,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          description: The second disjunct catches the first-ever increment, which increase() alone reports as 0 because it has no prior sample to compare against.
+          description: The second disjunct catches the first-ever increment; see firstOrIncrease.
           summary: A job hit MAX_JOB_ATTEMPTS and was dropped
       - alert: RepoGuardianNoSchedulerLeader
         expr: max(repo_guardian_scheduler_is_leader{name="stale-sweep"}) == 0
@@ -167,7 +167,10 @@ groups:
           description: The IMPL-0022 delayed-requeue path is active. Work is not being lost, but throughput is capped by the API budget.
           summary: Jobs are being deferred for rate limiting
       - alert: RepoGuardianRepoAccessDenied
-        expr: increase(repo_guardian_repos_parked_total{reason="access_denied"}[1h]) > 0
+        expr: |-
+          increase(repo_guardian_repos_parked_total{reason="access_denied"}[1h]) > 0
+          or
+          (repo_guardian_repos_parked_total{reason="access_denied"} unless repo_guardian_repos_parked_total{reason="access_denied"} offset 1h) > 0
         for: 15m
         labels:
           severity: warning

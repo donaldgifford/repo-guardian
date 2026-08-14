@@ -310,6 +310,67 @@ func TestGenerate_RepoAccessDeniedKeepsItsSelector(t *testing.T) {
 	}
 }
 
+// TestCatalogue_RareEventAlertsCatchTheFirstIncrement pins the
+// firstOrIncrease guard on every alert that needs it.
+//
+// increase() cannot see a counter's first-ever increment: a CounterVec
+// child does not exist until something calls WithLabelValues, so its
+// first scrape lands at 1 and every scrape after it also reads 1, with
+// no earlier sample to subtract. For "> 0 of a rare event" that is
+// exactly the occurrence worth alerting on — a single repository losing
+// access, a single unparseable catalog — and it is the one occurrence
+// the bare expression structurally cannot catch.
+//
+// Three of these shipped without the guard until IMPL-0023 Phase 7. It
+// is the same class of defect as INV-0012 finding A: not an alert that
+// fires wrongly, an alert that cannot fire when it should, which reads
+// as a healthy fleet.
+func TestCatalogue_RareEventAlertsCatchTheFirstIncrement(t *testing.T) {
+	t.Parallel()
+
+	// Every alert whose threshold is "> 0" over an increase(). A new
+	// entry here is a deliberate act: adding one to the catalogue
+	// without the guard fails this test.
+	rare := []string{
+		"RepoGuardianRepoAccessDenied",
+		"RepoGuardianPropertySchemaMissing",
+		"RepoGuardianCatalogParseFailures",
+		"RepoGuardianJobsExhausted",
+	}
+
+	byName := make(map[string]alert.Spec)
+
+	catalogue := alert.Catalogue()
+	for i := range catalogue {
+		byName[catalogue[i].Name] = catalogue[i]
+	}
+
+	for _, name := range rare {
+		spec, ok := byName[name]
+		if !ok {
+			t.Errorf("%s is not in the catalogue; if it was renamed, rename it here too", name)
+
+			continue
+		}
+
+		if !strings.Contains(spec.Expr, "unless") {
+			t.Errorf("%s has no first-increment disjunct, so a single occurrence never alerts:\n%s",
+				name, spec.Expr)
+		}
+	}
+
+	// The other direction: a threshold alert must NOT carry the guard.
+	// A brand-new counter sitting at 1 is not a burst, and the disjunct
+	// would fire the moment the first PR of a deployment's life is
+	// opened.
+	for _, name := range []string{"RepoGuardianPRBurst", "RepoGuardianRateLimitThrottling"} {
+		if spec, ok := byName[name]; ok && strings.Contains(spec.Expr, "unless") {
+			t.Errorf("%s is a threshold alert carrying the first-increment guard; "+
+				"a new counter at 1 would fire it:\n%s", name, spec.Expr)
+		}
+	}
+}
+
 // TestGenerate_SkipsAreExplained pins that every omission is reportable.
 func TestGenerate_SkipsAreExplained(t *testing.T) {
 	t.Parallel()

@@ -84,6 +84,10 @@
         "exportInterval": {
           "type": "string",
           "description": "Go duration (e.g. \"60s\", \"5m\"). Costs no GitHub API budget; tuned against gauge staleness."
+        },
+        "snapshotInterval": {
+          "type": "string",
+          "description": "Go duration (e.g. \"24h\"). Cadence of compliance-history rows for `repo-guardian report --since`. Rows are permanent; there is no retention machinery."
         }
       }
     }

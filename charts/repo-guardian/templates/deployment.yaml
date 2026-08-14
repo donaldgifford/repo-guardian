@@ -162,6 +162,8 @@ spec:
               value: {{ .Values.discovery.interval | quote }}
             - name: POSTURE_EXPORT_INTERVAL
               value: {{ .Values.posture.exportInterval | quote }}
+            - name: COMPLIANCE_SNAPSHOT_INTERVAL
+              value: {{ .Values.posture.snapshotInterval | quote }}
             {{- if eq .Values.queue.backend "valkey" }}
             {{- if and (eq .Values.queue.valkey.mode "baked") .Values.queue.valkey.baked.existingSecret }}
             # Baked Valkey with an operator-supplied password: assemble

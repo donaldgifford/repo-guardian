@@ -153,6 +153,29 @@ tests:
             name: POSTURE_EXPORT_INTERVAL
             value: "5m"
 
+  # IMPL-0023 task 7.3. Same reasoning as the export interval above,
+  # with one addition: the compliance-history rows are permanent, so an
+  # operator who sets this expecting a slower cadence and silently gets
+  # the 24h default is accruing rows they did not ask for.
+  - it: emits the compliance snapshot interval with its default
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: COMPLIANCE_SNAPSHOT_INTERVAL
+            value: "24h"
+
+  - it: respects posture.snapshotInterval override
+    set:
+      posture:
+        snapshotInterval: 168h
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: COMPLIANCE_SNAPSHOT_INTERVAL
+            value: "168h"
+
   # IMPL-0022 Phase 7: the attempt cap. Schema enforces >= 1, so the
   # binary's own MAX_JOB_ATTEMPTS < 1 startup error is a second line
   # of defence for operators bypassing the chart.

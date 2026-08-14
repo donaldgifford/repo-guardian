@@ -1764,9 +1764,70 @@ smoke IMPL-0019 and IMPL-0020 left open.
       `mkdocs-material` in `gh-pages.yml`). This task adds sections to
       a page already in the nav and adds no new files, so the nav is
       unchanged.
-- [ ] 7.3 Chart: version + appVersion bump, new values documented via
+- [x] 7.3 Chart: version + appVersion bump, new values documented via
       `README.md.gotmpl` (never the rendered README), prometheusrule
       parity with the generator output.
+
+      Chart `1.0.0-rc.11 → 1.0.0-rc.12`, appVersion `1.11.1 → 1.13.0`
+      (tags v1.12.x already exist, so the IMPL-0023 binary release
+      will be the next `minor`). The image-tag helm-unittest pin moved
+      with it — the IMPL-0020 lesson.
+
+      **Found and fixed while doing the parity pass — the chart's
+      `RepoGuardianNoSchedulerLeader` watched
+      `scheduler_is_leader{name="sweep"}`, a schedule deleted in
+      IMPL-0015 Phase 0.** An `== 0` comparison against an empty
+      vector is itself empty, so the alert could not fire at all — the
+      operator's only "reconciliation has stalled" page has been
+      unwired since chart 1.0.0-rc.2. A third INV-0012-finding-A
+      instance (the catalogue's copy was written correctly in 5.3;
+      the chart's copy was not). Two helm-unittest cases now lock the
+      selector, including a `notMatchRegex` on `name="sweep"`
+      specifically — both probe-verified by reintroducing the bug.
+
+      Parity changes, chart-side: `StoreQueryErrors` gains
+      `clamp_min` on the denominator and the catalogue's 10m window
+      (unclamped, an idle deployment divides 0/0 and the series goes
+      NaN); `RepoAccessDenied` and `PropertySchemaMissing` gain the
+      first-increment disjunct; new `PostureExportStalled` alert
+      (12 chart alerts, up from 11).
+
+      Parity changes, generator-side (the pass ran both directions):
+      the three rare-event `> 0` alerts in the CATALOGUE also lacked
+      the first-increment guard that `JobsExhausted` already carried.
+      Extracted `alert.firstOrIncrease` — label-preserving, unlike
+      JobsExhausted's summed variant, because `org`/`property`/
+      `installation_id` are the whole value of those notifications —
+      and applied it to all three.
+      `TestCatalogue_RareEventAlertsCatchTheFirstIncrement` pins the
+      four that need the guard AND asserts the threshold alerts
+      (PRBurst, RateLimitThrottling) do NOT carry it — a brand-new
+      counter at 1 is not a burst. Probe-verified. The committed tier
+      regenerated with the guarded expressions.
+
+      **Divergence — full expression parity is deliberately NOT the
+      goal.** The chart alerts keep their `{{ .Values }}`-tunable
+      thresholds/for/severity and their per-alert `enabled` toggles,
+      which the generator's catalogue does not model; the generator
+      keeps mechanism gating, which the chart cannot do (it has no
+      policy to derive from). What parity means here: every
+      *unconditional* catalogue alert exists in the chart with the
+      same expression shape, selectors and guards. Mechanism-gated
+      alerts (CatalogParseFailures, SettingRemediationChurn,
+      BranchProtectionChurn, RuleNeverApplies, NoRepoChecks-style
+      service alerts already present) are the generator's job —
+      operators who want those generate against their policy.
+
+      New values: `posture.snapshotInterval` (default `24h`) wiring
+      `COMPLIANCE_SNAPSHOT_INTERVAL`, which was scheduled in main.go
+      since Phase 4 but had no chart surface — the missing key noted
+      at Phase-6 close. Schema + two deployment_env cases (default +
+      override). Upgrade notes added to `README.md.gotmpl` under a new
+      rc.12 section (posture gauges + max-by rule, both new values,
+      the NoSchedulerLeader fix with its "expect it to start firing"
+      warning, the counter removals with the prs_created_total step-up
+      note, the generated-dashboard pointer); `make helm-docs`
+      regenerated the rendered README.
 - [ ] 7.4 CLAUDE.md: posture-state contract (write-back best-effort,
       leader-scoped export, taxonomy pointer) and the
       transport-ordering contract shared with IMPL-0022. Also the

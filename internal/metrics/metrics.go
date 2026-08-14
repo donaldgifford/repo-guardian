@@ -105,29 +105,22 @@ var (
 		Help: "GitHub API rate limit remaining.",
 	})
 
-	// PropertiesCheckedTotal counts repos where custom properties were evaluated.
-	PropertiesCheckedTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "repo_guardian_properties_checked_total",
-		Help: "Total repositories where custom properties were evaluated.",
-	})
-
-	// PropertiesPRsCreatedTotal counts PRs created for custom properties.
-	PropertiesPRsCreatedTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "repo_guardian_properties_prs_created_total",
-		Help: "Total pull requests created for custom properties.",
-	})
-
-	// PropertiesSetTotal counts repos where properties were set via API (api mode only).
-	PropertiesSetTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "repo_guardian_properties_set_total",
-		Help: "Total repositories where custom properties were set via API.",
-	})
-
-	// PropertiesAlreadyCorrectTotal counts repos where properties already matched.
-	PropertiesAlreadyCorrectTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "repo_guardian_properties_already_correct_total",
-		Help: "Total repositories where custom properties already matched desired values.",
-	})
+	// The four unlabelled properties_* counters that used to live here
+	// were removed in IMPL-0023 Phase 7 (DESIGN-0022 OQ4 → a). They
+	// predated the per-org labelling convention, so none of them could
+	// answer "which org", and two of them (properties_already_correct,
+	// properties_checked) were posture wearing a counter's clothes: a
+	// repository that was already correct yesterday still contributes to
+	// increase(...[7d]) today, and one the sweep has not reached
+	// contributes nothing at all. The posture gauges answer both
+	// questions properly.
+	//
+	// properties_prs_created_total was the one with a real consumer, and
+	// it did not merge into a gauge — it folded into PRsCreatedTotal
+	// below, which the reconcilers now increment. That is a fix as much
+	// as a removal: reconciler-opened PRs were invisible to every
+	// per-org PR panel and to RepoGuardianPRBurst for as long as they
+	// had a counter of their own.
 
 	// CustomPropertyClearedTotal counts individual managed custom
 	// properties cleared (set to JSON null) because their source

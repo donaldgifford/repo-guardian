@@ -328,10 +328,6 @@ Available at `METRICS_ADDR` (default `:9090/metrics`):
 | `repo_guardian_github_rate_remaining` | Gauge | -- | GitHub API rate limit remaining |
 | `repo_guardian_github_rate_limit_waits_total` | Counter | `reason` | Rate limit waits by reason |
 | `repo_guardian_github_rate_limit_wait_seconds` | Histogram | -- | Duration of rate limit waits |
-| `repo_guardian_properties_checked_total` | Counter | -- | Repos where custom properties were evaluated |
-| `repo_guardian_properties_prs_created_total` | Counter | -- | PRs created for custom properties |
-| `repo_guardian_properties_set_total` | Counter | -- | Properties set via API |
-| `repo_guardian_properties_already_correct_total` | Counter | -- | Properties already matching |
 | `repo_guardian_queue_depth` | Gauge | `queue` | Current queue depth (jobs waiting). |
 | `repo_guardian_queue_enqueued_total` / `_claimed_total` / `_acked_total` / `_reaped_total` | Counter | `queue` | Queue lifecycle counters (IMPL-0011). |
 | `repo_guardian_scheduler_is_leader` | Gauge | `name` | 1 on the leader pod, 0 elsewhere. |

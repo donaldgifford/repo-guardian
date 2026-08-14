@@ -318,16 +318,16 @@ func addReconcilerMechanisms(rs []policy.ReconcilerConfig, m *Model) {
 
 		m.Mechanisms.add(MechanismCustomProperties)
 
-		// The schema preflight runs in both modes, so the mode gates
-		// only the PR counter, never the preflight alert.
+		// The schema preflight runs in both modes, so the mode never
+		// gates the preflight alert.
 		if rs[i].Mode == customPropertiesGHAMode {
 			m.Mechanisms.add(MechanismCustomPropertiesGHA)
 		}
 	}
 }
 
-// customPropertiesGHAMode is the mode string that produces
-// properties_prs_created_total.
+// customPropertiesGHAMode is the mode string that opens workflow PRs
+// instead of writing properties through the API.
 const customPropertiesGHAMode = "github-action"
 
 func addIgnoreMechanism(ic *policy.IgnoreConfig, m *Model) {

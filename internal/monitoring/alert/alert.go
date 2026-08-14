@@ -310,18 +310,17 @@ func propertySpecs() []Spec {
 				"(INV-0011 A1), so the repository keeps its last-known values.",
 			Requires: []monitoring.Mechanism{monitoring.MechanismCustomProperties},
 		},
-		{
-			Name:        "RepoGuardianPropertiesPRBurst",
-			Group:       group,
-			Expr:        `increase(repo_guardian_properties_prs_created_total[1h]) > 50`,
-			Window:      time.Hour,
-			For:         5 * time.Minute,
-			Severity:    SeverityWarning,
-			Summary:     "More than 50 custom-property workflow PRs opened in an hour",
-			Description: "Only github-action mode opens these.",
-			Requires:    []monitoring.Mechanism{monitoring.MechanismCustomPropertiesGHA},
-			Excludes:    []monitoring.Mechanism{monitoring.MechanismDryRun},
-		},
+		// RepoGuardianPropertiesPRBurst was here until IMPL-0023 Phase 7.
+		// It watched repo_guardian_properties_prs_created_total, an
+		// unlabelled counter that existed only because reconciler PRs
+		// were counted separately from engine PRs. Now that they are not,
+		// this alert would be RepoGuardianPRBurst with a different name
+		// and the same 50-per-hour threshold.
+		//
+		// The coverage question was checked rather than assumed: PRBurst
+		// requires MechanismFileRules, and a custom_properties reconciler
+		// is only ever attached to a file rule, so a policy that could
+		// have triggered the old alert always engages the new one.
 	}
 }
 

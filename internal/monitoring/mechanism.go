@@ -72,9 +72,17 @@ const (
 	// every api-mode deployment.
 	MechanismCustomProperties Mechanism = "custom_properties"
 
-	// MechanismCustomPropertiesGHA gates properties_prs_created_total,
-	// which only github-action mode produces, and therefore the
-	// PropertiesPRBurst alert.
+	// MechanismCustomPropertiesGHA records that the reconciler runs in
+	// github-action mode, which opens workflow PRs rather than writing
+	// properties through the API.
+	//
+	// It gates no alert today. It gated PropertiesPRBurst until
+	// IMPL-0023 Phase 7 folded reconciler PRs into prs_created_total,
+	// at which point that alert became RepoGuardianPRBurst under
+	// another name. Kept because it is a true and useful fact about
+	// the policy — it is reported in the generation log and tells an
+	// operator which of two very different write paths is live — and
+	// because deriving it is free.
 	MechanismCustomPropertiesGHA Mechanism = "custom_properties_gha"
 
 	// MechanismStrictScope gates out_of_scope_total and the

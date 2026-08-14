@@ -173,7 +173,6 @@ func (*CustomPropertiesReconciler) RunsOnAbsence() bool {
 // either sets them via API or creates a PR with a workflow.
 func (r *CustomPropertiesReconciler) Reconcile(ctx context.Context, params *ReconcileParams) error {
 	log := params.Logger.With("reconciler", "custom_properties", "mode", r.mode)
-	metrics.PropertiesCheckedTotal.Inc()
 
 	content, catalogFound, err := resolveCatalogContent(ctx, params)
 	if err != nil {
@@ -223,7 +222,6 @@ func (r *CustomPropertiesReconciler) Reconcile(ctx context.Context, params *Reco
 
 	if !r.diffProperties(desired, current, defined) {
 		log.Info("custom properties already correct")
-		metrics.PropertiesAlreadyCorrectTotal.Inc()
 
 		return nil
 	}
@@ -337,7 +335,14 @@ func (r *CustomPropertiesReconciler) handleGHAMode(
 
 	applyLabels(ctx, log, params.Client, params.Owner, params.Repo, pr.Number, prText.Labels)
 
-	metrics.PropertiesPRsCreatedTotal.Inc()
+	// The engine's counter, not a reconciler-specific one. This PR is a
+	// pull request repo-guardian opened against someone's repository,
+	// and counting it anywhere else is how it stayed invisible to every
+	// per-org PR panel and to the PR-burst alert until IMPL-0023 Phase
+	// 7. If you need to tell property PRs from file-rule PRs, the
+	// distinguishing detail is in the log line below and on the PR
+	// itself — that is the evidence tier's job, not a metric label's.
+	metrics.PRsCreatedTotal.WithLabelValues(params.Owner).Inc()
 	log.Info("created properties PR", "pr_number", pr.Number)
 
 	return nil
@@ -460,8 +465,6 @@ func (r *CustomPropertiesReconciler) handleAPIMode(
 	if err := params.Client.SetCustomPropertyValues(ctx, params.Owner, params.Repo, props); err != nil {
 		return fmt.Errorf("setting custom properties: %w", err)
 	}
-
-	metrics.PropertiesSetTotal.Inc()
 
 	if len(clears) > 0 {
 		metrics.CustomPropertyClearedTotal.WithLabelValues(params.Owner).Add(float64(len(clears)))
@@ -785,7 +788,8 @@ func (r *CustomPropertiesReconciler) createCatalogInfoPR(
 
 	applyLabels(ctx, log, params.Client, params.Owner, params.Repo, pr.Number, prText.Labels)
 
-	metrics.PropertiesPRsCreatedTotal.Inc()
+	// Same fold as the properties PR above; see the comment there.
+	metrics.PRsCreatedTotal.WithLabelValues(params.Owner).Inc()
 	log.Info("created catalog-info PR", "pr_number", pr.Number)
 
 	return nil

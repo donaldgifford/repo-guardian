@@ -23,18 +23,22 @@ Two tiers live here:
 | **Hand-maintained** | `loki/rules.yaml` | Loki ruler recording and alerting examples. Not generated, because what is worth recording depends on your fleet size and your Prometheus's cardinality budget. |
 
 `generated/` is generated from the built-in defaults, so it shows the
-19 alerts and four dashboards that a default policy engages. Six more
+19 alerts and four dashboards that a default policy engages. Five more
 alerts exist and are emitted only when the policy engages the mechanism
 they watch:
 
 | Alert | Emitted when the policy |
 |-------|-------------------------|
-| `RepoGuardianCatalogParseFailures` | runs the `custom_properties` reconciler in `api` mode |
-| `RepoGuardianPropertySchemaMissing` | runs the `custom_properties` reconciler in `api` mode |
-| `RepoGuardianPropertiesPRBurst` | runs `custom_properties` in `github-action` mode |
+| `RepoGuardianCatalogParseFailures` | attaches the `custom_properties` reconciler |
+| `RepoGuardianPropertySchemaMissing` | attaches the `custom_properties` reconciler |
 | `RepoGuardianSettingRemediationChurn` | declares `rule "setting"` blocks |
 | `RepoGuardianBranchProtectionChurn` | declares `rule "branch_protection"` blocks |
 | `RepoGuardianRuleNeverApplies` | declares a top-level `scope { orgs }` block |
+
+Note the first two gate on the reconciler being attached, not on its
+mode: the schema preflight runs in both `api` and `github-action`
+mode, and gating on the mode would silently drop both alerts for every
+api-mode deployment.
 
 Generate against your own config to get the ones that apply to you.
 That gating is the fix for INV-0012 finding A: an alert watching a
@@ -219,12 +223,33 @@ The `github_rate_limit_waits_total` / `_wait_seconds` pair was removed in IMPL-0
 
 ### Custom properties
 
-| Metric | Type | Labels | Description |
-|--------|------|--------|-------------|
-| `properties_checked_total` | Counter | — | Repositories where custom properties were evaluated. |
-| `properties_prs_created_total` | Counter | — | PRs created for custom properties. |
-| `properties_set_total` | Counter | — | Repositories where properties were set via API. |
-| `properties_already_correct_total` | Counter | — | Repositories where properties already matched. |
+The four unlabelled `properties_*` counters were **removed in
+IMPL-0023 Phase 7**. They predated the per-org labelling convention, so
+none could answer "which org", and two of them were posture wearing a
+counter's clothes — a repository that was already correct yesterday
+still contributes to `increase(...[7d])` today, and one the sweep has
+not reached contributes nothing at all.
+
+| Removed | Use instead |
+|---------|-------------|
+| `properties_checked_total` | `repos_checked_total{trigger, org}` — the same event, per org. |
+| `properties_already_correct_total` | `repos_actionable{rule_name, org}` and `repos_tracked{org}`. This was the posture-shaped one; a gauge answers it correctly and a counter never could. |
+| `properties_set_total` | `custom_property_cleared_total{org}` for clears; otherwise the posture gauges. Nothing counts successful writes as an event any more — that is activity, and the state is what matters. |
+| `properties_prs_created_total` | `prs_created_total{org}`, which the reconcilers now increment. |
+
+That last one is a **behaviour change, not just a rename**. On a
+`github-action`-mode deployment, `prs_created_total` will step up after
+this upgrade, because reconciler-opened PRs now land in it. They always
+should have: while they had a counter of their own they were invisible
+to every per-org PR panel and to `RepoGuardianPRBurst`. The
+`RepoGuardianPropertiesPRBurst` alert is gone for the same reason —
+with the counters folded it was `RepoGuardianPRBurst` with a different
+name and the same threshold.
+
+If you need to tell property PRs from file-rule PRs, that distinction
+lives in the logs (`created properties PR`, `created catalog-info PR`)
+and on the PRs themselves. It is deliberately not a metric label: this
+is exactly the split between the aggregate tier and the evidence tier.
 
 ### Custom-property sync (DESIGN-0019 / IMPL-0017 / IMPL-0020)
 

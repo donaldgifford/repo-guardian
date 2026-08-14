@@ -555,6 +555,38 @@ func TestGHAMode_SetsFromCatalogInfo(t *testing.T) {
 	}
 }
 
+// TestGHAMode_PRCountsAgainstTheOrgCounter pins the IMPL-0023 Phase 7
+// fold.
+//
+// A PR opened by a reconciler is a pull request repo-guardian opened
+// against someone's repository, and it must land in the same counter as
+// every other one. Until Phase 7 it went to an unlabelled
+// properties_prs_created_total instead, which meant a github-action
+// deployment's entire PR volume was missing from every per-org panel
+// and from the PR-burst alert — invisibly, because the panels rendered
+// perfectly and simply showed less.
+//
+// Not t.Parallel: it reads a package-global counter.
+func TestGHAMode_PRCountsAgainstTheOrgCounter(t *testing.T) {
+	before := testutil.ToFloat64(metrics.PRsCreatedTotal.WithLabelValues("org"))
+
+	r := newTestReconciler(t, "github-action")
+	client := basePropertiesClient()
+	client.fileContents["org/my-service/catalog-info.yaml"] = validCatalogInfo
+
+	if err := r.Reconcile(context.Background(), newParams(client, validCatalogInfo, false, nil)); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	if client.createdPR == nil {
+		t.Fatal("no PR was created, so this test would pass vacuously")
+	}
+
+	if got := testutil.ToFloat64(metrics.PRsCreatedTotal.WithLabelValues("org")) - before; got != 1 {
+		t.Errorf("prs_created_total{org=\"org\"} rose by %v, want 1", got)
+	}
+}
+
 // TestGHAMode_SetsFromCatalogInfo_JiraMapConfigured is the DESIGN-0019
 // GHA-mode regression case: with annotation_properties reproducing the
 // pre-change hardcoded Jira mapping, the rendered workflow carries the

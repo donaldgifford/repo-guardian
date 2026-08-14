@@ -1672,10 +1672,61 @@ smoke IMPL-0019 and IMPL-0020 left open.
 
 #### Tasks
 
-- [ ] 7.1 Remove the four legacy counters
+- [x] 7.1 Remove the four legacy counters
       (`properties_checked_total`, `properties_prs_created_total`,
       `properties_set_total`, `properties_already_correct_total`;
       OQ4 → a) with migration notes in `contrib/README.md`.
+
+      Three of the four are straightforward removals — they predated
+      per-org labelling and two were posture wearing a counter's
+      clothes, which is Finding B exactly.
+
+      **Divergence — `properties_prs_created_total` folds into
+      `prs_created_total{org}` rather than simply disappearing.** The
+      design says "superseded by real posture", which is true of the
+      other three and NOT true of this one: PR creation is an event,
+      not a state, and it had a live consumer in
+      `RepoGuardianPropertiesPRBurst`. Deleting it outright would have
+      left reconciler-opened PRs counted nowhere and orphaned that
+      alert onto a series with no producer — the very INV-0012 finding
+      A shape this phase is supposed to be eliminating.
+
+      Folding is a fix, not a compromise. Reconciler PRs were
+      invisible to every per-org PR panel and to
+      `RepoGuardianPRBurst` for as long as they had a counter of their
+      own, and nothing about them justifies a separate series: they
+      are pull requests repo-guardian opened against someone's
+      repository. **Operator-visible consequence:** on a
+      `github-action`-mode deployment `prs_created_total` steps up
+      after this upgrade. Documented in `contrib/README.md` as a
+      behaviour change rather than a rename.
+
+      `RepoGuardianPropertiesPRBurst` is therefore deleted: with the
+      counters folded it was `RepoGuardianPRBurst` under another name,
+      same 50-per-hour threshold. Coverage was checked rather than
+      assumed — `PRBurst` requires `MechanismFileRules`, and a
+      `custom_properties` reconciler is only ever attached to a file
+      rule, so any policy that could have fired the old alert engages
+      the new one.
+
+      `MechanismCustomPropertiesGHA` survives with no alert to gate.
+      It is a true fact about the policy — which of two very different
+      write paths is live — it is reported in the generation log, and
+      deriving it is free. Its doc comment now says all of that
+      instead of naming a metric that no longer exists.
+
+      New test `TestGHAMode_PRCountsAgainstTheOrgCounter` pins the
+      fold (probe-verified by neutralising the increment). The
+      mechanism-scoping table lost its PropertiesPRBurst rows and
+      gained an assertion that github-action mode does not *suppress*
+      the api-mode alerts either — the preflight runs in both modes,
+      and gating it on the mode is the mistake that would silently
+      drop both alerts for every api-mode deployment.
+
+      Docs: root `README.md` metric table (four rows deleted),
+      `contrib/README.md` (a removed → use-instead table, the
+      behaviour-change note, and the mechanism-gated alert list down
+      from six to five).
 - [ ] 7.2 `docs/operations/scaling.md`: posture architecture,
       exporter leader semantics, OTEL series catalog, dedup rule.
 - [ ] 7.3 Chart: version + appVersion bump, new values documented via

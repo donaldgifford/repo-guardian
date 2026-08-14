@@ -168,9 +168,12 @@ func TestDerive_StrictScope(t *testing.T) {
 		t.Errorf("Derive().Mechanisms mismatch: %s", diff)
 	}
 
-	// mode = "api", so the GHA-only PR counter's mechanism must NOT be
-	// set. Getting this backwards would emit PropertiesPRBurst against a
-	// series api mode never produces.
+	// mode = "api", so the github-action mechanism must NOT be set. It
+	// gates no alert since IMPL-0023 Phase 7, but it is still reported
+	// to the operator as which of two very different write paths is
+	// live, and saying "opens workflow PRs" about a deployment that
+	// PATCHes the API directly is a lie in the one place someone would
+	// go to check.
 	if m.Mechanisms.Has(monitoring.MechanismCustomPropertiesGHA) {
 		t.Error("api-mode custom_properties set the github-action mechanism")
 	}

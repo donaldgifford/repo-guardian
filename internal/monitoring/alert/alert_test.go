@@ -189,7 +189,6 @@ func TestGenerate_MechanismScoping(t *testing.T) {
 			wantGone: []string{
 				"RepoGuardianPropertySchemaMissing",
 				"RepoGuardianCatalogParseFailures",
-				"RepoGuardianPropertiesPRBurst",
 				"RepoGuardianRuleNeverApplies",
 				"RepoGuardianSettingRemediationChurn",
 				"RepoGuardianBranchProtectionChurn",
@@ -206,11 +205,16 @@ func TestGenerate_MechanismScoping(t *testing.T) {
 				"RepoGuardianPropertySchemaMissing",
 				"RepoGuardianCatalogParseFailures",
 			},
-			// The preflight runs in both modes, so the two above ship —
-			// but the PR counter is github-action only.
-			wantGone: []string{"RepoGuardianPropertiesPRBurst"},
+			// The preflight runs in BOTH modes, which is the thing that
+			// is easy to get backwards: gating it on the mode would
+			// silently drop the alert for every api-mode deployment.
+			wantGone: []string{"RepoGuardianPRBurst"},
 		},
 		{
+			// github-action mode gates no alert of its own since
+			// IMPL-0023 Phase 7 folded reconciler PRs into
+			// prs_created_total. It must not resurrect one, and it must
+			// not start suppressing the api-mode alerts either.
 			name: "custom properties in github-action mode",
 			mechanisms: []monitoring.Mechanism{
 				monitoring.MechanismCustomProperties,
@@ -218,7 +222,7 @@ func TestGenerate_MechanismScoping(t *testing.T) {
 			},
 			wantKept: []string{
 				"RepoGuardianPropertySchemaMissing",
-				"RepoGuardianPropertiesPRBurst",
+				"RepoGuardianCatalogParseFailures",
 			},
 		},
 		{

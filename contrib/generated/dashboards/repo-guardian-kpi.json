@@ -1,0 +1,600 @@
+{
+  "uid": "repo-guardian-kpi",
+  "title": "repo-guardian — KPI",
+  "description": "Fleet compliance posture and the health of the service that measures it.",
+  "tags": [
+    "repo-guardian",
+    "generated"
+  ],
+  "timezone": "utc",
+  "editable": true,
+  "graphTooltip": 0,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "fiscalYearStartMonth": 0,
+  "refresh": "1m",
+  "schemaVersion": 42,
+  "panels": [
+    {
+      "type": "row",
+      "collapsed": false,
+      "title": "Fleet compliance",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 0,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(max by (org) (repo_guardian_repos_tracked))",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "title": "Repositories tracked",
+      "description": "Active repositories with any recorded posture. Parked repositories (archived, forked, unreadable) are excluded and counted separately.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "repeatDirection": "h",
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": []
+        },
+        "percentChangeColorMode": "standard",
+        "orientation": ""
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(max by (org, reason) (repo_guardian_repos_unmeasurable))",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "title": "Repositories unmeasurable",
+      "description": "Parked repositories, by reason. These are excluded from every compliance number — a rising access_denied share means the numbers cover less of the fleet.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "repeatDirection": "h",
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": []
+        },
+        "percentChangeColorMode": "standard",
+        "orientation": ""
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "(\n  1 - (sum by (rule_name) (max by (rule_name, org) (repo_guardian_repos_actionable)) / scalar(sum(max by (org) (repo_guardian_repos_tracked))))\n)\nand on() (sum(max by (org) (repo_guardian_repos_tracked)) \u003e 0)",
+          "instant": false,
+          "legendFormat": "{{ rule_name }}",
+          "range": true
+        }
+      ],
+      "title": "Compliance by rule",
+      "description": "Share of tracked repositories satisfying each rule. Reads 'no data' rather than 100% when nothing is tracked, because an unmeasured rule is not a compliant one.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 10
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "table",
+      "targets": [
+        {
+          "expr": "sum by (rule_name) (max by (rule_name, org) (repo_guardian_repos_actionable))",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "title": "Repositories failing each rule",
+      "description": "Current non-compliant count per rule. This is state read back from the store, not a rate over check events: a repository fixed yesterday is not in it.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 10
+      },
+      "repeatDirection": "h",
+      "options": {
+        "frameIndex": 0,
+        "showHeader": true,
+        "showTypeIcons": false,
+        "footer": {
+          "show": false,
+          "reducer": null,
+          "countRows": false
+        },
+        "cellHeight": "sm"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "no data",
+          "custom": {
+            "align": "auto",
+            "inspect": false
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "row",
+      "collapsed": false,
+      "title": "Convergence",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "id": 0,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (age_bucket) (max by (org, rule, age_bucket) (repo_guardian_open_prs_by_rule))",
+          "instant": false,
+          "legendFormat": "{{ age_bucket }}",
+          "range": true
+        }
+      ],
+      "title": "Open repo-guardian PRs by age",
+      "description": "CAVEAT: this series is incremented by whichever replica performs a check and reset only by the replica holding the sweep lock, so on a multi-replica deployment a non-leader's copy accumulates rather than reflecting the current open set. Read the shape, not the absolute number, until it is re-derived from the store.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(repo_guardian_prs_created_total[1h])) * 3600",
+          "instant": false,
+          "legendFormat": "opened/h",
+          "range": true
+        },
+        {
+          "expr": "sum(rate(repo_guardian_prs_closed_total{reason=\"satisfied\"}[1h])) * 3600",
+          "instant": false,
+          "legendFormat": "auto-closed/h",
+          "range": true
+        }
+      ],
+      "title": "PR throughput",
+      "description": "Opened versus auto-closed-as-satisfied. Both are business-tier PR events, so they belong on one panel: convergence is the relationship between them, and split across two panels nobody reads it that way.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(max by (org, rule) (repo_guardian_open_prs_by_rule{age_bucket=\"30d+\"}))",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "title": "PRs open over 30 days",
+      "description": "A repo-guardian PR nobody merged. With auto_close_pr disabled a satisfied PR stays open by design and will show up here.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 29
+      },
+      "repeatDirection": "h",
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": []
+        },
+        "percentChangeColorMode": "standard",
+        "orientation": ""
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "row",
+      "collapsed": false,
+      "title": "Service health",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 38
+      },
+      "id": 0,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(repo_guardian_errors_total[15m]))\n/\nclamp_min(sum(rate(repo_guardian_repos_checked_total[15m])), 1)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "title": "Check failure rate",
+      "description": "Share of repository checks that errored. Matches the expression behind RepoGuardianHighErrorRate, which pages above 10%. clamp_min keeps the ratio defined when no check has completed in the window; without it an idle fleet divides by zero and reads NaN, which nobody can tell from a broken exporter.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 39
+      },
+      "repeatDirection": "h",
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": []
+        },
+        "percentChangeColorMode": "standard",
+        "orientation": ""
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "no data"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "min(repo_guardian_rate_limit_remaining)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "title": "GitHub API budget remaining",
+      "description": "Minimum remaining across installations. Fed solely by the sweep's per-installation sample, so it updates once per sweep rather than continuously.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 39
+      },
+      "repeatDirection": "h",
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": []
+        },
+        "percentChangeColorMode": "standard",
+        "orientation": ""
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "max(repo_guardian_queue_depth{queue=\"jobs\"})",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "title": "Job queue depth",
+      "description": "Jobs waiting to be claimed. A depth that only grows means workers are not keeping up.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
+      "repeatDirection": "h",
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": []
+        },
+        "percentChangeColorMode": "standard",
+        "orientation": ""
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "max(repo_guardian_scheduler_is_leader{name=\"stale-sweep\"})",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "title": "Sweep leader",
+      "description": "1 when a replica holds the stale-sweep lock. 0 means nothing is enqueuing stale repositories and every posture number above is frozen. Aggregated with max, never sum: during failover both replicas can briefly hold a series.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 48
+      },
+      "repeatDirection": "h",
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": []
+        },
+        "percentChangeColorMode": "standard",
+        "orientation": ""
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(increase(repo_guardian_posture_export_total{outcome=\"ok\"}[1h]))",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "title": "Posture exporter ticks",
+      "description": "Successful posture reads in the last hour. Zero means every gauge above is stale but still being served, which is the one failure the gauges cannot show themselves. RepoGuardianPostureExportStalled pages on it.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 57
+      },
+      "repeatDirection": "h",
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": []
+        },
+        "percentChangeColorMode": "standard",
+        "orientation": ""
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data"
+        },
+        "overrides": []
+      }
+    }
+  ],
+  "templating": {},
+  "annotations": {}
+}

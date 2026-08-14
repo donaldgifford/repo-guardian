@@ -485,7 +485,7 @@ func TestCheckRepo_AllFilesExist(t *testing.T) {
 	client.contents["org/repo/CODEOWNERS"] = true
 	client.contents["org/repo/.github/dependabot.yml"] = true
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -507,7 +507,7 @@ func TestCheckRepo_MissingFiles_NoPR(t *testing.T) {
 	// No files exist, no open PRs.
 	client.branchSHAs["org/repo/main"] = "abc123"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -546,7 +546,7 @@ func TestCheckRepo_MissingFiles_ExistingPR(t *testing.T) {
 		{Number: 5, Title: PRTitle, Head: BranchName, State: "open"},
 	}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -581,7 +581,7 @@ func TestCheckRepo_MissingFiles_ThirdPartyPR(t *testing.T) {
 		{Number: 10, Title: "Add CODEOWNERS file", Head: "add-codeowners", State: "open"},
 	}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -645,19 +645,33 @@ func TestCheckRepo_Skips(t *testing.T) {
 			client.repo = &tt.repo
 			client.repo.Owner, client.repo.Name = "org", "repo"
 
-			err := engine.CheckRepo(context.Background(), client, "org", "repo")
+			res, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 
 			skip, durable := AsSkipped(err)
 
 			switch {
 			case tt.wantSkip == "":
 				if err != nil {
-					t.Fatalf("CheckRepo() = %v, want nil; a non-durable skip must not surface an error", err)
+					t.Fatalf("CheckRepo() = _, %v, want nil; a non-durable skip must not surface an error", err)
 				}
 			case !durable:
-				t.Fatalf("CheckRepo() = %v, want *SkippedError{Reason: %q}", err, tt.wantSkip)
+				t.Fatalf("CheckRepo() = _, %v, want *SkippedError{Reason: %q}", err, tt.wantSkip)
 			case skip.Reason != tt.wantSkip:
 				t.Errorf("skip reason = %q, want %q", skip.Reason, tt.wantSkip)
+			}
+
+			// The posture half of the same decision. A non-durable skip
+			// returns an empty-but-non-nil result, which clears the
+			// repo's rule rows so it stops counting against compliance.
+			// A durable skip returns nil and leaves that call to the
+			// worker, which is what decides disposition — see Pool.park.
+			switch {
+			case tt.wantSkip == "" && res == nil:
+				t.Error("CheckRepo() = nil, _; a non-durable skip must return an empty result so posture clears")
+			case tt.wantSkip == "" && len(res.Outcomes) != 0:
+				t.Errorf("skipped repo evaluated %d rules, want 0", len(res.Outcomes))
+			case tt.wantSkip != "" && res != nil:
+				t.Errorf("CheckRepo() = %v, _; a durable skip must return nil per the error contract", res)
 			}
 
 			if client.createdPR != nil {
@@ -676,7 +690,7 @@ func TestCheckRepo_DryRun(t *testing.T) {
 		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
 	}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -703,7 +717,7 @@ func TestCheckRepo_StaleBranchCleanup(t *testing.T) {
 
 	// Branch exists but no open PR (previously closed).
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}

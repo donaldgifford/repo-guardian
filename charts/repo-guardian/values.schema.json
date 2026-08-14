@@ -76,6 +76,20 @@
           "description": "Go duration (e.g. \"1h\", \"30m\")."
         }
       }
+    },
+    "posture": {
+      "type": "object",
+      "description": "Compliance posture export (IMPL-0023 / DESIGN-0022) — the leader projects rule_state onto the posture gauges.",
+      "properties": {
+        "exportInterval": {
+          "type": "string",
+          "description": "Go duration (e.g. \"60s\", \"5m\"). Costs no GitHub API budget; tuned against gauge staleness."
+        },
+        "snapshotInterval": {
+          "type": "string",
+          "description": "Go duration (e.g. \"24h\"). Cadence of compliance-history rows for `repo-guardian report --since`. Rows are permanent; there is no retention machinery."
+        }
+      }
     }
   }
 }

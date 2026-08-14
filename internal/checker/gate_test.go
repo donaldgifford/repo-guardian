@@ -154,7 +154,7 @@ func TestFindActionableRules_SemanticsMatrix(t *testing.T) {
 			gate := newGateEvaluator(engine, client, tt.owner, "repo")
 
 			actionable, err := engine.findActionableRules(
-				context.Background(), slog.Default(), client, tt.owner, "repo", nil, gate,
+				context.Background(), slog.Default(), client, tt.owner, "repo", nil, gate, &CheckResult{},
 			)
 			if err != nil {
 				t.Fatalf("findActionableRules: %v", err)
@@ -297,12 +297,12 @@ func TestGate_Memoization_OneRefereeEvalPerRepoCheck(t *testing.T) {
 
 	// Both passes share the same gate, as in checkRepoWithPolicy.
 	if _, err := engine.findActionableRules(
-		context.Background(), slog.Default(), client, "org", "repo", nil, gate,
+		context.Background(), slog.Default(), client, "org", "repo", nil, gate, &CheckResult{},
 	); err != nil {
 		t.Fatalf("findActionableRules: %v", err)
 	}
 
-	engine.runReconcilers(context.Background(), slog.Default(), client, "org", "repo", "main", nil, gate)
+	engine.runReconcilers(context.Background(), slog.Default(), client, "org", "repo", "main", nil, gate, &CheckResult{})
 
 	// 1 fetch for the referee's own evaluation + 1 memoized gate fetch = 2.
 	// Without memoization it would be 5 (own + gate per gated rule per pass).
@@ -344,7 +344,7 @@ func TestFindActionableRules_GateOpenDespiteOpenRefereePR(t *testing.T) {
 	gate := newGateEvaluator(engine, client, owner, "repo")
 
 	actionable, err := engine.findActionableRules(
-		context.Background(), slog.Default(), client, owner, "repo", openPRs, gate,
+		context.Background(), slog.Default(), client, owner, "repo", openPRs, gate, &CheckResult{},
 	)
 	if err != nil {
 		t.Fatalf("findActionableRules: %v", err)

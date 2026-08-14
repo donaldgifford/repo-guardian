@@ -94,12 +94,34 @@ func NewEngine(
 
 // CheckRepo evaluates a single repository against the policy and creates
 // a PR if any file rules are actionable.
-func (e *Engine) CheckRepo(ctx context.Context, client ghclient.Client, owner, repo string) error {
+//
+// The returned *CheckResult carries the per-rule verdicts the caller
+// persists as posture state (IMPL-0023 Phase 1). Error paths return
+// (nil, err): a check that blew up mid-way has no trustworthy verdict
+// for the rules it never reached, and writing a partial set would let
+// delete-not-in reconciliation drop rows that are merely unvisited.
+//
+// The non-durable skip paths — empty repo, global ignore, and
+// out-of-policy-scope — return an *empty* result rather than nil. That
+// is deliberate: an empty evaluated set reconciles every existing row
+// for the repo away, which is exactly right for a repo that just left
+// the fleet's scope. It should stop counting against compliance, not
+// freeze at its last verdict forever.
+//
+// Durable skips (archived, fork) instead return a *SkippedError so the
+// worker parks the row (INV-0015). Their posture must ALSO be cleared,
+// for the same reason — but that is the worker's call, since it is what
+// decides disposition; see Pool.park.
+func (e *Engine) CheckRepo(
+	ctx context.Context,
+	client ghclient.Client,
+	owner, repo string,
+) (*CheckResult, error) {
 	log := e.logger.With("owner", owner, "repo", repo)
 
 	repoInfo, err := client.GetRepository(ctx, owner, repo)
 	if err != nil {
-		return fmt.Errorf("getting repository info: %w", err)
+		return nil, fmt.Errorf("getting repository info: %w", err)
 	}
 
 	// Authoritative skip checks — the scheduler pre-filters as an
@@ -111,10 +133,15 @@ func (e *Engine) CheckRepo(ctx context.Context, client ghclient.Client, owner, r
 			// Surfaced as an error so the worker can park the row. The
 			// repo is otherwise re-enqueued and re-fetched every
 			// freshness cycle for as long as it exists (INV-0015).
-			return &SkippedError{Reason: reason}
+			//
+			// Returns a nil result, per this method's error contract.
+			// The empty-result-clears-posture decision for a parked repo
+			// belongs to the worker, which is what classifies the
+			// disposition — see Pool.park.
+			return nil, &SkippedError{Reason: reason}
 		}
 
-		return nil
+		return &CheckResult{}, nil
 	}
 
 	// Global ignore list short-circuits all rule evaluation.
@@ -122,12 +149,12 @@ func (e *Engine) CheckRepo(ctx context.Context, client ghclient.Client, owner, r
 		log.Info("repository matched global ignore list, skipping all rules")
 		metrics.IgnoredTotal.WithLabelValues("global", owner).Inc()
 
-		return nil
+		return &CheckResult{}, nil
 	}
 
 	openPRs, err := client.ListOpenPullRequests(ctx, owner, repo)
 	if err != nil {
-		return fmt.Errorf("listing open PRs: %w", err)
+		return nil, fmt.Errorf("listing open PRs: %w", err)
 	}
 
 	return e.checkRepoWithPolicy(ctx, log, client, owner, repo, repoInfo.DefaultRef, openPRs)

@@ -2,6 +2,8 @@
 package metrics
 
 import (
+	"strconv"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -103,29 +105,22 @@ var (
 		Help: "GitHub API rate limit remaining.",
 	})
 
-	// PropertiesCheckedTotal counts repos where custom properties were evaluated.
-	PropertiesCheckedTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "repo_guardian_properties_checked_total",
-		Help: "Total repositories where custom properties were evaluated.",
-	})
-
-	// PropertiesPRsCreatedTotal counts PRs created for custom properties.
-	PropertiesPRsCreatedTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "repo_guardian_properties_prs_created_total",
-		Help: "Total pull requests created for custom properties.",
-	})
-
-	// PropertiesSetTotal counts repos where properties were set via API (api mode only).
-	PropertiesSetTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "repo_guardian_properties_set_total",
-		Help: "Total repositories where custom properties were set via API.",
-	})
-
-	// PropertiesAlreadyCorrectTotal counts repos where properties already matched.
-	PropertiesAlreadyCorrectTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "repo_guardian_properties_already_correct_total",
-		Help: "Total repositories where custom properties already matched desired values.",
-	})
+	// The four unlabelled properties_* counters that used to live here
+	// were removed in IMPL-0023 Phase 7 (DESIGN-0022 OQ4 → a). They
+	// predated the per-org labelling convention, so none of them could
+	// answer "which org", and two of them (properties_already_correct,
+	// properties_checked) were posture wearing a counter's clothes: a
+	// repository that was already correct yesterday still contributes to
+	// increase(...[7d]) today, and one the sweep has not reached
+	// contributes nothing at all. The posture gauges answer both
+	// questions properly.
+	//
+	// properties_prs_created_total was the one with a real consumer, and
+	// it did not merge into a gauge — it folded into PRsCreatedTotal
+	// below, which the reconcilers now increment. That is a fix as much
+	// as a removal: reconciler-opened PRs were invisible to every
+	// per-org PR panel and to RepoGuardianPRBurst for as long as they
+	// had a counter of their own.
 
 	// CustomPropertyClearedTotal counts individual managed custom
 	// properties cleared (set to JSON null) because their source
@@ -145,6 +140,27 @@ var (
 	CustomPropertyMissingSchemaTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_custom_property_missing_schema_total",
 		Help: "Total sync attempts for a managed custom property absent from the org's property schema.",
+	}, []string{labelOrg, labelProperty})
+
+	// PropertySchemaMissing reports whether an org's custom-property
+	// schema currently lacks a definition for a managed property:
+	// 1 = missing, 0 = defined. Set at each schema-preflight cache
+	// refresh (30-minute TTL), which is the only moment the answer is
+	// known (DESIGN-0022 finding B — GitHub-owned posture).
+	//
+	// It is the posture counterpart to CustomPropertyMissingSchemaTotal.
+	// The counter answers "how often did we try to sync a property the
+	// schema lacks"; it goes quiet when the affected repos stop being
+	// reconciled, even though the gap is still there. The gauge answers
+	// "is the gap there now", which is the question a compliance
+	// dashboard asks.
+	//
+	// A failed schema fetch leaves these series untouched rather than
+	// clearing them: not being able to ask does not mean the answer
+	// changed.
+	PropertySchemaMissing = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_property_schema_missing",
+		Help: "1 when an org's custom-property schema does not define a managed property, 0 when it does.",
 	}, []string{labelOrg, labelProperty})
 
 	// CatalogParseFailedTotal counts custom-properties reconciles
@@ -332,6 +348,22 @@ var (
 		Help: "GitHub API rate limit remaining, per installation.",
 	}, []string{labelInstallationID})
 
+	// InstallationInfo is a constant-1 info gauge pairing an
+	// installation ID with the org that installed the App. It carries no
+	// measurement of its own; it exists so dashboards can `group_left`
+	// the installation_id-keyed series (RateLimitRemaining,
+	// DiscoveryAPICallsTotal, QueueAttemptsExhaustedTotal) into per-org
+	// rows (DESIGN-0022 finding E2).
+	//
+	// Every replica that touches an installation emits it, so the series
+	// differ by scrape target. Join against
+	// `max by (installation_id, org) (repo_guardian_installation_info)`,
+	// not the raw vector, or the group_left is many-to-many.
+	InstallationInfo = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_installation_info",
+		Help: "Constant 1, labeled with the org that owns each installation. Join label only.",
+	}, []string{labelInstallationID, labelOrg})
+
 	// SchedulerIsLeader is a gauge labeled by pod that exports 1 when
 	// the named pod holds the scheduler leader lock and 0 otherwise.
 	// Registered in IMPL-0011 Phase 4; wiring deferred to Phase 5.
@@ -361,6 +393,79 @@ var (
 		Name: "repo_guardian_open_prs_by_rule",
 		Help: "Open repo-guardian PRs by org, rule, and age bucket.",
 	}, []string{labelOrg, "rule", "age_bucket"})
+
+	// PostureExportTotal counts posture exporter ticks by outcome.
+	//
+	// This is the liveness signal for every posture gauge. Those gauges
+	// have no other heartbeat: a leader whose store reads all fail
+	// keeps serving the last successful values indefinitely, and a
+	// dashboard reading them cannot tell "the fleet is stable" from
+	// "nothing has updated in six hours". Alert on the absence of
+	// outcome="ok" increments, not on the gauges themselves
+	// (RepoGuardianPostureExportStalled).
+	PostureExportTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_posture_export_total",
+		Help: "Posture exporter ticks by outcome.",
+	}, []string{"outcome"})
+
+	// PostureExportDurationSeconds records the wall-clock duration of
+	// one posture export, dominated by the store aggregate.
+	//
+	// Buckets run to 60s because that is the default tick interval:
+	// once a tick takes longer than the gap to the next one, the
+	// exporter is permanently behind and the gauges are stale by an
+	// unbounded amount. Seeing the distribution approach the interval
+	// is the warning; the top bucket is where it has already happened.
+	PostureExportDurationSeconds = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "repo_guardian_posture_export_duration_seconds",
+		Help:    "Duration of a single posture export in seconds.",
+		Buckets: []float64{0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30, 60},
+	})
+
+	// ReposActionable is fleet compliance posture: repositories
+	// currently failing each rule, per org (DESIGN-0022 §Leader-scoped
+	// posture exporter). Served by the elected leader only, so
+	// dashboards aggregate with `max by (rule_name, org)` — the same
+	// shape `scheduler_is_leader` panels already use.
+	//
+	// A gauge derived from rule_state, not a counter incremented at
+	// check time. That is the whole point of IMPL-0023: the legacy
+	// counters answered "how often did we act" when every compliance
+	// question asked is "how many are failing right now".
+	ReposActionable = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_repos_actionable",
+		Help: "Repositories currently failing each rule, by org.",
+	}, []string{"rule_name", labelOrg})
+
+	// ReposTracked is the compliance denominator: distinct repositories
+	// per org that have been checked at least once and are still
+	// active.
+	//
+	// Parked repositories are excluded — see ReposUnmeasurable.
+	// Repositories discovered but never checked are also absent,
+	// because "not yet measured" must not read as "compliant".
+	ReposTracked = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_repos_tracked",
+		Help: "Active repositories with posture, by org (compliance denominator).",
+	}, []string{labelOrg})
+
+	// ReposUnmeasurable is the population deliberately excluded from
+	// ReposActionable and ReposTracked: repositories parked out of the
+	// sweep (INV-0015), by why.
+	//
+	// It exists so the exclusion is visible rather than silent. A
+	// compliance ratio computed over a shrinking denominator looks
+	// identical to one that is genuinely improving; this series is what
+	// tells the two apart.
+	//
+	// Standing population, not events — compare with
+	// repos_parked_total, which counts park events. Persistent
+	// disagreement means parks that never un-parked, or un-parks
+	// nobody counted.
+	ReposUnmeasurable = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_repos_unmeasurable",
+		Help: "Parked repositories excluded from posture, by org and reason.",
+	}, []string{labelOrg, "reason"})
 
 	// PRsClosedTotal counts pull requests closed by repo-guardian
 	// labeled by org and reason. IMPL-0013 Phase 3 introduces the
@@ -461,6 +566,20 @@ func ResetOpenPRsByRule() {
 	OpenPRsByRule.Reset()
 }
 
+// ResetPosture clears every posture gauge. The exporter calls it at the
+// top of each tick, before Set — the ResetOpenPRsByRule precedent.
+//
+// Without it a rule that stops applying, or an org that leaves the
+// fleet, freezes at its last value forever and keeps counting against
+// compliance. The three gauges reset together so a tick can never
+// publish a numerator from this pass against a denominator from the
+// last one.
+func ResetPosture() {
+	ReposActionable.Reset()
+	ReposTracked.Reset()
+	ReposUnmeasurable.Reset()
+}
+
 // PRAgeBucket returns the hard-coded age bucket label for the given
 // number of days since the PR was opened.
 func PRAgeBucket(ageDays float64) string {
@@ -474,4 +593,19 @@ func PRAgeBucket(ageDays float64) string {
 	default:
 		return PRAgeBucketGT30
 	}
+}
+
+// SetInstallationInfo records the org that owns an installation so
+// dashboards can join installation_id-keyed series into per-org rows.
+// Callers pass the org they already have in hand; a blank org is
+// dropped rather than published, because a series labeled org="" joins
+// nothing and would only widen cardinality.
+func SetInstallationInfo(installationID int64, org string) {
+	if org == "" {
+		return
+	}
+
+	InstallationInfo.
+		WithLabelValues(strconv.FormatInt(installationID, 10), org).
+		Set(1)
 }

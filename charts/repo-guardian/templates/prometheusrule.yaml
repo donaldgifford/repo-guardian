@@ -50,21 +50,37 @@ spec:
         {{- $alert := default dict $a.NoLeader -}}
         {{- if ne (default true (get $alert "enabled")) false }}
         - alert: RepoGuardianNoSchedulerLeader
-          expr: max(repo_guardian_scheduler_is_leader{name="sweep"}) == 0
+          {{- /*
+            name="stale-sweep", NOT name="sweep". The legacy full-
+            enumeration `sweep` schedule was deleted in IMPL-0015 Phase
+            0, so this alert watched a series with no producer from that
+            release until IMPL-0023 Phase 7 — and an == 0 comparison
+            against an empty vector is itself empty, so it did not fire
+            wrongly, it could not fire at all. INV-0012 finding A, again.
+          */}}
+          expr: max(repo_guardian_scheduler_is_leader{name="stale-sweep"}) == 0
           for: {{ default "5m" (get $alert "for") | quote }}
           labels:
             severity: {{ default "critical" (get $alert "severity") | quote }}
           annotations:
             summary: "repo-guardian sweep scheduler has no leader"
-            description: "no replica has held the sweep leader lock for 5+ minutes; reconciliation has stalled."
+            description: "no replica has held the stale-sweep leader lock for 5+ minutes; reconciliation has stalled."
         {{- end }}
         {{- /* StoreErrors */ -}}
         {{- $alert := default dict $a.StoreErrors -}}
         {{- if ne (default true (get $alert "enabled")) false }}
         - alert: RepoGuardianStoreQueryErrors
+          {{- /*
+            clamp_min on the denominator, and a 10m window to match the
+            generator's catalogue. Unclamped, an idle deployment divides
+            0 by 0 and the series goes NaN — which never crosses the
+            threshold, so the alert is merely useless rather than noisy,
+            but "useless exactly while nothing is happening" is not a
+            property worth keeping.
+          */}}
           expr: |
-            sum(rate(repo_guardian_store_query_seconds_count{outcome="error"}[5m]))
-              / sum(rate(repo_guardian_store_query_seconds_count[5m]))
+            sum(rate(repo_guardian_store_query_seconds_count{outcome="error"}[10m]))
+              / clamp_min(sum(rate(repo_guardian_store_query_seconds_count[10m])), 1)
               > {{ default 0.1 (get $alert "threshold") }}
           for: {{ default "10m" (get $alert "for") | quote }}
           labels:
@@ -89,7 +105,20 @@ spec:
         {{- $alert := default dict $a.RepoAccessDenied -}}
         {{- if ne (default true (get $alert "enabled")) false }}
         - alert: RepoGuardianRepoAccessDenied
-          expr: increase(repo_guardian_repos_parked_total{reason="access_denied"}[1h]) > {{ default 0 (get $alert "threshold") }}
+          {{- /*
+            The second disjunct catches the FIRST access_denied park.
+            increase() cannot see a counter's first increment — the
+            series does not exist until it is incremented, so its first
+            sample is 1 and there is nothing earlier to subtract. On a
+            fleet where this happens once, that is the only occurrence
+            there will ever be. Mirrors alert.firstOrIncrease in the
+            generator catalogue; keep the two in step.
+          */}}
+          expr: |
+            increase(repo_guardian_repos_parked_total{reason="access_denied"}[1h]) > {{ default 0 (get $alert "threshold") }}
+            or
+            (repo_guardian_repos_parked_total{reason="access_denied"}
+              unless repo_guardian_repos_parked_total{reason="access_denied"} offset 1h) > {{ default 0 (get $alert "threshold") }}
           for: {{ default "15m" (get $alert "for") | quote }}
           labels:
             severity: {{ default "warning" (get $alert "severity") | quote }}
@@ -164,6 +193,27 @@ spec:
             summary: "repo-guardian dropped a job at the attempt cap"
             description: "a job exhausted MAX_JOB_ATTEMPTS and was dropped with a terminal StatusError in repo_state; the next stale sweep will retry the repo, but a sustained rate means a persistently failing installation. Check queue_attempts_exhausted_total by installation and the worker logs."
         {{- end }}
+        {{- /* PostureExportStalled — IMPL-0023 Phase 2 */ -}}
+        {{- $alert := default dict $a.PostureExportStalled -}}
+        {{- if ne (default true (get $alert "enabled")) false }}
+        - alert: RepoGuardianPostureExportStalled
+          {{- /*
+            The one failure the compliance gauges cannot report about
+            themselves. The exporter runs on the leader and republishes
+            repos_actionable / repos_tracked / repos_unmeasurable on a
+            timer; if it stops, the gauges do not go to zero or go
+            stale-flagged — they keep serving their last values, with
+            total confidence, forever. Every number on the KPI dashboard
+            is then a lie of unknown age.
+          */}}
+          expr: sum(increase(repo_guardian_posture_export_total{outcome="ok"}[1h])) == {{ default 0 (get $alert "threshold") }}
+          for: {{ default "15m" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "warning" (get $alert "severity") | quote }}
+          annotations:
+            summary: "repo-guardian posture exporter has stopped publishing"
+            description: "no successful posture export in the last hour. The compliance gauges are still being served but are frozen at their last values; treat every compliance number as unknown rather than as its last reading until this clears. Check the leader's logs for posture export errors and repo_guardian_posture_export_total{outcome=\"error\"}."
+        {{- end }}
         {{- /* PropertySchemaMissing — DESIGN-0019 schema preflight */ -}}
         {{- $alert := default dict $a.PropertySchemaMissing -}}
         {{- if ne (default true (get $alert "enabled")) false }}
@@ -175,7 +225,11 @@ spec:
             an isolated one leaves rate() positive for ~15m and the 30m
             pending period resets before it elapses (INV-0011 A7).
           */}}
-          expr: increase(repo_guardian_custom_property_missing_schema_total[1h]) > {{ default 0 (get $alert "threshold") }}
+          expr: |
+            increase(repo_guardian_custom_property_missing_schema_total[1h]) > {{ default 0 (get $alert "threshold") }}
+            or
+            (repo_guardian_custom_property_missing_schema_total
+              unless repo_guardian_custom_property_missing_schema_total offset 1h) > {{ default 0 (get $alert "threshold") }}
           for: {{ default "5m" (get $alert "for") | quote }}
           labels:
             severity: {{ default "warning" (get $alert "severity") | quote }}

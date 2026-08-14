@@ -84,7 +84,11 @@ tests:
           path: spec.groups[0].rules
           content:
             alert: RepoGuardianPropertySchemaMissing
-            expr: increase(repo_guardian_custom_property_missing_schema_total[1h]) > 0
+            expr: |
+              increase(repo_guardian_custom_property_missing_schema_total[1h]) > 0
+              or
+              (repo_guardian_custom_property_missing_schema_total
+                unless repo_guardian_custom_property_missing_schema_total offset 1h) > 0
             for: 5m
             labels:
               severity: warning
@@ -216,11 +220,79 @@ tests:
           path: spec.groups[0].rules
           content:
             alert: RepoGuardianRepoAccessDenied
-            expr: increase(repo_guardian_repos_parked_total{reason="access_denied"}[1h]) > 0
+            expr: |
+              increase(repo_guardian_repos_parked_total{reason="access_denied"}[1h]) > 0
+              or
+              (repo_guardian_repos_parked_total{reason="access_denied"}
+                unless repo_guardian_repos_parked_total{reason="access_denied"} offset 1h) > 0
             for: 15m
             labels:
               severity: warning
           any: true
+
+  # IMPL-0023 Phase 7. increase() cannot see a counter's first
+  # increment — the series does not exist until it is incremented, so
+  # its first sample is 1 with nothing earlier to subtract. On a fleet
+  # where one repository ever loses access, that is the only occurrence
+  # there will be, and without the second disjunct the alert cannot
+  # fire for it. Locking the string, not just the alert name, because
+  # a "tidy-up" that drops the disjunct leaves an alert that looks
+  # correct and never fires.
+  - it: should render the NoSchedulerLeader alert against the surviving schedule
+    set:
+      prometheusRule:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianNoSchedulerLeader
+            expr: max(repo_guardian_scheduler_is_leader{name="stale-sweep"}) == 0
+            for: 5m
+            labels:
+              severity: critical
+          any: true
+
+  # The legacy full-enumeration `sweep` schedule was deleted in
+  # IMPL-0015 Phase 0. An alert watching it compares an empty vector
+  # against 0, which is itself empty — so it did not fire wrongly, it
+  # could not fire at all.
+  - it: should not reference the removed sweep schedule
+    set:
+      prometheusRule:
+        enabled: true
+    asserts:
+      - notMatchRegex:
+          path: spec.groups[0].rules[?(@.alert=="RepoGuardianNoSchedulerLeader")].expr
+          pattern: 'name="sweep"'
+
+  - it: should render the PostureExportStalled alert
+    set:
+      prometheusRule:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianPostureExportStalled
+            expr: sum(increase(repo_guardian_posture_export_total{outcome="ok"}[1h])) == 0
+            for: 15m
+            labels:
+              severity: warning
+          any: true
+
+  - it: should allow PostureExportStalled to be disabled
+    set:
+      prometheusRule:
+        enabled: true
+        alerts:
+          PostureExportStalled:
+            enabled: false
+    asserts:
+      - notContains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianPostureExportStalled
 
   - it: should allow RepoAccessDenied to be disabled
     set:

@@ -5,7 +5,12 @@ version: 2
 builds:
   - id: repo-guardian
     binary: repo-guardian
-    main: ./cmd/repo-guardian/main.go
+    # The package DIRECTORY, never a file path. A file path compiles as
+    # the synthetic `command-line-arguments` package containing only
+    # that one file, so sibling files in cmd/repo-guardian/ (monitoring.go,
+    # report.go) are silently excluded — which broke the build the moment
+    # package main grew a second file (IMPL-0023, PR #179).
+    main: ./cmd/repo-guardian
     goos:
       - linux
       - darwin
@@ -18,7 +23,7 @@ builds:
 archives:
   - id: default
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
-    format: "tar.gz"
+    formats: ["tar.gz"]
     files:
       - none*
 

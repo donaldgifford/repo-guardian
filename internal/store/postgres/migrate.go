@@ -23,14 +23,9 @@ var migrationsFS embed.FS
 // driver against the embedded migrations directory, so the binary
 // has no filesystem dependency for migrations at runtime.
 func Migrate(dsn string) error {
-	src, err := iofs.New(migrationsFS, "migrations")
+	m, err := newMigrator(dsn)
 	if err != nil {
-		return fmt.Errorf("postgres.Migrate: open embedded migrations: %w", err)
-	}
-
-	m, err := migrate.NewWithSourceInstance("iofs", src, "pgx5://"+stripScheme(dsn))
-	if err != nil {
-		return fmt.Errorf("postgres.Migrate: open migrate: %w", err)
+		return fmt.Errorf("postgres.Migrate: %w", err)
 	}
 
 	defer func() {
@@ -42,6 +37,49 @@ func Migrate(dsn string) error {
 	}
 
 	return nil
+}
+
+// migrateDown reverses every applied migration, newest first. It is
+// not called in production — the documented operator rollback is
+// manual psql (docs/operations/migrations.md), because rolling forward
+// beats rolling back on a live fleet. It exists so the integration
+// suite can prove each migration's .down.sql is the true inverse of
+// its .up.sql; a down file that has drifted is worse than no down file
+// at all, since it fails halfway and leaves a partial schema.
+// Exposed to the external test package via export_test.go.
+func migrateDown(dsn string) error {
+	m, err := newMigrator(dsn)
+	if err != nil {
+		return fmt.Errorf("postgres.migrateDown: %w", err)
+	}
+
+	defer func() {
+		_, _ = m.Close() //nolint:errcheck // deferred best-effort cleanup; both returns are tracked separately
+	}()
+
+	if err := m.Down(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("postgres.migrateDown: apply: %w", err)
+	}
+
+	return nil
+}
+
+// newMigrator builds a migrate instance over the embedded migrations
+// against dsn. Shared by Migrate and migrateDown so the source driver,
+// database driver, and scheme rewrite can never drift between the two
+// directions.
+func newMigrator(dsn string) (*migrate.Migrate, error) {
+	src, err := iofs.New(migrationsFS, "migrations")
+	if err != nil {
+		return nil, fmt.Errorf("open embedded migrations: %w", err)
+	}
+
+	m, err := migrate.NewWithSourceInstance("iofs", src, "pgx5://"+stripScheme(dsn))
+	if err != nil {
+		return nil, fmt.Errorf("open migrate: %w", err)
+	}
+
+	return m, nil
 }
 
 // stripScheme accepts either a `postgres://` or `postgresql://`

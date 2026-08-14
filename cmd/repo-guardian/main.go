@@ -6,11 +6,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -20,6 +22,7 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/checker"
 	"github.com/donaldgifford/repo-guardian/internal/config"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/observability"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/queue"
 	valkeyqueue "github.com/donaldgifford/repo-guardian/internal/queue/valkey"
@@ -36,13 +39,87 @@ import (
 const (
 	shutdownTimeout   = 15 * time.Second
 	depthPollInterval = 15 * time.Second
+
+	// observabilityShutdownTimeout bounds the SDK flush. It is short
+	// because the Prometheus exporter is pull-based and has nothing to
+	// flush; the bound exists so a future push exporter cannot hang
+	// process exit.
+	observabilityShutdownTimeout = 5 * time.Second
+
+	// webhookRoute is the ServeMux pattern for the webhook endpoint.
+	// Shared between the route registration and its instrumentation so
+	// the span name and the http.route attribute cannot drift apart.
+	webhookRoute = "POST /webhooks/github"
 )
 
 func main() {
-	if err := run(); err != nil {
+	if err := dispatch(os.Args); err != nil {
 		slog.Error("repo-guardian exited with error", "error", err)
 		os.Exit(1)
 	}
+}
+
+// dispatch routes argv to a subcommand. Anything that is not a known
+// subcommand name — no arguments at all, or a leading flag — falls
+// through to the server, so `repo-guardian` and
+// `repo-guardian --strict-templates` behave exactly as they did before
+// subcommands existed.
+//
+// Deliberately NOT flag.Parse()'d first. flag.CommandLine stops at the
+// first non-flag argument, so parsing here would swallow the subcommand
+// name and leave its own flags sitting in an unread tail. That is not
+// hypothetical: before this switch existed, `repo-guardian report --out
+// ./x` silently started the HTTP server, because nothing inspected
+// flag.Args() and the unknown arguments were simply ignored.
+//
+// argv is a parameter for testability only. run() still reads os.Args
+// through the global flag.CommandLine, so the server path must be
+// reached with os.Args untouched — do not "normalise" argv here.
+func dispatch(argv []string) error {
+	if len(argv) < 2 || strings.HasPrefix(argv[1], "-") {
+		return run()
+	}
+
+	switch argv[1] {
+	case cmdReport:
+		return runReport(argv[2:])
+	case cmdMonitoring:
+		return runMonitoring(argv[2:])
+	case cmdHelp:
+		usage(os.Stdout)
+
+		return nil
+	default:
+		usage(os.Stderr)
+
+		return fmt.Errorf("unknown subcommand %q", argv[1])
+	}
+}
+
+// usage lists the subcommands.
+//
+// `--help` and `-h` never reach dispatch's switch — they start with a
+// dash, so dispatch hands them to the server path, where the flag
+// package prints its own usage. run() therefore prepends this banner to
+// flag.CommandLine's output, so the one thing a user is most likely to
+// type still names the report subcommand.
+//
+// The write is unchecked on purpose: this is usage text on its way to
+// stdout or stderr, there is no recovery path, and the flag package
+// ignores the identical error in PrintDefaults.
+func usage(w io.Writer) {
+	//nolint:errcheck // usage text; no recovery path, see doc comment
+	fmt.Fprint(w, `repo-guardian — GitHub App for repository compliance
+
+Usage:
+  repo-guardian [flags]              run the server (default; see --help)
+  repo-guardian report [flags]       write per-org compliance reports
+  repo-guardian monitoring generate  emit dashboards and alerts from the policy
+  repo-guardian help                 show this message
+
+Running with no subcommand starts the server, which is the behaviour
+every existing deployment relies on.
+`)
 }
 
 func run() error {
@@ -53,6 +130,12 @@ func run() error {
 		strictTemplatesFromEnv(),
 		"Validate every compiled PR template against a zero-value PRVars context at startup; exit non-zero on failure",
 	)
+
+	flag.CommandLine.Usage = func() {
+		usage(flag.CommandLine.Output())
+		flag.PrintDefaults()
+	}
+
 	flag.Parse()
 
 	cfg, err := config.Load()
@@ -67,6 +150,25 @@ func run() error {
 		"listen_addr", cfg.ListenAddr,
 		"metrics_addr", cfg.MetricsAddr,
 	)
+
+	// Before every instrumented resource below it. otelhttp, redisotel
+	// and otelpgx each capture otel.GetMeterProvider() at construction
+	// time, so a provider installed after them would leave those call
+	// sites permanently attached to the no-op default — silently, with
+	// no error and no missing-series alert to notice it by.
+	obs, err := observability.New(observability.Options{Logger: logger})
+	if err != nil {
+		return fmt.Errorf("bootstrap observability: %w", err)
+	}
+
+	defer func() {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), observabilityShutdownTimeout)
+		defer shutdownCancel()
+
+		if err := obs.Shutdown(shutdownCtx); err != nil {
+			logger.Warn("observability shutdown error", "error", err)
+		}
+	}()
 
 	client, err := newGitHubClient(cfg, logger)
 	if err != nil {
@@ -235,6 +337,28 @@ func scheduleHandlers(
 
 	logger.Info("scheduled stale-sweep handler", "interval", policyCfg.Guardian.ParsedScheduleInterval)
 
+	postureExporter := checker.NewPostureExporter(checker.PostureExporterOptions{
+		Store:  stateStore,
+		Logger: logger,
+	})
+
+	if err := sched.Schedule(ctx, "posture-export", cfg.PostureExportInterval, postureExporter.Export); err != nil {
+		return fmt.Errorf("schedule posture-export: %w", err)
+	}
+
+	logger.Info("scheduled posture-export handler", "interval", cfg.PostureExportInterval)
+
+	snapshotTaker := checker.NewSnapshotTaker(checker.SnapshotTakerOptions{
+		Store:  stateStore,
+		Logger: logger,
+	})
+
+	if err := sched.Schedule(ctx, "compliance-snapshot", cfg.ComplianceSnapshotInterval, snapshotTaker.Take); err != nil {
+		return fmt.Errorf("schedule compliance-snapshot: %w", err)
+	}
+
+	logger.Info("scheduled compliance-snapshot handler", "interval", cfg.ComplianceSnapshotInterval)
+
 	if !cfg.DiscoveryEnabled {
 		logger.Info("discoverer disabled via DISCOVERY_ENABLED=false")
 		return nil
@@ -324,6 +448,14 @@ func newQueue(ctx context.Context, cfg *config.Config, logger *slog.Logger) (que
 	}
 
 	client := redis.NewClient(parsed)
+
+	// Covers the scheduler too — newScheduler reuses this same client
+	// (IMPL-0011 Phase 4), so there is exactly one to instrument.
+	// Non-fatal: telemetry must never stop the queue coming up.
+	if err := observability.InstrumentValkey(client); err != nil {
+		logger.Warn("valkey metrics instrumentation failed; queue continues uninstrumented", "error", err)
+	}
+
 	if err := client.Ping(ctx).Err(); err != nil {
 		if closeErr := client.Close(); closeErr != nil {
 			logger.Warn("valkey client close failed during ping-fail cleanup", "error", closeErr)
@@ -387,7 +519,12 @@ func newStore(ctx context.Context, cfg *config.Config, logger *slog.Logger) (sto
 
 func newMainServer(runCtx context.Context, addr string, webhookHandler http.Handler) *http.Server {
 	mux := http.NewServeMux()
-	mux.Handle("POST /webhooks/github", webhookHandler)
+
+	// Only the webhook route is instrumented. healthz/readyz share this
+	// server but are kubelet traffic — a few requests a second forever,
+	// answering no question anyone asks — and including them would bury
+	// the webhook signal they sit next to.
+	mux.Handle(webhookRoute, observability.Handler(webhookHandler, webhookRoute))
 	mux.HandleFunc("GET /healthz", handleHealthz)
 	mux.HandleFunc("GET /readyz", handleReadyz(runCtx))
 
@@ -493,7 +630,18 @@ func newGitHubClient(cfg *config.Config, logger *slog.Logger) (*ghclient.GitHubC
 	return ghclient.NewClient(cfg.GitHubAppID, cfg.GitHubPrivateKeyPath, logger, cfg.RateLimitThreshold)
 }
 
+// initLogger builds the server's logger, on stdout.
+//
+// Stdout is deliberate for the server and load-bearing for whoever
+// collects its logs; do not "fix" it to stderr. The report subcommand
+// writes its path list to stdout and therefore needs the other stream —
+// it calls initLoggerTo(os.Stderr, ...) instead.
 func initLogger(level string) *slog.Logger {
+	return initLoggerTo(os.Stdout, level)
+}
+
+// initLoggerTo builds a logger writing to w.
+func initLoggerTo(w io.Writer, level string) *slog.Logger {
 	var logLevel slog.Level
 
 	switch level {
@@ -507,7 +655,7 @@ func initLogger(level string) *slog.Logger {
 		logLevel = slog.LevelInfo
 	}
 
-	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+	handler := slog.NewJSONHandler(w, &slog.HandlerOptions{
 		Level: logLevel,
 	})
 

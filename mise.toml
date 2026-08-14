@@ -2,7 +2,7 @@
 
 # Go
 # renovate: datasource=github-tags depName=golang/go
-go = "1.26.5"
+go = "1.26.6"
 # renovate: datasource=github-releases depName=segmentio/golines
 golines = "latest"
 # renovate: datasource=go depName=github.com/spf13/cobra-cli
@@ -49,6 +49,8 @@ jq = "latest"
 golangci-lint = "2.12.2"
 # renovate: datasource=github-releases depName=orhun/git-cliff
 git-cliff = "latest"
+# renovate: datasource=github-releases depName=goreleaser/goreleaser
+goreleaser = "latest"
 
 # Security
 # renovate: datasource=github-releases depName=aquasecurity/trivy

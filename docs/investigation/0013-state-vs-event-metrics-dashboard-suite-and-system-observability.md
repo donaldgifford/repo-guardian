@@ -1,7 +1,7 @@
 ---
 id: INV-0013
 title: "State-vs-event metrics, dashboard suite, and system observability"
-status: Open
+status: Concluded
 author: Donald Gifford
 created: 2026-08-01
 ---
@@ -31,6 +31,7 @@ created: 2026-08-01
   - [H. Config-generated dashboards and alerts — established pattern, strong fit](#h-config-generated-dashboards-and-alerts--established-pattern-strong-fit)
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
+- [Disposition (2026-08-14)](#disposition-2026-08-14)
 - [References](#references)
 <!--toc:end-->
 
@@ -675,6 +676,19 @@ Sequencing note: DESIGN-0021 (delayed requeue) already replaces the
 dead budget metrics with measured queue-delay observability; effort 1
 should be written against the post-0021 metric surface to avoid
 designing panels for series that are about to be deleted.
+
+## Disposition (2026-08-14)
+
+All three recommended efforts shipped. DESIGN-0022 carried the design
+(Implemented); IMPL-0023 carried the build: `rule_state` persistence
+with `actionable_since` (C2), the leader-scoped posture exporter (D1)
+and the `installation_info` join gauge (E2), the four-dashboard suite
+E1–E4 generated from `guardian.hcl` via the Grafana Foundation SDK
+(E, H), the OTEL bridge for the enumerated system gaps (F, G —
+metrics-only, tracing deferred as recommended), and the Phase-7
+removal of the four legacy `properties_*` counters (B). The
+generated tier is committed under `contrib/generated/` and
+drift-gated in CI.
 
 ## References
 

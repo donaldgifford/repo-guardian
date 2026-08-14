@@ -1,17 +1,95 @@
 # contrib/
 
-Contributed assets for operating repo-guardian in production.
+Assets for operating repo-guardian in production.
 
-These files are reference starting points, not normative
-configuration. Adjust thresholds, panel layouts, and selectors
-to match your environment.
+## The two tiers
 
-## Contents
+Dashboards and alerts are **generated from your `guardian.hcl`**, not
+hand-maintained. That is the point of IMPL-0023: a panel charting a
+rule you do not run renders empty forever, and an empty panel is
+indistinguishable from a compliant fleet. Generating from the config
+means a panel cannot outlive the rule it charts, and an alert whose
+mechanism is switched off is never emitted at all.
 
-| Path | Purpose |
-|------|---------|
-| `prometheus/alerts.yaml` | Alerting rules for availability, error rate, GitHub rate limiting, latency, webhooks, strict-mode scope misconfigurations, PR convergence, and custom-property sync (schema preflight + catalog parse failures). |
-| `grafana/repo-guardian-dashboard.json` | Grafana dashboard with overview, repo checks, compliance, webhook, custom-properties, error/rate-limit, multi-replica/queue, PR-convergence, and absent-rule/when-gate/property-sync panels, plus per-org activity panels. |
+```bash
+repo-guardian monitoring generate --config guardian.hcl --out ./monitoring
+```
+
+Two tiers live here:
+
+| Tier | Path | What it is |
+|------|------|------------|
+| **Generated** | `generated/` | Committed output of `make monitoring-generate` against the **built-in defaults**. A worked example, and what CI diffs against to prove the generator still runs. Do not edit — the drift gate will fail and your edit will be overwritten. |
+| **Hand-maintained** | `loki/rules.yaml` | Loki ruler recording and alerting examples. Not generated, because what is worth recording depends on your fleet size and your Prometheus's cardinality budget. |
+
+`generated/` is generated from the built-in defaults, so it shows the
+19 alerts and four dashboards that a default policy engages. Five more
+alerts exist and are emitted only when the policy engages the mechanism
+they watch:
+
+| Alert | Emitted when the policy |
+|-------|-------------------------|
+| `RepoGuardianCatalogParseFailures` | attaches the `custom_properties` reconciler |
+| `RepoGuardianPropertySchemaMissing` | attaches the `custom_properties` reconciler |
+| `RepoGuardianSettingRemediationChurn` | declares `rule "setting"` blocks |
+| `RepoGuardianBranchProtectionChurn` | declares `rule "branch_protection"` blocks |
+| `RepoGuardianRuleNeverApplies` | declares a top-level `scope { orgs }` block |
+
+Note the first two gate on the reconciler being attached, not on its
+mode: the schema preflight runs in both `api` and `github-action`
+mode, and gating on the mode would silently drop both alerts for every
+api-mode deployment.
+
+Generate against your own config to get the ones that apply to you.
+That gating is the fix for INV-0012 finding A: an alert watching a
+series with no producer never fires, and never fires looks exactly like
+never fails.
+
+## The dashboards
+
+Four, each answering a different question, and deliberately not
+combinable. A business gauge next to a service counter cannot be read:
+when the picture looks wrong there is no way to tell which half is
+lying (DESIGN-0022 Finding I).
+
+| Dashboard | Answers | Reads |
+|-----------|---------|-------|
+| `repo-guardian-kpi` (E1) | Is the fleet compliant, and which rule is failing? | Prometheus, business tier |
+| `repo-guardian-detail` (E2) | Which organisation? | Prometheus, business tier |
+| `repo-guardian-system` (E3) | Is the service itself healthy? | Prometheus, service + infra tiers |
+| `repo-guardian-logs` (E4) | Which repository, and why? | Loki |
+
+E4 exists because that last question cannot be answered by a metric: a
+repository label on a 20,000-repo fleet is a cardinality bomb
+(Finding G), so the per-repository answer lives in the logs. Its
+panels match on specific log lines, and
+`TestLogLines_AreStillEmittedByTheBinary` fails the build if any of
+those lines stops being emitted.
+
+**E4's stream selector is the one thing you will probably have to
+change.** Stream labels are minted by your log shipper, not by
+repo-guardian, so the `{app="repo-guardian"}` default is a convention:
+
+```bash
+repo-guardian monitoring generate --config guardian.hcl \
+  --loki-selector 'job="platform/repo-guardian"'
+```
+
+A blank E4 is far more likely to be a selector mismatch than a silent
+fleet. The first panel's description prints the selector in use.
+
+## Where the old files went
+
+| Was | Now |
+|-----|-----|
+| `grafana/repo-guardian-dashboard.json` | Replaced by the four generated dashboards. The 61-panel original mixed business and service tiers on one screen, and its panels drifted from the rules that fed them — both problems the generator removes structurally. |
+| `prometheus/alerts.yaml` | Replaced by `generated/alerts/rules.yaml`. A second hand-maintained copy of the alert set is precisely the drift the generator exists to remove. |
+
+One alert did not survive the move: `RepoGuardianRateLimitLow` watched
+the unlabelled `github_rate_remaining` gauge. The generated tier alerts
+on `min(repo_guardian_rate_limit_remaining) < 200` instead, which
+carries `installation_id` and so names the installation that is out of
+budget rather than reporting that some installation is.
 
 ## Exposed Metrics
 
@@ -145,12 +223,33 @@ The `github_rate_limit_waits_total` / `_wait_seconds` pair was removed in IMPL-0
 
 ### Custom properties
 
-| Metric | Type | Labels | Description |
-|--------|------|--------|-------------|
-| `properties_checked_total` | Counter | — | Repositories where custom properties were evaluated. |
-| `properties_prs_created_total` | Counter | — | PRs created for custom properties. |
-| `properties_set_total` | Counter | — | Repositories where properties were set via API. |
-| `properties_already_correct_total` | Counter | — | Repositories where properties already matched. |
+The four unlabelled `properties_*` counters were **removed in
+IMPL-0023 Phase 7**. They predated the per-org labelling convention, so
+none could answer "which org", and two of them were posture wearing a
+counter's clothes — a repository that was already correct yesterday
+still contributes to `increase(...[7d])` today, and one the sweep has
+not reached contributes nothing at all.
+
+| Removed | Use instead |
+|---------|-------------|
+| `properties_checked_total` | `repos_checked_total{trigger, org}` — the same event, per org. |
+| `properties_already_correct_total` | `repos_actionable{rule_name, org}` and `repos_tracked{org}`. This was the posture-shaped one; a gauge answers it correctly and a counter never could. |
+| `properties_set_total` | `custom_property_cleared_total{org}` for clears; otherwise the posture gauges. Nothing counts successful writes as an event any more — that is activity, and the state is what matters. |
+| `properties_prs_created_total` | `prs_created_total{org}`, which the reconcilers now increment. |
+
+That last one is a **behaviour change, not just a rename**. On a
+`github-action`-mode deployment, `prs_created_total` will step up after
+this upgrade, because reconciler-opened PRs now land in it. They always
+should have: while they had a counter of their own they were invisible
+to every per-org PR panel and to `RepoGuardianPRBurst`. The
+`RepoGuardianPropertiesPRBurst` alert is gone for the same reason —
+with the counters folded it was `RepoGuardianPRBurst` with a different
+name and the same threshold.
+
+If you need to tell property PRs from file-rule PRs, that distinction
+lives in the logs (`created properties PR`, `created catalog-info PR`)
+and on the PRs themselves. It is deliberately not a metric label: this
+is exactly the split between the aggregate tier and the evidence tier.
 
 ### Custom-property sync (DESIGN-0019 / IMPL-0017 / IMPL-0020)
 
@@ -179,7 +278,7 @@ sum by (org) (increase(repo_guardian_catalog_parse_failed_total[24h]))
 | `queue_claimed_total` | CounterVec | `queue` | Jobs claimed by a worker. |
 | `queue_acked_total` | CounterVec | `queue`, `outcome` | Jobs ack'd after processing. `outcome={success,error,deferred}` (`deferred` = parked into the delayed set, IMPL-0022). |
 | `queue_reaped_total` | CounterVec | `queue` | Jobs requeued by the in-flight reaper after ack-window expiry. |
-| `scheduler_is_leader` | Gauge | `name` | 1 on the replica holding the leader lock, 0 elsewhere. One per schedule (`sweep`, `stale-sweep`, `discovery`). |
+| `scheduler_is_leader` | Gauge | `name`, `pod` | 1 on the replica holding the leader lock, 0 elsewhere. One series per schedule per pod (`stale-sweep`, `discovery`, `posture-export`) — sum across pods for a given `name` should be exactly 1. |
 | `scheduler_sweep_batch_size` | Histogram | — | Distribution of `StaleRepos` batch sizes per sweep tick. |
 | `store_query_seconds` | Histogram | `op`, `outcome` | Persistent store query latency. `op` enumerates `GetRepoState`, `UpdateRepoState`, `StaleRepos`, `UpsertIfMissing`, etc. |
 | `rate_limit_remaining` | Gauge | `installation_id` | Per-installation GitHub rate-limit budget, sampled once per installation per sweep. Observability only — the sweep no longer gates on it (IMPL-0022 Phase 6); throttled work defers instead. |
@@ -276,6 +375,82 @@ sum by (installation_id) (repo_guardian_repo_discovered_total)
 sum by (endpoint) (rate(repo_guardian_discovery_api_calls_total[1h]))
 ```
 
+### Compliance posture (IMPL-0023 Phase 2)
+
+The posture gauges answer "how many repositories are failing right
+now", which the pre-existing counters cannot: a counter only grows, so
+a repository fixed yesterday still shows in its rate (INV-0013 Finding
+B). They are projected from the `rule_state` table by a leader-scoped
+`posture-export` handler on `POSTURE_EXPORT_INTERVAL` (default 60s),
+which resets and re-sets every series each tick so a rule or org that
+leaves the fleet stops being reported instead of freezing at its last
+value.
+
+**Aggregate with `max by (...)`, never `sum`.** Only the leader
+publishes, but during a failover the outgoing and incoming leaders can
+briefly both hold series, and non-leaders retain whatever they last
+published before losing the lock. `max` is correct in both states;
+`sum` double-counts through every leader change.
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `repos_actionable` | GaugeVec | `rule_name`, `org` | Repositories currently failing each rule. Covers file, setting, and branch-protection rules. Absent series means no repo fails that rule — not that the rule is unevaluated. |
+| `repos_tracked` | GaugeVec | `org` | Active repositories with any posture — the compliance denominator. Excludes parked repos. |
+| `repos_unmeasurable` | GaugeVec | `org`, `reason` | Standing population of parked repositories, excluded from both numerator and denominator. `reason={access_denied,archived,fork,unknown}`. |
+| `repos_parked_total` | CounterVec | `org`, `installation_id`, `reason` | Park *events* (INV-0015), as opposed to the standing population above. |
+| `posture_export_total` | CounterVec | `outcome` | Export ticks. `outcome={ok,error}`. The liveness signal for every gauge in this section. |
+| `posture_export_duration_seconds` | Histogram | — | Wall-clock per export, buckets to 60s. Observed on the failure path too, so a store read that times out is measured rather than silently dropped. |
+| `installation_info` | GaugeVec | `installation_id`, `org` | Constant 1. A join label only — it carries no measurement, it exists so `installation_id`-keyed series can be grouped by org. |
+| `property_schema_missing` | GaugeVec | `org`, `property` | 1 when an org's custom-property schema does not define a managed property, 0 when it does. Written at each schema-cache refresh; a failed fetch leaves the last known value rather than clearing it. |
+
+Two things to know before building panels on these.
+
+**`posture_export_total{outcome="ok"}` is the only heartbeat.** The
+gauges keep serving their last successful values indefinitely, so a
+leader whose store reads all fail looks exactly like a fleet that is
+stable. Alert on the absence of `ok` increments, not on the gauges.
+
+**The per-rule ratio understates non-compliance for a scoped rule.**
+`repos_tracked{org}` counts every repo with posture, while
+`repos_actionable{rule_name}` counts only repos the rule applies to. A
+rule scoped to 10 of 100 repos with 5 failing reads as 5% rather than
+50%. Use the org-wide denominator for fleet health and an absolute
+count when a single scoped rule is the subject.
+
+There is deliberately no "repos failing at least one rule" series, and
+it cannot be derived from the ones here: the per-rule counts overlap by
+an unknown amount, so summing them over-counts and taking the max
+under-counts. If a panel needs that number it needs a new aggregate.
+
+Example:
+
+```promql
+# Per-rule non-compliance within an org. Read with the scoping caveat
+# above — the denominator is every measurable repo, not the subset the
+# rule applies to.
+max by (rule_name, org) (repo_guardian_repos_actionable)
+  / on (org) group_left max by (org) (repo_guardian_repos_tracked)
+
+# Worst rules fleet-wide
+topk(10, sum by (rule_name) (max by (rule_name, org) (repo_guardian_repos_actionable)))
+
+# How much of the fleet we cannot see, and why
+sum by (reason) (max by (org, reason) (repo_guardian_repos_unmeasurable))
+
+# Park events vs standing parks — these disagreeing is a real signal
+# (parks that never un-parked, or un-parks nobody counted).
+sum by (reason) (increase(repo_guardian_repos_parked_total[24h]))
+
+# Exporter stalled: gauges are still being served but nothing updates
+# them. This is the alert condition, not any gauge going flat.
+absent(rate(repo_guardian_posture_export_total{outcome="ok"}[10m]) > 0)
+
+# Attach an org to any installation_id-keyed series
+sum by (org) (
+  rate(repo_guardian_queue_delayed_total[1h])
+    * on (installation_id) group_left(org) repo_guardian_installation_info)
+```
+
 ### BudgetTracker (IMPL-0015 Phase 1)
 
 > **Inert in production (INV-0012).** Nothing outside tests calls
@@ -309,6 +484,33 @@ min by (installation_id) (repo_guardian_api_budget_spendable)
 sum by (installation_id) (
   rate(repo_guardian_api_budget_refresh_total{outcome="error"}[15m]))
 ```
+
+### OpenTelemetry semconv series (IMPL-0023 Phase 3)
+
+Four transport boundaries — inbound HTTP, the GitHub client, Valkey and
+Postgres — are instrumented with off-the-shelf OTel libraries and
+exported through a Prometheus bridge into this same endpoint. Those
+series are **not** `repo_guardian_`-prefixed: they are `http_server_*`,
+`http_client_*`, `db_client_*`, `redis_*` and `pgxpool_*`.
+
+The catalog, the cardinality decisions, and the one-source-per-panel
+dedup rule live in `docs/operations/scaling.md` §OpenTelemetry series
+rather than being repeated here, so there is one copy to keep true.
+
+Two things to know before writing a query against them:
+
+- **Every panel picks one source.** Domain metrics stay authoritative
+  for domain questions — `store_query_seconds{op}` knows `stale_repos`
+  from `upsert_if_missing`, while the semconv database metrics see only
+  SQL verbs. Semconv is authoritative for transport questions the
+  domain metrics cannot see, like pool-acquire wait versus execution
+  time. No panel mixes the two for the same signal.
+- **`http_client_request_duration_seconds_count` is not "GitHub API
+  calls attempted."** go-github's own client-side pre-check
+  short-circuits above the transport once its header cache sees
+  `remaining=0`, so those calls are never measured — the under-count
+  happens exactly when the system is rate-limited. Use
+  `queue_delayed_total{reason="rate_limit"}` for throttle volume.
 
 ## Common Queries
 
@@ -379,27 +581,51 @@ sum by (rule_name) (rate(repo_guardian_files_missing_total[5m]))
 sum without (org) (rate(repo_guardian_files_missing_total[5m]))
 ```
 
-## Importing the dashboard
+## Importing the dashboards
 
 ```bash
-# Grafana CLI
-grafana-cli admin import-dashboard contrib/grafana/repo-guardian-dashboard.json
-
-# Or via API
+# By hand
 curl -X POST -H "Content-Type: application/json" \
-  -d @contrib/grafana/repo-guardian-dashboard.json \
+  -d @contrib/generated/dashboards/repo-guardian-kpi.json \
   https://grafana.example.com/api/dashboards/db
 ```
 
-The dashboard expects a Prometheus datasource named via the
-`DS_PROMETHEUS` template variable; pick yours during import.
-The dashboard defines an `org` template variable populated from
-`label_values(repo_guardian_repos_checked_total, org)` so panels
-in the "Per-org Activity" section can be filtered.
+The generated dashboards carry **concrete datasource UIDs**, not a
+`${DS_PROMETHEUS}` input placeholder. A dashboard with an input prompts
+on every import, which makes it un-provisionable — grafana-operator
+applies a CR and nobody is there to answer the prompt. Point them at
+your datasources at generation time instead:
+
+```bash
+repo-guardian monitoring generate --config guardian.hcl \
+  --prometheus-uid my-prom --loki-uid my-loki
+```
+
+For grafana-operator, generate `GrafanaDashboard` CRs directly. The
+instance selector is required — it is how the operator knows which
+Grafana to file the dashboards into:
+
+```bash
+repo-guardian monitoring generate --config guardian.hcl \
+  --format k8s --namespace monitoring \
+  --instance-selector dashboards=grafana
+```
+
+Per-org rows on E2 are **declared from your config** when it has a
+top-level `scope { orgs = [...] }` block, and discovered from a
+template variable when it does not. Declared is better: a declared row
+that renders empty says "this org has stopped reporting", where a
+discovered row simply disappears and the dashboard looks exactly as
+healthy as before. Use `--org` to declare rows for a config that has no
+scope block.
 
 ## Applying the alerts
 
-If using the Prometheus Operator, wrap `prometheus/alerts.yaml`
-in a `PrometheusRule` resource. See the file's preamble for an
-example. Otherwise, drop the `groups:` content into your existing
-`rule_files`.
+`generated/alerts/rules.yaml` is a plain `groups:` document — drop it
+into your `rule_files`, or wrap it in a `PrometheusRule`. If you deploy
+the Helm chart, it already ships an equivalent `PrometheusRule`; do not
+apply both.
+
+For the Loki examples, see the header of `loki/rules.yaml` — they need
+a ruler with remote-write configured, and their expressions are LogQL
+rather than PromQL.

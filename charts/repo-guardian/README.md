@@ -13,7 +13,7 @@ SLSA Level 3 provenance attestations.
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 1.0.0-rc.11 \
+  --version 1.0.0-rc.12 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -28,7 +28,7 @@ aws ecr get-login-password --region <region> | \
 
 helm install repo-guardian \
   oci://<account>.dkr.ecr.<region>.amazonaws.com/repo-guardian-chart \
-  --version 1.0.0-rc.11 \
+  --version 1.0.0-rc.12 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -64,7 +64,7 @@ secrets:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 1.0.0-rc.11 \
+  --version 1.0.0-rc.12 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -122,6 +122,55 @@ For sizing knobs (`replicaCount`, `workerCount`, `maxConns`,
 `staleSweep.*`), see [docs/operations/scaling.md](../../docs/operations/scaling.md).
 For Postgres schema operations, see
 [docs/operations/migrations.md](../../docs/operations/migrations.md).
+
+### Upgrade notes (chart 1.0.0-rc.12 / appVersion 1.13.0) — compliance posture
+
+IMPL-0023. Compliance is now **state** rather than a set of counters,
+and the observability surface is generated from your policy rather
+than hand-maintained.
+
+- **New posture gauges.** `repos_actionable{rule_name,org}`,
+  `repos_tracked{org}` and `repos_unmeasurable{org,reason}` are
+  published by the elected leader from the `rule_state` table. They
+  answer "how many repositories are failing this rule right now",
+  which no counter ever could: a counter only grows, so a repository
+  fixed yesterday still shows in its rate.
+- **Query them with `max by (...)`, never `sum`.** A demoted replica
+  keeps serving its last values until it restarts, so `sum`
+  double-counts through every failover. A fleet total is
+  `sum(max by (org) (...))` — in that order; reversed it silently
+  reports the largest org. See
+  [scaling.md](../../docs/operations/scaling.md#compliance-posture-impl-0023-phases-12).
+- **New values:** `posture.exportInterval` (default `60s`) and
+  `posture.snapshotInterval` (default `24h`). The first is how stale
+  the gauges may be; the second is the cadence of compliance-history
+  rows for `repo-guardian report`. Neither costs GitHub API budget.
+- **New alert `RepoGuardianPostureExportStalled`.** The one failure
+  the compliance gauges cannot report about themselves — a frozen
+  exporter keeps serving last week's numbers with total confidence.
+- **`RepoGuardianNoSchedulerLeader` was fixed, not changed.** It
+  watched `scheduler_is_leader{name="sweep"}`, a schedule deleted in
+  IMPL-0015. An `== 0` comparison against an empty vector is empty, so
+  it could not fire at all. It now watches `name="stale-sweep"`.
+  **Expect it to start firing if your scheduler genuinely has no
+  leader** — that is the alert working for the first time.
+- **`RepoGuardianRepoAccessDenied` and
+  `RepoGuardianPropertySchemaMissing` gained a second disjunct.**
+  `increase()` cannot see a counter's first-ever increment, so a fleet
+  where one repository loses access would never have alerted. Same
+  fix, same reason: an alert that cannot fire reads as a healthy
+  fleet.
+- **Four metrics removed.** The unlabelled `properties_checked_total`,
+  `properties_set_total`, `properties_already_correct_total` and
+  `properties_prs_created_total` are gone. The last one **folded into
+  `prs_created_total{org}`**, so a `github-action`-mode deployment
+  will see that counter step up after upgrading — reconciler PRs were
+  never counted there before, and should have been. Migration table in
+  [contrib/README.md](../../contrib/README.md).
+- **Dashboards are generated.** `repo-guardian monitoring generate
+  --config guardian.hcl` emits four dashboards and the alerts your
+  policy actually engages, as plain files or as grafana-operator CRs.
+  The 61-panel hand-maintained dashboard is deleted.
 
 ### Upgrade notes (chart 1.0.0-rc.1) — breaking
 
@@ -220,7 +269,7 @@ cosign verify \
     '^https://github.com/donaldgifford/repo-guardian/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.11
+  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.12
 ```
 
 ### SLSA provenance
@@ -231,7 +280,7 @@ cosign verify-attestation --type slsaprovenance \
     '^https://github.com/slsa-framework/slsa-github-generator/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.11
+  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.12
 ```
 
 The provenance attestation records the build workflow path, source
@@ -446,6 +495,9 @@ incoming webhook.
 | policy.config | string | `""` | Inline HCL policy config (creates a ConfigMap) |
 | policy.existingConfigMap | string | `""` | Use an existing ConfigMap for policy config |
 | policy.orphanCleanup | bool | `true` | Remove files from repo-guardian's own reconcile branch once the rule that added them is satisfied on the default branch (IMPL-0013 Phase 3). When `true` (default), a PR stops proposing files that are no longer needed. When `false`, no file is ever deleted from the reconcile branch and PR bodies may list rules already satisfied on the default branch.  This is a kill switch, not a tuning knob: orphan cleanup is the only path that deletes files, and INV-0014 is a fixed defect in it that produced PRs proposing to remove files repositories legitimately owned. Leave it enabled unless you have reason not to. |
+| posture | object | `{"exportInterval":"60s","snapshotInterval":"24h"}` | Compliance posture export (IMPL-0023 / DESIGN-0022). The elected leader projects the rule_state table onto the repos_actionable / repos_tracked / repos_unmeasurable gauges on this cadence. |
+| posture.exportInterval | string | `"60s"` | Cadence between posture exporter ticks. Unlike the sweep and discovery intervals this costs no GitHub API budget — it is a few aggregates over an indexed table — so it is tuned against how stale the compliance gauges may be, not against rate limit. Values above 60s leave the exporter behind its own duration histogram, whose buckets stop there. |
+| posture.snapshotInterval | string | `"24h"` | Cadence between compliance-history snapshots, the rows `repo-guardian report --since` reads. This is not the posture gauges: Prometheus already keeps those for its retention window, typically weeks, and this table exists for "how compliant were we last quarter", which no operational metrics store can answer. Daily is already finer than any question the report asks, and the rows are permanent — there is no retention machinery — so shortening it accrues storage forever for resolution nobody requested. |
 | prometheusRule | object | `{"alerts":{},"enabled":false,"labels":{}}` | Prometheus PrometheusRule with starter alerts (IMPL-0011 P6). |
 | prometheusRule.alerts | object | `{}` | Per-alert overrides: each key under `alerts.<name>` accepts `for`, `severity`, `threshold`, and `enabled`. See the rendered PrometheusRule template for the canonical alert names. |
 | prometheusRule.enabled | bool | `false` | Create PrometheusRule with starter alerts. |

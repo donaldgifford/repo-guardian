@@ -38,7 +38,7 @@ func TestPolicyCheckRepo_ExistsMode_FileMissing(t *testing.T) {
 	}
 	client.branchSHAs["org/repo/main"] = "abc123"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestPolicyCheckRepo_ExistsMode_FilePresent(t *testing.T) {
 	client.contents["org/repo/CODEOWNERS"] = true
 	client.contents["org/repo/.github/dependabot.yml"] = true
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestPolicyCheckRepo_AbsentMode_Phase1(t *testing.T) {
 				client.contents["org/repo/.github/dependabot.yml"] = true
 			}
 
-			if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+			if _, err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
 				t.Fatalf("CheckRepo: %v", err)
 			}
 
@@ -173,7 +173,7 @@ func TestPolicyCheckRepo_ContainsMode_FileMissing(t *testing.T) {
 	}
 	client.branchSHAs["org/repo/main"] = "abc123"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestPolicyCheckRepo_ContainsMode_AssertionsPass(t *testing.T) {
 	client.contents["org/repo/catalog-info.yaml"] = true
 	client.fileContents["org/repo/catalog-info.yaml"] = "spec:\n  owner: team-platform\n"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -246,7 +246,7 @@ func TestPolicyCheckRepo_ContainsMode_AssertionsFail(t *testing.T) {
 	client.contents["org/repo/catalog-info.yaml"] = true
 	client.fileContents["org/repo/catalog-info.yaml"] = "spec:\n  owner: individual-dev\n"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -278,7 +278,7 @@ func TestPolicyCheckRepo_ExactMode_FileMissing(t *testing.T) {
 	}
 	client.branchSHAs["org/repo/main"] = "abc123"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -321,7 +321,7 @@ func TestPolicyCheckRepo_ExactMode_FileMatchesTemplate(t *testing.T) {
 	client.contents["org/repo/.github/dependabot.yml"] = true
 	client.fileContents["org/repo/.github/dependabot.yml"] = templateContent
 
-	err = engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err = engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -355,7 +355,7 @@ func TestPolicyCheckRepo_ExactMode_FileDiffersFromTemplate(t *testing.T) {
 	client.contents["org/repo/.github/dependabot.yml"] = true
 	client.fileContents["org/repo/.github/dependabot.yml"] = "version: 2\nupdates: []\n"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -403,7 +403,7 @@ func TestPolicyCheckRepo_ExactMode_YAMLSemanticComparison(t *testing.T) {
 	// Same content but with different whitespace — YAML semantic comparison should match.
 	client.fileContents["org/repo/test.yaml"] = templateContent
 
-	err = engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err = engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -436,11 +436,11 @@ func TestPolicyCheckRepo_BackwardCompatibility(t *testing.T) {
 	registryClient.branchSHAs["org/repo/main"] = "abc123"
 
 	// Both should create PRs with the same files.
-	if err := policyEngine.CheckRepo(context.Background(), policyClient, "org", "repo"); err != nil {
+	if _, err := policyEngine.CheckRepo(context.Background(), policyClient, "org", "repo"); err != nil {
 		t.Fatalf("policy CheckRepo: %v", err)
 	}
 
-	if err := registryEngine.CheckRepo(context.Background(), registryClient, "org", "repo"); err != nil {
+	if _, err := registryEngine.CheckRepo(context.Background(), registryClient, "org", "repo"); err != nil {
 		t.Fatalf("registry CheckRepo: %v", err)
 	}
 
@@ -529,7 +529,7 @@ func TestIntegration_PolicyLoadAndEngineCreation(t *testing.T) {
 	client.contents["org/repo/CODEOWNERS"] = true
 	client.contents["org/repo/.github/dependabot.yml"] = true
 
-	if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -638,7 +638,7 @@ func TestReconciler_RunsWhenFilePresent_ExistsMode(t *testing.T) {
 	client.contents["org/repo/test.txt"] = true
 	client.fileContents["org/repo/test.txt"] = "file content"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -685,7 +685,7 @@ func TestReconciler_DoesNotRunWhenFileMissing(t *testing.T) {
 	}
 	client.branchSHAs["org/repo/main"] = "abc123"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -727,7 +727,7 @@ func TestReconciler_RunsWhenAssertionsPass_ContainsMode(t *testing.T) {
 	client.contents["org/repo/test.txt"] = true
 	client.fileContents["org/repo/test.txt"] = "this has required-text in it"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -770,7 +770,7 @@ func TestReconciler_DoesNotRunWhenAssertionsFail(t *testing.T) {
 	client.fileContents["org/repo/test.txt"] = "no match here"
 	client.branchSHAs["org/repo/main"] = "abc123"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -836,7 +836,7 @@ func TestReconciler_RunsOnAbsence_OnlyForCapableReconcilers(t *testing.T) {
 	client.branchSHAs["org/repo/main"] = "abc123"
 	// test.txt is deliberately absent from client.contents.
 
-	if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -907,7 +907,7 @@ func TestReconciler_MultipleRunInOrder(t *testing.T) {
 	client.contents["org/repo/test.txt"] = true
 	client.fileContents["org/repo/test.txt"] = "content"
 
-	if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -949,7 +949,7 @@ func TestReconciler_ErrorLoggedNotFatal(t *testing.T) {
 	client.contents["org/repo/test.txt"] = true
 	client.fileContents["org/repo/test.txt"] = "content"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo should not fail on reconciler error: %v", err)
 	}
@@ -995,7 +995,7 @@ func TestIntegration_HCLConfigWithCustomPropertiesReconciler(t *testing.T) {
 	client.contents["org/my-service/catalog-info.yaml"] = true
 	client.fileContents["org/my-service/catalog-info.yaml"] = "apiVersion: backstage.io/v1alpha1\nkind: Component"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "my-service")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "my-service")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1040,7 +1040,7 @@ func TestGlobalIgnoreList_SkipsAllRules(t *testing.T) {
 	}
 	client.branchSHAs["org/ignored-repo/main"] = "abc123"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "ignored-repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "ignored-repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1066,7 +1066,7 @@ func TestGlobalIgnoreList_GlobPattern(t *testing.T) {
 	}
 	client.branchSHAs["org/terraform-vpc/main"] = "abc123"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "terraform-vpc")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "terraform-vpc")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1092,7 +1092,7 @@ func TestGlobalIgnoreList_NoMatchStillProcesses(t *testing.T) {
 	}
 	client.branchSHAs["org/my-repo/main"] = "abc123"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "my-repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "my-repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1134,7 +1134,7 @@ func TestPerRuleIgnoreList_SkipsOnlyThatRule(t *testing.T) {
 	}
 	client.branchSHAs["org/special-repo/main"] = "abc123"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "special-repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "special-repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1178,7 +1178,7 @@ func TestPerRuleIgnoreList_ReconcilerAlsoSkipped(t *testing.T) {
 	client.contents["org/ignored/test.txt"] = true
 	client.fileContents["org/ignored/test.txt"] = "content"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "ignored")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "ignored")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1204,7 +1204,7 @@ func TestEmptyIgnoreList_NoReposSkipped(t *testing.T) {
 	}
 	client.branchSHAs["org/repo/main"] = "abc123"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1234,7 +1234,7 @@ func TestSettingRule_MatchesExpected_NoAction(t *testing.T) {
 	}
 	client.repoSettings = &ghclient.RepoSettings{HasIssues: true}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1261,7 +1261,7 @@ func TestSettingRule_Mismatch_NoRemediate(t *testing.T) {
 	}
 	client.repoSettings = &ghclient.RepoSettings{HasIssues: false}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1288,7 +1288,7 @@ func TestSettingRule_Mismatch_Remediate(t *testing.T) {
 	}
 	client.repoSettings = &ghclient.RepoSettings{HasIssues: false}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1321,7 +1321,7 @@ func TestSettingRule_Mismatch_Remediate_DryRun(t *testing.T) {
 	}
 	client.repoSettings = &ghclient.RepoSettings{HasIssues: false}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1348,7 +1348,7 @@ func TestSettingRule_VulnerabilityAlerts_Remediate(t *testing.T) {
 	}
 	client.vulnerabilityAlertsEnabled = false
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1375,7 +1375,7 @@ func TestSettingRule_DefaultBranch_Remediate(t *testing.T) {
 	}
 	client.repoSettings = &ghclient.RepoSettings{DefaultBranch: "master"}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1413,7 +1413,7 @@ func TestSettingRule_PerRuleIgnore(t *testing.T) {
 	}
 	client.repoSettings = &ghclient.RepoSettings{HasIssues: false}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "ignored")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "ignored")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1447,7 +1447,7 @@ func TestSettingRule_Disabled(t *testing.T) {
 	}
 	client.repoSettings = &ghclient.RepoSettings{HasIssues: false}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1493,7 +1493,7 @@ func TestBranchProtection_Matches_NoAction(t *testing.T) {
 		},
 	}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1539,7 +1539,7 @@ func TestBranchProtection_Mismatch_NoRemediate(t *testing.T) {
 		},
 	}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1581,7 +1581,7 @@ func TestBranchProtection_Mismatch_Remediate_Update(t *testing.T) {
 		},
 	}
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1618,7 +1618,7 @@ func TestBranchProtection_NoRuleset_Remediate_Create(t *testing.T) {
 	}
 	client.branchSHAs["org/repo/main"] = "abc123"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1660,7 +1660,7 @@ func TestBranchProtection_BranchDoesNotExist(t *testing.T) {
 	client.branchSHAs["org/repo/main"] = "abc123"
 	// "develop" branch does not exist (no entry in branchSHAs)
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1694,7 +1694,7 @@ func TestBranchProtection_DryRun(t *testing.T) {
 	}
 	client.branchSHAs["org/repo/main"] = "abc123"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1734,7 +1734,7 @@ func TestReconciler_DryRunPropagated(t *testing.T) {
 	client.contents["org/repo/test.txt"] = true
 	client.fileContents["org/repo/test.txt"] = "content"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1793,7 +1793,7 @@ func TestIntegration_IgnoreLists_SettingRules_BranchProtection(t *testing.T) {
 	ignoredClient.repoSettings = &ghclient.RepoSettings{HasIssues: false, HasWiki: true}
 	ignoredClient.branchSHAs["org/globally-ignored/main"] = "abc123"
 
-	if err := engine.CheckRepo(context.Background(), ignoredClient, "org", "globally-ignored"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), ignoredClient, "org", "globally-ignored"); err != nil {
 		t.Fatalf("globally ignored CheckRepo: %v", err)
 	}
 
@@ -1818,7 +1818,7 @@ func TestIntegration_IgnoreLists_SettingRules_BranchProtection(t *testing.T) {
 	normalClient.branchSHAs["org/normal-repo/main"] = "abc123"
 	normalClient.contents["org/normal-repo/CODEOWNERS"] = true
 
-	if err := engine.CheckRepo(context.Background(), normalClient, "org", "normal-repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), normalClient, "org", "normal-repo"); err != nil {
 		t.Fatalf("normal repo CheckRepo: %v", err)
 	}
 
@@ -1876,7 +1876,7 @@ func TestIntegration_LabelSyncReconciler_EndToEnd(t *testing.T) {
 	client.contents["org/my-service/.github/labels.yml"] = true
 	client.fileContents["org/my-service/.github/labels.yml"] = labelContent
 
-	err := engine.CheckRepo(context.Background(), client, "org", "my-service")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "my-service")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1935,7 +1935,7 @@ func TestPolicyCheckRepo_ExactMode_RenovateWorkflowMatchesTemplate(t *testing.T)
 	client.contents["org/repo/.github/workflows/renovate.yml"] = true
 	client.fileContents["org/repo/.github/workflows/renovate.yml"] = templateContent
 
-	err = engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err = engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -1971,7 +1971,7 @@ func TestPolicyCheckRepo_ExactMode_RenovateWorkflowDrifted(t *testing.T) {
 	client.contents["org/repo/.github/workflows/renovate.yml"] = true
 	client.fileContents["org/repo/.github/workflows/renovate.yml"] = "name: Renovate\non:\n  workflow_dispatch:\n"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -2009,7 +2009,7 @@ func TestPolicyCheckRepo_ContainsMode_RenovateConfigValidAssertion(t *testing.T)
 	client.contents["org/repo/renovate.json"] = true
 	client.fileContents["org/repo/renovate.json"] = `{"extends": ["github>myorg/renovate-config"]}`
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -2048,7 +2048,7 @@ func TestPolicyCheckRepo_ContainsMode_RenovateConfigInvalidAssertion(t *testing.
 	client.contents["org/repo/renovate.json"] = true
 	client.fileContents["org/repo/renovate.json"] = `{"extends": ["config:recommended"]}`
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -2110,7 +2110,7 @@ func TestIntegration_RenovateFileRules_BothMissing(t *testing.T) {
 	}
 	client.branchSHAs["org/repo/main"] = "abc123"
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -2158,7 +2158,7 @@ func TestIntegration_RenovateFileRules_WorkflowMissing(t *testing.T) {
 	client.contents["org/repo/renovate.json"] = true
 	client.fileContents["org/repo/renovate.json"] = `{"extends": ["github>myorg/renovate-config"]}`
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -2199,7 +2199,7 @@ func TestIntegration_RenovateFileRules_ConfigMissing(t *testing.T) {
 	client.contents["org/repo/.github/workflows/renovate.yml"] = true
 	client.fileContents["org/repo/.github/workflows/renovate.yml"] = workflowContent
 
-	err = engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err = engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -2242,7 +2242,7 @@ func TestIntegration_RenovateFileRules_ConfigInvalidPreset(t *testing.T) {
 	client.contents["org/repo/renovate.json"] = true
 	client.fileContents["org/repo/renovate.json"] = `{"extends": ["config:recommended"]}`
 
-	err = engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err = engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -2271,7 +2271,7 @@ func TestIntegration_RenovateFileRules_WorkflowDrifted(t *testing.T) {
 	client.contents["org/repo/renovate.json"] = true
 	client.fileContents["org/repo/renovate.json"] = `{"extends": ["github>myorg/renovate-config"]}`
 
-	err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -2317,7 +2317,7 @@ func TestIntegration_RenovateFileRules_AllPresent(t *testing.T) {
 	client.contents["org/repo/renovate.json"] = true
 	client.fileContents["org/repo/renovate.json"] = `{"extends": ["github>myorg/renovate-config"]}`
 
-	err = engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err = engine.CheckRepo(context.Background(), client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}

@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -363,6 +364,478 @@ func TestPostgresStore_MigrateIdempotent(t *testing.T) {
 	}
 }
 
+// ruleStateRow is the subset of a rule_state row the posture tests
+// assert on.
+type ruleStateRow struct {
+	Kind       string
+	Actionable bool
+	Since      *time.Time
+}
+
+// readRuleStates returns every rule_state row for a repo, keyed by rule
+// name.
+func readRuleStates(ctx context.Context, t *testing.T, dsn string, installationID int64, owner, repo string) map[string]ruleStateRow {
+	t.Helper()
+
+	conn, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+
+	defer func() { _ = conn.Close(ctx) }()
+
+	rows, err := conn.Query(ctx,
+		`SELECT rule_name, rule_kind, actionable, actionable_since
+		 FROM rule_state
+		 WHERE installation_id = $1 AND owner = $2 AND repo = $3`,
+		installationID, owner, repo,
+	)
+	if err != nil {
+		t.Fatalf("query rule_state: %v", err)
+	}
+
+	defer rows.Close()
+
+	out := make(map[string]ruleStateRow)
+
+	for rows.Next() {
+		var (
+			name string
+			r    ruleStateRow
+		)
+
+		if err := rows.Scan(&name, &r.Kind, &r.Actionable, &r.Since); err != nil {
+			t.Fatalf("scan rule_state: %v", err)
+		}
+
+		out[name] = r
+	}
+
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate rule_state: %v", err)
+	}
+
+	return out
+}
+
+// TestPostgresStore_ActionableSinceTransitions covers IMPL-0023 task
+// 1.3's whole reason for living in SQL. actionable_since is the
+// "missing since 2026-06-14" a compliance report shows a human, and
+// each of the four edges has a distinct failure mode if the CASE is
+// wrong: a reset clock on true→true silently rewrites history to
+// "noticed today", and a preserved timestamp across false→true reports
+// a repo as failing since before it was.
+func TestPostgresStore_ActionableSinceTransitions(t *testing.T) {
+	ctx := context.Background()
+	dsn := startPostgres(ctx, t)
+	s := newStore(ctx, t, dsn)
+
+	const (
+		instID = 42
+		owner  = "org"
+		repo   = "repo"
+		rule   = "codeowners"
+	)
+
+	write := func(actionable bool) {
+		t.Helper()
+
+		if err := s.UpsertRuleStates(ctx, instID, owner, repo, []store.RuleState{
+			{
+				InstallationID: instID, Owner: owner, Repo: repo,
+				RuleName: rule, RuleKind: "file",
+				Actionable: actionable, PolicyVersion: "v1",
+			},
+		}); err != nil {
+			t.Fatalf("UpsertRuleStates(actionable=%v): %v", actionable, err)
+		}
+	}
+
+	// Edge 1: absent → false. A first-ever check of a compliant repo
+	// must not invent a since-date.
+	write(false)
+
+	got := readRuleStates(ctx, t, dsn, instID, owner, repo)[rule]
+	if got.Actionable {
+		t.Errorf("actionable = true, want false on first compliant check")
+	}
+
+	if got.Since != nil {
+		t.Errorf("actionable_since = %v, want NULL for a rule that never failed", got.Since)
+	}
+
+	// Edge 2: false → true. The clock starts now.
+	write(true)
+
+	got = readRuleStates(ctx, t, dsn, instID, owner, repo)[rule]
+	if !got.Actionable {
+		t.Fatal("actionable = false, want true after the repo started failing")
+	}
+
+	if got.Since == nil {
+		t.Fatal("actionable_since = NULL, want a timestamp stamped on the false->true edge")
+	}
+
+	firstSince := *got.Since
+
+	// Edge 3: true → true. The original timestamp survives. This is the
+	// edge that makes the column worth having; a naive
+	// `actionable_since = now()` would pass every other assertion here
+	// and silently reset every repo's since-date on every sweep.
+	time.Sleep(10 * time.Millisecond)
+	write(true)
+
+	got = readRuleStates(ctx, t, dsn, instID, owner, repo)[rule]
+	if got.Since == nil || !got.Since.Equal(firstSince) {
+		t.Errorf("actionable_since = %v after a second failing check, want it preserved at %v", got.Since, firstSince)
+	}
+
+	// Edge 4: true → false. Cleared, so the next failure starts a fresh
+	// clock rather than reporting a months-old date.
+	write(false)
+
+	got = readRuleStates(ctx, t, dsn, instID, owner, repo)[rule]
+	if got.Actionable {
+		t.Error("actionable = true, want false after the repo became compliant")
+	}
+
+	if got.Since != nil {
+		t.Errorf("actionable_since = %v, want NULL once the rule is satisfied", got.Since)
+	}
+
+	// And a fresh failure gets a new clock, not the old one.
+	write(true)
+
+	got = readRuleStates(ctx, t, dsn, instID, owner, repo)[rule]
+	if got.Since == nil || !got.Since.After(firstSince) {
+		t.Errorf("actionable_since = %v on re-failure, want a timestamp later than the cleared %v", got.Since, firstSince)
+	}
+}
+
+// TestPostgresStore_UpsertRuleStates_DeleteNotIn locks the
+// reconciliation half (DESIGN-0022 OQ3 → a): a rule that leaves the
+// evaluated set loses its row on the very next check. Without it a
+// renamed rule keeps its last verdict forever and goes on failing a
+// compliance report nobody can fix, because the rule it names no longer
+// exists to be satisfied.
+func TestPostgresStore_UpsertRuleStates_DeleteNotIn(t *testing.T) {
+	ctx := context.Background()
+	dsn := startPostgres(ctx, t)
+	s := newStore(ctx, t, dsn)
+
+	const (
+		instID = 7
+		owner  = "org"
+		repo   = "repo"
+	)
+
+	rs := func(name string, actionable bool) store.RuleState {
+		return store.RuleState{
+			InstallationID: instID, Owner: owner, Repo: repo,
+			RuleName: name, RuleKind: "file",
+			Actionable: actionable, PolicyVersion: "v1",
+		}
+	}
+
+	if err := s.UpsertRuleStates(ctx, instID, owner, repo, []store.RuleState{
+		rs("codeowners", true), rs("dependabot", false), rs("renovate", true),
+	}); err != nil {
+		t.Fatalf("UpsertRuleStates initial: %v", err)
+	}
+
+	if got := readRuleStates(ctx, t, dsn, instID, owner, repo); len(got) != 3 {
+		t.Fatalf("rule rows = %d, want 3 after the initial write", len(got))
+	}
+
+	// "renovate" was renamed to "renovate_config"; "dependabot" was
+	// removed from the policy entirely.
+	if err := s.UpsertRuleStates(ctx, instID, owner, repo, []store.RuleState{
+		rs("codeowners", true), rs("renovate_config", true),
+	}); err != nil {
+		t.Fatalf("UpsertRuleStates after policy change: %v", err)
+	}
+
+	got := readRuleStates(ctx, t, dsn, instID, owner, repo)
+	if len(got) != 2 {
+		t.Fatalf("rule rows = %v, want exactly codeowners + renovate_config", got)
+	}
+
+	for _, gone := range []string{"dependabot", "renovate"} {
+		if _, ok := got[gone]; ok {
+			t.Errorf("rule %q still has a row after leaving the evaluated set", gone)
+		}
+	}
+
+	// An empty set is a legitimate call, not a no-op: it is how a repo
+	// that left policy scope stops counting against compliance.
+	if err := s.UpsertRuleStates(ctx, instID, owner, repo, nil); err != nil {
+		t.Fatalf("UpsertRuleStates(nil): %v", err)
+	}
+
+	if got := readRuleStates(ctx, t, dsn, instID, owner, repo); len(got) != 0 {
+		t.Errorf("rule rows = %v after an empty evaluated set, want none", got)
+	}
+}
+
+// TestPostgresStore_UpsertRuleStates_ScopedToRepo guards the blast
+// radius of delete-not-in: it must clear rows for the named repo only.
+// A missing repo predicate in the DELETE would wipe the fleet's posture
+// on every single check and still pass every other test in this file.
+func TestPostgresStore_UpsertRuleStates_ScopedToRepo(t *testing.T) {
+	ctx := context.Background()
+	dsn := startPostgres(ctx, t)
+	s := newStore(ctx, t, dsn)
+
+	const owner = "org"
+
+	seed := func(instID int64, repo string) {
+		t.Helper()
+
+		if err := s.UpsertRuleStates(ctx, instID, owner, repo, []store.RuleState{
+			{
+				InstallationID: instID, Owner: owner, Repo: repo,
+				RuleName: "codeowners", RuleKind: "file",
+				Actionable: true, PolicyVersion: "v1",
+			},
+		}); err != nil {
+			t.Fatalf("seed %d/%s: %v", instID, repo, err)
+		}
+	}
+
+	seed(1, "alpha")
+	seed(1, "beta")
+	seed(2, "alpha") // same repo name, different installation
+
+	// Clear only 1/org/alpha.
+	if err := s.UpsertRuleStates(ctx, 1, owner, "alpha", nil); err != nil {
+		t.Fatalf("clear alpha: %v", err)
+	}
+
+	if got := readRuleStates(ctx, t, dsn, 1, owner, "alpha"); len(got) != 0 {
+		t.Errorf("1/org/alpha rows = %v, want cleared", got)
+	}
+
+	if got := readRuleStates(ctx, t, dsn, 1, owner, "beta"); len(got) != 1 {
+		t.Errorf("1/org/beta rows = %v, want untouched", got)
+	}
+
+	if got := readRuleStates(ctx, t, dsn, 2, owner, "alpha"); len(got) != 1 {
+		t.Errorf("2/org/alpha rows = %v, want untouched (different installation)", got)
+	}
+}
+
+// TestPostgresStore_UpsertRuleStates_ConcurrentRace mirrors
+// TestPostgresStore_UpsertIfMissing_ConcurrentRace for the posture
+// write path. Sixteen workers racing on the same repo is not
+// hypothetical — a push event and a stale sweep can dispatch the same
+// repo concurrently. The transition CASE reads rule_state.actionable
+// under the row lock ON CONFLICT already holds, so there is no
+// read-then-write window; this proves it under -race and under real
+// contention.
+func TestPostgresStore_UpsertRuleStates_ConcurrentRace(t *testing.T) {
+	ctx := context.Background()
+	dsn := startPostgres(ctx, t)
+	s := newStore(ctx, t, dsn)
+
+	const (
+		instID  = 99
+		owner   = "org"
+		repo    = "hot"
+		workers = 16
+	)
+
+	var (
+		wg       sync.WaitGroup
+		failures atomic.Int32
+	)
+
+	wg.Add(workers)
+
+	for i := range workers {
+		go func(i int) {
+			defer wg.Done()
+
+			if err := s.UpsertRuleStates(ctx, instID, owner, repo, []store.RuleState{
+				{
+					InstallationID: instID, Owner: owner, Repo: repo,
+					RuleName: "codeowners", RuleKind: "file",
+					Actionable: i%2 == 0, PolicyVersion: "v1",
+				},
+			}); err != nil {
+				t.Logf("worker %d: %v", i, err)
+				failures.Add(1)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	if got := failures.Load(); got != 0 {
+		t.Errorf("UpsertRuleStates failures under contention = %d, want 0", got)
+	}
+
+	// Exactly one row survives regardless of interleaving — the primary
+	// key guarantees it, and a batch that partially applied would show
+	// up here as zero rows.
+	if got := readRuleStates(ctx, t, dsn, instID, owner, repo); len(got) != 1 {
+		t.Errorf("rule rows after %d concurrent writers = %v, want exactly 1", workers, got)
+	}
+}
+
+// TestPostgresStore_CatalogParseOK_NilPreservesPriorVerdict locks the
+// COALESCE in UpdateRepoState. A check where no catalog rule ran
+// reports nil, which means "learned nothing" — not "the catalog is
+// fine". A plain EXCLUDED assignment would erase a real parse failure
+// the moment a sweep ran with the catalog rule scoped away, and the
+// operator would never see the broken file again.
+func TestPostgresStore_CatalogParseOK_NilPreservesPriorVerdict(t *testing.T) {
+	ctx := context.Background()
+	dsn := startPostgres(ctx, t)
+	s := newStore(ctx, t, dsn)
+
+	ts := time.Now().UTC()
+	base := func(parseOK *bool) *store.RepoState {
+		return &store.RepoState{
+			InstallationID: 5, Owner: "org", Repo: "repo",
+			LastCheckedAt: &ts, LastCheckStatus: store.StatusSuccess,
+			PolicyVersion: "v1", CatalogParseOK: parseOK,
+		}
+	}
+
+	no := false
+	mustUpdate(ctx, t, s, base(&no))
+
+	got, err := s.GetRepoState(ctx, 5, "org", "repo")
+	if err != nil {
+		t.Fatalf("GetRepoState: %v", err)
+	}
+
+	if got.CatalogParseOK == nil || *got.CatalogParseOK {
+		t.Fatalf("catalog_parse_ok = %v, want false", got.CatalogParseOK)
+	}
+
+	// A later check that evaluated no catalog rule must leave it alone.
+	mustUpdate(ctx, t, s, base(nil))
+
+	got, err = s.GetRepoState(ctx, 5, "org", "repo")
+	if err != nil {
+		t.Fatalf("GetRepoState after nil write: %v", err)
+	}
+
+	if got.CatalogParseOK == nil || *got.CatalogParseOK {
+		t.Errorf("catalog_parse_ok = %v after a nil write, want the prior false preserved", got.CatalogParseOK)
+	}
+
+	// An explicit true does overwrite — the catalog got fixed.
+	yes := true
+	mustUpdate(ctx, t, s, base(&yes))
+
+	got, err = s.GetRepoState(ctx, 5, "org", "repo")
+	if err != nil {
+		t.Fatalf("GetRepoState after true write: %v", err)
+	}
+
+	if got.CatalogParseOK == nil || !*got.CatalogParseOK {
+		t.Errorf("catalog_parse_ok = %v, want true once the catalog parsed", got.CatalogParseOK)
+	}
+}
+
+// TestPostgresStore_MigrateUpDownUp locks IMPL-0023 task 1.1: every
+// .down.sql is the true inverse of its .up.sql. A drifted down file is
+// worse than none — it fails partway and strands a half-dropped schema
+// — and nothing else in the suite would catch it, since the normal
+// startup path only ever migrates up.
+//
+// The final Up is the load-bearing assertion: it only succeeds if Down
+// left the database genuinely empty rather than merely renumbered in
+// schema_migrations.
+func TestPostgresStore_MigrateUpDownUp(t *testing.T) {
+	ctx := context.Background()
+	dsn := startPostgres(ctx, t)
+
+	if err := postgres.Migrate(dsn); err != nil {
+		t.Fatalf("migrate up: %v", err)
+	}
+
+	if err := postgres.MigrateDown(dsn); err != nil {
+		t.Fatalf("migrate down: %v", err)
+	}
+
+	assertRelationAbsent(ctx, t, dsn, "repo_state")
+	assertRelationAbsent(ctx, t, dsn, "rule_state")
+	assertRelationAbsent(ctx, t, dsn, "compliance_snapshot")
+
+	if err := postgres.Migrate(dsn); err != nil {
+		t.Fatalf("migrate up after down: %v", err)
+	}
+
+	// catalog_parse_ok is added by 0002 as an ALTER on a table 0001
+	// owns. Dropping the column and re-adding it is the edge a
+	// table-level up/down check would miss entirely.
+	assertColumnPresent(ctx, t, dsn, "repo_state", "catalog_parse_ok")
+
+	s := newStore(ctx, t, dsn)
+
+	ts := time.Now().UTC()
+	if err := s.UpdateRepoState(ctx, &store.RepoState{
+		InstallationID: 1, Owner: "o", Repo: "after-round-trip",
+		LastCheckedAt: &ts, LastCheckStatus: store.StatusSuccess, PolicyVersion: "v1",
+	}); err != nil {
+		t.Fatalf("upsert after up/down/up: %v", err)
+	}
+}
+
+// assertRelationAbsent fails the test if relation exists in the public
+// schema.
+func assertRelationAbsent(ctx context.Context, t *testing.T, dsn, relation string) {
+	t.Helper()
+
+	conn, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+
+	defer func() { _ = conn.Close(ctx) }()
+
+	var exists bool
+	if err := conn.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM information_schema.tables
+		 WHERE table_schema = 'public' AND table_name = $1)`,
+		relation,
+	).Scan(&exists); err != nil {
+		t.Fatalf("query relation %q: %v", relation, err)
+	}
+
+	if exists {
+		t.Errorf("relation %q still exists after migrate down, want dropped", relation)
+	}
+}
+
+// assertColumnPresent fails the test if table lacks column.
+func assertColumnPresent(ctx context.Context, t *testing.T, dsn, table, column string) {
+	t.Helper()
+
+	conn, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+
+	defer func() { _ = conn.Close(ctx) }()
+
+	var exists bool
+	if err := conn.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM information_schema.columns
+		 WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2)`,
+		table, column,
+	).Scan(&exists); err != nil {
+		t.Fatalf("query column %s.%s: %v", table, column, err)
+	}
+
+	if !exists {
+		t.Errorf("column %s.%s missing after re-migrate, want present", table, column)
+	}
+}
+
 func mustUpdate(ctx context.Context, t *testing.T, s *postgres.Store, rs *store.RepoState) {
 	t.Helper()
 
@@ -521,4 +994,184 @@ func TestPostgresStore_UpdateRepoStateDoesNotUnpark(t *testing.T) {
 	if len(stale) != 0 {
 		t.Errorf("StaleRepos() returned %+v, want none — UpdateRepoState un-parked the row it was told nothing about", stale)
 	}
+}
+
+// TestPostgresStore_Posture_ExcludesParkedRepos is the SQL half of the
+// IMPL-0023 task 2.2 decision, and the only place the `WHERE active`
+// join is actually exercised against Postgres rather than asserted
+// about.
+//
+// Three repos in one org, all failing the same rule. One is parked
+// after an access denial — the case the filter exists for, because
+// unlike an archived park it KEEPS its rule rows (we never learned
+// anything to replace them with, so clearing them would report a repo
+// we cannot even see as compliant).
+//
+// Without the filter that repo would sit in both numerator and
+// denominator forever, holding its last verdict, with nothing to
+// correct it: parking is precisely the state in which a repo is never
+// re-checked again.
+func TestPostgresStore_Posture_ExcludesParkedRepos(t *testing.T) {
+	ctx := context.Background()
+	dsn := startPostgres(ctx, t)
+	s := newStore(ctx, t, dsn)
+
+	ts := time.Now().UTC()
+
+	seed := func(repo string, actionable bool) {
+		t.Helper()
+
+		if err := s.UpdateRepoState(ctx, &store.RepoState{
+			InstallationID: 1, Owner: "acme", Repo: repo,
+			LastCheckedAt: &ts, LastCheckStatus: store.StatusSuccess, PolicyVersion: "v1",
+		}); err != nil {
+			t.Fatalf("seed repo_state %s: %v", repo, err)
+		}
+
+		if err := s.UpsertRuleStates(ctx, 1, "acme", repo, []store.RuleState{{
+			InstallationID: 1, Owner: "acme", Repo: repo,
+			RuleName: "codeowners", RuleKind: "file",
+			Actionable: actionable, PolicyVersion: "v1",
+		}}); err != nil {
+			t.Fatalf("seed rule_state %s: %v", repo, err)
+		}
+	}
+
+	seed("alpha", true)
+	seed("beta", true)
+	seed("gone", true)
+
+	before, err := s.Posture(ctx)
+	if err != nil {
+		t.Fatalf("Posture before park: %v", err)
+	}
+
+	if got := ruleCount(before.Actionable, "acme", "codeowners"); got != 3 {
+		t.Fatalf("actionable before park = %d, want 3", got)
+	}
+
+	if got := orgCount(before.Tracked, "acme"); got != 3 {
+		t.Fatalf("tracked before park = %d, want 3", got)
+	}
+
+	// Park "gone" the way Pool.park does for an access denial: a
+	// StatusError write-back, then Deactivate. Its rule rows stay.
+	if err := s.UpdateRepoState(ctx, &store.RepoState{
+		InstallationID: 1, Owner: "acme", Repo: "gone",
+		LastCheckedAt: &ts, LastCheckStatus: store.StatusError,
+		LastError: "repository not accessible to installation 1: 404", PolicyVersion: "v1",
+	}); err != nil {
+		t.Fatalf("park write-back: %v", err)
+	}
+
+	if err := s.Deactivate(ctx, 1, "acme", "gone"); err != nil {
+		t.Fatalf("Deactivate: %v", err)
+	}
+
+	after, err := s.Posture(ctx)
+	if err != nil {
+		t.Fatalf("Posture after park: %v", err)
+	}
+
+	if got := ruleCount(after.Actionable, "acme", "codeowners"); got != 2 {
+		t.Errorf("actionable after park = %d, want 2; a parked repo is still in the numerator", got)
+	}
+
+	if got := orgCount(after.Tracked, "acme"); got != 2 {
+		t.Errorf("tracked after park = %d, want 2; a parked repo is still in the denominator", got)
+	}
+
+	if got := reasonCount(after.Unmeasurable, "acme", store.ReasonAccessDenied); got != 1 {
+		t.Errorf("unmeasurable{reason=access_denied} = %d, want 1; the exclusion must be visible, not silent", got)
+	}
+}
+
+// TestPostgresStore_Posture_ReasonMapping pins the closed label set.
+//
+// last_error is free text — for an access-denied park it carries a
+// whole API error message — so the CASE maps only the values park
+// actually writes and collapses everything else to "unknown". Getting
+// this wrong turns a Prometheus label into an unbounded set, which is
+// a cardinality incident rather than a wrong number.
+func TestPostgresStore_Posture_ReasonMapping(t *testing.T) {
+	ctx := context.Background()
+	dsn := startPostgres(ctx, t)
+	s := newStore(ctx, t, dsn)
+
+	ts := time.Now().UTC()
+
+	park := func(repo, status, lastErr string) {
+		t.Helper()
+
+		if err := s.UpdateRepoState(ctx, &store.RepoState{
+			InstallationID: 1, Owner: "acme", Repo: repo,
+			LastCheckedAt: &ts, LastCheckStatus: status, LastError: lastErr,
+			PolicyVersion: "v1",
+		}); err != nil {
+			t.Fatalf("seed %s: %v", repo, err)
+		}
+
+		if err := s.Deactivate(ctx, 1, "acme", repo); err != nil {
+			t.Fatalf("deactivate %s: %v", repo, err)
+		}
+	}
+
+	park("denied", store.StatusError, "repository not accessible to installation 1: 404 Not Found")
+	park("old", store.StatusSkipped, "archived")
+	park("mirror", store.StatusSkipped, "fork")
+	park("weird", store.StatusSkipped, "something nobody mapped")
+
+	p, err := s.Posture(ctx)
+	if err != nil {
+		t.Fatalf("Posture: %v", err)
+	}
+
+	for _, tc := range []struct {
+		reason string
+		want   int
+	}{
+		{store.ReasonAccessDenied, 1},
+		{store.ReasonArchived, 1},
+		{store.ReasonFork, 1},
+		{store.ReasonUnknown, 1},
+	} {
+		if got := reasonCount(p.Unmeasurable, "acme", tc.reason); got != tc.want {
+			t.Errorf("unmeasurable{reason=%s} = %d, want %d", tc.reason, got, tc.want)
+		}
+	}
+
+	if len(p.Unmeasurable) != 4 {
+		t.Errorf("unmeasurable series = %d, want exactly 4; an unmapped last_error leaked into the label",
+			len(p.Unmeasurable))
+	}
+}
+
+func ruleCount(counts []store.RuleCount, org, rule string) int {
+	for _, c := range counts {
+		if c.Org == org && c.RuleName == rule {
+			return c.Count
+		}
+	}
+
+	return 0
+}
+
+func orgCount(counts []store.OrgCount, org string) int {
+	for _, c := range counts {
+		if c.Org == org {
+			return c.Count
+		}
+	}
+
+	return 0
+}
+
+func reasonCount(counts []store.ReasonCount, org, reason string) int {
+	for _, c := range counts {
+		if c.Org == org && c.Reason == reason {
+			return c.Count
+		}
+	}
+
+	return 0
 }

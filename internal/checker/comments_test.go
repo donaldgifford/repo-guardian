@@ -25,7 +25,7 @@ func TestStickyComment_CreatedOnFirstReconcileWithExistingPR(t *testing.T) {
 		{Number: 1, Title: PRTitle, Head: BranchName, State: "open"},
 	}
 
-	if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -58,7 +58,7 @@ func TestStickyComment_NotSentWhenNoExistingPR(t *testing.T) {
 	// No existing PR; the engine will create one but should not
 	// post a reconcile-log comment until subsequent sweeps find
 	// the PR in openPRs.
-	if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -82,7 +82,7 @@ func TestStickyComment_ConvergentStateMentionsSatisfiedRules(t *testing.T) {
 		{Number: 7, Title: PRTitle, Head: BranchName, State: "open"},
 	}
 
-	if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -119,7 +119,7 @@ func TestStickyComment_NoUpsertOnIdenticalState(t *testing.T) {
 	}
 
 	for sweep := 1; sweep <= 2; sweep++ {
-		if err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
+		if _, err := engine.CheckRepo(context.Background(), client, "org", "repo"); err != nil {
 			t.Fatalf("sweep %d: CheckRepo: %v", sweep, err)
 		}
 	}

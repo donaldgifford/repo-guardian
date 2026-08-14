@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -13,10 +15,11 @@ import (
 
 	gh "github.com/google/go-github/v68/github"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/donaldgifford/repo-guardian/internal/checker"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
-	"github.com/donaldgifford/repo-guardian/internal/github/mocks"
+	ghmocks "github.com/donaldgifford/repo-guardian/internal/github/mocks"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/queue"
@@ -112,12 +115,46 @@ func (*deliverOnceQueue) Close() error { return nil }
 
 var errUnimplemented = errors.New("not implemented in capturingStore")
 
-// capturingStore records UpdateRepoState calls; every other Store
-// method is a no-op.
+// capturingStore records UpdateRepoState and UpsertRuleStates calls;
+// every other Store method is a no-op.
+//
+// ruleWrites keeps every call, including the ones with an empty slice:
+// "the worker called us with nothing" and "the worker never called us"
+// are different outcomes for a repo whose rules all became
+// inapplicable, and a recorder that dropped empty calls could not tell
+// the two apart.
 type capturingStore struct {
 	mu          sync.Mutex
 	states      []store.RepoState
+	ruleWrites  []ruleWrite
+	ruleErr     error
 	deactivated []string
+}
+
+// ruleWrite is one UpsertRuleStates invocation.
+type ruleWrite struct {
+	InstallationID int64
+	Owner          string
+	Repo           string
+	States         []store.RuleState
+}
+
+func (c *capturingStore) UpsertRuleStates(
+	_ context.Context,
+	installationID int64,
+	owner, repo string,
+	states []store.RuleState,
+) error {
+	c.mu.Lock()
+	c.ruleWrites = append(c.ruleWrites, ruleWrite{
+		InstallationID: installationID,
+		Owner:          owner,
+		Repo:           repo,
+		States:         slices.Clone(states),
+	})
+	c.mu.Unlock()
+
+	return c.ruleErr
 }
 
 func (*capturingStore) GetRepoState(context.Context, int64, string, string) (*store.RepoState, error) {
@@ -220,6 +257,149 @@ func TestPool_AttemptCap_TerminalDisposition(t *testing.T) {
 // integration tests (EnqueueDequeue + CloseUnblocksSubscribe under
 // the integration build tag).
 
+// engineForRepo builds a real policy engine with a single file rule, so
+// processJob exercises the genuine CheckRepo → writeBack path rather
+// than a stub.
+func engineForRepo(t *testing.T) *checker.Engine {
+	t.Helper()
+
+	ts := rules.NewTemplateStore()
+	if err := ts.Load(""); err != nil {
+		t.Fatalf("template store load: %v", err)
+	}
+
+	cfg := &policy.PolicyConfig{
+		Guardian:  policy.BuiltinDefaults().Guardian,
+		FileRules: []policy.FileRuleConfig{{Name: "codeowners", Type: "file", Paths: []string{"CODEOWNERS"}, Template: "codeowners.tmpl"}},
+	}
+	cfg.Guardian.DryRun = true // stay off the PR-creation path
+
+	e, err := checker.NewEngine(cfg, ts, slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
+	if err != nil {
+		t.Fatalf("checker.NewEngine: %v", err)
+	}
+
+	return e
+}
+
+// TestProcessJob_RuleStateFailureDoesNotFailJob closes IMPL-0023 task
+// 1.6 end to end. TestWriteBack_RuleStateFailureIsBestEffort proves
+// writeBack swallows the error; this proves the job outcome above it is
+// unaffected, which is the property that actually matters to the queue.
+//
+// If someone later gives writeBack an error return and wires it into
+// processJob's, a posture write failing would nack the job — and since
+// the posture write happens on the SUCCESS path, a Postgres hiccup
+// would turn completed work into an infinite retry loop that burns
+// GitHub rate limit re-doing checks that already succeeded.
+func TestProcessJob_RuleStateFailureDoesNotFailJob(t *testing.T) {
+	installClient := &ghmocks.MockClient{}
+	installClient.On("GetRepository", mock.Anything, "octo", "alpha").
+		Return(&ghclient.Repository{Owner: "octo", Name: "alpha", HasBranch: true, DefaultRef: "main"}, nil)
+	installClient.On("ListOpenPullRequests", mock.Anything, "octo", "alpha").
+		Return([]*ghclient.PullRequest(nil), nil)
+	installClient.On("GetContents", mock.Anything, "octo", "alpha", "CODEOWNERS").
+		Return(true, nil)
+
+	rootClient := &ghmocks.MockClient{}
+	rootClient.On("CreateInstallationClient", mock.Anything, int64(42)).
+		Return(ghclient.Client(installClient), nil)
+
+	q := &deliverOnceQueue{
+		job: queue.Job{
+			ID: "j1", InstallationID: 42, Owner: "octo", Repo: "alpha",
+			Trigger: queue.TriggerScheduler,
+		},
+		result: make(chan error, 1),
+	}
+
+	st := &capturingStore{ruleErr: errors.New("deadlock detected")}
+	p := worker.New(q, engineForRepo(t), rootClient, st, "pv1", 10, 1, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	p.Start(ctx)
+
+	var res error
+	select {
+	case res = <-q.result:
+	case <-time.After(5 * time.Second):
+		t.Fatal("handler never invoked")
+	}
+
+	cancel()
+	p.Stop()
+
+	if res != nil {
+		t.Errorf("processJob returned %v, want nil — a posture write failure must not nack a job whose check succeeded", res)
+	}
+
+	st.mu.Lock()
+	defer st.mu.Unlock()
+
+	// The failing write must still have been attempted, or this test
+	// would pass for the wrong reason: a worker that silently stopped
+	// writing posture altogether also never fails a job.
+	if len(st.ruleWrites) != 1 {
+		t.Fatalf("UpsertRuleStates calls = %d, want 1 (the attempt that failed)", len(st.ruleWrites))
+	}
+
+	if len(st.states) != 1 || st.states[0].LastCheckStatus != store.StatusSuccess {
+		t.Errorf("repo_state writes = %+v, want one StatusSuccess row despite the posture failure", st.states)
+	}
+}
+
+// TestProcessJob_SetsInstallationInfoEvenWhenClientFails pins the
+// worker half of the org↔installation join (IMPL-0023 task 2.1).
+//
+// The failing-client case is the one under test on purpose. That is the
+// state an operator debugs — a dead or unauthorized installation
+// spiking errors_total{operation="create_install_client"} — and those
+// panels are keyed by installation_id, so the org label has to exist
+// precisely when the installation does not work. Emitting after a
+// successful client construction would blank the label exactly then.
+func TestProcessJob_SetsInstallationInfoEvenWhenClientFails(t *testing.T) {
+	// Cannot use t.Parallel() — resets the global InstallationInfo gauge.
+	metrics.InstallationInfo.Reset()
+
+	rootClient := &ghmocks.MockClient{}
+	rootClient.On("CreateInstallationClient", mock.Anything, int64(42)).
+		Return(ghclient.Client(nil), errors.New("installation suspended"))
+
+	q := &deliverOnceQueue{
+		job: queue.Job{
+			ID: "j1", InstallationID: 42, Owner: "octo", Repo: "alpha",
+			Trigger: queue.TriggerScheduler,
+		},
+		result: make(chan error, 1),
+	}
+
+	p := worker.New(q, engineForRepo(t), rootClient, &capturingStore{}, "pv1", 10, 1,
+		slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	p.Start(ctx)
+
+	select {
+	case res := <-q.result:
+		if res == nil {
+			t.Fatal("processJob returned nil, want the client-construction error")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("handler never invoked")
+	}
+
+	cancel()
+	p.Stop()
+
+	if got := testutil.ToFloat64(metrics.InstallationInfo.WithLabelValues("42", "octo")); got != 1 {
+		t.Errorf(`installation_info{installation_id="42", org="octo"} = %v, want 1`, got)
+	}
+}
+
 // Deactivate records the park so the access-denied test can assert the
 // repo was taken out of the sweep, not merely that the job was acked.
 func (c *capturingStore) Deactivate(_ context.Context, installationID int64, owner, repo string) error {
@@ -237,7 +417,7 @@ func (c *capturingStore) Deactivate(_ context.Context, installationID int64, own
 // point — this test must fail loudly if the engine starts reaching past
 // the repository probe.
 type notFoundClient struct {
-	mocks.MockClient
+	ghmocks.MockClient
 }
 
 func (c *notFoundClient) CreateInstallationClient(context.Context, int64) (ghclient.Client, error) {
@@ -343,7 +523,7 @@ func TestPool_AccessDenied_ParksRepoWithoutRetrying(t *testing.T) {
 // return is a property of this struct, so the parked and not-parked cases are
 // the same fake with one field flipped.
 type repoStateClient struct {
-	mocks.MockClient
+	ghmocks.MockClient
 
 	repo ghclient.Repository
 }
@@ -512,4 +692,110 @@ func TestPool_EmptyRepo_IsSkippedButNotParked(t *testing.T) {
 	if got := st.states[0].LastCheckStatus; got != store.StatusSuccess {
 		t.Errorf("LastCheckStatus = %q, want %q", got, store.StatusSuccess)
 	}
+}
+
+// TestPool_ParkPostureHandling pins the invariant the INV-0015 parking
+// work and the IMPL-0023 posture work jointly created, and which neither
+// of them could have had on its own.
+//
+// Both cases park the repo. Their posture handling is OPPOSITE, and
+// getting it backwards is silently wrong in both directions:
+//
+//   - archived: we read the repo fine and know definitively that no rule
+//     applies to it any more, so its rule rows must be cleared. Leaving
+//     them would count a parked repo against compliance forever — and
+//     parking is precisely the state in which it will never be
+//     re-checked, so nothing would ever correct it.
+//   - access_denied: we could not read the repo at all, so we learned
+//     nothing about its rules. Clearing them would report a repository
+//     we cannot even see as fully compliant.
+//
+// The recorder keeps empty calls, so "called with nothing" (clear) and
+// "never called" (leave alone) are distinguishable — which is the whole
+// assertion.
+func TestPool_ParkPostureHandling(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		client     ghclient.Client
+		wantWrites int // UpsertRuleStates calls
+		why        string
+	}{
+		{
+			name:       "archived repo clears its posture",
+			client:     &repoStateClient{repo: ghclient.Repository{Archived: true, HasBranch: true, DefaultRef: "main"}},
+			wantWrites: 1,
+			why:        "an archived repo must stop counting against compliance",
+		},
+		{
+			name:       "access-denied repo keeps its posture",
+			client:     &notFoundClient{},
+			wantWrites: 0,
+			why:        "a repo we cannot read must not be reported compliant",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := &policy.PolicyConfig{Guardian: policy.BuiltinDefaults().Guardian}
+
+			eng, err := checker.NewEngine(cfg, rules.NewTemplateStore(), slog.Default(), reconciler.NewRegistry())
+			if err != nil {
+				t.Fatalf("NewEngine() = _, %v, want nil error", err)
+			}
+
+			q := &deliverOnceQueue{
+				job: queue.Job{
+					ID: "park", InstallationID: 7, Owner: "acme", Repo: "thing",
+					Trigger: queue.TriggerScheduler,
+				},
+				result: make(chan error, 1),
+			}
+			st := &capturingStore{}
+			p := worker.New(q, eng, tt.client, st, "pv1", 10, 1, slog.Default())
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			p.Start(ctx)
+
+			select {
+			case <-q.result:
+			case <-time.After(5 * time.Second):
+				t.Fatal("handler never invoked")
+			}
+
+			cancel()
+			p.Stop()
+
+			st.mu.Lock()
+			defer st.mu.Unlock()
+
+			if len(st.deactivated) != 1 {
+				t.Errorf("Deactivate calls = %v, want exactly 1; both cases park", st.deactivated)
+			}
+
+			if got := len(st.ruleWrites); got != tt.wantWrites {
+				t.Fatalf("UpsertRuleStates calls = %d, want %d — %s", got, tt.wantWrites, tt.why)
+			}
+
+			if tt.wantWrites == 1 && len(st.ruleWrites[0].States) != 0 {
+				t.Errorf("cleared posture wrote %d rule states, want 0 (an empty set is what clears the rows)",
+					len(st.ruleWrites[0].States))
+			}
+		})
+	}
+}
+
+func (*capturingStore) Posture(context.Context) (*store.Posture, error) { return nil, errUnimplemented }
+
+func (*capturingStore) ReportData(context.Context) (*store.ReportData, error) {
+	return nil, errUnimplemented
+}
+
+func (*capturingStore) InsertComplianceSnapshot(context.Context, time.Time) (int, error) {
+	return 0, errUnimplemented
 }

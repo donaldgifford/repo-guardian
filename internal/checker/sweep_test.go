@@ -143,6 +143,14 @@ func (f *fakeStore) StaleRepos(_ context.Context, freshness time.Duration, curre
 	return out, nil
 }
 
+// The stale sweeper reads and enqueues; rule states are the worker's
+// write-back, never the sweeper's.
+func (*fakeStore) UpsertRuleStates(
+	_ context.Context, _ int64, _, _ string, _ []store.RuleState,
+) error {
+	return nil
+}
+
 func (*fakeStore) Close() error { return nil }
 
 type fakeRateLimit struct {
@@ -314,3 +322,15 @@ func TestStaleSweeper_PolicyVersionMismatchEnqueuesAll(t *testing.T) {
 }
 
 func (*fakeStore) Deactivate(context.Context, int64, string, string) error { return nil }
+
+func (*fakeStore) ReportData(context.Context) (*store.ReportData, error) {
+	return nil, errors.New("fakeStore: ReportData not used by these tests")
+}
+
+func (*fakeStore) InsertComplianceSnapshot(context.Context, time.Time) (int, error) {
+	return 0, errors.New("fakeStore: InsertComplianceSnapshot not used by these tests")
+}
+
+func (*fakeStore) Posture(context.Context) (*store.Posture, error) {
+	return nil, errors.New("fakeStore: Posture not used by these tests")
+}

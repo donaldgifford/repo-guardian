@@ -180,19 +180,71 @@ every repo from scratch (slow but harmless). Production deployments
 should either move to `mode=cnpg` or `mode=external` with a managed
 Postgres provider.
 
+## Migration 0003 — posture state (IMPL-0023)
+
+`0003_rule_state.up.sql` is additive only, so applying it is safe on a
+live fleet and needs no downtime:
+
+- `rule_state` — one row per `(installation_id, owner, repo,
+  rule_name)` holding `actionable`, `actionable_since`, `rule_kind`,
+  and `policy_version`. Written by the worker's best-effort write-back
+  after every check.
+- `idx_rule_state_actionable` — partial index on `(owner, rule_name)
+  WHERE actionable`, supporting the posture query.
+- `compliance_snapshot` — daily point-in-time counts, independent of
+  Prometheus retention.
+- `repo_state.catalog_parse_ok` — nullable, so "no catalog rule was
+  evaluated" stays distinct from "evaluated and malformed".
+
+Rows appear as repos are checked, not at migration time. A freshly
+migrated fleet reports zero tracked rules until the first sweep
+completes; that is expected, not a failure.
+
+**Sizing.** At 5k repos × ~6 rules, `rule_state` holds ~30k rows and is
+rewritten one repo at a time. `compliance_snapshot` grows by
+orgs × rules rows per day (~120/day at that scale), so no retention
+machinery ships initially — revisit if you pass a few million rows.
+
+**Dead installations.** Same recipe as `repo_state`: one more
+`DELETE ... WHERE installation_id = <id>` at cutover.
+
 ## Rolling back the schema
 
-`internal/store/postgres/migrations/0001_init.down.sql` drops the
-table and indexes. To roll back manually:
+Every migration ships a matching `.down.sql`, and
+`TestPostgresStore_MigrateUpDownUp` verifies the pair round-trips
+against a real Postgres. To roll back manually:
 
 ```bash
+# 0002 (posture state)
+psql $STORE_DSN -c "DROP INDEX IF EXISTS idx_rule_state_actionable;"
+psql $STORE_DSN -c "DROP TABLE IF EXISTS compliance_snapshot;"
+psql $STORE_DSN -c "DROP TABLE IF EXISTS rule_state;"
+psql $STORE_DSN -c "ALTER TABLE repo_state DROP COLUMN IF EXISTS catalog_parse_ok;"
+
+# 0001 (repo state)
 psql $STORE_DSN -c "DROP INDEX IF EXISTS idx_repo_state_policy_version;"
 psql $STORE_DSN -c "DROP INDEX IF EXISTS idx_repo_state_freshness;"
 psql $STORE_DSN -c "DROP TABLE IF EXISTS repo_state;"
 ```
 
-The next binary startup will re-apply the migrations and the table
-comes back empty (no row recovery — the data is gone). Better to roll
+Rolling back 0002 without downgrading the binary leaves a binary that
+writes posture against tables that no longer exist. Those writes are
+best-effort and will not fail jobs — they log at Warn and increment
+`store_writeback_total{outcome="error"}` on every check, which is loud
+but harmless. Downgrade the binary first if the rollback is meant to
+last.
+
+If you roll back manually with `psql`, also fix `schema_migrations` or
+the next startup will believe the migration is still applied:
+
+```bash
+psql $STORE_DSN -c "UPDATE schema_migrations SET version = 1, dirty = false;"
+```
+
+The next binary startup re-applies the migrations and the tables come
+back empty (no row recovery — the data is gone). Posture rebuilds
+itself as repos are re-checked; `actionable_since` restarts from the
+rebuild, so historical since-dates do not survive. Better to roll
 forward (a new migration that mutates the schema) than down.
 
 ## Monitoring schema operations

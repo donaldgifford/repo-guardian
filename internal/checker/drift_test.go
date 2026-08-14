@@ -39,7 +39,7 @@ func TestCheckRepoPolicy_DriftCounter_IncrementsWhenPROpenAndNoActionable(t *tes
 		{Number: 7, Title: PRTitle, Head: BranchName, State: "open"},
 	}
 
-	if err := engine.CheckRepo(context.Background(), client, org, "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, org, "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -68,7 +68,7 @@ func TestCheckRepoPolicy_DriftCounter_DoesNotIncrement_WhenNoPROpen(t *testing.T
 	client.contents[org+"/repo/CODEOWNERS"] = true
 	client.contents[org+"/repo/.github/dependabot.yml"] = true
 
-	if err := engine.CheckRepo(context.Background(), client, org, "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, org, "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -103,7 +103,7 @@ func TestCheckRepoPolicy_OpenPRsByRule_PopulatedWithActionableRules(t *testing.T
 		},
 	}
 
-	if err := engine.CheckRepo(context.Background(), client, org, "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, org, "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
@@ -162,7 +162,7 @@ func TestCheckRepoPolicy_DriftCounter_DoesNotIncrement_WhenActionable(t *testing
 		{Number: 8, Title: PRTitle, Head: BranchName, State: "open"},
 	}
 
-	if err := engine.CheckRepo(context.Background(), client, org, "repo"); err != nil {
+	if _, err := engine.CheckRepo(context.Background(), client, org, "repo"); err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 

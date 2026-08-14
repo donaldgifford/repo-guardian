@@ -18,6 +18,23 @@
 // counted but never propagated up — the queue.Job is the source of
 // truth for "did we do the work", and the persisted state is best-
 // effort observability.
+//
+// IMPL-0023 Phase 1 extended that write-back with per-rule posture:
+// the *checker.CheckResult becomes rule_state rows via
+// stateStore.UpsertRuleStates, under the same best-effort rules. Two
+// distinctions carry the weight there and are easy to collapse by
+// accident:
+//
+//   - A nil result means the check produced no trustworthy verdict —
+//     an error path, or no engine run at all. Nothing is written, so
+//     the repo keeps whatever posture it had.
+//   - An EMPTY result is itself a verdict: no rule applies to this repo
+//     any more (archived, globally ignored, out of policy scope). It is
+//     written, and the store's delete-not-in clears the repo's rows so
+//     it stops counting against compliance.
+//
+// Treating those two the same either strands rows for departed repos
+// forever or wipes real posture on a transient API error.
 package worker
 
 import (
@@ -169,16 +186,28 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 		return p.dropExhausted(ctx, jobLog, j)
 	}
 
+	// The org↔installation join label (DESIGN-0022 E2). It is set here
+	// rather than inside CreateInstallationClient because that method
+	// takes only an installation ID — resolving the account login from
+	// it costs an Apps.GetInstallation call per job, and the job already
+	// carries the owner. Discovery sets the same series independently,
+	// so the join survives with discovery disabled or with a cold
+	// discoverer that has not ticked yet.
+	metrics.SetInstallationInfo(j.InstallationID, j.Owner)
+
 	installClient, err := p.ghClient.CreateInstallationClient(ctx, j.InstallationID)
 	if err != nil {
 		jobLog.Error("failed to create installation client", "error", err)
 		metrics.ErrorsTotal.WithLabelValues("create_install_client", j.Owner).Inc()
-		p.writeBack(ctx, jobLog, j, err)
+		// No engine run happened, so there is no posture to record —
+		// which is not the same as "this repo has no failing rules".
+		p.writeBack(ctx, jobLog, j, err, nil)
 
 		return fmt.Errorf("create installation client for %d: %w", j.InstallationID, err)
 	}
 
-	if err := p.engine.CheckRepo(ctx, installClient, j.Owner, j.Repo); err != nil {
+	res, err := p.engine.CheckRepo(ctx, installClient, j.Owner, j.Repo)
+	if err != nil {
 		if retry := p.deferralFor(jobLog, &j, err); retry != nil {
 			return retry
 		}
@@ -187,19 +216,21 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 		// below. Order matters: deferralFor runs first because a
 		// secondary rate limit is also a 403 (INV-0015).
 		if ghclient.IsAccessDenied(err) {
-			return p.park(ctx, jobLog, j, parkAccessDenied, err)
+			return p.park(ctx, jobLog, j, parkAccessDenied, err, nil)
 		}
 
 		// A durable skip (archived, fork) is not a failure at all — the
 		// repo is in its desired state and nothing will change that until
 		// discovery sees it differently.
 		if skip, ok := checker.AsSkipped(err); ok {
-			return p.park(ctx, jobLog, j, skip.Reason, nil)
+			return p.park(ctx, jobLog, j, skip.Reason, nil, &checker.CheckResult{})
 		}
 
 		jobLog.Error("job failed", "error", err, "duration", time.Since(start))
 		metrics.ErrorsTotal.WithLabelValues("check_repo", j.Owner).Inc()
-		p.writeBack(ctx, jobLog, j, err)
+		// CheckRepo already returns nil on its error paths; passing res
+		// rather than a literal nil keeps that contract in one place.
+		p.writeBack(ctx, jobLog, j, err, res)
 
 		return fmt.Errorf("check %s/%s: %w", j.Owner, j.Repo, err)
 	}
@@ -207,7 +238,7 @@ func (p *Pool) processJob(ctx context.Context, log *slog.Logger, j queue.Job) er
 	duration := time.Since(start)
 	metrics.ReposCheckedTotal.WithLabelValues(j.Trigger, j.Owner).Inc()
 	metrics.CheckDurationSeconds.Observe(duration.Seconds())
-	p.writeBack(ctx, jobLog, j, nil)
+	p.writeBack(ctx, jobLog, j, nil, res)
 	jobLog.Info("job completed", "duration", duration)
 
 	return nil
@@ -236,8 +267,28 @@ const parkAccessDenied = "access_denied"
 // does; returning an error would rebuild the retry loop this exists to
 // break.
 //
+// res carries the posture verdict for the parked repo, and the two park
+// reasons need OPPOSITE handling — which is the whole reason this is a
+// parameter rather than a constant.
+//
+//   - access_denied passes nil. We could not read the repository, so we
+//     learned nothing about its rules. Clearing them would make an
+//     unreadable repo look compliant.
+//   - archived/fork pass an empty result. We read the repository fine
+//     and know definitively that no rule applies to it any more, so its
+//     rows must clear — otherwise a parked repo counts against
+//     compliance forever with no path to correction, because parking is
+//     exactly the state in which it will never be re-checked.
+//
 //nolint:gocritic // hugeParam: queue.Job-by-value matches Subscribe's contract
-func (p *Pool) park(ctx context.Context, log *slog.Logger, j queue.Job, reason string, cause error) error {
+func (p *Pool) park(
+	ctx context.Context,
+	log *slog.Logger,
+	j queue.Job,
+	reason string,
+	cause error,
+	res *checker.CheckResult,
+) error {
 	if cause != nil {
 		log.Error("parking repository until discovery sees it again", "reason", reason, "error", cause)
 	} else {
@@ -247,9 +298,10 @@ func (p *Pool) park(ctx context.Context, log *slog.Logger, j queue.Job, reason s
 	metrics.ReposParkedTotal.WithLabelValues(j.Owner, strconv.FormatInt(j.InstallationID, 10), reason).Inc()
 
 	if cause != nil {
-		p.writeBack(ctx, log, j, fmt.Errorf("repository not accessible to installation %d: %w", j.InstallationID, cause))
+		p.writeBack(ctx, log, j,
+			fmt.Errorf("repository not accessible to installation %d: %w", j.InstallationID, cause), res)
 	} else {
-		p.writeBackStatus(ctx, log, j, store.StatusSkipped, reason)
+		p.writeBackStatus(ctx, log, j, store.StatusSkipped, reason, res)
 	}
 
 	// Best-effort, and deliberately after the write-back: if this fails
@@ -279,9 +331,12 @@ func (p *Pool) dropExhausted(ctx context.Context, log *slog.Logger, j queue.Job)
 		"max_attempts", p.maxAttempts,
 	)
 
+	// nil posture: the job never ran the engine on this delivery, so the
+	// repo's existing rule rows stay put. Wiping them here would report
+	// a repo we gave up on as fully compliant.
 	p.writeBack(ctx, log, j, fmt.Errorf(
 		"job dropped after %d attempts (MAX_JOB_ATTEMPTS=%d); see worker logs for the underlying failures",
-		j.Attempts, p.maxAttempts))
+		j.Attempts, p.maxAttempts), nil)
 
 	metrics.QueueAttemptsExhaustedTotal.WithLabelValues(strconv.FormatInt(j.InstallationID, 10)).Inc()
 
@@ -376,8 +431,17 @@ func retryJitter(delay time.Duration) time.Duration {
 // is the source of truth for "did we do the work" — losing the
 // persisted state just means the next sweep will re-enqueue.
 //
+// res carries the per-rule posture from CheckRepo (IMPL-0023 task
+// 1.4) and is nil on every error path, where the engine has no
+// trustworthy verdict to persist. Both writes are independently
+// best-effort: neither can fail the job, and a rule-state failure does
+// not suppress the repo_state write or vice versa. They are separate
+// statements rather than one transaction on purpose — a partial
+// write-back costs one repo one stale sweep, which is cheaper than
+// coupling the sweep's freshness bookkeeping to posture durability.
+//
 //nolint:gocritic // hugeParam: queue.Job-by-value matches Subscribe's contract
-func (p *Pool) writeBack(ctx context.Context, log *slog.Logger, j queue.Job, checkErr error) {
+func (p *Pool) writeBack(ctx context.Context, log *slog.Logger, j queue.Job, checkErr error, res *checker.CheckResult) {
 	if p.stateStore == nil {
 		return
 	}
@@ -399,7 +463,12 @@ func (p *Pool) writeBack(ctx context.Context, log *slog.Logger, j queue.Job, che
 		state.LastError = store.Truncate(checkErr.Error(), errMaxRunes)
 	}
 
+	if res != nil {
+		state.CatalogParseOK = res.CatalogParseOK
+	}
+
 	p.persist(ctx, log, j.InstallationID, state)
+	p.writeBackRuleStates(ctx, log, j, res, strconv.FormatInt(j.InstallationID, 10))
 }
 
 // writeBackStatus records an explicit terminal status, for an outcome
@@ -412,8 +481,17 @@ func (p *Pool) writeBack(ctx context.Context, log *slog.Logger, j queue.Job, che
 // is what lets an operator see why a row was parked from SQL alone;
 // LastCheckStatus is what says whether it was a failure.
 //
+// res follows the same contract as writeBack: nil leaves posture
+// untouched, empty clears it. See Pool.park for which parks pass which.
+//
 //nolint:gocritic // hugeParam: queue.Job-by-value matches Subscribe's contract
-func (p *Pool) writeBackStatus(ctx context.Context, log *slog.Logger, j queue.Job, status, detail string) {
+func (p *Pool) writeBackStatus(
+	ctx context.Context,
+	log *slog.Logger,
+	j queue.Job,
+	status, detail string,
+	res *checker.CheckResult,
+) {
 	if p.stateStore == nil {
 		return
 	}
@@ -429,11 +507,12 @@ func (p *Pool) writeBackStatus(ctx context.Context, log *slog.Logger, j queue.Jo
 		LastCheckStatus: status,
 		LastError:       store.Truncate(detail, errMaxRunes),
 	})
+	p.writeBackRuleStates(ctx, log, j, res, strconv.FormatInt(j.InstallationID, 10))
 }
 
-// persist is the shared best-effort tail of every write-back: one Store
-// call, timed and counted, never propagated. The queue.Job remains the
-// source of truth for "did we do the work".
+// persist is the shared best-effort tail of every repo-state write-back:
+// one Store call, timed and counted, never propagated. The queue.Job
+// remains the source of truth for "did we do the work".
 func (p *Pool) persist(ctx context.Context, log *slog.Logger, installationID int64, state *store.RepoState) {
 	wbStart := time.Now()
 
@@ -448,4 +527,53 @@ func (p *Pool) persist(ctx context.Context, log *slog.Logger, installationID int
 	}
 
 	metrics.StoreWritebackTotal.WithLabelValues(strconv.FormatInt(installationID, 10), outcome).Inc()
+}
+
+// writeBackRuleStates persists the per-rule posture for one repo.
+//
+// A nil res means the check produced no trustworthy verdict — an error
+// path, or a caller that never ran the engine — so nothing is written
+// at all. That is materially different from an empty Outcomes slice,
+// which IS written: it clears the repo's rows, which is how a repo that
+// went archived or left policy scope stops counting against compliance
+// instead of freezing at its last verdict forever.
+//
+//nolint:gocritic // hugeParam: queue.Job-by-value matches Subscribe's contract
+func (p *Pool) writeBackRuleStates(
+	ctx context.Context,
+	log *slog.Logger,
+	j queue.Job,
+	res *checker.CheckResult,
+	installLabel string,
+) {
+	if res == nil {
+		return
+	}
+
+	states := make([]store.RuleState, 0, len(res.Outcomes))
+	for _, o := range res.Outcomes {
+		states = append(states, store.RuleState{
+			InstallationID: j.InstallationID,
+			Owner:          j.Owner,
+			Repo:           j.Repo,
+			RuleName:       o.RuleName,
+			RuleKind:       string(o.Kind),
+			Actionable:     o.Actionable,
+			PolicyVersion:  p.policyVersion,
+		})
+	}
+
+	start := time.Now()
+	err := p.stateStore.UpsertRuleStates(ctx, j.InstallationID, j.Owner, j.Repo, states)
+	metrics.StoreWritebackDurationSeconds.Observe(time.Since(start).Seconds())
+
+	outcome := "ok"
+	if err != nil {
+		outcome = "error"
+
+		log.Warn("rule-state write-back failed; posture will be stale until the next check",
+			"error", err, "rules", len(states))
+	}
+
+	metrics.StoreWritebackTotal.WithLabelValues(installLabel, outcome).Inc()
 }

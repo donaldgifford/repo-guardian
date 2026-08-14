@@ -233,6 +233,196 @@ func (_c *MockStore_GetRepoState_Call) RunAndReturn(run func(ctx context.Context
 	return _c
 }
 
+// InsertComplianceSnapshot provides a mock function for the type MockStore
+func (_mock *MockStore) InsertComplianceSnapshot(ctx context.Context, at time.Time) (int, error) {
+	ret := _mock.Called(ctx, at)
+
+	if len(ret) == 0 {
+		panic("no return value specified for InsertComplianceSnapshot")
+	}
+
+	var r0 int
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time) (int, error)); ok {
+		return returnFunc(ctx, at)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time) int); ok {
+		r0 = returnFunc(ctx, at)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, time.Time) error); ok {
+		r1 = returnFunc(ctx, at)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockStore_InsertComplianceSnapshot_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InsertComplianceSnapshot'
+type MockStore_InsertComplianceSnapshot_Call struct {
+	*mock.Call
+}
+
+// InsertComplianceSnapshot is a helper method to define mock.On call
+//   - ctx context.Context
+//   - at time.Time
+func (_e *MockStore_Expecter) InsertComplianceSnapshot(ctx any, at any) *MockStore_InsertComplianceSnapshot_Call {
+	return &MockStore_InsertComplianceSnapshot_Call{Call: _e.mock.On("InsertComplianceSnapshot", ctx, at)}
+}
+
+func (_c *MockStore_InsertComplianceSnapshot_Call) Run(run func(ctx context.Context, at time.Time)) *MockStore_InsertComplianceSnapshot_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 time.Time
+		if args[1] != nil {
+			arg1 = args[1].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_InsertComplianceSnapshot_Call) Return(rows int, err error) *MockStore_InsertComplianceSnapshot_Call {
+	_c.Call.Return(rows, err)
+	return _c
+}
+
+func (_c *MockStore_InsertComplianceSnapshot_Call) RunAndReturn(run func(ctx context.Context, at time.Time) (int, error)) *MockStore_InsertComplianceSnapshot_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Posture provides a mock function for the type MockStore
+func (_mock *MockStore) Posture(ctx context.Context) (*store.Posture, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Posture")
+	}
+
+	var r0 *store.Posture
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (*store.Posture, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) *store.Posture); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*store.Posture)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockStore_Posture_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Posture'
+type MockStore_Posture_Call struct {
+	*mock.Call
+}
+
+// Posture is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockStore_Expecter) Posture(ctx any) *MockStore_Posture_Call {
+	return &MockStore_Posture_Call{Call: _e.mock.On("Posture", ctx)}
+}
+
+func (_c *MockStore_Posture_Call) Run(run func(ctx context.Context)) *MockStore_Posture_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_Posture_Call) Return(posture *store.Posture, err error) *MockStore_Posture_Call {
+	_c.Call.Return(posture, err)
+	return _c
+}
+
+func (_c *MockStore_Posture_Call) RunAndReturn(run func(ctx context.Context) (*store.Posture, error)) *MockStore_Posture_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ReportData provides a mock function for the type MockStore
+func (_mock *MockStore) ReportData(ctx context.Context) (*store.ReportData, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ReportData")
+	}
+
+	var r0 *store.ReportData
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (*store.ReportData, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) *store.ReportData); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*store.ReportData)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockStore_ReportData_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReportData'
+type MockStore_ReportData_Call struct {
+	*mock.Call
+}
+
+// ReportData is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockStore_Expecter) ReportData(ctx any) *MockStore_ReportData_Call {
+	return &MockStore_ReportData_Call{Call: _e.mock.On("ReportData", ctx)}
+}
+
+func (_c *MockStore_ReportData_Call) Run(run func(ctx context.Context)) *MockStore_ReportData_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_ReportData_Call) Return(reportData *store.ReportData, err error) *MockStore_ReportData_Call {
+	_c.Call.Return(reportData, err)
+	return _c
+}
+
+func (_c *MockStore_ReportData_Call) RunAndReturn(run func(ctx context.Context) (*store.ReportData, error)) *MockStore_ReportData_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // StaleRepos provides a mock function for the type MockStore
 func (_mock *MockStore) StaleRepos(ctx context.Context, freshness time.Duration, currentPolicyVersion string, limit int) ([]store.RepoState, error) {
 	ret := _mock.Called(ctx, freshness, currentPolicyVersion, limit)
@@ -432,6 +622,81 @@ func (_c *MockStore_UpsertIfMissing_Call) Return(created bool, err error) *MockS
 }
 
 func (_c *MockStore_UpsertIfMissing_Call) RunAndReturn(run func(ctx context.Context, s *store.RepoState) (bool, error)) *MockStore_UpsertIfMissing_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpsertRuleStates provides a mock function for the type MockStore
+func (_mock *MockStore) UpsertRuleStates(ctx context.Context, installationID int64, owner string, repo string, states []store.RuleState) error {
+	ret := _mock.Called(ctx, installationID, owner, repo, states)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpsertRuleStates")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, string, string, []store.RuleState) error); ok {
+		r0 = returnFunc(ctx, installationID, owner, repo, states)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockStore_UpsertRuleStates_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpsertRuleStates'
+type MockStore_UpsertRuleStates_Call struct {
+	*mock.Call
+}
+
+// UpsertRuleStates is a helper method to define mock.On call
+//   - ctx context.Context
+//   - installationID int64
+//   - owner string
+//   - repo string
+//   - states []store.RuleState
+func (_e *MockStore_Expecter) UpsertRuleStates(ctx any, installationID any, owner any, repo any, states any) *MockStore_UpsertRuleStates_Call {
+	return &MockStore_UpsertRuleStates_Call{Call: _e.mock.On("UpsertRuleStates", ctx, installationID, owner, repo, states)}
+}
+
+func (_c *MockStore_UpsertRuleStates_Call) Run(run func(ctx context.Context, installationID int64, owner string, repo string, states []store.RuleState)) *MockStore_UpsertRuleStates_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int64
+		if args[1] != nil {
+			arg1 = args[1].(int64)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		var arg4 []store.RuleState
+		if args[4] != nil {
+			arg4 = args[4].([]store.RuleState)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_UpsertRuleStates_Call) Return(err error) *MockStore_UpsertRuleStates_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockStore_UpsertRuleStates_Call) RunAndReturn(run func(ctx context.Context, installationID int64, owner string, repo string, states []store.RuleState) error) *MockStore_UpsertRuleStates_Call {
 	_c.Call.Return(run)
 	return _c
 }

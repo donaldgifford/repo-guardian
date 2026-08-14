@@ -173,7 +173,6 @@ func (*CustomPropertiesReconciler) RunsOnAbsence() bool {
 // either sets them via API or creates a PR with a workflow.
 func (r *CustomPropertiesReconciler) Reconcile(ctx context.Context, params *ReconcileParams) error {
 	log := params.Logger.With("reconciler", "custom_properties", "mode", r.mode)
-	metrics.PropertiesCheckedTotal.Inc()
 
 	content, catalogFound, err := resolveCatalogContent(ctx, params)
 	if err != nil {
@@ -189,15 +188,21 @@ func (r *CustomPropertiesReconciler) Reconcile(ctx context.Context, params *Reco
 		case errors.Is(parseErr, catalog.ErrNotComponent):
 			// Not something we manage here — a valid non-Component
 			// entity is never a statement of desired property state
-			// (IMPL-0020 Decision 1).
+			// (IMPL-0020 Decision 1). The YAML itself parsed, so this
+			// is not a parse failure for posture purposes; leaving the
+			// outcome unset keeps "we don't manage this repo" out of
+			// the broken-catalog count.
 			log.Info("catalog-info is not a Backstage Component entity; skipping custom-properties reconcile", "err", parseErr)
 			return nil
 		case parseErr != nil:
 			log.Warn("catalog-info parse failed; skipping reconcile to avoid clearing properties", "err", parseErr)
 			metrics.CatalogParseFailedTotal.WithLabelValues(params.Owner).Inc()
+			params.Outcome.SetCatalogParseOK(false)
 
 			return nil
 		}
+
+		params.Outcome.SetCatalogParseOK(true)
 
 		desired = parsed
 	}
@@ -217,7 +222,6 @@ func (r *CustomPropertiesReconciler) Reconcile(ctx context.Context, params *Reco
 
 	if !r.diffProperties(desired, current, defined) {
 		log.Info("custom properties already correct")
-		metrics.PropertiesAlreadyCorrectTotal.Inc()
 
 		return nil
 	}
@@ -331,7 +335,14 @@ func (r *CustomPropertiesReconciler) handleGHAMode(
 
 	applyLabels(ctx, log, params.Client, params.Owner, params.Repo, pr.Number, prText.Labels)
 
-	metrics.PropertiesPRsCreatedTotal.Inc()
+	// The engine's counter, not a reconciler-specific one. This PR is a
+	// pull request repo-guardian opened against someone's repository,
+	// and counting it anywhere else is how it stayed invisible to every
+	// per-org PR panel and to the PR-burst alert until IMPL-0023 Phase
+	// 7. If you need to tell property PRs from file-rule PRs, the
+	// distinguishing detail is in the log line below and on the PR
+	// itself — that is the evidence tier's job, not a metric label's.
+	metrics.PRsCreatedTotal.WithLabelValues(params.Owner).Inc()
 	log.Info("created properties PR", "pr_number", pr.Number)
 
 	return nil
@@ -455,8 +466,6 @@ func (r *CustomPropertiesReconciler) handleAPIMode(
 		return fmt.Errorf("setting custom properties: %w", err)
 	}
 
-	metrics.PropertiesSetTotal.Inc()
-
 	if len(clears) > 0 {
 		metrics.CustomPropertyClearedTotal.WithLabelValues(params.Owner).Add(float64(len(clears)))
 	}
@@ -546,6 +555,35 @@ func (r *CustomPropertiesReconciler) managedSetNames() []string {
 	names = append(names, r.managedNames...)
 
 	return names
+}
+
+// recordSchemaGaps publishes the schema-gap posture for one org:
+// property_schema_missing{org, property} = 1 for each managed property
+// the org schema does not define, 0 for each one it does
+// (DESIGN-0022 finding B).
+//
+// Called only from the success branch of fetchOrgSchema, so the series
+// turns over once per org per schemaCacheTTL rather than once per
+// reconciled repo. Explicitly writing the 0s is what makes a gap that
+// gets fixed drop to zero — without them a resolved gap would sit at 1
+// until the process restarted, and the RepoGuardianPropertySchemaMissing
+// alert would never clear.
+//
+// Nothing resets the vector: a property that leaves the managed set
+// keeps its last value until restart. That is a deliberate trade
+// against the alternative — the per-org refreshes are independent and
+// staggered by TTL, so a global Reset() here would blank every *other*
+// org's posture on each refresh. Removing a mapped annotation is a
+// deploy-time event, and the deploy restarts the process.
+func (r *CustomPropertiesReconciler) recordSchemaGaps(org string, defined map[string]struct{}) {
+	for _, name := range r.managedSetNames() {
+		gap := 0.0
+		if _, ok := defined[name]; !ok {
+			gap = 1
+		}
+
+		metrics.PropertySchemaMissing.WithLabelValues(org, name).Set(gap)
+	}
 }
 
 // reportMissingSchema warns once and increments
@@ -664,6 +702,7 @@ func (r *CustomPropertiesReconciler) fetchOrgSchema(
 		}
 
 		entry.names = set
+		r.recordSchemaGaps(org, set)
 	}
 
 	r.schemaMu.Lock()
@@ -749,7 +788,8 @@ func (r *CustomPropertiesReconciler) createCatalogInfoPR(
 
 	applyLabels(ctx, log, params.Client, params.Owner, params.Repo, pr.Number, prText.Labels)
 
-	metrics.PropertiesPRsCreatedTotal.Inc()
+	// Same fold as the properties PR above; see the comment there.
+	metrics.PRsCreatedTotal.WithLabelValues(params.Owner).Inc()
 	log.Info("created catalog-info PR", "pr_number", pr.Number)
 
 	return nil

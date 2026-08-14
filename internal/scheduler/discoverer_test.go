@@ -66,6 +66,13 @@ func (*fakeDiscoveryStore) StaleRepos(_ context.Context, _ time.Duration, _ stri
 	return nil, nil
 }
 
+// Discovery never writes rule states — it only seeds pending rows.
+func (*fakeDiscoveryStore) UpsertRuleStates(
+	_ context.Context, _ int64, _, _ string, _ []store.RuleState,
+) error {
+	return nil
+}
+
 func (*fakeDiscoveryStore) Close() error { return nil }
 
 func (f *fakeDiscoveryStore) Upserted() []*store.RepoState {
@@ -285,4 +292,61 @@ func TestDiscoverer_ContextCancelled_ReturnsErr(t *testing.T) {
 	}
 }
 
+// TestDiscoverer_SetsInstallationInfo pins the org↔installation join
+// label (IMPL-0023 task 2.1). Every repo listing fails here, and the
+// assertion that both installations still get a join series is the
+// point: the rate-limit and discovery-error panels an operator opens
+// *because* an installation is failing are the ones that need the org
+// label most, so the emission must not sit behind the failing call.
+func TestDiscoverer_SetsInstallationInfo(t *testing.T) {
+	// Cannot use t.Parallel() — resets the global InstallationInfo gauge.
+	metrics.InstallationInfo.Reset()
+
+	client := newMockClient()
+	client.installations = []*ghclient.Installation{
+		{ID: 1, Account: "org1"},
+		{ID: 2, Account: "org2"},
+	}
+	client.listReposErr = errors.New("rate limited")
+
+	d := NewDiscoverer(DiscovererOptions{
+		Client: client, Store: newFakeDiscoveryStore(),
+		Logger: slog.Default(), Freshness: time.Hour,
+	})
+
+	if err := d.Discover(t.Context()); err != nil {
+		t.Fatalf("Discover: %v", err)
+	}
+
+	for _, want := range []struct {
+		installationID string
+		org            string
+	}{
+		{"1", "org1"},
+		{"2", "org2"},
+	} {
+		got := testutil.ToFloat64(metrics.InstallationInfo.WithLabelValues(want.installationID, want.org))
+		if got != 1 {
+			t.Errorf("installation_info{installation_id=%q, org=%q} = %v, want 1",
+				want.installationID, want.org, got)
+		}
+	}
+
+	if n := testutil.CollectAndCount(metrics.InstallationInfo); n != 2 {
+		t.Errorf("installation_info has %d series, want 2 (one per installation)", n)
+	}
+}
+
 func (*fakeDiscoveryStore) Deactivate(context.Context, int64, string, string) error { return nil }
+
+func (*fakeDiscoveryStore) ReportData(context.Context) (*store.ReportData, error) {
+	return nil, errors.New("fakeDiscoveryStore: ReportData not used by these tests")
+}
+
+func (*fakeDiscoveryStore) InsertComplianceSnapshot(context.Context, time.Time) (int, error) {
+	return 0, errors.New("fakeDiscoveryStore: InsertComplianceSnapshot not used by these tests")
+}
+
+func (*fakeDiscoveryStore) Posture(context.Context) (*store.Posture, error) {
+	return nil, errors.New("fakeDiscoveryStore: Posture not used by these tests")
+}

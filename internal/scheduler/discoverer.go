@@ -141,6 +141,14 @@ func (d *Discoverer) Discover(ctx context.Context) error {
 // (excludes pre-existing rows). Best-effort: errors are logged and
 // the installation is skipped.
 func (d *Discoverer) discoverInstallation(ctx context.Context, install *ghclient.Installation) int {
+	// Discovery is the authoritative source for the org↔installation
+	// join (DESIGN-0022 E2): ListInstallations is the only API surface
+	// that hands us both halves without an extra call. Set it before the
+	// repo listing, so an installation whose repos we cannot enumerate
+	// still resolves its ID on rate-limit and discovery-error panels —
+	// exactly when an operator most needs to know whose org is stuck.
+	metrics.SetInstallationInfo(install.ID, install.Account)
+
 	repos, err := d.client.ListInstallationRepos(ctx, install.ID)
 
 	d.observeAPICall(install.ID, "list_installation_repos")

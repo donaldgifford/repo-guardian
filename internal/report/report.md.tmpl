@@ -1,0 +1,46 @@
+# Compliance report: {{ mdcell .Name }}
+
+Generated {{ .GeneratedAt.UTC.Format "2006-01-02 15:04:05 UTC" }} by repo-guardian.
+
+{{ if .Rules -}}
+{{ .Compliant }} of {{ .Evaluated }} rule evaluations pass across {{ len .Rules }} rule(s).
+{{- else -}}
+No rules have been evaluated for this organisation yet.
+{{- end }}
+
+## Compliance by rule
+
+{{ if .Rules -}}
+| Rule | Kind | Failing | Applies to | Compliant |{{ if .HasHistory }} Trend |{{ end }}
+|---|---|---:|---:|---:|{{ if .HasHistory }}---|{{ end }}
+{{ range .Rules -}}
+| {{ mdcell .Name }} | {{ mdcell .Kind }} | {{ .Actionable }} | {{ .Tracked }} | {{ pct . }} |{{ if $.HasHistory }} {{ trend . }} |{{ end }}
+{{ end -}}
+{{- else -}}
+Nothing to report.
+{{- end }}
+{{ if and .Rules (not .HasHistory) }}
+No previous snapshot exists, so no trend is shown. Trends appear once
+the `compliance-snapshot` handler has run at least twice.
+{{ end }}
+## Findings
+
+{{ if .Findings -}}
+| Repository | Rule | Failing since |{{ if .ShowLinks }} Open PR |{{ end }}
+|---|---|---|{{ if .ShowLinks }}---|{{ end }}
+{{ range .Findings -}}
+| {{ mdcell .Repo }} | {{ mdcell .RuleName }} | {{ since .Since }} |{{ if $.ShowLinks }} {{ if .PRURL }}[open]({{ .PRURL }}){{ else }}—{{ end }} |{{ end }}
+{{ end -}}
+{{- else -}}
+Every evaluated rule passes on every active repository.
+{{- end }}
+{{ if .LinkFailures }}
+{{ .LinkFailures }} PR link lookup(s) failed, so the Open PR column is
+incomplete. A blank cell here does not necessarily mean no PR exists.
+{{ end }}
+---
+
+Parked repositories — archived, forked, or unreadable by the App — are
+excluded from every number above. A repository nobody can measure is
+neither compliant nor failing, and counting it either way would be a
+guess.

@@ -108,7 +108,7 @@ func (s *stagedConvergenceState) forbiddenOnMainAndBranch(path, sha string) {
 
 func (s *stagedConvergenceState) sweep() {
 	s.t.Helper()
-	if err := s.engine.CheckRepo(context.Background(), s.client, s.org, s.repo); err != nil {
+	if _, err := s.engine.CheckRepo(context.Background(), s.client, s.org, s.repo); err != nil {
 		s.t.Fatalf("CheckRepo: %v", err)
 	}
 }

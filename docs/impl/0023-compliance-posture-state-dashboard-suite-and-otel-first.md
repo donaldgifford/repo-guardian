@@ -1,7 +1,7 @@
 ---
 id: IMPL-0023
 title: "Compliance posture state, dashboard suite, and OTEL-first observability"
-status: In Progress
+status: Completed
 author: Donald Gifford
 created: 2026-08-02
 ---
@@ -1907,8 +1907,8 @@ smoke IMPL-0019 and IMPL-0020 left open.
 | `internal/report/` | Create | report rendering |
 | `internal/config/config.go` | Modify | `POSTURE_EXPORT_INTERVAL`, `COMPLIANCE_SNAPSHOT_INTERVAL` |
 | `charts/repo-guardian/` values + schema + tests | Modify | new intervals; P7 bump |
-| `contrib/grafana/` | Replace | four generated dashboards replace the 61-panel legacy |
-| `contrib/prometheus/alerts.yaml` | Modify | generator-authored parity |
+| `contrib/grafana/` | Delete | four generated dashboards (in `contrib/generated/`) replace the 61-panel legacy |
+| `contrib/prometheus/alerts.yaml` | Delete | superseded by `contrib/generated/alerts/rules.yaml`; see 6.6 divergence |
 | `.github/workflows/ci.yml` | Modify | drift-gate job in the paths-filter matrix |
 
 ## Testing Plan
@@ -1964,14 +1964,35 @@ smoke IMPL-0019 and IMPL-0020 left open.
       goldens (format, hand-built input) and the store integration
       tests (queries, real database) — each half supplies the other's
       input, so a seam defect passes both.
-- [ ] Generator render tests against the pinned Grafana schema;
+- [x] Generator render tests against the pinned Grafana schema;
       zero-mechanism fixture emits zero mechanism panels/alerts.
       (Phase 5.)
-- [ ] Catalog-parse log-line contract test (message + keys).
-- [ ] helm-unittest for new chart values; CI drift gate on the static
-      tier.
-- [ ] Each behavioural test neutralise-verify-restore per standing
-      practice.
+
+      Render coverage: every dashboard test renders through
+      `dashboard.Render` and asserts on the emitted JSON;
+      `suiteTargets` additionally fails any panel with no query or no
+      declared datasource. The zero-mechanism case is covered on the
+      alert side twice (`TestGenerate_AlertsAreMechanismScoped` in
+      emit, the "no mechanisms" row of `TestGenerate_MechanismScoping`
+      in alert). The "zero mechanism panels" half is vacuous by
+      construction and verified so: no dashboard file references
+      `Mechanism` — panels vary with the model's org/rule shape
+      (covered by the legacy-vs-strict E2 tests), and mechanism
+      gating lives entirely in the alert catalogue.
+- [x] Catalog-parse log-line contract test (message + keys). Task 6.5,
+      `internal/reconciler/log_contract_test.go` — message, WARN
+      level, `reconciler`/`mode`/`err` keys, caller-field
+      pass-through, and the non-Component sibling NOT emitting the
+      parse line.
+- [x] helm-unittest for new chart values; CI drift gate on the static
+      tier. Tasks 2.5/7.3 (posture interval cases in
+      `deployment_env_test.yaml`, 113 chart tests green) and 5.5 (the
+      `monitoring-drift` CI job running `make lint-monitoring`).
+- [x] Each behavioural test neutralise-verify-restore per standing
+      practice. Run throughout — roughly twenty-five probes across
+      Phases 5–7, each recorded in its task entry; the final three
+      (firstOrIncrease strip, chart sweep-selector reintroduction,
+      counter-fold increment removal) are in 7.1/7.3.
 
 ## Dependencies
 

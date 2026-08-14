@@ -111,7 +111,7 @@ jobs:
       # mise supplies promtool, helm and yq, all three of which lint-alerts
       # needs — the chart half renders the PrometheusRule before parsing it.
       - name: Set up mise
-        uses: jdx/mise-action@v3
+        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4
 
       - name: Validate Prometheus alert rules (contrib recipe + rendered chart)
         run: make lint-alerts
@@ -131,7 +131,7 @@ jobs:
 
       # mise supplies yq, which the target's anti-vacuous rule count uses.
       - name: Set up mise
-        uses: jdx/mise-action@v3
+        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4
 
       # The generator logs to stderr on every run — including a Warn about
       # undeclarable orgs, which is expected for the built-in policy. Do not

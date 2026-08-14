@@ -1828,7 +1828,7 @@ smoke IMPL-0019 and IMPL-0020 left open.
       warning, the counter removals with the prs_created_total step-up
       note, the generated-dashboard pointer); `make helm-docs`
       regenerated the rendered README.
-- [ ] 7.4 CLAUDE.md: posture-state contract (write-back best-effort,
+- [x] 7.4 CLAUDE.md: posture-state contract (write-back best-effort,
       leader-scoped export, taxonomy pointer) and the
       transport-ordering contract shared with IMPL-0022. Also the
       nil-vs-empty `*CheckResult` rule and its interaction with
@@ -1837,6 +1837,32 @@ smoke IMPL-0019 and IMPL-0020 left open.
       backwards is silently wrong in both directions. CLAUDE.md already
       carries the parking entry; this extends it rather than adding a
       second one.
+
+      Three additions, placed by their audience: the IMPL-0023
+      posture-state entry (seven invariants: one-way flow,
+      leader-only export with read-before-reset, max-by-never-sum,
+      no-data-never-100%, the tier taxonomy, the generated tier and
+      its two source-scanning tests, firstOrIncrease, and the
+      counter fold) sits above the IMPL-0022 entry it composes with;
+      the transport-ordering contract is its own entry immediately
+      after, since IMPL-0022 and IMPL-0023 co-own it; the
+      nil-vs-empty rule went INTO the INV-0015 parking bullet list as
+      the task requires, because whoever touches `park` next will be
+      reading that entry, not a posture one.
+
+      The nil-vs-empty wording was verified against
+      `writeBackRuleStates` before writing: nil returns early (write
+      nothing), non-nil-empty writes an empty keep-set (clears the
+      repo's rows). Both failure directions stated because neither
+      crashes — nil-where-empty freezes a parked repo's stale rows,
+      empty-where-nil wipes real posture on a transient 403.
+
+      Also fixed while here: the architecture tree's metrics/ line
+      still said "34 metrics total" (it is ~50 registrations, and
+      IMPL-0023's additions/removals were absent), and the tree had
+      no entries at all for `internal/monitoring`,
+      `internal/observability` or `internal/report` — three packages
+      this IMPL added. All four lines updated.
 - [ ] 7.5 Flip INV-0013 to Concluded and DESIGN-0022 to Implemented;
       `docz update design inv impl`; mkdocs stays at the 14-warning
       baseline.

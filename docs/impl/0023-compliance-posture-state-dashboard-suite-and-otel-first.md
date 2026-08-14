@@ -1727,8 +1727,43 @@ smoke IMPL-0019 and IMPL-0020 left open.
       `contrib/README.md` (a removed → use-instead table, the
       behaviour-change note, and the mechanism-gated alert list down
       from six to five).
-- [ ] 7.2 `docs/operations/scaling.md`: posture architecture,
+- [x] 7.2 `docs/operations/scaling.md`: posture architecture,
       exporter leader semantics, OTEL series catalog, dedup rule.
+
+      Two of the four already landed with Phase 3 (§OpenTelemetry
+      series carries the boundary table, the three counter-intuitive
+      facts, the dedup rule and the cardinality decisions). This task
+      adds the posture half: the one-way flow from worker →
+      `rule_state` → leader-only export → gauges, both interval knobs
+      with what they actually change, and the two aggregation
+      consequences that bite.
+
+      The aggregation section is the load-bearing part.
+      `max by (...)` not `sum` (a demoted replica keeps serving its
+      last values, so `sum` double-counts through every failover, in
+      the direction that makes compliance look worse), and
+      `sum(max by (org) (...))` **in that order** for a fleet total —
+      reversed it silently reports the largest org, which looks
+      entirely plausible.
+
+      Also documents the two failure modes a gauge-based posture has
+      that a counter did not: a frozen exporter serves last week's
+      compliance with total confidence (hence the "watch the exporter
+      itself" queries and `RepoGuardianPostureExportStalled`), and an
+      untracked fleet must read "no data" rather than 100%.
+
+      Every claim was checked against the code and the generated
+      artifacts rather than written from memory — the `and on()
+      (sum(max by (org) (repo_guardian_repos_tracked)) > 0)` guard is
+      in the committed KPI JSON, and `report.CompliantPercent` really
+      does return `(0, false)` on `Tracked <= 0`, so the doc's claim
+      that the two agree is verified rather than asserted.
+
+      Not verified locally: the mkdocs 14-warning baseline. mkdocs is
+      not installed in this environment (CI installs
+      `mkdocs-material` in `gh-pages.yml`). This task adds sections to
+      a page already in the nav and adds no new files, so the nav is
+      unchanged.
 - [ ] 7.3 Chart: version + appVersion bump, new values documented via
       `README.md.gotmpl` (never the rendered README), prometheusrule
       parity with the generator output.

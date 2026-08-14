@@ -349,6 +349,93 @@ lives in `charts/repo-guardian/templates/prometheusrule.yaml`; both signals
 key off the same `org` value, so a Loki log line and a Prometheus alert for
 the same incident always agree on which org to investigate.
 
+## Compliance posture (IMPL-0023 Phases 1–2)
+
+"How many repositories are missing CODEOWNERS right now" used to be
+answered by a counter, and a counter cannot answer it. It only grows: a
+repository fixed yesterday still shows in `increase(...[7d])` today, a
+repository checked twice counts twice, and one the sweep has not
+reached counts zero. Restarts made that obviously wrong instead of
+subtly wrong, which is why the complaint arrived as "the counts clear
+on restart" rather than "the counts are meaningless" (INV-0013 Finding
+B).
+
+Posture is now **state**, and it flows one way:
+
+```
+worker checks a repo
+  └─> UpsertRuleStates  (Postgres: rule_state, one row per repo × rule)
+        └─> PostureExporter.Export  (leader only, every POSTURE_EXPORT_INTERVAL)
+              └─> repos_actionable{rule_name,org} / repos_tracked{org} / repos_unmeasurable{org,reason}
+                    └─> E1 and E2 panels, and the compliance % in `repo-guardian report`
+```
+
+| Knob | Default | What it changes |
+|---|---|---|
+| `POSTURE_EXPORT_INTERVAL` | `60s` | How stale the gauges may be. This is *publication* cadence, not measurement — the underlying rows change only when a repository is re-checked, so shortening it below the sweep interval buys nothing. |
+| `COMPLIANCE_SNAPSHOT_INTERVAL` | `24h` | How finely compliance history is recorded for `repo-guardian report`. Roughly 120 rows/day at target scale, kept forever; there is no retention machinery, so shortening it accrues storage indefinitely for resolution no report asks for. |
+
+### The exporter runs on the leader only
+
+`Export` is registered under the same SETNX leader election as
+stale-sweep. Not because it writes anything — it only reads — but
+because a gauge is a claim about the fleet, and the fleet has one
+answer. Every replica publishing its own copy would make the number
+depend on how many replicas you happen to run.
+
+**Two consequences that bite if you do not know them:**
+
+1. **Aggregate with `max by (...)`, never `sum`.** A demoted replica
+   keeps serving whatever it last published until its process restarts,
+   and during a failover both the outgoing and incoming leaders can
+   hold series at once. `max` is correct in both states; `sum`
+   double-counts through every leader change — silently, and in the
+   direction that makes compliance look worse than it is. The generated
+   dashboards do this correctly and
+   `TestSuite_PostureQueriesDedupeAcrossReplicas` keeps them that way;
+   hand-written panels are on their own.
+
+2. **`sum(max by (org) (...))` for a fleet total, in that order.** The
+   inner aggregation collapses replicas, the outer adds up orgs.
+   Reversing them gives you the largest org rather than the fleet, and
+   the number looks entirely plausible.
+
+The export reads the whole aggregate BEFORE resetting the gauges. A
+reset-then-read would blank every series for the duration of the query,
+so a scrape landing in that window sees zero repositories tracked —
+indistinguishable from a fleet that vanished, and on a 60s tick against
+a slow query that is not a rare interleaving. On a read failure the
+previous values persist rather than going to zero: for a gauge, last
+known truth beats a confident zero.
+
+### Watch the exporter itself
+
+The posture gauges cannot report the one failure that matters most
+about them — that they have stopped being updated. A frozen exporter
+serves last week's compliance with total confidence.
+
+```promql
+# Should be non-zero whenever a leader exists.
+sum(rate(repo_guardian_posture_export_total{outcome="success"}[15m]))
+
+# The store read behind every number on E1.
+histogram_quantile(0.99,
+  sum by (le) (rate(repo_guardian_posture_export_duration_seconds_bucket[1h])))
+```
+
+`RepoGuardianPostureExportStalled` is the shipped alert for the first
+one. If it fires, treat every compliance number as unknown rather than
+as its last value.
+
+### Compliance is "no data" when nothing is tracked
+
+Both the report and the dashboards refuse to divide by zero and refuse
+to call the result 100%. A fleet with no tracked repositories has no
+compliance percentage — it has an absent measurement, and rendering
+that as full marks is how a dead exporter reports a perfect fleet. The
+dashboard expresses it as `and on() (tracked > 0)`, mirroring
+`report.CompliantPercent` returning `(0, false)`.
+
 ## OpenTelemetry series (IMPL-0023 Phase 3)
 
 Four transport boundaries carry off-the-shelf OTel instrumentation, and

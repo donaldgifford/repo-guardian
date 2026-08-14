@@ -111,7 +111,7 @@ jobs:
       # mise supplies promtool, helm and yq, all three of which lint-alerts
       # needs — the chart half renders the PrometheusRule before parsing it.
       - name: Set up mise
-        uses: jdx/mise-action@v3
+        uses: jdx/mise-action@v4
 
       - name: Validate Prometheus alert rules (contrib recipe + rendered chart)
         run: make lint-alerts

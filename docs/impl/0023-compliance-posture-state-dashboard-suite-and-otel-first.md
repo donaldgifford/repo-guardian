@@ -1863,9 +1863,22 @@ smoke IMPL-0019 and IMPL-0020 left open.
       no entries at all for `internal/monitoring`,
       `internal/observability` or `internal/report` — three packages
       this IMPL added. All four lines updated.
-- [ ] 7.5 Flip INV-0013 to Concluded and DESIGN-0022 to Implemented;
+- [x] 7.5 Flip INV-0013 to Concluded and DESIGN-0022 to Implemented;
       `docz update design inv impl`; mkdocs stays at the 14-warning
       baseline.
+
+      Both statuses flipped; INV-0013 also gained a short Disposition
+      section mapping each recommended effort to what shipped, so the
+      Concluded status is traceable rather than bare. `docz update`
+      takes one type per invocation (the task's `design inv impl`
+      shorthand errors with "accepts at most 1 arg"), so it ran three
+      times; design and investigation READMEs regenerated, impl's is
+      untouched until this doc itself flips to Completed at close-out.
+
+      The mkdocs baseline is not verifiable here — mkdocs is not
+      installed in this environment (CI installs mkdocs-material in
+      gh-pages.yml). No nav entries changed in this task and no files
+      moved, so the warning count has no mechanism to change.
 
 #### Success Criteria
 

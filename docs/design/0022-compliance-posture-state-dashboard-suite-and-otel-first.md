@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0022
 title: "Compliance posture state, dashboard suite, and OTEL-first observability"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-08-02
 ---

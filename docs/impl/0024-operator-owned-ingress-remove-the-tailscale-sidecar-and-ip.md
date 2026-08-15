@@ -318,8 +318,9 @@ The release-side checklist, including the two items that fail
   repo-guardian-chart --version 1.0.0` (or `aws ecr
   describe-images`) — required because the publish workflow's `helm
   pull` idempotency precheck *silently skips* publishing over an
-  existing version.
-- [ ] 4.3 Re-verify `appVersion` against the tag the `minor` label
+  existing version. *(2026-08-15: no AWS credentials on the dev
+  machine — run this operator-side before or at merge time.)*
+- [x] 4.3 Re-verify `appVersion` against the tag the `minor` label
   will actually cut (IMPL-0017 lesson) — if a release landed since,
   adjust `appVersion` before merge.
 - [ ] 4.4 Open the single atomic PR with the `minor` label; body

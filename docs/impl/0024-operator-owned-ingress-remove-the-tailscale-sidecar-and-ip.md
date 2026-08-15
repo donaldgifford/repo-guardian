@@ -275,7 +275,7 @@ phase is load-bearing, not cleanup.
   `contrib/README.md` — replace Tailscale/allowlist references with
   `ingress.md` pointers (historical design/impl docs stay
   untouched).
-- [ ] 3.5 Supersession (OQ1 = a): add `Superseded` to the design
+- [x] 3.5 Supersession (OQ1 = a): add `Superseded` to the design
   statuses in `.docz.yaml`; set DESIGN-0004 and DESIGN-0003 to
   `Superseded` with a banner naming DESIGN-0023; INV-0001 gets a
   banner pointing at INV-0016 (status stays Concluded); `docz

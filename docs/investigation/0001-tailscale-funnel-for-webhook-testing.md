@@ -9,7 +9,13 @@ created: 2026-03-14
 
 # INV 0001: Tailscale Funnel for Webhook Testing
 
-**Status:** Open
+> **Historical.** The sidecar approach this investigation validated
+> was later removed by
+> [INV-0016](0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress.md)
+> / DESIGN-0023 / IMPL-0024 — ingress is operator-owned now; see
+> [docs/operations/ingress.md](../operations/ingress.md).
+
+**Status:** Concluded
 **Author:** Donald Gifford
 **Date:** 2026-03-14
 

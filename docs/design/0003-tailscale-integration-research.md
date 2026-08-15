@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0003
 title: "Tailscale Integration Research"
-status: Draft
+status: Superseded
 author: Donald Gifford
 created: 2026-03-01
 ---
@@ -9,7 +9,14 @@ created: 2026-03-01
 
 # DESIGN 0003: Tailscale Integration Research
 
-**Status:** Draft
+> **Superseded by [DESIGN-0023](0023-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip.md)**
+> (IMPL-0024, chart `1.0.0`): the baked Tailscale sidecar this research
+> led to was removed — ingress is operator-owned. See
+> [INV-0016](../investigation/0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress.md)
+> and [docs/operations/ingress.md](../operations/ingress.md). Kept as
+> a historical record.
+
+**Status:** Superseded
 **Author:** Donald Gifford
 **Date:** 2026-03-01
 

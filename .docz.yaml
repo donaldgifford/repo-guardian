@@ -40,6 +40,7 @@ types:
       - In Review
       - Approved
       - Implemented
+      - Superseded
       - Abandoned
     status_field: "status"
 

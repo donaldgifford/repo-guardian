@@ -286,7 +286,7 @@ phase is load-bearing, not cleanup.
   and add a short entry recording this change's contracts (HMAC
   sole app layer; `reason="signature"`; removed knobs fail
   load/render).
-- [ ] 3.7 `docz update impl` + `docz wiki update`; `make
+- [x] 3.7 `docz update impl` + `docz wiki update`; `make
   lint-docs`-equivalent checks if present (yamllint/markdownlint
   via existing make targets).
 

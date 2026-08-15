@@ -159,7 +159,7 @@ any commit.
   (`WebhookIPAllowlist`, `WebhookIPAllowlistFailOpen`,
   `TrustProxyHeaders` fields; `envOrDefaultBool` loads ~278-290);
   update `config_test.go`.
-- [ ] 1.5 Remove the HCL attrs — the INV-0010 lockstep in reverse,
+- [x] 1.5 Remove the HCL attrs — the INV-0010 lockstep in reverse,
   all three spots per attribute: `guardianBodySchema` (~378),
   `setGuardianAttr` (~429), `mergeGuardianConfig` (~1167), plus
   `applyEnvOverrides` (~1191) and `defaults.go` (~111); update

@@ -97,18 +97,15 @@ func defaultCatalogInfoRule(mode string) FileRuleConfig {
 
 func defaultGuardianConfig() GuardianConfig {
 	return GuardianConfig{
-		DryRun:                     false,
-		ScheduleInterval:           "168h",
-		ParsedScheduleInterval:     defaultScheduleInterval,
-		WorkerCount:                defaultWorkerCount,
-		QueueSize:                  defaultQueueSize,
-		LogLevel:                   defaultLogLevel,
-		SkipForks:                  true,
-		SkipArchived:               true,
-		RateLimitThreshold:         defaultRateLimitThresh,
-		WebhookIPAllowlist:         true,
-		WebhookIPAllowlistFailOpen: false,
-		TrustProxyHeaders:          false,
+		DryRun:                 false,
+		ScheduleInterval:       "168h",
+		ParsedScheduleInterval: defaultScheduleInterval,
+		WorkerCount:            defaultWorkerCount,
+		QueueSize:              defaultQueueSize,
+		LogLevel:               defaultLogLevel,
+		SkipForks:              true,
+		SkipArchived:           true,
+		RateLimitThreshold:     defaultRateLimitThresh,
 	}
 }
 

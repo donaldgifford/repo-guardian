@@ -33,9 +33,6 @@ func TestBuiltinDefaults_GuardianConfig(t *testing.T) {
 		{"SkipForks", g.SkipForks, true},
 		{"SkipArchived", g.SkipArchived, true},
 		{"RateLimitThreshold", g.RateLimitThreshold, 0.10},
-		{"WebhookIPAllowlist", g.WebhookIPAllowlist, true},
-		{"WebhookIPAllowlistFailOpen", g.WebhookIPAllowlistFailOpen, false},
-		{"TrustProxyHeaders", g.TrustProxyHeaders, false},
 	}
 
 	for _, tt := range tests {

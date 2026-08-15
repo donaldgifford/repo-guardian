@@ -268,10 +268,6 @@ func TestLoad_GuardianDefaults_PreservedWithoutHCL(t *testing.T) {
 		t.Error("SkipArchived should default to true")
 	}
 
-	if !cfg.Guardian.WebhookIPAllowlist {
-		t.Error("WebhookIPAllowlist should default to true")
-	}
-
 	if cfg.Guardian.WorkerCount != 5 {
 		t.Errorf("WorkerCount = %d, want 5", cfg.Guardian.WorkerCount)
 	}

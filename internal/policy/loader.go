@@ -375,9 +375,6 @@ var guardianBodySchema = &hcl.BodySchema{
 		{Name: "skip_forks"},
 		{Name: "skip_archived"},
 		{Name: "rate_limit_threshold"},
-		{Name: "webhook_ip_allowlist"},
-		{Name: "webhook_ip_allowlist_fail_open"},
-		{Name: "trust_proxy_headers"},
 		{Name: "auto_close_pr"},
 		{Name: "orphan_cleanup"},
 	},
@@ -426,12 +423,6 @@ func setGuardianAttr(g *GuardianConfig, name string, val cty.Value) {
 	case "rate_limit_threshold":
 		f, _ := val.AsBigFloat().Float64()
 		g.RateLimitThreshold = f
-	case "webhook_ip_allowlist":
-		g.WebhookIPAllowlist = val.True()
-	case "webhook_ip_allowlist_fail_open":
-		g.WebhookIPAllowlistFailOpen = val.True()
-	case "trust_proxy_headers":
-		g.TrustProxyHeaders = val.True()
 	case "auto_close_pr":
 		b := val.True()
 		g.AutoClosePR = &b
@@ -1156,18 +1147,6 @@ func mergeGuardianConfig(dst, src *GuardianConfig) {
 		dst.RateLimitThreshold = src.RateLimitThreshold
 	}
 
-	if src.WebhookIPAllowlist {
-		dst.WebhookIPAllowlist = true
-	}
-
-	if src.WebhookIPAllowlistFailOpen {
-		dst.WebhookIPAllowlistFailOpen = true
-	}
-
-	if src.TrustProxyHeaders {
-		dst.TrustProxyHeaders = true
-	}
-
 	if src.AutoClosePR != nil {
 		dst.AutoClosePR = src.AutoClosePR
 	}
@@ -1186,9 +1165,6 @@ func applyEnvOverrides(g *GuardianConfig) {
 	applyEnvBool("SKIP_FORKS", &g.SkipForks)
 	applyEnvBool("SKIP_ARCHIVED", &g.SkipArchived)
 	applyEnvFloat("RATE_LIMIT_THRESHOLD", &g.RateLimitThreshold)
-	applyEnvBool("WEBHOOK_IP_ALLOWLIST", &g.WebhookIPAllowlist)
-	applyEnvBool("WEBHOOK_IP_ALLOWLIST_FAIL_OPEN", &g.WebhookIPAllowlistFailOpen)
-	applyEnvBool("TRUST_PROXY_HEADERS", &g.TrustProxyHeaders)
 	applyEnvBoolPtr("AUTO_CLOSE_PR", &g.AutoClosePR)
 	applyEnvBoolPtr("ORPHAN_CLEANUP", &g.OrphanCleanup)
 }

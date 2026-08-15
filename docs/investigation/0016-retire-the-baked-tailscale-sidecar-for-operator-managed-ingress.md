@@ -430,6 +430,29 @@ stable domain is ngrok's real paid gate:
   based, the established choice). A plain cloudflared `Deployment`
   with static ingress rules also works with zero operators — for a
   single webhook route that may be the honest minimum.
+- **The operator-injected sidecar variant deserves its own line,
+  because it is NOT the thing this investigation removes.** The
+  objection to the baked Tailscale sidecar was chart ownership (the
+  values surface, env forks, unpinned image) plus Tailscale's
+  specific baggage (state volume, serve-config ConfigMap, RBAC for
+  state Secrets, the forced fail-open) — not the sidecar topology.
+  A cloudflared sidecar the *operator* adds via kustomize patch on
+  the rendered Deployment (the homelab already consumes the chart
+  through kustomize+helm in ArgoCD) keeps the chart fully
+  ingress-agnostic and carries none of that baggage: remotely-managed
+  tunnels mean the sidecar is **stateless** — one container, one
+  tunnel-token Secret, no volume, no ConfigMap, no RBAC — with
+  ingress rules, DNS, and the WAF allowlist all living in the
+  Cloudflare Terraform provider as code. Topology properties:
+  webhook traffic goes edge → sidecar → `127.0.0.1:<port>` with no
+  ClusterIP hop; per-replica sidecars all register as connectors to
+  the *same* tunnel, which is cloudflared's native HA model; a
+  single-replica rollout drops the connector briefly, and a webhook
+  delivery missed in that window is recovered by the stale sweep —
+  the system is already designed to tolerate missed webhooks. The
+  trade: the route is invisible to the cluster's Gateway API
+  resources (edge-to-pod bypasses `HTTPRoute` entirely), which for a
+  single app-owned route is arguably a feature.
 - **Testing is covered too:** `cloudflared tunnel --url` quick
   tunnels (`trycloudflare.com`) are free without an account, though
   ngrok remains the habit and both belong in the testing section of
@@ -441,7 +464,8 @@ The homelab comparison, superseding Observation 8's table:
 |---|---|---|---|---|
 | Funnel `Ingress` → webhook Service | no | none (HMAC-only) | free | posture equals today's |
 | ngrok operator + `NgrokTrafficPolicy` | yes, official operator | fail-closed at edge | ~$20/mo | domain + policy are paid |
-| Cloudflare Tunnel + community operator (or plain cloudflared) | yes, community operators | fail-closed at edge (free WAF) | free (owned domain) | community-operator maturity; vendor's own controller archived |
+| Cloudflare Tunnel + community operator | yes, community operators | fail-closed at edge (free WAF) | free (owned domain) | community-operator maturity; vendor's own controller archived |
+| Cloudflare Tunnel as operator-injected cloudflared sidecar (kustomize patch) | n/a — edge → pod, bypasses cluster routing | fail-closed at edge (free WAF) | free (owned domain) | route invisible to `HTTPRoute`s; stateless, zero operators, config-as-code via Terraform provider |
 
 ## Conclusion
 
@@ -465,10 +489,11 @@ operators). Remaining before the DESIGN: empirical `X-Forwarded-For`
 verification on the Funnel path (telemetry fidelity only), one
 empirical ngrok check (does `restrict-ips` run on the Free plan —
 Observation 8's plan-gating note), a maturity read on the Cloudflare
-community operators (cfgate vs lexfrei vs STRRL vs plain cloudflared)
-if that option is picked, the homelab option pick from Observation
-9's table, and CIDR-refresh ownership for whichever static allowlists
-exist (ALB prefix list, ngrok policy, Cloudflare list).
+community operators only if that shape is picked over the
+operator-injected sidecar (which needs none), the homelab option pick
+from Observation 9's table, and CIDR-refresh ownership for whichever
+static allowlists exist (ALB prefix list, ngrok policy, Cloudflare
+list — the last is API/Terraform-updatable).
 
 ## Recommendation
 

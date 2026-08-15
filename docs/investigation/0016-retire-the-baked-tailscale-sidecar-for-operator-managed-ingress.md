@@ -27,6 +27,7 @@ created: 2026-08-14
   - [Observation 5: the allowlist middleware is bypassable behind every documented proxy](#observation-5-the-allowlist-middleware-is-bypassable-behind-every-documented-proxy)
   - [Observation 6: the Tailscale operator has no native Gateway API support, and Funnel is Ingress-class-only](#observation-6-the-tailscale-operator-has-no-native-gateway-api-support-and-funnel-is-ingress-class-only)
   - [Observation 7: AWS LBC Gateway API support is GA](#observation-7-aws-lbc-gateway-api-support-is-ga)
+  - [Observation 8: the ngrok operator is Gateway API-native with edge IP restrictions](#observation-8-the-ngrok-operator-is-gateway-api-native-with-edge-ip-restrictions)
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
 - [References](#references)
@@ -304,6 +305,18 @@ Verified against current Tailscale docs on 2026-08-15:
   during the migration smoke; nothing in the app depends on it
   post-removal (the allowlist was the only `X-Forwarded-For`
   consumer), so this affects log/telemetry fidelity only.
+- **Chaining Funnel through the cluster's Gateway is possible but
+  buys little.** The Funnel `Ingress` can point its backend at the
+  `cilium-gateway-*` Service the Gateway controller creates, so
+  routing logic stays in `HTTPRoute`s — but the tailscale `Ingress`
+  object still exists (Funnel requires it), the path gains a hop, and
+  the source-IP posture is unchanged (still none). Known Cilium
+  interop gotchas if chained on Talos: the L7 `Ingress` path avoids
+  the socket-LB DNAT bypass problem that bites L4
+  `loadBalancerClass` exposure, and `bpf.hostLegacyRouting=true` has
+  been needed where Talos's `forwardKubeDNSToHost` breaks eBPF host
+  routing. For a single webhook route, pointing the Funnel `Ingress`
+  directly at the webhook Service is the simpler recommendation.
 
 ### Observation 7: AWS LBC Gateway API support is GA
 
@@ -324,6 +337,35 @@ the true source address. (Step-6 detail: the meta `hooks` CIDRs
 change occasionally; the prefix-list refresh needs an owner —
 scheduled Lambda/Terraform or a documented manual check.)
 
+### Observation 8: the ngrok operator is Gateway API-native with edge IP restrictions
+
+Verified 2026-08-15, prompted by Observation 6's Funnel gaps. The
+ngrok Kubernetes Operator (the successor to their ingress controller)
+implements **both `Ingress` and the Gateway API**, translating them
+into ngrok cloud/agent endpoints. Traffic Policy attaches to Gateway
+API resources via the `NgrokTrafficPolicy` CRD and the `extensionRef`
+filter, and the `restrict-ips` action runs in the `on_tcp_connect`
+phase — the connection is denied at the TCP layer, before any HTTP
+exchange, at ngrok's edge.
+
+That combination is exactly what the Tailscale path cannot offer:
+**public webhook ingress declared as Gateway API resources, with a
+fail-closed source-IP allowlist (GitHub's `hooks` CIDRs) enforced at
+the edge.** Which means ngrok is not just the testing path — it is a
+candidate *first-class* homelab ingress for the webhook route, and
+the DESIGN should weigh three homelab options rather than assuming
+Funnel:
+
+| Option | Gateway API? | Source-IP layer | Notes |
+|---|---|---|---|
+| Funnel `Ingress` → webhook Service | no (dedicated `Ingress`) | none (HMAC-only) | zero new components; posture equals today's |
+| Funnel `Ingress` → Cilium Gateway chain | routing yes, exposure no | none (HMAC-only) | extra hop; interop gotchas (Obs. 6) |
+| ngrok operator + `Gateway`/`HTTPRoute` + `restrict-ips` | yes | fail-closed at ngrok's edge | new operator + external dependency; plan/pricing gating on Traffic Policy features and domains must be confirmed at DESIGN time |
+
+Same CIDR-freshness caveat as the ALB prefix list: the allowlist in
+the `NgrokTrafficPolicy` is a static copy of `api.github.com/meta`
+`hooks` and needs a refresh owner.
+
 ## Conclusion
 
 **Answer:** yes, with one asterisk on the homelab path. The
@@ -337,10 +379,16 @@ natively implement). The homelab therefore keeps one dedicated
 `Ingress`-class-`tailscale` + Funnel object for the webhook route
 alongside its Gateway API resources, and the Funnel path's
 edge-enforcement layer is honestly "none" (HMAC-only), which is
-already today's effective posture. Remaining before the DESIGN:
-empirical `X-Forwarded-For` verification on the Funnel path
-(telemetry fidelity only), ngrok recipe specifics, and the
-prefix-list refresh ownership question from Observation 7.
+already today's effective posture. Observation 8 adds a third homelab
+option that closes even that gap: the ngrok operator is Gateway
+API-native and can enforce a fail-closed GitHub-CIDR allowlist at its
+edge, making it a candidate first-class webhook ingress rather than
+only the testing path. Remaining before the DESIGN: empirical
+`X-Forwarded-For` verification on the Funnel path (telemetry fidelity
+only), ngrok plan/pricing gating on Traffic Policy and domains, the
+homelab option pick from Observation 8's table, and CIDR-refresh
+ownership for whichever static allowlists exist (ALB prefix list,
+ngrok policy).
 
 ## Recommendation
 
@@ -380,3 +428,7 @@ plus the chart version bump.
 - Gateway API: <https://gateway-api.sigs.k8s.io/>
 - GitHub hook IP ranges (`hooks` key): <https://api.github.com/meta>
 - ngrok IP restrictions (Traffic Policy): <https://ngrok.com/docs/traffic-policy/actions/restrict-ips/>
+- ngrok Kubernetes operator Gateway API support: <https://ngrok.com/blog/introducing-support-for-kubernetes-gateway-api-in-ngrok-kubernetes-operator>
+- ngrok Traffic Policy on Gateway API (`NgrokTrafficPolicy` + `extensionRef`): <https://ngrok.com/blog/policy-support-in-gateway-api>
+- ngrok k8s IP-restriction guide: <https://ngrok.com/docs/k8s/guides/how-to/restrict-ips>
+- Cilium Gateway API: <https://docs.cilium.io/en/latest/network/servicemesh/gateway-api/gateway-api/>

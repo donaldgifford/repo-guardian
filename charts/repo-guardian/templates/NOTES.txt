@@ -11,18 +11,11 @@ NOTE: Dry run mode is ENABLED. No PRs will be created.
 Set config.dryRun=false to enable live mode.
 {{- end }}
 
-{{- if .Values.tailscale.enabled }}
-
-Tailscale Funnel is enabled. Your webhook URL will be:
-  https://{{ .Values.tailscale.hostname }}.<your-tailnet>.ts.net/webhooks/github
-
-Check Tailscale status:
-  kubectl exec -it deploy/{{ include "repo-guardian.fullname" . }} -c tailscale -- tailscale status
-{{- else }}
-
-To expose the webhook endpoint, configure an Ingress or LoadBalancer
-to route traffic to the {{ include "repo-guardian.fullname" . }} service on port {{ .Values.service.httpPort }}.
-{{- end }}
+Ingress is operator-owned: route external webhook traffic to the
+{{ include "repo-guardian.fullname" . }} service on port {{ .Values.service.httpPort }}.
+See docs/operations/ingress.md in the repo-guardian repository for the
+documented options (AWS LBC + Gateway API, Tailscale operator Funnel,
+Cloudflare Tunnel, ngrok) and each option's source-IP enforcement.
 
 Configure your GitHub App's webhook URL to point to:
   https://<your-domain>/webhooks/github

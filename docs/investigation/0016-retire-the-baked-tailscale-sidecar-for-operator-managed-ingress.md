@@ -28,6 +28,7 @@ created: 2026-08-14
   - [Observation 6: the Tailscale operator has no native Gateway API support, and Funnel is Ingress-class-only](#observation-6-the-tailscale-operator-has-no-native-gateway-api-support-and-funnel-is-ingress-class-only)
   - [Observation 7: AWS LBC Gateway API support is GA](#observation-7-aws-lbc-gateway-api-support-is-ga)
   - [Observation 8: the ngrok operator is Gateway API-native with edge IP restrictions](#observation-8-the-ngrok-operator-is-gateway-api-native-with-edge-ip-restrictions)
+  - [Observation 9: Cloudflare Tunnel offers the ngrok capability set without the domain gate](#observation-9-cloudflare-tunnel-offers-the-ngrok-capability-set-without-the-domain-gate)
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
 - [References](#references)
@@ -395,7 +396,52 @@ two official sources disagree in places; both cited in References):
   (~$20/mo base; Traffic Policy Units are negligible at webhook
   volume). The DESIGN's homelab decision is therefore: is the
   fail-closed IP layer + Gateway API-native declaration worth
-  ~$20/mo over the free-but-HMAC-only Funnel path?
+  ~$20/mo over the free-but-HMAC-only Funnel path? (Observation 9
+  reframes this: Cloudflare Tunnel offers the same capability set
+  free, trading the official operator for community ones.)
+
+### Observation 9: Cloudflare Tunnel offers the ngrok capability set without the domain gate
+
+Verified 2026-08-15, prompted by Observation 8's finding that the
+stable domain is ngrok's real paid gate:
+
+- **The tunnel is free and inbound-less.** `cloudflared` makes an
+  outbound-only connection from the cluster; no public IP, no
+  LoadBalancer. A bring-your-own domain on Cloudflare's free plan
+  gives the stable webhook URL — exactly the item that pushed ngrok
+  to Pay-as-you-go.
+- **Fail-closed source-IP allowlist at the edge, on the free plan.**
+  Free includes 5 WAF custom rules (plus the Free Managed Ruleset),
+  IP Access Rules (up to 50,000 per account), and reusable IP Lists
+  referencable as `ip.src in $list`. The GitHub `hooks` allowlist is
+  a single custom rule scoped to the webhook hostname — comfortably
+  under the 4,096-character expression limit — with default-block for
+  everything else. Same CIDR-refresh-ownership caveat as the ALB
+  prefix list and ngrok policy; Cloudflare Lists are API-updatable.
+- **The Kubernetes Gateway API story is community-run, not
+  vendor-official.** Cloudflare's own ingress controller is archived.
+  Current options: **cfgate** (Gateway API-native operator —
+  `CloudflareTunnel`/`CloudflareDNS`/Access CRDs, point a `Gateway`
+  at the tunnel, attach `HTTPRoute`s; manages cloudflared pods and
+  DNS), **lexfrei/cloudflare-tunnel-gateway-controller** (full
+  `HTTPRoute` semantics via an embedded L7 proxy in a forked
+  cloudflared; assumes exclusive ownership of tunnel config), and
+  **STRRL's cloudflare-tunnel-ingress-controller** (`Ingress`-class
+  based, the established choice). A plain cloudflared `Deployment`
+  with static ingress rules also works with zero operators — for a
+  single webhook route that may be the honest minimum.
+- **Testing is covered too:** `cloudflared tunnel --url` quick
+  tunnels (`trycloudflare.com`) are free without an account, though
+  ngrok remains the habit and both belong in the testing section of
+  `ingress.md`.
+
+The homelab comparison, superseding Observation 8's table:
+
+| Option | Gateway API? | Source-IP layer | Cost | Main caveat |
+|---|---|---|---|---|
+| Funnel `Ingress` → webhook Service | no | none (HMAC-only) | free | posture equals today's |
+| ngrok operator + `NgrokTrafficPolicy` | yes, official operator | fail-closed at edge | ~$20/mo | domain + policy are paid |
+| Cloudflare Tunnel + community operator (or plain cloudflared) | yes, community operators | fail-closed at edge (free WAF) | free (owned domain) | community-operator maturity; vendor's own controller archived |
 
 ## Conclusion
 
@@ -410,16 +456,19 @@ natively implement). The homelab therefore keeps one dedicated
 `Ingress`-class-`tailscale` + Funnel object for the webhook route
 alongside its Gateway API resources, and the Funnel path's
 edge-enforcement layer is honestly "none" (HMAC-only), which is
-already today's effective posture. Observation 8 adds a third homelab
-option that closes even that gap: the ngrok operator is Gateway
-API-native and can enforce a fail-closed GitHub-CIDR allowlist at its
-edge, making it a candidate first-class webhook ingress rather than
-only the testing path. Remaining before the DESIGN: empirical
-`X-Forwarded-For` verification on the Funnel path (telemetry fidelity
-only), one empirical ngrok check (does `restrict-ips` run on the Free
-plan — Observation 8's plan-gating note), the homelab option pick
-from Observation 8's table, and CIDR-refresh ownership for whichever
-static allowlists exist (ALB prefix list, ngrok policy).
+already today's effective posture. Observations 8–9 add two homelab
+options that close even that gap with a fail-closed edge allowlist:
+the ngrok operator (official, Gateway API-native, ~$20/mo for the
+stable domain + policy) and Cloudflare Tunnel (free with an owned
+domain and free WAF allowlisting, but community-maintained Kubernetes
+operators). Remaining before the DESIGN: empirical `X-Forwarded-For`
+verification on the Funnel path (telemetry fidelity only), one
+empirical ngrok check (does `restrict-ips` run on the Free plan —
+Observation 8's plan-gating note), a maturity read on the Cloudflare
+community operators (cfgate vs lexfrei vs STRRL vs plain cloudflared)
+if that option is picked, the homelab option pick from Observation
+9's table, and CIDR-refresh ownership for whichever static allowlists
+exist (ALB prefix list, ngrok policy, Cloudflare list).
 
 ## Recommendation
 
@@ -464,4 +513,10 @@ plus the chart version bump.
 - ngrok k8s IP-restriction guide: <https://ngrok.com/docs/k8s/guides/how-to/restrict-ips>
 - ngrok pricing (plan grid): <https://ngrok.com/pricing>
 - ngrok free-plan limits (operator free on all plans; 5 traffic-policy rules): <https://ngrok.com/docs/pricing-limits/free-plan-limits>
+- Cloudflare Tunnel: <https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/>
+- Cloudflare IP Access Rules: <https://developers.cloudflare.com/waf/tools/ip-access-rules/>
+- Cloudflare allowlist-only custom-rule recipe: <https://developers.cloudflare.com/waf/custom-rules/use-cases/allow-traffic-from-ips-in-allowlist/>
+- cfgate (Gateway API-native Cloudflare Tunnel operator): <https://github.com/cfgate/cfgate>
+- lexfrei/cloudflare-tunnel-gateway-controller: <https://github.com/lexfrei/cloudflare-tunnel-gateway-controller>
+- STRRL cloudflare-tunnel-ingress-controller: <https://github.com/STRRL/cloudflare-tunnel-ingress-controller>
 - Cilium Gateway API: <https://docs.cilium.io/en/latest/network/servicemesh/gateway-api/gateway-api/>

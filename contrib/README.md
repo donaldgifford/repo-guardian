@@ -205,7 +205,7 @@ sum by (org) (rate(repo_guardian_files_missing_total[1h])) > 0
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
 | `webhook_received_total` | CounterVec | `event_type` | Webhook events received from GitHub. |
-| `webhook_rejected_total` | CounterVec | `reason` | Webhooks rejected by the IP allowlist. |
+| `webhook_rejected_total` | CounterVec | `reason` | Webhooks rejected by signature validation (`reason="signature"`; the allowlist reasons went with the middleware, IMPL-0024). |
 
 ### Errors
 

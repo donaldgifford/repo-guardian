@@ -270,7 +270,7 @@ phase is load-bearing, not cleanup.
 - [x] 3.3 `docs/usage/policy-reference.md`: remove the three
   guardian-attr rows (~69-71) and the two env-mapping rows
   (~637-638).
-- [ ] 3.4 Sweep the remaining live docs: `docs/operations/
+- [x] 3.4 Sweep the remaining live docs: `docs/operations/
   ent-setup.md`, `docs/index.md`, `docs/README.md`,
   `contrib/README.md` — replace Tailscale/allowlist references with
   `ingress.md` pointers (historical design/impl docs stay

@@ -100,12 +100,14 @@ Key properties of this shape:
    - **Name:** `repo-guardian` (or your app naming convention).
    - **Homepage URL:** this repo's URL (required field).
    - **Webhook:** **Active**, unlike a pull-based CLI — repo-guardian is
-     webhook-driven. **Webhook URL:** the service's public endpoint
-     (ingress, LoadBalancer, or Tailscale Funnel — see the ordering
-     note below). **Webhook secret:** generate a strong random value;
+     webhook-driven. **Webhook URL:** the service's public endpoint —
+     ingress is operator-owned; pick an option from
+     [ingress.md](ingress.md) (see the ordering note below).
+     **Webhook secret:** generate a strong random value;
      it becomes `GITHUB_WEBHOOK_SECRET` / chart `secrets.webhookSecret`.
-     Payloads are HMAC-validated, and the webhook route additionally
-     sits behind the GitHub IP allowlist middleware (`SECURITY.md`).
+     Payloads are HMAC-validated (`SECURITY.md`); source-IP
+     enforcement, where wanted, lives at your edge layer per
+     `ingress.md`.
    - **Expire user authorization tokens:** deselect (repo-guardian
      never signs in users).
    - **Permissions:** see the table below.
@@ -298,7 +300,7 @@ sequenceDiagram
     participant API as GitHub API (org1)
 
     GH->>WH: push / repository / installation events
-    Note over WH: IP allowlist → HMAC validation → 202 Accepted
+    Note over WH: HMAC validation → 202 Accepted
     WH->>Q: Enqueue(job{installation_id, owner, repo})
     Q->>W: Subscribe delivers job
     Note over W: holds App ID + private key
@@ -427,7 +429,8 @@ ordinary PRs. Deleting the registration revokes everything everywhere.
   External Secrets
 - [INV-0006](../investigation/0006-per-org-github-app-credentials.md)
   — why one App/key for all orgs (per-org credentials deferred)
-- `SECURITY.md` — webhook IP allowlist + HMAC two-layer defence
+- `SECURITY.md` — webhook trust model (HMAC app layer; source-IP at
+  the operator's edge per [ingress.md](ingress.md))
 - GitHub Docs — Automating app installations in your enterprise's
   organizations (installer-app pattern, install endpoint)
 - GitHub Docs — Creating GitHub Apps for your enterprise

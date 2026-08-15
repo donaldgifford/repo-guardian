@@ -98,19 +98,6 @@ spec:
               value: {{ .Values.policy.orphanCleanup | quote }}
             - name: TEMPLATE_DIR
               value: /etc/repo-guardian/templates
-            - name: WEBHOOK_IP_ALLOWLIST
-              value: {{ .Values.webhookIPAllowlist.enabled | quote }}
-            {{- if .Values.tailscale.enabled }}
-            - name: WEBHOOK_IP_ALLOWLIST_FAIL_OPEN
-              value: "true"
-            - name: TRUST_PROXY_HEADERS
-              value: "true"
-            {{- else }}
-            - name: WEBHOOK_IP_ALLOWLIST_FAIL_OPEN
-              value: {{ .Values.webhookIPAllowlist.failOpen | quote }}
-            - name: TRUST_PROXY_HEADERS
-              value: {{ .Values.webhookIPAllowlist.trustProxyHeaders | quote }}
-            {{- end }}
             {{- if or .Values.policy.config .Values.policy.existingConfigMap }}
             - name: GUARDIAN_CONFIG
               value: /etc/repo-guardian/policy/guardian.hcl
@@ -227,33 +214,6 @@ spec:
           readinessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-        {{- if .Values.tailscale.enabled }}
-        - name: tailscale
-          image: {{ .Values.tailscale.image }}
-          env:
-            - name: TS_AUTHKEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.tailscale.authKeySecret }}
-                  key: authkey
-            - name: TS_HOSTNAME
-              value: {{ .Values.tailscale.hostname | quote }}
-            - name: TS_STATE_DIR
-              value: /var/lib/tailscale
-            - name: TS_USERSPACE
-              value: {{ .Values.tailscale.userspace | quote }}
-            - name: TS_SERVE_CONFIG
-              value: /config/serve-config.json
-          volumeMounts:
-            - name: tailscale-state
-              mountPath: /var/lib/tailscale
-            - name: tailscale-serve-config
-              mountPath: /config
-              readOnly: true
-          securityContext:
-            runAsUser: 1000
-            runAsGroup: 1000
-        {{- end }}
       volumes:
         {{- if .Values.secrets.privateKeyAsFile }}
         - name: github-private-key
@@ -270,13 +230,6 @@ spec:
         - name: policy
           configMap:
             name: {{ .Values.policy.existingConfigMap | default (printf "%s-policy" (include "repo-guardian.fullname" .)) }}
-        {{- end }}
-        {{- if .Values.tailscale.enabled }}
-        - name: tailscale-state
-          emptyDir: {}
-        - name: tailscale-serve-config
-          configMap:
-            name: {{ include "repo-guardian.fullname" . }}-tailscale-serve-config
         {{- end }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}

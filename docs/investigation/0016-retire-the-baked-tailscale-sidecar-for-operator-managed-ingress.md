@@ -360,11 +360,42 @@ Funnel:
 |---|---|---|---|
 | Funnel `Ingress` → webhook Service | no (dedicated `Ingress`) | none (HMAC-only) | zero new components; posture equals today's |
 | Funnel `Ingress` → Cilium Gateway chain | routing yes, exposure no | none (HMAC-only) | extra hop; interop gotchas (Obs. 6) |
-| ngrok operator + `Gateway`/`HTTPRoute` + `restrict-ips` | yes | fail-closed at ngrok's edge | new operator + external dependency; plan/pricing gating on Traffic Policy features and domains must be confirmed at DESIGN time |
+| ngrok operator + `Gateway`/`HTTPRoute` + `restrict-ips` | yes | fail-closed at ngrok's edge | new operator + external dependency; plan gating below |
 
 Same CIDR-freshness caveat as the ALB prefix list: the allowlist in
 the `NgrokTrafficPolicy` is a static copy of `api.github.com/meta`
 `hooks` and needs a refresh owner.
+
+**Plan gating, verified against ngrok's own pages 2026-08-15** (the
+two official sources disagree in places; both cited in References):
+
+- **The Kubernetes Operator itself is free on every plan** — the
+  free-plan-limits doc lists it under "Features included for free on
+  all plans." Gateway API support is part of the operator, not a
+  plan line item.
+- **Traffic Policy is ambiguous on Free.** The pricing page's plan
+  grid shows Traffic Policy only from Pay-as-you-go up ($20/mo base,
+  metered at $0.10 per 100k Traffic Policy Units); the
+  free-plan-limits doc, however, lists "Traffic policy rules (per
+  policy): 5" as a *free-tier limit*, implying some Traffic Policy
+  works on Free. Whether `restrict-ips` specifically runs on Free is
+  unverified — one empirical check (attach the policy on a free
+  account) settles it. Note the 5-rule cap is not a blocker either
+  way: the whole GitHub allowlist is a single `restrict-ips` rule
+  with multiple CIDRs.
+- **Free-tier operational limits bite regardless:** 1 GB / 20k HTTP
+  requests per month, no reserved or custom domains (only one
+  auto-assigned dev domain), and an interstitial on browser HTML
+  traffic (API/webhook POSTs are unaffected — consistent with our
+  testing history). A GitHub App needs a *stable* webhook URL, and
+  reserved/custom domains are paid.
+- **Practical read:** for testing, Free keeps working exactly as we
+  have always used it. As a *first-class* homelab ingress with the
+  fail-closed allowlist and a stable domain, budget Pay-as-you-go
+  (~$20/mo base; Traffic Policy Units are negligible at webhook
+  volume). The DESIGN's homelab decision is therefore: is the
+  fail-closed IP layer + Gateway API-native declaration worth
+  ~$20/mo over the free-but-HMAC-only Funnel path?
 
 ## Conclusion
 
@@ -385,10 +416,10 @@ API-native and can enforce a fail-closed GitHub-CIDR allowlist at its
 edge, making it a candidate first-class webhook ingress rather than
 only the testing path. Remaining before the DESIGN: empirical
 `X-Forwarded-For` verification on the Funnel path (telemetry fidelity
-only), ngrok plan/pricing gating on Traffic Policy and domains, the
-homelab option pick from Observation 8's table, and CIDR-refresh
-ownership for whichever static allowlists exist (ALB prefix list,
-ngrok policy).
+only), one empirical ngrok check (does `restrict-ips` run on the Free
+plan — Observation 8's plan-gating note), the homelab option pick
+from Observation 8's table, and CIDR-refresh ownership for whichever
+static allowlists exist (ALB prefix list, ngrok policy).
 
 ## Recommendation
 
@@ -431,4 +462,6 @@ plus the chart version bump.
 - ngrok Kubernetes operator Gateway API support: <https://ngrok.com/blog/introducing-support-for-kubernetes-gateway-api-in-ngrok-kubernetes-operator>
 - ngrok Traffic Policy on Gateway API (`NgrokTrafficPolicy` + `extensionRef`): <https://ngrok.com/blog/policy-support-in-gateway-api>
 - ngrok k8s IP-restriction guide: <https://ngrok.com/docs/k8s/guides/how-to/restrict-ips>
+- ngrok pricing (plan grid): <https://ngrok.com/pricing>
+- ngrok free-plan limits (operator free on all plans; 5 traffic-policy rules): <https://ngrok.com/docs/pricing-limits/free-plan-limits>
 - Cilium Gateway API: <https://docs.cilium.io/en/latest/network/servicemesh/gateway-api/gateway-api/>

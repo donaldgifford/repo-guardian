@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -395,5 +396,40 @@ func TestLabelMap_Set(t *testing.T) {
 				t.Errorf("Set(%q) stored %v, want %s=%s", tt.in, map[string]string(m), tt.wantKey, tt.wantVal)
 			}
 		})
+	}
+}
+
+// TestWarnRemovedEnvVars pins the IMPL-0024 migration breadcrumb: a
+// stale allowlist env var on the Deployment is otherwise a silent
+// no-op, and this warn is the only signal an operator gets.
+//
+// t.Setenv, so no t.Parallel (Go 1.25+ panics on the combination).
+func TestWarnRemovedEnvVars(t *testing.T) {
+	t.Setenv("TRUST_PROXY_HEADERS", "true")
+
+	var buf bytes.Buffer
+
+	warnRemovedEnvVars(slog.New(slog.NewTextHandler(&buf, nil)))
+
+	out := buf.String()
+	if !strings.Contains(out, "TRUST_PROXY_HEADERS") || !strings.Contains(out, "ingress.md") {
+		t.Errorf("warnRemovedEnvVars output = %q, want it to name the stale var and the migration doc", out)
+	}
+}
+
+// TestWarnRemovedEnvVars_SilentWhenUnset pins the negative: no stale
+// vars, no output.
+func TestWarnRemovedEnvVars_SilentWhenUnset(t *testing.T) {
+	for _, name := range removedEnvVars {
+		t.Setenv(name, "")
+		os.Unsetenv(name)
+	}
+
+	var buf bytes.Buffer
+
+	warnRemovedEnvVars(slog.New(slog.NewTextHandler(&buf, nil)))
+
+	if got := buf.String(); got != "" {
+		t.Errorf("warnRemovedEnvVars output = %q, want empty when nothing is set", got)
 	}
 }

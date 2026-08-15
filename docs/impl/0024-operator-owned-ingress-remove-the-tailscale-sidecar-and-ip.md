@@ -169,7 +169,7 @@ any commit.
   "Unsupported argument". **Verify non-vacuously**: re-add the
   attribute to `guardianBodySchema`, watch the test fail, remove it
   (back up first per standing practice).
-- [ ] 1.7 (OQ2 = a) startup `slog.Warn` when any of the three
+- [x] 1.7 (OQ2 = a) startup `slog.Warn` when any of the three
   removed env vars is still set, naming
   `docs/operations/ingress.md`; test with `t.Setenv` (no
   `t.Parallel`).

@@ -146,6 +146,8 @@ func run() error {
 	logger := initLogger(cfg.LogLevel)
 	slog.SetDefault(logger)
 
+	warnRemovedEnvVars(logger)
+
 	logger.Info("starting repo-guardian",
 		"listen_addr", cfg.ListenAddr,
 		"metrics_addr", cfg.MetricsAddr,
@@ -719,4 +721,37 @@ func handleReadyz(runCtx context.Context) http.HandlerFunc {
 			slog.Error("failed to write readyz response", "error", err)
 		}
 	}
+}
+
+// removedEnvVars are configuration knobs deleted by IMPL-0024
+// (DESIGN-0023): the webhook IP-allowlist middleware was removed and
+// source-IP enforcement moved to the operator's edge layer. The binary
+// ignores these entirely; the warning below is a migration breadcrumb,
+// not behavior. Remove the check in a future major.
+var removedEnvVars = []string{
+	"WEBHOOK_IP_ALLOWLIST",
+	"WEBHOOK_IP_ALLOWLIST_FAIL_OPEN",
+	"TRUST_PROXY_HEADERS",
+}
+
+// warnRemovedEnvVars logs once at startup when a removed knob is still
+// set in the environment, so a stale Deployment patch is a logged fact
+// instead of a silent no-op. See docs/operations/ingress.md.
+func warnRemovedEnvVars(logger *slog.Logger) {
+	var stale []string
+
+	for _, name := range removedEnvVars {
+		if _, ok := os.LookupEnv(name); ok {
+			stale = append(stale, name)
+		}
+	}
+
+	if len(stale) == 0 {
+		return
+	}
+
+	logger.Warn("removed configuration env vars are set and ignored",
+		"vars", stale,
+		"migration", "docs/operations/ingress.md",
+	)
 }

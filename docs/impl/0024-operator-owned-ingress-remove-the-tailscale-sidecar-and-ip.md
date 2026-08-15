@@ -132,7 +132,7 @@ any commit.
 
 #### Tasks
 
-- [ ] 1.1 Repoint `webhook_rejected_total`: increment
+- [x] 1.1 Repoint `webhook_rejected_total`: increment
   `metrics.WebhookRejectedTotal.WithLabelValues("signature")` on the
   401 branch of `webhook.Handler.ServeHTTP`
   (`internal/webhook/handler.go:86-92`); update the metric's help

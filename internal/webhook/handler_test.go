@@ -15,7 +15,9 @@ import (
 	"time"
 
 	gh "github.com/google/go-github/v68/github"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/queue"
 )
@@ -219,11 +221,18 @@ func TestHandleWebhook_InvalidSignature(t *testing.T) {
 	req.Header.Set("X-GitHub-Event", "repository")
 	req.Header.Set("X-Hub-Signature-256", "sha256=invalid")
 
+	before := testutil.ToFloat64(metrics.WebhookRejectedTotal.WithLabelValues("signature"))
+
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusUnauthorized {
 		t.Errorf("expected 401, got %d", rr.Code)
+	}
+
+	got := testutil.ToFloat64(metrics.WebhookRejectedTotal.WithLabelValues("signature")) - before
+	if got != 1 {
+		t.Errorf("WebhookRejectedTotal{reason=%q} delta = %v, want 1", "signature", got)
 	}
 }
 

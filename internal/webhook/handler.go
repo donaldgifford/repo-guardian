@@ -32,6 +32,11 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/store"
 )
 
+// reasonSignature labels WebhookRejectedTotal increments for requests
+// that failed HMAC signature validation — a wrong or rotated webhook
+// secret, or a caller that isn't GitHub.
+const reasonSignature = "signature"
+
 // Handler handles incoming GitHub webhook events and enqueues repo check jobs.
 type Handler struct {
 	webhookSecret []byte
@@ -86,6 +91,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	payload, err := gh.ValidatePayload(r, h.webhookSecret)
 	if err != nil {
 		h.logger.Warn("invalid webhook payload", "error", err)
+		metrics.WebhookRejectedTotal.WithLabelValues(reasonSignature).Inc()
 		http.Error(w, "invalid payload", http.StatusUnauthorized)
 
 		return

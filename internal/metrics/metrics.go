@@ -174,10 +174,13 @@ var (
 		Help: "Total custom-properties reconciles skipped because catalog-info.yaml failed to parse.",
 	}, []string{labelOrg})
 
-	// WebhookRejectedTotal counts webhook requests rejected by the IP allowlist.
+	// WebhookRejectedTotal counts webhook requests rejected before
+	// processing, labeled by reason. Post-IMPL-0024 the only producer
+	// is HMAC signature validation (reason="signature") — source-IP
+	// enforcement moved to the operator's edge layer (DESIGN-0023).
 	WebhookRejectedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_webhook_rejected_total",
-		Help: "Webhook requests rejected by IP allowlist.",
+		Help: "Webhook requests rejected (signature validation).",
 	}, []string{labelReason})
 
 	// IgnoredTotal counts repos or rules skipped by ignore lists, by scope and org.

@@ -486,34 +486,51 @@ the ngrok operator (official, Gateway API-native, ~$20/mo for the
 stable domain + policy) and Cloudflare Tunnel (free with an owned
 domain and free WAF allowlisting, but community-maintained Kubernetes
 operators). Remaining before the DESIGN: empirical `X-Forwarded-For`
-verification on the Funnel path (telemetry fidelity only), one
-empirical ngrok check (does `restrict-ips` run on the Free plan —
-Observation 8's plan-gating note), a maturity read on the Cloudflare
-community operators only if that shape is picked over the
-operator-injected sidecar (which needs none), the homelab option pick
-from Observation 9's table, and CIDR-refresh ownership for whichever
-static allowlists exist (ALB prefix list, ngrok policy, Cloudflare
-list — the last is API/Terraform-updatable).
+verification on the Funnel path (telemetry fidelity only) and
+CIDR-refresh ownership for whichever static allowlists get exercised
+(ALB prefix list, ngrok policy, Cloudflare list — the last is
+API/Terraform-updatable). The former open items about *picking* a
+homelab option are resolved by the Recommendation's matrix decision:
+nothing is picked; per-option validation (including the ngrok
+free-tier `restrict-ips` question and community-operator maturity)
+happens when a box in the matrix gets checked, not before.
 
 ## Recommendation
 
-Pending the conclusion. Expected shape if the hypothesis holds: a
-DESIGN covering (a) the chart removal — breaking, values-schema
-rejection for `tailscale.*` and `webhookIPAllowlist.*` with a
-migration pointer, the IMPL-0016 `deprecatedBackends` message
-pattern; (b) the middleware removal — HMAC becomes the sole app-layer
-defense, the three config knobs go (HCL strict-decode migration note
-required), the orphaned metric/alert and E4 matcher are dispositioned
-per Observation 5; (c) a new `docs/operations/ingress.md` with the
-three documented paths — Tailscale operator (`Ingress`-class +
-Funnel for the webhook route; the cluster's Gateway API carries
-everything else, per Observation 6), AWS LBC + Gateway API
-(`HTTPRoute` → ALB + SG prefix-list rule, per Observation 7), and
-ngrok for testing — each path's edge-layer source-IP enforcement
-recipe (including "none — HMAC-only" stated plainly for Funnel), and
-the OTEL signals that replace the deleted allowlist telemetry; and
-(d) supersession notes on INV-0001, DESIGN-0003, and DESIGN-0004,
-plus the chart version bump.
+Decided 2026-08-15: `docs/operations/ingress.md` is an **options
+matrix, not a prescription**. Every discovered path is listed with
+what it works with and a per-option validation checkbox, filled in
+as options actually get exercised; the doc deliberately does not
+crown a winner — deployments choose. The DESIGN therefore covers:
+
+(a) the chart removal — breaking, values-schema rejection for
+`tailscale.*` and `webhookIPAllowlist.*` with a migration pointer,
+the IMPL-0016 `deprecatedBackends` message pattern; (b) the
+middleware removal — HMAC becomes the sole app-layer defense, the
+three config knobs go (HCL strict-decode migration note required),
+the orphaned metric/alert and E4 matcher are dispositioned per
+Observation 5; (c) `docs/operations/ingress.md` as the matrix below,
+plus each option's recipe and the OTEL signals that replace the
+deleted allowlist telemetry; and (d) supersession notes on INV-0001,
+DESIGN-0003, and DESIGN-0004, plus the chart version bump.
+
+Draft of the matrix (`ingress.md` inherits and maintains this;
+status boxes get checked only after an option is exercised against a
+real GitHub App delivery):
+
+| Option | Environment fit | K8s routing API | Source-IP enforcement | Cost | Validated |
+|---|---|---|---|---|---|
+| AWS LBC + Gateway API (`HTTPRoute` → ALB) | EKS / production | Gateway API | SG + GitHub prefix list, fail-closed | AWS | ☐ |
+| Tailscale operator Funnel | homelab / tailnet clusters | `Ingress` (class `tailscale`) | none — HMAC-only, stated plainly | free | ☐ |
+| Cloudflare Tunnel, operator-injected cloudflared sidecar | homelab / any cluster | none (edge → pod) | CF WAF allowlist, fail-closed | free + owned domain | ☐ |
+| Cloudflare Tunnel via community operator (cfgate / lexfrei) | homelab / any cluster | Gateway API | CF WAF allowlist, fail-closed | free + owned domain | ☐ |
+| Cloudflare Tunnel via STRRL controller | homelab / any cluster | `Ingress` (class `cloudflare-tunnel`) | CF WAF allowlist, fail-closed | free + owned domain | ☐ |
+| ngrok Kubernetes operator | homelab / any cluster | Gateway API + `Ingress` | `restrict-ips` Traffic Policy, fail-closed | ~$20/mo | ☐ |
+| ngrok CLI / `cloudflared` quick tunnel against localhost | local dev (`make run-local` + docker-compose dev services) | n/a | none (ngrok policy is paid) | free | ☑ ngrok (long-standing webhook-testing use); ☐ quick tunnel |
+
+The docker-compose row is deliberate: local development is a
+first-class "deployment" for webhook work, and it is the one row
+with existing validation history.
 
 ## References
 

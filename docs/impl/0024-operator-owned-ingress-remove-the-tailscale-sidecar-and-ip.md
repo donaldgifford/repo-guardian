@@ -140,7 +140,7 @@ any commit.
   allowlist" → "rejected (signature validation)"); handler test
   asserting exactly-once increment via `testutil.ToFloat64` and that
   the 202 contract tests still pass.
-- [ ] 1.2 Delete `internal/webhook/allowlist.go` and
+- [x] 1.2 Delete `internal/webhook/allowlist.go` and
   `allowlist_test.go`; remove `wrapWebhookAllowlist` and its call
   site from `cmd/repo-guardian/main.go` (~665, ~188 — handler mounts
   directly, otelhttp stays OUTERMOST); in the same commit reduce E4:

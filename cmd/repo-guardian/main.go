@@ -185,9 +185,7 @@ func run() error {
 		return err
 	}
 
-	webhookHandler := wrapWebhookAllowlist(ctx, rt.webhookHandler, &policyCfg.Guardian, logger)
-
-	mainServer := newMainServer(ctx, cfg.ListenAddr, webhookHandler)
+	mainServer := newMainServer(ctx, cfg.ListenAddr, rt.webhookHandler)
 	metricsServer := newMetricsServer(cfg.MetricsAddr)
 
 	startServer(logger, mainServer, "main", cfg.ListenAddr, cancel)
@@ -660,36 +658,6 @@ func initLoggerTo(w io.Writer, level string) *slog.Logger {
 	})
 
 	return slog.New(handler)
-}
-
-// wrapWebhookAllowlist optionally wraps next with the GitHub IP
-// allowlist middleware. When the allowlist is enabled the refresher
-// is started against ctx so it terminates with shutdown. Returns the
-// original handler when disabled.
-func wrapWebhookAllowlist(
-	ctx context.Context,
-	next http.Handler,
-	g *policy.GuardianConfig,
-	logger *slog.Logger,
-) http.Handler {
-	if !g.WebhookIPAllowlist {
-		logger.Info("webhook IP allowlist disabled")
-		return next
-	}
-
-	allowlist := webhook.NewGitHubIPAllowlist(
-		g.WebhookIPAllowlistFailOpen,
-		g.TrustProxyHeaders,
-		logger,
-	)
-	allowlist.StartRefresh(ctx)
-
-	logger.Info("webhook IP allowlist enabled",
-		"fail_open", g.WebhookIPAllowlistFailOpen,
-		"trust_proxy", g.TrustProxyHeaders,
-	)
-
-	return allowlist.Middleware(next)
 }
 
 // runStrictTemplateValidation invokes ValidatePRTemplates when enabled

@@ -23,18 +23,15 @@ const (
 	logSweepComplete      = "stale-sweep complete"
 )
 
-// Webhook rejection lines, as one regex alternation.
+// Webhook rejection lines.
 //
-// Split out because the two layers reject for different reasons and an
-// operator needs to tell them apart: the allowlist fires before the HMAC
-// check, so a burst of the first with none of the second means the proxy
-// header configuration changed, not the secret.
+// Post-IMPL-0024 the only app-layer rejection is HMAC signature
+// validation — source-IP enforcement happens at the operator's edge
+// (DESIGN-0023), so its rejections appear in edge telemetry, not here.
 const (
-	logRejectedIP      = "rejected request from non-GitHub IP"
-	logNoIP            = "could not extract IP from request"
 	logInvalidPayload  = "invalid webhook payload"
 	logEnqueueFailed   = "failed to enqueue job"
-	webhookRejectedRe  = logRejectedIP + "|" + logNoIP + "|" + logInvalidPayload
+	webhookRejectedRe  = logInvalidPayload
 	webhookIncidentsRe = webhookRejectedRe + "|" + logEnqueueFailed
 )
 
@@ -202,9 +199,9 @@ func withWebhookSection(b *Builder, ds Datasources) *Builder {
 	return b.
 		WithRow(Row("Webhook")).
 		WithPanel(LogTimeSeries(ds, "Rejected webhook deliveries",
-			"Rejections by message. The IP allowlist and the HMAC check are two layers, and which "+
-				"one fired matters: an allowlist rejection is usually a proxy misconfiguration "+
-				"(TRUST_PROXY_HEADERS behind Tailscale), a signature rejection is a wrong secret.",
+			"Signature rejections only: a burst here means a wrong or rotated webhook secret. "+
+				"Source-IP rejections happen at the operator's edge layer, not in the app — "+
+				"see docs/operations/ingress.md for where each edge's evidence lives.",
 			unitShort, LogQuery{
 				Expr: `sum by (msg) (
   count_over_time(` + stream + ` |~ "` + webhookRejectedRe + `" | json [15m])

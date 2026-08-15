@@ -155,7 +155,7 @@ any commit.
   `Description` (`internal/monitoring/alert/alert.go:154` — the
   current text promises allowlist 403s that no longer exist);
   regenerate; `make lint-monitoring lint-alerts-generated` green.
-- [ ] 1.4 Remove the env knobs from `internal/config/config.go`
+- [x] 1.4 Remove the env knobs from `internal/config/config.go`
   (`WebhookIPAllowlist`, `WebhookIPAllowlistFailOpen`,
   `TrustProxyHeaders` fields; `envOrDefaultBool` loads ~278-290);
   update `config_test.go`.

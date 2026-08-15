@@ -54,4 +54,5 @@ docz create design "Your Design Title"
 | DESIGN-0020 | Absent check mode and conditional file rules | Implemented | 2026-07-23 | Donald Gifford | [0020-absent-check-mode-and-conditional-file-rules.md](0020-absent-check-mode-and-conditional-file-rules.md) |
 | DESIGN-0021 | Delayed-requeue job contract and rate-limit consolidation | Implemented | 2026-07-26 | Donald Gifford | [0021-delayed-requeue-job-contract-and-rate-limit-consolidation.md](0021-delayed-requeue-job-contract-and-rate-limit-consolidation.md) |
 | DESIGN-0022 | Compliance posture state, dashboard suite, and OTEL-first observability | Implemented | 2026-08-02 | Donald Gifford | [0022-compliance-posture-state-dashboard-suite-and-otel-first.md](0022-compliance-posture-state-dashboard-suite-and-otel-first.md) |
+| DESIGN-0023 | Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware | Draft | 2026-08-15 | Donald Gifford | [0023-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip.md](0023-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip.md) |
 <!-- END DOCZ AUTO-GENERATED -->

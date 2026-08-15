@@ -222,7 +222,7 @@ bump so the negative tests exercise the final message text.
 - [x] 2.7 Strip the `webhookIPAllowlist:` blocks from
   `examples/values-with-policy.yaml` (~153) and
   `examples/values-multi-org.yaml` (~100); `examples_test.go` green.
-- [ ] 2.8 `Chart.yaml`: `version: 1.0.0`, `appVersion: "1.14.0"`
+- [x] 2.8 `Chart.yaml`: `version: 1.0.0`, `appVersion: "1.14.0"`
   (next minor after 1.13.0 — re-verify at PR time per the IMPL-0017
   appVersion-vs-tag lesson); `make helm-docs` (README regenerates
   from `.gotmpl` — never edit the rendered README).

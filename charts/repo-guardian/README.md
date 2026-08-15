@@ -13,7 +13,7 @@ SLSA Level 3 provenance attestations.
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 1.0.0-rc.12 \
+  --version 1.0.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -28,7 +28,7 @@ aws ecr get-login-password --region <region> | \
 
 helm install repo-guardian \
   oci://<account>.dkr.ecr.<region>.amazonaws.com/repo-guardian-chart \
-  --version 1.0.0-rc.12 \
+  --version 1.0.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -64,7 +64,7 @@ secrets:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 1.0.0-rc.12 \
+  --version 1.0.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -122,6 +122,35 @@ For sizing knobs (`replicaCount`, `workerCount`, `maxConns`,
 `staleSweep.*`), see [docs/operations/scaling.md](../../docs/operations/scaling.md).
 For Postgres schema operations, see
 [docs/operations/migrations.md](../../docs/operations/migrations.md).
+
+### Upgrade notes (chart 1.0.0 / appVersion 1.14.0) — operator-owned ingress, breaking
+
+IMPL-0024 (DESIGN-0023). The chart no longer ships any ingress
+machinery — the baked Tailscale sidecar and the in-app webhook IP
+allowlist are both gone. Source-IP enforcement belongs at the edge
+layer you already operate (ALB security groups + the GitHub prefix
+list, Tailscale ACLs, an ngrok traffic policy, a Cloudflare WAF
+rule); HMAC signature validation is the app-layer defense.
+
+- **Removed values:** the entire `tailscale.*` and
+  `webhookIPAllowlist.*` blocks. A values file still setting either
+  fails at render time with a migration message — delete the block
+  and pick an ingress option from
+  [docs/operations/ingress.md](../../docs/operations/ingress.md#migrating-from-the-baked-sidecar).
+- **Removed env vars:** `WEBHOOK_IP_ALLOWLIST`,
+  `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN`, `TRUST_PROXY_HEADERS`. The
+  binary warns at startup if they are still set (and ignores them);
+  the `guardian {}` HCL attributes of the same names now fail policy
+  load under the strict decode.
+- **Metric repointed:** `webhook_rejected_total` now counts HMAC
+  signature rejections (`reason="signature"`) — its only previous
+  producer was the deleted allowlist. Dashboards keep working; the
+  panel now answers "wrong or rotated webhook secret", not
+  "unexpected source IP" (that signal lives at your edge layer).
+- **Why the allowlist had to go, not just the sidecar:** it trusted
+  the leftmost `X-Forwarded-For` entry, which the client controls —
+  behind every documented proxy topology it was spoofable
+  (INV-0016). Removing it is a security improvement, not a loss.
 
 ### Upgrade notes (chart 1.0.0-rc.12 / appVersion 1.13.0) — compliance posture
 
@@ -269,7 +298,7 @@ cosign verify \
     '^https://github.com/donaldgifford/repo-guardian/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.12
+  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0
 ```
 
 ### SLSA provenance
@@ -280,7 +309,7 @@ cosign verify-attestation --type slsaprovenance \
     '^https://github.com/slsa-framework/slsa-github-generator/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0-rc.12
+  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0
 ```
 
 The provenance attestation records the build workflow path, source
@@ -578,13 +607,6 @@ incoming webhook.
 | store.postgres.existingSecretKey | string | `"STORE_DSN"` | Key inside existingSecret holding the DSN. Default: STORE_DSN. |
 | store.postgres.maxConns | int | `16` | Connection cap for the pgx pool. |
 | store.postgres.mode | string | `"baked"` | Source of the Postgres deployment. One of: "baked"    — chart renders a single-pod Postgres Deployment; "cnpg"     — chart renders a CloudNativePG `Cluster` CR; "external" — operator provides DSN via existingSecret. |
-| tailscale | object | `{"authKeySecret":"tailscale-auth","enabled":false,"hostname":"repo-guardian","image":"ghcr.io/tailscale/tailscale:latest","rbac":{"create":true},"userspace":true}` | Tailscale Funnel sidecar |
-| tailscale.authKeySecret | string | `"tailscale-auth"` | Name of existing secret containing 'authkey' |
-| tailscale.enabled | bool | `false` | Enable Tailscale sidecar container |
-| tailscale.hostname | string | `"repo-guardian"` | Tailscale hostname (becomes <hostname>.<tailnet>.ts.net) |
-| tailscale.image | string | `"ghcr.io/tailscale/tailscale:latest"` | Tailscale container image |
-| tailscale.rbac | object | `{"create":true}` | Create RBAC for Tailscale state management |
-| tailscale.userspace | bool | `true` | Use userspace networking (no CAP_NET_ADMIN needed) |
 | templates | object | `{"existingConfigMap":"","files":{}}` | File-template overrides for the binary's TemplateStore.  Breaking change in chart 0.4.0: the legacy `templates.codeowners`, `templates.dependabot`, and `templates.renovate` slots have been removed. Move existing values into `templates.files` keyed by filename (with `.tmpl` suffix), e.g.:    templates:     files:       codeowners.tmpl: |         * @platform-team       dependabot.tmpl: |         version: 2         updates: ...  When `templates.existingConfigMap` is non-empty the chart skips rendering its own ConfigMap and the Deployment mounts the named ConfigMap at TEMPLATE_DIR. This is the escape hatch for operators who manage templates out-of-band (GitOps, Argo ApplicationSet, etc). |
 | templates.existingConfigMap | string | `""` | Name of an existing ConfigMap to mount at TEMPLATE_DIR instead of rendering one from `templates.files`. |
 | templates.files | object | `{}` | Map of filename to template content. Each entry becomes a key in the rendered ConfigMap and is loaded by the binary at startup. Filenames must end in `.tmpl`. |
@@ -592,8 +614,4 @@ incoming webhook.
 | templating.strict | bool | `false` | Enable startup-time strict validation of compiled PR templates (sets STRICT_TEMPLATES=true on the Deployment). |
 | templating.vars | object | `{}` | Map of env-var key to value. Keys must not collide with chart-managed env vars; the chart fails template rendering on collisions. |
 | tolerations | list | `[]` | Tolerations |
-| webhookIPAllowlist | object | `{"enabled":true,"failOpen":false,"trustProxyHeaders":false}` | Webhook IP allowlist configuration |
-| webhookIPAllowlist.enabled | bool | `true` | Enable GitHub IP allowlist middleware |
-| webhookIPAllowlist.failOpen | bool | `false` | Allow requests when allowlist unavailable |
-| webhookIPAllowlist.trustProxyHeaders | bool | `false` | Trust X-Forwarded-For proxy headers |
 

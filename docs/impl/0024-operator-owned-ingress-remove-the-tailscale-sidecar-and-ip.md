@@ -194,27 +194,27 @@ bump so the negative tests exercise the final message text.
 
 #### Tasks
 
-- [ ] 2.1 `values.yaml`: delete the `webhookIPAllowlist:` block
+- [x] 2.1 `values.yaml`: delete the `webhookIPAllowlist:` block
   (~174-180) and the `tailscale:` block (~182-196).
-- [ ] 2.2 `templates/deployment.yaml`: delete the
+- [x] 2.2 `templates/deployment.yaml`: delete the
   `WEBHOOK_IP_ALLOWLIST` env, the `tailscale.enabled` env fork
   (~100-113), the tailscale sidecar container, the
   `tailscale-state` emptyDir + serve-config volumes/mounts.
-- [ ] 2.3 Delete `templates/tailscale-configmap.yaml` and
+- [x] 2.3 Delete `templates/tailscale-configmap.yaml` and
   `templates/tailscale-rbac.yaml`; remove the `tailscale.enabled`
   block from `templates/NOTES.txt` (webhook-URL guidance now points
   at `docs/operations/ingress.md`).
-- [ ] 2.4 `_helpers.tpl`: add a `repo-guardian.validateRemovedValues`
+- [x] 2.4 `_helpers.tpl`: add a `repo-guardian.validateRemovedValues`
   guard (IMPL-0018 `validateBackendSecrets` pattern, included at the
   top of `deployment.yaml`): if `.Values.tailscale` or
   `.Values.webhookIPAllowlist` is present, `fail` with the removed
   block's name and the migration URL
   (`docs/operations/ingress.md#migrating-from-the-baked-sidecar`).
-- [ ] 2.5 `values.schema.json`: add explicit rejection entries
+- [x] 2.5 `values.schema.json`: add explicit rejection entries
   (`"not": {}` with `"description"` naming the migration doc) for
   `tailscale` and `webhookIPAllowlist` — first appearance of either
   key in the schema (audit note).
-- [ ] 2.6 Tests: remove the 4 tailscale assertions from
+- [x] 2.6 Tests: remove the 4 tailscale assertions from
   `tests/deployment_test.yaml`; add negative cases to
   `tests/values_guard_test.yaml` (`tailscale.enabled=true` and
   `webhookIPAllowlist.enabled=true` each fail render with the

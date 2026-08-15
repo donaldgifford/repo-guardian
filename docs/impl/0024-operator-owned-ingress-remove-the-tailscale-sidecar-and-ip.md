@@ -251,7 +251,7 @@ phase is load-bearing, not cleanup.
 
 #### Tasks
 
-- [ ] 3.1 Create `docs/operations/ingress.md`: "Migrating from the
+- [x] 3.1 Create `docs/operations/ingress.md`: "Migrating from the
   baked sidecar" section first (DESIGN-0023 OQ2 = a — operator
   steps, loud-failure explanations, env-var silent-ignore
   asymmetry, post-upgrade policy-hash re-enqueue note, webhook-gap

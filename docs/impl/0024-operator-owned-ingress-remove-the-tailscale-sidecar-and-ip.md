@@ -1,7 +1,7 @@
 ---
 id: IMPL-0024
 title: "Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-08-15
 ---
@@ -9,7 +9,7 @@ created: 2026-08-15
 
 # IMPL 0024: Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-08-15
 
@@ -326,13 +326,21 @@ The release-side checklist, including the two items that fail
 - [x] 4.4 Open the single atomic PR with the `minor` label; body
   carries the migration summary and the breaking-change callouts.
   *(PR #182, opened 2026-08-15.)*
-- [ ] 4.5 Post-merge: confirm the push-triggered `release.yml` run
+- [x] 4.5 Post-merge: confirm the push-triggered `release.yml` run
   **creates jobs** (startup_failure is silent — post-mortem), then
   v1.14.0 tag exists, chart `1.0.0` published to GHCR **and** ECR,
-  both signed with provenance attached. *(The ECR pull/cosign half
-  is deferred operator-side — no AWS credentials on the dev
-  machine; the workflow job statuses cover ECR publish success.)*
-- [ ] 4.6 Flip DESIGN-0023 → Implemented, IMPL-0024 → Completed;
+  both signed with provenance attached. *(Verified 2026-08-15, run
+  31912701823: all jobs created and green; `Publish to ECR` skipped
+  by design — `vars.ECR_PUBLISH_ENABLED` is unset, ECR publishing
+  has never been enabled, which also moots the 4.2 duplicate check.
+  v1.14.0 tag on merge commit `f327d28`; chart `1.0.0`
+  (appVersion 1.14.0) pulls anonymously from GHCR; cosign verify
+  passes for image and chart; SLSA provenance verified via
+  `slsa-verifier` for both — trusted builder
+  `generator_container_slsa3.yml@v2.1.0` at the merge commit. The
+  published chart rejects `tailscale.*` values with the
+  migration-URL message.)*
+- [x] 4.6 Flip DESIGN-0023 → Implemented, IMPL-0024 → Completed;
   `docz update design` / `docz update impl`.
 
 #### Success Criteria

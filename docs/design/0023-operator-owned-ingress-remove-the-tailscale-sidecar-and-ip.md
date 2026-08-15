@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0023
 title: "Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-08-15
 ---
@@ -9,7 +9,7 @@ created: 2026-08-15
 
 # DESIGN 0023: Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-08-15
 

@@ -151,10 +151,10 @@ any commit.
   Tailscale — the panel itself survives, OQ3 = a); run
   `make monitoring-generate` and commit
   `contrib/generated/` in the same commit.
-- [ ] 1.3 Rewrite `RepoGuardianWebhookRejectionsHigh`'s
+- [x] 1.3 Rewrite `RepoGuardianWebhookRejectionsHigh`'s
   `Description` (`internal/monitoring/alert/alert.go:154` — the
   current text promises allowlist 403s that no longer exist);
-  regenerate; `make lint-monitoring lint-alerts-contrib` green.
+  regenerate; `make lint-monitoring lint-alerts-generated` green.
 - [ ] 1.4 Remove the env knobs from `internal/config/config.go`
   (`WebhookIPAllowlist`, `WebhookIPAllowlistFailOpen`,
   `TrustProxyHeaders` fields; `envOrDefaultBool` loads ~278-290);
@@ -179,7 +179,7 @@ any commit.
 - `grep -rn "WebhookIPAllowlist\|TrustProxyHeaders\|WEBHOOK_IP_ALLOWLIST\|TRUST_PROXY_HEADERS\|webhook_ip_allowlist\|trust_proxy_headers" internal/ cmd/ --include='*.go'`
   returns only the 1.7 warn strings and nothing else.
 - `make ci` green; `TestLogLines_AreStillEmittedByTheBinary`,
-  `make lint-monitoring`, `make lint-alerts-contrib` all green.
+  `make lint-monitoring`, `make lint-alerts-generated` all green.
 - The loader regression test exists and has been proven non-vacuous.
 - `webhook_rejected_total{reason="signature"}` increments on a
   bad-signature POST (handler test) and no other reason value is
@@ -310,7 +310,7 @@ The release-side checklist, including the two items that fail
 #### Tasks
 
 - [ ] 4.1 Full local gate: `make ci`, `helm-unittest`, `make
-  lint-monitoring lint-alerts-contrib lint-alerts-chart`; confirm no
+  lint-monitoring lint-alerts-generated lint-alerts-chart`; confirm no
   mock regeneration needed (no interface diffs in `git diff
   --stat`).
 - [ ] 4.2 **Verify no chart `1.0.0` exists in ECR** (GHCR already
@@ -378,7 +378,7 @@ The release-side checklist, including the two items that fail
   message text; positive default render; sidecar assertions
   removed.
 - [ ] Drift gates (existing): `TestLogLines_AreStillEmittedByTheBinary`,
-  `make lint-monitoring`, `make lint-alerts-contrib`,
+  `make lint-monitoring`, `make lint-alerts-generated`,
   `make lint-alerts-chart`.
 - [ ] Render sweep: `helm template | grep -E '^kind:|^  namespace:'`
   (PR #67 pattern) + absence grep for tailscale/allowlist strings.

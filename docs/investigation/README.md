@@ -27,7 +27,7 @@ Design docs, plans, and implementation docs can reference investigations by ID
 | INV-0012 | Inert BudgetTracker and untrustworthy alert pack | Concluded | 2026-07-25 | Donald Gifford | [0012-inert-budgettracker-and-untrustworthy-alert-pack.md](0012-inert-budgettracker-and-untrustworthy-alert-pack.md) |
 | INV-0013 | State-vs-event metrics, dashboard suite, and system observability | Concluded | 2026-08-01 | Donald Gifford | [0013-state-vs-event-metrics-dashboard-suite-and-system-observability.md](0013-state-vs-event-metrics-dashboard-suite-and-system-observability.md) |
 | INV-0014 | Orphan cleanup deletes files the default branch legitimately owns | Concluded | 2026-08-03 | Donald Gifford | [0014-orphan-cleanup-deletes-files-the-default-branch-legitimately.md](0014-orphan-cleanup-deletes-files-the-default-branch-legitimately.md) |
-| INV-0016 | Retire the baked Tailscale sidecar for operator-managed ingress | Open | 2026-08-14 | Donald Gifford | [0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress.md](0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress.md) |
+| INV-0016 | Retire the baked Tailscale sidecar for operator-managed ingress | Concluded | 2026-08-14 | Donald Gifford | [0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress.md](0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress.md) |
 <!-- END DOCZ AUTO-GENERATED -->
 <!-- BEGIN DOCZ AUTO-GENERATED -->
 <!-- END DOCZ AUTO-GENERATED -->

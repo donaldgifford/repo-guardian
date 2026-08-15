@@ -1,7 +1,7 @@
 ---
 id: INV-0016
 title: "Retire the baked Tailscale sidecar for operator-managed ingress"
-status: Open
+status: Concluded
 author: Donald Gifford
 created: 2026-08-14
 ---
@@ -9,7 +9,7 @@ created: 2026-08-14
 
 # INV 0016: Retire the baked Tailscale sidecar for operator-managed ingress
 
-**Status:** Open
+**Status:** Concluded
 **Author:** Donald Gifford
 **Date:** 2026-08-14
 

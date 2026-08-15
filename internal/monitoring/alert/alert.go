@@ -157,12 +157,13 @@ func coreSpecs() []Spec {
 			// E. A window shorter than the pending period cannot hold a
 			// condition true across it when the source is sparse, and
 			// webhook rejections are sparse by nature.
-			Expr:        `sum by (reason) (rate(repo_guardian_webhook_rejected_total[30m])) > 0.1`,
-			Window:      30 * time.Minute,
-			For:         30 * time.Minute,
-			Severity:    SeverityWarning,
-			Summary:     "Webhook requests are being rejected",
-			Description: "Check the reason label: allowlist rejections are 403s, signature failures are 401s.",
+			Expr:     `sum by (reason) (rate(repo_guardian_webhook_rejected_total[30m])) > 0.1`,
+			Window:   30 * time.Minute,
+			For:      30 * time.Minute,
+			Severity: SeverityWarning,
+			Summary:  "Webhook requests are being rejected",
+			Description: "Signature validation failures (401s) — usually a wrong or rotated webhook secret. " +
+				"Source-IP rejections happen at the operator's edge layer, not here (DESIGN-0023).",
 		},
 		{
 			Name:  "RepoGuardianPostureExportStalled",

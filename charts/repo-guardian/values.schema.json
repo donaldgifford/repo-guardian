@@ -90,6 +90,14 @@
           "description": "Go duration (e.g. \"24h\"). Cadence of compliance-history rows for `repo-guardian report --since`. Rows are permanent; there is no retention machinery."
         }
       }
+    },
+    "tailscale": {
+      "const": "REMOVED in IMPL-0024 — see docs/operations/ingress.md#migrating-from-the-baked-sidecar",
+      "description": "REMOVED in IMPL-0024 (chart 1.0.0): ingress is operator-owned — the baked Tailscale sidecar was deleted. See docs/operations/ingress.md#migrating-from-the-baked-sidecar."
+    },
+    "webhookIPAllowlist": {
+      "const": "REMOVED in IMPL-0024 — see docs/operations/ingress.md#migrating-from-the-baked-sidecar",
+      "description": "REMOVED in IMPL-0024 (chart 1.0.0): the in-app IP allowlist middleware was deleted; source-IP enforcement lives at the operator's edge layer. See docs/operations/ingress.md#migrating-from-the-baked-sidecar."
     }
   }
 }

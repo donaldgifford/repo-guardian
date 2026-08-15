@@ -58,7 +58,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          description: 'Check the reason label: allowlist rejections are 403s, signature failures are 401s.'
+          description: Signature validation failures (401s) — usually a wrong or rotated webhook secret. Source-IP rejections happen at the operator's edge layer, not here (DESIGN-0023).
           summary: Webhook requests are being rejected
       - alert: RepoGuardianPostureExportStalled
         expr: sum(increase(repo_guardian_posture_export_total{outcome="ok"}[1h])) == 0

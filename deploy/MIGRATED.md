@@ -68,18 +68,13 @@ documented under `docs/operations/scaling.md` — `store.postgres.mode`,
 ### `tailscale`
 
 The `tailscale` overlay published the webhook via Tailscale Funnel and
-forwarded client IPs through `X-Forwarded-For`. Equivalent chart values:
-
-```yaml
-env:
-  TRUST_PROXY_HEADERS: "true"
-  WEBHOOK_IP_ALLOWLIST: "true"
-ingress:
-  enabled: false  # Tailscale Funnel handles ingress out-of-band
-```
-
-The chart does not bundle Tailscale sidecars or Funnel manifests; those
-are deployed separately and forward traffic to the chart's `Service`.
+forwarded client IPs through `X-Forwarded-For`. There is no values
+equivalent anymore: the in-app IP allowlist and its
+`TRUST_PROXY_HEADERS` / `WEBHOOK_IP_ALLOWLIST` env vars were removed
+in IMPL-0024 (chart `1.0.0`), and ingress is operator-owned. Set up
+the Funnel `Ingress` (or another edge) per
+[`docs/operations/ingress.md`](../docs/operations/ingress.md) and
+point it at the chart's `Service`.
 
 ## See also
 

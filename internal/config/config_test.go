@@ -61,18 +61,6 @@ func TestLoadDefaults(t *testing.T) {
 		t.Errorf("RateLimitThreshold = %f, want 0.10", cfg.RateLimitThreshold)
 	}
 
-	if !cfg.WebhookIPAllowlist {
-		t.Error("WebhookIPAllowlist should default to true")
-	}
-
-	if cfg.WebhookIPAllowlistFailOpen {
-		t.Error("WebhookIPAllowlistFailOpen should default to false")
-	}
-
-	if cfg.TrustProxyHeaders {
-		t.Error("TrustProxyHeaders should default to false")
-	}
-
 	if cfg.StoreBackend != StoreBackendPostgres {
 		t.Errorf("StoreBackend default = %q, want %q", cfg.StoreBackend, StoreBackendPostgres)
 	}
@@ -300,9 +288,6 @@ func TestLoadOverrides(t *testing.T) {
 	t.Setenv("DRY_RUN", "true")
 	t.Setenv("LOG_LEVEL", "debug")
 	t.Setenv("RATE_LIMIT_THRESHOLD", "0.25")
-	t.Setenv("WEBHOOK_IP_ALLOWLIST", "false")
-	t.Setenv("WEBHOOK_IP_ALLOWLIST_FAIL_OPEN", "true")
-	t.Setenv("TRUST_PROXY_HEADERS", "true")
 
 	cfg, err := Load()
 	if err != nil {
@@ -363,18 +348,6 @@ func TestLoadOverrides(t *testing.T) {
 
 	if cfg.RateLimitThreshold != 0.25 {
 		t.Errorf("RateLimitThreshold = %f, want 0.25", cfg.RateLimitThreshold)
-	}
-
-	if cfg.WebhookIPAllowlist {
-		t.Error("WebhookIPAllowlist should be false")
-	}
-
-	if !cfg.WebhookIPAllowlistFailOpen {
-		t.Error("WebhookIPAllowlistFailOpen should be true")
-	}
-
-	if !cfg.TrustProxyHeaders {
-		t.Error("TrustProxyHeaders should be true")
 	}
 }
 
@@ -476,53 +449,5 @@ func TestLoadPrivateKeyBothSet(t *testing.T) {
 
 	if !strings.Contains(err.Error(), "mutually exclusive") {
 		t.Errorf("error should mention mutually exclusive: %v", err)
-	}
-}
-
-func TestLoadInvalidWebhookIPAllowlist(t *testing.T) {
-	t.Setenv("GITHUB_APP_ID", "123")
-	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/key.pem")
-	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
-	t.Setenv("WEBHOOK_IP_ALLOWLIST", "notabool")
-
-	_, err := Load()
-	if err == nil {
-		t.Fatal("expected error for invalid WEBHOOK_IP_ALLOWLIST")
-	}
-
-	if !strings.Contains(err.Error(), "WEBHOOK_IP_ALLOWLIST") {
-		t.Errorf("error should mention WEBHOOK_IP_ALLOWLIST: %v", err)
-	}
-}
-
-func TestLoadInvalidWebhookIPAllowlistFailOpen(t *testing.T) {
-	t.Setenv("GITHUB_APP_ID", "123")
-	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/key.pem")
-	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
-	t.Setenv("WEBHOOK_IP_ALLOWLIST_FAIL_OPEN", "notabool")
-
-	_, err := Load()
-	if err == nil {
-		t.Fatal("expected error for invalid WEBHOOK_IP_ALLOWLIST_FAIL_OPEN")
-	}
-
-	if !strings.Contains(err.Error(), "WEBHOOK_IP_ALLOWLIST_FAIL_OPEN") {
-		t.Errorf("error should mention WEBHOOK_IP_ALLOWLIST_FAIL_OPEN: %v", err)
-	}
-}
-
-func TestLoadInvalidTrustProxyHeaders(t *testing.T) {
-	t.Setenv("GITHUB_APP_ID", "123")
-	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/key.pem")
-	t.Setenv("GITHUB_WEBHOOK_SECRET", "secret")
-	t.Setenv("TRUST_PROXY_HEADERS", "notabool")
-
-	_, err := Load()
-	if err == nil {
-		t.Fatal("expected error for invalid TRUST_PROXY_HEADERS")
-	}
-
-	if !strings.Contains(err.Error(), "TRUST_PROXY_HEADERS") {
-		t.Errorf("error should mention TRUST_PROXY_HEADERS: %v", err)
 	}
 }

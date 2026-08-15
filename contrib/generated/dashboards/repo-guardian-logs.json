@@ -437,12 +437,12 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum by (msg) (\n  count_over_time({app=\"repo-guardian\"} |~ \"rejected request from non-GitHub IP|could not extract IP from request|invalid webhook payload\" | json [15m])\n)",
+          "expr": "sum by (msg) (\n  count_over_time({app=\"repo-guardian\"} |~ \"invalid webhook payload\" | json [15m])\n)",
           "legendFormat": "{{ msg }}"
         }
       ],
       "title": "Rejected webhook deliveries",
-      "description": "Rejections by message. The IP allowlist and the HMAC check are two layers, and which one fired matters: an allowlist rejection is usually a proxy misconfiguration (TRUST_PROXY_HEADERS behind Tailscale), a signature rejection is a wrong secret.",
+      "description": "Signature rejections only: a burst here means a wrong or rotated webhook secret. Source-IP rejections happen at the operator's edge layer, not in the app — see docs/operations/ingress.md for where each edge's evidence lives.",
       "transparent": false,
       "datasource": {
         "type": "loki",
@@ -480,7 +480,7 @@
       "type": "logs",
       "targets": [
         {
-          "expr": "{app=\"repo-guardian\"} |~ \"rejected request from non-GitHub IP|could not extract IP from request|invalid webhook payload|failed to enqueue job\" | json",
+          "expr": "{app=\"repo-guardian\"} |~ \"invalid webhook payload|failed to enqueue job\" | json",
           "maxLines": 200
         }
       ],

@@ -60,15 +60,6 @@ type Config struct {
 	// at which pre-emptive throttling begins (e.g., 0.10 = 10%).
 	RateLimitThreshold float64
 
-	// WebhookIPAllowlist enables the GitHub webhook IP allowlist middleware.
-	WebhookIPAllowlist bool
-
-	// WebhookIPAllowlistFailOpen allows requests when the allowlist is unavailable.
-	WebhookIPAllowlistFailOpen bool
-
-	// TrustProxyHeaders reads client IP from X-Forwarded-For when true.
-	TrustProxyHeaders bool
-
 	// GuardianConfigPath is the path to a guardian.hcl policy file or
 	// directory of .hcl files. When set, operational settings are loaded
 	// from the HCL config instead of environment variables.
@@ -268,26 +259,6 @@ func Load() (*Config, error) {
 
 	cfg.RateLimitThreshold = rateLimitThreshold
 
-	webhookIPAllowlist, err := envOrDefaultBool("WEBHOOK_IP_ALLOWLIST", true)
-	if err != nil {
-		return nil, err
-	}
-
-	cfg.WebhookIPAllowlist = webhookIPAllowlist
-
-	webhookIPAllowlistFailOpen, err := envOrDefaultBool("WEBHOOK_IP_ALLOWLIST_FAIL_OPEN", false)
-	if err != nil {
-		return nil, err
-	}
-
-	cfg.WebhookIPAllowlistFailOpen = webhookIPAllowlistFailOpen
-
-	trustProxyHeaders, err := envOrDefaultBool("TRUST_PROXY_HEADERS", false)
-	if err != nil {
-		return nil, err
-	}
-
-	cfg.TrustProxyHeaders = trustProxyHeaders
 	cfg.GuardianConfigPath = os.Getenv("GUARDIAN_CONFIG")
 
 	if err := loadBackendConfig(cfg); err != nil {

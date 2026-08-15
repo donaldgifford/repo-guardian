@@ -132,7 +132,7 @@ any commit.
 
 #### Tasks
 
-- [ ] 1.1 Repoint `webhook_rejected_total`: increment
+- [x] 1.1 Repoint `webhook_rejected_total`: increment
   `metrics.WebhookRejectedTotal.WithLabelValues("signature")` on the
   401 branch of `webhook.Handler.ServeHTTP`
   (`internal/webhook/handler.go:86-92`); update the metric's help
@@ -140,7 +140,7 @@ any commit.
   allowlist" → "rejected (signature validation)"); handler test
   asserting exactly-once increment via `testutil.ToFloat64` and that
   the 202 contract tests still pass.
-- [ ] 1.2 Delete `internal/webhook/allowlist.go` and
+- [x] 1.2 Delete `internal/webhook/allowlist.go` and
   `allowlist_test.go`; remove `wrapWebhookAllowlist` and its call
   site from `cmd/repo-guardian/main.go` (~665, ~188 — handler mounts
   directly, otelhttp stays OUTERMOST); in the same commit reduce E4:
@@ -151,25 +151,25 @@ any commit.
   Tailscale — the panel itself survives, OQ3 = a); run
   `make monitoring-generate` and commit
   `contrib/generated/` in the same commit.
-- [ ] 1.3 Rewrite `RepoGuardianWebhookRejectionsHigh`'s
+- [x] 1.3 Rewrite `RepoGuardianWebhookRejectionsHigh`'s
   `Description` (`internal/monitoring/alert/alert.go:154` — the
   current text promises allowlist 403s that no longer exist);
-  regenerate; `make lint-monitoring lint-alerts-contrib` green.
-- [ ] 1.4 Remove the env knobs from `internal/config/config.go`
+  regenerate; `make lint-monitoring lint-alerts-generated` green.
+- [x] 1.4 Remove the env knobs from `internal/config/config.go`
   (`WebhookIPAllowlist`, `WebhookIPAllowlistFailOpen`,
   `TrustProxyHeaders` fields; `envOrDefaultBool` loads ~278-290);
   update `config_test.go`.
-- [ ] 1.5 Remove the HCL attrs — the INV-0010 lockstep in reverse,
+- [x] 1.5 Remove the HCL attrs — the INV-0010 lockstep in reverse,
   all three spots per attribute: `guardianBodySchema` (~378),
   `setGuardianAttr` (~429), `mergeGuardianConfig` (~1167), plus
   `applyEnvOverrides` (~1191) and `defaults.go` (~111); update
   `types.go`, `types_test.go`, `loader_test.go`, `defaults_test.go`.
-- [ ] 1.6 Add the loader regression test: a `guardian {}` block
+- [x] 1.6 Add the loader regression test: a `guardian {}` block
   containing `webhook_ip_allowlist = true` fails `Load` with
   "Unsupported argument". **Verify non-vacuously**: re-add the
   attribute to `guardianBodySchema`, watch the test fail, remove it
   (back up first per standing practice).
-- [ ] 1.7 (OQ2 = a) startup `slog.Warn` when any of the three
+- [x] 1.7 (OQ2 = a) startup `slog.Warn` when any of the three
   removed env vars is still set, naming
   `docs/operations/ingress.md`; test with `t.Setenv` (no
   `t.Parallel`).
@@ -179,7 +179,7 @@ any commit.
 - `grep -rn "WebhookIPAllowlist\|TrustProxyHeaders\|WEBHOOK_IP_ALLOWLIST\|TRUST_PROXY_HEADERS\|webhook_ip_allowlist\|trust_proxy_headers" internal/ cmd/ --include='*.go'`
   returns only the 1.7 warn strings and nothing else.
 - `make ci` green; `TestLogLines_AreStillEmittedByTheBinary`,
-  `make lint-monitoring`, `make lint-alerts-contrib` all green.
+  `make lint-monitoring`, `make lint-alerts-generated` all green.
 - The loader regression test exists and has been proven non-vacuous.
 - `webhook_rejected_total{reason="signature"}` increments on a
   bad-signature POST (handler test) and no other reason value is
@@ -194,35 +194,35 @@ bump so the negative tests exercise the final message text.
 
 #### Tasks
 
-- [ ] 2.1 `values.yaml`: delete the `webhookIPAllowlist:` block
+- [x] 2.1 `values.yaml`: delete the `webhookIPAllowlist:` block
   (~174-180) and the `tailscale:` block (~182-196).
-- [ ] 2.2 `templates/deployment.yaml`: delete the
+- [x] 2.2 `templates/deployment.yaml`: delete the
   `WEBHOOK_IP_ALLOWLIST` env, the `tailscale.enabled` env fork
   (~100-113), the tailscale sidecar container, the
   `tailscale-state` emptyDir + serve-config volumes/mounts.
-- [ ] 2.3 Delete `templates/tailscale-configmap.yaml` and
+- [x] 2.3 Delete `templates/tailscale-configmap.yaml` and
   `templates/tailscale-rbac.yaml`; remove the `tailscale.enabled`
   block from `templates/NOTES.txt` (webhook-URL guidance now points
   at `docs/operations/ingress.md`).
-- [ ] 2.4 `_helpers.tpl`: add a `repo-guardian.validateRemovedValues`
+- [x] 2.4 `_helpers.tpl`: add a `repo-guardian.validateRemovedValues`
   guard (IMPL-0018 `validateBackendSecrets` pattern, included at the
   top of `deployment.yaml`): if `.Values.tailscale` or
   `.Values.webhookIPAllowlist` is present, `fail` with the removed
   block's name and the migration URL
   (`docs/operations/ingress.md#migrating-from-the-baked-sidecar`).
-- [ ] 2.5 `values.schema.json`: add explicit rejection entries
+- [x] 2.5 `values.schema.json`: add explicit rejection entries
   (`"not": {}` with `"description"` naming the migration doc) for
   `tailscale` and `webhookIPAllowlist` — first appearance of either
   key in the schema (audit note).
-- [ ] 2.6 Tests: remove the 4 tailscale assertions from
+- [x] 2.6 Tests: remove the 4 tailscale assertions from
   `tests/deployment_test.yaml`; add negative cases to
   `tests/values_guard_test.yaml` (`tailscale.enabled=true` and
   `webhookIPAllowlist.enabled=true` each fail render with the
   migration message) plus a positive default-values render case.
-- [ ] 2.7 Strip the `webhookIPAllowlist:` blocks from
+- [x] 2.7 Strip the `webhookIPAllowlist:` blocks from
   `examples/values-with-policy.yaml` (~153) and
   `examples/values-multi-org.yaml` (~100); `examples_test.go` green.
-- [ ] 2.8 `Chart.yaml`: `version: 1.0.0`, `appVersion: "1.14.0"`
+- [x] 2.8 `Chart.yaml`: `version: 1.0.0`, `appVersion: "1.14.0"`
   (next minor after 1.13.0 — re-verify at PR time per the IMPL-0017
   appVersion-vs-tag lesson); `make helm-docs` (README regenerates
   from `.gotmpl` — never edit the rendered README).
@@ -251,7 +251,7 @@ phase is load-bearing, not cleanup.
 
 #### Tasks
 
-- [ ] 3.1 Create `docs/operations/ingress.md`: "Migrating from the
+- [x] 3.1 Create `docs/operations/ingress.md`: "Migrating from the
   baked sidecar" section first (DESIGN-0023 OQ2 = a — operator
   steps, loud-failure explanations, env-var silent-ignore
   asymmetry, post-upgrade policy-hash re-enqueue note, webhook-gap
@@ -262,31 +262,31 @@ phase is load-bearing, not cleanup.
   Secret ref — OQ6 = a) and each row's source-IP setup,
   X-Forwarded-For note, CIDR-refresh ownership, and observability
   story; closing checkbox contract.
-- [ ] 3.2 Rewrite SECURITY.md's webhook sections: HMAC is the
+- [x] 3.2 Rewrite SECURITY.md's webhook sections: HMAC is the
   app-layer boundary; source-IP enforcement is operator-owned per
   `ingress.md`; one history paragraph pointing at INV-0016 with the
   spoofability finding (so the middleware doesn't get reintroduced
   as a "cheap second layer").
-- [ ] 3.3 `docs/usage/policy-reference.md`: remove the three
+- [x] 3.3 `docs/usage/policy-reference.md`: remove the three
   guardian-attr rows (~69-71) and the two env-mapping rows
   (~637-638).
-- [ ] 3.4 Sweep the remaining live docs: `docs/operations/
+- [x] 3.4 Sweep the remaining live docs: `docs/operations/
   ent-setup.md`, `docs/index.md`, `docs/README.md`,
   `contrib/README.md` — replace Tailscale/allowlist references with
   `ingress.md` pointers (historical design/impl docs stay
   untouched).
-- [ ] 3.5 Supersession (OQ1 = a): add `Superseded` to the design
+- [x] 3.5 Supersession (OQ1 = a): add `Superseded` to the design
   statuses in `.docz.yaml`; set DESIGN-0004 and DESIGN-0003 to
   `Superseded` with a banner naming DESIGN-0023; INV-0001 gets a
   banner pointing at INV-0016 (status stays Concluded); `docz
   update design` / `docz update inv`.
-- [ ] 3.6 CLAUDE.md: remove the "Webhook IP allowlist" and
+- [x] 3.6 CLAUDE.md: remove the "Webhook IP allowlist" and
   "Tailscale Funnel" key-design-pattern bullets, update the
   `webhook/` architecture line (drop "IP allowlist middleware"),
   and add a short entry recording this change's contracts (HMAC
   sole app layer; `reason="signature"`; removed knobs fail
   load/render).
-- [ ] 3.7 `docz update impl` + `docz wiki update`; `make
+- [x] 3.7 `docz update impl` + `docz wiki update`; `make
   lint-docs`-equivalent checks if present (yamllint/markdownlint
   via existing make targets).
 
@@ -309,25 +309,29 @@ The release-side checklist, including the two items that fail
 
 #### Tasks
 
-- [ ] 4.1 Full local gate: `make ci`, `helm-unittest`, `make
-  lint-monitoring lint-alerts-contrib lint-alerts-chart`; confirm no
+- [x] 4.1 Full local gate: `make ci`, `helm-unittest`, `make
+  lint-monitoring lint-alerts-generated lint-alerts-chart`; confirm no
   mock regeneration needed (no interface diffs in `git diff
   --stat`).
-- [ ] 4.2 **Verify no chart `1.0.0` exists in ECR** (GHCR already
-  verified clean 2026-08-15): `helm show chart oci://<ECR>/
-  repo-guardian-chart --version 1.0.0` (or `aws ecr
-  describe-images`) — required because the publish workflow's `helm
-  pull` idempotency precheck *silently skips* publishing over an
-  existing version.
-- [ ] 4.3 Re-verify `appVersion` against the tag the `minor` label
+- [x] 4.2 **DEFERRED (operator-side, 2026-08-15)** — Verify no chart
+  `1.0.0` exists in ECR (GHCR already verified clean 2026-08-15):
+  `helm show chart oci://<ECR>/repo-guardian-chart --version 1.0.0`
+  (or `aws ecr describe-images`) — required because the publish
+  workflow's `helm pull` idempotency precheck *silently skips*
+  publishing over an existing version. No AWS credentials on the dev
+  machine; the operator runs this before or at merge time.
+- [x] 4.3 Re-verify `appVersion` against the tag the `minor` label
   will actually cut (IMPL-0017 lesson) — if a release landed since,
   adjust `appVersion` before merge.
-- [ ] 4.4 Open the single atomic PR with the `minor` label; body
+- [x] 4.4 Open the single atomic PR with the `minor` label; body
   carries the migration summary and the breaking-change callouts.
+  *(PR #182, opened 2026-08-15.)*
 - [ ] 4.5 Post-merge: confirm the push-triggered `release.yml` run
   **creates jobs** (startup_failure is silent — post-mortem), then
   v1.14.0 tag exists, chart `1.0.0` published to GHCR **and** ECR,
-  both signed with provenance attached.
+  both signed with provenance attached. *(The ECR pull/cosign half
+  is deferred operator-side — no AWS credentials on the dev
+  machine; the workflow job statuses cover ECR publish success.)*
 - [ ] 4.6 Flip DESIGN-0023 → Implemented, IMPL-0024 → Completed;
   `docz update design` / `docz update impl`.
 
@@ -378,7 +382,7 @@ The release-side checklist, including the two items that fail
   message text; positive default render; sidecar assertions
   removed.
 - [ ] Drift gates (existing): `TestLogLines_AreStillEmittedByTheBinary`,
-  `make lint-monitoring`, `make lint-alerts-contrib`,
+  `make lint-monitoring`, `make lint-alerts-generated`,
   `make lint-alerts-chart`.
 - [ ] Render sweep: `helm template | grep -E '^kind:|^  namespace:'`
   (PR #67 pattern) + absence grep for tailscale/allowlist strings.

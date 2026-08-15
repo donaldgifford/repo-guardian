@@ -240,7 +240,7 @@ phases are complete:
 4. Production deployment via the chart (homelab Talos + AWS EKS)
 5. Extensibility (template overrides, configurable rules)
 6. Custom properties sync from Backstage catalog-info.yaml
-7. Helm chart, webhook IP allowlist, HCL policy engine
+7. Helm chart, webhook HMAC validation, HCL policy engine
 8. Setting rules, branch-protection rules, ignore lists, reconcilers
 9. Distributed Renovate via per-repo GitHub Actions
 10. Per-org rule scoping (strict mode) and per-org metric labels

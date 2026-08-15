@@ -170,31 +170,6 @@ templating:
   # templates (sets STRICT_TEMPLATES=true on the Deployment).
   strict: false
 
-# -- Webhook IP allowlist configuration
-webhookIPAllowlist:
-  # -- Enable GitHub IP allowlist middleware
-  enabled: true
-  # -- Allow requests when allowlist unavailable
-  failOpen: false
-  # -- Trust X-Forwarded-For proxy headers
-  trustProxyHeaders: false
-
-# -- Tailscale Funnel sidecar
-tailscale:
-  # -- Enable Tailscale sidecar container
-  enabled: false
-  # -- Tailscale container image
-  image: ghcr.io/tailscale/tailscale:latest
-  # -- Tailscale hostname (becomes <hostname>.<tailnet>.ts.net)
-  hostname: repo-guardian
-  # -- Use userspace networking (no CAP_NET_ADMIN needed)
-  userspace: true
-  # -- Name of existing secret containing 'authkey'
-  authKeySecret: tailscale-auth
-  # -- Create RBAC for Tailscale state management
-  rbac:
-    create: true
-
 serviceMonitor:
   # -- Create Prometheus ServiceMonitor
   enabled: false

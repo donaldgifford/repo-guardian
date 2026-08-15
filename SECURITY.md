@@ -1,20 +1,31 @@
 # Security
 
-This document describes the security mechanisms implemented in repo-guardian
-to protect the webhook endpoint and ensure only legitimate GitHub traffic is
-processed.
+This document describes the security model for repo-guardian's webhook
+endpoint: what the application enforces, and what belongs to the
+operator's edge layer.
 
-## Defense-in-Depth
+## Trust Model
 
-repo-guardian uses two independent layers of protection on the webhook endpoint.
-Both layers must pass before any payload processing occurs:
+The application-layer security boundary is **HMAC signature
+validation**. Every delivery must carry a valid
+`X-Hub-Signature-256` computed with the shared webhook secret;
+anything else is rejected with `401 Unauthorized` before any payload
+processing.
+
+**Source-IP enforcement is operator-owned.** The app ships no
+ingress and reads no client-IP headers. Where a source-IP layer is
+wanted, it lives at the operator's edge — an ALB security group
+referencing the GitHub prefix list, a Cloudflare WAF rule, an ngrok
+`restrict-ips` traffic policy — enforced at the true source address,
+fail-closed, before traffic reaches the pod. The options and recipes
+are in [docs/operations/ingress.md](docs/operations/ingress.md).
 
 ```
 Incoming request
       |
       v
-[IP Allowlist Middleware]  -- 403 if source IP not in GitHub ranges
-      |
+[Operator's edge layer]  -- source-IP enforcement, where configured
+      |                     (SG / WAF / traffic policy — outside the app)
       v
 [HMAC Signature Validation]  -- 401 if signature invalid
       |
@@ -22,55 +33,23 @@ Incoming request
 [Event Processing]
 ```
 
-## Layer 1: GitHub Webhook IP Allowlist
+### History: the removed in-app IP allowlist
 
-An HTTP middleware rejects requests from IP addresses outside GitHub's published
-webhook CIDR ranges. This drops non-GitHub traffic before it reaches application
-code, reducing attack surface.
+Through appVersion 1.13.0 the binary carried an IP-allowlist
+middleware (a `403` layer in front of HMAC) plus a baked Tailscale
+sidecar in the chart. Both were removed in IMPL-0024 after
+[INV-0016](docs/investigation/0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress.md)
+found the middleware was **spoofable behind every documented proxy
+topology**: with `TRUST_PROXY_HEADERS=true` it trusted the leftmost
+`X-Forwarded-For` entry, which the client controls (proxies append
+the true source to the *end*), and the sidecar deployment forced it
+fail-open anyway. A source-IP check that runs behind a proxy on a
+client-controlled header is not a second layer — it is a false sense
+of one. Do not reintroduce it as a "cheap second layer"; put the IP
+layer at the edge, where the true source address is available and
+the check can be fail-closed.
 
-### How It Works
-
-1. On startup, the middleware fetches GitHub's webhook IP ranges from the
-   [`/meta` API](https://api.github.com/meta) (`hooks` field).
-2. The CIDR ranges are parsed and cached in memory.
-3. A background goroutine refreshes the ranges every 24 hours.
-4. Each incoming webhook request's source IP is checked against the cached
-   ranges. Requests from IPs outside the ranges receive a `403 Forbidden`.
-
-### Fail-Closed by Default
-
-If the initial `/meta` fetch fails (e.g., network issue at startup), the
-middleware **rejects all traffic** until a successful refresh occurs. This
-prevents an attacker from bypassing the allowlist by disrupting the fetch.
-
-This behavior is configurable:
-
-| Environment Variable | Default | Description |
-|---|---|---|
-| `WEBHOOK_IP_ALLOWLIST` | `true` | Enable the IP allowlist middleware |
-| `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN` | `false` | Allow all traffic when ranges are unavailable |
-| `TRUST_PROXY_HEADERS` | `false` | Read client IP from `X-Forwarded-For` header |
-
-### Proxy Deployments
-
-When deployed behind a reverse proxy (e.g., Tailscale Funnel, ALB), the
-middleware reads the client IP from the `X-Forwarded-For` header (leftmost
-entry) when `TRUST_PROXY_HEADERS=true`. When `false`, it uses `RemoteAddr`
-directly.
-
-Only enable `TRUST_PROXY_HEADERS` when the proxy is trusted. An untrusted
-client can spoof `X-Forwarded-For` to bypass the allowlist if this is enabled
-without a trusted proxy in front.
-
-### Observability
-
-Rejected requests are tracked via the `repo_guardian_webhook_rejected_total`
-Prometheus counter with a `reason` label:
-
-- `ip_not_allowed` -- source IP is not in GitHub's CIDR ranges
-- `allowlist_unavailable` -- ranges have not been loaded (fail-closed)
-
-## Layer 2: HMAC Signature Validation
+## HMAC Signature Validation
 
 Every webhook request from GitHub includes an `X-Hub-Signature-256` header
 containing an HMAC-SHA256 signature of the request body, computed using the
@@ -104,6 +83,16 @@ to prevent timing attacks.
 The webhook secret is provided via the `GITHUB_WEBHOOK_SECRET` environment
 variable. In Kubernetes, this is stored in a Secret resource and injected
 into the pod.
+
+### Observability
+
+Rejected deliveries are tracked via the
+`repo_guardian_webhook_rejected_total{reason="signature"}` Prometheus
+counter. A burst means a wrong or rotated webhook secret — not an
+unwanted-source problem; that signal lives at the operator's edge
+layer (each option in
+[docs/operations/ingress.md](docs/operations/ingress.md) names where
+its client-IP evidence lives).
 
 ## Additional Security Measures
 

@@ -72,17 +72,14 @@ type DefaultsConfig struct {
 
 // GuardianConfig holds operational settings for the guardian application.
 type GuardianConfig struct {
-	DryRun                     bool    `hcl:"dry_run,optional"`
-	ScheduleInterval           string  `hcl:"schedule_interval,optional"`
-	WorkerCount                int     `hcl:"worker_count,optional"`
-	QueueSize                  int     `hcl:"queue_size,optional"`
-	LogLevel                   string  `hcl:"log_level,optional"`
-	SkipForks                  bool    `hcl:"skip_forks,optional"`
-	SkipArchived               bool    `hcl:"skip_archived,optional"`
-	RateLimitThreshold         float64 `hcl:"rate_limit_threshold,optional"`
-	WebhookIPAllowlist         bool    `hcl:"webhook_ip_allowlist,optional"`
-	WebhookIPAllowlistFailOpen bool    `hcl:"webhook_ip_allowlist_fail_open,optional"`
-	TrustProxyHeaders          bool    `hcl:"trust_proxy_headers,optional"`
+	DryRun             bool    `hcl:"dry_run,optional"`
+	ScheduleInterval   string  `hcl:"schedule_interval,optional"`
+	WorkerCount        int     `hcl:"worker_count,optional"`
+	QueueSize          int     `hcl:"queue_size,optional"`
+	LogLevel           string  `hcl:"log_level,optional"`
+	SkipForks          bool    `hcl:"skip_forks,optional"`
+	SkipArchived       bool    `hcl:"skip_archived,optional"`
+	RateLimitThreshold float64 `hcl:"rate_limit_threshold,optional"`
 
 	// AutoClosePR controls whether repo-guardian closes its own open
 	// pull request when every file rule has been satisfied on the

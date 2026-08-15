@@ -42,8 +42,6 @@ func TestLogLines_AreStillEmittedByTheBinary(t *testing.T) {
 		{"logRuleStateWriteback", logRuleStateWriteback},
 		{"logDeferringJob", logDeferringJob},
 		{"logSweepComplete", logSweepComplete},
-		{"logRejectedIP", logRejectedIP},
-		{"logNoIP", logNoIP},
 		{"logInvalidPayload", logInvalidPayload},
 		{"logEnqueueFailed", logEnqueueFailed},
 	} {

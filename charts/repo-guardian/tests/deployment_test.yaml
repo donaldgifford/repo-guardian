@@ -34,7 +34,7 @@ tests:
     asserts:
       - matchRegex:
           path: spec.template.spec.containers[0].image
-          pattern: "ghcr.io/donaldgifford/repo-guardian:1\\.13\\.0"
+          pattern: "ghcr.io/donaldgifford/repo-guardian:1\\.14\\.0"
 
   - it: should use custom image tag when set
     set:
@@ -112,48 +112,7 @@ tests:
             name: github-private-key
           any: true
 
-  - it: should set webhook IP allowlist env vars
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: WEBHOOK_IP_ALLOWLIST
-            value: "true"
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: WEBHOOK_IP_ALLOWLIST_FAIL_OPEN
-            value: "false"
-
-  - it: should override proxy headers when Tailscale is enabled
-    set:
-      tailscale:
-        enabled: true
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: TRUST_PROXY_HEADERS
-            value: "true"
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: WEBHOOK_IP_ALLOWLIST_FAIL_OPEN
-            value: "true"
-
-  - it: should inject Tailscale sidecar when enabled
-    set:
-      tailscale:
-        enabled: true
-    asserts:
-      - equal:
-          path: spec.template.spec.containers[1].name
-          value: tailscale
-      - equal:
-          path: spec.template.spec.containers[1].image
-          value: "ghcr.io/tailscale/tailscale:latest"
-
-  - it: should not inject Tailscale sidecar when disabled
+  - it: should run exactly one container (ingress is operator-owned, IMPL-0024)
     asserts:
       - lengthEqual:
           path: spec.template.spec.containers

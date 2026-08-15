@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0004
 title: "GitHub Webhook IP Allowlist Middleware"
-status: Implemented
+status: Superseded
 author: Donald Gifford
 created: 2026-03-14
 ---
@@ -9,7 +9,16 @@ created: 2026-03-14
 
 # DESIGN 0004: GitHub Webhook IP Allowlist Middleware
 
-**Status:** Implemented
+> **Superseded by [DESIGN-0023](0023-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip.md)**
+> (IMPL-0024, appVersion `1.14.0`): the middleware this designed was
+> removed — [INV-0016](../investigation/0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress.md)
+> Observation 5 found it spoofable behind every documented proxy
+> (leftmost `X-Forwarded-For` is client-controlled). HMAC is the
+> app-layer boundary; source-IP enforcement lives at the operator's
+> edge per [docs/operations/ingress.md](../operations/ingress.md).
+> Kept as a historical record.
+
+**Status:** Superseded
 **Author:** Donald Gifford
 **Date:** 2026-03-14
 

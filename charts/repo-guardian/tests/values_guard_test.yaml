@@ -126,3 +126,25 @@ tests:
   - it: renders cleanly with none of the removed knobs set
     asserts:
       - notFailedTemplate: {}
+
+  # IMPL-0024: the tailscale sidecar and webhookIPAllowlist middleware
+  # were removed (DESIGN-0023) — ingress and source-IP enforcement are
+  # operator-owned. values.schema.json rejects the keys before the
+  # validateRemovedValues helper even runs, so these pin the schema
+  # layer (a `const` carrying the migration URL, so the render error
+  # names it); the helper is the belt for schema-skipping render paths.
+  - it: fails when tailscale values are still set, naming the migration doc
+    set:
+      tailscale:
+        enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "tailscale.*ingress\\.md#migrating-from-the-baked-sidecar"
+
+  - it: fails when webhookIPAllowlist values are still set, naming the migration doc
+    set:
+      webhookIPAllowlist:
+        enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "webhookIPAllowlist.*ingress\\.md#migrating-from-the-baked-sidecar"

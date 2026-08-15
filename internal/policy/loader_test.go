@@ -268,10 +268,6 @@ func TestLoad_GuardianDefaults_PreservedWithoutHCL(t *testing.T) {
 		t.Error("SkipArchived should default to true")
 	}
 
-	if !cfg.Guardian.WebhookIPAllowlist {
-		t.Error("WebhookIPAllowlist should default to true")
-	}
-
 	if cfg.Guardian.WorkerCount != 5 {
 		t.Errorf("WorkerCount = %d, want 5", cfg.Guardian.WorkerCount)
 	}
@@ -1273,5 +1269,45 @@ func TestLoad_OrphanCleanup_EnvOverridesHCL(t *testing.T) {
 
 	if cfg.Guardian.OrphanCleanupEnabled() {
 		t.Error("ORPHAN_CLEANUP=false must override orphan_cleanup = true in HCL")
+	}
+}
+
+// TestLoad_RemovedAllowlistAttrs_FailLoad pins the intended breakage
+// from IMPL-0024: the webhook IP-allowlist middleware and its three
+// guardian attributes were removed (DESIGN-0023), and the strict
+// decode must reject configs still carrying them rather than silently
+// ignoring stale ingress configuration. If this test fails, someone
+// re-added an attribute to guardianBodySchema.
+func TestLoad_RemovedAllowlistAttrs_FailLoad(t *testing.T) {
+	t.Parallel()
+
+	for _, attr := range []string{
+		"webhook_ip_allowlist",
+		"webhook_ip_allowlist_fail_open",
+		"trust_proxy_headers",
+	} {
+		t.Run(attr, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			hclFile := filepath.Join(dir, "guardian.hcl")
+
+			content := "guardian {\n  " + attr + " = true\n}\n"
+			if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+				t.Fatalf("writing test file: %v", err)
+			}
+
+			_, err := Load(hclFile)
+			if err == nil {
+				t.Fatalf("Load() = nil error, want failure for removed attribute %q", attr)
+			}
+
+			// The strict decode renders the diagnostic detail, which
+			// names the offending attribute.
+			if !strings.Contains(err.Error(), attr) ||
+				!strings.Contains(err.Error(), "is not expected here") {
+				t.Errorf("Load() error = %v, want it to name %q as not expected", err, attr)
+			}
+		})
 	}
 }

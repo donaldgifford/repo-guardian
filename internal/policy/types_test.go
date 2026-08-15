@@ -132,10 +132,6 @@ func TestGuardianConfig_ZeroValue(t *testing.T) {
 		t.Error("zero-value SkipArchived = true, want false")
 	}
 
-	if cfg.WebhookIPAllowlist {
-		t.Error("zero-value WebhookIPAllowlist = true, want false")
-	}
-
 	if cfg.LogLevel != "" {
 		t.Errorf("zero-value LogLevel = %q, want empty", cfg.LogLevel)
 	}

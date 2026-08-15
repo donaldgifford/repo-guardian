@@ -123,6 +123,35 @@ For sizing knobs (`replicaCount`, `workerCount`, `maxConns`,
 For Postgres schema operations, see
 [docs/operations/migrations.md](../../docs/operations/migrations.md).
 
+### Upgrade notes (chart 1.0.0 / appVersion 1.14.0) — operator-owned ingress, breaking
+
+IMPL-0024 (DESIGN-0023). The chart no longer ships any ingress
+machinery — the baked Tailscale sidecar and the in-app webhook IP
+allowlist are both gone. Source-IP enforcement belongs at the edge
+layer you already operate (ALB security groups + the GitHub prefix
+list, Tailscale ACLs, an ngrok traffic policy, a Cloudflare WAF
+rule); HMAC signature validation is the app-layer defense.
+
+- **Removed values:** the entire `tailscale.*` and
+  `webhookIPAllowlist.*` blocks. A values file still setting either
+  fails at render time with a migration message — delete the block
+  and pick an ingress option from
+  [docs/operations/ingress.md](../../docs/operations/ingress.md#migrating-from-the-baked-sidecar).
+- **Removed env vars:** `WEBHOOK_IP_ALLOWLIST`,
+  `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN`, `TRUST_PROXY_HEADERS`. The
+  binary warns at startup if they are still set (and ignores them);
+  the `guardian {}` HCL attributes of the same names now fail policy
+  load under the strict decode.
+- **Metric repointed:** `webhook_rejected_total` now counts HMAC
+  signature rejections (`reason="signature"`) — its only previous
+  producer was the deleted allowlist. Dashboards keep working; the
+  panel now answers "wrong or rotated webhook secret", not
+  "unexpected source IP" (that signal lives at your edge layer).
+- **Why the allowlist had to go, not just the sidecar:** it trusted
+  the leftmost `X-Forwarded-For` entry, which the client controls —
+  behind every documented proxy topology it was spoofable
+  (INV-0016). Removing it is a security improvement, not a loss.
+
 ### Upgrade notes (chart 1.0.0-rc.12 / appVersion 1.13.0) — compliance posture
 
 IMPL-0023. Compliance is now **state** rather than a set of counters,

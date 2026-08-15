@@ -60,9 +60,6 @@ All configuration is via environment variables (12-factor):
 | `LOG_LEVEL` | No | `info` | Log verbosity: debug, info, warn, error |
 | `RATE_LIMIT_THRESHOLD` | No | `0.10` | Fraction of rate limit budget that triggers pre-emptive throttling |
 | `CUSTOM_PROPERTIES_MODE` | No | `""` | Custom properties mode: `""` (disabled), `github-action`, or `api` |
-| `WEBHOOK_IP_ALLOWLIST` | No | `true` | Enable GitHub webhook IP allowlist middleware |
-| `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN` | No | `false` | Allow requests when IP ranges are unavailable |
-| `TRUST_PROXY_HEADERS` | No | `false` | Read client IP from `X-Forwarded-For` header |
 | `GUARDIAN_CONFIG` | No | `""` | Path to HCL policy config file or directory |
 | `STORE_BACKEND` | No | `postgres` | Persistent state store backend. Only `postgres` is supported since IMPL-0016 (chart 1.0). |
 | `STORE_DSN` | Yes (when backend=postgres) | -- | Postgres connection string (e.g., `postgres://user:pass@host:5432/db?sslmode=disable`) |
@@ -281,16 +278,6 @@ secrets:
     -----END RSA PRIVATE KEY-----
 ```
 
-**Tailscale Funnel sidecar:**
-
-```bash
-helm install repo-guardian repo-guardian/repo-guardian \
-  --set tailscale.enabled=true \
-  -f values.yaml
-```
-
-When Tailscale is enabled, `TRUST_PROXY_HEADERS` and `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN` are automatically set to `true`.
-
 ### Health Checks
 
 | Endpoint | Purpose |
@@ -300,7 +287,7 @@ When Tailscale is enabled, `TRUST_PROXY_HEADERS` and `WEBHOOK_IP_ALLOWLIST_FAIL_
 
 ### Exposing Webhooks
 
-The Service exposes port 80 (mapped to container port 8080). You'll need an Ingress or LoadBalancer to route external webhook traffic to `POST /webhooks/github`. Configure your GitHub App's webhook URL to point to this endpoint.
+The Service exposes port 80 (mapped to container port 8080). Ingress is operator-owned — pick an option (ALB via Gateway API, Tailscale operator Funnel, Cloudflare Tunnel, ngrok) from the matrix in [docs/operations/ingress.md](docs/operations/ingress.md) and route external webhook traffic to `POST /webhooks/github`. Configure your GitHub App's webhook URL to point to this endpoint. Source-IP enforcement, where wanted, lives at that edge layer; the app validates every delivery's HMAC signature (see [SECURITY.md](SECURITY.md)).
 
 ## Observability
 
@@ -323,7 +310,7 @@ Available at `METRICS_ADDR` (default `:9090/metrics`):
 | `repo_guardian_out_of_scope_total` | Counter | `level`, `org` | Rule evaluations skipped by strict-mode scope |
 | `repo_guardian_check_duration_seconds` | Histogram | -- | Check duration per repo |
 | `repo_guardian_webhook_received_total` | Counter | `event_type` | Webhooks received |
-| `repo_guardian_webhook_rejected_total` | Counter | `reason` | Webhooks rejected by IP allowlist |
+| `repo_guardian_webhook_rejected_total` | Counter | `reason` | Webhooks rejected by signature validation (`reason="signature"`) |
 | `repo_guardian_errors_total` | Counter | `operation`, `org` | Errors by operation |
 | `repo_guardian_github_rate_remaining` | Gauge | -- | GitHub API rate limit remaining |
 | `repo_guardian_github_rate_limit_waits_total` | Counter | `reason` | Rate limit waits by reason |
@@ -358,12 +345,9 @@ repo-guardian includes a built-in rate limit transport that:
 
 ## Security
 
-repo-guardian uses two layers of defense on the webhook endpoint:
+The app-layer security boundary on the webhook endpoint is **HMAC signature validation** -- every delivery's `X-Hub-Signature-256` header is verified against the shared webhook secret, ensuring authenticity and integrity. Source-IP enforcement is operator-owned and lives at your edge layer (ALB security group, Cloudflare WAF, ngrok traffic policy -- see [docs/operations/ingress.md](docs/operations/ingress.md)).
 
-1. **IP Allowlist Middleware** -- rejects requests from IPs outside GitHub's published webhook CIDR ranges (fetched from the `/meta` API). Fail-closed by default.
-2. **HMAC Signature Validation** -- verifies the `X-Hub-Signature-256` header using a shared webhook secret. Ensures authenticity and integrity.
-
-See [SECURITY.md](SECURITY.md) for full details.
+See [SECURITY.md](SECURITY.md) for the full trust model, including why the former in-app IP allowlist was removed (INV-0016: it was spoofable behind every documented proxy).
 
 ## Architecture
 
@@ -377,7 +361,7 @@ internal/
   checker/    -> check-and-PR engine + setting/branch-protection rules + scope evaluation gates + StaleSweeper
   reconciler/ -> pluggable post-check reconcilers (custom_properties, label_sync, branch_protection, workflow_sync)
   rules/      -> TemplateStore (embedded fallback templates)
-  webhook/    -> HTTP handler for GitHub webhook events (HMAC-validated) + IP allowlist middleware + push event handler + discovery write-back via Store.UpsertIfMissing
+  webhook/    -> HTTP handler for GitHub webhook events (HMAC-validated) + push event handler + discovery write-back via Store.UpsertIfMissing
   scheduler/  -> Scheduler interface + valkey/ (SETNX leader-elected sweep cadence) + Discoverer (periodic enumeration safety net for missed webhooks)
   store/      -> per-repo state interface + postgres/ (pgx/v5 + pgxpool, embedded migrations); UpsertIfMissing for atomic discovery, UpdateRepoState for worker write-back
   queue/      -> work-queue interface + valkey/ (LIST + ZSET + reaper goroutine)

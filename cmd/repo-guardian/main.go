@@ -146,6 +146,8 @@ func run() error {
 	logger := initLogger(cfg.LogLevel)
 	slog.SetDefault(logger)
 
+	warnRemovedEnvVars(logger)
+
 	logger.Info("starting repo-guardian",
 		"listen_addr", cfg.ListenAddr,
 		"metrics_addr", cfg.MetricsAddr,
@@ -185,9 +187,7 @@ func run() error {
 		return err
 	}
 
-	webhookHandler := wrapWebhookAllowlist(ctx, rt.webhookHandler, &policyCfg.Guardian, logger)
-
-	mainServer := newMainServer(ctx, cfg.ListenAddr, webhookHandler)
+	mainServer := newMainServer(ctx, cfg.ListenAddr, rt.webhookHandler)
 	metricsServer := newMetricsServer(cfg.MetricsAddr)
 
 	startServer(logger, mainServer, "main", cfg.ListenAddr, cancel)
@@ -662,36 +662,6 @@ func initLoggerTo(w io.Writer, level string) *slog.Logger {
 	return slog.New(handler)
 }
 
-// wrapWebhookAllowlist optionally wraps next with the GitHub IP
-// allowlist middleware. When the allowlist is enabled the refresher
-// is started against ctx so it terminates with shutdown. Returns the
-// original handler when disabled.
-func wrapWebhookAllowlist(
-	ctx context.Context,
-	next http.Handler,
-	g *policy.GuardianConfig,
-	logger *slog.Logger,
-) http.Handler {
-	if !g.WebhookIPAllowlist {
-		logger.Info("webhook IP allowlist disabled")
-		return next
-	}
-
-	allowlist := webhook.NewGitHubIPAllowlist(
-		g.WebhookIPAllowlistFailOpen,
-		g.TrustProxyHeaders,
-		logger,
-	)
-	allowlist.StartRefresh(ctx)
-
-	logger.Info("webhook IP allowlist enabled",
-		"fail_open", g.WebhookIPAllowlistFailOpen,
-		"trust_proxy", g.TrustProxyHeaders,
-	)
-
-	return allowlist.Middleware(next)
-}
-
 // runStrictTemplateValidation invokes ValidatePRTemplates when enabled
 // is true and exits non-zero on failure. Extracted from main() to keep
 // the entrypoint under the funlen statement budget.
@@ -751,4 +721,37 @@ func handleReadyz(runCtx context.Context) http.HandlerFunc {
 			slog.Error("failed to write readyz response", "error", err)
 		}
 	}
+}
+
+// removedEnvVars are configuration knobs deleted by IMPL-0024
+// (DESIGN-0023): the webhook IP-allowlist middleware was removed and
+// source-IP enforcement moved to the operator's edge layer. The binary
+// ignores these entirely; the warning below is a migration breadcrumb,
+// not behavior. Remove the check in a future major.
+var removedEnvVars = []string{
+	"WEBHOOK_IP_ALLOWLIST",
+	"WEBHOOK_IP_ALLOWLIST_FAIL_OPEN",
+	"TRUST_PROXY_HEADERS",
+}
+
+// warnRemovedEnvVars logs once at startup when a removed knob is still
+// set in the environment, so a stale Deployment patch is a logged fact
+// instead of a silent no-op. See docs/operations/ingress.md.
+func warnRemovedEnvVars(logger *slog.Logger) {
+	var stale []string
+
+	for _, name := range removedEnvVars {
+		if _, ok := os.LookupEnv(name); ok {
+			stale = append(stale, name)
+		}
+	}
+
+	if len(stale) == 0 {
+		return
+	}
+
+	logger.Warn("removed configuration env vars are set and ignored",
+		"vars", stale,
+		"migration", "docs/operations/ingress.md",
+	)
 }

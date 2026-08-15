@@ -1,0 +1,2159 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Multi-org and Forgejo support for repo-guardian - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#inv-0002-multi-org-and-forgejo-support-for-repo-guardian" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Multi-org and Forgejo support for repo-guardian
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#question" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Question
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hypothesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hypothesis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#approach" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Approach
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#findings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Findings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Findings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#multi-installation-of-one-github-app-already-supported" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-installation of one GitHub App: already supported
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#multi-app-not-supported-but-moderate-refactor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-App: not supported, but moderate refactor
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-org-rule-scoping-not-implemented" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-org rule scoping: not implemented
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#forgejo-feasible-for-core-flow-with-caveats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Forgejo: feasible for core flow with caveats
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reconciler-portability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconciler portability
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conclusion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommendation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="inv-0002-multi-org-and-forgejo-support-for-repo-guardian">INV 0002: Multi-org and Forgejo support for repo-guardian</h1>
+<p><strong>Status:</strong> Open
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-04-25</p>
+<!--toc:start-->
+<ul>
+<li><a href="#question">Question</a></li>
+<li><a href="#hypothesis">Hypothesis</a></li>
+<li><a href="#context">Context</a></li>
+<li><a href="#approach">Approach</a></li>
+<li><a href="#environment">Environment</a></li>
+<li><a href="#findings">Findings</a></li>
+<li><a href="#multi-installation-of-one-github-app-already-supported">Multi-installation of one GitHub App: already supported</a></li>
+<li><a href="#multi-app-not-supported-but-moderate-refactor">Multi-App: not supported, but moderate refactor</a></li>
+<li><a href="#per-org-rule-scoping-not-implemented">Per-org rule scoping: not implemented</a></li>
+<li><a href="#forgejo-feasible-for-core-flow-with-caveats">Forgejo: feasible for core flow with caveats</a></li>
+<li><a href="#reconciler-portability">Reconciler portability</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+<li><a href="#recommendation">Recommendation</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="question">Question</h2>
+<p>Two related questions about extending repo-guardian beyond its current
+single-GitHub-App, single-policy scope:</p>
+<ol>
+<li><strong>Multi-org / multi-app:</strong> Can repo-guardian be configured with multiple
+   "guardians" — i.e., multiple GitHub Apps connected to different
+   organizations — with shared rules across all, per-org rule overrides, or
+   some combination?</li>
+<li><strong>Forgejo:</strong> Could repo-guardian connect to Forgejo (Gitea fork, v15.x)
+   to offer the same file-PR / compliance workflow there?</li>
+</ol>
+<p>For each, what would need to change in the current architecture?</p>
+<h2 id="hypothesis">Hypothesis</h2>
+<ul>
+<li>Multi-org via <strong>multiple installations of one GitHub App is already
+  supported</strong> (the scheduler iterates installations, <code>RepoJob</code> carries an
+  <code>InstallationID</code>, and there's a <code>CreateInstallationClient</code> factory). What's
+  missing is per-org rule scoping in the HCL policy.</li>
+<li>Multi-org via <strong>multiple distinct Apps</strong> is <em>not</em> supported because config,
+  webhook secret, and HMAC validation are single-tenant.</li>
+<li>Forgejo support is <strong>technically feasible</strong> for the file-PR core flow, but
+  two reconcilers (<code>branch_protection</code> via rulesets, <code>custom_properties</code>)
+  have no Forgejo equivalent and would need either alternate implementations
+  or feature flags that disable them per backend.</li>
+</ul>
+<h2 id="context">Context</h2>
+<p>repo-guardian was scoped initially to a single GitHub App enforcing one
+policy across one org's repos. The HCL policy engine, reconciler pattern,
+and per-installation client factory are all in place. Two real-world
+pressures motivate this investigation:</p>
+<ul>
+<li><strong>Multi-org:</strong> Operating multiple GitHub orgs (e.g., production org +
+  experimental org, or post-acquisition consolidation) where each may need
+  shared baseline rules plus org-specific overrides.</li>
+<li><strong>Forgejo:</strong> Some teams prefer self-hosted Git forges. Forgejo v15 (April
+  2026, LTS) is mature enough that the same compliance workflow could
+  meaningfully run there.</li>
+</ul>
+<p><strong>Triggered by:</strong> ad-hoc product question — "what would it take to support
+multiple guardians?"</p>
+<h2 id="approach">Approach</h2>
+<ol>
+<li>Map current code seams that assume "one GitHub App, one org" via static
+   exploration (file paths + line numbers).</li>
+<li>Identify clean abstraction boundaries that already exist (interfaces,
+   factories) versus hard-coupled GitHub-specific code paths.</li>
+<li>For Forgejo: catalog what API features it offers in v15.x and compare
+   feature-by-feature to repo-guardian's GitHub usage.</li>
+<li>Propose phased work that delivers value at each step rather than a
+   rewrite.</li>
+</ol>
+<h2 id="environment">Environment</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Version / Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>repo-guardian</td>
+<td>main @ 2026-04-25</td>
+</tr>
+<tr>
+<td>go-github</td>
+<td>v68</td>
+</tr>
+<tr>
+<td>ghinstallation</td>
+<td>v2</td>
+</tr>
+<tr>
+<td>Forgejo (target)</td>
+<td>v15.0 LTS (2026-04-16)</td>
+</tr>
+<tr>
+<td>Forgejo Go SDK</td>
+<td><code>code.forgejo.org/forgejo/go-sdk</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="findings">Findings</h2>
+<h3 id="multi-installation-of-one-github-app-already-supported">Multi-installation of one GitHub App: already supported</h3>
+<p>The architecture already iterates multiple installations of a single App.
+This naturally covers the "one App installed across multiple orgs" case —
+nothing new is needed for that flavor of multi-org.</p>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Where</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Per-installation client factory</td>
+<td><code>internal/github/client.go:294</code> (<code>CreateInstallationClient</code>)</td>
+<td>Caches <code>installClients map[int64]*gh.Client</code></td>
+</tr>
+<tr>
+<td>Job carries installation ID</td>
+<td><code>internal/checker/queue.go:35</code> (<code>RepoJob.InstallationID</code>)</td>
+<td>Used at line 166 to scope client</td>
+</tr>
+<tr>
+<td>Scheduler enumerates installations</td>
+<td><code>internal/scheduler/scheduler.go:71-80</code></td>
+<td>Calls <code>ListInstallations()</code> then loops <code>ListInstallationRepos(install.ID)</code></td>
+</tr>
+<tr>
+<td>Webhook extracts installation ID</td>
+<td><code>internal/webhook/handler.go:86,103,121,166</code></td>
+<td><code>e.GetInstallation().GetID()</code></td>
+</tr>
+</tbody>
+</table>
+<p>What's <em>not</em> there:</p>
+<ul>
+<li>Metrics carry no <code>installation_id</code> / <code>org</code> label — <code>internal/metrics/metrics.go</code>
+  uses <code>trigger</code>, <code>event_type</code>, <code>operation</code>, <code>reason</code>, <code>scope</code>, <code>rule_name</code>
+  but nothing identifying which org work happened on. Hard to slice MTTR or
+  error rates per org.</li>
+</ul>
+<h3 id="multi-app-not-supported-but-moderate-refactor">Multi-App: not supported, but moderate refactor</h3>
+<p>A <em>second</em> GitHub App (different <code>APP_ID</code> + private key, different webhook
+secret) would require changes in three places:</p>
+<ol>
+<li><strong>Config</strong> (<code>internal/config/config.go:79-172</code>): single <code>GITHUB_APP_ID</code>,
+   single <code>GITHUB_PRIVATE_KEY[_PATH]</code>, single <code>GITHUB_WEBHOOK_SECRET</code>. Would
+   need to become a list (e.g., HCL <code>app "&lt;name&gt;" { app_id = ..., ... }</code>
+   blocks) or numbered env vars.</li>
+<li><strong>Webhook routing</strong> (<code>internal/webhook/handler.go:41</code>): <code>gh.ValidatePayload</code>
+   takes one secret. Either route per-app to distinct endpoints
+   (<code>/webhooks/github/app-a</code>, <code>/webhooks/github/app-b</code>) or try-each-secret
+   on a single endpoint. The latter is uglier but preserves a single GitHub
+   App webhook URL per App registration.</li>
+<li><strong>Client construction</strong> (<code>internal/github/client.go:31-63</code>): <code>NewClient</code>
+   creates one <code>ghinstallation.AppsTransport</code>. Would become a registry of
+   App transports keyed by App ID, with <code>CreateInstallationClient</code> taking
+   <code>(appID, installationID)</code>.</li>
+</ol>
+<p>The <code>Client</code> interface (<code>internal/github/github.go:109-194</code>) is the clean
+seam — callers already use it, so swapping in a multi-app-aware constructor
+doesn't ripple downstream.</p>
+<h3 id="per-org-rule-scoping-not-implemented">Per-org rule scoping: not implemented</h3>
+<p>The HCL policy engine treats rules as global. There is a <code>GuardianConfig.Org</code>
+field (<code>internal/policy/types.go:34</code>) populated from the <code>GITHUB_ORG</code> env var
+or the <code>guardian { org = "..." }</code> block, but <strong>it's used only inside
+assertion patterns the user writes</strong> — there is no runtime gate that limits
+rules to specific orgs.</p>
+<p>To support "shared rules + per-org overrides," the most natural extension is
+the existing <code>ignore {}</code> pattern in reverse — a <code>scope {}</code> block that
+opts a rule into a set of orgs:</p>
+<pre><code class="language-hcl">rule &quot;file&quot; &quot;renovate_workflow&quot; {
+  # ...
+  scope {
+    orgs = [&quot;myorg-prod&quot;, &quot;myorg-staging&quot;]
+  }
+}
+</code></pre>
+<p>The matching logic would slot in next to <code>matchesIgnoreList</code> with
+near-identical structure (glob matching, lowercase normalize). No engine
+restructure needed.</p>
+<h3 id="forgejo-feasible-for-core-flow-with-caveats">Forgejo: feasible for core flow with caveats</h3>
+<p>Forgejo v15.0 (LTS, 2026-04-16) provides the API primitives needed for
+repo-guardian's <em>file-PR</em> path. The auth model is materially different and
+two reconcilers can't be ported.</p>
+<table>
+<thead>
+<tr>
+<th>GitHub feature</th>
+<th>Forgejo equivalent</th>
+<th>Repo-guardian impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GitHub App + installation tokens</td>
+<td><strong>No equivalent.</strong> Closest analog: repo-scoped PATs (v15) on a bot user account.</td>
+<td>Replace <code>ghinstallation.AppsTransport</code> with PAT auth. Lose multi-tenant installation isolation.</td>
+</tr>
+<tr>
+<td>Webhook HMAC</td>
+<td><strong>Yes</strong> — <code>X-Forgejo-Signature</code> (HMAC-SHA256).</td>
+<td>Direct port.</td>
+</tr>
+<tr>
+<td>Repo contents read/write API</td>
+<td><strong>Yes</strong> — <code>/repos/{o}/{r}/contents/{path}</code>.</td>
+<td>Direct port.</td>
+</tr>
+<tr>
+<td>Branch / PR creation</td>
+<td><strong>Yes</strong> with subtle divergences (the popular <code>peter-evans/create-pull-request</code> action doesn't work — there's a Forgejo-specific fork).</td>
+<td>Integration testing required.</td>
+</tr>
+<tr>
+<td>Repository labels</td>
+<td><strong>Yes</strong> — <code>/repos/{o}/{r}/labels</code>.</td>
+<td>Direct port.</td>
+</tr>
+<tr>
+<td>Repository settings</td>
+<td><strong>Partial</strong> — <code>PATCH /repos/{o}/{r}</code> exposes some attributes but the field set differs from GitHub's <code>delete_branch_on_merge</code> etc.</td>
+<td>Setting rule semantics need per-backend mapping.</td>
+</tr>
+<tr>
+<td>Branch protection</td>
+<td><strong>Legacy only</strong> — <code>/repos/{o}/{r}/branch_protections</code>. <strong>No rulesets API.</strong></td>
+<td><code>branch_protection</code> reconciler needs a Forgejo-specific implementation.</td>
+</tr>
+<tr>
+<td>Custom properties</td>
+<td><strong>No equivalent.</strong> Closest analog: repo topics (much weaker semantics).</td>
+<td><code>custom_properties</code> reconciler is unportable; would skip on Forgejo.</td>
+</tr>
+<tr>
+<td>Go SDK</td>
+<td><strong><code>code.forgejo.org/forgejo/go-sdk</code></strong> (active fork from Gitea SDK).</td>
+<td>Add as dependency; introduce <code>Forge</code> interface; keep <code>go-github</code> for GitHub.</td>
+</tr>
+</tbody>
+</table>
+<p>The auth simplification (PAT vs JWT-minted installation token) is actually
+operationally easier — but it loses the per-installation security boundary
+that GitHub Apps give you. A bot user with a PAT has the union of all
+permissions across all orgs it's a member of.</p>
+<h3 id="reconciler-portability">Reconciler portability</h3>
+<table>
+<thead>
+<tr>
+<th>Reconciler</th>
+<th>GitHub</th>
+<th>Forgejo</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>workflow_sync</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>Pure file watching; portable.</td>
+</tr>
+<tr>
+<td><code>label_sync</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>Labels API exists in Forgejo.</td>
+</tr>
+<tr>
+<td><code>custom_properties</code></td>
+<td>✓</td>
+<td>✗</td>
+<td>No equivalent. Disable per backend.</td>
+</tr>
+<tr>
+<td><code>branch_protection</code></td>
+<td>✓ (rulesets)</td>
+<td>⚠ (legacy branch protection only)</td>
+<td>Needs a second implementation that targets the legacy API.</td>
+</tr>
+</tbody>
+</table>
+<p>This argues for a <code>Reconciler</code> capability flag (<code>SupportedForges() []string</code>)
+that the engine consults before registering it for a given guardian. Cleaner
+than runtime errors mid-reconciliation.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p><strong>Answer: Both are feasible, but they're three distinct chunks of work
+with very different sizes.</strong></p>
+<ol>
+<li><strong>Multi-org via single GitHub App across multiple orgs:</strong> <em>Already
+   supported.</em> The only gap is observability (no <code>org</code> / <code>installation_id</code>
+   label on metrics). Zero-to-low effort.</li>
+<li><strong>Per-org rule scoping in HCL:</strong> Small. Add a <code>scope { orgs = [...] }</code>
+   block mirroring the existing <code>ignore { repos = [...] }</code> pattern. No
+   engine restructure.</li>
+<li><strong>Multi-App (multiple distinct GitHub Apps in one repo-guardian):</strong>
+   Moderate. Config schema changes + webhook routing + client registry.
+   The <code>Client</code> interface boundary keeps the blast radius contained.</li>
+<li><strong>Forgejo support:</strong> Large. Requires a <code>Forge</code> interface abstraction over
+   <code>internal/github</code>, a Forgejo client implementation, per-forge config
+   schema, reconciler capability flags, and accepting that two existing
+   reconcilers (<code>custom_properties</code>, <code>branch_protection</code>) either don't run
+   or need a second implementation. This is essentially "make repo-guardian
+   forge-agnostic" — a major effort that would benefit from being preceded
+   by the multi-app refactor (which forces the same abstraction work).</li>
+</ol>
+<h2 id="recommendation">Recommendation</h2>
+<p>Three phased designs, each independently shippable:</p>
+<ol>
+<li><strong>DESIGN: Per-org rule scoping</strong> <em>(small, high value)</em>
+   Add <code>scope { orgs = [...] }</code> to file/setting/branch-protection rule
+   blocks, plus <code>org</code> / <code>installation_id</code> labels on Prometheus metrics.
+   Unlocks "shared rules + per-org overrides" using only what's already
+   in the codebase.</li>
+<li><strong>DESIGN: Multi-App support</strong> <em>(medium, conditional on demand)</em>
+   Move single-App env vars to an HCL <code>app "&lt;name&gt;" {}</code> block, build an
+   App-keyed transport registry, decide on per-app webhook endpoints. Worth
+   doing only if there's a concrete use case; otherwise teams should run
+   one <code>repo-guardian</code> per App, which is simpler and already works.</li>
+<li><strong>RFC: Forge abstraction for Forgejo (and beyond)</strong> <em>(large, exploratory)</em>
+   Treat this as an RFC first because the API and trade-offs (auth model
+   loss, reconciler capability gating, dual SDK dependencies) need
+   discussion before committing. The forge-abstraction work overlaps
+   substantially with multi-app — sequence them so multi-app forces the
+   interface boundary, then Forgejo plugs in behind it.</li>
+</ol>
+<p>Operationally: start with (1). It's worth doing regardless of where the
+other two land, and it surfaces the per-org dimension everywhere (metrics,
+config, runtime behavior) that the larger work will need anyway.</p>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="../../design/0006-hcl-policy-configuration-and-rule-engine/">DESIGN-0006</a> — HCL policy engine</li>
+<li><a href="../../design/0007-reconciler-interface-and-push-event-handler/">DESIGN-0007</a> — Reconciler interface</li>
+<li><a href="../../design/0008-additional-rule-types-and-ignore-lists/">DESIGN-0008</a> — Ignore lists pattern (template for <code>scope {}</code>)</li>
+<li><a href="https://forgejo.org/2026-04-release-v15-0/">Forgejo v15.0 release announcement</a></li>
+<li><a href="https://forgejo.org/docs/next/user/api-usage/">Forgejo API usage docs</a></li>
+<li><a href="https://forgejo.org/docs/latest/user/protection/">Forgejo branch protection docs</a></li>
+<li><a href="https://code.forgejo.org/forgejo/go-sdk">Forgejo Go SDK</a></li>
+<li><a href="https://codeberg.org/forgejo/forgejo/issues/3571">Forgejo issue #3571 — granular Action token permissions</a></li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

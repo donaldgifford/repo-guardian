@@ -1,0 +1,3172 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Compliance posture state, dashboard suite, and OTEL-first observability - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#design-0022-compliance-posture-state-dashboard-suite-and-otel-first-observability" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Compliance posture state, dashboard suite, and OTEL-first observability
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goals-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals and Non-Goals
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Goals and Non-Goals">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#per-rule-posture-state-finding-c-shape-c1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-rule posture state (Finding C, shape C1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#leader-scoped-posture-exporter-finding-d-shape-d1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Leader-scoped posture exporter (Finding D, shape D1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-orginstallation-join-metric-finding-e2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The org↔installation join metric (Finding E2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#otel-metrics-first-instrumentation-finding-g" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OTEL metrics-first instrumentation (Finding G)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compliance-snapshots-and-the-per-org-report-finding-c-rider" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compliance snapshots and the per-org report (Finding C rider)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#config-generated-monitoring-finding-h-shape-h1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Config-generated monitoring (Finding H, shape H1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dashboard-suite-finding-e" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dashboard suite (Finding E)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-interface-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API / Interface Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#observability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-per-rule-posture-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Per-rule posture state
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Per-rule posture state">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-leader-scoped-posture-exporter-and-join-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Leader-scoped posture exporter and join metrics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: Leader-scoped posture exporter and join metrics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-otel-metrics-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: OTEL metrics-first
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3: OTEL metrics-first">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-compliance-snapshots-and-the-report-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: Compliance snapshots and the report CLI
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4: Compliance snapshots and the report CLI">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-monitoring-generator-foundation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Monitoring generator foundation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 5: Monitoring generator foundation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-dashboard-suite-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: Dashboard suite content
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 6: Dashboard suite content">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-7-cleanup-deprecations-docs-chart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7: Cleanup, deprecations, docs, chart
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 7: Cleanup, deprecations, docs, chart">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-rollout-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration / Rollout Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Risks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="design-0022-compliance-posture-state-dashboard-suite-and-otel-first-observability">DESIGN 0022: Compliance posture state, dashboard suite, and OTEL-first observability</h1>
+<p><strong>Status:</strong> Draft
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-08-02</p>
+<!--toc:start-->
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#goals-and-non-goals">Goals and Non-Goals</a></li>
+<li><a href="#goals">Goals</a></li>
+<li><a href="#non-goals">Non-Goals</a></li>
+<li><a href="#background">Background</a></li>
+<li><a href="#detailed-design">Detailed Design</a></li>
+<li><a href="#per-rule-posture-state-finding-c-shape-c1">Per-rule posture state (Finding C, shape C1)</a></li>
+<li><a href="#leader-scoped-posture-exporter-finding-d-shape-d1">Leader-scoped posture exporter (Finding D, shape D1)</a></li>
+<li><a href="#the-orginstallation-join-metric-finding-e2">The org↔installation join metric (Finding E2)</a></li>
+<li><a href="#otel-metrics-first-instrumentation-finding-g">OTEL metrics-first instrumentation (Finding G)</a></li>
+<li><a href="#compliance-snapshots-and-the-per-org-report-finding-c-rider">Compliance snapshots and the per-org report (Finding C rider)</a></li>
+<li><a href="#config-generated-monitoring-finding-h-shape-h1">Config-generated monitoring (Finding H, shape H1)</a></li>
+<li><a href="#dashboard-suite-finding-e">Dashboard suite (Finding E)</a></li>
+<li><a href="#api--interface-changes">API / Interface Changes</a></li>
+<li><a href="#data-model">Data Model</a></li>
+<li><a href="#observability">Observability</a></li>
+<li><a href="#implementation-phases">Implementation Phases</a></li>
+<li><a href="#phase-1-per-rule-posture-state">Phase 1: Per-rule posture state</a><ul>
+<li><a href="#tasks">Tasks</a></li>
+<li><a href="#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-2-leader-scoped-posture-exporter-and-join-metrics">Phase 2: Leader-scoped posture exporter and join metrics</a><ul>
+<li><a href="#tasks-1">Tasks</a></li>
+<li><a href="#success-criteria-1">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-3-otel-metrics-first">Phase 3: OTEL metrics-first</a><ul>
+<li><a href="#tasks-2">Tasks</a></li>
+<li><a href="#success-criteria-2">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-4-compliance-snapshots-and-the-report-cli">Phase 4: Compliance snapshots and the report CLI</a><ul>
+<li><a href="#tasks-3">Tasks</a></li>
+<li><a href="#success-criteria-3">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-5-monitoring-generator-foundation">Phase 5: Monitoring generator foundation</a><ul>
+<li><a href="#tasks-4">Tasks</a></li>
+<li><a href="#success-criteria-4">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-6-dashboard-suite-content">Phase 6: Dashboard suite content</a><ul>
+<li><a href="#tasks-5">Tasks</a></li>
+<li><a href="#success-criteria-5">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-7-cleanup-deprecations-docs-chart">Phase 7: Cleanup, deprecations, docs, chart</a><ul>
+<li><a href="#tasks-6">Tasks</a></li>
+<li><a href="#success-criteria-6">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#testing-strategy">Testing Strategy</a></li>
+<li><a href="#migration--rollout-plan">Migration / Rollout Plan</a></li>
+<li><a href="#risks">Risks</a></li>
+<li><a href="#open-questions">Open Questions</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="overview">Overview</h2>
+<p>This design implements the full
+<a href="../../investigation/0013-state-vs-event-metrics-dashboard-suite-and-system-observability/">INV-0013</a>
+recommendation as one effort. INV-0013 proposed three follow-ups
+(posture-state persistence, a dashboard suite with a config-driven
+generator, and metrics-first OTEL adoption); they are designed together
+because they share every load-bearing surface: the posture exporter
+feeds the KPI dashboard, the Finding I taxonomy decides every panel's
+source, the generator and the report CLI load the same policy config,
+and OTEL cancels the hand-rolled collectors the system dashboard would
+otherwise need.</p>
+<p>Three things ship. <strong>Persisted per-rule check outcomes</strong> — the facts
+the engine computes today and throws away — in a new <code>rule_state</code>
+table, projected to Prometheus by a leader-scoped exporter so
+"how many repos are missing CODEOWNERS <em>right now</em>" finally has an
+honest answer. <strong>OTEL instrumentation at the four transport
+boundaries</strong> (inbound HTTP, GitHub client, Valkey, Postgres), exported
+through the existing <code>/metrics</code> endpoint via the OTel prometheus
+bridge — zero new infrastructure. <strong>A four-dashboard suite generated
+from <code>guardian.hcl</code></strong> by a new <code>repo-guardian monitoring generate</code>
+subcommand, so a configured-but-silent org renders as a no-data
+panel instead of a blind spot, plus a <code>repo-guardian report</code> sibling
+that turns the same posture tables into per-org owner reports.</p>
+<h2 id="goals-and-non-goals">Goals and Non-Goals</h2>
+<h3 id="goals">Goals</h3>
+<ul>
+<li>Posture questions ("how many repos fail rule X, per org, now") are
+  answerable from a gauge and from SQL — not inferred from event
+  counters that a restart zeroes and a fixed repo never decrements.</li>
+<li>Exactly one replica runs posture queries, at one cadence,
+  independent of scrape rate and replica count (the 1+N fan-out from
+  INV-0013 Finding D never materialises).</li>
+<li>Compliance history survives Prometheus retention
+  (<code>compliance_snapshot</code>), and a per-org report with repo identity and
+  missing-since durations can be generated from it.</li>
+<li>USE/RED coverage for the service's own hops — inbound HTTP
+  (including the currently-uncounted HMAC 401s), GitHub client,
+  Valkey, Postgres — with no collector, no Tempo, no new cluster
+  infra.</li>
+<li>Dashboards and alerts are generated from the operator's actual
+  config: a row exists for every org that <em>should</em> report, panels
+  exist only for mechanisms in use, and the generator doubles as a CI
+  config check.</li>
+<li>One source of truth for dashboards: the static <code>contrib/</code> tier is
+  the generator's output for a default config, not a hand-maintained
+  fork.</li>
+</ul>
+<h3 id="non-goals">Non-Goals</h3>
+<ul>
+<li><strong>Tracing infrastructure.</strong> No collector, no Tempo, no OTLP
+  exporter configuration. The instrumentation added here emits spans
+  to a no-op TracerProvider; turning them on is a later, purely
+  additive design (INV-0013 effort 3's second half, deliberately
+  decoupled).</li>
+<li><strong><code>repo</code> as a metric label.</strong> Never, at any cardinality. Repo
+  identity lives in Postgres (this design) and in Loki fields
+  (Finding E4), not in Prometheus series.</li>
+<li><strong>Changing DESIGN-0021's queue observability.</strong> The delayed-requeue
+  metrics are complementary and land there; this design is written
+  against the post-0021 metric surface (budget series and the
+  rate-limit wait pair treated as gone).</li>
+<li><strong>Loki as a posture source.</strong> Rejected as primary in Finding C4 —
+  weekly sweep cadence forces 7d+ log windows. Loki-derived metrics
+  stay scoped to log-shaped event signals in E4.</li>
+<li><strong>Real-time posture.</strong> The exporter reflects the last completed
+  check per repo and refreshes on its own cadence; sub-minute
+  freshness is not a requirement.</li>
+<li><strong>Grafana Enterprise reporting.</strong> The report path is a CLI
+  rendering markdown; scheduled PDF delivery is Enterprise-licensed
+  and out of scope.</li>
+<li><strong>Per-org report <em>delivery</em></strong> beyond writing files (Open
+  Question 6 picks the shape; automation of sending is follow-up).</li>
+</ul>
+<h2 id="background">Background</h2>
+<p>INV-0013 established, verified against code:</p>
+<ul>
+<li><strong>Eight metrics are posture masquerading as events</strong> (Finding B).
+  <code>files_missing_total</code> and friends count check-events; a repo fixed
+  yesterday still counts in <code>increase(...[7d])</code>, a repo checked twice
+  counts twice, and a restart just makes the wrongness visible. The
+  one in-tree metric doing posture correctly is <code>open_prs_by_rule</code> —
+  a sweep-snapshot gauge.</li>
+<li><strong>Postgres cannot serve posture today</strong> (Finding C). The worker
+  write-back persists <code>{status, error, policy_version}</code> only;
+  <code>findActionableRules</code>' per-rule outcomes are computed, used, and
+  discarded. The downstream report requirement (repo identity +
+  missing-since durations) settles the storage shape as a per-rule
+  table (C1), not a JSONB blob (C2).</li>
+<li><strong>The 1+N scrape fan-out dissolves with leader-scoped export</strong>
+  (Finding D1). The Valkey scheduler's SETNX election already
+  designates one replica; a leader-gated <code>Schedule</code> handler queries
+  at its own cadence and <code>Set()</code>s gauges. No Valkey query cache
+  needed unless a second consumer appears (D3).</li>
+<li><strong>The system-level gaps are enumerable</strong> (Finding F) and — after
+  Finding G — mostly <em>cancelled</em> rather than built: <code>otelhttp</code> (both
+  directions), <code>redisotel</code>, and <code>otelpgx</code> replace the planned
+  hand-rolled GitHub RoundTripper histogram, webhook duration
+  middleware, and go-redis collector. The OTel prometheus bridge
+  exports through the existing endpoint, so metrics-first OTEL costs
+  zero new infra.</li>
+<li><strong>Config-generated monitoring is an established pattern</strong>
+  (Finding H: mixins, Sloth/Pyrra, beats <code>setup --dashboards</code>), with
+  an unusually strong fit: <code>label_values(...)</code> template variables can
+  only show orgs that have emitted data, and "configured but silent"
+  was exactly the enterprise-migration failure mode. The
+  grafana-foundation-sdk provides official, typed Go builders.</li>
+<li><strong>Finding I's taxonomy</strong> (business / service / infra) gives each
+  dashboard a closed source list: E1 KPI = business, E2 detailed =
+  business + service sliced by org, E3 = service + infra, E4 = Loki
+  evidence.</li>
+</ul>
+<p><strong>Relationship to DESIGN-0021.</strong> The delayed-requeue design removes
+the seven dead budget series and (per its INV-0013-driven amendment)
+retires <code>github_rate_limit_waits_total</code> / <code>_wait_seconds</code> in favour of
+its own <code>queue_delayed_*</code> metrics. Nothing in this design references
+any of those series; the E3 dashboard consumes 0021's queue metrics as
+planned service-tier signals. The two designs share one physical
+surface — the installation transport — where 0021's throttle transport
+must sit <em>inside</em> this design's <code>otelhttp</code> client wrapper (ordering
+specified in Phase 3).</p>
+<h2 id="detailed-design">Detailed Design</h2>
+<h3 id="per-rule-posture-state-finding-c-shape-c1">Per-rule posture state (Finding C, shape C1)</h3>
+<p>A new <code>rule_state</code> table records the outcome of every rule evaluation,
+written in the same worker write-back path that already persists
+<code>repo_state</code> — the actionable set is in memory at exactly that point.</p>
+<p>One row per <code>(installation, owner, repo, rule)</code>. The row carries
+<code>actionable</code> (is the rule currently failing for this repo),
+<code>actionable_since</code> (set on the false→true transition, cleared on
+true→false — this is the "missing since 2026-06-14" the report needs),
+<code>rule_kind</code> (<code>file</code> | <code>setting</code> | <code>branch_protection</code>), and
+<code>policy_version</code>. Setting rules and branch-protection rules are
+included from day one — BP currently has <em>no</em> mismatch metric at all
+(Finding B), so this closes that hole rather than porting it.</p>
+<p>The catalog-parseability fact (Finding B's <code>catalog_parse_failed_total</code>
+posture reading) is a per-repo, not per-rule, fact: a nullable
+<code>catalog_parse_ok</code> column on <code>repo_state</code> (null = no catalog rule
+evaluated / unknown), set from the reconciler outcome.</p>
+<p>Write-back semantics are unchanged in spirit: <strong>best-effort, never
+propagated</strong>. A <code>rule_state</code> write failure logs Warn, counts
+<code>store_writeback_total{outcome="error"}</code>, and does not fail the job —
+the queue job remains the source of truth for "did we do the work"
+(IMPL-0015 Phase 0 contract). The upsert is one batched statement per
+job, executed in a single transaction that also reconciles rows for
+rules no longer in the evaluated set (OQ3 → a: delete-not-in within
+the same transaction; a background GC pass is the documented fallback
+if post-policy-change convergence proves too slow).</p>
+<p>Posture is then one indexed query:</p>
+<pre><code class="language-sql">SELECT owner AS org, rule_name,
+       count(*) FILTER (WHERE actionable) AS actionable,
+       count(*)                            AS tracked
+FROM rule_state
+GROUP BY 1, 2;
+</code></pre>
+<h3 id="leader-scoped-posture-exporter-finding-d-shape-d1">Leader-scoped posture exporter (Finding D, shape D1)</h3>
+<p>A new leader-gated schedule handler, <code>posture-export</code>, registered via
+the existing <code>Scheduler.Schedule(ctx, name, interval, handler)</code>
+surface — the same SETNX election that already serialises
+<code>stale-sweep</code>. Every <code>POSTURE_EXPORT_INTERVAL</code> (default 60s) the
+leader runs the posture query and populates two GaugeVecs:</p>
+<ul>
+<li><code>repo_guardian_repos_actionable{rule_name, org}</code></li>
+<li><code>repo_guardian_repos_tracked{org}</code></li>
+</ul>
+<p>The handler follows the <code>ResetOpenPRsByRule</code> precedent: full GaugeVec
+<code>Reset()</code> at the top of each tick, then <code>Set()</code> — so an org or rule
+that disappears from the fleet stops emitting stale series instead of
+freezing at its last value. Non-leader replicas never serve the
+series; dashboards aggregate with <code>max by (...)</code>, exactly as
+<code>scheduler_is_leader</code> panels already do. Compliance ratio is computed
+in PromQL from the two gauges (OQ2 → a).</p>
+<p>The GitHub-owned posture reading from Finding B — org schema gaps —
+gets its projection at the source that already knows: the
+custom-properties schema-preflight cache (30-minute TTL, IMPL-0017)
+sets <code>repo_guardian_property_schema_missing{org, property}</code> to 0/1 on
+each refresh. No DB involvement; the cache refresh <em>is</em> the check.</p>
+<h3 id="the-orginstallation-join-metric-finding-e2">The org↔installation join metric (Finding E2)</h3>
+<p><code>repo_guardian_installation_info{installation_id, org} 1</code> — a
+constant-value info gauge set when an installation client is
+constructed and during discovery. It exists solely so Grafana can
+<code>group_left</code> the <code>installation_id</code>-keyed series (discovery,
+rate-limit) into per-org dashboard rows. One line of instrumentation,
+unblocks the E2 layout.</p>
+<h3 id="otel-metrics-first-instrumentation-finding-g">OTEL metrics-first instrumentation (Finding G)</h3>
+<p>Four boundaries, four off-the-shelf instrumentation packages, one
+exporter:</p>
+<table>
+<thead>
+<tr>
+<th>Boundary</th>
+<th>Package</th>
+<th>Replaces (planned, never built)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inbound HTTP (webhook server)</td>
+<td><code>otelhttp</code> server middleware</td>
+<td>hand-rolled <code>promhttp.InstrumentHandler*</code> duration middleware</td>
+</tr>
+<tr>
+<td>GitHub client</td>
+<td><code>otelhttp</code> client transport</td>
+<td>hand-rolled RoundTripper RED histogram</td>
+</tr>
+<tr>
+<td>Valkey (queue + scheduler clients)</td>
+<td><code>redisotel</code> metrics</td>
+<td><code>redisprometheus.NewCollector</code></td>
+</tr>
+<tr>
+<td>Postgres (pgxpool)</td>
+<td><code>otelpgx</code></td>
+<td>possibly the <code>pgxpool.Stat()</code> collector — verified in task 3.5, one source only</td>
+</tr>
+</tbody>
+</table>
+<p>The OTel SDK's <code>go.opentelemetry.io/otel/exporters/prometheus</code> bridge
+registers into the same default registry <code>promhttp</code> already serves
+(main.go:413), so every semconv series appears on the existing
+<code>/metrics</code> endpoint with no collector and no config change for the
+scrape stack. The TracerProvider is the no-op provider — spans are
+structurally emitted but go nowhere until the later tracing design
+turns them on.</p>
+<p>What this closes, from the Finding G unmask list: HMAC 401s (counted
+nowhere today — <code>webhook_rejected_total</code> lives only in the allowlist
+middleware) become ordinary <code>http.server.request.duration{status}</code>
+samples; GitHub status truth (429 vs 403 vs 5xx) appears on the client
+histogram; Valkey command latency (including the reaper Lua and leader
+SETNX) is measured for the first time; pool-acquire wait separates
+from query time.</p>
+<p>Instrumentation scope decision: the <strong>webhook server only</strong> for
+inbound. The metrics/health server would mostly instrument Prometheus
+scraping itself — noise, not signal.</p>
+<p>Transport ordering with DESIGN-0021 (both designs touch the
+installation transport):</p>
+<pre><code class="language-text">otelhttp client transport        ← this design, outermost
+  └─ rate-limit transport        ← DESIGN-0021 (ThrottledError source)
+       └─ ghinstallation token transport
+</code></pre>
+<p>Outermost <code>otelhttp</code> means a 0021 deferral shows up as an errored
+client span/measurement — which is the residual signal that replaces
+the retiring <code>github_rate_limit_wait_*</code> pair.</p>
+<p><strong>Dedup rule (Finding G):</strong> domain metrics stay authoritative for
+domain questions (<code>store_query_seconds{op}</code> knows <code>stale_repos</code>;
+semconv sees only SQL verbs). Every dashboard panel picks exactly one
+source; no panel may mix a hand-rolled and a semconv series for the
+same signal.</p>
+<h3 id="compliance-snapshots-and-the-per-org-report-finding-c-rider">Compliance snapshots and the per-org report (Finding C rider)</h3>
+<p>A second leader-gated schedule handler, <code>compliance-snapshot</code>
+(default cadence 24h), runs
+<code>INSERT INTO compliance_snapshot ... SELECT</code> from the posture query —
+giving quarter-over-quarter history independent of Prometheus
+retention. Volume is trivial: orgs × rules rows per day (~120/day at
+target scale); no retention machinery needed initially.</p>
+<p><code>repo-guardian report</code> is a CLI sibling of the generator: loads the
+same <code>guardian.hcl</code>, queries <code>rule_state</code> + <code>compliance_snapshot</code>, and
+renders one report per org — compliance percentage per rule, trend
+versus the previous snapshot, and the table a metric can never hold:
+<em>which</em> repos, failing <em>which</em> rules, since <em>when</em>. Open-PR links are
+fetched live from GitHub at generation time (low volume, installation
+client). Output is markdown per org written to <code>--out</code> (OQ6 → a).</p>
+<h3 id="config-generated-monitoring-finding-h-shape-h1">Config-generated monitoring (Finding H, shape H1)</h3>
+<p><code>repo-guardian monitoring generate --config guardian.hcl --out
+./monitoring/ --format json|k8s</code>.</p>
+<p>The generator <code>policy.Load()</code>s the operator's config — which makes
+every invocation a free config validation (the strict-templates
+precedent, extended) — and derives the generation model: the org list
+from <code>scope</code>, the enabled rules and their kinds, which reconcilers are
+attached, which mechanisms (custom properties, absent rules, gates)
+are in use. From that model it emits:</p>
+<ul>
+<li>the four dashboards (Finding E), with one E2 row <em>per configured
+  org</em> — a silent org renders as a no-data row, a signal instead of a
+  blind spot;</li>
+<li>a PrometheusRule manifest containing only alerts whose mechanism is
+  configured (no <code>PropertySchemaMissing</code> without a <code>custom_properties</code>
+  reconciler), each authored against the INV-0012 C/E window rules;</li>
+<li>panels only for enabled rule kinds (no forbidden-files panels
+  without absent-mode rules).</li>
+</ul>
+<p>Dashboards are authored once, in Go, against the
+grafana-foundation-sdk builders — there is <strong>no hand-maintained
+dashboard JSON anywhere</strong>. The static <code>contrib/</code> tier is the
+generator's output for a default (empty-scope) config, regenerated in
+CI with a fail-on-diff gate — the same drift convention <code>helm-docs</code>
+and <code>docz update</code> already use in this repo. The SDK's coupling to
+Grafana schema versions is handled by pinning and a render test —
+Grafana ≥ 13 is the supported floor for the generated suite
+(IMPL-0023 OQ3, resolved 2026-08-02).</p>
+<p>Format <code>k8s</code> emits grafana-operator <code>GrafanaDashboard</code> CRs (OQ7 → b —
+the cluster's kube-prometheus-stack deployment runs grafana-operator)
+plus the PrometheusRule CR. Format <code>json</code> emits plain files for
+manual import.</p>
+<p>The generator and report live as subcommands on the main binary
+(OQ5 → a, with a size-delta check before merge).</p>
+<h3 id="dashboard-suite-finding-e">Dashboard suite (Finding E)</h3>
+<p>Four dashboards, sources fixed by the Finding I taxonomy:</p>
+<ul>
+<li><strong>E1 — KPI / status</strong> (business tier only): compliance % per rule
+  and org (the two Phase 2 gauges), <code>open_prs_by_rule</code> ages,
+  convergence rate (<code>prs_closed_total{reason="satisfied"}</code>), error
+  budget, rate-limit headroom, queue depth, leader status. The
+  compliance panels consume <em>real posture</em>, never
+  <code>increase(files_missing_total)</code>.</li>
+<li><strong>E2 — detailed, per-org repeated rows</strong> (business + service sliced
+  by org): a fleet section of aggregates (<code>sum without (org)</code>), then a
+  generated row per configured org. <code>installation_id</code>-keyed series
+  join in via <code>installation_info</code> <code>group_left</code>. Queue / store /
+  scheduler metrics are deliberately absent here — they are
+  fleet-scoped and belong to E3.</li>
+<li><strong>E3 — system / health</strong> (service + infra): go runtime + process,
+  OTEL semconv HTTP server/client, <code>redisotel</code>, pgx pool + query
+  latency, queue USE (including DESIGN-0021's <code>queue_delayed_depth</code> /
+  <code>queue_wait_seconds</code> once landed), the three orphan histograms from
+  Finding A (<code>scheduler_sweep_batch_size</code>,
+  <code>store_writeback_duration_seconds</code>, <code>discovery_duration_seconds</code>)
+  finally get panels, posture-exporter health.</li>
+<li><strong>E4 — Loki</strong> (evidence tier): error rate by component, sweep
+  summaries, write-back failures, webhook rejections, top erroring
+  repos (repo identity as a log field, where it belongs). The
+  catalog-parse log line gets test-locked before any panel depends on
+  it; Loki-ruler recording-rule examples ship in <code>contrib/</code> for the
+  log-shaped signals.</li>
+</ul>
+<h2 id="api-interface-changes">API / Interface Changes</h2>
+<pre><code class="language-go">// internal/checker — CheckRepo returns per-rule outcomes.
+// Error paths return (nil, err); the worker then writes status-only,
+// exactly as today.
+type RuleOutcome struct {
+    RuleName   string
+    Kind       string // &quot;file&quot; | &quot;setting&quot; | &quot;branch_protection&quot;
+    Actionable bool
+}
+
+type CheckResult struct {
+    Outcomes       []RuleOutcome
+    CatalogParseOK *bool // nil = no catalog rule evaluated
+}
+
+func (e *Engine) CheckRepo(ctx context.Context, client ghclient.Client,
+    owner, repo string) (*CheckResult, error)
+
+// internal/store — Store gains posture methods (final set is an impl
+// detail; the contract is batched-single-tx upsert + the two query
+// shapes the exporter and report need).
+type RuleState struct {
+    InstallationID  int64
+    Owner, Repo     string
+    RuleName, Kind  string
+    Actionable      bool
+    ActionableSince *time.Time
+    PolicyVersion   string
+}
+
+type Store interface {
+    // ...existing five methods...
+    UpsertRuleStates(ctx context.Context, states []RuleState) error
+    ActionableCounts(ctx context.Context) ([]RuleCount, error)
+    ActionableRepos(ctx context.Context, org string) ([]RuleState, error)
+    InsertComplianceSnapshot(ctx context.Context, at time.Time) error
+}
+</code></pre>
+<p>New config (env → chart values → <code>values.schema.json</code>, per
+convention): <code>POSTURE_EXPORT_INTERVAL</code> (default <code>60s</code>),
+<code>COMPLIANCE_SNAPSHOT_INTERVAL</code> (default <code>24h</code>). OTEL is on by default
+with no new knobs; the standard <code>OTEL_SDK_DISABLED=true</code> escape hatch
+is honoured.</p>
+<p>New CLI surface: <code>repo-guardian monitoring generate</code> and
+<code>repo-guardian report</code> subcommands on the main binary (OQ5 → a).</p>
+<p>Mock/fake fallout: <code>make mocks</code> regenerates the Store mock; the
+test-local <code>recordingQueue</code> / <code>fakeStore</code> recorders and the
+checker-package fakes absorb the <code>CheckRepo</code> signature change
+(embedded <code>mocks.MockClient</code> is unaffected — this is an engine-side
+change, not a <code>github.Client</code> change).</p>
+<h2 id="data-model">Data Model</h2>
+<p>Migration <code>0002</code> (up + down), additive only:</p>
+<pre><code class="language-sql">CREATE TABLE rule_state (
+    installation_id  BIGINT      NOT NULL,
+    owner            TEXT        NOT NULL,
+    repo             TEXT        NOT NULL,
+    rule_name        TEXT        NOT NULL,
+    rule_kind        TEXT        NOT NULL,
+    actionable       BOOLEAN     NOT NULL,
+    actionable_since TIMESTAMPTZ,
+    policy_version   TEXT        NOT NULL DEFAULT '',
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (installation_id, owner, repo, rule_name)
+);
+
+-- posture query support: count actionable per (owner, rule)
+CREATE INDEX idx_rule_state_actionable
+    ON rule_state (owner, rule_name) WHERE actionable;
+
+CREATE TABLE compliance_snapshot (
+    org              TEXT        NOT NULL,
+    rule_name        TEXT        NOT NULL,
+    actionable_count INT         NOT NULL,
+    tracked_count    INT         NOT NULL,
+    snapshot_at      TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (org, rule_name, snapshot_at)
+);
+
+ALTER TABLE repo_state ADD COLUMN catalog_parse_ok BOOLEAN;
+</code></pre>
+<p>The upsert preserves <code>actionable_since</code> across still-actionable
+checks and manages the transition edges in SQL:</p>
+<pre><code class="language-sql">INSERT INTO rule_state (...) VALUES (...)
+ON CONFLICT (installation_id, owner, repo, rule_name) DO UPDATE SET
+    actionable = EXCLUDED.actionable,
+    actionable_since = CASE
+        WHEN NOT rule_state.actionable AND EXCLUDED.actionable THEN now()
+        WHEN NOT EXCLUDED.actionable                            THEN NULL
+        ELSE rule_state.actionable_since
+    END,
+    rule_kind      = EXCLUDED.rule_kind,
+    policy_version = EXCLUDED.policy_version,
+    updated_at     = now();
+</code></pre>
+<p>Row volume at target scale: 5k repos × ~6 rules = ~30k rows, upserted
+one batch per check. Dead-installation cleanup follows the existing
+<code>repo_state</code> operational recipe (ent-setup.md) — same key prefix, one
+more <code>DELETE ... WHERE installation_id =</code> at cutover.</p>
+<h2 id="observability">Observability</h2>
+<p>New metrics (all on the existing <code>/metrics</code> endpoint):</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Type</th>
+<th>Labels</th>
+<th>Answers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>repo_guardian_repos_actionable</code></td>
+<td>Gauge</td>
+<td><code>rule_name</code>, <code>org</code></td>
+<td>posture: repos currently failing each rule</td>
+</tr>
+<tr>
+<td><code>repo_guardian_repos_tracked</code></td>
+<td>Gauge</td>
+<td><code>org</code></td>
+<td>denominator for compliance %</td>
+</tr>
+<tr>
+<td><code>repo_guardian_installation_info</code></td>
+<td>Gauge (=1)</td>
+<td><code>installation_id</code>, <code>org</code></td>
+<td>Grafana <code>group_left</code> join</td>
+</tr>
+<tr>
+<td><code>repo_guardian_property_schema_missing</code></td>
+<td>Gauge (0/1)</td>
+<td><code>org</code>, <code>property</code></td>
+<td>schema gap, as posture</td>
+</tr>
+<tr>
+<td><code>repo_guardian_posture_export_total</code></td>
+<td>Counter</td>
+<td><code>outcome</code></td>
+<td>is the exporter running</td>
+</tr>
+<tr>
+<td><code>repo_guardian_posture_export_duration_seconds</code></td>
+<td>Histogram</td>
+<td>—</td>
+<td>exporter query cost</td>
+</tr>
+<tr>
+<td>semconv HTTP server/client, redis, pgx series</td>
+<td>(bridge)</td>
+<td>per semconv</td>
+<td>Finding F's USE/RED gaps</td>
+</tr>
+</tbody>
+</table>
+<p>Removed (Phase 7, OQ4 → a): the four legacy unlabeled
+<code>properties_*</code> counters, superseded by real posture.</p>
+<p>One new starter alert: <code>RepoGuardianPostureExportStalled</code> — no
+successful <code>posture_export_total{outcome="success"}</code> increase over
+several export intervals while a leader exists; the KPI dashboard is
+lying if this fires. Authored under the INV-0012 C/E window rules like
+everything else, and emitted by the generator.</p>
+<h2 id="implementation-phases">Implementation Phases</h2>
+<p>Each phase is independently mergeable, in dependency order:
+2 requires 1; 4 requires 1; 6 requires 5 (and consumes 2–4's series);
+7 is last. Run <code>make lint</code> and <code>make fmt</code> after each task; commit per
+numbered task.</p>
+<h3 id="phase-1-per-rule-posture-state">Phase 1: Per-rule posture state</h3>
+<h4 id="tasks">Tasks</h4>
+<ul>
+<li>[ ] 1.1 Migration <code>0002</code>: <code>rule_state</code> + partial index,
+      <code>compliance_snapshot</code>, <code>repo_state.catalog_parse_ok</code> (up and
+      down).</li>
+<li>[ ] 1.2 Change <code>Engine.CheckRepo</code> to return <code>(*CheckResult, error)</code>
+      with per-rule outcomes for file, setting, and branch-protection
+      rules (BP gains an actionable verdict — its first posture
+      signal) and the catalog-parse fact.</li>
+<li>[ ] 1.3 <code>Store.UpsertRuleStates</code>: single-transaction batched upsert
+      with the <code>actionable_since</code> transition CASE, plus delete-not-in
+      reconciliation of rows absent from the evaluated set (OQ3 → a).</li>
+<li>[ ] 1.4 Worker write-back: persist the <code>CheckResult</code> in the existing
+      <code>writeBack</code> path — best-effort, <code>store_writeback_total</code> outcome
+      accounting, never propagated.</li>
+<li>[ ] 1.5 <code>make mocks</code>; update test-local <code>fakeStore</code> recorders and
+      checker-test plumbing for the new <code>CheckRepo</code> signature.</li>
+<li>[ ] 1.6 Tests: <code>actionable_since</code> set on false→true, preserved on
+      true→true, cleared on true→false; batched upsert race
+      (concurrent-goroutine pattern from
+      <code>TestPostgresStore_UpsertIfMissing_ConcurrentRace</code>); rule-state
+      write failure does not fail the job.</li>
+</ul>
+<h4 id="success-criteria">Success Criteria</h4>
+<ul>
+<li>After a sweep, the posture SQL returns counts matching the engine's
+  in-memory actionable sets for every rule kind.</li>
+<li>A repo that flips from failing to satisfied has its row updated with
+  <code>actionable=false, actionable_since=NULL</code> on the next check.</li>
+<li>Store write failures never change job outcomes.</li>
+<li><code>make ci</code> passes; migration applies and rolls back cleanly.</li>
+</ul>
+<h3 id="phase-2-leader-scoped-posture-exporter-and-join-metrics">Phase 2: Leader-scoped posture exporter and join metrics</h3>
+<h4 id="tasks_1">Tasks</h4>
+<ul>
+<li>[ ] 2.1 <code>installation_info{installation_id, org} 1</code> set at
+      installation-client construction and during discovery.</li>
+<li>[ ] 2.2 <code>posture-export</code> schedule handler: leader-gated via the
+      existing <code>Scheduler.Schedule</code>; full <code>Reset()</code> + <code>Set()</code> of
+      <code>repos_actionable</code> and <code>repos_tracked</code> each tick
+      (<code>ResetOpenPRsByRule</code> precedent).</li>
+<li>[ ] 2.3 <code>property_schema_missing{org, property}</code> 0/1 gauge set at
+      each schema-preflight cache refresh.</li>
+<li>[ ] 2.4 Exporter health: <code>posture_export_total{outcome}</code> +
+      <code>posture_export_duration_seconds</code>.</li>
+<li>[ ] 2.5 Config: <code>POSTURE_EXPORT_INTERVAL</code> env +
+      <code>values.yaml</code> / <code>values.schema.json</code> + helm-unittest cases.</li>
+<li>[ ] 2.6 Tests: only the leader emits (two schedulers, one series
+      source); a removed org/rule stops emitting after the next tick;
+      gauge values equal SQL truth.</li>
+<li>[ ] 2.7 <code>contrib/README.md</code> rows for all Phase 2 metrics.</li>
+</ul>
+<h4 id="success-criteria_1">Success Criteria</h4>
+<ul>
+<li>With N replicas, exactly one serves the posture series;
+  <code>max by (rule_name, org)</code> is correct and stable across leader
+  failover.</li>
+<li>No stale series survive an org or rule leaving the fleet.</li>
+<li><code>make ci</code> and helm-unittest pass.</li>
+</ul>
+<h3 id="phase-3-otel-metrics-first">Phase 3: OTEL metrics-first</h3>
+<h4 id="tasks_2">Tasks</h4>
+<ul>
+<li>[ ] 3.1 OTel SDK + <code>exporters/prometheus</code> bridge registered into
+      the default registry; no-op TracerProvider; honour
+      <code>OTEL_SDK_DISABLED</code>.</li>
+<li>[ ] 3.2 <code>otelhttp</code> server middleware on the webhook server mux
+      (only) — HMAC 401s and every other status become measured.</li>
+<li>[ ] 3.3 <code>otelhttp</code> client transport wrapping the installation
+      transport, <strong>outermost</strong> (above the rate-limit transport —
+      DESIGN-0021 ordering contract).</li>
+<li>[ ] 3.4 <code>redisotel</code> metrics on both Valkey clients (queue,
+      scheduler).</li>
+<li>[ ] 3.5 <code>otelpgx</code> on the pgxpool; verify whether its pool-stats
+      option covers <code>pgxpool.Stat()</code> — if yes use it, if no add the
+      small Stat collector. Exactly one pool-stats source ships.</li>
+<li>[ ] 3.6 Cardinality audit of the bridge output (no <code>url.path</code> on
+      server metrics; bounded label sets) + document the
+      one-source-per-panel dedup rule in
+      <code>docs/operations/scaling.md</code>.</li>
+<li>[ ] 3.7 Tests: <code>/metrics</code> contains the semconv series alongside the
+      existing <code>repo_guardian_*</code> series in one registry; a webhook
+      request with a bad HMAC increments the server duration
+      histogram with a 401 label.</li>
+</ul>
+<h4 id="success-criteria_2">Success Criteria</h4>
+<ul>
+<li>Inbound HTTP, GitHub client, Valkey, and Postgres all have RED/USE
+  series on the existing endpoint with zero new cluster infra.</li>
+<li>The Finding F hand-rolled collector list is fully cancelled or
+  consciously superseded (task 3.5's one-source decision recorded).</li>
+<li><code>make ci</code> passes.</li>
+</ul>
+<h3 id="phase-4-compliance-snapshots-and-the-report-cli">Phase 4: Compliance snapshots and the report CLI</h3>
+<h4 id="tasks_3">Tasks</h4>
+<ul>
+<li>[ ] 4.1 <code>compliance-snapshot</code> schedule handler (leader-gated,
+      <code>COMPLIANCE_SNAPSHOT_INTERVAL</code>, default 24h):
+      <code>INSERT ... SELECT</code> from the posture query.</li>
+<li>[ ] 4.2 <code>repo-guardian report</code>: per-org output with compliance %
+      per rule, trend vs previous snapshot, and the
+      repo/rule/missing-since table; open-PR links fetched live at
+      generation time.</li>
+<li>[ ] 4.3 Golden-file tests for report rendering; snapshot-trend test
+      across two synthetic snapshots.</li>
+<li>[ ] 4.4 Operator doc: generating and distributing reports; snapshot
+      cadence and (non-)retention rationale.</li>
+</ul>
+<h4 id="success-criteria_3">Success Criteria</h4>
+<ul>
+<li>A generated report for a seeded org matches DB truth exactly
+  (identity, since-dates, percentages).</li>
+<li>Snapshot rows accumulate at the configured cadence on the leader
+  only.</li>
+<li><code>make ci</code> passes.</li>
+</ul>
+<h3 id="phase-5-monitoring-generator-foundation">Phase 5: Monitoring generator foundation</h3>
+<h4 id="tasks_4">Tasks</h4>
+<ul>
+<li>[ ] 5.1 <code>monitoring generate</code> subcommand skeleton: <code>policy.Load</code> →
+      generation model (orgs, rules, kinds, reconcilers, mechanisms);
+      <code>--out</code>, <code>--format json|k8s</code>.</li>
+<li>[ ] 5.2 grafana-foundation-sdk dependency (pinned) + the shared
+      panel-library package; render test against the pinned Grafana
+      schema version.</li>
+<li>[ ] 5.3 PrometheusRule generation: existing starter alerts
+      re-authored as generator output, mechanism-scoped, windows per
+      INV-0012 findings C/E; includes <code>PostureExportStalled</code> and the
+      DESIGN-0021 alerts once those metrics exist.</li>
+<li>[ ] 5.4 CI drift gate: regenerate the static tier from the default
+      config, fail on diff (helm-docs convention).</li>
+<li>[ ] 5.5 Document generator-as-validation (a failing
+      <code>policy.Load</code> fails generation — CI config check for free).</li>
+</ul>
+<h4 id="success-criteria_4">Success Criteria</h4>
+<ul>
+<li><code>monitoring generate</code> against <code>examples/guardian-enterprise.hcl</code>
+  emits dashboards containing a row for every configured org
+  (including orgs with no data) and an alert manifest containing only
+  configured-mechanism alerts.</li>
+<li>Hand-editing a generated artifact turns CI red.</li>
+<li><code>make ci</code> passes.</li>
+</ul>
+<h3 id="phase-6-dashboard-suite-content">Phase 6: Dashboard suite content</h3>
+<h4 id="tasks_5">Tasks</h4>
+<ul>
+<li>[ ] 6.1 E1 KPI dashboard — business-tier sources only (Finding I);
+      compliance panels read the Phase 2 gauges.</li>
+<li>[ ] 6.2 E2 detailed dashboard — fleet aggregate section + generated
+      per-org rows; <code>installation_info</code> <code>group_left</code> joins for
+      <code>installation_id</code>-keyed series.</li>
+<li>[ ] 6.3 E3 system dashboard — service + infra tiers: OTEL semconv
+      series, queue USE (incl. DESIGN-0021 series when present), pgx
+      pool, go runtime, the three orphan histograms, posture-exporter
+      health.</li>
+<li>[ ] 6.4 E4 Loki dashboard + Loki-ruler recording-rule examples in
+      <code>contrib/</code>.</li>
+<li>[ ] 6.5 Test-lock the catalog-parse log line ("catalog-info parse
+      failed; skipping reconcile to avoid clearing properties" —
+      message + keys) before E4 references it.</li>
+<li>[ ] 6.6 Commit the generated static tier to <code>contrib/grafana/</code>;
+      delete the legacy 61-panel dashboard with a pointer in
+      <code>contrib/README.md</code>.</li>
+<li>[ ] 6.7 Rewrite <code>contrib/README.md</code> around the four-dashboard suite
+      and the generated/static two-tier model.</li>
+</ul>
+<h4 id="success-criteria_5">Success Criteria</h4>
+<ul>
+<li>All four dashboards render against a live stack with no
+  empty-by-construction panels and no references to dead or retiring
+  series (budget pair, rate-limit wait pair).</li>
+<li>Every panel's source respects the Finding I taxonomy and the
+  one-source-per-panel rule.</li>
+<li><code>make ci</code> passes; drift gate green on the committed static tier.</li>
+</ul>
+<h3 id="phase-7-cleanup-deprecations-docs-chart">Phase 7: Cleanup, deprecations, docs, chart</h3>
+<h4 id="tasks_6">Tasks</h4>
+<ul>
+<li>[ ] 7.1 Remove the four legacy <code>properties_*</code> counters (OQ4 → a)
+      with migration notes in <code>contrib/README.md</code>.</li>
+<li>[ ] 7.2 <code>docs/operations/scaling.md</code>: posture architecture, exporter
+      leader semantics, OTEL series catalog, dedup rule.</li>
+<li>[ ] 7.3 Chart: version + appVersion bump, new values documented via
+      <code>README.md.gotmpl</code> (never the rendered README), prometheusrule
+      parity with the generator output.</li>
+<li>[ ] 7.4 CLAUDE.md: posture-state contract (write-back best-effort,
+      leader-scoped export, taxonomy pointer), transport-ordering
+      contract shared with DESIGN-0021.</li>
+<li>[ ] 7.5 Flip INV-0013 to Concluded and this design per its
+      lifecycle; <code>docz update design inv</code>; mkdocs stays at the
+      14-warning baseline.</li>
+</ul>
+<h4 id="success-criteria_6">Success Criteria</h4>
+<ul>
+<li>No dangling references to removed counters in code, chart, contrib,
+  or docs.</li>
+<li>Chart renders and installs with the new values; helm-unittest
+  passes.</li>
+<li><code>make ci</code> passes.</li>
+</ul>
+<h2 id="testing-strategy">Testing Strategy</h2>
+<ul>
+<li><strong>Unit</strong> — upsert transition semantics (the <code>actionable_since</code>
+  CASE), exporter reset-then-set behaviour, generation-model
+  derivation from policy configs, report rendering (golden files).
+  Table-driven throughout.</li>
+<li><strong>Integration (<code>integration</code> build tag, real Postgres)</strong> — migration
+  0002 up/down, batched upsert under concurrency, posture query
+  correctness at realistic row counts, snapshot insert. Follows the
+  existing store integration-test convention.</li>
+<li><strong>Leader semantics</strong> — exporter emission is leader-gated; asserted
+  with the two-scheduler pattern from the valkey scheduler
+  integration tests.</li>
+<li><strong>Non-vacuity</strong> — per standing practice, every behavioural test is
+  verified by neutralising the fix and confirming failure. Task 2.6's
+  stale-series test especially: it passes trivially if the exporter
+  never <code>Reset()</code>s and the test never removes an org.</li>
+<li><strong>Mock fidelity</strong> — <code>UpsertRuleStates</code> then <code>ActionableCounts</code> is a
+  list-then-act shape; any fake must reflect prior writes (CLAUDE.md
+  rule), or exporter tests are vacuous.</li>
+<li><strong>Render tests</strong> — generator output parses as valid dashboard JSON
+  for the pinned Grafana schema; a fixture config with zero
+  mechanisms produces zero mechanism panels/alerts.</li>
+</ul>
+<h2 id="migration-rollout-plan">Migration / Rollout Plan</h2>
+<ol>
+<li><strong>Phases 1–2 ship as one minor</strong> (schema + exporter). Migration
+   0002 is additive; old binaries ignore the new tables entirely, so
+   rollback is binary-only.</li>
+<li><strong>Phase 3 ships as a minor.</strong> Purely additive series on the
+   existing endpoint; scrape configs unchanged. Verify scrape size
+   growth is acceptable (semconv adds ~a few hundred series per
+   replica).</li>
+<li><strong>Phases 4–6 ship in any order after their dependencies</strong>; all
+   additive. Dashboards land in <code>contrib/</code> and the GitOps repo at the
+   operator's pace.</li>
+<li><strong>Phase 7 ships last as a minor with a prominent note</strong> — it
+   removes the four legacy <code>properties_*</code> counters (the only
+   scrape-visible removal in this design; anything scraping them gets
+   the <code>contrib/README.md</code> migration recipe).</li>
+<li>Coordination with DESIGN-0021: no ordering requirement except
+   E3/alert content — panels referencing 0021's queue series are
+   generated only when those metrics exist (the generator's
+   mechanism-scoping handles this naturally).</li>
+</ol>
+<h2 id="risks">Risks</h2>
+<table>
+<thead>
+<tr>
+<th>Risk</th>
+<th>Likelihood</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rule_state</code> write amplification slows checks</td>
+<td>low</td>
+<td>one batched statement per job in the existing write-back; best-effort so it can never fail a job; p99 tracked by <code>store_writeback_duration_seconds</code> (which finally gets a panel)</td>
+</tr>
+<tr>
+<td>Posture staleness misread as truth</td>
+<td>medium</td>
+<td>dashboards label posture panels "as of last check per repo"; <code>updated_at</code> supports an explicit staleness panel; exporter-stalled alert</td>
+</tr>
+<tr>
+<td>Exporter leader flaps → gauge gaps</td>
+<td>low</td>
+<td>same SETNX machinery as sweeps, already proven; <code>max by</code> across replicas; export health metrics</td>
+</tr>
+<tr>
+<td>foundation-sdk / Grafana schema drift</td>
+<td>medium</td>
+<td>pin the SDK, render test in CI, regenerate on upgrade — the drift gate catches silent divergence</td>
+</tr>
+<tr>
+<td>Semconv series bloat scrape size</td>
+<td>low-medium</td>
+<td>task 3.6 cardinality audit; bridge views can drop attributes if needed</td>
+</tr>
+<tr>
+<td>Two-tier dashboards fork anyway</td>
+<td>low</td>
+<td>there is no hand-written JSON — static tier is generator output, enforced by the CI diff gate</td>
+</tr>
+<tr>
+<td>Report GitHub calls at generation time hit limits</td>
+<td>low</td>
+<td>volume is per-open-PR per org, ad-hoc cadence; uses the standard installation client with existing accounting</td>
+</tr>
+</tbody>
+</table>
+<h2 id="open-questions">Open Questions</h2>
+<ol>
+<li>
+<p><strong>Posture storage shape.</strong>
+   <strong>Resolved 2026-08-02 → (a).</strong>
+   (a) C1 — the <code>rule_state</code> per-rule table as specified. The report
+   requirement (repo identity + missing-since) already settled this
+   in INV-0013 Finding C; JSONB cannot express <code>actionable_since</code>
+   per rule without contortions, and "show me the repos" was needed
+   twice during the enterprise migration.
+   (b) C2 — <code>actionable_rules JSONB</code> on <code>repo_state</code>: cheaper
+   migration, no second table, but per-rule timestamps and indexed
+   posture queries get materially worse.
+   (c) C3 only — sweep-snapshot gauges, no schema change: posture
+   lags a sweep, no identity, no report. Kills Phase 4.
+   other:</p>
+</li>
+<li>
+<p><strong>Compliance ratio computation.</strong>
+   <strong>Resolved 2026-08-02 → (a).</strong>
+   (a) Export the two raw gauges (<code>repos_actionable</code>,
+   <code>repos_tracked</code>) and compute the ratio in PromQL
+   (<code>1 - actionable/tracked</code>) — raw series compose into any panel,
+   recording rules can pre-bake the ratio, and the exporter stays
+   dumb.
+   (b) Export a precomputed <code>compliance_ratio{org, rule_name}</code> gauge
+   as well — convenient, but a derived series that can silently
+   disagree with its inputs.
+   (c) Compute in Grafana via the Postgres datasource — no gauges at
+   all for compliance; couples the KPI dashboard to DB credentials
+   in Grafana.
+   other:</p>
+</li>
+<li>
+<p><strong><code>rule_state</code> reconciliation when rules leave the policy.</strong>
+   <strong>Resolved 2026-08-02 → (a)</strong>, with (b) — the background GC pass —
+   as the documented fallback if convergence after a policy change
+   proves too slow in practice.
+   (a) Reconcile in the write-back transaction: after the batched
+   upsert, delete this repo's rows whose <code>rule_name</code> is not in the
+   evaluated set. Exact, incremental, no background job, and the
+   write-back already holds the full evaluated set. A policy that
+   drops a rule converges repo-by-repo as checks occur.
+   (b) A background GC pass comparing <code>rule_state</code> against the loaded
+   policy — converges faster after a policy change, but adds a job
+   and a second writer.
+   (c) Query-time filtering only (<code>WHERE rule_name IN (...)</code>) — rows
+   never deleted; table grows with every renamed rule forever.
+   other:</p>
+</li>
+<li>
+<p><strong>Legacy <code>properties_*</code> counters (4 unlabeled Counters).</strong>
+   <strong>Resolved 2026-08-02 → (a).</strong>
+   (a) Remove in Phase 7, same minor that completes the suite —
+   they are posture-shaped (Finding B), unlabeled (pre-IMPL-0009),
+   and fully superseded by <code>repos_actionable</code> + the property-sync
+   event counters; <code>contrib/README.md</code> carries the migration note.
+   (b) Deprecate for one release (log a warning in docs, keep
+   emitting), remove the next minor — gentler, but nothing external
+   is known to consume them and it drags the cleanup across two
+   releases.
+   (c) Keep indefinitely — cost is small but they contradict the
+   taxonomy and invite wrong panels.
+   other:</p>
+</li>
+<li>
+<p><strong>Generator and report binary placement.</strong>
+   <strong>Resolved 2026-08-02 → (a)</strong> — the size-delta check before merge
+   stands; fall back to (b) only if the delta is egregious.
+   (a) Subcommands on the main <code>repo-guardian</code> binary — one artifact,
+   one version, the policy loader is already linked, and operators
+   run it from the same image in CI. Measure the foundation-sdk size
+   delta on the ~19.5MB distroless image; if it is egregious, fall
+   back to (b) before merging.
+   (b) A separate <code>cmd/repo-guardian-monitoring</code> binary sharing
+   <code>internal/policy</code> — keeps the server image lean, but two
+   artifacts to version and release.
+   other:</p>
+</li>
+<li>
+<p><strong>Report output shape.</strong>
+   <strong>Resolved 2026-08-02 → (a).</strong>
+   (a) Markdown files per org written to <code>--out</code> — simplest, renders
+   everywhere (GitHub, Slack paste, Backstage TechDocs), delivery
+   stays a human/automation choice outside the binary.
+   (b) Open a GitHub issue per org via the App — delivery built in
+   and org owners are already on GitHub, but it writes to repos we
+   otherwise only remediate, and needs an issue-target convention.
+   (c) HTML + SMTP email — the classic compliance-report shape, but
+   brings mail configuration and templating for marginal gain at
+   current scale.
+   other:</p>
+</li>
+<li>
+<p><strong><code>--format k8s</code> dashboard artifact shape.</strong>
+   <strong>Resolved 2026-08-02 → (b)</strong> — the cluster's kube-prometheus-stack
+   deployment runs grafana-operator, so <code>GrafanaDashboard</code> CRs cover
+   both consumption paths.
+   (a) ConfigMaps with the <code>grafana_dashboard: "1"</code> sidecar label —
+   the kube-prometheus-stack convention already running in the
+   homelab; no new operator, kustomize-native.
+   (b) grafana-operator <code>GrafanaDashboard</code> CRs — cleaner ownership
+   model, but requires deploying grafana-operator.
+   (c) Plain JSON only; the operator wraps it themselves — smallest
+   generator surface, pushes boilerplate onto every consumer.
+   other:</p>
+</li>
+</ol>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="../../investigation/0013-state-vs-event-metrics-dashboard-suite-and-system-observability/">INV-0013</a>
+  — findings A–I; this design implements its full recommendation</li>
+<li><a href="../../investigation/0012-inert-budgettracker-and-untrustworthy-alert-pack/">INV-0012</a>
+  — alert-window rules (findings C/E) applied to all generated alerts</li>
+<li><a href="../0021-delayed-requeue-job-contract-and-rate-limit-consolidation/">DESIGN-0021</a>
+  — post-0021 metric surface this design is written against; shared
+  installation-transport ordering contract (Phase 3 here, Phase 3
+  there)</li>
+<li><a href="../0012-persistent-reconcile-state-and-multi-replica-coordination/">DESIGN-0012</a>
+  — the Store/Scheduler surfaces extended here</li>
+<li><a href="../../impl/0013-reconcile-open-prs-when-file-rules-become-satisfied/">IMPL-0013</a>
+  — <code>open_prs_by_rule</code> snapshot-gauge precedent (<code>ResetOpenPRsByRule</code>)</li>
+<li><a href="../../impl/0015-stale-sweep-cutover-and-repository-discovery/">IMPL-0015</a>
+  — write-back best-effort contract this design extends</li>
+<li><a href="../../impl/0017-configurable-annotation-sourced-custom-properties/">IMPL-0017</a>
+  — the schema-preflight cache that feeds <code>property_schema_missing</code></li>
+<li>grafana-foundation-sdk: <a href="https://github.com/grafana/grafana-foundation-sdk">https://github.com/grafana/grafana-foundation-sdk</a></li>
+<li>OTel Go prometheus bridge:
+  <a href="https://pkg.go.dev/go.opentelemetry.io/otel/exporters/prometheus">https://pkg.go.dev/go.opentelemetry.io/otel/exporters/prometheus</a></li>
+<li><code>otelhttp</code>:
+  <a href="https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp">https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp</a></li>
+<li><code>redisotel</code>: <a href="https://github.com/redis/go-redis/tree/master/extra/redisotel">https://github.com/redis/go-redis/tree/master/extra/redisotel</a></li>
+<li><code>otelpgx</code>: <a href="https://github.com/exaring/otelpgx">https://github.com/exaring/otelpgx</a></li>
+<li>grafana-operator (<code>GrafanaDashboard</code> CRs, OQ7 → b):
+  <a href="https://github.com/grafana/grafana-operator">https://github.com/grafana/grafana-operator</a></li>
+<li>kube-prometheus-stack dashboard sidecar convention:
+  <a href="https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack">https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack</a></li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

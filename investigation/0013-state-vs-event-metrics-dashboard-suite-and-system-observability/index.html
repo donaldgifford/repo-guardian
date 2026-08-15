@@ -1,0 +1,2870 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>State-vs-event metrics, dashboard suite, and system observability - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#inv-0013-state-vs-event-metrics-dashboard-suite-and-system-observability" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              State-vs-event metrics, dashboard suite, and system observability
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#question" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Question
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hypothesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hypothesis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#approach" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Approach
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#findings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Findings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Findings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-metric-inventory-one-by-one-classification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A. Metric inventory — one-by-one classification
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b-eight-metrics-are-posture-masquerading-as-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B. Eight metrics are posture masquerading as events
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c-postgres-cannot-serve-posture-today-the-write-back-is-status-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C. Postgres cannot serve posture today — the write-back is status-only
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d-the-1n-query-fear-is-solvable-three-ways-and-one-is-already-built" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D. The 1+N query fear is solvable three ways — and one is already built
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#e-dashboard-suite-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        E. Dashboard suite architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f-system-use-red-coverage-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F. System / USE / RED coverage gaps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#g-otel-is-the-cross-hop-answer-but-red-does-not-have-to-wait-for-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        G. OTEL is the cross-hop answer, but RED does not have to wait for it
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i-signal-taxonomy-business-service-infra" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        I. Signal taxonomy — business / service / infra
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#h-config-generated-dashboards-and-alerts-established-pattern-strong-fit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        H. Config-generated dashboards and alerts — established pattern, strong fit
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conclusion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommendation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#disposition-2026-08-14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disposition (2026-08-14)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="inv-0013-state-vs-event-metrics-dashboard-suite-and-system-observability">INV 0013: State-vs-event metrics, dashboard suite, and system observability</h1>
+<p><strong>Status:</strong> Open
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-08-01</p>
+<!--toc:start-->
+<ul>
+<li><a href="#question">Question</a></li>
+<li><a href="#hypothesis">Hypothesis</a></li>
+<li><a href="#context">Context</a></li>
+<li><a href="#approach">Approach</a></li>
+<li><a href="#environment">Environment</a></li>
+<li><a href="#findings">Findings</a></li>
+<li><a href="#a-metric-inventory--one-by-one-classification">A. Metric inventory — one-by-one classification</a></li>
+<li><a href="#b-eight-metrics-are-posture-masquerading-as-events">B. Eight metrics are posture masquerading as events</a></li>
+<li><a href="#c-postgres-cannot-serve-posture-today--the-write-back-is-status-only">C. Postgres cannot serve posture today — the write-back is status-only</a></li>
+<li><a href="#d-the-1n-query-fear-is-solvable-three-ways--and-one-is-already-built">D. The 1+N query fear is solvable three ways — and one is already built</a></li>
+<li><a href="#e-dashboard-suite-architecture">E. Dashboard suite architecture</a></li>
+<li><a href="#f-system--use--red-coverage-gaps">F. System / USE / RED coverage gaps</a></li>
+<li><a href="#g-otel-is-the-cross-hop-answer-but-red-does-not-have-to-wait-for-it">G. OTEL is the cross-hop answer, but RED does not have to wait for it</a></li>
+<li><a href="#i-signal-taxonomy--business--service--infra">I. Signal taxonomy — business / service / infra</a></li>
+<li><a href="#h-config-generated-dashboards-and-alerts--established-pattern-strong-fit">H. Config-generated dashboards and alerts — established pattern, strong fit</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+<li><a href="#recommendation">Recommendation</a></li>
+<li><a href="#disposition-2026-08-14">Disposition (2026-08-14)</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="question">Question</h2>
+<p>Three questions, one per problem observed while refreshing <code>contrib/</code>:</p>
+<ol>
+<li>Which of repo-guardian's 52 metrics represent <strong>current posture</strong>
+   (how many repos are missing CODEOWNERS <em>right now</em>) rather than
+   <strong>events</strong> (a check observed a missing file), and therefore read
+   wrong after a pod restart zeroes the counter?</li>
+<li>Can the Postgres store serve posture directly — exposed as gauges —
+   without every replica hammering the same query on every scrape, and
+   does that require a Valkey query cache?</li>
+<li>What dashboard architecture follows: KPI, per-org detailed, system
+   health, and Loki — and where are the USE/RED gaps (go runtime, DB
+   pool, Valkey, GitHub client, inbound HTTP), including whether RED
+   requires adopting OTEL?</li>
+</ol>
+<h2 id="hypothesis">Hypothesis</h2>
+<ul>
+<li>A handful of <code>*_total</code> counters are being read as posture and cannot
+  provide it even in principle — a repo fixed yesterday still counts in
+  last week's increments, and a restart zeroes the "current" reading.</li>
+<li>The store cannot answer posture queries today because the worker
+  write-back persists only <code>{status, error, policy_version}</code> — no
+  per-rule outcomes — so a DB-backed gauge needs a schema extension,
+  not just an exporter.</li>
+<li>The 1+N scrape-fan-out fear is real for a naive custom Collector but
+  dissolves with any of: leader-scoped export (already built), a
+  ticker-driven gauge (query cadence decoupled from scrape cadence), or
+  a Valkey-cached query layer.</li>
+<li>RED for the service's own hops can be done metrics-only; only
+  cross-hop tracing (ALB → gateway → service → PG/Valkey/GitHub)
+  requires OTEL.</li>
+</ul>
+<h2 id="context">Context</h2>
+<p><strong>Triggered by:</strong> the contrib/ refresh on this branch (commit
+<code>e6f141a</code>), the enterprise migration operational work (INV-0012 branch,
+PR #171), and the operator observation that "missing catalog-info /
+CODEOWNERS counts clear on restart."</p>
+<p>Adjacent to <a href="../0012-inert-budgettracker-and-untrustworthy-alert-pack/">INV-0012</a>
+but distinct: INV-0012 established that the BudgetTracker metrics are
+dead and the alert packs were unvalidated; this investigation is about
+the <em>semantics</em> of the live metrics, the dashboard suite that should
+consume them, and the system-level observability that doesn't exist yet.</p>
+<h2 id="approach">Approach</h2>
+<ol>
+<li>Classify all 52 metrics in <code>internal/metrics/metrics.go</code> by
+   constructor type and by semantic class (event, posture, snapshot
+   gauge, live gauge, latency, dead).</li>
+<li>Read the store schema (<code>internal/store/postgres/migrations/</code>) and
+   the worker write-back (<code>internal/worker/worker.go.writeBack</code>) to
+   establish what posture data the DB actually holds.</li>
+<li>Grep the instrumentation surfaces: metrics registry wiring
+   (<code>main.go</code>), GitHub client, webhook handler, pgxpool, go-redis.</li>
+<li>Verify the structured-log surface for the Loki dashboard (handler
+   format, locked log contracts).</li>
+<li>Enumerate dashboard mechanics (Grafana repeated rows, template
+   variables, Loki ruler) against what the metric label sets support.</li>
+</ol>
+<h2 id="environment">Environment</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Version / Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>repo-guardian</td>
+<td>appVersion 1.10.1, chart 1.0.0-rc.9</td>
+</tr>
+<tr>
+<td>Metrics registry</td>
+<td><code>promauto</code> on default registry, <code>promhttp.Handler()</code> (main.go:413)</td>
+</tr>
+<tr>
+<td>Valkey client</td>
+<td><code>github.com/redis/go-redis/v9</code> v9.19.0</td>
+</tr>
+<tr>
+<td>Store</td>
+<td>pgx/v5 + pgxpool, <code>repo_state</code> table (migration 0001)</td>
+</tr>
+<tr>
+<td>Logging</td>
+<td><code>slog.NewJSONHandler</code> → stdout (main.go:520)</td>
+</tr>
+<tr>
+<td>promtool</td>
+<td>3.12.0 (mise)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="findings">Findings</h2>
+<h3 id="a-metric-inventory-one-by-one-classification">A. Metric inventory — one-by-one classification</h3>
+<p>52 metrics: 40 CounterVec/Counter, 6 Gauge/GaugeVec (live), 6
+Histogram. Classified by what the number <em>means</em>, not what type it is:</p>
+<p><strong>Event counters — correct as-is.</strong> Occurrences of an action; <code>rate()</code>
+and <code>increase()</code> are the only honest reads; restart-zeroing is handled
+by PromQL counter-reset detection and is a non-issue for these.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>repos_checked_total{trigger,org}</code></td>
+<td>work throughput</td>
+</tr>
+<tr>
+<td><code>prs_created_total{org}</code>, <code>prs_updated_total{org}</code>, <code>prs_closed_total{org,reason}</code></td>
+<td>PR lifecycle events</td>
+</tr>
+<tr>
+<td><code>pr_orphan_left_total{org}</code></td>
+<td>cleanup failure events (retried next sweep)</td>
+</tr>
+<tr>
+<td><code>settings_remediated_total</code>, <code>branch_protection_remediated_total</code></td>
+<td>remediation actions</td>
+</tr>
+<tr>
+<td><code>settings_checked_total</code>, <code>branch_protection_checked_total</code></td>
+<td>evaluation throughput</td>
+</tr>
+<tr>
+<td><code>rule_gate_closed_total{rule_name,org,reason}</code></td>
+<td>gate evaluations (diagnostic)</td>
+</tr>
+<tr>
+<td><code>ignored_total{scope,org}</code>, <code>out_of_scope_total{level,org}</code></td>
+<td>skip events (diagnostic)</td>
+</tr>
+<tr>
+<td><code>webhook_received_total{event_type}</code>, <code>webhook_rejected_total{reason}</code></td>
+<td>ingress events</td>
+</tr>
+<tr>
+<td><code>errors_total{operation,org}</code></td>
+<td>error events</td>
+</tr>
+<tr>
+<td><code>github_rate_limit_waits_total{reason}</code></td>
+<td>throttle events</td>
+</tr>
+<tr>
+<td><code>custom_property_cleared_total{org}</code></td>
+<td>clear actions</td>
+</tr>
+<tr>
+<td><code>queue_enqueued_total</code>, <code>queue_claimed_total</code>, <code>queue_acked_total{outcome}</code>, <code>queue_reaped_total</code></td>
+<td>queue lifecycle</td>
+</tr>
+<tr>
+<td><code>rate_limit_reserve_blocked_total{installation_id}</code></td>
+<td>gate events</td>
+</tr>
+<tr>
+<td><code>repo_discovered_total</code>, <code>discovery_api_calls_total</code></td>
+<td>discovery events</td>
+</tr>
+<tr>
+<td><code>store_writeback_total{installation_id,outcome}</code></td>
+<td>write-back events</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Live gauges — correct as-is.</strong> Sampled truth at scrape time:
+<code>queue_depth{queue}</code>, <code>rate_limit_remaining{installation_id}</code>,
+<code>github_rate_remaining</code>, <code>scheduler_is_leader{name}</code>.</p>
+<p><strong>Snapshot gauge — the existing correct pattern for posture.</strong>
+<code>open_prs_by_rule{org,rule,age_bucket}</code>: reset at sweep start by
+<code>metrics.ResetOpenPRsByRule</code> and repopulated as the sweep joins the
+open-PR set against actionable rules. It answers "how many PRs are
+open right now, by age" — surviving restarts <em>logically</em> (the next
+sweep rebuilds it) with one blind window between restart and first
+sweep. This is the in-tree precedent Finding B's metrics should follow
+or improve on.</p>
+<p><strong>Latency histograms — correct, three have no dashboard/alert
+consumer.</strong> <code>check_duration_seconds</code>, <code>github_rate_limit_wait_seconds</code>,
+<code>store_query_seconds{op,outcome}</code> are consumed;
+<code>scheduler_sweep_batch_size</code>, <code>store_writeback_duration_seconds</code>,
+<code>discovery_duration_seconds</code> are exposed and documented but appear on
+no dashboard panel or alert (write-back latency has a documented p99
+target of 50ms and nothing watching it).</p>
+<p><strong>Dead — INV-0012.</strong> All six <code>api_budget_*</code> plus
+<code>enqueue_gated_by_budget_total</code>: no producer calls <code>RefreshFromAPI</code> in
+prod. Excluded from all dashboard planning here; DESIGN-0021 replaces
+them.</p>
+<p><strong>Legacy unlabeled.</strong> <code>properties_checked_total</code>,
+<code>properties_prs_created_total</code>, <code>properties_set_total</code>,
+<code>properties_already_correct_total</code> — plain Counters with no <code>org</code>
+label, predating the per-org labeling convention (IMPL-0009 §metrics).
+<code>properties_already_correct_total</code> is also posture-shaped (Finding B).
+Candidates for deprecation or relabeling when Finding B's design lands.</p>
+<h3 id="b-eight-metrics-are-posture-masquerading-as-events">B. Eight metrics are posture masquerading as events</h3>
+<p>The operator complaint — "counts of missing catalog-info or CODEOWNERS
+clear on restart" — is not a restart bug. It is a semantic mismatch:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>What it actually counts</th>
+<th>What operators read it as</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>files_missing_total{rule_name,org}</code></td>
+<td>check-events that observed a missing file</td>
+<td>repos currently missing the file</td>
+</tr>
+<tr>
+<td><code>files_forbidden_present_total{rule_name,org}</code></td>
+<td>check-events that observed a forbidden file</td>
+<td>repos currently carrying it</td>
+</tr>
+<tr>
+<td><code>settings_mismatched_total{rule_name,org}</code></td>
+<td>evaluations that found drift</td>
+<td>repos currently drifted</td>
+</tr>
+<tr>
+<td><code>custom_property_missing_schema_total{org,property}</code></td>
+<td>skipped sync attempts</td>
+<td>properties currently undefined</td>
+</tr>
+<tr>
+<td><code>catalog_parse_failed_total{org}</code></td>
+<td>skipped reconciles</td>
+<td>repos with currently-broken catalog files</td>
+</tr>
+<tr>
+<td><code>pr_open_with_empty_actionable_total{org}</code></td>
+<td>drift observations</td>
+<td>PRs currently drifted</td>
+</tr>
+<tr>
+<td><code>properties_already_correct_total</code></td>
+<td>no-op syncs</td>
+<td>fleet compliance level</td>
+</tr>
+<tr>
+<td><code>open_prs_by_rule</code></td>
+<td><em>(already a snapshot gauge — the model)</em></td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>The failure mode is worse than restart-zeroing: <strong>a counter cannot
+represent posture even between restarts.</strong> A repo that gained
+CODEOWNERS yesterday still contributes to <code>increase(...[7d])</code> today; a
+repo checked twice counts twice; a repo the sweep hasn't reached counts
+zero. Any KPI panel titled "repos missing CODEOWNERS" built on these
+counters is wrong on all three axes, and the restart just makes it
+obviously wrong instead of subtly wrong.</p>
+<p>The counters are still valuable <em>as events</em> (detection rate, activity,
+alerting on <code>increase()</code>); the fix is not to remove them but to add a
+posture representation alongside — which leads to Finding C.</p>
+<p><strong>Source assignment — the decision run over each posture metric.</strong> The
+operational test is three questions: (1) is the number only meaningful
+"as of now"? (2) is the system of record <em>our check outcomes</em> (vs
+GitHub's state, vs the process itself)? (3) do consumers need identity
+or since-when durations? Both yes on 1+2 → Postgres-backed; system of
+record GitHub → snapshot/TTL gauge projection; otherwise pure Prom.</p>
+<table>
+<thead>
+<tr>
+<th>Posture reading</th>
+<th>System of record</th>
+<th>Source verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>repos missing a file (<code>files_missing_total</code>)</td>
+<td>our check outcomes</td>
+<td><strong>PG</strong> — <code>rule_state</code> rows → <code>repos_actionable{rule_name,org}</code> gauge</td>
+</tr>
+<tr>
+<td>repos with forbidden file (<code>files_forbidden_present_total</code>)</td>
+<td>our check outcomes</td>
+<td><strong>PG</strong> — same table, absent-mode rows</td>
+</tr>
+<tr>
+<td>repos with setting drift (<code>settings_mismatched_total</code>)</td>
+<td>our check outcomes</td>
+<td><strong>PG</strong> — <code>rule_state</code> must include setting rules</td>
+</tr>
+<tr>
+<td>branch-protection drift</td>
+<td>our check outcomes</td>
+<td><strong>PG</strong> — closes a hole: no <code>*_mismatched</code> metric even exists for BP today (only checked/remediated)</td>
+</tr>
+<tr>
+<td>repos with unparseable catalog (<code>catalog_parse_failed_total</code>)</td>
+<td>our check outcomes</td>
+<td><strong>PG</strong> — parse-ok as a per-repo fact</td>
+</tr>
+<tr>
+<td>fleet compliance % (<code>properties_already_correct_total</code>)</td>
+<td>our check outcomes</td>
+<td><strong>PG</strong> — derived; deprecate the counter</td>
+</tr>
+<tr>
+<td>open drifted PRs (<code>pr_open_with_empty_actionable_total</code> posture reading)</td>
+<td><strong>GitHub</strong></td>
+<td>snapshot gauge — <code>open_prs_by_rule</code> pattern is already correct; no PG mirror (the report can hit GitHub at generation time for PR links)</td>
+</tr>
+<tr>
+<td>org schema missing properties (<code>custom_property_missing_schema_total</code> posture reading)</td>
+<td><strong>GitHub</strong></td>
+<td>TTL gauge set at preflight-cache refresh (<code>property_schema_missing{org,property}</code> 0/1) — the cache already knows; PG adds nothing</td>
+</tr>
+</tbody>
+</table>
+<p>Summarized: <strong>Postgres backs exactly the facts the engine computes and
+currently throws away — per-rule check outcomes.</strong> GitHub-owned
+posture gets projections (sweep snapshot or preflight-TTL gauges).
+Process behavior — every rate, latency, and saturation signal — stays
+pure Prometheus and never touches the DB.</p>
+<h3 id="c-postgres-cannot-serve-posture-today-the-write-back-is-status-only">C. Postgres cannot serve posture today — the write-back is status-only</h3>
+<p>The full extent of persisted state (migration 0001):</p>
+<pre><code class="language-sql">CREATE TABLE repo_state (
+    installation_id   BIGINT  NOT NULL,
+    owner             TEXT    NOT NULL,
+    repo              TEXT    NOT NULL,
+    last_checked_at   TIMESTAMP WITH TIME ZONE,
+    last_check_status TEXT    NOT NULL DEFAULT 'pending',
+    last_error        TEXT,
+    policy_version    TEXT    NOT NULL DEFAULT '',
+    PRIMARY KEY (installation_id, owner, repo)
+);
+</code></pre>
+<p><code>worker.writeBack</code> persists <code>{status, truncated error, policy_version,
+timestamp}</code> — the engine's per-rule findings (<code>findActionableRules</code>'s
+actionable set) are computed, used to open/refresh the PR, and
+discarded. "SELECT count of repos missing CODEOWNERS" has no table to
+run against. So the user-suggested "provide it by a DB query exposed as
+a metric" requires a schema extension first. Two shapes worth carrying
+into a design:</p>
+<ul>
+<li><strong>C1 — per-rule state table.</strong> <code>rule_state(installation_id, owner,
+  repo, rule_name, actionable bool, check_mode, updated_at)</code>, upserted
+  in the same write-back path (one batched statement per job; the
+  actionable set is already in memory at that point). Posture is then
+  <code>SELECT rule_name, count(*) FILTER (WHERE actionable) GROUP BY 1</code> —
+  and it also unlocks queries metrics can't express at all ("list the
+  repos", "compliance % per org per rule", history via audit trigger).</li>
+<li><strong>C2 — JSONB column on <code>repo_state</code>.</strong> <code>actionable_rules JSONB</code> —
+  cheaper migration, no second table, worse queryability (needs
+  <code>jsonb_array_elements</code> for per-rule counts) and no per-rule
+  <code>updated_at</code>. Fine if posture-by-rule-per-org is the only consumer;
+  C1 if the "show me the repos" operator workflow matters (it did,
+  twice, during this week's enterprise migration debugging).</li>
+</ul>
+<p>Interim zero-schema option: <strong>C3 — extend the sweep-snapshot pattern</strong>
+(<code>open_prs_by_rule</code> style) with
+<code>repos_actionable{rule_name,org}</code> gauges repopulated per sweep from the
+engine's in-memory result. No migration, but posture lags a full sweep
+interval, goes blind between restart and first sweep, and only exists
+on the leader replica. Honest enough for a KPI dashboard's "as of last
+sweep" panel; not honest enough for point-in-time compliance reporting.</p>
+<p>Considered and rejected as primary: <strong>C4 — Loki last-state
+projection.</strong> Emit a structured per-repo per-rule outcome log line
+(does not exist today) and reconstruct current state in LogQL
+(<code>last_over_time</code>-style, <code>repo</code> as a parsed field). It works as an
+event-sourced approximation, but every posture query must scan a
+window longer than the sweep interval — which is <em>weekly</em> — across
+5k repos, with retention pinned ≥ the window forever, versus one
+indexed <code>count(*) GROUP BY</code> on a table the workers already write in
+the same code path. Loki-derived metrics stay correct for log-shaped
+event signals (Finding E4); they are a fallback for posture, not a
+design.</p>
+<p><strong>The downstream report requirement settles the C1-vs-C2 choice.</strong> The
+stated goal is a compliance dashboard <em>and</em> a generated per-org report
+sent to org owners. A report needs repo <em>names</em> (identity — never
+representable in metrics, marginal in Loki) and <em>durations</em> ("missing
+since 2026-06-14" is what makes an owner act), which means per-rule
+rows with timestamps: C1, not C2's JSONB blob. Two riders fall out:
+a nightly <code>compliance_snapshot(org, rule_name, actionable_count, ts)</code>
+insert gives quarter-over-quarter history independent of Prometheus
+retention, and the report generator itself is a
+<code>repo-guardian report</code> sibling of Finding H's <code>monitoring generate</code>
+subcommand (loads the same config, queries the same tables, renders
+per-org output; Grafana's native reporting is an Enterprise-license
+feature, so the CLI shape is the OSS path). The compliance dashboard
+is then a mixed-datasource dashboard: Prom for the projected count
+gauges and trends, the Grafana Postgres datasource for the "which
+repos" table panels.</p>
+<h3 id="d-the-1n-query-fear-is-solvable-three-ways-and-one-is-already-built">D. The 1+N query fear is solvable three ways — and one is already built</h3>
+<p>The stated concern: with N replicas scraped every 30s, a naive
+DB-backed gauge runs the same posture query N times per 30s. Three
+resolutions, cheapest first:</p>
+<ul>
+<li><strong>D1 — leader-scoped exporter (already built).</strong> The Valkey
+  scheduler's SETNX leader election (<code>repo-guardian:lock:&lt;name&gt;</code>)
+  already designates exactly one replica for sweeps. A posture exporter
+  registered as a leader-gated <code>Schedule</code> handler (query every 60s,
+  <code>Set()</code> the gauges) runs the query on <strong>one</strong> replica at <strong>one</strong>
+  cadence, independent of scrape rate and replica count. Non-leader
+  replicas simply don't serve the series; dashboards aggregate with
+  <code>max by (...)</code>, exactly as <code>scheduler_is_leader</code> panels already do.
+  No cache layer, no new infra.</li>
+<li><strong>D2 — ticker-driven gauge instead of custom Collector.</strong> Even
+  without leader-gating, the 1+N problem is an artifact of implementing
+  posture as a <code>prometheus.Collector</code> that queries <em>at scrape time</em>. A
+  plain ticker that queries every 60s and <code>Set()</code>s decouples query
+  cadence from scrape cadence: N replicas = N queries/minute total, not
+  N per scrape. Acceptable for small N; D1 makes it 1.</li>
+<li><strong>D3 — Valkey as a query cache.</strong> <code>GET posture:&lt;hash&gt;</code> → on miss,
+  <code>SET ... EX 60</code> + query. Solves the same problem as D1 with more
+  moving parts (serialization, TTL vs sweep-freshness coherence,
+  stampede control — go-redis v9 is in-tree, and <code>singleflight</code> is
+  already a house pattern from the schema-preflight cache). Worth it
+  only if something <em>other than metrics export</em> needs the same cached
+  query results (e.g., a future status API endpoint or the KPI
+  dashboard querying Postgres directly via Grafana's PG datasource).
+  As a pure metrics answer, D1 strictly dominates.</li>
+</ul>
+<p>Verdict to carry into the design: <strong>D1 for export; D3 only if a second
+consumer for posture queries appears.</strong> The query itself (C1 shape,
+count-group-by over ≤ <code>20 orgs × 5k repos × ~6 rules</code> rows) is
+index-friendly and sub-second; the fan-out was the only real concern.</p>
+<h3 id="e-dashboard-suite-architecture">E. Dashboard suite architecture</h3>
+<p>Split the current single 61-panel dashboard into four, in <code>contrib/grafana/</code>:</p>
+<ul>
+<li><strong>E1 — KPI / status.</strong> Single-screen posture: compliance % per rule
+  (needs C), open-PR ages (<code>open_prs_by_rule</code> — exists), convergence
+  rate (<code>prs_closed_total{reason="satisfied"}</code>), error budget
+  (<code>errors_total</code> / <code>repos_checked_total</code>), rate-limit headroom
+  (<code>rate_limit_remaining</code> min by installation), queue depth, leader
+  status. Everything except the compliance % is buildable today; the
+  compliance panels should ship in "as of last sweep" form (C3) or wait
+  for C1 — <em>not</em> be faked with <code>increase(files_missing_total)</code>.</li>
+<li><strong>E2 — detailed, per-org repeated rows.</strong> Grafana multi-value
+  variable <code>org</code> from <code>label_values(repo_guardian_repos_checked_total,
+  org)</code>; a top "fleet" section of aggregate panels
+  (<code>sum without (org)</code>), then one <strong>repeated row</strong> per selected <code>$org</code>
+  (row → Repeat for → <code>org</code>) containing the per-org slices: checks by
+  trigger, missing/forbidden by rule, PR lifecycle, gate closures,
+  property sync, errors by operation. Every engine-side metric already
+  carries <code>org</code>, so this needs zero binary changes. Two scoping gaps to
+  note on the dashboard: queue/store/scheduler metrics are
+  fleet-scoped by design (they belong in E3, not in org rows), and
+  discovery/rate-limit metrics are keyed by <code>installation_id</code> with <strong>no
+  org↔installation join series</strong> — a one-line info metric
+  <code>repo_guardian_installation_info{installation_id, org} 1</code> set at
+  client-construction time would let Grafana <code>group_left</code> those into
+  org rows. Cheap, high-leverage, should ride along with any Finding C
+  implementation.</li>
+<li><strong>E3 — system / health.</strong> Consumes what Finding F enumerates: go
+  runtime + process (already exposed), DB pool, Valkey client, GitHub
+  client RED, inbound webhook RED, queue USE (depth = saturation,
+  enqueue/ack = utilisation, reaped = errors), store latency (exists),
+  the three orphan histograms from Finding A.</li>
+<li><strong>E4 — Loki logging dashboard.</strong> Grounded in what the binary
+  actually emits: <code>slog.NewJSONHandler</code> to stdout, so LogQL is
+  <code>| json | level="ERROR"</code> etc. Two log lines are load-bearing
+  contracts already: <code>"custom properties missing from org schema"</code>
+  (keys <code>org</code>, <code>missing_properties</code> — locked by
+  <code>TestAPIMode_FiltersUndefinedMappedProperty</code>) and <code>"catalog-info
+  parse failed; skipping reconcile to avoid clearing properties"</code> (not
+  test-locked — should be, if a dashboard starts depending on it).
+  Panels: error-level rate by component, sweep summaries
+  (<code>gated_rate_limit</code> / <code>gated_budget</code> fields), write-back failures,
+  webhook rejections by reason, top erroring repos. <strong>Loki-derived
+  metrics belong in the Loki ruler, not the app</strong>: recording rules like
+  <code>sum by (org) (count_over_time({app="repo-guardian"} | json |
+  msg="catalog-info parse failed..." [1h]))</code> give log-sourced series
+  without new instrumentation — appropriate for signals that are
+  naturally log-shaped (per-repo failure identity) where a metric label
+  would explode cardinality (<code>repo</code> must never become a metric label at
+  5k repos; it is fine as a log field).</li>
+</ul>
+<h3 id="f-system-use-red-coverage-gaps">F. System / USE / RED coverage gaps</h3>
+<p>What exists vs. what's missing, per dependency:</p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Exists today</th>
+<th>Missing</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Go runtime / process</td>
+<td><code>go_*</code>, <code>process_*</code> (promauto default registry — verified exposed)</td>
+<td>any dashboard or alert consuming them (GC pause, goroutines, RSS, FD count)</td>
+</tr>
+<tr>
+<td>Postgres</td>
+<td><code>store_query_seconds{op,outcome}</code> (R+E of RED)</td>
+<td>pool USE: <code>pgxpool.Stat()</code> (AcquireCount, AcquiredConns, IdleConns, EmptyAcquireCount = pool-exhaustion signal) is never collected; a ~30-line custom Collector</td>
+</tr>
+<tr>
+<td>Valkey</td>
+<td>queue-level counters</td>
+<td>client-level: go-redis pool stats via <code>redisprometheus.NewCollector</code> (hits/misses/timeouts/idle) — one constructor call per client</td>
+</tr>
+<tr>
+<td>GitHub API</td>
+<td><code>github_rate_remaining</code>, wait counters/histogram, <code>errors_total</code></td>
+<td>RED per request: no duration histogram, no status-code dimension, no endpoint-class dimension. A <code>RoundTripper</code> wrapper on the installation transport — <code>github_request_duration_seconds{method, endpoint_class, code}</code> with a small fixed endpoint-class set (contents, pulls, rulesets, properties, meta) to cap cardinality</td>
+</tr>
+<tr>
+<td>Inbound HTTP (webhook)</td>
+<td>received/rejected/enqueued counters (R+E)</td>
+<td>duration histogram (D of RED) + response-code labels; <code>promhttp.InstrumentHandler*</code> middleware is stdlib-adjacent and fits the existing mux</td>
+</tr>
+<tr>
+<td>Queue</td>
+<td>depth gauge, lifecycle counters</td>
+<td>nothing structural — USE is derivable; E3 just needs the panels</td>
+</tr>
+</tbody>
+</table>
+<p>None of these require OTEL; all are client_golang idioms on code paths
+that already exist.</p>
+<h3 id="g-otel-is-the-cross-hop-answer-but-red-does-not-have-to-wait-for-it">G. OTEL is the cross-hop answer, but RED does not have to wait for it</h3>
+<p>The full-path ask (ALB → Cilium gateway → service → Valkey/PG/GitHub)
+is a <strong>tracing</strong> problem: only trace propagation stitches hops owned by
+different systems. That means OTEL SDK + <code>otelhttp</code> (inbound),
+<code>otelpgx</code>, <code>redisotel</code>, a transport wrapper for go-github, W3C
+<code>traceparent</code> propagation (ALB and Cilium both forward it), and an
+in-cluster collector (Alloy / otel-collector) — plus a tracing backend
+(Tempo, since the stack is already Grafana-flavored). That is real
+scope: a dependency footprint, a config surface, and cluster infra.</p>
+<p>The pragmatic split: <strong>Finding F's metrics-only RED first</strong> (no new
+infra, answers "which hop is slow/erroring" at the aggregate level),
+OTEL tracing as a separate opt-in effort when per-request "why was
+<em>this</em> webhook slow" matters. Adopting <code>otelhttp</code> middleware early on
+the webhook path is cheap and forward-compatible (it emits both traces
+and metrics), but wiring the full chain should not gate the dashboards.</p>
+<p><strong>What OTEL instrumentation would unmask — signals current metrics
+hide (verified against the code):</strong></p>
+<ol>
+<li><code>check_duration_seconds</code> conflates engine compute, GitHub API
+   latency, and the DESIGN-0002 transport's rate-limit sleeps (up to
+   an hour <em>inside</em> <code>RoundTrip</code>). INV-0012 found the sleep by code
+   reading; a client-span would have shown it as an hour-long span on
+   day one. <code>otelhttp</code> client instrumentation on the installation
+   transport decomposes all three.</li>
+<li><code>errors_total{operation}</code> collapses status truth: GitHub 429 vs
+   403 vs 5xx vs network error are indistinguishable, and go-github
+   retries are invisible. Client <code>http.client.request.duration
+   {status_code}</code> + span events carry both.</li>
+<li><strong>HMAC 401 rejections are counted nowhere.</strong> <code>webhook_rejected_total</code>
+   increments only in the allowlist middleware (<code>allowlist.go</code>); a
+   signature-validation failure returns 401 with no metric. Server
+   middleware (<code>otelhttp</code> or <code>promhttp.InstrumentHandler*</code>) emits
+   duration + status for <em>every</em> request — 401 volume, 404 scans,
+   panic-500s — closing the gap wholesale rather than per-reason.</li>
+<li>Enqueue latency inside the webhook path: a Valkey stall makes the
+   202 slow and nothing measures it — <code>redisotel</code> (or a go-redis
+   hook) times every command including the reaper Lua and leader
+   SETNX, none of which are measured today.</li>
+<li><code>store_query_seconds</code> starts its timer before pool acquire
+   (<code>observeQuery</code> wraps the pool call), so pool exhaustion
+   masquerades as slow queries with no discriminator. <code>otelpgx</code>
+   separates acquire from query spans; the <code>pgxpool.Stat()</code> collector
+   (Finding F) is the aggregate USE view of the same thing.</li>
+<li>End-to-end "webhook received → PR opened" latency is a pure trace
+   concept: DESIGN-0021's <code>queue_wait_seconds</code> measures one hop;
+   traces stitch webhook → enqueue → claim → check → GitHub writes.</li>
+</ol>
+<p>Dedup rule for the design: OTEL semconv metrics overlap hand-rolled
+ones (<code>db.client.operation.duration</code> vs <code>store_query_seconds</code>). Keep
+the domain metrics, adopt OTEL at the transport layers, and pick one
+source per dashboard panel — never both.</p>
+<p><strong>What OTEL actually lets us remove.</strong> Less than intuition suggests,
+because nearly every hand-rolled metric is <em>domain</em>-level (org, rule,
+trigger, reason labels OTEL cannot know). The honest ledger:</p>
+<ul>
+<li><em>Removable existing metrics (2):</em> <code>github_rate_limit_waits_total</code>
+  and <code>github_rate_limit_wait_seconds</code> — but their real executioner is
+  DESIGN-0021, which stops the transport from sleeping at all; OTEL
+  client histograms then carry the residual signal (slow GitHub calls
+  by status). Nothing else existing goes away: <code>store_query_seconds</code>
+  keeps its domain <code>op</code> labels (semconv sees SQL verbs, not
+  <code>stale_repos</code>), <code>check_duration_seconds</code> is job-level not
+  transport-level, <code>webhook_*</code> reasons are security semantics.</li>
+<li><em>Planned work cancelled (3–4 items from Finding F):</em> the
+  hand-rolled GitHub RoundTripper RED histogram → <code>otelhttp</code> client
+  transport; the webhook duration middleware → <code>otelhttp</code> server; the
+  <code>redisprometheus</code> collector → <code>redisotel</code> metrics; possibly the
+  <code>pgxpool.Stat()</code> collector if <code>otelpgx</code>'s pool-stats option covers
+  it (verify at design time — one or the other, not both).</li>
+<li><em>Removed by other efforts, not OTEL:</em> the 7 dead budget series
+  (DESIGN-0021 Phase 6) and the 4 legacy <code>properties_*</code> counters
+  (posture design). Postgres loses nothing to OTEL — posture facts
+  are business state, not telemetry.</li>
+</ul>
+<p><strong>"OTEL now" without the infra bill:</strong> the OTel Go SDK can export its
+metrics through the <em>existing</em> Prometheus endpoint (the
+<code>go.opentelemetry.io/otel/exporters/prometheus</code> bridge registers into
+the same registry <code>promhttp</code> serves). So the instrumentation set —
+<code>otelhttp</code> both directions, <code>redisotel</code>, <code>otelpgx</code> — can ship
+metrics-first with zero new cluster infrastructure; the collector +
+Tempo backend becomes a later, purely additive step that turns the
+already-emitted spans on.</p>
+<h3 id="i-signal-taxonomy-business-service-infra">I. Signal taxonomy — business / service / infra</h3>
+<p>Classification of every signal (live, planned, retiring) by tier, so
+each dashboard has one obvious source list: <strong>E1 KPI = business</strong>,
+<strong>E2 detailed = business + service sliced by org</strong>, <strong>E3 = service +
+infra</strong>, <strong>E4 Loki = evidence across all tiers</strong>.</p>
+<p><strong>Business — fleet compliance and value delivered (org-facing):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Signal</th>
+<th>Source</th>
+<th>Covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>repos_actionable{rule_name,org}</code> <em>(planned)</em></td>
+<td>PG → leader gauge</td>
+<td>posture: repos failing each rule, per org</td>
+</tr>
+<tr>
+<td>compliance % per org/rule <em>(planned)</em></td>
+<td>PG → leader gauge + PG datasource</td>
+<td>the KPI headline</td>
+</tr>
+<tr>
+<td><code>compliance_snapshot</code> history <em>(planned)</em></td>
+<td>PG table</td>
+<td>quarter-over-quarter reporting</td>
+</tr>
+<tr>
+<td>"which repos" tables + per-org report</td>
+<td>PG datasource / <code>report</code> CLI</td>
+<td>identity + missing-since</td>
+</tr>
+<tr>
+<td><code>open_prs_by_rule{org,rule,age_bucket}</code></td>
+<td>binary (sweep snapshot)</td>
+<td>open remediation PRs by age</td>
+</tr>
+<tr>
+<td><code>files_missing_total</code>, <code>files_forbidden_present_total</code></td>
+<td>binary counter</td>
+<td>detection activity per rule/org</td>
+</tr>
+<tr>
+<td><code>settings_mismatched_total</code></td>
+<td>binary counter</td>
+<td>setting-drift detections</td>
+</tr>
+<tr>
+<td><code>prs_created_total</code>, <code>prs_updated_total</code>, <code>prs_closed_total{reason}</code></td>
+<td>binary counter</td>
+<td>remediation delivered</td>
+</tr>
+<tr>
+<td><code>settings_remediated_total</code>, <code>branch_protection_remediated_total</code></td>
+<td>binary counter</td>
+<td>remediation delivered</td>
+</tr>
+<tr>
+<td><code>custom_property_cleared_total</code></td>
+<td>binary counter</td>
+<td>property sync actions</td>
+</tr>
+<tr>
+<td><code>custom_property_missing_schema_total</code></td>
+<td>binary counter (+ planned TTL gauge)</td>
+<td>org schema governance gap</td>
+</tr>
+<tr>
+<td><code>catalog_parse_failed_total</code></td>
+<td>binary counter (+ Loki for repo identity)</td>
+<td>broken catalog files, per org</td>
+</tr>
+<tr>
+<td><code>properties_*</code> (4 legacy)</td>
+<td>binary counter</td>
+<td><em>deprecate with posture design</em></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Service — repo-guardian's own operation:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Signal</th>
+<th>Source</th>
+<th>Covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>repos_checked_total{trigger,org}</code></td>
+<td>binary counter</td>
+<td>throughput by trigger</td>
+</tr>
+<tr>
+<td><code>check_duration_seconds</code></td>
+<td>binary histogram</td>
+<td>job latency (decomposed by OTEL spans later)</td>
+</tr>
+<tr>
+<td><code>errors_total{operation,org}</code></td>
+<td>binary counter</td>
+<td>operation failures</td>
+</tr>
+<tr>
+<td><code>queue_depth</code>, <code>queue_{enqueued,claimed,acked,reaped}_total</code></td>
+<td>binary</td>
+<td>queue USE</td>
+</tr>
+<tr>
+<td><code>queue_wait_seconds</code>, <code>queue_delayed_*</code>, <code>attempts_exhausted</code> <em>(DESIGN-0021)</em></td>
+<td>binary</td>
+<td>queue latency + deferral behavior</td>
+</tr>
+<tr>
+<td><code>scheduler_is_leader</code>, <code>scheduler_sweep_batch_size</code></td>
+<td>binary</td>
+<td>leader + sweep sizing</td>
+</tr>
+<tr>
+<td><code>store_writeback_total</code>, <code>store_writeback_duration_seconds</code></td>
+<td>binary</td>
+<td>state write-back health</td>
+</tr>
+<tr>
+<td><code>repo_discovered_total</code>, <code>discovery_duration_seconds</code>, <code>discovery_api_calls_total</code></td>
+<td>binary</td>
+<td>discovery behavior</td>
+</tr>
+<tr>
+<td><code>rate_limit_reserve_blocked_total</code></td>
+<td>binary counter</td>
+<td>self-throttling decisions</td>
+</tr>
+<tr>
+<td><code>ignored_total</code>, <code>out_of_scope_total</code>, <code>rule_gate_closed_total</code></td>
+<td>binary counter</td>
+<td>policy-engine gating</td>
+</tr>
+<tr>
+<td><code>pr_open_with_empty_actionable_total</code>, <code>pr_orphan_left_total</code></td>
+<td>binary counter</td>
+<td>convergence-path faults</td>
+</tr>
+<tr>
+<td><code>webhook_received_total{event_type}</code>, <code>webhook_rejected_total{reason}</code></td>
+<td>binary counter</td>
+<td>ingress domain semantics</td>
+</tr>
+<tr>
+<td><code>http.server.request.duration{route,status}</code> <em>(planned OTEL)</em></td>
+<td>OTEL → prom bridge</td>
+<td>inbound RED incl. the uncounted 401s</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Infra — dependencies and runtime:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Signal</th>
+<th>Source</th>
+<th>Covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>store_query_seconds{op,outcome}</code></td>
+<td>binary histogram</td>
+<td>Postgres latency/errors (R+E)</td>
+</tr>
+<tr>
+<td>pgx pool stats <em>(planned — <code>pgxpool.Stat()</code> or otelpgx, pick one)</em></td>
+<td>collector / OTEL</td>
+<td>Postgres pool USE</td>
+</tr>
+<tr>
+<td><code>db.client.operation.duration</code> + acquire spans <em>(planned OTEL)</em></td>
+<td>OTEL</td>
+<td>query-vs-acquire decomposition</td>
+</tr>
+<tr>
+<td>Valkey command latency + pool <em>(planned — <code>redisotel</code>)</em></td>
+<td>OTEL</td>
+<td>queue/scheduler dependency health</td>
+</tr>
+<tr>
+<td><code>http.client.request.duration{host,status}</code> <em>(planned OTEL)</em></td>
+<td>OTEL</td>
+<td>GitHub API RED, status truth, retry visibility</td>
+</tr>
+<tr>
+<td><code>rate_limit_remaining{installation_id}</code>, <code>github_rate_remaining</code></td>
+<td>binary gauge</td>
+<td>GitHub quota headroom</td>
+</tr>
+<tr>
+<td><code>github_rate_limit_waits_total</code>, <code>github_rate_limit_wait_seconds</code></td>
+<td>binary</td>
+<td><em>retiring with DESIGN-0021</em></td>
+</tr>
+<tr>
+<td><code>api_budget_*</code> (7 series)</td>
+<td>binary</td>
+<td><em>dead — removed by DESIGN-0021 Phase 6</em></td>
+</tr>
+<tr>
+<td><code>go_*</code>, <code>process_*</code></td>
+<td>default registry</td>
+<td>runtime USE (GC, goroutines, RSS, FDs)</td>
+</tr>
+<tr>
+<td>k8s/node/ALB/gateway signals</td>
+<td>cluster stacks</td>
+<td>outside the binary; join via traces (Finding G)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="h-config-generated-dashboards-and-alerts-established-pattern-strong-fit">H. Config-generated dashboards and alerts — established pattern, strong fit</h3>
+<p>The follow-up question: instead of static dashboards (or purely
+label-discovered template variables), should repo-guardian <em>generate</em>
+its monitoring artifacts from <code>guardian.hcl</code> — per-org rows for exactly
+the configured orgs, panels only for enabled rules, alerts only for
+mechanisms actually in use?</p>
+<p><strong>Prior art — this is a named, established pattern, not a novelty:</strong></p>
+<ul>
+<li><strong>Monitoring mixins</strong> (kubernetes-mixin, node-mixin, kube-prometheus)
+  — the granddaddy: jsonnet packages that take a config object and
+  emit dashboards JSON + PrometheusRule YAML via <code>mixtool</code>. "Read
+  config, generate dashboards + alerts" has been the prometheus-
+  ecosystem convention for years.</li>
+<li><strong>Sloth / Pyrra</strong> — generate PrometheusRule CRs from an SLO spec:
+  the exact "validate a config and spit out a prom alerts CR" shape.</li>
+<li><strong>Elastic beats</strong> <code>setup --dashboards</code> — the shipping binary knows
+  its own enabled modules and pushes matching dashboards; precedent
+  for the CLI-subcommand shape.</li>
+<li><strong>Grafana Foundation SDK</strong> (<code>grafana/grafana-foundation-sdk</code>) — the
+  current official, strongly-typed Go builder library: chained
+  builders → <code>Build()</code> → standard dashboard JSON, or wrapped in
+  <code>apiVersion/kind/metadata</code> for Grafana's Kubernetes-compatible API /
+  grafana-operator <code>GrafanaDashboard</code> CRs. Grafana ≥ 10. (The older
+  community lineage — grabana, DARK — is superseded by this.)</li>
+</ul>
+<p><strong>Why the fit is unusually strong here.</strong> The E2 template-variable
+approach (<code>label_values(...)</code>) can only show orgs that have <em>emitted
+data</em>. An org that is configured in <code>scope.orgs</code> but silent is
+invisible — and "configured but silent" is precisely the failure mode
+of this week's enterprise migration (dead installation IDs, orgs
+producing nothing). Config-generated dashboards invert the direction:
+a row exists for every org that <em>should</em> report, so absence renders as
+a no-data panel — a signal instead of a blind spot. The same inversion
+applies to rules and alerts: no <code>custom_properties</code> reconciler
+configured → no property-sync panels and no <code>PropertySchemaMissing</code>
+alert; no absent-mode rules → no forbidden-files panels; no empty
+graphs, no dead alerts. The generator also subsumes config
+<em>validation</em>: it must <code>policy.Load()</code> the same HCL the server loads,
+so <code>repo-guardian monitoring generate</code> in CI is a free config check
+(the strict-templates precedent, extended).</p>
+<p><strong>Where generation runs — three shapes:</strong></p>
+<ul>
+<li><strong>H1 — CLI subcommand (recommended).</strong> <code>repo-guardian monitoring
+  generate --config guardian.hcl --out ./monitoring/ --format
+  json|k8s</code> emitting dashboard JSON (or GrafanaDashboard CRs) + a
+  PrometheusRule CR. Artifacts are committed to the GitOps repo and
+  consumed by kustomize/ArgoCD like any manifest; a CI check re-runs
+  the generator and fails on diff (the <code>helm-docs</code>/<code>docz update</code> drift
+  convention this repo already uses). The binary already links the
+  policy loader; the foundation SDK is a codegen'd type dependency —
+  if its weight on the server binary matters, the subcommand can live
+  in a separate <code>cmd/</code> binary sharing <code>internal/policy</code>.</li>
+<li><strong>H2 — kustomize KRM/exec plugin</strong> wrapping H1 — generation at
+  render time, no committed artifacts. Works, but exec plugins need
+  <code>--enable-alpha-plugins</code> everywhere including ArgoCD's repo-server,
+  which is operationally clunky; only worth it if config churn makes
+  committed artifacts annoying.</li>
+<li><strong>H3 — operator/sidecar</strong> applying grafana-operator CRs at runtime
+  from the live ConfigMap. Most automatic, most infra, hardest to
+  review; not justified at current config-change frequency.</li>
+</ul>
+<p><strong>Trade-offs to carry into the design:</strong> SDK output is coupled to
+Grafana schema versions (pin and test-render); generated and static
+artifacts must not fork silently — the static <code>contrib/</code> suite remains
+the zero-config fallback tier, the generated suite is the config-aware
+tier, and both should share panel definitions (generate the static one
+from an empty/default config so there is exactly one source of truth);
+<code>repo</code> must still never become a metric label — generation does not
+change cardinality rules, it only scopes which series get panels.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p><strong>Answer:</strong> Confirmed on all three fronts.</p>
+<ol>
+<li>Eight metrics are posture-shaped counters (Finding B); they cannot
+   answer "how many now" regardless of restarts, and the restart just
+   surfaces it. <code>open_prs_by_rule</code> is the one metric already doing
+   posture correctly.</li>
+<li>The DB cannot serve posture today — per-rule outcomes are discarded
+   after each check (Finding C). A Valkey query cache is <strong>not</strong> the
+   missing piece; the missing piece is persisted per-rule state, and
+   the leader election already solves the 1+N export fan-out (Finding
+   D) without a cache.</li>
+<li>The dashboard split is four dashboards (Finding E); the system-level
+   gaps are enumerable and metrics-only (Finding F); OTEL is required
+   only for cross-hop tracing and should not gate anything else
+   (Finding G).</li>
+<li>Generating dashboards and alert CRs from <code>guardian.hcl</code> is an
+   established ecosystem pattern (mixins, Sloth/Pyrra, beats setup)
+   with an unusually strong fit here: it makes configured-but-silent
+   orgs visible — the exact blind spot of this week's enterprise
+   migration — and doubles as CI config validation (Finding H).</li>
+</ol>
+<h2 id="recommendation">Recommendation</h2>
+<p>Three follow-up efforts, in dependency order:</p>
+<ol>
+<li><strong>DESIGN: compliance-posture state and exporters.</strong> Per-rule state
+   persistence (C1 vs C2 decision), leader-scoped posture exporter
+   (D1), the <code>installation_info</code> join metric (E2), and deprecation
+   path for the four legacy <code>properties_*</code> counters. This is the only
+   binary-changing prerequisite for the KPI dashboard's headline
+   panels.</li>
+<li><strong>Dashboard suite DESIGN.</strong> E2 detailed per-org, E3 system/health
+   (with the three pgxpool/go-redis/GitHub RoundTripper collectors
+   from Finding F as a small accompanying binary change if accepted),
+   E4 Loki — plus E1 KPI in "as of last sweep" degraded mode until
+   effort 1 lands. Test-lock the catalog-parse log line before E4
+   depends on it. The design's central decision is Finding H: static
+   contrib dashboards vs a <code>repo-guardian monitoring generate</code> CLI
+   subcommand (H1, foundation SDK) emitting the config-aware suite —
+   recommended shape is H1 with the static contrib tier generated
+   from a default config so there is one source of truth.</li>
+<li><strong>OTEL adoption, split in two.</strong> Metrics-first now: <code>otelhttp</code>
+   (both directions), <code>redisotel</code>, <code>otelpgx</code> exporting through the
+   existing Prometheus endpoint via the OTel prometheus bridge — zero
+   new infra, closes the Finding G unmask list, and cancels 3–4 items
+   of Finding F's planned hand-rolled work. Tracing infra (collector +
+   Tempo) as a later, purely additive DESIGN; explicitly decoupled so
+   it cannot stall efforts 1–2. Dashboard source lists follow the
+   Finding I taxonomy (E1=business, E2=business+service by org,
+   E3=service+infra).</li>
+</ol>
+<p>Sequencing note: DESIGN-0021 (delayed requeue) already replaces the
+dead budget metrics with measured queue-delay observability; effort 1
+should be written against the post-0021 metric surface to avoid
+designing panels for series that are about to be deleted.</p>
+<h2 id="disposition-2026-08-14">Disposition (2026-08-14)</h2>
+<p>All three recommended efforts shipped. DESIGN-0022 carried the design
+(Implemented); IMPL-0023 carried the build: <code>rule_state</code> persistence
+with <code>actionable_since</code> (C2), the leader-scoped posture exporter (D1)
+and the <code>installation_info</code> join gauge (E2), the four-dashboard suite
+E1–E4 generated from <code>guardian.hcl</code> via the Grafana Foundation SDK
+(E, H), the OTEL bridge for the enumerated system gaps (F, G —
+metrics-only, tracing deferred as recommended), and the Phase-7
+removal of the four legacy <code>properties_*</code> counters (B). The
+generated tier is committed under <code>contrib/generated/</code> and
+drift-gated in CI.</p>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="../0012-inert-budgettracker-and-untrustworthy-alert-pack/">INV-0012</a> — dead budget metrics, alert-validation gaps</li>
+<li><a href="../../design/0021-delayed-requeue-job-contract-and-rate-limit-consolidation/">DESIGN-0021</a> — replaces the budget mechanism; new queue-delay metrics</li>
+<li><a href="../../impl/0009-per-org-rule-scoping-and-observability/">IMPL-0009</a> — per-org metric labeling convention</li>
+<li><a href="../../impl/0013-reconcile-open-prs-when-file-rules-become-satisfied/">IMPL-0013</a> — <code>open_prs_by_rule</code> snapshot-gauge precedent</li>
+<li><code>contrib/README.md</code> — refreshed metric catalog (commit <code>e6f141a</code>)</li>
+<li><code>internal/metrics/metrics.go</code>, <code>internal/worker/worker.go</code>, <code>internal/store/postgres/migrations/0001_init.up.sql</code> — primary sources</li>
+<li>Grafana repeated rows: <a href="https://grafana.com/docs/grafana/latest/dashboards/build-dashboards/create-dashboard/#configure-repeating-rows">https://grafana.com/docs/grafana/latest/dashboards/build-dashboards/create-dashboard/#configure-repeating-rows</a></li>
+<li>Loki ruler recording rules: <a href="https://grafana.com/docs/loki/latest/alert/#recording-rules">https://grafana.com/docs/loki/latest/alert/#recording-rules</a></li>
+<li>Grafana Foundation SDK: <a href="https://github.com/grafana/grafana-foundation-sdk">https://github.com/grafana/grafana-foundation-sdk</a> — official Go builders → dashboard JSON / k8s-resource output</li>
+<li>Foundation SDK CI/CD provisioning: <a href="https://grafana.com/docs/grafana/latest/as-code/observability-as-code/foundation-sdk/dashboard-automation/">https://grafana.com/docs/grafana/latest/as-code/observability-as-code/foundation-sdk/dashboard-automation/</a></li>
+<li>Monitoring mixins (config → dashboards + alerts precedent): <a href="https://github.com/kubernetes-monitoring/kubernetes-mixin">https://github.com/kubernetes-monitoring/kubernetes-mixin</a></li>
+<li>Sloth (SLO spec → PrometheusRule generation precedent): <a href="https://github.com/slok/sloth">https://github.com/slok/sloth</a></li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

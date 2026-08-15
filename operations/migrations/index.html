@@ -1,0 +1,2215 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Postgres schema operations - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#postgres-schema-operations" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Postgres schema operations
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#migration-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration runtime
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#schema-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Schema overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#active-the-parking-column-inv-0015" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        active — the parking column (INV-0015)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="active — the parking column (INV-0015)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-only-these-three-reasons-park" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why only these three reasons park
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#out-of-band-migration-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out-of-band migration runs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backups
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-0003-posture-state-impl-0023" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration 0003 — posture state (IMPL-0023)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rolling-back-the-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rolling back the schema
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#monitoring-schema-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Monitoring schema operations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#removing-memory-backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removing memory backend
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Removing memory backend">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#migration-paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration paths
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#local-development-without-memory-backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local development without memory backend
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data loss
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#removing-the-rate-limit-reserve-knobs-impl-0022" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removing the rate-limit reserve knobs (IMPL-0022)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Removing the rate-limit reserve knobs (IMPL-0022)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-to-check-after-upgrading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What to check after upgrading
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#new-max_job_attempts-and-reaper_intervals-second-job" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        New: MAX_JOB_ATTEMPTS and REAPER_INTERVAL's second job
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="postgres-schema-operations">Postgres schema operations</h1>
+<p>This is the operator-facing guide for managing the <code>repo_state</code> table
+under <code>STORE_BACKEND=postgres</code>. The schema is small (one table, three
+indexes) and migrations apply at binary startup; most operators won't
+touch this page in normal operation.</p>
+<h2 id="migration-runtime">Migration runtime</h2>
+<p><code>repo-guardian</code> calls <code>golang-migrate</code> against an embedded <code>migrations/</code>
+directory at startup. Migration is idempotent: <code>migrate.Up()</code> returns
+<code>ErrNoChange</code> when the schema is already current.</p>
+<p>Failures abort startup before the HTTP servers come up, so a botched
+schema never serves a single webhook. The most common failure mode is
+DSN misconfiguration (network, auth, missing database) — the binary
+prints the underlying pgx error before exiting.</p>
+<h2 id="schema-overview">Schema overview</h2>
+<pre><code class="language-sql">CREATE TABLE repo_state (
+    installation_id   BIGINT  NOT NULL,
+    owner             TEXT    NOT NULL,
+    repo              TEXT    NOT NULL,
+    last_checked_at   TIMESTAMP WITH TIME ZONE,
+    last_check_status TEXT    NOT NULL DEFAULT 'pending',
+    last_error        TEXT,
+    policy_version    TEXT    NOT NULL DEFAULT '',
+    active            BOOLEAN NOT NULL DEFAULT true,
+    PRIMARY KEY (installation_id, owner, repo)
+);
+
+CREATE INDEX idx_repo_state_freshness
+    ON repo_state(last_checked_at NULLS FIRST);
+
+CREATE INDEX idx_repo_state_policy_version
+    ON repo_state(policy_version);
+
+CREATE INDEX idx_repo_state_active_freshness
+    ON repo_state(last_checked_at NULLS FIRST)
+    WHERE active;
+</code></pre>
+<p>The indexes drive the stale-sweep query in
+<code>internal/store/postgres/postgres.go.StaleRepos</code>:</p>
+<pre><code class="language-sql">SELECT ...
+FROM repo_state
+WHERE active
+  AND (last_checked_at IS NULL
+       OR last_checked_at &lt; $1
+       OR policy_version &lt;&gt; $2)
+ORDER BY last_checked_at NULLS FIRST
+LIMIT $3
+</code></pre>
+<p>Both <code>last_checked_at</code> and <code>policy_version</code> are indexed so the OR-of-three
+filter doesn't degrade to a sequential scan even at 100k+ rows. The
+partial index carries the <code>WHERE active</code> predicate, so parked rows are
+absent from it entirely rather than scanned and discarded — the sweep
+does not get slower as an org accumulates archived repositories.</p>
+<p>Note the parentheses. <code>AND</code> binds tighter than <code>OR</code>, so writing
+<code>... OR policy_version &lt;&gt; $2 AND active</code> would gate only the last arm and
+a parked repository would return to the sweep the moment the policy hash
+changed. <code>TestPostgresStore_DeactivateExcludesFromSweep</code> covers exactly
+this.</p>
+<h3 id="active-the-parking-column-inv-0015"><code>active</code> — the parking column (INV-0015)</h3>
+<p><code>active</code> is <code>true</code> for every row unless the worker parked it. Parking
+means "stop handing this repository to the sweep," and there are three
+reasons, all carried on <code>repo_guardian_repos_parked_total{reason}</code>:</p>
+<table>
+<thead>
+<tr>
+<th><code>reason</code></th>
+<th>Trigger</th>
+<th>Normal?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>access_denied</code></td>
+<td>Check failed with 403/404 — the App was uninstalled from that repository, lost a permission, or the repository was deleted</td>
+<td>A trickle is expected; a step change is not</td>
+</tr>
+<tr>
+<td><code>archived</code></td>
+<td><code>skip_archived</code> is on and the repository is archived</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>fork</code></td>
+<td><code>skip_forks</code> is on and the repository is a fork</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<p>Before this column each of the three burned budget indefinitely, in two
+different ways. An unreadable repository failed every attempt, exhausted
+<code>MAX_JOB_ATTEMPTS</code>, and was handed straight back by the next stale sweep
+— the full attempt budget every cycle, forever, with failures
+indistinguishable from a transient 500. An archived or forked repository
+was cheaper but just as permanent: enqueue, installation client,
+<code>GetRepository</code>, skip, write back success, and round again every
+freshness cycle for as long as the repository exists.</p>
+<p>Parked rows are <strong>kept, never deleted</strong>, so the history stays queryable:</p>
+<pre><code class="language-sql">SELECT installation_id, owner, repo, last_check_status, last_error
+FROM repo_state
+WHERE NOT active
+ORDER BY owner, repo;
+</code></pre>
+<p><code>last_check_status</code> distinguishes the two kinds: access-denied parks
+record <code>'error'</code> with the underlying API failure in <code>last_error</code>, while
+archived and fork parks record <code>'skipped'</code>, because nothing went wrong.
+Both put something in <code>last_error</code> — there is no separate reason column,
+and the reason is what makes the query above answer <em>why</em> a row is
+parked, so a skip stores its bare reason (<code>archived</code>, <code>fork</code>) there.</p>
+<p><strong>Only discovery can un-park a row.</strong> Discovery is the one component that
+observes the installation's real repository set, so a repository whose
+access is restored rejoins the sweep on the next discovery pass with no
+operator action. Reactivation deliberately does not touch
+<code>last_checked_at</code> or <code>policy_version</code>; overwriting those would reset the
+freshness gate and re-check the whole fleet on every discovery pass.</p>
+<p>There is intentionally no way to reactivate from the check path, and none
+from SQL that we document — if you set <code>active = true</code> by hand on a
+repository the App still cannot read, it will simply be parked again on
+its next check.</p>
+<p>Un-archiving a repository, or the App regaining access to one, therefore
+needs no operator action at all: discovery stops filtering it, upserts
+it, and the row goes live again.</p>
+<h4 id="why-only-these-three-reasons-park">Why only these three reasons park</h4>
+<p>Parking is stable only when the check path's skip conditions are a
+<strong>subset</strong> of discovery's filters. Discovery filters archived and fork
+repositories, so a repository parked for either reason is not offered
+back — it settles.</p>
+<p>An <em>empty</em> repository (no default branch yet) is skipped by the engine
+too, but discovery does <strong>not</strong> filter it. Parking it would have
+discovery re-upsert the row on its very next pass, flipping <code>active</code>
+back to <code>true</code>, and the two would churn against each other at the
+discovery interval forever. So empty repositories are skipped the old
+way, with an ordinary success write-back, and freshness governs the next
+check. <code>TestPool_EmptyRepo_IsSkippedButNotParked</code> pins this boundary; the
+invariant is restated on <code>checker.skipReason</code>, which is where a fourth
+skip reason would be added.</p>
+<p>Watch <code>repo_guardian_repos_parked_total</code>. Only
+<code>reason="access_denied"</code> is alerted (<code>RepoGuardianRepoAccessDenied</code>) —
+archived and fork parks are routine bookkeeping. A steady access-denied
+trickle is normal in a large org (repositories get deleted); a step
+change means the App lost access to something it used to have.</p>
+<h2 id="out-of-band-migration-runs">Out-of-band migration runs</h2>
+<p>Multi-replica deployments may want to apply migrations from a one-shot
+Job rather than letting every pod race at startup. The <code>Migrate</code>
+function is exported separately from <code>New</code>:</p>
+<pre><code class="language-go">import &quot;github.com/donaldgifford/repo-guardian/internal/store/postgres&quot;
+
+if err := postgres.Migrate(dsn); err != nil {
+    log.Fatal(err)
+}
+</code></pre>
+<p>Wrap that in a <code>kubectl create job</code> and gate the runtime Deployment on
+its completion. <code>helm upgrade</code> order is: Job (migration) → Deployment
+(runtime) → ... If you do this, set <code>STORE_BACKEND=postgres</code> on the
+Deployment env but disable the startup migrate inside the binary by
+exposing a future <code>STORE_SKIP_MIGRATE=true</code> knob (not yet implemented;
+file an issue if you need it).</p>
+<p>For the homelab / single-replica path, the default startup-migrate
+behaviour is fine.</p>
+<h2 id="backups">Backups</h2>
+<p>CNPG-managed Postgres exposes a <code>backup</code> field on the <code>Cluster</code> CR;
+see the upstream operator docs for the supported configurations
+(volume snapshots, S3 backups, scheduled WAL archiving).</p>
+<p>The baked single-pod StatefulSet has no built-in backup. Treat it as
+ephemeral state — losing it means the next reconcile cycle re-checks
+every repo from scratch (slow but harmless). Production deployments
+should either move to <code>mode=cnpg</code> or <code>mode=external</code> with a managed
+Postgres provider.</p>
+<h2 id="migration-0003-posture-state-impl-0023">Migration 0003 — posture state (IMPL-0023)</h2>
+<p><code>0003_rule_state.up.sql</code> is additive only, so applying it is safe on a
+live fleet and needs no downtime:</p>
+<ul>
+<li><code>rule_state</code> — one row per <code>(installation_id, owner, repo,
+  rule_name)</code> holding <code>actionable</code>, <code>actionable_since</code>, <code>rule_kind</code>,
+  and <code>policy_version</code>. Written by the worker's best-effort write-back
+  after every check.</li>
+<li><code>idx_rule_state_actionable</code> — partial index on <code>(owner, rule_name)
+  WHERE actionable</code>, supporting the posture query.</li>
+<li><code>compliance_snapshot</code> — daily point-in-time counts, independent of
+  Prometheus retention.</li>
+<li><code>repo_state.catalog_parse_ok</code> — nullable, so "no catalog rule was
+  evaluated" stays distinct from "evaluated and malformed".</li>
+</ul>
+<p>Rows appear as repos are checked, not at migration time. A freshly
+migrated fleet reports zero tracked rules until the first sweep
+completes; that is expected, not a failure.</p>
+<p><strong>Sizing.</strong> At 5k repos × ~6 rules, <code>rule_state</code> holds ~30k rows and is
+rewritten one repo at a time. <code>compliance_snapshot</code> grows by
+orgs × rules rows per day (~120/day at that scale), so no retention
+machinery ships initially — revisit if you pass a few million rows.</p>
+<p><strong>Dead installations.</strong> Same recipe as <code>repo_state</code>: one more
+<code>DELETE ... WHERE installation_id = &lt;id&gt;</code> at cutover.</p>
+<h2 id="rolling-back-the-schema">Rolling back the schema</h2>
+<p>Every migration ships a matching <code>.down.sql</code>, and
+<code>TestPostgresStore_MigrateUpDownUp</code> verifies the pair round-trips
+against a real Postgres. To roll back manually:</p>
+<pre><code class="language-bash"># 0002 (posture state)
+psql $STORE_DSN -c &quot;DROP INDEX IF EXISTS idx_rule_state_actionable;&quot;
+psql $STORE_DSN -c &quot;DROP TABLE IF EXISTS compliance_snapshot;&quot;
+psql $STORE_DSN -c &quot;DROP TABLE IF EXISTS rule_state;&quot;
+psql $STORE_DSN -c &quot;ALTER TABLE repo_state DROP COLUMN IF EXISTS catalog_parse_ok;&quot;
+
+# 0001 (repo state)
+psql $STORE_DSN -c &quot;DROP INDEX IF EXISTS idx_repo_state_policy_version;&quot;
+psql $STORE_DSN -c &quot;DROP INDEX IF EXISTS idx_repo_state_freshness;&quot;
+psql $STORE_DSN -c &quot;DROP TABLE IF EXISTS repo_state;&quot;
+</code></pre>
+<p>Rolling back 0002 without downgrading the binary leaves a binary that
+writes posture against tables that no longer exist. Those writes are
+best-effort and will not fail jobs — they log at Warn and increment
+<code>store_writeback_total{outcome="error"}</code> on every check, which is loud
+but harmless. Downgrade the binary first if the rollback is meant to
+last.</p>
+<p>If you roll back manually with <code>psql</code>, also fix <code>schema_migrations</code> or
+the next startup will believe the migration is still applied:</p>
+<pre><code class="language-bash">psql $STORE_DSN -c &quot;UPDATE schema_migrations SET version = 1, dirty = false;&quot;
+</code></pre>
+<p>The next binary startup re-applies the migrations and the tables come
+back empty (no row recovery — the data is gone). Posture rebuilds
+itself as repos are re-checked; <code>actionable_since</code> restarts from the
+rebuild, so historical since-dates do not survive. Better to roll
+forward (a new migration that mutates the schema) than down.</p>
+<h2 id="monitoring-schema-operations">Monitoring schema operations</h2>
+<p><code>repo_guardian_store_query_seconds{operation="get_repo_state"|"update_repo_state"|"stale_repos",outcome="ok"|"error"}</code> exposes the per-query duration histogram. The starter PrometheusRule includes
+a <code>RepoGuardianStoreQueryErrors</code> alert that fires when error rate
+exceeds 10% over 10 minutes — usually a sign of pool exhaustion,
+network flap, or migration drift.</p>
+<h2 id="removing-memory-backend">Removing memory backend</h2>
+<p>Chart <code>1.0.0-rc.1</code> / appVersion <code>1.9.0</code> (IMPL-0016) deletes the
+in-memory store, queue, and ticker scheduler. The chart now ships
+Postgres + Valkey as the only supported backing services.</p>
+<p>If you're upgrading from chart <code>0.7.x</code> and were running with
+<code>store.backend=memory</code> / <code>queue.backend=memory</code> /
+<code>scheduler.backend=ticker</code>, the binary will refuse to start with:</p>
+<pre><code>STORE_BACKEND=&quot;memory&quot; is no longer supported (memory backend
+removed in IMPL-0016 (chart 1.0.0)). Migration runbook:
+&lt;this URL&gt;
+</code></pre>
+<h3 id="migration-paths">Migration paths</h3>
+<ol>
+<li><strong>Out-of-the-box (baked Postgres + baked Valkey).</strong> Simplest:
+   the new defaults bring up StatefulSets for both services with
+   chart-rendered Secrets. No values overrides needed. Suitable
+   for homelab / single-cluster deployments.</li>
+</ol>
+<p><code>bash
+   helm upgrade repo-guardian charts/repo-guardian \
+     --reset-then-reuse-values</code></p>
+<ol>
+<li><strong>CNPG-managed Postgres + baked Valkey.</strong> Set
+   <code>store.postgres.mode=cnpg</code> and the chart renders a
+   CloudNativePG <code>Cluster</code> CR. Valkey continues to come up baked.</li>
+</ol>
+<p><code>yaml
+   store:
+     backend: postgres
+     postgres:
+       mode: cnpg</code></p>
+<ol>
+<li><strong>Fully external infra.</strong> Point both services at managed
+   instances (RDS / ElastiCache for Valkey, etc.). The operator
+   provides DSN secrets via <code>existingSecret</code>.</li>
+</ol>
+<p><code>yaml
+   store:
+     backend: postgres
+     postgres:
+       mode: external
+       existingSecret: my-rds-secret
+       existingSecretKey: STORE_DSN
+   queue:
+     backend: valkey
+     valkey:
+       mode: external
+       existingSecret: my-valkey-secret
+       existingSecretKey: QUEUE_VALKEY_DSN
+   scheduler:
+     backend: valkey</code></p>
+<h3 id="local-development-without-memory-backend">Local development without memory backend</h3>
+<p><code>make run-local</code> now depends on <code>make dev-services</code>, which brings
+up <code>docker-compose.dev.yaml</code> (Postgres + Valkey containers at
+<code>localhost:5432</code> / <code>localhost:6379</code> with default credentials). The
+<code>make</code> target wires the DSN env vars automatically; nothing extra
+in your shell.</p>
+<pre><code class="language-bash">make dev-services   # bring up Postgres + Valkey
+make run-local      # build + run against them
+make dev-stop       # tear down when done
+</code></pre>
+<h3 id="data-loss">Data loss</h3>
+<p>The in-memory store held only the post-IMPL-0011 sweep cadence
+state (<code>last_checked_at</code> / <code>last_check_status</code> per repo). It was
+non-durable by design — restarting a memory-backed binary already
+discarded the state. Moving to Postgres means future restarts
+<em>preserve</em> state; there's nothing to migrate forward, just a
+fresh database to populate via normal reconcile activity.</p>
+<h2 id="removing-the-rate-limit-reserve-knobs-impl-0022">Removing the rate-limit reserve knobs (IMPL-0022)</h2>
+<p>The chart version shipping IMPL-0022 removes three published values.
+<strong>A values file that still sets any of them fails at render time</strong> —
+JSON Schema alone would have accepted the unknown keys and silently
+ignored them, so the chart carries an explicit
+<code>repo-guardian.validateRemovedValues</code> guard that names the removal and
+points here. Delete the values:</p>
+<table>
+<thead>
+<tr>
+<th>Removed value</th>
+<th>Removed env var</th>
+<th>What replaces it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>staleSweep.rateLimitReserve</code></td>
+<td><code>RATE_LIMIT_RESERVE</code></td>
+<td>Nothing to set. Rate-limited work now defers itself with a due-time instead of being skipped at enqueue.</td>
+</tr>
+<tr>
+<td><code>discovery.reserveFraction</code></td>
+<td><code>DISCOVERY_RESERVE_FRACTION</code></td>
+<td>Nothing to set. The BudgetTracker it configured is gone.</td>
+</tr>
+<tr>
+<td><code>discovery.estimatedCostPerRepo</code></td>
+<td><code>DISCOVERY_ESTIMATED_COST_PER_REPO</code></td>
+<td>Nothing to set. Same.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>There is no replacement knob, and that is the point.</strong> The two gates
+these values configured were two of three overlapping throttling
+layers; IMPL-0022 collapses them into one delayed-requeue mechanism
+that measures actual pressure rather than projecting it from operator
+estimates. The BudgetTracker in particular never gated anything in
+production — nothing outside tests populated its cache, so every
+lookup fell open (INV-0012 finding A).</p>
+<h3 id="what-to-check-after-upgrading">What to check after upgrading</h3>
+<ol>
+<li><strong>Dashboards and alerts referencing the removed metrics.</strong> These
+   series stop being produced: <code>repo_guardian_api_budget_*</code> (five),
+   <code>repo_guardian_enqueue_gated_by_budget_total</code>,
+   <code>repo_guardian_rate_limit_reserve_blocked_total</code>,
+   <code>repo_guardian_github_rate_limit_waits_total</code>,
+   <code>repo_guardian_github_rate_limit_wait_seconds</code>. A panel or alert
+   built on them will go silent, not error. The <code>contrib/</code> dashboard
+   and alert pack are already updated; if you forked them, re-point at
+   <code>queue_delayed_total</code> / <code>queue_delay_seconds</code> / <code>queue_delayed_depth</code>.</li>
+<li><strong>The <code>RepoGuardianBudgetGated</code> alert is gone.</strong> It could never fire
+   anyway. Its replacements are <code>RepoGuardianQueueBackpressure</code> and
+   the re-pointed <code>RepoGuardianRateLimitThrottling</code>.</li>
+<li><strong><code>repo_guardian_rate_limit_remaining</code> still works.</strong> The sweep
+   keeps sampling it once per installation per sweep; only the gating
+   decision was removed. <code>RepoGuardianRateLimitNearExhaustion</code> keeps
+   its feed.</li>
+<li><strong>Set <code>config.maxJobAttempts</code> if the default of 10 does not suit
+   you.</strong> This is the one new knob — see the runbook below.</li>
+</ol>
+<h3 id="new-max_job_attempts-and-reaper_intervals-second-job">New: <code>MAX_JOB_ATTEMPTS</code> and <code>REAPER_INTERVAL</code>'s second job</h3>
+<p><code>config.maxJobAttempts</code> (default 10, env <code>MAX_JOB_ATTEMPTS</code>, schema
+minimum 1) caps how many deliveries a job may accumulate — deferrals
+and reaper requeues both count — before it is dropped with a terminal
+error in <code>repo_state</code>. The next stale sweep re-enqueues the repo, so a
+drop is a bounded retry, not an abandonment.</p>
+<p><code>REAPER_INTERVAL</code> (default 60s) now does double duty: it is both the
+stuck-job reaping cadence <em>and</em> the delayed-job promotion cadence.
+Delayed jobs are therefore delivered up to one interval after their
+due-time. This is deliberate (DESIGN-0021 OQ3): one leader election and
+one timer serve both jobs. If you tightened <code>REAPER_INTERVAL</code> for fast
+worker-crash recovery you now also get tighter promotion latency; if
+you stretched it to reduce Valkey load, deferred work waits longer.</p>
+<p>Full operational detail — reading the new metrics, responding to the
+two new alerts, forcing a deferral to verify the path — is in
+<a href="../delayed-requeue-runbook/">Delayed requeue — operator runbook</a>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

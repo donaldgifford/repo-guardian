@@ -1,0 +1,2198 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>repo-guardian GitHub App — Enterprise Setup Guide - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#repo-guardian-github-app-enterprise-setup-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              repo-guardian GitHub App — Enterprise Setup Guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-model-in-one-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The model in one diagram
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-register-the-repo-guardian-app" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1 — Register the repo-guardian app
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 1 — Register the repo-guardian app">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#permission-manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Permission manifest
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-installer-app-reuse-if-it-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2 — Installer app (reuse if it exists)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-install-repo-guardian-into-every-org" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3 — Install repo-guardian into every org
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4 — Verify
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-5-how-repo-guardian-authenticates-at-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5 — How repo-guardian authenticates at runtime
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ongoing-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ongoing operations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="repo-guardian-github-app-enterprise-setup-guide">repo-guardian GitHub App — Enterprise Setup Guide</h1>
+<p>How to register, install, and run repo-guardian as an <strong>enterprise-owned
+GitHub App</strong> across N organizations in a GitHub Enterprise Cloud
+account. One registration, one private key, N installations — the
+<a href="../../investigation/0006-per-org-github-app-credentials/">same-key-for-all-orgs stance</a>
+(per-org credentials were investigated and deferred in INV-0006).</p>
+<p>Companion docs: <a href="../../usage/getting-started/">Getting started</a> covers a
+single-org install; <a href="../scaling/">Scaling repo-guardian</a> covers the
+sizing math for multi-org fleets; <a href="../aws/">Running repo-guardian on AWS</a>
+covers the infrastructure underneath.</p>
+<h2 id="the-model-in-one-diagram">The model in one diagram</h2>
+<p>Registration and installation are separate things. The <strong>enterprise
+account owns the app registration</strong> (name, private key, permission
+manifest, webhook config) — ownership grants no access.
+<strong>Installations</strong> are the per-org grants: each one gives the app its
+requested permissions on that org only, with its own installation ID
+and its own independent rate-limit budget.</p>
+<pre><code class="language-mermaid">flowchart TB
+    subgraph ent[&quot;Enterprise account&quot;]
+        direction TB
+        reg1[&quot;App registration: installer-app
+        Enterprise perms: Organization installations (r/w)
+        (client ID + private key)&quot;]
+        reg2[&quot;App registration: repo-guardian
+        Repo perms: Contents, PRs, Metadata (+ feature-gated)
+        Webhook: ACTIVE → the service's /webhook endpoint
+        (client ID + private key)&quot;]
+        entinstall[&quot;Installation on the
+        enterprise account itself&quot;]
+    end
+
+    reg1 -. &quot;installed once on&quot; .-&gt; entinstall
+
+    subgraph orgs[&quot;Organizations in the enterprise&quot;]
+        o1[&quot;org1
+        installation #111&quot;]
+        o2[&quot;org2
+        installation #222&quot;]
+        oN[&quot;orgN
+        installation #NNN&quot;]
+    end
+
+    entinstall -- &quot;POST /enterprises/E/apps/organizations/{org}/installations
+    (one call per org)&quot; --&gt; o1
+    entinstall --&gt; o2
+    entinstall --&gt; oN
+
+    svc[&quot;repo-guardian service (EKS/Talos)
+    holds the repo-guardian private key
+    Postgres store + Valkey queue&quot;]
+    o1 -- &quot;webhooks: push, repository,
+    installation, installation_repositories&quot; --&gt; svc
+    svc -- &quot;per-installation token:
+    check repos, open PRs&quot; --&gt; o1
+    svc &lt;--&gt; o2
+    svc &lt;--&gt; oN
+</code></pre>
+<p>Key properties of this shape:</p>
+<ul>
+<li><strong>One registration, N installations.</strong> The service holds a single App
+  ID + private key; <code>ghinstallation</code> mints short-lived per-installation
+  tokens on demand, and installation clients are cached per
+  installation ID.</li>
+<li><strong>The service's configuration is oblivious to all of this.</strong> There is
+  no enterprise token, endpoint, or mode anywhere in the binary or
+  chart — the deployment uses the same three credentials as a
+  single-org install (<code>config.appId</code>, <code>secrets.privateKey</code>,
+  <code>secrets.webhookSecret</code>), just pointing at the enterprise-owned
+  registration. Enterprise ownership matters at exactly two moments:
+  registration time (Step 1) and install time (Step 3), and the service
+  participates in neither. Runtime auth is always per-installation.</li>
+<li><strong>Per-installation rate budgets.</strong> Each org's installation gets its
+  own budget — 5,000 req/hr baseline, scaling with repo and user count
+  up to 12,500, and a flat 15,000 req/hr for installations on GitHub
+  Enterprise Cloud orgs. One busy org cannot spend another org's
+  budget. <code>docs/operations/scaling.md</code> has the math.</li>
+<li>Enterprise permissions (the ability to install apps into orgs) live
+  on a separate <strong>installer app</strong> with a separate key. A leaked
+  repo-guardian key can touch what repo-guardian's manifest grants —
+  it can never install anything anywhere.</li>
+<li>Enterprise-owned apps can only be installed on the enterprise or orgs
+  within it — structurally incapable of being installed outside, so
+  there is no "accidentally public" failure mode.</li>
+<li>Permission changes made by an enterprise owner on the registration
+  are <strong>auto-accepted by every org installation</strong> — no per-org approval
+  chase when a new feature needs a new permission.</li>
+</ul>
+<h2 id="step-1-register-the-repo-guardian-app">Step 1 — Register the repo-guardian app</h2>
+<ol>
+<li>Go to <code>https://github.com/enterprises/&lt;ENTERPRISE&gt;/settings/apps</code> →
+   <strong>New GitHub App</strong>.</li>
+<li>Settings:</li>
+<li><strong>Name:</strong> <code>repo-guardian</code> (or your app naming convention).</li>
+<li><strong>Homepage URL:</strong> this repo's URL (required field).</li>
+<li><strong>Webhook:</strong> <strong>Active</strong>, unlike a pull-based CLI — repo-guardian is
+     webhook-driven. <strong>Webhook URL:</strong> the service's public endpoint —
+     ingress is operator-owned; pick an option from
+     <a href="../ingress/">ingress.md</a> (see the ordering note below).
+     <strong>Webhook secret:</strong> generate a strong random value;
+     it becomes <code>GITHUB_WEBHOOK_SECRET</code> / chart <code>secrets.webhookSecret</code>.
+     Payloads are HMAC-validated (<code>SECURITY.md</code>); source-IP
+     enforcement, where wanted, lives at your edge layer per
+     <code>ingress.md</code>.</li>
+<li><strong>Expire user authorization tokens:</strong> deselect (repo-guardian
+     never signs in users).</li>
+<li><strong>Permissions:</strong> see the table below.</li>
+<li><strong>Subscribe to events:</strong> <code>Push</code>, <code>Repository</code>, <code>Installation
+     repositories</code> (installation target events are delivered to App
+     webhooks automatically).</li>
+<li><strong>Enterprise permissions:</strong> none.</li>
+<li>Create the app. Record the <strong>App ID</strong> (→ <code>config.appId</code>) and
+   <strong>Client ID</strong> (used by the Step 3 install loop).</li>
+<li><strong>Generate a private key</strong>. The <code>.pem</code> becomes
+   <code>secrets.privateKey</code> (or an operator-managed Secret — ESO/1Password
+   patterns in <code>docs/operations/aws.md</code>). The key never lives in a
+   repo or a laptop; store it in your secrets backend.</li>
+</ol>
+<h3 id="permission-manifest">Permission manifest</h3>
+<p>Core — always required:</p>
+<table>
+<thead>
+<tr>
+<th>Permission</th>
+<th>Access</th>
+<th>Used for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Repository → <strong>Contents</strong></td>
+<td>Read &amp; write</td>
+<td>File checks, reconcile-branch commits, forbidden-file deletion (<code>absent</code> rules)</td>
+</tr>
+<tr>
+<td>Repository → <strong>Pull requests</strong></td>
+<td>Read &amp; write</td>
+<td>Create/update/close PRs, sticky reconcile-log comments, PR labels</td>
+</tr>
+<tr>
+<td>Repository → <strong>Metadata</strong></td>
+<td>Read</td>
+<td>Mandatory baseline; repo listing</td>
+</tr>
+</tbody>
+</table>
+<p>Feature-gated — grant only if your <code>guardian.hcl</code> uses the feature
+(auto-accepted enterprise-wide when you add them later):</p>
+<table>
+<thead>
+<tr>
+<th>Permission</th>
+<th>Access</th>
+<th>Needed by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Repository → <strong>Administration</strong></td>
+<td>Read &amp; write</td>
+<td><code>rule "setting"</code> remediation (repo properties) and <code>rule "branch_protection"</code> / <code>branch_protection</code> reconciler (rulesets API)</td>
+</tr>
+<tr>
+<td>Repository → <strong>Issues</strong></td>
+<td>Read &amp; write</td>
+<td><code>label_sync</code> reconciler (label create/update/rename/delete)</td>
+</tr>
+<tr>
+<td>Repository → <strong>Workflows</strong></td>
+<td>Read &amp; write</td>
+<td>Any rule or reconciler that writes <code>.github/workflows/*</code> (<code>renovate_workflow</code>, <code>custom_properties</code> in <code>github-action</code> mode) — Contents write alone is rejected by GitHub for workflow files</td>
+</tr>
+<tr>
+<td>Repository → <strong>Custom properties</strong></td>
+<td>Read &amp; write</td>
+<td><code>custom_properties</code> reconciler in <code>api</code> mode (<code>PATCH /repos/{o}/{r}/properties/values</code>)</td>
+</tr>
+<tr>
+<td>Organization → <strong>Custom properties</strong></td>
+<td>Read</td>
+<td>The org-schema preflight (IMPL-0017). Optional — without it the preflight fails open; with it, unmapped properties are filtered and surfaced via <code>custom_property_missing_schema_total</code>. See <a href="../annotation-properties-migration/">annotation-properties migration</a> §4</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Ordering note (webhook URL chicken-and-egg).</strong> The registration
+form requires a webhook URL when the webhook is active, but you need
+the App ID + key from registration to deploy the service that serves
+that URL. Resolution: register with the <em>planned</em> URL, deploy the
+chart with the recorded credentials, then confirm delivery under the
+app's <strong>Advanced → Recent Deliveries</strong> tab. Deliveries that fired
+before the service was up can be redelivered from the same tab — or
+simply ignored, since the Discoverer converges on anything missed.</p>
+<p>The registration alone now exists but can do nothing anywhere. Access
+only materializes in Step 3.</p>
+</blockquote>
+<h2 id="step-2-installer-app-reuse-if-it-exists">Step 2 — Installer app (reuse if it exists)</h2>
+<p>The installer app is what turns "install into N orgs" from a clickfest
+into a loop. <strong>Check whether one already exists</strong> at
+<code>https://github.com/enterprises/&lt;ENTERPRISE&gt;/settings/apps</code>. If yes,
+skip to Step 3.</p>
+<blockquote>
+<p><strong>Do you actually need a second app?</strong> Strictly, no — two
+alternatives exist, and the split is a deliberate choice, not an API
+requirement:</p>
+<ul>
+<li><strong>Zero extra apps:</strong> install repo-guardian into each org by hand
+  (org settings → the app's Install page). Fine at a handful of orgs;
+  a clickfest at 20+, and every new org is a manual step someone
+  forgets.</li>
+<li><strong>One combined app:</strong> the install endpoint's caller just needs
+  <em>some</em> app installed on the enterprise account with <strong>Enterprise
+  organization installations: write</strong> — GitHub documents no
+  prohibition on an app installing itself, so repo-guardian's own
+  registration could carry the enterprise permission and run the
+  Step 3 loop with its own key.</li>
+</ul>
+<p>Don't do the combined shape. That enterprise permission installs
+"<strong>any valid GitHub App</strong>" (GitHub's wording — not limited to
+enterprise-owned apps) into any org: a leaked key holding it lets an
+attacker install an app <em>they</em> control across the whole enterprise
+and mint tokens everywhere. repo-guardian's key is <strong>hot</strong> — mounted
+in a pod, touched on every reconcile. The installer key is <strong>cold</strong> —
+used for minutes at onboarding, then back in the vault, and reused
+for every future enterprise app (one more <code>client_id</code> through the
+same loop, no new install-capable key). Keep the escalation primitive
+out of the runtime credential. (The combined shape also gives the app
+an installation on the enterprise account itself, which the
+<code>Discoverer</code> would enumerate and fail-safe skip with log noise every
+<code>DISCOVERY_INTERVAL</code>.)</p>
+</blockquote>
+<p>If not:</p>
+<ol>
+<li>Same <strong>New GitHub App</strong> flow. Name it <code>&lt;enterprise&gt;-installer</code> per
+   convention.</li>
+<li>Webhook inactive, no repository permissions, no organization
+   permissions.</li>
+<li><strong>Enterprise permissions:</strong> <strong>Enterprise organization installations
+   → Read and write</strong>. This is the one permission that authorizes
+   installing apps into member orgs.</li>
+<li>Create, record Client ID, generate and store the private key.</li>
+<li>In the app's sidebar → <strong>Install App</strong> → install it <strong>on the
+   enterprise account itself</strong>. Note the installation ID from the
+   resulting URL
+   (<code>/enterprises/&lt;ENTERPRISE&gt;/settings/installations/&lt;ID&gt;</code>).</li>
+</ol>
+<h2 id="step-3-install-repo-guardian-into-every-org">Step 3 — Install repo-guardian into every org</h2>
+<p>Authenticate the installer app, then loop the install endpoint over the
+org list:</p>
+<pre><code class="language-bash"># 1. JWT for the installer app (client ID + its private key)
+INSTALLER_JWT=$(gen-jwt.sh &quot;$INSTALLER_CLIENT_ID&quot; installer.private-key.pem)
+
+# 2. Exchange JWT for an enterprise-scoped installation token
+INSTALLER_TOKEN=$(gh api --method POST \
+  &quot;/app/installations/${INSTALLER_INSTALL_ID}/access_tokens&quot; \
+  --header &quot;Authorization: Bearer ${INSTALLER_JWT}&quot; --jq .token)
+
+# 3. Install repo-guardian into each org — all repositories
+for ORG in $(cat orgs.txt); do
+  gh api --method POST \
+    &quot;/enterprises/${ENTERPRISE}/apps/organizations/${ORG}/installations&quot; \
+    --header &quot;Authorization: Bearer ${INSTALLER_TOKEN}&quot; \
+    --header &quot;X-GitHub-Api-Version: 2022-11-28&quot; \
+    --field &quot;client_id=${RG_CLIENT_ID}&quot; \
+    --field &quot;repository_selection=all&quot;
+done
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li>The endpoint takes the <strong>client ID of the app being installed</strong> — the
+  installer token authorizes the act, the client ID says which app.</li>
+<li><strong><code>repository_selection=all</code> matters for repo-guardian</strong> (unlike a
+  members-only app): it is an org-compliance tool, and <code>all</code> means new
+  repos in the org are covered automatically. Per-repo exclusions
+  belong in <code>guardian.hcl</code> <code>ignore {}</code> blocks, not in the installation's
+  repo selection — ignores are visible, versioned policy; a <code>selected</code>
+  installation is invisible drift.</li>
+<li>The call is effectively idempotent — an org that already has the
+  installation returns an "already installed" error, which the loop
+  treats as success.</li>
+<li>Each successful install fires an <code>installation.created</code> webhook at
+  the already-running service, which seeds <code>repo_state</code> rows for the
+  org's repos with jittered <code>LastCheckedAt</code> — so a 200-org rollout
+  spreads its cold-start sweep over the freshness window instead of
+  thundering.</li>
+</ul>
+<h2 id="step-4-verify">Step 4 — Verify</h2>
+<p>Spot-check the UI at
+<code>https://github.com/organizations/&lt;ORG&gt;/settings/installations</code> —
+repo-guardian should be listed. Programmatically, with the
+<strong>repo-guardian</strong> app's own credentials:</p>
+<pre><code class="language-bash">RG_JWT=$(gen-jwt.sh &quot;$RG_CLIENT_ID&quot; repo-guardian.private-key.pem)
+gh api &quot;/orgs/${ORG}/installation&quot; \
+  --header &quot;Authorization: Bearer ${RG_JWT}&quot; --jq .id
+</code></pre>
+<p>Then verify the service side — installation is only half the story:</p>
+<pre><code class="language-bash"># Webhook deliveries landing (should show installation.created batches)
+kubectl logs -n repo-guardian deploy/repo-guardian | grep installation
+
+# Store rows seeded per org
+psql &quot;$STORE_DSN&quot; -c \
+  &quot;SELECT owner, count(*), min(last_checked_at) FROM repo_state GROUP BY owner;&quot;
+
+# After the first sweep: per-org activity on the metrics endpoint
+curl -s localhost:9090/metrics | grep 'repos_checked_total{'
+</code></pre>
+<p>Every org from <code>orgs.txt</code> should appear as an <code>owner</code> in <code>repo_state</code>
+(webhook-seeded) even before the first sweep touches it. The periodic
+<code>Discoverer</code> (<code>DISCOVERY_INTERVAL</code>, default 1h) enumerates all
+installations and backfills anything a webhook missed, so a gap here
+self-heals — but a <em>persistently</em> missing org means its installation
+doesn't exist, and the Step 3 loop needs re-running.</p>
+<p><strong>Do the first fleet-wide sweep in <code>DRY_RUN=true</code>.</strong> At N orgs the
+first reconcile is the largest PR burst the fleet will ever see. Dry
+run logs every action it would take; review, then flip it off.</p>
+<h2 id="step-5-how-repo-guardian-authenticates-at-runtime">Step 5 — How repo-guardian authenticates at runtime</h2>
+<pre><code class="language-mermaid">sequenceDiagram
+    autonumber
+    participant GH as GitHub
+    participant WH as webhook handler
+    participant Q as Valkey queue
+    participant W as worker
+    participant API as GitHub API (org1)
+
+    GH-&gt;&gt;WH: push / repository / installation events
+    Note over WH: HMAC validation → 202 Accepted
+    WH-&gt;&gt;Q: Enqueue(job{installation_id, owner, repo})
+    Q-&gt;&gt;W: Subscribe delivers job
+    Note over W: holds App ID + private key
+    W-&gt;&gt;API: JWT → POST /app/installations/111/access_tokens
+    API--&gt;&gt;W: installation token (≈1 h, scoped: org1, manifest perms)
+    W-&gt;&gt;API: check files / settings / rulesets
+    W-&gt;&gt;API: create or converge the reconcile PR
+    Note over W,API: installation client + token cached per installation —&lt;br/&gt;N orgs share one key, never one budget
+</code></pre>
+<p>Implementation notes:</p>
+<ul>
+<li>The <code>go-github</code> + <code>ghinstallation</code> transport handles the JWT/token
+  dance; the binary never persists tokens.</li>
+<li>Installation clients are cached per installation ID
+  (<code>getInstallClient</code>), so token minting and rate-limit accounting are
+  per-org across the whole worker pool.</li>
+<li>Scheduled work follows the same path minus the webhook: the
+  <code>StaleSweeper</code> enqueues repos whose <code>last_checked_at</code> exceeds
+  <code>RECONCILE_FRESHNESS</code> (batch-bounded by <code>STALE_SWEEP_BATCH_SIZE</code>),
+  and the <code>Discoverer</code> keeps the installation → repo inventory current.</li>
+</ul>
+<h2 id="ongoing-operations">Ongoing operations</h2>
+<p><strong>New orgs.</strong> Joining the enterprise does not install anything.
+Onboarding = run the Step 3 loop for the org (or re-run the full list;
+already-installed orgs no-op). From there discovery is automatic — the
+<code>installation.created</code> webhook seeds the org's repos and the next sweep
+covers them. <strong>One caveat:</strong> if your <code>guardian.hcl</code> declares a
+top-level <code>scope { orgs = [...] }</code> (strict mode, DESIGN-0010), the new
+org is discovered but every rule skips it — visible as
+<code>out_of_scope_total{level="policy"}</code> — until you add it to the scope
+list and roll the config. In legacy mode (no top-level scope) rules
+apply to the new org with no config change.</p>
+<p><strong>Key rotation.</strong> GitHub App registrations support two private keys
+simultaneously: generate the new key, update the secret backing
+<code>secrets.privateKey</code>, roll the Deployment, confirm clean reconciles,
+then delete the old key from the registration. Same procedure for the
+installer app on its own cadence.</p>
+<p><strong>Permission changes.</strong> Edit the manifest on the enterprise-owned
+registration; orgs in the enterprise auto-accept. This is how the
+feature-gated permissions get added when you enable a feature later —
+e.g. granting org-level <strong>Custom properties: read</strong> to activate the
+schema preflight took effect fleet-wide with no per-org action
+(the IMPL-0017 rollout).</p>
+<p><strong>Webhook health.</strong> The app's <strong>Advanced → Recent Deliveries</strong> tab is
+the ground truth for delivery failures (the service returns
+<code>202 Accepted</code> on ingest). Failed deliveries can be redelivered from
+there; anything missed also converges via the Discoverer within
+<code>DISCOVERY_INTERVAL</code>.</p>
+<p><strong>Migrating from a non-enterprise registration.</strong> An enterprise-owned
+app is a <strong>new registration</strong> — new App ID, new private key, and new
+installation IDs; there is no transfer path from a personal- or
+org-owned registration. The cutover is: register per Step 1, swap the
+chart's <code>config.appId</code> + <code>secrets.privateKey</code> + <code>secrets.webhookSecret</code>,
+run the Step 3 loop, then uninstall the old app. Existing reconcile
+PRs converge unchanged — the engine finds them by the deterministic
+<code>repo-guardian/add-missing-files</code> branch name, not by stored state. A
+credential swap plus a re-seed, not a data migration — with two
+cleanup steps that are easy to skip and expensive to debug:</p>
+<p><strong>Delete the old installation's <code>repo_state</code> rows.</strong> They are <em>not</em>
+harmless: the stale-sweeper selects rows by <code>(last_checked_at,
+policy_version)</code> with no notion of whether the installation still
+exists, so every old-installation row is re-enqueued (drifted rows in
+a burst on the first sweep, then once per freshness window each), and
+every minted job fails with "installation not found" against the
+deleted app. The primary key is <code>(installation_id, owner, repo)</code>, so
+the same repos coexist under the new installation's rows — deleting
+the old ones loses nothing:</p>
+<pre><code class="language-sql">-- see which installation IDs the store knows about
+SELECT installation_id, count(*) FROM repo_state GROUP BY 1 ORDER BY 2 DESC;
+-- drop the dead one(s)
+DELETE FROM repo_state WHERE installation_id = &lt;old_installation_id&gt;;
+</code></pre>
+<p>Note the rows can appear even in a <em>fresh</em> database: a first deploy
+that briefly ran with the old app's credentials (discovery seeds its
+installations), or old-app webhook deliveries landing before the app
+was deleted, is enough to plant them.</p>
+<p><strong>Drain the Valkey queue during the cutover.</strong> Like the store rows,
+queued jobs are <em>not</em> harmless across the swap: each job carries
+the old app's installation ID baked into its JSON, and a persistent
+Valkey (EBS-backed, AOF/RDB enabled) keeps them across redeploys. The
+new deployment's workers will dequeue them, fail to mint an
+installation token for the dead ID, and — because a failed job is left
+in-flight for the reaper to requeue after <code>JOB_ACK_TIMEOUT</code> (default
+5m) — <strong>retry them forever</strong>. There is no attempt cap or dead-letter
+queue today (DESIGN-0021 adds one). The symptom is a steady drip of
+"installation not found" errors every ~5 minutes per stale job. The
+fix, during cutover with the deployment scaled to zero:</p>
+<pre><code class="language-text">valkey-cli DEL repo-guardian:queue:jobs repo-guardian:queue:in-flight
+</code></pre>
+<p>(or <code>FLUSHDB</code> if the instance is dedicated to repo-guardian — every
+key it holds is transient work state; the durable state lives in
+Postgres). Nothing is lost: discovery and the stale-sweeper re-enqueue
+anything due on the next tick. If the errors continue <em>after</em> the
+flush, the old app registration still exists with an active webhook
+pointed at the same URL — if its webhook secret matches, its
+deliveries pass HMAC validation and keep minting jobs with dead
+installation IDs. Suspend or delete the old app (or deactivate its
+webhook) as part of the cutover, not as an afterthought.</p>
+<p><strong>Uninstall / decommission.</strong> Uninstalling from an org (org settings →
+installations) immediately revokes that installation's tokens; the
+org's <code>repo_state</code> rows go stale and its open reconcile PRs remain as
+ordinary PRs. Deleting the registration revokes everything everywhere.</p>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="../../usage/getting-started/">Getting started</a> — single-org setup,
+  chart deployment, policy basics</li>
+<li><a href="../scaling/">Scaling repo-guardian</a> — multi-org sizing, sweep and
+  discovery tuning, per-installation budget math</li>
+<li><a href="../aws/">Running repo-guardian on AWS</a> — EKS, RDS, ElastiCache,
+  External Secrets</li>
+<li><a href="../../investigation/0006-per-org-github-app-credentials/">INV-0006</a>
+  — why one App/key for all orgs (per-org credentials deferred)</li>
+<li><code>SECURITY.md</code> — webhook trust model (HMAC app layer; source-IP at
+  the operator's edge per <a href="../ingress/">ingress.md</a>)</li>
+<li>GitHub Docs — Automating app installations in your enterprise's
+  organizations (installer-app pattern, install endpoint)</li>
+<li>GitHub Docs — Creating GitHub Apps for your enterprise
+  (enterprise-owned registration, auto-accepted permission changes)</li>
+<li>GitHub REST — Apps: create an installation access token; Enterprise
+  admin: organization installations</li>
+<li>GitHub Changelog — Enterprise-level access for GitHub Apps and
+  installation automation APIs (2025-07-01)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

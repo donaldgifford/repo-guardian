@@ -1,0 +1,2115 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Per-org GitHub App credentials - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#inv-0006-per-org-github-app-credentials" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Per-org GitHub App credentials
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#question" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Question
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hypothesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hypothesis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#approach" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Approach
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#findings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Findings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Findings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#observation-1-current-single-app-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 1 — current single-app model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-2-rate-limits-are-already-per-installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 2 — rate limits are already per-installation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-3-the-four-real-motivations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 3 — the four real motivations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-4-implementation-cost-sketch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 4 — implementation cost sketch
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conclusion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommendation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#triggers-that-would-re-open-this" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Triggers that would re-open this
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Triggers that would re-open this">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-is-not-a-trigger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is not a trigger
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#initial-scale-guidance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Initial-scale guidance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="inv-0006-per-org-github-app-credentials">INV 0006: Per-org GitHub App credentials</h1>
+<p><strong>Status:</strong> Deferred
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-05-26</p>
+<!--toc:start-->
+<ul>
+<li><a href="#question">Question</a></li>
+<li><a href="#hypothesis">Hypothesis</a></li>
+<li><a href="#context">Context</a></li>
+<li><a href="#approach">Approach</a></li>
+<li><a href="#findings">Findings</a></li>
+<li><a href="#observation-1--current-single-app-model">Observation 1 — current single-app model</a></li>
+<li><a href="#observation-2--rate-limits-are-already-per-installation">Observation 2 — rate limits are already per-installation</a></li>
+<li><a href="#observation-3--the-four-real-motivations">Observation 3 — the four real motivations</a></li>
+<li><a href="#observation-4--implementation-cost-sketch">Observation 4 — implementation cost sketch</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+<li><a href="#recommendation">Recommendation</a></li>
+<li><a href="#triggers-that-would-re-open-this">Triggers that would re-open this</a></li>
+<li><a href="#what-is-not-a-trigger">What is not a trigger</a></li>
+<li><a href="#initial-scale-guidance">Initial-scale guidance</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="question">Question</h2>
+<p>Today repo-guardian authenticates as <strong>one GitHub App</strong> installed across
+N orgs. Could we (and should we) configure it to use a <strong>separate
+GitHub App per org</strong>, with each org owning its own app definition,
+private key, and webhook secret?</p>
+<h2 id="hypothesis">Hypothesis</h2>
+<p>Yes technically — but the motivation most people reach for first (rate
+limit isolation) is already handled by the current model because GitHub
+App rate limits are per-installation, not per-app. The strongest real
+driver for multi-app is <strong>multi-enterprise deployments</strong>, which isn't
+in scope for the current homelab + small-multi-org use case.</p>
+<p>For now: deferred. Named triggers below would re-open it.</p>
+<h2 id="context">Context</h2>
+<p><strong>Triggered by:</strong> Operator question during INV-0005 review on PR #80.
+Not a current production need; the homelab runs one app across all
+deployed orgs. The question is documented now to preserve the
+analysis for whenever the trigger conditions appear.</p>
+<h2 id="approach">Approach</h2>
+<ol>
+<li>Read <code>internal/github/client.go</code> and <code>internal/config/config.go</code>
+   to confirm how the current single-app model loads credentials and
+   mints installation tokens.</li>
+<li>Verify that rate-limit gating
+   (<code>internal/checker/sweep.go:RateLimitRemaining</code>) is already
+   per-installation, not per-app.</li>
+<li>Enumerate the realistic motivations for multi-app config and
+   weight each against the current deployment surface.</li>
+<li>Sketch the minimum implementation cost: config schema, transport
+   pool, webhook secret discrimination, Helm chart shape.</li>
+</ol>
+<h2 id="findings">Findings</h2>
+<h3 id="observation-1-current-single-app-model">Observation 1 — current single-app model</h3>
+<p>Configuration loads a single set of GitHub App credentials from env:</p>
+<ul>
+<li><code>GITHUB_APP_ID</code> — one app ID</li>
+<li><code>GITHUB_PRIVATE_KEY</code> — one PEM private key</li>
+<li><code>WEBHOOK_SECRET</code> — one HMAC secret for the app's webhook</li>
+</ul>
+<p>The binary constructs one <code>ghinstallation.AppsTransport</code> at startup
+and uses <code>CreateInstallationClient(ctx, installation_id)</code> to mint
+short-lived installation-scoped tokens on demand. Each org that
+installs the app gets its own <code>installation_id</code> and its own token
+scope, but they all derive from the same shared app definition and
+the same private key.</p>
+<p>Permission grants on the app are fixed at the app's definition
+level. Org admins accept-or-reject those permissions at install
+time, but they can't selectively grant a subset.</p>
+<h3 id="observation-2-rate-limits-are-already-per-installation">Observation 2 — rate limits are already per-installation</h3>
+<p><code>internal/checker/sweep.go:39</code> —
+<code>RateLimitRemaining(ctx context.Context, installationID int64) (remaining, limit int, err error)</code>
+keys explicitly on the installation ID. The <code>RATE_LIMIT_RESERVE</code> gate
+(<code>sweep.go:175-189</code>) blocks per-installation when the budget runs low.</p>
+<p>GitHub assigns rate-limit buckets per installation:</p>
+<ul>
+<li>Free / Pro / Team installations: 5,000/hr floor per installation,
+  scales with users / repos via documented formula.</li>
+<li>Enterprise Cloud installations: 15,000/hr per installation.</li>
+</ul>
+<p>If "repo-guardian" is installed at org A (<code>installation_id=1</code>), org
+B (<code>installation_id=2</code>), and org C (<code>installation_id=3</code>), each gets
+its own bucket. They do NOT share. So the most common reason
+operators imagine wanting per-org apps — rate limit isolation — is
+already a property of the current design.</p>
+<h3 id="observation-3-the-four-real-motivations">Observation 3 — the four real motivations</h3>
+<table>
+<thead>
+<tr>
+<th>Motivation</th>
+<th>Real benefit?</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rate limit isolation</td>
+<td><strong>No (already handled)</strong></td>
+<td>Per-installation buckets. Multi-app doesn't help.</td>
+</tr>
+<tr>
+<td>Different permission grants per org</td>
+<td>Yes, if orgs have heterogeneous security postures</td>
+<td>App permissions are baked into the app definition. One org grants Contents:Write, another grants Contents:Read — only possible with per-org apps.</td>
+</tr>
+<tr>
+<td>Per-org audit trail / branding</td>
+<td>Yes, for governance-heavy environments</td>
+<td><code>repo-guardian-acme</code> vs <code>repo-guardian-globex</code> show up as different actors in audit logs and PR commit attribution.</td>
+</tr>
+<tr>
+<td>Federated ownership / key rotation</td>
+<td>Yes, if central team doesn't want to gate every org's credential lifecycle</td>
+<td>Each org rotates its own private key independently.</td>
+</tr>
+<tr>
+<td>Multi-enterprise deployments</td>
+<td><strong>Yes — strongest driver</strong></td>
+<td>You <strong>cannot</strong> install one GitHub App across two separate enterprises. Apps live within an enterprise/account boundary. Multi-tenant SaaS or M&amp;A scenarios force this.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="observation-4-implementation-cost-sketch">Observation 4 — implementation cost sketch</h3>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Today</th>
+<th>Multi-app shape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Config</td>
+<td><code>GITHUB_APP_ID</code> + <code>GITHUB_PRIVATE_KEY</code> + <code>WEBHOOK_SECRET</code></td>
+<td><code>apps: { acme: {app_id, private_key, webhook_secret}, globex: {...} }</code> map. New HCL block or new env-var convention.</td>
+</tr>
+<tr>
+<td>Client construction</td>
+<td>One <code>ghinstallation.NewAppsTransport</code> at startup</td>
+<td>Pool of transports indexed by org. New <code>internal/github.Pool</code> interface that the engine + reconcilers consume in place of the singleton client.</td>
+</tr>
+<tr>
+<td>Job dispatch</td>
+<td><code>CreateInstallationClient(installation_id)</code> on the single app</td>
+<td>Resolve <code>org → app credentials</code> first, then mint installation token via the right app. Requires knowing which app owns a given installation_id — probably a reverse-index built at startup by calling <code>ListInstallations</code> on each configured app.</td>
+</tr>
+<tr>
+<td>Webhook validation</td>
+<td>One <code>WEBHOOK_SECRET</code> validates <code>X-Hub-Signature-256</code></td>
+<td>N secrets. Route on <code>X-GitHub-Hook-Installation-Target-ID</code> (the app ID) to pick the correct secret <strong>before</strong> HMAC validation. Get this wrong and there's a signature-forgery vector.</td>
+</tr>
+<tr>
+<td>Webhook endpoint</td>
+<td>One URL</td>
+<td>Same single URL works — but discrimination happens at the handler layer using request headers, not at the network layer. Operators can still expose <code>/webhook</code> only.</td>
+</tr>
+<tr>
+<td>Helm chart</td>
+<td>One secret manifest (<code>secrets.privateKey</code>, <code>secrets.webhookSecret</code>)</td>
+<td>A <code>secrets.apps[]</code> list or N existing-secret refs. Chart <code>_helpers.tpl</code> already has the per-backend dispatch pattern from IMPL-0011; same pattern applies here.</td>
+</tr>
+</tbody>
+</table>
+<p>The trickiest piece is <strong>webhook secret routing</strong>. GitHub sends
+<code>X-GitHub-Hook-Installation-Target-ID</code> (the app ID) and
+<code>X-GitHub-Hook-Installation-Target-Type=integration</code> headers on App
+webhooks. The handler must read these headers, look up the
+corresponding secret, <strong>then</strong> validate the HMAC signature. The
+existing handler does HMAC validation as the first gate; multi-app
+inverts that order, which deserves a security review.</p>
+<p>Migration path is additive: keep <code>GITHUB_APP_ID</code> / <code>GITHUB_PRIVATE_KEY</code>
+/ <code>WEBHOOK_SECRET</code> as a "default app" fallback, treat the <code>apps:</code>
+map as overrides per org. Operators not using the feature see no
+behavior change.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p><strong>Answer:</strong> Technically feasible, not currently warranted.</p>
+<p>The single-app model already provides per-org isolation for the one
+property most people assume requires multi-app: rate limits. The
+remaining motivations (per-org permissions, branding, federated
+ownership, multi-enterprise) are all real but conditional on
+deployment shapes repo-guardian doesn't have today.</p>
+<p>Implementation cost is non-trivial — particularly the webhook-secret
+routing inversion, which has a security dimension that needs careful
+review.</p>
+<h2 id="recommendation">Recommendation</h2>
+<p><strong>Defer.</strong> Do not build. Re-open this investigation only when a
+trigger below appears in real operator demand.</p>
+<p>If/when that happens, the follow-up artifact is a <strong>DESIGN doc</strong>
+covering:</p>
+<ol>
+<li>Config schema (HCL map vs env-var convention).</li>
+<li><code>internal/github.Pool</code> interface and how the engine threads it.</li>
+<li>Webhook-secret routing algorithm using
+   <code>X-GitHub-Hook-Installation-Target-ID</code>, including the security
+   review of inverting the HMAC-validation ordering.</li>
+<li>Helm chart shape (likely mirroring the IMPL-0011 backend-mode
+   helper pattern).</li>
+<li>Backwards compatibility — additive <code>apps:</code> map with the existing
+   env vars as a default-app fallback.</li>
+<li>Migration recipe for operators going from single-app to multi-app.</li>
+</ol>
+<h2 id="triggers-that-would-re-open-this">Triggers that would re-open this</h2>
+<p>Concrete scenarios that would change the calculation:</p>
+<ul>
+<li>A real org joins the deployment with a meaningfully different
+  permission posture (e.g., wants Contents:Read only).</li>
+<li>Audit / compliance feedback names "single shared bot identity
+  across orgs" as a finding.</li>
+<li>The central platform team is overloaded with key rotation
+  requests from individual orgs.</li>
+<li>repo-guardian is asked to span <strong>two separate GitHub
+  enterprises</strong> (the strongest trigger — this is a hard
+  requirement, not a nice-to-have).</li>
+<li>A future multi-tenant SaaS framing for repo-guardian.</li>
+</ul>
+<p>Absent any of those, the analysis above suggests staying with the
+single-app model.</p>
+<h3 id="what-is-not-a-trigger">What is <em>not</em> a trigger</h3>
+<p>The triggers above are <strong>structural</strong>, not numeric. The following
+do NOT, on their own, justify the multi-app work:</p>
+<ul>
+<li><strong>High org count.</strong> 20+ orgs all installing the same App is
+  still one-app territory. Each install gets its own
+  <code>installation_id</code> with its own rate-limit bucket (5k/hr free,
+  15k/hr enterprise cloud), its own webhook delivery stream, and
+  its own per-installation auth token. There is no shared bucket
+  to saturate. The bottleneck at scale is the <strong>work queue +
+  worker pool sizing</strong>, addressed by IMPL-0011's backend shapes
+  (Postgres store + Valkey queue, leader-elected scheduler), not
+  by credential fanout.</li>
+<li><strong>Multi-forge deployments.</strong> Running repo-guardian against
+  20 GitHub orgs AND a few GitLab / Forgejo instances does not
+  require multi-app. GitLab and Forgejo sit behind the <code>Forge</code>
+  abstraction (INV-0004 / INV-0007), each carrying its own auth
+  model independent of GitHub Apps. Per-forge credentials are
+  expected; per-org-within-a-forge credentials are what this
+  investigation tracks.</li>
+<li><strong>One central platform team owning the bot for all 20+ orgs.</strong>
+  As long as a single platform team is comfortable owning one
+  shared private key for all orgs, the federated-ownership
+  trigger is not active. The pain point only appears when
+  individual orgs want independent key-rotation cadences.</li>
+</ul>
+<h2 id="initial-scale-guidance">Initial-scale guidance</h2>
+<p>Operators onboarding 20+ GitHub orgs for the first time should
+default to:</p>
+<ul>
+<li><strong>One GitHub App, installed across all orgs.</strong> Same <code>app_id</code>,
+  same private key, same webhook secret.</li>
+<li><strong>One installation per org</strong>, mediated by the org admins
+  accepting the App's permission grants at install time.</li>
+<li><strong>Per-installation rate-limit gating</strong> via the existing
+  <code>RateLimitRemaining</code> path in <code>internal/checker/sweep.go</code>.</li>
+</ul>
+<p>Re-open this investigation if and when one of the structural
+triggers above appears — not when the org count crosses an
+arbitrary threshold.</p>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="../0005-stale-prs-when-file-rules-become-satisfied-on-main/">INV-0005</a>
+  — investigation that surfaced this question during operator
+  review.</li>
+<li><a href="../0002-multi-org-and-forgejo-support-for-repo-guardian/">INV-0002</a>
+  — earlier multi-org thinking; predates the current single-app
+  ghinstallation model. Worth re-reading if this investigation
+  re-opens.</li>
+<li><a href="../0004-forge-interface-and-package-refactor-for-forgejo-backend/">INV-0004</a>
+  — <code>Forge</code> interface seam that absorbs non-GitHub backends.
+  Reinforces that multi-forge ≠ multi-app.</li>
+<li><a href="../0007-gitlab-forge-backend-support/">INV-0007</a> — GitLab
+  backend investigation; the orthogonality of GitLab support to
+  this investigation was the motivating exchange.</li>
+<li><a href="../../design/0002-github-api-rate-limit-handling/">DESIGN-0002</a>
+  — rate-limit handling design; reaffirms per-installation gating.</li>
+<li><code>internal/config/config.go</code> —
+  <code>GITHUB_APP_ID</code> / <code>GITHUB_PRIVATE_KEY</code> / <code>WEBHOOK_SECRET</code> env
+  bindings; the natural extension point for an <code>apps:</code> map.</li>
+<li><code>internal/github/client.go</code> — <code>ghinstallation.AppsTransport</code>
+  construction and <code>CreateInstallationClient</code>; the natural seam
+  for a <code>Pool</code> abstraction.</li>
+<li><code>internal/webhook/handler.go</code> — HMAC validation gate; the spot
+  that would need the routing inversion in a multi-app world.</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

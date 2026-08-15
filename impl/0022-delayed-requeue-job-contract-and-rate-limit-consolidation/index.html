@@ -1,0 +1,3016 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Delayed-requeue job contract and rate-limit consolidation - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#impl-0022-delayed-requeue-job-contract-and-rate-limit-consolidation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Delayed-requeue job contract and rate-limit consolidation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sequencing-and-release-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sequencing and Release Shape
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-0-stop-the-bleeding-bundled-with-phase-1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 0: Stop the bleeding (bundled with Phase 1)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 0: Stop the bleeding (bundled with Phase 1)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-job-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Job contract
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Job contract">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-delayed-set-and-promotion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Delayed set and promotion
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: Delayed set and promotion">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-throttle-signal-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: Throttle signal path
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3: Throttle signal path">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-worker-requeue-and-attempt-cap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: Worker requeue and attempt cap
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4: Worker requeue and attempt cap">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-observability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Observability
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 5: Observability">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-remove-the-superseded-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: Remove the superseded layers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 6: Remove the superseded layers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-7-docs-and-chart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7: Docs and chart
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 7: Docs and chart">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="impl-0022-delayed-requeue-job-contract-and-rate-limit-consolidation">IMPL 0022: Delayed-requeue job contract and rate-limit consolidation</h1>
+<p><strong>Status:</strong> Completed
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-08-02</p>
+<!--toc:start-->
+<ul>
+<li><a href="#objective">Objective</a></li>
+<li><a href="#scope">Scope</a></li>
+<li><a href="#in-scope">In Scope</a></li>
+<li><a href="#out-of-scope">Out of Scope</a></li>
+<li><a href="#sequencing-and-release-shape">Sequencing and Release Shape</a></li>
+<li><a href="#implementation-phases">Implementation Phases</a></li>
+<li><a href="#phase-0-stop-the-bleeding-bundled-with-phase-1">Phase 0: Stop the bleeding (bundled with Phase 1)</a><ul>
+<li><a href="#tasks">Tasks</a></li>
+<li><a href="#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-1-job-contract">Phase 1: Job contract</a><ul>
+<li><a href="#tasks-1">Tasks</a></li>
+<li><a href="#success-criteria-1">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-2-delayed-set-and-promotion">Phase 2: Delayed set and promotion</a><ul>
+<li><a href="#tasks-2">Tasks</a></li>
+<li><a href="#success-criteria-2">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-3-throttle-signal-path">Phase 3: Throttle signal path</a><ul>
+<li><a href="#tasks-3">Tasks</a></li>
+<li><a href="#success-criteria-3">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-4-worker-requeue-and-attempt-cap">Phase 4: Worker requeue and attempt cap</a><ul>
+<li><a href="#tasks-4">Tasks</a></li>
+<li><a href="#success-criteria-4">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-5-observability">Phase 5: Observability</a><ul>
+<li><a href="#tasks-5">Tasks</a></li>
+<li><a href="#success-criteria-5">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-6-remove-the-superseded-layers">Phase 6: Remove the superseded layers</a><ul>
+<li><a href="#tasks-6">Tasks</a></li>
+<li><a href="#success-criteria-6">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-7-docs-and-chart">Phase 7: Docs and chart</a><ul>
+<li><a href="#tasks-7">Tasks</a></li>
+<li><a href="#success-criteria-7">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#file-changes">File Changes</a></li>
+<li><a href="#testing-plan">Testing Plan</a></li>
+<li><a href="#dependencies">Dependencies</a></li>
+<li><a href="#open-questions">Open Questions</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="objective">Objective</h2>
+<p>Implement
+<a href="../../design/0021-delayed-requeue-job-contract-and-rate-limit-consolidation/">DESIGN-0021</a>
+(all open questions resolved 2026-08-02): replace the three
+non-composing rate-limit layers with one delayed-requeue mechanism. A
+worker that cannot proceed returns the job to a new Valkey delayed
+ZSET with a due-time and frees its slot; the reaper promotes due jobs;
+<code>queue.Job</code> gains <code>Attempts</code>/<code>AvailableAt</code> with a <code>MAX_JOB_ATTEMPTS</code>
+cap whose terminal disposition writes to <code>repo_state</code> (OQ2 → a). The
+transport's in-handler sleep — the live duplicate-amplification hazard
+(INV-0012 finding I) — is first capped (Phase 0) and then removed
+(Phase 3). The BudgetTracker and the sweep reserve gate are deleted
+(Phase 6), leaving exactly one rate-limit mechanism.</p>
+<p><strong>Implements:</strong> DESIGN-0021 (resolved: 1a, 2a, 3a, 4a+rider, 5a, 6a,
+7a, 8b)</p>
+<h2 id="scope">Scope</h2>
+<h3 id="in-scope">In Scope</h3>
+<ul>
+<li><code>internal/github/ratelimit.go</code>: Phase 0 sleep cap, then Phase 3
+  <code>ThrottledError</code> return replacing the pre-emptive sleep and the
+  wait-pair recording.</li>
+<li><code>internal/queue</code>: <code>Job.Attempts</code>/<code>Job.AvailableAt</code>,
+  <code>RetryAfterError</code>, <code>EnqueueAfter</code> (OQ6 → a), rewritten interface
+  contract doc.</li>
+<li><code>internal/queue/valkey</code>: delayed ZSET, <code>deferScript</code> /
+  <code>promoteScript</code> Lua, promotion from <code>reapOnce</code>, key-construction
+  centralisation (DESIGN-0015 forward hook).</li>
+<li><code>internal/worker</code>: <code>ThrottledError</code> → <code>RetryAfterError</code> translation,
+  attempt accounting, terminal disposition via the existing
+  <code>writeBack</code> path.</li>
+<li>Phase 5 metrics + alerts (including re-pointing
+  <code>RepoGuardianRateLimitThrottling</code>), Phase 6 removals
+  (<code>internal/budget</code>, sweep gate, budget metrics/alert/config/chart
+  values, wait-pair definitions), Phase 7 docs/chart.</li>
+</ul>
+<h3 id="out-of-scope">Out of Scope</h3>
+<ul>
+<li>Per-installation fairness/partitioning (DESIGN-0015 — this work only
+  leaves its forward hooks: key centralisation and
+  <code>queue_wait_seconds</code>).</li>
+<li>The transport's reactive 403 retry handling — stays as-is.</li>
+<li>Store/scheduler/discovery changes beyond deleting the budget gates.</li>
+<li>OTEL client instrumentation of the transport
+  (IMPL-0023 Phase 3 — only the ordering contract matters here).</li>
+</ul>
+<h2 id="sequencing-and-release-shape">Sequencing and Release Shape</h2>
+<ul>
+<li><strong>Phases 0+1 land as one PR</strong> (design OQ8 → b): one review of the
+  whole rate-limit-path change. Phase 0 is superseded by Phase 3 and
+  is deliberately crude.</li>
+<li><strong>Phases 1–5 ship as one binary minor</strong> (design rollout step 2).
+  Release labeling across the per-phase PRs is Open Question 1.</li>
+<li><strong>Soak before Phase 6</strong>: observe <code>queue_delayed_total</code> /
+  <code>queue_delayed_depth</code> in the homelab across a full reconcile cycle;
+  force a deferral with a deliberately low <code>RATE_LIMIT_THRESHOLD</code>
+  since organic deferrals may not occur at current scale.</li>
+<li><strong>Phase 6 ships as its own minor</strong> with a prominent upgrade note
+  (OQ7 → a) — it removes published chart values.</li>
+<li>Coordination with IMPL-0023: whichever of this Phase 3 and
+  IMPL-0023 Phase 3 lands second adds the transport-ordering test
+  (<code>otelhttp</code> outermost, rate-limit transport inside).</li>
+</ul>
+<p>Run <code>make fmt</code> + <code>make lint</code> after each task; commit per numbered task
+with conventional commits.</p>
+<hr />
+<h2 id="implementation-phases">Implementation Phases</h2>
+<h3 id="phase-0-stop-the-bleeding-bundled-with-phase-1">Phase 0: Stop the bleeding (bundled with Phase 1)</h3>
+<p>The transport (<code>internal/github/ratelimit.go</code>) sleeps in-handler for
+up to <code>untilReset</code> (1h) inside <code>waitIfNeeded</code> and the
+<code>rateLimitDelay</code> + <code>sleepWithContext</code> retry path (lines 73, 147) while
+<code>JOB_ACK_TIMEOUT</code> is 5m — so the reaper clones the sleeping job every
+<code>REAPER_INTERVAL</code>. Cap the sleep below the lease.</p>
+<h4 id="tasks">Tasks</h4>
+<ul>
+<li>[x] 0.1 Add a package const <code>maxRateLimitSleep = 60 * time.Second</code>
+      (hardcoded, not a knob — Open Question 2) and cap <strong>both</strong> sleep
+      sites (<code>waitIfNeeded</code> and the 403 retry delay). <em>Amended during
+      implementation:</em> the original task text left the reactive path
+      alone, but the reactive primary-limit delay is also
+      until-reset (~1h) and violates the phase's "no code path
+      outlives the lease" success criterion — both are capped.</li>
+<li>[x] 0.2 When the computed delay exceeds the cap, return an error
+      <strong>without sleeping at all</strong> (sleeping the cap first would burn a
+      worker slot for 60s with the error already inevitable) — the
+      job nacks and the reaper retries it. Crude but correct until
+      Phase 4. Wait metrics increment only on real sleeps.</li>
+<li>[x] 0.3 Test: a computed delay above the cap does not sleep past it
+      (injected <code>recordingSleeper</code> observes requested delays as
+      virtual time) — <code>TestRateLimitTransport_PreemptiveSleepCap</code> +
+      <code>TestRateLimitTransport_RetryDelayAboveCap_FailsFast</code>.</li>
+<li>[x] 0.4 Test reproducing the INV-0012 finding I timeline:
+      <code>TestRateLimitTransport_FindingITimeline_CapPreventsDoubleClaim</code>
+      (virtual blocked time vs the 5m lease, plus a static guard that
+      <code>maxRateLimitSleep</code> stays below <code>JOB_ACK_TIMEOUT</code>). Non-vacuity
+      verified two ways: raising the const trips the static guard;
+      disabling the cap branch makes the blocked-time assertion fire
+      at 49m59s. This is the canonical regression test for the whole
+      design — it must survive every later phase.</li>
+</ul>
+<h4 id="success-criteria">Success Criteria</h4>
+<ul>
+<li>No code path can sleep longer than <code>JOB_ACK_TIMEOUT</code> while holding
+  an in-flight claim.</li>
+<li>The finding-I timeline test fails with task 0.1 reverted, passes
+  with it (non-vacuity verified).</li>
+<li><code>make ci</code> passes.</li>
+</ul>
+<hr />
+<h3 id="phase-1-job-contract">Phase 1: Job contract</h3>
+<p>All changes in <code>internal/queue/queue.go</code> plus mock/fake fallout.</p>
+<h4 id="tasks_1">Tasks</h4>
+<ul>
+<li>[x] 1.1 Add <code>Attempts int</code> and <code>AvailableAt time.Time</code> to
+      <code>queue.Job</code>. <em>Amended:</em> the existing fields are untagged (JSON
+      uses Go field names), so the new fields follow that convention
+      rather than gaining tags; the zero-value upgrade semantics are
+      documented on the struct.</li>
+<li>[x] 1.2 Add <code>queue.RetryAfterError{After, Reason, Err}</code> with an
+      <code>Unwrap() error</code> method.</li>
+<li>[x] 1.3 Rewrite the <code>Queue</code> interface doc comment: the three handler
+      outcomes (ack / nack / defer), attempt counting on both defer
+      and reaper requeue, terminal disposition = write
+      <code>StatusError</code> to <code>repo_state</code> and drop (design OQ2 → a). Stale
+      in-memory-implementation parenthetical deleted.</li>
+<li>[x] 1.4 Add <code>EnqueueAfter(ctx, j, at)</code> to the interface (OQ6 → a).
+      Valkey impl: past <code>at</code> falls through to <code>Enqueue</code>; future <code>at</code>
+      errors explicitly until task 2.2 (nothing calls it yet; stub
+      lands in the same Phase 0+1 PR as required).</li>
+<li>[x] 1.5 <code>make mocks</code> (queue mock regenerated with <code>EnqueueAfter</code>);
+      the three test-local <code>recordingQueue</code> fakes
+      (<code>internal/checker/sweep_test.go</code>,
+      <code>internal/webhook/handler_test.go</code>,
+      <code>internal/worker/worker_test.go</code>) gain a due-time-stamping
+      <code>EnqueueAfter</code>; <code>slowQueue</code> inherits via embedding. <em>Amended:</em>
+      <code>internal/scheduler/sweep_test.go</code> has no queue fake — the
+      compiler surfaced the true list.</li>
+<li>[x] 1.6 <code>internal/queue/queue_test.go</code>:
+      <code>TestJob_OldPayloadDecodesWithZeroRetryFields</code> (old six-field
+      payload → <code>Attempts=0</code>, zero <code>AvailableAt</code>), round-trip of the
+      new fields, and <code>errors.As</code>/<code>Unwrap</code> chain behaviour for
+      <code>RetryAfterError</code>.</li>
+</ul>
+<h4 id="success-criteria_1">Success Criteria</h4>
+<ul>
+<li>The interface documents delay, backoff, attempt cap, and terminal
+  disposition — the contract INV-0012 finding K found missing.</li>
+<li>Old-format payloads decode correctly.</li>
+<li><code>make ci</code> passes.</li>
+</ul>
+<hr />
+<h3 id="phase-2-delayed-set-and-promotion">Phase 2: Delayed set and promotion</h3>
+<p>All changes in <code>internal/queue/valkey/</code> (<code>valkey.go</code>, <code>reaper.go</code>).</p>
+<h4 id="tasks_2">Tasks</h4>
+<ul>
+<li>[x] 2.1 Add <code>DelayedKey</code> to <code>valkey.Options</code> (default
+      <code>repo-guardian:queue:delayed</code>) and centralise construction of
+      all four keys (jobs, in-flight, delayed, reaper lock) in one
+      helper — the DESIGN-0015 partition hook; Lua scripts stay
+      key-parametric via <code>KEYS[]</code>. (Helper is
+      <code>Options.applyKeyDefaults</code>; package doc updated to the
+      four-key layout.)</li>
+<li>[x] 2.2 <code>deferScript</code> (<code>ZREM</code> in-flight + <code>ZADD</code> delayed, atomic,
+      mirroring <code>requeueScript</code> at valkey.go:90) wired to
+      <code>EnqueueAfter</code>. (Script takes separate remove/park members so
+      the Phase-4 defer path can re-serialise with <code>Attempts+1</code>
+      without touching the Lua; <code>deferPayload</code> helper is the shared
+      invocation point.)</li>
+<li>[x] 2.3 <code>promoteScript</code> (<code>ZRANGEBYSCORE</code> due + <code>ZREM</code> + <code>LPUSH</code>,
+      atomic) called from <code>reapOnce</code> (reaper.go:107) under the
+      existing leader lock — no new goroutine, no new election.
+      (<code>reapOnce</code> split into <code>requeueStuck</code> + <code>promoteDue</code>; package
+      doc gains a "Delayed jobs" section noting the REAPER_INTERVAL
+      dual duty per DESIGN-0021 OQ3.)</li>
+<li>[x] 2.4 Publish <code>queue_delayed_depth</code> from the reaper tick (<code>ZCARD</code>,
+      alongside the existing depth accounting). (Originally
+      leader-published; amended in 5.3 to publish from EVERY pod's
+      tick, before the leader lock — a leader-only gauge goes stale on
+      non-leader replicas' /metrics endpoints, and a Prometheus scrape
+      of a stale replica during a leadership flap would pin
+      <code>RepoGuardianQueueBackpressure</code> in an unresolvable firing state.
+      Still best-effort: a failed ZCARD logs Warn without failing the
+      reap. <code>Queue.Delayed</code> mirrors <code>Depth</code>/<code>InFlight</code>.)</li>
+<li>[x] 2.5 Integration test (<code>integration</code> tag, real Valkey): a job
+      deferred 2s is not delivered before due-time, is delivered
+      after. (<code>TestValkey_DeferredJobNotDeliveredEarly</code>; non-vacuity
+      verified — neutralising the due-time bound in <code>promoteScript</code>
+      fails the test with a 1.74s-early delivery.)</li>
+<li>[x] 2.6 Integration test: a job is in exactly one of <code>jobs</code>,
+      <code>in-flight</code>, <code>delayed</code> at every lifecycle point.
+      (<code>TestValkey_ExactlyOneKeyInvariant</code>, four checkpoints:
+      parked/promoted/claimed/acked; non-vacuity verified — dropping
+      the ZREM from <code>promoteScript</code> fails checkpoint 2 with 36
+      duplicate promotions.)</li>
+<li>[x] 2.7 Integration test: promotion is leader-gated — two reapers,
+      one promotion. (<code>TestValkey_PromotionLeaderGated</code>: two reapers
+      on one lock, five parked jobs, each delivered exactly once,
+      keyspace empty afterwards.)</li>
+</ul>
+<h4 id="success-criteria_2">Success Criteria</h4>
+<ul>
+<li>A deferred job is never delivered before <code>AvailableAt</code>; no job is
+  ever in two keys at once; promotion happens exactly once with
+  multiple replicas.</li>
+<li><code>make ci</code> passes; integration tests pass against real Valkey.</li>
+</ul>
+<hr />
+<h3 id="phase-3-throttle-signal-path">Phase 3: Throttle signal path</h3>
+<p><code>internal/github/ratelimit.go</code> + an end-to-end chain test. Removes
+what Phase 0 capped.</p>
+<h4 id="tasks_3">Tasks</h4>
+<ul>
+<li>[x] 3.1 Add exported <code>github.ThrottledError{ResetAt, Remaining,
+      Limit}</code> with an <code>Error()</code> naming the reset time.</li>
+<li>[x] 3.2 Replace the pre-emptive sleep (<code>waitIfNeeded</code> plus the
+      Phase 0 cap) with a <code>ThrottledError</code> return from <code>RoundTrip</code>.
+      The reactive 403 retry paths stay untouched. (<code>waitIfNeeded</code> →
+      <code>shouldThrottle</code>; below-threshold-with-budget now defers whole
+      jobs instead of spread-pacing requests — the threshold is a
+      hard reserve. <code>maxRateLimitSleep</code> stays, reactive-only, with
+      its comment rewritten as permanent. Tests:
+      <code>TestRateLimitTransport_PreemptiveNeverSleeps</code> table replaces
+      the Phase-0 sleep-cap table; <code>PreemptiveThrottle</code> asserts the
+      deferral signal; finding-I timeline test now also asserts
+      <code>errors.As</code> recovers <code>*ThrottledError</code>.)</li>
+<li>[x] 3.3 Remove the <code>github_rate_limit_waits_total</code> /
+      <code>github_rate_limit_wait_seconds</code> recording along with the sleep
+      — no would-be-delay bridge (design amendment 2026-08-02; the
+      deferral is measured once, by Phase 5's <code>queue_delayed_*</code>).
+      <code>github_rate_remaining</code> emission is untouched. (Pre-emptive
+      recording went with <code>waitIfNeeded</code> in 3.2; the reactive-path
+      recording is removed here. Definitions stay until Phase 6;
+      the contrib alert re-points in 5.2b.)</li>
+<li>[x] 3.4 End-to-end invariant test: drive <code>Engine.CheckRepo</code> against
+      an <code>httptest</code> server returning exhausted rate-limit headers and
+      assert <code>errors.As</code> recovers <code>*ThrottledError</code> at the worker
+      boundary through the full wrap chain (url.Error → go-github →
+      client → engine). (<strong>Discovery</strong>: the test's first run caught a
+      real fourth signal path — go-github's own <code>checkRateLimitBeforeDo</code>
+      short-circuits above our transport with <code>*gh.RateLimitError</code>
+      whenever its cache saw <code>remaining=0</code>, unbypassable in v68. Added
+      <code>github.AsThrottled(err)</code> normalising both shapes; the chain
+      test (<code>TestCheckRepo_ThrottledErrorSurvivesWrapChain</code> in
+      <code>internal/checker/ratelimit_chain_test.go</code>) is a two-timeline
+      table pinning the reserve-threshold case (direct
+      <code>*ThrottledError</code>) AND the exhausted case (converted
+      <code>RateLimitError</code>). Design amendment recorded in DESIGN-0021's
+      signal-path section; Phase 4 task 4.1 must use <code>AsThrottled</code>,
+      not raw <code>errors.As</code>. Enabler: exported
+      <code>github.NewClientForBaseURL</code> so the checker-package test can
+      build a real transport-wired client against httptest.)</li>
+<li>[x] 3.5 Non-vacuity check for 3.4: neutralise one <code>%w</code> on the path,
+      confirm the test fails, restore. Record the check in the PR
+      description. (Neutralised the engine's <code>listing open PRs: %w</code>
+      → <code>%v</code>: both subtests fail with "AsThrottled(...) = false";
+      restored, green.)</li>
+</ul>
+<h4 id="success-criteria_3">Success Criteria</h4>
+<ul>
+<li>The transport never sleeps pre-emptively.</li>
+<li><code>errors.As</code> recovers <code>*ThrottledError</code> from a fully-wrapped
+  <code>CheckRepo</code> error, proven by the chain test.</li>
+<li>The two retained quota alerts (<code>RepoGuardianRateLimitLow</code>,
+  <code>RepoGuardianRateLimitNearExhaustion</code>) still receive samples;
+  nothing feeds the wait pair.</li>
+<li><code>make ci</code> passes.</li>
+</ul>
+<hr />
+<h3 id="phase-4-worker-requeue-and-attempt-cap">Phase 4: Worker requeue and attempt cap</h3>
+<p><code>internal/worker/worker.go</code> (<code>processJob</code>) +
+<code>internal/queue/valkey/valkey.go</code> (<code>processPayload</code>) + config.</p>
+<h4 id="tasks_4">Tasks</h4>
+<ul>
+<li>[x] 4.1 <code>processJob</code> translates <code>*github.ThrottledError</code> into
+      <code>*queue.RetryAfterError{Reason: "rate_limit"}</code> with the jittered
+      due-time: <code>due = now + delay + rand[0, min(delay/4, 60s))</code>.
+      (Uses <code>ghclient.AsThrottled</code> per the 3.4 amendment so both
+      throttle shapes translate. Deferral skips error metrics and
+      repo_state write-back — the check never ran. Jitter follows
+      the repo's crypto/rand convention. <code>delay &lt;= 0</code> falls through
+      to nack until 4.5 adds backoff.)</li>
+<li>[x] 4.2 The Valkey <code>processPayload</code> handler-return path recognises
+      <code>*RetryAfterError</code> via <code>errors.As</code> and takes the defer path
+      (task 2.2) instead of ack or nack-by-leaving-in-flight.
+      (<code>deferInFlight</code> re-serialises with <code>Attempts+1</code> +
+      <code>AvailableAt</code> and swaps the in-flight entry atomically via
+      <code>deferScript</code>'s two-member form; marshal/script failure
+      degrades to nack. New <code>QueueAckedTotal{outcome="deferred"}</code>
+      accounting.)</li>
+<li>[x] 4.3 Increment <code>Attempts</code> on every defer and every reaper
+      requeue (the requeue side re-serialises the payload — extend
+      <code>requeueScript</code>'s caller accordingly). (Defer half landed in
+      4.2's <code>deferInFlight</code>; requeue half is <code>requeuePayload</code> in
+      reaper.go with <code>requeueScript</code> extended to two members.
+      Undecodable payloads requeue verbatim — the claim path drops
+      garbage at decode.)</li>
+<li>[x] 4.4 <code>MAX_JOB_ATTEMPTS</code> config (default 10) in
+      <code>internal/config/config.go</code> + validation. On exceeding the cap:
+      write <code>StatusError</code> with a descriptive <code>LastError</code> to
+      <code>repo_state</code> via the existing best-effort <code>writeBack</code>, drop the
+      job, increment <code>queue_attempts_exhausted_total</code> (OQ2 → a — the
+      next sweep re-enqueues naturally if the repo is still stale;
+      this makes the enterprise-migration nack-loop self-healing).
+      (Cap enforced at delivery time in <code>processJob</code> →
+      <code>dropExhausted</code> returns nil so the queue acks-and-drops.
+      <code>worker.New</code> gained the <code>maxJobAttempts</code> param; validation
+      rejects &lt; 1; metric defined here rather than 5.1 since 4.4
+      increments it. <code>TestLoadMaxJobAttempts</code> covers default +
+      rejection.)</li>
+<li>[x] 4.5 Exponential backoff for deferrals with no server-supplied
+      time: constants per Open Question 3, same jitter shape as 4.1.
+      (<code>backoffDelay(attempts) = min(30s × 2^attempts, 30m)</code> replaces
+      the 4.1 fall-through-to-nack when <code>time.Until(ResetAt) &lt;= 0</code>.)</li>
+<li>[x] 4.6 Test: a throttled job is deferred, not nacked — in-flight
+      empty, delayed has one entry. (<code>TestValkey_DeferredNotNacked</code>,
+      integration; also pins parked <code>Attempts=1</code> + <code>AvailableAt</code>.
+      Non-vacuity: removing <code>deferInFlight</code>'s increment fails it
+      with "parked Attempts = 0".)</li>
+<li>[x] 4.7 Test: the worker slot frees immediately on deferral — a
+      second job is processed while the first is parked.
+      (<code>TestValkey_DeferralFreesWorkerSlot</code>, integration: one
+      Subscribe loop, no reaper — the second job can only be
+      processed if the deferral freed the loop.)</li>
+<li>[x] 4.8 Test: attempts accumulate across defers and reaper
+      requeues; the cap triggers the terminal disposition exactly
+      once, and the <code>repo_state</code> row carries <code>StatusError</code>.
+      (Queue half: <code>TestValkey_AttemptsAccumulateAcrossNackAndRequeue</code>
+      — nack → reaper requeue (Attempts=1 observed at redelivery) →
+      defer (parked Attempts=2); non-vacuity verified on
+      <code>requeuePayload</code>'s increment. Worker half:
+      <code>TestPool_AttemptCap_TerminalDisposition</code> — nil engine/ghClient
+      prove the cap refuses before processing; exactly one
+      StatusError write naming MAX_JOB_ATTEMPTS; exhausted counter
+      = 1; nil handler return = ack-and-drop.)</li>
+</ul>
+<h4 id="success-criteria_4">Success Criteria</h4>
+<ul>
+<li>A throttled job never occupies a worker slot while waiting.</li>
+<li>Attempts are counted across both paths; no job retries forever.</li>
+<li>A dead-installation job (the enterprise-migration incident shape)
+  reaches the cap and drops with a store record instead of
+  nack-looping indefinitely.</li>
+<li><code>make ci</code> passes.</li>
+</ul>
+<hr />
+<h3 id="phase-5-observability">Phase 5: Observability</h3>
+<p><code>internal/metrics/metrics.go</code>, both alert packs, scaling docs.</p>
+<h4 id="tasks_5">Tasks</h4>
+<ul>
+<li>[x] 5.1 Add <code>queue_delayed_total{reason, installation_id}</code>
+      (Counter), <code>queue_delay_seconds{reason}</code> (Histogram),
+      <code>queue_attempts_exhausted_total{installation_id}</code> (Counter).
+      (<code>queue_delayed_depth</code> landed in 2.4.)
+      <em>Done. <code>queue_attempts_exhausted_total</code> landed early in 4.4
+      (defined alongside its only producer, <code>dropExhausted</code>).
+      <code>queue_delayed_total</code> + <code>queue_delay_seconds</code> are incremented in
+      <code>deferInFlight</code> after a successful defer — never on the marshal-
+      or Lua-failure nack paths, so counts reflect jobs actually
+      parked. Both use the shared <code>queueRetrySecondsBuckets</code> layout
+      (OQ4a: 1s → 4h, matched to rate-limit reset windows and the 30m
+      backoff cap).</em></li>
+<li>[x] 5.2 Add <code>queue_wait_seconds{installation_id}</code> (Histogram)
+      observed at claim time as <code>now − EnqueuedAt</code> — the DESIGN-0015
+      go/no-go datum. Bucket layout per Open Question 4.
+      <em>Done. Observed in <code>processPayload</code> right after the single
+      payload decode, guarded on non-zero <code>EnqueuedAt</code> (pre-4.2
+      payloads in a live queue lack the stamp; a zero would record
+      ~56 years). Parked time deliberately counts — the tenant
+      experienced it as queue wait — with the onboarding top-bucket
+      skew caveat documented on the bucket layout and slated for
+      scaling.md in 5.6.</em></li>
+<li>[x] 5.3 Add <code>RepoGuardianQueueBackpressure</code>
+      (<code>queue_delayed_depth</code> sustained) and
+      <code>RepoGuardianJobsExhausted</code> (any
+      <code>queue_attempts_exhausted_total</code> increase) to <strong>both</strong>
+      <code>charts/repo-guardian/templates/prometheusrule.yaml</code> and
+      <code>contrib/prometheus/alerts.yaml</code>; windows must outlive <code>for</code>
+      and match real emission cadence (INV-0012 findings C/E),
+      reasoned explicitly in the PR.
+      *Done. Cadence reasoning (also inlined as comments in both
+      packs): (C) Backpressure alerts on a gauge published by EVERY
+      pod's reaper tick — the delayed-depth ZCARD was moved BEFORE
+      the leader lock in <code>reapOnce</code> for exactly this reason (a
+      leader-only gauge goes stale on non-leader replicas and pins
+      the alert firing across a leadership flap; task 2.4 note
+      amended). No rate() window to outlive; <code>for: 30m</code> on a
+      60s-fresh series is safe. (E) JobsExhausted is two-legged:
+      <code>increase(...[1h]) &gt; 0 or sum(metric unless metric offset 1h)
+      &gt; 0</code> — increase() cannot see a brand-new CounterVec series'
+      first increment (born at 1, diffs to 0), and the <code>unless
+      offset</code> leg covers exactly the sub-1h window increase() is
+      blind in, then self-retires. Both packs promtool-checked
+      (contrib directly: 24 rules SUCCESS; chart via <code>helm template</code><ul>
+<li>spec.groups extraction: 11 rules SUCCESS) — first promtool
+  validation the chart pack has ever had (INV-0012 open lead).*</li>
+</ul>
+</li>
+<li>[x] 5.4 Re-point <code>RepoGuardianRateLimitThrottling</code>
+      (contrib pack only, alerts.yaml:115) from the removed wait
+      counter to <code>queue_delayed_total{reason="rate_limit"}</code>.
+      <em>Done. Expression changed from <code>rate(waits[15m]) &gt; 0.5 / for:
+      10m</code> to <code>increase(queue_delayed_total{reason="rate_limit"}[1h])
+      &gt; 10 / for: 30m</code> — deferrals are per-JOB, not per-request, so
+      rates run orders lower than the old wait counter (a rate
+      threshold carried over blindly would never fire), and the 1h
+      window covers the re-deferral cadence (a throttled tenant
+      re-defers each reset window, up to 1h apart; a 15m window would
+      flap and never hold through <code>for</code> — finding C). Also re-pointed
+      the four wait-pair Grafana panels in
+      <code>contrib/grafana/repo-guardian-dashboard.json</code> (style-review
+      catch): panel 42 → "Job Deferrals by Reason"
+      (<code>queue_delayed_total</code>), panel 43 → "Job Deferral Horizon
+      p50/p95/p99" (<code>queue_delay_seconds_bucket</code>), both on 15m
+      windows for the sparser per-job cadence. promtool re-checked
+      (24 rules SUCCESS); zero <code>rate_limit_wait</code> references remain in
+      contrib.</em></li>
+<li>[x] 5.5 helm-unittest assertions on rendered alert <em>expressions</em>,
+      not just names (IMPL-0021 A7 convention).
+      <em>Done. Five new cases in <code>tests/prometheusrule_test.yaml</code>:
+      QueueBackpressure full-expression (gauge threshold + for +
+      severity), threshold override (500), disable; JobsExhausted
+      exact two-legged multi-line expression (block scalar matches
+      the rendered <code>expr: |</code> byte-for-byte), disable. Non-vacuity
+      verified: deleting the second leg from the template fails
+      exactly the two-legged-expression case (1 failed / 95 passed),
+      restore → 96/96.</em></li>
+<li>[x] 5.6 Document the new metrics in <code>docs/operations/scaling.md</code>
+      (healthy vs backpressured reference values, including the
+      expected <code>queue_wait_seconds</code> top-bucket skew during fleet
+      onboarding / policy-version upgrades — OQ4 caveat) and add
+      <code>contrib/README.md</code> rows.
+      <em>Done. New scaling.md "§ Delayed requeue (IMPL-0022)" — this is
+      the section both new alerts' descriptions point at — with a
+      five-metric Healthy/Backpressured table, the onboarding
+      top-bucket-skew caveat as a highlighted paragraph, and a
+      "Reading the go/no-go datum" PromQL recipe (per-installation
+      p99 divergence, not absolute value, is the DESIGN-0015
+      partition signal). contrib/README.md gains a "Delayed requeue"
+      table + example queries, and <code>queue_acked_total</code>'s outcome
+      enumeration now includes <code>deferred</code>. The wait-pair rows in
+      contrib/README.md §GitHub API stay until Phase 6 removes the
+      definitions (they still exist as metrics until then).</em></li>
+</ul>
+<h4 id="success-criteria_5">Success Criteria</h4>
+<ul>
+<li>An operator can answer "are we hitting API limits, how hard, for
+  whom" from metrics alone.</li>
+<li>All touched alerts are fireable under real emission cadence.</li>
+<li><code>make ci</code> and helm-unittest pass.</li>
+</ul>
+<hr />
+<h3 id="phase-6-remove-the-superseded-layers">Phase 6: Remove the superseded layers</h3>
+<p>Only after the soak (see Sequencing). Ships as its own minor.</p>
+<h4 id="tasks_6">Tasks</h4>
+<ul>
+<li>[x] 6.1 Delete <code>internal/budget/</code> (budget.go, labels.go, tests) and
+      its <code>budget.New</code> wiring in <code>cmd/repo-guardian/main.go.bringUp</code>.
+      <em>Done (one commit with 6.2 — deleting the package and removing
+      its consumers are inseparable if every commit is to compile;
+      same precedent as the 5.1+5.2 commit).</em></li>
+<li>[x] 6.2 Remove <code>Budget</code> from <code>StaleSweeperOptions</code> and
+      <code>DiscovererOptions</code> and both <code>budgetAllows</code> gates.
+      <em>Done. <code>allowedByBudget</code> (sweep.go) and <code>budgetAllows</code>
+      (discoverer.go) removed along with the <code>budget</code> fields,
+      <code>Budget</code> options, <code>Decrement</code> call, and the <code>gated_budget</code> log
+      field. Discoverer doc updated: discovery is not throttle-gated
+      — it lists once per installation and any real pressure
+      surfaces via the delayed-requeue path on check jobs. Four
+      budget-gating tests + two package-local fake clients deleted
+      with their subjects; <code>TestStaleSweeper_EnqueuesAllWhenBudgetIsAmple</code>
+      renamed <code>...WhenRateLimitAmple</code> (it exercises the rate-limit
+      gate, which survives until 6.3).</em></li>
+<li>[x] 6.3 Remove the layer-2 sweep gate
+      (<code>StaleSweeper.allowedByRateLimit</code>, sweep.go:243) and
+      <code>rate_limit_reserve_blocked_total</code> — <strong>preserving the
+      per-installation <code>RateLimitRemaining</code> sampling call in the sweep
+      loop</strong> (design OQ4 rider: that call is the only live producer of
+      <code>rate_limit_remaining{installation_id}</code>; the gate goes, the
+      sampling stays, <code>RepoGuardianRateLimitNearExhaustion</code> keeps its
+      feed).</li>
+<li>[x] 6.4 Remove the nine <code>api_budget_*</code> /
+      <code>enqueue_gated_by_budget_total</code> metric definitions, the now-unfed
+      wait-pair definitions
+      (<code>github_rate_limit_waits_total</code> / <code>_wait_seconds</code>), and
+      <code>RepoGuardianBudgetGated</code> from both alert files (it is already
+      commented out in contrib).
+      <em>Done. Six <code>api_budget_*</code>/<code>enqueue_gated_by_budget_total</code>
+      definitions (the 9 series count includes per-label expansion)
+      plus <code>github_rate_limit_waits_total</code> / <code>_wait_seconds</code>
+      removed from metrics.go. <code>RepoGuardianBudgetGated</code> deleted from
+      the chart template and its two helm-unittest cases; the contrib
+      commented-out block became a tombstone comment naming the
+      replacement alerts, so an operator diffing an old pack learns
+      why it vanished. contrib/README.md's wait-pair rows replaced
+      with a pointer to <code>queue_delayed_total</code>.</em></li>
+<li>[x] 6.5 Remove <code>DISCOVERY_RESERVE_FRACTION</code> and
+      <code>DISCOVERY_ESTIMATED_COST_PER_REPO</code> from config, validation, and
+      tests. <em>Done — including the whole <code>validateDiscovery</code> helper
+      and its call site, which had no other invariants left.</em></li>
+<li>[x] 6.6 Remove <code>discovery.reserveFraction</code> /
+      <code>discovery.estimatedCostPerRepo</code> from <code>values.yaml</code>,
+      <code>values.schema.json</code>, and <code>tests/deployment_env_test.yaml</code>.
+      <em>Done, plus <code>staleSweep.rateLimitReserve</code> (the 6.3 chart-side
+      half) and the three matching <code>deployment.yaml</code> env blocks. A new
+      unittest case asserts none of the three env vars render — a
+      removal is only as durable as the guard against its return.</em></li>
+<li>[x] 6.7 <code>make ci</code> plus a <code>deadcode</code> pass clean after removal.
+      <em>Done. <code>make ci</code> exit 0. <code>deadcode ./cmd/...</code> reports one entry,
+      <code>github.NewClientForBaseURL</code> — expected and not a regression:
+      it is the Phase-3 chain-test constructor, reachable only from
+      tests, which the binary-rooted analysis cannot see. No
+      budget-related dead code remains.</em></li>
+<li>[x] 6.8 Mark DESIGN-0002 Superseded by DESIGN-0021; update the
+      CLAUDE.md BudgetTracker architecture notes.
+      <em>Done. <code>.docz.yaml</code> does not offer a <code>Superseded</code> status for
+      the <code>design</code> type (Draft / In Review / Approved / Implemented /
+      Abandoned), and "Abandoned" would misdescribe a design that
+      shipped — so DESIGN-0002 follows the DESIGN-0005 precedent
+      instead: <code>status: Implemented</code> plus a blockquote banner naming
+      DESIGN-0021, spelling out what survives (RoundTripper
+      placement, reactive 403/secondary retry, header scraping) and
+      what is gone (the pre-emptive sleep and the wait pair).
+      CLAUDE.md's IMPL-0015 Phase 1 entry is rewritten Discoverer-only
+      with an explicit REMOVED paragraph so a future reader hitting a
+      stale <code>api_budget_*</code> reference knows it is stale; the
+      StaleSweeper entry now documents the sampling-not-gating
+      contract and why the call cannot be deleted.</em></li>
+</ul>
+<h4 id="success-criteria_6">Success Criteria</h4>
+<ul>
+<li>Exactly one rate-limit mechanism remains.</li>
+<li><code>rate_limit_remaining{installation_id}</code> still receives samples
+  every sweep (rider honoured — no unfed-gauge alert).</li>
+<li>No dangling config, chart value, schema entry, metric, or alert
+  referencing the removed layers; <code>helm template</code> renders without the
+  removed values.</li>
+</ul>
+<hr />
+<h3 id="phase-7-docs-and-chart">Phase 7: Docs and chart</h3>
+<h4 id="tasks_7">Tasks</h4>
+<ul>
+<li>[x] 7.1 Chart version + appVersion bump; <code>make helm-docs</code> (edit
+      <code>README.md.gotmpl</code>, never the rendered README).
+      <em>Done last within Phase 7 so the regenerated README captures
+      every chart edit in one pass. Chart <code>1.0.0-rc.9 → 1.0.0-rc.10</code>;
+      appVersion <code>1.10.1 → 1.11.0</code>, matching the tag a <code>minor</code> PR
+      label will cut (<code>deployment.yaml</code> defaults the image tag to
+      <code>.Chart.AppVersion</code>, and IMPL-0017 shipped an appVersion that
+      never corresponded to a real tag — don't repeat that). The
+      <code>deployment_test.yaml</code> image-tag regex pins appVersion, so it
+      was bumped in the same commit. README regenerated via
+      <code>make helm-docs</code>; the rendered file was not hand-edited.</em></li>
+<li>[x] 7.2 <code>MAX_JOB_ATTEMPTS</code> chart value with <code>values.schema.json</code>
+      range validation and helm-unittest case.
+      <em>Done. <code>config.maxJobAttempts: 10</code> in values.yaml, rendered to
+      the <code>MAX_JOB_ATTEMPTS</code> env var, with a new <code>config</code> block in
+      values.schema.json (<code>minimum: 1</code>). Verified the schema actually
+      bites: <code>--set config.maxJobAttempts=0</code> fails render with "at
+      '/config/maxJobAttempts': minimum: got 0, want 1" instead of
+      reaching the pod. The binary's own <code>&lt; 1</code> startup error from
+      task 4.4 remains the second line of defence for operators
+      bypassing the chart. Two helm-unittest cases (default + a 3
+      override).</em></li>
+<li>[x] 7.3 Operator runbook: what a deferred job looks like in
+      Valkey/metrics/logs, reading the new metrics, responding to the
+      backpressure and exhausted alerts.
+      <em>Done: <code>docs/operations/delayed-requeue-runbook.md</code>, added to
+      the mkdocs nav. Covers the six-step lifecycle, the exact two log
+      lines (worker decision then queue confirmation, verified against
+      the source strings), <code>redis-cli</code> recipes against the real
+      prefixed keys, per-alert response procedures with PromQL and the
+      <code>repo_state</code> SQL for reading a terminal drop, and a
+      force-a-deferral procedure. That last one uses <code>extraEnv</code> because
+      <code>RATE_LIMIT_THRESHOLD</code> has no dedicated chart value — a claim
+      checked against the templates rather than assumed.</em></li>
+<li>[x] 7.4 Update <code>docs/operations/scaling.md</code> and
+      <code>docs/operations/migrations.md</code> for the removed knobs, and
+      document <code>REAPER_INTERVAL</code>'s dual duty — lease reaping <em>and</em>
+      promotion cadence (design OQ3 → a).
+      <em>Done. scaling.md was updated during Phase 6 (sizing table,
+      cold-start table, the enterprise-bottleneck lever, and the
+      BudgetTracker section replaced with a Discoverer-only one).
+      migrations.md gains "Removing the rate-limit reserve knobs
+      (IMPL-0022)": removed-value table, the five metric families that
+      go silent (a forked dashboard degrades quietly, so this is
+      called out explicitly), confirmation that
+      <code>rate_limit_remaining</code> survives, plus the new <code>MAX_JOB_ATTEMPTS</code>
+      knob and the <code>REAPER_INTERVAL</code> dual-duty note.
+      </em><em>Correction found while writing it:</em><em> the Phase 6 commit message
+      claimed <code>values.schema.json</code> rejects the removed knobs. It does
+      not — the chart has no <code>additionalProperties: false</code>, so a stale
+      values file rendered clean (verified by <code>helm template --set
+      staleSweep.rateLimitReserve=0.1</code>, exit 0). Rather than document
+      a silent no-op, added
+      <code>repo-guardian.validateRemovedValues</code> to <code>_helpers.tpl</code>
+      (same shape as <code>validateBackendSecrets</code>, included from
+      <code>deployment.yaml</code>) so each removed knob fails render with a
+      message naming the removal and linking the migration section.
+      Four helm-unittest cases cover the three failures and the clean
+      path.</em></li>
+<li>[x] 7.5 CLAUDE.md: the delayed-requeue contract and the
+      one-mechanism rule (no future in-handler blocking).
+      <em>Done. Seven invariants, led by "NOTHING BLOCKS IN-HANDLER,
+      EVER" with the finding-I amplification story attached so the
+      rule reads as a consequence rather than a preference, and an
+      explicit instruction for what to do instead when a future
+      backpressure source shows up (another <code>Reason</code>, not another
+      layer). Also pins: the four-key/exactly-one-key invariant and
+      its single construction point, <code>Attempts</code> accounting and why
+      <code>dropExhausted</code> returns nil, why a deferral skips both
+      <code>ErrorsTotal</code> and the <code>repo_state</code> write-back (verified against
+      the source ordering), <code>REAPER_INTERVAL</code>'s dual duty, and the
+      <code>AsThrottled</code> requirement with the go-github v68 pre-check path
+      that makes a bare <code>errors.As</code> silently wrong.</em></li>
+<li>[x] 7.6 Flip INV-0012 to Concluded and DESIGN-0021 to Implemented;
+      <code>docz update design inv impl</code>.
+      <em>Done, plus this IMPL to Completed (it was still Draft). INV-0012
+      concludes with all eleven findings A–K dispositioned by this
+      IMPL: A (inert tracker) deleted in 6.1, C/E (unfireable alert
+      windows) are the reasoning behind every window/<code>for</code> pair in 5.3
+      and 5.4, I (the sleep/lease overlap) fixed in Phase 0 and closed
+      out in Phase 3, J (in-flight member identity) resolved as
+      leave-it per design OQ5, K (uncapped nack loop) capped in 4.4.</em></li>
+</ul>
+<h4 id="success-criteria_7">Success Criteria</h4>
+<ul>
+<li>Chart renders and installs with the new values.</li>
+<li>mkdocs holds the 14-warning baseline.</li>
+<li>Every removed knob has a documented upgrade path.</li>
+</ul>
+<hr />
+<h2 id="file-changes">File Changes</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Action</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internal/github/ratelimit.go</code></td>
+<td>Modify</td>
+<td>P0 sleep cap → P3 <code>ThrottledError</code>; wait-pair recording removed</td>
+</tr>
+<tr>
+<td><code>internal/queue/queue.go</code></td>
+<td>Modify</td>
+<td>Job fields, <code>RetryAfterError</code>, <code>EnqueueAfter</code>, contract doc</td>
+</tr>
+<tr>
+<td><code>internal/queue/valkey/valkey.go</code></td>
+<td>Modify</td>
+<td>key centralisation, <code>deferScript</code>, <code>EnqueueAfter</code>, defer path in <code>processPayload</code></td>
+</tr>
+<tr>
+<td><code>internal/queue/valkey/reaper.go</code></td>
+<td>Modify</td>
+<td><code>promoteScript</code> in <code>reapOnce</code>, delayed-depth gauge, attempt increment on requeue</td>
+</tr>
+<tr>
+<td><code>internal/worker/worker.go</code></td>
+<td>Modify</td>
+<td>throttle translation, attempt cap, terminal disposition via <code>writeBack</code></td>
+</tr>
+<tr>
+<td><code>internal/config/config.go</code></td>
+<td>Modify</td>
+<td><code>MAX_JOB_ATTEMPTS</code>; P6 removes two discovery knobs</td>
+</tr>
+<tr>
+<td><code>internal/metrics/metrics.go</code></td>
+<td>Modify</td>
+<td>P5 adds four queue metrics; P6 removes budget + wait-pair definitions</td>
+</tr>
+<tr>
+<td><code>internal/checker/sweep.go</code></td>
+<td>Modify</td>
+<td>P6: gate removed, sampling call retained</td>
+</tr>
+<tr>
+<td><code>internal/scheduler/discoverer.go</code></td>
+<td>Modify</td>
+<td>P6: budget gate removed</td>
+</tr>
+<tr>
+<td><code>internal/budget/</code></td>
+<td>Delete</td>
+<td>P6</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/templates/prometheusrule.yaml</code></td>
+<td>Modify</td>
+<td>two new alerts; <code>BudgetGated</code> removed</td>
+</tr>
+<tr>
+<td><code>contrib/prometheus/alerts.yaml</code></td>
+<td>Modify</td>
+<td>two new alerts; <code>RateLimitThrottling</code> re-pointed</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/values.yaml</code> + <code>values.schema.json</code></td>
+<td>Modify</td>
+<td><code>MAX_JOB_ATTEMPTS</code> in; two discovery knobs out</td>
+</tr>
+<tr>
+<td><code>docs/operations/scaling.md</code>, <code>migrations.md</code></td>
+<td>Modify</td>
+<td>new metrics, removed knobs, <code>REAPER_INTERVAL</code> dual duty</td>
+</tr>
+</tbody>
+</table>
+<h2 id="testing-plan">Testing Plan</h2>
+<ul>
+<li>[x] Phase 0 finding-I timeline regression test (fake clock),
+      preserved through all later phases.
+      <code>TestRateLimitTransport_FindingITimeline_CapPreventsDoubleClaim</code>
+      survived Phase 3's rewrite of the pre-emptive path (it was
+      amended, not deleted — the assertion moved to <code>errors.As</code> on
+      <code>ThrottledError</code>), and its static guard that
+      <code>maxRateLimitSleep &lt; JOB_ACK_TIMEOUT</code> still holds.</li>
+<li>[x] Old-payload JSON decode compatibility test (1.6).
+      <code>TestJob_OldPayloadDecodesWithZeroRetryFields</code> +
+      <code>TestJob_RetryFieldsRoundTrip</code>.</li>
+<li>[x] Valkey integration tests: due-time honoured, exactly-one-key
+      invariant, leader-gated promotion (2.5–2.7) — Lua atomicity is
+      only provable against real Valkey.
+      <code>TestValkey_DeferredJobNotDeliveredEarly</code>,
+      <code>TestValkey_ExactlyOneKeyInvariant</code>,
+      <code>TestValkey_PromotionLeaderGated</code>. Full integration suite green
+      against real Valkey (52.9s).</li>
+<li>[x] End-to-end wrap-chain test (3.4) with recorded non-vacuity
+      check (3.5). <code>TestCheckRepo_ThrottledErrorSurvivesWrapChain</code>,
+      two timelines. It earned its keep: the first run FAILED and
+      exposed the undesigned go-github v68 pre-check path, which is
+      why <code>AsThrottled</code> exists.</li>
+<li>[x] Worker defer/attempt/terminal tests (4.6–4.8), including the
+      dead-installation self-heal shape.
+      <code>TestValkey_DeferredNotNacked</code>,
+      <code>TestValkey_DeferralFreesWorkerSlot</code>,
+      <code>TestValkey_AttemptsAccumulateAcrossNackAndRequeue</code>,
+      <code>TestPool_AttemptCap_TerminalDisposition</code>. <strong>Partial on one
+      point, stated plainly:</strong> the terminal <em>drop</em> is covered
+      (StatusError row, counter, ack-and-drop); the <em>self-heal</em> half —
+      the next stale sweep re-enqueuing the dropped repo — is not
+      separately tested, because it is the ordinary <code>StaleRepos</code>
+      path with no IMPL-0022 code in it (a row with
+      <code>last_check_status='error'</code> and an old <code>last_checked_at</code> is
+      stale by the existing predicate). Worth an end-to-end test if
+      the sweep predicate is ever narrowed.</li>
+<li>[x] Mock fidelity: promotion-then-delivery is list-then-act — fakes
+      must reflect prior writes or the due-time assertion is vacuous
+      (CLAUDE.md rule). Satisfied by construction rather than by
+      careful faking: every promotion assertion runs against <strong>real
+      Valkey</strong> under the <code>integration</code> tag, so there is no mock whose
+      list method could return a stale view. The unit-level fakes
+      (<code>deliverOnceQueue</code>, <code>capturingStore</code>) never model
+      promotion — they only observe a single delivery's outcome.</li>
+<li>[x] helm-unittest on rendered alert expressions (task 5.5;
+      101 chart tests green).</li>
+<li>[x] Each behavioural test neutralise-verify-restore per standing
+      practice. Recorded this cycle: <code>promoteScript</code> due-bound (+inf →
+      1.74s-early delivery), <code>promoteScript</code> ZREM (36 duplicate
+      promotions), engine <code>%w</code>→<code>%v</code> (both chain subtests fail),
+      <code>deferInFlight</code> Attempts++ ("parked Attempts = 0"),
+      <code>requeuePayload</code> Attempts++ ("redelivered Attempts = 0"),
+      <code>sampleRateLimit</code> dedup ("calls for installation 1 = 2, want
+      1"), and the JobsExhausted alert's second leg (1 failed / 95
+      passed). Phase 0's cap was verified two ways at the time.</li>
+</ul>
+<h2 id="dependencies">Dependencies</h2>
+<ul>
+<li>INV-0012 (Concluded by Phase 7) — findings A–K are the evidence
+  base.</li>
+<li>No dependency on IMPL-0023 except the transport-ordering test
+  (whichever Phase 3 lands second adds it).</li>
+<li>DESIGN-0015 stays Draft; this work only leaves its hooks.</li>
+</ul>
+<h2 id="open-questions">Open Questions</h2>
+<ol>
+<li>
+<p><strong>Release labeling across the per-phase PRs.</strong>
+   <strong>Resolved 2026-08-02 → (a).</strong>
+   (a) Label the Phase 0+1, 2, 3, and 4 PRs <code>dont-release</code>; the
+   Phase 5 PR carries <code>minor</code> and cuts the one binary release for
+   phases 1–5 (matching the design's rollout step 2). Phase 6's PR
+   carries its own <code>minor</code>. Keeps released binaries at exactly the
+   design's two behavioural checkpoints instead of shipping a
+   half-built defer path.
+   (b) Each phase PR carries <code>patch</code>/<code>minor</code> and releases
+   independently — more releases, each smaller, but versions ship
+   with <code>EnqueueAfter</code> present and nothing calling it.
+   (c) One giant PR for phases 1–5 — single review, single release,
+   but far too large to review well.
+   other:</p>
+</li>
+<li>
+<p><strong>Phase 0 cap: constant or knob.</strong>
+   <strong>Resolved 2026-08-02 → (a).</strong>
+   (a) Hardcoded <code>maxPreemptiveSleep = 60s</code> const — it is scaffolding
+   that Phase 3 deletes weeks later; an env knob would need schema,
+   chart plumbing, and a deprecation path for something with a
+   planned lifespan of one phase.
+   (b) <code>RATE_LIMIT_MAX_SLEEP</code> env var — tunable if the cap misbehaves
+   in the homelab, at the cost of shipping-then-removing a documented
+   knob.
+   other:</p>
+</li>
+<li>
+<p><strong>Backoff constants for deferrals with no server-supplied time.</strong>
+   <strong>Resolved 2026-08-02 → (a).</strong>
+   (a) <code>base 30s, factor 2, cap 30m</code>, jitter <code>rand[0, min(delay/4,
+   60s))</code> — reaches the 30m ceiling on attempt 7 of 10, so a job
+   exhausts in roughly 2–3 hours; hardcoded consts next to the
+   translation in <code>internal/worker</code>, no config surface until someone
+   needs one.
+   (b) <code>base 60s, factor 2, cap 1h</code> — gentler on the API, but a
+   10-attempt exhaustion stretches past 8 hours, longer than the gap
+   between sweeps' fresh enqueues, muddying "who re-enqueued this."
+   (c) Make base/factor/cap env-configurable now — three knobs nobody
+   has asked for.
+   other:</p>
+</li>
+<li>
+<p><strong><code>queue_wait_seconds</code> bucket layout.</strong>
+   <strong>Resolved 2026-08-02 → (a)</strong>, with a caveat to carry into task
+   5.6's docs: during initial fleet onboarding or a policy-version
+   upgrade the entire fleet re-enqueues at once, so waits legitimately
+   pile into the top buckets — that skew is expected, not a
+   regression, and the low-end granularity is mostly noise in those
+   windows. If the fine low-end buckets prove useless once steady
+   state is reached, collapse them in a follow-up (bucket changes are
+   non-breaking; only <code>histogram_quantile</code> precision shifts).
+   (a) Custom buckets <code>[1s, 5s, 15s, 60s, 5m, 15m, 1h, 4h]</code> — the
+   decision this histogram exists for (DESIGN-0015 go/no-go) lives in
+   the minutes-to-hours range that <code>prometheus.DefBuckets</code> (capped at
+   10s) cannot see; 8 buckets × ~25 installations stays well inside
+   cardinality budget.
+   (b) <code>prometheus.ExponentialBuckets(1, 4, 8)</code> (1s → ~4.5h) — same
+   coverage, less legible boundaries.
+   other:</p>
+</li>
+</ol>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="../../design/0021-delayed-requeue-job-contract-and-rate-limit-consolidation/">DESIGN-0021</a>
+  — the design; all OQs resolved 2026-08-02</li>
+<li><a href="../../investigation/0012-inert-budgettracker-and-untrustworthy-alert-pack/">INV-0012</a>
+  — findings A–K (amplification timeline = finding I; missing
+  contract = finding K)</li>
+<li><a href="../../investigation/0013-state-vs-event-metrics-dashboard-suite-and-system-observability/">INV-0013</a>
+  — Finding G one-source rule behind task 3.3</li>
+<li><a href="../0023-compliance-posture-state-dashboard-suite-and-otel-first/">IMPL-0023</a>
+  — shared transport-ordering contract (its Phase 3)</li>
+<li><a href="../0011-persistent-reconcile-state-and-multi-replica-coordination/">IMPL-0011</a>
+  — introduced the queue, lease, and reaper being extended</li>
+<li><code>docs/operations/ent-setup.md</code> — the dead-installation incident that
+  resolved design OQ2 to (a)</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

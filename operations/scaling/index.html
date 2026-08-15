@@ -1,0 +1,2783 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Scaling repo-guardian - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#scaling-repo-guardian" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Scaling repo-guardian
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#sizing-knobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sizing knobs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scaling-for-repo-count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scaling for repo count
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scaling-for-github-enterprise-multi-org-multi-thousand-repo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scaling for GitHub Enterprise (multi-org, multi-thousand-repo)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scaling for GitHub Enterprise (multi-org, multi-thousand-repo)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-changes-at-this-scale" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What changes at this scale
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-rate-limit-math" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The rate-limit math
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recommended-chart-values-for-3000-repos-25-ghec-orgs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommended chart values for 3000 repos × 25 GHEC orgs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#connection-pool-math" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connection-pool math
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cold-start-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cold-start validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-the-api-rate-limit-is-genuinely-the-bottleneck" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When the API rate limit is genuinely the bottleneck
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sizing-for-postgres" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sizing for Postgres
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sizing for Postgres">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#write-back-observability-impl-0015-phase-0" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Write-back observability (IMPL-0015 Phase 0)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#discoverer-impl-0015-phase-1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Discoverer (IMPL-0015 Phase 1)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Discoverer (IMPL-0015 Phase 1)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#discovery-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Discovery metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tuning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tuning
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#repository-parking-inv-0015" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Repository parking (INV-0015)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Repository parking (INV-0015)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#only-discovery-un-parks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Only discovery un-parks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metric" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metric
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-empty-repositories-are-not-parked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why empty repositories are not parked
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#delayed-requeue-impl-0022" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delayed requeue (IMPL-0022)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Delayed requeue (IMPL-0022)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reading-the-gono-go-datum" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading the go/no-go datum
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#custom-property-schema-preflight-impl-0017-phase-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom-property schema preflight (IMPL-0017 Phase 3)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Custom-property schema preflight (IMPL-0017 Phase 3)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#metric_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metric
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loki-matching-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Loki matching contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compliance-posture-impl-0023-phases-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compliance posture (IMPL-0023 Phases 1–2)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Compliance posture (IMPL-0023 Phases 1–2)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-exporter-runs-on-the-leader-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The exporter runs on the leader only
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#watch-the-exporter-itself" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Watch the exporter itself
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compliance-is-no-data-when-nothing-is-tracked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compliance is "no data" when nothing is tracked
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#opentelemetry-series-impl-0023-phase-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OpenTelemetry series (IMPL-0023 Phase 3)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="OpenTelemetry series (IMPL-0023 Phase 3)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-dedup-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The dedup rule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cardinality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cardinality
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sizing-for-valkey" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sizing for Valkey
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-replica-gotchas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-replica gotchas
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="scaling-repo-guardian">Scaling repo-guardian</h1>
+<p>This is the operator-facing sizing guide for the IMPL-0011 multi-replica
+deployment shapes. The single-replica <code>memory + memory + ticker</code> mode
+needs none of this — keep <code>replicaCount: 1</code> and run.</p>
+<h2 id="sizing-knobs">Sizing knobs</h2>
+<table>
+<thead>
+<tr>
+<th>Knob</th>
+<th>Default</th>
+<th>When to tune</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>replicaCount</code></td>
+<td><code>1</code></td>
+<td>Bump when one replica is saturated handling webhooks (target: &lt;50% CPU on the webhook handler container).</td>
+</tr>
+<tr>
+<td><code>config.workerCount</code></td>
+<td><code>5</code></td>
+<td>Number of concurrent reconcile workers per replica. Each worker holds one GitHub installation client. Increase when queue depth stays &gt; 100 for sustained periods.</td>
+</tr>
+<tr>
+<td><code>store.postgres.maxConns</code></td>
+<td><code>16</code></td>
+<td>Postgres pool cap per replica. Should be ≥ <code>workerCount + 4</code> (workers + sweep + scheduler + reaper); below that the pool starves.</td>
+</tr>
+<tr>
+<td><code>staleSweep.batchSize</code></td>
+<td><code>200</code></td>
+<td>Max repos returned per <code>StaleRepos</code> query. Higher batches = bigger spike per sweep tick.</td>
+</tr>
+<tr>
+<td><code>staleSweep.freshness</code></td>
+<td><code>24h</code></td>
+<td>Max age of <code>last_checked_at</code> before re-queue. Lower = more frequent reconciles, higher = less GitHub API consumption.</td>
+</tr>
+<tr>
+<td><code>config.maxJobAttempts</code></td>
+<td><code>10</code></td>
+<td>Deliveries a job may accumulate (defers + reaper requeues) before it is dropped with a terminal <code>repo_state</code> error. The next stale sweep re-enqueues it.</td>
+</tr>
+<tr>
+<td><code>queue.valkey.jobAckTimeout</code></td>
+<td><code>5m</code></td>
+<td>Max time a job may stay in-flight before reaper requeues. Should be &gt; worst-case <code>engine.CheckRepo</code> runtime.</td>
+</tr>
+<tr>
+<td><code>queue.valkey.reaperInterval</code></td>
+<td><code>60s</code></td>
+<td>Cadence between reaper iterations. Lower = faster recovery on worker death; higher = less Valkey load.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scaling-for-repo-count">Scaling for repo count</h2>
+<p>Rough rule of thumb: each replica reconciles ~<code>workerCount × (3600 / avg_check_duration_seconds)</code> repos per hour. If the average check is 2s and <code>workerCount=5</code>, one replica handles ~9000 reconciles per hour.</p>
+<p>For a 200-repo organisation reconciling daily, one replica with the defaults is comfortably oversized. You only need horizontal scale when:</p>
+<ul>
+<li>The <code>repo_guardian_queue_depth{queue="jobs"}</code> Prometheus metric stays above ~100 for sustained windows.</li>
+<li><code>repo_guardian_check_duration_seconds</code> p99 climbs past your tick interval × workerCount.</li>
+<li>Webhook ACK latency starts breaching the 2s SLA (visible as <code>repo_guardian_errors_total{operation="enqueue"}</code>).</li>
+</ul>
+<p>Scale up: bump <code>replicaCount</code> first, <code>workerCount</code> second. Splitting work across replicas reduces the blast radius of a single GitHub installation token going stale.</p>
+<h2 id="scaling-for-github-enterprise-multi-org-multi-thousand-repo">Scaling for GitHub Enterprise (multi-org, multi-thousand-repo)</h2>
+<p>The single-org rule of thumb above breaks down once you cross ~10 orgs or ~1000 repos. The binding constraint stops being CPU or queue depth and starts being <strong>GitHub's per-installation API rate limit</strong>. Sizing for this scale is a different exercise.</p>
+<h3 id="what-changes-at-this-scale">What changes at this scale</h3>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Single-org / small</th>
+<th>GHEC multi-org / large</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bottleneck</td>
+<td>Worker throughput</td>
+<td>Per-installation rate-limit budget</td>
+</tr>
+<tr>
+<td>Sweep duration</td>
+<td>Seconds to a few minutes</td>
+<td>Tens of minutes, intentionally paced</td>
+</tr>
+<tr>
+<td>Database load</td>
+<td>Negligible either way</td>
+<td>Still negligible (state table is tiny)</td>
+</tr>
+<tr>
+<td>Connection pooling</td>
+<td>Direct Postgres connection fine</td>
+<td>Need PgBouncer between binary and Postgres</td>
+</tr>
+<tr>
+<td>Replica count</td>
+<td>1 is correct</td>
+<td>2-3 for HA + webhook ingress</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-rate-limit-math">The rate-limit math</h3>
+<p>GitHub App installations get <strong>5000 requests/hour</strong> on non-enterprise organisations and <strong>12500 requests/hour</strong> on GitHub Enterprise Cloud organisations. At 25 GHEC orgs × 12500 = 312500 req/hr theoretical aggregate, but sweeps run all installations in parallel and the limit is per-install, not aggregate.</p>
+<table>
+<thead>
+<tr>
+<th>Math</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Repos in scope</td>
+<td>3000</td>
+</tr>
+<tr>
+<td>Average API calls per repo check</td>
+<td>~10 (4 file checks + branch/PR ops if actionable)</td>
+</tr>
+<tr>
+<td>Full sweep API cost</td>
+<td>30000 calls</td>
+</tr>
+<tr>
+<td>Per-install per sweep</td>
+<td>30000 / 25 = 1200 calls per installation</td>
+</tr>
+<tr>
+<td>Fraction of 12500/hr GHEC budget</td>
+<td>~10%</td>
+</tr>
+<tr>
+<td>Fraction of 5000/hr non-GHEC budget</td>
+<td>~24%</td>
+</tr>
+</tbody>
+</table>
+<p>A full cold-start sweep is the worst case. Steady-state is much lighter because the <code>staleSweep.freshness</code> gate skips repos checked within the freshness window — most sweep ticks enqueue a small fraction of the inventory.</p>
+<h3 id="recommended-chart-values-for-3000-repos-25-ghec-orgs">Recommended chart values for 3000 repos × 25 GHEC orgs</h3>
+<pre><code class="language-yaml">replicaCount: 3                      # HA + webhook ingress distribution
+
+config:
+  workerCount: 15                    # 15 × 3 = 45 concurrent reconciles
+  scheduleInterval: &quot;12h&quot;            # freshness gate carries the day; sweep can run often
+
+staleSweep:
+  freshness: &quot;24h&quot;
+  batchSize: 500                     # higher = fewer Store round-trips per tick
+
+store:
+  backend: postgres
+  postgres:
+    mode: cnpg
+    maxConns: 10                     # per-replica → 30 total client connections to pooler
+    cnpg:
+      cluster:
+        instances: 3                 # primary + 2 standbys for failover
+      pooler:
+        enabled: true
+        pgbouncer:
+          poolMode: transaction
+          defaultPoolSize: 30        # 30 server connections from pooler to Postgres
+          maxClientConnections: 100  # 30→100 multiplexing ratio
+
+queue:
+  backend: valkey
+  valkey:
+    mode: baked
+    jobAckTimeout: &quot;5m&quot;
+    reaperInterval: &quot;30s&quot;
+
+scheduler:
+  backend: valkey                    # MANDATORY for multi-replica
+</code></pre>
+<h3 id="connection-pool-math">Connection-pool math</h3>
+<p>With the values above:</p>
+<pre><code>replicas × maxConns       = 3 × 10  = 30 client connections into PgBouncer
+PgBouncer defaultPoolSize = 30           server connections to Postgres
+Postgres max_connections  = 100          (CNPG default; absorbs pool + admin headroom)
+</code></pre>
+<p>PgBouncer in <code>transaction</code> mode multiplexes 30 long-lived client conns onto 30 short-lived server conns. The 100 <code>max_client_conn</code> headroom is for transient connection storms during pod restarts; with steady-state 30 clients it's never approached.</p>
+<p>If you bump replica count further, the formula is <code>replicas × maxConns ≤ defaultPoolSize</code>. Either lower <code>maxConns</code> per replica or raise <code>defaultPoolSize</code> and Postgres <code>max_connections</code> in lockstep.</p>
+<h3 id="cold-start-validation">Cold-start validation</h3>
+<p>Before turning on multi-replica for a fleet this size, run a full cold-start sweep on a single replica and watch:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Healthy</th>
+<th>Action if breached</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>repo_guardian_rate_limit_remaining{installation_id="..."}</code></td>
+<td>Stays above <code>RATE_LIMIT_THRESHOLD × limit</code> for every install (sampled once per installation per sweep)</td>
+<td>Raise <code>staleSweep.freshness</code>, or lower <code>staleSweep.batchSize</code> to spread work over more ticks</td>
+</tr>
+<tr>
+<td><code>repo_guardian_queue_delayed_depth</code></td>
+<td>Brief blips during cold start, drains to 0</td>
+<td>Sustained depth = the fleet exceeds its API budget; see §Delayed requeue</td>
+</tr>
+<tr>
+<td><code>repo_guardian_queue_depth</code></td>
+<td>Drains within a sweep cycle</td>
+<td>Raise <code>config.workerCount</code> per replica</td>
+</tr>
+<tr>
+<td><code>repo_guardian_store_query_seconds</code> p99</td>
+<td>&lt; 100ms</td>
+<td>Bump CNPG <code>instances</code>, add SSD storage class</td>
+</tr>
+</tbody>
+</table>
+<p>Only once those metrics behave on a single replica should you raise <code>replicaCount</code>. Multi-replica adds coordination overhead (Valkey leader election, work distribution) — it doesn't fix a misconfigured single replica.</p>
+<h3 id="when-the-api-rate-limit-is-genuinely-the-bottleneck">When the API rate limit is genuinely the bottleneck</h3>
+<p>If after tuning you still see <code>queue_delayed_total{reason="rate_limit"}</code> climbing on a steady-state sweep, the only real levers are:</p>
+<ol>
+<li><strong>Increase <code>staleSweep.freshness</code></strong> — re-check repos less often. 24h → 48h halves steady-state load.</li>
+<li><strong>Disable rules you don't actually need.</strong> Each rule = ~1 API call per repo. Trimming <code>dependabot</code> (if you use Renovate exclusively) saves 3000 calls per sweep.</li>
+<li><strong>Go to per-org App credentials.</strong> Each App has its own rate-limit budget. 25 separate Apps = 25 × budget. This is the INV-0006 path — currently Deferred; consider promoting if rate limit is the actual scaling wall.</li>
+<li><strong>Request a rate-limit increase from GitHub.</strong> Possible on Enterprise contracts, less so otherwise.</li>
+</ol>
+<p>Infrastructure scaling does not help once the API rate limit is binding. More replicas, more workers, more Postgres — all of them sit idle waiting for the rate-limit window to refresh.</p>
+<h2 id="sizing-for-postgres">Sizing for Postgres</h2>
+<p>Each Store query is a single round-trip; tracked via <code>repo_guardian_store_query_seconds</code>. Watch the p95 — anything above 100ms means the database is the bottleneck and you should look at:</p>
+<ul>
+<li>Storage class (use SSD for the baked StatefulSet).</li>
+<li><code>maxConns</code> (should be ≥ <code>workerCount + 4</code>).</li>
+<li>Index health (<code>pg_stat_user_indexes</code> on <code>repo_state</code>).</li>
+<li>CNPG instance count if running in <code>mode=cnpg</code> (default 1; bump to 3 for HA).</li>
+</ul>
+<h3 id="write-back-observability-impl-0015-phase-0">Write-back observability (IMPL-0015 Phase 0)</h3>
+<p>Worker write-backs are tracked separately from generic Store queries:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Meaning</th>
+<th>Healthy signal</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>repo_guardian_store_writeback_total{outcome="ok"}</code></td>
+<td>Worker finished a job and persisted its outcome. Rises 1:1 with <code>repo_guardian_repos_checked_total</code> modulo write-back errors.</td>
+<td>Lock-step with <code>repos_checked_total</code>.</td>
+</tr>
+<tr>
+<td><code>repo_guardian_store_writeback_total{outcome="error"}</code></td>
+<td>Worker finished a job but <code>UpdateRepoState</code> failed. The work was real (PR opened/updated, files committed) but persistent state did not converge; the stale-sweeper will re-enqueue.</td>
+<td>Zero in steady state; transient spikes during DB rolls.</td>
+</tr>
+<tr>
+<td><code>repo_guardian_store_writeback_duration_seconds</code></td>
+<td>Latency of <code>UpdateRepoState</code> from the worker pool.</td>
+<td>p99 &lt; 50ms. Bumps in this metric — but flat <code>store_query_seconds</code> — point at write-contention or a missing index, not a generic DB problem.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="discoverer-impl-0015-phase-1">Discoverer (IMPL-0015 Phase 1)</h2>
+<p>The Discoverer runs on the leader pod at <code>DISCOVERY_INTERVAL</code> (default 1h), enumerates installations + repos via the GitHub API, and persists discovery rows via <code>Store.UpsertIfMissing</code>. Newly-discovered rows enter <code>repo_state</code> with <code>LastCheckStatus=pending</code> and a jittered <code>LastCheckedAt</code> so the stale-sweeper picks them up on its next tick without synchronizing every repo's due-time.</p>
+<p>Discovery is not throttle-gated. It costs one <code>list_installation_repos</code> call per installation per interval, and any real rate-limit pressure surfaces on the <em>check</em> jobs, which defer themselves (see §Delayed requeue). The IMPL-0015 BudgetTracker that used to gate it was removed in IMPL-0022 Phase 6 — it never gated anything in production (INV-0012 finding A: nothing called <code>RefreshFromAPI</code> outside tests, so every lookup fell open).</p>
+<h3 id="discovery-metrics">Discovery metrics</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Meaning</th>
+<th>Healthy signal</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>repo_guardian_repo_discovered_total{installation_id}</code></td>
+<td>New repos surfaced by the Discoverer per installation.</td>
+<td>Bumps on first discovery; flat thereafter (idempotent UpsertIfMissing).</td>
+</tr>
+<tr>
+<td><code>repo_guardian_discovery_duration_seconds</code></td>
+<td>Wall-clock per <code>Discoverer.Discover</code> invocation.</td>
+<td>Scales with installations × repos; p99 should fit comfortably inside <code>DISCOVERY_INTERVAL</code>.</td>
+</tr>
+<tr>
+<td><code>repo_guardian_discovery_api_calls_total{installation_id, endpoint}</code></td>
+<td>GitHub API calls the Discoverer made.</td>
+<td>Steady rate; <code>endpoint="list_installation_repos"</code> is the dominant contributor.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tuning">Tuning</h3>
+<ul>
+<li><code>discovery.interval</code> (default 1h) — primary discovery channel is webhooks (<code>installation_repositories.added</code> / <code>repository.created</code>); the Discoverer is the safety net for missed deliveries. Operators confident in webhook fidelity can stretch this to 6h+.</li>
+</ul>
+<h2 id="repository-parking-inv-0015">Repository parking (INV-0015)</h2>
+<p>A repository whose check can never succeed is <em>parked</em>: its <code>repo_state</code> row gets <code>active = false</code> and the stale sweep stops offering it. The row is kept, never deleted, so the history stays queryable. Three reasons park:</p>
+<table>
+<thead>
+<tr>
+<th><code>reason</code></th>
+<th>Trigger</th>
+<th>Expected volume</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>access_denied</code></td>
+<td>Check failed 403/404 — the App was uninstalled from the repository, lost a permission, or the repository was deleted.</td>
+<td>A trickle in a large org; a step change means access changed.</td>
+</tr>
+<tr>
+<td><code>archived</code></td>
+<td><code>skip_archived</code> is on and the repository is archived.</td>
+<td>Grows slowly and monotonically in any long-lived org.</td>
+</tr>
+<tr>
+<td><code>fork</code></td>
+<td><code>skip_forks</code> is on and the repository is a fork.</td>
+<td>Same.</td>
+</tr>
+</tbody>
+</table>
+<p>Parking is the reason a large org's sweep cost tracks <em>active</em> repositories rather than total ones. Before it, each of the three burned budget forever, in two different shapes:</p>
+<ul>
+<li>an <strong>unreadable</strong> repository took the generic error path — nack, requeue, <code>Attempts++</code> to <code>MAX_JOB_ATTEMPTS</code> — and the next sweep handed it straight back, burning the full attempt budget every cycle with failures indistinguishable from a transient 500;</li>
+<li>an <strong>archived or forked</strong> repository was cheaper but equally endless: enqueue, installation client, <code>GetRepository</code>, skip, write-back, and round again every freshness cycle for as long as the repository existed.</li>
+</ul>
+<h3 id="only-discovery-un-parks">Only discovery un-parks</h3>
+<p>Discovery is the one component that observes the installation's real repository set, so restored access or an un-archived repository rejoins the sweep on the next discovery pass with <strong>no operator action</strong>. Reactivation deliberately leaves <code>last_checked_at</code> and <code>policy_version</code> alone; overwriting them would reset the freshness gate and re-check the whole fleet on every discovery pass.</p>
+<p>This means parking is self-healing but lags by up to one <code>discovery.interval</code> (default 1h). It also means the alert below is informational: it tells you access changed, not that you must do something.</p>
+<h3 id="metric">Metric</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Meaning</th>
+<th>Healthy signal</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>repo_guardian_repos_parked_total{org, installation_id, reason}</code></td>
+<td>Repositories removed from the stale sweep, by reason.</td>
+<td><code>archived</code>/<code>fork</code> climb slowly and plateau. <code>access_denied</code> is flat or a slow trickle.</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-promql"># Which reason is moving — archived/fork are routine, access_denied is not
+sum by (reason) (increase(repo_guardian_repos_parked_total[24h]))
+</code></pre>
+<p>Only <code>reason="access_denied"</code> is alerted (<code>RepoGuardianRepoAccessDenied</code>). Archived and fork parks are routine bookkeeping and would page on every normal onboarding sweep.</p>
+<p>To see what is currently parked and why:</p>
+<pre><code class="language-sql">SELECT owner, repo, last_check_status, last_error
+FROM repo_state
+WHERE NOT active
+ORDER BY owner, repo;
+</code></pre>
+<p><code>last_check_status</code> separates the kinds — <code>error</code> with the API failure in <code>last_error</code> for access-denied, <code>skipped</code> with the bare reason for archived and fork.</p>
+<h3 id="why-empty-repositories-are-not-parked">Why empty repositories are not parked</h3>
+<p>Parking is stable only when the check path's skip conditions are a <strong>subset</strong> of discovery's filters. Discovery filters archived and fork repositories, so a repository parked for either reason is not offered back and it settles.</p>
+<p>An <em>empty</em> repository (no default branch yet) is skipped by the engine too, but discovery does <strong>not</strong> filter it. Parking it would have discovery re-upsert the row on its very next pass, flipping <code>active</code> back to <code>true</code>, and the two would churn against each other at the discovery interval forever — turning a cheap no-op into an hourly write. So empty repositories are skipped the old way and freshness governs the next check, which is also right on the merits: a repository stops being empty on its first push, and that push is a webhook away.</p>
+<p>If you add a skip condition to the engine, check <code>Discoverer.discoverInstallation</code> before marking it durable. The invariant is restated on <code>checker.SkippedError</code>.</p>
+<h2 id="delayed-requeue-impl-0022">Delayed requeue (IMPL-0022)</h2>
+<p>When a job's GitHub calls run into the rate-limit reserve (pre-emptive threshold) or a hard 403, the worker no longer sleeps in the transport — it defers the whole job into a Valkey delayed set with a due-time at the rate-limit reset (plus jitter), freeing the worker slot immediately. The reaper leader promotes due jobs back onto the pending list each <code>REAPER_INTERVAL</code> tick, so delivery lags due-time by up to one interval (default 60s). A job that keeps failing re-defers with exponential backoff and is dropped with a terminal <code>repo_state</code> error at <code>MAX_JOB_ATTEMPTS</code> (default 10); the stale sweep re-enqueues it naturally on its next pass.</p>
+<h3 id="metrics">Metrics</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Type</th>
+<th>Meaning</th>
+<th>Healthy</th>
+<th>Backpressured</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>queue_delayed_depth</code></td>
+<td>Gauge</td>
+<td>Jobs parked in the delayed set, published by <strong>every</strong> pod's reaper tick.</td>
+<td>0, with brief single-digit blips after a sweep lands near the reserve.</td>
+<td>Sustained &gt; 100 — deferrals outpace promotion; the fleet's check volume exceeds the API budget. Drives <code>RepoGuardianQueueBackpressure</code>.</td>
+</tr>
+<tr>
+<td><code>queue_delayed_total{reason, installation_id}</code></td>
+<td>Counter</td>
+<td>Deferral events per job. The single source for throttle counting (replaced the <code>github_rate_limit_waits</code> pair).</td>
+<td>Flat, or isolated small bursts.</td>
+<td>Recurring hourly batches from one <code>installation_id</code> — that tenant is rate-limit-bound. Drives the re-pointed <code>RepoGuardianRateLimitThrottling</code>.</td>
+</tr>
+<tr>
+<td><code>queue_delay_seconds{reason}</code></td>
+<td>Histogram</td>
+<td>Deferral horizon (due-time minus now) at defer time.</td>
+<td>Mass in the ≤ 3600s buckets (a reset window is at most an hour).</td>
+<td>p99 pinned at the 1800s backoff cap means resets are stale/absent and jobs are backing off blind — check <code>AsThrottled</code> reset propagation.</td>
+</tr>
+<tr>
+<td><code>queue_wait_seconds{installation_id}</code></td>
+<td>Histogram</td>
+<td>Enqueue-to-claim latency — the DESIGN-0015 go/no-go datum for per-installation queue partitioning. Parked time counts deliberately: the tenant experienced it as wait.</td>
+<td>p99 under a few seconds in steady state.</td>
+<td>One installation's p99 in the 3600s+ buckets while others stay low = noisy-neighbor starvation, the DESIGN-0015 partition trigger.</td>
+</tr>
+<tr>
+<td><code>queue_attempts_exhausted_total{installation_id}</code></td>
+<td>Counter</td>
+<td>Jobs dropped at <code>MAX_JOB_ATTEMPTS</code> with a terminal <code>StatusError</code> write-back.</td>
+<td>Zero.</td>
+<td>Any sustained rate = a persistently failing installation (dead credentials, suspended App). Drives <code>RepoGuardianJobsExhausted</code>.</td>
+</tr>
+<tr>
+<td><code>queue_acked_total{outcome="deferred"}</code></td>
+<td>Counter</td>
+<td>Third ack outcome: the job was parked, not completed or failed.</td>
+<td>Matches <code>queue_delayed_total</code> 1:1.</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Expect <code>queue_wait_seconds</code> top-bucket skew during fleet onboarding and policy-version bumps.</strong> Both events mark the whole fleet due at once; the queue drains over hours by design (that is the backpressure working), so every job claimed late in the drain reports a large wait. Don't read a fat 4h bucket during a rollout as noisy-neighbor starvation — compare installations <em>against each other</em> in steady state instead.</p>
+<h3 id="reading-the-gono-go-datum">Reading the go/no-go datum</h3>
+<p>DESIGN-0015 asks whether per-installation queue partitioning is needed. The measurement:</p>
+<pre><code class="language-promql"># Per-installation p99 wait — divergence between tenants, not absolute value, is the signal
+histogram_quantile(0.99,
+  sum by (installation_id, le) (rate(repo_guardian_queue_wait_seconds_bucket[6h])))
+</code></pre>
+<p>If one installation's p99 sits orders above the rest in steady state (not during onboarding), partitioning has its evidence.</p>
+<h2 id="custom-property-schema-preflight-impl-0017-phase-3">Custom-property schema preflight (IMPL-0017 Phase 3)</h2>
+<p>The <code>custom_properties</code> reconciler (API mode) checks every managed property
+name — <code>{Owner, Component}</code> ∪ the operator's <code>annotation_properties</code> targets
+— against the org's actual custom-property schema before PATCHing. A
+property the schema doesn't define is dropped from the payload (the rest
+still syncs in the same PATCH), warned about, and counted. The schema lookup
+is cached per org for 30 minutes and de-duplicated across concurrent
+worker-pool calls for the same org, so a fleet sweep costs at most one
+<code>GetOrgPropertySchema</code> API call per org per window regardless of how many
+repos in that org are processed concurrently.</p>
+<h3 id="metric_1">Metric</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Meaning</th>
+<th>Healthy signal</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>repo_guardian_custom_property_missing_schema_total{org, property}</code></td>
+<td>Sync attempts for a managed property absent from the org's custom-property schema.</td>
+<td>Zero in steady state. Non-zero means either the org schema is missing a property definition the policy expects, or <code>annotation_properties</code> maps to a stale/renamed property.</td>
+</tr>
+</tbody>
+</table>
+<p>Cardinality is bounded by the operator's <code>annotation_properties</code> config
+(single digits per org), so this is safe to alert on directly without a
+<code>sum()</code> — see below.</p>
+<h3 id="loki-matching-contract">Loki matching contract</h3>
+<p>When the schema fetch succeeds but one or more managed properties are
+undefined, the reconciler emits exactly this log line (locked by
+<code>TestAPIMode_FiltersUndefinedMappedProperty</code> in
+<code>internal/reconciler/custom_properties_test.go</code> — a Go test asserts the
+literal text and keys so this contract can't drift silently):</p>
+<pre><code>level=WARN msg=&quot;custom properties missing from org schema&quot; org=&lt;org&gt; repo=&lt;repo&gt; missing_properties=[&lt;Name1&gt; &lt;Name2&gt; ...]
+</code></pre>
+<ul>
+<li><strong>Message text</strong> (match on this, not just the level): <code>custom properties missing from org schema</code></li>
+<li><strong>Structured keys:</strong> <code>org</code> (string), <code>repo</code> (string), <code>missing_properties</code> (list of property names present in the sync attempt but absent from the org schema)</li>
+</ul>
+<p>Sample LogQL alerting rule (Loki ruler), grouped by org so each org's
+missing-schema streak pages independently. Note the lookback window is
+longer than <code>for</code>, for the same reason as the metric alert below — a
+window shorter than the pending period resets it before it can elapse,
+so the alert never fires (INV-0011 A7):</p>
+<pre><code class="language-yaml">groups:
+  - name: repo-guardian-schema-preflight
+    rules:
+      - alert: RepoGuardianPropertySchemaMissingLogs
+        expr: |
+          sum by (org) (
+            count_over_time({app=&quot;repo-guardian&quot;} |= &quot;custom properties missing from org schema&quot; [1h])
+          ) &gt; 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: &quot;repo-guardian: org {{ $labels.org }} has custom properties missing from its schema&quot;
+</code></pre>
+<p><strong>Window sizing vs. reconcile freshness.</strong> A schema mismatch is observed
+once per repo per <em>reconcile</em>, and <code>RECONCILE_FRESHNESS</code> defaults to
+<code>24h</code> — so an affected repo contributes roughly one sample per day, not a
+continuous stream. Two consequences:</p>
+<ul>
+<li>The window has to be much longer than the sampling gap for the alert to
+  be reachable at all. The pre-IMPL-0021 pairing
+  (<code>rate(...[15m])</code> with <code>for: 30m</code>) could never fire under any freshness
+  setting, because a 15-minute window drops back to zero long before a
+  30-minute pending period elapses.</li>
+<li>With the corrected <code>[1h]</code> window the alert fires within <code>for: 5m</code> of a
+  mismatch and then <strong>resolves about an hour later</strong>, re-firing on the
+  next sweep that sees it. That sawtooth is expected. If you would rather
+  it stay firing continuously until fixed, widen the window past your
+  freshness setting (e.g. <code>increase(...[25h])</code> for the default <code>24h</code>)
+  via <code>prometheusRule.alerts.PropertySchemaMissing</code>.</li>
+</ul>
+<p>The fail-open path (schema fetch itself errors — 403, 5xx, timeout) is a
+separate, distinct log line and is intentionally rarer (once per org per
+30-minute TTL window, not once per repo):</p>
+<pre><code>level=WARN msg=&quot;fetching org custom property schema failed; sending unfiltered properties&quot; org=&lt;org&gt; error=&quot;&lt;err&gt;&quot;
+</code></pre>
+<p>If the App is missing the org-level <strong>Custom properties: read</strong> permission,
+every affected org will show exactly this line, once per TTL window, with
+the unfiltered payload still syncing (no properties silently dropped due to
+a permissions gap — see <code>docs/usage/policy-reference.md</code> §Custom Property
+Schema Preflight).</p>
+<p>The Prometheus-side starter alert for the metric (<code>RepoGuardianPropertySchemaMissing</code>)
+lives in <code>charts/repo-guardian/templates/prometheusrule.yaml</code>; both signals
+key off the same <code>org</code> value, so a Loki log line and a Prometheus alert for
+the same incident always agree on which org to investigate.</p>
+<h2 id="compliance-posture-impl-0023-phases-12">Compliance posture (IMPL-0023 Phases 1–2)</h2>
+<p>"How many repositories are missing CODEOWNERS right now" used to be
+answered by a counter, and a counter cannot answer it. It only grows: a
+repository fixed yesterday still shows in <code>increase(...[7d])</code> today, a
+repository checked twice counts twice, and one the sweep has not
+reached counts zero. Restarts made that obviously wrong instead of
+subtly wrong, which is why the complaint arrived as "the counts clear
+on restart" rather than "the counts are meaningless" (INV-0013 Finding
+B).</p>
+<p>Posture is now <strong>state</strong>, and it flows one way:</p>
+<pre><code>worker checks a repo
+  └─&gt; UpsertRuleStates  (Postgres: rule_state, one row per repo × rule)
+        └─&gt; PostureExporter.Export  (leader only, every POSTURE_EXPORT_INTERVAL)
+              └─&gt; repos_actionable{rule_name,org} / repos_tracked{org} / repos_unmeasurable{org,reason}
+                    └─&gt; E1 and E2 panels, and the compliance % in `repo-guardian report`
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Knob</th>
+<th>Default</th>
+<th>What it changes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POSTURE_EXPORT_INTERVAL</code></td>
+<td><code>60s</code></td>
+<td>How stale the gauges may be. This is <em>publication</em> cadence, not measurement — the underlying rows change only when a repository is re-checked, so shortening it below the sweep interval buys nothing.</td>
+</tr>
+<tr>
+<td><code>COMPLIANCE_SNAPSHOT_INTERVAL</code></td>
+<td><code>24h</code></td>
+<td>How finely compliance history is recorded for <code>repo-guardian report</code>. Roughly 120 rows/day at target scale, kept forever; there is no retention machinery, so shortening it accrues storage indefinitely for resolution no report asks for.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-exporter-runs-on-the-leader-only">The exporter runs on the leader only</h3>
+<p><code>Export</code> is registered under the same SETNX leader election as
+stale-sweep. Not because it writes anything — it only reads — but
+because a gauge is a claim about the fleet, and the fleet has one
+answer. Every replica publishing its own copy would make the number
+depend on how many replicas you happen to run.</p>
+<p><strong>Two consequences that bite if you do not know them:</strong></p>
+<ol>
+<li>
+<p><strong>Aggregate with <code>max by (...)</code>, never <code>sum</code>.</strong> A demoted replica
+   keeps serving whatever it last published until its process restarts,
+   and during a failover both the outgoing and incoming leaders can
+   hold series at once. <code>max</code> is correct in both states; <code>sum</code>
+   double-counts through every leader change — silently, and in the
+   direction that makes compliance look worse than it is. The generated
+   dashboards do this correctly and
+   <code>TestSuite_PostureQueriesDedupeAcrossReplicas</code> keeps them that way;
+   hand-written panels are on their own.</p>
+</li>
+<li>
+<p><strong><code>sum(max by (org) (...))</code> for a fleet total, in that order.</strong> The
+   inner aggregation collapses replicas, the outer adds up orgs.
+   Reversing them gives you the largest org rather than the fleet, and
+   the number looks entirely plausible.</p>
+</li>
+</ol>
+<p>The export reads the whole aggregate BEFORE resetting the gauges. A
+reset-then-read would blank every series for the duration of the query,
+so a scrape landing in that window sees zero repositories tracked —
+indistinguishable from a fleet that vanished, and on a 60s tick against
+a slow query that is not a rare interleaving. On a read failure the
+previous values persist rather than going to zero: for a gauge, last
+known truth beats a confident zero.</p>
+<h3 id="watch-the-exporter-itself">Watch the exporter itself</h3>
+<p>The posture gauges cannot report the one failure that matters most
+about them — that they have stopped being updated. A frozen exporter
+serves last week's compliance with total confidence.</p>
+<pre><code class="language-promql"># Should be non-zero whenever a leader exists.
+sum(rate(repo_guardian_posture_export_total{outcome=&quot;success&quot;}[15m]))
+
+# The store read behind every number on E1.
+histogram_quantile(0.99,
+  sum by (le) (rate(repo_guardian_posture_export_duration_seconds_bucket[1h])))
+</code></pre>
+<p><code>RepoGuardianPostureExportStalled</code> is the shipped alert for the first
+one. If it fires, treat every compliance number as unknown rather than
+as its last value.</p>
+<h3 id="compliance-is-no-data-when-nothing-is-tracked">Compliance is "no data" when nothing is tracked</h3>
+<p>Both the report and the dashboards refuse to divide by zero and refuse
+to call the result 100%. A fleet with no tracked repositories has no
+compliance percentage — it has an absent measurement, and rendering
+that as full marks is how a dead exporter reports a perfect fleet. The
+dashboard expresses it as <code>and on() (tracked &gt; 0)</code>, mirroring
+<code>report.CompliantPercent</code> returning <code>(0, false)</code>.</p>
+<h2 id="opentelemetry-series-impl-0023-phase-3">OpenTelemetry series (IMPL-0023 Phase 3)</h2>
+<p>Four transport boundaries carry off-the-shelf OTel instrumentation, and
+all of it exports through the Prometheus bridge into the <strong>same registry
+<code>/metrics</code> already serves</strong>. There is no collector, no second scrape
+target, and no scrape-config change. <code>OTEL_SDK_DISABLED=true</code> turns it
+all off; an unparseable value warns and leaves telemetry on.</p>
+<table>
+<thead>
+<tr>
+<th>Boundary</th>
+<th>Package</th>
+<th>Series</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inbound HTTP (webhook route only)</td>
+<td><code>otelhttp</code></td>
+<td><code>http_server_request_duration_seconds</code>, <code>http_server_request_body_size_bytes</code>, <code>http_server_response_body_size_bytes</code></td>
+</tr>
+<tr>
+<td>GitHub client</td>
+<td><code>otelhttp</code></td>
+<td><code>http_client_request_duration_seconds</code>, <code>http_client_request_body_size_bytes</code></td>
+</tr>
+<tr>
+<td>Valkey (queue + scheduler, one shared client)</td>
+<td><code>redisotel</code></td>
+<td><code>db_client_connections_*</code>, <code>redis_dial_*</code></td>
+</tr>
+<tr>
+<td>Postgres</td>
+<td><code>otelpgx</code></td>
+<td><code>db_client_operation_duration_seconds</code>, <code>db_client_operation_errors_total</code>, <code>pgxpool_*</code></td>
+</tr>
+</tbody>
+</table>
+<p>Three things about this table are counter-intuitive enough to be worth
+stating outright.</p>
+<p><strong>Pool stats are <code>pgxpool_*</code>, not <code>db_client_connection_*</code>.</strong> otelpgx
+publishes the pgx-native names for pool statistics, so a panel written
+against the semconv connection family matches nothing. It is the only
+pool-stats source that ships — otelpgx's <code>RecordStats</code> reads
+<code>pgxpool.Stat()</code> directly, so no hand-rolled collector was added.</p>
+<p><strong>Only the webhook route is instrumented inbound.</strong> <code>/healthz</code>,
+<code>/readyz</code> and <code>/metrics</code> are not. Instrumenting kubelet probes and
+Prometheus scraping themselves would produce constant traffic answering
+no question anyone asks, and bury the webhook signal beside it.</p>
+<p><strong>The client histogram under-counts GitHub calls under rate-limit
+pressure.</strong> go-github v68 has its own client-side pre-check that
+short-circuits inside <code>BareDo</code>, above the <code>http.Client</code> entirely, once
+its response-header cache has seen <code>remaining=0</code>. Those calls never
+reach any transport and so are never measured, at any wrapping
+position. Reading <code>http_client_request_duration_seconds_count</code> as
+"GitHub API calls attempted" is therefore wrong exactly when the system
+is throttled. Use <code>queue_delayed_total{reason="rate_limit"}</code> for
+throttle volume — it is the deliberate source for that question.</p>
+<h3 id="the-dedup-rule">The dedup rule</h3>
+<p>Domain metrics and semconv metrics overlap on purpose, and they are not
+interchangeable. <strong>Every panel picks exactly one source. No panel mixes
+a <code>repo_guardian_*</code> series with a semconv series for the same signal.</strong></p>
+<p>The split is by what each can see:</p>
+<ul>
+<li><code>store_query_seconds{op}</code> knows the difference between <code>StaleRepos</code>
+  and <code>UpsertIfMissing</code>. The semconv database metrics see only SQL
+  verbs. So the domain metric stays authoritative for <em>which</em> store
+  operation is slow.</li>
+<li>The semconv metrics separate pool-acquire wait from execution time,
+  which the domain metric — timed around the whole store method —
+  cannot. So semconv is authoritative for <em>why</em> it is slow.</li>
+</ul>
+<p>The same applies to HTTP: <code>webhook_received_total{event_type}</code> knows
+what kind of event arrived; <code>http_server_request_duration_seconds</code> knows
+the status and the latency. Neither can answer the other's question.</p>
+<h3 id="cardinality">Cardinality</h3>
+<p>Two label sources were closed deliberately, and both would have been
+remotely triggerable or self-inflicted rather than merely noisy.</p>
+<ul>
+<li><strong><code>server.address</code> / <code>server.port</code> are pinned</strong> via
+  <code>otelhttp.WithServerName</code>. Left at their defaults they derive from the
+  request <code>Host</code> header, which is client-controlled on an endpoint
+  reachable from the internet — a caller sending a distinct spoofed Host
+  per request would mint a series per value across three histograms.</li>
+<li><strong>Scope labels are dropped</strong> via <code>WithoutScopeInfo</code>.
+  <code>otel_scope_version</code> carries the <em>instrumentation library's</em> version,
+  so every dependency bump of otelhttp/redisotel/otelpgx would change a
+  label value on every series that library emits: the old series goes
+  stale, the new one starts at zero, and <code>rate()</code> across the deploy sees
+  a counter reset. Safe to drop because the four instrumentations emit
+  disjoint metric names, so the name already identifies the producer.</li>
+</ul>
+<p><code>url.path</code> is absent by default — server metrics key on <code>http.route</code>,
+taken from the ServeMux pattern — and the name-translation strategy is
+pinned explicitly rather than inherited, because the exporter documents
+its default as subject to change and a flip would strip the
+<code>_total</code>/<code>_seconds</code> suffixes from every series at once.</p>
+<p>A registry note that matters more than it looks: the bridge registers
+as an <strong>unchecked collector</strong>, so a metric-name collision between a
+semconv series and a <code>repo_guardian_*</code> one raises no error and no panic
+at registration. It surfaces at scrape time, where a single bad series
+returns HTTP 500 for the <strong>entire endpoint</strong> — every metric, not just
+the offender. The <code>repo_guardian_</code> prefix makes a collision unlikely;
+the coexistence test asserts <code>Gather()</code> is clean so it stays that way.</p>
+<h2 id="sizing-for-valkey">Sizing for Valkey</h2>
+<p>Valkey is small. The queue + in-flight ZSET + reaper lock fit in single-digit MB even for tens of thousands of jobs. The <code>queue.valkey.baked</code> 1Gi PVC is conservative; you'll never fill it.</p>
+<p>The bottleneck is BRPOP throughput, not memory. Run <code>redis-cli -a $VALKEY_PASSWORD INFO commandstats | grep brpop</code> to inspect; usually p99 is &lt; 1ms.</p>
+<h2 id="multi-replica-gotchas">Multi-replica gotchas</h2>
+<ul>
+<li><strong>One sweeper, not two (IMPL-0015 Phase 0).</strong> The legacy <code>sweep</code> schedule (full-fleet enumeration via the GitHub API) was deleted in <code>1.0.0-rc.2</code>. Only the <code>stale-sweep</code> schedule runs — it queries the persistent <code>repo_state</code> table for rows whose <code>last_checked_at</code> is older than <code>freshness</code> (or whose <code>policy_version</code> differs from the current one) and enqueues those. Behavioural consequence: a brand-new install with no <code>repo_state</code> rows produces an empty first sweep. Newly-discovered repos enter <code>repo_state</code> via webhook handlers (<code>installation_repositories.added</code>, <code>repository.created</code>) calling <code>UpsertIfMissing</code> with a jittered <code>LastCheckedAt</code>; the next sweep tick picks them up once the jitter window elapses.</li>
+<li><strong>Backends are Postgres + Valkey only (IMPL-0016).</strong> The in-memory store/queue and the in-process ticker scheduler were removed in chart 1.0. There's no single-replica fallback — every deployment needs Postgres + Valkey backing services. The chart's baked modes (<code>store.postgres.mode=baked</code>, <code>queue.valkey.mode=baked</code>) cover trivial deployments without external infra.</li>
+<li><strong>Pod restarts cost a <code>JOB_ACK_TIMEOUT + REAPER_INTERVAL</code> window.</strong> A worker that crashes mid-<code>engine.CheckRepo</code> leaves the job in-flight; the reaper requeues it after the timeout. Lower <code>JOB_ACK_TIMEOUT</code> for faster recovery, higher for tolerance to legitimately slow checks.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -55,4 +55,5 @@ docz create impl "Your Implementation Title"
 | IMPL-0021 | Post-IMPL-0019 hardening and structural cleanup (INV-0011 Group A Medium + Group B) | Completed | 2026-07-23 | Donald Gifford | [0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group.md](0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group.md) |
 | IMPL-0022 | Delayed-requeue job contract and rate-limit consolidation | Completed | 2026-08-02 | Donald Gifford | [0022-delayed-requeue-job-contract-and-rate-limit-consolidation.md](0022-delayed-requeue-job-contract-and-rate-limit-consolidation.md) |
 | IMPL-0023 | Compliance posture state, dashboard suite, and OTEL-first observability | Completed | 2026-08-02 | Donald Gifford | [0023-compliance-posture-state-dashboard-suite-and-otel-first.md](0023-compliance-posture-state-dashboard-suite-and-otel-first.md) |
+| IMPL-0024 | Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware | Draft | 2026-08-15 | Donald Gifford | [0024-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip.md](0024-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip.md) |
 <!-- END DOCZ AUTO-GENERATED -->

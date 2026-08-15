@@ -309,7 +309,7 @@ The release-side checklist, including the two items that fail
 
 #### Tasks
 
-- [ ] 4.1 Full local gate: `make ci`, `helm-unittest`, `make
+- [x] 4.1 Full local gate: `make ci`, `helm-unittest`, `make
   lint-monitoring lint-alerts-generated lint-alerts-chart`; confirm no
   mock regeneration needed (no interface diffs in `git diff
   --stat`).

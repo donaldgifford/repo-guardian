@@ -164,7 +164,7 @@ any commit.
   `setGuardianAttr` (~429), `mergeGuardianConfig` (~1167), plus
   `applyEnvOverrides` (~1191) and `defaults.go` (~111); update
   `types.go`, `types_test.go`, `loader_test.go`, `defaults_test.go`.
-- [ ] 1.6 Add the loader regression test: a `guardian {}` block
+- [x] 1.6 Add the loader regression test: a `guardian {}` block
   containing `webhook_ip_allowlist = true` fails `Load` with
   "Unsupported argument". **Verify non-vacuously**: re-add the
   attribute to `guardianBodySchema`, watch the test fail, remove it

@@ -313,13 +313,13 @@ The release-side checklist, including the two items that fail
   lint-monitoring lint-alerts-generated lint-alerts-chart`; confirm no
   mock regeneration needed (no interface diffs in `git diff
   --stat`).
-- [ ] 4.2 **Verify no chart `1.0.0` exists in ECR** (GHCR already
-  verified clean 2026-08-15): `helm show chart oci://<ECR>/
-  repo-guardian-chart --version 1.0.0` (or `aws ecr
-  describe-images`) — required because the publish workflow's `helm
-  pull` idempotency precheck *silently skips* publishing over an
-  existing version. *(2026-08-15: no AWS credentials on the dev
-  machine — run this operator-side before or at merge time.)*
+- [x] 4.2 **DEFERRED (operator-side, 2026-08-15)** — Verify no chart
+  `1.0.0` exists in ECR (GHCR already verified clean 2026-08-15):
+  `helm show chart oci://<ECR>/repo-guardian-chart --version 1.0.0`
+  (or `aws ecr describe-images`) — required because the publish
+  workflow's `helm pull` idempotency precheck *silently skips*
+  publishing over an existing version. No AWS credentials on the dev
+  machine; the operator runs this before or at merge time.
 - [x] 4.3 Re-verify `appVersion` against the tag the `minor` label
   will actually cut (IMPL-0017 lesson) — if a release landed since,
   adjust `appVersion` before merge.
@@ -329,7 +329,9 @@ The release-side checklist, including the two items that fail
 - [ ] 4.5 Post-merge: confirm the push-triggered `release.yml` run
   **creates jobs** (startup_failure is silent — post-mortem), then
   v1.14.0 tag exists, chart `1.0.0` published to GHCR **and** ECR,
-  both signed with provenance attached.
+  both signed with provenance attached. *(The ECR pull/cosign half
+  is deferred operator-side — no AWS credentials on the dev
+  machine; the workflow job statuses cover ECR publish success.)*
 - [ ] 4.6 Flip DESIGN-0023 → Implemented, IMPL-0024 → Completed;
   `docz update design` / `docz update impl`.
 

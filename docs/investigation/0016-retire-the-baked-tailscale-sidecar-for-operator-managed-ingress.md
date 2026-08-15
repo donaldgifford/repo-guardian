@@ -25,6 +25,8 @@ created: 2026-08-14
   - [Observation 3: the sidecar path disables the IP-allowlist layer](#observation-3-the-sidecar-path-disables-the-ip-allowlist-layer)
   - [Observation 4: the sidecar is unversioned and unaudited](#observation-4-the-sidecar-is-unversioned-and-unaudited)
   - [Observation 5: the allowlist middleware is bypassable behind every documented proxy](#observation-5-the-allowlist-middleware-is-bypassable-behind-every-documented-proxy)
+  - [Observation 6: the Tailscale operator has no native Gateway API support, and Funnel is Ingress-class-only](#observation-6-the-tailscale-operator-has-no-native-gateway-api-support-and-funnel-is-ingress-class-only)
+  - [Observation 7: AWS LBC Gateway API support is GA](#observation-7-aws-lbc-gateway-api-support-is-ga)
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
 - [References](#references)
@@ -102,21 +104,28 @@ removes a baked network path in favor of the platform's real ingress.
 
 1. ~~Inventory every Tailscale reference in code and chart, with the
    blast radius of each.~~ Done — Findings below.
-2. Verify the **Tailscale operator** covers the sidecar's one real
-   feature (public HTTPS ingress to the webhook port via Funnel):
-   confirm the operator's `Ingress`-class-`tailscale` +
-   Funnel-annotation path (or `ProxyGroup`/`Connector` equivalent)
-   serves a plain HTTP backend on the tailnet with `AllowFunnel`, and
-   what it does about client IPs in `X-Forwarded-For`. Do this against
-   current operator docs, not memory.
-3. Verify **AWS Load Balancer Controller + Gateway API** maturity: the
-   controller's Gateway API implementation (L7 `Gateway`/`HTTPRoute` →
-   ALB) went through beta during 2025 — pin the exact controller
-   version and GA status at write-time, and whether `HTTPRoute` +
-   target-group binding covers the webhook path with TLS termination
-   at the ALB. If L7 Gateway support is not yet GA, document the
-   stock `Ingress`-class-`alb` path as the interim and note the
-   Gateway API upgrade as a values-only change.
+2. ~~Verify the **Tailscale operator** covers the sidecar's one real
+   feature (public HTTPS ingress to the webhook port via Funnel) —
+   specifically via the **Gateway API**, because that is what the
+   homelab runs: confirm the operator's GatewayClass +
+   `Gateway`/`HTTPRoute` support and its maturity, that it can front a
+   plain HTTP backend with Funnel enabled, and what it does about
+   client IPs in `X-Forwarded-For`. If the operator's Gateway API
+   support is missing or immature, document the
+   `Ingress`-class-`tailscale` + Funnel-annotation path as the
+   interim, mirroring step 3's fallback shape.~~ Done against current
+   docs 2026-08-15 — Observation 6. One remainder: the operator docs
+   are silent on forwarded-header behavior; verify `X-Forwarded-For`
+   empirically during the migration smoke.
+3. ~~Verify **AWS Load Balancer Controller + Gateway API** maturity:
+   the controller's Gateway API implementation (L7
+   `Gateway`/`HTTPRoute` → ALB) went through beta during 2025 — pin
+   the exact controller version and GA status at write-time, and
+   whether `HTTPRoute` + target-group binding covers the webhook path
+   with TLS termination at the ALB. If L7 Gateway support is not yet
+   GA, document the stock `Ingress`-class-`alb` path as the
+   interim.~~ Done 2026-08-15 — Observation 7: GA, no interim path
+   needed.
 4. Map **edge-layer source-IP enforcement per path**, replacing the
    in-app allowlist: ALB security-group rule referencing a
    customer-managed prefix list built from `api.github.com/meta`
@@ -255,17 +264,83 @@ native telemetry (ALB access logs, Tailscale, the ngrok dashboard).
 Whether `webhook_rejected_total` should be deleted outright or
 repointed at the HMAC path (reason=`signature`) is a step-6 decision.
 
+### Observation 6: the Tailscale operator has no native Gateway API support, and Funnel is Ingress-class-only
+
+Verified against current Tailscale docs on 2026-08-15:
+
+- **No native Gateway API.** The operator exposes workloads via
+  `Ingress` (`ingressClassName: tailscale`, L7) and `Service`
+  (`loadBalancerClass: tailscale` or `tailscale.com/expose`, L3).
+  Gateway API support is an open feature request
+  ([tailscale/tailscale#10656](https://github.com/tailscale/tailscale/issues/10656),
+  open since Dec 2023). Tailscale's official Gateway API story is a
+  BYOD pattern — Envoy Gateway (or similar) implements
+  `Gateway`/`HTTPRoute`, and the operator merely provisions the
+  gateway's LoadBalancer Service onto the tailnet — and that pattern
+  is **tailnet-only**: no public exposure, no Funnel.
+- **Funnel — the sidecar's one real feature — rides only the
+  `Ingress` class.** Public exposure requires `ingressClassName:
+  tailscale` + the `tailscale.com/funnel: "true"` annotation, plus a
+  tailnet-policy `nodeAttrs` grant of the `funnel` attribute to the
+  operator's proxy tag (`tag:k8s` by default — `autogroup:member`
+  does not cover tagged devices). HA is available via
+  `tailscale.com/proxy-group`.
+- **Consequence for the homelab:** the cluster's Gateway API setup
+  carries everything *except* this route. The webhook's public path
+  is one small, dedicated `Ingress` object alongside the Gateway API
+  resources — or ngrok when just testing. This is an operator-side
+  deployment fact to document in `docs/operations/ingress.md`, not a
+  chart concern.
+- **No source-IP restriction on Funnel.** The `funnel` nodeAttr
+  governs which *nodes may enable* Funnel, not which public clients
+  may connect; the docs offer no public-side IP filtering. So the
+  Funnel path is HMAC-only — exactly today's effective posture, since
+  the sidecar already forces the allowlist fail-open (Observation 3).
+  No regression, but `ingress.md` must say it plainly: on Funnel, the
+  edge-enforcement layer is "none"; use the ALB or ngrok path when a
+  source-IP layer is required.
+- **Forwarded headers are undocumented** for the operator's proxy on
+  the Funnel path. Client-IP visibility must be verified empirically
+  during the migration smoke; nothing in the app depends on it
+  post-removal (the allowlist was the only `X-Forwarded-For`
+  consumer), so this affects log/telemetry fidelity only.
+
+### Observation 7: AWS LBC Gateway API support is GA
+
+Verified 2026-08-15. AWS announced general availability of Gateway
+API support in the Load Balancer Controller (2026-03): L7
+(`ALBGatewayAPI`) provisions ALBs from `Gateway`/`HTTPRoute` (and
+`GRPCRoute`) with controller **v2.14.0+**, built against Gateway API
+v1.3.0; L4 (`NLBGatewayAPI`) covers `TCPRoute`/`UDPRoute`/`TLSRoute`.
+TLS termination at the ALB with static or hostname-discovered
+certificates is supported, and AWS-vended CRDs
+(`LoadBalancerConfiguration`, `TargetGroupConfiguration`,
+`ListenerRuleConfiguration`) carry the ALB-specific knobs — including
+the security-group attachment where the GitHub prefix-list rule
+lives. So the EKS path is exactly the Question's shape with no
+interim: `HTTPRoute` → ALB, SG rule referencing a customer-managed
+prefix list built from `api.github.com/meta` `hooks`, fail-closed at
+the true source address. (Step-6 detail: the meta `hooks` CIDRs
+change occasionally; the prefix-list refresh needs an owner —
+scheduled Lambda/Terraform or a documented manual check.)
+
 ## Conclusion
 
-**Answer:** pending — steps 2–4 of the approach (operator capability
-verification, LBC Gateway API maturity, per-path edge-enforcement
-mapping) are outstanding. The local half of the hypothesis is
-confirmed by Observations 1–5: the Tailscale surface is chart-only,
-the middleware's blast radius is fully mapped, and three of the five
-findings are affirmative arguments for removal rather than neutral
-inventory — the sidecar disables the allowlist, the allowlist is
-spoofable anyway, and its alert already cannot report what its
-description claims.
+**Answer:** yes, with one asterisk on the homelab path. The
+hypothesis is confirmed by Observations 1–7: the Tailscale surface is
+chart-only, the middleware's blast radius is fully mapped and the
+middleware is spoofable on every proxied path, the EKS path is fully
+served by the now-GA LBC Gateway API implementation, and the
+Tailscale operator covers the Funnel capability — but via its
+`Ingress` class, not Gateway API (which the operator does not
+natively implement). The homelab therefore keeps one dedicated
+`Ingress`-class-`tailscale` + Funnel object for the webhook route
+alongside its Gateway API resources, and the Funnel path's
+edge-enforcement layer is honestly "none" (HMAC-only), which is
+already today's effective posture. Remaining before the DESIGN:
+empirical `X-Forwarded-For` verification on the Funnel path
+(telemetry fidelity only), ngrok recipe specifics, and the
+prefix-list refresh ownership question from Observation 7.
 
 ## Recommendation
 
@@ -277,11 +352,15 @@ pattern; (b) the middleware removal — HMAC becomes the sole app-layer
 defense, the three config knobs go (HCL strict-decode migration note
 required), the orphaned metric/alert and E4 matcher are dispositioned
 per Observation 5; (c) a new `docs/operations/ingress.md` with the
-three documented paths (Tailscale operator, AWS LBC + Gateway API,
-ngrok for testing), each path's edge-layer source-IP enforcement
-recipe, and the OTEL signals that replace the deleted allowlist
-telemetry; and (d) supersession notes on INV-0001, DESIGN-0003, and
-DESIGN-0004, plus the chart version bump.
+three documented paths — Tailscale operator (`Ingress`-class +
+Funnel for the webhook route; the cluster's Gateway API carries
+everything else, per Observation 6), AWS LBC + Gateway API
+(`HTTPRoute` → ALB + SG prefix-list rule, per Observation 7), and
+ngrok for testing — each path's edge-layer source-IP enforcement
+recipe (including "none — HMAC-only" stated plainly for Funnel), and
+the OTEL signals that replace the deleted allowlist telemetry; and
+(d) supersession notes on INV-0001, DESIGN-0003, and DESIGN-0004,
+plus the chart version bump.
 
 ## References
 
@@ -291,8 +370,13 @@ DESIGN-0004, plus the chart version bump.
 - `SECURITY.md` §Reverse proxies — the two-layer webhook defense
 - [IMPL-0016](../impl/0016-deprecate-memory-backend.md) — precedent: remove the baked thing, document the real thing
 - Tailscale Kubernetes operator: <https://tailscale.com/kb/1236/kubernetes-operator>
-- Tailscale operator Ingress + Funnel: <https://tailscale.com/kb/1439/kubernetes-operator-cluster-ingress>
+- Tailscale operator cluster ingress (Ingress class): <https://tailscale.com/kb/1439/kubernetes-operator-cluster-ingress>
+- Tailscale operator Funnel exposure: <https://tailscale.com/docs/kubernetes-operator/ingress/expose-workload-to-internet>
+- Tailscale BYOD Gateway API pattern (tailnet-only, Envoy Gateway): <https://tailscale.com/docs/solutions/kubernetes-operator-byod-gateway-api>
+- Operator Gateway API feature request: <https://github.com/tailscale/tailscale/issues/10656>
 - AWS Load Balancer Controller: <https://kubernetes-sigs.github.io/aws-load-balancer-controller/>
+- LBC Gateway API guide: <https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/gateway/gateway/>
+- LBC Gateway API GA announcement (2026-03): <https://aws.amazon.com/blogs/networking-and-content-delivery/aws-load-balancer-controller-adds-general-availability-support-for-kubernetes-gateway-api/>
 - Gateway API: <https://gateway-api.sigs.k8s.io/>
 - GitHub hook IP ranges (`hooks` key): <https://api.github.com/meta>
 - ngrok IP restrictions (Traffic Policy): <https://ngrok.com/docs/traffic-policy/actions/restrict-ips/>

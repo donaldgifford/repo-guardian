@@ -280,7 +280,7 @@ phase is load-bearing, not cleanup.
   `Superseded` with a banner naming DESIGN-0023; INV-0001 gets a
   banner pointing at INV-0016 (status stays Concluded); `docz
   update design` / `docz update inv`.
-- [ ] 3.6 CLAUDE.md: remove the "Webhook IP allowlist" and
+- [x] 3.6 CLAUDE.md: remove the "Webhook IP allowlist" and
   "Tailscale Funnel" key-design-pattern bullets, update the
   `webhook/` architecture line (drop "IP allowlist middleware"),
   and add a short entry recording this change's contracts (HMAC

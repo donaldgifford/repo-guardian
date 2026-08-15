@@ -24,6 +24,7 @@ created: 2026-08-14
   - [Observation 2: the binary is already ingress-agnostic](#observation-2-the-binary-is-already-ingress-agnostic)
   - [Observation 3: the sidecar path disables the IP-allowlist layer](#observation-3-the-sidecar-path-disables-the-ip-allowlist-layer)
   - [Observation 4: the sidecar is unversioned and unaudited](#observation-4-the-sidecar-is-unversioned-and-unaudited)
+  - [Observation 5: the allowlist middleware is bypassable behind every documented proxy](#observation-5-the-allowlist-middleware-is-bypassable-behind-every-documented-proxy)
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
 - [References](#references)
@@ -34,32 +35,47 @@ created: 2026-08-14
 Can every Tailscale-specific surface in the chart and code be deleted
 outright — sidecar container, serve-config ConfigMap, RBAC, values
 block, and the env fork it drives — with ingress instead *documented*
-as two operator-owned paths:
+as operator-owned paths:
 
 1. the **Tailscale Kubernetes operator** for the Talos homelab
-   (dev/test), and
+   (dev/test),
 2. **AWS Load Balancer Controller with the Gateway API** for EKS
-   (production),
+   (production), and
+3. **ngrok** as the documented webhook-testing path (we have used it
+   repeatedly for exactly that),
 
-without losing any capability the sidecar provides today and without
-any binary change?
+without losing any capability the sidecar provides today?
+
+And the second half, which follows from the first: once ingress is
+explicitly outside the app's scope, should the **webhook IP-allowlist
+middleware** (`internal/webhook/allowlist.go`) go with it? Source-IP
+enforcement moves to the layer that actually sees the true source
+address — an ALB security-group rule against a GitHub prefix list, a
+Tailscale ACL, an ngrok IP policy — HMAC remains the app-layer
+boundary, and the OTEL instrumentation added in IMPL-0023 is how we
+observe whichever edge the operator chose.
 
 ## Hypothesis
 
-Yes, and the removal is a security *improvement*, not a trade. Three
-reasons, each grounded in the inventory below:
+Yes to both, and the removal is a security *improvement*, not a
+trade. Four reasons, each grounded in the inventory below:
 
-- The binary is already ingress-agnostic: `TRUST_PROXY_HEADERS` and the
-  webhook IP allowlist are generic L7-proxy support that an ALB needs
-  just as much as a Funnel does. Nothing in Go knows Tailscale exists.
+- The binary's webhook handling is ingress-agnostic: HMAC validation
+  works identically behind any proxy. Nothing in Go knows Tailscale
+  exists.
 - The sidecar is pure chart machinery — a second container, its state
   volume, a serve-config ConfigMap, and RBAC — that the chart must
   version, patch, and reason about, duplicating exactly what the
   Tailscale operator exists to own.
 - Enabling the sidecar today **hard-forces the IP allowlist to
   fail-open**, so the "two-layer defense" from SECURITY.md is really
-  one layer on the Funnel path. Behind an ALB (or the operator's
-  ingress proxy) the allowlist can run fail-closed as designed.
+  one layer on the Funnel path.
+- The allowlist middleware itself is **spoofable behind every proxy we
+  document** (Observation 5): with `TRUST_PROXY_HEADERS=true` it
+  validates the leftmost — client-controlled — `X-Forwarded-For`
+  entry. Edge-layer enforcement acts on the true L3/L4 source address
+  and cannot be header-spoofed; moving the check there is strictly
+  stronger, not a concession.
 
 ## Context
 
@@ -101,18 +117,30 @@ removes a baked network path in favor of the platform's real ingress.
    at the ALB. If L7 Gateway support is not yet GA, document the
    stock `Ingress`-class-`alb` path as the interim and note the
    Gateway API upgrade as a values-only change.
-4. Map the **allowlist interaction per path**: what sets
-   `X-Forwarded-For`, whether the hop chain is trustworthy, and what
-   `webhookIPAllowlist.{failOpen,trustProxyHeaders}` should be for
-   each. The goal state is fail-closed on both paths, with the
-   fail-open forcing removed from the chart entirely.
-5. Draft the removal + docs plan: which chart objects go, what the
-   values-schema rejection message says (the IMPL-0016
-   `deprecatedBackends` pattern), what `docs/operations/ingress.md`
-   (or similar) must contain for each path, and which historical docs
-   (INV-0001, DESIGN-0003) get superseded pointers. Decide the chart
-   version bump — removing `tailscale.*` values is breaking for
-   anyone with `tailscale.enabled=true`.
+4. Map **edge-layer source-IP enforcement per path**, replacing the
+   in-app allowlist: ALB security-group rule referencing a
+   customer-managed prefix list built from `api.github.com/meta`
+   `hooks` CIDRs (and how that list stays current); the equivalent for
+   the Tailscale operator/Funnel path (ACL, or accept that Funnel is
+   public and HMAC-only); ngrok's IP-restriction policy for the
+   testing path. Verify each against current provider docs, not
+   memory.
+5. Inventory the **middleware removal blast radius** —
+   ~~done, Observation 5~~ — and decide the disposition of each
+   dependent: the orphaned `webhook_rejected_total` metric and its
+   alert, the E4 log matcher, the three config knobs across env + HCL
+   (strict decode makes attribute removal a breaking config change),
+   and SECURITY.md's two-layer narrative.
+6. Draft the removal + docs plan: which chart objects and binary
+   surfaces go, what the values-schema rejection message says (the
+   IMPL-0016 `deprecatedBackends` pattern), what
+   `docs/operations/ingress.md` (or similar) must contain for each of
+   the three paths — including which OTEL/edge signals replace the
+   deleted allowlist metric for "someone is knocking" visibility —
+   and which historical docs (INV-0001, DESIGN-0003, DESIGN-0004) get
+   superseded pointers. Decide the chart version bump — removing
+   `tailscale.*` and `webhookIPAllowlist.*` values is breaking for
+   anyone setting them.
 
 ## Environment
 
@@ -161,8 +189,11 @@ runtime mechanisms the sidecar path leans on are both generic:
   against GitHub's published hook ranges. Works identically behind any
   proxy that forwards the real client IP.
 
-So the investigation's "without any binary change" clause holds by
-construction; the entire diff is chart + docs.
+So no binary change is *required* by the sidecar removal itself. The
+one binary change now in scope is deliberate and additive to the
+question, not forced by it: deleting the allowlist middleware
+(Observation 5), which takes `TRUST_PROXY_HEADERS` with it — the
+allowlist constructor is that knob's only consumer.
 
 ### Observation 3: the sidecar path disables the IP-allowlist layer
 
@@ -172,12 +203,10 @@ and hard-sets `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN=true` +
 `TRUST_PROXY_HEADERS=true`. The two-layer webhook defense (IP
 allowlist → HMAC) documented in SECURITY.md is therefore a single
 layer (HMAC only, in practice) on exactly the deployment shape that
-exposes the webhook to the public internet via Funnel. Replacing the
-Funnel with ALB (or operator ingress) whose forwarded client IP is
-GitHub's real source address lets the allowlist run fail-closed — the
-removal strengthens the posture rather than trading it away. Whether
-the *Tailscale operator* path can also run fail-closed depends on step
-2's `X-Forwarded-For` verification.
+exposes the webhook to the public internet via Funnel. The chart's
+own default path already concedes what Observation 5 then confirms
+from the code: the in-app IP layer isn't doing the job, and the layer
+that can — the edge — is outside the chart's scope.
 
 ### Observation 4: the sidecar is unversioned and unaudited
 
@@ -187,33 +216,83 @@ covers the main container, and mutable under every pod restart. The
 operator-managed replacement moves that supply-chain surface to a
 component with its own upgrade lifecycle, which is where it belongs.
 
+### Observation 5: the allowlist middleware is bypassable behind every documented proxy
+
+Verified in code on 2026-08-15. `allowlist.go.extractIP` takes the
+**leftmost** `X-Forwarded-For` entry when `TRUST_PROXY_HEADERS=true`
+(`strings.Cut(xff, ",")` → first element). The leftmost entry is the
+one the *client* supplies; proxies **append** the true source address
+to the end of an inbound chain rather than stripping it (ALB's
+documented behavior, and the common default elsewhere). So behind any
+of the three documented paths, a caller who sends
+`X-Forwarded-For: 140.82.112.1` presents a GitHub hooks-range IP and
+walks through the check. The middleware genuinely enforces only on
+direct-exposure deployments — a shape no documented path uses. It is
+not a weak second layer; on proxied paths it is not a layer at all.
+
+Edge enforcement does not share this flaw: a security-group rule or
+provider ACL matches the L3/L4 source address of the actual
+connection, which no header can forge.
+
+Removal blast radius, verified by sweep:
+
+| Surface | Location | Disposition question |
+|---|---|---|
+| Middleware + meta fetcher | `internal/webhook/allowlist.go` (207 LOC) + `allowlist_test.go` (304 LOC) | delete; also removes the `api.github.com/meta` outbound dependency, its 24h refresh goroutine, and the fail-open/fail-closed semantics |
+| Wiring | `cmd/repo-guardian/main.go.wrapWebhookAllowlist` | delete |
+| Env knobs | `WEBHOOK_IP_ALLOWLIST`, `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN`, `TRUST_PROXY_HEADERS` (`internal/config`) | delete — the allowlist is `TRUST_PROXY_HEADERS`'s only consumer |
+| HCL attrs | `webhook_ip_allowlist`, `webhook_ip_allowlist_fail_open`, `trust_proxy_headers` on `guardian {}` | strict decode (INV-0010) means removal makes existing configs **fail load** — needs a migration note, or a deprecation window |
+| Metric | `webhook_rejected_total{reason}` | the allowlist is its **only producer** — the HMAC 401 path increments nothing — so removal orphans it and `RepoGuardianWebhookRejectionsHigh` becomes an alert that cannot fire (the INV-0012 finding-A shape). Its description already overpromises: "signature failures" never reach this counter today |
+| E4 dashboard | `dashboard/e4.go` `logRejectedIP` matcher + webhook-panel description | must change in the same PR — `TestLogLines_AreStillEmittedByTheBinary` fails the build if a matched log line stops being emitted (the drift gate working as designed) |
+| Chart | `webhookIPAllowlist.*` values + deployment env wiring + the tailscale env fork | delete; values-schema rejection for the removed keys |
+| Docs | SECURITY.md two-layer narrative, DESIGN-0004 | rewrite / supersede |
+
+The observability replacement is already in place from IMPL-0023:
+otelhttp on the webhook route records status-code-labelled request
+metrics, so a 401 spike ("someone is knocking with a bad signature")
+is visible without any bespoke counter, and each edge has its own
+native telemetry (ALB access logs, Tailscale, the ngrok dashboard).
+Whether `webhook_rejected_total` should be deleted outright or
+repointed at the HMAC path (reason=`signature`) is a step-6 decision.
+
 ## Conclusion
 
 **Answer:** pending — steps 2–4 of the approach (operator capability
-verification, LBC Gateway API maturity, per-path allowlist mapping)
-are outstanding. The local half of the hypothesis is confirmed by
-Observations 1–4: the surface is chart-only, the binary needs no
-change, and two of the four findings are affirmative arguments for
-removal rather than neutral inventory.
+verification, LBC Gateway API maturity, per-path edge-enforcement
+mapping) are outstanding. The local half of the hypothesis is
+confirmed by Observations 1–5: the Tailscale surface is chart-only,
+the middleware's blast radius is fully mapped, and three of the five
+findings are affirmative arguments for removal rather than neutral
+inventory — the sidecar disables the allowlist, the allowlist is
+spoofable anyway, and its alert already cannot report what its
+description claims.
 
 ## Recommendation
 
 Pending the conclusion. Expected shape if the hypothesis holds: a
-short DESIGN covering the chart removal (breaking — values-schema
-rejection for `tailscale.*` with a migration pointer, the IMPL-0016
-`deprecatedBackends` message pattern), a new
-`docs/operations/ingress.md` with the two documented paths and their
-`webhookIPAllowlist` settings, supersession notes on INV-0001 and
-DESIGN-0003, and the chart version bump.
+DESIGN covering (a) the chart removal — breaking, values-schema
+rejection for `tailscale.*` and `webhookIPAllowlist.*` with a
+migration pointer, the IMPL-0016 `deprecatedBackends` message
+pattern; (b) the middleware removal — HMAC becomes the sole app-layer
+defense, the three config knobs go (HCL strict-decode migration note
+required), the orphaned metric/alert and E4 matcher are dispositioned
+per Observation 5; (c) a new `docs/operations/ingress.md` with the
+three documented paths (Tailscale operator, AWS LBC + Gateway API,
+ngrok for testing), each path's edge-layer source-IP enforcement
+recipe, and the OTEL signals that replace the deleted allowlist
+telemetry; and (d) supersession notes on INV-0001, DESIGN-0003, and
+DESIGN-0004, plus the chart version bump.
 
 ## References
 
 - [INV-0001](0001-tailscale-funnel-for-webhook-testing.md) — the Funnel's origin (webhook testing)
 - [DESIGN-0003](../design/0003-tailscale-integration-research.md) — the sidecar's design
-- [DESIGN-0004](../design/0004-github-webhook-ip-allowlist-middleware.md) — the allowlist the sidecar path bypasses
+- [DESIGN-0004](../design/0004-github-webhook-ip-allowlist-middleware.md) — the allowlist middleware now slated for removal
 - `SECURITY.md` §Reverse proxies — the two-layer webhook defense
 - [IMPL-0016](../impl/0016-deprecate-memory-backend.md) — precedent: remove the baked thing, document the real thing
 - Tailscale Kubernetes operator: <https://tailscale.com/kb/1236/kubernetes-operator>
 - Tailscale operator Ingress + Funnel: <https://tailscale.com/kb/1439/kubernetes-operator-cluster-ingress>
 - AWS Load Balancer Controller: <https://kubernetes-sigs.github.io/aws-load-balancer-controller/>
 - Gateway API: <https://gateway-api.sigs.k8s.io/>
+- GitHub hook IP ranges (`hooks` key): <https://api.github.com/meta>
+- ngrok IP restrictions (Traffic Policy): <https://ngrok.com/docs/traffic-policy/actions/restrict-ips/>

@@ -323,8 +323,9 @@ The release-side checklist, including the two items that fail
 - [x] 4.3 Re-verify `appVersion` against the tag the `minor` label
   will actually cut (IMPL-0017 lesson) — if a release landed since,
   adjust `appVersion` before merge.
-- [ ] 4.4 Open the single atomic PR with the `minor` label; body
+- [x] 4.4 Open the single atomic PR with the `minor` label; body
   carries the migration summary and the breaking-change callouts.
+  *(PR #182, opened 2026-08-15.)*
 - [ ] 4.5 Post-merge: confirm the push-triggered `release.yml` run
   **creates jobs** (startup_failure is silent — post-mortem), then
   v1.14.0 tag exists, chart `1.0.0` published to GHCR **and** ECR,

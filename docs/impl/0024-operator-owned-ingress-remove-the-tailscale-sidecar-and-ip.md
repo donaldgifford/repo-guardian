@@ -148,7 +148,8 @@ any commit.
   `webhookRejectedRe` to `logInvalidPayload`, rewrite the const
   comment block and the webhook panel description (~207, currently
   explains allowlist-vs-signature + `TRUST_PROXY_HEADERS` behind
-  Tailscale); run `make monitoring-generate` and commit
+  Tailscale — the panel itself survives, OQ3 = a); run
+  `make monitoring-generate` and commit
   `contrib/generated/` in the same commit.
 - [ ] 1.3 Rewrite `RepoGuardianWebhookRejectionsHigh`'s
   `Description` (`internal/monitoring/alert/alert.go:154` — the
@@ -168,14 +169,15 @@ any commit.
   "Unsupported argument". **Verify non-vacuously**: re-add the
   attribute to `guardianBodySchema`, watch the test fail, remove it
   (back up first per standing practice).
-- [ ] 1.7 (Per Open Question 2 decision) startup `slog.Warn` when
-  any of the three removed env vars is still set, naming
-  `docs/operations/ingress.md` — or skip this task if OQ2 = b.
+- [ ] 1.7 (OQ2 = a) startup `slog.Warn` when any of the three
+  removed env vars is still set, naming
+  `docs/operations/ingress.md`; test with `t.Setenv` (no
+  `t.Parallel`).
 
 #### Success Criteria
 
 - `grep -rn "WebhookIPAllowlist\|TrustProxyHeaders\|WEBHOOK_IP_ALLOWLIST\|TRUST_PROXY_HEADERS\|webhook_ip_allowlist\|trust_proxy_headers" internal/ cmd/ --include='*.go'`
-  returns only the OQ2 warn strings (if 1.7 taken) and nothing else.
+  returns only the 1.7 warn strings and nothing else.
 - `make ci` green; `TestLogLines_AreStillEmittedByTheBinary`,
   `make lint-monitoring`, `make lint-alerts-contrib` all green.
 - The loader regression test exists and has been proven non-vacuous.
@@ -273,10 +275,11 @@ phase is load-bearing, not cleanup.
   `contrib/README.md` — replace Tailscale/allowlist references with
   `ingress.md` pointers (historical design/impl docs stay
   untouched).
-- [ ] 3.5 Supersession: DESIGN-0004 and DESIGN-0003 get status +
-  banner per Open Question 1's decision; INV-0001 gets a banner
-  pointing at INV-0016 (status stays Concluded); `docz update
-  design` / `docz update inv`.
+- [ ] 3.5 Supersession (OQ1 = a): add `Superseded` to the design
+  statuses in `.docz.yaml`; set DESIGN-0004 and DESIGN-0003 to
+  `Superseded` with a banner naming DESIGN-0023; INV-0001 gets a
+  banner pointing at INV-0016 (status stays Concluded); `docz
+  update design` / `docz update inv`.
 - [ ] 3.6 CLAUDE.md: remove the "Webhook IP allowlist" and
   "Tailscale Funnel" key-design-pattern bullets, update the
   `webhook/` architecture line (drop "IP allowlist middleware"),
@@ -348,7 +351,7 @@ The release-side checklist, including the two items that fail
 | `internal/webhook/allowlist.go` / `allowlist_test.go` | Delete | middleware + meta fetcher + tests (511 LOC) |
 | `internal/webhook/handler.go` (+ test) | Modify | 401 branch increments `webhook_rejected_total{reason="signature"}` |
 | `internal/metrics/metrics.go` | Modify | counter help text |
-| `cmd/repo-guardian/main.go` | Modify | drop `wrapWebhookAllowlist` + call site (+ OQ2 warn if taken) |
+| `cmd/repo-guardian/main.go` | Modify | drop `wrapWebhookAllowlist` + call site; add removed-env-var startup warn (OQ2 = a) |
 | `internal/config/config.go` (+ test) | Modify | drop three env knobs |
 | `internal/policy/{types,loader,defaults}.go` (+ 3 tests) | Modify | drop three HCL attrs (lockstep ×3 spots each) + regression test |
 | `internal/monitoring/dashboard/e4.go` | Modify | matcher reduction + panel description |
@@ -362,7 +365,7 @@ The release-side checklist, including the two items that fail
 | `docs/operations/ingress.md` | Create | migration section + options matrix + recipes |
 | `SECURITY.md`, `docs/usage/policy-reference.md`, `docs/operations/ent-setup.md`, `docs/index.md`, `docs/README.md`, `contrib/README.md`, `CLAUDE.md` | Modify | trust-model rewrite + reference sweep |
 | `docs/design/0003-*`, `0004-*`, `docs/investigation/0001-*` | Modify | supersession (per OQ1) |
-| `.docz.yaml` | Modify (if OQ1 = a) | add `Superseded` to design statuses |
+| `.docz.yaml` | Modify | add `Superseded` to design statuses (OQ1 = a) |
 
 ## Testing Plan
 
@@ -394,10 +397,12 @@ The release-side checklist, including the two items that fail
 
 ## Open Questions
 
-Format: (a) is the recommendation; pick a letter or write in
-**other**.
+**All three decided 2026-08-15** (operator review): 1a, 2a, 3a.
+Decisions are folded into the tasks above (1.2, 1.7, 3.5, File
+Changes); the original options are preserved below for the record.
 
 **1. How do DESIGN-0003 and DESIGN-0004 record supersession?**
+*Decided: (a).*
 The docz `design` status list has no `Superseded` (audit finding);
 RFC and ADR types both have it.
 
@@ -416,6 +421,7 @@ RFC and ADR types both have it.
 
 **2. Should the binary warn when the removed env vars are still
 set?**
+*Decided: (a).*
 The HCL and chart surfaces fail loudly, but a stale
 `TRUST_PROXY_HEADERS=true` env patch is silently ignored
 (DESIGN-0023 documented the asymmetry; this question is whether to
@@ -433,6 +439,7 @@ soften it).
 - other: ____
 
 **3. Does the E4 webhook "Rejections by message" panel survive?**
+*Decided: (a).*
 Its matcher reduces to the single `invalid webhook payload` line.
 
 - (a) **Keep the panel** with the reduced matcher and a rewritten

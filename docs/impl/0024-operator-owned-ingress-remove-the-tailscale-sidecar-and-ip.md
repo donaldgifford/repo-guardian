@@ -262,7 +262,7 @@ phase is load-bearing, not cleanup.
   Secret ref — OQ6 = a) and each row's source-IP setup,
   X-Forwarded-For note, CIDR-refresh ownership, and observability
   story; closing checkbox contract.
-- [ ] 3.2 Rewrite SECURITY.md's webhook sections: HMAC is the
+- [x] 3.2 Rewrite SECURITY.md's webhook sections: HMAC is the
   app-layer boundary; source-IP enforcement is operator-owned per
   `ingress.md`; one history paragraph pointing at INV-0016 with the
   spoofability finding (so the middleware doesn't get reintroduced

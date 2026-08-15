@@ -173,20 +173,19 @@ Post-removal behavior (all decided in INV-0016, all intended):
 Every consumer of the deleted telemetry, and what happens to it:
 
 - **`metrics.WebhookRejectedTotal`** — sole producer is the deleted
-  middleware. Disposition per Open Question 1 (recommendation:
-  repoint at the HMAC 401 path with `reason="signature"`, making the
-  counter's one remaining reason true and cheap).
+  middleware. **Decided (OQ1 = a): repoint at the HMAC path** — the
+  401 branch of `webhook.Handler.ServeHTTP` increments
+  `webhook_rejected_total{reason="signature"}`. The
+  `ip_not_allowed`/`allowlist_unavailable` reasons disappear; the
+  counter's one remaining reason is true and cheap.
 - **`RepoGuardianWebhookRejectionsHigh`**
   (`internal/monitoring/alert/alert.go:154`) — exists only in the
   catalogue/generated tier; the chart's PrometheusRule does **not**
   carry it (verified 2026-08-15), so there is no hand-mirrored copy
-  to keep in step. Under OQ1(a) the alert survives with its
-  `Description` rewritten (the current text promises allowlist 403s
-  that will no longer exist and signature 401s that today never
-  reach the counter). Under OQ1(b/c) the alert is deleted or
-  re-expressed over otelhttp series
-  (`http_server_request_duration_seconds_count` by
-  `http_response_status_code`, the E3 vocabulary).
+  to keep in step. The alert survives with its `Description`
+  rewritten (the current text promises allowlist 403s that will no
+  longer exist and signature 401s that today never reach the
+  counter).
 - **E4 dashboard** (`internal/monitoring/dashboard/e4.go:33-37`) —
   `logRejectedIP` ("rejected request from non-GitHub IP") and
   `logNoIP` stop being emitted; `webhookRejectedRe` reduces to
@@ -239,8 +238,24 @@ Both mechanisms from precedent, layered:
    produces one legible sentence. They fire at different layers
    (`helm lint`/CI vs render), which is why both exist.
 
-Chart version: per Open Question 3 (recommendation: stay in the rc
-series).
+**Chart version (OQ3 decided): this change ships as `1.0.0` stable**,
+graduating the rc series. Preconditions, because the publish
+workflow's `helm pull` idempotency precheck would *silently skip*
+publishing if a `1.0.0` already existed:
+
+- GHCR verified clean 2026-08-15: `helm show chart
+  oci://ghcr.io/donaldgifford/charts/repo-guardian --version 1.0.0`
+  → "not found".
+- ECR could not be checked from the workstation; the IMPL carries a
+  release-checklist step to verify no `1.0.0` exists in ECR before
+  tagging (an `aws ecr describe-images` or `helm show chart` against
+  the ECR OCI ref).
+
+Prerelease semantics make this clean: every `1.0.0-rc.*` sorts below
+`1.0.0`, and breaking changes inside the rc series were the series'
+stated purpose (IMPL-0016, IMPL-0018 precedent). The stable cut also
+means the migration note is part of the chart's 1.0.0 story rather
+than an rc-to-rc footnote.
 
 ### D6: Documentation — the ingress options matrix
 
@@ -262,9 +277,22 @@ snippets), what sets `X-Forwarded-For` (telemetry-only post-removal),
 the source-IP enforcement setup where one exists, the CIDR-refresh
 ownership note for static allowlists, and the observability story
 (which edge-native signal plus which repo-guardian OTEL series answer
-"is traffic arriving / being rejected"). A closing section documents
-the checkbox contract: a box is checked only after the option carries
-a real GitHub App delivery end-to-end.
+"is traffic arriving / being rejected"). Two decided specifics:
+
+- **(OQ6 = a)** the cloudflared-sidecar row ships a complete,
+  copy-pasteable kustomize strategic-merge patch — container with a
+  **pinned, renovate-annotated** image (the supply-chain hygiene the
+  old sidecar lacked), tunnel-token Secret reference, and nothing
+  else, since remotely-managed tunnels keep the sidecar stateless.
+- **(OQ5 = a)** no in-app client-IP telemetry replaces the deleted
+  header read. Each matrix row documents where its edge's client-IP
+  evidence lives (ALB access logs, Cloudflare dashboard/Logpush,
+  ngrok inspector, Funnel — empirical checkbox item); otelhttp
+  metrics stay IP-free by design (cardinality), and E4 answers
+  "which repository", not "which caller".
+
+A closing section documents the checkbox contract: a box is checked
+only after the option carries a real GitHub App delivery end-to-end.
 
 ### D7: Historical-doc supersession
 
@@ -293,9 +321,9 @@ a real GitHub App delivery end-to-end.
   `trust_proxy_headers` (fail load if still present).
 - **Removed chart values:** `tailscale.*`, `webhookIPAllowlist.*`
   (fail render if still present).
-- **Metric:** `repo_guardian_webhook_rejected_total{reason}` — per
-  OQ1; under (a) the `ip_not_allowed`/`allowlist_unavailable` reasons
-  disappear and `signature` appears.
+- **Metric:** `repo_guardian_webhook_rejected_total{reason}` — the
+  `ip_not_allowed`/`allowlist_unavailable` reasons disappear;
+  `signature` appears (OQ1 = a).
 - **No Go interface changes.** `github.Client`, `Store`, `Queue`,
   the reconcilers, and the webhook `Handler` signature are untouched;
   no mock regeneration needed.
@@ -328,11 +356,10 @@ post-upgrade sweep burst isn't mistaken for a bug).
   regeneration; `make lint-alerts-contrib` re-parses the generated
   rules. No new machinery needed — the design leans on gates
   IMPL-0023 already built.
-- **OQ1(a) case:** if the counter is repointed, a handler test
-  asserting the 401 path increments
-  `webhook_rejected_total{reason="signature"}` exactly once
-  (`testutil.ToFloat64`), and the webhook 202 contract tests keep
-  passing unchanged.
+- **Repointed counter (OQ1 = a):** a handler test asserting the 401
+  path increments `webhook_rejected_total{reason="signature"}`
+  exactly once (`testutil.ToFloat64`), and the webhook 202 contract
+  tests keep passing unchanged.
 - **Render sweep:** `helm template` output diffed for exactly the
   expected deletions (no sidecar container, no allowlist env, no
   tailscale volumes/ConfigMap/RBAC) — the PR #67 namespace-stamping
@@ -340,13 +367,17 @@ post-upgrade sweep burst isn't mistaken for a bug).
 
 ## Migration / Rollout Plan
 
-1. **One release, both halves.** Binary and chart ship together
-   (per OQ4 recommendation): appVersion bump `minor`, chart bump per
-   OQ3. Shipping the chart removal against an old binary would leave
-   the allowlist enabled-by-default with no values to disable it;
-   shipping the binary first would strand chart values that render
-   env vars the binary ignores. Atomic is simpler than either skew.
-2. **Operator steps, in the migration note** (placement per OQ2):
+1. **One release, both halves (OQ4 = a).** Binary and chart ship
+   together in one atomic PR: appVersion bump `minor`, chart
+   `1.0.0` stable (OQ3). Shipping the chart removal against an old
+   binary would leave the allowlist enabled-by-default with no
+   values to disable it; shipping the binary first would strand
+   chart values that render env vars the binary ignores. Atomic is
+   simpler than either skew.
+2. **Operator steps, in the migration note** (OQ2 = a — a
+   "Migrating from the baked sidecar" section at the top of
+   `docs/operations/ingress.md`; the chart guard message and the
+   startup-error pointer both name that one URL):
    remove `tailscale.*` and `webhookIPAllowlist.*` from values;
    remove the three `guardian.hcl` attributes; delete any stale env
    patches (silently ignored, but confusing to future readers);
@@ -369,10 +400,15 @@ post-upgrade sweep burst isn't mistaken for a bug).
 
 ## Open Questions
 
-Format: (a) is the recommendation; pick a letter or write in
-**other**.
+**All six decided 2026-08-15** (operator review): 1a, 2a,
+3 = other (cut as `1.0.0` stable, after verifying no published
+`1.0.0` exists — GHCR verified clean; ECR check moves to the release
+checklist), 4a, 5a, 6a. Decisions are folded into the sections above
+(D3, D5, D6, Migration); the original options are preserved below
+for the record.
 
 **1. Disposition of `webhook_rejected_total` and its alert.**
+*Decided: (a).*
 The deleted middleware is the counter's only producer today; the
 HMAC 401 path increments nothing (INV-0016 Observation 5).
 
@@ -397,6 +433,7 @@ HMAC 401 path increments nothing (INV-0016 Observation 5).
 - other: ____
 
 **2. Where the migration note lives.**
+*Decided: (a).*
 
 - (a) **A section in `docs/operations/ingress.md` itself** —
   "Migrating from the baked sidecar" at the top of the doc every
@@ -414,6 +451,8 @@ HMAC 401 path increments nothing (INV-0016 Observation 5).
 - other: ____
 
 **3. Chart version for the breaking change.**
+*Decided: other — ship as `1.0.0` stable (see D5 for the
+published-version preconditions).*
 
 - (a) **Stay in the rc series (`1.0.0-rc.13`)** — the chart has
   never shipped a stable 1.0.0; rc semantics permit breaking
@@ -430,6 +469,7 @@ HMAC 401 path increments nothing (INV-0016 Observation 5).
 - other: ____
 
 **4. Sequencing of the removal.**
+*Decided: (a).*
 
 - (a) **One atomic PR** — binary + chart + docs + generated
   monitoring together. The drift gates effectively force D1+D3
@@ -447,6 +487,7 @@ HMAC 401 path increments nothing (INV-0016 Observation 5).
 - other: ____
 
 **5. Does anything replace the client-IP telemetry?**
+*Decided: (a).*
 Post-removal, nothing in the app reads `X-Forwarded-For`; the
 `RemoteAddr` behind every documented edge is a proxy/sidecar
 address. INV-0016 flagged Funnel's forwarded-header behavior as
@@ -468,6 +509,7 @@ unverified.
 
 **6. Does the sidecar image reference survive anywhere as a worked
 example?**
+*Decided: (a).*
 INV-0016 Observation 9 makes the operator-injected cloudflared
 sidecar a first-class matrix row, and the homelab consumes the chart
 via kustomize+helm in ArgoCD.

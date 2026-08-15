@@ -97,11 +97,6 @@ policy:
       }
     }
 
-webhookIPAllowlist:
-  enabled: true
-  failOpen: false
-  trustProxyHeaders: false
-
 serviceMonitor:
   enabled: true
   interval: 30s

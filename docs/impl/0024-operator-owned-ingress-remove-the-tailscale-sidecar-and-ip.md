@@ -219,7 +219,7 @@ bump so the negative tests exercise the final message text.
   `tests/values_guard_test.yaml` (`tailscale.enabled=true` and
   `webhookIPAllowlist.enabled=true` each fail render with the
   migration message) plus a positive default-values render case.
-- [ ] 2.7 Strip the `webhookIPAllowlist:` blocks from
+- [x] 2.7 Strip the `webhookIPAllowlist:` blocks from
   `examples/values-with-policy.yaml` (~153) and
   `examples/values-multi-org.yaml` (~100); `examples_test.go` green.
 - [ ] 2.8 `Chart.yaml`: `version: 1.0.0`, `appVersion: "1.14.0"`

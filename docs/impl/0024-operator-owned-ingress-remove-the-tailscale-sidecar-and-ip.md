@@ -267,7 +267,7 @@ phase is load-bearing, not cleanup.
   `ingress.md`; one history paragraph pointing at INV-0016 with the
   spoofability finding (so the middleware doesn't get reintroduced
   as a "cheap second layer").
-- [ ] 3.3 `docs/usage/policy-reference.md`: remove the three
+- [x] 3.3 `docs/usage/policy-reference.md`: remove the three
   guardian-attr rows (~69-71) and the two env-mapping rows
   (~637-638).
 - [ ] 3.4 Sweep the remaining live docs: `docs/operations/

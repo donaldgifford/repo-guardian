@@ -28,6 +28,8 @@ Design docs, plans, and implementation docs can reference investigations by ID
 | INV-0013 | State-vs-event metrics, dashboard suite, and system observability | Concluded | 2026-08-01 | Donald Gifford | [0013-state-vs-event-metrics-dashboard-suite-and-system-observability.md](0013-state-vs-event-metrics-dashboard-suite-and-system-observability.md) |
 | INV-0014 | Orphan cleanup deletes files the default branch legitimately owns | Concluded | 2026-08-03 | Donald Gifford | [0014-orphan-cleanup-deletes-files-the-default-branch-legitimately.md](0014-orphan-cleanup-deletes-files-the-default-branch-legitimately.md) |
 | INV-0016 | Retire the baked Tailscale sidecar for operator-managed ingress | Concluded | 2026-08-14 | Donald Gifford | [0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress.md](0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress.md) |
+| INV-0018 | repo-guardian v2: role split, business state, and a platform UI | Open | 2026-09-23 | Donald Gifford | [0018-repo-guardian-v2-role-split-business-state-and-a-platform-ui.md](0018-repo-guardian-v2-role-split-business-state-and-a-platform-ui.md) |
+| INV-0019 | Temporal as the repo-guardian control plane | Open | 2026-09-23 | Donald Gifford | [0019-temporal-as-the-repo-guardian-control-plane.md](0019-temporal-as-the-repo-guardian-control-plane.md) |
 <!-- END DOCZ AUTO-GENERATED -->
 <!-- BEGIN DOCZ AUTO-GENERATED -->
 <!-- END DOCZ AUTO-GENERATED -->

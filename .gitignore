@@ -53,3 +53,12 @@ site/
 # Keys and certs
 *.pem
 *.cert
+
+# Local functional-test policy and its generated output. `home.hcl` is a
+# real deployed guardian.hcl kept at the repo root so `monitoring generate`
+# can be exercised against a policy that turns real mechanisms on; `k8s/`
+# is where that run writes. Neither is tracked, because the committed
+# monitoring tier must come from the built-in defaults — see INV-0017
+# Observation 4 and the comment above MONITORING_GENERATE in the Makefile.
+/home.hcl
+/k8s/

@@ -74,6 +74,7 @@ nav:
         - 'INV-0013: State-vs-event metrics, dashboard suite, and system observability': investigation/0013-state-vs-event-metrics-dashboard-suite-and-system-observability.md
         - 'INV-0014: Orphan cleanup deletes files the default branch legitimately owns': investigation/0014-orphan-cleanup-deletes-files-the-default-branch-legitimately.md
         - 'INV-0016: Retire the baked Tailscale sidecar for operator-managed ingress': investigation/0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress.md
+        - 'INV-0017: Datasource portability in generated dashboards and generating the Loki evidence tier': investigation/0017-datasource-portability-in-generated-dashboards-and-generating.md
     - Plans:
         - Overview: plan/README.md
     - RFCs:

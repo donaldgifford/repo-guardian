@@ -133,15 +133,42 @@ lint-alerts-chart: ## Validate the alert rules the Helm chart renders
 # Without it the static tier would be generated from whatever policy the
 # developer happens to have exported, and the drift gate would then fail
 # for everyone else.
-MONITORING_GENERATE = $(GO) run ./cmd/$(PROJECT_NAME) monitoring generate --config '' --format json --out
+MONITORING_GENERATE = $(GO) run ./cmd/$(PROJECT_NAME) monitoring generate --config ''
+
+MONITORING_GENERATE_JSON = $(MONITORING_GENERATE) --format json --out
+
+# The k8s reference tier. Two flags are pinned here rather than left at
+# their defaults, and both are pinned because their default is a silent
+# failure rather than a missing one (INV-0017 Observation 6):
+#
+#   --instance-selector  emit refuses to render without it, since a
+#                        GrafanaDashboard with no target sits forever
+#                        unreconciled with nothing in `kubectl get` to
+#                        say so. `dashboards=grafana` is grafana-operator's
+#                        own documented example.
+#   --namespace          a CR with no namespace lands wherever the
+#                        applying tool defaults to, which under ArgoCD is
+#                        frequently not where the operator intended (the
+#                        PR #67 post-mortem).
+#
+# Both are examples, not recommendations — an operator regenerates this
+# tier with their own values. That is also why no --label is pinned: the
+# release label kube-prometheus-stack's ruleSelector wants is specific to
+# how the stack was installed, and guessing it here would ship a
+# PrometheusRule that looks applied and is never loaded.
+MONITORING_GENERATE_K8S = $(MONITORING_GENERATE) --format k8s \
+	--instance-selector dashboards=grafana \
+	--namespace monitoring \
+	--out
 
 monitoring-generate: ## Regenerate the committed static monitoring tier
 	@ $(MAKE) --no-print-directory log-$@
 	@# Cleared first so a dashboard that is deleted from the suite also
 	@# disappears from the committed tier. Regenerating in place would leave
 	@# its file behind, and the gate below would happily call that current.
-	@rm -rf $(MONITORING_DIR)/dashboards $(MONITORING_DIR)/alerts
-	@$(MONITORING_GENERATE) $(MONITORING_DIR) >/dev/null
+	@rm -rf $(MONITORING_DIR)/dashboards $(MONITORING_DIR)/alerts $(MONITORING_DIR)/k8s
+	@$(MONITORING_GENERATE_JSON) $(MONITORING_DIR) >/dev/null
+	@$(MONITORING_GENERATE_K8S) $(MONITORING_DIR)/k8s >/dev/null
 
 # The static tier is committed, so it can go stale the moment a rule, a
 # mechanism gate or a panel changes — silently, because nothing else reads
@@ -155,17 +182,25 @@ monitoring-generate: ## Regenerate the committed static monitoring tier
 lint-monitoring: ## Fail if the committed static monitoring tier is stale
 	@ $(MAKE) --no-print-directory log-$@
 	@rm -rf $(BUILD_DIR)/monitoring
-	@$(MONITORING_GENERATE) $(BUILD_DIR)/monitoring >/dev/null
+	@$(MONITORING_GENERATE_JSON) $(BUILD_DIR)/monitoring >/dev/null
+	@$(MONITORING_GENERATE_K8S) $(BUILD_DIR)/monitoring/k8s >/dev/null
 	@# Anti-vacuous guard, the same one lint-alerts-chart carries: an
 	@# emitter that wrote nothing produces no diff against a tier that is
 	@# also empty, and "no diff" is what this target treats as success.
+	@#
+	@# Both formats are counted. They share alert.Groups, so one number
+	@# would usually do — but the k8s half wraps it in a PrometheusRule,
+	@# and a wrapper that dropped spec.groups would leave the json count
+	@# healthy while emitting a CR Prometheus loads nothing from.
 	@rules=$$(yq '[.groups[].rules[]] | length' $(BUILD_DIR)/monitoring/alerts/rules.yaml 2>/dev/null || echo 0); \
-	if [ "$$rules" -lt 1 ]; then \
-		echo "error: the generator emitted no alert rules, so this gate would pass on nothing" >&2; \
-		echo "       check alert.Catalogue and monitoring.Derive" >&2; \
+	k8srules=$$(yq '[.spec.groups[].rules[]] | length' $(BUILD_DIR)/monitoring/k8s/alerts/prometheusrule.yaml 2>/dev/null || echo 0); \
+	if [ "$$rules" -lt 1 ] || [ "$$k8srules" -lt 1 ]; then \
+		echo "error: the generator emitted no alert rules ($$rules json, $$k8srules k8s)," >&2; \
+		echo "       so this gate would pass on nothing" >&2; \
+		echo "       check alert.Catalogue, monitoring.Derive and alert.RenderPrometheusRule" >&2; \
 		exit 1; \
 	fi; \
-	echo "regenerated $$rules alert rules"
+	echo "regenerated $$rules alert rules ($$k8srules in the PrometheusRule)"
 	@if ! diff -r -u --exclude=README.md $(BUILD_DIR)/monitoring $(MONITORING_DIR); then \
 		echo "error: the committed monitoring tier is stale" >&2; \
 		echo "       run 'make monitoring-generate' and commit the result" >&2; \

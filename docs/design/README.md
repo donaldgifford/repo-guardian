@@ -55,4 +55,5 @@ docz create design "Your Design Title"
 | DESIGN-0021 | Delayed-requeue job contract and rate-limit consolidation | Implemented | 2026-07-26 | Donald Gifford | [0021-delayed-requeue-job-contract-and-rate-limit-consolidation.md](0021-delayed-requeue-job-contract-and-rate-limit-consolidation.md) |
 | DESIGN-0022 | Compliance posture state, dashboard suite, and OTEL-first observability | Implemented | 2026-08-02 | Donald Gifford | [0022-compliance-posture-state-dashboard-suite-and-otel-first.md](0022-compliance-posture-state-dashboard-suite-and-otel-first.md) |
 | DESIGN-0023 | Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware | Implemented | 2026-08-15 | Donald Gifford | [0023-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip.md](0023-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip.md) |
+| DESIGN-0024 | Multi-instance monitoring generation | Draft | 2026-09-23 | Donald Gifford | [0024-multi-instance-monitoring-generation.md](0024-multi-instance-monitoring-generation.md) |
 <!-- END DOCZ AUTO-GENERATED -->

@@ -828,7 +828,10 @@ items 1–3 above depends on it.
   losing the per-repository alerting this whole tier exists for; other:
 
 - **OQ8 — How does the generator disambiguate ten instances
-  (Observation 10)?** (a)=an `--instance <name>` flag that suffixes every
+  (Observation 10)?** — **Multi-instance support is wanted (2026-09-23);
+  the how moved to DESIGN-0024**, which proposes (a) with (b) as a
+  non-goal. OQ9 is carried there as DESIGN-0024 OQ2.
+  Original options: (a)=an `--instance <name>` flag that suffixes every
   dashboard UID, slug, folder, title and object name, AND injects a
   matcher into every PromQL and LogQL expression — per-instance
   generation, which is the only shape that works when the ten policies

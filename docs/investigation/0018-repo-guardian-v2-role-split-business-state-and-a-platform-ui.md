@@ -502,7 +502,8 @@ Smaller items found along the way, all actionable without a v2:
 | Option | Shape | Assessment |
 | --- | --- | --- |
 | **A** | Ground-up v2 in a new tree | Throws away 52% of the code that everyone agrees works, and years of edge-case fixes recorded in CLAUDE.md (INV-0003 idempotent commits, INV-0011 A1/A2, INV-0014 orphan cleanup, the subset invariant). No. |
-| **B** | Strangler: v1.x minors add the new model, roles, API and UI alongside the old paths; one major version at the breaking cut | Every step ships and is used in the homelab before the next. The breaking changes (business metrics leave Prometheus, `worker_count` leaves the policy, chart topology) bundle into one major. **Recommended.** |
+| **B** | Strangler: v1.x minors add the new model, roles, API and UI alongside the old paths; one major version at the breaking cut | Every step ships to v1 users, but every step must also stay compatible with v1's control plane, which Temporal replaces wholesale. Not chosen. |
+| **D** | Re-topology on a long-lived `v2` branch: engine carried over unchanged, runtime rebuilt around it; v1 frozen on `main`, fixes merge forward | Keeps the engine and its edge-case history (not A), without paying for v1 compatibility at every step (not B). **Chosen (OQ10).** |
 | **C** | Bolt an API and UI onto today's shape | Builds a UI on a boolean (Observation 3) and on a best-effort write-back (Observation 6). The UI would be permanently less informative than the engine. |
 
 ### Target shape
@@ -596,8 +597,12 @@ Decided 2026-09-23: the UI is **read-only** and never holds policy;
 **zero business metrics** remain in Prometheus in v2, which is for
 operational metrics and observability only; **GitHub Enterprise Cloud
 only**, no GHES. **The control plane is Temporal, self-hosted on
-Kubernetes, and Valkey is dropped** (INV-0019). Observations 6 and 7
+Kubernetes, and Valkey is dropped** (INV-0019); Observations 6 and 7
 record the queue analysis as it stood before that decision.
+
+Decided 2026-09-24: v2 is developed on a **long-lived `v2` branch**
+while v1 on `main` stays as it is (OQ10), and every other open question
+takes its recommended option.
 
 ### What I think
 
@@ -623,9 +628,9 @@ it should be Observation 3.
 in 21,500 lines. The engine is 52% of the code and holds years of
 edge-case fixes that exist only as tests and CLAUDE.md paragraphs. What
 is wrong is where the engine's output goes and how the process is
-shaped, and both can change around it. A strangler also means the
-homelab exercises every step before the next, which is how most of the
-bugs in CLAUDE.md were caught.
+shaped, and both can change around it. Carrying the engine onto a `v2`
+branch keeps that history, and proving each phase in the homelab before
+the next is how most of the bugs in CLAUDE.md were caught.
 
 **Scope is the risk.** Each piece is modest: role split, findings,
 API, UI, OIDC, notifications, autoscaling. Together they are a
@@ -651,12 +656,29 @@ burst latency, not throughput past the GitHub API budget
 
 ## Recommendation
 
-Phase as a strangler. Each phase is its own DESIGN/IMPL and is proven
-in the homelab first. Phases 0–3 are additive v1.x minors on today's
-control plane; every breaking change is held for the single v2.0 cut
-(Phase 4).
+**Develop v2 on a long-lived `v2` branch; v1 stays as it is** (OQ10).
+v1 on `main` is frozen for features and takes only fixes. v2 carries
+the engine packages over unchanged and re-topologizes around them,
+so it is a branch, not a new tree. Each phase is its own DESIGN/IMPL
+targeting `v2` and is proven in the homelab before the next. With no
+v1.x compatibility to preserve, breaking changes land when they are
+ready instead of being held for a cut.
 
-**Phase 0 — cleanup, now, no v2 required.**
+**Branch mechanics.**
+
+- `main` merges into `v2` regularly. Engine fixes land on `main` first
+  and flow forward; since the engine packages are unchanged on `v2`,
+  those merges stay mechanical. The divergence lives in runtime
+  plumbing, which v1 no longer changes.
+- CI must run on PRs targeting `v2` (`ci.yml` branch filters), and
+  `release.yml`'s semver bump must not fire from it. v2 pre-releases are
+  manual `v2.0.0-rc.N` tags with `dont-release` PRs (CLAUDE.md rule 6).
+- v2.0.0 is tagged when Phases 1–4 are done and a v1 → v2 upgrade has
+  been run in the homelab; `v2` then fast-forwards `main`.
+
+**Phase 0 — cleanup.** The dead-code deletions and the unused
+`repo_guardian_github_rate_remaining` series go on `v2`; docs hygiene
+goes on `main`, since it is about v1's record.
 
 - Delete `repo_guardian_github_rate_remaining` and its `contrib/README.md`
   mention.
@@ -672,17 +694,36 @@ control plane; every breaking change is held for the single v2.0 cut
 
 **Phase 1 — the finding model (the foundation).**
 
-- `findings` + `finding_events`, provider-neutral keys.
+- `findings` + `finding_events`, provider-neutral keys (OQ8), goose for
+  migrations and sqlc for queries (OQ7).
 - `RuleOutcome` widens to state, reason and evidence; the engine stops
   discarding what it knows.
-- Backfill from `rule_state`. This is where a Go-function migration
-  earns goose (OQ7).
-- The findings write is shaped as a single idempotent function so it
-  can become a Temporal activity at the v2.0 cut unchanged (INV-0019).
-- The posture exporter keeps running off the new tables unchanged, so
-  nothing user-visible moves yet.
+- Backfill from `rule_state` as a goose Go-function migration: this is
+  the v1 → v2 data upgrade path.
+- The findings write is a single idempotent function, so it becomes a
+  Temporal activity in Phase 2 unchanged.
 
-**Phase 2 — API v1 (read-only), v1.x minor.**
+**Phase 2 — Temporal control plane and role split** (INV-0019).
+
+- Temporal self-hosted via the upstream `temporalio/helm-charts` on its
+  own CNPG Postgres, visibility `baked` or `external`.
+- `RepoWorkflow` + `InstallationWorkflow` replace the queue, reaper,
+  scheduler, leader election and stale sweep; findings write and
+  notifications are activities.
+- **Valkey removed** from the binary and the chart.
+- Subcommands `ingest | worker | api | all` (OQ6); no `controller`.
+  Worker Deployment scaled by the KEDA Temporal scaler,
+  `maxReplicaCount` bounded by budget. DESIGN-0016 folds in;
+  DESIGN-0015 is superseded by per-installation task queues.
+- **Zero business metrics in Prometheus.** The posture exporter, the
+  ~26 business series, the E1/E2 dashboards and the business alerts are
+  not carried to v2. The monitoring generator becomes system-tier only
+  (E3, E4, system alerts), which DESIGN-0024 and the INV-0017 Loki tier
+  continue to serve.
+- `worker_count` leaves `guardian {}` and fails load with a migration
+  message (the IMPL-0024 removed-attribute shape).
+
+**Phase 3 — API v1 (read-only).**
 
 INV-0009 Phase A, updated for findings:
 
@@ -693,45 +734,20 @@ INV-0009 Phase A, updated for findings:
   per-repo detail, compliance history, and status-page health.
 - The `report` subcommand becomes a client of the same queries.
 
-**Phase 3 — UI v1 (read-only) and the status page.**
+**Phase 4 — UI v1 (read-only) and the status page.**
 
-- Bun + React + TypeScript + shadcn, OIDC code + PKCE, a client
-  generated from the OpenAPI spec.
-- Business views over findings, plus a public-safe status page (system
-  health and compliance summary).
+- A separate repository consuming the published OpenAPI contract
+  (OQ5): Bun + React + TypeScript + shadcn, OIDC code + PKCE, a client
+  generated from the spec.
+- Business views over findings, plus an unauthenticated status page
+  limited to aggregate health and compliance percentages.
 
-**Phase 4 — v2.0: the one breaking cut.** Everything that breaks an
-operator's install lands together, after the UI exists to replace the
-business dashboards it removes.
-
-- **Temporal control plane** (INV-0019), self-hosted as a separate Helm
-  release on its own CNPG Postgres. `RepoWorkflow` +
-  `InstallationWorkflow` replace the queue, reaper, scheduler, leader
-  election and stale sweep; the findings write becomes an activity.
-- **Valkey removed** from the binary and the chart.
-- **Role split:** subcommands `ingest | worker | api | all`. There is
-  no `controller` role; Schedules and workflows own what it would have
-  done. Worker Deployment scaled by the KEDA Temporal scaler,
-  `maxReplicaCount` bounded by budget. Folds in DESIGN-0015 and
-  DESIGN-0016.
-- **Zero business metrics in Prometheus.** The posture exporter, the
-  ~26 business series, the E1/E2 dashboards and the business alerts are
-  removed outright, with no compat exporter. Prometheus carries
-  operational metrics and observability only.
-- `worker_count` leaves `guardian {}` and fails load with a migration
-  message (the IMPL-0024 removed-attribute shape).
-- The monitoring generator becomes system-tier only (E3, E4, system
-  alerts), which DESIGN-0024 and the INV-0017 Loki tier continue to
-  serve.
-
-**Phase 5 — notifications, v2.x minor.**
+**Phase 5 — notifications** (may ship in v2.0.0 or a v2.x minor).
 
 - Transition-driven sinks (Jira, Slack, generic webhook), run as
   Temporal activities off `finding_events`, so retries and idempotency
-  (`external_ref`) come from the platform.
+  (`external_ref`) come from the platform (OQ9).
 - Per-org routing rules, tickets closed on resolution.
-- Deliberately after the cut: built on the old control plane, it would
-  need its own delivery durability, which Temporal makes redundant.
 
 There is deliberately no "mutating UI" phase: the UI is read-only for
 the life of v2.
@@ -744,10 +760,10 @@ the life of v2.
   a per-installation workflow. ~~(a)=River; (b)=custom Valkey queue +
   KEDA Redis scaler; (c)=asynq~~
 
-- **OQ2 — Finding model shape.** (a)=new `findings` table (state enum,
-  reason, evidence `jsonb`, `external_ref`) plus append-only
-  `finding_events`, backfilled from `rule_state`; (b)=widen `rule_state`
-  in place and skip the event log; other:
+- **OQ2 — Finding model shape.** — **RESOLVED (a):** new `findings`
+  table (state enum, reason, evidence `jsonb`, `external_ref`) plus
+  append-only `finding_events`, backfilled from `rule_state`.
+  ~~(b)=widen `rule_state` in place~~
 
 - **OQ3 — Business metrics in Prometheus after v2.** — **RESOLVED:
   zero.** Prometheus is operational metrics and observability only.
@@ -760,37 +776,36 @@ the life of v2.
   changes by pull request. ~~(a)=UI authors policy PRs;
   (b)=Postgres-stored policy~~
 
-- **OQ5 — UI placement and status-page exposure.** (a)=separate repo
-  consuming the published OpenAPI contract, as INV-0009 concluded, with
-  an unauthenticated status-page endpoint limited to aggregate health
-  and compliance percentages; (b)=`web/` in this repo behind CI
-  paths-filters; (c)=same as (a) but the status page also requires
-  login; other:
+- **OQ5 — UI placement and status-page exposure.** — **RESOLVED (a):**
+  separate repository consuming the published OpenAPI contract (as
+  INV-0009 concluded), with an unauthenticated status-page endpoint
+  limited to aggregate health and compliance percentages. ~~(b)=`web/`
+  in this repo; (c)=login-gated status page~~
 
-- **OQ6 — Process topology.** (a)=one image, subcommands
-  `ingest | worker | api | all` (no `controller` under Temporal), chart
-  default split at v2.0 with `all` for small installs; (b)=separate images per role; other:
+- **OQ6 — Process topology.** — **RESOLVED (a):** one image,
+  subcommands `ingest | worker | api | all` (no `controller` under
+  Temporal), split by default with `all` for small installs.
+  ~~(b)=separate images per role~~
 
-- **OQ7 — Migration and query tooling.** (a)=adopt goose (Go-function
-  migrations for the findings backfill) and sqlc (typed queries for the
-  API's read surface) in Phase 1; (b)=keep golang-migrate, add sqlc
-  only; (c)=no change; other:
+- **OQ7 — Migration and query tooling.** — **RESOLVED (a):** goose
+  (Go-function migrations for the findings backfill) and sqlc (typed
+  queries for the API's read surface), from Phase 1. ~~(b)=golang-migrate
+  + sqlc; (c)=no change~~
 
-- **OQ8 — Provider keys.** GHES is **RESOLVED out of scope**
-  (Enterprise Cloud only). What remains: (a)=provider-neutral keys
-  `(provider, org, repo)` in the Phase 1 findings migration, since
-  INV-0002/INV-0007 keep GitLab/Forgejo on the roadmap and this is the
-  cheap moment; (b)=keep `installation_id` keys; other:
+- **OQ8 — Provider keys.** — **RESOLVED (a):** GHES out of scope
+  (Enterprise Cloud only); findings use provider-neutral keys
+  `(provider, org, repo)` from the Phase 1 migration, since
+  INV-0002/INV-0007 keep GitLab/Forgejo on the roadmap.
+  ~~(b)=`installation_id` keys~~
 
-- **OQ9 — Notification model.** (a)=transition-driven from
-  `finding_events`, Temporal activities, idempotent via `external_ref`,
-  auto-resolving; (b)=periodic digests only; other:
+- **OQ9 — Notification model.** — **RESOLVED (a):** transition-driven
+  from `finding_events`, Temporal activities, idempotent via
+  `external_ref`, auto-resolving. ~~(b)=periodic digests only~~
 
-- **OQ10 — Release shape.** (a)=strangler: findings, API and UI ship as
-  v1.x minors on today's control plane; Temporal, Valkey removal, the
-  role split and the business-metrics removal ship together as v2.0,
-  with notifications as a v2.x minor after it; (b)=a long-lived v2 branch developed in
-  parallel; other:
+- **OQ10 — Release shape.** — **RESOLVED (b):** a long-lived `v2`
+  branch developed in parallel; v1 on `main` stays as it is, taking
+  fixes only, which merge forward into `v2`. See Recommendation.
+  ~~(a)=strangler via v1.x minors~~
 
 ## References
 

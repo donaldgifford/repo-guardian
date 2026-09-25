@@ -1139,7 +1139,7 @@ Phase 13.
 
 #### Tasks
 
-- [ ] 14.1 Write `api/openapi.yaml` in OpenAPI 3.1:
+- [x] 14.1 Write `api/openapi.yaml` in OpenAPI 3.1:
   - `Problem` (RFC 9457), `Cursor`, and open enums for status, reason,
     remediation, park reason and component state;
   - the paths `/me`, `/summary`, `/status` and `/openapi.yaml`;

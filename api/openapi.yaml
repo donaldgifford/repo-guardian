@@ -1,0 +1,337 @@
+openapi: 3.1.0
+info:
+  title: repo-guardian API
+  version: 1.0.0
+  summary: Read-only compliance API for repo-guardian v2.
+  description: |
+    The read-only API behind the repo-guardian UI and status page
+    (DESIGN-0027). Every endpoint is a GET. Responses are JSON, times
+    are RFC 3339 UTC, and errors are RFC 9457 problem details.
+
+    Results are scoped to the orgs the caller may see. An org the
+    caller cannot see answers 404, the same as an unknown one; a caller
+    who can see no org gets 403 everywhere except `/me`.
+
+    Enums documented as open may gain values within `/api/v1`. Clients
+    must treat an unknown value as opaque rather than fail.
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+tags:
+  - name: identity
+  - name: fleet
+  - name: meta
+paths:
+  /me:
+    get:
+      operationId: getMe
+      summary: The caller's identity and visible orgs.
+      description: Answers even when the caller can see no org, so the UI can show an "ask for access" page.
+      tags: [identity]
+      responses:
+        "200":
+          description: The caller.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        default:
+          $ref: "#/components/responses/Error"
+  /summary:
+    get:
+      operationId: getSummary
+      summary: Fleet summary over the caller's visible orgs.
+      tags: [fleet]
+      parameters:
+        - name: stale_after
+          in: query
+          description: Age after which an open repo-guardian PR counts as stale. Defaults to the server's PR_STALE_AFTER.
+          required: false
+          schema:
+            type: string
+            pattern: "^[0-9]+(h|m|s)$"
+            examples: ["720h"]
+      responses:
+        "200":
+          description: The summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Summary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/Error"
+  /status:
+    get:
+      operationId: getStatus
+      summary: Public service status.
+      description: |
+        Served from a cache refreshed every 30s. It never names an org,
+        repository, rule or installation, and carries no error text.
+      tags: [meta]
+      security: []
+      responses:
+        "200":
+          description: The status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Status"
+        default:
+          $ref: "#/components/responses/Error"
+  /openapi.yaml:
+    get:
+      operationId: getOpenAPI
+      summary: This contract.
+      tags: [meta]
+      security: []
+      responses:
+        "200":
+          description: The OpenAPI document.
+          content:
+            application/yaml:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: An OIDC access token issued for the API's audience. ID tokens are refused.
+  responses:
+    BadRequest:
+      description: The request is malformed.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Unauthorized:
+      description: The bearer token is missing or invalid.
+      headers:
+        WWW-Authenticate:
+          description: Bearer challenge, per RFC 6750.
+          schema:
+            type: string
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Forbidden:
+      description: The caller can see no org.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    NotFound:
+      description: No such resource, or one in an org the caller cannot see.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Error:
+      description: An unexpected error.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+  schemas:
+    Problem:
+      description: RFC 9457 problem details.
+      type: object
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          description: A URI reference identifying the problem type; "about:blank" when only the status applies.
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+        request_id:
+          type: string
+          description: The request ID, for matching server logs.
+    Cursor:
+      description: |
+        An opaque keyset cursor. Pass it back unchanged as `?cursor=` to
+        fetch the next page; a cursor from different filters is refused.
+      type: string
+    FindingStatus:
+      description: "Open enum: compliant, non_compliant, not_applicable, unknown."
+      type: string
+      examples: [compliant, non_compliant, not_applicable, unknown]
+    Reason:
+      description: |
+        Open enum. Why a finding has its status: file_missing,
+        assertion_failed, content_differs, forbidden_present,
+        setting_mismatch, ruleset_missing, ruleset_mismatch,
+        out_of_scope_policy, out_of_scope_rule, ignored_global,
+        ignored_rule, gate_closed, branch_missing, empty_repository,
+        gate_error, foreign_pr_open, migrated_from_v1. Empty when
+        compliant.
+      type: string
+      examples: [file_missing, gate_closed]
+    Remediation:
+      description: "Open enum: none, pr_open, foreign_pr, applied, dry_run, disabled."
+      type: string
+      examples: [pr_open]
+    ParkReason:
+      description: "Open enum: access_denied, archived, fork, removed, installation_removed, unknown."
+      type: string
+      examples: [archived]
+    ComponentState:
+      description: "Open enum: operational, degraded, down, unknown."
+      type: string
+      examples: [operational]
+    Me:
+      description: The caller and the orgs it may see.
+      type: object
+      required: [subject, name, all_orgs, orgs]
+      properties:
+        subject:
+          type: string
+          description: The token's `sub`.
+        name:
+          type: string
+          description: The display-name claim; empty when the token has none.
+        client:
+          type: [string, "null"]
+          description: The `azp` of a machine client; null for a user.
+        all_orgs:
+          type: boolean
+          description: The caller may see every org.
+        orgs:
+          type: array
+          description: The orgs the caller may see; empty when all_orgs is set.
+          items:
+            type: string
+    StatusCounts:
+      description: Finding counts by status.
+      type: object
+      required: [compliant, non_compliant, not_applicable, unknown]
+      properties:
+        compliant:
+          type: integer
+          minimum: 0
+        non_compliant:
+          type: integer
+          minimum: 0
+        not_applicable:
+          type: integer
+          minimum: 0
+        unknown:
+          type: integer
+          minimum: 0
+    ParkedCount:
+      description: Inactive repositories with one park reason.
+      type: object
+      required: [reason, count]
+      properties:
+        reason:
+          $ref: "#/components/schemas/ParkReason"
+        count:
+          type: integer
+          minimum: 0
+    PRAgeBucket:
+      description: Open repo-guardian PRs in one age bucket.
+      type: object
+      required: [bucket, count]
+      properties:
+        bucket:
+          description: "Open enum: <1d, 1-7d, 7-30d, 30d+."
+          type: string
+          examples: ["1-7d"]
+        count:
+          type: integer
+          minimum: 0
+    Summary:
+      description: The fleet summary over the visible orgs.
+      type: object
+      required: [tracked, parked, compliant_percent, findings, open_prs, stale_prs, stale_after]
+      properties:
+        tracked:
+          type: integer
+          minimum: 0
+          description: Active repositories in the visible orgs.
+        parked:
+          type: array
+          description: Inactive repositories by park reason.
+          items:
+            $ref: "#/components/schemas/ParkedCount"
+        compliant_percent:
+          type: [number, "null"]
+          description: |
+            compliant / (compliant + non_compliant) over active
+            repositories, floored to one decimal. Null when nothing is
+            measured, never 100.
+        findings:
+          $ref: "#/components/schemas/StatusCounts"
+        open_prs:
+          type: array
+          description: Open repo-guardian PRs by age.
+          items:
+            $ref: "#/components/schemas/PRAgeBucket"
+        stale_prs:
+          type: integer
+          minimum: 0
+          description: Open repo-guardian PRs older than stale_after.
+        stale_after:
+          type: string
+          description: The threshold applied, as a Go duration.
+    Component:
+      description: One status-page component.
+      type: object
+      required: [name, state, detail]
+      properties:
+        name:
+          description: "Open enum: checks, webhooks, discovery, snapshots, github_budget, backlog."
+          type: string
+        state:
+          $ref: "#/components/schemas/ComponentState"
+        detail:
+          type: string
+          description: A fixed template with a relative time, such as "last success 3m ago". Never error text.
+    Compliance:
+      description: Fleet-wide compliance for the status page.
+      type: object
+      required: [percent, measured]
+      properties:
+        percent:
+          type: [number, "null"]
+        measured:
+          type: boolean
+    Status:
+      description: The public service status.
+      type: object
+      required: [state, updated_at, components, compliance]
+      properties:
+        state:
+          $ref: "#/components/schemas/ComponentState"
+        updated_at:
+          type: string
+          format: date-time
+        components:
+          type: array
+          items:
+            $ref: "#/components/schemas/Component"
+        compliance:
+          $ref: "#/components/schemas/Compliance"

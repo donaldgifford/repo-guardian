@@ -190,6 +190,25 @@ prometheusRule:
   # PrometheusRule template for the canonical alert names.
   alerts: {}
 
+migrate:
+  # -- Run `repo-guardian migrate` as a pre-install/pre-upgrade hook Job
+  # (v2 schema migrations and the one-time v1 backfill). Off until the v2
+  # runtime ships (IMPL-0025 Phase 17).
+  enabled: false
+  # -- Job retries before the release fails.
+  backoffLimit: 1
+  # -- Upper bound on the Job's run time, in seconds. The v1 backfill is
+  # one transaction; raise this for very large fleets.
+  activeDeadlineSeconds: 600
+  # -- Resources for the migrate container.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
 # -- Persistent state store (per-repo reconcile state). See
 # DESIGN-0012 §Backend modes. The in-memory backend was removed
 # in IMPL-0016 (chart 1.0); postgres is the only supported value.

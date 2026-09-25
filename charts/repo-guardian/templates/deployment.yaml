@@ -119,25 +119,7 @@ spec:
             {{- if eq .Values.store.backend "postgres" }}
             - name: STORE_POSTGRES_MAX_CONNS
               value: {{ .Values.store.postgres.maxConns | quote }}
-            {{- if and (eq .Values.store.postgres.mode "baked") .Values.store.postgres.baked.existingSecret }}
-            # Baked Postgres with an operator-supplied password: assemble
-            # STORE_DSN at runtime from $(POSTGRES_PASSWORD) so the chart
-            # never needs the password at template time (GitOps-safe).
-            # POSTGRES_PASSWORD must precede STORE_DSN for $(...) expansion.
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.store.postgres.baked.existingSecret }}
-                  key: {{ .Values.store.postgres.baked.existingSecretKey | default "POSTGRES_PASSWORD" }}
-            - name: STORE_DSN
-              value: "postgres://repoguardian:$(POSTGRES_PASSWORD)@{{ include "repo-guardian.postgresFullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:5432/repoguardian?sslmode=disable"
-            {{- else }}
-            - name: STORE_DSN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "repo-guardian.storeSecretName" . }}
-                  key: {{ include "repo-guardian.storeSecretKey" . }}
-            {{- end }}
+            {{- include "repo-guardian.storeDSNEnv" . | nindent 12 }}
             - name: RECONCILE_FRESHNESS
               value: {{ .Values.staleSweep.freshness | quote }}
             - name: STALE_SWEEP_BATCH_SIZE

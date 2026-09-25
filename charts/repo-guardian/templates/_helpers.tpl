@@ -232,3 +232,30 @@ the entry once operators have had a release or two to notice.
 {{- fail "webhookIPAllowlist.* was removed in IMPL-0024: the in-app IP allowlist was spoofable behind every documented proxy and was deleted — source-IP enforcement now lives at the operator's edge layer. Delete the block. See docs/operations/ingress.md#migrating-from-the-baked-sidecar" -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+STORE_DSN (and, for baked Postgres with an operator secret, the
+POSTGRES_PASSWORD it expands) as container env entries. Shared by the
+Deployment and the migrate Job so the two can never disagree on the DSN.
+*/}}
+{{- define "repo-guardian.storeDSNEnv" -}}
+{{- if and (eq .Values.store.postgres.mode "baked") .Values.store.postgres.baked.existingSecret }}
+# Baked Postgres with an operator-supplied password: assemble
+# STORE_DSN at runtime from $(POSTGRES_PASSWORD) so the chart
+# never needs the password at template time (GitOps-safe).
+# POSTGRES_PASSWORD must precede STORE_DSN for $(...) expansion.
+- name: POSTGRES_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.store.postgres.baked.existingSecret }}
+      key: {{ .Values.store.postgres.baked.existingSecretKey | default "POSTGRES_PASSWORD" }}
+- name: STORE_DSN
+  value: "postgres://repoguardian:$(POSTGRES_PASSWORD)@{{ include "repo-guardian.postgresFullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:5432/repoguardian?sslmode=disable"
+{{- else }}
+- name: STORE_DSN
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "repo-guardian.storeSecretName" . }}
+      key: {{ include "repo-guardian.storeSecretKey" . }}
+{{- end }}
+{{- end }}

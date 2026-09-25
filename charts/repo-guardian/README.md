@@ -514,6 +514,10 @@ incoming webhook.
 | livenessProbe.httpGet.port | string | `"http"` |  |
 | livenessProbe.initialDelaySeconds | int | `5` |  |
 | livenessProbe.periodSeconds | int | `15` |  |
+| migrate.activeDeadlineSeconds | int | `600` | Upper bound on the Job's run time, in seconds. The v1 backfill is one transaction; raise this for very large fleets. |
+| migrate.backoffLimit | int | `1` | Job retries before the release fails. |
+| migrate.enabled | bool | `false` | Run `repo-guardian migrate` as a pre-install/pre-upgrade hook Job (v2 schema migrations and the one-time v1 backfill). Off until the v2 runtime ships (IMPL-0025 Phase 17). |
+| migrate.resources | object | `{"limits":{"cpu":"500m","memory":"256Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}` | Resources for the migrate container. |
 | nameOverride | string | `""` | Override the chart name |
 | nodeSelector | object | `{}` | Node selector |
 | podAnnotations | object | `{}` | Pod annotations |

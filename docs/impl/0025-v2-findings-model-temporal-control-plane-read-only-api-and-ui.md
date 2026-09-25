@@ -781,7 +781,7 @@ it. Task IDs are `<phase>.<n>`.
   and `UpsertRuleStates` still work against the database, and the v1
   tables are unchanged. Copy the two queries into `pgtest/v1sql` so the
   test survives Phase 16.
-- [ ] 7.5 Add the chart template `templates/migrate-job.yaml`:
+- [x] 7.5 Add the chart template `templates/migrate-job.yaml`:
   - hook `pre-install,pre-upgrade`;
   - delete policy `before-hook-creation,hook-succeeded`;
   - behind `migrate.enabled` (default false until Phase 17);

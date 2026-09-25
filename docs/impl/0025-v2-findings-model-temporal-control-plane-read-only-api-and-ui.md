@@ -1225,7 +1225,7 @@ failed on a probe and passed once it was removed.
 - [x] 15.1 Add the remaining endpoints from DESIGN-0027 to the spec.
   Lists use keyset pagination with a default of 50 and a max of 200.
   Evidence is a `oneOf` keyed by reason.
-- [ ] 15.2 Write `queries/api_*.sql`, one file per resource. Each uses
+- [x] 15.2 Write `queries/api_*.sql`, one file per resource. Each uses
   keyset paging and the scope predicate, and they reuse the Phase 8
   compliance query.
 - [ ] 15.3 Cursors are base64url JSON carrying the sort key, the ID and

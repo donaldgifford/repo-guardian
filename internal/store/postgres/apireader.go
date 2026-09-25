@@ -29,9 +29,10 @@ func (r *APIReader) Ping(ctx context.Context) error {
 	return r.pool.Ping(ctx)
 }
 
-// readOnly runs fn in a read-only transaction.
+// readOnly runs fn in a read-only, repeatable-read transaction, so a
+// view built from several queries reads one snapshot.
 func (r *APIReader) readOnly(ctx context.Context, fn func(q *sqlcdb.Queries) error) error {
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly, IsoLevel: pgx.RepeatableRead})
 	if err != nil {
 		return fmt.Errorf("begin read-only transaction: %w", err)
 	}

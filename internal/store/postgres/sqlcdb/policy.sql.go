@@ -20,6 +20,27 @@ func (q *Queries) CompletePolicyRollout(ctx context.Context, version string) err
 	return err
 }
 
+const currentPolicyVersion = `-- name: CurrentPolicyVersion :one
+SELECT version, first_seen_at, rollout_completed_at, summary
+FROM policy_versions
+ORDER BY first_seen_at DESC, version DESC
+LIMIT 1
+`
+
+// The newest policy version. Global: the API's /policy is not org-scoped
+// because the policy is one document for the whole fleet.
+func (q *Queries) CurrentPolicyVersion(ctx context.Context) (PolicyVersion, error) {
+	row := q.db.QueryRow(ctx, currentPolicyVersion)
+	var i PolicyVersion
+	err := row.Scan(
+		&i.Version,
+		&i.FirstSeenAt,
+		&i.RolloutCompletedAt,
+		&i.Summary,
+	)
+	return i, err
+}
+
 const insertPolicyVersion = `-- name: InsertPolicyVersion :execrows
 INSERT INTO policy_versions (version, summary) VALUES ($1, $2)
 ON CONFLICT (version) DO NOTHING

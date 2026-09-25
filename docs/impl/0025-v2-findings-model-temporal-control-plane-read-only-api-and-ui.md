@@ -564,7 +564,7 @@ it. Task IDs are `<phase>.<n>`.
   - `InsertComplianceSnapshot`, idempotent on `(org, kind, rule, at)`;
   - `PruneChecks`;
   - `GetRepository`, and `ListActiveRepositories` with keyset paging.
-- [ ] 3.9 Add `RequireSchema(ctx, pool, minVersion)`. It reads
+- [x] 3.9 Add `RequireSchema(ctx, pool, minVersion)`. It reads
   `goose_db_version` and is used by role readiness.
 - [ ] 3.10 Add `Writer` and `Reader` to `.mockery.yaml`, then run
   `make mocks`.

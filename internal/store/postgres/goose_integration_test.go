@@ -8,6 +8,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres"
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres/pgtest"
 )
@@ -164,5 +166,35 @@ func mustExec(t *testing.T, db *sql.DB, query string) {
 
 	if _, err := db.Exec(query); err != nil {
 		t.Fatalf("exec %q: %v", query, err)
+	}
+}
+
+func TestRequireSchema(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	dsn := pgtest.Start(t)
+
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
+
+	if err := postgres.RequireSchema(ctx, pool, postgres.SchemaVersion); !errors.Is(err, postgres.ErrSchemaTooOld) {
+		t.Fatalf("unmigrated: err = %v, want ErrSchemaTooOld", err)
+	}
+
+	_, up := openMigrator(t, dsn)
+	if _, err := up(ctx); err != nil {
+		t.Fatalf("up: %v", err)
+	}
+
+	if err := postgres.RequireSchema(ctx, pool, postgres.SchemaVersion); err != nil {
+		t.Fatalf("migrated: %v", err)
+	}
+
+	if err := postgres.RequireSchema(ctx, pool, postgres.SchemaVersion+1); !errors.Is(err, postgres.ErrSchemaTooOld) {
+		t.Fatalf("future version: err = %v, want ErrSchemaTooOld", err)
 	}
 }

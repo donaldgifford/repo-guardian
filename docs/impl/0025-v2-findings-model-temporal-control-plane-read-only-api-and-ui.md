@@ -1003,7 +1003,7 @@ This phase can start right after Phase 1.
   - 20,000 acquire/report pairs against one installation;
   - record p50/p99 latency, history size and frontend CPU here;
   - set the ContinueAsNew threshold from those numbers.
-- [ ] 11.8 Deploy this build over the live Phase 10 executions:
+- [ ] 11.8 **Deferred — human required:** the live deploy. Caveat for the operator: the Phase 10 build recorded `budget-v1=1` with a no-op branch, so executions started on a Phase 10 build hit a non-determinism error on this build instead of taking the `budget-v1` branch. No Phase 10 build was deployed, so deploy Phase 11 or later first. Histories from this build are captured in `internal/workflows/testdata/histories/` — Deploy this build over the live Phase 10 executions:
   - they must take the `budget-v1` branch with zero
     `WorkflowTaskFailed`;
   - capture new histories.

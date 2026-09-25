@@ -1233,7 +1233,7 @@ failed on a probe and passed once it was removed.
   returns 400.
 - [x] 15.4 Compute `pr_stale` in SQL, with `PR_STALE_AFTER` (default
   720h) and a `?stale_after=` override bounded to 1h–8760h.
-- [ ] 15.5 Build the merged events timeline (`UNION ALL`) with keyset
+- [x] 15.5 Build the merged events timeline (`UNION ALL`) with keyset
   paging, and `/policy`, which shows the current version, rollout state
   and summary.
 - [ ] 15.6 Per-endpoint tests:

@@ -32,8 +32,12 @@ var (
 )
 
 // orgReader answers Summary by aggregating per-org fixtures over the
-// scope, the way the SQL predicate does, and records each scope.
+// scope, the way the SQL predicate does, and records each scope. The
+// other reads are exercised against Postgres (apireader integration
+// tests); calling one here panics on the nil embedded Reader.
 type orgReader struct {
+	api.Reader
+
 	mu     sync.Mutex
 	orgs   map[string]*store.Summary
 	scopes []store.APIScope

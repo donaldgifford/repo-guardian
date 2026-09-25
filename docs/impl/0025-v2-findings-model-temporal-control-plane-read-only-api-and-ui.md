@@ -1557,7 +1557,7 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
     relative path;
   - `POST /auth/logout` checks `Origin`, revokes per RFC 7009, clears
     the cookies and uses `end_session_endpoint`.
-- [ ] 20.5 Proxy:
+- [x] 20.5 Proxy:
   - `/api/*` accepts GET and HEAD only;
   - it forwards only to `API_UPSTREAM`;
   - it strips `Cookie` and hop-by-hop headers;

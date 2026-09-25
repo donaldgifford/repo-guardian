@@ -1406,7 +1406,7 @@ Land this phase as one PR, so the branch is never half-migrated.
   - a negative test for each guard.
 - [x] 17.7 Add `checksum/policy` and `checksum/templates` annotations
   on worker, ingest and `all`.
-- [ ] 17.8 Read-only role, per Postgres mode:
+- [x] 17.8 Read-only role, per Postgres mode:
   - **baked:** init SQL for new volumes, plus OQ24 for existing ones;
   - **CNPG:** `spec.managed.roles`, with the `-ro` Service;
   - **external:** the operator provides a Secret.

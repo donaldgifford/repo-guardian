@@ -434,18 +434,10 @@ func TestWarnRemovedEnvVars_SilentWhenUnset(t *testing.T) {
 	}
 }
 
-func TestDispatch_APIRoleIsAStub(t *testing.T) {
-	t.Parallel()
-
-	if err := dispatch([]string{"repo-guardian", "api"}); !errors.Is(err, errAPINotImplemented) {
-		t.Errorf("dispatch(api) = %v, want errAPINotImplemented", err)
-	}
-}
-
 func TestDispatch_RolesRejectUnknownFlags(t *testing.T) {
 	t.Parallel()
 
-	for _, role := range []string{"ingest", "worker", "all"} {
+	for _, role := range []string{"ingest", "worker", "api", "all"} {
 		if err := dispatch([]string{"repo-guardian", role, "--no-such-flag"}); err == nil {
 			t.Errorf("dispatch(%s --no-such-flag) = nil, want a flag error", role)
 		}

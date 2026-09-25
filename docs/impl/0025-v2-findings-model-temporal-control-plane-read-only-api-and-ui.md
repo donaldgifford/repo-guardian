@@ -1169,7 +1169,7 @@ Phase 13.
   - every handler runs in a read-only transaction;
   - `STORE_RO_DSN` is required in `split`, while `all` may fall back
     to `STORE_DSN` (DESIGN-0027 OQ11).
-- [ ] 14.6 Fill in `runAPI`:
+- [x] 14.6 Fill in `runAPI`:
   - `API_LISTEN_ADDR`;
   - readiness from a pool ping and `RequireSchema`;
   - in `all`, the API runs on its own listener.

@@ -105,6 +105,9 @@ type Config struct {
 	// change spreads its re-checks over. Default 24h.
 	PolicyRolloutWindow time.Duration
 
+	// API is the api role's configuration (DESIGN-0027).
+	API APIConfig
+
 	// ChecksRetention is CHECKS_RETENTION: SnapshotWorkflow prunes checks
 	// older than this. Default 2160h (90 days, DESIGN-0025 OQ8).
 	ChecksRetention time.Duration
@@ -262,7 +265,7 @@ func parse() (*Config, error) {
 	}
 
 	cfg := &Config{
-		ListenAddr:           envOrDefault("LISTEN_ADDR", ":8080"),
+		ListenAddr:           envOrDefault("LISTEN_ADDR", defaultListenAddr),
 		MetricsAddr:          envOrDefault("METRICS_ADDR", ":9090"),
 		TemplateDir:          envOrDefault("TEMPLATE_DIR", "/etc/repo-guardian/templates"),
 		SkipForks:            skipForks,
@@ -411,7 +414,11 @@ func loadDiscoveryConfig(cfg *Config) error {
 
 	cfg.ComplianceSnapshotInterval = snapshotInterval
 
-	return loadV2Durations(cfg)
+	if err := loadV2Durations(cfg); err != nil {
+		return err
+	}
+
+	return loadAPIConfig(cfg)
 }
 
 // v2 duration defaults (DESIGN-0026 § Configuration).

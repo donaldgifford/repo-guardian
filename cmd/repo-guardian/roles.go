@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -14,6 +13,7 @@ import (
 	"go.temporal.io/sdk/worker"
 
 	"github.com/donaldgifford/repo-guardian/internal/activities"
+	"github.com/donaldgifford/repo-guardian/internal/api"
 	"github.com/donaldgifford/repo-guardian/internal/config"
 	"github.com/donaldgifford/repo-guardian/internal/ingest"
 	"github.com/donaldgifford/repo-guardian/internal/observability"
@@ -36,21 +36,15 @@ const (
 	cmdV1 = "v1"
 )
 
-// errAPINotImplemented is the api role's answer until Phase 14.
-var errAPINotImplemented = errors.New("the api role is not implemented yet (IMPL-0025 Phase 14)")
-
 func runIngest(args []string) error { return runRoles(cmdIngest, args, config.RoleIngest) }
 
 func runWorker(args []string) error { return runRoles(cmdWorker, args, config.RoleWorker) }
 
-// runAll runs every role in one process. The api role is skipped until
-// it exists.
-func runAll(args []string) error {
-	return runRoles(cmdAll, args, config.RoleIngest|config.RoleWorker)
-}
+// runAll runs every role in one process; the API gets its own listener.
+func runAll(args []string) error { return runRoles(cmdAll, args, config.RoleAll) }
 
-// runAPI is the read-only API role, a stub until Phase 14.
-func runAPI([]string) error { return errAPINotImplemented }
+// runAPI is the read-only API role (DESIGN-0027).
+func runAPI(args []string) error { return runRoles(cmdAPI, args, config.RoleAPI) }
 
 // runRoles brings up the given roles in one process, serves until a
 // signal, then shuts down.
@@ -82,41 +76,90 @@ func runRoles(name string, args []string, roles config.Role) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	tcfg, err := temporal.ConfigFromEnv()
+	tcfg, tc, err := dialTemporal(ctx, roles, obs, logger)
 	if err != nil {
 		return err
 	}
 
-	tc, err := temporal.Dial(ctx, &tcfg, temporal.DialOptions{Logger: logger, MeterProvider: obs.MeterProvider})
-	if err != nil {
-		return err
-	}
-	defer tc.Close()
-
-	if err := temporal.CheckServerVersion(ctx, tc, temporal.MinServerVersion); err != nil {
-		return err
+	if tc != nil {
+		defer tc.Close()
 	}
 
-	mux, w, err := bringUpRoles(ctx, roles, cfg, tc, &tcfg, *strictTemplates, logger)
+	up, err := bringUpRoles(ctx, roles, cfg, tc, &tcfg, *strictTemplates, logger)
 	if err != nil {
 		return err
 	}
 
-	mainServer := &http.Server{Addr: cfg.ListenAddr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
-	metricsServer := newMetricsServer(cfg.MetricsAddr)
-
-	startServer(logger, mainServer, "main", cfg.ListenAddr, cancel)
-	startServer(logger, metricsServer, "metrics", cfg.MetricsAddr, cancel)
+	servers := listen(logger, cfg, roles, up, cancel)
 
 	awaitShutdown(ctx, logger)
 	cancel()
-	stopRoles(logger, w, mainServer, metricsServer)
+	stopRoles(logger, up.worker, servers...)
 
 	return nil
 }
 
-// bringUpRoles starts the worker and mounts ingest and the health
-// endpoints for the given roles.
+// dialTemporal connects to Temporal for the roles that use it. The api
+// role alone does not: it reads Postgres only.
+func dialTemporal(
+	ctx context.Context, roles config.Role, obs *observability.Provider, logger *slog.Logger,
+) (temporal.Config, client.Client, error) {
+	tcfg, err := temporal.ConfigFromEnv()
+	if err != nil || roles == config.RoleAPI {
+		return tcfg, nil, err
+	}
+
+	tc, err := temporal.Dial(ctx, &tcfg, temporal.DialOptions{Logger: logger, MeterProvider: obs.MeterProvider})
+	if err != nil {
+		return tcfg, nil, err
+	}
+
+	if err := temporal.CheckServerVersion(ctx, tc, temporal.MinServerVersion); err != nil {
+		tc.Close()
+
+		return tcfg, nil, err
+	}
+
+	return tcfg, tc, nil
+}
+
+// listen starts the HTTP servers. The api role alone serves the API and
+// the health endpoints on API_LISTEN_ADDR; beside other roles the API
+// gets its own listener.
+func listen(logger *slog.Logger, cfg *config.Config, roles config.Role, up *rolesUp, cancel context.CancelFunc) []*http.Server {
+	addr := cfg.ListenAddr
+	if roles == config.RoleAPI {
+		addr = cfg.APIListenAddr(roles)
+		up.mux.Handle(api.BaseURL+"/", up.api)
+	}
+
+	servers := []*http.Server{
+		{Addr: addr, Handler: up.mux, ReadHeaderTimeout: 10 * time.Second},
+		newMetricsServer(cfg.MetricsAddr),
+	}
+
+	startServer(logger, servers[0], "main", addr, cancel)
+	startServer(logger, servers[1], "metrics", cfg.MetricsAddr, cancel)
+
+	if up.api != nil && roles != config.RoleAPI {
+		apiAddr := cfg.APIListenAddr(roles)
+		apiServer := &http.Server{Addr: apiAddr, Handler: up.api, ReadHeaderTimeout: 10 * time.Second}
+		startServer(logger, apiServer, "api", apiAddr, cancel)
+		servers = append(servers, apiServer)
+	}
+
+	return servers
+}
+
+// rolesUp is what bringUpRoles started.
+type rolesUp struct {
+	mux    *http.ServeMux
+	api    http.Handler
+	worker worker.Worker
+}
+
+// bringUpRoles starts the worker, builds the API and mounts ingest and
+// the health endpoints for the given roles.
 func bringUpRoles(
 	ctx context.Context,
 	roles config.Role,
@@ -125,10 +168,14 @@ func bringUpRoles(
 	tcfg *temporal.Config,
 	strictTemplates bool,
 	logger *slog.Logger,
-) (*http.ServeMux, worker.Worker, error) {
-	checks := []readinessCheck{{name: "temporal", fn: func(ctx context.Context) error { return temporal.Ping(ctx, tc) }}}
+) (*rolesUp, error) {
+	var checks []readinessCheck
+	if tc != nil {
+		checks = append(checks, readinessCheck{name: "temporal", fn: func(ctx context.Context) error { return temporal.Ping(ctx, tc) }})
+	}
 
-	mux := http.NewServeMux()
+	up := &rolesUp{mux: http.NewServeMux()}
+	mux := up.mux
 
 	var w worker.Worker
 
@@ -140,7 +187,7 @@ func bringUpRoles(
 
 		w, pool, err = startV2Worker(ctx, cfg, tc, tcfg, strictTemplates, logger)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
 		checks = append(checks, readinessCheck{name: "schema", fn: func(ctx context.Context) error {
@@ -151,10 +198,20 @@ func bringUpRoles(
 	if roles.Has(config.RoleIngest) {
 		h, err := newIngestHandler(cfg, tc, tcfg.TaskQueue, logger)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
 		mux.Handle(webhookRoute, observability.Handler(h, webhookRoute))
+	}
+
+	if roles.Has(config.RoleAPI) {
+		h, apiChecks, err := startAPI(ctx, cfg, roles, logger)
+		if err != nil {
+			return nil, err
+		}
+
+		up.api = h
+		checks = append(checks, apiChecks...)
 	}
 
 	ready := newReadiness(logger, checks...)
@@ -163,7 +220,9 @@ func bringUpRoles(
 	mux.HandleFunc("GET /healthz", handleHealthz)
 	mux.HandleFunc("GET /readyz", ready.handler(ctx))
 
-	return mux, w, nil
+	up.worker = w
+
+	return up, nil
 }
 
 // startV2Worker loads the policy and engine, opens the store and starts

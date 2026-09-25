@@ -99,3 +99,69 @@ func TestLoadV2Durations(t *testing.T) {
 		t.Error("CHECKS_RETENTION=0s accepted, want an error")
 	}
 }
+
+func setAPIEnv(t *testing.T) {
+	t.Helper()
+
+	t.Setenv("STORE_RO_DSN", "postgres://ro")
+	t.Setenv("OIDC_ISSUER", "https://idp.example")
+	t.Setenv("OIDC_AUDIENCE", "repo-guardian-api")
+	t.Setenv("API_AUTHZ_CONFIG", "/etc/repo-guardian/authz.yaml")
+}
+
+func TestLoadRole_API(t *testing.T) {
+	t.Run("needs no Temporal, App key or read-write DSN", func(t *testing.T) {
+		setAPIEnv(t)
+
+		cfg, err := LoadRole(RoleAPI)
+		if err != nil {
+			t.Fatalf("LoadRole(api) = %v", err)
+		}
+
+		if cfg.APIListenAddr(RoleAPI) != ":8080" || cfg.APIStoreDSN(RoleAPI) != "postgres://ro" {
+			t.Errorf("listen %s, dsn %s", cfg.APIListenAddr(RoleAPI), cfg.APIStoreDSN(RoleAPI))
+		}
+	})
+
+	for _, env := range []string{"STORE_RO_DSN", "OIDC_ISSUER", "OIDC_AUDIENCE", "API_AUTHZ_CONFIG"} {
+		t.Run("requires "+env, func(t *testing.T) {
+			setAPIEnv(t)
+			t.Setenv("STORE_DSN", "postgres://rw")
+			t.Setenv(env, "")
+
+			if _, err := LoadRole(RoleAPI); err == nil || !strings.Contains(err.Error(), env) {
+				t.Errorf("LoadRole(api) without %s = %v", env, err)
+			}
+		})
+	}
+
+	t.Run("disabled auth needs only the DSN", func(t *testing.T) {
+		t.Setenv("STORE_RO_DSN", "postgres://ro")
+		t.Setenv("API_AUTH_ENABLED", "false")
+
+		if _, err := LoadRole(RoleAPI); err != nil {
+			t.Errorf("LoadRole(api) with auth disabled = %v", err)
+		}
+	})
+}
+
+func TestLoadRole_AllRunsTheAPIOnItsOwnListener(t *testing.T) {
+	setWorkerEnv(t)
+	setAPIEnv(t)
+	t.Setenv("STORE_RO_DSN", "")
+
+	cfg, err := LoadRole(RoleAll)
+	if err != nil {
+		t.Fatalf("LoadRole(all) = %v", err)
+	}
+
+	if cfg.APIListenAddr(RoleAll) != ":8081" || cfg.APIStoreDSN(RoleAll) != "postgres://x" {
+		t.Errorf("all: api listen %s, dsn %s; want :8081 and the STORE_DSN fallback", cfg.APIListenAddr(RoleAll), cfg.APIStoreDSN(RoleAll))
+	}
+
+	t.Setenv("API_LISTEN_ADDR", ":8080")
+
+	if _, err := LoadRole(RoleAll); err == nil || !strings.Contains(err.Error(), "API_LISTEN_ADDR") {
+		t.Errorf("LoadRole(all) with the API on the main port = %v, want a conflict error", err)
+	}
+}

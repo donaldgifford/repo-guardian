@@ -28,7 +28,8 @@ func (r Role) Has(other Role) bool { return r&other == other }
 func (c *Config) ValidateRole(role Role) error {
 	var errs []error
 
-	if c.TemporalAddress == "" {
+	// The api role reads Temporal only for the optional status backlog.
+	if c.TemporalAddress == "" && (role.Has(RoleIngest) || role.Has(RoleWorker)) {
 		errs = append(errs, errors.New("TEMPORAL_ADDRESS is required"))
 	}
 
@@ -50,8 +51,8 @@ func (c *Config) ValidateRole(role Role) error {
 		errs = append(errs, c.validateWorker()...)
 	}
 
-	if role.Has(RoleAPI) && c.StoreDSN == "" {
-		errs = append(errs, errors.New("STORE_DSN is required for the api role"))
+	if role.Has(RoleAPI) {
+		errs = append(errs, c.validateAPI(role)...)
 	}
 
 	return errors.Join(errs...)

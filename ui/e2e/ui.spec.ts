@@ -125,3 +125,34 @@ test("signing out ends the session", async ({ page, context }) => {
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect.poll(async () => (await context.cookies()).filter((c) => c.name.startsWith("__Host-rg_session"))).toHaveLength(0);
 });
+
+test("every view renders against the seeded API without a problem", async ({ page }) => {
+  await signIn(page);
+  const views: [string, string][] = [
+    ["/", "Fleet"],
+    ["/rules", "Rules"],
+    ["/rules/file/codeowners", "codeowners"],
+    ["/orgs", "Orgs"],
+    ["/orgs/acme", "acme"],
+    ["/findings", "Findings"],
+    ["/repos/2", "acme/api"],
+    ["/history", "History"],
+    ["/policy", "Policy"],
+  ];
+  for (const [path, heading] of views) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+  }
+  // History and Policy show seeded data, not just a heading.
+  await page.goto("/policy");
+  await expect(page.getByText("Every repository names its owners.")).toBeVisible();
+  await page.goto("/history");
+  await expect(page.getByRole("heading", { level: 2, name: "acme" })).toBeVisible();
+});
+
+test("a repository outside the caller's orgs is a problem page, not data", async ({ page }) => {
+  await signIn(page, "/repos/4");
+  await expect(page.getByRole("alert")).toContainText("404");
+  await expect(page.getByText("globex")).toHaveCount(0);
+});

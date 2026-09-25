@@ -1241,7 +1241,7 @@ failed on a probe and passed once it was removed.
   - two-org authz, where an invisible org answers 404;
   - pagination stays stable while writes happen;
   - filter tables.
-- [ ] 15.7 Compliance parity: the same seed must give identical
+- [x] 15.7 Compliance parity: the same seed must give identical
   percentages through `report`, `/rules`, `/orgs` and the snapshot
   writer.
 - [ ] 15.8 Build the status page (`status.go`):

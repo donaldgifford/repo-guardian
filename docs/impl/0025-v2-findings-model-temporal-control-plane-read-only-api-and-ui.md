@@ -940,7 +940,7 @@ This phase can start right after Phase 1.
     that must count as throttled;
   - the `StageCheck` → `RecordCheck` handoff;
   - the E4 parking log line.
-- [ ] 10.10 Integration test with the dev server, `pgtest` and an
+- [x] 10.10 Integration test with the dev server, `pgtest` and an
   `httptest` GitHub:
   - one check writes findings and a `checks` row;
   - a worker killed mid-check and restarted still leaves exactly one

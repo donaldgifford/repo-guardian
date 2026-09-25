@@ -2,6 +2,7 @@ package checker
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
@@ -18,6 +19,10 @@ const (
 	gateReasonError        = "error"
 )
 
+// errRefereeMissing closes a gate whose referee is absent or disabled,
+// which load-time validation should make impossible.
+var errRefereeMissing = errors.New("gate referee missing or disabled")
+
 // gateResult is the memoized outcome of evaluating one referee rule for
 // the current repo-check. A closed gate carries the reason so the
 // primary pass can pick the RuleGateClosedTotal bucket without
@@ -25,6 +30,9 @@ const (
 type gateResult struct {
 	open   bool
 	reason string // "" when open; gateReasonNotSatisfied or gateReasonError when closed
+	// err is the referee failure behind a gateReasonError close, kept so
+	// the finding can record it as gate_error evidence (DESIGN-0025).
+	err error
 }
 
 // gateEvaluator answers "is this rule's when-gate open?" for a single
@@ -117,6 +125,15 @@ func (g *gateEvaluator) gateStatus(rule *policy.FileRuleConfig) (closed bool, re
 	return false, referee, ""
 }
 
+// gateDetail returns the memoized gate outcome for referee, and false
+// when the referee was not evaluated this repo-check. Like gateStatus it
+// never triggers a fresh evaluation.
+func (g *gateEvaluator) gateDetail(referee string) (gateResult, bool) {
+	res, ok := g.memo[referee]
+
+	return res, ok
+}
+
 // evaluateReferee computes the gate outcome for a referee rule name. It
 // runs only on a memo miss, so its logs fire at most once per referee per
 // repo-check.
@@ -128,14 +145,14 @@ func (g *gateEvaluator) evaluateReferee(ctx context.Context, log *slog.Logger, r
 		// was violated. Fail closed rather than panic in a worker goroutine.
 		log.Error("gate referee missing or disabled — policy invariant violated", "referee", ref)
 
-		return gateResult{open: false, reason: gateReasonError}
+		return gateResult{open: false, reason: gateReasonError, err: errRefereeMissing}
 	}
 
 	satisfied, err := g.engine.ruleSatisfiedOnDefault(ctx, log, g.client, g.owner, g.repo, referee)
 	if err != nil {
 		log.Warn("gate referee evaluation failed; failing closed", "referee", ref, "err", err)
 
-		return gateResult{open: false, reason: gateReasonError}
+		return gateResult{open: false, reason: gateReasonError, err: err}
 	}
 
 	if !satisfied {

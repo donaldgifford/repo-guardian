@@ -425,6 +425,13 @@ deploys (see [Chart](#chart)).
   listed key decrypts.
 - Sessions last at most `UI_SESSION_TTL` (default 8h), however long the
   refresh token lives.
+- **No server-side session store.** The trade-off is that a copied
+  cookie stays usable until it expires, because there is no server-side
+  list to delete it from. Three things bound that:
+  - the 8h cap;
+  - logout revoking the refresh token at the issuer (RFC 7009, when the
+    issuer supports it);
+  - rotating `UI_SESSION_KEYS`, which invalidates every session at once.
 
 **Views:**
 
@@ -816,7 +823,8 @@ can run in parallel with DESIGN-0026.
     - (b) Configurable per org in authz config.
     - other:
 
-15. **BFF session storage** (new after 6 (b); needs review).
+15. **BFF session storage** (new after 6 (b)).
+    **Resolved 2026-09-25: (a) — no datastore; the session lives entirely in the encrypted cookie.**
     - (a) Stateless encrypted cookie (JWE, chunked above 4 KB, rotating
       key list). The BFF stays stateless, with no new datastore and no
       sticky sessions.
@@ -824,7 +832,8 @@ can run in parallel with DESIGN-0026.
     - (c) A sessions table in Postgres (gives the UI database access).
     - other:
 
-16. **BFF HTTP framework** (new after 6 (b); needs review).
+16. **BFF HTTP framework** (new after 6 (b)).
+    **Resolved 2026-09-25: (a) — Hono on `Bun.serve`.**
     - (a) Hono on `Bun.serve`: routing, middleware and a typed proxy
       helper, and portable if the runtime ever changes.
     - (b) Plain `Bun.serve` with hand-written routing.

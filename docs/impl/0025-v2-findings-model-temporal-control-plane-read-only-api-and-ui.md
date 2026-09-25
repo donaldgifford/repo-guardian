@@ -1153,7 +1153,7 @@ Phase 13.
     `strict-server`, `models` and `embedded-spec`, generating into
     `internal/api/gen`;
   - an Overlay is used only if a construct fails.
-- [ ] 14.3 Add `make generate-api` and `make lint-api` (a drift check
+- [x] 14.3 Add `make generate-api` and `make lint-api` (a drift check
   plus a spec lint, OQ27), and a CI job gated on the `api` paths.
 - [ ] 14.4 Build `internal/api/server.go` on `ServeMux` and the strict
   handlers. Middleware, outermost first:

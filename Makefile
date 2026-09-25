@@ -43,7 +43,7 @@ COVERAGE_OUT := coverage.out
 .PHONY: build
 .PHONY: test test-all test-coverage
 .PHONY: lint lint-fix lint-alerts lint-alerts-generated lint-alerts-chart fmt clean
-.PHONY: monitoring-generate lint-monitoring generate-sql lint-sql lint-temporal-contrib
+.PHONY: monitoring-generate lint-monitoring generate-sql lint-sql generate-api lint-api lint-temporal-contrib
 .PHONY: run run-local test-api ci check dev-services dev-stop
 .PHONY: release-check release-local
 
@@ -225,6 +225,30 @@ lint-sql: ## Fail if sqlc vet fails or the committed sqlc output is stale
 		exit 1; \
 	fi
 	@echo "✓ committed sqlc output is current"
+
+## The API server is generated from api/openapi.yaml by oapi-codegen
+## (a go.mod tool) into internal/api/gen, and drift-gated by
+## `make lint-api` the same way as lint-sql (IMPL-0025 14.3).
+API_SPEC := api/openapi.yaml
+API_GEN := internal/api/gen
+
+generate-api: ## Regenerate the API server from api/openapi.yaml
+	@ $(MAKE) --no-print-directory log-$@
+	@go tool oapi-codegen -config api/oapi-codegen.yaml $(API_SPEC)
+	@echo "✓ API server regenerated under $(API_GEN)"
+
+lint-api: ## Lint the OpenAPI spec and fail if the generated server is stale
+	@ $(MAKE) --no-print-directory log-$@
+	@vacuum lint --details --no-banner --fail-severity warn --ruleset api/vacuum.yaml $(API_SPEC)
+	@rm -rf $(BUILD_DIR)/api && mkdir -p $(BUILD_DIR)/api
+	@yq '.output = "$(BUILD_DIR)/api/api.gen.go"' api/oapi-codegen.yaml > $(BUILD_DIR)/api-codegen.yaml
+	@go tool oapi-codegen -config $(BUILD_DIR)/api-codegen.yaml $(API_SPEC)
+	@if ! diff -r -u $(BUILD_DIR)/api $(API_GEN); then \
+		echo "error: the committed API server is stale" >&2; \
+		echo "       run 'make generate-api' and commit the result" >&2; \
+		exit 1; \
+	fi
+	@echo "✓ API spec lints clean and the generated server is current"
 
 fmt: ## Format code with gofmt and goimports
 	@ $(MAKE) --no-print-directory log-$@

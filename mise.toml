@@ -41,6 +41,9 @@ yq = "4.48.1"
 # sqlc generates internal/store/postgres/sqlcdb (IMPL-0025 Phase 2).
 # renovate: datasource=github-releases depName=sqlc-dev/sqlc
 sqlc = "1.31.1"
+# vacuum lints api/openapi.yaml in `make lint-api` (IMPL-0025 OQ27).
+# renovate: datasource=github-releases depName=daveshanley/vacuum
+vacuum = "0.30.6"
 # renovate: datasource=github-releases depName=jqlang/jq
 jq = "latest"
 # renovate: datasource=github-releases depName=donaldgifford/docz

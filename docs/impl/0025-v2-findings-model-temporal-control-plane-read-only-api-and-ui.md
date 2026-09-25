@@ -998,7 +998,7 @@ This phase can start right after Phase 1.
   - `Deferred` closing the gate;
   - EWMA convergence;
   - ContinueAsNew keeping the leases.
-- [ ] 11.7 Burst test on the homelab (`cmd/rg-burst`, behind the
+- [ ] 11.7 **Deferred — human required:** the homelab 20,000-pair run, frontend CPU and the resulting MaxHandled threshold. `cmd/rg-burst` is built (`-tags burst`). A local dev-server smoke run of 2,000 pairs at concurrency 20 gave p50 4.7ms, p99 476ms and a current-run history of 809 events / 146KB, with 3–6 acquires hitting the expected UNHANDLED_COMMAND ContinueAsNew handoff — Burst test on the homelab (`cmd/rg-burst`, behind the
   `burst` build tag):
   - 20,000 acquire/report pairs against one installation;
   - record p50/p99 latency, history size and frontend CPU here;

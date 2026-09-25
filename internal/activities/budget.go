@@ -21,6 +21,10 @@ type Budget struct {
 	taskQueue string
 	threshold float64
 	leaseTTL  time.Duration
+
+	// MaxHandled is passed to new InstallationWorkflows; 0 keeps the
+	// workflow default. The burst test sets it.
+	MaxHandled int
 }
 
 // NewBudget returns the budget activity. threshold is
@@ -43,6 +47,7 @@ func (b *Budget) AcquireBudget(ctx context.Context, in *workflows.AcquireInput) 
 		InstallationID: in.InstallationID,
 		Threshold:      b.threshold,
 		LeaseTTL:       b.leaseTTL,
+		MaxHandled:     b.MaxHandled,
 	})
 
 	handle, err := b.client.UpdateWithStartWorkflow(ctx, client.UpdateWithStartWorkflowOptions{

@@ -170,6 +170,13 @@ func InstallationWorkflow(ctx workflow.Context, in *InstallationWorkflowInput) e
 
 // continueAsNew drains pending reports and in-flight Updates first, so
 // no grant or report is lost across runs.
+//
+// NOTE: under load the server still rejects some ContinueAsNew
+// completions with UNHANDLED_COMMAND, because a Signal or Update landed
+// while the task was running. That is Temporal's normal handoff: the
+// task retries with the new events, and an Update caught in the failed
+// task errors back to its caller, which is the AcquireBudget activity
+// and retries. rg-burst, which calls without retries, counts them.
 func (b *budget) continueAsNew(ctx workflow.Context, reports workflow.ReceiveChannel) error {
 	if err := workflow.Await(ctx, func() bool { return workflow.AllHandlersFinished(ctx) }); err != nil {
 		return err

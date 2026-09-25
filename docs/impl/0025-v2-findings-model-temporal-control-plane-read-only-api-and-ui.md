@@ -1108,7 +1108,7 @@ This phase can start right after Phase 1.
     `next_due = next_due_at` at priority 4;
   - skip parked repositories;
   - it is idempotent.
-- [ ] 13.6 Tests:
+- [x] 13.6 Tests:
   - discovery with a complete listing versus a failed one;
   - the subset invariant;
   - rollout signalling every repository, plus the straggler pass;

@@ -3,6 +3,7 @@ package config
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 // Tests here use t.Setenv, so none is parallel.
@@ -79,5 +80,22 @@ func TestLoadRole_AllRunsTheWorkerInProcess(t *testing.T) {
 
 	if _, err := LoadRole(RoleIngest | RoleWorker); err != nil {
 		t.Errorf("LoadRole(ingest|worker) = %v: ingest's key refusal must not apply to all", err)
+	}
+}
+
+func TestLoadV2Durations(t *testing.T) {
+	cfg := &Config{}
+	if err := loadV2Durations(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	if cfg.CheckInterval != 24*time.Hour || cfg.PolicyRolloutWindow != 24*time.Hour || cfg.ChecksRetention != 2160*time.Hour {
+		t.Errorf("defaults = %v %v %v", cfg.CheckInterval, cfg.PolicyRolloutWindow, cfg.ChecksRetention)
+	}
+
+	t.Setenv("CHECKS_RETENTION", "0s")
+
+	if err := loadV2Durations(cfg); err == nil {
+		t.Error("CHECKS_RETENTION=0s accepted, want an error")
 	}
 }

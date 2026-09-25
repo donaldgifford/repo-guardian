@@ -8,6 +8,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -23,6 +24,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	enumspb "go.temporal.io/api/enums/v1"
 	historypb "go.temporal.io/api/history/v1"
+	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/temporalproto"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
@@ -168,6 +170,10 @@ func (h *harness) startWorker(t *testing.T, eng activities.Engine, buildID strin
 	activities.New(eng, h.store, factory{h.github}, "v2:test", quiet).Register(w)
 	activities.NewBudget(h.temporal.Client, wc.TaskQueue, 0.10).Register(w)
 	activities.NewRouter(h.store, h.temporal.Client, wc.TaskQueue, 24*time.Hour, 0.10, quiet).Register(w)
+	activities.NewServices(&activities.ServicesConfig{
+		Store: h.store, Temporal: h.temporal.Client, TaskQueue: wc.TaskQueue, CheckInterval: 24 * time.Hour,
+		PolicyVersion: "v2:test", Logger: quiet,
+	}).Register(w)
 
 	if err := w.Start(); err != nil {
 		t.Fatalf("start worker: %v", err)
@@ -447,4 +453,68 @@ func TestIntegration_WebhookPostWritesFindings(t *testing.T) {
 
 	run := h.temporal.Client.GetWorkflow(t.Context(), workflows.RepoWorkflowID(h.repoID), "")
 	h.park(t, run)
+}
+
+// Bootstrap starts a RepoWorkflow for every active repository and none
+// for a parked one, clears migrate's flag, and a second run changes
+// nothing.
+func TestIntegration_BootstrapCoversActiveReposAndIsIdempotent(t *testing.T) {
+	h := newHarness(t)
+	w := h.startWorker(t, h.engine, "it-bootstrap")
+	defer w.Stop()
+
+	ctx := t.Context()
+
+	parked, err := h.store.UpsertDiscovered(ctx, &store.DiscoveredRepo{Org: "acme", Name: "gone", InstallationID: installationID})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := h.store.Park(ctx, parked.ID, store.ParkRemoved, false); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := h.pool.Exec(ctx, `INSERT INTO v2_meta (key, value) VALUES ($1, 'x')`, postgres.MetaBootstrapPending); err != nil {
+		t.Fatal(err)
+	}
+
+	runBootstrap := func() {
+		t.Helper()
+
+		run, err := h.temporal.Client.ExecuteWorkflow(ctx, client.StartWorkflowOptions{
+			ID: workflows.BootstrapWorkflowID, TaskQueue: h.temporal.Config.TaskQueue,
+		}, workflows.BootstrapWorkflowName)
+		if err != nil {
+			t.Fatalf("start bootstrap: %v", err)
+		}
+
+		if err := run.Get(ctx, nil); err != nil {
+			t.Fatalf("bootstrap: %v", err)
+		}
+	}
+
+	runBootstrap()
+
+	desc, err := h.temporal.Client.DescribeWorkflowExecution(ctx, workflows.RepoWorkflowID(h.repoID), "")
+	if err != nil {
+		t.Fatalf("active repository has no RepoWorkflow: %v", err)
+	}
+
+	firstRun := desc.GetWorkflowExecutionInfo().GetExecution().GetRunId()
+
+	var notFound *serviceerror.NotFound
+	if _, err := h.temporal.Client.DescribeWorkflowExecution(ctx, workflows.RepoWorkflowID(parked.ID), ""); !errors.As(err, &notFound) {
+		t.Errorf("parked repository's RepoWorkflow: err = %v, want NotFound", err)
+	}
+
+	if pending, err := h.store.BootstrapPending(ctx); err != nil || pending {
+		t.Errorf("bootstrap flag after run = %v (%v), want cleared", pending, err)
+	}
+
+	runBootstrap()
+
+	desc, err = h.temporal.Client.DescribeWorkflowExecution(ctx, workflows.RepoWorkflowID(h.repoID), "")
+	if err != nil || desc.GetWorkflowExecutionInfo().GetExecution().GetRunId() != firstRun {
+		t.Errorf("second bootstrap replaced the RepoWorkflow run (%v)", err)
+	}
 }

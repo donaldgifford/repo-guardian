@@ -465,7 +465,7 @@ it. Task IDs are `<phase>.<n>`.
   - schema from `migrations_v2`, queries from `queries/`;
   - generated code in package `sqlcdb`, with `sql_package: pgx/v5`;
   - overrides: `jsonb` → `json.RawMessage`, `timestamptz` → `time.Time`.
-- [ ] 2.7 Add Make targets:
+- [x] 2.7 Add Make targets:
   - `generate-sql`;
   - `lint-sql`, which runs `sqlc vet`, generates into `build/sqlc`, and
     `diff -r` against the committed code;

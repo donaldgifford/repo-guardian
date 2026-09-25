@@ -43,7 +43,7 @@ COVERAGE_OUT := coverage.out
 .PHONY: build
 .PHONY: test test-all test-coverage
 .PHONY: lint lint-fix lint-alerts lint-alerts-generated lint-alerts-chart fmt clean
-.PHONY: monitoring-generate lint-monitoring
+.PHONY: monitoring-generate lint-monitoring generate-sql lint-sql
 .PHONY: run run-local test-api ci check dev-services dev-stop
 .PHONY: release-check release-local
 
@@ -172,6 +172,32 @@ lint-monitoring: ## Fail if the committed static monitoring tier is stale
 		exit 1; \
 	fi
 	@echo "✓ committed monitoring tier is current"
+
+## The sqlc-generated query layer (IMPL-0025). Committed, then diffed
+## by `make lint-sql` the same way lint-monitoring guards its tier.
+SQLC_OUT := internal/store/postgres/sqlcdb
+
+generate-sql: ## Regenerate the sqlc query layer
+	@ $(MAKE) --no-print-directory log-$@
+	@sqlc generate
+	@echo "✓ sqlc output regenerated under $(SQLC_OUT)"
+
+# Generates into $(BUILD_DIR) from a copy of sqlc.yaml with the paths
+# rewritten, then diff -r's against the committed package: the same
+# shape as lint-monitoring, so a query file added without regenerating
+# fails too (git diff would not see the untracked output).
+lint-sql: ## Fail if sqlc vet fails or the committed sqlc output is stale
+	@ $(MAKE) --no-print-directory log-$@
+	@sqlc vet
+	@rm -rf $(BUILD_DIR)/sqlc && mkdir -p $(BUILD_DIR)/sqlc
+	@yq '.sql[0].schema = "$(CURDIR)/" + .sql[0].schema | .sql[0].queries = "$(CURDIR)/" + .sql[0].queries | .sql[0].gen.go.out = "out"' sqlc.yaml > $(BUILD_DIR)/sqlc/sqlc.yaml
+	@cd $(BUILD_DIR)/sqlc && sqlc generate
+	@if ! diff -r -u $(BUILD_DIR)/sqlc/out $(SQLC_OUT); then \
+		echo "error: the committed sqlc output is stale" >&2; \
+		echo "       run 'make generate-sql' and commit the result" >&2; \
+		exit 1; \
+	fi
+	@echo "✓ committed sqlc output is current"
 
 fmt: ## Format code with gofmt and goimports
 	@ $(MAKE) --no-print-directory log-$@

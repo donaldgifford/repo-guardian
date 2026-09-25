@@ -147,6 +147,21 @@ jobs:
       - name: Check the committed monitoring tier is current
         run: make lint-monitoring
 
+  sql-drift:
+    name: SQL Drift
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.sql == 'true' || needs.changes.outputs.workflows == 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      # mise supplies the pinned sqlc and yq.
+      - name: Set up mise
+        uses: jdx/mise-action@v3
+
+      - name: Check the committed sqlc output is current
+        run: make lint-sql
+
   test-go:
     name: Test Go
     runs-on: ubuntu-latest

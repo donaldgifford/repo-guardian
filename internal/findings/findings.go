@@ -7,6 +7,16 @@
 // rest of the module.
 package findings
 
+// RuleKind is the kind of policy rule a finding belongs to.
+type RuleKind string
+
+// RuleKind values. They match the findings.rule_kind CHECK constraint.
+const (
+	RuleKindFile             RuleKind = "file"
+	RuleKindSetting          RuleKind = "setting"
+	RuleKindBranchProtection RuleKind = "branch_protection"
+)
+
 // Status answers "is the rule met on the default branch?".
 type Status string
 

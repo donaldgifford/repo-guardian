@@ -520,7 +520,7 @@ it. Task IDs are `<phase>.<n>`.
   - `PREvidence` and `ForeignPREvidence`;
   - `Clip(s, 1024)`, rune-aware. `store.Truncate` wraps it until
     Phase 16.
-- [ ] 3.4 Add domain types in `internal/store/findings.go`:
+- [x] 3.4 Add domain types in `internal/store/findings.go`:
   - `Finding`, `FindingTransition`, `CheckRecord` and
     `CheckErrorRecord`;
   - `CheckApplied{Transitions, AlreadyFinal}`;

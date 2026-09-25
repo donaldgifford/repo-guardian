@@ -57,7 +57,7 @@ func (e *Engine) evaluateBranchProtectionRules(
 			return fmt.Errorf("evaluating branch protection rule %q: %w", r.Name, err)
 		}
 
-		result.add(r.Name, RuleKindBranchProtection, actionable)
+		result.record(RuleOutcome{RuleName: r.Name, Kind: RuleKindBranchProtection, Status: statusOf(actionable)})
 	}
 
 	return nil

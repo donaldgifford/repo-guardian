@@ -1,5 +1,7 @@
 package checker
 
+import "github.com/donaldgifford/repo-guardian/internal/findings"
+
 // Per-check outcome types (IMPL-0023 Phase 1 / DESIGN-0022 §Per-rule
 // posture state). The engine already computes every fact in here while
 // deciding what to do; before this it threw all of it away the moment
@@ -8,39 +10,51 @@ package checker
 // posture.
 
 // RuleKind classifies a rule for posture reporting. The values are
-// persisted verbatim in `rule_state.rule_kind`, so they are part of the
-// schema contract — renaming one is a migration, not a refactor.
-type RuleKind string
+// persisted verbatim in `rule_state.rule_kind` and `findings.rule_kind`,
+// so they are part of the schema contract — renaming one is a migration,
+// not a refactor.
+type RuleKind = findings.RuleKind
 
 // The three rule kinds the policy engine evaluates.
 const (
-	RuleKindFile             RuleKind = "file"
-	RuleKindSetting          RuleKind = "setting"
-	RuleKindBranchProtection RuleKind = "branch_protection"
+	RuleKindFile             = findings.RuleKindFile
+	RuleKindSetting          = findings.RuleKindSetting
+	RuleKindBranchProtection = findings.RuleKindBranchProtection
 )
 
-// RuleOutcome is one rule's verdict for one repository.
+// RuleOutcome is one rule's verdict for one repository, in the v2
+// finding facets (DESIGN-0025 § Finding model).
 //
-// Actionable means "this repo is not compliant with this rule right
-// now", which is deliberately not the same as "the engine did
-// something". A file rule stays actionable while its PR sits open,
+// Status is about the default branch, deliberately not about what the
+// engine did. A file rule stays non_compliant while its PR sits open,
 // because the default branch is still missing the file. A setting rule
-// that was found mismatched and successfully remediated in the same
-// pass is *not* actionable, because by the end of the check the repo
-// complies. Reporting it as actionable would set actionable_since on
-// one tick and clear it on the next, manufacturing a flap out of a
-// self-healing event.
+// that was found mismatched and successfully remediated in the same pass
+// is compliant with remediation applied, because by the end of the check
+// the repo complies. Recording it as non_compliant would flap on every
+// self-healing tick.
 //
-// Only rules the engine actually evaluated appear. Rules skipped by
-// scope, ignore, a closed when-gate, or `enabled = false` produce no
-// outcome at all — they do not apply to this repo, so counting them in
-// `repos_tracked` would dilute every compliance percentage. The
-// worker's delete-not-in reconciliation then clears any row a previous
-// policy left behind.
+// The enrichment is data-only: nothing that decides an action reads
+// Reason, Remediation or Evidence.
 type RuleOutcome struct {
-	RuleName   string
-	Kind       RuleKind
-	Actionable bool
+	RuleName    string
+	Kind        RuleKind
+	Status      findings.Status
+	Reason      findings.Reason
+	Remediation findings.Remediation
+	Evidence    findings.Evidence
+	// PR is our open reconcile PR when Remediation is pr_open.
+	PR *findings.PREvidence
+	// ForeignPR is the human PR the rule yields to when Remediation is
+	// foreign_pr.
+	ForeignPR *findings.ForeignPREvidence
+}
+
+// Actionable is v1's boolean: the repository is non-compliant and
+// repo-guardian has not yielded to a human PR. It keeps the PR, drift
+// and auto-close paths and v1's rule_state write-back unchanged, and the
+// parity suite compares it against the pre-enrichment verdicts.
+func (o RuleOutcome) Actionable() bool { //nolint:gocritic // value receiver keeps call sites on slices of outcomes simple
+	return o.Status == findings.StatusNonCompliant && o.Remediation != findings.RemediationForeignPR
 }
 
 // CheckResult is everything one CheckRepo pass learned that outlives
@@ -57,18 +71,29 @@ type CheckResult struct {
 	CatalogParseOK *bool
 }
 
-// add appends an outcome. Nil-safe so callers on the skip paths, which
-// legitimately have no result to fill, need no guard of their own.
-func (r *CheckResult) add(name string, kind RuleKind, actionable bool) {
+// record appends an outcome. Nil-safe so callers on the skip paths, which
+// legitimately have no result to fill, need no guard of their own. An
+// empty Remediation is normalized to none.
+func (r *CheckResult) record(o RuleOutcome) { //nolint:gocritic // outcomes are built inline at every call site
 	if r == nil {
 		return
 	}
 
-	r.Outcomes = append(r.Outcomes, RuleOutcome{
-		RuleName:   name,
-		Kind:       kind,
-		Actionable: actionable,
-	})
+	if o.Remediation == "" {
+		o.Remediation = findings.RemediationNone
+	}
+
+	r.Outcomes = append(r.Outcomes, o)
+}
+
+// statusOf maps v1's actionable boolean to a status, for rules whose
+// reason is not yet known at the call site.
+func statusOf(actionable bool) findings.Status {
+	if actionable {
+		return findings.StatusNonCompliant
+	}
+
+	return findings.StatusCompliant
 }
 
 // setCatalogParseOK records catalog parseability, copying nil through

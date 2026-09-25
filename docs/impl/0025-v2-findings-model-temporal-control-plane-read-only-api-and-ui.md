@@ -614,7 +614,7 @@ it. Task IDs are `<phase>.<n>`.
   bool)`. `Matches` delegates to it.
 - [x] 4.3 Change `gate.go`'s `gateResult` to carry `err`. Set it at
   `:135-138`, and add `gateDetail(referee)`.
-- [ ] 4.4 Widen `checker.RuleOutcome` to `{RuleName, Kind, Status,
+- [x] 4.4 Widen `checker.RuleOutcome` to `{RuleName, Kind, Status,
   Reason, Remediation, Evidence}`:
   - `Actionable()` returns true only when the status is `non_compliant`
     and the remediation is not `foreign_pr`;

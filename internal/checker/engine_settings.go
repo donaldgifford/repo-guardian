@@ -57,7 +57,7 @@ func (e *Engine) evaluateSettingRules(
 			return fmt.Errorf("evaluating setting rule %q: %w", r.Name, err)
 		}
 
-		result.add(r.Name, RuleKindSetting, actionable)
+		result.record(RuleOutcome{RuleName: r.Name, Kind: RuleKindSetting, Status: statusOf(actionable)})
 	}
 
 	return nil

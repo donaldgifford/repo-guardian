@@ -68,7 +68,8 @@ func parityCheckRepo(ctx context.Context, tb testing.TB, e *Engine, client ghcli
 	if res != nil {
 		check.Result = "non-nil"
 
-		for _, o := range res.Outcomes {
+		for i := range res.Outcomes {
+			o := &res.Outcomes[i]
 			check.Outcomes = append(check.Outcomes, parityOutcome{Kind: string(o.Kind), Name: o.RuleName, Actionable: v1Actionable(o)})
 		}
 	}
@@ -94,8 +95,8 @@ func parityCheckRepo(ctx context.Context, tb testing.TB, e *Engine, client ghcli
 }
 
 // v1Actionable is the verdict v1 would have recorded for o.
-func v1Actionable(o RuleOutcome) bool {
-	return o.Actionable
+func v1Actionable(o *RuleOutcome) bool {
+	return o.Actionable()
 }
 
 func compareParityGolden(tb testing.TB, log *[]parityCheck) {

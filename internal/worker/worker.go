@@ -558,7 +558,7 @@ func (p *Pool) writeBackRuleStates(
 			Repo:           j.Repo,
 			RuleName:       o.RuleName,
 			RuleKind:       string(o.Kind),
-			Actionable:     o.Actionable,
+			Actionable:     o.Actionable(),
 			PolicyVersion:  p.policyVersion,
 		})
 	}

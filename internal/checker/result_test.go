@@ -35,7 +35,7 @@ func outcomeKeys(t *testing.T, res *CheckResult) []string {
 	keys := make([]string, 0, len(res.Outcomes))
 	for _, o := range res.Outcomes {
 		state := "satisfied"
-		if o.Actionable {
+		if o.Actionable() {
 			state = "actionable"
 		}
 

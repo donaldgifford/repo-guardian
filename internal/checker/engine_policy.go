@@ -344,7 +344,7 @@ func (e *Engine) findActionableRules(
 		// fixed. That is the same set the actionable metrics have always
 		// counted; posture mirrors it rather than forking a second,
 		// subtly different definition of "failing".
-		result.add(r.Name, RuleKindFile, action)
+		result.record(RuleOutcome{RuleName: r.Name, Kind: RuleKindFile, Status: statusOf(action)})
 
 		if action {
 			e.recordActionable(ruleLog, r, owner)

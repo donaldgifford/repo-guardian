@@ -7,19 +7,20 @@
 // WHEN. A gauge is a number; this is a list with dates on it, which is
 // what somebody chasing compliance actually has to work from.
 //
-// # Three stages
+// # Two stages
 //
-// Build projects one store read onto a per-org view model, Enrich
-// optionally decorates it with live GitHub links, and Render turns one
-// org into markdown. The split is deliberate: Build and Render are pure
-// and deterministic, so the golden-file tests exercise the real
-// rendering path without a GitHub client, a network, or credentials.
-// Only Enrich touches the outside world, and it is optional.
+// Build projects one store read (store.ComplianceReport, the findings
+// model of DESIGN-0025) onto a per-org view model, and Render turns one
+// org into markdown. Both are pure and deterministic, so the golden-file
+// tests exercise the real rendering path without a database, a GitHub
+// client or credentials. PR links come from the findings' evidence, so
+// the report makes no API calls at all.
 package report
 
 import (
 	"time"
 
+	"github.com/donaldgifford/repo-guardian/internal/findings"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 )
 
@@ -50,15 +51,24 @@ const (
 	TrendFlat
 )
 
-// RuleLine is one rule's compliance summary for one org.
+// RuleLine is one rule's compliance summary for one org: a row of the
+// shared compliance query (queries/compliance.sql).
 type RuleLine struct {
-	Name       string
-	Kind       string
-	Actionable int
-	Tracked    int
+	Name          string
+	Kind          string
+	Compliant     int
+	NonCompliant  int
+	NotApplicable int
+	Unknown       int
 
-	// Delta is Actionable minus the previous snapshot's actionable
-	// count. Meaningless unless Trend is not TrendUnknown.
+	// Percent is the shared query's compliant percentage, floored to one
+	// decimal; nil when the rule applies to no repository. It is taken
+	// as computed, never recomputed, so the report, the snapshots and
+	// the API print the same number.
+	Percent *float64
+
+	// Delta is NonCompliant minus the previous snapshot's. Meaningless
+	// unless Trend is not TrendUnknown.
 	Delta int
 
 	Trend TrendState
@@ -71,41 +81,38 @@ type RuleLine struct {
 	ComparedAt time.Time
 }
 
-// CompliantPercent returns the share of tracked repositories satisfying
-// the rule, and whether it is defined at all.
+// CompliantPercent returns the share of measured repositories
+// satisfying the rule, and whether it is defined at all.
 //
-// Undefined when nothing was tracked. A rule configured but evaluated
-// against no repository is not 100% compliant — it is unmeasured, and
+// Undefined when nothing was measured. A rule configured but applying
+// to no repository is not 100% compliant — it is unmeasured, and
 // reporting a perfect score for it is exactly the kind of comfortable
-// wrong number this whole design exists to remove.
-//
-// The result is FLOORED to one decimal, never rounded. 999 of 1000
-// repositories must read as 99.9%, not 100%: a report that says a fleet
-// is fully compliant when one repository is not has told a lie that
-// someone will act on.
+// wrong number this whole design exists to remove. The value is the
+// shared query's, which floors rather than rounds: 1999 of 2000 reads
+// 99.9%, never 100%.
 func (r RuleLine) CompliantPercent() (float64, bool) { //nolint:gocritic // value receiver: text/template cannot address a range variable
-	if r.Tracked <= 0 {
+	if r.Percent == nil {
 		return 0, false
 	}
 
-	compliant := float64(r.Tracked - r.Actionable)
-
-	return float64(int(compliant/float64(r.Tracked)*1000)) / 10, true
+	return *r.Percent, true
 }
 
 // Finding is one repository failing one rule.
 type Finding struct {
-	Repo     string
-	RuleName string
-	RuleKind string
+	Repo        string
+	RuleName    string
+	RuleKind    string
+	Reason      findings.Reason
+	Remediation findings.Remediation
 
 	// Since is when the repository started failing this rule. nil when
 	// unknown — rendered as an em dash rather than a zero date, which
 	// would claim the failure started in year 1.
 	Since *time.Time
 
-	// PRURL is the open repo-guardian PR for the repository, filled by
-	// Enrich. Empty when links were not requested or the lookup failed.
+	// PRURL is the PR recorded in the finding's evidence: repo-guardian's
+	// own for pr_open, a human's for foreign_pr. Empty otherwise.
 	PRURL string
 }
 
@@ -120,15 +127,6 @@ type Org struct {
 	// against. False suppresses the trend column entirely rather than
 	// filling it with placeholders.
 	HasHistory bool
-
-	// ShowLinks reports whether PR links were requested. False omits
-	// the column; an empty column would be indistinguishable from "no
-	// repository has an open PR".
-	ShowLinks bool
-
-	// LinkFailures counts repositories whose PR lookup failed, so a
-	// partially enriched report is not read as a complete one.
-	LinkFailures int
 }
 
 // Compliant returns the number of (repo, rule) pairs passing, across
@@ -136,33 +134,36 @@ type Org struct {
 func (o Org) Compliant() int { //nolint:gocritic // value receiver: text/template cannot address a range variable
 	total := 0
 	for _, r := range o.Rules {
-		total += r.Tracked - r.Actionable
+		total += r.Compliant
 	}
 
 	return total
 }
 
-// Evaluated returns the total number of (repo, rule) evaluations.
+// Evaluated returns the number of measured (repo, rule) pairs: compliant
+// plus non-compliant. Not-applicable and unknown are not measurements.
 func (o Org) Evaluated() int { //nolint:gocritic // value receiver: text/template cannot address a range variable
 	total := 0
 	for _, r := range o.Rules {
-		total += r.Tracked
+		total += r.Compliant + r.NonCompliant
 	}
 
 	return total
 }
 
-// snapshotKey identifies a (org, rule) pair in the history.
-type snapshotKey struct {
+// ruleKey identifies an (org, kind, rule) triple. Kind is part of the
+// key because a file rule and a setting rule may share a name.
+type ruleKey struct {
 	org  string
+	kind string
 	rule string
 }
 
-// indexSnapshots keys rows for lookup by (org, rule).
-func indexSnapshots(rows []store.SnapshotRow) map[snapshotKey]store.SnapshotRow {
-	out := make(map[snapshotKey]store.SnapshotRow, len(rows))
-	for _, r := range rows {
-		out[snapshotKey{org: r.Org, rule: r.RuleName}] = r
+// indexSnapshots keys rows for lookup by (org, kind, rule).
+func indexSnapshots(rows []store.ComplianceSnapshot) map[ruleKey]store.ComplianceSnapshot {
+	out := make(map[ruleKey]store.ComplianceSnapshot, len(rows))
+	for i := range rows {
+		out[ruleKey{org: rows[i].Org, kind: string(rows[i].Kind), rule: rows[i].RuleName}] = rows[i]
 	}
 
 	return out

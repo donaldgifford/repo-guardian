@@ -2,15 +2,16 @@
 
 Generated 2026-08-10 14:30:00 UTC by repo-guardian.
 
-21 of 24 rule evaluations pass across 3 rule(s).
+30 of 33 rule evaluations pass across 4 rule(s).
 
 ## Compliance by rule
 
-| Rule | Kind | Failing | Applies to | Compliant |
-|---|---|---:|---:|---:|
-| codeowners | file | 2 | 10 | 80.0% |
-| dependabot |  | 0 | 10 | 100.0% |
-| renovate | file | 1 | 4 | 75.0% |
+| Rule | Kind | Failing | Passing | N/A | Unknown | Compliant |
+|---|---|---:|---:|---:|---:|---:|
+| codeowners | file | 2 | 8 | 0 | 0 | 80.0% |
+| dependabot | file | 0 | 10 | 0 | 0 | 100.0% |
+| renovate | file | 1 | 3 | 6 | 0 | 75.0% |
+| vuln_alerts | setting | 0 | 9 | 0 | 1 | 100.0% |
 
 
 No previous snapshot exists, so no trend is shown. Trends appear once
@@ -18,14 +19,20 @@ the `compliance-snapshot` handler has run at least twice.
 
 ## Findings
 
-| Repository | Rule | Failing since |
-|---|---|---|
-| api | codeowners | 2026-07-01 |
-| web | codeowners | — |
-| web | renovate | 2026-08-09 |
+| Repository | Rule | Reason | Failing since | PR |
+|---|---|---|---|---|
+| api | codeowners | file_missing | 2026-07-01 | — |
+| web | codeowners | migrated_from_v1 | 2026-05-14 | — |
+| web | renovate | assertion_failed | 2026-08-09 | — |
 
 
 ---
+
+Compliant is Passing / (Passing + Failing). N/A (the rule does not apply
+to the repository) and Unknown (it could not be evaluated) are counted
+beside the percentage, never in it. A `migrated_from_v1` reason means
+repo-guardian v1 recorded the failure and v2 has not re-checked it yet;
+its date is v1's.
 
 Parked repositories — archived, forked, or unreadable by the App — are
 excluded from every number above. A repository nobody can measure is

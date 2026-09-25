@@ -2,23 +2,23 @@
 
 Generated 2026-08-10 14:30:00 UTC by repo-guardian.
 
-1999 of 2000 rule evaluations pass across 1 rule(s).
+30 of 33 rule evaluations pass across 4 rule(s).
 
 ## Compliance by rule
 
-| Rule | Kind | Failing | Passing | N/A | Unknown | Compliant |
-|---|---|---:|---:|---:|---:|---:|
-| codeowners | file | 1 | 1999 | 0 | 0 | 99.9% |
+| Rule | Kind | Failing | Passing | N/A | Unknown | Compliant | Trend |
+|---|---|---:|---:|---:|---:|---:|---|
+| codeowners | file | 2 | 8 | 0 | 0 | 80.0% | 3 fewer since 2026-08-03 |
+| dependabot | file | 0 | 10 | 0 | 0 | 100.0% | no change since 2026-08-03 |
+| renovate | file | 1 | 3 | 6 | 0 | 75.0% | new |
+| vuln_alerts | setting | 0 | 9 | 0 | 1 | 100.0% | new |
 
-
-No previous snapshot exists, so no trend is shown. Trends appear once
-the `compliance-snapshot` handler has run at least twice.
 
 ## Findings
 
 | Repository | Rule | Reason | Failing since | PR |
 |---|---|---|---|---|
-| straggler | codeowners | file_missing | 2026-08-03 | — |
+| web | codeowners | migrated_from_v1 | 2026-05-14 | [human PR](https://github.example/acme/web/pull/3) |
 
 
 ---

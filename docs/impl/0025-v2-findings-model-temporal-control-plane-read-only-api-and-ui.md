@@ -810,18 +810,18 @@ it. Task IDs are `<phase>.<n>`.
 
   It is scoped by `Scope`, so the API reuses it unchanged. The snapshot
   writer uses the same counts.
-- [ ] 8.2 Rework `internal/report`:
+- [x] 8.2 Rework `internal/report`:
   - key by `(org, kind, rule)`;
   - `RuleLine` becomes `{Compliant, NonCompliant, NotApplicable,
     Unknown, Delta}`;
   - `Finding` gains `Reason`, `Remediation`, and a PR link built from
     evidence fields.
-- [ ] 8.3 In `report.md.tmpl`, add a reason column to findings
+- [x] 8.3 In `report.md.tmpl`, add a reason column to findings
   (`:29/:32`) and N/A and Unknown columns to rules (`:14/:17`).
   Repository text is escaped, tested with `|` and a backtick.
-- [ ] 8.4 Replace `Enrich`'s live linker with evidence links. Keep
+- [x] 8.4 Replace `Enrich`'s live linker with evidence links. Keep
   `--no-links` for one release as a deprecated no-op.
-- [ ] 8.5 Regenerate the 11 goldens and review the diff by hand.
+- [x] 8.5 Regenerate the 11 goldens and review the diff by hand.
 - [ ] 8.6 `cmd/repo-guardian/report.go` uses the `V2Store` Reader and
   `RequireSchema`.
 - [ ] 8.7 Compliance parity test: for the same seed, `report.Build` and

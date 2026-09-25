@@ -11,10 +11,10 @@ No rules have been evaluated for this organisation yet.
 ## Compliance by rule
 
 {{ if .Rules -}}
-| Rule | Kind | Failing | Applies to | Compliant |{{ if .HasHistory }} Trend |{{ end }}
-|---|---|---:|---:|---:|{{ if .HasHistory }}---|{{ end }}
+| Rule | Kind | Failing | Passing | N/A | Unknown | Compliant |{{ if .HasHistory }} Trend |{{ end }}
+|---|---|---:|---:|---:|---:|---:|{{ if .HasHistory }}---|{{ end }}
 {{ range .Rules -}}
-| {{ mdcell .Name }} | {{ mdcell .Kind }} | {{ .Actionable }} | {{ .Tracked }} | {{ pct . }} |{{ if $.HasHistory }} {{ trend . }} |{{ end }}
+| {{ mdcell .Name }} | {{ mdcell .Kind }} | {{ .NonCompliant }} | {{ .Compliant }} | {{ .NotApplicable }} | {{ .Unknown }} | {{ pct . }} |{{ if $.HasHistory }} {{ trend . }} |{{ end }}
 {{ end -}}
 {{- else -}}
 Nothing to report.
@@ -26,19 +26,22 @@ the `compliance-snapshot` handler has run at least twice.
 ## Findings
 
 {{ if .Findings -}}
-| Repository | Rule | Failing since |{{ if .ShowLinks }} Open PR |{{ end }}
-|---|---|---|{{ if .ShowLinks }}---|{{ end }}
+| Repository | Rule | Reason | Failing since | PR |
+|---|---|---|---|---|
 {{ range .Findings -}}
-| {{ mdcell .Repo }} | {{ mdcell .RuleName }} | {{ since .Since }} |{{ if $.ShowLinks }} {{ if .PRURL }}[open]({{ .PRURL }}){{ else }}—{{ end }} |{{ end }}
+| {{ mdcell .Repo }} | {{ mdcell .RuleName }} | {{ mdcell (print .Reason) }} | {{ since .Since }} | {{ pr . }} |
 {{ end -}}
 {{- else -}}
 Every evaluated rule passes on every active repository.
 {{- end }}
-{{ if .LinkFailures }}
-{{ .LinkFailures }} PR link lookup(s) failed, so the Open PR column is
-incomplete. A blank cell here does not necessarily mean no PR exists.
-{{ end }}
+
 ---
+
+Compliant is Passing / (Passing + Failing). N/A (the rule does not apply
+to the repository) and Unknown (it could not be evaluated) are counted
+beside the percentage, never in it. A `migrated_from_v1` reason means
+repo-guardian v1 recorded the failure and v2 has not re-checked it yet;
+its date is v1's.
 
 Parked repositories — archived, forked, or unreadable by the App — are
 excluded from every number above. A repository nobody can measure is

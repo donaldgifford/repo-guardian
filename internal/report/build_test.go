@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/donaldgifford/repo-guardian/internal/findings"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 )
 
-// testLogger discards output. Enrich warns on every link failure and
-// several tests provoke one deliberately.
+// testLogger discards output.
 func testLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
@@ -49,7 +49,7 @@ func ruleNames(o *Org) []string {
 func TestBuild_Trends(t *testing.T) {
 	t.Parallel()
 
-	r := newRenderer(t, nil)
+	r := newRenderer(t)
 	orgs := r.Build(fullData())
 
 	if len(orgs) != 1 {
@@ -85,13 +85,11 @@ func TestBuild_Trends(t *testing.T) {
 			wantRender: "3 fewer since 2026-08-03",
 		},
 		{
-			rule:      "dependabot",
-			wantTrend: TrendFlat,
-			wantDelta: 0,
-			wantDated: true,
-			// No finding carries this rule, so no finding carries its
-			// kind either. Blank, not guessed.
-			wantKind:   "",
+			rule:       "dependabot",
+			wantTrend:  TrendFlat,
+			wantDelta:  0,
+			wantDated:  true,
+			wantKind:   "file",
 			wantRender: "no change since 2026-08-03",
 		},
 		{
@@ -100,6 +98,13 @@ func TestBuild_Trends(t *testing.T) {
 			wantDelta:  0,
 			wantDated:  false,
 			wantKind:   "file",
+			wantRender: "new",
+		},
+		{
+			// Kind comes from the shared query, not guessed from findings.
+			rule:       "vuln_alerts",
+			wantTrend:  TrendUnknown,
+			wantKind:   "setting",
 			wantRender: "new",
 		},
 	}
@@ -144,18 +149,18 @@ func TestBuild_PerRuleComparisonDate(t *testing.T) {
 
 	older := lastWeek.AddDate(0, 0, -14)
 
-	data := &store.ReportData{
-		Current: []store.SnapshotRow{
-			{Org: "acme", RuleName: "fresh", ActionableCount: 1, TrackedCount: 4},
-			{Org: "acme", RuleName: "stale", ActionableCount: 1, TrackedCount: 4},
+	data := &store.ComplianceReport{
+		Current: []store.ComplianceCount{
+			count("acme", "file", "fresh", 3, 1, 0, 0),
+			count("acme", "file", "stale", 3, 1, 0, 0),
 		},
-		Previous: []store.SnapshotRow{
-			{Org: "acme", RuleName: "fresh", ActionableCount: 2, TrackedCount: 4, SnapshotAt: lastWeek},
-			{Org: "acme", RuleName: "stale", ActionableCount: 2, TrackedCount: 4, SnapshotAt: older},
+		Previous: []store.ComplianceSnapshot{
+			snap("fresh", 2, 2, lastWeek),
+			snap("stale", 2, 2, older),
 		},
 	}
 
-	orgs := newRenderer(t, nil).Build(data)
+	orgs := newRenderer(t).Build(data)
 	org := &orgs[0]
 
 	if got := ruleByName(t, org, "fresh").ComparedAt; !got.Equal(lastWeek) {
@@ -175,7 +180,7 @@ func TestBuild_ZeroSnapshots(t *testing.T) {
 	data := fullData()
 	data.Previous = nil
 
-	orgs := newRenderer(t, nil).Build(data)
+	orgs := newRenderer(t).Build(data)
 	org := &orgs[0]
 
 	if org.HasHistory {
@@ -194,7 +199,7 @@ func TestBuild_ZeroSnapshots(t *testing.T) {
 func TestBuild_EmptyReadProducesNoOrgs(t *testing.T) {
 	t.Parallel()
 
-	if orgs := newRenderer(t, nil).Build(&store.ReportData{}); len(orgs) != 0 {
+	if orgs := newRenderer(t).Build(&store.ComplianceReport{}); len(orgs) != 0 {
 		t.Errorf("Build(empty) = %d orgs, want 0", len(orgs))
 	}
 }
@@ -209,16 +214,12 @@ func TestBuild_EmptyReadProducesNoOrgs(t *testing.T) {
 func TestBuild_FindingForUnknownOrgIsDropped(t *testing.T) {
 	t.Parallel()
 
-	data := &store.ReportData{
-		Findings: []store.ReportFinding{
-			{Owner: "ghost", Repo: "api", RuleName: "codeowners", RuleKind: "file"},
-		},
-		Current: []store.SnapshotRow{
-			{Org: "acme", RuleName: "codeowners", ActionableCount: 0, TrackedCount: 1},
-		},
+	data := &store.ComplianceReport{
+		Findings: []store.FailingFinding{failing("ghost", "api", "codeowners", findings.ReasonFileMissing, lastWeek)},
+		Current:  []store.ComplianceCount{count("acme", "file", "codeowners", 1, 0, 0, 0)},
 	}
 
-	orgs := newRenderer(t, nil).Build(data)
+	orgs := newRenderer(t).Build(data)
 
 	if len(orgs) != 1 || orgs[0].Name != "acme" {
 		t.Fatalf("Build() = %v, want exactly the acme org", orgs)
@@ -250,7 +251,7 @@ func TestCompliantPercent(t *testing.T) {
 			// both rules — so a fixture built on it would assert nothing
 			// about floor-versus-round despite its name.
 			name:       "floors rather than rounds",
-			line:       RuleLine{Actionable: 1, Tracked: 2000},
+			line:       RuleLine{Percent: percentOf(1999, 1)},
 			want:       99.9,
 			wantOK:     true,
 			wantRender: "99.9%",
@@ -259,28 +260,28 @@ func TestCompliantPercent(t *testing.T) {
 			// 2 of 3 is 66.66…%, floored to 66.6 rather than rounded to
 			// 66.7.
 			name:       "repeating decimal",
-			line:       RuleLine{Actionable: 1, Tracked: 3},
+			line:       RuleLine{Percent: percentOf(2, 1)},
 			want:       66.6,
 			wantOK:     true,
 			wantRender: "66.6%",
 		},
 		{
 			name:       "all passing",
-			line:       RuleLine{Actionable: 0, Tracked: 4},
+			line:       RuleLine{Percent: percentOf(4, 0)},
 			want:       100,
 			wantOK:     true,
 			wantRender: "100.0%",
 		},
 		{
 			name:       "none passing",
-			line:       RuleLine{Actionable: 4, Tracked: 4},
+			line:       RuleLine{Percent: percentOf(0, 4)},
 			want:       0,
 			wantOK:     true,
 			wantRender: "0.0%",
 		},
 		{
 			name:       "nothing tracked is unmeasured, not perfect",
-			line:       RuleLine{Actionable: 0, Tracked: 0},
+			line:       RuleLine{NotApplicable: 3},
 			want:       0,
 			wantOK:     false,
 			wantRender: "n/a",
@@ -334,6 +335,7 @@ func TestMdcell(t *testing.T) {
 	}{
 		{in: "plain", want: "plain"},
 		{in: "a|b", want: `a\|b`},
+		{in: "tick`name", want: "tick\\`name"},
 		{in: "two\nlines", want: "two lines"},
 		{in: "crlf\r\nlines", want: "crlf lines"},
 		{in: "  padded  ", want: "padded"},

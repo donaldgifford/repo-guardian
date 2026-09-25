@@ -1600,8 +1600,12 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
 
 - `bun test` is green in CI.
 - Locally, the BFF logs in against the homelab IdP, and holds the
-  session only in the HttpOnly cookie.
-- It proxies `/api/v1/me` to a running `api`.
+  session only in the HttpOnly cookie. (**deferred - human required**:
+  needs the homelab IdP; the flow is covered end to end against the
+  mock issuer.)
+- It proxies `/api/v1/me` to a running `api`. (**deferred - human
+  required**: needs a deployed `api`; proxying is covered against a
+  stub upstream.)
 
 ---
 

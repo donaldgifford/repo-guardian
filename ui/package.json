@@ -11,7 +11,8 @@
     "build": "vite build --config web/vite.config.ts",
     "start": "bun server/main.ts",
     "test": "bun test",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint --max-warnings=0 ."
   },
   "dependencies": {
     "@tanstack/react-query": "^5.103.2",

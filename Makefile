@@ -267,9 +267,9 @@ test-ui: ## Run the UI's bun tests
 	@ $(MAKE) --no-print-directory log-$@
 	@cd ui && bun test
 
-lint-ui: ## Typecheck the UI and fail if its generated API types are stale
+lint-ui: ## Typecheck and ESLint the UI, and fail if its generated API types are stale
 	@ $(MAKE) --no-print-directory log-$@
-	@cd ui && bun run typecheck && bun run check:api
+	@cd ui && bun run typecheck && bun run lint && bun run check:api
 
 fmt: ## Format code with gofmt and goimports
 	@ $(MAKE) --no-print-directory log-$@

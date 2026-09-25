@@ -672,7 +672,7 @@ it. Task IDs are `<phase>.<n>`.
 
 #### Tasks
 
-- [ ] 5.1 Add `ID int64` to `ghclient.Repository`. Set it in
+- [x] 5.1 Add `ID int64` to `ghclient.Repository`. Set it in
   `GetRepository` and `ListInstallationRepos`, and add `id` to the
   `client_test.go` fixtures.
 - [ ] 5.2 `CheckResult.Repository` carries `{ID, Owner, Name}` from

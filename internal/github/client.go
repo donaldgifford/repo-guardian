@@ -186,9 +186,21 @@ func (c *GitHubClient) GetRepository(ctx context.Context, owner, repo string) (*
 		return nil, fmt.Errorf("getting repository %s/%s: %w", owner, repo, err)
 	}
 
+	// The API follows renames and transfers, so the response carries
+	// the canonical owner and name; fall back to the request when absent.
+	canonicalOwner, canonicalName := r.GetOwner().GetLogin(), r.GetName()
+	if canonicalOwner == "" {
+		canonicalOwner = owner
+	}
+
+	if canonicalName == "" {
+		canonicalName = repo
+	}
+
 	return &Repository{
-		Owner:      owner,
-		Name:       repo,
+		ID:         r.GetID(),
+		Owner:      canonicalOwner,
+		Name:       canonicalName,
 		Archived:   r.GetArchived(),
 		Fork:       r.GetFork(),
 		HasBranch:  r.GetDefaultBranch() != "",
@@ -382,6 +394,7 @@ func (c *GitHubClient) ListInstallationRepos(ctx context.Context, installationID
 
 		for _, repo := range result.Repositories {
 			allRepos = append(allRepos, &Repository{
+				ID:         repo.GetID(),
 				Owner:      repo.GetOwner().GetLogin(),
 				Name:       repo.GetName(),
 				Archived:   repo.GetArchived(),

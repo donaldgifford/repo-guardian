@@ -398,9 +398,9 @@ it. Task IDs are `<phase>.<n>`.
 
 #### Tasks
 
-- [ ] 1.1 Create `v2` from `main`, push it, and protect it: PR
+- [ ] 1.1 **Deferred — human required:** work happens on the current branch per the operator; creating, pushing and protecting `v2` on GitHub is a repo-admin action — Create `v2` from `main`, push it, and protect it: PR
   required, with the same required checks as `main`.
-- [ ] 1.2 On `v2`, set `branches: [main, v2]` in `ci.yml:7,9`,
+- [x] 1.2 On `v2`, set `branches: [main, v2]` in `ci.yml:7,9`,
   `license-check.yml:7,9` and `security.yml:5-7`. `release.yml` and
   `gh-pages.yml` stay `main`-only.
 - [ ] 1.3 On `v2`, set `ct.yaml` to `target-branch: v2`.

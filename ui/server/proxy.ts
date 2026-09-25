@@ -48,20 +48,23 @@ const dropResponse = new Set([
   "content-length",
 ]);
 
+// UpstreamFetch is the slice of fetch the proxy uses.
+export type UpstreamFetch = (url: URL, init: RequestInit) => Promise<Response>;
+
 export interface ProxyDeps {
   config: Config;
   oidc: Oidc;
   session: SealedCookie<Session>;
   log: Logger;
   // fetch is injectable for tests; it defaults to the global fetch.
-  fetch?: typeof fetch;
+  fetch?: UpstreamFetch;
 }
 
 // mountProxy forwards /api/* to API_UPSTREAM (DESIGN-0027 § The UI). It
 // reads only: GET and HEAD. The Authorization header comes from exactly
 // one place: the caller's own Bearer when it sent one, else the session.
 export function mountProxy(app: Hono, deps: ProxyDeps): void {
-  const upstreamFetch = deps.fetch ?? fetch;
+  const upstreamFetch: UpstreamFetch = deps.fetch ?? fetch;
 
   app.all("/api/*", async (c) => {
     const method = c.req.method;

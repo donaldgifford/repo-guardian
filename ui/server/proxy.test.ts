@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createApp } from "./app";
 import { loadConfig } from "./config";
 import { discardLogger } from "./log";
-import { publicApiPaths } from "./proxy";
+import { publicApiPaths, type UpstreamFetch } from "./proxy";
 import { sessionCookie } from "./session";
 import { Browser } from "./testing/browser";
 import { type MockIssuer, startMockIssuer } from "./testing/mock-issuer";
@@ -31,10 +31,10 @@ afterAll(() => {
 
 function setup(from: MockIssuer = issuer, reply: () => Response = () => Response.json({ ok: true })) {
   const seen: Seen[] = [];
-  const upstreamFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    seen.push({ url: input.toString(), method: init?.method ?? "GET", headers: new Headers(init?.headers) });
+  const upstreamFetch: UpstreamFetch = async (url, init) => {
+    seen.push({ url: url.toString(), method: init.method ?? "GET", headers: new Headers(init.headers) });
     return reply();
-  }) as typeof fetch;
+  };
 
   const config = loadConfig({ ...validEnv, OIDC_ISSUER: from.url.toString() });
   const app = createApp({ config, log: discardLogger, upstreamFetch });

@@ -188,11 +188,11 @@ func (e *Engine) ruleSatisfiedOnDefault(
 	case policy.CheckExists:
 		return existingPath != "", nil
 	case policy.CheckContains:
-		actionable, err := e.evaluateContains(ctx, log, client, owner, repo, referee, existingPath)
+		actionable, _, err := e.evaluateContains(ctx, log, client, owner, repo, referee, existingPath)
 
 		return !actionable, err
 	case policy.CheckExact:
-		actionable, err := e.evaluateExact(ctx, log, client, owner, repo, referee, existingPath)
+		actionable, _, err := e.evaluateExact(ctx, log, client, owner, repo, referee, existingPath)
 
 		return !actionable, err
 	case policy.CheckAbsent:

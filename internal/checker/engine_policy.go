@@ -8,6 +8,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/donaldgifford/repo-guardian/internal/findings"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
@@ -267,7 +268,7 @@ func (e *Engine) getFileContentForReconciler(
 			return ""
 		}
 
-		if compareContent(log, existingPath, content, templateContent) {
+		if differs, _ := compareContent(log, existingPath, content, templateContent); differs {
 			return ""
 		}
 	}
@@ -288,7 +289,6 @@ func (e *Engine) findActionableRules(
 ) ([]policy.FileRuleConfig, error) {
 	var actionable []policy.FileRuleConfig
 
-	ownerRepo := owner + "/" + repo
 	strict := strictMode(e.policy)
 
 	for i := range e.policy.FileRules {
@@ -303,13 +303,15 @@ func (e *Engine) findActionableRules(
 		if !ruleScopeAllows(r.Scope, owner, strict) {
 			ruleLog.Info("rule out of scope for org, skipping")
 			metrics.OutOfScopeTotal.WithLabelValues("rule", owner).Inc()
+			recordFile(result, r, notApplicable(findings.OutOfScopeRuleEvidence{}))
 
 			continue
 		}
 
-		if r.Ignore != nil && r.Ignore.Matches(ownerRepo) {
+		if pattern, ignored := r.Ignore.MatchPattern(owner, repo); ignored {
 			ruleLog.Info("repository matched per-rule ignore list, skipping")
 			metrics.IgnoredTotal.WithLabelValues("rule", owner).Inc()
+			recordFile(result, r, notApplicable(findings.IgnoredRuleEvidence{Pattern: pattern}))
 
 			continue
 		}
@@ -323,28 +325,23 @@ func (e *Engine) findActionableRules(
 			ruleLog.Info("rule gate closed, skipping rule",
 				"referee", r.When.RuleSatisfied, "reason", reason)
 			metrics.RuleGateClosedTotal.WithLabelValues(r.Name, owner, reason).Inc()
+			recordFile(result, r, gateClosedDetail(gate, r.When.RuleSatisfied))
 
 			continue
 		}
 
-		action, err := e.evaluateRule(ctx, ruleLog, client, owner, repo, r, openPRs)
+		action, detail, err := e.evaluateRule(ctx, ruleLog, client, owner, repo, r, openPRs)
 		if err != nil {
 			return nil, fmt.Errorf("evaluating rule %q: %w", r.Name, err)
 		}
 
-		// Recorded for every rule that reached evaluation, not just the
-		// actionable ones — a satisfied rule is the "tracked but
-		// compliant" denominator every compliance percentage needs. The
-		// four `continue`s above deliberately record nothing: those
-		// rules do not apply to this repo.
-		//
-		// Note this inherits evaluateRule's existing semantics, where a
-		// foreign PR already open for the rule yields false. Such a repo
-		// reads as compliant even though its default branch is not yet
-		// fixed. That is the same set the actionable metrics have always
-		// counted; posture mirrors it rather than forking a second,
-		// subtly different definition of "failing".
-		result.record(RuleOutcome{RuleName: r.Name, Kind: RuleKindFile, Status: statusOf(action)})
+		// Recorded for every enabled rule, only in this primary pass (the
+		// double-iteration contract). Scope, ignore and gate skips above
+		// record not_applicable or unknown; a satisfied rule is the
+		// "tracked but compliant" denominator. A foreign PR records
+		// non_compliant with remediation foreign_pr, whose Actionable()
+		// is false — v1's verdict, now with the reason attached.
+		recordFile(result, r, detail)
 
 		if action {
 			e.recordActionable(ruleLog, r, owner)
@@ -378,7 +375,7 @@ func (e *Engine) evaluateRule(
 	owner, repo string,
 	rule *policy.FileRuleConfig,
 	openPRs []*ghclient.PullRequest,
-) (bool, error) {
+) (bool, outcomeDetail, error) {
 	// Yield to a PR someone else already opened for this rule. Our own
 	// reconcile PR never matches here — it is handled by the converge
 	// path (see foreignPRForRule).
@@ -389,27 +386,38 @@ func (e *Engine) evaluateRule(
 			"matched_term", term,
 		)
 
-		return false, nil
+		detail := nonCompliant(findings.ForeignPROpenEvidence{})
+		detail.remediation = findings.RemediationForeignPR
+		detail.foreignPR = &findings.ForeignPREvidence{Number: pr.Number, URL: pr.HTMLURL, Head: pr.Head, MatchedTerm: term}
+
+		return false, detail, nil
 	}
 
 	// Check file existence across all paths.
 	existingPath, err := findExistingFile(ctx, client, owner, repo, rule.Paths)
 	if err != nil {
-		return false, err
+		return false, outcomeDetail{}, err
 	}
 
 	switch rule.CheckMode() {
-	case policy.CheckExists:
-		return e.evaluateExists(log, existingPath), nil
 	case policy.CheckContains:
 		return e.evaluateContains(ctx, log, client, owner, repo, rule, existingPath)
 	case policy.CheckExact:
 		return e.evaluateExact(ctx, log, client, owner, repo, rule, existingPath)
 	case policy.CheckAbsent:
-		return e.evaluateAbsent(log, existingPath), nil
+		action, detail := e.evaluateAbsent(log, existingPath)
+
+		return action, detail, nil
 	default:
-		return e.evaluateExists(log, existingPath), nil
+		action, detail := e.evaluateExists(log, rule, existingPath)
+
+		return action, detail, nil
 	}
+}
+
+// recordFile records a file rule's outcome from its detail.
+func recordFile(result *CheckResult, r *policy.FileRuleConfig, detail outcomeDetail) {
+	result.record(detail.outcome(r.Name, RuleKindFile))
 }
 
 // evaluateAbsent reports whether an absent-mode rule is actionable: true
@@ -417,29 +425,33 @@ func (e *Engine) evaluateRule(
 // (existence-only; findExistingFile already short-circuits on the first
 // hit, so no content is fetched). Remediation — deleting the present
 // paths on the reconcile branch — lands in IMPL-0019 Phase 2 (task 2.1).
-func (*Engine) evaluateAbsent(log *slog.Logger, existingPath string) bool {
+func (*Engine) evaluateAbsent(log *slog.Logger, existingPath string) (bool, outcomeDetail) {
 	if existingPath == "" {
 		log.Debug("no forbidden files present, absent rule satisfied")
 
-		return false
+		return false, compliantDetail()
 	}
 
 	// recordActionable owns the Info-level "actionable" log for every check
 	// mode; keep the path detail here at Debug to avoid double-logging.
 	log.Debug("forbidden file present", "path", existingPath)
 
-	return true
+	return true, nonCompliant(findings.ForbiddenPresentEvidence{Path: existingPath})
 }
 
-func (*Engine) evaluateExists(log *slog.Logger, existingPath string) bool {
+func (*Engine) evaluateExists(log *slog.Logger, rule *policy.FileRuleConfig, existingPath string) (bool, outcomeDetail) {
 	if existingPath != "" {
 		log.Debug("file exists, skipping rule")
-		return false
+		return false, compliantDetail()
 	}
 
 	log.Info("file missing, will add to PR")
 
-	return true
+	return true, fileMissing(rule)
+}
+
+func fileMissing(rule *policy.FileRuleConfig) outcomeDetail {
+	return nonCompliant(findings.FileMissingEvidence{PathsChecked: rule.Paths})
 }
 
 func (e *Engine) evaluateContains(
@@ -449,10 +461,10 @@ func (e *Engine) evaluateContains(
 	owner, repo string,
 	rule *policy.FileRuleConfig,
 	existingPath string,
-) (bool, error) {
+) (bool, outcomeDetail, error) {
 	if existingPath == "" {
 		log.Info("file missing, will add to PR")
-		return true, nil
+		return true, fileMissing(rule), nil
 	}
 
 	// File exists — run assertions.
@@ -461,22 +473,25 @@ func (e *Engine) evaluateContains(
 
 	if len(assertions) == 0 {
 		log.Debug("file exists, no assertions to check")
-		return false, nil
+		return false, compliantDetail(), nil
 	}
 
 	content, err := client.GetFileContent(ctx, owner, repo, existingPath)
 	if err != nil {
-		return false, fmt.Errorf("getting file content for %s: %w", existingPath, err)
+		return false, outcomeDetail{}, fmt.Errorf("getting file content for %s: %w", existingPath, err)
 	}
 
 	if err := policy.EvaluateAssertions(assertions, content); err != nil {
 		log.Info("assertion failed, will create PR", "reason", err.Error())
-		return true, nil
+
+		return true, nonCompliant(findings.AssertionFailedEvidence{
+			Path: existingPath, Message: findings.Clip(err.Error(), findings.ClipRunes),
+		}), nil
 	}
 
 	log.Debug("file exists and passes all assertions")
 
-	return false, nil
+	return false, compliantDetail(), nil
 }
 
 func (e *Engine) evaluateExact(
@@ -486,42 +501,48 @@ func (e *Engine) evaluateExact(
 	owner, repo string,
 	rule *policy.FileRuleConfig,
 	existingPath string,
-) (bool, error) {
+) (bool, outcomeDetail, error) {
 	if existingPath == "" {
 		log.Info("file missing, will add to PR")
-		return true, nil
+		return true, fileMissing(rule), nil
 	}
 
 	content, err := client.GetFileContent(ctx, owner, repo, existingPath)
 	if err != nil {
-		return false, fmt.Errorf("getting file content for %s: %w", existingPath, err)
+		return false, outcomeDetail{}, fmt.Errorf("getting file content for %s: %w", existingPath, err)
 	}
 
 	templateContent, err := e.templates.Raw(rule.Template)
 	if err != nil {
-		return false, fmt.Errorf("getting template %q: %w", rule.Template, err)
+		return false, outcomeDetail{}, fmt.Errorf("getting template %q: %w", rule.Template, err)
 	}
 
-	differs := compareContent(log, existingPath, content, templateContent)
-	if differs {
-		return true, nil
+	if differs, comparison := compareContent(log, existingPath, content, templateContent); differs {
+		return true, nonCompliant(findings.ContentDiffersEvidence{Path: existingPath, Comparison: comparison}), nil
 	}
 
 	log.Debug("file matches template exactly")
 
-	return false, nil
+	return false, compliantDetail(), nil
 }
 
-// compareContent checks whether file content matches the template.
-// For YAML files, it uses semantic comparison; for others, byte comparison.
-func compareContent(log *slog.Logger, path, content, templateContent string) bool {
+// Comparison names recorded in content_differs evidence.
+const (
+	comparisonBytes = "bytes"
+	comparisonYAML  = "yaml"
+)
+
+// compareContent checks whether file content matches the template and
+// names the comparison it used. For YAML files, it uses semantic
+// comparison; for others, or when YAML fails to parse, byte comparison.
+func compareContent(log *slog.Logger, path, content, templateContent string) (bool, string) {
 	if !isYAMLFile(path) {
 		if content != templateContent {
 			log.Info("file differs from template")
-			return true
+			return true, comparisonBytes
 		}
 
-		return false
+		return false, comparisonBytes
 	}
 
 	matches, err := yamlSemanticallyEqual(content, templateContent)
@@ -530,18 +551,18 @@ func compareContent(log *slog.Logger, path, content, templateContent string) boo
 
 		if content != templateContent {
 			log.Info("file differs from template (byte comparison)")
-			return true
+			return true, comparisonBytes
 		}
 
-		return false
+		return false, comparisonBytes
 	}
 
 	if !matches {
 		log.Info("file differs from template (YAML semantic comparison)")
-		return true
+		return true, comparisonYAML
 	}
 
-	return false
+	return false, comparisonYAML
 }
 
 // findExistingFile checks a list of paths and returns the first one that exists.

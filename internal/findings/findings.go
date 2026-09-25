@@ -51,6 +51,9 @@ const (
 	ReasonBranchMissing    Reason = "branch_missing"
 	ReasonEmptyRepository  Reason = "empty_repository"
 	ReasonGateError        Reason = "gate_error"
+	// ReasonForeignPROpen marks a rule yielding to a human PR (IMPL-0025
+	// OQ3). It pairs with RemediationForeignPR; the PR is the evidence.
+	ReasonForeignPROpen Reason = "foreign_pr_open"
 	// ReasonMigratedFromV1 marks a finding backfilled from v1's
 	// rule_state: v1 knew the rule failed but not why. The first v2
 	// check replaces it.

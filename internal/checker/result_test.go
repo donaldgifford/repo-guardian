@@ -7,8 +7,9 @@ package checker
 //  1. every *evaluated* rule produces an outcome, across all three
 //     rule kinds — not just the actionable ones, because the satisfied
 //     ones are the denominator of every compliance percentage;
-//  2. every *skipped* rule produces none, so scope and ignore lists do
-//     not dilute that denominator with repos the rule never applied to;
+//  2. every *skipped* rule records not_applicable (DESIGN-0025), which
+//     compliance excludes from both terms, so scope and ignore lists do
+//     not dilute the denominator with repos the rule never applied to;
 //  3. skip paths return an empty-but-non-nil result while error paths
 //     return nil, because those two drive opposite reconciliations in
 //     the worker write-back (clear this repo's rows vs. touch nothing).
@@ -19,12 +20,14 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/donaldgifford/repo-guardian/internal/findings"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 )
 
-// outcomeKey renders an outcome as "kind/name=actionable" for
-// order-independent set comparison.
+// outcomeKeys renders each outcome as "kind/name=state" for
+// order-independent set comparison. state is actionable or satisfied for
+// v1's two verdicts, else "status:reason".
 func outcomeKeys(t *testing.T, res *CheckResult) []string {
 	t.Helper()
 
@@ -34,9 +37,15 @@ func outcomeKeys(t *testing.T, res *CheckResult) []string {
 
 	keys := make([]string, 0, len(res.Outcomes))
 	for _, o := range res.Outcomes {
-		state := "satisfied"
-		if o.Actionable() {
+		var state string
+
+		switch {
+		case o.Actionable():
 			state = "actionable"
+		case o.Status == findings.StatusCompliant:
+			state = "satisfied"
+		default:
+			state = string(o.Status) + ":" + string(o.Reason)
 		}
 
 		keys = append(keys, string(o.Kind)+"/"+o.RuleName+"="+state)
@@ -189,11 +198,12 @@ func TestCheckResult_RemediatedSettingIsNotActionable(t *testing.T) {
 	}
 }
 
-// TestCheckResult_IgnoredRuleProducesNoOutcome guards the denominator:
-// a rule that does not apply to a repo must not appear as "tracked and
-// compliant", or every per-rule compliance percentage silently inflates
-// with the repos that rule was never meant to cover.
-func TestCheckResult_IgnoredRuleProducesNoOutcome(t *testing.T) {
+// TestCheckResult_IgnoredRuleRecordsNotApplicable guards the
+// denominator: a rule that does not apply to a repo must not appear as
+// "tracked and compliant", or every per-rule compliance percentage
+// silently inflates with the repos that rule was never meant to cover.
+// v2 records it as not_applicable, which compliance excludes.
+func TestCheckResult_IgnoredRuleRecordsNotApplicable(t *testing.T) {
 	t.Parallel()
 
 	cfg := mixedKindPolicy()
@@ -213,7 +223,7 @@ func TestCheckResult_IgnoredRuleProducesNoOutcome(t *testing.T) {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
-	assertOutcomes(t, res, nil)
+	assertOutcomes(t, res, []string{"file/codeowners=not_applicable:ignored_rule"})
 }
 
 // TestCheckResult_SkipPathsReturnEmptyNotNil pins the distinction the

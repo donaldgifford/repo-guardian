@@ -620,7 +620,7 @@ it. Task IDs are `<phase>.<n>`.
     and the remediation is not `foreign_pr`;
   - `(*CheckResult).add` becomes `record(RuleOutcome)`;
   - `worker.go:561` calls `o.Actionable()`.
-- [ ] 4.5 Enrich file rules:
+- [x] 4.5 Enrich file rules:
   - `evaluateRule` returns `(bool, outcomeDetail)`, with the reason and
     evidence from `evaluateAbsent`, `evaluateExists`,
     `evaluateContains`, `evaluateExact` and `compareContent`;

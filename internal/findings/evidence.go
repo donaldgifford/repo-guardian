@@ -96,6 +96,10 @@ type GateErrorEvidence struct {
 	Error   string `json:"error"`
 }
 
+// ForeignPROpenEvidence marks a rule yielding to a human PR. The PR
+// itself is recorded under the "pr" key as ForeignPREvidence.
+type ForeignPROpenEvidence struct{}
+
 // MigratedFromV1Evidence records when v1 first saw the rule failing.
 type MigratedFromV1Evidence struct {
 	V1ActionableSince time.Time `json:"v1_actionable_since"`
@@ -145,6 +149,9 @@ func (EmptyRepositoryEvidence) Reason() Reason { return ReasonEmptyRepository }
 
 // Reason implements Evidence.
 func (GateErrorEvidence) Reason() Reason { return ReasonGateError }
+
+// Reason implements Evidence.
+func (ForeignPROpenEvidence) Reason() Reason { return ReasonForeignPROpen }
 
 // Reason implements Evidence.
 func (MigratedFromV1Evidence) Reason() Reason { return ReasonMigratedFromV1 }

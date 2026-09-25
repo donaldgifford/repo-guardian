@@ -413,7 +413,7 @@ it. Task IDs are `<phase>.<n>`.
 - [x] 1.5 Add a `ref` input (default `main`) to `changelog-update.yml`.
 - [x] 1.6 On `v2`, set the chart to `version: 2.0.0-rc.0`. The first
   publish is rc.1, in Phase 19.
-- [ ] 1.7 Add an `integration` job to `ci.yml` on `v2`. It runs
+- [x] 1.7 Add an `integration` job to `ci.yml` on `v2`. It runs
   `make test-integration` when the paths filter reports `go` or `sql`
   changes (OQ2).
 - [ ] 1.8 Document the branch workflow in CLAUDE.md on `v2`:

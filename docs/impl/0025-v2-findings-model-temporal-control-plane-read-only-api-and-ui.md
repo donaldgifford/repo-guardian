@@ -1228,7 +1228,7 @@ failed on a probe and passed once it was removed.
 - [x] 15.2 Write `queries/api_*.sql`, one file per resource. Each uses
   keyset paging and the scope predicate, and they reuse the Phase 8
   compliance query.
-- [ ] 15.3 Cursors are base64url JSON carrying the sort key, the ID and
+- [x] 15.3 Cursors are base64url JSON carrying the sort key, the ID and
   a hash of the filters (OQ23). Reusing a cursor with different filters
   returns 400.
 - [ ] 15.4 Compute `pr_stale` in SQL, with `PR_STALE_AFTER` (default

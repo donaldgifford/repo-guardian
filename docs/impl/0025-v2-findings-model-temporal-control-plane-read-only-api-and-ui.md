@@ -410,7 +410,7 @@ it. Task IDs are `<phase>.<n>`.
   - in `ghcr.yml:80-83` and `ecr.yml:110-113`, change the `latest` tag
     to `type=raw,value=latest,enable=${{ !contains(inputs.tag, '-') }}`;
   - land the same change on `main` too, in a small separate PR. **Deferred — human required:** the `main` PR is an outward action for the operator; the change is committed here.
-- [ ] 1.5 Add a `ref` input (default `main`) to `changelog-update.yml`.
+- [x] 1.5 Add a `ref` input (default `main`) to `changelog-update.yml`.
 - [ ] 1.6 On `v2`, set the chart to `version: 2.0.0-rc.0`. The first
   publish is rc.1, in Phase 19.
 - [ ] 1.7 Add an `integration` job to `ci.yml` on `v2`. It runs

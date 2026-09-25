@@ -4,16 +4,22 @@ package activities_test
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	enumspb "go.temporal.io/api/enums/v1"
+	historypb "go.temporal.io/api/history/v1"
+	"go.temporal.io/api/temporalproto"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
@@ -31,6 +37,10 @@ import (
 )
 
 const installationID int64 = 7
+
+// updateHistories rewrites the replay suite's captured histories
+// (internal/workflows/testdata/histories) from this run.
+var updateHistories = flag.Bool("update-histories", false, "capture RepoWorkflow histories for the replay suite")
 
 var quiet = slog.New(slog.NewTextHandler(io.Discard, nil))
 
@@ -272,6 +282,43 @@ func TestIntegration_OneCheckWritesFindingsAndACheckRow(t *testing.T) {
 	}
 
 	h.park(t, run)
+	h.captureHistory(t, run, "check_then_park")
+}
+
+// captureHistory writes run's history for the replay suite when
+// -update-histories is set.
+func (h *harness) captureHistory(t *testing.T, run client.WorkflowRun, name string) {
+	t.Helper()
+
+	if !*updateHistories {
+		return
+	}
+
+	hist := &historypb.History{}
+
+	iter := h.temporal.Client.GetWorkflowHistory(t.Context(), run.GetID(), run.GetRunID(), false, enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT)
+	for iter.HasNext() {
+		ev, err := iter.Next()
+		if err != nil {
+			t.Fatalf("history: %v", err)
+		}
+
+		hist.Events = append(hist.Events, ev)
+	}
+
+	b, err := temporalproto.CustomJSONMarshalOptions{Indent: "  "}.Marshal(hist)
+	if err != nil {
+		t.Fatalf("marshal history: %v", err)
+	}
+
+	path := filepath.Join("..", "workflows", "testdata", "histories", name+".json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	if err := os.WriteFile(path, append(b, '\n'), 0o600); err != nil {
+		t.Fatalf("write history: %v", err)
+	}
 }
 
 // blockingEngine blocks its first CheckRepo until the worker running it

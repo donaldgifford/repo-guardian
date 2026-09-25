@@ -945,9 +945,11 @@ This phase can start right after Phase 1.
   - one check writes findings and a `checks` row;
   - a worker killed mid-check and restarted still leaves exactly one
     final row for the key.
-- [ ] 10.11 Replay harness `internal/workflows/replay_test.go` (OQ13):
+- [x] 10.11 Replay harness `internal/workflows/replay_test.go` (OQ13):
   - start from one history taken from the integration suite, then
-    capture homelab histories after this phase's homelab deploy;
+    capture homelab histories after this phase's homelab deploy
+    (**Deferred — human required:** the homelab captures; the
+    integration-suite history is committed);
   - add a CI job gated on `internal/workflows/**`.
 
 #### Success Criteria

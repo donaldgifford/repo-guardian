@@ -1,0 +1,657 @@
+{
+  "events": [
+    {
+      "eventId": "1",
+      "eventTime": "2026-09-25T12:03:25.547690Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_EXECUTION_STARTED",
+      "taskId": "1048768",
+      "workflowExecutionStartedEventAttributes": {
+        "workflowType": {
+          "name": "RepoWorkflow"
+        },
+        "taskQueue": {
+          "name": "repo-guardian",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJSZXBvc2l0b3J5SUQiOjEsIkluc3RhbGxhdGlvbklEIjo3LCJDaGVja0ludGVydmFsIjo4NjQwMDAwMDAwMDAwMCwiTmV4dER1ZSI6IjAwMDEtMDEtMDFUMDA6MDA6MDBaIiwiUGVuZGluZyI6bnVsbCwiUG9saWN5VmVyc2lvbiI6IiIsIkl0ZXJhdGlvbiI6MH0="
+            }
+          ]
+        },
+        "workflowExecutionTimeout": "0s",
+        "workflowRunTimeout": "0s",
+        "workflowTaskTimeout": "10s",
+        "originalExecutionRunId": "01a0d872-eceb-7a87-8af4-47aa407882ae",
+        "identity": "30591@donald-mbp.local@",
+        "firstExecutionRunId": "01a0d872-eceb-7a87-8af4-47aa407882ae",
+        "attempt": 1,
+        "firstWorkflowTaskBackoff": "0s",
+        "header": {},
+        "workflowId": "repo/1"
+      }
+    },
+    {
+      "eventId": "2",
+      "eventTime": "2026-09-25T12:03:25.547713Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "taskId": "1048769",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "repo-guardian",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "3",
+      "eventTime": "2026-09-25T12:03:25.755418Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "taskId": "1048810",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "2",
+        "identity": "30591@donald-mbp.local@",
+        "requestId": "6f8791ea-6797-4333-974a-db16ac979f5d",
+        "historySizeBytes": "424"
+      }
+    },
+    {
+      "eventId": "4",
+      "eventTime": "2026-09-25T12:03:25.760304Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "taskId": "1048819",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "2",
+        "startedEventId": "3",
+        "identity": "30591@donald-mbp.local@",
+        "workerVersion": {
+          "buildId": "it-1",
+          "useVersioning": true
+        },
+        "sdkMetadata": {
+          "langUsedFlags": [
+            3,
+            1
+          ],
+          "sdkName": "temporal-go",
+          "sdkVersion": "1.49.0"
+        },
+        "meteringMetadata": {},
+        "versioningBehavior": "VERSIONING_BEHAVIOR_AUTO_UPGRADE",
+        "workerDeploymentName": "repo-guardian",
+        "deploymentVersion": {
+          "buildId": "it-1",
+          "deploymentName": "repo-guardian"
+        }
+      }
+    },
+    {
+      "eventId": "5",
+      "eventTime": "2026-09-25T12:03:25.760353Z",
+      "eventType": "EVENT_TYPE_MARKER_RECORDED",
+      "taskId": "1048820",
+      "markerRecordedEventAttributes": {
+        "markerName": "Version",
+        "details": {
+          "change-id": {
+            "payloads": [
+              {
+                "metadata": {
+                  "encoding": "anNvbi9wbGFpbg=="
+                },
+                "data": "ImJ1ZGdldC12MSI="
+              }
+            ]
+          },
+          "version": {
+            "payloads": [
+              {
+                "metadata": {
+                  "encoding": "anNvbi9wbGFpbg=="
+                },
+                "data": "MQ=="
+              }
+            ]
+          }
+        },
+        "workflowTaskCompletedEventId": "4"
+      }
+    },
+    {
+      "eventId": "6",
+      "eventTime": "2026-09-25T12:03:25.760629Z",
+      "eventType": "EVENT_TYPE_UPSERT_WORKFLOW_SEARCH_ATTRIBUTES",
+      "taskId": "1048821",
+      "upsertWorkflowSearchAttributesEventAttributes": {
+        "workflowTaskCompletedEventId": "4",
+        "searchAttributes": {
+          "indexedFields": {
+            "TemporalChangeVersion": {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg==",
+                "type": "S2V5d29yZExpc3Q="
+              },
+              "data": "WyJidWRnZXQtdjEtMSJd"
+            }
+          }
+        }
+      }
+    },
+    {
+      "eventId": "7",
+      "eventTime": "2026-09-25T12:03:25.760653Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "taskId": "1048822",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "7",
+        "activityType": {
+          "name": "CheckRepo"
+        },
+        "taskQueue": {
+          "name": "repo-guardian",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJSZXBvc2l0b3J5SUQiOjEsIkNoZWNrS2V5IjoicmVwby8xLzAxYTBkODcyLWVjZWItN2E4Ny04YWY0LTQ3YWE0MDc4ODJhZS8wIiwiVHJpZ2dlciI6InNjaGVkdWxlIiwiRGVmZXJyYWxzIjowfQ=="
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "0s",
+        "scheduleToStartTimeout": "0s",
+        "startToCloseTimeout": "900s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "4",
+        "retryPolicy": {
+          "initialInterval": "30s",
+          "backoffCoefficient": 2,
+          "maximumInterval": "1800s",
+          "maximumAttempts": 10
+        },
+        "useWorkflowBuildId": true,
+        "priority": {
+          "priorityKey": 3
+        }
+      }
+    },
+    {
+      "eventId": "8",
+      "eventTime": "2026-09-25T12:03:25.762099Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "taskId": "1048865",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "7",
+        "identity": "30591@donald-mbp.local@",
+        "requestId": "fe2481f3-f06e-40d9-8a42-09aa29673fe9",
+        "attempt": 1,
+        "workerVersion": {
+          "buildId": "it-1",
+          "useVersioning": true
+        }
+      }
+    },
+    {
+      "eventId": "9",
+      "eventTime": "2026-09-25T12:03:25.769813Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "taskId": "1048866",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJLaW5kIjoiY2hlY2tlZCIsIkNoZWNrS2V5IjoicmVwby8xLzAxYTBkODcyLWVjZWItN2E4Ny04YWY0LTQ3YWE0MDc4ODJhZS8wIiwiQ2FsbHMiOjcsIlJhdGUiOm51bGwsIlVudGlsIjoiMDAwMS0wMS0wMVQwMDowMDowMFoiLCJQYXJrUmVhc29uIjoiIiwiQ2xlYXJGaW5kaW5ncyI6ZmFsc2UsIkNhdXNlIjoiIiwiSW5zdGFsbGF0aW9uSUQiOjcsIlBvbGljeVZlcnNpb24iOiJ2Mjp0ZXN0IiwiUHJvdmlkZXJSZXBvSUQiOjkwMDEsIk9yZyI6ImFjbWUiLCJOYW1lIjoid2lkZ2V0cyIsIkNhdGFsb2dQYXJzZU9LIjpudWxsLCJTdGFydGVkQXQiOiIyMDI2LTA5LTI1VDA4OjAzOjI1Ljc2NTQ1NS0wNDowMCIsIkZpbmlzaGVkQXQiOiIyMDI2LTA5LTI1VDA4OjAzOjI1Ljc2NzU2OC0wNDowMCJ9"
+            }
+          ]
+        },
+        "scheduledEventId": "7",
+        "startedEventId": "8",
+        "identity": "30591@donald-mbp.local@"
+      }
+    },
+    {
+      "eventId": "10",
+      "eventTime": "2026-09-25T12:03:25.769825Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "taskId": "1048867",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "donald-mbp.local:2fd53c57-cd73-4d55-b80c-8ed5da5fe4f4",
+          "kind": "TASK_QUEUE_KIND_STICKY",
+          "normalName": "repo-guardian"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "11",
+      "eventTime": "2026-09-25T12:03:25.771665Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "taskId": "1048871",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "10",
+        "identity": "30591@donald-mbp.local@",
+        "requestId": "23739bbc-d163-4e8d-ab5e-5db61313e0f8",
+        "historySizeBytes": "1831"
+      }
+    },
+    {
+      "eventId": "12",
+      "eventTime": "2026-09-25T12:03:25.773766Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "taskId": "1048875",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "10",
+        "startedEventId": "11",
+        "identity": "30591@donald-mbp.local@",
+        "workerVersion": {
+          "buildId": "it-1",
+          "useVersioning": true
+        },
+        "sdkMetadata": {},
+        "meteringMetadata": {},
+        "versioningBehavior": "VERSIONING_BEHAVIOR_AUTO_UPGRADE",
+        "workerDeploymentName": "repo-guardian",
+        "deploymentVersion": {
+          "buildId": "it-1",
+          "deploymentName": "repo-guardian"
+        }
+      }
+    },
+    {
+      "eventId": "13",
+      "eventTime": "2026-09-25T12:03:25.773790Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "taskId": "1048876",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "13",
+        "activityType": {
+          "name": "RecordCheck"
+        },
+        "taskQueue": {
+          "name": "repo-guardian",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJSZXBvc2l0b3J5SUQiOjEsIlRyaWdnZXIiOiJzY2hlZHVsZSIsIlJlc3VsdCI6eyJLaW5kIjoiY2hlY2tlZCIsIkNoZWNrS2V5IjoicmVwby8xLzAxYTBkODcyLWVjZWItN2E4Ny04YWY0LTQ3YWE0MDc4ODJhZS8wIiwiQ2FsbHMiOjcsIlJhdGUiOm51bGwsIlVudGlsIjoiMDAwMS0wMS0wMVQwMDowMDowMFoiLCJQYXJrUmVhc29uIjoiIiwiQ2xlYXJGaW5kaW5ncyI6ZmFsc2UsIkNhdXNlIjoiIiwiSW5zdGFsbGF0aW9uSUQiOjcsIlBvbGljeVZlcnNpb24iOiJ2Mjp0ZXN0IiwiUHJvdmlkZXJSZXBvSUQiOjkwMDEsIk9yZyI6ImFjbWUiLCJOYW1lIjoid2lkZ2V0cyIsIkNhdGFsb2dQYXJzZU9LIjpudWxsLCJTdGFydGVkQXQiOiIyMDI2LTA5LTI1VDA4OjAzOjI1Ljc2NTQ1NS0wNDowMCIsIkZpbmlzaGVkQXQiOiIyMDI2LTA5LTI1VDA4OjAzOjI1Ljc2NzU2OC0wNDowMCJ9fQ=="
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "0s",
+        "scheduleToStartTimeout": "0s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "12",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2,
+          "maximumInterval": "60s"
+        },
+        "useWorkflowBuildId": true
+      }
+    },
+    {
+      "eventId": "14",
+      "eventTime": "2026-09-25T12:03:25.774771Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "taskId": "1048882",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "13",
+        "identity": "30591@donald-mbp.local@",
+        "requestId": "785794df-65d0-4bfc-b975-02f09d4dd34c",
+        "attempt": 1,
+        "workerVersion": {
+          "buildId": "it-1",
+          "useVersioning": true
+        }
+      }
+    },
+    {
+      "eventId": "15",
+      "eventTime": "2026-09-25T12:03:25.785463Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "taskId": "1048883",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJUcmFuc2l0aW9ucyI6MiwiQWxyZWFkeUZpbmFsIjpmYWxzZX0="
+            }
+          ]
+        },
+        "scheduledEventId": "13",
+        "startedEventId": "14",
+        "identity": "30591@donald-mbp.local@"
+      }
+    },
+    {
+      "eventId": "16",
+      "eventTime": "2026-09-25T12:03:25.785471Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "taskId": "1048884",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "donald-mbp.local:2fd53c57-cd73-4d55-b80c-8ed5da5fe4f4",
+          "kind": "TASK_QUEUE_KIND_STICKY",
+          "normalName": "repo-guardian"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "17",
+      "eventTime": "2026-09-25T12:03:25.786215Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "taskId": "1048888",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "16",
+        "identity": "30591@donald-mbp.local@",
+        "requestId": "4169113a-60f4-4da3-b474-c58f69202031",
+        "historySizeBytes": "2944"
+      }
+    },
+    {
+      "eventId": "18",
+      "eventTime": "2026-09-25T12:03:25.787653Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "taskId": "1048892",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "16",
+        "startedEventId": "17",
+        "identity": "30591@donald-mbp.local@",
+        "workerVersion": {
+          "buildId": "it-1",
+          "useVersioning": true
+        },
+        "sdkMetadata": {},
+        "meteringMetadata": {},
+        "versioningBehavior": "VERSIONING_BEHAVIOR_AUTO_UPGRADE",
+        "workerDeploymentName": "repo-guardian",
+        "deploymentVersion": {
+          "buildId": "it-1",
+          "deploymentName": "repo-guardian"
+        }
+      }
+    },
+    {
+      "eventId": "19",
+      "eventTime": "2026-09-25T12:03:25.787669Z",
+      "eventType": "EVENT_TYPE_MARKER_RECORDED",
+      "taskId": "1048893",
+      "markerRecordedEventAttributes": {
+        "markerName": "SideEffect",
+        "details": {
+          "data": {
+            "payloads": [
+              {
+                "metadata": {
+                  "encoding": "anNvbi9wbGFpbg=="
+                },
+                "data": "MC4wMzA2Mzc0MTAxNDU3ODMwMw=="
+              }
+            ]
+          },
+          "side-effect-id": {
+            "payloads": [
+              {
+                "metadata": {
+                  "encoding": "anNvbi9wbGFpbg=="
+                },
+                "data": "MQ=="
+              }
+            ]
+          }
+        },
+        "workflowTaskCompletedEventId": "18"
+      }
+    },
+    {
+      "eventId": "20",
+      "eventTime": "2026-09-25T12:03:25.787679Z",
+      "eventType": "EVENT_TYPE_TIMER_STARTED",
+      "taskId": "1048894",
+      "timerStartedEventAttributes": {
+        "timerId": "20",
+        "startToFireTimeout": "78289.414447319s",
+        "workflowTaskCompletedEventId": "18"
+      }
+    },
+    {
+      "eventId": "21",
+      "eventTime": "2026-09-25T12:03:25.959663Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_EXECUTION_SIGNALED",
+      "taskId": "1048897",
+      "workflowExecutionSignaledEventAttributes": {
+        "signalName": "park",
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJSZWFzb24iOiJhcmNoaXZlZCIsIkNsZWFyRmluZGluZ3MiOnRydWV9"
+            }
+          ]
+        },
+        "identity": "30591@donald-mbp.local@",
+        "header": {},
+        "requestId": "2a760858-1882-48e9-88b4-b0c3d1d44a47"
+      }
+    },
+    {
+      "eventId": "22",
+      "eventTime": "2026-09-25T12:03:25.959680Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "taskId": "1048898",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "donald-mbp.local:2fd53c57-cd73-4d55-b80c-8ed5da5fe4f4",
+          "kind": "TASK_QUEUE_KIND_STICKY",
+          "normalName": "repo-guardian"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "23",
+      "eventTime": "2026-09-25T12:03:25.961603Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "taskId": "1048902",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "22",
+        "identity": "30591@donald-mbp.local@",
+        "requestId": "f23ca22d-e799-4255-b73d-37a6c6ffae47",
+        "historySizeBytes": "3618"
+      }
+    },
+    {
+      "eventId": "24",
+      "eventTime": "2026-09-25T12:03:25.964904Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "taskId": "1048906",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "22",
+        "startedEventId": "23",
+        "identity": "30591@donald-mbp.local@",
+        "workerVersion": {
+          "buildId": "it-1",
+          "useVersioning": true
+        },
+        "sdkMetadata": {
+          "langUsedFlags": [
+            5,
+            8
+          ]
+        },
+        "meteringMetadata": {},
+        "versioningBehavior": "VERSIONING_BEHAVIOR_AUTO_UPGRADE",
+        "workerDeploymentName": "repo-guardian",
+        "deploymentVersion": {
+          "buildId": "it-1",
+          "deploymentName": "repo-guardian"
+        }
+      }
+    },
+    {
+      "eventId": "25",
+      "eventTime": "2026-09-25T12:03:25.964986Z",
+      "eventType": "EVENT_TYPE_TIMER_CANCELED",
+      "taskId": "1048907",
+      "timerCanceledEventAttributes": {
+        "timerId": "20",
+        "startedEventId": "20",
+        "workflowTaskCompletedEventId": "24",
+        "identity": "30591@donald-mbp.local@"
+      }
+    },
+    {
+      "eventId": "26",
+      "eventTime": "2026-09-25T12:03:25.965045Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "taskId": "1048908",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "26",
+        "activityType": {
+          "name": "Park"
+        },
+        "taskQueue": {
+          "name": "repo-guardian",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJSZXBvc2l0b3J5SUQiOjEsIkluc3RhbGxhdGlvbklEIjo3LCJDaGVja0tleSI6InJlcG8vMS8wMWEwZDg3Mi1lY2ViLTdhODctOGFmNC00N2FhNDA3ODgyYWUvMSIsIlRyaWdnZXIiOiIiLCJSZWFzb24iOiJhcmNoaXZlZCIsIkNsZWFyRmluZGluZ3MiOnRydWUsIkNhdXNlIjoiIn0="
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "0s",
+        "scheduleToStartTimeout": "0s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "24",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2,
+          "maximumInterval": "60s"
+        },
+        "useWorkflowBuildId": true
+      }
+    },
+    {
+      "eventId": "27",
+      "eventTime": "2026-09-25T12:03:25.967093Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "taskId": "1048914",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "26",
+        "identity": "30591@donald-mbp.local@",
+        "requestId": "98121b62-2f2f-48c0-9bcf-ecf2f795406f",
+        "attempt": 1,
+        "workerVersion": {
+          "buildId": "it-1",
+          "useVersioning": true
+        }
+      }
+    },
+    {
+      "eventId": "28",
+      "eventTime": "2026-09-25T12:03:25.975881Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "taskId": "1048915",
+      "activityTaskCompletedEventAttributes": {
+        "scheduledEventId": "26",
+        "startedEventId": "27",
+        "identity": "30591@donald-mbp.local@"
+      }
+    },
+    {
+      "eventId": "29",
+      "eventTime": "2026-09-25T12:03:25.975896Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "taskId": "1048916",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "donald-mbp.local:2fd53c57-cd73-4d55-b80c-8ed5da5fe4f4",
+          "kind": "TASK_QUEUE_KIND_STICKY",
+          "normalName": "repo-guardian"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "30",
+      "eventTime": "2026-09-25T12:03:25.977520Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "taskId": "1048920",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "29",
+        "identity": "30591@donald-mbp.local@",
+        "requestId": "b48c665c-6e1b-4721-bf67-6bd8c953bc87",
+        "historySizeBytes": "4439"
+      }
+    },
+    {
+      "eventId": "31",
+      "eventTime": "2026-09-25T12:03:25.979851Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "taskId": "1048924",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "29",
+        "startedEventId": "30",
+        "identity": "30591@donald-mbp.local@",
+        "workerVersion": {
+          "buildId": "it-1",
+          "useVersioning": true
+        },
+        "sdkMetadata": {},
+        "meteringMetadata": {},
+        "versioningBehavior": "VERSIONING_BEHAVIOR_AUTO_UPGRADE",
+        "workerDeploymentName": "repo-guardian",
+        "deploymentVersion": {
+          "buildId": "it-1",
+          "deploymentName": "repo-guardian"
+        }
+      }
+    },
+    {
+      "eventId": "32",
+      "eventTime": "2026-09-25T12:03:25.979951Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED",
+      "taskId": "1048925",
+      "workflowExecutionCompletedEventAttributes": {
+        "workflowTaskCompletedEventId": "31"
+      }
+    }
+  ]
+}

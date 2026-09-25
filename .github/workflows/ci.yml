@@ -26,6 +26,7 @@ jobs:
       alerts: ${{ steps.filter.outputs.alerts }}
       monitoring: ${{ steps.filter.outputs.monitoring }}
       sql: ${{ steps.filter.outputs.sql }}
+      temporal: ${{ steps.filter.outputs.temporal }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v3
@@ -73,6 +74,10 @@ jobs:
             sql:
               - 'internal/store/**'
               - 'sqlc.yaml'
+            # Temporal workflow code and its captured histories. Gates the
+            # replay job; `workflows` above is the GitHub Actions directory.
+            temporal:
+              - 'internal/workflows/**'
 
   labeler:
     permissions:
@@ -185,6 +190,26 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: donaldgifford/repo-guardian
         continue-on-error: true
+
+  # Replays captured RepoWorkflow histories against the current workflow
+  # code (IMPL-0025 OQ13). A non-deterministic edit breaks every running
+  # execution at its next workflow task; this fails the PR instead. It
+  # also runs inside test-go, but as its own job the failure is named.
+  replay:
+    name: Workflow Replay
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.temporal == 'true' || needs.changes.outputs.workflows == 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Replay captured histories
+        run: go test -race -count=1 -run TestReplay ./internal/workflows/...
 
   # Testcontainers-backed tests (build tag `integration`). The runner's
   # Docker daemon hosts the Postgres containers.

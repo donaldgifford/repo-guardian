@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/pressly/goose/v3"
@@ -23,7 +24,14 @@ type migrateOptions struct {
 	freshness time.Duration
 	dryRun    bool
 	json      bool
+
+	// forceRunning skips the running-v1 guard. Test-only; hidden from
+	// usage because an operator should scale v1 down instead.
+	forceRunning bool
 }
+
+// forceRunningFlag is parsed by hand so it never appears in -h output.
+const forceRunningFlag = "--force-running"
 
 // migrateResult is what a migrate run reports, as text or --json.
 type migrateResult struct {
@@ -64,6 +72,18 @@ func runMigrate(args []string) error {
 func parseMigrateFlags(args []string) (migrateOptions, error) {
 	fs := flag.NewFlagSet(cmdMigrate, flag.ContinueOnError)
 
+	var opts migrateOptions
+
+	args = slices.DeleteFunc(slices.Clone(args), func(a string) bool {
+		if a == forceRunningFlag {
+			opts.forceRunning = true
+
+			return true
+		}
+
+		return false
+	})
+
 	defFreshness := pgstore.DefaultBackfillFreshness
 	if v := os.Getenv("RECONCILE_FRESHNESS"); v != "" {
 		d, err := time.ParseDuration(v)
@@ -73,8 +93,6 @@ func parseMigrateFlags(args []string) (migrateOptions, error) {
 
 		defFreshness = d
 	}
-
-	var opts migrateOptions
 
 	fs.StringVar(&opts.dsn, "dsn", os.Getenv("STORE_DSN"), "Postgres DSN with DDL rights (defaults to $STORE_DSN)")
 	fs.DurationVar(&opts.freshness, "freshness", defFreshness,
@@ -109,6 +127,12 @@ func migrate(ctx context.Context, opts migrateOptions) (_ *migrateResult, retErr
 	defer func() {
 		retErr = errors.Join(retErr, provider.Close())
 	}()
+
+	if !opts.forceRunning {
+		if err := pgstore.CheckV1Idle(ctx, db); err != nil {
+			return nil, err
+		}
+	}
 
 	ctx = pgstore.WithBackfillFreshness(ctx, opts.freshness)
 	res := &migrateResult{DryRun: opts.dryRun}

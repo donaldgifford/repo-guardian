@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/pressly/goose/v3"
 )
@@ -83,6 +84,35 @@ func adoptV1Up(ctx context.Context, tx *sql.Tx) error {
 func adoptV1Down(ctx context.Context, tx *sql.Tx) error {
 	if _, err := tx.ExecContext(ctx, `DROP TABLE IF EXISTS v2_meta`); err != nil {
 		return fmt.Errorf("dropping v2_meta: %w", err)
+	}
+
+	return nil
+}
+
+// v1IdleWindow is how recently a v1 replica may have written
+// repo_state before migrate refuses to run.
+const v1IdleWindow = 60 * time.Second
+
+// ErrV1Running is returned by CheckV1Idle when repo_state was written
+// within the idle window, i.e. a v1 replica is probably still running.
+var ErrV1Running = errors.New("v1 appears to be running; scale it to zero first")
+
+// CheckV1Idle refuses when repo_state exists and a row was checked in
+// the last minute. It is a cheap guard against migrating under a live
+// v1, not a lock: the runbook scales v1 to zero first.
+func CheckV1Idle(ctx context.Context, db *sql.DB) error {
+	var running bool
+
+	err := db.QueryRowContext(ctx, `
+		SELECT to_regclass('public.repo_state') IS NOT NULL
+		   AND EXISTS (SELECT 1 FROM repo_state WHERE last_checked_at > now() - make_interval(secs => $1))`,
+		v1IdleWindow.Seconds()).Scan(&running)
+	if err != nil {
+		return fmt.Errorf("checking for a running v1: %w", err)
+	}
+
+	if running {
+		return ErrV1Running
 	}
 
 	return nil

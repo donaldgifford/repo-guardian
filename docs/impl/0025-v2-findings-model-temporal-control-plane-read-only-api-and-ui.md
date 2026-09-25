@@ -456,7 +456,7 @@ it. Task IDs are `<phase>.<n>`.
     (`main.go:78-97`) and the usage text (`:111-122`);
   - flags: `--dsn` (default `STORE_DSN`), `--dry-run`, `--freshness`
     (default `RECONCILE_FRESHNESS`, else `24h`) and `--json`.
-- [ ] 2.5 Add a recent-write guard:
+- [x] 2.5 Add a recent-write guard:
   - if `repo_state` has `max(last_checked_at)` within the last 60s,
     refuse with "v1 appears to be running; scale it to zero first";
   - a hidden `--force-running` flag bypasses it, for tests only.

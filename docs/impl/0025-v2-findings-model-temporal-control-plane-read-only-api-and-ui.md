@@ -411,7 +411,7 @@ it. Task IDs are `<phase>.<n>`.
     to `type=raw,value=latest,enable=${{ !contains(inputs.tag, '-') }}`;
   - land the same change on `main` too, in a small separate PR. **Deferred — human required:** the `main` PR is an outward action for the operator; the change is committed here.
 - [x] 1.5 Add a `ref` input (default `main`) to `changelog-update.yml`.
-- [ ] 1.6 On `v2`, set the chart to `version: 2.0.0-rc.0`. The first
+- [x] 1.6 On `v2`, set the chart to `version: 2.0.0-rc.0`. The first
   publish is rc.1, in Phase 19.
 - [ ] 1.7 Add an `integration` job to `ci.yml` on `v2`. It runs
   `make test-integration` when the paths filter reports `go` or `sql`

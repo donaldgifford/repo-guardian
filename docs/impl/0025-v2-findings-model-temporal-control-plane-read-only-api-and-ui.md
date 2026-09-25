@@ -1530,7 +1530,7 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
 
 #### Tasks
 
-- [ ] 20.1 Scaffold `ui/`:
+- [x] 20.1 Scaffold `ui/`:
   - `ui/server/` (Hono) and `ui/web/` (React + Vite);
   - Bun pinned in `mise.toml`;
   - `bun run gen:api` generates `openapi-typescript` types directly

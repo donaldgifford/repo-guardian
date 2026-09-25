@@ -33,31 +33,27 @@ repo-guardian report --out ./reports | xargs -I{} cp {} /srv/compliance/
 |---|---|---|
 | `--out` | `./reports` | Directory to write into. Created if absent (mode `0750`). |
 | `--dsn` | `$STORE_DSN` | Postgres DSN. The command fails immediately if neither is set. |
-| `--with-pr-links` | off | Resolve the open repo-guardian PR for each failing repository and link it. |
+| `--orgs` | every org | Comma-separated orgs to report on (case-insensitive). |
+| `--with-pr-links` | off | **Deprecated no-op** (v2): warns and does nothing. Removed in the next release. |
 
-`--with-pr-links` is the only flag that touches the network. It needs
-`GITHUB_APP_ID` plus `GITHUB_PRIVATE_KEY` or
-`GITHUB_PRIVATE_KEY_PATH`, and it costs one API call per failing
-repository per org — not per finding, so a repository failing five
-rules still costs one. Leave it off for a scheduled run and turn it on
-when somebody is actually going to click the links.
-
-Lookup failures never fail the report. They are counted, and a report
-with any failures says so in the body, because a short list of links
-would otherwise read as "these repositories have no open PR" — a
-different and wrong statement.
+PR links come from each finding's recorded evidence, so the report makes
+no GitHub API calls and needs no App credentials. The PR column shows
+`open` for repo-guardian's own PR, `human PR` for a PR the rule yields
+to (`foreign_pr`), `dry run` or `remediation off` when no PR will be
+opened, and an em dash otherwise.
 
 ## What the command does not do
 
 **It does not run migrations.** The report is read-only and the DSN you
-hand it may have no DDL rights. More importantly, an operator running a
+hand it may have no DDL rights. It checks the schema version instead and
+refuses a database `repo-guardian migrate` has not brought up to date. More importantly, an operator running a
 newer binary from a laptop would otherwise migrate the schema forward
 underneath a running older server. Schema changes belong to the
 deployment, not to a reporting CLI. See
 [Postgres schema operations](migrations.md).
 
 **It does not load the server configuration.** No webhook secret, no
-Valkey DSN, no App credentials unless you asked for PR links. A
+Valkey DSN, no App credentials. A
 read-only report has no use for any of it, and being told to set a
 webhook secret for a command that never serves a webhook would be
 absurd.
@@ -82,10 +78,14 @@ table below the headline is where you count repositories.
 
 ### Compliance by rule
 
-The denominator is **per rule**, not per org. `rule_state` holds a row
-for every rule actually evaluated against a repository — satisfied ones
-included — so "Applies to" is the number of repositories that rule was
-evaluated against, and "Failing" is how many of those it failed on.
+The numbers come from one shared query (`queries/compliance.sql`) that
+the compliance snapshots and the API also read, so the three always
+agree. Each rule counts its findings on active repositories by status:
+**Failing** (non-compliant), **Passing** (compliant), **N/A** (the rule
+does not apply: out of scope, ignored, gate closed, branch missing) and
+**Unknown** (it could not be evaluated). Compliant is
+Passing / (Passing + Failing); N/A and Unknown sit beside it, never in
+it. The denominator is **per rule**, not per org.
 
 This matters for scoped rules. A rule that applies to 10 of 100
 repositories and fails on 5 reads as **50%** here. Against an org-wide
@@ -97,15 +97,16 @@ Percentages are **floored, never rounded**. 1999 of 2000 reads as
 99.9%, not 100.0%. A report calling a fleet fully compliant while one
 repository is not has told a lie somebody will act on.
 
-A rule with **`n/a`** in the compliance column was evaluated against no
-repository. It is unmeasured, not perfect.
+A rule with **`n/a`** in the compliance column passed or failed on no
+repository — typically every finding is N/A. It is unmeasured, not
+perfect.
 
 ### Trend
 
 Each trend cell carries the date it was compared against:
 
 ```
-| codeowners | file | 2 | 10 | 80.0% | 3 fewer since 2026-08-03 |
+| codeowners | file | 2 | 8 | 0 | 0 | 80.0% | 3 fewer since 2026-08-03 |
 ```
 
 The baseline is **per rule**, not per report. A rule that was disabled
@@ -126,18 +127,18 @@ today.
 
 ### Findings
 
-One row per (repository, rule) currently failing, with the date the
-failure started. The date survives repeated sweeps: "missing since
+One row per (repository, rule) currently failing, with its reason code
+(`file_missing`, `assertion_failed`, `setting_mismatch`, …) and the date
+the failure started. The date survives repeated sweeps: "missing since
 2026-06-14" does not reset to today every time the sweeper confirms it
 is still missing. It **is** cleared when the repository complies, so a
 later regression starts a fresh clock rather than reporting a
 months-old date for a failure that was fixed in between.
 
-An em dash in "Failing since" means no start date is recorded. The
-binary always stamps one when a rule starts failing, so an em dash
-should not appear for a row this server wrote — treat it as a row
-edited by hand or restored from an unrelated source, not as a very old
-failure.
+A reason of **`migrated_from_v1`** means repo-guardian v1 recorded the
+failure and v2 has not re-checked the repository since the upgrade; the
+date is v1's original one. The first v2 check replaces it with a real
+reason.
 
 ### What is excluded
 
@@ -279,9 +280,9 @@ two snapshots yet. Check that a leader exists
 migration.
 
 **A report is empty / no files written** — nothing has been evaluated
-yet. `rule_state` is populated by the worker write-back, so a fresh
-deployment has no rows until the first sweep completes. Confirm with
-`SELECT count(*) FROM rule_state;`.
+yet. `findings` is written by each check, so a fresh deployment has no
+rows until the first checks complete. Confirm with
+`SELECT count(*) FROM findings;`.
 
 **An org you expect is missing** — orgs come from what was actually
 evaluated, not from the policy's `scope` block. An org with no
@@ -289,9 +290,9 @@ evaluated rules produces no file rather than an empty one. Check
 whether its repositories are all parked
 (`repos_parked_total{org="..."}`) or out of scope.
 
-**"--with-pr-links needs a numeric GITHUB_APP_ID"** — the flag needs
-App credentials the plain report does not. Either export them or drop
-the flag.
+**"database schema is older than this binary"** — the database has not been
+migrated to this binary's schema. Run `repo-guardian migrate` (or let
+the chart's migrate Job run) first.
 
 ## See also
 

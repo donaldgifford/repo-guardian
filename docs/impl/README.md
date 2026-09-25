@@ -56,4 +56,7 @@ docz create impl "Your Implementation Title"
 | IMPL-0022 | Delayed-requeue job contract and rate-limit consolidation | Completed | 2026-08-02 | Donald Gifford | [0022-delayed-requeue-job-contract-and-rate-limit-consolidation.md](0022-delayed-requeue-job-contract-and-rate-limit-consolidation.md) |
 | IMPL-0023 | Compliance posture state, dashboard suite, and OTEL-first observability | Completed | 2026-08-02 | Donald Gifford | [0023-compliance-posture-state-dashboard-suite-and-otel-first.md](0023-compliance-posture-state-dashboard-suite-and-otel-first.md) |
 | IMPL-0024 | Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware | Completed | 2026-08-15 | Donald Gifford | [0024-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip.md](0024-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip.md) |
+| IMPL-0025 | v2 findings model and v1 data migration | Draft | 2026-09-25 | Donald Gifford | [0025-v2-findings-model-and-v1-data-migration.md](0025-v2-findings-model-and-v1-data-migration.md) |
+| IMPL-0026 | v2 Temporal control plane and role split | Draft | 2026-09-25 | Donald Gifford | [0026-v2-temporal-control-plane-and-role-split.md](0026-v2-temporal-control-plane-and-role-split.md) |
+| IMPL-0027 | v2 read-only API, business UI, and status page | Draft | 2026-09-25 | Donald Gifford | [0027-v2-read-only-api-business-ui-and-status-page.md](0027-v2-read-only-api-business-ui-and-status-page.md) |
 <!-- END DOCZ AUTO-GENERATED -->

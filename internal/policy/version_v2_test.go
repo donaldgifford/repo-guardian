@@ -2,6 +2,8 @@ package policy
 
 import (
 	"path/filepath"
+	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -79,5 +81,98 @@ func TestVersionV2_NilConfig(t *testing.T) {
 
 	if _, err := VersionV2(nil, nil); err == nil {
 		t.Error("VersionV2(nil) succeeded")
+	}
+}
+
+// versionV2Hashed lists every policy field that feeds VersionV2.
+var versionV2Hashed = []string{
+	"PolicyConfig.IgnoreList", "PolicyConfig.Scope", "PolicyConfig.Defaults",
+	"PolicyConfig.FileRules", "PolicyConfig.SettingRules", "PolicyConfig.BranchProtectionRules",
+	"GuardianConfig.DryRun", "GuardianConfig.SkipForks", "GuardianConfig.SkipArchived",
+	"GuardianConfig.AutoClosePR", "GuardianConfig.OrphanCleanup",
+	"DefaultsConfig.PR",
+	"FileRuleConfig.Type", "FileRuleConfig.Name", "FileRuleConfig.Enabled", "FileRuleConfig.Check",
+	"FileRuleConfig.Paths", "FileRuleConfig.Target", "FileRuleConfig.Template", "FileRuleConfig.PR",
+	"FileRuleConfig.Assertions", "FileRuleConfig.Ignore", "FileRuleConfig.Scope",
+	"FileRuleConfig.Reconcilers", "FileRuleConfig.When",
+	"WhenConfig.RuleSatisfied",
+	"PRConfig.SearchTerms", "PRConfig.Title", "PRConfig.Body", "PRConfig.Labels",
+	"PRConfig.Inherits", "PRConfig.LabelsSet",
+	"AssertionConfig.Pattern", "AssertionConfig.NotPattern", "AssertionConfig.YAMLPath",
+	"AssertionConfig.Contains", "AssertionConfig.Equals", "AssertionConfig.NonEmpty", "AssertionConfig.Message",
+	"IgnoreConfig.Repos",
+	"ScopeConfig.Orgs",
+	"SettingRuleConfig.Name", "SettingRuleConfig.Enabled", "SettingRuleConfig.Property",
+	"SettingRuleConfig.Expected", "SettingRuleConfig.Remediate", "SettingRuleConfig.Ignore", "SettingRuleConfig.Scope",
+	"BranchProtectionRuleConfig.Name", "BranchProtectionRuleConfig.Enabled", "BranchProtectionRuleConfig.Branch",
+	"BranchProtectionRuleConfig.RequirePR", "BranchProtectionRuleConfig.RequiredApprovals",
+	"BranchProtectionRuleConfig.DismissStaleReviews", "BranchProtectionRuleConfig.RequireStatusChecks",
+	"BranchProtectionRuleConfig.EnforceAdmins", "BranchProtectionRuleConfig.RequireLinearHistory",
+	"BranchProtectionRuleConfig.Remediate", "BranchProtectionRuleConfig.Ignore", "BranchProtectionRuleConfig.Scope",
+	"ReconcilerConfig.Type", "ReconcilerConfig.Watch", "ReconcilerConfig.Mode", "ReconcilerConfig.DeleteExtra",
+	"ReconcilerConfig.PR", "ReconcilerConfig.AnnotationProperties",
+}
+
+// versionV2NotHashed lists every policy field deliberately left out of
+// VersionV2: operational knobs, and values derived from hashed ones.
+var versionV2NotHashed = []string{
+	"PolicyConfig.Guardian", // container; its hashed fields are listed individually
+	"GuardianConfig.ScheduleInterval", "GuardianConfig.ParsedScheduleInterval",
+	"GuardianConfig.WorkerCount", "GuardianConfig.QueueSize",
+	"GuardianConfig.LogLevel", "GuardianConfig.RateLimitThreshold",
+	"PRConfig.CompiledTitle", "PRConfig.CompiledBody", // compiled from Title/Body
+}
+
+// TestVersionV2_EveryFieldClassified walks every struct reachable from
+// PolicyConfig in this package and fails on an exported field that is
+// neither hashed nor deliberately not hashed. Adding a policy field
+// must be a decision about whether it re-checks the fleet.
+func TestVersionV2_EveryFieldClassified(t *testing.T) {
+	t.Parallel()
+
+	classified := make(map[string]bool)
+	for _, f := range append(slices.Clone(versionV2Hashed), versionV2NotHashed...) {
+		if classified[f] {
+			t.Errorf("%s is classified twice", f)
+		}
+
+		classified[f] = true
+	}
+
+	seen := make(map[string]bool)
+	pkg := reflect.TypeFor[PolicyConfig]().PkgPath()
+
+	var walk func(reflect.Type)
+
+	walk = func(typ reflect.Type) {
+		for typ.Kind() == reflect.Pointer || typ.Kind() == reflect.Slice || typ.Kind() == reflect.Map {
+			typ = typ.Elem()
+		}
+
+		if typ.Kind() != reflect.Struct || typ.PkgPath() != pkg || seen[typ.Name()] {
+			return
+		}
+
+		seen[typ.Name()] = true
+
+		for f := range typ.Fields() {
+			if !f.IsExported() {
+				continue
+			}
+
+			key := typ.Name() + "." + f.Name
+			if !classified[key] {
+				t.Errorf("policy field %s is unclassified: add it to versionV2Hashed (and VersionV2's input) or versionV2NotHashed", key)
+			}
+
+			delete(classified, key)
+			walk(f.Type)
+		}
+	}
+
+	walk(reflect.TypeFor[PolicyConfig]())
+
+	for f := range classified {
+		t.Errorf("classified field %s does not exist", f)
 	}
 }

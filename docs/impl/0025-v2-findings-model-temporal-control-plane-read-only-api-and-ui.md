@@ -718,7 +718,7 @@ it. Task IDs are `<phase>.<n>`.
   - return `"v2:" + hex(sha256)`.
 - [x] 6.2 Add a golden test: a fixture policy and its templates must
   produce a pinned version.
-- [ ] 6.3 Add a classification test. It reflects over every policy
+- [x] 6.3 Add a classification test. It reflects over every policy
   struct and fails on any exported field that is in neither the
   `hashed` table nor the `notHashed` table.
 - [ ] 6.4 Operational knobs such as `log_level` and

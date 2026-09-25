@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/log"
@@ -28,6 +29,11 @@ type fakeActivities struct {
 	records []RecordCheckInput
 	errors  []RecordCheckErrorInput
 	parks   []ParkInput
+	acquire []AcquireInput
+	reports []Report
+
+	// grant answers the nth AcquireBudget call; nil always grants.
+	grant func(n int) *AcquireResult
 
 	// attempts and times record each CheckRepo call's activity attempt
 	// and the test clock when it ran.
@@ -52,6 +58,19 @@ func (f *fakeActivities) CheckRepo(ctx context.Context, in *CheckRepoInput) (*Ch
 	}
 
 	return &CheckRepoResult{Kind: CheckChecked, CheckKey: in.CheckKey}, nil
+}
+
+func (f *fakeActivities) AcquireBudget(_ context.Context, in *AcquireInput) (*AcquireResult, error) {
+	f.mu.Lock()
+	n := len(f.acquire)
+	f.acquire = append(f.acquire, *in)
+	f.mu.Unlock()
+
+	if f.grant != nil {
+		return f.grant(n), nil
+	}
+
+	return &AcquireResult{Granted: true, LeaseID: in.UpdateID}, nil
 }
 
 func (f *fakeActivities) RecordCheck(_ context.Context, in *RecordCheckInput) (*RecordCheckResult, error) {
@@ -99,6 +118,16 @@ func newEnv(t *testing.T, fakes *fakeActivities) *testsuite.TestWorkflowEnvironm
 	env.RegisterActivityWithOptions(fakes.RecordCheck, activity.RegisterOptions{Name: RecordCheckActivity})
 	env.RegisterActivityWithOptions(fakes.RecordCheckError, activity.RegisterOptions{Name: RecordCheckErrorActivity})
 	env.RegisterActivityWithOptions(fakes.Park, activity.RegisterOptions{Name: ParkActivity})
+	env.RegisterActivityWithOptions(fakes.AcquireBudget, activity.RegisterOptions{Name: AcquireBudgetActivity})
+	env.OnSignalExternalWorkflow(mock.Anything, InstallationWorkflowID(7), "", ReportSignal, mock.Anything).
+		Return(func(_, _, _, _ string, arg any) error {
+			fakes.mu.Lock()
+			defer fakes.mu.Unlock()
+
+			fakes.reports = append(fakes.reports, *arg.(*Report))
+
+			return nil
+		}).Maybe()
 	env.SetStartWorkflowOptions(client.StartWorkflowOptions{ID: RepoWorkflowID(testRepoID)})
 	fakes.now = env.Now
 

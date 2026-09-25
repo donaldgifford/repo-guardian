@@ -161,6 +161,7 @@ func (h *harness) startWorker(t *testing.T, eng activities.Engine, buildID strin
 	w := temporal.NewWorker(h.temporal.Client, &wc)
 	workflows.Register(w)
 	activities.New(eng, h.store, factory{h.github}, "v2:test", quiet).Register(w)
+	activities.NewBudget(h.temporal.Client, wc.TaskQueue, 0.10).Register(w)
 
 	if err := w.Start(); err != nil {
 		t.Fatalf("start worker: %v", err)
@@ -282,12 +283,13 @@ func TestIntegration_OneCheckWritesFindingsAndACheckRow(t *testing.T) {
 	}
 
 	h.park(t, run)
-	h.captureHistory(t, run, "check_then_park")
+	h.captureHistory(t, run.GetID(), run.GetRunID(), "check_then_park")
+	h.captureHistory(t, workflows.InstallationWorkflowID(installationID), "", "installation_grant_report")
 }
 
-// captureHistory writes run's history for the replay suite when
+// captureHistory writes a workflow's history for the replay suite when
 // -update-histories is set.
-func (h *harness) captureHistory(t *testing.T, run client.WorkflowRun, name string) {
+func (h *harness) captureHistory(t *testing.T, workflowID, runID, name string) {
 	t.Helper()
 
 	if !*updateHistories {
@@ -296,7 +298,7 @@ func (h *harness) captureHistory(t *testing.T, run client.WorkflowRun, name stri
 
 	hist := &historypb.History{}
 
-	iter := h.temporal.Client.GetWorkflowHistory(t.Context(), run.GetID(), run.GetRunID(), false, enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT)
+	iter := h.temporal.Client.GetWorkflowHistory(t.Context(), workflowID, runID, false, enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT)
 	for iter.HasNext() {
 		ev, err := iter.Next()
 		if err != nil {

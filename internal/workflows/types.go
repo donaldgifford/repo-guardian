@@ -172,3 +172,12 @@ type RepoWorkflowInput struct {
 	// unique within a run.
 	Iteration int
 }
+
+// AcquireInput is the AcquireBudget activity input. UpdateID makes a
+// retried acquire return the first attempt's answer instead of taking a
+// second lease.
+type AcquireInput struct {
+	InstallationID int64
+	UpdateID       string
+	Request        AcquireRequest
+}

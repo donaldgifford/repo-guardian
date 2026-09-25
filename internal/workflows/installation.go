@@ -27,6 +27,9 @@ const (
 
 	// waitJitterSpan spreads callers told to wait for the same reset.
 	waitJitterSpan = 60
+
+	// DefaultLeaseTTL is the CheckRepo timeout plus a margin.
+	DefaultLeaseTTL = checkRepoTimeout + 5*time.Minute
 )
 
 // Lease is budget reserved for one granted check.

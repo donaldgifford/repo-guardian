@@ -2,6 +2,7 @@ package workflows
 
 import (
 	"errors"
+	"strconv"
 	"testing"
 	"time"
 
@@ -312,5 +313,68 @@ func TestRepoWorkflow_ContinueAsNewCarriesState(t *testing.T) {
 
 	if len(fakes.records) != maxIterationsPerRun {
 		t.Errorf("records = %d, want %d", len(fakes.records), maxIterationsPerRun)
+	}
+}
+
+func TestRepoWorkflow_BudgetWaitThenGrant(t *testing.T) {
+	t.Parallel()
+
+	var waitUntil time.Time
+
+	fakes := &fakeActivities{script: parkAfter(1)}
+	fakes.grant = func(n int) *AcquireResult {
+		if n == 0 {
+			waitUntil = fakes.now().Add(40 * time.Minute)
+
+			return &AcquireResult{WaitUntil: waitUntil}
+		}
+
+		return &AcquireResult{Granted: true, LeaseID: "lease-" + strconv.Itoa(n)}
+	}
+
+	if err := runToEnd(t, fakes, input(), nil); err != nil {
+		t.Fatalf("workflow: %v", err)
+	}
+
+	if len(fakes.acquire) < 2 || fakes.acquire[0].UpdateID == fakes.acquire[1].UpdateID {
+		t.Fatalf("acquires = %+v, want a retry under a new update id", fakes.acquire)
+	}
+
+	if fakes.acquire[0].Request.Priority != PrioritySchedule || fakes.acquire[0].InstallationID != 7 {
+		t.Errorf("acquire = %+v, want the scheduled priority for installation 7", fakes.acquire[0])
+	}
+
+	if fakes.times[0].Before(waitUntil) {
+		t.Errorf("check ran at %v, before the wait ended at %v", fakes.times[0], waitUntil)
+	}
+
+	if len(fakes.reports) == 0 || fakes.reports[0].LeaseID != "lease-1" {
+		t.Errorf("reports = %+v, want the granted lease returned", fakes.reports)
+	}
+}
+
+func TestRepoWorkflow_DeferredReportClosesTheGate(t *testing.T) {
+	t.Parallel()
+
+	var until time.Time
+
+	fakes := &fakeActivities{}
+	fakes.script = func(n int, ci *CheckRepoInput) (*CheckRepoResult, error) {
+		if n == 0 {
+			until = fakes.now().Add(time.Hour)
+
+			return &CheckRepoResult{Kind: CheckDeferred, CheckKey: ci.CheckKey, Calls: 3, Until: until}, nil
+		}
+
+		return &CheckRepoResult{Kind: CheckParked, CheckKey: ci.CheckKey, ParkReason: ParkArchived, ClearFindings: true}, nil
+	}
+
+	if err := runToEnd(t, fakes, input(), nil); err != nil {
+		t.Fatalf("workflow: %v", err)
+	}
+
+	got := fakes.reports[0]
+	if got.Remaining != 0 || !got.Reset.Equal(until) || got.Calls != 3 || got.ObservedAt.IsZero() {
+		t.Errorf("deferred report = %+v, want remaining 0 until %v with 3 calls", got, until)
 	}
 }

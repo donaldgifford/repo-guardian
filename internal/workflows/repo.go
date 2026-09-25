@@ -3,6 +3,7 @@ package workflows
 import (
 	"errors"
 	"math/rand/v2"
+	"strconv"
 	"time"
 
 	"go.temporal.io/sdk/workflow"
@@ -187,13 +188,14 @@ func (r *repoLoop) check() (parked bool, err error) {
 	started := workflow.Now(r.ctx)
 
 	for deferrals := 0; ; deferrals++ {
-		if err := r.acquire(priority); err != nil {
+		lease, err := r.acquire(key, priority)
+		if err != nil {
 			return false, err
 		}
 
 		var res CheckRepoResult
 
-		err := workflow.ExecuteActivity(checkRepoOptions(r.ctx, priority), CheckRepoActivity, &CheckRepoInput{
+		err = workflow.ExecuteActivity(checkRepoOptions(r.ctx, priority), CheckRepoActivity, &CheckRepoInput{
 			RepositoryID: r.state.RepositoryID,
 			CheckKey:     key,
 			Trigger:      trigger,
@@ -204,8 +206,12 @@ func (r *repoLoop) check() (parked bool, err error) {
 				return false, r.ctx.Err()
 			}
 
+			r.report(lease, nil)
+
 			return false, r.recordError(key, trigger, started, err)
 		}
+
+		r.report(lease, &res)
 
 		switch res.Kind {
 		case CheckDeferred:
@@ -222,17 +228,63 @@ func (r *repoLoop) check() (parked bool, err error) {
 	}
 }
 
-// acquire takes a slot from the installation's rate budget.
-//
-//nolint:unparam // the Phase 11 acquire returns errors; the stub cannot fail yet
-func (r *repoLoop) acquire(_ Priority) error {
+// acquire takes a lease from the installation's rate budget, waiting on
+// a durable timer (which holds no worker) while it is exhausted. It
+// returns "" for executions started before budget-v1.
+func (r *repoLoop) acquire(key string, priority Priority) (string, error) {
 	if workflow.GetVersion(r.ctx, budgetChangeID, workflow.DefaultVersion, 1) == workflow.DefaultVersion {
-		return nil
+		return "", nil
 	}
 
-	// TODO(IMPL-0025 P11): Update-with-Start acquire on the
-	// InstallationWorkflow; wait on a durable timer when denied.
-	return nil
+	for attempt := 0; ; attempt++ {
+		var res AcquireResult
+
+		err := workflow.ExecuteActivity(storeOptions(r.ctx), AcquireBudgetActivity, &AcquireInput{
+			InstallationID: r.state.InstallationID,
+			UpdateID:       key + "/acquire/" + strconv.Itoa(attempt),
+			Request:        AcquireRequest{Holder: workflow.GetInfo(r.ctx).WorkflowExecution.ID, Priority: priority},
+		}).Get(r.ctx, &res)
+		if err != nil {
+			return "", err
+		}
+
+		if res.Granted {
+			return res.LeaseID, nil
+		}
+
+		if err := workflow.Sleep(r.ctx, res.WaitUntil.Sub(workflow.Now(r.ctx))); err != nil {
+			return "", err
+		}
+	}
+}
+
+// report returns a lease with what the check spent. A Deferred check
+// reports remaining 0 until its reset, closing the gate for every
+// repository of the installation at once. res is nil for a failed
+// check, which only releases the lease. Reporting is best effort: an
+// unreported lease expires on its own.
+func (r *repoLoop) report(lease string, res *CheckRepoResult) {
+	if lease == "" {
+		return
+	}
+
+	rep := Report{LeaseID: lease}
+
+	if res != nil {
+		rep.Calls = res.Calls
+
+		switch {
+		case res.Kind == CheckDeferred:
+			rep.Remaining, rep.Reset, rep.ObservedAt = 0, res.Until, workflow.Now(r.ctx)
+		case res.Rate != nil:
+			rep.Limit, rep.Remaining, rep.Reset, rep.ObservedAt = res.Rate.Limit, res.Rate.Remaining, res.Rate.ResetAt, res.Rate.ObservedAt
+		}
+	}
+
+	err := workflow.SignalExternalWorkflow(r.ctx, InstallationWorkflowID(r.state.InstallationID), "", ReportSignal, &rep).Get(r.ctx, nil)
+	if err != nil {
+		workflow.GetLogger(r.ctx).Warn("budget report failed; the lease will expire", "lease", lease, "error", err)
+	}
 }
 
 func (r *repoLoop) record(trigger string, res *CheckRepoResult) error {

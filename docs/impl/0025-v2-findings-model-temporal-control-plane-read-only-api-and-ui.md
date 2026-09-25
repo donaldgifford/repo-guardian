@@ -976,7 +976,7 @@ This phase can start right after Phase 1.
   - reserve = `Limit × RATE_LIMIT_THRESHOLD`;
   - optimistic grants when the budget is unknown;
   - ContinueAsNew per OQ14.
-- [ ] 11.2 `RepoWorkflow`, behind `budget-v1`:
+- [x] 11.2 `RepoWorkflow`, behind `budget-v1`:
   - calls `UpdateWithStartWorkflow` on `installation/<id>`;
   - on `Wait`, waits on a durable timer, then retries;
   - after the check, sends `report`;

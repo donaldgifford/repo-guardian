@@ -35,8 +35,9 @@ func checkRepoOptions(ctx workflow.Context, p Priority) workflow.Context {
 }
 
 // storeOptions runs the store activities (RecordCheck, RecordCheckError,
-// Park). They retry without limit: Postgres being down is a wait, never
-// a reason to lose a check's result.
+// Park) and AcquireBudget. They retry without limit: Postgres or the
+// Temporal frontend being down is a wait, never a reason to lose a
+// check's result.
 func storeOptions(ctx workflow.Context) workflow.Context {
 	return workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
 		StartToCloseTimeout: storeTimeout,

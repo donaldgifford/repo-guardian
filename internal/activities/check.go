@@ -31,7 +31,7 @@ const causeMaxRunes = 1024
 //  4. anything else is an error, and the activity retries.
 //
 // Throttle comes first because a secondary rate limit is also a 403.
-func (a *Activities) CheckRepo(ctx context.Context, in workflows.CheckRepoInput) (*workflows.CheckRepoResult, error) {
+func (a *Activities) CheckRepo(ctx context.Context, in *workflows.CheckRepoInput) (*workflows.CheckRepoResult, error) {
 	repo, err := a.store.GetRepository(ctx, in.RepositoryID)
 	if err != nil {
 		return nil, fmt.Errorf("get repository %d: %w", in.RepositoryID, err)
@@ -71,7 +71,7 @@ func (a *Activities) CheckRepo(ctx context.Context, in workflows.CheckRepoInput)
 	}
 
 	if err != nil {
-		return classify(log, out, &in, repo.Org, err)
+		return classify(log, out, in, repo.Org, err)
 	}
 
 	out.Kind = workflows.CheckChecked

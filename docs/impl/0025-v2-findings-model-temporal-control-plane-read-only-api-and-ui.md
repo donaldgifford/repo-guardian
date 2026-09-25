@@ -902,7 +902,7 @@ This phase can start right after Phase 1.
 
   On success it calls `StageCheck` and returns `Checked{CheckKey,
   Calls, Rate}`.
-- [ ] 10.3 Add the `RecordCheck`, `RecordCheckError` and `Park`
+- [x] 10.3 Add the `RecordCheck`, `RecordCheckError` and `Park`
   activities. `Park` re-emits "parking repository until discovery sees
   it again" with v1's keys.
 - [ ] 10.4 Add `RepoWorkflow`, the DESIGN-0026 loop:

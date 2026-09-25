@@ -10,9 +10,12 @@ import (
 	"context"
 	"log/slog"
 
+	"go.temporal.io/sdk/activity"
+
 	"github.com/donaldgifford/repo-guardian/internal/checker"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/store"
+	"github.com/donaldgifford/repo-guardian/internal/workflows"
 )
 
 // Engine runs one repository check. *checker.Engine satisfies it.
@@ -52,4 +55,17 @@ func New(engine Engine, st Store, github ClientFactory, policyVersion string, lo
 		policyVersion: policyVersion,
 		logger:        logger,
 	}
+}
+
+// Registry is the part of a Temporal worker activities register with.
+type Registry interface {
+	RegisterActivityWithOptions(a any, options activity.RegisterOptions)
+}
+
+// Register registers every activity under its workflows package name.
+func (a *Activities) Register(r Registry) {
+	r.RegisterActivityWithOptions(a.CheckRepo, activity.RegisterOptions{Name: workflows.CheckRepoActivity})
+	r.RegisterActivityWithOptions(a.RecordCheck, activity.RegisterOptions{Name: workflows.RecordCheckActivity})
+	r.RegisterActivityWithOptions(a.RecordCheckError, activity.RegisterOptions{Name: workflows.RecordCheckErrorActivity})
+	r.RegisterActivityWithOptions(a.Park, activity.RegisterOptions{Name: workflows.ParkActivity})
 }

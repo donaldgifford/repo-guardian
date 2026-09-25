@@ -710,7 +710,7 @@ it. Task IDs are `<phase>.<n>`.
 
 #### Tasks
 
-- [ ] 6.1 Add `VersionV2(cfg, templates)` in
+- [x] 6.1 Add `VersionV2(cfg, templates)` in
   `internal/policy/version_v2.go`:
   - hash an explicit, json-tagged `versionInput`, built by copying
     fields rather than embedding;

@@ -905,7 +905,7 @@ This phase can start right after Phase 1.
 - [x] 10.3 Add the `RecordCheck`, `RecordCheckError` and `Park`
   activities. `Park` re-emits "parking repository until discovery sees
   it again" with v1's keys.
-- [ ] 10.4 Add `RepoWorkflow`, the DESIGN-0026 loop:
+- [x] 10.4 Add `RepoWorkflow`, the DESIGN-0026 loop:
   - a selector over the timer and the `recheck`, `policy_changed` and
     `park` signals;
   - signals coalesce, keeping the highest priority;

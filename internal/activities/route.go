@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
@@ -54,7 +55,7 @@ func (r *Router) RouteWebhook(ctx context.Context, in *workflows.WebhookInput) e
 	case "repository.created":
 		return r.discover(ctx, in, workflows.TriggerWebhook, workflows.PriorityWebhook)
 	case "repository.unarchived", "installation.created", "installation_repositories.added":
-		return r.discover(ctx, in, workflows.TriggerDiscovery, workflows.PrioritySchedule)
+		return r.discoverInstallation(ctx, in)
 	case "repository.renamed", "repository.transferred":
 		// UpsertDiscovered matches by provider_repo_id and updates org,
 		// name and installation; the repositories.id, and so the
@@ -68,7 +69,11 @@ func (r *Router) RouteWebhook(ctx context.Context, in *workflows.WebhookInput) e
 	case "installation.deleted":
 		return r.store.MarkInstallationRemoved(ctx, in.InstallationID, time.Now())
 	case "installation.suspend", "installation.unsuspend":
-		return r.suspend(ctx, in, in.Action == actionSuspend)
+		if err := r.suspend(ctx, in, in.Action == actionSuspend); err != nil || in.Action == actionSuspend {
+			return err
+		}
+
+		return r.discoverInstallation(ctx, in)
 	default:
 		log.Warn("webhook workflow for an event ingest should have dropped")
 
@@ -92,18 +97,44 @@ func (*Router) each(
 	return errors.Join(errs...)
 }
 
-// discover upserts the installation and each repository (un-parking a
-// parked one: discovery is the only un-parker) and rechecks it.
-//
-// TODO(IMPL-0025 P13): start the single-installation DiscoveryWorkflow
-// for created/added/unarchived/unsuspended instead of discovering only
-// the repositories in the payload.
+// discoverInstallation upserts the installation and starts its
+// single-installation DiscoveryWorkflow. The listing, not the payload,
+// decides what is upserted and un-parked; a retry finds the workflow
+// already started.
+func (r *Router) discoverInstallation(ctx context.Context, in *workflows.WebhookInput) error {
+	if err := r.upsertInstallation(ctx, in); err != nil {
+		return err
+	}
+
+	_, err := r.client.ExecuteWorkflow(ctx, client.StartWorkflowOptions{
+		ID:                    workflows.DiscoveryWorkflowID(in.InstallationID, in.DeliveryID),
+		TaskQueue:             r.taskQueue,
+		WorkflowIDReusePolicy: enumspb.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE,
+		Priority:              workflows.TaskPriority(workflows.PriorityWebhook, in.InstallationID),
+	}, workflows.DiscoveryWorkflowName, &workflows.DiscoveryInput{InstallationID: in.InstallationID})
+
+	var started *serviceerror.WorkflowExecutionAlreadyStarted
+	if errors.As(err, &started) {
+		return nil
+	}
+
+	return err
+}
+
+func (r *Router) upsertInstallation(ctx context.Context, in *workflows.WebhookInput) error {
+	if in.AccountLogin == "" {
+		return nil
+	}
+
+	return r.store.UpsertInstallation(ctx, store.Installation{InstallationID: in.InstallationID, AccountLogin: in.AccountLogin})
+}
+
+// discover upserts the installation and each repository in the payload
+// (un-parking a parked one: discovery is the only un-parker) and
+// rechecks it.
 func (r *Router) discover(ctx context.Context, in *workflows.WebhookInput, trigger string, p workflows.Priority) error {
-	if in.AccountLogin != "" {
-		inst := store.Installation{InstallationID: in.InstallationID, AccountLogin: in.AccountLogin}
-		if err := r.store.UpsertInstallation(ctx, inst); err != nil {
-			return err
-		}
+	if err := r.upsertInstallation(ctx, in); err != nil {
+		return err
 	}
 
 	return r.each(ctx, in, func(ctx context.Context, in *workflows.WebhookInput, repo workflows.WebhookRepo) error {
@@ -170,22 +201,26 @@ func (r *Router) parkRemoved(ctx context.Context, _ *workflows.WebhookInput, rep
 		return err
 	}
 
-	err = r.client.SignalWorkflow(ctx, workflows.RepoWorkflowID(found.ID), "", workflows.ParkSignal,
-		workflows.Park{Reason: string(store.ParkRemoved)})
+	return parkRepository(ctx, r.client, r.store, found.ID, store.ParkRemoved)
+}
+
+// parkRepository parks a repository through its RepoWorkflow, which
+// completes; with no running workflow it parks the row directly.
+// Findings are kept: we learned nothing about the rules.
+func parkRepository(ctx context.Context, c client.Client, st Store, repoID int64, reason store.ParkReason) error {
+	err := c.SignalWorkflow(ctx, workflows.RepoWorkflowID(repoID), "", workflows.ParkSignal, workflows.Park{Reason: string(reason)})
 
 	var notFound *serviceerror.NotFound
 	if errors.As(err, &notFound) {
-		return r.store.Park(ctx, found.ID, store.ParkRemoved, false)
+		return st.Park(ctx, repoID, reason, false)
 	}
 
 	return err
 }
 
 // suspend records the suspension and tells the installation's budget, so
-// every acquire waits until it lifts.
-//
-// TODO(IMPL-0025 P13): an unsuspend also starts single-installation
-// discovery.
+// every acquire waits until it lifts. An unsuspend then runs
+// single-installation discovery.
 func (r *Router) suspend(ctx context.Context, in *workflows.WebhookInput, suspended bool) error {
 	inst := store.Installation{InstallationID: in.InstallationID, AccountLogin: in.AccountLogin}
 	if suspended {
@@ -212,19 +247,28 @@ func (r *Router) suspend(ctx context.Context, in *workflows.WebhookInput, suspen
 
 // recheck signals repo/<id>, starting its RepoWorkflow if none runs.
 func (r *Router) recheck(ctx context.Context, repoID, installationID int64, trigger string, p workflows.Priority) error {
-	_, err := r.client.SignalWithStartWorkflow(ctx, workflows.RepoWorkflowID(repoID),
-		workflows.RecheckSignal, workflows.Recheck{Trigger: trigger, Priority: p},
-		client.StartWorkflowOptions{
-			ID:        workflows.RepoWorkflowID(repoID),
-			TaskQueue: r.taskQueue,
-			Priority:  workflows.TaskPriority(p, installationID),
-		},
-		workflows.RepoWorkflowName, &workflows.RepoWorkflowInput{
-			RepositoryID: repoID, InstallationID: installationID, CheckInterval: r.checkInterval,
-			NextDue: time.Now().Add(r.checkInterval),
-		})
+	return startRepo(ctx, r.client, r.taskQueue, &workflows.RepoWorkflowInput{
+		RepositoryID: repoID, InstallationID: installationID, CheckInterval: r.checkInterval,
+		NextDue: time.Now().Add(r.checkInterval),
+	}, workflows.Recheck{Trigger: trigger, Priority: p}, p)
+}
+
+// startRepo sends signal to repo/<id>, starting its RepoWorkflow with in
+// if none runs. signal is a Recheck or a PolicyChanged; a
+// PolicyChanged starts the loop without forcing an immediate check.
+func startRepo(ctx context.Context, c client.Client, taskQueue string, in *workflows.RepoWorkflowInput, signal any, p workflows.Priority) error {
+	name := workflows.RecheckSignal
+	if _, ok := signal.(workflows.PolicyChanged); ok {
+		name = workflows.PolicyChangedSignal
+	}
+
+	id := workflows.RepoWorkflowID(in.RepositoryID)
+
+	_, err := c.SignalWithStartWorkflow(ctx, id, name, signal,
+		client.StartWorkflowOptions{ID: id, TaskQueue: taskQueue, Priority: workflows.TaskPriority(p, in.InstallationID)},
+		workflows.RepoWorkflowName, in)
 	if err != nil {
-		return fmt.Errorf("signal %s: %w", workflows.RepoWorkflowID(repoID), err)
+		return fmt.Errorf("signal %s: %w", id, err)
 	}
 
 	return nil

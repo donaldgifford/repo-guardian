@@ -15,6 +15,11 @@ import (
 // ran. A second run is a no-op.
 const MetaBackfilledV1At = "backfilled_v1_at"
 
+// MetaBootstrapPending is the v2_meta key the backfill sets so the
+// worker starts BootstrapWorkflow (IMPL-0025 OQ15): migrate needs no
+// Temporal credentials. The workflow deletes it when it completes.
+const MetaBootstrapPending = "bootstrap_pending"
+
 // BackfillReport is what the v1 backfill did, or would do under
 // migrate --dry-run.
 type BackfillReport struct {
@@ -65,7 +70,7 @@ func backfillV1Migration() *goose.Migration {
 		// Down is a no-op: 00002's down drops every table the backfill
 		// wrote, and v1's tables were never touched.
 		&goose.GoFunc{RunTx: func(ctx context.Context, tx *sql.Tx) error {
-			_, err := tx.ExecContext(ctx, `DELETE FROM v2_meta WHERE key = $1`, MetaBackfilledV1At)
+			_, err := tx.ExecContext(ctx, `DELETE FROM v2_meta WHERE key IN ($1, $2)`, MetaBackfilledV1At, MetaBootstrapPending)
 
 			return err
 		}},
@@ -103,7 +108,8 @@ func BackfillV1(ctx context.Context, tx *sql.Tx, seed string) (*BackfillReport, 
 		{"findings", func() error { return backfillFindings(ctx, tx, rep) }},
 		{"snapshots", func() error { return backfillSnapshots(ctx, tx, rep) }},
 		{"marker", func() error {
-			_, err := tx.ExecContext(ctx, `INSERT INTO v2_meta (key, value) VALUES ($1, $2)`, MetaBackfilledV1At, seed)
+			_, err := tx.ExecContext(ctx, `INSERT INTO v2_meta (key, value) VALUES ($1, $2), ($3, $2)`,
+				MetaBackfilledV1At, seed, MetaBootstrapPending)
 
 			return err
 		}},

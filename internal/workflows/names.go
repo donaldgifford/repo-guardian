@@ -14,6 +14,11 @@ const (
 	RepoWorkflowName         = "RepoWorkflow"
 	InstallationWorkflowName = "InstallationWorkflow"
 	WebhookWorkflowName      = "WebhookWorkflow"
+
+	DiscoveryWorkflowName     = "DiscoveryWorkflow"
+	SnapshotWorkflowName      = "SnapshotWorkflow"
+	PolicyRolloutWorkflowName = "PolicyRolloutWorkflow"
+	BootstrapWorkflowName     = "BootstrapWorkflow"
 )
 
 // Activity names. The activities package registers under these names
@@ -25,7 +30,28 @@ const (
 	ParkActivity             = "Park"
 	AcquireBudgetActivity    = "AcquireBudget"
 	RouteWebhookActivity     = "RouteWebhook"
+
+	ListInstallationsActivity     = "ListInstallations"
+	ListRepositoriesActivity      = "ListRepositories"
+	UpsertRepositoriesActivity    = "UpsertRepositories"
+	ParkMissingActivity           = "ParkMissing"
+	SignalRepositoriesActivity    = "SignalRepositories"
+	SnapshotActivity              = "InsertComplianceSnapshot"
+	PruneChecksActivity           = "PruneChecks"
+	CompletePolicyRolloutActivity = "CompletePolicyRollout"
+	ClearBootstrapActivity        = "ClearBootstrapPending"
+	RecordServiceRunActivity      = "RecordServiceRun"
 )
+
+// Schedule IDs. Temporal suffixes each scheduled run's workflow ID with
+// its schedule time.
+const (
+	DiscoveryScheduleID = "discovery"
+	SnapshotScheduleID  = "snapshot"
+)
+
+// BootstrapWorkflowID is the one BootstrapWorkflow a cutover runs.
+const BootstrapWorkflowID = "bootstrap/v1"
 
 // Signal names accepted by RepoWorkflow.
 const (
@@ -59,4 +85,16 @@ func InstallationWorkflowID(installationID int64) string {
 // redeliveries idempotent.
 func WebhookWorkflowID(deliveryID string) string {
 	return "webhook/" + deliveryID
+}
+
+// DiscoveryWorkflowID is the workflow ID for single-installation
+// discovery started by a webhook delivery.
+func DiscoveryWorkflowID(installationID int64, deliveryID string) string {
+	return "discovery/installation/" + strconv.FormatInt(installationID, 10) + "/" + deliveryID
+}
+
+// PolicyRolloutWorkflowID is the workflow ID for a policy version's
+// rollout. Every worker tries to start it; Temporal rejects duplicates.
+func PolicyRolloutWorkflowID(version string) string {
+	return "policy-rollout/" + version
 }

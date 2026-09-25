@@ -286,6 +286,28 @@ func (s *V2Store) RecordPolicyVersion(ctx context.Context, version string, summa
 	return n == 1, nil
 }
 
+// BootstrapPending implements store.Writer.
+func (s *V2Store) BootstrapPending(ctx context.Context) (pending bool, err error) {
+	defer func(start time.Time) { observeQuery("v2_bootstrap_pending", start, err) }(time.Now())
+
+	if err = s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM v2_meta WHERE key = $1)`, MetaBootstrapPending).Scan(&pending); err != nil {
+		return false, fmt.Errorf("postgres.BootstrapPending: %w", err)
+	}
+
+	return pending, nil
+}
+
+// ClearBootstrapPending implements store.Writer.
+func (s *V2Store) ClearBootstrapPending(ctx context.Context) (err error) {
+	defer func(start time.Time) { observeQuery("v2_clear_bootstrap_pending", start, err) }(time.Now())
+
+	if _, err = s.pool.Exec(ctx, `DELETE FROM v2_meta WHERE key = $1`, MetaBootstrapPending); err != nil {
+		return fmt.Errorf("postgres.ClearBootstrapPending: %w", err)
+	}
+
+	return nil
+}
+
 // CompletePolicyRollout implements store.Writer. The first completion
 // wins; later calls leave the timestamp alone.
 func (s *V2Store) CompletePolicyRollout(ctx context.Context, version string) (err error) {

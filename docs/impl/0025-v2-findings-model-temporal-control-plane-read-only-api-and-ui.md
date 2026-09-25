@@ -1079,7 +1079,7 @@ This phase can start right after Phase 1.
 
 #### Tasks
 
-- [ ] 13.1 `DiscoveryWorkflow` and its activities:
+- [x] 13.1 `DiscoveryWorkflow` and its activities:
   - move the discoverer's filter logic into
     `internal/activities/discovery.go`, keeping the `SkipArchived` and
     `SkipForks` fields;
@@ -1088,13 +1088,13 @@ This phase can start right after Phase 1.
   - SignalWithStart each new or reactivated repository, jittered across
     one `CHECK_INTERVAL`;
   - write a `service_runs` row.
-- [ ] 13.2 The worker ensures the Schedules idempotently:
+- [x] 13.2 The worker ensures the Schedules idempotently:
   - `discovery` and `snapshot`, with overlap policy skip;
   - an interval change updates the Schedule's spec;
   - `DISCOVERY_ENABLED=false` removes `discovery`.
-- [ ] 13.3 `SnapshotWorkflow`: `InsertComplianceSnapshot`, then
+- [x] 13.3 `SnapshotWorkflow`: `InsertComplianceSnapshot`, then
   `PruneChecks(now − CHECKS_RETENTION)`, then a `service_runs` row.
-- [ ] 13.4 `PolicyRolloutWorkflow`:
+- [x] 13.4 `PolicyRolloutWorkflow`:
   - worker startup calls `RecordPolicyVersion(VersionV2,
     Summarize(cfg))`, and on first sight starts
     `policy-rollout/<v>`;
@@ -1102,7 +1102,7 @@ This phase can start right after Phase 1.
     `policy_changed{v, by}`;
   - wait for the window to end, then re-signal stragglers once;
   - `CompletePolicyRollout`.
-- [ ] 13.5 `BootstrapWorkflow(bootstrap/v1)`:
+- [x] 13.5 `BootstrapWorkflow(bootstrap/v1)`:
   - how it is started is decided by OQ15;
   - page the active repositories and SignalWithStart each with
     `next_due = next_due_at` at priority 4;

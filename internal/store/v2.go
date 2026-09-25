@@ -39,6 +39,10 @@ type Writer interface {
 	RecordPolicyVersion(ctx context.Context, version string, summary PolicySummary) (firstSeen bool, err error)
 	CompletePolicyRollout(ctx context.Context, version string) error
 	RecordServiceRun(ctx context.Context, run *ServiceRun) error
+	// BootstrapPending reports whether migrate backfilled v1 and the
+	// worker has yet to run BootstrapWorkflow (IMPL-0025 OQ15).
+	BootstrapPending(ctx context.Context) (bool, error)
+	ClearBootstrapPending(ctx context.Context) error
 	// InsertComplianceSnapshot writes one row per (org, kind, rule) at
 	// at. It is idempotent on that key and returns the rows written.
 	InsertComplianceSnapshot(ctx context.Context, at time.Time) (int, error)

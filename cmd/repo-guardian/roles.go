@@ -213,12 +213,26 @@ func startV2Worker(
 	workflows.Register(w)
 	activities.New(engine, st, gh, policyVersion, logger).Register(w)
 	activities.NewBudget(tc, wc.TaskQueue, cfg.RateLimitThreshold).Register(w)
-	activities.NewRouter(st, tc, wc.TaskQueue, cfg.ReconcileFreshness, cfg.RateLimitThreshold, logger).Register(w)
+	activities.NewRouter(st, tc, wc.TaskQueue, cfg.CheckInterval, cfg.RateLimitThreshold, logger).Register(w)
+	activities.NewServices(&activities.ServicesConfig{
+		Store: st, GitHub: gh, Temporal: tc, TaskQueue: wc.TaskQueue,
+		CheckInterval: cfg.CheckInterval, PolicyVersion: policyVersion,
+		SkipArchived: policyCfg.Guardian.SkipArchived, SkipForks: policyCfg.Guardian.SkipForks,
+		Logger: logger,
+	}).Register(w)
 
 	if err := w.Start(); err != nil {
 		pool.Close()
 
 		return nil, nil, fmt.Errorf("start temporal worker: %w", err)
+	}
+
+	svc := &serviceStarter{cfg: cfg, client: tc, store: st, taskQueue: wc.TaskQueue, logger: logger}
+	if err := svc.start(ctx, policyVersion, policy.Summarize(policyCfg)); err != nil {
+		w.Stop()
+		pool.Close()
+
+		return nil, nil, err
 	}
 
 	logger.Info("temporal worker started",

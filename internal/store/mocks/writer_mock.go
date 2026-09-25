@@ -49,6 +49,117 @@ func (_m *MockWriter) EXPECT() *MockWriter_Expecter {
 	return &MockWriter_Expecter{mock: &_m.Mock}
 }
 
+// BootstrapPending provides a mock function for the type MockWriter
+func (_mock *MockWriter) BootstrapPending(ctx context.Context) (bool, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for BootstrapPending")
+	}
+
+	var r0 bool
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (bool, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) bool); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWriter_BootstrapPending_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BootstrapPending'
+type MockWriter_BootstrapPending_Call struct {
+	*mock.Call
+}
+
+// BootstrapPending is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockWriter_Expecter) BootstrapPending(ctx any) *MockWriter_BootstrapPending_Call {
+	return &MockWriter_BootstrapPending_Call{Call: _e.mock.On("BootstrapPending", ctx)}
+}
+
+func (_c *MockWriter_BootstrapPending_Call) Run(run func(ctx context.Context)) *MockWriter_BootstrapPending_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWriter_BootstrapPending_Call) Return(b bool, err error) *MockWriter_BootstrapPending_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *MockWriter_BootstrapPending_Call) RunAndReturn(run func(ctx context.Context) (bool, error)) *MockWriter_BootstrapPending_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ClearBootstrapPending provides a mock function for the type MockWriter
+func (_mock *MockWriter) ClearBootstrapPending(ctx context.Context) error {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ClearBootstrapPending")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockWriter_ClearBootstrapPending_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ClearBootstrapPending'
+type MockWriter_ClearBootstrapPending_Call struct {
+	*mock.Call
+}
+
+// ClearBootstrapPending is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockWriter_Expecter) ClearBootstrapPending(ctx any) *MockWriter_ClearBootstrapPending_Call {
+	return &MockWriter_ClearBootstrapPending_Call{Call: _e.mock.On("ClearBootstrapPending", ctx)}
+}
+
+func (_c *MockWriter_ClearBootstrapPending_Call) Run(run func(ctx context.Context)) *MockWriter_ClearBootstrapPending_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWriter_ClearBootstrapPending_Call) Return(err error) *MockWriter_ClearBootstrapPending_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockWriter_ClearBootstrapPending_Call) RunAndReturn(run func(ctx context.Context) error) *MockWriter_ClearBootstrapPending_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CompletePolicyRollout provides a mock function for the type MockWriter
 func (_mock *MockWriter) CompletePolicyRollout(ctx context.Context, version string) error {
 	ret := _mock.Called(ctx, version)

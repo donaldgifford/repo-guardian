@@ -97,6 +97,18 @@ type Config struct {
 	// require it.
 	TemporalAddress string
 
+	// CheckInterval is CHECK_INTERVAL, each repository's check cadence
+	// in v2 (DESIGN-0026 OQ3). Default 24h.
+	CheckInterval time.Duration
+
+	// PolicyRolloutWindow is POLICY_ROLLOUT_WINDOW, the span a policy
+	// change spreads its re-checks over. Default 24h.
+	PolicyRolloutWindow time.Duration
+
+	// ChecksRetention is CHECKS_RETENTION: SnapshotWorkflow prunes checks
+	// older than this. Default 2160h (90 days, DESIGN-0025 OQ8).
+	ChecksRetention time.Duration
+
 	// StorePostgresMaxConns caps the postgres pool connection count.
 	// Zero falls back to pgxpool's default (derived from GOMAXPROCS).
 	StorePostgresMaxConns int32
@@ -398,6 +410,39 @@ func loadDiscoveryConfig(cfg *Config) error {
 	}
 
 	cfg.ComplianceSnapshotInterval = snapshotInterval
+
+	return loadV2Durations(cfg)
+}
+
+// v2 duration defaults (DESIGN-0026 § Configuration).
+const (
+	defaultCheckInterval       = 24 * time.Hour
+	defaultPolicyRolloutWindow = 24 * time.Hour
+	defaultChecksRetention     = 2160 * time.Hour
+)
+
+// loadV2Durations reads the v2 control plane's cadences.
+func loadV2Durations(cfg *Config) error {
+	for _, d := range []struct {
+		key  string
+		def  time.Duration
+		dest *time.Duration
+	}{
+		{"CHECK_INTERVAL", defaultCheckInterval, &cfg.CheckInterval},
+		{"POLICY_ROLLOUT_WINDOW", defaultPolicyRolloutWindow, &cfg.PolicyRolloutWindow},
+		{"CHECKS_RETENTION", defaultChecksRetention, &cfg.ChecksRetention},
+	} {
+		v, err := envOrDefaultDuration(d.key, d.def)
+		if err != nil {
+			return err
+		}
+
+		if v <= 0 {
+			return fmt.Errorf("%s must be positive, got %s", d.key, v)
+		}
+
+		*d.dest = v
+	}
 
 	return nil
 }

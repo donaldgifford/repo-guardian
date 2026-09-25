@@ -55,6 +55,19 @@ func (c *recordingTemporal) SignalWithStartWorkflow(
 	return &temporalmocks.WorkflowRun{}, nil
 }
 
+// ExecuteWorkflow records a start as a signal-less entry named after the
+// workflow type.
+//
+//nolint:gocritic // hugeParam: the signature is client.Client's.
+func (c *recordingTemporal) ExecuteWorkflow(_ context.Context, o client.StartWorkflowOptions, wf any, args ...any) (client.WorkflowRun, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.signals = append(c.signals, signal{workflowID: o.ID, name: wf.(string), arg: args[0], started: true, priority: o.Priority.PriorityKey})
+
+	return &temporalmocks.WorkflowRun{}, nil
+}
+
 func (c *recordingTemporal) SignalWorkflow(_ context.Context, id, _, name string, arg any) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -148,16 +161,13 @@ func TestRouteWebhook_PushDiscoversUnknownRepo(t *testing.T) {
 	wantSignals(t, tc, signal{workflowID: "repo/42", name: workflows.RecheckSignal, started: true})
 }
 
-func TestRouteWebhook_DiscoveryEvents(t *testing.T) {
+func TestRouteWebhook_PayloadDiscoveryEvents(t *testing.T) {
 	tests := []struct {
 		event, action string
 		trigger       string
 		priority      workflows.Priority
 	}{
 		{"repository", "created", workflows.TriggerWebhook, workflows.PriorityWebhook},
-		{"repository", "unarchived", workflows.TriggerDiscovery, workflows.PrioritySchedule},
-		{"installation", "created", workflows.TriggerDiscovery, workflows.PrioritySchedule},
-		{"installation_repositories", "added", workflows.TriggerDiscovery, workflows.PrioritySchedule},
 		{"repository", "renamed", workflows.TriggerWebhook, workflows.PriorityWebhook},
 		{"repository", "transferred", workflows.TriggerWebhook, workflows.PriorityWebhook},
 	}
@@ -176,6 +186,30 @@ func TestRouteWebhook_DiscoveryEvents(t *testing.T) {
 
 			if got := recheckOf(t, tc.signals[0]); got.Trigger != tt.trigger || got.Priority != tt.priority {
 				t.Errorf("recheck = %+v", got)
+			}
+		})
+	}
+}
+
+// Installation-level events hand the listing to a single-installation
+// DiscoveryWorkflow: the listing, not the payload, decides what is
+// upserted and un-parked.
+func TestRouteWebhook_InstallationDiscoveryEvents(t *testing.T) {
+	for _, ev := range [][2]string{
+		{"repository", "unarchived"}, {"installation", "created"}, {"installation_repositories", "added"},
+	} {
+		t.Run(ev[0]+"."+ev[1], func(t *testing.T) {
+			r, st, tc := newRouter(t)
+			st.MockWriter.EXPECT().UpsertInstallation(mock.Anything, store.Installation{InstallationID: 7, AccountLogin: "acme"}).Return(nil)
+
+			if err := r.RouteWebhook(t.Context(), webhook(ev[0], ev[1], widgets)); err != nil {
+				t.Fatal(err)
+			}
+
+			wantSignals(t, tc, signal{workflowID: "discovery/installation/7/d1", name: workflows.DiscoveryWorkflowName, started: true})
+
+			if in, ok := tc.signals[0].arg.(*workflows.DiscoveryInput); !ok || in.InstallationID != 7 {
+				t.Errorf("discovery input = %+v", tc.signals[0].arg)
 			}
 		})
 	}
@@ -270,13 +304,23 @@ func TestRouteWebhook_SuspendSignalsBudget(t *testing.T) {
 			r, st, tc := newRouter(t)
 			st.MockWriter.EXPECT().UpsertInstallation(mock.Anything, mock.MatchedBy(func(in store.Installation) bool {
 				return in.InstallationID == 7 && (in.SuspendedAt != nil) == (action == "suspend")
-			})).Return(nil)
+			})).Return(nil).Once()
+
+			if action == "unsuspend" {
+				st.MockWriter.EXPECT().UpsertInstallation(mock.Anything, store.Installation{InstallationID: 7, AccountLogin: "acme"}).
+					Return(nil).Once()
+			}
 
 			if err := r.RouteWebhook(t.Context(), webhook("installation", action)); err != nil {
 				t.Fatal(err)
 			}
 
-			wantSignals(t, tc, signal{workflowID: "installation/7", name: workflows.SuspendSignal, started: true})
+			want := []signal{{workflowID: "installation/7", name: workflows.SuspendSignal, started: true}}
+			if action == "unsuspend" {
+				want = append(want, signal{workflowID: "discovery/installation/7/d1", name: workflows.DiscoveryWorkflowName, started: true})
+			}
+
+			wantSignals(t, tc, want...)
 
 			if s, ok := tc.signals[0].arg.(workflows.Suspend); !ok || s.Suspended != (action == "suspend") {
 				t.Errorf("suspend arg = %+v", tc.signals[0].arg)

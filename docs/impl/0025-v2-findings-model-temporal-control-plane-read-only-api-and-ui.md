@@ -403,7 +403,7 @@ it. Task IDs are `<phase>.<n>`.
 - [x] 1.2 On `v2`, set `branches: [main, v2]` in `ci.yml:7,9`,
   `license-check.yml:7,9` and `security.yml:5-7`. `release.yml` and
   `gh-pages.yml` stay `main`-only.
-- [ ] 1.3 On `v2`, set `ct.yaml` to `target-branch: v2`.
+- [x] 1.3 On `v2`, set `ct.yaml` to `target-branch: v2`.
 - [ ] 1.4 Stop pre-releases from tagging `latest`:
   - in `docker-bake.hcl` `tags()` (`:28-36`), emit `latest` only when
     `VERSION` has no pre-release suffix;

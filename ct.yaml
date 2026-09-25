@@ -2,7 +2,7 @@
 # $schema=https://json.schemastore.org/helm-testsuite.json
 chart-dirs:
   - charts
-target-branch: main
+target-branch: v2
 check-version-increment: false
 validate-maintainers: false
 validate-chart-schema: false

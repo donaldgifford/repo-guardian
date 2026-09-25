@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -58,6 +59,9 @@ type repoLoop struct {
 	state RepoWorkflowInput
 	park  *Park
 
+	// priority is the running check's priority, for its store activities.
+	priority Priority
+
 	recheck, policy, parkCh workflow.ReceiveChannel
 }
 
@@ -69,6 +73,17 @@ func newRepoLoop(ctx workflow.Context, in *RepoWorkflowInput) *repoLoop {
 		policy:  workflow.GetSignalChannel(ctx, PolicyChangedSignal),
 		parkCh:  workflow.GetSignalChannel(ctx, ParkSignal),
 	}
+}
+
+// taskPriority is the running check's priority with the installation's
+// fairness key; outside a check (a park signal) it is the scheduled one.
+func (r *repoLoop) taskPriority() temporal.Priority {
+	p := r.priority
+	if p == 0 {
+		p = PrioritySchedule
+	}
+
+	return TaskPriority(p, r.state.InstallationID)
 }
 
 // wait blocks until the next check is due, a re-check is pending, or the
@@ -184,6 +199,7 @@ func (r *repoLoop) check() (parked bool, err error) {
 		r.state.Pending = nil
 	}
 
+	r.priority = priority
 	key := checkKey(r.ctx, r.state.Iteration)
 	started := workflow.Now(r.ctx)
 
@@ -195,7 +211,7 @@ func (r *repoLoop) check() (parked bool, err error) {
 
 		var res CheckRepoResult
 
-		err = workflow.ExecuteActivity(checkRepoOptions(r.ctx, priority), CheckRepoActivity, &CheckRepoInput{
+		err = workflow.ExecuteActivity(checkRepoOptions(r.ctx, r.taskPriority()), CheckRepoActivity, &CheckRepoInput{
 			RepositoryID: r.state.RepositoryID,
 			CheckKey:     key,
 			Trigger:      trigger,
@@ -239,7 +255,7 @@ func (r *repoLoop) acquire(key string, priority Priority) (string, error) {
 	for attempt := 0; ; attempt++ {
 		var res AcquireResult
 
-		err := workflow.ExecuteActivity(storeOptions(r.ctx), AcquireBudgetActivity, &AcquireInput{
+		err := workflow.ExecuteActivity(storeOptions(r.ctx, r.taskPriority()), AcquireBudgetActivity, &AcquireInput{
 			InstallationID: r.state.InstallationID,
 			UpdateID:       key + "/acquire/" + strconv.Itoa(attempt),
 			Request:        AcquireRequest{Holder: workflow.GetInfo(r.ctx).WorkflowExecution.ID, Priority: priority},
@@ -288,7 +304,7 @@ func (r *repoLoop) report(lease string, res *CheckRepoResult) {
 }
 
 func (r *repoLoop) record(trigger string, res *CheckRepoResult) error {
-	err := workflow.ExecuteActivity(storeOptions(r.ctx), RecordCheckActivity, &RecordCheckInput{
+	err := workflow.ExecuteActivity(storeOptions(r.ctx, r.taskPriority()), RecordCheckActivity, &RecordCheckInput{
 		RepositoryID: r.state.RepositoryID,
 		Trigger:      trigger,
 		Result:       *res,
@@ -312,7 +328,7 @@ func (r *repoLoop) recordError(key, trigger string, started time.Time, cause err
 		msg = cause.Error()
 	}
 
-	err := workflow.ExecuteActivity(storeOptions(r.ctx), RecordCheckErrorActivity, &RecordCheckErrorInput{
+	err := workflow.ExecuteActivity(storeOptions(r.ctx, r.taskPriority()), RecordCheckErrorActivity, &RecordCheckErrorInput{
 		RepositoryID: r.state.RepositoryID,
 		CheckKey:     key,
 		Trigger:      trigger,
@@ -343,7 +359,7 @@ func (r *repoLoop) scheduleNext() {
 // parkRepo parks the repository. The workflow completes afterwards; only
 // discovery starts it again.
 func (r *repoLoop) parkRepo(reason string, clearFindings bool, cause, trigger string) error {
-	return workflow.ExecuteActivity(storeOptions(r.ctx), ParkActivity, &ParkInput{
+	return workflow.ExecuteActivity(storeOptions(r.ctx, r.taskPriority()), ParkActivity, &ParkInput{
 		RepositoryID:   r.state.RepositoryID,
 		InstallationID: r.state.InstallationID,
 		CheckKey:       checkKey(r.ctx, r.state.Iteration),

@@ -37,6 +37,7 @@ func (b *Budget) AcquireBudget(ctx context.Context, in *workflows.AcquireInput) 
 		ID:                       id,
 		TaskQueue:                b.taskQueue,
 		WorkflowIDConflictPolicy: enumspb.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING,
+		Priority:                 workflows.TaskPriority(in.Request.Priority, in.InstallationID),
 	}, workflows.InstallationWorkflowName, &workflows.InstallationWorkflowInput{
 		InstallationID: in.InstallationID,
 		Threshold:      b.threshold,

@@ -1,6 +1,7 @@
 package workflows
 
 import (
+	"strconv"
 	"time"
 
 	"go.temporal.io/sdk/temporal"
@@ -19,9 +20,18 @@ const (
 	storeRetryMax   = time.Minute
 )
 
+// TaskPriority is the priority every repo-guardian workflow start and
+// activity carries (DESIGN-0026 § Rate budget). The fairness key is the
+// installation, so a 15,000-repository installation cannot starve a
+// 50-repository one on the shared task queue; the priority key orders
+// human-triggered checks ahead of scheduled ones.
+func TaskPriority(p Priority, installationID int64) temporal.Priority {
+	return temporal.Priority{PriorityKey: int(p), FairnessKey: strconv.FormatInt(installationID, 10)}
+}
+
 // checkRepoOptions runs CheckRepo at priority p. A throttle is a
 // Deferred result, not an error, so it never spends one of the attempts.
-func checkRepoOptions(ctx workflow.Context, p Priority) workflow.Context {
+func checkRepoOptions(ctx workflow.Context, p temporal.Priority) workflow.Context {
 	return workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
 		StartToCloseTimeout: checkRepoTimeout,
 		RetryPolicy: &temporal.RetryPolicy{
@@ -30,7 +40,7 @@ func checkRepoOptions(ctx workflow.Context, p Priority) workflow.Context {
 			MaximumInterval:    checkRepoRetryMax,
 			MaximumAttempts:    checkRepoMaxAttempts,
 		},
-		Priority: temporal.Priority{PriorityKey: int(p)},
+		Priority: p,
 	})
 }
 
@@ -38,7 +48,7 @@ func checkRepoOptions(ctx workflow.Context, p Priority) workflow.Context {
 // Park) and AcquireBudget. They retry without limit: Postgres or the
 // Temporal frontend being down is a wait, never a reason to lose a
 // check's result.
-func storeOptions(ctx workflow.Context) workflow.Context {
+func storeOptions(ctx workflow.Context, p temporal.Priority) workflow.Context {
 	return workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
 		StartToCloseTimeout: storeTimeout,
 		RetryPolicy: &temporal.RetryPolicy{
@@ -47,5 +57,6 @@ func storeOptions(ctx workflow.Context) workflow.Context {
 			MaximumInterval:    storeRetryMax,
 			MaximumAttempts:    0, // unlimited
 		},
+		Priority: p,
 	})
 }

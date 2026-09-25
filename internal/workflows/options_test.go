@@ -11,8 +11,8 @@ import (
 // optionsProbe returns the activity options each helper sets.
 func optionsProbe(ctx workflow.Context) ([2]workflow.ActivityOptions, error) {
 	return [2]workflow.ActivityOptions{
-		workflow.GetActivityOptions(checkRepoOptions(ctx, PriorityWebhook)),
-		workflow.GetActivityOptions(storeOptions(ctx)),
+		workflow.GetActivityOptions(checkRepoOptions(ctx, TaskPriority(PriorityWebhook, 7))),
+		workflow.GetActivityOptions(storeOptions(ctx, TaskPriority(PrioritySchedule, 7))),
 	}, nil
 }
 
@@ -40,8 +40,12 @@ func TestActivityOptions_MatchTheDesignTable(t *testing.T) {
 		t.Errorf("CheckRepo retry = %+v, want 30s→30m ×2, 10 attempts", check.RetryPolicy)
 	}
 
-	if check.Priority.PriorityKey != int(PriorityWebhook) {
-		t.Errorf("CheckRepo priority = %d, want %d", check.Priority.PriorityKey, PriorityWebhook)
+	if check.Priority.PriorityKey != int(PriorityWebhook) || check.Priority.FairnessKey != "7" {
+		t.Errorf("CheckRepo priority = %+v, want key %d, fairness 7", check.Priority, PriorityWebhook)
+	}
+
+	if st.Priority.PriorityKey != int(PrioritySchedule) || st.Priority.FairnessKey != "7" {
+		t.Errorf("store priority = %+v, want key %d, fairness 7", st.Priority, PrioritySchedule)
 	}
 
 	if st.StartToCloseTimeout != 30*time.Second {

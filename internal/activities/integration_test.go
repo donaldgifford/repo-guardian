@@ -183,6 +183,7 @@ func (h *harness) startRepoWorkflow(t *testing.T) client.WorkflowRun {
 	run, err := h.temporal.Client.ExecuteWorkflow(t.Context(), client.StartWorkflowOptions{
 		ID:        workflows.RepoWorkflowID(h.repoID),
 		TaskQueue: h.temporal.Config.TaskQueue,
+		Priority:  workflows.TaskPriority(workflows.PrioritySchedule, installationID),
 	}, workflows.RepoWorkflowName, &workflows.RepoWorkflowInput{
 		RepositoryID: h.repoID, InstallationID: installationID, CheckInterval: 24 * time.Hour,
 	})

@@ -981,7 +981,7 @@ This phase can start right after Phase 1.
   - on `Wait`, waits on a durable timer, then retries;
   - after the check, sends `report`;
   - on `Deferred`, reports `remaining=0`.
-- [ ] 11.3 Set `Priority{PriorityKey, FairnessKey: "<installation_id>"}`
+- [x] 11.3 Set `Priority{PriorityKey, FairnessKey: "<installation_id>"}`
   on every activity and workflow start. The priority is 2 for webhooks
   and pushes, 3 for scheduled checks, and 4 for rollout and bootstrap.
 - [ ] 11.4 Add a counting transport in `internal/github`:

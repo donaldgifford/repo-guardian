@@ -36,8 +36,7 @@ the public status page at `/status`.
   by the `ingest` Service (`<release>-repo-guardian`, or `all` in
   topology `all`), and everything in this document still applies to
   it. Do not route the webhook through the UI host: the UI proxies
-  `GET`/`HEAD` under `/api` only, and would answer the delivery with
-  the SPA.
+  `GET`/`HEAD` under `/api` only, so a delivery there gets a 404.
 
 ```yaml
 ui:

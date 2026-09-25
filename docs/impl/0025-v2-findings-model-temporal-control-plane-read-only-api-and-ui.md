@@ -566,7 +566,7 @@ it. Task IDs are `<phase>.<n>`.
   - `GetRepository`, and `ListActiveRepositories` with keyset paging.
 - [x] 3.9 Add `RequireSchema(ctx, pool, minVersion)`. It reads
   `goose_db_version` and is used by role readiness.
-- [ ] 3.10 Add `Writer` and `Reader` to `.mockery.yaml`, then run
+- [x] 3.10 Add `Writer` and `Reader` to `.mockery.yaml`, then run
   `make mocks`.
 - [ ] 3.11 `RecordCheck` property tests:
   - the same key twice gives one set of events, and `AlreadyFinal`

@@ -1663,7 +1663,7 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
   - `ui.enabled` requires `ui.existingSecret`.
 
   Each guard has a negative test, and secret scoping covers `ui`.
-- [ ] 22.3 Update `docs/operations/ingress.md`: the UI host is the only
+- [x] 22.3 Update `docs/operations/ingress.md`: the UI host is the only
   Ingress the chart renders, and the webhook path stays operator-owned.
 - [ ] 22.4 Playwright suite against the mock issuer and an `api`
   container on a seeded Postgres:

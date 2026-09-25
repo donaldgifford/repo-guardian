@@ -44,6 +44,9 @@ sqlc = "1.31.1"
 # vacuum lints api/openapi.yaml in `make lint-api` (IMPL-0025 OQ27).
 # renovate: datasource=github-releases depName=daveshanley/vacuum
 vacuum = "0.30.6"
+# Bun runs the UI's BFF, build and tests (IMPL-0025 Phase 20).
+# renovate: datasource=github-releases depName=oven-sh/bun
+bun = "1.3.14"
 # renovate: datasource=github-releases depName=jqlang/jq
 jq = "latest"
 # renovate: datasource=github-releases depName=donaldgifford/docz

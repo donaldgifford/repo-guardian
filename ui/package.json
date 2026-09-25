@@ -1,0 +1,35 @@
+{
+  "name": "repo-guardian-ui",
+  "private": true,
+  "type": "module",
+  "description": "repo-guardian business UI: a Bun BFF (Hono) serving a React SPA (DESIGN-0027).",
+  "scripts": {
+    "gen:api": "openapi-typescript ../api/openapi.yaml -o web/src/api/schema.gen.ts",
+    "check:api": "bun scripts/check-api.ts",
+    "dev:server": "bun --watch server/main.ts",
+    "dev:web": "vite --config web/vite.config.ts",
+    "build": "vite build --config web/vite.config.ts",
+    "start": "bun server/main.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.103.2",
+    "@tanstack/react-router": "^1.170.39",
+    "hono": "^4.13.9",
+    "jose": "^6.2.12",
+    "openapi-fetch": "^0.17.0",
+    "openid-client": "^6.8.8",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.9",
+    "vite": "^8.3.1"
+  }
+}

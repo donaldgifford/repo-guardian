@@ -45,6 +45,7 @@ COVERAGE_OUT := coverage.out
 .PHONY: lint lint-fix lint-alerts lint-alerts-generated lint-alerts-chart fmt clean
 .PHONY: monitoring-generate lint-monitoring generate-sql lint-sql generate-api lint-api lint-temporal-contrib
 .PHONY: run run-local test-api ci check dev-services dev-stop
+.PHONY: ui-install generate-ui-api test-ui lint-ui
 .PHONY: release-check release-local
 
 ## Build Targets
@@ -251,6 +252,24 @@ lint-api: ## Lint the OpenAPI spec and fail if the generated server is stale
 		exit 1; \
 	fi
 	@echo "✓ API spec lints clean and the generated server is current"
+
+## UI (IMPL-0025 Phase 20): the Bun BFF and React SPA under ui/.
+
+ui-install: ## Install the UI's dependencies from the lockfile
+	@ $(MAKE) --no-print-directory log-$@
+	@cd ui && bun install --frozen-lockfile
+
+generate-ui-api: ## Regenerate the UI's API types from api/openapi.yaml
+	@ $(MAKE) --no-print-directory log-$@
+	@cd ui && bun run gen:api
+
+test-ui: ## Run the UI's bun tests
+	@ $(MAKE) --no-print-directory log-$@
+	@cd ui && bun test
+
+lint-ui: ## Typecheck the UI and fail if its generated API types are stale
+	@ $(MAKE) --no-print-directory log-$@
+	@cd ui && bun run typecheck && bun run check:api
 
 fmt: ## Format code with gofmt and goimports
 	@ $(MAKE) --no-print-directory log-$@

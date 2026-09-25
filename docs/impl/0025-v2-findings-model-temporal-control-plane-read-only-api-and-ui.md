@@ -1432,7 +1432,7 @@ Land this phase as one PR, so the branch is never half-migrated.
 
 #### Tasks
 
-- [ ] 18.1 Write `docs/operations/v2-migration.md`, covering:
+- [x] 18.1 Write `docs/operations/v2-migration.md`, covering:
   - prerequisites;
   - removed env vars, values and HCL, with their replacements;
   - the data migration (dry run, `pg_dump`, adoption rules);

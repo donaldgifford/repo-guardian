@@ -1566,7 +1566,7 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
   - it refreshes the token within 60s of expiry;
   - public endpoints go without a token;
   - `X-Request-ID` is propagated.
-- [ ] 20.6 Static serving and headers:
+- [x] 20.6 Static serving and headers:
   - hashed assets cached long, `index.html` no-cache;
   - SPA fallback;
   - app paths redirect to login, while `/status` is public;

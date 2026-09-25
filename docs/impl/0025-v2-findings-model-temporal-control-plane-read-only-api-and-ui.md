@@ -514,7 +514,7 @@ it. Task IDs are `<phase>.<n>`.
   - if `repoguardian_ro` exists, grant it `SELECT` and set
     `ALTER DEFAULT PRIVILEGES`; otherwise `RAISE NOTICE`;
   - never `CREATE ROLE`.
-- [ ] 3.3 Create the leaf package `internal/findings` (OQ4):
+- [x] 3.3 Create the leaf package `internal/findings` (OQ4):
   - `Status`, `Reason` and `Remediation` types;
   - an `Evidence` interface, with one json-tagged struct per reason;
   - `PREvidence` and `ForeignPREvidence`;

@@ -4,7 +4,7 @@ import { createApp } from "./app";
 import { loadConfig } from "./config";
 import { discardLogger } from "./log";
 import { publicApiPaths, type UpstreamFetch } from "./proxy";
-import { sessionCookie } from "./session";
+import { type Session, sessionCookie } from "./session";
 import { Browser } from "./testing/browser";
 import { type MockIssuer, startMockIssuer } from "./testing/mock-issuer";
 import { validEnv } from "./testenv";
@@ -206,6 +206,38 @@ describe("token refresh", () => {
     expect(res.status).toBe(401);
     expect(seen).toHaveLength(0);
     expect(browser.cookie("__Host-rg_session")).toBeUndefined();
+  });
+});
+
+describe("expiry", () => {
+  async function withSession(edit: (s: Session) => Session, expiresAt?: number) {
+    const signed = await signIn(shortIssuer);
+    const cookies = sessionCookie(signed.config.sessionKeys);
+    const s = await cookies.open(signed.browser.cookie("__Host-rg_session") ?? "");
+    if (!s) {
+      throw new Error("no session");
+    }
+    const next = edit(s);
+    signed.browser.jar.set("__Host-rg_session", await cookies.seal(next, expiresAt ?? next.expiresAt));
+    return signed;
+  }
+
+  test("an expired access token with no refresh token is 401", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const { browser, seen } = await withSession(({ refreshToken: _, ...s }) => ({ ...s, accessTokenExpiresAt: now - 1 }));
+    const res = await browser.request("/api/v1/findings");
+    expect(res.status).toBe(401);
+    expect(seen).toHaveLength(0);
+  });
+
+  test("a session past its absolute end is 401 and never refreshed", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const { browser, seen } = await withSession((s) => ({ ...s, expiresAt: now - 1 }));
+    const refreshes = shortIssuer.refreshes;
+    const res = await browser.request("/api/v1/findings");
+    expect(res.status).toBe(401);
+    expect(seen).toHaveLength(0);
+    expect(shortIssuer.refreshes).toBe(refreshes);
   });
 });
 

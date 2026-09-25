@@ -53,6 +53,12 @@ describe("login", () => {
     expect(res.headers.get("location")).toBe("/findings?status=non_compliant");
     expect(browser.cookie("__Host-rg_login")).toBeUndefined();
 
+    const set = res.headers.getSetCookie().find((c) => c.startsWith("__Host-rg_session=")) ?? "";
+    for (const attr of ["HttpOnly", "Secure", "SameSite=Lax", "Path=/"]) {
+      expect(set).toContain(attr);
+    }
+    expect(set).not.toContain("Domain");
+
     const token = browser.cookie("__Host-rg_session") ?? "";
     const s = await sessionCookie(config.sessionKeys).open(token);
     expect(s).toMatchObject({ sub: "user-1", name: "Ada Lovelace" });

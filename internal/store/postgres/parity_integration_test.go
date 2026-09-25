@@ -26,7 +26,7 @@ func TestCompliance_ParityAcrossReportAPIAndSnapshot(t *testing.T) {
 	ctx := context.Background()
 
 	seed := []struct {
-		org, rule           string
+		org, rule          string
 		compliant, failing int
 	}{
 		{org: "par-a", rule: "codeowners", compliant: 2, failing: 1},

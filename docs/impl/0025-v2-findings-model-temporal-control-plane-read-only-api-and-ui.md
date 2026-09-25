@@ -1123,6 +1123,13 @@ This phase can start right after Phase 1.
   `policy_version` equals v2's.
 - Snapshots are written daily, and old checks are pruned.
 
+**Deferred — human required:** both criteria need the homelab (a
+scratch-database v2 deploy and a day of Schedules). Locally the
+workflow tests cover batching, the complete-vs-failed listing, the
+rollout's straggler pass and snapshot-then-prune, and the integration
+tests cover bootstrap and schedule reconciliation against the dev
+server.
+
 ---
 
 ### Phase 14: API contract, skeleton, authentication and authorization

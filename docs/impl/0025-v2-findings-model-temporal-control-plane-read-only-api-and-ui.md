@@ -638,7 +638,7 @@ it. Task IDs are `<phase>.<n>`.
   - a missing branch records `not_applicable` with `branch_missing`;
   - remediation is `disabled`, `dry_run` or `applied`; `applied` means
     status `compliant`.
-- [ ] 4.7 After `findOurPR` (`engine_policy.go:47`), mark actionable
+- [x] 4.7 After `findOurPR` (`engine_policy.go:47`), mark actionable
   file outcomes `pr_open` with `PREvidence`, or `dry_run` when
   `DryRun` is set. This is a data-only pass that runs after the action
   decision.

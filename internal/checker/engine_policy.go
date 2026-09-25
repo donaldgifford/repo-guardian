@@ -46,6 +46,7 @@ func (e *Engine) checkRepoWithPolicy(
 	}
 
 	ourPR := findOurPR(openPRs)
+	markFileRemediation(result, ourPR, e.dryRun)
 
 	switch {
 	case len(actionable) == 0:

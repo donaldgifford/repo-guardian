@@ -29,6 +29,9 @@ import (
 // have only unexported fields and so contribute nothing to the JSON
 // output — the hash is stable across runs that compile the same
 // source bytes.
+//
+// TODO(IMPL-0025 P16): delete Version with the v1 runtime; VersionV2 is
+// the v2 policy version and the two never compare equal.
 func Version(cfg *PolicyConfig, templates map[string]string) (string, error) {
 	if cfg == nil {
 		return "", fmt.Errorf("policy.Version: nil config")

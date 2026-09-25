@@ -727,7 +727,7 @@ it. Task IDs are `<phase>.<n>`.
 - [x] 6.5 Add `policy.Summarize(cfg)` for `policy_versions.summary`.
   It lists kind, name, description, check mode, scope and ignore, and
   never template bodies.
-- [ ] 6.6 Leave v1's `Version` in place until Phase 16, marked with a
+- [x] 6.6 Leave v1's `Version` in place until Phase 16, marked with a
   `TODO(IMPL-0025 P16)` comment in todo-comments format.
 
 #### Success Criteria

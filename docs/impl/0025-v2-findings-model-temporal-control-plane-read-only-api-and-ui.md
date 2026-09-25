@@ -446,7 +446,7 @@ it. Task IDs are `<phase>.<n>`.
     `goose.NewProvider(DialectPostgres, db, fsys,
     WithSessionLocker(lock.NewPostgresSessionLocker()))`;
   - the version table is `goose_db_version`.
-- [ ] 2.3 Write `00001_adopt_v1` as a Go migration:
+- [x] 2.3 Write `00001_adopt_v1` as a Go migration:
   - no `schema_migrations` table: a fresh install, so do nothing;
   - `version = 3 AND NOT dirty`: write `v2_meta.adopted_v1_at`;
   - anything else: fail with "upgrade to the last v1.x first, or

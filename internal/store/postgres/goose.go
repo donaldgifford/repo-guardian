@@ -65,5 +65,7 @@ func NewMigrator(db *sql.DB) (*goose.Provider, error) {
 // goMigrations lists the Go migrations, in version order. They live in
 // code rather than in migrations_v2 because their logic branches.
 func goMigrations() []*goose.Migration {
-	return nil
+	return []*goose.Migration{
+		adoptV1Migration(),
+	}
 }

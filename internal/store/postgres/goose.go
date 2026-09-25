@@ -67,5 +67,6 @@ func NewMigrator(db *sql.DB) (*goose.Provider, error) {
 func goMigrations() []*goose.Migration {
 	return []*goose.Migration{
 		adoptV1Migration(),
+		backfillV1Migration(),
 	}
 }

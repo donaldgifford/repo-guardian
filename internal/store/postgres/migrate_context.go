@@ -18,3 +18,13 @@ type freshnessKey struct{}
 func WithBackfillFreshness(ctx context.Context, d time.Duration) context.Context {
 	return context.WithValue(ctx, freshnessKey{}, d)
 }
+
+// backfillFreshness returns the freshness carried by ctx, or
+// DefaultBackfillFreshness when there is none.
+func backfillFreshness(ctx context.Context) time.Duration {
+	if d, ok := ctx.Value(freshnessKey{}).(time.Duration); ok && d > 0 {
+		return d
+	}
+
+	return DefaultBackfillFreshness
+}

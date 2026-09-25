@@ -747,7 +747,7 @@ it. Task IDs are `<phase>.<n>`.
 
 #### Tasks
 
-- [ ] 7.1 Write `00003_backfill_v1` as a Go migration. It is a no-op
+- [x] 7.1 Write `00003_backfill_v1` as a Go migration. It is a no-op
   unless the database was adopted from v1, and it runs DESIGN-0025
   steps 1–6 in one transaction:
   - **installations:** handle the multi-owner case, keeping the most

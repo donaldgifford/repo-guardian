@@ -10,7 +10,7 @@ import (
 
 // SchemaVersion is the v2 goose version this binary was built for. Roles
 // pass it to RequireSchema so a pod never serves against an older schema.
-const SchemaVersion = 2
+const SchemaVersion = 3
 
 // ErrSchemaTooOld is returned by RequireSchema when the database is
 // behind the version the caller needs. Run `repo-guardian migrate`.

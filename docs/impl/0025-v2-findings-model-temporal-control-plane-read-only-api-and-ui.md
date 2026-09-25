@@ -568,7 +568,7 @@ it. Task IDs are `<phase>.<n>`.
   `goose_db_version` and is used by role readiness.
 - [x] 3.10 Add `Writer` and `Reader` to `.mockery.yaml`, then run
   `make mocks`.
-- [ ] 3.11 `RecordCheck` property tests:
+- [x] 3.11 `RecordCheck` property tests:
   - the same key twice gives one set of events, and `AlreadyFinal`
     returns the same transitions;
   - identical outcomes under two keys give no events, while

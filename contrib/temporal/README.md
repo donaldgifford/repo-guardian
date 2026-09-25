@@ -62,8 +62,10 @@ Temporal's documented support matrix until homelab testing verifies it
 ```bash
 helm upgrade --install opensearch opensearch \
   --repo https://opensearch-project.github.io/helm-charts --version 2.36.0 \
-  --namespace temporal --set image.tag=2.19.3
+  --namespace temporal
 ```
+
+Chart `2.36.0` ships OpenSearch `2.19.4`.
 
 Then create `temporal-opensearch` (key `password`) and
 `temporal-opensearch-ca` (key `ca.crt`) and use

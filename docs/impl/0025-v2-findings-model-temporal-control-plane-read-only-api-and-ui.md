@@ -984,7 +984,7 @@ This phase can start right after Phase 1.
 - [x] 11.3 Set `Priority{PriorityKey, FairnessKey: "<installation_id>"}`
   on every activity and workflow start. The priority is 2 for webhooks
   and pushes, 3 for scheduled checks, and 4 for rollout and bootstrap.
-- [ ] 11.4 Add a counting transport in `internal/github`:
+- [x] 11.4 Add a counting transport in `internal/github`:
   - it records calls and the last `X-RateLimit-*` values seen;
   - it sits inside otelhttp and inside the rate-limit transport, so
     `TestTransportOrder_ThrottledRequestIsStillMeasured` keeps passing;

@@ -83,3 +83,43 @@ func TestUsage_ThrottledRequestIsNotCounted(t *testing.T) {
 		t.Errorf("Calls = %d, want 1", got)
 	}
 }
+
+func TestUsage_RateLimitRetryCountsBothSends(t *testing.T) {
+	t.Parallel()
+
+	var n atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if n.Add(1) == 1 {
+			w.Header().Set("Retry-After", "1")
+			w.WriteHeader(http.StatusForbidden)
+
+			return
+		}
+
+		withRateLimitHeaders(w, 4000, 5000, time.Now().Add(time.Hour))
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	tr := newRateLimitTransport(http.DefaultTransport, slog.Default(), 0.10)
+	tr.sleep = func(context.Context, time.Duration) error { return nil }
+
+	ctx, usage := WithUsage(context.Background())
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL, http.NoBody)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+
+	resp, err := (&http.Client{Transport: tr}).Do(req)
+	if err != nil {
+		t.Fatalf("request: %v", err)
+	}
+
+	resp.Body.Close()
+
+	if got := usage.Calls(); got != 2 {
+		t.Errorf("Calls = %d, want 2: the secondary-limit 403 and its retry both reached GitHub", got)
+	}
+}

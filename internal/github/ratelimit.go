@@ -120,9 +120,13 @@ type rateLimitTransport struct {
 }
 
 // newRateLimitTransport wraps the given transport with rate limit handling.
+//
+// The counting transport goes directly beneath it, so every request
+// actually sent — the rate-limit retry included — is counted, and a
+// request the reserve refuses is not.
 func newRateLimitTransport(next http.RoundTripper, logger *slog.Logger, threshold float64) *rateLimitTransport {
 	return &rateLimitTransport{
-		next:      next,
+		next:      &countingTransport{next: next},
 		logger:    logger,
 		threshold: threshold,
 		sleep:     sleepWithContext,
@@ -141,14 +145,11 @@ func (t *rateLimitTransport) RoundTrip(req *http.Request) (*http.Response, error
 		return nil, thr
 	}
 
-	usage := usageFrom(req.Context())
-
 	resp, err := t.next.RoundTrip(req)
 	if err != nil {
 		return nil, err
 	}
 
-	usage.record(resp)
 	t.updateFromResponse(resp)
 
 	if !t.isRateLimited(resp) {
@@ -203,7 +204,6 @@ func (t *rateLimitTransport) RoundTrip(req *http.Request) (*http.Response, error
 		return nil, retryErr
 	}
 
-	usage.record(retryResp)
 	t.updateFromResponse(retryResp)
 
 	return retryResp, nil

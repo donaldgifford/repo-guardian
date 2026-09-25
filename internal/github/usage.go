@@ -9,8 +9,8 @@ import (
 )
 
 // Usage records the GitHub requests one check sent and the last
-// X-RateLimit-* headers it saw. The rate-limit transport feeds it, so
-// the numbers cost no extra API call. The v2 CheckRepo activity reports
+// X-RateLimit-* headers it saw. countingTransport feeds it, so the
+// numbers cost no extra API call. The v2 CheckRepo activity reports
 // them to the installation's budget (DESIGN-0026 § Rate budget).
 //
 // Requests the transport refuses before sending are not counted; they
@@ -110,4 +110,24 @@ func parseRateHeaders(resp *http.Response) (RateObservation, bool) {
 	}
 
 	return RateObservation{Limit: limit, Remaining: remaining, ResetAt: time.Unix(reset, 0)}, true
+}
+
+// countingTransport records each sent request into the request
+// context's Usage. It sits inside otelhttp and inside the rate-limit
+// transport (otelhttp → rate limit → counting → ghinstallation), so it
+// sees exactly the requests that reach GitHub.
+type countingTransport struct {
+	next http.RoundTripper
+}
+
+// RoundTrip implements http.RoundTripper.
+func (c *countingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := c.next.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+
+	usageFrom(req.Context()).record(resp)
+
+	return resp, nil
 }

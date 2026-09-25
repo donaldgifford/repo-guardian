@@ -688,7 +688,7 @@ it. Task IDs are `<phase>.<n>`.
   test asserts that `RecordCheck` never sets `active`.
 - [x] 5.4 Add `GITHUB_HOST` (default `github.com`), passed through to
   every record (OQ7).
-- [ ] 5.5 At load, emit one warning per rule name that is used by more
+- [x] 5.5 At load, emit one warning per rule name that is used by more
   than one kind. Put it next to `warnLegacyPerRuleScope`. Test that
   gates still resolve to the file rule.
 - [ ] 5.6 Integration tests:

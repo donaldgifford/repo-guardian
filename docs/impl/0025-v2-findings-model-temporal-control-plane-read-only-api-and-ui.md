@@ -1256,7 +1256,7 @@ failed on a probe and passed once it was removed.
   - threshold tables;
   - zero queries per request, checked with a counting pool;
   - a privacy guard that fails if the schema gains a free-text field.
-- [ ] 15.10 Performance fixture (`perf` tag, run by hand): 20k repos,
+- [x] 15.10 Performance fixture (`perf` tag, run by hand): 20k repos,
   200k findings and about 1M events. Target p99 < 100ms for
   `/summary`, `/rules`, `/orgs` and a filtered `/findings` page. Record
   the results here, and cache any endpoint that misses the target.
@@ -1269,6 +1269,32 @@ failed on a probe and passed once it was removed.
 - The status page runs zero queries per request.
 - The privacy guard is proven by a probe.
 - The perf numbers are recorded.
+
+Verified locally. Every endpoint validates against the spec and passes
+the authz, filter and paging tests (`TestEndpoints_*`, integration). The
+authz test failed on a probe that widened one handler to every org.
+`TestCompliance_ParityAcrossReportAPIAndSnapshot` agrees on all five
+surfaces, and it failed on a probe that made the Go math round.
+`TestStatus_RequestsNeverQuery` shows one read after one refresh and 50
+requests. `TestStatus_PrivacyGuard` failed on a probe that added a
+`message` string to `Component`.
+
+Perf (`go test -tags 'integration perf' -run TestAPIPerf -v
+./internal/store/postgres/`): 20 orgs, 20k repositories, 200k findings
+and 1M finding events, seeded in 9s. Each endpoint ran 200 requests
+through the full handler with auth disabled, so every request read the
+whole fleet, the worst case. Local Postgres 18 container, Apple
+silicon:
+
+| Endpoint | p50 | p99 |
+| --- | --- | --- |
+| `/summary` | 49.8ms | 69.2ms |
+| `/rules` | 19.1ms | 34.1ms |
+| `/orgs` | 21.5ms | 36.2ms |
+| `/findings?status=non_compliant&org=org-3&limit=50` | 14.6ms | 24.3ms |
+| `/findings?pr_stale=true&limit=50` | 1.1ms | 21.8ms |
+
+Every endpoint is under the 100ms p99 target, so none is cached.
 
 ---
 

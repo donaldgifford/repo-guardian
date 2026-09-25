@@ -3,7 +3,11 @@
 package activities_test
 
 import (
+	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"io"
@@ -26,6 +30,7 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/activities"
 	"github.com/donaldgifford/repo-guardian/internal/checker"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/ingest"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
 	"github.com/donaldgifford/repo-guardian/internal/store"
@@ -162,6 +167,7 @@ func (h *harness) startWorker(t *testing.T, eng activities.Engine, buildID strin
 	workflows.Register(w)
 	activities.New(eng, h.store, factory{h.github}, "v2:test", quiet).Register(w)
 	activities.NewBudget(h.temporal.Client, wc.TaskQueue, 0.10).Register(w)
+	activities.NewRouter(h.store, h.temporal.Client, wc.TaskQueue, 24*time.Hour, 0.10, quiet).Register(w)
 
 	if err := w.Start(); err != nil {
 		t.Fatalf("start worker: %v", err)
@@ -380,5 +386,65 @@ func TestIntegration_WorkerKilledMidCheckLeavesOneFinalRow(t *testing.T) {
 		t.Errorf("checks rows = %d after %d CheckRepo calls, want exactly 1 for the retried key", rows, eng.calls.Load())
 	}
 
+	h.park(t, run)
+}
+
+// A signed push to ingest reaches findings: ingest starts the
+// WebhookWorkflow, RouteWebhook signal-with-starts the RepoWorkflow,
+// and the check writes its findings.
+func TestIntegration_WebhookPostWritesFindings(t *testing.T) {
+	h := newHarness(t)
+	w := h.startWorker(t, h.engine, "it-webhook")
+	defer w.Stop()
+
+	const secret = "s3cret"
+
+	handler := ingest.New(secret, h.temporal.Client, h.temporal.Config.TaskQueue, map[string]bool{"CODEOWNERS": true}, quiet)
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
+
+	body := fmt.Sprintf(`{"ref":"refs/heads/main","installation":{"id":%d},
+		"repository":{"id":9001,"name":"widgets","default_branch":"main","owner":{"login":"acme"}},
+		"commits":[{"added":["CODEOWNERS"]}]}`, installationID)
+
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(body))
+
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, srv.URL, bytes.NewBufferString(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-GitHub-Event", "push")
+	req.Header.Set("X-GitHub-Delivery", "delivery-1")
+	req.Header.Set("X-Hub-Signature-256", "sha256="+hex.EncodeToString(mac.Sum(nil)))
+
+	resp, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatalf("post: %v", err)
+	}
+
+	_ = resp.Body.Close()
+
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202", resp.StatusCode)
+	}
+
+	eventually(t, time.Minute, func() bool { return len(h.finalChecks(t)) == 1 })
+
+	var trigger, status string
+	if err := h.pool.QueryRow(t.Context(),
+		`SELECT c.trigger, f.status FROM checks c JOIN findings f USING (repository_id)
+		 WHERE c.repository_id = $1 AND f.rule_kind = 'file' AND f.rule_name = 'codeowners'`,
+		h.repoID).Scan(&trigger, &status); err != nil {
+		t.Fatalf("read check and finding: %v", err)
+	}
+
+	if trigger != workflows.TriggerPush || status != "non_compliant" {
+		t.Errorf("trigger/status = %s/%s, want push/non_compliant", trigger, status)
+	}
+
+	run := h.temporal.Client.GetWorkflow(t.Context(), workflows.RepoWorkflowID(h.repoID), "")
 	h.park(t, run)
 }

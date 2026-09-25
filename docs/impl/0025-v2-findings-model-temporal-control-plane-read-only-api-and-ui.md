@@ -1055,7 +1055,7 @@ This phase can start right after Phase 1.
     parked `installation_removed`;
   - a suspended installation is marked so that `acquire` answers
     `Wait`.
-- [ ] 12.6 Tests:
+- [x] 12.6 Tests:
   - table tests for ingest;
   - a duplicate delivery starts exactly one workflow;
   - 503 when Temporal is unreachable;

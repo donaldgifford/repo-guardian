@@ -15,6 +15,9 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/workflows"
 )
 
+// actionSuspend is the installation action that suspends the App.
+const actionSuspend = "suspend"
+
 // Router is the RouteWebhook activity (DESIGN-0026 § Ingest and webhook
 // routing). Ingest has already validated and filtered the delivery; the
 // router upserts rows as needed, resolves the repository and signals the
@@ -65,7 +68,7 @@ func (r *Router) RouteWebhook(ctx context.Context, in *workflows.WebhookInput) e
 	case "installation.deleted":
 		return r.store.MarkInstallationRemoved(ctx, in.InstallationID, time.Now())
 	case "installation.suspend", "installation.unsuspend":
-		return r.suspend(ctx, in, in.Action == "suspend")
+		return r.suspend(ctx, in, in.Action == actionSuspend)
 	default:
 		log.Warn("webhook workflow for an event ingest should have dropped")
 

@@ -26,6 +26,12 @@ const reasonSignature = "signature"
 // deliveryHeader carries GitHub's per-delivery id; redeliveries reuse it.
 const deliveryHeader = "X-GitHub-Delivery"
 
+// Event names used by more than one route.
+const (
+	eventPush       = "push"
+	eventRepository = "repository"
+)
+
 // Starter starts workflows. client.Client satisfies it.
 type Starter interface {
 	ExecuteWorkflow(ctx context.Context, options client.StartWorkflowOptions, workflow any, args ...any) (client.WorkflowRun, error)
@@ -117,7 +123,7 @@ func (h *Handler) start(ctx context.Context, in *workflows.WebhookInput) error {
 
 // Handled actions per event (DESIGN-0026's event table).
 var handled = map[string]map[string]bool{
-	"repository":                {"created": true, "deleted": true, "archived": true, "unarchived": true, "renamed": true, "transferred": true},
+	eventRepository:             {"created": true, "deleted": true, "archived": true, "unarchived": true, "renamed": true, "transferred": true},
 	"installation":              {"created": true, "deleted": true, "suspend": true, "unsuspend": true},
 	"installation_repositories": {"added": true, "removed": true},
 }
@@ -187,7 +193,7 @@ func (h *Handler) routePush(e *gh.PushEvent) (*workflows.WebhookInput, bool) {
 	repo := e.GetRepo()
 
 	return &workflows.WebhookInput{
-		Event: "push", InstallationID: e.GetInstallation().GetID(),
+		Event: eventPush, InstallationID: e.GetInstallation().GetID(),
 		Repositories: []workflows.WebhookRepo{{ID: repo.GetID(), Org: repo.GetOwner().GetLogin(), Name: repo.GetName()}},
 	}, true
 }

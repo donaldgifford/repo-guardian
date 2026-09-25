@@ -60,6 +60,10 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
   };
 
   const issuer = url("OIDC_ISSUER");
+  if (issuer && issuer.protocol !== "https:" && !isLoopback(issuer)) {
+    problems.push("OIDC_ISSUER must be https (http is allowed on localhost only)");
+  }
+
   const clientId = required("OIDC_CLIENT_ID");
   const clientSecret = required("OIDC_CLIENT_SECRET");
   const apiUpstream = url("API_UPSTREAM");
@@ -121,7 +125,7 @@ function deriveKey(secret: string): Uint8Array {
   return new Uint8Array(hkdfSync("sha256", secret, "", "repo-guardian-ui session v1", 32));
 }
 
-function isLoopback(u: URL): boolean {
+export function isLoopback(u: URL): boolean {
   return u.hostname === "localhost" || u.hostname === "127.0.0.1" || u.hostname === "[::1]";
 }
 

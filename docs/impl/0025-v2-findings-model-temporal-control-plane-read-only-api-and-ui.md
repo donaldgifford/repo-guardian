@@ -1550,7 +1550,7 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
     `SameSite=Lax`, `Path=/` and has no Domain;
   - it is split into chunks above 3,800 bytes;
   - the absolute `UI_SESSION_TTL` is stored inside the payload.
-- [ ] 20.4 OIDC with `openid-client` v6:
+- [x] 20.4 OIDC with `openid-client` v6:
   - login uses PKCE, with `state` and `nonce` in a short-lived
     encrypted cookie;
   - the callback checks `state` and redirects only to a same-origin

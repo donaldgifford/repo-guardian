@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"maps"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -174,5 +175,40 @@ func TestVersionV2_EveryFieldClassified(t *testing.T) {
 
 	for f := range classified {
 		t.Errorf("classified field %s does not exist", f)
+	}
+}
+
+func TestVersionV2_WhatChangesTheVersion(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		mutate  func(cfg *PolicyConfig, templates map[string]string)
+		changes bool
+	}{
+		{"guardian.log_level", func(c *PolicyConfig, _ map[string]string) { c.Guardian.LogLevel = "debug" }, false},
+		{"guardian.rate_limit_threshold", func(c *PolicyConfig, _ map[string]string) { c.Guardian.RateLimitThreshold = 0.5 }, false},
+		{"guardian.schedule_interval", func(c *PolicyConfig, _ map[string]string) { c.Guardian.ScheduleInterval = "1h" }, false},
+		{"guardian.worker_count", func(c *PolicyConfig, _ map[string]string) { c.Guardian.WorkerCount = 99 }, false},
+		{"guardian.queue_size", func(c *PolicyConfig, _ map[string]string) { c.Guardian.QueueSize = 99 }, false},
+		{"guardian.dry_run", func(c *PolicyConfig, _ map[string]string) { c.Guardian.DryRun = true }, true},
+		{"rule paths", func(c *PolicyConfig, _ map[string]string) {
+			c.FileRules[0].Paths = append(c.FileRules[0].Paths, "docs/CODEOWNERS")
+		}, true},
+		{"template content", func(_ *PolicyConfig, tpl map[string]string) { tpl[fixtureCodeowners] = "* @acme/other\n" }, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := loadVersionFixture(t, "guardian.hcl")
+			templates := maps.Clone(versionV2Templates)
+			tt.mutate(cfg, templates)
+
+			if changed := mustVersionV2(t, cfg, templates) != goldenVersionV2; changed != tt.changes {
+				t.Errorf("version changed = %v, want %v", changed, tt.changes)
+			}
+		})
 	}
 }

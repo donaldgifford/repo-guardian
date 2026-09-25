@@ -721,7 +721,7 @@ it. Task IDs are `<phase>.<n>`.
 - [x] 6.3 Add a classification test. It reflects over every policy
   struct and fails on any exported field that is in neither the
   `hashed` table nor the `notHashed` table.
-- [ ] 6.4 Operational knobs such as `log_level` and
+- [x] 6.4 Operational knobs such as `log_level` and
   `rate_limit_threshold` keep the version unchanged. `dry_run`, rule
   paths and template content change it.
 - [ ] 6.5 Add `policy.Summarize(cfg)` for `policy_versions.summary`.

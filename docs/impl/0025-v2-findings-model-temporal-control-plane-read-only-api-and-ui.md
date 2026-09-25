@@ -991,7 +991,7 @@ This phase can start right after Phase 1.
   - `github.Client` gains no methods.
 - [x] 11.5 Add the metrics `budget_acquire_total{result}` and
   `rate_limit_remaining{installation_id}`, set from the activity layer.
-- [ ] 11.6 Workflow tests:
+- [x] 11.6 Workflow tests:
   - a grant;
   - deny → wait → grant;
   - lease expiry;

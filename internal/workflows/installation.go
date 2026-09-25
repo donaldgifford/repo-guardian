@@ -17,10 +17,10 @@ const (
 	// estimateWeight is the EWMA weight of the newest report.
 	estimateWeight = 0.2
 
-	// maxHandledPerRun is OQ14's ContinueAsNew bound: the SDK's
+	// DefaultMaxHandled is OQ14's ContinueAsNew bound: the SDK's
 	// suggestion or this many handled Updates and Signals, whichever
 	// comes first. The burst test (IMPL-0025 11.7) resizes it.
-	maxHandledPerRun = 2000
+	DefaultMaxHandled = 2000
 
 	// idleSweep is how often the lease sweep runs with no lease due.
 	idleSweep = time.Hour
@@ -63,6 +63,9 @@ type InstallationWorkflowInput struct {
 	// LeaseTTL releases a grant that was never reported: the CheckRepo
 	// timeout plus a margin, so a crashed check cannot leak budget.
 	LeaseTTL time.Duration
+
+	// MaxHandled overrides DefaultMaxHandled when positive.
+	MaxHandled int
 
 	State BudgetState
 }
@@ -142,9 +145,14 @@ func InstallationWorkflow(ctx workflow.Context, in *InstallationWorkflowInput) e
 		}
 	})
 
+	maxHandled := b.in.MaxHandled
+	if maxHandled <= 0 {
+		maxHandled = DefaultMaxHandled
+	}
+
 	for {
 		done := func() bool {
-			return b.handled >= maxHandledPerRun || workflow.GetInfo(ctx).GetContinueAsNewSuggested()
+			return b.handled >= maxHandled || workflow.GetInfo(ctx).GetContinueAsNewSuggested()
 		}
 
 		due, err := workflow.AwaitWithTimeout(ctx, b.untilSweep(workflow.Now(ctx)), done)

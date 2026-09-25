@@ -451,7 +451,7 @@ it. Task IDs are `<phase>.<n>`.
   - `version = 3 AND NOT dirty`: write `v2_meta.adopted_v1_at`;
   - anything else: fail with "upgrade to the last v1.x first, or
     resolve the dirty migration".
-- [ ] 2.4 Add the `repo-guardian migrate` subcommand:
+- [x] 2.4 Add the `repo-guardian migrate` subcommand:
   - new file `cmd/repo-guardian/migrate.go`, wired into `dispatch`
     (`main.go:78-97`) and the usage text (`:111-122`);
   - flags: `--dsn` (default `STORE_DSN`), `--dry-run`, `--freshness`

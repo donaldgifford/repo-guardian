@@ -85,6 +85,8 @@ func dispatch(argv []string) error {
 		return runReport(argv[2:])
 	case cmdMonitoring:
 		return runMonitoring(argv[2:])
+	case cmdMigrate:
+		return runMigrate(argv[2:])
 	case cmdHelp:
 		usage(os.Stdout)
 
@@ -115,6 +117,7 @@ Usage:
   repo-guardian [flags]              run the server (default; see --help)
   repo-guardian report [flags]       write per-org compliance reports
   repo-guardian monitoring generate  emit dashboards and alerts from the policy
+  repo-guardian migrate [flags]      apply v2 schema migrations (Helm hook Job)
   repo-guardian help                 show this message
 
 Running with no subcommand starts the server, which is the behaviour

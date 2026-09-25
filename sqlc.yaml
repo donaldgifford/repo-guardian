@@ -1,0 +1,31 @@
+---
+# sqlc configuration (IMPL-0025 task 2.6).
+#
+# Schema comes from the goose migrations (sqlc understands the
+# `-- +goose Up/Down` annotations); queries live beside them. The
+# generated package is committed and drift-gated by `make lint-sql`.
+# Regenerate with `make generate-sql`.
+version: "2"
+sql:
+  - engine: postgresql
+    schema: internal/store/postgres/migrations_v2
+    queries: internal/store/postgres/queries
+    gen:
+      go:
+        package: sqlcdb
+        out: internal/store/postgres/sqlcdb
+        sql_package: pgx/v5
+        emit_json_tags: false
+        overrides:
+          - db_type: jsonb
+            go_type: encoding/json.RawMessage
+          - db_type: jsonb
+            nullable: true
+            go_type: encoding/json.RawMessage
+          - db_type: timestamptz
+            go_type: time.Time
+          - db_type: timestamptz
+            nullable: true
+            go_type:
+              type: time.Time
+              pointer: true

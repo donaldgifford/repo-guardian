@@ -460,7 +460,7 @@ it. Task IDs are `<phase>.<n>`.
   - if `repo_state` has `max(last_checked_at)` within the last 60s,
     refuse with "v1 appears to be running; scale it to zero first";
   - a hidden `--force-running` flag bypasses it, for tests only.
-- [ ] 2.6 Write `sqlc.yaml`:
+- [x] 2.6 Write `sqlc.yaml`:
   - `engine: postgresql`;
   - schema from `migrations_v2`, queries from `queries/`;
   - generated code in package `sqlcdb`, with `sql_package: pgx/v5`;

@@ -2,12 +2,14 @@ package workflows
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
 
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/log"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 )
@@ -27,14 +29,22 @@ type fakeActivities struct {
 	errors  []RecordCheckErrorInput
 	parks   []ParkInput
 
+	// attempts and times record each CheckRepo call's activity attempt
+	// and the test clock when it ran.
+	attempts []int32
+	times    []time.Time
+	now      func() time.Time
+
 	// script answers the nth CheckRepo call (0-based); nil means Checked.
 	script func(n int, in *CheckRepoInput) (*CheckRepoResult, error)
 }
 
-func (f *fakeActivities) CheckRepo(_ context.Context, in *CheckRepoInput) (*CheckRepoResult, error) {
+func (f *fakeActivities) CheckRepo(ctx context.Context, in *CheckRepoInput) (*CheckRepoResult, error) {
 	f.mu.Lock()
 	n := len(f.checks)
 	f.checks = append(f.checks, *in)
+	f.attempts = append(f.attempts, activity.GetInfo(ctx).Attempt)
+	f.times = append(f.times, f.now())
 	f.mu.Unlock()
 
 	if f.script != nil {
@@ -71,12 +81,17 @@ func (f *fakeActivities) Park(_ context.Context, in *ParkInput) error {
 	return nil
 }
 
+// testEnv is the time-skipping environment the tests drive.
+type testEnv = *testsuite.TestWorkflowEnvironment
+
 // newEnv returns a time-skipping test environment running RepoWorkflow
 // as repo/42 against fakes.
 func newEnv(t *testing.T, fakes *fakeActivities) *testsuite.TestWorkflowEnvironment {
 	t.Helper()
 
 	var suite testsuite.WorkflowTestSuite
+
+	suite.SetLogger(log.NewStructuredLogger(slog.New(slog.DiscardHandler)))
 
 	env := suite.NewTestWorkflowEnvironment()
 	env.RegisterWorkflowWithOptions(RepoWorkflow, workflow.RegisterOptions{Name: RepoWorkflowName})
@@ -85,6 +100,7 @@ func newEnv(t *testing.T, fakes *fakeActivities) *testsuite.TestWorkflowEnvironm
 	env.RegisterActivityWithOptions(fakes.RecordCheckError, activity.RegisterOptions{Name: RecordCheckErrorActivity})
 	env.RegisterActivityWithOptions(fakes.Park, activity.RegisterOptions{Name: ParkActivity})
 	env.SetStartWorkflowOptions(client.StartWorkflowOptions{ID: RepoWorkflowID(testRepoID)})
+	fakes.now = env.Now
 
 	t.Cleanup(func() { env.AssertExpectations(t) })
 

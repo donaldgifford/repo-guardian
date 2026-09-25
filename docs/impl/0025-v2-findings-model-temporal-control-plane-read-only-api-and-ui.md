@@ -926,7 +926,7 @@ This phase can start right after Phase 1.
   - `WORKER_ACTIVITY_CONCURRENCY` (default 10);
   - deployment versioning, with the build ID set to the binary version
     and `AutoUpgrade`.
-- [ ] 10.8 Workflow tests, with time-skipping:
+- [x] 10.8 Workflow tests, with time-skipping:
   - the timer loop;
   - 20 signals producing at most 2 checks;
   - `policy_changed` pulling `next_due` in;

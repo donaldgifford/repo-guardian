@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/donaldgifford/repo-guardian/internal/findings"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
@@ -141,15 +142,16 @@ func (e *Engine) CheckRepo(
 			return nil, &SkippedError{Reason: reason}
 		}
 
-		return &CheckResult{}, nil
+		// The only non-durable skip is an empty repository.
+		return notApplicableForAll(e.policy, findings.EmptyRepositoryEvidence{}), nil
 	}
 
 	// Global ignore list short-circuits all rule evaluation.
-	if e.policy.IgnoreList.Matches(owner + "/" + repo) {
+	if pattern, ignored := e.policy.IgnoreList.MatchPattern(owner, repo); ignored {
 		log.Info("repository matched global ignore list, skipping all rules")
 		metrics.IgnoredTotal.WithLabelValues("global", owner).Inc()
 
-		return &CheckResult{}, nil
+		return notApplicableForAll(e.policy, findings.IgnoredGlobalEvidence{Pattern: pattern}), nil
 	}
 
 	openPRs, err := client.ListOpenPullRequests(ctx, owner, repo)

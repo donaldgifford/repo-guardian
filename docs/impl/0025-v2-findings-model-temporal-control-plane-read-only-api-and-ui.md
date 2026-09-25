@@ -642,11 +642,11 @@ it. Task IDs are `<phase>.<n>`.
   file outcomes `pr_open` with `PREvidence`, or `dry_run` when
   `DryRun` is set. This is a data-only pass that runs after the action
   decision.
-- [ ] 4.8 Add a helper, `notApplicableForAll(policy, reason,
+- [x] 4.8 Add a helper, `notApplicableForAll(policy, reason,
   evidence)`, for repository-level skips: empty repository, global
   ignore and policy out of scope. Archived and forked repositories are
   unchanged: they still return `nil, &SkippedError`.
-- [ ] 4.9 Update the tests that pinned v1's "no outcome" rule:
+- [x] 4.9 Update the tests that pinned v1's "no outcome" rule:
   `result_test.go:196, :232` and `engine_test.go:671-672`.
 - [ ] 4.10 Parity suite: the enriched engine must reproduce the goldens
   byte for byte, and `Actionable()` must equal the v1 boolean for every

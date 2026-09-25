@@ -3,6 +3,7 @@ package checker
 import (
 	"github.com/donaldgifford/repo-guardian/internal/findings"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/policy"
 )
 
 // outcomeDetail is the v2 enrichment of one rule's verdict: why the rule
@@ -99,4 +100,34 @@ func markFileRemediation(result *CheckResult, ourPR *ghclient.PullRequest, dryRu
 		o.Remediation = findings.RemediationPROpen
 		o.PR = &findings.PREvidence{Number: ourPR.Number, URL: ourPR.HTMLURL, CreatedAt: ourPR.CreatedAt}
 	}
+}
+
+// notApplicableForAll is the result of a repository-level skip (empty
+// repository, global ignore, policy out of scope): one not_applicable
+// outcome, with the given evidence, per enabled rule of every kind. An
+// empty result therefore means only an archived/fork park, where the
+// findings are deleted (DESIGN-0025 § Engine outcome enrichment).
+func notApplicableForAll(p *policy.PolicyConfig, ev findings.Evidence) *CheckResult {
+	result := &CheckResult{}
+	detail := notApplicable(ev)
+
+	for i := range p.FileRules {
+		if p.FileRules[i].IsEnabled() {
+			recordRule(result, p.FileRules[i].Name, RuleKindFile, detail)
+		}
+	}
+
+	for i := range p.SettingRules {
+		if p.SettingRules[i].IsEnabled() {
+			recordRule(result, p.SettingRules[i].Name, RuleKindSetting, detail)
+		}
+	}
+
+	for i := range p.BranchProtectionRules {
+		if p.BranchProtectionRules[i].IsEnabled() {
+			recordRule(result, p.BranchProtectionRules[i].Name, RuleKindBranchProtection, detail)
+		}
+	}
+
+	return result
 }

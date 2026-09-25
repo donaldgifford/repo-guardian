@@ -57,6 +57,22 @@ func (o RuleOutcome) Actionable() bool { //nolint:gocritic // value receiver kee
 	return o.Status == findings.StatusNonCompliant && o.Remediation != findings.RemediationForeignPR
 }
 
+// TrackedByV1 reports whether v1 would have recorded this outcome at all.
+// v1 skipped scope, ignore and gate rules and repository-level skips
+// silently; v2 records them as not_applicable or unknown (DESIGN-0025
+// § Reporting divergences from v1). A missing branch-protection target is
+// the one not_applicable outcome v1 did record, as compliant. The v1
+// rule_state write-back and the parity suite both filter on it, so v1's
+// posture denominator is unchanged until the v1 runtime is deleted.
+func (o *RuleOutcome) TrackedByV1() bool {
+	switch o.Status {
+	case findings.StatusCompliant, findings.StatusNonCompliant:
+		return true
+	default:
+		return o.Reason == findings.ReasonBranchMissing
+	}
+}
+
 // CheckResult is everything one CheckRepo pass learned that outlives
 // the pass itself.
 //

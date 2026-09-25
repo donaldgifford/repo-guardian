@@ -14,7 +14,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/donaldgifford/repo-guardian/internal/findings"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 )
 
@@ -71,7 +70,7 @@ func parityCheckRepo(ctx context.Context, tb testing.TB, e *Engine, client ghcli
 
 		for i := range res.Outcomes {
 			o := &res.Outcomes[i]
-			if !v1Recorded(o) {
+			if !o.TrackedByV1() {
 				continue
 			}
 
@@ -97,20 +96,6 @@ func parityCheckRepo(ctx context.Context, tb testing.TB, e *Engine, client ghcli
 	}
 
 	return res, err
-}
-
-// v1Recorded reports whether v1 produced an outcome for o at all. v1
-// skipped scope, ignore and gate rules and repository-level skips
-// silently; v2 records them as not_applicable or unknown (DESIGN-0025
-// § Reporting divergences from v1). A missing branch-protection target
-// is the one not_applicable outcome v1 also recorded, as compliant.
-func v1Recorded(o *RuleOutcome) bool {
-	switch o.Status {
-	case findings.StatusCompliant, findings.StatusNonCompliant:
-		return true
-	default:
-		return o.Reason == findings.ReasonBranchMissing
-	}
 }
 
 // v1Actionable is the verdict v1 would have recorded for o.

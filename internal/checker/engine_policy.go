@@ -27,7 +27,7 @@ func (e *Engine) checkRepoWithPolicy(
 		log.Info("repository out of policy scope, skipping all rules")
 		recordOutOfScopePolicy(e.policy, owner)
 
-		return &CheckResult{}, nil
+		return notApplicableForAll(e.policy, findings.OutOfScopePolicyEvidence{}), nil
 	}
 
 	// result accumulates per-rule verdicts across all three rule kinds

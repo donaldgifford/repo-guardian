@@ -224,12 +224,18 @@ func TestWriteBack_PersistsRuleStates(t *testing.T) {
 			{RuleName: "codeowners", Kind: checker.RuleKindFile, Status: findings.StatusNonCompliant},
 			{RuleName: "enable_issues", Kind: checker.RuleKindSetting, Status: findings.StatusCompliant},
 			{RuleName: "protect_main", Kind: checker.RuleKindBranchProtection, Status: findings.StatusNonCompliant},
+			// v2-only: v1 never recorded ignored rules, so rule_state
+			// must not either (IMPL-0025 Phase 4).
+			{
+				RuleName: "legacy_rule", Kind: checker.RuleKindFile,
+				Status: findings.StatusNotApplicable, Reason: findings.ReasonIgnoredRule,
+			},
 		},
 		CatalogParseOK: &parseOK,
 	})
 
 	if len(capturedRules) != 3 {
-		t.Fatalf("UpsertRuleStates states = %d, want 3", len(capturedRules))
+		t.Fatalf("UpsertRuleStates states = %d, want 3 (the not_applicable outcome excluded)", len(capturedRules))
 	}
 
 	for _, got := range capturedRules {

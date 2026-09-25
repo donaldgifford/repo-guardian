@@ -439,7 +439,7 @@ it. Task IDs are `<phase>.<n>`.
 
 - [x] 2.1 Add `github.com/pressly/goose/v3` to go.mod, use pgx's
   `stdlib` driver, and pin `sqlc` in `mise.toml`.
-- [ ] 2.2 Set up the goose migrations:
+- [x] 2.2 Set up the goose migrations:
   - put them in `internal/store/postgres/migrations_v2/`, embedded and
     kept apart from v1's `migrations/`;
   - `goose.go` exposes `NewMigrator(db)`, which uses

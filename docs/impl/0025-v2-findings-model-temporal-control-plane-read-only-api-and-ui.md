@@ -1067,7 +1067,9 @@ This phase can start right after Phase 1.
 - `ingest` runs without App-key or database env vars, and refuses to
   start with them.
 - On the homelab, a push to a watched path produces a check within 1
-  minute.
+  minute. **Deferred — human required:** needs a homelab deploy; locally,
+  `TestIntegration_WebhookPostWritesFindings` takes a signed push to
+  findings in about 3s.
 - A redelivered webhook is deduplicated.
 - A rename keeps the workflow ID.
 

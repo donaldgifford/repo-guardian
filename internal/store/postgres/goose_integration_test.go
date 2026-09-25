@@ -198,3 +198,86 @@ func TestRequireSchema(t *testing.T) {
 		t.Fatalf("future version: err = %v, want ErrSchemaTooOld", err)
 	}
 }
+
+// v1Catalog renders every v1 table's columns, constraints, indexes and
+// grants, plus the default privileges, as one comparable string: the
+// pg_dump --schema-only surface for the objects v2 must never touch.
+func v1Catalog(t *testing.T, db *sql.DB) string {
+	t.Helper()
+
+	const q = `
+SELECT coalesce(string_agg(line, E'\n' ORDER BY line), '') FROM (
+  SELECT c.relname || '.' || a.attname || ' ' || format_type(a.atttypid, a.atttypmod)
+         || CASE WHEN a.attnotnull THEN ' not null' ELSE '' END
+         || coalesce(' default ' || pg_get_expr(d.adbin, d.adrelid), '') AS line
+  FROM pg_class c
+  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+  LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
+  WHERE c.relnamespace = 'public'::regnamespace AND c.relname = ANY($1)
+  UNION ALL
+  SELECT conrelid::regclass || ' ' || conname || ' ' || pg_get_constraintdef(oid)
+  FROM pg_constraint WHERE conrelid::regclass::text = ANY($1)
+  UNION ALL
+  SELECT indexdef FROM pg_indexes WHERE schemaname = 'public' AND tablename = ANY($1)
+  UNION ALL
+  SELECT relname || ' acl ' || coalesce(relacl::text, '') FROM pg_class
+  WHERE relnamespace = 'public'::regnamespace AND relname = ANY($1)
+  UNION ALL
+  SELECT 'default acl ' || defaclacl::text FROM pg_default_acl
+) s`
+
+	tables := "{repo_state,rule_state,compliance_snapshot,schema_migrations}"
+
+	var out string
+	if err := db.QueryRowContext(context.Background(), q, tables).Scan(&out); err != nil {
+		t.Fatalf("read v1 catalog: %v", err)
+	}
+
+	return out
+}
+
+func TestMigrate_DownToAdoptionLeavesV1Untouched(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	dsn := pgtest.AppRole(t, pgtest.Start(t))
+	pgtest.SeedV1(t, dsn)
+
+	db, _ := openMigrator(t, dsn)
+	before := v1Catalog(t, db)
+
+	migDB, err := postgres.OpenDB(dsn)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+
+	provider, err := postgres.NewMigrator(migDB)
+	if err != nil {
+		t.Fatalf("migrator: %v", err)
+	}
+
+	t.Cleanup(func() { _ = provider.Close() })
+
+	if _, err := provider.Up(ctx); err != nil {
+		t.Fatalf("up: %v", err)
+	}
+
+	if _, err := provider.DownTo(ctx, 1); err != nil {
+		t.Fatalf("down to 1: %v", err)
+	}
+
+	if after := v1Catalog(t, db); after != before {
+		t.Errorf("v1 schema changed across up/down:\nbefore:\n%s\nafter:\n%s", before, after)
+	}
+
+	var v2Tables int
+	if err := db.QueryRowContext(ctx,
+		`SELECT count(*) FROM pg_tables WHERE schemaname = 'public' AND tablename = ANY('{findings,checks,repositories}')`).
+		Scan(&v2Tables); err != nil {
+		t.Fatalf("count v2 tables: %v", err)
+	}
+
+	if v2Tables != 0 {
+		t.Errorf("%d v2 tables survived down", v2Tables)
+	}
+}

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -89,7 +88,7 @@ func AppRole(tb testing.TB, dsn string) string {
 		tb.Fatalf("pgtest: connect: %v", err)
 	}
 
-	defer func() { _ = conn.Close(ctx) }()
+	defer conn.Close(ctx) //nolint:errcheck // test cleanup; nothing to recover
 
 	for _, stmt := range []string{
 		"CREATE ROLE " + role + " LOGIN PASSWORD '" + password + "' NOSUPERUSER",

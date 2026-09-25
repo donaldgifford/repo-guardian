@@ -579,7 +579,7 @@ it. Task IDs are `<phase>.<n>`.
     `status_since` move;
   - a staged payload is NULLed on commit;
   - an older rate observation never wins.
-- [ ] 3.12 Nil and clear contract tests:
+- [x] 3.12 Nil and clear contract tests:
   - `RecordCheckError` never touches findings;
   - `Park(access_denied, false)` keeps them;
   - `Park(archived, true)` deletes them and writes events;

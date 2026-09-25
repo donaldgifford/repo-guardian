@@ -6,8 +6,11 @@ package pgtest
 
 import (
 	"context"
+	"net/url"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -68,4 +71,41 @@ func SeedV1(tb testing.TB, dsn string) {
 	if err := postgres.Migrate(dsn); err != nil {
 		tb.Fatalf("pgtest: seed v1 schema: %v", err)
 	}
+}
+
+// AppRole creates a non-superuser login role that owns the public schema
+// and returns dsn rewritten to connect as it. Superusers bypass grants,
+// so tests that assert a grant (finding_events is append-only) must
+// migrate and write as this role, the way the application does.
+func AppRole(tb testing.TB, dsn string) string {
+	tb.Helper()
+
+	const role, password = "rg_app", "rg_app"
+
+	ctx := context.Background()
+
+	conn, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		tb.Fatalf("pgtest: connect: %v", err)
+	}
+
+	defer func() { _ = conn.Close(ctx) }()
+
+	for _, stmt := range []string{
+		"CREATE ROLE " + role + " LOGIN PASSWORD '" + password + "' NOSUPERUSER",
+		"GRANT ALL ON SCHEMA public TO " + role,
+	} {
+		if _, err := conn.Exec(ctx, stmt); err != nil {
+			tb.Fatalf("pgtest: %s: %v", stmt, err)
+		}
+	}
+
+	u, err := url.Parse(dsn)
+	if err != nil {
+		tb.Fatalf("pgtest: parse dsn: %v", err)
+	}
+
+	u.User = url.UserPassword(role, password)
+
+	return u.String()
 }

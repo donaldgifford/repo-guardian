@@ -34,7 +34,8 @@ func newV2Fixture(t *testing.T) *v2Fixture {
 	t.Helper()
 
 	ctx := context.Background()
-	dsn := pgtest.Start(t)
+	// Migrate and write as the application role so grants apply.
+	dsn := pgtest.AppRole(t, pgtest.Start(t))
 
 	_, up := openMigrator(t, dsn)
 	if _, err := up(ctx); err != nil {

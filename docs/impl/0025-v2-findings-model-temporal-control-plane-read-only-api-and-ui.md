@@ -1572,7 +1572,7 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
   - app paths redirect to login, while `/status` is public;
   - CSP `default-src 'self'; connect-src 'self'; frame-ancestors
     'none'; script-src 'self'`, plus `nosniff` and `Referrer-Policy`.
-- [ ] 20.7 Health: `/healthz`, and `/readyz` (issuer discovery loaded
+- [x] 20.7 Health: `/healthz`, and `/readyz` (issuer discovery loaded
   and the upstream `/healthz` reachable, cached for 10s).
 - [ ] 20.8 The `bun test` matrix against a mock issuer (OQ25) and a
   stub upstream:

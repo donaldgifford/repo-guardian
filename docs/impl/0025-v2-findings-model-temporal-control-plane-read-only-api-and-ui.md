@@ -1,5 +1,5 @@
 ---
-id: IMPL-0028
+id: IMPL-0025
 title: "v2: findings model, Temporal control plane, read-only API and UI"
 status: Draft
 author: Donald Gifford
@@ -7,7 +7,7 @@ created: 2026-09-25
 ---
 <!-- markdownlint-disable-file MD024 MD025 MD041 -->
 
-# IMPL 0028: v2: findings model, Temporal control plane, read-only API and UI
+# IMPL 0025: v2: findings model, Temporal control plane, read-only API and UI
 
 **Status:** Draft
 **Author:** Donald Gifford
@@ -121,9 +121,9 @@ no separate spike.
 **Implements:** DESIGN-0025, DESIGN-0026, DESIGN-0027 (from INV-0018,
 INV-0019, INV-0009)
 
-This IMPL supersedes the drafts IMPL-0025, IMPL-0026 and IMPL-0027.
-Once its open questions are answered, those three are deleted and this
-document is renumbered to IMPL-0025.
+This IMPL consolidates three per-design drafts that briefly existed as
+IMPL-0025/0026/0027. They were merged on 2026-09-25 so the order of
+operations across the designs is explicit in one place.
 
 ## Scope
 
@@ -168,6 +168,7 @@ document is renumbered to IMPL-0025.
 - Notifications on finding transitions (a later design).
 - Upgrade-on-Continue-as-New (waits for GA, DESIGN-0026 OQ7).
 - Any write path in the API or UI.
+- Rendering the OpenAPI spec inside mkdocs (deferred, OQ27).
 
 ## How the phases are ordered
 
@@ -722,7 +723,7 @@ it. Task IDs are `<phase>.<n>`.
   It lists kind, name, description, check mode, scope and ignore, and
   never template bodies.
 - [ ] 6.6 Leave v1's `Version` in place until Phase 16, marked with a
-  `TODO(IMPL-0028 P16)` comment in todo-comments format.
+  `TODO(IMPL-0025 P16)` comment in todo-comments format.
 
 #### Success Criteria
 
@@ -1441,7 +1442,9 @@ Land this phase as one PR, so the branch is never half-migrated.
 
   Watch one rollout window, and record the timings, budget use and any
   runbook edits.
-- [ ] 19.2 Enable `api` against the homelab IdP (OQ28) with two groups
+- [ ] 19.2 Enable `api` against the homelab's existing Keycloak (OQ28):
+  register the UI client and the `repo-guardian-api` audience, add a
+  groups mapper, and create two groups
   mapped to different orgs. Verify that each group sees different orgs,
   that a machine client can read `/findings`, and that `/status` works
   anonymously.
@@ -1470,9 +1473,8 @@ Also:
 
 ### Phase 20: UI — the Bun BFF
 
-The UI is in scope for rc.2, not rc.1 (OQ18). Where it lives is OQ19.
-These tasks assume the recommendation there: a `ui/` directory on
-`v2`.
+The UI is in scope for rc.2, not rc.1 (OQ18). It lives in a `ui/`
+directory on `v2` (OQ19; DESIGN-0027 amended to match).
 
 #### Tasks
 
@@ -1615,7 +1617,6 @@ These tasks assume the recommendation there: a `ui/` directory on
   - `docs/usage/api.md` (Keycloak example, authz, status, pagination,
     errors, compatibility);
   - `docs/usage/ui.md` (views, sessions, key rotation);
-  - an mkdocs OpenAPI plugin (OQ27);
   - the spec attached to releases through goreleaser `extra_files`.
 - [ ] 22.6 Cut `v2.0.0-rc.2`. On the homelab, enable `ui` and
   `ui.ingress`, then verify login, per-group visibility and the
@@ -1682,7 +1683,7 @@ These tasks assume the recommendation there: a `ui/` directory on
   - a Temporal cluster ≥ 1.31 with fairness enabled, mTLS certificates
     and CNPG;
   - a v1 database dump;
-  - an OIDC provider (OQ28).
+  - the existing homelab Keycloak (OQ28).
 - **New Go modules:** `pressly/goose/v3`, `go.temporal.io/sdk` and its
   OpenTelemetry contrib, `coreos/go-oidc/v3`, `getkin/kin-openapi`
   (tests), and `oapi-codegen` (tool).
@@ -1691,12 +1692,13 @@ These tasks assume the recommendation there: a `ui/` directory on
 
 ## Open Questions
 
-Each question offers options: (a) is the recommendation, (b) and later
-are alternatives, and "other" is for your own answer. Questions 1–8
-carry over from IMPL-0025, 9–18 from IMPL-0026 and 20–28 from IMPL-0027.
-Questions 19 and 29 are new with the merge.
+**All 29 resolved 2026-09-25** (operator review): 1–26 (a); 27
+other (spec lint keeps (a)'s `vacuum`, mkdocs rendering deferred); 28
+other (the homelab's existing Keycloak); 29 (a). Decisions are folded
+into the tasks above; the options are kept below for the record.
 
 1. **v1 and v2 store coexistence on the branch.**
+   **Resolved 2026-09-25: (a).**
    - (a) Add `Writer`/`Reader` beside `store.Store`. v1 callers keep
      compiling until Phase 16 deletes them together, so the branch
      always builds and the v1 runtime stays available for comparison
@@ -1708,6 +1710,7 @@ Questions 19 and 29 are new with the merge.
    - other:
 
 2. **Integration tests in CI.**
+   **Resolved 2026-09-25: (a).**
    - (a) An `integration` job on `v2` from Phase 1, brought to `main`
      at GA.
    - (b) Run them locally and on the homelab only.
@@ -1716,6 +1719,7 @@ Questions 19 and 29 are new with the merge.
 
 3. **Reason recorded when a rule yields to a foreign PR.** The real
    reason is unknown without extra calls.
+   **Resolved 2026-09-25: (a).**
    - (a) A new reason, `foreign_pr_open` (status `non_compliant`,
      remediation `foreign_pr`, evidence including the check mode). It
      is honest about what is known and makes no extra calls.
@@ -1726,6 +1730,7 @@ Questions 19 and 29 are new with the merge.
    - other:
 
 4. **Where the finding domain types live.**
+   **Resolved 2026-09-25: (a).**
    - (a) A leaf package, `internal/findings`, imported by both checker
      and store.
    - (b) `internal/store`, with checker importing store.
@@ -1733,12 +1738,14 @@ Questions 19 and 29 are new with the merge.
    - other:
 
 5. **Where `RecordCheck` computes the diff.**
+   **Resolved 2026-09-25: (a).**
    - (a) In Go, inside the transaction after `SELECT … FOR UPDATE`
      (about 10 rows per repository).
    - (b) A single SQL `MERGE … RETURNING` statement.
    - other:
 
 6. **The parity suite's "without enrichment" baseline.**
+   **Resolved 2026-09-25: (a).**
    - (a) Goldens recorded from the unmodified engine before Phase 4
      touches it.
    - (b) A runtime flag that disables enrichment, leaving dead code in
@@ -1747,6 +1754,7 @@ Questions 19 and 29 are new with the merge.
    - other:
 
 7. **Source of `host`.**
+   **Resolved 2026-09-25: (a).**
    - (a) One `GITHUB_HOST` per deployment (default `github.com`), stored
      on every row, so multi-host support can be added later without
      breaking anything.
@@ -1755,6 +1763,7 @@ Questions 19 and 29 are new with the merge.
 
 8. **Dry-run mechanics with goose**, which applies each migration in
    its own transaction.
+   **Resolved 2026-09-25: (a).**
    - (a) The dry run applies `00002` and `00003` by hand, inside one
      outer transaction that rolls back; Postgres DDL is transactional.
    - (b) Clone to a temporary database with `CREATE DATABASE …
@@ -1763,6 +1772,7 @@ Questions 19 and 29 are new with the merge.
    - other:
 
 9. **How rc images are published from `v2`.**
+   **Resolved 2026-09-25: (a).**
    - (a) Push the tag by hand, then `workflow_dispatch` `ghcr.yml` (and
      `ecr.yml` when enabled) with it.
    - (b) A `push: tags: ['v2.*-rc.*']` trigger that calls the registry
@@ -1772,6 +1782,7 @@ Questions 19 and 29 are new with the merge.
    - other:
 
 10. **Temporal server for integration tests.**
+    **Resolved 2026-09-25: (a).**
     - (a) The SDK's `testsuite.StartDevServer` with a pinned CLI; no
       Docker needed for Temporal.
     - (b) A testcontainers `temporalio/temporal` container.
@@ -1779,6 +1790,7 @@ Questions 19 and 29 are new with the merge.
     - other:
 
 11. **Local dev loop.**
+    **Resolved 2026-09-25: (a).**
     - (a) A `temporal` service in `docker-compose.dev.yaml`, with Valkey
       behind a `v1` profile until Phase 16.
     - (b) The Temporal CLI via mise, started by a make target.
@@ -1786,6 +1798,7 @@ Questions 19 and 29 are new with the merge.
     - other:
 
 12. **Package layout.**
+    **Resolved 2026-09-25: (a).**
     - (a) `internal/workflows` (deterministic code only, enforced by
       depguard), `internal/activities`, `internal/temporal` and
       `internal/ingest`.
@@ -1793,6 +1806,7 @@ Questions 19 and 29 are new with the merge.
     - other:
 
 13. **Source of replay histories.**
+    **Resolved 2026-09-25: (a).**
     - (a) Captured from the homelab after each deploy that changes a
       workflow, plus one from the integration suite so the CI gate
       starts non-empty.
@@ -1801,6 +1815,7 @@ Questions 19 and 29 are new with the merge.
 
 14. **`InstallationWorkflow` ContinueAsNew trigger, until the burst
     test sizes it.**
+    **Resolved 2026-09-25: (a).**
     - (a) The SDK's suggestion, or 2,000 handled Updates and Signals,
       whichever comes first.
     - (b) A fixed 500.
@@ -1808,6 +1823,7 @@ Questions 19 and 29 are new with the merge.
     - other:
 
 15. **Who starts `BootstrapWorkflow`.**
+    **Resolved 2026-09-25: (a).**
     - (a) `migrate` sets `v2_meta.bootstrap_pending`. The worker starts
       `bootstrap/v1` at startup and clears the flag when it completes,
       so the migrate Job needs no Temporal credentials.
@@ -1815,18 +1831,21 @@ Questions 19 and 29 are new with the merge.
     - other:
 
 16. **Homelab cutover path.**
+    **Resolved 2026-09-25: (a).**
     - (a) A shadow run on a restored copy (18.7), then cut over the live
       instance.
     - (b) Cut over directly; the shadow run is optional.
     - other:
 
 17. **Removed env vars in v2.0.**
+    **Resolved 2026-09-25: (a).**
     - (a) Warn and ignore, with a link to the runbook. The HCL
       attributes and chart values fail hard.
     - (b) Fail startup.
     - other:
 
 18. **Release cadence for the UI.**
+    **Resolved 2026-09-25: (a).**
     - (a) rc.1 ships ingest, worker, migrate and api (Phase 19). The UI
       follows in rc.2 (Phase 22), so the cutover does not wait on the
       UI.
@@ -1835,6 +1854,7 @@ Questions 19 and 29 are new with the merge.
 
 19. **Where the UI code lives** (new with the merge; DESIGN-0027 said
     a separate repository).
+    **Resolved 2026-09-25: (a).**
     - (a) A `ui/` directory in this repository, on `v2`. Everything
       stays on one branch, the UI generates types from
       `api/openapi.yaml` directly, the UI and API can never drift in
@@ -1846,6 +1866,7 @@ Questions 19 and 29 are new with the merge.
     - other:
 
 20. **UI image publishing.**
+    **Resolved 2026-09-25: (a).**
     - (a) A second `docker-bake.hcl` target published by the existing
       `ghcr.yml` (and `ecr.yml`), with the same tag, cosign and SLSA
       flow as the main image.
@@ -1853,6 +1874,7 @@ Questions 19 and 29 are new with the merge.
     - other:
 
 21. **Go test OIDC issuer.**
+    **Resolved 2026-09-25: (a).**
     - (a) A hand-written `internal/api/oidctest` that controls every
       malformed-token case.
     - (b) `oauth2-proxy/mockoidc`, which makes some of those cases hard
@@ -1860,17 +1882,20 @@ Questions 19 and 29 are new with the merge.
     - other:
 
 22. **Machine-client authorization.**
+    **Resolved 2026-09-25: (a).**
     - (a) Ship `api.authz.clients: {<azp>: [groups]}` in v2.0.
     - (b) Require the IdP to put groups on client tokens.
     - other:
 
 23. **Cursor integrity.**
+    **Resolved 2026-09-25: (a).**
     - (a) Unsigned base64url JSON plus a filter hash. SQL scoping on
       every page means tampering cannot escape the caller's orgs.
     - (b) HMAC-signed cursors, which need a key in values.
     - other:
 
 24. **Read-only role for existing baked-Postgres installs.**
+    **Resolved 2026-09-25: (a).**
     - (a) A baked-mode-only chart `post-install,post-upgrade` hook Job
       that uses the admin Secret to create `repoguardian_ro` if it is
       missing and re-run the grants. Migrations still never create
@@ -1881,28 +1906,33 @@ Questions 19 and 29 are new with the merge.
     - other:
 
 25. **Mock issuer for BFF tests and Playwright.**
+    **Resolved 2026-09-25: (a).**
     - (a) `oauth2-mock-server` in CI, plus the real homelab IdP in 19.2
       and 22.6.
     - (b) A Keycloak container in CI.
     - other:
 
 26. **Authz config changes.**
+    **Resolved 2026-09-25: (a).**
     - (a) Read at startup; a checksum annotation rolls the `api` pods.
     - (b) Hot-reload through fsnotify.
     - other:
 
 27. **Spec lint and mkdocs rendering.**
+    **Resolved 2026-09-25: other — spec lint uses `vacuum` from (a); mkdocs rendering is deferred (out of scope).**
     - (a) `vacuum` (a Go binary, via mise) and `mkdocs-swagger-ui-tag`.
     - (b) Redocly CLI and `neoteroi-mkdocs`.
     - other:
 
 28. **Homelab IdP.**
+    **Resolved 2026-09-25: other — the homelab already runs Keycloak; use it.**
     - (a) Deploy Keycloak in the homelab. It is the design's example and
       doubles as the docs walkthrough.
     - (b) An IdP already running in the homelab (name it under "other").
     - other:
 
 29. **How phases map to PRs** (new with the merge).
+    **Resolved 2026-09-25: (a).**
     - (a) One PR per phase into `v2`, labelled `dont-release`, with a
       large phase (4, 10, 16, 17) allowed to split into sub-PRs that
       each keep `v2` green. The IMPL checkboxes are ticked in the same
@@ -1916,7 +1946,6 @@ Questions 19 and 29 are new with the merge.
 - DESIGN-0025 — findings model and v1 data migration
 - DESIGN-0026 — Temporal control plane and role split
 - DESIGN-0027 — read-only API, business UI and status page
-- IMPL-0025, IMPL-0026, IMPL-0027 — superseded drafts, to be deleted
 - INV-0018, INV-0019, INV-0009
 - IMPL-0022 (delayed requeue), IMPL-0023 (posture, OTel, monitoring
   generator), IMPL-0024 (removed-value guards), INV-0015 (parking)

@@ -52,8 +52,9 @@ why" Loki panels (E4) need a new home. That home has three parts:
 - **A read-only HTTP API**, the `api` role of the repo-guardian binary.
   It serves findings, compliance and history from Postgres
   (DESIGN-0025) behind OIDC, through a SELECT-only database role.
-- **A business UI** whose code lives in a separate repository
-  (`repo-guardian-ui`) and which deploys from the repo-guardian chart.
+- **A business UI** whose code lives in this repository's `ui/`
+  directory, ships as the `repo-guardian-ui` image, and deploys from the
+  repo-guardian chart (amended 2026-09-25; see OQ8).
   It is a Bun server that serves a React/TypeScript/shadcn front end and
   acts as a backend-for-frontend (BFF): it runs the OIDC login, keeps
   tokens server-side, and proxies API calls. It runs from one container,
@@ -372,17 +373,18 @@ endpoint is cheap to hit.
 - **Contract tests** run every handler through kin-openapi's response
   validator in tests, so the implementation cannot drift from the spec.
 - **Publishing:** the spec is attached to each GitHub release, served at
-  `/api/v1/openapi.yaml`, and vendored by the UI repository at a pinned
-  version.
+  `/api/v1/openapi.yaml`, and read directly by the UI in `ui/`, which
+  regenerates its types from it in the same commit.
 - **Compatibility:** within `/api/v1`, only additive changes (new
   fields, endpoints, enum values documented as open). A breaking change
   means `/api/v2`, with both served for one release.
 
 ### The UI (`repo-guardian-ui`)
 
-The code lives in its own repository and publishes one container image,
-`ghcr.io/donaldgifford/repo-guardian-ui`, which the repo-guardian chart
-deploys (see [Chart](#chart)).
+The code lives in the `ui/` directory of this repository (amended
+2026-09-25, OQ8) and builds one container image,
+`ghcr.io/donaldgifford/repo-guardian-ui`, released together with the
+main image and deployed by the repo-guardian chart (see [Chart](#chart)).
 
 **Stack:**
 
@@ -396,7 +398,7 @@ deploys (see [Chart](#chart)).
 | Framework | React 19 + TypeScript (strict) |
 | Components | shadcn/ui + Tailwind CSS; shadcn charts (Recharts) |
 | Routing and data | TanStack Router + TanStack Query |
-| API client | `openapi-typescript` types + `openapi-fetch`, generated from the pinned spec, calling same-origin `/api` |
+| API client | `openapi-typescript` types + `openapi-fetch`, generated from `api/openapi.yaml`, calling same-origin `/api` |
 | Tests | `bun test` for server and units; Playwright e2e against a mock issuer and a seeded API |
 | Image | Bun's distroless base image running the server, plus the built assets; one process, no nginx |
 
@@ -570,10 +572,9 @@ ui:
 - **Guards:** `ui.enabled` fails render without `api.enabled` and
   `api.auth.enabled`. The Ingress fails render when auth is off, which
   carries INV-0009's hard gate forward.
-- **Version pinning.** The chart pins a `ui.image.tag` known to work
-  with its `api` version, because the UI is built against a pinned spec.
-  A UI release opens a Renovate PR here that bumps the tag; the change
-  lands as a chart patch, unrelated to the binary's `appVersion`.
+- **Versioning.** `ui.image.tag` defaults to the chart's `appVersion`.
+  Both images are built and released together from this repository
+  against the same spec, so the UI and API cannot drift apart.
 - **The read-only database role** (DESIGN-0025 OQ12) is created per
   Postgres mode:
   - **baked:** by the StatefulSet's init SQL;
@@ -598,13 +599,13 @@ through the generator.
 
 `docs/usage/api.md` covers authentication setup (Keycloak example),
 authz configuration, the status page, and a link to the spec.
-Rendering the spec inside mkdocs is OQ10.
+Rendering the spec inside mkdocs is deferred (OQ10, amended 2026-09-25).
 
 ## API / Interface Changes
 
 - New role `repo-guardian api`.
-- New image `repo-guardian-ui` (separate repository), deployed by this
-  chart.
+- New image `repo-guardian-ui`, built from `ui/` in this repository and
+  deployed by this chart.
 - New env vars:
   - `API_LISTEN_ADDR`, `STORE_RO_DSN`;
   - `OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_GROUPS_CLAIM`,
@@ -680,14 +681,13 @@ can run in parallel with DESIGN-0026.
 3. **Read endpoints.** The rest of the table, with sqlc queries and
    compliance-math unification with `report`.
 4. **Status page.** Cache, component rules, optional Temporal probe.
-5. **UI repository: BFF.** Bun server with Hono, `openid-client` login,
+5. **UI (`ui/`): BFF.** Bun server with Hono, `openid-client` login,
    encrypted sessions, the `/api` proxy, health endpoints, and the image
    build and publish.
-6. **UI repository: views.** Generated client; Fleet and Repository
+6. **UI (`ui/`): views.** Generated client; Fleet and Repository
    first, then the rest.
 7. **Chart.** `api.*` and `ui.*` values, the single-host Ingress,
-   render guards, the read-only role per Postgres mode, and the Renovate
-   rule for `ui.image.tag`.
+   render guards, and the read-only role per Postgres mode.
 8. **E2E and docs.** Playwright suite, `docs/usage/api.md` and
    `docs/usage/ui.md`, a Keycloak homelab walkthrough.
 
@@ -713,7 +713,7 @@ can run in parallel with DESIGN-0026.
 | Authz bug exposes another team's orgs | filtering only in SQL, 404 for invisible, two-org tests on every endpoint |
 | Evidence text used for XSS | text-only rendering, CSP, no markdown |
 | Session cookie or BFF compromise | HttpOnly encrypted cookie, key rotation, 8h cap; BFF forwards only GET to one upstream; the API still validates every token |
-| UI image and API version skew | chart pins `ui.image.tag` per release; the UI is built against a pinned spec |
+| UI image and API version skew | both images built and released together from one repository against one spec |
 | Spec and server drift | strict-server generation, drift gate, response validation in tests |
 | oapi-codegen 3.1 gaps | documented constructs only; Overlay fallback |
 | Aggregate queries slow at scale | indexed queries, 30s cache for hot aggregates, measured in the homelab |
@@ -776,6 +776,7 @@ can run in parallel with DESIGN-0026.
 
 8. **UI deployment packaging.**
    **Resolved 2026-09-25: (b) — one chart: the repo-guardian chart deploys the UI image (`ui.*`).**
+   **Amended 2026-09-25 (IMPL-0025 OQ19): the UI code also lives in this repository, in `ui/` on the `v2` branch, instead of a separate repository.**
    - (a) The UI repository publishes its own chart; the repo-guardian
      chart wires the ingress to it (`api.ingress.uiService`).
    - (b) The repo-guardian chart gains an optional `ui.*` Deployment
@@ -789,7 +790,7 @@ can run in parallel with DESIGN-0026.
    - other:
 
 10. **API docs in mkdocs.**
-    **Resolved 2026-09-25: (a).**
+    **Resolved 2026-09-25: (a). Amended 2026-09-25 (IMPL-0025 OQ27): deferred; rendering the spec in mkdocs is out of scope for v2.0.**
     - (a) Add an OpenAPI-rendering mkdocs plugin alongside
       `techdocs-core`.
     - (b) Link to the spec file and the release artifact only.

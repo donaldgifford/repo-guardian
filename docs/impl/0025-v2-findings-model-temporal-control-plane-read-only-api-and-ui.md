@@ -470,7 +470,7 @@ it. Task IDs are `<phase>.<n>`.
   - `lint-sql`, which runs `sqlc vet`, generates into `build/sqlc`, and
     `diff -r` against the committed code;
   - a CI job gated on an `sql` paths-filter output.
-- [ ] 2.8 Add the shared test helper `internal/store/postgres/pgtest`:
+- [x] 2.8 Add the shared test helper `internal/store/postgres/pgtest`:
   - `Start(t) dsn`, using the chart's baked Postgres image;
   - `SeedV1(t, dsn)`, which runs v1's own golang-migrate migrations up
     to version 3.

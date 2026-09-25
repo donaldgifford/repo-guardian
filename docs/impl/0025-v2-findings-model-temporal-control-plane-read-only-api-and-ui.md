@@ -691,7 +691,7 @@ it. Task IDs are `<phase>.<n>`.
 - [x] 5.5 At load, emit one warning per rule name that is used by more
   than one kind. Put it next to `warnLegacyPerRuleScope`. Test that
   gates still resolve to the file rule.
-- [ ] 5.6 Integration tests:
+- [x] 5.6 Integration tests:
   - a rename keeps the ID, the history and a `renamed` event;
   - a transfer updates org and installation;
   - a case-only rename writes no event;

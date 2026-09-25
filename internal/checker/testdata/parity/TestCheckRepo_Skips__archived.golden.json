@@ -1,0 +1,9 @@
+[
+  {
+    "repo": "org/repo",
+    "writes": null,
+    "outcomes": null,
+    "result": "nil",
+    "error": "repository skipped: archived"
+  }
+]

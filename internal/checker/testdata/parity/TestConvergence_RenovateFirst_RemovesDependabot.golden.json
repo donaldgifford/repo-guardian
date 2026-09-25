@@ -1,0 +1,59 @@
+[
+  {
+    "repo": "org/repo",
+    "writes": [
+      {
+        "method": "UpdatePRBranch",
+        "args": [
+          "org",
+          "repo",
+          2
+        ]
+      },
+      {
+        "method": "DeleteFile",
+        "args": [
+          "org",
+          "repo",
+          "repo-guardian/add-missing-files",
+          ".github/dependabot.yml",
+          "dep-sha",
+          "chore: remove .github/dependabot.yml (forbidden by rule \"no_dependabot\")"
+        ]
+      },
+      {
+        "method": "UpdatePullRequest",
+        "args": [
+          "org",
+          "repo",
+          2,
+          "chore: add missing repo configuration files",
+          "## Repo Guardian — Configuration Drift\n\nThis PR was automatically created by **repo-guardian** to bring this\nrepository into line with the organization's file policy.\n\n### Removed Files\n\n- `.github/dependabot.yml` — no_dependabot\n- `.github/dependabot.yaml` — no_dependabot\n\n### What to do\n\n1. Review the changes and adjust for your team's needs.\n2. Merge when ready — these are sensible defaults, not one-size-fits-all.\n\n---\n*Automated by [repo-guardian](https://github.com/apps/repo-guardian). Questions? Reach out in #platform-engineering.*\n"
+        ]
+      },
+      {
+        "method": "UpsertPRComment",
+        "args": [
+          "org",
+          "repo",
+          2,
+          "\u003c!-- repo-guardian:reconcile-log:v1 --\u003e",
+          "\u003c!-- repo-guardian:reconcile-log:hash:d85c3c952c2758e6 --\u003e\n## repo-guardian reconcile log\n\nLast reconciled at \u003cTIME\u003e.\n\n| Rule | Status |\n|------|--------|\n| `renovate_config` | satisfied on main |\n| `no_dependabot` | present on main, pending removal |\n"
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "kind": "file",
+        "name": "renovate_config",
+        "actionable": false
+      },
+      {
+        "kind": "file",
+        "name": "no_dependabot",
+        "actionable": true
+      }
+    ],
+    "result": "non-nil"
+  }
+]

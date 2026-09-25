@@ -1,0 +1,14 @@
+[
+  {
+    "repo": "org/repo",
+    "writes": null,
+    "outcomes": [
+      {
+        "kind": "file",
+        "name": "test-yaml",
+        "actionable": false
+      }
+    ],
+    "result": "non-nil"
+  }
+]

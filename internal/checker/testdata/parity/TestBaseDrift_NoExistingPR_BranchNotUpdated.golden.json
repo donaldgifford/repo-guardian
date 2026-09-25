@@ -1,0 +1,71 @@
+[
+  {
+    "repo": "org/repo",
+    "writes": [
+      {
+        "method": "CreateBranch",
+        "args": [
+          "org",
+          "repo",
+          "repo-guardian/add-missing-files",
+          "main-sha"
+        ]
+      },
+      {
+        "method": "CreateOrUpdateFile",
+        "args": [
+          "org",
+          "repo",
+          "repo-guardian/add-missing-files",
+          ".github/CODEOWNERS",
+          "# Default CODEOWNERS - update with your team\n# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners\n#\n# IMPORTANT: Replace @org/CHANGEME with your actual team before merging.\n* @org/CHANGEME\n",
+          "chore: add .github/CODEOWNERS"
+        ]
+      },
+      {
+        "method": "CreateOrUpdateFile",
+        "args": [
+          "org",
+          "repo",
+          "repo-guardian/add-missing-files",
+          ".github/dependabot.yml",
+          "version: 2\nupdates:\n  - package-ecosystem: \"github-actions\"\n    directory: \"/\"\n    schedule:\n      interval: \"weekly\"\n",
+          "chore: add .github/dependabot.yml"
+        ]
+      },
+      {
+        "method": "CreatePullRequest",
+        "args": [
+          "org",
+          "repo",
+          "chore: add missing repo configuration files",
+          "## Repo Guardian — Configuration Drift\n\nThis PR was automatically created by **repo-guardian** to bring this\nrepository into line with the organization's file policy.\n\n### Added Files\n\n- `.github/CODEOWNERS` — codeowners\n- `.github/dependabot.yml` — dependabot\n\n\u003e **Note:** The CODEOWNERS file contains a placeholder (`@org/CHANGEME`).\n\u003e Please replace it with your actual team before merging.\n\n### What to do\n\n1. Review the changes and adjust for your team's needs.\n2. Merge when ready — these are sensible defaults, not one-size-fits-all.\n\n---\n*Automated by [repo-guardian](https://github.com/apps/repo-guardian). Questions? Reach out in #platform-engineering.*\n",
+          "repo-guardian/add-missing-files",
+          "main"
+        ]
+      },
+      {
+        "method": "AddLabelsToPR",
+        "args": [
+          "org",
+          "repo",
+          1,
+          null
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "kind": "file",
+        "name": "codeowners",
+        "actionable": true
+      },
+      {
+        "kind": "file",
+        "name": "dependabot",
+        "actionable": true
+      }
+    ],
+    "result": "non-nil"
+  }
+]

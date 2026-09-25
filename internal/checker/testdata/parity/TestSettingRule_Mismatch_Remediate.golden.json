@@ -1,0 +1,31 @@
+[
+  {
+    "repo": "org/repo",
+    "writes": [
+      {
+        "method": "UpdateRepository",
+        "args": [
+          "org",
+          "repo",
+          {
+            "HasIssues": true,
+            "HasWiki": null,
+            "DeleteBranchOnMerge": null,
+            "AllowMergeCommit": null,
+            "AllowSquashMerge": null,
+            "AllowRebaseMerge": null,
+            "DefaultBranch": null
+          }
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "kind": "setting",
+        "name": "enable_issues",
+        "actionable": false
+      }
+    ],
+    "result": "non-nil"
+  }
+]

@@ -601,7 +601,7 @@ it. Task IDs are `<phase>.<n>`.
 
 #### Tasks
 
-- [ ] 4.1 Capture parity goldens **before** touching the engine (OQ6):
+- [x] 4.1 Capture parity goldens **before** touching the engine (OQ6):
   - wrap the existing fake client in a recording decorator
     (`internal/checker/parity_test.go`);
   - log every GitHub write call with normalized arguments;

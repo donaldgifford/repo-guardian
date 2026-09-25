@@ -1,0 +1,59 @@
+[
+  {
+    "repo": "org/repo",
+    "writes": [
+      {
+        "method": "UpdatePRBranch",
+        "args": [
+          "org",
+          "repo",
+          1
+        ]
+      },
+      {
+        "method": "CreateOrUpdateFile",
+        "args": [
+          "org",
+          "repo",
+          "repo-guardian/add-missing-files",
+          ".github/dependabot.yml",
+          "version: 2\nupdates:\n  - package-ecosystem: \"github-actions\"\n    directory: \"/\"\n    schedule:\n      interval: \"weekly\"\n",
+          "chore: add .github/dependabot.yml"
+        ]
+      },
+      {
+        "method": "UpdatePullRequest",
+        "args": [
+          "org",
+          "repo",
+          1,
+          "chore: add missing repo configuration files",
+          "## Repo Guardian — Configuration Drift\n\nThis PR was automatically created by **repo-guardian** to bring this\nrepository into line with the organization's file policy.\n\n### Added Files\n\n- `.github/dependabot.yml` — dependabot\n\n\u003e **Note:** The CODEOWNERS file contains a placeholder (`@org/CHANGEME`).\n\u003e Please replace it with your actual team before merging.\n\n### What to do\n\n1. Review the changes and adjust for your team's needs.\n2. Merge when ready — these are sensible defaults, not one-size-fits-all.\n\n---\n*Automated by [repo-guardian](https://github.com/apps/repo-guardian). Questions? Reach out in #platform-engineering.*\n"
+        ]
+      },
+      {
+        "method": "UpsertPRComment",
+        "args": [
+          "org",
+          "repo",
+          1,
+          "\u003c!-- repo-guardian:reconcile-log:v1 --\u003e",
+          "\u003c!-- repo-guardian:reconcile-log:hash:cf16eea76d9b0422 --\u003e\n## repo-guardian reconcile log\n\nLast reconciled at \u003cTIME\u003e.\n\n| Rule | Status |\n|------|--------|\n| `codeowners` | satisfied on main |\n| `dependabot` | still actionable |\n"
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "kind": "file",
+        "name": "codeowners",
+        "actionable": false
+      },
+      {
+        "kind": "file",
+        "name": "dependabot",
+        "actionable": true
+      }
+    ],
+    "result": "non-nil"
+  }
+]

@@ -1,0 +1,14 @@
+[
+  {
+    "repo": "org/repo",
+    "writes": null,
+    "outcomes": [
+      {
+        "kind": "branch_protection",
+        "name": "main_protection",
+        "actionable": false
+      }
+    ],
+    "result": "non-nil"
+  }
+]

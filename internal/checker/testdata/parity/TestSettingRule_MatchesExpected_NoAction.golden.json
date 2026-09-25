@@ -1,0 +1,14 @@
+[
+  {
+    "repo": "org/repo",
+    "writes": null,
+    "outcomes": [
+      {
+        "kind": "setting",
+        "name": "enable_issues",
+        "actionable": false
+      }
+    ],
+    "result": "non-nil"
+  }
+]

@@ -1,0 +1,14 @@
+[
+  {
+    "repo": "org/my-service",
+    "writes": null,
+    "outcomes": [
+      {
+        "kind": "file",
+        "name": "catalog_info",
+        "actionable": false
+      }
+    ],
+    "result": "non-nil"
+  }
+]

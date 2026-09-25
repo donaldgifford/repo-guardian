@@ -105,7 +105,13 @@ func dialTemporal(
 	ctx context.Context, roles config.Role, obs *observability.Provider, logger *slog.Logger,
 ) (temporal.Config, client.Client, error) {
 	tcfg, err := temporal.ConfigFromEnv()
-	if err != nil || roles == config.RoleAPI {
+	if roles == config.RoleAPI {
+		// The api role never dials, so an unset or incomplete Temporal
+		// env is not an error for it: the chart gives it none.
+		return tcfg, nil, nil
+	}
+
+	if err != nil {
 		return tcfg, nil, err
 	}
 

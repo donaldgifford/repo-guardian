@@ -208,6 +208,64 @@ api:
     # -- Serve /status without a token.
     public: true
 
+# -- The business UI (DESIGN-0027): a Bun BFF serving the SPA, proxying
+# /api to the api Service and holding the OIDC session. Requires
+# api.enabled and api.auth.enabled.
+ui:
+  # -- Render the ui Deployment, Service and PDB.
+  enabled: false
+  # -- Replica count.
+  replicas: 2
+  image:
+    # -- UI image repository.
+    repository: ghcr.io/donaldgifford/repo-guardian-ui
+    # -- UI image tag; defaults to the chart's appVersion, because both
+    # images are released together from one tag.
+    tag: ""
+  # -- Container port the BFF listens on.
+  port: 3000
+  oidc:
+    # -- OIDC client ID (a confidential client). The issuer is
+    # api.auth.issuer: the UI and the API trust the same IdP.
+    clientId: repo-guardian-ui
+    # -- Scopes requested at login.
+    scopes: [openid, profile, groups, offline_access]
+  # -- Secret with keys `oidc-client-secret` and `session-keys`
+  # (comma-separated, at least 32 bytes each; the first seals). Required.
+  existingSecret: ""
+  # -- Absolute session length; token refresh never extends it.
+  sessionTTL: 8h
+  # -- Browser-facing origin (https://host). Defaults to
+  # https://<ui.ingress.host>; set it when the ingress is yours.
+  publicUrl: ""
+  # -- GitHub host PR and repository links point at.
+  githubHost: github.com
+  # -- Resources for the ui container.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    limits:
+      memory: 256Mi
+  pdb:
+    # -- Render a PodDisruptionBudget.
+    enabled: true
+    # -- Pods kept through voluntary disruptions.
+    minAvailable: 1
+  ingress:
+    # -- Render an Ingress sending the whole host to the ui Service. The
+    # only Ingress the chart renders; fails render unless
+    # api.auth.enabled.
+    enabled: false
+    # -- IngressClass name.
+    className: ""
+    # -- Annotations for the Ingress.
+    annotations: {}
+    # -- The UI's host name.
+    host: ""
+    # -- TLS blocks, as in networking.k8s.io/v1 IngressTLS.
+    tls: []
+
 # -- GitHub App secrets
 secrets:
   # -- Create secret resource (false = use existing secret)

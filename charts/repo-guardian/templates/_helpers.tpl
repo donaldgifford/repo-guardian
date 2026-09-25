@@ -474,3 +474,44 @@ operator's Secret or the chart-rendered one.
       key: POSTGRES_PASSWORD
       {{- end }}
 {{- end }}
+
+{{/*
+The UI's browser-facing origin: ui.publicUrl, else https://<ingress host>.
+*/}}
+{{- define "repo-guardian.uiPublicUrl" -}}
+{{- .Values.ui.publicUrl | default (printf "https://%s" .Values.ui.ingress.host) -}}
+{{- end }}
+
+{{/*
+The API upstream the UI's BFF proxies to: the api Service, which in
+`all` targets the all pods' API port.
+*/}}
+{{- define "repo-guardian.uiApiUpstream" -}}
+{{- printf "http://%s:%v" (include "repo-guardian.roleFullname" (dict "ctx" . "role" "api")) .Values.service.httpPort -}}
+{{- end }}
+
+{{/*
+UI guards (DESIGN-0027 § Chart). The UI is a login front door to the
+API, so it never renders without an authenticated API; the Ingress is
+the chart's only public host and carries INV-0009's hard gate forward.
+*/}}
+{{- define "repo-guardian.validateUI" -}}
+{{- if and .Values.ui.enabled (not (and .Values.api.enabled .Values.api.auth.enabled)) -}}
+{{- fail "ui.enabled requires api.enabled and api.auth.enabled: the UI proxies an authenticated API" -}}
+{{- end -}}
+{{- if and .Values.ui.ingress.enabled (not .Values.api.auth.enabled) -}}
+{{- fail "ui.ingress.enabled requires api.auth.enabled: the chart never publishes an unauthenticated API (INV-0009)" -}}
+{{- end -}}
+{{- if and .Values.ui.ingress.enabled (not .Values.ui.enabled) -}}
+{{- fail "ui.ingress.enabled requires ui.enabled" -}}
+{{- end -}}
+{{- if and .Values.ui.enabled (not .Values.ui.existingSecret) -}}
+{{- fail "ui.existingSecret is required with ui.enabled: a Secret with oidc-client-secret and session-keys" -}}
+{{- end -}}
+{{- if and .Values.ui.enabled (not .Values.ui.publicUrl) (not .Values.ui.ingress.host) -}}
+{{- fail "ui.publicUrl or ui.ingress.host is required with ui.enabled: the OIDC redirect URI is built from it" -}}
+{{- end -}}
+{{- if and .Values.ui.ingress.enabled (not .Values.ui.ingress.host) -}}
+{{- fail "ui.ingress.host is required with ui.ingress.enabled" -}}
+{{- end -}}
+{{- end }}

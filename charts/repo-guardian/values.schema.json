@@ -235,6 +235,105 @@
           "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
         }
       }
+    },
+    "ui": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "replicas": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": {
+              "type": "string",
+              "minLength": 1
+            },
+            "tag": {
+              "type": "string"
+            }
+          }
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "oidc": {
+          "type": "object",
+          "properties": {
+            "clientId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "scopes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "contains": {
+                "const": "openid"
+              }
+            }
+          }
+        },
+        "existingSecret": {
+          "type": "string"
+        },
+        "sessionTTL": {
+          "type": "string",
+          "pattern": "^([0-9]+(h|m|s))+$"
+        },
+        "publicUrl": {
+          "type": "string",
+          "pattern": "^(|https://[^/]+|http://(localhost|127\\.0\\.0\\.1)(:[0-9]+)?)$"
+        },
+        "githubHost": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9.-]+(:[0-9]+)?$"
+        },
+        "resources": {
+          "type": "object"
+        },
+        "pdb": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "minAvailable": {
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        },
+        "ingress": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "className": {
+              "type": "string"
+            },
+            "annotations": {
+              "type": "object"
+            },
+            "host": {
+              "type": "string"
+            },
+            "tls": {
+              "type": "array"
+            }
+          }
+        }
+      }
     }
   }
 }

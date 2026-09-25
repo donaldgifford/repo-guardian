@@ -121,6 +121,24 @@ The split `api` role reads through `repoguardian_ro` (DESIGN-0027):
 
 In `all` the API reads with `STORE_DSN`.
 
+### The UI
+
+`ui.enabled` renders the business UI (DESIGN-0027): a Deployment,
+Service and PDB running `ghcr.io/donaldgifford/repo-guardian-ui` at
+the chart's `appVersion`. It proxies `/api` to the `api` Service and
+signs users in against `api.auth.issuer`.
+
+- **Requires** `api.enabled` and `api.auth.enabled`; the render fails
+  otherwise.
+- **Secret** `ui.existingSecret` with `oidc-client-secret` and
+  `session-keys` (comma-separated, each at least 32 bytes; the first
+  seals new sessions, any opens them, so rotate by prepending).
+- **Ingress.** `ui.ingress.enabled` renders the chart's only Ingress,
+  sending the whole `ui.ingress.host` to the UI. It fails render unless
+  `api.auth.enabled`. The webhook route stays yours
+  (`docs/operations/ingress.md`).
+- The UI holds no GitHub, Temporal or database credential.
+
 ### Migrations
 
 `migrate.enabled` (default `true`) runs `repo-guardian migrate` as a

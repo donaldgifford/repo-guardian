@@ -121,6 +121,24 @@ The split `api` role reads through `repoguardian_ro` (DESIGN-0027):
 
 In `all` the API reads with `STORE_DSN`.
 
+### The UI
+
+`ui.enabled` renders the business UI (DESIGN-0027): a Deployment,
+Service and PDB running `ghcr.io/donaldgifford/repo-guardian-ui` at
+the chart's `appVersion`. It proxies `/api` to the `api` Service and
+signs users in against `api.auth.issuer`.
+
+- **Requires** `api.enabled` and `api.auth.enabled`; the render fails
+  otherwise.
+- **Secret** `ui.existingSecret` with `oidc-client-secret` and
+  `session-keys` (comma-separated, each at least 32 bytes; the first
+  seals new sessions, any opens them, so rotate by prepending).
+- **Ingress.** `ui.ingress.enabled` renders the chart's only Ingress,
+  sending the whole `ui.ingress.host` to the UI. It fails render unless
+  `api.auth.enabled`. The webhook route stays yours
+  (`docs/operations/ingress.md`).
+- The UI holds no GitHub, Temporal or database credential.
+
 ### Migrations
 
 `migrate.enabled` (default `true`) runs `repo-guardian migrate` as a
@@ -637,6 +655,26 @@ incoming webhook.
 | temporal.tls.serverName | string | `""` | Server name to verify the frontend certificate against. |
 | tolerations | list | `[]` | Tolerations |
 | topology | string | `"split"` | Deployment shape (DESIGN-0026 § Chart 2.0.0). `split` renders one Deployment per role: `ingest` (webhooks), `worker` (Temporal worker) and, when `api.enabled`, `api`. `all` renders a single Deployment running every role, for small installs and the homelab. |
+| ui | object | `{"enabled":false,"existingSecret":"","githubHost":"github.com","image":{"repository":"ghcr.io/donaldgifford/repo-guardian-ui","tag":""},"ingress":{"annotations":{},"className":"","enabled":false,"host":"","tls":[]},"oidc":{"clientId":"repo-guardian-ui","scopes":["openid","profile","groups","offline_access"]},"pdb":{"enabled":true,"minAvailable":1},"port":3000,"publicUrl":"","replicas":2,"resources":{"limits":{"memory":"256Mi"},"requests":{"cpu":"50m","memory":"96Mi"}},"sessionTTL":"8h"}` | The business UI (DESIGN-0027): a Bun BFF serving the SPA, proxying /api to the api Service and holding the OIDC session. Requires api.enabled and api.auth.enabled. |
+| ui.enabled | bool | `false` | Render the ui Deployment, Service and PDB. |
+| ui.existingSecret | string | `""` | Secret with keys `oidc-client-secret` and `session-keys` (comma-separated, at least 32 bytes each; the first seals). Required. |
+| ui.githubHost | string | `"github.com"` | GitHub host PR and repository links point at. |
+| ui.image.repository | string | `"ghcr.io/donaldgifford/repo-guardian-ui"` | UI image repository. |
+| ui.image.tag | string | `""` | UI image tag; defaults to the chart's appVersion, because both images are released together from one tag. |
+| ui.ingress.annotations | object | `{}` | Annotations for the Ingress. |
+| ui.ingress.className | string | `""` | IngressClass name. |
+| ui.ingress.enabled | bool | `false` | Render an Ingress sending the whole host to the ui Service. The only Ingress the chart renders; fails render unless api.auth.enabled. |
+| ui.ingress.host | string | `""` | The UI's host name. |
+| ui.ingress.tls | list | `[]` | TLS blocks, as in networking.k8s.io/v1 IngressTLS. |
+| ui.oidc.clientId | string | `"repo-guardian-ui"` | OIDC client ID (a confidential client). The issuer is api.auth.issuer: the UI and the API trust the same IdP. |
+| ui.oidc.scopes | list | `["openid","profile","groups","offline_access"]` | Scopes requested at login. |
+| ui.pdb.enabled | bool | `true` | Render a PodDisruptionBudget. |
+| ui.pdb.minAvailable | int | `1` | Pods kept through voluntary disruptions. |
+| ui.port | int | `3000` | Container port the BFF listens on. |
+| ui.publicUrl | string | `""` | Browser-facing origin (https://host). Defaults to https://<ui.ingress.host>; set it when the ingress is yours. |
+| ui.replicas | int | `2` | Replica count. |
+| ui.resources | object | `{"limits":{"memory":"256Mi"},"requests":{"cpu":"50m","memory":"96Mi"}}` | Resources for the ui container. |
+| ui.sessionTTL | string | `"8h"` | Absolute session length; token refresh never extends it. |
 | worker | object | `{"concurrency":10,"keda":{"enabled":false,"maxReplicas":4,"minReplicas":1,"targetQueueSize":"50"},"replicas":1,"resources":{}}` | The worker role: runs workflows and activities (split only). |
 | worker.concurrency | int | `10` | Concurrent activities per pod (WORKER_ACTIVITY_CONCURRENCY). |
 | worker.keda | object | `{"enabled":false,"maxReplicas":4,"minReplicas":1,"targetQueueSize":"50"}` | KEDA autoscaling on Temporal backlog. Requires the KEDA CRDs. |

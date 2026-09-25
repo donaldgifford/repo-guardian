@@ -1,0 +1,191 @@
+suite: ui
+# DESIGN-0027 § Chart: the UI's Deployment, Service, PDB and Ingress.
+templates:
+  - templates/ui.yaml
+  - templates/ingress-ui.yaml
+release:
+  name: rg
+  namespace: rg
+chart:
+  appVersion: "9.9.9"
+set:
+  temporal:
+    address: temporal:7233
+  policy:
+    config: "guardian {}"
+  api:
+    enabled: true
+    auth:
+      issuer: https://idp.example.com/realms/rg
+  ui:
+    enabled: true
+    existingSecret: ui-secret
+    ingress:
+      host: guardian.example.com
+tests:
+  - it: renders nothing when disabled
+    set:
+      ui:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders a Deployment, Service and PDB, each stamped with the namespace
+    template: templates/ui.yaml
+    asserts:
+      - hasDocuments:
+          count: 3
+      - equal:
+          path: metadata.namespace
+          value: rg
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: ui
+
+  - it: defaults the image tag to appVersion, because both images ship together
+    template: templates/ui.yaml
+    documentSelector: {path: kind, value: Deployment}
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/donaldgifford/repo-guardian-ui:9.9.9
+
+  - it: points API_UPSTREAM at the api Service and derives PUBLIC_URL from the host
+    template: templates/ui.yaml
+    documentSelector: {path: kind, value: Deployment}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: API_UPSTREAM, value: "http://rg-repo-guardian-api:80"}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: PUBLIC_URL, value: "https://guardian.example.com"}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: OIDC_ISSUER, value: "https://idp.example.com/realms/rg"}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: OIDC_SCOPES, value: "openid profile groups offline_access"}
+
+  - it: points API_UPSTREAM at the same api Service in topology all
+    template: templates/ui.yaml
+    set:
+      topology: all
+    documentSelector: {path: kind, value: Deployment}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: API_UPSTREAM, value: "http://rg-repo-guardian-api:80"}
+
+  - it: an explicit publicUrl wins over the ingress host
+    template: templates/ui.yaml
+    set:
+      ui:
+        publicUrl: https://ui.internal.example.com
+    documentSelector: {path: kind, value: Deployment}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: PUBLIC_URL, value: "https://ui.internal.example.com"}
+
+  - it: holds only its own OIDC client secret and session keys
+    template: templates/ui.yaml
+    documentSelector: {path: kind, value: Deployment}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OIDC_CLIENT_SECRET
+            valueFrom: {secretKeyRef: {name: ui-secret, key: oidc-client-secret}}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: UI_SESSION_KEYS
+            valueFrom: {secretKeyRef: {name: ui-secret, key: session-keys}}
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: GITHUB_APP_ID}
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: GITHUB_PRIVATE_KEY}
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: GITHUB_PRIVATE_KEY_PATH}
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: GITHUB_WEBHOOK_SECRET}
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: STORE_DSN}
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: STORE_RO_DSN}
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: TEMPORAL_ADDRESS}
+          any: true
+      - notExists:
+          path: spec.template.spec.volumes
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+
+  - it: runs non-root on a read-only root filesystem
+    template: templates/ui.yaml
+    documentSelector: {path: kind, value: Deployment}
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+
+  - it: renders no Ingress unless asked
+    template: templates/ingress-ui.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: sends the whole host to the ui Service
+    template: templates/ingress-ui.yaml
+    set:
+      ui:
+        ingress:
+          enabled: true
+          className: nginx
+          tls:
+            - hosts: [guardian.example.com]
+              secretName: guardian-tls
+    asserts:
+      - isKind:
+          of: Ingress
+      - equal:
+          path: metadata.namespace
+          value: rg
+      - equal:
+          path: spec.ingressClassName
+          value: nginx
+      - equal:
+          path: spec.rules[0].host
+          value: guardian.example.com
+      - equal:
+          path: spec.rules[0].http.paths
+          value:
+            - path: /
+              pathType: Prefix
+              backend:
+                service:
+                  name: rg-repo-guardian-ui
+                  port:
+                    name: http
+      - equal:
+          path: spec.tls[0].secretName
+          value: guardian-tls

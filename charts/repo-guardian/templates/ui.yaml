@@ -1,0 +1,139 @@
+{{- if .Values.ui.enabled }}
+{{- $r := dict "ctx" . "role" "ui" }}
+{{- $ui := .Values.ui }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "repo-guardian.roleFullname" $r }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.roleLabels" $r | nindent 4 }}
+spec:
+  replicas: {{ $ui.replicas }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      {{- include "repo-guardian.roleSelectorLabels" $r | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "repo-guardian.roleLabels" $r | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # The BFF talks to the IdP and the api Service, never to the
+      # Kubernetes API.
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ui
+          image: "{{ $ui.image.repository }}:{{ $ui.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ $ui.port }}
+              name: http
+              protocol: TCP
+          env:
+            - name: PORT
+              value: {{ $ui.port | quote }}
+            - name: OIDC_ISSUER
+              value: {{ .Values.api.auth.issuer | quote }}
+            - name: OIDC_CLIENT_ID
+              value: {{ $ui.oidc.clientId | quote }}
+            - name: OIDC_SCOPES
+              value: {{ join " " $ui.oidc.scopes | quote }}
+            - name: OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $ui.existingSecret }}
+                  key: oidc-client-secret
+            - name: UI_SESSION_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $ui.existingSecret }}
+                  key: session-keys
+            - name: UI_SESSION_TTL
+              value: {{ $ui.sessionTTL | quote }}
+            - name: API_UPSTREAM
+              value: {{ include "repo-guardian.uiApiUpstream" . | quote }}
+            - name: PUBLIC_URL
+              value: {{ include "repo-guardian.uiPublicUrl" . | quote }}
+            - name: GITHUB_HOST
+              value: {{ $ui.githubHost | quote }}
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          {{- with $ui.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 10
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "repo-guardian.roleFullname" $r }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.roleLabels" $r | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "repo-guardian.roleSelectorLabels" $r | nindent 4 }}
+{{- if $ui.pdb.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "repo-guardian.roleFullname" $r }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.roleLabels" $r | nindent 4 }}
+spec:
+  minAvailable: {{ $ui.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "repo-guardian.roleSelectorLabels" $r | nindent 6 }}
+{{- end }}
+{{- end }}

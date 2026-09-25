@@ -1635,7 +1635,7 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
   - external links use `rel="noopener noreferrer"`.
 - [x] 21.5 The org filter is kept in the URL, and `/me` drives the
   "ask for access" page.
-- [ ] 21.6 Unit tests for view models, including percent flooring that
+- [x] 21.6 Unit tests for view models, including percent flooring that
   matches the API.
 
 #### Success Criteria

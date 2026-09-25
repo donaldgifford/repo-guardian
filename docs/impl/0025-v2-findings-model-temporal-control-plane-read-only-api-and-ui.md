@@ -1252,7 +1252,7 @@ failed on a probe and passed once it was removed.
   - fleet compliance is unscoped;
   - the `api_status_refresh_seconds` metric;
   - `STATUS_PUBLIC=false` requires authentication.
-- [ ] 15.9 Status tests:
+- [x] 15.9 Status tests:
   - threshold tables;
   - zero queries per request, checked with a counting pool;
   - a privacy guard that fails if the schema gains a free-text field.

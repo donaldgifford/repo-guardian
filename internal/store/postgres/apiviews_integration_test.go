@@ -173,3 +173,41 @@ func TestAPI_PolicyShowsVersionRolloutAndRules(t *testing.T) {
 		t.Errorf("policy after rollout = %+v", pol)
 	}
 }
+
+func TestStatus_RefreshReadsPostgres(t *testing.T) {
+	t.Parallel()
+
+	f := newV2Fixture(t)
+	seedTwoOrgs(t, f)
+
+	if err := f.store.RecordServiceRun(t.Context(), &store.ServiceRun{
+		Kind: store.ServiceRunDiscovery, Success: true, StartedAt: t0.Add(-2 * time.Minute), FinishedAt: t0.Add(-time.Minute),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	_, reader := apiClient(t, f)
+	page := api.NewStatusPage(&api.StatusConfig{
+		Reader: reader, CheckInterval: 24 * time.Hour, DiscoveryInterval: time.Hour, SnapshotInterval: 24 * time.Hour,
+		RateReserve: 0.1, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Now: func() time.Time { return t0.Add(5 * time.Minute) },
+	})
+
+	if err := page.Refresh(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
+	s := page.Current()
+	states := map[string]string{}
+
+	for _, c := range s.Components {
+		states[c.Name] = c.State
+	}
+
+	if states["checks"] != "operational" || states["discovery"] != "operational" || states["snapshots"] != "unknown" {
+		t.Errorf("components = %v", states)
+	}
+
+	if s.Compliance.Percent == nil || *s.Compliance.Percent != 66.6 {
+		t.Errorf("fleet compliance = %v, want 66.6", s.Compliance.Percent)
+	}
+}

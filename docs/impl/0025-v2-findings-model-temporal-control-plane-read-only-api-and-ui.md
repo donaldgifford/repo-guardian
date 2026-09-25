@@ -1681,10 +1681,10 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
     errors, compatibility);
   - `docs/usage/ui.md` (views, sessions, key rotation);
   - the spec attached to releases through goreleaser `extra_files`.
-- [ ] 22.6 Cut `v2.0.0-rc.2`. On the homelab, enable `ui` and
+- [ ] 22.6 **Deferred — human required:** pushing the v2.0.0-rc.2 tag, dispatching ghcr.yml, and the homelab login/scoping/status verification are outward-facing and need the homelab — Cut `v2.0.0-rc.2`. On the homelab, enable `ui` and
   `ui.ingress`, then verify login, per-group visibility and the
   anonymous status page.
-- [ ] 22.7 Mark DESIGN-0025/0026/0027 Implemented and this IMPL
+- [ ] 22.7 **Deferred — human required:** happens at GA, which has not been cut — Mark DESIGN-0025/0026/0027 Implemented and this IMPL
   Completed at GA, not at rc.2.
 
 #### Success Criteria

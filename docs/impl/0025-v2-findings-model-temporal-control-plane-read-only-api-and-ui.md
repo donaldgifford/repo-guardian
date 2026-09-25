@@ -631,7 +631,7 @@ it. Task IDs are `<phase>.<n>`.
     `unknown` with `gate_error` when the referee errored;
   - metric increments stay in place and primary-pass-only;
   - `reconcilerRuleApplies` records nothing, and a test asserts it.
-- [ ] 4.6 Enrich setting and branch-protection rules:
+- [x] 4.6 Enrich setting and branch-protection rules:
   - scope and ignore skips record `not_applicable`;
   - `setting_mismatch`, `ruleset_missing` and `ruleset_mismatch`
     record their evidence;

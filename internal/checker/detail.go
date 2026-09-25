@@ -19,6 +19,12 @@ func compliantDetail() outcomeDetail {
 	return outcomeDetail{status: findings.StatusCompliant}
 }
 
+// appliedDetail is a setting or ruleset fixed in place during this
+// check: the repository complies by the time the check ends.
+func appliedDetail() outcomeDetail {
+	return outcomeDetail{status: findings.StatusCompliant, remediation: findings.RemediationApplied}
+}
+
 // withEvidence builds a detail whose reason is the evidence's own.
 func withEvidence(status findings.Status, ev findings.Evidence) outcomeDetail {
 	return outcomeDetail{status: status, reason: ev.Reason(), evidence: ev}
@@ -60,4 +66,9 @@ func gateClosedDetail(g *gateEvaluator, referee string) outcomeDetail {
 	}
 
 	return notApplicable(findings.GateClosedEvidence{Referee: referee})
+}
+
+// recordRule records a rule's outcome from its detail.
+func recordRule(result *CheckResult, name string, kind RuleKind, detail outcomeDetail) {
+	result.record(detail.outcome(name, kind))
 }

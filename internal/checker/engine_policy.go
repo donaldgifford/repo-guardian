@@ -417,7 +417,7 @@ func (e *Engine) evaluateRule(
 
 // recordFile records a file rule's outcome from its detail.
 func recordFile(result *CheckResult, r *policy.FileRuleConfig, detail outcomeDetail) {
-	result.record(detail.outcome(r.Name, RuleKindFile))
+	recordRule(result, r.Name, RuleKindFile, detail)
 }
 
 // evaluateAbsent reports whether an absent-mode rule is actionable: true

@@ -86,16 +86,6 @@ func (r *CheckResult) record(o RuleOutcome) { //nolint:gocritic // outcomes are 
 	r.Outcomes = append(r.Outcomes, o)
 }
 
-// statusOf maps v1's actionable boolean to a status, for rules whose
-// reason is not yet known at the call site.
-func statusOf(actionable bool) findings.Status {
-	if actionable {
-		return findings.StatusNonCompliant
-	}
-
-	return findings.StatusCompliant
-}
-
 // setCatalogParseOK records catalog parseability, copying nil through
 // unchanged so "no catalog rule ran" stays distinct from a verdict.
 // Nil-safe on the same terms as add — every mutation of a CheckResult

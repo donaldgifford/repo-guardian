@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/donaldgifford/repo-guardian/internal/findings"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
@@ -26,7 +27,6 @@ func (e *Engine) evaluateSettingRules(
 		return nil
 	}
 
-	ownerRepo := owner + "/" + repo
 	strict := strictMode(e.policy)
 
 	for i := range e.policy.SettingRules {
@@ -41,75 +41,89 @@ func (e *Engine) evaluateSettingRules(
 		if !ruleScopeAllows(r.Scope, owner, strict) {
 			ruleLog.Info("setting rule out of scope for org, skipping")
 			metrics.OutOfScopeTotal.WithLabelValues("rule", owner).Inc()
+			recordRule(result, r.Name, RuleKindSetting, notApplicable(findings.OutOfScopeRuleEvidence{}))
 
 			continue
 		}
 
-		if r.Ignore != nil && r.Ignore.Matches(ownerRepo) {
+		if pattern, ignored := r.Ignore.MatchPattern(owner, repo); ignored {
 			ruleLog.Info("repository matched per-rule ignore list, skipping setting rule")
 			metrics.IgnoredTotal.WithLabelValues("rule", owner).Inc()
+			recordRule(result, r.Name, RuleKindSetting, notApplicable(findings.IgnoredRuleEvidence{Pattern: pattern}))
 
 			continue
 		}
 
-		actionable, err := e.evaluateSettingRule(ctx, ruleLog, client, owner, repo, r)
+		detail, err := e.evaluateSettingRule(ctx, ruleLog, client, owner, repo, r)
 		if err != nil {
 			return fmt.Errorf("evaluating setting rule %q: %w", r.Name, err)
 		}
 
-		result.record(RuleOutcome{RuleName: r.Name, Kind: RuleKindSetting, Status: statusOf(actionable)})
+		recordRule(result, r.Name, RuleKindSetting, detail)
 	}
 
 	return nil
 }
 
 // evaluateSettingRule checks a single setting rule against the
-// repository and reports whether the repo is left non-compliant.
+// repository and returns the rule's outcome detail.
 //
-// A mismatch that this pass successfully remediated returns false: by
-// the time the check ends the repo complies, and reporting it as
-// actionable would stamp actionable_since on one tick only to clear it
-// on the next, turning self-healing into a phantom flap. A mismatch
-// left in place — remediation disabled, or dry-run — returns true.
+// A mismatch that this pass successfully remediated is compliant with
+// remediation applied: by the time the check ends the repo complies,
+// and reporting it as non-compliant would stamp a status change on one
+// tick only to clear it on the next, turning self-healing into a
+// phantom flap. A mismatch left in place — remediation disabled, or
+// dry-run — is non_compliant with setting_mismatch evidence.
 func (e *Engine) evaluateSettingRule(
 	ctx context.Context,
 	log *slog.Logger,
 	client ghclient.Client,
 	owner, repo string,
 	rule *policy.SettingRuleConfig,
-) (bool, error) {
+) (outcomeDetail, error) {
 	metrics.SettingsCheckedTotal.WithLabelValues(rule.Name, owner).Inc()
 
 	currentValue, err := e.getSettingValue(ctx, client, owner, repo, rule.Property)
 	if err != nil {
-		return false, fmt.Errorf("getting current value for %s: %w", rule.Property, err)
+		return outcomeDetail{}, fmt.Errorf("getting current value for %s: %w", rule.Property, err)
 	}
 
 	if settingMatches(currentValue, rule.Expected) {
 		log.Debug("setting matches expected value", "current", currentValue)
-		return false, nil
+		return compliantDetail(), nil
 	}
 
 	metrics.SettingsMismatchedTotal.WithLabelValues(rule.Name, owner).Inc()
 	log.Info("setting mismatch", "current", currentValue, "expected", rule.Expected)
 
+	mismatch := nonCompliant(findings.SettingMismatchEvidence{
+		Property: rule.Property,
+		Expected: fmt.Sprintf("%v", rule.Expected),
+		Actual:   fmt.Sprintf("%v", currentValue),
+	})
+
 	if !rule.Remediate {
-		return true, nil
+		mismatch.remediation = findings.RemediationDisabled
+
+		return mismatch, nil
 	}
 
 	if e.dryRun {
 		log.Info("dry run: would remediate setting", "current", currentValue, "expected", rule.Expected)
-		return true, nil
+
+		mismatch.remediation = findings.RemediationDryRun
+
+		return mismatch, nil
 	}
 
 	if err := e.remediateSetting(ctx, log, client, owner, repo, rule); err != nil {
-		return false, fmt.Errorf("remediating %s: %w", rule.Property, err)
+		return outcomeDetail{}, fmt.Errorf("remediating %s: %w", rule.Property, err)
 	}
 
 	metrics.SettingsRemediatedTotal.WithLabelValues(rule.Name, owner).Inc()
 	log.Info("remediated setting", "property", rule.Property)
 
-	return false, nil
+	return appliedDetail(), nil
 }
 
 // getSettingValue reads the current value of a repository setting.

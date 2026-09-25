@@ -123,11 +123,14 @@ func (t *rateLimitTransport) RoundTrip(req *http.Request) (*http.Response, error
 		return nil, thr
 	}
 
+	usage := usageFrom(req.Context())
+
 	resp, err := t.next.RoundTrip(req)
 	if err != nil {
 		return nil, err
 	}
 
+	usage.record(resp)
 	t.updateFromResponse(resp)
 
 	if !t.isRateLimited(resp) {
@@ -180,6 +183,7 @@ func (t *rateLimitTransport) RoundTrip(req *http.Request) (*http.Response, error
 		return nil, retryErr
 	}
 
+	usage.record(retryResp)
 	t.updateFromResponse(retryResp)
 
 	return retryResp, nil
@@ -221,33 +225,17 @@ func (t *rateLimitTransport) updateFromResponse(resp *http.Response) {
 		return
 	}
 
-	remaining := resp.Header.Get("X-RateLimit-Remaining")
-	limit := resp.Header.Get("X-RateLimit-Limit")
-	reset := resp.Header.Get("X-RateLimit-Reset")
-
-	if remaining == "" || limit == "" || reset == "" {
+	obs, ok := parseRateHeaders(resp)
+	if !ok {
 		return
 	}
 
-	r, err := strconv.Atoi(remaining)
-	if err != nil {
-		return
-	}
-
-	l, err := strconv.Atoi(limit)
-	if err != nil {
-		return
-	}
-
-	resetUnix, err := strconv.ParseInt(reset, 10, 64)
-	if err != nil {
-		return
-	}
+	r, l, resetAt := obs.Remaining, obs.Limit, obs.ResetAt
 
 	t.mu.Lock()
 	t.remaining = r
 	t.limit = l
-	t.resetAt = time.Unix(resetUnix, 0)
+	t.resetAt = resetAt
 	t.mu.Unlock()
 
 	metrics.GitHubRateRemaining.Set(float64(r))
@@ -255,7 +243,7 @@ func (t *rateLimitTransport) updateFromResponse(resp *http.Response) {
 	t.logger.Debug("github api rate limit",
 		"remaining", r,
 		"limit", l,
-		"reset", time.Unix(resetUnix, 0),
+		"reset", resetAt,
 	)
 }
 

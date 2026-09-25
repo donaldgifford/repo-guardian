@@ -892,7 +892,7 @@ This phase can start right after Phase 1.
   - activity names as constants in `internal/workflows/names.go`;
   - a depguard rule that stops `internal/workflows` importing the
     engine, store or GitHub packages.
-- [ ] 10.2 Add the `CheckRepo` activity. It classifies results in v1's
+- [x] 10.2 Add the `CheckRepo` activity. It classifies results in v1's
   order (`worker.processJob` 173-245):
   1. `AsThrottled` → `Deferred{Until}`, returned as a value, not an
      error;

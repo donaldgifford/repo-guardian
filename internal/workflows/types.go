@@ -49,6 +49,10 @@ type CheckRepoInput struct {
 	RepositoryID int64
 	CheckKey     string
 	Trigger      string
+
+	// Deferrals counts consecutive Deferred results before this one. It
+	// keys the backoff when a throttle carries no usable reset time.
+	Deferrals int
 }
 
 // Rate is an installation's X-RateLimit-* values as the check last saw

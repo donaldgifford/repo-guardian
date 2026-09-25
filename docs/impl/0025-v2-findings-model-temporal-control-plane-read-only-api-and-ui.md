@@ -1483,7 +1483,7 @@ Land this phase as one PR, so the branch is never half-migrated.
 
 #### Tasks
 
-- [ ] 19.1 Cut the homelab over from its live v1 instance, following
+- [ ] 19.1 **Deferred — human required:** a live homelab cutover (scale v1 down, upgrade the cluster, repoint ingress, redeliver webhooks) runs against production infrastructure — Cut the homelab over from its live v1 instance, following
   the runbook step by step:
   1. `pg_dump`;
   2. `migrate --dry-run`;
@@ -1494,17 +1494,17 @@ Land this phase as one PR, so the branch is never half-migrated.
 
   Watch one rollout window, and record the timings, budget use and any
   runbook edits.
-- [ ] 19.2 Enable `api` against the homelab's existing Keycloak (OQ28):
+- [ ] 19.2 **Deferred — human required:** needs the homelab Keycloak: client registration, audience and groups mapper — Enable `api` against the homelab's existing Keycloak (OQ28):
   register the UI client and the `repo-guardian-api` audience, add a
   groups mapper, and create two groups
   mapped to different orgs. Verify that each group sees different orgs,
   that a machine client can read `/findings`, and that `/status` works
   anonymously.
-- [ ] 19.3 Rollback drill:
+- [ ] 19.3 **Deferred — human required:** a rollback drill against the live homelab deployment — Rollback drill:
   - scale v2 to 0, then redeploy the last v1 chart;
   - v1 must start, sweep, and adopt a PR that v2 updated;
   - then roll forward again.
-- [ ] 19.4 Update the docz statuses and CLAUDE.md on `v2` with what
+- [ ] 19.4 **Deferred — human required:** records what the homelab cutover (19.1-19.3) taught, which has not happened — Update the docz statuses and CLAUDE.md on `v2` with what
   the cutover taught us.
 
 #### Success Criteria

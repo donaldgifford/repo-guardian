@@ -102,6 +102,7 @@ func count(t *testing.T, db *sql.DB, query string, args ...any) int {
 
 // migratedV1 is a seeded v1 database after a dry run and the real run.
 type migratedV1 struct {
+	dsn    string
 	db     *sql.DB
 	up     func(context.Context) (int, error)
 	dry    *postgres.BackfillReport
@@ -129,7 +130,7 @@ func newMigratedV1(t *testing.T) *migratedV1 {
 		}
 	}
 
-	m := &migratedV1{db: db, dry: dry, before: time.Now()}
+	m := &migratedV1{dsn: dsn, db: db, dry: dry, before: time.Now()}
 
 	upCtx := func(context.Context) (int, error) { return up(ctx) }
 	m.up = upCtx

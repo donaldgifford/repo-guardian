@@ -824,7 +824,7 @@ it. Task IDs are `<phase>.<n>`.
 - [x] 8.5 Regenerate the 11 goldens and review the diff by hand.
 - [x] 8.6 `cmd/repo-guardian/report.go` uses the `V2Store` Reader and
   `RequireSchema`.
-- [ ] 8.7 Compliance parity test: for the same seed, `report.Build` and
+- [x] 8.7 Compliance parity test: for the same seed, `report.Build` and
   `InsertComplianceSnapshot` must agree. Phase 15 extends the test to
   the API.
 

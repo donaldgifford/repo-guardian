@@ -1623,14 +1623,17 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
   from structured fields.
 - [x] 21.3 Then Rules, Orgs, Findings (URL filters, client-side CSV),
   History, Policy and the public Status view.
-- [ ] 21.4 Evidence rules:
+- [x] 21.4 Evidence rules:
   - text only, with an ESLint rule banning `dangerouslySetInnerHTML`;
   - no markdown;
-  - an unknown `evidence_version` shows only the reason code;
+  - an unknown `evidence_version` shows only the reason code (the API
+    does not expose `evidence_version`, so the SPA applies this per
+    reason: an unknown reason, or evidence whose fields do not match
+    that reason's renderer, shows only the code);
   - `migrated_from_v1` reads "last checked by v1; details on next
     check";
   - external links use `rel="noopener noreferrer"`.
-- [ ] 21.5 The org filter is kept in the URL, and `/me` drives the
+- [x] 21.5 The org filter is kept in the URL, and `/me` drives the
   "ask for access" page.
 - [ ] 21.6 Unit tests for view models, including percent flooring that
   matches the API.

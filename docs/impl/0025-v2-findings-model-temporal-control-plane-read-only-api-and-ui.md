@@ -922,7 +922,7 @@ This phase can start right after Phase 1.
   - `CheckRepo`: 15m timeout, retries backing off 30s→30m, 10 attempts;
   - store activities: 30s timeout, unlimited retries backing off
     1s→1m.
-- [ ] 10.7 Worker bootstrap:
+- [x] 10.7 Worker bootstrap:
   - `WORKER_ACTIVITY_CONCURRENCY` (default 10);
   - deployment versioning, with the build ID set to the binary version
     and `AutoUpgrade`.

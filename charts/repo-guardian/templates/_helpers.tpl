@@ -96,14 +96,6 @@ secret is the operator's signal to use external mode).
 {{- end -}}
 
 {{/*
-Resource name for the chart-rendered Valkey deployment + Service +
-PVC + Secret.
-*/}}
-{{- define "repo-guardian.valkeyFullname" -}}
-{{- printf "%s-valkey" (include "repo-guardian.fullname" .) | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-
-{{/*
 Secret name holding STORE_DSN. Three modes:
   - `external`: operator's existingSecret (required).
   - `baked`:    chart-rendered Secret (postgresFullname).
@@ -135,28 +127,6 @@ STORE_DSN
 {{- end -}}
 
 {{/*
-Secret name holding QUEUE_VALKEY_DSN.
-*/}}
-{{- define "repo-guardian.queueSecretName" -}}
-{{- if eq .Values.queue.valkey.mode "external" -}}
-{{- required "queue.valkey.existingSecret is required when queue.valkey.mode=external" .Values.queue.valkey.existingSecret -}}
-{{- else -}}
-{{- include "repo-guardian.valkeyFullname" . -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Secret key holding QUEUE_VALKEY_DSN.
-*/}}
-{{- define "repo-guardian.queueSecretKey" -}}
-{{- if eq .Values.queue.valkey.mode "external" -}}
-{{- .Values.queue.valkey.existingSecretKey | default "QUEUE_VALKEY_DSN" -}}
-{{- else -}}
-QUEUE_VALKEY_DSN
-{{- end -}}
-{{- end -}}
-
-{{/*
 Validates that none of the keys in .Values.templating.vars collide with
 chart-managed env vars. Calls `fail` with a clear list of offenders so
 the helm-render step exits with a useful error instead of silently
@@ -179,14 +149,14 @@ Renders empty on success; failure aborts the entire template render.
 
 {{/*
 Render-time guard for mode-scoped secret knobs (INV-0010). Each
-existingSecret value is consumed by exactly one store/queue mode; setting
+existingSecret value is consumed by exactly one store mode; setting
 one under any other mode used to be silently ignored, leaving the
 deployment on a different credential source than the operator intended
 (the chart-generated Secret), which surfaces later as auth failures.
 Fail the render with an actionable message instead.
 
 Extend this guard when adding a new mode or secret knob — the dispatch in
-repo-guardian.storeSecretName / valkeySecretName must never silently drop
+repo-guardian.storeSecretName must never silently drop
 an operator-supplied secret.
 
 Renders empty on success; failure aborts the entire template render.
@@ -197,12 +167,6 @@ Renders empty on success; failure aborts the entire template render.
 {{- end -}}
 {{- if and .Values.store.postgres.baked.existingSecret (ne .Values.store.postgres.mode "baked") -}}
 {{- fail (printf "store.postgres.baked.existingSecret is set but store.postgres.mode=%s never reads it — use store.postgres.existingSecret for external mode, or set store.postgres.mode=baked" .Values.store.postgres.mode) -}}
-{{- end -}}
-{{- if and .Values.queue.valkey.existingSecret (ne .Values.queue.valkey.mode "external") -}}
-{{- fail (printf "queue.valkey.existingSecret is set but queue.valkey.mode=%s never reads it — use queue.valkey.baked.existingSecret for baked mode, or set queue.valkey.mode=external" .Values.queue.valkey.mode) -}}
-{{- end -}}
-{{- if and .Values.queue.valkey.baked.existingSecret (ne .Values.queue.valkey.mode "baked") -}}
-{{- fail (printf "queue.valkey.baked.existingSecret is set but queue.valkey.mode=%s never reads it — use queue.valkey.existingSecret for external mode, or set queue.valkey.mode=baked" .Values.queue.valkey.mode) -}}
 {{- end -}}
 {{- end }}
 
@@ -216,7 +180,7 @@ validateBackendSecrets — extend when a knob is removed, and delete
 the entry once operators have had a release or two to notice.
 */}}
 {{- define "repo-guardian.validateRemovedValues" -}}
-{{- if hasKey .Values.staleSweep "rateLimitReserve" -}}
+{{- if hasKey (.Values.staleSweep | default dict) "rateLimitReserve" -}}
 {{- fail "staleSweep.rateLimitReserve was removed in IMPL-0022: the sweep no longer gates on the rate-limit reserve — throttled work defers itself with a due-time instead. Delete the value. See docs/operations/migrations.md#removing-the-rate-limit-reserve-knobs-impl-0022" -}}
 {{- end -}}
 {{- if hasKey .Values.discovery "reserveFraction" -}}

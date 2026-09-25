@@ -1,13 +1,14 @@
 {{- if .Values.migrate.enabled }}
 # `repo-guardian migrate` as a Helm hook (IMPL-0025 Phase 7): applies the
 # v2 goose migrations, and on an adopted v1 database the one-time
-# backfill, before the new pods start. before-hook-creation replaces a
-# failed Job on the next attempt; hook-succeeded removes a finished one.
+# backfill. before-hook-creation replaces a failed Job on the next
+# attempt; hook-succeeded removes a finished one.
 #
-# WARN: pre-install hooks run before the release's own resources exist,
-# so on a first install with baked Postgres (or a chart-rendered store
-# Secret) the Job has nothing to connect to yet. Phase 17 settles the
-# install ordering when it enables this by default.
+# NOTE: post-install, not pre-install: a pre-install hook runs before the
+# release's own resources exist, so with baked Postgres (or a
+# chart-rendered store Secret) it would have nothing to connect to. On a
+# first install the worker retries until the schema lands; there is no
+# v1 data to backfill. Upgrades migrate before the new pods roll.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -17,7 +18,7 @@ metadata:
     {{- include "repo-guardian.labels" . | nindent 4 }}
     app.kubernetes.io/component: migrate
   annotations:
-    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook: post-install,pre-upgrade
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
     helm.sh/hook-weight: "0"
 spec:
@@ -49,7 +50,7 @@ spec:
           env:
             {{- include "repo-guardian.storeDSNEnv" . | nindent 12 }}
             - name: RECONCILE_FRESHNESS
-              value: {{ .Values.staleSweep.freshness | quote }}
+              value: {{ .Values.migrate.freshness | quote }}
           {{- with .Values.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}

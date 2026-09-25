@@ -89,18 +89,6 @@ config:
   logLevel: "info"
   # -- Dry run mode
   dryRun: false
-  # -- Worker count for check queue
-  workerCount: 5
-  # -- Queue size for check queue
-  queueSize: 100
-  # -- Deliveries a single job may accumulate (rate-limit deferrals
-  # plus reaper requeues) before it is dropped with a terminal error
-  # written to repo_state. The next stale sweep re-enqueues the repo,
-  # so this bounds retry cost without permanently abandoning work.
-  # Must be >= 1.
-  maxJobAttempts: 10
-  # -- Reconciliation schedule interval (Go duration)
-  scheduleInterval: "168h"
   # -- Skip forked repositories
   skipForks: true
   # -- Skip archived repositories
@@ -305,12 +293,17 @@ prometheusRule:
   alerts: {}
 
 migrate:
-  # -- Run `repo-guardian migrate` as a pre-install/pre-upgrade hook Job
-  # (v2 schema migrations and the one-time v1 backfill). Off until the v2
-  # runtime ships (IMPL-0025 Phase 17).
-  enabled: false
-  # -- Job retries before the release fails.
-  backoffLimit: 1
+  # -- Run `repo-guardian migrate` as a hook Job (v2 schema migrations
+  # and the one-time v1 backfill): post-install, so a baked Postgres
+  # exists to connect to, and pre-upgrade, so the schema lands before
+  # new pods roll.
+  enabled: true
+  # -- The v1 backfill's freshness: a v1 repo checked within this window
+  # keeps its due-time; older ones are due immediately after cutover.
+  freshness: "24h"
+  # -- Job retries before the release fails. On a first install the
+  # Job may start before Postgres accepts connections; retries cover it.
+  backoffLimit: 6
   # -- Upper bound on the Job's run time, in seconds. The v1 backfill is
   # one transaction; raise this for very large fleets.
   activeDeadlineSeconds: 600
@@ -427,108 +420,22 @@ store:
             bgp.cilium.io/advertise-service: default
             bgp.cilium.io/ip-pool: default
 
-# -- Work queue for reconcile jobs. The in-memory backend was
-# removed in IMPL-0016 (chart 1.0); valkey is the only supported
-# value.
-queue:
-  # -- Backend implementation. Only "valkey" is supported.
-  backend: valkey
-  # -- (deprecated) Buffered channel size; ignored since the
-  # in-memory backend was removed in IMPL-0016. Retained for
-  # values-schema backwards compatibility; will be deleted in a
-  # future chart-major release.
-  size: 1000
-  # -- Valkey-specific configuration. Ignored when backend != valkey.
-  valkey:
-    # -- Source of the Valkey deployment. One of:
-    # "baked"    — chart renders a single-pod Valkey Deployment;
-    # "external" — operator provides DSN via existingSecret.
-    mode: baked
-    # -- Operator-supplied secret holding QUEUE_VALKEY_DSN.
-    existingSecret: ""
-    # -- Key inside existingSecret holding the DSN.
-    existingSecretKey: QUEUE_VALKEY_DSN
-    # -- How long an in-flight job may sit before the reaper
-    # requeues it.
-    jobAckTimeout: "5m"
-    # -- Cadence between reaper iterations.
-    reaperInterval: "60s"
-    # -- Baked Valkey-only configuration.
-    baked:
-      # -- Pinned image. Bump intentionally.
-      image: valkey/valkey:9.1
-      # -- Operator-supplied Secret holding the Valkey password. Same
-      # GitOps rationale as store.postgres.baked.existingSecret. When set,
-      # the chart skips its generated password Secret; the baked Valkey
-      # reads the password from this Secret and the app assembles
-      # QUEUE_VALKEY_DSN at runtime via $(VALKEY_PASSWORD). URL-safe
-      # (alphanumeric) password required.
-      existingSecret: ""
-      # -- Key inside existingSecret holding the password.
-      existingSecretKey: VALKEY_PASSWORD
-      # -- Persistent volume size.
-      storageSize: 1Gi
-      # -- StorageClass name. Empty → cluster default.
-      storageClassName: ""
-      # -- Generated AUTH password length (random alphanumeric).
-      authPasswordLength: 32
-      # -- Pod securityContext. Runs Valkey as the image's built-in
-      # non-root user (uid/gid 999) so the entrypoint skips its
-      # root-only chown of /data (which fails on clusters/storage
-      # that forbid chown); fsGroup makes kubelet set volume group
-      # ownership instead. Set to `{}` to restore the image default
-      # (root entrypoint + chown).
-      podSecurityContext:
-        runAsNonRoot: true
-        runAsUser: 999
-        runAsGroup: 999
-        fsGroup: 999
-        fsGroupChangePolicy: OnRootMismatch
-
-# -- Scheduler (sweep cadence) backend. The single-replica ticker
-# scheduler was removed in IMPL-0016 (chart 1.0); valkey is the only
-# supported value. Scheduler shares the queue's Valkey instance.
-scheduler:
-  # -- Backend implementation. Only "valkey" is supported.
-  backend: valkey
-
-# -- Stale-sweep tuning (IMPL-0011 Phase 5d).
-staleSweep:
-  # -- Maximum age of a stored last_checked_at before the sweep
-  # requeues. Default 24h. Effective only with store.backend=postgres.
-  freshness: "24h"
-  # -- Cap on rows returned per StaleRepos query.
-  batchSize: 200
-
-# -- Repository discovery (IMPL-0015 Phase 1). The Discoverer runs on
-# the leader pod, enumerates installations + repos via the GitHub
-# API, and persists discovery rows via Store.UpsertIfMissing so the
-# stale-sweeper picks them up on the next tick. Webhook-driven
-# discovery (`installation_repositories.added` + `repository.created`)
-# is the primary on-ramp; the periodic Discoverer is the safety net
-# for missed deliveries.
+# -- Repository discovery. The discovery schedule enumerates every
+# installation's repositories and starts a RepoWorkflow for each new one.
+# Webhooks (`installation_repositories.added`, `repository.created`) are
+# the primary on-ramp; this is the safety net for missed deliveries.
 discovery:
-  # -- Toggle the Discoverer schedule. When false the binary still
-  # responds to discovery via webhooks; only the periodic enumeration
-  # path is disabled.
+  # -- Toggle the discovery schedule. When false, webhooks still
+  # discover repositories; only the periodic enumeration stops.
   enabled: true
-  # -- Cadence between Discoverer.Discover invocations. Lower values
-  # burn more API budget on list_installations +
-  # list_installation_repos; higher values delay discovery of repos
-  # the webhook path missed.
+  # -- Cadence between discovery runs. Lower values spend more API
+  # budget on list_installation_repos; higher values delay discovery
+  # of repositories the webhook path missed.
   interval: "1h"
 
-# -- Compliance posture export (IMPL-0023 / DESIGN-0022). The elected
-# leader projects the rule_state table onto the repos_actionable /
-# repos_tracked / repos_unmeasurable gauges on this cadence.
+# -- Compliance history (IMPL-0023 / DESIGN-0022). SnapshotWorkflow
+# writes one compliance_history row per org on this cadence.
 posture:
-  # -- Cadence between posture exporter ticks. Unlike the sweep and
-  # discovery intervals this costs no GitHub API budget — it is a few
-  # aggregates over an indexed table — so it is tuned against how stale
-  # the compliance gauges may be, not against rate limit. Values above
-  # 60s leave the exporter behind its own duration histogram, whose
-  # buckets stop there.
-  exportInterval: "60s"
   # -- Cadence between compliance-history snapshots, the rows
   # `repo-guardian report --since` reads. This is not the posture
   # gauges: Prometheus already keeps those for its retention window,

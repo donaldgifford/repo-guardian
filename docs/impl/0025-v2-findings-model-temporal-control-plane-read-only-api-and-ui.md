@@ -737,6 +737,10 @@ it. Task IDs are `<phase>.<n>`.
 - Adding an unclassified field fails the classification test. Prove it
   once, then revert.
 
+  Proved 2026-09-25: adding `GuardianConfig.ProbeField` failed
+  `TestVersionV2_EveryFieldClassified` with "policy field
+  GuardianConfig.ProbeField is unclassified"; reverted.
+
 ---
 
 ### Phase 7: v1 backfill, dry run, rollback test

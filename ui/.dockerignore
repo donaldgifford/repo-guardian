@@ -1,0 +1,7 @@
+node_modules
+dist
+Dockerfile
+.dockerignore
+**/*.test.ts
+server/testing
+server/testenv.ts

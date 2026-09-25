@@ -352,7 +352,7 @@ release-local: ## Test goreleaser without publishing
 ###############
 ##@ Docker
 
-.PHONY: docker-build docker-build-multiarch docker-bake-print docker-push
+.PHONY: docker-build docker-build-multiarch docker-bake-print docker-push docker-build-ui
 
 docker-build: ## Build local dev image (single-arch)
 	@ $(MAKE) --no-print-directory log-$@
@@ -369,6 +369,10 @@ docker-bake-print: ## Print resolved bake config (debug)
 docker-push: ## Build and push multi-arch image to registry
 	@ $(MAKE) --no-print-directory log-$@
 	@docker buildx bake release
+
+docker-build-ui: ## Build local UI dev image (single-arch)
+	@ $(MAKE) --no-print-directory log-$@
+	@docker buildx bake -f docker-bake.hcl ui-dev
 
 ###############
 ##@ Compose

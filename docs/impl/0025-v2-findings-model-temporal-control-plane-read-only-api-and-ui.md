@@ -1613,15 +1613,15 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
 
 #### Tasks
 
-- [ ] 21.1 Foundations:
+- [x] 21.1 Foundations:
   - React 19, strict TypeScript, Tailwind, shadcn/ui with Recharts;
   - TanStack Router and Query;
   - `openapi-fetch` against same-origin `/api`;
   - an error boundary that renders RFC 9457 problems.
-- [ ] 21.2 Build Fleet and Repository first, as DESIGN-0027 sketches
+- [x] 21.2 Build Fleet and Repository first, as DESIGN-0027 sketches
   them. Evidence gets a renderer per reason, and PR links are built
   from structured fields.
-- [ ] 21.3 Then Rules, Orgs, Findings (URL filters, client-side CSV),
+- [x] 21.3 Then Rules, Orgs, Findings (URL filters, client-side CSV),
   History, Policy and the public Status view.
 - [ ] 21.4 Evidence rules:
   - text only, with an ESLint rule banning `dangerouslySetInnerHTML`;

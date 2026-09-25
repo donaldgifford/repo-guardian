@@ -1,7 +1,18 @@
 // Package api is the read-only API role (DESIGN-0027): an oapi-codegen
 // strict server behind OIDC authentication and org-scoped
 // authorization. It holds no GitHub client and never writes; every read
-// is scoped in SQL by the caller's visible orgs.
+// is scoped in SQL by the caller's visible orgs, and an org or
+// repository outside them answers 404, exactly like an unknown one.
+//
+// Lists page by keyset: the cursor is base64url JSON of the last row's
+// sort key plus a hash of the request's filters, so a cursor replayed
+// under different filters is refused 400. Compliance totals summed
+// across the shared query's rows use store.CompliantPercent, the same
+// floor math the query runs per row.
+//
+// The status page (StatusPage) is computed every 30s by a refresher into
+// an in-process cache; a request never queries. Its schema carries only
+// enums and fixed detail templates, never names or error text.
 package api
 
 import (

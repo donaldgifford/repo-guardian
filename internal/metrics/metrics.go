@@ -191,6 +191,14 @@ var (
 		Help: "Webhooks answered 503 because the webhook workflow could not be started.",
 	})
 
+	// APIAuthFailuresTotal counts API requests refused authentication
+	// (IMPL-0025 14.7), by reason: missing, malformed, algorithm, issuer,
+	// audience, id_token, expired, not_yet_valid, signature, unavailable.
+	APIAuthFailuresTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_api_auth_failures_total",
+		Help: "API requests refused authentication, by reason.",
+	}, []string{labelReason})
+
 	// IgnoredTotal counts repos or rules skipped by ignore lists, by scope and org.
 	IgnoredTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_ignored_total",

@@ -99,6 +99,22 @@ linters:
               desc: workflows call activities by name, not by import
             - pkg: github.com/donaldgifford/repo-guardian/internal/reconciler
               desc: reconcilers run only inside activities
+        api:
+          files:
+            - "**/internal/api/*.go"
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal/github
+              desc: the api role holds no GitHub client (DESIGN-0027)
+            - pkg: github.com/donaldgifford/repo-guardian/internal/store/postgres
+              desc: the api reads through its Reader interface, never the store implementation
+            - pkg: github.com/jackc/pgx/v5
+              desc: the api reads through its Reader interface, never the database driver
+        api-contract:
+          files:
+            - "**/internal/api/*_test.go"
+          deny:
+            - pkg: net/http/httptest
+              desc: API tests go through apitest.New, which validates every response against the spec
 
     # Error handling
     errcheck:

@@ -1155,7 +1155,7 @@ Phase 13.
   - an Overlay is used only if a construct fails.
 - [x] 14.3 Add `make generate-api` and `make lint-api` (a drift check
   plus a spec lint, OQ27), and a CI job gated on the `api` paths.
-- [ ] 14.4 Build `internal/api/server.go` on `ServeMux` and the strict
+- [x] 14.4 Build `internal/api/server.go` on `ServeMux` and the strict
   handlers. Middleware, outermost first:
   1. otelhttp;
   2. request ID and access log;
@@ -1173,7 +1173,7 @@ Phase 13.
   - `API_LISTEN_ADDR`;
   - readiness from a pool ping and `RequireSchema`;
   - in `all`, the API runs on its own listener.
-- [ ] 14.7 Authentication (`authn.go`, coreos/go-oidc v3):
+- [x] 14.7 Authentication (`authn.go`, coreos/go-oidc v3):
   - discovery with retry, and readiness stays false until it succeeds;
   - `ClientID = OIDC_AUDIENCE`;
   - 60s clock skew;
@@ -1183,7 +1183,7 @@ Phase 13.
     `api_auth_failures_total{reason}`.
 
   `API_AUTH_ENABLED=false` logs a loud warning and grants all orgs.
-- [ ] 14.8 Authorization (`authz.go`):
+- [x] 14.8 Authorization (`authz.go`):
   - `API_AUTHZ_CONFIG` defines `groups`, `defaultOrgs` and `clients`
     (the `azp` mapping, OQ22);
   - the file is read at startup (OQ26).
@@ -1194,12 +1194,12 @@ Phase 13.
   - a principal with no visible orgs gets 403 everywhere except `/me`;
   - an org the caller cannot see answers 404, the same response as an
     unknown ID.
-- [ ] 14.10 Add the test issuer `internal/api/oidctest` (OQ21). It
+- [x] 14.10 Add the test issuer `internal/api/oidctest` (OQ21). It
   mints tokens for each case: valid, expired, wrong audience, wrong
   issuer, bad signature, ID-token shaped, and no groups.
-- [ ] 14.11 Add the contract harness: every handler test validates its
+- [x] 14.11 Add the contract harness: every handler test validates its
   response with kin-openapi, and the helper cannot be bypassed.
-- [ ] 14.12 Build the first handlers, `/me` and `/summary`, with
+- [x] 14.12 Build the first handlers, `/me` and `/summary`, with
   two-org authz tests.
 
 #### Success Criteria

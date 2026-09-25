@@ -100,9 +100,7 @@ paths:
         "200":
           description: The OpenAPI document.
           content:
-            application/yaml:
-              schema:
-                type: string
+            application/yaml: {}
         default:
           $ref: "#/components/responses/Error"
 components:
@@ -279,6 +277,7 @@ components:
             $ref: "#/components/schemas/ParkedCount"
         compliant_percent:
           type: [number, "null"]
+          format: double
           description: |
             compliant / (compliant + non_compliant) over active
             repositories, floored to one decimal. Null when nothing is
@@ -317,6 +316,7 @@ components:
       properties:
         percent:
           type: [number, "null"]
+          format: double
         measured:
           type: boolean
     Status:

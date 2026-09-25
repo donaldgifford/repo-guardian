@@ -86,9 +86,14 @@ test("HTML in evidence renders as text, and PR links are built, not copied", asy
 });
 
 test("migrated findings say they were last checked by v1", async ({ page }) => {
-  // globex is out of scope; the reason reads the same wherever it shows,
-  // so check the renderer on the findings list for the in-scope org.
+  await signIn(page, "/repos/5");
+  await expect(page.getByRole("heading", { name: "acme/docs" })).toBeVisible();
+  await expect(page.getByText("last checked by v1; details on next check")).toBeVisible();
+});
+
+test("file_missing evidence lists every path checked", async ({ page }) => {
   await signIn(page, "/findings?reason=file_missing");
+  await expect(page.getByText("checked CODEOWNERS", { exact: true })).toBeVisible();
   await expect(page.getByText("checked .github/CODEOWNERS")).toBeVisible();
 });
 

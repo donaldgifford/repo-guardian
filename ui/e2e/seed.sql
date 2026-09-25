@@ -12,8 +12,9 @@ INSERT INTO repositories (id, org, name, provider_repo_id, installation_id, acti
   (1, 'acme', 'web', 501, 1001, true, NULL, NULL, now() - interval '60 days', now() + interval '20 hours', now() - interval '2 hours', 'success', 'v2:e2e'),
   (2, 'acme', 'api', 502, 1001, true, NULL, NULL, now() - interval '60 days', now() + interval '20 hours', now() - interval '3 hours', 'success', 'v2:e2e'),
   (3, 'acme', 'legacy', 503, 1001, false, 'archived', now() - interval '10 days', now() - interval '60 days', NULL, now() - interval '10 days', 'skipped', 'v2:e2e'),
-  (4, 'globex', 'site', 601, 1002, true, NULL, NULL, now() - interval '60 days', now() + interval '20 hours', now() - interval '1 hour', 'success', 'v2:e2e');
-SELECT setval('repositories_id_seq', 4);
+  (4, 'globex', 'site', 601, 1002, true, NULL, NULL, now() - interval '60 days', now() + interval '20 hours', now() - interval '1 hour', 'success', 'v2:e2e'),
+  (5, 'acme', 'docs', 504, 1001, true, NULL, NULL, now() - interval '60 days', now() + interval '20 hours', now() - interval '5 days', 'success', 'v1:0123abcd');
+SELECT setval('repositories_id_seq', 5);
 
 INSERT INTO findings (repository_id, rule_kind, rule_name, status, reason, remediation, evidence, status_since, last_evaluated_at, policy_version) VALUES
   (1, 'file', 'codeowners', 'compliant', NULL, 'none', '{}', now() - interval '40 days', now() - interval '2 hours', 'v2:e2e'),
@@ -34,7 +35,10 @@ INSERT INTO findings (repository_id, rule_kind, rule_name, status, reason, remed
   (2, 'file', 'dependabot', 'compliant', NULL, 'none', '{}', now() - interval '50 days', now() - interval '3 hours', 'v2:e2e'),
   (4, 'file', 'codeowners', 'non_compliant', 'migrated_from_v1', 'none',
    jsonb_build_object('v1_actionable_since', now() - interval '30 days'), now() - interval '30 days', now() - interval '1 hour', 'v2:e2e'),
-  (4, 'file', 'renovate', 'compliant', NULL, 'none', '{}', now() - interval '30 days', now() - interval '1 hour', 'v2:e2e');
+  (4, 'file', 'renovate', 'compliant', NULL, 'none', '{}', now() - interval '30 days', now() - interval '1 hour', 'v2:e2e'),
+  -- Carried over from v1 and not yet re-checked.
+  (5, 'file', 'renovate', 'non_compliant', 'migrated_from_v1', 'none',
+   jsonb_build_object('v1_actionable_since', now() - interval '20 days'), now() - interval '20 days', now() - interval '5 days', 'v1:0123abcd');
 
 INSERT INTO checks (repository_id, check_key, trigger, outcome, error, policy_version, started_at, finished_at) VALUES
   (1, 'e2e/1/a', 'schedule', 'success', NULL, 'v2:e2e', now() - interval '2 hours 1 minute', now() - interval '2 hours'),

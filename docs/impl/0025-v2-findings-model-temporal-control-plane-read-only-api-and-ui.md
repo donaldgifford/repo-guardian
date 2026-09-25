@@ -1304,29 +1304,29 @@ Land this phase as one PR, so the branch is never half-migrated.
 
 #### Tasks
 
-- [ ] 16.1 Delete the v1 runtime:
+- [ ] 16.1 **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — Delete the v1 runtime:
   - `internal/queue/**`, `internal/scheduler/**` and
     `internal/worker/**`;
   - `checker/{sweep,posture}*` and `multireplica_integration_test.go`;
   - `observability/valkey*`;
   - the v1 store implementation and interface, and its mock. The v1
     `migrations/` directory and `pgtest/v1sql` stay as test fixtures.
-- [ ] 16.2 In `main.go`, remove `bringUp`, `newQueue`, `newScheduler`,
+- [ ] 16.2 **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — In `main.go`, remove `bringUp`, `newQueue`, `newScheduler`,
   `scheduleHandlers`, `podID` and `newStore`. Rewrite shutdown per role:
   - `worker.Stop` drains within `shutdownTimeout`;
   - then close the client and pool, and shut down the HTTP servers.
-- [ ] 16.3 Metrics:
+- [ ] 16.3 **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — Metrics:
   - reconcile the removal list against the 52 current registrations
     and record it here;
   - delete the business and queue/scheduler series,
     `github_rate_remaining` and `installation_info`;
   - add `checks_total{outcome}`;
   - `metrics_test.go` asserts the exact set of names.
-- [ ] 16.4 In `e4.go`, in the same commit as 16.1:
+- [ ] 16.4 **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — In `e4.go`, in the same commit as 16.1:
   - remove the five deleted log lines;
   - add "check deferred until budget reset" and "check failed after
     retries".
-- [ ] 16.5 Remove config:
+- [ ] 16.5 **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — Remove config:
   - add the 13 env vars to `removedEnvVars`, so they warn and are
     ignored, with a link to the runbook (OQ17);
   - remove the three HCL attributes in lockstep (schema, set and
@@ -1334,12 +1334,12 @@ Land this phase as one PR, so the branch is never half-migrated.
     test is proven non-vacuous;
   - fix the five `examples/` files and `examples_test.go` in the same
     commit.
-- [ ] 16.6 Drop go-redis, redisotel and rediscmd, and run
+- [ ] 16.6 **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — Drop go-redis, redisotel and rediscmd, and run
   `go mod tidy`. Remove the `v1` compose profile and Valkey. Remove v1
   `Version` (the TODO from 6.6).
-- [ ] 16.7 Remove the queue, scheduler and v1 `Store` entries from
+- [ ] 16.7 **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — Remove the queue, scheduler and v1 `Store` entries from
   `.mockery.yaml`, then run `make mocks`.
-- [ ] 16.8 Rewrite the runtime contracts in CLAUDE.md on `v2`:
+- [ ] 16.8 **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — Rewrite the runtime contracts in CLAUDE.md on `v2`:
   - payloads carry IDs only;
   - `Deferred` is a result, and nothing blocks inside an activity;
   - `repo/<id>` is the lock;
@@ -1364,14 +1364,14 @@ Land this phase as one PR, so the branch is never half-migrated.
 
 #### Tasks
 
-- [ ] 17.1 Monitoring generator:
+- [ ] 17.1 **Deferred — human required:** depends on the Phase 16 metrics removal (16.3), which is deferred — Monitoring generator:
   - delete E1 and E2;
   - rebuild E3 around otelhttp, otelpgx, the Temporal SDK series,
     `checks_total`, the budget and rate series, discovery, and an API
     row;
   - trim E4;
   - regenerate `contrib/generated/`.
-- [ ] 17.2 Alert catalogue: apply the audit's lists. Confirm the
+- [ ] 17.2 **Deferred — human required:** depends on the Phase 16 metrics removal (16.3), which is deferred, and needs the homelab's real Temporal /metrics output — Alert catalogue: apply the audit's lists. Confirm the
   Temporal metric names against the homelab's real `/metrics` output
   before committing. Update
   `TestCatalogue_RareEventAlertsCatchTheFirstIncrement`.
@@ -1410,7 +1410,7 @@ Land this phase as one PR, so the branch is never half-migrated.
   - **baked:** init SQL for new volumes, plus OQ24 for existing ones;
   - **CNPG:** `spec.managed.roles`, with the `-ro` Service;
   - **external:** the operator provides a Secret.
-- [ ] 17.9 Mirror the new alert catalogue in `prometheusrule.yaml`.
+- [ ] 17.9 **Deferred — human required:** depends on the Phase 16 metrics removal (16.3), which is deferred (mirrors the 17.2 catalogue) — Mirror the new alert catalogue in `prometheusrule.yaml`.
   `make lint-alerts-chart` stays green.
 - [ ] 17.10 Rewrite the chart test suites and add `topology_test.yaml`.
   `ci/ci-values.yaml` gets `temporal.address`.

@@ -537,7 +537,7 @@ it. Task IDs are `<phase>.<n>`.
   `repositories.sql`, `installations.sql`, `findings.sql`, `checks.sql`,
   `events.sql`, `policy.sql`, `service_runs.sql` and `snapshots.sql`.
   Then run `make generate-sql` and commit the output.
-- [ ] 3.7 Implement `RecordCheck` in `V2Store`
+- [x] 3.7 Implement `RecordCheck` in `V2Store`
   (`internal/store/postgres/v2store.go`), following the DESIGN-0025
   flowchart:
   - if the check is already final, return the stored transitions,

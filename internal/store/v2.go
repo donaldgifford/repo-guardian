@@ -14,7 +14,7 @@ import (
 type Writer interface {
 	// UpsertDiscovered records a repository seen by discovery or a
 	// webhook: it creates, reactivates or renames the row.
-	UpsertDiscovered(ctx context.Context, r DiscoveredRepo) (UpsertResult, error)
+	UpsertDiscovered(ctx context.Context, r *DiscoveredRepo) (UpsertResult, error)
 	UpsertInstallation(ctx context.Context, in Installation) error
 	MarkInstallationRemoved(ctx context.Context, installationID int64, at time.Time) error
 
@@ -22,15 +22,15 @@ type Writer interface {
 	// so the control plane can hand it from CheckRepo to RecordCheck
 	// through the database (DESIGN-0026 OQ17). Staging an already-final
 	// key is a no-op.
-	StageCheck(ctx context.Context, c CheckRecord) error
+	StageCheck(ctx context.Context, c *CheckRecord) error
 	// RecordCheck applies a check's outcomes to the findings in one
 	// transaction. It is idempotent on c.Key: a retry after commit
 	// returns the stored transitions with AlreadyFinal set. With nil
 	// c.Outcomes it finalizes the row StageCheck wrote.
-	RecordCheck(ctx context.Context, c CheckRecord) (*CheckApplied, error)
+	RecordCheck(ctx context.Context, c *CheckRecord) (*CheckApplied, error)
 	// RecordCheckError records a check that learned nothing. It never
 	// touches findings.
-	RecordCheckError(ctx context.Context, c CheckErrorRecord) error
+	RecordCheckError(ctx context.Context, c *CheckErrorRecord) error
 	// Park deactivates a repository. clearFindings deletes its findings
 	// with removal events: true when we know no rule applies (archived,
 	// fork), false when we learned nothing (access_denied).
@@ -38,7 +38,7 @@ type Writer interface {
 
 	RecordPolicyVersion(ctx context.Context, version string, summary PolicySummary) (firstSeen bool, err error)
 	CompletePolicyRollout(ctx context.Context, version string) error
-	RecordServiceRun(ctx context.Context, run ServiceRun) error
+	RecordServiceRun(ctx context.Context, run *ServiceRun) error
 	// InsertComplianceSnapshot writes one row per (org, kind, rule) at
 	// at. It is idempotent on that key and returns the rows written.
 	InsertComplianceSnapshot(ctx context.Context, at time.Time) (int, error)

@@ -2,6 +2,10 @@ module github.com/donaldgifford/repo-guardian
 
 go 1.26.6
 
+// The UI's npm dependencies can ship Go sources (flatted does); they are
+// not part of this module.
+ignore ./ui/node_modules
+
 require (
 	github.com/bradleyfalzon/ghinstallation/v2 v2.17.0
 	github.com/exaring/otelpgx v0.11.1

@@ -1650,14 +1650,14 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
 
 #### Tasks
 
-- [ ] 22.1 Chart:
+- [x] 22.1 Chart:
   - `ui` Deployment, Service and PDB;
   - `ingress-ui.yaml`, sending the whole host to `ui`;
   - `API_UPSTREAM` points at the `api` Service, or at `all`'s API
     port;
   - `ui.image.tag` defaults to `appVersion`, because both images ship
     together (OQ19).
-- [ ] 22.2 Chart guards:
+- [x] 22.2 Chart guards:
   - `ui.enabled` requires `api.enabled` and `api.auth.enabled`;
   - `ui.ingress.enabled` requires auth;
   - `ui.enabled` requires `ui.existingSecret`.

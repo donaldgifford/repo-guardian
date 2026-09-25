@@ -1441,7 +1441,7 @@ Land this phase as one PR, so the branch is never half-migrated.
   - webhook redelivery;
   - rollback;
   - what resumes, and why.
-- [ ] 18.2 Update `docs/operations/migrations.md` for goose and the
+- [x] 18.2 Update `docs/operations/migrations.md` for goose and the
   hook Job, and mark the golang-migrate sections as v1-only. Update
   `compliance-reports.md` for the new denominator and the reason
   column.

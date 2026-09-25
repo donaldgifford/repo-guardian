@@ -253,22 +253,24 @@ run: ## Run CLI command
 	@ $(MAKE) --no-print-directory log-$@
 	./build/bin/repo-guardian
 
-run-local: build dev-services ## Run binary against local Postgres + Valkey
+run-local: build ## Run binary against local Postgres + Valkey (+ Temporal)
 	@ $(MAKE) --no-print-directory log-$@
+	@docker compose -f docker-compose.dev.yaml --profile v1 up -d
 	@STORE_BACKEND=postgres \
 		STORE_DSN="postgres://repoguardian:repoguardian@localhost:5432/repoguardian?sslmode=disable" \
 		QUEUE_BACKEND=valkey \
 		QUEUE_VALKEY_DSN="redis://localhost:6379/0" \
 		SCHEDULER_BACKEND=valkey \
+		TEMPORAL_ADDRESS=localhost:7233 \
 		$(BIN_DIR)/$(PROJECT_NAME)
 
-dev-services: ## Start local Postgres + Valkey (docker-compose.dev.yaml)
+dev-services: ## Start local Postgres + Temporal dev server (docker-compose.dev.yaml)
 	@ $(MAKE) --no-print-directory log-$@
 	@docker compose -f docker-compose.dev.yaml up -d
 
-dev-stop: ## Stop local Postgres + Valkey
+dev-stop: ## Stop every local dev service, including the v1 profile
 	@ $(MAKE) --no-print-directory log-$@
-	@docker compose -f docker-compose.dev.yaml down
+	@docker compose -f docker-compose.dev.yaml --profile v1 down
 
 ## CI/CD
 

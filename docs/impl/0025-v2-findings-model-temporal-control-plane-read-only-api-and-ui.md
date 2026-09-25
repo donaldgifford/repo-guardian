@@ -863,7 +863,7 @@ This phase can start right after Phase 1.
     existing meter provider;
   - `CheckServerVersion(ctx, c, "1.31.0")`;
   - `Ping`.
-- [ ] 9.6 Update the local dev loop (OQ11). Add a `temporal` service
+- [x] 9.6 Update the local dev loop (OQ11). Add a `temporal` service
   to `docker-compose.dev.yaml` (`start-dev`, UI on 8233), and move
   Valkey behind a `v1` profile until Phase 16. Update `run-local` and
   `dev-services` to match.

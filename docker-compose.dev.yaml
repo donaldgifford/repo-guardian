@@ -1,15 +1,17 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json
 #
-# Local dev backing services for repo-guardian (Postgres + Valkey).
-# Shipped with IMPL-0016 when the in-memory backends were removed —
-# `make run-local` now depends on these services being up.
+# Local dev backing services for repo-guardian: Postgres and a Temporal
+# dev server (IMPL-0025 Phase 9, OQ11). Valkey serves only the v1
+# runtime, so it sits behind the `v1` profile until Phase 16 deletes it.
 #
-# Bring up: make dev-services
+# Bring up:  make dev-services        (Postgres + Temporal)
+#            make run-local           (adds Valkey via --profile v1)
 # Tear down: make dev-stop
 #
-# DSN defaults (used by `make run-local`):
+# Endpoints:
 #   STORE_DSN=postgres://repoguardian:repoguardian@localhost:5432/repoguardian?sslmode=disable
-#   QUEUE_VALKEY_DSN=redis://localhost:6379/0
+#   TEMPORAL_ADDRESS=localhost:7233   (plaintext; UI on http://localhost:8233)
+#   QUEUE_VALKEY_DSN=redis://localhost:6379/0   (v1 profile only)
 ---
 services:
   postgres:
@@ -29,7 +31,24 @@ services:
       timeout: 3s
       retries: 5
 
+  temporal:
+    # The Temporal CLI's dev server: an in-memory cluster with the UI,
+    # the repo-guardian namespace pre-registered. Pinned with the
+    # temporaltest harness's CLI (OQ10).
+    image: temporalio/temporal:1.9.1
+    container_name: repo-guardian-dev-temporal
+    command: ["server", "start-dev", "--ip", "0.0.0.0", "--namespace", "repo-guardian"]
+    ports:
+      - "7233:7233"
+      - "8233:8233"
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "127.0.0.1:7233"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   valkey:
+    profiles: ["v1"]
     image: valkey/valkey:9.1-alpine
     container_name: repo-guardian-dev-valkey
     command: ["valkey-server", "--save", "60", "1", "--appendonly", "yes"]

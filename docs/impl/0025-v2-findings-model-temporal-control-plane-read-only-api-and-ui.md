@@ -656,7 +656,7 @@ it. Task IDs are `<phase>.<n>`.
   `Actionable()` failed `TestCheckRepo_MissingFiles_ThirdPartyPR`'s
   golden; restored green. `TestParity_GoldensExist` guards against an
   empty golden set.)*
-- [ ] 4.11 Add one golden scenario per reason code and per remediation
+- [x] 4.11 Add one golden scenario per reason code and per remediation
   value, in `outcomes_test.go`.
 
 #### Success Criteria

@@ -1375,7 +1375,7 @@ Land this phase as one PR, so the branch is never half-migrated.
   Temporal metric names against the homelab's real `/metrics` output
   before committing. Update
   `TestCatalogue_RareEventAlertsCatchTheFirstIncrement`.
-- [ ] 17.3 Chart templates for `topology: split|all`:
+- [x] 17.3 Chart templates for `topology: split|all`:
   - `ingest` Deployment, Service and PDB;
   - `worker` Deployment, with an optional KEDA ScaledObject;
   - an `all` Deployment;

@@ -1,6 +1,7 @@
 {{- include "repo-guardian.validateTemplatingVars" . -}}
 {{- include "repo-guardian.validateBackendSecrets" . -}}
 {{- include "repo-guardian.validateRemovedValues" . -}}
+{{- include "repo-guardian.validateRoles" . -}}
 {{- range $role := splitList " " (include "repo-guardian.roles" .) }}
 {{- $r := dict "ctx" $ "role" $role }}
 {{- $v := $.Values }}

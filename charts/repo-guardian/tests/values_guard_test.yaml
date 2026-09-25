@@ -1,6 +1,6 @@
 ---
 suite: cross-mode existingSecret render guard (INV-0010)
-# Each existingSecret knob is consumed by exactly one store/queue mode.
+# Each existingSecret knob is consumed by exactly one store mode.
 # Setting one under any other mode used to be silently ignored — the
 # deployment came up on the chart-generated Secret instead of the
 # operator's, surfacing later as auth failures. The guard fails the
@@ -13,6 +13,10 @@ set:
   secrets:
     webhookSecret: "x"
     privateKey: "x"
+  temporal:
+    address: temporal:7233
+  policy:
+    config: "guardian {}"
 
 tests:
   - it: fails when store.postgres.existingSecret is set in baked mode
@@ -47,26 +51,10 @@ tests:
       - failedTemplate:
           errorPattern: "store.postgres.baked.existingSecret is set but store.postgres.mode=cnpg never reads it"
 
-  - it: fails when queue.valkey.existingSecret is set in baked mode
-    set:
-      queue.valkey.existingSecret: operator-secret
-    asserts:
-      - failedTemplate:
-          errorPattern: "queue.valkey.existingSecret is set but queue.valkey.mode=baked never reads it"
-
-  - it: fails when queue.valkey.baked.existingSecret is set in external mode
-    set:
-      queue.valkey.mode: external
-      queue.valkey.existingSecret: dsn-secret
-      queue.valkey.baked.existingSecret: pw-secret
-    asserts:
-      - failedTemplate:
-          errorPattern: "queue.valkey.baked.existingSecret is set but queue.valkey.mode=external never reads it"
-
   - it: default empty-string secrets do not trip the guard
     asserts:
       - hasDocuments:
-          count: 1
+          count: 2
       - equal:
           path: kind
           value: Deployment
@@ -74,10 +62,9 @@ tests:
   - it: baked mode with baked.existingSecret renders (PR #161 shape)
     set:
       store.postgres.baked.existingSecret: pg-password
-      queue.valkey.baked.existingSecret: valkey-password
     asserts:
       - hasDocuments:
-          count: 1
+          count: 2
       - equal:
           path: kind
           value: Deployment
@@ -86,11 +73,9 @@ tests:
     set:
       store.postgres.mode: external
       store.postgres.existingSecret: store-dsn
-      queue.valkey.mode: external
-      queue.valkey.existingSecret: queue-dsn
     asserts:
       - hasDocuments:
-          count: 1
+          count: 2
       - equal:
           path: kind
           value: Deployment
@@ -99,14 +84,6 @@ tests:
   # in Phase 6 must fail loudly. JSON Schema accepts unknown keys, so
   # without this guard the operator silently loses the behaviour they
   # think they configured.
-  - it: fails when staleSweep.rateLimitReserve is still set
-    set:
-      staleSweep:
-        rateLimitReserve: 0.1
-    asserts:
-      - failedTemplate:
-          errorMessage: "staleSweep.rateLimitReserve was removed in IMPL-0022: the sweep no longer gates on the rate-limit reserve — throttled work defers itself with a due-time instead. Delete the value. See docs/operations/migrations.md#removing-the-rate-limit-reserve-knobs-impl-0022"
-
   - it: fails when discovery.reserveFraction is still set
     set:
       discovery:
@@ -148,3 +125,118 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "webhookIPAllowlist.*ingress\\.md#migrating-from-the-baked-sidecar"
+
+  - it: fails when a v1 queue block is still set, naming the migration doc
+    set:
+      queue:
+        backend: valkey
+    asserts:
+      - failedTemplate:
+          errorPattern: "queue.*v2-migration.md#removed-chart-values"
+
+  - it: fails when a v1 scheduler block is still set
+    set:
+      scheduler:
+        backend: valkey
+    asserts:
+      - failedTemplate:
+          errorPattern: "scheduler.*v2-migration.md#removed-chart-values"
+
+  - it: fails when a v1 staleSweep block is still set
+    set:
+      staleSweep:
+        freshness: 24h
+    asserts:
+      - failedTemplate:
+          errorPattern: "staleSweep.*v2-migration.md#removed-chart-values"
+
+  - it: fails when posture.exportInterval is still set
+    set:
+      posture.exportInterval: 60s
+    asserts:
+      - failedTemplate:
+          errorPattern: "exportInterval.*v2-migration.md#removed-chart-values"
+
+  - it: fails when config.workerCount is still set
+    set:
+      config.workerCount: 5
+    asserts:
+      - failedTemplate:
+          errorPattern: "workerCount.*v2-migration.md#removed-chart-values"
+
+  - it: fails when config.queueSize is still set
+    set:
+      config.queueSize: 100
+    asserts:
+      - failedTemplate:
+          errorPattern: "queueSize.*v2-migration.md#removed-chart-values"
+
+  - it: fails when config.scheduleInterval is still set
+    set:
+      config.scheduleInterval: 168h
+    asserts:
+      - failedTemplate:
+          errorPattern: "scheduleInterval.*v2-migration.md#removed-chart-values"
+
+  - it: fails when config.maxJobAttempts is still set
+    set:
+      config.maxJobAttempts: 10
+    asserts:
+      - failedTemplate:
+          errorPattern: "maxJobAttempts.*v2-migration.md#removed-chart-values"
+
+  - it: fails without temporal.address
+    set:
+      temporal.address: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "temporal.address is required"
+
+  - it: fails without a policy
+    set:
+      policy.config: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "policy.config or policy.existingConfigMap is required"
+
+  - it: fails when api auth is enabled without an issuer
+    set:
+      api.enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "api.auth.issuer is required"
+
+  - it: renders the api without an issuer when auth is off
+    set:
+      api.enabled: true
+      api.auth.enabled: false
+    asserts:
+      - notFailedTemplate: {}
+
+  - it: fails when split api on external Postgres has no read-only DSN
+    set:
+      api.enabled: true
+      api.auth.issuer: https://idp.example.com
+      store.postgres.mode: external
+      store.postgres.existingSecret: dsn
+    asserts:
+      - failedTemplate:
+          errorPattern: "api.roDsn.existingSecret is required with store.postgres.mode=external"
+
+  - it: renders split api on external Postgres with a read-only DSN Secret
+    set:
+      api.enabled: true
+      api.auth.issuer: https://idp.example.com
+      store.postgres.mode: external
+      store.postgres.existingSecret: dsn
+      api.roDsn.existingSecret: ro-dsn
+    asserts:
+      - notFailedTemplate: {}
+
+  - it: rejects chart-managed v2 env vars in templating.vars
+    set:
+      templating.vars:
+        TEMPORAL_ADDRESS: x
+    asserts:
+      - failedTemplate:
+          errorPattern: "templating.vars keys collide with chart-managed env vars: TEMPORAL_ADDRESS"

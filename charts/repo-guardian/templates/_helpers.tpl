@@ -82,7 +82,7 @@ attempt and produce confusing behavior at runtime.
 Returns a space-separated string for has-element style checks.
 */}}
 {{- define "repo-guardian.reservedEnvVars" -}}
-GITHUB_APP_ID GITHUB_WEBHOOK_SECRET GITHUB_PRIVATE_KEY GITHUB_PRIVATE_KEY_PATH LISTEN_ADDR METRICS_ADDR LOG_LEVEL DRY_RUN WORKER_COUNT QUEUE_SIZE SCHEDULE_INTERVAL SKIP_FORKS SKIP_ARCHIVED TEMPLATE_DIR GUARDIAN_CONFIG STRICT_TEMPLATES STORE_BACKEND QUEUE_BACKEND SCHEDULER_BACKEND STORE_DSN STORE_POSTGRES_MAX_CONNS QUEUE_VALKEY_DSN JOB_ACK_TIMEOUT REAPER_INTERVAL POD_NAME RECONCILE_FRESHNESS STALE_SWEEP_BATCH_SIZE RATE_LIMIT_RESERVE
+GITHUB_APP_ID GITHUB_WEBHOOK_SECRET GITHUB_PRIVATE_KEY GITHUB_PRIVATE_KEY_PATH LISTEN_ADDR METRICS_ADDR LOG_LEVEL DRY_RUN SKIP_FORKS SKIP_ARCHIVED AUTO_CLOSE_PR ORPHAN_CLEANUP TEMPLATE_DIR GUARDIAN_CONFIG STRICT_TEMPLATES TEMPORAL_ADDRESS TEMPORAL_NAMESPACE TEMPORAL_TASK_QUEUE TEMPORAL_TLS_CERT_PATH TEMPORAL_TLS_KEY_PATH TEMPORAL_TLS_CA_PATH TEMPORAL_TLS_SERVER_NAME WORKER_ACTIVITY_CONCURRENCY CHECK_INTERVAL POLICY_ROLLOUT_WINDOW CHECKS_RETENTION DISCOVERY_ENABLED DISCOVERY_INTERVAL COMPLIANCE_SNAPSHOT_INTERVAL STORE_DSN STORE_POSTGRES_MAX_CONNS POSTGRES_PASSWORD STORE_RO_DSN RO_PASSWORD RECONCILE_FRESHNESS API_LISTEN_ADDR API_AUTH_ENABLED OIDC_ISSUER OIDC_AUDIENCE OIDC_NAME_CLAIM OIDC_GROUPS_CLAIM API_AUTHZ_CONFIG PR_STALE_AFTER STATUS_PUBLIC
 {{- end }}
 
 {{/*
@@ -171,8 +171,8 @@ Renders empty on success; failure aborts the entire template render.
 {{- end }}
 
 {{/*
-Fail render when a values file still sets a knob removed in
-IMPL-0022 Phase 6. JSON Schema accepts unknown keys (there is no
+Fail render when a values file still sets a removed knob (IMPL-0022
+Phase 6, IMPL-0024, chart 2.0.0). JSON Schema accepts unknown keys (there is no
 additionalProperties: false on this chart), so without this guard a
 stale values file renders happily and the operator silently loses
 the behaviour they think they configured. Same shape as
@@ -180,14 +180,25 @@ validateBackendSecrets — extend when a knob is removed, and delete
 the entry once operators have had a release or two to notice.
 */}}
 {{- define "repo-guardian.validateRemovedValues" -}}
-{{- if hasKey (.Values.staleSweep | default dict) "rateLimitReserve" -}}
-{{- fail "staleSweep.rateLimitReserve was removed in IMPL-0022: the sweep no longer gates on the rate-limit reserve — throttled work defers itself with a due-time instead. Delete the value. See docs/operations/migrations.md#removing-the-rate-limit-reserve-knobs-impl-0022" -}}
-{{- end -}}
 {{- if hasKey .Values.discovery "reserveFraction" -}}
 {{- fail "discovery.reserveFraction was removed in IMPL-0022: the BudgetTracker it configured is gone (it never gated anything — INV-0012 finding A). Delete the value. See docs/operations/migrations.md#removing-the-rate-limit-reserve-knobs-impl-0022" -}}
 {{- end -}}
 {{- if hasKey .Values.discovery "estimatedCostPerRepo" -}}
 {{- fail "discovery.estimatedCostPerRepo was removed in IMPL-0022: the BudgetTracker it configured is gone. Delete the value. See docs/operations/migrations.md#removing-the-rate-limit-reserve-knobs-impl-0022" -}}
+{{- end -}}
+{{- /* Chart 2.0.0 (IMPL-0025): the v1 queue runtime is gone. */ -}}
+{{- range $k := list "queue" "scheduler" "staleSweep" -}}
+{{- if hasKey $.Values $k -}}
+{{- fail (printf "%s.* was removed in chart 2.0.0: Temporal replaces the Valkey queue, scheduler and stale sweep. Delete the block. See docs/operations/v2-migration.md#removed-chart-values" $k) -}}
+{{- end -}}
+{{- end -}}
+{{- range $k := list "workerCount" "queueSize" "scheduleInterval" "maxJobAttempts" -}}
+{{- if hasKey $.Values.config $k -}}
+{{- fail (printf "config.%s was removed in chart 2.0.0 (use worker.concurrency and checkInterval). Delete the value. See docs/operations/v2-migration.md#removed-chart-values" $k) -}}
+{{- end -}}
+{{- end -}}
+{{- if hasKey (.Values.posture | default dict) "exportInterval" -}}
+{{- fail "posture.exportInterval was removed in chart 2.0.0: the posture gauges are gone and the API reads compliance from Postgres. Delete the value. See docs/operations/v2-migration.md#removed-chart-values" -}}
 {{- end -}}
 {{- if hasKey .Values "tailscale" -}}
 {{- fail "tailscale.* was removed in IMPL-0024: ingress is operator-owned (the baked sidecar also forced the IP allowlist fail-open — INV-0016). Delete the block and pick an ingress option. See docs/operations/ingress.md#migrating-from-the-baked-sidecar" -}}
@@ -299,7 +310,7 @@ Temporal connection env (TEMPORAL_*) and, with mTLS, the mounted paths.
 */}}
 {{- define "repo-guardian.temporalEnv" -}}
 - name: TEMPORAL_ADDRESS
-  value: {{ required "temporal.address is required" .Values.temporal.address | quote }}
+  value: {{ .Values.temporal.address | quote }}
 - name: TEMPORAL_NAMESPACE
   value: {{ .Values.temporal.namespace | quote }}
 - name: TEMPORAL_TASK_QUEUE
@@ -403,5 +414,24 @@ Secret (key existingSecretROKey) or the chart-rendered <postgres>-ro.
 {{- .Values.store.postgres.baked.existingSecretROKey | default "RO_PASSWORD" -}}
 {{- else -}}
 password
+{{- end -}}
+{{- end }}
+
+{{/*
+Render-time guards for the v2 roles (IMPL-0025 17.6). Renders empty on
+success; failure aborts the render with the fix.
+*/}}
+{{- define "repo-guardian.validateRoles" -}}
+{{- if not .Values.temporal.address -}}
+{{- fail "temporal.address is required: ingest and the worker dial Temporal. See docs/operations/v2-migration.md" -}}
+{{- end -}}
+{{- if not (include "repo-guardian.hasPolicy" .) -}}
+{{- fail "policy.config or policy.existingConfigMap is required: the worker will not start without GUARDIAN_CONFIG" -}}
+{{- end -}}
+{{- if and .Values.api.enabled .Values.api.auth.enabled (not .Values.api.auth.issuer) -}}
+{{- fail "api.auth.issuer is required when api.auth.enabled (or set api.auth.enabled=false for a pod-network-only API)" -}}
+{{- end -}}
+{{- if and (eq .Values.topology "split") .Values.api.enabled (eq .Values.store.postgres.mode "external") (not .Values.api.roDsn.existingSecret) -}}
+{{- fail "api.roDsn.existingSecret is required with store.postgres.mode=external: the api role reads through a read-only role the chart cannot create on an external database" -}}
 {{- end -}}
 {{- end }}

@@ -352,6 +352,10 @@ store:
       existingSecret: ""
       # -- Key inside existingSecret holding the password.
       existingSecretKey: POSTGRES_PASSWORD
+      # -- Key inside existingSecret holding the api role's read-only
+      # password (`repoguardian_ro`). Read only for a split API with no
+      # `api.roDsn.existingSecret`. URL-safe, like the admin password.
+      existingSecretROKey: RO_PASSWORD
       # -- Persistent volume size.
       storageSize: 10Gi
       # -- StorageClass name. Empty → cluster default.

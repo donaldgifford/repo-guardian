@@ -435,3 +435,42 @@ success; failure aborts the render with the fix.
 {{- fail "api.roDsn.existingSecret is required with store.postgres.mode=external: the api role reads through a read-only role the chart cannot create on an external database" -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Whether the chart manages the api role's read-only Postgres role
+(DESIGN-0027 § Chart): a split API with no operator DSN on a Postgres
+the chart runs. In `all` the API reads with STORE_DSN.
+*/}}
+{{- define "repo-guardian.needsRORole" -}}
+{{- if and (eq .Values.topology "split") .Values.api.enabled (not .Values.api.roDsn.existingSecret) (has .Values.store.postgres.mode (list "baked" "cnpg")) -}}
+true
+{{- end -}}
+{{- end }}
+
+{{/*
+SQL that makes repoguardian_ro able to read every table, now and later.
+Idempotent: the OQ24 hook re-runs it on every install and upgrade.
+*/}}
+{{- define "repo-guardian.roGrantsSQL" -}}
+GRANT CONNECT ON DATABASE repoguardian TO repoguardian_ro;
+GRANT USAGE ON SCHEMA public TO repoguardian_ro;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO repoguardian_ro;
+ALTER DEFAULT PRIVILEGES FOR ROLE repoguardian IN SCHEMA public GRANT SELECT ON TABLES TO repoguardian_ro;
+{{- end }}
+
+{{/*
+PGPASSWORD for the baked Postgres admin (repoguardian), from the
+operator's Secret or the chart-rendered one.
+*/}}
+{{- define "repo-guardian.bakedAdminPasswordEnv" -}}
+- name: PGPASSWORD
+  valueFrom:
+    secretKeyRef:
+      {{- if .Values.store.postgres.baked.existingSecret }}
+      name: {{ .Values.store.postgres.baked.existingSecret }}
+      key: {{ .Values.store.postgres.baked.existingSecretKey | default "POSTGRES_PASSWORD" }}
+      {{- else }}
+      name: {{ include "repo-guardian.postgresFullname" . }}
+      key: POSTGRES_PASSWORD
+      {{- end }}
+{{- end }}

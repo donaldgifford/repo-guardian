@@ -20,6 +20,19 @@ spec:
     initdb:
       database: repoguardian
       owner: repoguardian
+  {{- if include "repo-guardian.needsRORole" . }}
+  # The api role's read-only login. pg_read_all_data grants SELECT on
+  # every table, including ones later migrations add, without depending
+  # on whether this role existed when the migration ran.
+  managed:
+    roles:
+      - name: repoguardian_ro
+        ensure: present
+        login: true
+        inRoles: [pg_read_all_data]
+        passwordSecret:
+          name: {{ include "repo-guardian.postgresFullname" . }}-ro
+  {{- end }}
   storage:
     size: {{ .Values.store.postgres.cnpg.storage.size }}
     {{- with .Values.store.postgres.cnpg.storage.storageClass }}

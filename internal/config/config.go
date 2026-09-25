@@ -92,6 +92,11 @@ type Config struct {
 	// reused by SchedulerBackend=="valkey".
 	QueueValkeyDSN string
 
+	// TemporalAddress is TEMPORAL_ADDRESS. The temporal package reads the
+	// full client configuration; it is kept here so role validation can
+	// require it.
+	TemporalAddress string
+
 	// StorePostgresMaxConns caps the postgres pool connection count.
 	// Zero falls back to pgxpool's default (derived from GOMAXPROCS).
 	StorePostgresMaxConns int32
@@ -297,6 +302,7 @@ func parse() (*Config, error) {
 	cfg.RateLimitThreshold = rateLimitThreshold
 
 	cfg.GuardianConfigPath = os.Getenv("GUARDIAN_CONFIG")
+	cfg.TemporalAddress = os.Getenv("TEMPORAL_ADDRESS")
 
 	if err := loadBackendConfig(cfg); err != nil {
 		return nil, err

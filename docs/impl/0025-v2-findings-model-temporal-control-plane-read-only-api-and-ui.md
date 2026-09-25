@@ -1023,7 +1023,7 @@ This phase can start right after Phase 1.
 - [x] 12.1 Dispatch: `ingest | worker | api | all | migrate | report |
   monitoring | help`. No arguments means `all`. Add `runIngest`,
   `runWorker` and `runAll`, and a `runAPI` stub for Phase 14.
-- [ ] 12.2 Validate config per role:
+- [x] 12.2 Validate config per role:
   - `ingest` refuses to start if the App key or `STORE_DSN` is set;
   - `worker` requires the App key, Temporal, `STORE_DSN` and the
     policy.

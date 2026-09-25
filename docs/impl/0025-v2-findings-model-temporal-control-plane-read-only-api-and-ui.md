@@ -1162,7 +1162,7 @@ Phase 13.
   3. panic recovery;
   4. authentication;
   5. authorization.
-- [ ] 14.5 Add a read-only pool (`ropool.go`):
+- [x] 14.5 Add a read-only pool (`ropool.go`):
   - at most 8 connections;
   - `AfterConnect` sets `default_transaction_read_only = on` and a
     `statement_timeout` of 5s;
@@ -1187,7 +1187,7 @@ Phase 13.
   - `API_AUTHZ_CONFIG` defines `groups`, `defaultOrgs` and `clients`
     (the `azp` mapping, OQ22);
   - the file is read at startup (OQ26).
-- [ ] 14.9 Scope is enforced in SQL:
+- [x] 14.9 Scope is enforced in SQL:
   - every API query takes `Scope` and filters
     `(@scope_all OR lower(org) = ANY(@scope_orgs))`;
   - a lint test fails on any `api_*.sql` query without the predicate;

@@ -1450,20 +1450,20 @@ Land this phase as one PR, so the branch is never half-migrated.
   - diff v2 findings against v1 `rule_state` on `Actionable()`;
   - classify the documented divergences;
   - exit non-zero on anything unexplained.
-- [ ] 18.4 Add a PR-identity lock test. The branch name, title
+- [x] 18.4 Add a PR-identity lock test. The branch name, title
   constant, reconcile-log marker and hash tag format must equal literal
   strings.
-- [ ] 18.5 Rehearse the data migration. Restore the homelab v1 dump
+- [ ] 18.5 **Deferred — human required:** needs the homelab v1 database dump restored into a scratch database and the comparison against v1's report from the same dump — Rehearse the data migration. Restore the homelab v1 dump
   into a scratch database, run `migrate --dry-run` and then `migrate`,
   and record the counts here. Compare `report` with v1's report from
   the same dump.
-- [ ] 18.6 Cut `v2.0.0-rc.1` (OQ9):
+- [ ] 18.6 **Deferred — human required:** cutting and publishing a release candidate is an outward-facing action (tag push, OCI publish, signing) that needs the maintainer — Cut `v2.0.0-rc.1` (OQ9):
   - a `dont-release` PR bumps the chart to `2.0.0-rc.1` and sets
     `appVersion`;
   - tag it and dispatch the publish;
   - verify that `latest` did not move, that cosign signatures and SLSA
     provenance are present, and that the chart is on OCI.
-- [ ] 18.7 Shadow run (OQ16):
+- [ ] 18.7 **Deferred — human required:** needs the live v1 database restored and rc.1 deployed to the homelab cluster — Shadow run (OQ16):
   - restore the live v1 database to a scratch database;
   - deploy rc.1 there with `DRY_RUN=true`, its own Temporal namespace
     and `all` topology;

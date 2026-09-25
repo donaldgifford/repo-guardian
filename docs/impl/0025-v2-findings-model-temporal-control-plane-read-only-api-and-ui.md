@@ -1384,7 +1384,7 @@ Land this phase as one PR, so the branch is never half-migrated.
 
   Every template carries `namespace:`, and every role gets a `/metrics`
   port and ServiceMonitor.
-- [ ] 17.4 Secret scoping, with helm-unittest asserting each absence:
+- [x] 17.4 Secret scoping, with helm-unittest asserting each absence:
   - the App key goes only to `worker` and `all`;
   - the webhook secret goes only to `ingest` and `all`;
   - the Temporal mTLS secret goes to every role that dials Temporal;

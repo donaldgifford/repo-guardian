@@ -184,6 +184,86 @@ func (_c *MockReader_ComplianceReport_Call) RunAndReturn(run func(ctx context.Co
 	return _c
 }
 
+// FindRepository provides a mock function for the type MockReader
+func (_mock *MockReader) FindRepository(ctx context.Context, org string, name string, providerRepoID *int64) (*store.Repository, error) {
+	ret := _mock.Called(ctx, org, name, providerRepoID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindRepository")
+	}
+
+	var r0 *store.Repository
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *int64) (*store.Repository, error)); ok {
+		return returnFunc(ctx, org, name, providerRepoID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *int64) *store.Repository); ok {
+		r0 = returnFunc(ctx, org, name, providerRepoID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*store.Repository)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, *int64) error); ok {
+		r1 = returnFunc(ctx, org, name, providerRepoID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockReader_FindRepository_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindRepository'
+type MockReader_FindRepository_Call struct {
+	*mock.Call
+}
+
+// FindRepository is a helper method to define mock.On call
+//   - ctx context.Context
+//   - org string
+//   - name string
+//   - providerRepoID *int64
+func (_e *MockReader_Expecter) FindRepository(ctx any, org any, name any, providerRepoID any) *MockReader_FindRepository_Call {
+	return &MockReader_FindRepository_Call{Call: _e.mock.On("FindRepository", ctx, org, name, providerRepoID)}
+}
+
+func (_c *MockReader_FindRepository_Call) Run(run func(ctx context.Context, org string, name string, providerRepoID *int64)) *MockReader_FindRepository_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 *int64
+		if args[3] != nil {
+			arg3 = args[3].(*int64)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockReader_FindRepository_Call) Return(repository *store.Repository, err error) *MockReader_FindRepository_Call {
+	_c.Call.Return(repository, err)
+	return _c
+}
+
+func (_c *MockReader_FindRepository_Call) RunAndReturn(run func(ctx context.Context, org string, name string, providerRepoID *int64) (*store.Repository, error)) *MockReader_FindRepository_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetRepository provides a mock function for the type MockReader
 func (_mock *MockReader) GetRepository(ctx context.Context, id int64) (*store.Repository, error) {
 	ret := _mock.Called(ctx, id)

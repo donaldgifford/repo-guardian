@@ -1044,7 +1044,7 @@ This phase can start right after Phase 1.
 
   The log line "failed to enqueue job" becomes "failed to start webhook
   workflow", with the E4 constant changed in the same commit.
-- [ ] 12.5 Add `WebhookWorkflow` and the `RouteWebhook` activity,
+- [x] 12.5 Add `WebhookWorkflow` and the `RouteWebhook` activity,
   covering the full DESIGN-0026 event table:
   - repositories that are created, added, unarchived or unsuspended
     trigger discovery for that installation;

@@ -53,6 +53,11 @@ type Writer interface {
 type Reader interface {
 	// GetRepository returns ErrNotFound when id does not exist.
 	GetRepository(ctx context.Context, id int64) (*Repository, error)
+
+	// FindRepository resolves a repository by provider id, then by
+	// case-insensitive org/name, without changing it. ErrNotFound when
+	// neither matches.
+	FindRepository(ctx context.Context, org, name string, providerRepoID *int64) (*Repository, error)
 	// ListActiveRepositories pages active repositories by ascending id,
 	// starting after afterID.
 	ListActiveRepositories(ctx context.Context, afterID int64, limit int) ([]Repository, error)

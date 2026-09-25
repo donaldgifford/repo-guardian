@@ -49,6 +49,15 @@ type BudgetState struct {
 	Estimate  float64
 	Leases    map[string]Lease
 	NextLease int64
+
+	// Suspended is set while the installation is suspended; every
+	// acquire waits until it is lifted.
+	Suspended bool
+}
+
+// Suspend is the suspend Signal's payload.
+type Suspend struct {
+	Suspended bool
 }
 
 // InstallationWorkflowInput is InstallationWorkflow's input and its
@@ -132,6 +141,19 @@ func InstallationWorkflow(ctx workflow.Context, in *InstallationWorkflowInput) e
 	}
 
 	reports := workflow.GetSignalChannel(ctx, ReportSignal)
+	suspends := workflow.GetSignalChannel(ctx, SuspendSignal)
+
+	workflow.Go(ctx, func(ctx workflow.Context) {
+		for {
+			var s Suspend
+			if !suspends.Receive(ctx, &s) {
+				return
+			}
+
+			b.handled++
+			b.in.State.Suspended = s.Suspended
+		}
+	})
 
 	workflow.Go(ctx, func(ctx workflow.Context) {
 		for {
@@ -163,7 +185,7 @@ func InstallationWorkflow(ctx workflow.Context, in *InstallationWorkflowInput) e
 		b.sweep(workflow.Now(ctx))
 
 		if due {
-			return b.continueAsNew(ctx, reports)
+			return b.continueAsNew(ctx, reports, suspends)
 		}
 	}
 }
@@ -177,7 +199,7 @@ func InstallationWorkflow(ctx workflow.Context, in *InstallationWorkflowInput) e
 // task retries with the new events, and an Update caught in the failed
 // task errors back to its caller, which is the AcquireBudget activity
 // and retries. rg-burst, which calls without retries, counts them.
-func (b *budget) continueAsNew(ctx workflow.Context, reports workflow.ReceiveChannel) error {
+func (b *budget) continueAsNew(ctx workflow.Context, reports, suspends workflow.ReceiveChannel) error {
 	if err := workflow.Await(ctx, func() bool { return workflow.AllHandlersFinished(ctx) }); err != nil {
 		return err
 	}
@@ -189,6 +211,15 @@ func (b *budget) continueAsNew(ctx workflow.Context, reports workflow.ReceiveCha
 		}
 
 		b.report(&r)
+	}
+
+	for {
+		var s Suspend
+		if !suspends.ReceiveAsync(&s) {
+			break
+		}
+
+		b.in.State.Suspended = s.Suspended
 	}
 
 	return workflow.NewContinueAsNewError(ctx, InstallationWorkflowName, &b.in)
@@ -230,6 +261,12 @@ func (b *budget) acquire(now time.Time, req *AcquireRequest) *AcquireResult {
 
 	s := &b.in.State
 	amount := int(math.Ceil(s.Estimate))
+
+	// A suspended installation's API calls fail; hold every check until
+	// the suspension lifts, rechecking hourly.
+	if s.Suspended {
+		return &AcquireResult{WaitUntil: now.Add(idleSweep)}
+	}
 
 	if !b.known(now) {
 		return b.grant(now, req.Holder, amount, true)

@@ -10,6 +10,84 @@ import (
 	"time"
 )
 
+const findRepositoryByName = `-- name: FindRepositoryByName :one
+SELECT id, provider, host, org, name, provider_repo_id, installation_id, active, park_reason, parked_at, discovered_at, next_due_at, last_checked_at, last_check_outcome, last_error, policy_version, catalog_parse_ok FROM repositories
+WHERE provider = $1 AND host = $2 AND lower(org) = lower($3) AND lower(name) = lower($4)
+`
+
+type FindRepositoryByNameParams struct {
+	Provider string
+	Host     string
+	Org      string
+	Name     string
+}
+
+func (q *Queries) FindRepositoryByName(ctx context.Context, arg FindRepositoryByNameParams) (Repository, error) {
+	row := q.db.QueryRow(ctx, findRepositoryByName,
+		arg.Provider,
+		arg.Host,
+		arg.Org,
+		arg.Name,
+	)
+	var i Repository
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.Host,
+		&i.Org,
+		&i.Name,
+		&i.ProviderRepoID,
+		&i.InstallationID,
+		&i.Active,
+		&i.ParkReason,
+		&i.ParkedAt,
+		&i.DiscoveredAt,
+		&i.NextDueAt,
+		&i.LastCheckedAt,
+		&i.LastCheckOutcome,
+		&i.LastError,
+		&i.PolicyVersion,
+		&i.CatalogParseOk,
+	)
+	return i, err
+}
+
+const findRepositoryByProviderID = `-- name: FindRepositoryByProviderID :one
+SELECT id, provider, host, org, name, provider_repo_id, installation_id, active, park_reason, parked_at, discovered_at, next_due_at, last_checked_at, last_check_outcome, last_error, policy_version, catalog_parse_ok FROM repositories
+WHERE provider = $1 AND host = $2 AND provider_repo_id = $3
+`
+
+type FindRepositoryByProviderIDParams struct {
+	Provider       string
+	Host           string
+	ProviderRepoID *int64
+}
+
+func (q *Queries) FindRepositoryByProviderID(ctx context.Context, arg FindRepositoryByProviderIDParams) (Repository, error) {
+	row := q.db.QueryRow(ctx, findRepositoryByProviderID, arg.Provider, arg.Host, arg.ProviderRepoID)
+	var i Repository
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.Host,
+		&i.Org,
+		&i.Name,
+		&i.ProviderRepoID,
+		&i.InstallationID,
+		&i.Active,
+		&i.ParkReason,
+		&i.ParkedAt,
+		&i.DiscoveredAt,
+		&i.NextDueAt,
+		&i.LastCheckedAt,
+		&i.LastCheckOutcome,
+		&i.LastError,
+		&i.PolicyVersion,
+		&i.CatalogParseOk,
+	)
+	return i, err
+}
+
 const getRepository = `-- name: GetRepository :one
 SELECT id, provider, host, org, name, provider_repo_id, installation_id, active, park_reason, parked_at, discovered_at, next_due_at, last_checked_at, last_check_outcome, last_error, policy_version, catalog_parse_ok FROM repositories WHERE id = $1
 `

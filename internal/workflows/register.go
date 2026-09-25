@@ -9,4 +9,5 @@ import (
 func Register(r worker.WorkflowRegistry) {
 	r.RegisterWorkflowWithOptions(RepoWorkflow, workflow.RegisterOptions{Name: RepoWorkflowName})
 	r.RegisterWorkflowWithOptions(InstallationWorkflow, workflow.RegisterOptions{Name: InstallationWorkflowName})
+	r.RegisterWorkflowWithOptions(WebhookWorkflow, workflow.RegisterOptions{Name: WebhookWorkflowName})
 }

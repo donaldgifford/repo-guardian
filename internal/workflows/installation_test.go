@@ -279,3 +279,24 @@ func TestInstallationWorkflow_ValidatorRejectsBadRequests(t *testing.T) {
 		t.Errorf("rejected = %v, results = %v; want the bad priority rejected before any lease", p.rejected, p.results)
 	}
 }
+
+func TestInstallationWorkflow_SuspendedWaits(t *testing.T) {
+	t.Parallel()
+
+	p := newIW(t)
+
+	p.at(time.Minute, func() { p.env.SignalWorkflow(SuspendSignal, Suspend{Suspended: true}) })
+	p.at(2*time.Minute, func() { p.acquire(PriorityWebhook) })
+	p.at(3*time.Minute, func() { p.env.SignalWorkflow(SuspendSignal, Suspend{Suspended: false}) })
+	p.at(4*time.Minute, func() { p.acquire(PriorityWebhook) })
+
+	_ = p.run(t, iwInput(0.10), time.Hour)
+
+	if r := p.result(t, 0); r.Granted || r.WaitUntil.IsZero() {
+		t.Errorf("acquire while suspended = %+v, want a wait", r)
+	}
+
+	if r := p.result(t, 1); !r.Granted {
+		t.Errorf("acquire after unsuspend = %+v, want a grant", r)
+	}
+}

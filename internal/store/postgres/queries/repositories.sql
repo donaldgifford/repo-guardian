@@ -69,3 +69,11 @@ UPDATE repositories
 SET active = false, park_reason = 'installation_removed', parked_at = now()
 WHERE installation_id = $1 AND active
 RETURNING id;
+
+-- name: FindRepositoryByProviderID :one
+SELECT * FROM repositories
+WHERE provider = $1 AND host = $2 AND provider_repo_id = sqlc.arg(provider_repo_id);
+
+-- name: FindRepositoryByName :one
+SELECT * FROM repositories
+WHERE provider = $1 AND host = $2 AND lower(org) = lower(sqlc.arg(org)) AND lower(name) = lower(sqlc.arg(name));

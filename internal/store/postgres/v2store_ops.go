@@ -356,6 +356,40 @@ func (s *V2Store) GetRepository(ctx context.Context, id int64) (repo *store.Repo
 	return &r, nil
 }
 
+// FindRepository implements store.Reader: provider id first, then the
+// case-insensitive name, on this store's host. It never changes a row.
+func (s *V2Store) FindRepository(ctx context.Context, org, name string, providerRepoID *int64) (repo *store.Repository, err error) {
+	defer func(start time.Time) { observeQuery("v2_find_repository", start, err) }(time.Now())
+
+	q := sqlcdb.New(s.pool)
+
+	if providerRepoID != nil {
+		row, err := q.FindRepositoryByProviderID(ctx, sqlcdb.FindRepositoryByProviderIDParams{
+			Provider: defaultProvider, Host: s.host, ProviderRepoID: providerRepoID,
+		})
+		if err == nil {
+			r := toRepository(&row)
+
+			return &r, nil
+		}
+
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("postgres.FindRepository %s/%s: %w", org, name, err)
+		}
+	}
+
+	row, err := q.FindRepositoryByName(ctx, sqlcdb.FindRepositoryByNameParams{
+		Provider: defaultProvider, Host: s.host, Org: org, Name: name,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("postgres.FindRepository %s/%s: %w", org, name, notFound(err))
+	}
+
+	r := toRepository(&row)
+
+	return &r, nil
+}
+
 // ListActiveRepositories implements store.Reader with keyset paging on
 // id.
 func (s *V2Store) ListActiveRepositories(ctx context.Context, afterID int64, limit int) (repos []store.Repository, err error) {

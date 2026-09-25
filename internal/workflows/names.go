@@ -39,6 +39,7 @@ const (
 const (
 	AcquireUpdate = "acquire"
 	ReportSignal  = "report"
+	SuspendSignal = "suspend"
 )
 
 // RepoWorkflowID is the workflow ID for repositories.id. The ID is the

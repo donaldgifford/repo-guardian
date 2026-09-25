@@ -213,6 +213,7 @@ func startV2Worker(
 	workflows.Register(w)
 	activities.New(engine, st, gh, policyVersion, logger).Register(w)
 	activities.NewBudget(tc, wc.TaskQueue, cfg.RateLimitThreshold).Register(w)
+	activities.NewRouter(st, tc, wc.TaskQueue, cfg.ReconcileFreshness, cfg.RateLimitThreshold, logger).Register(w)
 
 	if err := w.Start(); err != nil {
 		pool.Close()

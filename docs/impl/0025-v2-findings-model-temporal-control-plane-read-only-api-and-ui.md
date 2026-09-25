@@ -497,7 +497,7 @@ it. Task IDs are `<phase>.<n>`.
 
 #### Tasks
 
-- [ ] 3.1 Write `00002_v2_schema.sql` with every table, index and
+- [x] 3.1 Write `00002_v2_schema.sql` with every table, index and
   CHECK from DESIGN-0025 § Data model, plus:
   - `repository_events.kind` limited to discovered, renamed,
     transferred, parked, unparked and removed;

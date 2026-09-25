@@ -1210,6 +1210,12 @@ Phase 13.
   probe. Prove both once.
 - An `INSERT` through the read-only pool fails.
 
+Verified locally: `TestAPIReader_SummaryValidatesAndIsScopedInSQL` and
+`TestReadOnlyPool_RefusesWrites` (integration), and
+`TestAuthn_RejectionsAre401WithReason`. The scope lint
+(`TestAPIQueries_AreScoped`) and the `make lint-api` drift gate each
+failed on a probe and passed once it was removed.
+
 ---
 
 ### Phase 15: API read endpoints and the status page

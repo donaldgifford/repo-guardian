@@ -724,7 +724,7 @@ it. Task IDs are `<phase>.<n>`.
 - [x] 6.4 Operational knobs such as `log_level` and
   `rate_limit_threshold` keep the version unchanged. `dry_run`, rule
   paths and template content change it.
-- [ ] 6.5 Add `policy.Summarize(cfg)` for `policy_versions.summary`.
+- [x] 6.5 Add `policy.Summarize(cfg)` for `policy_versions.summary`.
   It lists kind, name, description, check mode, scope and ignore, and
   never template bodies.
 - [ ] 6.6 Leave v1's `Version` in place until Phase 16, marked with a

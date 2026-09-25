@@ -192,6 +192,7 @@ type PolicyRule struct {
 	Name        string            `json:"name"`
 	Description string            `json:"description,omitempty"`
 	Scope       []string          `json:"scope,omitempty"`
+	Ignore      []string          `json:"ignore,omitempty"`
 	CheckMode   string            `json:"check_mode,omitempty"`
 }
 

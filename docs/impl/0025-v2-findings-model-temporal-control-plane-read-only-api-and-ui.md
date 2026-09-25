@@ -1236,7 +1236,7 @@ failed on a probe and passed once it was removed.
 - [x] 15.5 Build the merged events timeline (`UNION ALL`) with keyset
   paging, and `/policy`, which shows the current version, rollout state
   and summary.
-- [ ] 15.6 Per-endpoint tests:
+- [x] 15.6 Per-endpoint tests:
   - contract validation;
   - two-org authz, where an invisible org answers 404;
   - pagination stays stable while writes happen;

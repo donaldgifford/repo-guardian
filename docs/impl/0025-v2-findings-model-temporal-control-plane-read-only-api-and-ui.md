@@ -918,7 +918,7 @@ This phase can start right after Phase 1.
 
   The budget acquire is stubbed behind `GetVersion("budget-v1")`.
 - [x] 10.5 Build `check_key` as `<workflowID>/<runID>/<iteration>`.
-- [ ] 10.6 Activity options, per DESIGN-0026's table:
+- [x] 10.6 Activity options, per DESIGN-0026's table:
   - `CheckRepo`: 15m timeout, retries backing off 30s→30m, 10 attempts;
   - store activities: 30s timeout, unlimited retries backing off
     1s→1m.

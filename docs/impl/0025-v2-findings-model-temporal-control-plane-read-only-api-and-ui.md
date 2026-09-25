@@ -528,7 +528,7 @@ it. Task IDs are `<phase>.<n>`.
     Renamed}`;
   - `Installation`, `RateSnapshot`, `PolicySummary`, `ServiceRun`,
     `ParkReason` and `Scope`.
-- [ ] 3.5 Declare `Writer` and `Reader` in `internal/store/v2.go`,
+- [x] 3.5 Declare `Writer` and `Reader` in `internal/store/v2.go`,
   beside v1's `Store` (OQ1). They follow DESIGN-0025 § Store interface,
   plus `StageCheck(ctx, CheckRecord)`, which writes the `pending` row
   and `pending_result` (DESIGN-0026 OQ17). `RecordCheck` accepts either

@@ -648,10 +648,14 @@ it. Task IDs are `<phase>.<n>`.
   unchanged: they still return `nil, &SkippedError`.
 - [x] 4.9 Update the tests that pinned v1's "no outcome" rule:
   `result_test.go:196, :232` and `engine_test.go:671-672`.
-- [ ] 4.10 Parity suite: the enriched engine must reproduce the goldens
+- [x] 4.10 Parity suite: the enriched engine must reproduce the goldens
   byte for byte, and `Actionable()` must equal the v1 boolean for every
   outcome. Prove it is non-vacuous by flipping one clause, watching the
   suite fail, and restoring.
+  *(Proven 2026-09-25: dropping the `foreign_pr` clause from
+  `Actionable()` failed `TestCheckRepo_MissingFiles_ThirdPartyPR`'s
+  golden; restored green. `TestParity_GoldensExist` guards against an
+  empty golden set.)*
 - [ ] 4.11 Add one golden scenario per reason code and per remediation
   value, in `outcomes_test.go`.
 

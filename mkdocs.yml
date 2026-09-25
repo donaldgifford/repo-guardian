@@ -63,6 +63,7 @@ nav:
         - 'IMPL-0025: v2 findings model and v1 data migration': impl/0025-v2-findings-model-and-v1-data-migration.md
         - 'IMPL-0026: v2 Temporal control plane and role split': impl/0026-v2-temporal-control-plane-and-role-split.md
         - 'IMPL-0027: v2 read-only API, business UI, and status page': impl/0027-v2-read-only-api-business-ui-and-status-page.md
+        - 'IMPL-0028: v2: findings model, Temporal control plane, read-only API and UI': impl/0028-v2-findings-model-temporal-control-plane-read-only-api-and-ui.md
     - Investigations:
         - Overview: investigation/README.md
         - 'INV-0001: Tailscale Funnel for Webhook Testing': investigation/0001-tailscale-funnel-for-webhook-testing.md

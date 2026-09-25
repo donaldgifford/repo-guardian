@@ -59,4 +59,5 @@ docz create impl "Your Implementation Title"
 | IMPL-0025 | v2 findings model and v1 data migration | Draft | 2026-09-25 | Donald Gifford | [0025-v2-findings-model-and-v1-data-migration.md](0025-v2-findings-model-and-v1-data-migration.md) |
 | IMPL-0026 | v2 Temporal control plane and role split | Draft | 2026-09-25 | Donald Gifford | [0026-v2-temporal-control-plane-and-role-split.md](0026-v2-temporal-control-plane-and-role-split.md) |
 | IMPL-0027 | v2 read-only API, business UI, and status page | Draft | 2026-09-25 | Donald Gifford | [0027-v2-read-only-api-business-ui-and-status-page.md](0027-v2-read-only-api-business-ui-and-status-page.md) |
+| IMPL-0028 | v2: findings model, Temporal control plane, read-only API and UI | Draft | 2026-09-25 | Donald Gifford | [0028-v2-findings-model-temporal-control-plane-read-only-api-and-ui.md](0028-v2-findings-model-temporal-control-plane-read-only-api-and-ui.md) |
 <!-- END DOCZ AUTO-GENERATED -->

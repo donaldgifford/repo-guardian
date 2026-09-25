@@ -50,9 +50,11 @@ SET last_checked_at = sqlc.arg(checked_at),
 WHERE id = sqlc.arg(id);
 
 -- name: ParkRepository :execrows
+-- Parks an active repository. Zero rows means it is missing or already
+-- parked, which keeps a retried Park from writing a second event.
 UPDATE repositories
 SET active = false, park_reason = sqlc.arg(park_reason), parked_at = now()
-WHERE id = sqlc.arg(id);
+WHERE id = sqlc.arg(id) AND active;
 
 -- name: ParkInstallationRepositories :many
 UPDATE repositories

@@ -19,13 +19,20 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres/sqlcdb"
 )
 
+// Check outcomes as stored in checks.outcome.
+const (
+	outcomeSuccess = "success"
+	outcomeError   = "error"
+)
+
 // ErrNoStagedCheck is returned by RecordCheck when a CheckRecord carries
 // no outcomes and no pending row was staged under its key.
 var ErrNoStagedCheck = errors.New("no staged check for key")
 
-// ErrCheckConflict is returned when a concurrent RecordCheck finalized
-// the same key first. A retry returns the stored transitions.
-var ErrCheckConflict = errors.New("check finalized concurrently")
+// ErrConflict is returned when a concurrent transaction wrote the same
+// check key or repository first. A retry sees the winner's row: for
+// RecordCheck it returns the stored transitions.
+var ErrConflict = errors.New("concurrent write won")
 
 // V2Store implements store.Writer and store.Reader over the v2 schema
 // (DESIGN-0025). The caller owns the pool. The hand-written store owns
@@ -152,13 +159,13 @@ func recordCheckTx(ctx context.Context, q *sqlcdb.Queries, c *store.CheckRecord,
 		RepositoryID:  c.RepositoryID,
 		CheckKey:      c.Key,
 		Trigger:       string(c.Trigger),
-		Outcome:       "success",
+		Outcome:       outcomeSuccess,
 		PolicyVersion: c.PolicyVersion,
 		StartedAt:     c.StartedAt,
 		FinishedAt:    &now,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrCheckConflict
+		return nil, ErrConflict
 	}
 
 	if err != nil {
@@ -334,8 +341,11 @@ func writeEvents(
 		e := &events[i]
 		e.RepositoryID = repoID
 		e.CheckID = checkID
-		e.PolicyVersion = policyVersion
 		e.OccurredAt = now
+
+		if e.PolicyVersion == "" {
+			e.PolicyVersion = policyVersion
+		}
 
 		if err := q.InsertFindingEvent(ctx, *e); err != nil {
 			return nil, fmt.Errorf("insert finding event %s/%s: %w", e.RuleKind, e.RuleName, err)

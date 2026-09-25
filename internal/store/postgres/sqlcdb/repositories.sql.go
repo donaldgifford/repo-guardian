@@ -194,7 +194,7 @@ func (q *Queries) ParkInstallationRepositories(ctx context.Context, installation
 const parkRepository = `-- name: ParkRepository :execrows
 UPDATE repositories
 SET active = false, park_reason = $1, parked_at = now()
-WHERE id = $2
+WHERE id = $2 AND active
 `
 
 type ParkRepositoryParams struct {
@@ -202,6 +202,8 @@ type ParkRepositoryParams struct {
 	ID         int64
 }
 
+// Parks an active repository. Zero rows means it is missing or already
+// parked, which keeps a retried Park from writing a second event.
 func (q *Queries) ParkRepository(ctx context.Context, arg ParkRepositoryParams) (int64, error) {
 	result, err := q.db.Exec(ctx, parkRepository, arg.ParkReason, arg.ID)
 	if err != nil {

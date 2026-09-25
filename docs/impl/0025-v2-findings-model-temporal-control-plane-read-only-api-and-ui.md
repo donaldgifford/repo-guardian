@@ -551,7 +551,7 @@ it. Task IDs are `<phase>.<n>`.
     - delete findings that are no longer in the outcomes;
     - update `repositories`, and the installation's rate snapshot when
       the observation is newer.
-- [ ] 3.8 Implement the rest of the store:
+- [x] 3.8 Implement the rest of the store:
   - `RecordCheckError`;
   - `Park(repoID, reason, clearFindings)`, which writes a `parked`
     event and, when `clearFindings` is set, deletes findings with

@@ -52,3 +52,30 @@ func TestReconcilerPass_RecordsNoOutcome(t *testing.T) {
 		"file/ignored=not_applicable:ignored_rule",
 	})
 }
+
+// TestCheckRepo_CarriesRepositoryIdentity pins that the provider id and
+// canonical name from GetRepository ride on every non-nil result,
+// including repository-level skips.
+func TestCheckRepo_CarriesRepositoryIdentity(t *testing.T) {
+	t.Parallel()
+
+	for _, hasBranch := range []bool{true, false} {
+		client := newMockClient()
+		client.repo = &ghclient.Repository{ID: 42, Owner: "Org", Name: "Repo", HasBranch: hasBranch, DefaultRef: "main"}
+		client.branchSHAs["org/repo/main"] = "abc123"
+
+		if !hasBranch {
+			client.repo.DefaultRef = ""
+		}
+
+		res, err := testPolicyEngine(policy.BuiltinDefaults()).CheckRepo(context.Background(), client, "org", "repo")
+		if err != nil {
+			t.Fatalf("CheckRepo: %v", err)
+		}
+
+		want := RepositoryIdentity{ID: 42, Owner: "Org", Name: "Repo"}
+		if res.Repository == nil || *res.Repository != want {
+			t.Errorf("hasBranch=%v: Repository = %+v, want %+v", hasBranch, res.Repository, want)
+		}
+	}
+}

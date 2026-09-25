@@ -125,6 +125,24 @@ func (e *Engine) CheckRepo(
 		return nil, fmt.Errorf("getting repository info: %w", err)
 	}
 
+	res, err := e.checkRepository(ctx, log, client, owner, repo, repoInfo)
+	if res != nil {
+		// Identity rides on every result at no extra call cost; the v2
+		// store matches by ID first (DESIGN-0025 § Identity).
+		res.Repository = &RepositoryIdentity{ID: repoInfo.ID, Owner: repoInfo.Owner, Name: repoInfo.Name}
+	}
+
+	return res, err
+}
+
+// checkRepository is CheckRepo after the repository metadata fetch.
+func (e *Engine) checkRepository(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	owner, repo string,
+	repoInfo *ghclient.Repository,
+) (*CheckResult, error) {
 	// Authoritative skip checks — the scheduler pre-filters as an
 	// optimization, but the engine is the single source of truth.
 	if reason, durable := e.skipReason(repoInfo); reason != "" {

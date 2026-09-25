@@ -85,6 +85,17 @@ func (o *RuleOutcome) TrackedByV1() bool {
 type CheckResult struct {
 	Outcomes       []RuleOutcome
 	CatalogParseOK *bool
+	// Repository is the checked repository's identity as GitHub reports
+	// it, set on every non-nil result.
+	Repository *RepositoryIdentity
+}
+
+// RepositoryIdentity is a repository's provider id and canonical name.
+// ID is zero when the provider did not return one.
+type RepositoryIdentity struct {
+	ID    int64
+	Owner string
+	Name  string
 }
 
 // record appends an outcome. Nil-safe so callers on the skip paths, which

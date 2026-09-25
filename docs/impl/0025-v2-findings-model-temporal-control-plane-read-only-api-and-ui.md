@@ -675,7 +675,7 @@ it. Task IDs are `<phase>.<n>`.
 - [x] 5.1 Add `ID int64` to `ghclient.Repository`. Set it in
   `GetRepository` and `ListInstallationRepos`, and add `id` to the
   `client_test.go` fixtures.
-- [ ] 5.2 `CheckResult.Repository` carries `{ID, Owner, Name}` from
+- [x] 5.2 `CheckResult.Repository` carries `{ID, Owner, Name}` from
   `GetRepository`, at no extra call cost.
 - [ ] 5.3 Match repositories in `UpsertDiscovered` and `RecordCheck`:
   - first by `provider_repo_id`;

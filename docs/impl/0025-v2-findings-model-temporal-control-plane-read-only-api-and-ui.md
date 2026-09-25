@@ -857,7 +857,7 @@ This phase can start right after Phase 1.
   record any deviations.
 - [x] 9.4 Add `go.temporal.io/sdk` and its OpenTelemetry contrib
   module, both pinned.
-- [ ] 9.5 Build the `internal/temporal` package:
+- [x] 9.5 Build the `internal/temporal` package:
   - `Config` read from the `TEMPORAL_*` env vars;
   - `Dial`, with mTLS, an `slog` adapter and OTel metrics on the
     existing meter provider;

@@ -1222,7 +1222,7 @@ failed on a probe and passed once it was removed.
 
 #### Tasks
 
-- [ ] 15.1 Add the remaining endpoints from DESIGN-0027 to the spec.
+- [x] 15.1 Add the remaining endpoints from DESIGN-0027 to the spec.
   Lists use keyset pagination with a default of 50 and a max of 200.
   Evidence is a `oneOf` keyed by reason.
 - [ ] 15.2 Write `queries/api_*.sql`, one file per resource. Each uses

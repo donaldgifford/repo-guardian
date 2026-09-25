@@ -1,16 +1,14 @@
--- name: InsertComplianceSnapshot :execrows
--- One row per (org, kind, rule) over active repositories. Idempotent on
--- the primary key, so a retried snapshot writes nothing new.
+-- name: InsertComplianceSnapshotRows :execrows
+-- Writes rows computed by ComplianceByRule, so a snapshot holds exactly
+-- the counts the report showed. Idempotent on the primary key, so a
+-- retried snapshot writes nothing new.
 INSERT INTO compliance_snapshots (
     org, rule_kind, rule_name, snapshot_at, compliant, non_compliant, not_applicable, unknown
 )
-SELECT r.org, f.rule_kind, f.rule_name, sqlc.arg(snapshot_at)::timestamptz,
-       count(*) FILTER (WHERE f.status = 'compliant')::int,
-       count(*) FILTER (WHERE f.status = 'non_compliant')::int,
-       count(*) FILTER (WHERE f.status = 'not_applicable')::int,
-       count(*) FILTER (WHERE f.status = 'unknown')::int
-FROM findings f
-JOIN repositories r ON r.id = f.repository_id
-WHERE r.active
-GROUP BY r.org, f.rule_kind, f.rule_name
+-- Parallel unnest in the select list zips the equal-length arrays;
+-- sqlc cannot type the multi-argument FROM unnest(...) form.
+SELECT unnest(sqlc.arg(orgs)::text[]), unnest(sqlc.arg(rule_kinds)::text[]), unnest(sqlc.arg(rule_names)::text[]),
+       sqlc.arg(snapshot_at)::timestamptz,
+       unnest(sqlc.arg(compliant)::int[]), unnest(sqlc.arg(non_compliant)::int[]),
+       unnest(sqlc.arg(not_applicable)::int[]), unnest(sqlc.arg(unknown)::int[])
 ON CONFLICT DO NOTHING;

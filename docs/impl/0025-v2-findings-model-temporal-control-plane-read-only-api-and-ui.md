@@ -801,7 +801,7 @@ it. Task IDs are `<phase>.<n>`.
 
 #### Tasks
 
-- [ ] 8.1 Add `queries/compliance.sql` with one shared query:
+- [x] 8.1 Add `queries/compliance.sql` with one shared query:
   - `compliant / (compliant + non_compliant)` over active
     repositories;
   - `not_applicable` and `unknown` reported separately;

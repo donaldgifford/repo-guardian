@@ -10,26 +10,44 @@ import (
 	"time"
 )
 
-const insertComplianceSnapshot = `-- name: InsertComplianceSnapshot :execrows
+const insertComplianceSnapshotRows = `-- name: InsertComplianceSnapshotRows :execrows
 INSERT INTO compliance_snapshots (
     org, rule_kind, rule_name, snapshot_at, compliant, non_compliant, not_applicable, unknown
 )
-SELECT r.org, f.rule_kind, f.rule_name, $1::timestamptz,
-       count(*) FILTER (WHERE f.status = 'compliant')::int,
-       count(*) FILTER (WHERE f.status = 'non_compliant')::int,
-       count(*) FILTER (WHERE f.status = 'not_applicable')::int,
-       count(*) FILTER (WHERE f.status = 'unknown')::int
-FROM findings f
-JOIN repositories r ON r.id = f.repository_id
-WHERE r.active
-GROUP BY r.org, f.rule_kind, f.rule_name
+SELECT unnest($1::text[]), unnest($2::text[]), unnest($3::text[]),
+       $4::timestamptz,
+       unnest($5::int[]), unnest($6::int[]),
+       unnest($7::int[]), unnest($8::int[])
 ON CONFLICT DO NOTHING
 `
 
-// One row per (org, kind, rule) over active repositories. Idempotent on
-// the primary key, so a retried snapshot writes nothing new.
-func (q *Queries) InsertComplianceSnapshot(ctx context.Context, snapshotAt time.Time) (int64, error) {
-	result, err := q.db.Exec(ctx, insertComplianceSnapshot, snapshotAt)
+type InsertComplianceSnapshotRowsParams struct {
+	Orgs          []string
+	RuleKinds     []string
+	RuleNames     []string
+	SnapshotAt    time.Time
+	Compliant     []int32
+	NonCompliant  []int32
+	NotApplicable []int32
+	Unknown       []int32
+}
+
+// Writes rows computed by ComplianceByRule, so a snapshot holds exactly
+// the counts the report showed. Idempotent on the primary key, so a
+// retried snapshot writes nothing new.
+// Parallel unnest in the select list zips the equal-length arrays;
+// sqlc cannot type the multi-argument FROM unnest(...) form.
+func (q *Queries) InsertComplianceSnapshotRows(ctx context.Context, arg InsertComplianceSnapshotRowsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertComplianceSnapshotRows,
+		arg.Orgs,
+		arg.RuleKinds,
+		arg.RuleNames,
+		arg.SnapshotAt,
+		arg.Compliant,
+		arg.NonCompliant,
+		arg.NotApplicable,
+		arg.Unknown,
+	)
 	if err != nil {
 		return 0, err
 	}

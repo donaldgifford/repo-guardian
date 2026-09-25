@@ -56,4 +56,11 @@ type Reader interface {
 	// ListActiveRepositories pages active repositories by ascending id,
 	// starting after afterID.
 	ListActiveRepositories(ctx context.Context, afterID int64, limit int) ([]Repository, error)
+	// Compliance runs the shared compliance query (queries/compliance.sql)
+	// over active repositories in scope, one row per (org, kind, rule).
+	// The report, the snapshot writer and the API all read these counts.
+	Compliance(ctx context.Context, scope Scope) ([]ComplianceCount, error)
+	// ComplianceReport reads everything the report renders, in one
+	// read-only transaction, so its table and its headline agree.
+	ComplianceReport(ctx context.Context, scope Scope) (*ComplianceReport, error)
 }

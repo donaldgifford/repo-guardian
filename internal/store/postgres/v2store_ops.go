@@ -330,19 +330,6 @@ func (s *V2Store) RecordServiceRun(ctx context.Context, run *store.ServiceRun) (
 	return nil
 }
 
-// InsertComplianceSnapshot implements store.Writer. It is idempotent on
-// (org, kind, rule, at): a retry writes zero rows.
-func (s *V2Store) InsertComplianceSnapshot(ctx context.Context, at time.Time) (rows int, err error) {
-	defer func(start time.Time) { observeQuery("v2_insert_compliance_snapshot", start, err) }(time.Now())
-
-	n, err := sqlcdb.New(s.pool).InsertComplianceSnapshot(ctx, at)
-	if err != nil {
-		return 0, fmt.Errorf("postgres.InsertComplianceSnapshot: %w", err)
-	}
-
-	return int(n), nil
-}
-
 // PruneChecks implements store.Writer. Pending checks are never pruned.
 func (s *V2Store) PruneChecks(ctx context.Context, before time.Time) (n int64, err error) {
 	defer func(start time.Time) { observeQuery("v2_prune_checks", start, err) }(time.Now())

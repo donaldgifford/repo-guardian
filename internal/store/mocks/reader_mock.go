@@ -48,6 +48,142 @@ func (_m *MockReader) EXPECT() *MockReader_Expecter {
 	return &MockReader_Expecter{mock: &_m.Mock}
 }
 
+// Compliance provides a mock function for the type MockReader
+func (_mock *MockReader) Compliance(ctx context.Context, scope store.Scope) ([]store.ComplianceCount, error) {
+	ret := _mock.Called(ctx, scope)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Compliance")
+	}
+
+	var r0 []store.ComplianceCount
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, store.Scope) ([]store.ComplianceCount, error)); ok {
+		return returnFunc(ctx, scope)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, store.Scope) []store.ComplianceCount); ok {
+		r0 = returnFunc(ctx, scope)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]store.ComplianceCount)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, store.Scope) error); ok {
+		r1 = returnFunc(ctx, scope)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockReader_Compliance_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Compliance'
+type MockReader_Compliance_Call struct {
+	*mock.Call
+}
+
+// Compliance is a helper method to define mock.On call
+//   - ctx context.Context
+//   - scope store.Scope
+func (_e *MockReader_Expecter) Compliance(ctx any, scope any) *MockReader_Compliance_Call {
+	return &MockReader_Compliance_Call{Call: _e.mock.On("Compliance", ctx, scope)}
+}
+
+func (_c *MockReader_Compliance_Call) Run(run func(ctx context.Context, scope store.Scope)) *MockReader_Compliance_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 store.Scope
+		if args[1] != nil {
+			arg1 = args[1].(store.Scope)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockReader_Compliance_Call) Return(complianceCounts []store.ComplianceCount, err error) *MockReader_Compliance_Call {
+	_c.Call.Return(complianceCounts, err)
+	return _c
+}
+
+func (_c *MockReader_Compliance_Call) RunAndReturn(run func(ctx context.Context, scope store.Scope) ([]store.ComplianceCount, error)) *MockReader_Compliance_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ComplianceReport provides a mock function for the type MockReader
+func (_mock *MockReader) ComplianceReport(ctx context.Context, scope store.Scope) (*store.ComplianceReport, error) {
+	ret := _mock.Called(ctx, scope)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ComplianceReport")
+	}
+
+	var r0 *store.ComplianceReport
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, store.Scope) (*store.ComplianceReport, error)); ok {
+		return returnFunc(ctx, scope)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, store.Scope) *store.ComplianceReport); ok {
+		r0 = returnFunc(ctx, scope)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*store.ComplianceReport)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, store.Scope) error); ok {
+		r1 = returnFunc(ctx, scope)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockReader_ComplianceReport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ComplianceReport'
+type MockReader_ComplianceReport_Call struct {
+	*mock.Call
+}
+
+// ComplianceReport is a helper method to define mock.On call
+//   - ctx context.Context
+//   - scope store.Scope
+func (_e *MockReader_Expecter) ComplianceReport(ctx any, scope any) *MockReader_ComplianceReport_Call {
+	return &MockReader_ComplianceReport_Call{Call: _e.mock.On("ComplianceReport", ctx, scope)}
+}
+
+func (_c *MockReader_ComplianceReport_Call) Run(run func(ctx context.Context, scope store.Scope)) *MockReader_ComplianceReport_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 store.Scope
+		if args[1] != nil {
+			arg1 = args[1].(store.Scope)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockReader_ComplianceReport_Call) Return(complianceReport *store.ComplianceReport, err error) *MockReader_ComplianceReport_Call {
+	_c.Call.Return(complianceReport, err)
+	return _c
+}
+
+func (_c *MockReader_ComplianceReport_Call) RunAndReturn(run func(ctx context.Context, scope store.Scope) (*store.ComplianceReport, error)) *MockReader_ComplianceReport_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetRepository provides a mock function for the type MockReader
 func (_mock *MockReader) GetRepository(ctx context.Context, id int64) (*store.Repository, error) {
 	ret := _mock.Called(ctx, id)

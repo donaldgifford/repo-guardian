@@ -228,3 +228,56 @@ type ServiceRun struct {
 type Scope struct {
 	Orgs []string
 }
+
+// ComplianceCount is one (org, kind, rule) row of the shared compliance
+// query.
+type ComplianceCount struct {
+	Org           string
+	Kind          findings.RuleKind
+	RuleName      string
+	Compliant     int
+	NonCompliant  int
+	NotApplicable int
+	Unknown       int
+
+	// Percent is Compliant / (Compliant + NonCompliant), floored to one
+	// decimal. nil when that denominator is zero: a rule that applies to
+	// no repository is unmeasured, not 100% compliant.
+	Percent *float64
+}
+
+// ComplianceSnapshot is one stored compliance_snapshots row.
+type ComplianceSnapshot struct {
+	ComplianceCount
+
+	SnapshotAt time.Time
+}
+
+// FailingFinding is one non-compliant finding on an active repository.
+type FailingFinding struct {
+	InstallationID int64
+	Org            string
+	Repo           string
+	Kind           findings.RuleKind
+	RuleName       string
+	Reason         findings.Reason
+	Remediation    findings.Remediation
+
+	// Since is status_since: when the finding became non-compliant.
+	Since time.Time
+
+	// PRURL is the PR recorded in the finding's evidence: ours for
+	// pr_open, a human's for foreign_pr. Empty otherwise.
+	PRURL string
+}
+
+// ComplianceReport is what the report renders, read in one transaction.
+type ComplianceReport struct {
+	// Findings are ordered by org, rule, then repository.
+	Findings []FailingFinding
+	// Current is the shared compliance query now.
+	Current []ComplianceCount
+	// Previous is the most recent snapshot per (org, kind, rule); empty
+	// until the first snapshot.
+	Previous []ComplianceSnapshot
+}

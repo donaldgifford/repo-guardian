@@ -265,6 +265,7 @@ v2 (DESIGN-0025/0026/0027) is built on a long-lived `v2` branch, worked phase by
 - **Pre-releases only.** rc tags (`v2.0.0-rc.N`) are cut by hand from `v2` behind `dont-release` PRs (rule 6), then published with a `workflow_dispatch` of `ghcr.yml` (and `ecr.yml` when enabled) passing the tag. A tag with a `-` suffix never moves `latest` — `docker-bake.hcl`'s `tags()` and both metadata steps gate it.
 - **Chart** is `2.0.0-rc.N` on this line so OCI publishes never collide with 1.x.
 - **At v2.0.0** `v2` fast-forwards `main` and the `v2` branch entries are reverted.
+- **v2 store (IMPL-0025 Phase 3).** Migrations are goose (`internal/store/postgres/migrations_v2`, table `goose_db_version`) run only by `repo-guardian migrate`; queries are sqlc (`queries/` → committed `sqlcdb/`, drift-gated by `make lint-sql`, which needs `mise exec` for `sqlc`). `V2Store` wraps sqlcdb and owns every transaction. `RecordCheck` is idempotent on `check_key` (a retry returns the stored transitions with `AlreadyFinal`); a "change" event means status, reason or remediation differ, so evidence-only updates write no event. `Park(reason, clearFindings)` is v1's nil-vs-empty rule as a bool. `finding_events` is append-only by grant: the migrating (application) role revokes its own UPDATE/DELETE/TRUNCATE, which only binds a non-superuser — store integration tests run as `pgtest.AppRole` for that reason.
 
 ## Rules
 

@@ -10,3 +10,11 @@ They are embedded by `internal/store/postgres/goose.go` and applied by
   `goose.NewGoMigration` and have no file here.
 - The version table is `goose_db_version`. v1's golang-migrate files in
   `../migrations/` stay untouched and are never read by goose.
+
+## Grants
+
+Migrations grant to the migrating role (the application role) and, when
+it exists, `repoguardian_ro`. They never `CREATE ROLE`. `finding_events`
+is append-only by grant, which binds only a non-superuser: run
+migrations as the application role, never as a superuser, or the
+revoke is a no-op.

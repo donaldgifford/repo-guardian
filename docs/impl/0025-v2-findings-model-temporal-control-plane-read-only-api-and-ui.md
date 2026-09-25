@@ -855,7 +855,7 @@ This phase can start right after Phase 1.
   combination.
 - [ ] 9.3 **Deferred — human required:** changes the operator's homelab cluster to match contrib/temporal/ — Bring the homelab in line with `contrib/temporal/` and
   record any deviations.
-- [ ] 9.4 Add `go.temporal.io/sdk` and its OpenTelemetry contrib
+- [x] 9.4 Add `go.temporal.io/sdk` and its OpenTelemetry contrib
   module, both pinned.
 - [ ] 9.5 Build the `internal/temporal` package:
   - `Config` read from the `TEMPORAL_*` env vars;

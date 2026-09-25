@@ -1543,7 +1543,7 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
     `UI_SESSION_KEYS` (at least 32 bytes each), `UI_SESSION_TTL` and
     `PUBLIC_URL`;
   - `/ui/config` exposes display-safe values only.
-- [ ] 20.3 Sessions:
+- [x] 20.3 Sessions:
   - `jose` `dir`+A256GCM; the first key encrypts, and any listed key
     decrypts;
   - the `__Host-rg_session` cookie is HttpOnly, Secure,

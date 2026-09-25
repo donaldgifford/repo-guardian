@@ -1389,7 +1389,7 @@ Land this phase as one PR, so the branch is never half-migrated.
   - the webhook secret goes only to `ingest` and `all`;
   - the Temporal mTLS secret goes to every role that dials Temporal;
   - `api` gets no App key and no webhook secret.
-- [ ] 17.5 Values:
+- [ ] 17.5 **Deferred — human required:** the Valkey template files (templates/queue-valkey.yaml, queue-valkey-secret.yaml) could not be deleted — the file deletion was denied by the permission classifier; they are gated to never render and carry a TODO. Values and helpers are removed — Values:
   - add `temporal.*`, `checkInterval`, `policyRolloutWindow`,
     `checksRetention`, `worker.*`, `ingest.*`, `api.*` (DESIGN-0027) and
     `migrate.{enabled: true, freshness}`;

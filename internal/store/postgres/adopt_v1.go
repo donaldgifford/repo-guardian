@@ -101,13 +101,23 @@ var ErrV1Running = errors.New("v1 appears to be running; scale it to zero first"
 // the last minute. It is a cheap guard against migrating under a live
 // v1, not a lock: the runbook scales v1 to zero first.
 func CheckV1Idle(ctx context.Context, db *sql.DB) error {
-	var running bool
+	// Two statements, not one: Postgres resolves every relation a
+	// statement names before running it, so an AND cannot guard a
+	// reference to a table that does not exist.
+	var present bool
+	if err := db.QueryRowContext(ctx,
+		`SELECT to_regclass('public.repo_state') IS NOT NULL`).Scan(&present); err != nil {
+		return fmt.Errorf("checking for a v1 schema: %w", err)
+	}
 
-	err := db.QueryRowContext(ctx, `
-		SELECT to_regclass('public.repo_state') IS NOT NULL
-		   AND EXISTS (SELECT 1 FROM repo_state WHERE last_checked_at > now() - make_interval(secs => $1))`,
-		v1IdleWindow.Seconds()).Scan(&running)
-	if err != nil {
+	if !present {
+		return nil
+	}
+
+	var running bool
+	if err := db.QueryRowContext(ctx,
+		`SELECT EXISTS (SELECT 1 FROM repo_state WHERE last_checked_at > now() - make_interval(secs => $1))`,
+		v1IdleWindow.Seconds()).Scan(&running); err != nil {
 		return fmt.Errorf("checking for a running v1: %w", err)
 	}
 

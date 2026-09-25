@@ -474,7 +474,7 @@ it. Task IDs are `<phase>.<n>`.
   - `Start(t) dsn`, using the chart's baked Postgres image;
   - `SeedV1(t, dsn)`, which runs v1's own golang-migrate migrations up
     to version 3.
-- [ ] 2.9 Migration tests. Each case asserts the result on a real
+- [x] 2.9 Migration tests. Each case asserts the result on a real
   database:
   - fresh: no-op;
   - v1 at version 3: adopted;

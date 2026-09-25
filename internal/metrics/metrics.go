@@ -351,6 +351,15 @@ var (
 		Help: "GitHub API rate limit remaining, per installation.",
 	}, []string{labelInstallationID})
 
+	// BudgetAcquireTotal counts InstallationWorkflow budget acquisitions
+	// by result (IMPL-0025 Phase 11): granted, optimistic (granted with
+	// no known budget) or wait. A rising wait share means installations
+	// are running at their reserve.
+	BudgetAcquireTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_budget_acquire_total",
+		Help: "Total rate-budget acquisitions, by result.",
+	}, []string{"result"})
+
 	// InstallationInfo is a constant-1 info gauge pairing an
 	// installation ID with the org that installed the App. It carries no
 	// measurement of its own; it exists so dashboards can `group_left`

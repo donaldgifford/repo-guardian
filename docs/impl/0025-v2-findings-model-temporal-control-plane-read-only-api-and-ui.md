@@ -989,7 +989,7 @@ This phase can start right after Phase 1.
   - it sits inside otelhttp and inside the rate-limit transport, so
     `TestTransportOrder_ThrottledRequestIsStillMeasured` keeps passing;
   - `github.Client` gains no methods.
-- [ ] 11.5 Add the metrics `budget_acquire_total{result}` and
+- [x] 11.5 Add the metrics `budget_acquire_total{result}` and
   `rate_limit_remaining{installation_id}`, set from the activity layer.
 - [ ] 11.6 Workflow tests:
   - a grant;

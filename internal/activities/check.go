@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	"strconv"
 	"time"
 
 	"github.com/donaldgifford/repo-guardian/internal/checker"
@@ -68,6 +69,10 @@ func (a *Activities) CheckRepo(ctx context.Context, in *workflows.CheckRepoInput
 		Name:           repo.Name,
 		StartedAt:      started,
 		FinishedAt:     time.Now(),
+	}
+
+	if out.Rate != nil {
+		metrics.RateLimitRemaining.WithLabelValues(strconv.FormatInt(repo.InstallationID, 10)).Set(float64(out.Rate.Remaining))
 	}
 
 	if err != nil {

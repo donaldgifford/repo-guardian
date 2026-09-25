@@ -444,3 +444,19 @@ type nameRecorder struct {
 func (r *nameRecorder) RegisterActivityWithOptions(_ any, o activity.RegisterOptions) {
 	r.names = append(r.names, o.Name)
 }
+
+func TestAcquireResult_Label(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]workflows.AcquireResult{
+		"granted":    {Granted: true},
+		"optimistic": {Granted: true, Optimistic: true},
+		"wait":       {WaitUntil: time.Now()},
+	}
+
+	for want, r := range tests {
+		if got := acquireResult(&r); got != want {
+			t.Errorf("acquireResult(%+v) = %q, want %q", r, got, want)
+		}
+	}
+}

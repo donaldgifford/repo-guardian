@@ -9,6 +9,7 @@ import (
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/workflows"
 )
 
@@ -62,7 +63,21 @@ func (b *Budget) AcquireBudget(ctx context.Context, in *workflows.AcquireInput) 
 		return nil, fmt.Errorf("acquire on %s: %w", id, err)
 	}
 
+	metrics.BudgetAcquireTotal.WithLabelValues(acquireResult(&res)).Inc()
+
 	return &res, nil
+}
+
+// acquireResult is the budget_acquire_total result label.
+func acquireResult(r *workflows.AcquireResult) string {
+	switch {
+	case !r.Granted:
+		return "wait"
+	case r.Optimistic:
+		return "optimistic"
+	default:
+		return "granted"
+	}
 }
 
 // Register registers AcquireBudget under its workflows package name.

@@ -4,6 +4,7 @@ import { Hono } from "hono";
 
 import { mountAuth } from "./auth";
 import { type Config, publicConfig } from "./config";
+import { mountHealth } from "./health";
 import { jsonLogger, type Logger } from "./log";
 import { Oidc } from "./oidc";
 import { mountProxy, type UpstreamFetch } from "./proxy";
@@ -29,7 +30,7 @@ export function createApp({ config, log = jsonLogger, upstreamFetch, staticDir =
 
   app.use(securityHeaders);
 
-  app.get("/healthz", (c) => c.text("ok"));
+  mountHealth(app, { config, oidc, log, fetch: upstreamFetch ?? fetch });
   app.get("/ui/config", (c) => c.json(publicConfig(config)));
 
   mountAuth(app, { config, oidc, session, log });

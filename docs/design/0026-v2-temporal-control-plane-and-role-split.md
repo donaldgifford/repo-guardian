@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0026
 title: "v2 Temporal control plane and role split"
-status: Draft
+status: Approved
 author: Donald Gifford
 created: 2026-09-24
 ---
@@ -10,7 +10,7 @@ created: 2026-09-24
 
 # DESIGN-0026: v2 Temporal control plane and role split
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Donald Gifford
 **Date:** 2026-09-24
 
@@ -385,7 +385,7 @@ be tens of kilobytes of evidence. `CheckRepo` writes the outcome set to
 the `checks` row it opens (`outcome = pending`, evidence in a JSONB
 column dropped after `RecordCheck`), keyed by `check_key`, and returns
 only the key. `RecordCheck` reads it back inside its transaction. If the
-payload-in-history approach proves simpler in the spike, it is
+payload-in-history approach proves simpler during homelab testing, it is
 acceptable up to Temporal's payload limits; the rule is only that
 evidence does not live in Temporal long-term (OQ17).
 
@@ -444,8 +444,8 @@ sequenceDiagram
   `report(remaining=0, reset)`, which closes the gate for every
   repository of that installation at once.
 - **Load.** At a 24h interval across 20,000 repositories that is about
-  0.25 acquisitions per second fleet-wide. The spike's burst test
-  (INV-0019) acquires 20,000 times against one installation to size
+  0.25 acquisitions per second fleet-wide. The homelab burst test
+  (during implementation) acquires 20,000 times against one installation to size
   `InstallationWorkflow`'s ContinueAsNew threshold.
 - **Visible state.** Each `report` updates the `installations` rate
   columns through `RecordCheck` (DESIGN-0025), which is what the status
@@ -622,8 +622,8 @@ is not part of the repo-guardian chart.
   checks the server version at worker startup and refuses to run below
   it.
 - **OpenSearch 3.x** is not in Temporal's documented support matrix.
-  Amazon's current engine is 3.7, and 2.19 is still offered. The spike
-  verifies 3.x; until it does, the documented Amazon target is 2.19
+  Amazon's current engine is 3.7, and 2.19 is still offered. Homelab testing
+  during implementation verifies 3.x; until it does, the documented Amazon target is 2.19
   (OQ9).
 - **Namespace retention** is 7 days for closed workflows. That is plenty
   for debugging a check, and Postgres holds the durable record.
@@ -839,7 +839,9 @@ bootstrap), `repository_events` (renames, transfers, parks), `checks`
 - **Chart:** helm-unittest for both topologies, removed-value guards,
   secret scoping and the KEDA toggle. `lint-alerts-chart` covers the new
   catalogue.
-- **Homelab spike** (INV-0019 Recommendation 2) before the IMPL:
+- **Homelab Temporal cluster**, used as the test bed throughout
+  implementation rather than as a separate spike beforehand (decided
+  2026-09-25):
   - 20,000 synthetic workflows on Postgres visibility;
   - the `InstallationWorkflow` burst test;
   - KEDA scaling;
@@ -895,7 +897,7 @@ See [Cutover from v1](#cutover-from-v1). The operator runbook
 | Non-deterministic workflow change breaks 20,000 executions | tiny workflow code, `GetVersion` patching, replay tests in CI, `WorkflowTaskFailures` alert |
 | Temporal operational burden (4 services, own schema, upgrades) | separate release, reference values, CNPG, pinned version floor; the homelab runs it first |
 | SQL visibility too slow at fleet scale | nothing on the hot path queries visibility (rollout pages Postgres); OpenSearch modes available |
-| `InstallationWorkflow` becomes a hot spot under burst | tiny state, frequent ContinueAsNew, spike burst test; fallback is fairness plus reactive throttling only (OQ2 b) |
+| `InstallationWorkflow` becomes a hot spot under burst | tiny state, frequent ContinueAsNew, homelab burst test; fallback is fairness plus reactive throttling only (OQ2 b) |
 | Swap re-check exhausts API budget | `POLICY_ROLLOUT_WINDOW` pacing plus the budget gate; priority lets webhooks through |
 | Behaviour drift between v1 and v2 | engine unchanged; parity suite (DESIGN-0025); optional shadow run; PR identity constants test-locked |
 | Temporal outage | ingest returns 503 (GitHub records it; redeliverable); timers resume; nothing is lost that Postgres holds |
@@ -978,7 +980,7 @@ See [Cutover from v1](#cutover-from-v1). The operator runbook
 9. **OpenSearch 3.x (Amazon OpenSearch Service is at 3.7; Temporal
    documents "OpenSearch 2+").**
    **Resolved 2026-09-25: (a).**
-   - (a) Document 2.19 as the supported Amazon version until the spike
+   - (a) Document 2.19 as the supported Amazon version until homelab testing
      verifies 3.x against the pinned server.
    - (b) Assume 3.x works and document it.
    - (c) Recommend Elasticsearch 8 for external mode instead.

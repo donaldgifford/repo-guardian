@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0025
 title: "v2 findings model and v1 data migration"
-status: Draft
+status: Approved
 author: Donald Gifford
 created: 2026-09-24
 ---
@@ -10,7 +10,7 @@ created: 2026-09-24
 
 # DESIGN-0025: v2 findings model and v1 data migration
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Donald Gifford
 **Date:** 2026-09-24
 

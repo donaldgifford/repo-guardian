@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0027
 title: "v2 read-only API, business UI, and status page"
-status: Draft
+status: Approved
 author: Donald Gifford
 created: 2026-09-24
 ---
@@ -10,7 +10,7 @@ created: 2026-09-24
 
 # DESIGN-0027: v2 read-only API, business UI, and status page
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Donald Gifford
 **Date:** 2026-09-24
 

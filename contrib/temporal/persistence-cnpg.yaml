@@ -1,0 +1,33 @@
+# CNPG Cluster for Temporal's default and SQL visibility stores
+# (DESIGN-0026 § Temporal deployment). Deliberately separate from
+# repo-guardian's own Postgres: Temporal's load and upgrades must never
+# contend with the findings store. Apply before installing the chart:
+#
+#   kubectl -n temporal apply -f persistence-cnpg.yaml
+#
+# CNPG writes the owner's credentials to the Secret temporal-db-app
+# (key: password), which values-persistence-cnpg.yaml reads.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: temporal-db
+  namespace: temporal
+spec:
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:17
+  storage:
+    size: 20Gi
+  bootstrap:
+    initdb:
+      database: temporal
+      owner: temporal
+      postInitApplicationSQL:
+        # SQL visibility (visibility-postgres.yaml) lives in its own
+        # database on the same cluster.
+        - CREATE DATABASE temporal_visibility OWNER temporal
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 1Gi

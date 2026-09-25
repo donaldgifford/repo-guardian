@@ -43,7 +43,7 @@ COVERAGE_OUT := coverage.out
 .PHONY: build
 .PHONY: test test-all test-coverage
 .PHONY: lint lint-fix lint-alerts lint-alerts-generated lint-alerts-chart fmt clean
-.PHONY: monitoring-generate lint-monitoring generate-sql lint-sql
+.PHONY: monitoring-generate lint-monitoring generate-sql lint-sql lint-temporal-contrib
 .PHONY: run run-local test-api ci check dev-services dev-stop
 .PHONY: release-check release-local
 
@@ -172,6 +172,32 @@ lint-monitoring: ## Fail if the committed static monitoring tier is stale
 		exit 1; \
 	fi
 	@echo "✓ committed monitoring tier is current"
+
+## Temporal reference configuration (IMPL-0025 Phase 9). The upstream
+## chart is pinned here and in contrib/temporal/README.md; bump both.
+TEMPORAL_CHART_REPO    := https://go.temporal.io/helm-charts
+TEMPORAL_CHART_VERSION := 1.7.0
+TEMPORAL_CONTRIB       := contrib/temporal
+
+lint-temporal-contrib: ## Render contrib/temporal against the pinned chart, every visibility mode
+	@ $(MAKE) --no-print-directory log-$@
+	@for vis in visibility-postgres visibility-opensearch-baked visibility-external; do \
+		out=$$(helm template temporal temporal --repo $(TEMPORAL_CHART_REPO) --version $(TEMPORAL_CHART_VERSION) \
+			--namespace temporal \
+			-f $(TEMPORAL_CONTRIB)/values-base.yaml \
+			-f $(TEMPORAL_CONTRIB)/values-persistence-cnpg.yaml \
+			-f $(TEMPORAL_CONTRIB)/$$vis.yaml) || { echo "error: $$vis failed to render" >&2; exit 1; }; \
+		kinds=$$(printf '%s\n' "$$out" | grep -c '^kind: Deployment'); \
+		if [ "$$kinds" -lt 4 ]; then \
+			echo "error: $$vis rendered $$kinds Deployments, want the four server services" >&2; exit 1; \
+		fi; \
+		printf '%s\n' "$$out" | grep -q 'enableFairness' || { echo "error: $$vis lost matching.enableFairness" >&2; exit 1; }; \
+		echo "✓ $$vis renders ($$kinds Deployments)"; \
+	done
+	@for m in persistence-cnpg namespace-job networkpolicy; do \
+		yq -e '.kind' $(TEMPORAL_CONTRIB)/$$m.yaml >/dev/null || { echo "error: $$m.yaml is not a manifest" >&2; exit 1; }; \
+	done
+	@echo "✓ contrib/temporal manifests parse"
 
 ## The sqlc-generated query layer (IMPL-0025). Committed, then diffed
 ## by `make lint-sql` the same way lint-monitoring guards its tier.

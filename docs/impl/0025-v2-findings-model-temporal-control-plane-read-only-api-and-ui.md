@@ -842,18 +842,18 @@ This phase can start right after Phase 1.
 
 #### Tasks
 
-- [ ] 9.1 Audit the homelab Temporal cluster and record the results
+- [ ] 9.1 **Deferred — human required:** needs read access to the operator's homelab Temporal cluster to record the version, stores, fairness flag, TLS and namespace baseline — Audit the homelab Temporal cluster and record the results
   here, under "Homelab Temporal baseline":
   - server version, which must be at least 1.31;
   - persistence and visibility stores;
   - `matching.enableFairness`;
   - frontend TLS;
   - whether the `repo-guardian` namespace exists.
-- [ ] 9.2 Add `contrib/temporal/` with every file in DESIGN-0026's
+- [x] 9.2 Add `contrib/temporal/` with every file in DESIGN-0026's
   table, plus a README. Pin the upstream chart, and add
   `make lint-temporal-contrib`, which runs `helm template` on each
   combination.
-- [ ] 9.3 Bring the homelab in line with `contrib/temporal/` and
+- [ ] 9.3 **Deferred — human required:** changes the operator's homelab cluster to match contrib/temporal/ — Bring the homelab in line with `contrib/temporal/` and
   record any deviations.
 - [ ] 9.4 Add `go.temporal.io/sdk` and its OpenTelemetry contrib
   module, both pinned.
@@ -869,7 +869,7 @@ This phase can start right after Phase 1.
   `dev-services` to match.
 - [ ] 9.7 Add a `temporaltest.Start(t)` harness using
   `testsuite.StartDevServer` with a pinned CLI (OQ10).
-- [ ] 9.8 Smoke test: from a dev machine, run and delete a throwaway
+- [ ] 9.8 **Deferred — human required:** needs homelab mTLS client certs and network reachability to the homelab frontend — Smoke test: from a dev machine, run and delete a throwaway
   workflow on the homelab over mTLS.
 
 #### Success Criteria

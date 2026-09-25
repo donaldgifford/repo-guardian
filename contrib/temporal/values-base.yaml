@@ -1,0 +1,53 @@
+# Temporal for repo-guardian v2 — base values for the upstream chart
+# (DESIGN-0026 § Temporal deployment). Chart and server are pinned; see
+# README.md. Layer exactly one persistence and one visibility file on
+# top of this one.
+server:
+  image:
+    repository: temporalio/server
+    # Version floor is 1.31 (fairness GA, Update-with-Start GA,
+    # NextRetryDelay, OpenSearch 2). repo-guardian refuses to start
+    # against anything older.
+    tag: 1.32.0
+  # mTLS on the frontend is the access-control boundary together with
+  # networkpolicy.yaml (DESIGN-0026 OQ11). Both secrets are
+  # kubernetes.io/tls with ca.crt, issued from one CA (cert-manager or
+  # external-secrets); the chart does not create them.
+  tls:
+    internode:
+      enabled: true
+      secretName: temporal-internode-tls
+      requireClientAuth: true
+      serverName: temporal-internode
+    frontend:
+      enabled: true
+      secretName: temporal-frontend-tls
+      requireClientAuth: true
+      serverName: temporal-frontend
+  config:
+    logLevel: "info"
+    persistence:
+      # Cannot change after the first deploy.
+      numHistoryShards: 512
+    # The namespace is created by namespace-job.yaml, not the chart.
+    namespaces:
+      create: false
+  dynamicConfig:
+    # Fair task dispatch across installations (DESIGN-0026 OQ4): the
+    # InstallationWorkflow sets a fairness key per installation.
+    matching.enableFairness:
+      - value: true
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+
+admintools:
+  image:
+    repository: temporalio/admin-tools
+    tag: "1.32.0"
+
+web:
+  enabled: true

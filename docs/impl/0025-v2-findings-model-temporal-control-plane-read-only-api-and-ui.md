@@ -777,7 +777,7 @@ it. Task IDs are `<phase>.<n>`.
   - every mapping row by row;
   - that a re-run is a no-op;
   - that `--dry-run` leaves no v2 rows.
-- [ ] 7.4 Rollback test. After `migrate`, v1's `Migrate`, `StaleRepos`
+- [x] 7.4 Rollback test. After `migrate`, v1's `Migrate`, `StaleRepos`
   and `UpsertRuleStates` still work against the database, and the v1
   tables are unchanged. Copy the two queries into `pgtest/v1sql` so the
   test survives Phase 16.

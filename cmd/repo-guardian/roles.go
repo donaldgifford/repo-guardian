@@ -143,7 +143,12 @@ func listen(logger *slog.Logger, cfg *config.Config, roles config.Role, up *role
 
 	if up.api != nil && roles != config.RoleAPI {
 		apiAddr := cfg.APIListenAddr(roles)
-		apiServer := &http.Server{Addr: apiAddr, Handler: up.api, ReadHeaderTimeout: 10 * time.Second}
+		// healthz rides along so the UI's readiness probe of the API
+		// upstream works whichever topology serves it.
+		apiMux := http.NewServeMux()
+		apiMux.Handle("/", up.api)
+		apiMux.HandleFunc("GET /healthz", handleHealthz)
+		apiServer := &http.Server{Addr: apiAddr, Handler: apiMux, ReadHeaderTimeout: 10 * time.Second}
 		startServer(logger, apiServer, "api", apiAddr, cancel)
 		servers = append(servers, apiServer)
 	}

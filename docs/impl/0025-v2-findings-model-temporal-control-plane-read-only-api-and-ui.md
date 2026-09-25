@@ -770,7 +770,7 @@ it. Task IDs are `<phase>.<n>`.
 - [x] 7.2 Implement `--dry-run` (OQ8). Run adoption, `00002` and
   `00003` in one outer transaction, print the counts, collisions,
   multiple owners and the park-reason histogram, then roll back.
-- [ ] 7.3 Seeded migration tests. Seed repositories parked for each
+- [x] 7.3 Seeded migration tests. Seed repositories parked for each
   reason plus one `unknown`, a never-checked repository, actionable
   rows with and without `actionable_since`, compliant rows, case
   collisions, a two-owner installation and snapshots. Then assert:

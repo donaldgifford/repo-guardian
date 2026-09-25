@@ -2,13 +2,17 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pressly/goose/v3"
@@ -39,6 +43,9 @@ type migrateResult struct {
 	Version int64              `json:"version"`
 	Applied []appliedMigration `json:"applied"`
 	Pending []int64            `json:"pending,omitempty"`
+
+	// Backfill is what the v1 backfill would write, under --dry-run.
+	Backfill *pgstore.BackfillReport `json:"backfill,omitempty"`
 }
 
 type appliedMigration struct {
@@ -138,7 +145,7 @@ func migrate(ctx context.Context, opts migrateOptions) (_ *migrateResult, retErr
 	res := &migrateResult{DryRun: opts.dryRun}
 
 	if opts.dryRun {
-		if err := listPending(ctx, provider, res); err != nil {
+		if err := rehearse(ctx, provider, db, res); err != nil {
 			return nil, err
 		}
 	} else {
@@ -159,6 +166,23 @@ func migrate(ctx context.Context, opts migrateOptions) (_ *migrateResult, retErr
 	}
 
 	return res, nil
+}
+
+// rehearse lists the pending migrations and runs them, with the v1
+// backfill, in a transaction that rolls back.
+func rehearse(ctx context.Context, provider *goose.Provider, db *sql.DB, res *migrateResult) error {
+	if err := listPending(ctx, provider, res); err != nil {
+		return err
+	}
+
+	backfill, err := pgstore.DryRun(ctx, db, strconv.FormatInt(time.Now().UnixNano(), 10))
+	if err != nil {
+		return err
+	}
+
+	res.Backfill = backfill
+
+	return nil
 }
 
 func listPending(ctx context.Context, provider *goose.Provider, res *migrateResult) error {
@@ -204,5 +228,45 @@ func writeMigrateResult(w io.Writer, res *migrateResult, asJSON bool) error {
 		return fmt.Errorf("migrate: writing result: %w", err)
 	}
 
+	if err := writeBackfillReport(w, res.Backfill); err != nil {
+		return fmt.Errorf("migrate: writing result: %w", err)
+	}
+
 	return nil
+}
+
+// writeBackfillReport prints a dry run's backfill counts, collisions,
+// multi-owner installations and park-reason histogram.
+func writeBackfillReport(w io.Writer, b *pgstore.BackfillReport) error {
+	if b == nil {
+		return nil
+	}
+
+	if !b.Ran {
+		_, err := fmt.Fprintln(w, "backfill: nothing to backfill (no v1 database adopted)")
+
+		return err
+	}
+
+	var sb strings.Builder
+
+	fmt.Fprintf(&sb, "backfill (dry run, rolled back; seed %s):\n", b.Seed)
+	fmt.Fprintf(&sb, "  installations %d\n  repositories  %d (never checked %d)\n", b.Installations, b.Repositories, b.NeverChecked)
+	fmt.Fprintf(&sb, "  findings      %d\n  events        %d\n  snapshots     %d\n", b.Findings, b.Events, b.Snapshots)
+
+	for _, reason := range slices.Sorted(maps.Keys(b.ParkReasons)) {
+		fmt.Fprintf(&sb, "  parked %-20s %d\n", reason, b.ParkReasons[reason])
+	}
+
+	for _, m := range b.MultiOwner {
+		fmt.Fprintf(&sb, "  multiple owners: installation %s\n", m)
+	}
+
+	for _, c := range b.Collisions {
+		fmt.Fprintf(&sb, "  case collision dropped: %s\n", c)
+	}
+
+	_, err := io.WriteString(w, sb.String())
+
+	return err
 }

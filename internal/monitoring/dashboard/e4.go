@@ -30,7 +30,7 @@ const (
 // (DESIGN-0023), so its rejections appear in edge telemetry, not here.
 const (
 	logInvalidPayload  = "invalid webhook payload"
-	logEnqueueFailed   = "failed to enqueue job"
+	logEnqueueFailed   = "failed to start webhook workflow"
 	webhookRejectedRe  = logInvalidPayload
 	webhookIncidentsRe = webhookRejectedRe + "|" + logEnqueueFailed
 )

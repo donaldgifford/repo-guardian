@@ -1030,7 +1030,7 @@ This phase can start right after Phase 1.
 - [x] 12.3 Readiness:
   - `temporal.Ping`, plus `RequireSchema` on `worker` and `api`;
   - evaluated every 10s in the background, and cached.
-- [ ] 12.4 Build `internal/ingest`:
+- [x] 12.4 Build `internal/ingest`:
   - HMAC validation, unchanged: 401 and
     `webhook_rejected_total{reason="signature"}`;
   - stateless filtering: tag pushes, non-default branches, no watched

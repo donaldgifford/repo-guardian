@@ -183,6 +183,14 @@ var (
 		Help: "Webhook requests rejected (signature validation).",
 	}, []string{labelReason})
 
+	// WebhookTemporalErrorsTotal counts webhooks ingest could not hand to
+	// Temporal (IMPL-0025 Phase 12). Each one was answered 503, so GitHub
+	// records a failed delivery an operator can redeliver.
+	WebhookTemporalErrorsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "repo_guardian_webhook_temporal_errors_total",
+		Help: "Webhooks answered 503 because the webhook workflow could not be started.",
+	})
+
 	// IgnoredTotal counts repos or rules skipped by ignore lists, by scope and org.
 	IgnoredTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_ignored_total",

@@ -15,6 +15,7 @@ import (
 
 	"github.com/donaldgifford/repo-guardian/internal/activities"
 	"github.com/donaldgifford/repo-guardian/internal/config"
+	"github.com/donaldgifford/repo-guardian/internal/ingest"
 	"github.com/donaldgifford/repo-guardian/internal/observability"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	pgstore "github.com/donaldgifford/repo-guardian/internal/store/postgres"
@@ -96,29 +97,10 @@ func runRoles(name string, args []string, roles config.Role) error {
 		return err
 	}
 
-	checks := []readinessCheck{{name: "temporal", fn: func(ctx context.Context) error { return temporal.Ping(ctx, tc) }}}
-
-	var w worker.Worker
-
-	if roles.Has(config.RoleWorker) {
-		var pool *pgxpool.Pool
-
-		w, pool, err = startV2Worker(ctx, cfg, tc, &tcfg, *strictTemplates, logger)
-		if err != nil {
-			return err
-		}
-
-		checks = append(checks, readinessCheck{name: "schema", fn: func(ctx context.Context) error {
-			return pgstore.RequireSchema(ctx, pool, pgstore.SchemaVersion)
-		}})
+	mux, w, err := bringUpRoles(ctx, roles, cfg, tc, &tcfg, *strictTemplates, logger)
+	if err != nil {
+		return err
 	}
-
-	ready := newReadiness(logger, checks...)
-	go ready.run(ctx, readinessInterval)
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", handleHealthz)
-	mux.HandleFunc("GET /readyz", ready.handler(ctx))
 
 	mainServer := &http.Server{Addr: cfg.ListenAddr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	metricsServer := newMetricsServer(cfg.MetricsAddr)
@@ -131,6 +113,57 @@ func runRoles(name string, args []string, roles config.Role) error {
 	stopRoles(logger, w, mainServer, metricsServer)
 
 	return nil
+}
+
+// bringUpRoles starts the worker and mounts ingest and the health
+// endpoints for the given roles.
+func bringUpRoles(
+	ctx context.Context,
+	roles config.Role,
+	cfg *config.Config,
+	tc client.Client,
+	tcfg *temporal.Config,
+	strictTemplates bool,
+	logger *slog.Logger,
+) (*http.ServeMux, worker.Worker, error) {
+	checks := []readinessCheck{{name: "temporal", fn: func(ctx context.Context) error { return temporal.Ping(ctx, tc) }}}
+
+	mux := http.NewServeMux()
+
+	var w worker.Worker
+
+	if roles.Has(config.RoleWorker) {
+		var (
+			pool *pgxpool.Pool
+			err  error
+		)
+
+		w, pool, err = startV2Worker(ctx, cfg, tc, tcfg, strictTemplates, logger)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		checks = append(checks, readinessCheck{name: "schema", fn: func(ctx context.Context) error {
+			return pgstore.RequireSchema(ctx, pool, pgstore.SchemaVersion)
+		}})
+	}
+
+	if roles.Has(config.RoleIngest) {
+		h, err := newIngestHandler(cfg, tc, tcfg.TaskQueue, logger)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		mux.Handle(webhookRoute, observability.Handler(h, webhookRoute))
+	}
+
+	ready := newReadiness(logger, checks...)
+	go ready.run(ctx, readinessInterval)
+
+	mux.HandleFunc("GET /healthz", handleHealthz)
+	mux.HandleFunc("GET /readyz", ready.handler(ctx))
+
+	return mux, w, nil
 }
 
 // startV2Worker loads the policy and engine, opens the store and starts
@@ -200,6 +233,18 @@ func startV2Worker(
 	}()
 
 	return w, pool, nil
+}
+
+// newIngestHandler builds the webhook handler. The policy is read only
+// for its watched paths, so a policy error fails startup rather than
+// silently dropping every push.
+func newIngestHandler(cfg *config.Config, tc client.Client, taskQueue string, logger *slog.Logger) (http.Handler, error) {
+	policyCfg, err := policy.Load(cfg.GuardianConfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("load policy for watched paths: %w", err)
+	}
+
+	return ingest.New(cfg.GitHubWebhookSecret, tc, taskQueue, policy.ExtractWatchedPaths(policyCfg), logger), nil
 }
 
 // stopRoles shuts the HTTP servers down. The worker stops with the run

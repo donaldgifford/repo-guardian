@@ -13,6 +13,7 @@ import "strconv"
 const (
 	RepoWorkflowName         = "RepoWorkflow"
 	InstallationWorkflowName = "InstallationWorkflow"
+	WebhookWorkflowName      = "WebhookWorkflow"
 )
 
 // Activity names. The activities package registers under these names
@@ -23,6 +24,7 @@ const (
 	RecordCheckErrorActivity = "RecordCheckError"
 	ParkActivity             = "Park"
 	AcquireBudgetActivity    = "AcquireBudget"
+	RouteWebhookActivity     = "RouteWebhook"
 )
 
 // Signal names accepted by RepoWorkflow.
@@ -50,4 +52,10 @@ func RepoWorkflowID(repositoryID int64) string {
 // budget.
 func InstallationWorkflowID(installationID int64) string {
 	return "installation/" + strconv.FormatInt(installationID, 10)
+}
+
+// WebhookWorkflowID is the workflow ID for a GitHub delivery. It makes
+// redeliveries idempotent.
+func WebhookWorkflowID(deliveryID string) string {
+	return "webhook/" + deliveryID
 }

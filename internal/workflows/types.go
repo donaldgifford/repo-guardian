@@ -181,3 +181,22 @@ type AcquireInput struct {
 	UpdateID       string
 	Request        AcquireRequest
 }
+
+// WebhookRepo identifies one repository in a webhook. ID is GitHub's
+// repository id, which survives renames and transfers.
+type WebhookRepo struct {
+	ID   int64
+	Org  string
+	Name string
+}
+
+// WebhookInput is WebhookWorkflow's input: the routing facts of one
+// delivery, never its payload.
+type WebhookInput struct {
+	DeliveryID     string
+	Event          string
+	Action         string
+	InstallationID int64
+	AccountLogin   string
+	Repositories   []WebhookRepo
+}

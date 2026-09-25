@@ -9,8 +9,21 @@ import (
 // ignore list. Patterns use path.Match for glob matching (*, ?, [abc]).
 // Input is normalized to lowercase since GitHub repo names are case-insensitive.
 func (ic *IgnoreConfig) Matches(ownerRepo string) bool {
+	_, ok := ic.matchPattern(ownerRepo)
+
+	return ok
+}
+
+// MatchPattern reports whether owner/repo is ignored and, if so, the
+// pattern that matched. The pattern is recorded as finding evidence
+// (DESIGN-0025 ignored_global / ignored_rule).
+func (ic *IgnoreConfig) MatchPattern(owner, repo string) (string, bool) {
+	return ic.matchPattern(owner + "/" + repo)
+}
+
+func (ic *IgnoreConfig) matchPattern(ownerRepo string) (string, bool) {
 	if ic == nil || len(ic.Repos) == 0 {
-		return false
+		return "", false
 	}
 
 	normalized := strings.ToLower(ownerRepo)
@@ -23,9 +36,9 @@ func (ic *IgnoreConfig) Matches(ownerRepo string) bool {
 		}
 
 		if matched {
-			return true
+			return pattern, true
 		}
 	}
 
-	return false
+	return "", false
 }

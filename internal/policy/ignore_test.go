@@ -134,3 +134,34 @@ func TestIgnoreConfig_Matches_QuestionMark(t *testing.T) {
 		t.Error("expected ? NOT to match multiple characters")
 	}
 }
+
+func TestIgnoreConfig_MatchPattern(t *testing.T) {
+	t.Parallel()
+
+	ic := &IgnoreConfig{Repos: []string{"[invalid", "org/Legacy-*", "org/*"}}
+
+	tests := []struct {
+		name, owner, repo, want string
+		ok                      bool
+	}{
+		{name: "first valid match wins", owner: "org", repo: "legacy-api", want: "org/Legacy-*", ok: true},
+		{name: "wildcard", owner: "Org", repo: "service", want: "org/*", ok: true},
+		{name: "no match", owner: "other", repo: "service"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, ok := ic.MatchPattern(tt.owner, tt.repo)
+			if got != tt.want || ok != tt.ok {
+				t.Errorf("MatchPattern(%q, %q) = %q, %v; want %q, %v", tt.owner, tt.repo, got, ok, tt.want, tt.ok)
+			}
+		})
+	}
+
+	var nilIgnore *IgnoreConfig
+	if _, ok := nilIgnore.MatchPattern("org", "repo"); ok {
+		t.Error("nil IgnoreConfig matched")
+	}
+}

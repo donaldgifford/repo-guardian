@@ -610,7 +610,7 @@ it. Task IDs are `<phase>.<n>`.
     `scope_test.go`;
   - store the calls, plus each `(kind, name, actionable)`, in
     `testdata/parity/*.golden.json`, written with `-update-parity`.
-- [ ] 4.2 Add `policy.IgnoreConfig.MatchPattern(owner, repo) (string,
+- [x] 4.2 Add `policy.IgnoreConfig.MatchPattern(owner, repo) (string,
   bool)`. `Matches` delegates to it.
 - [ ] 4.3 Change `gate.go`'s `gateResult` to carry `err`. Set it at
   `:135-138`, and add `gateDetail(referee)`.

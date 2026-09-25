@@ -686,7 +686,7 @@ it. Task IDs are `<phase>.<n>`.
 
   `UpsertDiscovered` is the only code that un-parks a repository, and a
   test asserts that `RecordCheck` never sets `active`.
-- [ ] 5.4 Add `GITHUB_HOST` (default `github.com`), passed through to
+- [x] 5.4 Add `GITHUB_HOST` (default `github.com`), passed through to
   every record (OQ7).
 - [ ] 5.5 At load, emit one warning per rule name that is used by more
   than one kind. Put it next to `warnLegacyPerRuleScope`. Test that

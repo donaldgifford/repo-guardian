@@ -26,6 +26,10 @@ type Config struct {
 	// GitHubWebhookSecret is the HMAC secret for validating webhook payloads.
 	GitHubWebhookSecret string
 
+	// GitHubHost is the GitHub host every v2 repository and installation
+	// record is keyed under (DESIGN-0025 OQ7). Defaults to github.com.
+	GitHubHost string
+
 	// ListenAddr is the HTTP listen address for the webhook server.
 	ListenAddr string
 
@@ -219,6 +223,7 @@ func Load() (*Config, error) {
 		GitHubPrivateKeyPath: os.Getenv("GITHUB_PRIVATE_KEY_PATH"),
 		GitHubPrivateKey:     os.Getenv("GITHUB_PRIVATE_KEY"),
 		GitHubWebhookSecret:  os.Getenv("GITHUB_WEBHOOK_SECRET"),
+		GitHubHost:           envOrDefault("GITHUB_HOST", "github.com"),
 	}
 
 	appIDStr := os.Getenv("GITHUB_APP_ID")

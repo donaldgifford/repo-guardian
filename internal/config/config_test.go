@@ -25,6 +25,10 @@ func TestLoadDefaults(t *testing.T) {
 		t.Errorf("ListenAddr = %q, want :8080", cfg.ListenAddr)
 	}
 
+	if cfg.GitHubHost != "github.com" {
+		t.Errorf("GitHubHost = %q, want github.com", cfg.GitHubHost)
+	}
+
 	if cfg.MetricsAddr != ":9090" {
 		t.Errorf("MetricsAddr = %q, want :9090", cfg.MetricsAddr)
 	}

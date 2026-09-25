@@ -40,12 +40,31 @@ var ErrConflict = errors.New("concurrent write won")
 type V2Store struct {
 	pool   *pgxpool.Pool
 	logger *slog.Logger
+	host   string
 }
 
 // NewV2Store returns a V2Store over pool. The schema must already be
 // migrated; see RequireSchema.
-func NewV2Store(pool *pgxpool.Pool, logger *slog.Logger) *V2Store {
-	return &V2Store{pool: pool, logger: logger}
+func NewV2Store(pool *pgxpool.Pool, logger *slog.Logger, opts ...V2Option) *V2Store {
+	s := &V2Store{pool: pool, logger: logger, host: defaultHost}
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	return s
+}
+
+// V2Option configures a V2Store.
+type V2Option func(*V2Store)
+
+// WithHost sets the host a record is keyed under when it names none
+// (GITHUB_HOST, DESIGN-0025 OQ7). An empty host keeps github.com.
+func WithHost(host string) V2Option {
+	return func(s *V2Store) {
+		if host != "" {
+			s.host = host
+		}
+	}
 }
 
 // inTx runs fn in one transaction and commits when fn returns nil.

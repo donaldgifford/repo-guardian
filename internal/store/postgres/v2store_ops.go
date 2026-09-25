@@ -144,7 +144,7 @@ func clearRepositoryFindings(ctx context.Context, q *sqlcdb.Queries, repoID int6
 func (s *V2Store) UpsertDiscovered(ctx context.Context, r *store.DiscoveredRepo) (res store.UpsertResult, err error) {
 	defer func(start time.Time) { observeQuery("v2_upsert_discovered", start, err) }(time.Now())
 
-	provider, host := orDefault(r.Provider, defaultProvider), orDefault(r.Host, defaultHost)
+	provider, host := orDefault(r.Provider, defaultProvider), orDefault(r.Host, s.host)
 
 	err = s.inTx(ctx, func(q *sqlcdb.Queries) error {
 		existing, found, err := matchRepository(ctx, q, provider, host, r.Org, r.Name, r.ProviderRepoID)
@@ -222,7 +222,7 @@ func (s *V2Store) UpsertInstallation(ctx context.Context, in store.Installation)
 	err = sqlcdb.New(s.pool).UpsertInstallation(ctx, sqlcdb.UpsertInstallationParams{
 		InstallationID: in.InstallationID,
 		Provider:       orDefault(in.Provider, defaultProvider),
-		Host:           orDefault(in.Host, defaultHost),
+		Host:           orDefault(in.Host, s.host),
 		AccountLogin:   in.AccountLogin,
 		SuspendedAt:    in.SuspendedAt,
 	})

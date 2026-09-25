@@ -80,7 +80,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}},value=${{ inputs.tag }}
             type=semver,pattern={{major}}.{{minor}},value=${{ inputs.tag }}
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ !contains(inputs.tag, '-') }}
 
       - name: Build and push image
         id: bake

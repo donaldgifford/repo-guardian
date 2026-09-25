@@ -404,12 +404,12 @@ it. Task IDs are `<phase>.<n>`.
   `license-check.yml:7,9` and `security.yml:5-7`. `release.yml` and
   `gh-pages.yml` stay `main`-only.
 - [x] 1.3 On `v2`, set `ct.yaml` to `target-branch: v2`.
-- [ ] 1.4 Stop pre-releases from tagging `latest`:
+- [x] 1.4 Stop pre-releases from tagging `latest`:
   - in `docker-bake.hcl` `tags()` (`:28-36`), emit `latest` only when
     `VERSION` has no pre-release suffix;
   - in `ghcr.yml:80-83` and `ecr.yml:110-113`, change the `latest` tag
     to `type=raw,value=latest,enable=${{ !contains(inputs.tag, '-') }}`;
-  - land the same change on `main` too, in a small separate PR.
+  - land the same change on `main` too, in a small separate PR. **Deferred — human required:** the `main` PR is an outward action for the operator; the change is committed here.
 - [ ] 1.5 Add a `ref` input (default `main`) to `changelog-update.yml`.
 - [ ] 1.6 On `v2`, set the chart to `version: 2.0.0-rc.0`. The first
   publish is rc.1, in Phase 19.

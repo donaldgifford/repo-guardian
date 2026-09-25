@@ -29,10 +29,11 @@ function "tags" {
   params = [version]
   result = version == "dev" ? [
     "${REGISTRY}/${IMAGE_NAME}:dev",
-  ] : [
-    "${REGISTRY}/${IMAGE_NAME}:${version}",
-    "${REGISTRY}/${IMAGE_NAME}:latest",
-  ]
+  ] : concat(
+    ["${REGISTRY}/${IMAGE_NAME}:${version}"],
+    // Pre-releases (any "-" suffix, e.g. 2.0.0-rc.1) never move latest.
+    length(regexall("-", version)) > 0 ? [] : ["${REGISTRY}/${IMAGE_NAME}:latest"],
+  )
 }
 
 // Base target with shared configuration.

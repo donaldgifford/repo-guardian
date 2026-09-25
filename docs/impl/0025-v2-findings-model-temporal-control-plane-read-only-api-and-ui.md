@@ -1445,7 +1445,7 @@ Land this phase as one PR, so the branch is never half-migrated.
   hook Job, and mark the golang-migrate sections as v1-only. Update
   `compliance-reports.md` for the new denominator and the reason
   column.
-- [ ] 18.3 Add `repo-guardian migrate verify-shadow --v1-dsn
+- [x] 18.3 Add `repo-guardian migrate verify-shadow --v1-dsn
   --v2-dsn`:
   - diff v2 findings against v1 `rule_state` on `Actionable()`;
   - classify the documented divergences;

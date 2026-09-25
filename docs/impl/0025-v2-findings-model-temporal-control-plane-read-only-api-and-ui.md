@@ -1537,7 +1537,7 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
     from `api/openapi.yaml`, with no vendoring;
   - a `ui` paths-filter CI job runs `bun test` and the type-gen drift
     check.
-- [ ] 20.2 Config:
+- [x] 20.2 Config:
   - env validation, failing fast: `OIDC_ISSUER`, `OIDC_CLIENT_ID`,
     `OIDC_CLIENT_SECRET`, `OIDC_SCOPES`, `API_UPSTREAM`,
     `UI_SESSION_KEYS` (at least 32 bytes each), `UI_SESSION_TTL` and

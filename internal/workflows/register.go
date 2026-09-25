@@ -8,4 +8,5 @@ import (
 // Register registers every workflow under its name.
 func Register(r worker.WorkflowRegistry) {
 	r.RegisterWorkflowWithOptions(RepoWorkflow, workflow.RegisterOptions{Name: RepoWorkflowName})
+	r.RegisterWorkflowWithOptions(InstallationWorkflow, workflow.RegisterOptions{Name: InstallationWorkflowName})
 }

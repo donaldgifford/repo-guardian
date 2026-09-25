@@ -11,7 +11,8 @@ import "strconv"
 // identity, so renaming one strands the executions already started
 // under the old name.
 const (
-	RepoWorkflowName = "RepoWorkflow"
+	RepoWorkflowName         = "RepoWorkflow"
+	InstallationWorkflowName = "InstallationWorkflow"
 )
 
 // Activity names. The activities package registers under these names
@@ -21,6 +22,7 @@ const (
 	RecordCheckActivity      = "RecordCheck"
 	RecordCheckErrorActivity = "RecordCheckError"
 	ParkActivity             = "Park"
+	AcquireBudgetActivity    = "AcquireBudget"
 )
 
 // Signal names accepted by RepoWorkflow.
@@ -30,9 +32,22 @@ const (
 	ParkSignal          = "park"
 )
 
+// InstallationWorkflow's handlers: acquire is an Update, so the caller
+// gets a synchronous grant or wait; report is a Signal.
+const (
+	AcquireUpdate = "acquire"
+	ReportSignal  = "report"
+)
+
 // RepoWorkflowID is the workflow ID for repositories.id. The ID is the
 // per-repository lock: one RepoWorkflow per repository, kept across
 // renames and transfers because the internal id never changes.
 func RepoWorkflowID(repositoryID int64) string {
 	return "repo/" + strconv.FormatInt(repositoryID, 10)
+}
+
+// InstallationWorkflowID is the workflow ID for an installation's rate
+// budget.
+func InstallationWorkflowID(installationID int64) string {
+	return "installation/" + strconv.FormatInt(installationID, 10)
 }

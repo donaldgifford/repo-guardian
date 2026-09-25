@@ -966,7 +966,7 @@ This phase can start right after Phase 1.
 
 #### Tasks
 
-- [ ] 11.1 Add `InstallationWorkflow`:
+- [x] 11.1 Add `InstallationWorkflow`:
   - state `{Limit, Remaining, Reset, Reserved, Estimate (EWMA, seeded
     at 20), Leases}`;
   - an Update, `acquire`, which returns `Granted` or `Wait`, with a

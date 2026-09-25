@@ -1640,9 +1640,12 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
 
 #### Success Criteria
 
-- Every view renders against a seeded API.
-- The ESLint ban is proven by a probe.
+- Every view renders against a seeded API. (Met by the 22.4 Playwright
+  suite.)
+- The ESLint ban is proven by a probe. (Met: `scripts/eslint-ban.test.ts`.)
 - Fleet → Rule → Repository navigation works against the homelab API.
+  (**deferred - human required**: needs the homelab; the same path is
+  green against the seeded API in Playwright.)
 
 ---
 

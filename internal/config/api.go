@@ -32,6 +32,10 @@ type APIConfig struct {
 	// PRStaleAfter is PR_STALE_AFTER: an open repo-guardian PR older
 	// than this is stale. Default 720h (DESIGN-0027 OQ14).
 	PRStaleAfter time.Duration
+
+	// StatusPublic is STATUS_PUBLIC, default true: the status page needs
+	// no token. False puts it behind authentication like every route.
+	StatusPublic bool
 }
 
 // PR_STALE_AFTER defaults to 720h and is bounded to 1h–8760h, the same
@@ -60,6 +64,11 @@ func loadAPIConfig(cfg *Config) error {
 		return err
 	}
 
+	statusPublic, err := envOrDefaultBool("STATUS_PUBLIC", true)
+	if err != nil {
+		return err
+	}
+
 	cfg.API = APIConfig{
 		ListenAddr:      os.Getenv("API_LISTEN_ADDR"),
 		StoreRODSN:      os.Getenv("STORE_RO_DSN"),
@@ -70,6 +79,7 @@ func loadAPIConfig(cfg *Config) error {
 		OIDCGroupsClaim: envOrDefault("OIDC_GROUPS_CLAIM", "groups"),
 		AuthzConfigPath: os.Getenv("API_AUTHZ_CONFIG"),
 		PRStaleAfter:    stale,
+		StatusPublic:    statusPublic,
 	}
 
 	return nil

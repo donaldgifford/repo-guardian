@@ -53,6 +53,12 @@ type Options struct {
 	// StaleAfter is PR_STALE_AFTER.
 	StaleAfter time.Duration
 
+	// Status serves /status from its cache; nil answers unknown.
+	Status *StatusPage
+	// StatusRequiresAuth is STATUS_PUBLIC=false: /status then needs a
+	// valid token like every other route, though no visible org.
+	StatusRequiresAuth bool
+
 	Logger *slog.Logger
 	// Now overrides the clock in tests.
 	Now func() time.Time
@@ -77,7 +83,7 @@ func New(opts *Options) (http.Handler, error) {
 		o.Now = time.Now
 	}
 
-	public, err := publicRoutes()
+	public, err := publicRoutes(o.StatusRequiresAuth)
 	if err != nil {
 		return nil, err
 	}
@@ -119,9 +125,13 @@ func New(opts *Options) (http.Handler, error) {
 	return observability.Handler(h, "api"), nil
 }
 
+// statusRoute is the status page's pattern, public unless
+// STATUS_PUBLIC=false.
+const statusRoute = "GET " + BaseURL + "/status"
+
 // publicRoutes lists the spec's operations declared `security: []` as
-// ServeMux patterns under BaseURL.
-func publicRoutes() ([]string, error) {
+// ServeMux patterns under BaseURL, less /status when it requires auth.
+func publicRoutes(statusRequiresAuth bool) ([]string, error) {
 	spec, err := gen.GetSpec()
 	if err != nil {
 		return nil, err
@@ -131,8 +141,9 @@ func publicRoutes() ([]string, error) {
 
 	for path, item := range spec.Paths.Map() {
 		for method, op := range item.Operations() {
-			if op.Security != nil && len(*op.Security) == 0 {
-				out = append(out, method+" "+BaseURL+path)
+			route := method + " " + BaseURL + path
+			if op.Security != nil && len(*op.Security) == 0 && (route != statusRoute || !statusRequiresAuth) {
+				out = append(out, route)
 			}
 		}
 	}
@@ -163,9 +174,13 @@ func anonymous(next http.Handler) http.Handler {
 
 // requireVisibleOrgs refuses a principal that can see no org, on every
 // operation but getMe, which tells the UI to show "ask for access".
+// orgFree operations answer a caller who sees no org: /me says so, and
+// the status page is aggregate-only.
+var orgFree = map[string]bool{"GetMe": true, "GetStatus": true}
+
 func requireVisibleOrgs(f gen.StrictHandlerFunc, operationID string) gen.StrictHandlerFunc {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request, req any) (any, error) {
-		if p, ok := principalFrom(ctx); ok && p.Visible.Empty() && operationID != "GetMe" {
+		if p, ok := principalFrom(ctx); ok && p.Visible.Empty() && !orgFree[operationID] {
 			return nil, statusError(http.StatusForbidden, "no visible organizations")
 		}
 

@@ -1244,7 +1244,7 @@ failed on a probe and passed once it was removed.
 - [x] 15.7 Compliance parity: the same seed must give identical
   percentages through `report`, `/rules`, `/orgs` and the snapshot
   writer.
-- [ ] 15.8 Build the status page (`status.go`):
+- [x] 15.8 Build the status page (`status.go`):
   - a 30s cache that the refresher alone queries, returning `unknown`
     until its first refresh;
   - component rules follow DESIGN-0027's table;

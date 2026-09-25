@@ -199,6 +199,14 @@ var (
 		Help: "API requests refused authentication, by reason.",
 	}, []string{labelReason})
 
+	// APIStatusRefreshSeconds times each status-page refresh (IMPL-0025
+	// 15.8), by outcome: ok or error. The page itself never queries.
+	APIStatusRefreshSeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "repo_guardian_api_status_refresh_seconds",
+		Help:    "Duration of status-page refreshes, by outcome.",
+		Buckets: prometheus.DefBuckets,
+	}, []string{labelOutcome})
+
 	// IgnoredTotal counts repos or rules skipped by ignore lists, by scope and org.
 	IgnoredTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_ignored_total",

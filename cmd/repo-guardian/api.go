@@ -7,16 +7,25 @@ import (
 	"log/slog"
 	"net/http"
 
+	"go.temporal.io/sdk/client"
+
 	"github.com/donaldgifford/repo-guardian/internal/api"
 	"github.com/donaldgifford/repo-guardian/internal/config"
 	pgstore "github.com/donaldgifford/repo-guardian/internal/store/postgres"
+	"github.com/donaldgifford/repo-guardian/internal/temporal"
 )
 
 // startAPI builds the read-only API (DESIGN-0027): the read-only pool,
 // OIDC authentication with background discovery, and the authz file.
 // It returns the handler and its readiness checks: the pool, the schema
 // version and, with auth enabled, OIDC discovery.
-func startAPI(ctx context.Context, cfg *config.Config, roles config.Role, logger *slog.Logger) (http.Handler, []readinessCheck, error) {
+//
+// The status page refreshes in the background from the same pool; with a
+// Temporal client (the api role beside the worker) it also probes the
+// task-queue backlog.
+func startAPI(
+	ctx context.Context, cfg *config.Config, roles config.Role, tc client.Client, tcfg *temporal.Config, logger *slog.Logger,
+) (http.Handler, []readinessCheck, error) {
 	pool, err := pgstore.NewReadOnlyPool(ctx, cfg.APIStoreDSN(roles))
 	if err != nil {
 		return nil, nil, err
@@ -27,7 +36,26 @@ func startAPI(ctx context.Context, cfg *config.Config, roles config.Role, logger
 		pool.Close()
 	}()
 
-	opts := &api.Options{Reader: pgstore.NewAPIReader(pool), StaleAfter: cfg.API.PRStaleAfter, Logger: logger}
+	reader := pgstore.NewAPIReader(pool)
+	statusCfg := &api.StatusConfig{
+		Reader: reader, CheckInterval: cfg.CheckInterval, DiscoveryInterval: cfg.DiscoveryInterval,
+		SnapshotInterval: cfg.ComplianceSnapshotInterval, RateReserve: cfg.RateLimitThreshold, Logger: logger,
+	}
+
+	if tc != nil {
+		statusCfg.Backlog = func(ctx context.Context) (api.Backlog, error) {
+			age, pollers, err := temporal.DescribeBacklog(ctx, tc, tcfg)
+
+			return api.Backlog{Age: age, Pollers: pollers}, err
+		}
+	}
+
+	status := api.NewStatusPage(statusCfg)
+	go status.Run(ctx)
+
+	opts := &api.Options{
+		Reader: reader, StaleAfter: cfg.API.PRStaleAfter, Status: status, StatusRequiresAuth: !cfg.API.StatusPublic, Logger: logger,
+	}
 	checks := []readinessCheck{
 		{name: "api_store", fn: pool.Ping},
 		{name: "api_schema", fn: func(ctx context.Context) error { return pgstore.RequireSchema(ctx, pool, pgstore.SchemaVersion) }},

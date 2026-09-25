@@ -205,7 +205,7 @@ func bringUpRoles(
 	}
 
 	if roles.Has(config.RoleAPI) {
-		h, apiChecks, err := startAPI(ctx, cfg, roles, logger)
+		h, apiChecks, err := startAPI(ctx, cfg, roles, tc, tcfg, logger)
 		if err != nil {
 			return nil, err
 		}

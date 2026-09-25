@@ -230,3 +230,22 @@ type CurrentPolicy struct {
 	RolloutCompletedAt *time.Time
 	Summary            PolicySummary
 }
+
+// StatusInputs is everything the status page is computed from, read in
+// one pass by its refresher (DESIGN-0027 § Status page). It is global:
+// the page is aggregate-only.
+type StatusInputs struct {
+	// LastCheckSuccess and LastWebhookCheck are nil before the first.
+	LastCheckSuccess *time.Time
+	LastWebhookCheck *time.Time
+	// ChecksLastHour counts finished checks, ErrorsLastHour the failed.
+	ChecksLastHour     int
+	ErrorsLastHour     int
+	ActiveRepositories int
+	// LastServiceSuccess holds each service's last successful run.
+	LastServiceSuccess map[ServiceRunKind]time.Time
+	// Rates holds live installations' rate snapshots.
+	Rates []RateSnapshot
+	// Compliance is the fleet's finding counts, from the shared query.
+	Compliance StatusCounts
+}

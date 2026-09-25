@@ -125,17 +125,15 @@ func (s *server) staleAfter(param *string) (time.Duration, error) {
 	return d, nil
 }
 
-// GetStatus is the public status page.
-//
-// TODO(IMPL-0025 P15): compute the components and fleet compliance
-// into the 30s cache; until then every component is unknown.
+// GetStatus serves the status page from its cache; it never queries.
 func (s *server) GetStatus(context.Context, gen.GetStatusRequestObject) (gen.GetStatusResponseObject, error) {
-	return gen.GetStatus200JSONResponse{
-		State:      "unknown",
-		UpdatedAt:  s.opts.Now().UTC(),
-		Components: []gen.Component{},
-		Compliance: gen.Compliance{Measured: false},
-	}, nil
+	if s.opts.Status == nil {
+		return gen.GetStatus200JSONResponse{
+			State: stateUnknown, UpdatedAt: s.opts.Now().UTC(), Components: []gen.Component{},
+		}, nil
+	}
+
+	return gen.GetStatus200JSONResponse(s.opts.Status.Current()), nil
 }
 
 // GetOpenAPI serves the contract as written.

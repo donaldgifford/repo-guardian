@@ -1689,10 +1689,15 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
 
 #### Success Criteria
 
-- Playwright is green in CI.
+- Playwright is green in CI. (Green locally, 13/13 via
+  `make test-ui-e2e`; the `ui-e2e` CI job first runs when the branch is
+  pushed: **deferred - human required**.)
 - The homelab serves the UI and API on one host, with working login,
-  per-group scoping and an anonymous status page.
-- The docs are published.
+  per-group scoping and an anonymous status page. (**deferred - human
+  required**, with 22.6.)
+- The docs are published. (`docs/usage/api.md` and `ui.md` are in the
+  mkdocs nav; publishing is `gh-pages.yml` on `main`, at GA:
+  **deferred - human required**.)
 
 ---
 
@@ -1721,23 +1726,26 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
 
 ## Testing Plan
 
-- [ ] Migration: adoption matrix, seeded backfill, dry run, rollback
+- [x] Migration: adoption matrix, seeded backfill, dry run, rollback
   (2, 7).
-- [ ] `RecordCheck` properties and nil/clear contracts (3).
-- [ ] Engine parity suite and outcome goldens, proven non-vacuous (4).
-- [ ] Identity: rename, transfer, case, ID fill (5).
-- [ ] Policy version golden and classification (6).
-- [ ] Compliance parity across report, snapshot and API (8, 15).
-- [ ] Workflow unit tests, replay CI gate, activity classification
+- [x] `RecordCheck` properties and nil/clear contracts (3).
+- [x] Engine parity suite and outcome goldens, proven non-vacuous (4).
+- [x] Identity: rename, transfer, case, ID fill (5).
+- [x] Policy version golden and classification (6).
+- [x] Compliance parity across report, snapshot and API (8, 15).
+- [x] Workflow unit tests, replay CI gate, activity classification
   (10–13).
-- [ ] Integration: dev server + Postgres + httptest GitHub, crash
+- [x] Integration: dev server + Postgres + httptest GitHub, crash
   idempotency, webhook → findings (10, 12).
-- [ ] API: contract validation, authn matrix, authz scoping, scope
+- [x] API: contract validation, authn matrix, authz scoping, scope
   lint, read-only pool, status privacy, perf fixture (14, 15).
 - [ ] Removed-knob regressions: env, HCL, chart values (16, 17).
-- [ ] Chart: topology, secret scoping, guards, alerts (17, 22).
-- [ ] BFF `bun test` matrix and Playwright e2e (20, 22).
-- [ ] Homelab: burst, patched deploy, rehearsal, shadow run, cutover,
+  Chart values and the removed env vars' warnings are covered; the HCL
+  half (`worker_count`, `queue_size`, `schedule_interval` failing load)
+  is **deferred - human required** with Phase 16.5.
+- [x] Chart: topology, secret scoping, guards, alerts (17, 22).
+- [x] BFF `bun test` matrix and Playwright e2e (20, 22).
+- [ ] **Deferred - human required:** Homelab: burst, patched deploy, rehearsal, shadow run, cutover,
   rollback drill (11, 18, 19).
 
 ## Dependencies

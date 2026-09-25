@@ -1147,7 +1147,7 @@ Phase 13.
     public.
 
   Use only constructs oapi-codegen v2.8 supports.
-- [ ] 14.2 Code generation:
+- [x] 14.2 Code generation:
   - pin oapi-codegen ≥ v2.8.0 as a Go tool;
   - `api/oapi-codegen.yaml` configures `std-http-server`,
     `strict-server`, `models` and `embedded-spec`, generating into

@@ -490,6 +490,7 @@ it. Task IDs are `<phase>.<n>`.
   or dirty database.
 - `make lint-sql` fails after a hand edit to generated code. Prove this
   once, then revert.
+  *(Proven in task 3.6, the first task that produces generated code.)*
 
 ---
 
@@ -507,7 +508,7 @@ it. Task IDs are `<phase>.<n>`.
   - a `pending` value in `checks.outcome`;
   - a unique `check_key`;
   - a Down migration that drops only the v2 objects.
-- [ ] 3.2 Add grants in a `DO $$` block:
+- [x] 3.2 Add grants in a `DO $$` block:
   - the application role gets `SELECT, INSERT, UPDATE, DELETE`, except
     `finding_events`, which gets `SELECT, INSERT`;
   - if `repoguardian_ro` exists, grant it `SELECT` and set

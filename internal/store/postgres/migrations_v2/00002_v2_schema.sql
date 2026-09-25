@@ -155,7 +155,41 @@ CREATE TABLE compliance_snapshots (
     PRIMARY KEY (org, rule_kind, rule_name, snapshot_at)
 );
 
+-- Grants (DESIGN-0025 § Data model, OQ8). The migrating role is the
+-- application role. finding_events is append-only by grant: the owner
+-- revokes its own UPDATE, DELETE and TRUNCATE so the application cannot
+-- rewrite history; retention runs under a separate maintenance role.
+-- The read-only API role is operator-provisioned and never created here.
+-- +goose StatementBegin
+DO $$
+BEGIN
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON installations, repositories, findings, checks, repository_events, policy_versions, service_runs, compliance_snapshots TO %I', current_user);
+    EXECUTE format('GRANT SELECT, INSERT ON finding_events TO %I', current_user);
+    EXECUTE format('REVOKE UPDATE, DELETE, TRUNCATE ON finding_events FROM %I', current_user);
+    EXECUTE format('GRANT USAGE, SELECT ON SEQUENCE repositories_id_seq, checks_id_seq, '
+        'finding_events_id_seq, repository_events_id_seq, service_runs_id_seq TO %I', current_user);
+
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'repoguardian_ro') THEN
+        GRANT SELECT ON installations, repositories, findings, checks, repository_events, policy_versions, service_runs, compliance_snapshots, finding_events TO repoguardian_ro;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO repoguardian_ro;
+    ELSE
+        RAISE NOTICE 'role repoguardian_ro does not exist; skipping read-only grants';
+    END IF;
+END
+$$;
+-- +goose StatementEnd
+
 -- +goose Down
+-- +goose StatementBegin
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'repoguardian_ro') THEN
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE SELECT ON TABLES FROM repoguardian_ro;
+    END IF;
+END
+$$;
+-- +goose StatementEnd
+
 DROP TABLE IF EXISTS compliance_snapshots;
 DROP TABLE IF EXISTS service_runs;
 DROP TABLE IF EXISTS policy_versions;

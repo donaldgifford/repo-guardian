@@ -867,7 +867,7 @@ This phase can start right after Phase 1.
   to `docker-compose.dev.yaml` (`start-dev`, UI on 8233), and move
   Valkey behind a `v1` profile until Phase 16. Update `run-local` and
   `dev-services` to match.
-- [ ] 9.7 Add a `temporaltest.Start(t)` harness using
+- [x] 9.7 Add a `temporaltest.Start(t)` harness using
   `testsuite.StartDevServer` with a pinned CLI (OQ10).
 - [ ] 9.8 **Deferred — human required:** needs homelab mTLS client certs and network reachability to the homelab frontend — Smoke test: from a dev machine, run and delete a throwaway
   workflow on the homelab over mTLS.

@@ -934,7 +934,7 @@ This phase can start right after Phase 1.
   - `Parked` completing the workflow;
   - failure then continue;
   - ContinueAsNew carrying state over.
-- [ ] 10.9 Activity tests, using the hand-written GitHub fakes and the
+- [x] 10.9 Activity tests, using the hand-written GitHub fakes and the
   store mocks:
   - the classification table, including a secondary-rate-limit 403
     that must count as throttled;

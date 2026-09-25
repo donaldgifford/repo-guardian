@@ -581,6 +581,11 @@ func TestRateLimitTransport_RetryDelayAboveCap_FailsFast(t *testing.T) {
 		t.Errorf("RoundTrip() error = %q, want it to name the sleep cap", rtErr)
 	}
 
+	// A secondary limit is a throttle, never a failure or a denial.
+	if thr, ok := AsThrottled(rtErr); !ok || time.Until(thr.ResetAt) < 59*time.Minute {
+		t.Errorf("AsThrottled(%v) = %+v, %v; want a throttle resetting after Retry-After", rtErr, thr, ok)
+	}
+
 	if nextCalls != 1 {
 		t.Errorf("next.RoundTrip calls = %d, want 1 (initial request only, no retry)", nextCalls)
 	}

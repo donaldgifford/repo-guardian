@@ -1,0 +1,107 @@
+package workflows
+
+import (
+	"context"
+	"sync"
+	"testing"
+	"time"
+
+	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/testsuite"
+	"go.temporal.io/sdk/workflow"
+)
+
+const (
+	testRepoID   int64 = 42
+	testInterval       = 24 * time.Hour
+)
+
+// fakeActivities records every call and answers CheckRepo from a
+// script. Registering them by name keeps the test honest about the
+// name-only coupling between workflows and activities.
+type fakeActivities struct {
+	mu      sync.Mutex
+	checks  []CheckRepoInput
+	records []RecordCheckInput
+	errors  []RecordCheckErrorInput
+	parks   []ParkInput
+
+	// script answers the nth CheckRepo call (0-based); nil means Checked.
+	script func(n int, in *CheckRepoInput) (*CheckRepoResult, error)
+}
+
+func (f *fakeActivities) CheckRepo(_ context.Context, in *CheckRepoInput) (*CheckRepoResult, error) {
+	f.mu.Lock()
+	n := len(f.checks)
+	f.checks = append(f.checks, *in)
+	f.mu.Unlock()
+
+	if f.script != nil {
+		return f.script(n, in)
+	}
+
+	return &CheckRepoResult{Kind: CheckChecked, CheckKey: in.CheckKey}, nil
+}
+
+func (f *fakeActivities) RecordCheck(_ context.Context, in *RecordCheckInput) (*RecordCheckResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.records = append(f.records, *in)
+
+	return &RecordCheckResult{}, nil
+}
+
+func (f *fakeActivities) RecordCheckError(_ context.Context, in *RecordCheckErrorInput) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.errors = append(f.errors, *in)
+
+	return nil
+}
+
+func (f *fakeActivities) Park(_ context.Context, in *ParkInput) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.parks = append(f.parks, *in)
+
+	return nil
+}
+
+// newEnv returns a time-skipping test environment running RepoWorkflow
+// as repo/42 against fakes.
+func newEnv(t *testing.T, fakes *fakeActivities) *testsuite.TestWorkflowEnvironment {
+	t.Helper()
+
+	var suite testsuite.WorkflowTestSuite
+
+	env := suite.NewTestWorkflowEnvironment()
+	env.RegisterWorkflowWithOptions(RepoWorkflow, workflow.RegisterOptions{Name: RepoWorkflowName})
+	env.RegisterActivityWithOptions(fakes.CheckRepo, activity.RegisterOptions{Name: CheckRepoActivity})
+	env.RegisterActivityWithOptions(fakes.RecordCheck, activity.RegisterOptions{Name: RecordCheckActivity})
+	env.RegisterActivityWithOptions(fakes.RecordCheckError, activity.RegisterOptions{Name: RecordCheckErrorActivity})
+	env.RegisterActivityWithOptions(fakes.Park, activity.RegisterOptions{Name: ParkActivity})
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{ID: RepoWorkflowID(testRepoID)})
+
+	t.Cleanup(func() { env.AssertExpectations(t) })
+
+	return env
+}
+
+func input() *RepoWorkflowInput {
+	return &RepoWorkflowInput{RepositoryID: testRepoID, InstallationID: 7, CheckInterval: testInterval}
+}
+
+// parkAfter scripts n Checked results, then Parked, so a workflow ends.
+func parkAfter(n int) func(int, *CheckRepoInput) (*CheckRepoResult, error) {
+	return func(i int, in *CheckRepoInput) (*CheckRepoResult, error) {
+		if i >= n {
+			return &CheckRepoResult{Kind: CheckParked, CheckKey: in.CheckKey, ParkReason: ParkArchived, ClearFindings: true}, nil
+		}
+
+		return &CheckRepoResult{Kind: CheckChecked, CheckKey: in.CheckKey}, nil
+	}
+}

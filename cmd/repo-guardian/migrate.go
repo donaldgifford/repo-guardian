@@ -59,6 +59,10 @@ type appliedMigration struct {
 // Job), then exit. Like `report`, it does not call config.Load(); a DSN
 // is all it needs.
 func runMigrate(args []string) error {
+	if len(args) > 0 && args[0] == cmdVerifyShadow {
+		return runVerifyShadow(args[1:])
+	}
+
 	opts, err := parseMigrateFlags(args)
 	if errors.Is(err, flag.ErrHelp) {
 		return nil

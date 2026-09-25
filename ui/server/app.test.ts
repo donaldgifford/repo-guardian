@@ -20,6 +20,7 @@ describe("app", () => {
       issuer: "https://idp.example.com",
       public_url: "https://guardian.example.com",
       session_ttl_seconds: 28800,
+      github_host: "github.com",
     });
   });
 });

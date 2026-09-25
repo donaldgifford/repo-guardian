@@ -57,6 +57,7 @@ describe("loadConfig", () => {
     expect(problems({ ...validEnv, API_UPSTREAM: "not a url" })).toHaveLength(1);
     expect(problems({ ...validEnv, UI_SESSION_TTL: "8 hours" })).toHaveLength(1);
     expect(problems({ ...validEnv, OIDC_SCOPES: "profile email" })).toHaveLength(1);
+    expect(problems({ ...validEnv, GITHUB_HOST: "evil.example/path" })).toHaveLength(1);
   });
 });
 

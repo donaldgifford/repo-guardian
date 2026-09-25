@@ -16,6 +16,9 @@ export interface Config {
   sessionKeys: Uint8Array[];
   sessionTtlSeconds: number;
   publicUrl: URL;
+  // githubHost is where PR and repository links point (the API's
+  // GITHUB_HOST); links are built from it, never from evidence URLs.
+  githubHost: string;
 }
 
 // ConfigError lists every invalid variable at once, so a misconfigured
@@ -105,6 +108,11 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     problems.push(`PORT must be a TCP port, got ${JSON.stringify(env.PORT)}`);
   }
 
+  const githubHost = env.GITHUB_HOST ?? "github.com";
+  if (!/^[A-Za-z0-9.-]+(:\d+)?$/.test(githubHost)) {
+    problems.push(`GITHUB_HOST must be a host name like github.com, got ${JSON.stringify(env.GITHUB_HOST)}`);
+  }
+
   if (problems.length > 0 || !issuer || !apiUpstream || !publicUrl) {
     throw new ConfigError(problems);
   }
@@ -116,6 +124,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     sessionKeys: keys.map(deriveKey),
     sessionTtlSeconds: ttl ?? 0,
     publicUrl,
+    githubHost,
   };
 }
 
@@ -155,6 +164,7 @@ export interface PublicConfig {
   issuer: string;
   public_url: string;
   session_ttl_seconds: number;
+  github_host: string;
 }
 
 export function publicConfig(cfg: Config): PublicConfig {
@@ -162,5 +172,6 @@ export function publicConfig(cfg: Config): PublicConfig {
     issuer: cfg.oidc.issuer.origin,
     public_url: cfg.publicUrl.origin,
     session_ttl_seconds: cfg.sessionTtlSeconds,
+    github_host: cfg.githubHost,
   };
 }

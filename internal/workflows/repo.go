@@ -231,6 +231,8 @@ func (r *repoLoop) check() (parked bool, err error) {
 
 		switch res.Kind {
 		case CheckDeferred:
+			workflow.GetLogger(r.ctx).Info("check deferred until budget reset", "check_key", key, "until", res.Until)
+
 			if err := workflow.Sleep(r.ctx, res.Until.Sub(workflow.Now(r.ctx))); err != nil {
 				return false, err
 			}

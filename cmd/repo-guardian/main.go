@@ -59,28 +59,33 @@ func main() {
 	}
 }
 
-// dispatch routes argv to a subcommand. Anything that is not a known
-// subcommand name — no arguments at all, or a leading flag — falls
-// through to the server, so `repo-guardian` and
-// `repo-guardian --strict-templates` behave exactly as they did before
-// subcommands existed.
+// dispatch routes argv to a role or subcommand (DESIGN-0026 § Roles).
+// No arguments, or a leading flag, means all, so `repo-guardian` and
+// `repo-guardian --strict-templates` run every role in one process.
 //
 // Deliberately NOT flag.Parse()'d first. flag.CommandLine stops at the
 // first non-flag argument, so parsing here would swallow the subcommand
-// name and leave its own flags sitting in an unread tail. That is not
-// hypothetical: before this switch existed, `repo-guardian report --out
-// ./x` silently started the HTTP server, because nothing inspected
-// flag.Args() and the unknown arguments were simply ignored.
-//
-// argv is a parameter for testability only. run() still reads os.Args
-// through the global flag.CommandLine, so the server path must be
-// reached with os.Args untouched — do not "normalise" argv here.
+// name and leave its own flags sitting in an unread tail. Every role and
+// subcommand parses its own FlagSet from the tail instead.
 func dispatch(argv []string) error {
 	if len(argv) < 2 || strings.HasPrefix(argv[1], "-") {
-		return run()
+		return runAll(argv[1:])
 	}
 
 	switch argv[1] {
+	case cmdIngest:
+		return runIngest(argv[2:])
+	case cmdWorker:
+		return runWorker(argv[2:])
+	case cmdAPI:
+		return runAPI(argv[2:])
+	case cmdAll:
+		return runAll(argv[2:])
+	case cmdV1:
+		// run parses flags from os.Args through flag.CommandLine.
+		os.Args = append([]string{argv[0]}, argv[2:]...)
+
+		return run()
 	case cmdReport:
 		return runReport(argv[2:])
 	case cmdMonitoring:
@@ -114,14 +119,17 @@ func usage(w io.Writer) {
 	fmt.Fprint(w, `repo-guardian — GitHub App for repository compliance
 
 Usage:
-  repo-guardian [flags]              run the server (default; see --help)
+  repo-guardian [all] [flags]        run every role in one process (default)
+  repo-guardian ingest [flags]       webhook ingest: HMAC, filter, start workflows
+  repo-guardian worker [flags]       Temporal worker: every workflow and activity
+  repo-guardian api                  read-only HTTP API (not yet implemented)
   repo-guardian report [flags]       write per-org compliance reports
   repo-guardian monitoring generate  emit dashboards and alerts from the policy
   repo-guardian migrate [flags]      apply v2 schema migrations (Helm hook Job)
   repo-guardian help                 show this message
 
-Running with no subcommand starts the server, which is the behaviour
-every existing deployment relies on.
+Running with no subcommand runs every role. The ingest role holds
+neither the GitHub App key nor database credentials.
 `)
 }
 

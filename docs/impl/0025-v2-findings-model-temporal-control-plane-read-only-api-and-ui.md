@@ -1020,7 +1020,7 @@ This phase can start right after Phase 1.
 
 #### Tasks
 
-- [ ] 12.1 Dispatch: `ingest | worker | api | all | migrate | report |
+- [x] 12.1 Dispatch: `ingest | worker | api | all | migrate | report |
   monitoring | help`. No arguments means `all`. Add `runIngest`,
   `runWorker` and `runAll`, and a `runAPI` stub for Phase 14.
 - [ ] 12.2 Validate config per role:

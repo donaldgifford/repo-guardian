@@ -195,8 +195,40 @@ var deprecatedBackends = map[string]string{
 	"ticker": "ticker scheduler removed in IMPL-0016 (chart 1.0.0)",
 }
 
-// Load reads configuration from environment variables and applies defaults.
+// Load reads configuration from environment variables, applies defaults
+// and validates it for the v1 server.
 func Load() (*Config, error) {
+	cfg, err := parse()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+// LoadRole reads configuration for a v2 role (IMPL-0025 Phase 12). It
+// parses the same environment as Load, then validates only what the
+// role needs.
+func LoadRole(role Role) (*Config, error) {
+	cfg, err := parse()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cfg.ValidateRole(role); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+// parse reads configuration from environment variables and applies
+// defaults, without validation.
+func parse() (*Config, error) {
 	skipForks, err := envOrDefaultBool("SKIP_FORKS", true)
 	if err != nil {
 		return nil, err
@@ -267,10 +299,6 @@ func Load() (*Config, error) {
 	cfg.GuardianConfigPath = os.Getenv("GUARDIAN_CONFIG")
 
 	if err := loadBackendConfig(cfg); err != nil {
-		return nil, err
-	}
-
-	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 

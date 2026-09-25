@@ -1027,7 +1027,7 @@ This phase can start right after Phase 1.
   - `ingest` refuses to start if the App key or `STORE_DSN` is set;
   - `worker` requires the App key, Temporal, `STORE_DSN` and the
     policy.
-- [ ] 12.3 Readiness:
+- [x] 12.3 Readiness:
   - `temporal.Ping`, plus `RequireSchema` on `worker` and `api`;
   - evaluated every 10s in the background, and cached.
 - [ ] 12.4 Build `internal/ingest`:

@@ -96,18 +96,29 @@ func runRoles(name string, args []string, roles config.Role) error {
 		return err
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", handleHealthz)
-	mux.HandleFunc("GET /readyz", handleReadyz(ctx))
+	checks := []readinessCheck{{name: "temporal", fn: func(ctx context.Context) error { return temporal.Ping(ctx, tc) }}}
 
 	var w worker.Worker
 
 	if roles.Has(config.RoleWorker) {
-		w, err = startV2Worker(ctx, cfg, tc, &tcfg, *strictTemplates, logger)
+		var pool *pgxpool.Pool
+
+		w, pool, err = startV2Worker(ctx, cfg, tc, &tcfg, *strictTemplates, logger)
 		if err != nil {
 			return err
 		}
+
+		checks = append(checks, readinessCheck{name: "schema", fn: func(ctx context.Context) error {
+			return pgstore.RequireSchema(ctx, pool, pgstore.SchemaVersion)
+		}})
 	}
+
+	ready := newReadiness(logger, checks...)
+	go ready.run(ctx, readinessInterval)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", handleHealthz)
+	mux.HandleFunc("GET /readyz", ready.handler(ctx))
 
 	mainServer := &http.Server{Addr: cfg.ListenAddr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	metricsServer := newMetricsServer(cfg.MetricsAddr)
@@ -123,7 +134,8 @@ func runRoles(name string, args []string, roles config.Role) error {
 }
 
 // startV2Worker loads the policy and engine, opens the store and starts
-// a Temporal worker running every workflow and activity.
+// a Temporal worker running every workflow and activity. It returns the
+// store pool for the readiness check.
 func startV2Worker(
 	ctx context.Context,
 	cfg *config.Config,
@@ -131,35 +143,35 @@ func startV2Worker(
 	tcfg *temporal.Config,
 	strictTemplates bool,
 	logger *slog.Logger,
-) (worker.Worker, error) {
+) (worker.Worker, *pgxpool.Pool, error) {
 	policyCfg, engine, templates := loadPolicyAndEngine(cfg, strictTemplates, logger)
 
 	policyVersion, err := policy.VersionV2(policyCfg, templates.AsMap())
 	if err != nil {
-		return nil, fmt.Errorf("policy version: %w", err)
+		return nil, nil, fmt.Errorf("policy version: %w", err)
 	}
 
 	gh, err := newGitHubClient(cfg, logger)
 	if err != nil {
-		return nil, fmt.Errorf("create github client: %w", err)
+		return nil, nil, fmt.Errorf("create github client: %w", err)
 	}
 
 	pool, err := pgxpool.New(ctx, cfg.StoreDSN)
 	if err != nil {
-		return nil, fmt.Errorf("open store: %w", err)
+		return nil, nil, fmt.Errorf("open store: %w", err)
 	}
 
 	if err := pgstore.RequireSchema(ctx, pool, pgstore.SchemaVersion); err != nil {
 		pool.Close()
 
-		return nil, err
+		return nil, nil, err
 	}
 
 	wc, err := temporal.WorkerConfigFromEnv(tcfg)
 	if err != nil {
 		pool.Close()
 
-		return nil, err
+		return nil, nil, err
 	}
 
 	st := pgstore.NewV2Store(pool, logger, pgstore.WithHost(cfg.GitHubHost))
@@ -172,7 +184,7 @@ func startV2Worker(
 	if err := w.Start(); err != nil {
 		pool.Close()
 
-		return nil, fmt.Errorf("start temporal worker: %w", err)
+		return nil, nil, fmt.Errorf("start temporal worker: %w", err)
 	}
 
 	logger.Info("temporal worker started",
@@ -187,7 +199,7 @@ func startV2Worker(
 		pool.Close()
 	}()
 
-	return w, nil
+	return w, pool, nil
 }
 
 // stopRoles shuts the HTTP servers down. The worker stops with the run

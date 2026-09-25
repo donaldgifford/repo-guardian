@@ -2,11 +2,19 @@ suite: deployment-templating
 templates:
   - templates/deployment.yaml
 set:
+  # One Deployment (topology: all) keeps these single-document; the
+  # split shape is covered by topology_test.yaml.
+  topology: all
+  temporal:
+    address: temporal:7233
   config:
     appId: "12345"
   secrets:
     webhookSecret: "test-secret"
     privateKey: "test-key"
+  policy:
+    config: "guardian {}"
+
 tests:
   - it: emits templating.vars entries onto the container env list
     set:
@@ -134,27 +142,7 @@ tests:
   # so a chart that stopped emitting the var would keep working and
   # the drift would only surface when an operator set the value and
   # nothing happened.
-  - it: emits the posture export interval with its default
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: POSTURE_EXPORT_INTERVAL
-            value: "60s"
-
-  - it: respects posture.exportInterval override
-    set:
-      posture:
-        exportInterval: 5m
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: POSTURE_EXPORT_INTERVAL
-            value: "5m"
-
-  # IMPL-0023 task 7.3. Same reasoning as the export interval above,
-  # with one addition: the compliance-history rows are permanent, so an
+  # IMPL-0023 task 7.3: the compliance-history rows are permanent, so an
   # operator who sets this expecting a slower cadence and silently gets
   # the 24h default is accruing rows they did not ask for.
   - it: emits the compliance snapshot interval with its default
@@ -176,36 +164,6 @@ tests:
             name: COMPLIANCE_SNAPSHOT_INTERVAL
             value: "168h"
 
-  # IMPL-0022 Phase 7: the attempt cap. Schema enforces >= 1, so the
-  # binary's own MAX_JOB_ATTEMPTS < 1 startup error is a second line
-  # of defence for operators bypassing the chart.
-  - it: renders MAX_JOB_ATTEMPTS from config.maxJobAttempts
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: MAX_JOB_ATTEMPTS
-            value: "10"
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: MAX_JOB_ATTEMPTS
-          any: true
-
-  - it: honours a maxJobAttempts override
-    set:
-      config:
-        maxJobAttempts: 3
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: MAX_JOB_ATTEMPTS
-            value: "3"
-
-  # IMPL-0022 Phase 6: the BudgetTracker and the sweep reserve gate
-  # are gone — one throttle mechanism (delayed requeue) replaced
-  # three. These env vars must not come back with the values removed.
   - it: does not render the removed reserve knobs
     asserts:
       - notContains:

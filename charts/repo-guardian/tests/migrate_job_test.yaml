@@ -2,14 +2,14 @@ suite: migrate job
 templates:
   - templates/migrate-job.yaml
 tests:
-  - it: is not rendered by default
+  - it: is not rendered when disabled
+    set:
+      migrate.enabled: false
     asserts:
       - hasDocuments:
           count: 0
 
-  - it: renders a pre-install/pre-upgrade hook Job when enabled
-    set:
-      migrate.enabled: true
+  - it: renders a post-install/pre-upgrade hook Job by default
     release:
       namespace: rg
     asserts:
@@ -22,7 +22,7 @@ tests:
           value: rg
       - equal:
           path: metadata.annotations["helm.sh/hook"]
-          value: pre-install,pre-upgrade
+          value: post-install,pre-upgrade
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
           value: before-hook-creation,hook-succeeded
@@ -65,3 +65,13 @@ tests:
               secretKeyRef:
                 name: pg-pass
                 key: POSTGRES_PASSWORD
+
+  - it: passes migrate.freshness to the v1 backfill
+    set:
+      migrate.freshness: 48h
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RECONCILE_FRESHNESS
+            value: "48h"

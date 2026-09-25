@@ -1586,14 +1586,15 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
   - the single upstream;
   - Bearer passthrough;
   - open-redirect rejection.
-- [ ] 20.9 Image:
+- [x] 20.9 Image:
   - `ui/Dockerfile`: a Bun build stage and a Bun distroless runtime,
     running non-root with a read-only root filesystem, as one process
     with no nginx;
   - a `ui` target in `docker-bake.hcl`;
   - `ghcr.yml` publishes `ghcr.io/donaldgifford/repo-guardian-ui` with
     the same tag, cosign and SLSA flow (OQ20);
-  - flip the new GHCR package to public after its first push.
+  - flip the new GHCR package to public after its first push
+    (**deferred - human required**: GHCR has no API for the flip).
 
 #### Success Criteria
 

@@ -27,11 +27,14 @@ spec:
     metadata:
       annotations:
         {{- if include "repo-guardian.roleReadsPolicy" $r }}
-        checksum/policy: {{ include (print $.Template.BasePath "/policy-configmap.yaml") $ | sha256sum }}
-        checksum/templates: {{ include (print $.Template.BasePath "/configmap.yaml") $ | sha256sum }}
+        {{- /* Hashed from values, not the rendered ConfigMaps, so a role
+        rolls on a policy or template edit. An existingConfigMap is the
+        operator's to roll. */}}
+        checksum/policy: {{ toYaml (pick $v.policy "config" "existingConfigMap") | sha256sum }}
+        checksum/templates: {{ toYaml $v.templates | sha256sum }}
         {{- end }}
         {{- if and (include "repo-guardian.roleServesAPI" $r) $v.api.enabled $v.api.auth.enabled }}
-        checksum/authz: {{ include (print $.Template.BasePath "/api-authz-configmap.yaml") $ | sha256sum }}
+        checksum/authz: {{ toYaml $v.api.authz | sha256sum }}
         {{- end }}
         {{- with $v.podAnnotations }}
         {{- toYaml . | nindent 8 }}

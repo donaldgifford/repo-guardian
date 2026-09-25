@@ -1676,7 +1676,7 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
   - the anonymous status page;
   - HTML in evidence rendered as text;
   - `document.cookie` shows no session and no token.
-- [ ] 22.5 Docs:
+- [x] 22.5 Docs:
   - `docs/usage/api.md` (Keycloak example, authz, status, pagination,
     errors, compatibility);
   - `docs/usage/ui.md` (views, sessions, key rotation);

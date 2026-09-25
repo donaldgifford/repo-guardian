@@ -1412,7 +1412,7 @@ Land this phase as one PR, so the branch is never half-migrated.
   - **external:** the operator provides a Secret.
 - [ ] 17.9 **Deferred — human required:** depends on the Phase 16 metrics removal (16.3), which is deferred (mirrors the 17.2 catalogue) — Mirror the new alert catalogue in `prometheusrule.yaml`.
   `make lint-alerts-chart` stays green.
-- [ ] 17.10 Rewrite the chart test suites and add `topology_test.yaml`.
+- [x] 17.10 Rewrite the chart test suites and add `topology_test.yaml`.
   `ci/ci-values.yaml` gets `temporal.address`.
 - [ ] 17.11 Regenerate NOTES.txt and the README
   (`README.md.gotmpl`, then `make helm-docs`).

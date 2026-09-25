@@ -1414,7 +1414,7 @@ Land this phase as one PR, so the branch is never half-migrated.
   `make lint-alerts-chart` stays green.
 - [x] 17.10 Rewrite the chart test suites and add `topology_test.yaml`.
   `ci/ci-values.yaml` gets `temporal.address`.
-- [ ] 17.11 Regenerate NOTES.txt and the README
+- [x] 17.11 Regenerate NOTES.txt and the README
   (`README.md.gotmpl`, then `make helm-docs`).
 
 #### Success Criteria

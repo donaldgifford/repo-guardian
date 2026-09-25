@@ -1,0 +1,2499 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Per-org rule scoping and observability - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#design-0010-per-org-rule-scoping-and-observability" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Per-org rule scoping and observability
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goals-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals and Non-Goals
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Goals and Non-Goals">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#architectural-framing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architectural framing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#two-modes-legacy-and-strict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two modes: legacy and strict
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scope-block" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        scope block
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#strict-mode-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strict-mode validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluation-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Evaluation order
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metrics-labels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metrics labels
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-interface-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API / Interface Changes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API / Interface Changes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hcl-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HCL schema
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#engine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Engine
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loader" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Loader
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-rollout-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration / Rollout Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolved-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolved Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="design-0010-per-org-rule-scoping-and-observability">DESIGN 0010: Per-org rule scoping and observability</h1>
+<p><strong>Status:</strong> Implemented
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-04-25</p>
+<!--toc:start-->
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#goals-and-non-goals">Goals and Non-Goals</a></li>
+<li><a href="#goals">Goals</a></li>
+<li><a href="#non-goals">Non-Goals</a></li>
+<li><a href="#background">Background</a></li>
+<li><a href="#detailed-design">Detailed Design</a></li>
+<li><a href="#architectural-framing">Architectural framing</a></li>
+<li><a href="#two-modes-legacy-and-strict">Two modes: legacy and strict</a></li>
+<li><a href="#scope-block">scope block</a></li>
+<li><a href="#strict-mode-validation">Strict-mode validation</a></li>
+<li><a href="#evaluation-order">Evaluation order</a></li>
+<li><a href="#metrics-labels">Metrics labels</a></li>
+<li><a href="#api--interface-changes">API / Interface Changes</a></li>
+<li><a href="#hcl-schema">HCL schema</a></li>
+<li><a href="#engine">Engine</a></li>
+<li><a href="#loader">Loader</a></li>
+<li><a href="#metrics">Metrics</a></li>
+<li><a href="#data-model">Data Model</a></li>
+<li><a href="#testing-strategy">Testing Strategy</a></li>
+<li><a href="#migration--rollout-plan">Migration / Rollout Plan</a></li>
+<li><a href="#open-questions">Open Questions</a></li>
+<li><a href="#resolved-questions">Resolved Questions</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="overview">Overview</h2>
+<p>repo-guardian's HCL policy engine treats every rule as global — every
+enabled rule is evaluated against every repository the configured GitHub
+App can see. When that App is installed across multiple orgs, there is no
+way to apply a rule to only some of those orgs. This design adds an
+optional top-level <code>scope { orgs = [...] }</code> block that declares the set
+of orgs the policy is intended for, plus a per-rule <code>scope { orgs = [...] }</code>
+block that targets a subset (or <code>["*"]</code> for all top-level orgs). Presence
+of the top-level block engages <strong>strict mode</strong>: every rule must declare
+its own scope explicitly. Absence preserves today's behavior unchanged
+(legacy mode). The design also adds an <code>org</code> label to Prometheus
+metrics so operators can slice work and errors per org, and ships
+updated <code>contrib/</code> Grafana dashboard and Prometheus alerts (plus a
+new <code>contrib/README.md</code> cataloging every exposed metric).</p>
+<h2 id="goals-and-non-goals">Goals and Non-Goals</h2>
+<h3 id="goals">Goals</h3>
+<ul>
+<li>Let multi-org operators declare which orgs the policy targets, and
+  which rules apply to which orgs, with no implicit inheritance.</li>
+<li>Preserve every existing single-org HCL config unchanged. Adding the
+  feature must not silently change behavior for anyone.</li>
+<li>Surface per-org slicing in metrics so dashboards and alerts can be
+  cut by org. (Installation IDs travel through structured logs for
+  GitHub audit-log correlation; they are not added as a metric label
+  because <code>(App, org)</code> is 1:1 with installation, making the label
+  redundant with <code>org</code>.)</li>
+<li>Reuse the glob-matching, lowercase-normalize semantics from
+  <code>IgnoreConfig</code> so users learn one matching model.</li>
+</ul>
+<h3 id="non-goals">Non-Goals</h3>
+<ul>
+<li><strong>Multiple distinct GitHub Apps in one repo-guardian instance.</strong> Out
+  of scope. repo-guardian remains a single-App service. Org isolation
+  comes from the App's installations, not from running multiple Apps.</li>
+<li><strong>Forgejo / non-GitHub forge support.</strong> Tracked in <a href="../../investigation/0002-multi-org-and-forgejo-support-for-repo-guardian/">INV-0002</a>;
+  separate work.</li>
+<li><strong>Per-repo (not per-org) inverse <code>ignore</code>.</strong> "Apply only to these
+  repos" beyond what <code>ignore</code> already covers is a YAGNI hazard.</li>
+<li><strong>Repo-name as a metric label.</strong> Org and installation ID are
+  bounded by App-installation count (small). Repo name would push
+  counter cardinality into the thousands and is not added here.</li>
+</ul>
+<h2 id="background">Background</h2>
+<p>repo-guardian uses a single GitHub App. That App's installations
+naturally span multiple orgs — the scheduler at
+<code>internal/scheduler/scheduler.go:71-80</code> already calls
+<code>ListInstallations()</code> and iterates each, the work queue carries
+<code>RepoJob.InstallationID</code> (<code>internal/checker/queue.go:35</code>), and
+<code>CreateInstallationClient</code> (<code>internal/github/client.go:294</code>) hands back
+a client scoped to the right installation. The runtime is
+multi-org-aware.</p>
+<p>What's <em>not</em> there:</p>
+<ul>
+<li><strong>Rules can't target a subset of orgs.</strong> Every enabled rule
+  evaluates against every repo. Operationally, this means you either
+  run multiple repo-guardian instances (one per org) or accept that
+  all orgs share the exact same policy.</li>
+<li><strong>Metrics carry no org dimension.</strong> <code>internal/metrics/metrics.go</code>
+  exposes 20+ counters and histograms; none include <code>org</code>. An
+  operator looking at <code>repo_guardian_errors_total</code> or
+  <code>repo_guardian_files_missing_total{rule_name="codeowners"}</code> cannot
+  tell which org the work belongs to.</li>
+</ul>
+<p>The investigation that triggered this design is <a href="../../investigation/0002-multi-org-and-forgejo-support-for-repo-guardian/">INV-0002</a>;
+the ignore-list pattern this proposal mirrors is
+<a href="../0008-additional-rule-types-and-ignore-lists/">DESIGN-0008</a>.</p>
+<h2 id="detailed-design">Detailed Design</h2>
+<h3 id="architectural-framing">Architectural framing</h3>
+<p>repo-guardian is a <strong>single-GitHub-App service</strong>. The App can be
+installed on multiple orgs; rules can be scoped to a subset of those
+orgs. Anything beyond that — multiple distinct Apps, non-GitHub
+forges — is out of scope for this design.</p>
+<h3 id="two-modes-legacy-and-strict">Two modes: legacy and strict</h3>
+<p>The presence of a top-level <code>scope {}</code> block selects the mode. There
+is no other switch.</p>
+<p><strong>Legacy mode</strong> — no top-level <code>scope {}</code> block in the HCL config:</p>
+<ul>
+<li>Behaves exactly like today. Every enabled rule applies to every
+  repo the App can reach.</li>
+<li>Per-rule <code>scope {}</code> blocks are ignored if present (with a load-time
+  warning). Mixing per-rule scope with no top-level scope is almost
+  certainly a mistake; the warning surfaces it without breaking
+  the load.</li>
+<li>No HCL changes required for any existing config. Single-org
+  deployments never need to think about this feature.</li>
+<li><strong>Legacy mode is a permanent, supported configuration</strong>, not a
+  deprecation runway. Single-org users (the majority case) will
+  always be able to omit the top-level <code>scope {}</code> block and run
+  without ever interacting with this feature. The "legacy" label
+  refers to the lack of explicit scoping, not to the lifespan of
+  the mode.</li>
+</ul>
+<p><strong>Strict mode</strong> — top-level <code>scope {}</code> block present:</p>
+<ul>
+<li>The top-level scope declares the <strong>universe of orgs</strong> the policy
+  knows about. Repos in orgs not matching the top-level scope are
+  skipped wholesale (out-of-scope, before any rule is evaluated).</li>
+<li>Every rule <strong>must</strong> declare its own <code>scope { orgs = [...] }</code> block.
+  A rule without one is a load-time error.</li>
+<li>A rule's scope must be either <code>["*"]</code> (shorthand for "all orgs in
+  the top-level scope") or one or more patterns identifying a subset
+  of the top-level orgs.</li>
+<li>A rule with <code>scope { orgs = ["*"] }</code> is the explicit "applies to
+  every org this policy targets" idiom. There is no implicit
+  applies-everywhere.</li>
+</ul>
+<h3 id="scope-block"><code>scope</code> block</h3>
+<p>Top-level (declares the universe):</p>
+<pre><code class="language-hcl">scope {
+  orgs = [&quot;myorg-prod&quot;, &quot;myorg-staging&quot;]
+}
+</code></pre>
+<p>Per-rule (subset or all):</p>
+<pre><code class="language-hcl">rule &quot;file&quot; &quot;codeowners&quot; {
+  scope { orgs = [&quot;*&quot;] }   # applies to all top-level orgs
+  check    = &quot;exists&quot;
+  paths    = [&quot;CODEOWNERS&quot;, &quot;.github/CODEOWNERS&quot;]
+  target   = &quot;.github/CODEOWNERS&quot;
+  template = &quot;codeowners&quot;
+}
+
+rule &quot;file&quot; &quot;experimental&quot; {
+  scope { orgs = [&quot;myorg-staging&quot;] }   # staging only
+  check    = &quot;exists&quot;
+  paths    = [&quot;.github/experimental.yml&quot;]
+  target   = &quot;.github/experimental.yml&quot;
+  template = &quot;experimental&quot;
+}
+</code></pre>
+<p>Pattern matching: <code>path.Match</code> glob (<code>*</code>, <code>?</code>, <code>[abc]</code>), lowercase
+normalize on both sides — identical to <code>IgnoreConfig.Matches</code>. Invalid
+patterns are silently skipped (matching the existing convention).</p>
+<p>The literal <code>"*"</code> is reserved at the rule level to mean "all top-level
+scope orgs" rather than <code>path.Match</code>'s glob <code>*</code> (which would be
+identical here, but the explicit semantic makes the intent
+self-documenting).</p>
+<p>Splitting across files is supported via the existing <code>loadDirectory</code>
+behavior. A typical multi-org layout:</p>
+<pre><code>guardian/
+  scope.hcl          # top-level scope { orgs = [...] }
+  shared.hcl         # rules with scope { orgs = [&quot;*&quot;] }
+  prod-only.hcl      # rules with scope { orgs = [&quot;myorg-prod&quot;] }
+  staging-only.hcl   # rules with scope { orgs = [&quot;myorg-staging&quot;] }
+</code></pre>
+<p><code>hcl.MergeFiles</code> flattens all files into one body before decoding;
+the top-level scope is decoded once, regardless of which file it
+appears in. Multiple top-level scope blocks across files are a
+load-time error (see strict-mode validation below).</p>
+<h3 id="strict-mode-validation">Strict-mode validation</h3>
+<p>Engaged when the top-level <code>scope {}</code> block is present.</p>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Top-level <code>scope.orgs</code> is empty</td>
+<td>Load-time error: "top-level scope must declare at least one org"</td>
+</tr>
+<tr>
+<td>Two or more top-level <code>scope {}</code> blocks across the merged config</td>
+<td>Load-time error: "only one top-level scope block allowed"</td>
+</tr>
+<tr>
+<td>A rule has no <code>scope {}</code> block</td>
+<td>Load-time error: "rule '<name>' must declare scope in strict mode"</td>
+</tr>
+<tr>
+<td>A rule's <code>scope.orgs</code> is empty</td>
+<td>Load-time error: "rule '<name>' scope.orgs must not be empty"</td>
+</tr>
+</tbody>
+</table>
+<p>Deliberately <strong>not</strong> validated at load time:</p>
+<ul>
+<li>Whether a rule's scope patterns are actually a subset of the
+  top-level scope. Pattern containment for general globs is
+  computationally awkward and the runtime gate handles it correctly
+  anyway: a rule whose scope matches an org outside the top-level
+  scope simply never runs (the top-level gate rejects the repo
+  first). Worst case is a typo'd pattern that does nothing, which
+  is a debugging nuisance but not a correctness issue.</li>
+</ul>
+<h3 id="evaluation-order">Evaluation order</h3>
+<p>For every <code>(owner, repo, rule)</code> triple:</p>
+<ol>
+<li><strong>Top-level scope gate</strong> — if a top-level scope is set and <code>owner</code>
+   does not match it, skip the entire repo (not just this rule).
+   Increment
+   <code>repo_guardian_out_of_scope_total{level="policy", org=owner}</code>
+   <strong>once per enabled rule that would have run</strong> (see "Counter
+   semantics" below).</li>
+<li><strong>Rule scope gate</strong> — if this rule's scope (in strict mode,
+   guaranteed non-nil; in legacy mode, ignored) does not match
+   <code>owner</code>, skip the rule. Increment
+   <code>repo_guardian_out_of_scope_total{level="rule", org=owner}</code> once.</li>
+<li><strong>Ignore gate</strong> — if the rule's <code>ignore.repos</code> matches
+   <code>owner/repo</code>, skip and log. Increment existing
+   <code>repo_guardian_ignored_total</code> (with new <code>org</code> label per below).</li>
+<li><strong>Evaluate the rule</strong> as today.</li>
+</ol>
+<p>Order matters. A repo that is both out-of-scope and on the ignore
+list is recorded as out-of-scope at the highest applicable level.
+This gives operators a clear "why was this not enforced?" chain when
+debugging.</p>
+<p><strong>Counter semantics for <code>out_of_scope_total</code>:</strong> both <code>level="policy"</code>
+and <code>level="rule"</code> count <em>rule evaluations skipped because of scope</em>,
+not <em>repos skipped</em>. When the policy-level gate rejects one repo, the
+counter increments by N (the number of enabled rules that would have
+run on that repo). This keeps the two levels in the same units, so
+operators can sum them or break them down without thinking about an
+asymmetry. Cost is a tiny loop per skipped repo; negligible.</p>
+<h3 id="metrics-labels">Metrics labels</h3>
+<p>Add an <code>org</code> label to per-repo / per-rule metrics. Values are
+derived from the owner segment of <code>owner/repo</code>, lowercased — known
+at every callsite that increments these metrics.</p>
+<p>Installation IDs are deliberately <em>not</em> added as a metric label.
+For a given GitHub App, the <code>(App, org)</code> pair is 1:1 with an
+installation, so <code>installation_id</code> would be redundant with <code>org</code>.
+Installation IDs continue to flow through structured logs
+(<code>RepoJob.InstallationID</code> is already plumbed to logger fields) for
+GitHub audit-log correlation.</p>
+<p>Label additions:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>New labels</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>repo_guardian_repos_checked_total</code></td>
+<td><code>org</code></td>
+</tr>
+<tr>
+<td><code>repo_guardian_files_missing_total</code></td>
+<td><code>org</code></td>
+</tr>
+<tr>
+<td><code>repo_guardian_settings_checked_total</code></td>
+<td><code>org</code></td>
+</tr>
+<tr>
+<td><code>repo_guardian_settings_mismatched_total</code></td>
+<td><code>org</code></td>
+</tr>
+<tr>
+<td><code>repo_guardian_settings_remediated_total</code></td>
+<td><code>org</code></td>
+</tr>
+<tr>
+<td><code>repo_guardian_branch_protection_checked_total</code></td>
+<td><code>org</code></td>
+</tr>
+<tr>
+<td><code>repo_guardian_branch_protection_remediated_total</code></td>
+<td><code>org</code></td>
+</tr>
+<tr>
+<td><code>repo_guardian_ignored_total</code></td>
+<td><code>org</code> (in addition to existing <code>scope</code>)</td>
+</tr>
+<tr>
+<td><code>repo_guardian_errors_total</code></td>
+<td><code>org</code></td>
+</tr>
+<tr>
+<td><code>repo_guardian_prs_created_total</code></td>
+<td><code>org</code> (was unlabeled <code>Counter</code>; promoted to <code>CounterVec</code>)</td>
+</tr>
+<tr>
+<td><code>repo_guardian_prs_updated_total</code></td>
+<td><code>org</code> (was unlabeled <code>Counter</code>; promoted to <code>CounterVec</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Plus one new metric:</p>
+<pre><code>repo_guardian_out_of_scope_total{level=&quot;policy|rule&quot;, org=&quot;...&quot;}
+</code></pre>
+<p>Counts repos / rules skipped by the top-level or per-rule scope
+gates. Distinct from <code>ignored_total</code> — out-of-scope means "the
+policy doesn't apply here at all"; ignored means "the policy applies
+but we're explicitly excluding this repo."</p>
+<p>Deliberately <em>not</em> relabeled:</p>
+<ul>
+<li><code>repo_guardian_check_duration_seconds</code> — histogram. Adding
+  high-cardinality labels to histograms blows up storage. Keep
+  unlabeled.</li>
+<li><code>repo_guardian_github_rate_remaining</code> (gauge) and
+  <code>repo_guardian_github_rate_limit_*</code> — reflect the App-level
+  rate limit; not cleanly attributable to one installation when
+  the App transport is involved. Leave for a follow-up.</li>
+</ul>
+<p>Cardinality bound: orgs count = installations count. For typical
+deployments this is &lt; 10; even an unusually large multi-org App
+would land &lt; 100. Safe.</p>
+<h2 id="api-interface-changes">API / Interface Changes</h2>
+<h3 id="hcl-schema">HCL schema</h3>
+<ul>
+<li>New top-level optional <code>scope {}</code> block (defines the policy
+  universe).</li>
+<li>New optional <code>scope {}</code> block on <code>rule "file"</code>, <code>rule "setting"</code>,
+  and <code>rule "branch_protection"</code> (selects a subset within the
+  universe).</li>
+<li>Both block forms have the same shape: <code>orgs = [string]</code>. No new
+  attributes.</li>
+</ul>
+<h3 id="engine">Engine</h3>
+<ul>
+<li>New helper <code>ScopeConfig.Matches(owner string) bool</code> returns <code>true</code>
+  if <code>owner</code> matches any pattern in <code>Orgs</code>. Note: returns <code>true</code>
+  for <strong>applies</strong>, opposite of <code>IgnoreConfig.Matches</code>.</li>
+<li>New helper <code>ScopeConfig.HasUniversal() bool</code> returns <code>true</code> if
+  <code>Orgs</code> contains the literal <code>"*"</code>. Used at the rule level to
+  short-circuit to "applies to every top-level org."</li>
+<li>Two new gates in evaluation:</li>
+<li>Policy-level gate: <code>cfg.Scope == nil || cfg.Scope.Matches(owner)</code>.
+     If false, skip the entire repo.</li>
+<li>Rule-level gate: <code>r.Scope.HasUniversal() || r.Scope.Matches(owner)</code>.
+     If false, skip the rule. (In legacy mode, skipped — <code>r.Scope</code> is
+     ignored.)</li>
+<li>Inserted before the existing <code>r.Ignore != nil &amp;&amp; r.Ignore.Matches(...)</code>
+  check at:</li>
+<li><code>internal/checker/engine_policy.go:78</code> (file rules)</li>
+<li><code>internal/checker/engine_policy.go:241</code> (file rules — second pass)</li>
+<li><code>internal/checker/engine_policy.go:603</code> (setting rules)</li>
+<li><code>internal/checker/engine_policy.go:792</code> (branch protection rules)</li>
+</ul>
+<h3 id="loader">Loader</h3>
+<ul>
+<li>Decode top-level <code>scope {}</code> block in <code>decodeBody</code> /
+  <code>hclConfigToPolicy</code> (<code>internal/policy/loader.go:147,664</code>).</li>
+<li>Add <code>scope</code> block decoding in:</li>
+<li>File rule decoder (alongside existing <code>ignore</code> / <code>pr</code> / <code>reconcile</code>)</li>
+<li>Setting rule decoder (around <code>loader.go:580</code>)</li>
+<li>Branch protection rule decoder (around <code>loader.go:632</code>)</li>
+<li>Add <code>validateStrictScope(cfg *PolicyConfig) error</code> called at the
+  end of <code>Load</code> when <code>cfg.Scope != nil</code>. Enforces the table in
+  <a href="#strict-mode-validation">Strict-mode validation</a>.</li>
+<li>In legacy mode, emit a single <code>slog.Warn</code> at load time if any
+  rule defines a per-rule <code>scope</code> block. ("Per-rule scope ignored:
+  no top-level scope declared.")</li>
+</ul>
+<h3 id="metrics">Metrics</h3>
+<ul>
+<li>Update each <code>promauto.NewCounterVec</code> listed above to include
+  <code>org</code> in the constructor's label slice.</li>
+<li>Promote <code>PRsCreatedTotal</code> and <code>PRsUpdatedTotal</code> from
+  <code>prometheus.Counter</code> to <code>prometheus.CounterVec</code> with <code>["org"]</code>.
+  This is a Prometheus-schema change — see Migration / Rollout.</li>
+<li>Add new <code>OutOfScopeTotal</code> counter vec with labels <code>level</code> and <code>org</code>.</li>
+<li>Update every callsite to provide the new label. <code>org</code> is derived
+  from <code>ownerRepo</code> already in scope at every callsite via
+  <code>strings.SplitN(ownerRepo, "/", 2)[0]</code>.</li>
+</ul>
+<h2 id="data-model">Data Model</h2>
+<pre><code class="language-go">// ScopeConfig holds org match patterns. Used in two places:
+//   - PolicyConfig.Scope: top-level universe declaration. Presence
+//     engages strict mode.
+//   - FileRuleConfig.Scope / SettingRuleConfig.Scope /
+//     BranchProtectionRuleConfig.Scope: rule-level subset.
+//
+// Patterns use the same glob model as IgnoreConfig (path.Match,
+// lowercase normalization).
+type ScopeConfig struct {
+    Orgs []string `hcl:&quot;orgs,optional&quot;`
+}
+
+// Matches reports whether owner matches any pattern in Orgs.
+// Returns false if sc is nil or Orgs is empty (i.e., &quot;matches
+// nothing&quot;). Note: opposite polarity from IgnoreConfig.Matches,
+// which returns true for &quot;skip.&quot;
+func (sc *ScopeConfig) Matches(owner string) bool {
+    if sc == nil || len(sc.Orgs) == 0 {
+        return false
+    }
+    normalized := strings.ToLower(owner)
+    for _, pattern := range sc.Orgs {
+        ok, err := path.Match(strings.ToLower(pattern), normalized)
+        if err != nil {
+            continue
+        }
+        if ok {
+            return true
+        }
+    }
+    return false
+}
+
+// HasUniversal reports whether Orgs contains the literal &quot;*&quot;,
+// used at the rule level as the explicit &quot;applies to all
+// top-level scope orgs&quot; idiom.
+func (sc *ScopeConfig) HasUniversal() bool {
+    if sc == nil {
+        return false
+    }
+    for _, p := range sc.Orgs {
+        if p == &quot;*&quot; {
+            return true
+        }
+    }
+    return false
+}
+</code></pre>
+<p>The struct lives in <code>internal/policy/types.go</code> next to <code>IgnoreConfig</code>.
+The matcher lives in a new <code>internal/policy/scope.go</code> next to
+<code>ignore.go</code>.</p>
+<p><code>PolicyConfig</code> gains a <code>Scope *ScopeConfig</code> field. Each rule type's
+config struct gains the same field.</p>
+<h2 id="testing-strategy">Testing Strategy</h2>
+<ul>
+<li><strong>Unit tests</strong> in <code>internal/policy/scope_test.go</code> mirroring
+  <code>ignore_test.go</code>: exact match, glob wildcard, character set,
+  multiple patterns, empty list, nil receiver, case-insensitive,
+  invalid pattern. Plus tests for <code>HasUniversal</code>.</li>
+<li><strong>Loader tests</strong> for legacy mode:</li>
+<li>No top-level scope: rule without scope decodes, applies
+    everywhere (regression).</li>
+<li>No top-level scope + rule has per-rule scope: warning logged,
+    behavior unchanged from today.</li>
+<li><strong>Loader tests</strong> for strict mode validation (each is a load-time
+  error):</li>
+<li>Top-level scope present, rule without scope.</li>
+<li>Top-level scope with empty orgs.</li>
+<li>Two top-level scope blocks across two files in a directory load.</li>
+<li>Rule with empty <code>scope.orgs</code>.</li>
+<li><strong>Engine tests</strong> in <code>engine_policy_test.go</code>:</li>
+<li>Legacy: rule with no scope applies to all orgs (regression).</li>
+<li>Strict: top-level scope <code>["myorg-*"]</code> rejects <code>otherorg/repo</code>
+    before any rule evaluates.</li>
+<li>Strict: rule with <code>scope { orgs = ["*"] }</code> applies to every
+    org in the top-level scope.</li>
+<li>Strict: rule with <code>scope { orgs = ["myorg-prod"] }</code> applies
+    to <code>myorg-prod/repo</code> and skips <code>myorg-staging/repo</code>.</li>
+<li>Strict: rule with both <code>scope</code> and <code>ignore</code> — out-of-scope wins
+    when applicable; ignore wins when in scope.</li>
+<li>Strict: <code>out_of_scope_total{level=...}</code> increments correctly at
+    each level.</li>
+<li><strong>Metrics tests</strong> — every relabeled metric still registers and
+  accepts the new label values; counter increments produce the
+  expected label set.</li>
+</ul>
+<p>Coverage target: same 60% project floor; new code in
+<code>policy/scope.go</code> should land closer to 95% (pure logic).</p>
+<h2 id="migration-rollout-plan">Migration / Rollout Plan</h2>
+<p>Backward compatibility is the primary constraint:</p>
+<ul>
+<li><strong>Existing single-org HCL configs</strong> — no changes. Legacy mode,
+  identical behavior. The four <code>BuiltinDefaults</code> rules
+  (<code>codeowners</code>, <code>dependabot</code>, <code>renovate_config</code>, <code>renovate_workflow</code>)
+  also stay in legacy form since <code>BuiltinDefaults()</code> does not set a
+  top-level scope.</li>
+<li><strong>Multi-org operators opt in</strong> by adding a top-level <code>scope {}</code>
+  block. They must then add <code>scope { orgs = ["*"] }</code> to every rule
+  they want to keep applying everywhere. The load-time error makes
+  the migration mechanical: errors point at each rule that needs
+  attention.</li>
+<li><strong>Existing metrics consumers</strong> — adding <code>org</code> to <code>CounterVec</code>s
+  affects queries that don't aggregate over the new label.
+  Operators with custom dashboards / alerts should use
+  <code>sum without (org) (...)</code> to recover pre-existing behavior. Two
+  schema changes are riskier and called out separately:</li>
+<li><code>repo_guardian_prs_created_total</code> and
+    <code>repo_guardian_prs_updated_total</code> were unlabeled <code>Counter</code>s.
+    They become <code>CounterVec</code>s with one label. Existing scalar
+    queries (<code>repo_guardian_prs_created_total</code>) return multiple
+    time series instead of one; consumers must wrap in
+    <code>sum(...)</code>.</li>
+<li>The new <code>repo_guardian_out_of_scope_total</code> is additive, not a
+    schema change.</li>
+<li><strong>Bundled contrib/ dashboard and alerts updated.</strong> The
+  repo-guardian Grafana dashboard and Prometheus alerts shipped
+  in <code>contrib/</code> are updated to use the new labels and added
+  metric. A <code>contrib/README.md</code> is added documenting every
+  exposed metric with examples and copy-paste-friendly queries
+  for operators starting fresh.</li>
+<li><strong>Helm chart</strong> — no changes needed.</li>
+</ul>
+<p>Ship in one release. No feature flag — the change is small, the
+modes are deterministic from config presence, and defaults preserve
+current behavior at the policy layer.</p>
+<p>Documentation work shipped with the change:
+- New <code>examples/guardian-multi-org.hcl</code> and a corresponding
+  directory-layout example (<code>examples/guardian-multi-org/</code>)
+  demonstrating split files.
+- README + <code>docs/ADDING_RULES.md</code> updates with a "Multi-org"
+  section.
+- Updated <code>contrib/grafana/repo-guardian-dashboard.json</code> and
+  <code>contrib/prometheus/alerts.yaml</code> reflecting new labels and the
+  <code>out_of_scope_total</code> metric.
+- New <code>contrib/README.md</code> cataloging every exposed metric, its
+  labels, and example queries.
+- Release notes calling out the metric label change and the
+  <code>Counter</code>-to-<code>CounterVec</code> promotion for PR metrics.</p>
+<h2 id="open-questions">Open Questions</h2>
+<p>None at this time.</p>
+<h2 id="resolved-questions">Resolved Questions</h2>
+<ol>
+<li><strong>Wildcard semantics at the rule level</strong> — <code>scope { orgs = ["*"] }</code>
+   means "all orgs declared in the top-level scope," not "literally
+   any org." The top-level scope is the universe.</li>
+<li><strong>Mixed mode within a directory load</strong> — once a top-level scope
+   block is present anywhere in the merged config, every rule must
+   declare its own scope block. Missing per-rule scope is a
+   load-time error.</li>
+<li><strong>Legacy mode lifespan</strong> — permanent. Single-org users will
+   always be able to omit the top-level scope and run without
+   interacting with this feature.</li>
+<li><strong><code>out_of_scope_total</code> counter units</strong> — both <code>level="policy"</code>
+   and <code>level="rule"</code> count rule evaluations skipped, not repos
+   skipped. The policy-level gate increments the counter once per
+   enabled rule that would have run on the rejected repo, keeping
+   the two levels in the same units.</li>
+<li><strong>Legacy-mode warning text</strong> — <code>"per-rule scope ignored: no
+   top-level scope { } block declared. Add a top-level scope block
+   to enable strict mode, or remove per-rule scope blocks."</code></li>
+<li><strong>Policy-level scope gate location</strong> — runs inside <code>CheckRepo</code>
+   (engine layer), not in <code>processJob</code> (queue layer). Keeps all
+   scope-gating logic in one file alongside the rule-level gates.</li>
+<li><strong><code>installation_id</code> as a metric label</strong> — not added. <code>(App, org)</code>
+   is 1:1 with installation, so the label would be redundant with
+   <code>org</code>. Installation IDs continue to be logged via structured
+   log fields for GitHub audit-log correlation.</li>
+<li><strong><code>PRsCreatedTotal</code> / <code>PRsUpdatedTotal</code> schema break</strong> — accepted.
+   These are promoted from <code>Counter</code> to <code>CounterVec</code> with <code>["org"]</code>.
+   The bundled <code>contrib/</code> Grafana dashboard and Prometheus alerts
+   are updated to use the new schema. A new <code>contrib/README.md</code>
+   documents the metric set and provides copy-pasteable queries
+   so external operators can adopt the new schema with minimal
+   friction.</li>
+</ol>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="../../investigation/0002-multi-org-and-forgejo-support-for-repo-guardian/">INV-0002</a> — Multi-org and Forgejo support investigation</li>
+<li><a href="../0006-hcl-policy-configuration-and-rule-engine/">DESIGN-0006</a> — HCL policy engine</li>
+<li><a href="../0008-additional-rule-types-and-ignore-lists/">DESIGN-0008</a> — Additional rule types and ignore
+  lists (the pattern this design mirrors)</li>
+<li><code>internal/policy/ignore.go</code> — implementation reference for the matcher</li>
+<li><code>internal/policy/ignore_test.go</code> — test reference</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

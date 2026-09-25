@@ -1,0 +1,2706 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Orphan cleanup deletes files the default branch legitimately owns - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#inv-0014-orphan-cleanup-deletes-files-the-default-branch-legitimately-owns" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Orphan cleanup deletes files the default branch legitimately owns
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#question" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Question
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-looks-like-in-practice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it looks like in practice
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hypothesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hypothesis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#approach" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Approach
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#findings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Findings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Findings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-discoverorphans-has-no-provenance-signal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A. discoverOrphans has no provenance signal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b-the-branch-inherits-the-file-updateprbranch-only-widens-the-window" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B. The branch inherits the file; UpdatePRBranch only widens the window
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c-the-blast-radius-is-target-shaped-not-paths-shaped" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C. The blast radius is Target-shaped, not Paths-shaped
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d-why-the-test-suite-cannot-express-this" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D. Why the test suite cannot express this
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#e-the-fix-already-exists-in-this-file-one-function-down" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        E'. The fix already exists in this file, one function down
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#e-latent-since-impl-0013-phase-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        E. Latent since IMPL-0013 Phase 3
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conclusion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#blast-radius" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Blast radius
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommendation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Recommendation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#r1-fix-the-test-fake-first-and-let-it-reproduce-the-bug" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R1. Fix the test fake first, and let it reproduce the bug
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r2-fix-discoverorphans" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R2. Fix discoverOrphans
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r3-operational-ahead-of-the-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R3. Operational, ahead of the code
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scope-still-to-decide" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope still to decide
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy-breaking-the-circularity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing strategy: breaking the circularity
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Testing strategy: breaking the circularity">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-circularity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The circularity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-fix-one-contract-suite-two-implementations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The fix: one contract suite, two implementations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#make-the-fakes-blind-spots-loud-not-plausible" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Make the fake's blind spots loud, not plausible
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-existing-claudemd-rule-is-too-narrow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The existing CLAUDE.md rule is too narrow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tiered-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tiered plan
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-shipped" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What shipped
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions-for-the-operator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open questions for the operator
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="inv-0014-orphan-cleanup-deletes-files-the-default-branch-legitimately-owns">INV 0014: Orphan cleanup deletes files the default branch legitimately owns</h1>
+<p><strong>Status:</strong> Concluded
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-08-03</p>
+<!--toc:start-->
+<ul>
+<li><a href="#question">Question</a></li>
+<li><a href="#what-it-looks-like-in-practice">What it looks like in practice</a></li>
+<li><a href="#hypothesis">Hypothesis</a></li>
+<li><a href="#context">Context</a></li>
+<li><a href="#approach">Approach</a></li>
+<li><a href="#environment">Environment</a></li>
+<li><a href="#findings">Findings</a></li>
+<li><a href="#a-discoverorphans-has-no-provenance-signal">A. discoverOrphans has no provenance signal</a></li>
+<li><a href="#b-the-branch-inherits-the-file-updateprbranch-only-widens-the-window">B. The branch inherits the file; UpdatePRBranch only widens the window</a></li>
+<li><a href="#c-the-blast-radius-is-target-shaped-not-paths-shaped">C. The blast radius is Target-shaped, not Paths-shaped</a></li>
+<li><a href="#d-why-the-test-suite-cannot-express-this">D. Why the test suite cannot express this</a></li>
+<li><a href="#e-the-fix-already-exists-in-this-file-one-function-down">E'. The fix already exists in this file, one function down</a></li>
+<li><a href="#e-latent-since-impl-0013-phase-3">E. Latent since IMPL-0013 Phase 3</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+<li><a href="#blast-radius">Blast radius</a></li>
+<li><a href="#recommendation">Recommendation</a></li>
+<li><a href="#r1-fix-the-test-fake-first-and-let-it-reproduce-the-bug">R1. Fix the test fake first, and let it reproduce the bug</a></li>
+<li><a href="#r2-fix-discoverorphans">R2. Fix discoverOrphans</a></li>
+<li><a href="#r3-operational-ahead-of-the-code">R3. Operational, ahead of the code</a></li>
+<li><a href="#scope-still-to-decide">Scope still to decide</a></li>
+<li><a href="#testing-strategy-breaking-the-circularity">Testing strategy: breaking the circularity</a></li>
+<li><a href="#the-circularity">The circularity</a></li>
+<li><a href="#the-fix-one-contract-suite-two-implementations">The fix: one contract suite, two implementations</a></li>
+<li><a href="#make-the-fakes-blind-spots-loud-not-plausible">Make the fake's blind spots loud, not plausible</a></li>
+<li><a href="#the-existing-claudemd-rule-is-too-narrow">The existing CLAUDE.md rule is too narrow</a></li>
+<li><a href="#tiered-plan">Tiered plan</a></li>
+<li><a href="#what-shipped">What shipped</a></li>
+<li><a href="#open-questions-for-the-operator">Open questions for the operator</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="question">Question</h2>
+<p>On a second sweep against a repository that already has a
+<code>repo-guardian/add-missing-files</code> PR open, repo-guardian commits a
+deletion of <code>.github/CODEOWNERS</code> with the message
+<code>chore: remove .github/CODEOWNERS (rule "codeowners" satisfied on default branch)</code>
+— even though the file exists on the default branch and the rule is
+therefore satisfied and should be a no-op.</p>
+<p>Why does a <em>satisfied</em> rule produce a <em>deletion</em>, and what is the blast
+radius?</p>
+<h2 id="what-it-looks-like-in-practice">What it looks like in practice</h2>
+<p>Take a repository that already has <code>.github/CODEOWNERS</code> and is missing
+<code>.github/dependabot.yml</code>.</p>
+<p><strong>First sweep</strong></p>
+<ol>
+<li>CODEOWNERS is present → the rule is satisfied, nothing to do.</li>
+<li>dependabot.yml is missing → actionable.</li>
+<li>repo-guardian creates <code>repo-guardian/add-missing-files</code> <strong>from main</strong>.
+   A new branch is a copy of main, so the branch now contains
+   <code>.github/CODEOWNERS</code> — not because repo-guardian added it, but
+   because main has it.</li>
+<li>It writes <code>dependabot.yml</code> to the branch and opens the PR.</li>
+</ol>
+<p>Correct so far.</p>
+<p><strong>Second sweep</strong> — the PR is open, so orphan cleanup runs. For every
+rule that is <em>not</em> actionable it asks one question:</p>
+<blockquote>
+<p>Is this rule's file sitting on the PR branch even though the rule is
+satisfied? Then I must have added it in an earlier sweep and it is no
+longer needed — delete it.</p>
+</blockquote>
+<p>It asks whether <code>.github/CODEOWNERS</code> is on the branch. It is. So it
+deletes it, and the PR now reads <em>"add dependabot.yml, delete
+CODEOWNERS."</em></p>
+<p>The file is on the branch because <strong>the branch is a copy of main</strong>, not
+because repo-guardian put it there — and nothing in the code can tell
+those two apart. repo-guardian never recorded "I added this file," so
+"it is on the branch" is the only evidence available, and that evidence
+does not mean what the code takes it to mean.</p>
+<p><strong>The case the feature still needs to handle.</strong> A repository with no
+CODEOWNERS anywhere: repo-guardian writes <code>.github/CODEOWNERS</code> to the
+branch and opens a PR; a human then commits <code>CODEOWNERS</code> at the repo
+root straight to main. Now the rule is satisfied by the root file,
+<code>.github/CODEOWNERS</code> is on the branch, and it is <strong>not</strong> on main — so
+repo-guardian is the only party that could have put it there. Deleting
+it is correct, and the PR stops proposing a duplicate. Any fix has to
+keep this working.</p>
+<h2 id="hypothesis">Hypothesis</h2>
+<p><code>discoverOrphans</code> cannot distinguish a file repo-guardian itself wrote
+to the reconcile branch in an earlier sweep (a true orphan) from a file
+that is visible on that branch only because the branch was cut from —
+and is continuously merged with — the default branch. Any rule that
+(a) is not actionable and (b) has its <code>Target</code> path present on the
+default branch is therefore misclassified as an orphan and deleted.</p>
+<h2 id="context">Context</h2>
+<p>Reported from production. Timeline as described by the operator: an
+initial run behaved correctly, updates were applied, and the following
+weekend's run began emitting delete commits against repositories whose
+<code>CODEOWNERS</code> file already existed. The operator reports running v1.10.1
+and confirms the affected repositories keep CODEOWNERS at
+<code>.github/CODEOWNERS</code>.</p>
+<p>This is a <strong>data-destructive</strong> defect, not a cosmetic one: the deletion
+lands on the reconcile branch of an <em>open</em> PR. Merging that PR removes
+<code>.github/CODEOWNERS</code> from the default branch. Because CODEOWNERS drives
+review routing and is frequently a branch-protection input, the
+downstream effect of a merge is silent loss of required-reviewer
+enforcement.</p>
+<p><strong>Triggered by:</strong> production report, 2026-08-03. Related to IMPL-0013
+Phase 3 (orphan cleanup, PR #82) and IMPL-0021 (reconcile-branch
+freshening, PR #169) — see Finding B on the misattributed PR number in
+the source comment.</p>
+<h2 id="approach">Approach</h2>
+<ol>
+<li>Trace the commit message back to its producer to identify the code
+   path with certainty rather than by inference.</li>
+<li>Read <code>discoverOrphans</code> and determine what evidence it uses to decide
+   a file is an orphan.</li>
+<li>Establish whether the preceding branch-freshening step makes the
+   misclassification possible, likely, or certain.</li>
+<li>Determine which rules and which repository layouts are affected, and
+   which are not.</li>
+<li>Explain why the existing convergence test suite passes.</li>
+<li>Identify the release in which the defect became reachable.</li>
+</ol>
+<h2 id="environment">Environment</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Version / Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Branch analysed</td>
+<td><code>main</code> @ <code>b1bd32e</code></td>
+</tr>
+<tr>
+<td>Defect introduced</td>
+<td><code>ee80603</code> (IMPL-0013, PR #82)</td>
+</tr>
+<tr>
+<td>First affected release</td>
+<td>appVersion 1.7.0 / chart 0.6.0</td>
+</tr>
+<tr>
+<td>Affected rule (built-in defaults)</td>
+<td><code>codeowners</code>, <code>Target = .github/CODEOWNERS</code></td>
+</tr>
+<tr>
+<td>Operator-reported running version</td>
+<td>v1.10.1</td>
+</tr>
+<tr>
+<td><code>updateReconcileBranch</code> introduced</td>
+<td><code>49a6424</code> / PR #169 / v1.10.1</td>
+</tr>
+<tr>
+<td>Repo layout confirmed by operator</td>
+<td><code>.github/CODEOWNERS</code> (matches Finding C)</td>
+</tr>
+<tr>
+<td>Code paths</td>
+<td><code>internal/checker/drift.go</code>, <code>internal/checker/engine_pr.go</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="findings">Findings</h2>
+<h3 id="a-discoverorphans-has-no-provenance-signal">A. <code>discoverOrphans</code> has no provenance signal</h3>
+<p><code>internal/checker/drift.go:101</code> is the whole decision:</p>
+<pre><code class="language-go">sha, exists, err := client.GetContentsOnBranch(ctx, owner, repo, r.Target, BranchName)
+...
+if !exists {
+    continue
+}
+
+orphans = append(orphans, orphanFile{RuleName: r.Name, Path: r.Target, SHA: sha})
+</code></pre>
+<p>The predicate is <em>"the rule is not actionable </em><em>and</em><em> its target path
+exists on the reconcile branch."</em> That is presumed to mean "we wrote
+this file in an earlier sweep and it is no longer needed." It does not.
+The reconcile branch is cut from the default branch, so <strong>every</strong> file
+the default branch has is present on the reconcile branch. The
+predicate matches:</p>
+<ol>
+<li>a file repo-guardian committed in an earlier sweep — a true orphan;</li>
+<li>a file that exists on the default branch and always did — a false
+   positive, and the reported bug.</li>
+</ol>
+<p>The two are indistinguishable from the branch alone. Provenance is
+never recorded anywhere, and the branch contents cannot supply it.</p>
+<p>The corresponding cleanup at <code>drift.go:139</code> is the commit the operator
+observed:</p>
+<pre><code class="language-go">msg := fmt.Sprintf(&quot;chore: remove %s (rule %q satisfied on default branch)&quot;, o.Path, o.RuleName)
+</code></pre>
+<p>The message is accurate about <em>why</em> the rule stopped being actionable
+and wrong about what should follow from it. "Satisfied on the default
+branch" is precisely the state in which the file must be left alone.</p>
+<h3 id="b-the-branch-inherits-the-file-updateprbranch-only-widens-the-window">B. The branch inherits the file; <code>UpdatePRBranch</code> only widens the window</h3>
+<p>The reconcile branch is created from the default branch HEAD —
+<code>engine_pr.go:143</code> passes <code>baseSHA</code> to <code>CreateBranch</code>, which is a plain
+<code>Git.CreateRef</code>. So from the instant it exists, the branch contains
+every file the default branch had, <code>.github/CODEOWNERS</code> included. No
+merge step is required for the false positive: <strong>it is already certain
+for any repo that had the file at branch-creation time</strong>, and has been
+since IMPL-0013 shipped.</p>
+<p><code>engine_pr.go:161-163</code> then runs immediately before orphan discovery:</p>
+<pre><code class="language-go">if existingPR != nil {
+    updateReconcileBranch(ctx, log, client, owner, repo, existingPR.Number)
+}
+</code></pre>
+<p>This merges the default branch into the reconcile branch so the file
+sync always operates on current content and cannot silently revert a
+manual edit on merge. It is correct in isolation, and it <em>widens</em> the
+trigger rather than creating it: it additionally captures repos where
+the file appeared on the default branch <strong>after</strong> the reconcile branch
+was cut. Without it those repos would escape; with it they do not.</p>
+<p>Provenance note, because the source comment is misleading: that call
+site is annotated <code>(INV-0011 B4, PR #71)</code>, but <code>git log -S</code> puts its
+introduction at <code>49a6424</code> — PR <strong>#169</strong>, IMPL-0021 — which
+<code>git describe --contains</code> resolves to <strong>v1.10.1</strong>. Anyone dating the
+regression from the comment will land on the wrong release.</p>
+<h3 id="c-the-blast-radius-is-target-shaped-not-paths-shaped">C. The blast radius is <code>Target</code>-shaped, not <code>Paths</code>-shaped</h3>
+<p>The satisfaction check and the orphan check use different fields.
+<code>policy.BuiltinDefaults()</code> (<code>internal/policy/defaults.go:118-129</code>):</p>
+<pre><code class="language-go">Paths:  []string{pathCodeownersRoot, pathCodeownersGitHub, &quot;docs/CODEOWNERS&quot;},
+Target: pathCodeownersGitHub,   // &quot;.github/CODEOWNERS&quot;
+</code></pre>
+<p><code>evaluateRule</code> satisfies the rule if <strong>any</strong> of the three paths exist.
+<code>discoverOrphans</code> only ever looks at <code>Target</code>. So:</p>
+<table>
+<thead>
+<tr>
+<th>Repository layout</th>
+<th>Rule state</th>
+<th>Orphan check</th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.github/CODEOWNERS</code> present</td>
+<td>satisfied</td>
+<td><code>Target</code> found</td>
+<td><strong>file deleted</strong></td>
+</tr>
+<tr>
+<td>root <code>CODEOWNERS</code> only</td>
+<td>satisfied</td>
+<td><code>Target</code> absent</td>
+<td>safe</td>
+</tr>
+<tr>
+<td><code>docs/CODEOWNERS</code> only</td>
+<td>satisfied</td>
+<td><code>Target</code> absent</td>
+<td>safe</td>
+</tr>
+<tr>
+<td>no CODEOWNERS</td>
+<td>actionable</td>
+<td>rule in actionable set, skipped</td>
+<td>safe</td>
+</tr>
+</tbody>
+</table>
+<p>This yields a sharp, falsifiable prediction: <strong>only repositories whose
+CODEOWNERS lives at <code>.github/CODEOWNERS</code> are affected.</strong> Repositories
+with a root-level <code>CODEOWNERS</code> see nothing. That prediction is the
+cheapest way to confirm this diagnosis against the real fleet.</p>
+<p>The same reasoning applies to every non-actionable file rule with a
+<code>Target</code> that the default branch happens to contain — <code>codeowners</code> is
+not special, it is merely the one whose <code>Target</code> most often already
+exists. <code>dependabot</code>, <code>renovate_config</code> and any operator-defined rule
+are subject to the identical failure.</p>
+<p>Two further preconditions, both matching the report:</p>
+<ul>
+<li>An open repo-guardian PR must already exist — orphan discovery is
+  only reachable from the <code>existingPR != nil</code> branch. This is why the
+  first run was clean and the second was not; it is a second-sweep-only
+  defect by construction.</li>
+<li>At least one <em>other</em> rule must still be actionable. With an empty
+  actionable set the code takes the <code>autoClosePR</code> path instead and no
+  deletion occurs.</li>
+</ul>
+<h3 id="d-why-the-test-suite-cannot-express-this">D. Why the test suite cannot express this</h3>
+<p><code>internal/checker/engine_test.go:315</code> backs <code>GetContentsOnBranch</code> with
+a <code>branchContents</code> map, and the only writer to that map is the fake's
+own <code>CreateOrUpdateFile</code> (<code>engine_test.go:167-172</code>). The fake models
+"repo-guardian wrote this file to this branch" and nothing else. The
+fake's <code>UpdatePRBranch</code> (<code>engine_test.go:364</code>) appends to a call-log and
+does not touch <code>branchContents</code> at all.</p>
+<p>So the fake has no representation of the failing state — <em>a file present
+on the reconcile branch that repo-guardian did not put there</em>. The
+convergence tests are not weak here; they are describing a world in
+which the bug cannot occur. Every assertion in
+<code>convergence_test.go</code> about orphan cleanup passes because in the fake's
+model the only files on the branch <strong>are</strong> orphans.</p>
+<p>This is a textbook instance of the mock-fidelity rule already in
+CLAUDE.md ("when a production path is shaped like list → decide → mutate,
+the mock's list method must return what production's list would
+return"). The existing rule is stated in terms of <em>the mock's own prior
+writes</em>; this case shows it needs to extend to <strong>state the mock never
+wrote</strong> — inherited default-branch content.</p>
+<h3 id="e-the-fix-already-exists-in-this-file-one-function-down">E'. The fix already exists in this file, one function down</h3>
+<p><code>restoreInverseOrphans</code> — the absent-mode mirror added later by
+IMPL-0019 — does the check <code>discoverOrphans</code> is missing.
+<code>restoreRulePaths</code> (<code>drift.go:214-235</code>) probes the <strong>default branch
+first</strong> and only then the reconcile branch:</p>
+<pre><code class="language-go">onDefault, err := client.GetContents(ctx, owner, repo, path)   // default-branch-only helper
+...
+_, onBranch, err := client.GetContentsOnBranch(ctx, owner, repo, path, BranchName)
+</code></pre>
+<p>Both probes fail safe: any API error leaves the path untouched.</p>
+<p>So the newer mirror function establishes the correct pattern — never
+act on a path from branch state alone, always cross-reference the
+default branch — while the older function it was explicitly modelled on
+never had it. This is strong corroboration that the missing probe is an
+oversight in <code>discoverOrphans</code> rather than a deliberate asymmetry, and
+it means the fix has a working in-repo reference implementation twelve
+lines away.</p>
+<h3 id="e-latent-since-impl-0013-phase-3">E. Latent since IMPL-0013 Phase 3</h3>
+<p><code>internal/checker/drift.go</code> was added whole in <code>ee80603</code> (IMPL-0013,
+PR #82), shipped as appVersion 1.7.0 / chart 0.6.0. The defect has been
+present since that release. It requires a second sweep against a repo
+with an open PR and a <code>Target</code>-path file on the default branch, which is
+why it can sit unnoticed across many deployments and then appear all at
+once when a fleet reaches its second sweep — matching "ran it again over
+the weekend."</p>
+<h2 id="conclusion">Conclusion</h2>
+<p><strong>Answer:</strong> Hypothesis confirmed.</p>
+<p><code>discoverOrphans</code> treats "path exists on the reconcile branch" as proof
+that repo-guardian authored it. Because the reconcile branch inherits
+the default branch — and is force-freshened from it by
+<code>updateReconcileBranch</code> immediately beforehand — a satisfied rule whose
+<code>Target</code> exists on the default branch is misclassified as an orphan and
+deleted, producing an open PR that proposes removing a legitimate file.</p>
+<p>The bug is real, destructive, and reachable in the default
+configuration. It has been latent since 1.7.0 and is present in the
+operator's reported v1.10.1; no version change is needed to explain the
+timeline. The single precondition that separates "first run fine" from
+"second run destructive" is the existence of an open repo-guardian PR,
+which only holds from the second sweep onward.</p>
+<p>Finding C's prediction — that only <code>.github/CODEOWNERS</code> repos are
+affected — was confirmed by the operator against the real fleet, which
+moves this from a plausible reading of the code to a diagnosis.</p>
+<h2 id="blast-radius">Blast radius</h2>
+<p>Operator reports the affected PRs were <strong>closed, not merged</strong>. If that
+holds fleet-wide this is containment, not recovery: the deletion never
+reached a default branch, and closing the PR is sufficient. It is worth
+verifying rather than trusting recall, because the failure mode is
+silent — a merged orphan-deletion looks like an ordinary chore commit in
+the repo's history.</p>
+<p><code>scripts/inv-0014-scan.sh ORG [ORG...]</code> measures it. Strictly read-only:
+no merges, no closes, no branch deletions. For every PR in the org whose
+head is <code>repo-guardian/add-missing-files</code> it reports the PR state, every
+path removed by a <code>chore: remove ...</code> commit, and — the question that
+actually matters — whether that path exists on the default branch
+<strong>today</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>PR state</th>
+<th>Path on default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>merged</td>
+<td>absent</td>
+<td>confirmed data loss; restore from history</td>
+</tr>
+<tr>
+<td>open</td>
+<td>present</td>
+<td>containment; close before anyone merges</td>
+</tr>
+<tr>
+<td>closed</td>
+<td>present</td>
+<td>no action — the expected state per the report</td>
+</tr>
+<tr>
+<td>any</td>
+<td>probe failed</td>
+<td>indeterminate, never assumed safe</td>
+</tr>
+</tbody>
+</table>
+<p>Both fragile parts were verified before use: the commit-message regex
+against the exact format <code>cleanupOrphans</code> emits (and against add-mode,
+restore-mode and merge commits, which must not match), and the
+200/404 status extraction against a public repository.</p>
+<h2 id="recommendation">Recommendation</h2>
+<p>Two changes, in this order. The ordering is not cosmetic: done this way
+the first change <em>proves</em> the bug and the second fixes it, so the
+regression test is non-vacuous by construction rather than by
+assertion.</p>
+<h3 id="r1-fix-the-test-fake-first-and-let-it-reproduce-the-bug">R1. Fix the test fake first, and let it reproduce the bug</h3>
+<p>Finding D established that the failing state — a file on the reconcile
+branch that repo-guardian did not write — is inexpressible in the
+current fake. Until that changes, <strong>any regression test written for
+this bug would pass before the fix</strong>, which is the definition of a
+vacuous test.</p>
+<p>Three ways to address it:</p>
+<p><strong>Option A — seed <code>branchContents</code> directly in the new test.</strong> One line
+of test setup, no fake change.</p>
+<p><em>Rejected.</em> It makes exactly one test correct and leaves the trap armed
+for everyone else. Nobody wrote that line for the existing convergence
+tests precisely because nobody knew the invariant existed; a fix that
+depends on future authors knowing it does not hold.</p>
+<p><strong>Option B — teach <code>GetContentsOnBranch</code> that branches inherit from the
+default branch.</strong> <em>Recommended.</em></p>
+<pre><code class="language-go">func (m *mockClient) GetContentsOnBranch(_ context.Context, owner, repo, path, branch string) (string, bool, error) {
+    if m.getContentsOnBranchErr != nil {
+        return &quot;&quot;, false, m.getContentsOnBranchErr
+    }
+
+    key := owner + &quot;/&quot; + repo + &quot;/&quot; + branch + &quot;/&quot; + path
+
+    // A tombstone means the path was deleted on this branch and must NOT
+    // be inherited back from the default branch.
+    if m.branchDeleted[key] {
+        return &quot;&quot;, false, nil
+    }
+
+    if sha, ok := m.branchContents[key]; ok {
+        return sha, true, nil
+    }
+
+    // The reconcile branch is cut from the default branch, so anything on
+    // default is visible on it unless the branch overrode or deleted it.
+    // Modelling this is what makes INV-0014's failing state expressible.
+    if m.contents[owner+&quot;/&quot;+repo+&quot;/&quot;+path] {
+        return &quot;sha-inherited-&quot; + path, true, nil
+    }
+
+    return &quot;&quot;, false, nil
+}
+</code></pre>
+<p>The tombstone map is load-bearing, not incidental. <code>DeleteFile</code>
+currently does a bare <code>delete(m.branchContents, key)</code>
+(<code>engine_test.go:338</code>); with an inheritance fallback and no tombstone, a
+file deleted from the branch would immediately reappear from the default
+branch, breaking the <code>restoreInverseOrphans</code> tests — which depend on
+exactly the state "deleted on branch, present on default". So
+<code>DeleteFile</code> must set the tombstone and <code>CreateOrUpdateFile</code> must clear
+it.</p>
+<p>One more required edit: <code>GetContentsOnBranch</code> currently early-returns
+<code>false</code> when <code>branchContents == nil</code> (<code>engine_test.go:320</code>). That guard
+has to go, or every test that leaves the map nil silently skips
+inheritance.</p>
+<p><strong>Expect existing tests to fail, and read that as the reproduction.</strong>
+Most convergence tests never populate <code>branchContents</code>, so today they
+run in a world where the reconcile branch is empty except for what
+repo-guardian wrote. Giving the fake inheritance puts them in the real
+world, and any that assert an orphan deletion against a file the repo
+owns will go red. That red is INV-0014 reproducing under test. Triage
+each failure as either "this is the bug" or "this fixture now needs
+adjusting"; do not blanket-adjust fixtures to restore green.</p>
+<p><strong>Option C — replace the string maps with a small git-shaped model</strong>
+(default tree + per-branch overlay of adds/deletes).</p>
+<p>Defensible, and strictly more faithful. Rejected <em>for this fix</em> because
+CLAUDE.md records six behaviours across three fake sites that depend on
+current semantics (IMPL-0021 task 7.1), and rebuilding them under
+time pressure on a data-destructive bug trades a small risk for a large
+one. Worth revisiting later on its own schedule.</p>
+<h3 id="r2-fix-discoverorphans">R2. Fix <code>discoverOrphans</code></h3>
+<p><strong>Option 1 — probe the default branch before the reconcile branch.</strong>
+<em>Recommended.</em> Mirrors <code>restoreInverseOrphans</code> (Finding E'), which
+already does this correctly twelve lines away.</p>
+<pre><code class="language-go">// A path that exists on the default branch is never an orphan: deleting
+// it from the reconcile branch makes the PR propose removing a file the
+// repository legitimately owns (INV-0014).
+onDefault, err := client.GetContents(ctx, owner, repo, r.Target)
+if err != nil {
+    log.Warn(&quot;orphan discovery: default-branch probe failed, treating as still-actionable&quot;,
+        &quot;rule&quot;, r.Name, &quot;path&quot;, r.Target, &quot;err&quot;, err)
+
+    continue
+}
+
+if onDefault {
+    continue
+}
+
+// ... existing GetContentsOnBranch probe unchanged
+</code></pre>
+<p>The rule is unconditional and easy to state: <strong>if the default branch has
+the path, never delete it.</strong> There is no case where deleting a
+default-branch file from the reconcile branch is the right action —
+doing so always produces a PR that proposes removing a real file.</p>
+<p>It still catches the genuine orphan. Rule satisfied by a root-level
+<code>CODEOWNERS</code> on main, <code>.github/CODEOWNERS</code> written to the branch by an
+earlier sweep, <code>.github/CODEOWNERS</code> absent from main: not on default →
+still an orphan → deleted. That is the convergence case IMPL-0013 Phase
+3 was built for, and it is preserved.</p>
+<p>Ordering matters for cost: probing default <em>first</em> means the common case
+(rule satisfied because the file is on main) costs one API call instead
+of two. Genuine orphans cost two. The probe only runs for
+non-actionable rules on repos that already have an open PR, so fleet-wide
+impact is small.</p>
+<p>Fail-safe direction is the same as everywhere else in this file: a probe
+error means "do not delete."</p>
+<p><strong>Option 2 — compare blob SHAs between branch and default.</strong> <em>Rejected,
+and worth recording because it is the tempting "more precise" answer.</em></p>
+<p>The idea is that a differing SHA proves repo-guardian authored the branch
+copy. It does — and it still must not delete. If main holds a human-
+authored <code>.github/CODEOWNERS</code> and the branch holds repo-guardian's
+version, deleting from the branch proposes removing main's file. SHA
+comparison is more precise about provenance and wrong about the action.
+Presence on the default branch, not authorship, is the correct predicate.</p>
+<p><strong>Option 3 — record provenance properly</strong> (track which files
+repo-guardian wrote to the branch, in the store or via a commit-message
+convention).</p>
+<p>The "real" fix for the root cause named in Finding A. Rejected as the
+immediate remedy: it needs persistent state or branch-history parsing,
+and Option 1 makes the destructive outcome unreachable without it. Worth
+a follow-up if orphan cleanup ever needs to distinguish cases Option 1
+deliberately collapses.</p>
+<p><strong>Option 4 — gate orphan cleanup behind a config flag, defaulting off.</strong></p>
+<p><strong>Accepted (operator decision, 2026-08-03) — ships alongside Option 1,
+not instead of it.</strong></p>
+<p>The risk/benefit is lopsided: the feature prevents a stale PR body, and
+its failure mode deletes a real file. Option 1 makes the destructive
+path unreachable, so the flag is defence in depth on a fleet that has
+already been burned once — an operator who does not trust the fix can
+turn the whole behaviour off without downgrading.</p>
+<p>Shape follows the existing <code>auto_close_pr</code> precedent exactly, which is
+the closest analogue (a <code>guardian {}</code> bool gating a PR-mutating
+behaviour, default-on, env override): an <code>orphan_cleanup</code> attribute on
+the <code>guardian {}</code> block plus an <code>ORPHAN_CLEANUP</code> env override. Per
+INV-0010, adding a <code>GuardianConfig</code> field needs <strong>three</strong> edits in
+lockstep — <code>guardianBodySchema</code>, a <code>setGuardianAttr</code> case, and a
+<code>mergeGuardianConfig</code> carry — and missing the merge is exactly how
+<code>auto_close_pr</code> silently did nothing. Default is <strong>on</strong>, because with
+Option 1 in place the behaviour is correct and turning it off by default
+would regress the INV-0005 convergence fix for every operator.</p>
+<h3 id="r3-operational-ahead-of-the-code">R3. Operational, ahead of the code</h3>
+<ol>
+<li>Close any open repo-guardian PR carrying a <code>chore: remove ...</code>
+   commit. Confirmed closed already per the operator, pending the scan.</li>
+<li>Ship as a patch release once R1+R2 land. Every repo in a fleet meets
+   the precondition on its second sweep, so this is not a "wait for the
+   next feature release" fix.</li>
+<li>Correct the misattributed <code>PR #71</code> comment at the
+   <code>updateReconcileBranch</code> call site while in the file (Finding B).</li>
+</ol>
+<h3 id="scope-still-to-decide">Scope still to decide</h3>
+<ul>
+<li>Do the <code>scheduler</code> and <code>reconciler</code> fakes need the same inheritance
+  fix, or is <code>internal/checker</code> the only package whose tests exercise
+  branch-vs-default semantics? Current reading is checker-only, but that
+  should be checked rather than assumed.</li>
+<li>Whether Option 4's flag ships in the same patch or not at all.</li>
+</ul>
+<h2 id="testing-strategy-breaking-the-circularity">Testing strategy: breaking the circularity</h2>
+<p>R1 fixes the fake's model of branch inheritance. That corrects <em>this</em>
+wrong belief and leaves the mechanism that produced it fully intact. The
+mechanism is worth naming, because it will produce the next one.</p>
+<h3 id="the-circularity">The circularity</h3>
+<p>The fake is a hand-written encoding of our mental model of GitHub. Our
+model said <em>"a branch contains what we put on it."</em> GitHub says <em>"a
+branch contains what main had, plus what we put on it."</em> Every test then
+validated the engine against the model — so the tests agreed with the
+code because both were built from the same wrong belief. <strong>Nothing
+inside that loop is capable of disagreeing.</strong></p>
+<p>Note the shape: the tests were not sloppy and the assertions were not
+weak. A correct assertion evaluated against a fictional world is still
+fiction. No amount of additional testing <em>of that kind</em> would have found
+this.</p>
+<h3 id="the-fix-one-contract-suite-two-implementations">The fix: one contract suite, two implementations</h3>
+<p>State the GitHub behaviours we depend on <strong>once</strong>, as tests, and run
+them against both the fake and real GitHub. If the fake drifts from
+reality the shared test fails, so the fake cannot quietly encode a
+fantasy — it is held to the same contract as the real thing.</p>
+<pre><code class="language-go">// Same bodies, two drivers.
+func contractBranchInheritsDefaultContents(t *testing.T, c ghclient.Client)
+func contractDeleteOnBranchLeavesDefaultUntouched(t *testing.T, c ghclient.Client)
+func contractUpdateBranchMergesDefaultIn(t *testing.T, c ghclient.Client)
+func contractFileAddedToBranchIsNotOnDefault(t *testing.T, c ghclient.Client)
+</code></pre>
+<ul>
+<li><strong>Against the fake</strong> — runs in <code>make test</code>, milliseconds, every PR.</li>
+<li><strong>Against real GitHub</strong> — <code>//go:build ghcontract</code>, a scratch org and a
+  throwaway repo, run nightly or pre-release.</li>
+</ul>
+<p>The real-GitHub driver is the only true oracle anywhere in this
+codebase; every other test asks us what we believe. It is also small,
+because it does not test the engine — it tests <em>our assumptions about
+the API</em>. "Does creating a branch from main make main's files readable
+on that branch?" is a single test, and it would have caught INV-0014
+before IMPL-0013 shipped.</p>
+<p>There is direct precedent: Postgres and Valkey both have real-backend
+integration suites under a build tag, with contract assertions living in
+each backend's own test file (CLAUDE.md § single-backend contract test
+convention). GitHub is currently the only major dependency with <strong>no
+real-thing test at all</strong> — the <code>httptest.Server</code> suite in
+<code>internal/github/client_test.go</code> tests our request/response plumbing
+against handlers we also wrote, which is the same circularity one layer
+down.</p>
+<h3 id="make-the-fakes-blind-spots-loud-not-plausible">Make the fake's blind spots loud, not plausible</h3>
+<p><code>GetContentsOnBranch</code> returned <code>false</code> for a state it could not
+represent: a confident, plausible, wrong answer. The repo has already
+learned this lesson once — the generated mocks panic on un-overridden
+methods, explicitly because "a silent zero value is how the IMPL-0013 P4
+vacuous-assertion bug happened" (CLAUDE.md). The same reasoning applies
+here and was never carried across.</p>
+<p>Concretely: if a test never declares the repository's default-branch
+contents, the fake should not assume "empty." It should fail and force
+the test to say what the repo contains. A fake that cannot represent a
+state must refuse to answer questions about it.</p>
+<h3 id="the-existing-claudemd-rule-is-too-narrow">The existing CLAUDE.md rule is too narrow</h3>
+<p>The rule written after the last occurrence of this failure shape:</p>
+<blockquote>
+<p>when a production code path is shaped like "list existing → decide to
+skip-or-act → mutate," the mock's list method MUST return prior
+writes <strong>from the same mock instance</strong>.</p>
+</blockquote>
+<p>That covers state <strong>the test</strong> created. INV-0014 is state <strong>the world</strong>
+created — a file that existed before repo-guardian ever ran. Identical
+failure shape, entirely outside the rule's scope, which is why
+following the rule did not prevent it.</p>
+<p>Proposed extension, to land with the fix:</p>
+<blockquote>
+<p>...and MUST also return state the mock never wrote but the real system
+would have — repository state that pre-existed the test. Where a fake
+cannot represent such state, it MUST fail loudly rather than return a
+plausible default.</p>
+</blockquote>
+<h3 id="tiered-plan">Tiered plan</h3>
+<p><strong>Now, shipping with the fix</strong></p>
+<ol>
+<li>Fake inheritance + tombstones (R1).</li>
+<li>The four contract tests above, running against the fake.</li>
+<li>A safety-net assertion in the checker test harness: no test may
+   finish having deleted a path that exists on the default branch. This
+   catches the whole class rather than this one instance, and it is
+   stated in domain terms, so it keeps working as the fake improves.</li>
+<li>The CLAUDE.md rule extension above.</li>
+</ol>
+<p><strong>Next, deferred out of the patch (operator decision, 2026-08-03)</strong></p>
+<ol>
+<li>The same contract tests against a scratch org under <code>//go:build
+   ghcontract</code>. <strong>Deferred</strong>: the operator will verify this fix manually
+   against real repositories so the patch can ship promptly, rather than
+   holding a data-destructive fix behind new test infrastructure.</li>
+</ol>
+<p>This remains the step that actually breaks the circle. Items 1-4 are
+   still our model checking our model, and manual verification confirms
+   <em>this</em> fix without leaving anything behind that would catch the next
+   one. Track it as follow-up work, not as closed.</p>
+<p><strong>Later, only if it earns it</strong></p>
+<ol>
+<li>Replace the interface-level fake with an HTTP-level fake GitHub that
+   stores refs and trees, so branch semantics become structurally
+   impossible to get wrong rather than correct-by-maintenance. Real
+   work; explicitly not under this bug's time pressure.</li>
+</ol>
+<h2 id="what-shipped">What shipped</h2>
+<table>
+<thead>
+<tr>
+<th>Commit</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>26c5869</code></td>
+<td><strong>Prevention</strong> — <code>discoverOrphans</code> probes the default branch first; a path the default branch owns is never an orphan (R2 option 1)</td>
+</tr>
+<tr>
+<td><code>6840117</code></td>
+<td><strong>Kill switch</strong> — <code>orphan_cleanup</code> HCL attribute, <code>ORPHAN_CLEANUP</code> env, <code>policy.orphanCleanup</code> chart value, default on (R2 option 4)</td>
+</tr>
+<tr>
+<td><code>34005a8</code></td>
+<td><strong>Repair</strong> — <code>restoreInverseOrphans</code> generalised beyond absent rules, so branches already carrying the deletion self-heal on the next sweep</td>
+</tr>
+</tbody>
+</table>
+<p>The fake-fidelity work in R1 shipped inside <code>26c5869</code>: <code>GetContentsOnBranch</code>
+now inherits from the default branch, with a tombstone map so deletions
+stick. Fixing it reproduced the bug immediately with production code
+untouched — <code>TestConvergence_RenovateFirst_RemovesDependabot</code> began deleting
+<code>renovate.json</code>, the reported failure on a different rule.</p>
+<p>Every behavioural change was neutralise-verified. Three of the tests written
+during this work were vacuous on first draft and were rebuilt after the
+neutralisation showed them passing against broken code — the same failure
+shape as the original defect, one level up.</p>
+<p><strong>Not shipped, tracked as follow-up:</strong> the real-GitHub contract suite
+(Testing strategy, tier 2). Without it the repo is still in the position
+described under "The circularity" — our model checking our model — and
+nothing yet catches the next wrong belief about the GitHub API.</p>
+<h2 id="open-questions-for-the-operator">Open questions for the operator</h2>
+<ol>
+<li>~~Do the affected repositories keep CODEOWNERS at
+   <code>.github/CODEOWNERS</code>?~~ Confirmed — matches Finding C's prediction.</li>
+<li>~~Which appVersion was running?~~ v1.10.1, which contains the
+   defect. No version change is needed to explain the timeline.</li>
+<li>~~Were any of these delete-commit PRs merged?~~ Operator reports
+   closed, not merged — containment rather than recovery. To be
+   confirmed fleet-wide with <code>scripts/inv-0014-scan.sh</code>.</li>
+<li>Are the affected repos ones where some <em>other</em> rule (dependabot,
+   renovate) is still actionable? The model says they must be; a
+   counter-example would mean there is a second path to investigate.</li>
+</ol>
+<h2 id="references">References</h2>
+<ul>
+<li>IMPL-0013 — orphan cleanup and PR convergence (PR #82, <code>ee80603</code>)</li>
+<li>INV-0011 B4 / PR #71 — reconcile-branch freshening via
+  <code>UpdatePRBranch</code></li>
+<li>INV-0005 — the PR-drift surface that motivated IMPL-0013 Phase 3</li>
+<li><code>internal/checker/drift.go</code> — <code>discoverOrphans</code>, <code>cleanupOrphans</code></li>
+<li><code>internal/checker/engine_pr.go</code> — <code>createOrUpdatePRFromPolicy</code>,
+  <code>updateReconcileBranch</code></li>
+<li>CLAUDE.md § "Mock-fidelity rule for list-then-act idempotency tests"</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

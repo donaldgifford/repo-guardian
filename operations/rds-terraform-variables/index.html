@@ -1,0 +1,2721 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>External Postgres on RDS — Terraform variable reference - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#external-postgres-on-rds-terraform-variable-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              External Postgres on RDS — Terraform variable reference
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-repo-guardian-requires-of-any-postgres" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What repo-guardian requires of any Postgres
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shape-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shape matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#variables-common-to-all-three-db-modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Variables common to all three DB modules
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Variables common to all three DB modules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#composition-plumbing-required-no-defaults" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Composition plumbing (required, no defaults)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#must-set-for-repo-guardian-module-defaults-are-wrong-for-us" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Must-set for repo-guardian (module defaults are wrong for us)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommended
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parameter-groups-and-engine-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameter groups and engine version
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modulesrdsinstance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        modules/rds/instance
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="modules/rds/instance">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#required-beyond-the-common-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required beyond the common set
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#instance-only-optionals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instance-only optionals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modulesrdscluster" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        modules/rds/cluster
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="modules/rds/cluster">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#required-beyond-the-common-set_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required beyond the common set
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cluster-only-optionals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cluster-only optionals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modulesrdsserverless" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        modules/rds/serverless
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="modules/rds/serverless">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#required-beyond-the-common-set_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required beyond the common set
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modulesrdsproxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        modules/rds/proxy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="modules/rds/proxy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#required" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optionals-that-matter-for-repo-guardian" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optionals that matter for repo-guardian
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-two-apply-security-group-dance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The two-apply security-group dance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pinning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pinning
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#building-the-dsn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Building the DSN
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chart-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chart values
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#known-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known limitations
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="external-postgres-on-rds-terraform-variable-reference">External Postgres on RDS — Terraform variable reference</h1>
+<p>Concrete variable settings for running repo-guardian against
+<code>libtftest-tf-modules/modules/rds/*</code>, for each of the six shapes:
+<code>instance</code> / <code>cluster</code> / <code>serverless</code>, each with or without <code>proxy</code>.</p>
+<p><a href="../aws/">Running repo-guardian on AWS</a> covers the <em>choice</em> between those
+shapes and the surrounding wiring (External Secrets Operator, chart
+values, ElastiCache). This doc is the variable-level companion: what to
+set, what the module defaults get wrong for this specific consumer, and
+what breaks if you leave it alone.</p>
+<!--toc:start-->
+<ul>
+<li><a href="#what-repo-guardian-requires-of-any-postgres">What repo-guardian requires of any Postgres</a></li>
+<li><a href="#shape-matrix">Shape matrix</a></li>
+<li><a href="#variables-common-to-all-three-db-modules">Variables common to all three DB modules</a></li>
+<li><a href="#parameter-groups-and-engine-version">Parameter groups and engine version</a></li>
+<li><a href="#modulesrdsinstance"><code>modules/rds/instance</code></a></li>
+<li><a href="#modulesrdscluster"><code>modules/rds/cluster</code></a></li>
+<li><a href="#modulesrdsserverless"><code>modules/rds/serverless</code></a></li>
+<li><a href="#modulesrdsproxy"><code>modules/rds/proxy</code></a></li>
+<li><a href="#building-the-dsn">Building the DSN</a></li>
+<li><a href="#chart-values">Chart values</a></li>
+<li><a href="#verification-checklist">Verification checklist</a></li>
+<li><a href="#known-limitations">Known limitations</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="what-repo-guardian-requires-of-any-postgres">What repo-guardian requires of any Postgres</h2>
+<p>Five requirements drive every setting below. They come from the code,
+not from preference.</p>
+<ol>
+<li><strong>A database must already exist.</strong> Every pod calls
+   <code>pgstore.Migrate(cfg.StoreDSN)</code> at startup
+   (<code>cmd/repo-guardian/main.go:391</code>) and fails fast if it can't apply
+   <code>0001_init.up.sql</code>. The module's <code>database_name</code> defaults to <code>null</code>,
+   which creates <strong>no</strong> database — so this must be set explicitly or the
+   binary crash-loops on first boot.</li>
+<li><strong>DDL privileges on that database.</strong> Migrations run in-process, in
+   every replica, on every start. There is no separate migration Job and
+   no separate migration DSN.</li>
+<li><strong>A static username/password DSN.</strong> <code>postgres.New</code> does
+   <code>pgxpool.ParseConfig(dsn)</code> and nothing else — no <code>BeforeConnect</code> hook,
+   no credential refresh. This is what makes IAM auth unusable (below).</li>
+<li><strong>Writer access.</strong> <code>StaleRepos</code> is read-heavy but everything shares
+   one DSN slot; reader endpoints have no wiring today
+   (DESIGN-0016 is Draft).</li>
+<li><strong>Plain Postgres, default parameters.</strong> The schema is two indexes and
+   a table with no version-specific syntax, so any supported engine
+   version works — but run the <strong>same major the chart runs</strong> (18; both
+   <code>store.postgres.baked.image: postgres:18.4</code> and
+   <code>store.postgres.cnpg.imageName: ...postgresql:18.4</code>) so dev/test on
+   the chart-managed shapes exercises the major prod runs on. Neither
+   chart mode sets a single custom Postgres parameter, so RDS
+   default-valued parameter groups are correct — see
+   <a href="#parameter-groups-and-engine-version">Parameter groups</a>.</li>
+</ol>
+<h2 id="shape-matrix">Shape matrix</h2>
+<table>
+<thead>
+<tr>
+<th>Shape</th>
+<th>Module(s)</th>
+<th>Endpoint the DSN points at</th>
+<th>Use when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Instance, no proxy</td>
+<td><code>instance</code></td>
+<td><code>endpoint</code></td>
+<td>Simplest. Dev, or single-replica prod.</td>
+</tr>
+<tr>
+<td>Instance + proxy</td>
+<td><code>instance</code> + <code>proxy</code></td>
+<td><code>proxy_endpoint</code></td>
+<td><strong>Recommended default.</strong> Survives failover, absorbs replica restarts.</td>
+</tr>
+<tr>
+<td>Cluster, no proxy</td>
+<td><code>cluster</code></td>
+<td><code>cluster_endpoint</code></td>
+<td>HA without the proxy hop.</td>
+</tr>
+<tr>
+<td>Cluster + proxy</td>
+<td><code>cluster</code> + <code>proxy</code></td>
+<td><code>proxy_endpoint</code></td>
+<td>HA + connection stability. Best availability.</td>
+</tr>
+<tr>
+<td>Serverless, no proxy</td>
+<td><code>serverless</code></td>
+<td><code>cluster_endpoint</code></td>
+<td>Not recommended — scaling events cause connection storms.</td>
+</tr>
+<tr>
+<td>Serverless + proxy</td>
+<td><code>serverless</code> + <code>proxy</code></td>
+<td><code>proxy_endpoint</code></td>
+<td><strong>Recommended for spiky/idle workloads.</strong> Proxy is close to mandatory here.</td>
+</tr>
+</tbody>
+</table>
+<p>repo-guardian's load shape is long idle stretches punctuated by sweep
+bursts, which suits Serverless v2 — but only with the proxy in front.</p>
+<h2 id="variables-common-to-all-three-db-modules">Variables common to all three DB modules</h2>
+<h3 id="composition-plumbing-required-no-defaults">Composition plumbing (required, no defaults)</h3>
+<p>Identical across <code>instance</code>, <code>cluster</code>, and <code>serverless</code>. These locate
+the VPC remote state; Terragrunt injects them in production.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>region</code></td>
+<td>Deployment region.</td>
+</tr>
+<tr>
+<td><code>remote_state_bucket</code></td>
+<td>Bucket holding the VPC stack state.</td>
+</tr>
+<tr>
+<td><code>remote_state_bucket_region</code></td>
+<td>Region <em>of the bucket</em> — differs from <code>region</code> in multi-region setups.</td>
+</tr>
+<tr>
+<td><code>vpc_name</code></td>
+<td>Composed into the state key.</td>
+</tr>
+<tr>
+<td><code>account_name</code></td>
+<td>Prefix of the account-scoped state key.</td>
+</tr>
+<tr>
+<td><code>account_id</code></td>
+<td>12-digit ID owning the bucket.</td>
+</tr>
+<tr>
+<td><code>deploy_role_name</code></td>
+<td>Role assumed for the cross-account state read.</td>
+</tr>
+<tr>
+<td><code>identifier_prefix</code></td>
+<td>Must match <code>^[a-z][a-z0-9-]{0,61}[a-z0-9]$</code>.</td>
+</tr>
+<tr>
+<td><code>engine</code></td>
+<td>Validated per module — see each section.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="must-set-for-repo-guardian-module-defaults-are-wrong-for-us">Must-set for repo-guardian (module defaults are wrong for us)</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Set to</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>database_name</code></td>
+<td><code>null</code></td>
+<td><code>"repoguardian"</code></td>
+<td><strong>The one that bites.</strong> Default creates no database; migrations fail on first boot.</td>
+</tr>
+<tr>
+<td><code>allowed_consumer_sg_ids</code></td>
+<td><code>[]</code></td>
+<td>EKS node SG, <strong>or</strong> the proxy SG</td>
+<td>Default is reachable from nowhere. With a proxy this is the <em>proxy's</em> SG, not the nodes'.</td>
+</tr>
+<tr>
+<td><code>master_username</code></td>
+<td><code>"admin"</code></td>
+<td><code>"admin"</code> or <code>"repoguardian"</code></td>
+<td>Cosmetic, but it goes in the DSN — pick before first apply, changing it later forces replacement.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="recommended">Recommended</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Recommendation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>engine_version</code></td>
+<td><code>null</code> (module resolves major 18)</td>
+<td><strong>Pin <code>"18"</code></strong> — the major the chart runs (<code>postgres:18.4</code> baked, CNPG <code>18.4</code>). Pinning matters even though the module's default is currently also 18: <code>default_major_map</code> is Renovate-bumped, so an unpinned prod DB changes major whenever the module updates. See <a href="#parameter-groups-and-engine-version">Parameter groups and engine version</a>.</td>
+</tr>
+<tr>
+<td><code>manage_master_user_password</code></td>
+<td><code>true</code></td>
+<td>Keep <code>true</code> — but read <a href="#known-limitations">Known limitations</a> on rotation, which is not free for this consumer.</td>
+</tr>
+<tr>
+<td><code>backup_retention_period</code></td>
+<td><code>7</code></td>
+<td><code>7</code> dev / <code>30</code> prod.</td>
+</tr>
+<tr>
+<td><code>deletion_protection</code></td>
+<td><code>true</code></td>
+<td>Keep <code>true</code>.</td>
+</tr>
+<tr>
+<td><code>publicly_accessible</code></td>
+<td><code>false</code></td>
+<td>Keep <code>false</code>.</td>
+</tr>
+<tr>
+<td><code>performance_insights_enabled</code></td>
+<td><code>false</code></td>
+<td><code>true</code> in prod — the cheapest way to see whether the sweep is DB-bound.</td>
+</tr>
+<tr>
+<td><code>skip_final_snapshot</code></td>
+<td><code>false</code></td>
+<td>Keep <code>false</code>; supply <code>final_snapshot_identifier</code> at destroy time.</td>
+</tr>
+<tr>
+<td><code>iam_database_authentication_enabled</code></td>
+<td><code>false</code></td>
+<td><strong>Keep <code>false</code></strong> — unusable, see limitations.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="parameter-groups-and-engine-version">Parameter groups and engine version</h3>
+<p>The modules create parameter groups <strong>unconditionally</strong> — you never
+create or attach one yourself, and there is nothing to configure inside
+them today:</p>
+<ul>
+<li><code>instance</code> creates one <code>aws_db_parameter_group</code>; <code>cluster</code> and
+  <code>serverless</code> create the Aurora pair (<code>aws_rds_cluster_parameter_group</code></li>
+<li><code>aws_db_parameter_group</code> for the instances).</li>
+<li>All are <strong>deliberately empty</strong> in module v1 ("No custom <code>parameter</code>
+  blocks — per-parameter tuning is a later additive change"). They exist
+  as rename-safe attachment points (<code>create_before_destroy</code>) so future
+  tuning never forces instance replacement.</li>
+<li>The family auto-resolves from <code>engine</code> + <code>engine_version</code> via a static
+  map: <code>postgres16/17/18</code> on <code>instance</code>, <code>aurora-postgresql14</code>–<code>18</code> on
+  the Aurora shapes. <code>parameter_family</code> is an override for the rare case
+  the map lags a new major — with <code>engine_version = "18"</code> it resolves to
+  <code>postgres18</code> / <code>aurora-postgresql18</code> and you should leave it null.</li>
+</ul>
+<p><strong>repo-guardian needs nothing custom in them.</strong> This is verifiable on
+both sides: the chart's baked mode runs stock <code>postgres:18.4</code> with no
+<code>args</code> and no config file, the CNPG <code>Cluster</code> CR sets no
+<code>postgresql.parameters</code> block, and the store itself needs no
+non-default server behaviour (one table, two indexes, parameterized
+queries via pgx, and session advisory locks for migrations — all
+default-on). So the empty default-valued groups the module creates are
+not a gap to fill; they are the same "stock Postgres" contract the
+chart-managed shapes already run.</p>
+<p>Three parameter-adjacent facts still worth knowing:</p>
+<ul>
+<li><strong><code>rds.force_ssl = 1</code> is the default on RDS for PostgreSQL 15+</strong> —
+  plaintext connections are rejected server-side. This is why
+  <code>sslmode=require</code> in the DSN is mandatory on the <code>instance</code> shape, not
+  just recommended. Aurora PostgreSQL does <em>not</em> force TLS by default;
+  there the proxy's <code>require_tls = true</code> is what enforces it.</li>
+<li><strong><code>max_connections</code> is a family default derived from instance
+  memory</strong> (<code>{DBInstanceClassMemory/9531392}</code> for Postgres — ≈112 on a
+  <code>db.t4g.micro</code>). It bounds the <a href="#chart-values">connection math</a>;
+  size <code>replicas × maxConns</code> against it, don't raise it in a parameter
+  group.</li>
+<li><strong>If tuning is ever genuinely needed</strong> (e.g.
+  <code>log_min_duration_statement</code> while chasing a slow sweep), the module
+  cannot express it today — no variable accepts parameter blocks. That's
+  a module feature request, not a values tweak; and if a parameter turns
+  out to matter for repo-guardian itself, mirror it into the chart's
+  baked/CNPG shapes so all four deployment shapes keep running the same
+  effective config.</li>
+</ul>
+<h2 id="modulesrdsinstance"><code>modules/rds/instance</code></h2>
+<p>Non-Aurora, single instance.</p>
+<h3 id="required-beyond-the-common-set">Required beyond the common set</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Constraint</th>
+<th>Suggested</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>engine</code></td>
+<td><code>postgres</code> or <code>mysql</code></td>
+<td><code>"postgres"</code></td>
+</tr>
+<tr>
+<td><code>instance_class</code></td>
+<td>—</td>
+<td><code>db.t4g.micro</code> dev / <code>db.t4g.medium</code> prod</td>
+</tr>
+<tr>
+<td><code>allocated_storage</code></td>
+<td><code>&gt;= 20</code></td>
+<td><code>20</code> — the schema is one small table; storage is not the constraint</td>
+</tr>
+</tbody>
+</table>
+<h3 id="instance-only-optionals">Instance-only optionals</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>multi_az</code></td>
+<td><code>false</code></td>
+<td><code>true</code> for prod HA. The only HA lever this module has.</td>
+</tr>
+<tr>
+<td><code>max_allocated_storage</code></td>
+<td><code>null</code></td>
+<td>Set above <code>allocated_storage</code> to enable autoscaling. Rarely needed here.</td>
+</tr>
+<tr>
+<td><code>storage_type</code></td>
+<td><code>gp3</code></td>
+<td>Leave.</td>
+</tr>
+<tr>
+<td><code>iops</code> / <code>storage_throughput</code></td>
+<td><code>null</code></td>
+<td>Leave. <code>iops</code> becomes required if you switch to <code>io2</code>.</td>
+</tr>
+<tr>
+<td><code>ca_cert_identifier</code></td>
+<td><code>null</code></td>
+<td>Set only if pinning a specific RDS CA.</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-hcl">module &quot;repo_guardian_db&quot; {
+  source = &quot;.../modules/rds/instance&quot;
+
+  region                     = &quot;us-east-1&quot;
+  remote_state_bucket        = var.remote_state_bucket
+  remote_state_bucket_region = &quot;us-east-1&quot;
+  vpc_name                   = &quot;platform&quot;
+  account_name               = var.account_name
+  account_id                 = var.account_id
+  deploy_role_name           = var.deploy_role_name
+
+  identifier_prefix = &quot;repo-guardian&quot;
+  engine            = &quot;postgres&quot;
+  engine_version    = &quot;18&quot; # match the chart's baked/CNPG major (postgres:18.4)
+  instance_class    = &quot;db.t4g.medium&quot;
+  allocated_storage = 20
+  # parameter_family omitted — auto-resolves to &quot;postgres18&quot;; the module
+  # creates the (empty, default-valued) parameter group itself.
+
+  database_name           = &quot;repoguardian&quot;
+  master_username         = &quot;repoguardian&quot;
+  allowed_consumer_sg_ids = [module.eks.node_security_group_id]  # or [module.proxy.proxy_security_group_id]
+
+  multi_az                     = true
+  backup_retention_period      = 30
+  performance_insights_enabled = true
+
+  tags = local.tags
+}
+</code></pre>
+<h2 id="modulesrdscluster"><code>modules/rds/cluster</code></h2>
+<p>Aurora provisioned. Same surface as <code>instance</code> minus the storage knobs,
+plus cluster concerns.</p>
+<h3 id="required-beyond-the-common-set_1">Required beyond the common set</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Constraint</th>
+<th>Suggested</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>engine</code></td>
+<td><code>aurora-postgresql</code> or <code>aurora-mysql</code></td>
+<td><code>"aurora-postgresql"</code></td>
+</tr>
+<tr>
+<td><code>engine_version</code></td>
+<td>optional but pin it</td>
+<td><code>"18"</code> — chart-major parity, resolves family <code>aurora-postgresql18</code></td>
+</tr>
+<tr>
+<td><code>instance_class</code></td>
+<td>—</td>
+<td><code>db.t4g.medium</code> / <code>db.r6g.large</code></td>
+</tr>
+</tbody>
+</table>
+<p>Note there is <strong>no <code>allocated_storage</code></strong> — Aurora storage is elastic.</p>
+<h3 id="cluster-only-optionals">Cluster-only optionals</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backtrack_window</code></td>
+<td>—</td>
+<td>Aurora-MySQL only in practice; leave unset for Postgres.</td>
+</tr>
+<tr>
+<td><code>enabled_cloudwatch_logs_exports</code></td>
+<td>—</td>
+<td><code>["postgresql"]</code> to ship logs.</td>
+</tr>
+<tr>
+<td><code>promotion_tier</code></td>
+<td>—</td>
+<td>Failover priority. Single-instance clusters can ignore it.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Endpoint choice matters here.</strong> The module emits both
+<code>cluster_endpoint</code> (writer) and <code>reader_endpoint</code>. Use
+<strong><code>cluster_endpoint</code></strong> — repo-guardian writes on every reconcile, and
+pointing it at the reader produces read-only transaction errors on the
+first write-back.</p>
+<h2 id="modulesrdsserverless"><code>modules/rds/serverless</code></h2>
+<p>Aurora Serverless v2.</p>
+<h3 id="required-beyond-the-common-set_2">Required beyond the common set</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Constraint</th>
+<th>Suggested</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>engine</code></td>
+<td><code>aurora-postgresql</code> or <code>aurora-mysql</code></td>
+<td><code>"aurora-postgresql"</code></td>
+</tr>
+<tr>
+<td><code>engine_version</code></td>
+<td>optional but pin it</td>
+<td><code>"18"</code> — chart-major parity, resolves family <code>aurora-postgresql18</code></td>
+</tr>
+<tr>
+<td><code>min_acu</code></td>
+<td><code>0.5</code> – <code>256</code></td>
+<td><code>0.5</code></td>
+</tr>
+<tr>
+<td><code>max_acu</code></td>
+<td><code>0.5</code> – <code>256</code>, <code>&gt;= min_acu</code></td>
+<td><code>4</code> dev / <code>16</code> prod</td>
+</tr>
+</tbody>
+</table>
+<p><code>min_acu = 0.5</code> still bills continuously (~$0.12/ACU-hour for Postgres
+in us-east-1 at time of writing), so the floor is a cost decision, not a
+performance one. repo-guardian idles between sweeps, which is precisely
+the shape that makes a low floor worth it.</p>
+<p>Same writer-endpoint rule as <code>cluster</code>: use <code>cluster_endpoint</code>.</p>
+<p><strong>Pair this with the proxy.</strong> Serverless v2 scaling events drop
+connections; without a proxy, pgxpool sees them as connection errors
+mid-sweep.</p>
+<h2 id="modulesrdsproxy"><code>modules/rds/proxy</code></h2>
+<p>The proxy module reads the target's remote state rather than taking its
+attributes as inputs, so its required surface is just pointers.</p>
+<h3 id="required">Required</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>region</code>, <code>remote_state_bucket</code>, <code>remote_state_bucket_region</code>, <code>account_name</code>, <code>account_id</code>, <code>deploy_role_name</code></td>
+<td>Same plumbing as the DB modules.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td><code>^[a-zA-Z][a-zA-Z0-9-]{0,58}[a-zA-Z0-9]$</code>. AWS additionally rejects <code>--</code>.</td>
+</tr>
+<tr>
+<td><code>target_type</code></td>
+<td><strong><code>rds-instance</code></strong> | <strong><code>aurora-cluster</code></strong> | <strong><code>serverless</code></strong> — must match the module you deployed. Selects both the remote-state key shape and whether the target is keyed by instance or cluster identifier.</td>
+</tr>
+<tr>
+<td><code>target_identifier</code></td>
+<td>The DB's <code>identifier_prefix</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="optionals-that-matter-for-repo-guardian">Optionals that matter for repo-guardian</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Set to</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>allowed_consumer_sg_ids</code></td>
+<td><code>[]</code></td>
+<td>EKS node SG</td>
+<td>Default is reachable from nowhere.</td>
+</tr>
+<tr>
+<td><code>require_tls</code></td>
+<td><code>true</code></td>
+<td><code>true</code></td>
+<td>Keep. Your DSN then needs <code>sslmode=require</code> or stricter.</td>
+</tr>
+<tr>
+<td><code>require_iam_auth</code></td>
+<td><code>false</code></td>
+<td><strong><code>false</code></strong></td>
+<td><code>true</code> makes repo-guardian unable to connect at all.</td>
+</tr>
+<tr>
+<td><code>max_connections_percent</code></td>
+<td><code>100</code></td>
+<td><code>50</code>–<code>75</code></td>
+<td>Leaves headroom for admin sessions.</td>
+</tr>
+<tr>
+<td><code>max_idle_connections_percent</code></td>
+<td><code>50</code></td>
+<td><code>&lt;= max_connections_percent</code></td>
+<td>Cross-bound is enforced by a precondition.</td>
+</tr>
+<tr>
+<td><code>connection_borrow_timeout</code></td>
+<td><code>120</code></td>
+<td><code>120</code></td>
+<td>Fine as-is at this QPS.</td>
+</tr>
+<tr>
+<td><code>idle_client_timeout</code></td>
+<td><code>1800</code></td>
+<td><code>1800</code></td>
+<td>Fine. Sweeps are far shorter than 30 min.</td>
+</tr>
+<tr>
+<td><code>session_pinning_filters</code></td>
+<td><code>[]</code></td>
+<td><code>["EXCLUDE_VARIABLE_SETS"]</code></td>
+<td>Reduces pinning. See the pinning note below.</td>
+</tr>
+<tr>
+<td><code>create_read_only_endpoint</code></td>
+<td><code>false</code></td>
+<td><code>false</code></td>
+<td>Aurora-only, and unusable until DESIGN-0016 lands.</td>
+</tr>
+<tr>
+<td><code>debug_logging</code></td>
+<td><code>false</code></td>
+<td><code>false</code></td>
+<td>Logs SQL to CloudWatch.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-two-apply-security-group-dance">The two-apply security-group dance</h3>
+<p>The proxy sits between the app and the DB, so the SG wiring is <em>not</em>
+symmetric and can't be done in one pass:</p>
+<ol>
+<li>Apply the <strong>DB</strong> module with <code>allowed_consumer_sg_ids = []</code> (or just
+   the nodes, temporarily).</li>
+<li>Apply the <strong>proxy</strong> module with
+   <code>allowed_consumer_sg_ids = [&lt;EKS node SG&gt;]</code>.</li>
+<li>Re-apply the <strong>DB</strong> module with
+   <code>allowed_consumer_sg_ids = [module.proxy.proxy_security_group_id]</code>.</li>
+</ol>
+<p>The module documents this: <code>proxy_security_group_id</code> is emitted as an
+output specifically "so it can be added to the DB module's
+<code>allowed_consumer_sg_ids</code> on a subsequent apply." Once the proxy is in
+front, the nodes should generally <strong>not</strong> retain direct DB ingress —
+that path bypasses the pool.</p>
+<h3 id="pinning">Pinning</h3>
+<p>RDS Proxy falls back to a dedicated (pinned) connection when a session
+carries state it can't safely multiplex. Two things repo-guardian does
+are relevant:</p>
+<ul>
+<li><strong>Migrations take a session-level advisory lock.</strong> golang-migrate's
+  pgx/v5 driver issues <code>SELECT pg_advisory_lock($1)</code>
+  (<code>database/pgx/v5/pgx.go:229</code>). That's session state by definition, so
+  every pod's startup migration will pin its connection for the duration.
+  It's brief and correct — but it's why you may see pinning spikes on
+  rollouts specifically.</li>
+<li><strong>pgx uses prepared statements by default.</strong> <code>QueryExecModeCacheStatement</code>
+  is the default exec mode (<code>pgx@v5.9.2/conn.go:190</code>).</li>
+</ul>
+<p>Neither is a reason to avoid the proxy. But if you see
+<code>DatabaseConnectionsCurrentlySessionPinned</code> sitting high in CloudWatch,
+the lever is <code>default_query_exec_mode=simple_protocol</code> in the DSN —
+pgx parses that key directly out of the connection string, so it needs
+no code change. Trade-off: simple protocol disables the statement cache,
+which costs a round trip per query. At repo-guardian's QPS that is
+irrelevant; measure before reaching for it.</p>
+<h2 id="building-the-dsn">Building the DSN</h2>
+<pre><code class="language-text">postgres://&lt;master_username&gt;:&lt;password&gt;@&lt;endpoint&gt;:5432/&lt;database_name&gt;?sslmode=require
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Shape</th>
+<th><code>&lt;endpoint&gt;</code> from</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>instance, no proxy</td>
+<td><code>module.db.endpoint</code> (or <code>address</code> for host-only)</td>
+</tr>
+<tr>
+<td>instance + proxy</td>
+<td><code>module.proxy.proxy_endpoint</code></td>
+</tr>
+<tr>
+<td>cluster / serverless, no proxy</td>
+<td><code>module.db.cluster_endpoint</code> ← writer, <strong>not</strong> <code>reader_endpoint</code></td>
+</tr>
+<tr>
+<td>cluster / serverless + proxy</td>
+<td><code>module.proxy.proxy_endpoint</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>endpoint</code> on the instance module includes the port; <code>address</code> is
+host-only. Check which you're interpolating so you don't end up with
+<code>host:5432:5432</code>.</p>
+<p><strong>Percent-encode the password.</strong> RDS-managed master passwords exclude
+<code>/</code>, <code>@</code>, <code>"</code>, and space — but <em>not</em> <code>%</code>, <code>+</code>, <code>:</code>, <code>?</code> — so encoding
+is still required. There is no way to validate or transform the DSN at
+the <code>secretKeyRef</code> (env injection is a byte copy), so correctness lives
+at the producer: the <a href="../aws/#credentials-via-external-secrets-operator">ESO example in aws.md</a>
+assembles the DSN with <code>urlquery | replace "+" "%20"</code>. The replace is
+load-bearing: pgx treats <code>+</code> in the password position as a <strong>literal
+plus</strong>, so an encoder that maps space → <code>+</code> mints a wrong password.</p>
+<p>How an unencoded password actually fails (verified against pgx v5.9.2,
+the parser the binary uses):</p>
+<ul>
+<li>space, <code>/</code>, or a malformed <code>%</code>-escape → hard parse error; the pod
+  crash-loops at startup before doing any work (password redacted in
+  the error).</li>
+<li>raw <code>@</code>, <code>+</code>, <code>:</code> → tolerated; pgx recovers the correct password.</li>
+<li><code>%</code> followed by two hex digits → <strong>silently decodes to a different
+  password</strong> and presents as <code>password authentication failed</code> at
+  startup. This is the diagnosis trap: with Secrets Manager rotation
+  in the picture it looks exactly like a rotation problem. If auth
+  fails right after a password change and the new password contains
+  <code>%</code>, check encoding before chasing rotation.</li>
+</ul>
+<p>Eyeballing the Secret is not a decisive check for the last case — the
+Secret holds the <em>encoded</em> form and pgx uses the <em>decoded</em> form. To see
+exactly the password the binary will present to Postgres:</p>
+<pre><code class="language-bash">kubectl get secret &lt;name&gt; -n &lt;ns&gt; -o jsonpath='{.data.STORE_DSN}' | base64 -d |
+  python3 -c 'import sys
+from urllib.parse import urlsplit, unquote
+print(repr(unquote(urlsplit(sys.stdin.read().strip()).password)))'
+</code></pre>
+<p>(<code>unquote</code>, not <code>unquote_plus</code> — pgx treats <code>+</code> in the password as a
+literal plus, and so does <code>unquote</code>.)</p>
+<p>If that output doesn't match the real password, the DSN in the Secret
+is mis-encoded, regardless of how correct it looks raw.</p>
+<p><strong><code>sslmode</code> is not optional in practice.</strong> pgx defaults to <code>prefer</code>,
+which silently accepts an unencrypted connection. RDS accepts TLS
+everywhere and the proxy <em>requires</em> it when <code>require_tls = true</code>, so set
+at least <code>sslmode=require</code>. For <code>verify-full</code> you must also mount the
+RDS CA bundle and add <code>sslrootcert=</code>; <code>require</code> encrypts without
+verifying the server certificate.</p>
+<h2 id="chart-values">Chart values</h2>
+<p>Identical for all six shapes — only the DSN inside the Secret changes:</p>
+<pre><code class="language-yaml">store:
+  backend: postgres
+  postgres:
+    mode: external
+    existingSecret: repo-guardian-store-dsn
+    existingSecretKey: STORE_DSN
+    maxConns: 10
+</code></pre>
+<p>Guards worth knowing: setting <code>store.postgres.existingSecret</code> while
+<code>mode != external</code> fails the render deliberately
+(<code>repo-guardian.validateBackendSecrets</code>), as does setting
+<code>store.postgres.baked.existingSecret</code> outside baked mode. That's
+IMPL-0018's fix for silently-ignored config.</p>
+<p><strong>Connection math:</strong> <code>maxConns</code> is per replica, so the ceiling is
+<code>replicas × maxConns</code>. Three replicas at the chart default of 16 is 48
+client connections — against a <code>db.t4g.micro</code>
+(<code>max_connections</code> ≈ 112) that's already 43% of the instance before
+anything else connects. With a proxy, size
+<code>max_connections_percent</code> so <code>replicas × maxConns</code> fits inside the
+proxy's share.</p>
+<h2 id="verification-checklist">Verification checklist</h2>
+<pre><code class="language-bash"># 1. The database exists (the #1 first-boot failure)
+psql &quot;$STORE_DSN&quot; -c '\l' | grep repoguardian
+
+# 2. TLS is actually on
+psql &quot;$STORE_DSN&quot; -c 'SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid();'
+
+# 3. Migrations applied
+psql &quot;$STORE_DSN&quot; -c '\dt' | grep -E 'repo_state|schema_migrations'
+
+# 4. From inside the cluster, not your laptop — SG rules differ
+kubectl run pg-probe --rm -it --restart=Never -n repo-guardian \
+  --image=postgres:18-alpine -- psql &quot;$STORE_DSN&quot; -c 'SELECT 1;'
+</code></pre>
+<p>Then confirm the pod got past migrations:</p>
+<pre><code class="language-bash">kubectl logs -n repo-guardian deploy/repo-guardian | grep -i migrat
+</code></pre>
+<h2 id="known-limitations">Known limitations</h2>
+<ul>
+<li>
+<p><strong>IAM database authentication is unusable.</strong> Not "discouraged" —
+  unusable. <code>postgres.New</code> builds the pool from a static DSN with no
+  <code>BeforeConnect</code> hook, and IAM tokens expire every 15 minutes, so the
+  pool would authenticate once and then fail every subsequent
+  connection. Leave <code>iam_database_authentication_enabled = false</code> on the
+  DB and <code>require_iam_auth = false</code> on the proxy. Supporting it means a
+  code change (a <code>BeforeConnect</code> that mints a token per connection).</p>
+</li>
+<li>
+<p><strong>Password rotation is not transparent, even with a proxy.</strong> With
+  <code>manage_master_user_password = true</code>, AWS rotates the secret. Clients
+  authenticate to RDS Proxy with the <em>same</em> credentials the proxy holds
+  in Secrets Manager — the proxy does not issue separate static
+  credentials — so a rotation invalidates the password the pods are
+  using. External Secrets Operator re-syncs the k8s Secret, but existing
+  pgxpool connections keep the old password until they're recycled, and
+  the Deployment needs a restart (or a <code>reloader</code>-style annotation) to
+  pick up the new env value at all. Options: accept a brief blip and
+  automate the restart, or set <code>manage_master_user_password = false</code> and
+  own rotation on your own schedule.</p>
+</li>
+<li>
+<p><strong>Migrations run in every replica, through whatever the DSN points
+  at.</strong> There is no separate migration DSN, so with a proxy the
+  advisory-lock handshake goes through the proxy too. It is safe —
+  golang-migrate's lock serialises concurrent pods — but you cannot
+  route migrations to the direct endpoint while runtime traffic uses the
+  proxy without a code or chart change. <code>postgres.Migrate</code> is exported
+  separately with a one-shot Job in mind; the chart doesn't ship one yet.</p>
+</li>
+<li>
+<p><strong>No reader/writer split.</strong> Aurora reader endpoints and the proxy's
+  <code>create_read_only_endpoint</code> have nowhere to plug in. Tracked in
+  <a href="../../design/0016-separate-postgres-read-and-write-endpoints/">DESIGN-0016</a>
+  (Draft).</p>
+</li>
+<li>
+<p><strong><code>master_username</code> is baked into the DSN.</strong> Changing it after first
+  apply forces a replacement. Decide before the first apply.</p>
+</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

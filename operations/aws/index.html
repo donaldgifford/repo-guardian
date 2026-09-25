@@ -1,0 +1,2372 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Running repo-guardian on AWS - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#running-repo-guardian-on-aws" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Running repo-guardian on AWS
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#postgres-on-aws" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Postgres on AWS
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Postgres on AWS">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#option-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option matrix
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#connection-pooling-use-rds-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connection pooling: use RDS Proxy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#credentials-via-external-secrets-operator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Credentials via External Secrets Operator
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chart-values-for-external-postgres" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chart values for external Postgres
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gaps-and-workarounds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gaps and workarounds
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#elasticache-for-valkey" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ElastiCache for Valkey
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ElastiCache for Valkey">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pick-valkey-not-redis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pick Valkey, not Redis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cluster-mode-pick-disabled" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cluster mode: pick disabled
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chart-values-for-external-valkey" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chart values for external Valkey
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#partitioning-sharding-and-the-noisy-org-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Partitioning, sharding, and the noisy-org problem
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Partitioning, sharding, and the noisy-org problem">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-valkey-sharding-does-not-help" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why Valkey sharding does NOT help
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#partitioning-the-actual-answer-code-change-required" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Partitioning (the actual answer, code change required)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-helps-today-without-code-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What helps today (without code changes)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#end-to-end-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        End-to-end example
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="running-repo-guardian-on-aws">Running repo-guardian on AWS</h1>
+<p>The chart defaults install Postgres via CloudNativePG (CNPG) and Valkey
+as a baked StatefulSet. On AWS those primitives have native managed
+equivalents — RDS / Aurora Postgres and ElastiCache for Valkey. This
+guide covers wiring the chart at those services, plus the
+"one-noisy-org" workload-isolation question that comes up at
+enterprise scale.</p>
+<p>The chart already supports external Postgres and external Valkey via
+<code>store.postgres.mode=external</code> and <code>queue.valkey.mode=external</code>. Both
+modes read connection strings from operator-supplied k8s Secrets;
+nothing in the binary is AWS-aware. The work is in provisioning the
+managed services and plumbing their credentials into k8s.</p>
+<p>For prior reading: <code>docs/operations/scaling.md</code> covers the sizing
+math for multi-org GHEC fleets — this doc covers how to land that
+sizing on AWS infrastructure specifically.</p>
+<p>If you provision with <code>libtftest-tf-modules/modules/rds/*</code>, the
+variable-level companion to this guide is
+<a href="../rds-terraform-variables/">External Postgres on RDS — Terraform variable reference</a>:
+exact settings for <code>instance</code> / <code>cluster</code> / <code>serverless</code>, each with and
+without <code>proxy</code>.</p>
+<h2 id="postgres-on-aws">Postgres on AWS</h2>
+<h3 id="option-matrix">Option matrix</h3>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Best for</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>RDS Postgres</strong> (provisioned)</td>
+<td>Predictable steady-state workloads</td>
+<td>Cheapest per-hour for known load. Manual instance-class sizing. Multi-AZ for HA.</td>
+</tr>
+<tr>
+<td><strong>RDS Postgres Serverless v2</strong></td>
+<td>Spiky / unpredictable workloads</td>
+<td>ACU-based autoscaling. Scale-to-zero possible (0.5 ACU floor without scale-to-zero enabled). Sweet spot for repo-guardian if you want auto-pause during the long quiet windows between weekly sweeps.</td>
+</tr>
+<tr>
+<td><strong>Aurora Postgres</strong></td>
+<td>HA + read scaling</td>
+<td>Storage-replicated cluster with separate reader/writer endpoints. Best fault tolerance. Reader endpoint can offload <code>StaleRepos</code> queries — but the chart doesn't surface separate reader/writer DSNs today (see Gaps below).</td>
+</tr>
+</tbody>
+</table>
+<p>All three speak vanilla Postgres protocol, so the binary's
+<code>internal/store/postgres/</code> works unchanged. The decision is
+operational, not architectural.</p>
+<p><strong>Version and parameter parity with the chart.</strong> The chart's two
+managed shapes both pin Postgres 18 (<code>baked.image: postgres:18.4</code>,
+<code>cnpg.imageName: ...postgresql:18.4</code>) — pin the RDS <code>engine_version</code>
+to the same major so dev/test on the chart-managed shapes exercises
+the major prod runs on. Neither chart mode sets any custom Postgres
+parameters, so the default-valued parameter groups the Terraform
+modules create are already correct; there is nothing to mirror. Both
+points in detail:
+<a href="../rds-terraform-variables/#parameter-groups-and-engine-version">Parameter groups and engine version</a>.</p>
+<h3 id="connection-pooling-use-rds-proxy">Connection pooling: use RDS Proxy</h3>
+<p>For any of the three Postgres variants, put <strong>RDS Proxy</strong> in front
+of it. RDS Proxy is AWS's managed PgBouncer-equivalent:</p>
+<ul>
+<li>Transaction-mode pooling reduces backend connection count</li>
+<li>Holds DB credentials internally and handles rotation transparently</li>
+<li>Survives instance failovers without dropping client connections</li>
+<li>~5ms RTT added — irrelevant at repo-guardian's QPS</li>
+<li>Required practice for Serverless v2 (scaling events cause
+  connection storms otherwise)</li>
+</ul>
+<p>The binary connects to the Proxy endpoint, not the DB instance
+endpoint. The Proxy maintains the actual pool of backend
+connections. This replaces the CNPG <code>pooler</code> block from the
+homelab pattern.</p>
+<h3 id="credentials-via-external-secrets-operator">Credentials via External Secrets Operator</h3>
+<p>The recommended flow:</p>
+<pre><code>AWS Secrets Manager (DB credentials)
+   ↓ ESO ExternalSecret
+k8s Secret (`repo-guardian-store-dsn`, key `STORE_DSN`)
+   ↓ chart references via existingSecret
+repo-guardian Pod
+</code></pre>
+<p>Example <code>ExternalSecret</code>:</p>
+<pre><code class="language-yaml">apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: repo-guardian-store-dsn
+  namespace: repo-guardian
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: repo-guardian-store-dsn
+    template:
+      data:
+        # urlquery percent-encodes reserved characters; the replace
+        # re-maps space from &quot;+&quot; (query-string form) to %20 (userinfo
+        # form). Without this, a password containing @ : / % or space
+        # produces a DSN that fails to parse or authenticates with the
+        # wrong password. ESO templates are Go text/template + Sprig,
+        # so both functions are available.
+        STORE_DSN: &quot;postgres://{{ .username }}:{{ .password | urlquery | replace \&quot;+\&quot; \&quot;%20\&quot; }}@{{ .endpoint }}:5432/{{ .dbname }}?sslmode=require&quot;
+  data:
+    - secretKey: username
+      remoteRef:
+        key: rds/repo-guardian/master
+        property: username
+    - secretKey: password
+      remoteRef:
+        key: rds/repo-guardian/master
+        property: password
+    - secretKey: endpoint
+      remoteRef:
+        key: rds/repo-guardian/master
+        property: endpoint
+    - secretKey: dbname
+      remoteRef:
+        key: rds/repo-guardian/master
+        property: dbname
+</code></pre>
+<p>The endpoint in the DSN should be the <strong>RDS Proxy endpoint</strong>, not
+the DB instance/cluster endpoint.</p>
+<h3 id="chart-values-for-external-postgres">Chart values for external Postgres</h3>
+<pre><code class="language-yaml">store:
+  backend: postgres
+  postgres:
+    mode: external
+    existingSecret: repo-guardian-store-dsn   # k8s Secret name
+    existingSecretKey: STORE_DSN              # key inside the Secret
+    maxConns: 10                              # per-replica pool cap
+</code></pre>
+<p>With 3 replicas × <code>maxConns=10</code> = 30 client connections into RDS
+Proxy. RDS Proxy's <code>MaxConnectionsPercent</code> defaults to 100% of the
+DB's <code>max_connections</code>; set it to 50-75% to leave headroom for
+direct admin connections.</p>
+<h3 id="gaps-and-workarounds">Gaps and workarounds</h3>
+<ul>
+<li><strong>No IAM authentication.</strong> The binary expects a static DSN; IAM
+  tokens expire every 15 minutes and the binary has no refresh
+  loop. Workaround: use password auth via Secrets Manager. RDS
+  Proxy can use IAM internally between Proxy and DB even if clients
+  use password auth, so you still get IAM at the DB level.</li>
+<li><strong>No reader/writer split.</strong> <code>StaleRepos</code> is read-heavy and could
+  go to an Aurora reader endpoint, but the chart has one DSN slot.
+  Today everything goes through the writer (or Proxy fronting the
+  writer). Design lives at
+  <a href="../../design/0016-separate-postgres-read-and-write-endpoints/">DESIGN-0016: Separate Postgres read and write endpoints</a>.</li>
+<li><strong>Secrets Manager rotation gap.</strong> If AWS rotates the DB password
+  via Secrets Manager → ESO re-syncs the k8s Secret → but the
+  binary's open pgxpool connections still use the OLD password
+  until they hit a transient failure and reconnect, and the
+  Deployment needs a restart to pick up the new env value at all.
+  <strong>RDS Proxy does not eliminate this.</strong> Clients authenticate to the
+  Proxy with the same credentials the Proxy holds in Secrets Manager
+  — there is no separate static client credential — so a rotation
+  invalidates the password the pods are using. The escape hatches
+  are automating the restart, or setting
+  <code>manage_master_user_password = false</code> and rotating on your own
+  schedule.</li>
+</ul>
+<h2 id="elasticache-for-valkey">ElastiCache for Valkey</h2>
+<h3 id="pick-valkey-not-redis">Pick Valkey, not Redis</h3>
+<p>AWS announced ElastiCache for Valkey in late 2024. It is the
+forward-compatible managed option:</p>
+<ul>
+<li>API-compatible with Redis 7.2; existing <code>go-redis</code> clients work
+  unchanged</li>
+<li>Roughly 33% cheaper than ElastiCache for Redis at equivalent
+  shape (per AWS's own pricing posts)</li>
+<li>Avoids the Redis BSL / SSPL relicensing situation that motivated
+  the Linux Foundation Valkey fork</li>
+</ul>
+<p>Both queue and scheduler backends use the same client connection
+under the hood (<code>scheduler.backend=valkey</code> requires
+<code>queue.backend=valkey</code>), so a single ElastiCache cluster serves
+both.</p>
+<h3 id="cluster-mode-pick-disabled">Cluster mode: pick <strong>disabled</strong></h3>
+<p>ElastiCache for Valkey offers two cluster topologies:</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Topology</th>
+<th>Use case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Cluster mode disabled</strong></td>
+<td>Single shard with primary + N replicas</td>
+<td><strong>Recommended</strong> for repo-guardian</td>
+</tr>
+<tr>
+<td><strong>Cluster mode enabled</strong></td>
+<td>N shards with M replicas each, key-space partitioned by hash slot</td>
+<td>NOT useful for repo-guardian today (see "Sharding and noisy orgs" below)</td>
+</tr>
+</tbody>
+</table>
+<p>A single Valkey shard sustains 80-100k ops/sec. repo-guardian's
+queue traffic at 3000 repos × 25 orgs is in the low hundreds of
+ops/sec at peak burst, so one shard is comfortably oversized. Pick:</p>
+<ul>
+<li>1 primary + 1 replica for HA</li>
+<li><code>cache.t4g.small</code> or <code>cache.m7g.large</code> depending on memory budget
+  (queue + ZSET + reaper lock fit in single-digit MB; the smallest
+  node class is plenty)</li>
+<li>Enable in-transit encryption (TLS)</li>
+<li>Enable an AUTH token</li>
+</ul>
+<h3 id="chart-values-for-external-valkey">Chart values for external Valkey</h3>
+<pre><code class="language-yaml">queue:
+  backend: valkey
+  valkey:
+    mode: external
+    existingSecret: repo-guardian-queue-dsn
+    existingSecretKey: QUEUE_VALKEY_DSN
+    jobAckTimeout: &quot;5m&quot;
+    reaperInterval: &quot;30s&quot;
+
+scheduler:
+  backend: valkey                          # MANDATORY for multi-replica
+</code></pre>
+<p>The DSN format for ElastiCache:</p>
+<pre><code>rediss://default:&lt;auth-token&gt;@&lt;primary-endpoint&gt;:6379/0
+</code></pre>
+<p><code>rediss://</code> (with the extra <code>s</code>) is the TLS variant — match it to
+your in-transit-encryption setting.</p>
+<p>The same <code>ExternalSecret</code> pattern from the Postgres section applies;
+the only change is the AWS Secrets Manager key (typically
+<code>elasticache/repo-guardian/auth</code>) and the template assembling the
+<code>rediss://</code> URL.</p>
+<h2 id="partitioning-sharding-and-the-noisy-org-problem">Partitioning, sharding, and the noisy-org problem</h2>
+<p>This is the question most operators bring up after running
+repo-guardian against a real fleet: one large GitHub org has
+hundreds of actionable repos every sweep, and its work backs up
+the queue so the smaller orgs wait. The instinct is to reach for
+Valkey cluster mode (sharding). That instinct is wrong — the
+right tool is application-level <strong>partitioning</strong>, not Valkey
+sharding.</p>
+<p>The two terms get conflated. They're different things at different
+layers:</p>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Definition</th>
+<th>Layer</th>
+<th>Helps the noisy-org problem?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Sharding</strong></td>
+<td>Valkey cluster mode splits the <em>key space</em> across N shards by hash slot</td>
+<td>Valkey server</td>
+<td>No — single-key queue → single shard</td>
+</tr>
+<tr>
+<td><strong>Partitioning</strong></td>
+<td>Single logical queue split into <em>multiple keys</em> by a business dimension (installation, priority)</td>
+<td>Application code</td>
+<td>Yes — that's the whole point</td>
+</tr>
+</tbody>
+</table>
+<p>Sharding moves the work for different <em>keys</em> onto different
+servers. Partitioning creates <em>multiple keys</em> in the first place.
+You need partitioning to have anything to shard, but partitioning
+alone (on a single Valkey node) already solves the fairness
+problem. Sharding is a separate axis that buys you per-key
+throughput parallelism once you have enough keys to make it
+worthwhile.</p>
+<h3 id="why-valkey-sharding-does-not-help">Why Valkey sharding does NOT help</h3>
+<p>ElastiCache cluster mode partitions Valkey's key space by hash
+slot, routing each key to one of N shards. The benefit is per-key
+throughput parallelism — different keys land on different shards
+and serve traffic in parallel.</p>
+<p>repo-guardian's queue uses <strong>a small number of single keys</strong>:</p>
+<ul>
+<li><code>repo-guardian:queue:jobs</code> — the work LIST</li>
+<li><code>repo-guardian:queue:inflight</code> — the ZSET of dispatched jobs</li>
+<li><code>repo-guardian:scheduler:leader</code> — the SETNX-held leader lock</li>
+</ul>
+<p>Every queue operation touches the same key (<code>jobs</code>). Sharding sends
+all queue traffic to one shard regardless of how many shards exist.
+The other shards sit idle. You pay for them and gain nothing.</p>
+<p>(Strictly: hash tags can force multiple keys onto the same shard
+when multi-key Lua scripts need them together. We do use multi-key
+operations — LIST + ZSET coordinated atomically. So even if we
+sharded, we'd need the LIST and ZSET on the same shard, which
+defeats the purpose.)</p>
+<p>There's also a code-level gap: <code>cmd/repo-guardian/main.go</code> builds a
+<code>redis.NewClient</code> (single-node) from the parsed DSN, not a
+<code>redis.NewClusterClient</code>. Cluster mode would require the wiring to
+detect cluster topology and pick the right client type. Not done
+today.</p>
+<h3 id="partitioning-the-actual-answer-code-change-required">Partitioning (the actual answer, code change required)</h3>
+<p>Strict per-installation fairness needs the queue split into multiple
+keys — one per installation — so workers can schedule across them
+intentionally rather than draining a single FIFO. This is the real
+fix; it's also the one that requires code changes.</p>
+<p><strong>Proposed key layout:</strong></p>
+<pre><code>repo-guardian:queue:install-{id}:jobs        LIST  (work for installation {id})
+repo-guardian:queue:install-{id}:inflight    ZSET  (jobID → dispatch_ts)
+repo-guardian:queue:installations            SET   (registry of known installation IDs)
+</code></pre>
+<p><code>Enqueue</code> picks the key from <code>job.InstallationID</code>:</p>
+<pre><code>LPUSH repo-guardian:queue:install-{job.InstallationID}:jobs &lt;job-json&gt;
+SADD  repo-guardian:queue:installations {job.InstallationID}    -- idempotent registry
+</code></pre>
+<p><strong>Worker scheduling strategies</strong> — three workable shapes, listed
+in increasing complexity:</p>
+<table>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>How it works</th>
+<th>Pros</th>
+<th>Cons</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>A. <code>BLPOP</code> across all keys</strong></td>
+<td>Worker reads <code>SMEMBERS installations</code>, calls <code>BLPOP key1 key2 … keyN timeout</code> — Valkey returns from whichever has work</td>
+<td>Trivial code; natural fairness for ready work; no extra state</td>
+<td>No per-installation concurrency cap (a noisy org can still grab every worker); <code>BLPOP</code> key-list scales but degrades at thousands</td>
+</tr>
+<tr>
+<td><strong>B. Round-robin with per-installation concurrency cap</strong></td>
+<td>Maintain <code>repo-guardian:queue:install-{id}:in_flight_count</code>; worker iterates installations in round-robin order, skips any at cap</td>
+<td>Strict fairness; bounds noisy org's parallelism; predictable</td>
+<td>More state; needs an atomic check-and-incr Lua script</td>
+</tr>
+<tr>
+<td><strong>C. Weighted random by depth + rate-limit headroom</strong></td>
+<td>Worker picks an installation at random, weighted by <code>(queue_depth × rate_limit_remaining)</code></td>
+<td>Adapts dynamically to rate limits; statistically fair</td>
+<td>Most state; needs depth + headroom snapshots; harder to reason about</td>
+</tr>
+</tbody>
+</table>
+<p>Recommended starting point: <strong>A with a soft cap</strong> — <code>BLPOP</code>-many
+plus a configurable per-installation concurrency limit (e.g.,
+<code>min(workerCount, ceil(workerCount/N))</code>). Combines simplicity
+with bounded blast radius.</p>
+<p><strong>Implementation surface:</strong></p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internal/queue/Queue</code> (interface)</td>
+<td><code>Enqueue</code> unchanged externally; internally selects key by <code>job.InstallationID</code>. <code>Subscribe</code> accepts an installation-registry watch so workers discover new installations as they appear.</td>
+</tr>
+<tr>
+<td><code>internal/queue/valkey/valkey.go</code></td>
+<td>LUA scripts updated to operate on per-installation keys. <code>Reaper</code> iterates <code>SMEMBERS installations</code> to scan every in-flight ZSET.</td>
+</tr>
+<tr>
+<td>~~<code>internal/queue/memory/</code>~~</td>
+<td>Removed in IMPL-0016. The partitioning refactor now applies only to <code>internal/queue/valkey/</code>.</td>
+</tr>
+<tr>
+<td><code>internal/worker/pool.go</code></td>
+<td>Schedule strategy plug — A initially, with hooks for B/C later.</td>
+</tr>
+<tr>
+<td><code>internal/metrics/metrics.go</code></td>
+<td><code>queue_depth</code> becomes <code>queue_depth{installation_id}</code> GaugeVec. <code>queue_dispatched_total</code> gains the same label.</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/values.yaml</code></td>
+<td>New knobs: <code>queue.partitioning.enabled</code> (default false during rollout), <code>queue.partitioning.perInstallationCap</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Effort estimate: ~1 sprint week for one engineer (refactor +
+tests + metrics + integration test against ElastiCache). The
+queue interface stays binary-compatible — opt-in via the new
+chart value.</p>
+<p><strong>What partitioning gives you:</strong></p>
+<ul>
+<li>Strict per-installation work scheduling (no noisy-org starvation)</li>
+<li>Per-installation queue-depth metrics — you can see at a glance
+  which installations are backed up</li>
+<li>Bounded blast radius when one installation's token goes stale —
+  others keep draining</li>
+<li>A foundation for installation-aware HPA (<code>queue_depth{installation_id}</code>
+  → custom-metric autoscaling) later</li>
+</ul>
+<p><strong>When to invest:</strong> the <code>staleSweep</code> + <code>workerCount</code> mitigations
+below give <em>eventual fairness</em> — every org's work clears within a
+sweep cycle, just not in strict round-robin. That's sufficient for
+most fleets. Reach for partitioning when:</p>
+<ul>
+<li>One installation routinely has &gt; 5x the queue depth of any other</li>
+<li>Smaller orgs' webhook-triggered reconciles regularly wait &gt; 5
+  minutes behind a sweep burst</li>
+<li>You need per-org SLA reporting</li>
+</ul>
+<p>Until one of those triggers fires: tune the values below, not the
+topology. The full design lives at
+<a href="../../design/0015-per-installation-valkey-queue-partitioning/">DESIGN-0015: Per-installation Valkey queue partitioning</a>
+— promote it to IMPL when you cross the threshold.</p>
+<h3 id="what-helps-today-without-code-changes">What helps today (without code changes)</h3>
+<p>The mitigations referenced above:</p>
+<table>
+<thead>
+<tr>
+<th>Lever</th>
+<th>Where</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>config.maxJobAttempts</code></td>
+<td>values.yaml</td>
+<td>Caps how many times a job may be redelivered (deferred or reaper-requeued) before it is dropped with a terminal <code>repo_state</code> error. Rate-limited work from a noisy org defers itself instead of starving the queue — see docs/operations/scaling.md §Delayed requeue.</td>
+</tr>
+<tr>
+<td><code>staleSweep.batchSize</code> smaller</td>
+<td>values.yaml</td>
+<td>Spreads the noisy org's enqueues across more sweep ticks instead of dumping 500 jobs in one tick. The queue depth stays lower; smaller orgs aren't buried.</td>
+</tr>
+<tr>
+<td><code>config.workerCount</code> higher</td>
+<td>values.yaml</td>
+<td>Drains bursts faster. 30 workers × 3 replicas = 90 concurrent processors. Even a 500-job burst clears in &lt;30 sec at 3 sec/repo.</td>
+</tr>
+<tr>
+<td>Vertical-scale Valkey</td>
+<td>ElastiCache instance class</td>
+<td>A larger single shard sustains more ops/sec. Almost certainly not the bottleneck, but cheap to bump if it is.</td>
+</tr>
+</tbody>
+</table>
+<p>The combination gives <strong>eventual fairness</strong> — every org's work
+gets done within a sweep cycle, just not strict round-robin. For
+most operators that's sufficient.</p>
+<h2 id="end-to-end-example">End-to-end example</h2>
+<p>Full chart values for a 3000-repo × 25-org GHEC fleet on AWS:</p>
+<pre><code class="language-yaml">replicaCount: 3
+
+config:
+  workerCount: 15
+  scheduleInterval: &quot;12h&quot;
+
+staleSweep:
+  freshness: &quot;24h&quot;
+  batchSize: 500
+
+store:
+  backend: postgres
+  postgres:
+    mode: external
+    existingSecret: repo-guardian-store-dsn
+    existingSecretKey: STORE_DSN
+    maxConns: 10
+
+queue:
+  backend: valkey
+  valkey:
+    mode: external
+    existingSecret: repo-guardian-queue-dsn
+    existingSecretKey: QUEUE_VALKEY_DSN
+    jobAckTimeout: &quot;5m&quot;
+    reaperInterval: &quot;30s&quot;
+
+scheduler:
+  backend: valkey
+</code></pre>
+<p>Companion AWS resources (provisioned via Terraform, CDK, or
+manually):</p>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Purpose</th>
+<th>Sizing</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Aurora Postgres cluster</td>
+<td>Store backend</td>
+<td><code>db.r6g.large</code> writer + 1 reader; storage auto-scaling enabled</td>
+</tr>
+<tr>
+<td>RDS Proxy</td>
+<td>Connection pool</td>
+<td>Fronts the Aurora writer endpoint; <code>MaxConnectionsPercent=50</code></td>
+</tr>
+<tr>
+<td>ElastiCache Valkey</td>
+<td>Queue + scheduler</td>
+<td><code>cache.t4g.small</code> primary + 1 replica, cluster mode disabled, TLS + AUTH token enabled</td>
+</tr>
+<tr>
+<td>Secrets Manager: <code>rds/repo-guardian/master</code></td>
+<td>DB credentials</td>
+<td>Auto-rotation on a 30-day schedule</td>
+</tr>
+<tr>
+<td>Secrets Manager: <code>elasticache/repo-guardian/auth</code></td>
+<td>Valkey AUTH token</td>
+<td>Manual rotation (ElastiCache doesn't auto-rotate)</td>
+</tr>
+<tr>
+<td>ESO ClusterSecretStore: <code>aws-secrets-manager</code></td>
+<td>Bridges Secrets Manager → k8s</td>
+<td>IRSA-based access; one IAM role for the namespace</td>
+</tr>
+<tr>
+<td>EKS namespace <code>repo-guardian</code></td>
+<td>Pod placement</td>
+<td>Private subnets, NAT egress to github.com</td>
+</tr>
+<tr>
+<td>VPC endpoints</td>
+<td>Secrets Manager + STS + ECR</td>
+<td>Optional but reduces NAT cost at scale</td>
+</tr>
+</tbody>
+</table>
+<p>Security-group rules to remember:</p>
+<ul>
+<li>EKS node SG → RDS Proxy SG on 5432</li>
+<li>EKS node SG → ElastiCache SG on 6379</li>
+<li>RDS Proxy SG → Aurora SG on 5432</li>
+</ul>
+<p>The IRSA role for the repo-guardian ServiceAccount needs:
+<code>secretsmanager:GetSecretValue</code> on the two secrets above. Nothing
+else AWS-side — the binary speaks plain Postgres + plain
+Valkey/Redis protocol once it has the DSNs.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

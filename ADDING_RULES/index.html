@@ -1,0 +1,3137 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+      
+      
+        <link rel="prev" href="../adr/">
+      
+      
+        <link rel="next" href="../design/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Adding a New Rule to Repo Guardian - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adding-a-new-rule-to-repo-guardian" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Adding a New Rule to Repo Guardian
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-rules-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How Rules Work
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-create-the-default-template" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Create the Default Template
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-declare-the-rule-in-hcl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Declare the Rule in HCL
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 2: Declare the Rule in HCL">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#field-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Field Reference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Notes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#built-in-vs-operator-defined-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Built-in vs. operator-defined rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-build-and-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Build and Test
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-test-with-dry-run-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Test with Dry-Run Mode
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-5-deploy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5: Deploy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-happens-at-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Happens at Runtime
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reconcilers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconcilers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reconcilers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#renovate-file-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Renovate File Rules
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Renovate File Rules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#templates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Templates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#check-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Check Modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-org-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-org Configuration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Multi-org Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#legacy-mode-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Legacy mode (default)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#strict-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strict mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#strict-mode-error-messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strict-mode error messages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#legacy-mode-warning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Legacy-mode warning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observability
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customizing-pr-text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Customizing PR text
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Customizing PR text">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#resolution-chain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolution chain
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#field-by-field-merge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Field-by-field merge
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#variables-available-in-templates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Variables available in templates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Helpers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-not-to-do" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What NOT to do
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#strict-mode-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strict-mode validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-rules-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How Rules Work
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-create-the-default-template" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Create the Default Template
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-declare-the-rule-in-hcl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Declare the Rule in HCL
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 2: Declare the Rule in HCL">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#field-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Field Reference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Notes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#built-in-vs-operator-defined-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Built-in vs. operator-defined rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-build-and-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Build and Test
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-test-with-dry-run-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Test with Dry-Run Mode
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-5-deploy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5: Deploy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-happens-at-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Happens at Runtime
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reconcilers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconcilers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reconcilers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#renovate-file-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Renovate File Rules
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Renovate File Rules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#templates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Templates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#check-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Check Modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-org-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-org Configuration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Multi-org Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#legacy-mode-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Legacy mode (default)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#strict-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strict mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#strict-mode-error-messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strict-mode error messages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#legacy-mode-warning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Legacy-mode warning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observability
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customizing-pr-text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Customizing PR text
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Customizing PR text">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#resolution-chain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolution chain
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#field-by-field-merge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Field-by-field merge
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#variables-available-in-templates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Variables available in templates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Helpers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-not-to-do" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What NOT to do
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#strict-mode-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strict-mode validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adding-a-new-rule-to-repo-guardian">Adding a New Rule to Repo Guardian</h1>
+<p>This guide walks through adding a new file rule to repo-guardian. By the end,
+the service will detect when a repository is missing the file and create a PR
+to add a default version.</p>
+<p>We will use a GitHub Actions CI workflow (<code>.github/workflows/ci.yml</code>) as the
+example, but the process is identical for any file type.</p>
+<hr />
+<h2 id="how-rules-work">How Rules Work</h2>
+<p>Rules are defined in HCL (the operator-facing config) and live in
+<code>guardian.hcl</code> (pointed at by the <code>GUARDIAN_CONFIG</code> env var). The
+checker engine loads the policy on startup and iterates every enabled
+rule for every repository it processes. No changes to the engine,
+webhook handler, scheduler, or queue code are needed for a new rule.</p>
+<p>A file rule tells the engine:</p>
+<ol>
+<li><strong>What to look for</strong> — one or more file paths (the rule is satisfied
+   if any one exists; for <code>contains</code>/<code>exact</code> modes the rule additionally
+   evaluates content assertions).</li>
+<li><strong>What to create</strong> — a target path and the name of a template
+   (resolved from the operator's <code>templates.files</code> map or the binary's
+   embedded defaults).</li>
+<li><strong>How to render the PR</strong> — title, body, labels, and search terms
+   used to detect existing PRs and avoid duplicate work.</li>
+</ol>
+<p>If you want a rule to ship as a built-in default (enabled out of the
+box for every operator), it goes in <code>internal/policy/defaults.go</code>
+alongside the existing four. The HCL path is preferred for everything
+else — it requires no rebuild.</p>
+<hr />
+<h2 id="step-1-create-the-default-template">Step 1: Create the Default Template</h2>
+<p>Templates live in <code>internal/rules/templates/</code> and are embedded into the
+binary at compile time via <code>//go:embed</code>. The file name (minus <code>.tmpl</code>)
+becomes the template key referenced from HCL or the Helm
+<code>templates.files</code> map.</p>
+<p>Create <code>internal/rules/templates/github-actions-ci.tmpl</code>:</p>
+<pre><code class="language-yaml"># Default CI workflow — adjust triggers and steps for your project.
+# This file was added by repo-guardian. Review and customize before merging.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: echo &quot;Add your build steps here&quot;
+
+      - name: Test
+        run: echo &quot;Add your test steps here&quot;
+</code></pre>
+<p>The template should be a reasonable starting point that works without
+modification but clearly signals where teams should customize.</p>
+<blockquote>
+<p><strong>GitHub Actions <code>${{ ... }}</code> syntax.</strong> Templates are rendered by
+<code>internal/template/Renderer</code> (text/template). To emit a literal
+<code>${{ secrets.X }}</code> you must wrap it in a backtick-raw-string action:
+<code>{{`${{ secrets.X }}`}}</code>. A bare <code>${{</code> anywhere — including a
+YAML comment — trips the parser with <code>unexpected &lt;.&gt; in operand</code>.</p>
+</blockquote>
+<p>If you do not need the template baked into the binary, you can also
+ship the template content directly via Helm values
+(<code>templates.files: &lt;name&gt;: &lt;content&gt;</code>) — no rebuild required.</p>
+<hr />
+<h2 id="step-2-declare-the-rule-in-hcl">Step 2: Declare the Rule in HCL</h2>
+<p>Add a <code>rule "file" "..." { ... }</code> block to your <code>guardian.hcl</code>:</p>
+<pre><code class="language-hcl">rule &quot;file&quot; &quot;github_actions_ci&quot; {
+  enabled  = true
+  check    = &quot;exists&quot;
+  paths    = [
+    &quot;.github/workflows/ci.yml&quot;,
+    &quot;.github/workflows/ci.yaml&quot;,
+    &quot;.github/workflows/build.yml&quot;,
+    &quot;.github/workflows/build.yaml&quot;,
+    &quot;.github/workflows/test.yml&quot;,
+    &quot;.github/workflows/test.yaml&quot;,
+  ]
+  target   = &quot;.github/workflows/ci.yml&quot;
+  template = &quot;github-actions-ci&quot;
+
+  pr {
+    search_terms = [&quot;ci workflow&quot;, &quot;github actions&quot;]
+  }
+}
+</code></pre>
+<h3 id="field-reference">Field Reference</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Purpose</th>
+<th>Guidelines</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>enabled</code></td>
+<td>Whether the rule is active.</td>
+<td>Defaults to <code>true</code>. Set <code>false</code> to define a rule without activating it.</td>
+</tr>
+<tr>
+<td><code>check</code></td>
+<td>One of <code>exists</code>, <code>contains</code>, <code>exact</code>.</td>
+<td><code>exists</code> is the default. Use <code>contains</code> with <code>assertion { ... }</code> blocks to enforce content patterns. Use <code>exact</code> to require a byte-for-byte (or YAML-semantic) match against the template.</td>
+</tr>
+<tr>
+<td><code>paths</code></td>
+<td>All locations where the file might already exist. The rule is satisfied if <strong>any</strong> path exists (in <code>exists</code> mode).</td>
+<td>Include common naming variations (<code>.yml</code> vs <code>.yaml</code>, alternate directories).</td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>Path where the file will be created in the PR branch.</td>
+<td>Use the canonical/preferred location.</td>
+</tr>
+<tr>
+<td><code>template</code></td>
+<td>Key into the template store. Must match the template file name without the <code>.tmpl</code> suffix.</td>
+<td>Must match the file created in Step 1.</td>
+</tr>
+<tr>
+<td><code>pr { search_terms }</code></td>
+<td>Strings matched case-insensitively against the titles and branch names of <em>third-party</em> open PRs. A match causes the rule to skip (someone else's PR is assumed to be in flight). repo-guardian's own reconcile PR is never matched.</td>
+<td>Specific enough to avoid false positives but broad enough to catch related work. Blank entries are rejected at load.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="notes">Notes</h3>
+<ul>
+<li><strong><code>paths</code> is intentionally broad.</strong> Many tools accept multiple file
+  locations. Listing alternates prevents repo-guardian from creating a
+  duplicate when a team already has a workflow under a different name.</li>
+<li><strong><code>search_terms</code></strong> prevents repo-guardian from opening a PR when
+  someone is already working on the same thing. A term like <code>"add"</code>
+  matches too many unrelated PRs; pick something specific to the rule.
+  The search skips repo-guardian's own reconcile PR, so a term that
+  happens to appear in your own <code>pr.title</code> will not make the rule
+  suppress itself.</li>
+</ul>
+<h3 id="built-in-vs-operator-defined-rules">Built-in vs. operator-defined rules</h3>
+<p>If you want this rule shipped to every operator out of the box, add a
+corresponding constructor to <code>internal/policy/defaults.go</code> (alongside
+<code>defaultCodeownersRule</code>, <code>defaultDependabotRule</code>, etc.) and append it
+to the <code>BuiltinDefaults()</code> slice. The HCL block above is then no
+longer required — the rule is part of the binary's defaults.</p>
+<p>For all other cases (operator-specific rules, optional rules, rules
+that depend on local conventions), keep the rule in HCL only.</p>
+<hr />
+<h2 id="step-3-build-and-test">Step 3: Build and Test</h2>
+<p>Run the existing tests to make sure nothing is broken:</p>
+<pre><code class="language-bash">make check    # lint + tests with race detector
+</code></pre>
+<p>The engine iterates over <code>policy.PolicyConfig.FileRules</code> generically,
+so a new rule entry does not require new test code unless the rule
+has unusual behavior. The key things to verify:</p>
+<ol>
+<li>The template file name matches the rule's <code>template</code> value (the
+   template store fails to load if there is a mismatch).</li>
+<li><code>paths</code> entries are valid file paths (no leading <code>/</code>, no glob
+   patterns — globs apply only to <code>ignore { paths = [...] }</code>).</li>
+<li><code>target</code> does not conflict with another rule's <code>target</code>.</li>
+</ol>
+<p>If you want to exercise the new rule in isolation:</p>
+<pre><code class="language-bash">go test -v -race -run TestEnginePolicy ./internal/checker/...
+</code></pre>
+<hr />
+<h2 id="step-4-test-with-dry-run-mode">Step 4: Test with Dry-Run Mode</h2>
+<p>Before deploying, validate the new rule against real repositories using
+dry-run mode. Set <code>DRY_RUN=true</code> on the Deployment (or via Helm
+<code>policy.dryRun: true</code>). The service logs every action it would take
+without creating branches or PRs:</p>
+<pre><code>INFO  dry run: would create PR  owner=myorg  repo=new-project  missing_files=&quot;[github_actions_ci]&quot;
+</code></pre>
+<blockquote>
+<p><strong><code>DRY_RUN</code> env wins over HCL.</strong> Env vars are applied last in
+<code>policy.Load</code>, so a Deployment-level <code>DRY_RUN=true</code> silently
+overrides anything in <code>guardian.hcl</code>. If the engine looks stuck in
+dry-run when you didn't expect it, check
+<code>kubectl get deploy ... -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="DRY_RUN")]}'</code>
+first.</p>
+</blockquote>
+<p>This confirms the rule is detecting the right repositories and that
+the template name resolves correctly.</p>
+<hr />
+<h2 id="step-5-deploy">Step 5: Deploy</h2>
+<p>If you are overriding templates via the chart's <code>templates.files</code> map
+(rather than using the compiled-in defaults), add the new template to
+your Helm values:</p>
+<pre><code class="language-yaml"># values.yaml — passed to `helm install ... -f values.yaml`
+templates:
+  files:
+    # ... existing templates ...
+    github-actions-ci: |
+      name: CI
+      on:
+        pull_request:
+          branches: [main]
+        push:
+          branches: [main]
+      permissions:
+        contents: read
+      jobs:
+        build:
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v4
+            - name: Build
+              run: echo &quot;Add your build steps here&quot;
+            - name: Test
+              run: echo &quot;Add your test steps here&quot;
+</code></pre>
+<p>If you are relying on embedded templates (the default), no values
+override is needed — the template is compiled into the binary.</p>
+<p>Build and deploy:</p>
+<pre><code class="language-bash">make build
+docker build -t repo-guardian:latest .
+# Push to your registry and roll out the new version, or
+helm upgrade --install repo-guardian \
+  oci://ghcr.io/donaldgifford/charts/repo-guardian \
+  --version &lt;chart-version&gt; \
+  -f values.yaml
+</code></pre>
+<hr />
+<h2 id="what-happens-at-runtime">What Happens at Runtime</h2>
+<p>Once deployed, the new rule participates in every repository check:</p>
+<ol>
+<li>The engine loads the merged policy (built-in defaults → HCL file →
+   env overrides) on startup.</li>
+<li>For the new rule, it checks whether any of the <code>paths</code> exist in the
+   repo (and evaluates any assertions for <code>contains</code>/<code>exact</code> modes).</li>
+<li>If the rule is actionable, it checks whether any <em>third-party</em> open
+   PR's title or branch matches a <code>pr.search_terms</code> entry. If so, the
+   rule is skipped for this run. repo-guardian's own reconcile PR is
+   excluded from this search — it is handled by step 4 instead.</li>
+<li>If the rule is still actionable, the engine adds the rendered
+   template to the repo-guardian PR branch
+   (<code>repo-guardian/add-missing-files</code>). One branch per repo;
+   subsequent runs update the same branch idempotently.</li>
+<li>The PR body lists every rule contributing to this PR. When all
+   rules on the PR become satisfied on the default branch, the PR is
+   auto-closed (toggle via <code>guardian.auto_close_pr</code> / <code>AUTO_CLOSE_PR</code>).</li>
+</ol>
+<p>The <code>repo_guardian_files_missing_total{rule_name, org}</code> Prometheus
+counter records detections; <code>repo_guardian_prs_created_total{org}</code>
+records PR creation.</p>
+<p>Dashboards are generated from the policy, so a new rule reaches them by
+regenerating rather than by editing a panel:</p>
+<pre><code class="language-bash">repo-guardian monitoring generate --config guardian.hcl --out ./monitoring
+</code></pre>
+<p>Rule-keyed panels (compliance by rule, actionable repositories by rule)
+pick the rule up automatically, because they aggregate by the
+<code>rule_name</code> label. What regeneration adds is the per-rule row on E1 and
+the alert gating — a rule the config does not declare gets no panel and
+no alert at all, which is the point. See <code>contrib/README.md</code>.</p>
+<hr />
+<h2 id="summary">Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>File / Surface</th>
+<th>What to do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>internal/rules/templates/&lt;name&gt;.tmpl</code> (or Helm <code>templates.files</code>)</td>
+<td>Create the default file content</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>guardian.hcl</code> (or <code>internal/policy/defaults.go</code> for a built-in)</td>
+<td>Declare the <code>rule "file" "&lt;name&gt;" { ... }</code> block</td>
+</tr>
+<tr>
+<td>3</td>
+<td>—</td>
+<td><code>make check</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td>—</td>
+<td>Deploy with <code>DRY_RUN=true</code> and verify logs</td>
+</tr>
+<tr>
+<td>5</td>
+<td>—</td>
+<td>Roll out via Helm</td>
+</tr>
+</tbody>
+</table>
+<p>No changes are needed in the checker engine, webhook handler,
+scheduler, work queue, or any other package.</p>
+<hr />
+<h2 id="reconcilers">Reconcilers</h2>
+<p>HCL rules can attach reconcilers — pluggable post-check actions that
+run after file checks pass. For example, the <code>custom_properties</code>
+reconciler reads <code>catalog-info.yaml</code> and syncs ownership metadata to
+GitHub custom properties:</p>
+<pre><code class="language-hcl">rule &quot;file&quot; &quot;catalog_info&quot; {
+  check    = &quot;exists&quot;
+  paths    = [&quot;catalog-info.yaml&quot;, &quot;catalog-info.yml&quot;]
+  target   = &quot;catalog-info.yaml&quot;
+  template = &quot;catalog-info&quot;
+
+  pr {
+    search_terms = [&quot;catalog-info&quot;]
+  }
+
+  reconcile &quot;custom_properties&quot; {
+    mode  = &quot;api&quot;
+    watch = true
+  }
+}
+</code></pre>
+<p>When <code>watch = true</code>, push events that modify the watched files on the
+default branch trigger a re-check.</p>
+<p>Four built-in reconcilers ship with the binary:</p>
+<table>
+<thead>
+<tr>
+<th>Reconciler</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>custom_properties</code></td>
+<td>Sync Backstage <code>catalog-info.yaml</code> → GitHub repo custom properties (<code>api</code> or <code>github-action</code> mode)</td>
+</tr>
+<tr>
+<td><code>label_sync</code></td>
+<td>YAML-driven label create / update / rename / delete</td>
+</tr>
+<tr>
+<td><code>branch_protection</code></td>
+<td>YAML-driven branch protection ruleset management</td>
+</tr>
+<tr>
+<td><code>workflow_sync</code></td>
+<td>Lightweight observability for watched workflow files</td>
+</tr>
+</tbody>
+</table>
+<p>See <code>docs/design/0007-reconciler-interface-and-push-event-handler.md</code>
+and <code>docs/design/0008-additional-rule-types-and-ignore-lists.md</code> for
+the full design.</p>
+<h3 id="renovate-file-rules">Renovate File Rules</h3>
+<p>repo-guardian includes two built-in Renovate file rules that are
+<strong>disabled by default</strong>. When enabled, they ensure every repository
+has a standardized Renovate workflow and configuration extending the
+org preset.</p>
+<p>To enable them, add the following to your <code>guardian.hcl</code>:</p>
+<pre><code class="language-hcl">rule &quot;file&quot; &quot;renovate_workflow&quot; {
+  enabled  = true
+  check    = &quot;exact&quot;
+  paths    = [&quot;.github/workflows/renovate.yml&quot;]
+  target   = &quot;.github/workflows/renovate.yml&quot;
+  template = &quot;renovate-workflow&quot;
+  reconcile &quot;workflow_sync&quot; { watch = true }
+}
+
+rule &quot;file&quot; &quot;renovate_config&quot; {
+  enabled  = true
+  check    = &quot;contains&quot;
+  paths    = [&quot;renovate.json&quot;, &quot;renovate.json5&quot;, &quot;.renovaterc&quot;,
+              &quot;.renovaterc.json&quot;, &quot;.github/renovate.json&quot;,
+              &quot;.github/renovate.json5&quot;]
+  target   = &quot;renovate.json&quot;
+  template = &quot;renovate&quot;
+  assertion {
+    pattern = &quot;github&gt;donaldgifford/renovate-config&quot;
+    message = &quot;renovate.json must extend org preset&quot;
+  }
+}
+</code></pre>
+<h4 id="templates">Templates</h4>
+<table>
+<thead>
+<tr>
+<th>Template Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>renovate-workflow</code></td>
+<td>Docker-based GitHub Actions workflow that runs <code>renovate/renovate:latest</code> on a weekly cron schedule. Uses <code>actions/create-github-app-token@v1</code> for authentication.</td>
+</tr>
+<tr>
+<td><code>renovate</code></td>
+<td>Minimal <code>renovate.json</code> extending the org preset (<code>github&gt;ORG_NAME/renovate-config</code>).</td>
+</tr>
+</tbody>
+</table>
+<h4 id="check-modes">Check Modes</h4>
+<ul>
+<li><strong><code>renovate_workflow</code></strong> uses <code>check = "exact"</code> — the file must match
+  the template byte-for-byte (YAML-semantic comparison). Any drift
+  triggers a PR to restore the canonical workflow.</li>
+<li><strong><code>renovate_config</code></strong> uses <code>check = "contains"</code> with an assertion —
+  the file must exist and contain the org preset pattern. Teams can
+  add additional Renovate configuration (labels, automerge rules) as
+  long as the org preset reference is present.</li>
+</ul>
+<h4 id="prerequisites">Prerequisites</h4>
+<p>The Renovate workflow template expects two GitHub Actions secrets:</p>
+<ul>
+<li><code>RENOVATE_APP_ID</code> — the GitHub App ID for Renovate</li>
+<li><code>RENOVATE_APP_PRIVATE_KEY</code> — the GitHub App private key</li>
+</ul>
+<p>These must be configured as organization-level secrets.</p>
+<h2 id="multi-org-configuration">Multi-org Configuration</h2>
+<p>repo-guardian supports two scope modes for installations that span
+multiple GitHub organizations:</p>
+<h3 id="legacy-mode-default">Legacy mode (default)</h3>
+<p>When the HCL config has no top-level <code>scope { }</code> block, every
+enabled rule applies to every repository the GitHub App sees. This
+is the simpler default for single-org users — nothing changes.</p>
+<h3 id="strict-mode">Strict mode</h3>
+<p>Declaring a top-level <code>scope { }</code> block engages strict mode. Every
+rule must declare its own <code>scope { orgs = [...] }</code> sub-block:</p>
+<pre><code class="language-hcl">scope {
+  orgs = [&quot;myorg-prod&quot;, &quot;myorg-staging&quot;]
+}
+
+rule &quot;file&quot; &quot;codeowners&quot; {
+  paths    = [&quot;CODEOWNERS&quot;]
+  target   = &quot;CODEOWNERS&quot;
+  template = &quot;codeowners&quot;
+
+  scope {
+    orgs = [&quot;*&quot;]   # applies to every org in the top-level scope
+  }
+}
+
+rule &quot;branch_protection&quot; &quot;main_required&quot; {
+  branch                 = &quot;main&quot;
+  required_approvals     = 2
+  remediate              = true
+
+  scope {
+    orgs = [&quot;myorg-prod&quot;]   # applies only to myorg-prod
+  }
+}
+</code></pre>
+<p>Scope semantics:</p>
+<ul>
+<li><strong>Glob matching</strong> — <code>path.Match</code> patterns (<code>*</code>, <code>?</code>, <code>[abc]</code>)
+  on lowercased org names, mirroring the <code>ignore</code> block.</li>
+<li><strong>Universal <code>["*"]</code></strong> — at the rule level, this is the explicit
+  "apply to every org listed in the top-level scope" idiom.</li>
+<li><strong>Strict-mode validation</strong> runs at config load:</li>
+<li>Top-level <code>scope.orgs</code> must be non-empty</li>
+<li>Every <code>rule { }</code> (file, setting, branch_protection) must
+    have a <code>scope { }</code> sub-block with non-empty <code>orgs</code></li>
+<li>Across a directory load, only one top-level <code>scope { }</code>
+    may exist</li>
+<li><strong>Splitting across files</strong> — when <code>GUARDIAN_CONFIG</code> points to
+  a directory, all <code>.hcl</code> files merge before strict validation
+  runs. Put the top-level scope in a dedicated <code>scope.hcl</code> and
+  per-org rules in separate files. See <code>examples/guardian-multi-org/</code>.</li>
+</ul>
+<h3 id="strict-mode-error-messages">Strict-mode error messages</h3>
+<table>
+<thead>
+<tr>
+<th>Error</th>
+<th>Cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>top-level scope must declare at least one org</code></td>
+<td><code>scope { }</code> block is empty</td>
+<td>Add at least one entry to <code>orgs</code></td>
+</tr>
+<tr>
+<td><code>only one top-level scope block allowed, found N</code></td>
+<td>Multiple files in the directory both declare <code>scope { }</code></td>
+<td>Consolidate to a single <code>scope.hcl</code></td>
+</tr>
+<tr>
+<td><code>rule "X" must declare scope in strict mode</code></td>
+<td>A rule has no <code>scope { }</code> sub-block</td>
+<td>Add <code>scope { orgs = ["*"] }</code> for shared rules, or a subset for org-specific rules</td>
+</tr>
+<tr>
+<td><code>rule "X" scope.orgs must not be empty</code></td>
+<td>Rule's <code>scope.orgs</code> is <code>[]</code></td>
+<td>Populate the list, or remove the <code>scope</code> block (which then triggers the previous error)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="legacy-mode-warning">Legacy-mode warning</h3>
+<p>If a rule defines a <code>scope { }</code> sub-block while the top-level
+<code>scope { }</code> is missing, repo-guardian logs a single warning at
+load time:</p>
+<pre><code class="language-text">WARN per-rule scope ignored: no top-level scope { } block declared.
+     Add a top-level scope block to enable strict mode, or remove
+     per-rule scope blocks.
+</code></pre>
+<p>This means the per-rule scopes are present but ignored — the rule
+will run against every repo. Either declare a top-level <code>scope { }</code>
+to opt in, or remove the per-rule scope blocks.</p>
+<h3 id="observability">Observability</h3>
+<p>Out-of-scope evaluations are tracked via the
+<code>repo_guardian_out_of_scope_total{level, org}</code> Prometheus counter:</p>
+<ul>
+<li><code>level="policy"</code> — increments once per enabled rule when the
+  top-level scope rejects the repo (the entire repo is skipped).</li>
+<li><code>level="rule"</code> — increments once per rule when its own scope
+  rejects the repo (other rules may still apply).</li>
+</ul>
+<p>In legacy mode this counter is always zero. A sustained nonzero
+<code>level="rule"</code> for an org with no other activity may indicate a
+typo in <code>scope.orgs</code> — see the
+<a href="../contrib/prometheus/alerts.yaml"><code>RepoGuardianRuleNeverApplies</code></a>
+alert and the <a href="../contrib/README.md">metrics catalog</a> for queries
+and migration recipes.</p>
+<h2 id="customizing-pr-text">Customizing PR text</h2>
+<p>Repo Guardian renders PR titles and bodies through a unified
+Go-template engine (<code>internal/template</code>) at three configurable
+scopes. The grammar mirrors HCL's standard block style:</p>
+<pre><code class="language-hcl">defaults {
+  pr {
+    title  = &quot;...&quot;
+    body   = &quot;...&quot;
+    labels = [&quot;...&quot;]
+  }
+}
+
+rule &quot;file&quot; &quot;codeowners&quot; {
+  # ...
+  pr {
+    title    = &quot;...&quot;
+    inherits = true   # default
+  }
+}
+
+rule &quot;file&quot; &quot;catalog_info&quot; {
+  reconcile &quot;custom_properties&quot; {
+    pr {
+      body     = &quot;...&quot;
+      inherits = false  # opt out of defaults inheritance
+    }
+  }
+}
+</code></pre>
+<h3 id="resolution-chain">Resolution chain</h3>
+<table>
+<thead>
+<tr>
+<th>PR opened by</th>
+<th>Chain</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>File rule</td>
+<td><code>rule.pr → defaults.pr → built-in</code></td>
+</tr>
+<tr>
+<td>Reconciler (e.g. catalog)</td>
+<td><code>reconciler.pr → defaults.pr → built-in</code></td>
+</tr>
+<tr>
+<td>Bundled (multi-rule) PR</td>
+<td>per-rule titles voted; conflict → <code>defaults.pr.title</code>; body always from <code>defaults.pr.body</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Reconciler PRs deliberately skip <code>rule.pr</code>.</strong> A file rule's PR
+text describes its file change; a reconciler that opens a
+side-channel PR (e.g. <code>set-custom-properties.yml</code>) is a separate
+operation with its own narrative. Letting <code>rule.pr</code> flow into the
+reconciler would mean <code>chore: adopt CODEOWNERS</code> rendering on a
+custom-properties workflow PR.</p>
+<h3 id="field-by-field-merge">Field-by-field merge</h3>
+<p>Each of <code>title</code>, <code>body</code>, <code>labels</code> independently inherits when
+unset and <code>inherits = true</code>. Setting <code>inherits = false</code> at any
+scope short-circuits the chain — only fields that scope itself
+declared are honored. <code>labels = []</code> is an explicit empty-list
+override (different from omitting the attribute).</p>
+<h3 id="variables-available-in-templates">Variables available in templates</h3>
+<p>PR templates render against <code>template.PRVars</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.Owner</code></td>
+<td>string</td>
+<td>GitHub org login</td>
+</tr>
+<tr>
+<td><code>.Repo</code></td>
+<td>string</td>
+<td>Repository name</td>
+</tr>
+<tr>
+<td><code>.DefaultBranch</code></td>
+<td>string</td>
+<td>Repository's default branch (e.g. <code>main</code>)</td>
+</tr>
+<tr>
+<td><code>.Date</code></td>
+<td>string</td>
+<td>RFC3339 timestamp at render time</td>
+</tr>
+<tr>
+<td><code>.Rule.Name</code></td>
+<td>string</td>
+<td>Single-rule PRs only</td>
+</tr>
+<tr>
+<td><code>.Rule.Target</code></td>
+<td>string</td>
+<td>Single-rule PRs only</td>
+</tr>
+<tr>
+<td><code>.Rules</code></td>
+<td><code>[]Rule</code></td>
+<td>Multi-rule bundles only (zero in single)</td>
+</tr>
+<tr>
+<td><code>.Files</code></td>
+<td><code>[]string</code></td>
+<td>Every target path included in this PR</td>
+</tr>
+<tr>
+<td><code>.Reconciler</code></td>
+<td>string</td>
+<td>Reconciler name (e.g. <code>custom_properties</code>); empty for file-rule PRs</td>
+</tr>
+</tbody>
+</table>
+<h3 id="helpers">Helpers</h3>
+<table>
+<thead>
+<tr>
+<th>Helper</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>env "VAR"</code></td>
+<td>Read process env var. Returns empty string if unset.</td>
+</tr>
+<tr>
+<td><code>default x y</code></td>
+<td>Return <code>y</code> if non-empty; otherwise <code>x</code>.</td>
+</tr>
+<tr>
+<td><code>join sep list</code></td>
+<td>Comma-style join: <code>{{ join ", " .Files }}</code>.</td>
+</tr>
+<tr>
+<td><code>lower s</code></td>
+<td>Lowercase the input.</td>
+</tr>
+<tr>
+<td><code>upper s</code></td>
+<td>Uppercase the input.</td>
+</tr>
+<tr>
+<td><code>title s</code></td>
+<td>Capitalize the first ASCII letter.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="example">Example</h3>
+<pre><code class="language-hcl">defaults {
+  pr {
+    title  = &quot;[{{ env \&quot;JIRA_PROJECT\&quot; | default \&quot;GUARDIAN\&quot; }}] guardian&quot;
+    body   = &quot;Files:\n{{ range .Files }}- `{{ . }}`\n{{ end }}&quot;
+    labels = [&quot;automated&quot;, &quot;guardian&quot;]
+  }
+}
+</code></pre>
+<p>With <code>JIRA_PROJECT=PLAT</code> set on the Deployment, the rendered title
+becomes <code>[PLAT] guardian</code>. With it unset, <code>[GUARDIAN] guardian</code>.</p>
+<h3 id="what-not-to-do">What NOT to do</h3>
+<p><strong>Never reference secret env vars from PR templates.</strong> The
+rendered output is visible to PR reviewers — anyone with read
+access to the repository sees it. Operators who write the policy
+HCL can read any process env var via <code>{{ env "VAR" }}</code>, including
+<code>GITHUB_PRIVATE_KEY</code> and <code>WEBHOOK_SECRET</code>. The threat model
+assumes the operator who provisions runtime secrets is the same
+operator who writes the policy; reading the operator's own
+secrets is not privilege escalation, but emitting them into PR
+text is. The reserved-name list in
+<code>charts/repo-guardian/templates/_helpers.tpl</code> blocks
+<code>templating.vars</code> from declaring secret names directly, but the
+<code>env</code> helper is unrestricted by design — operator discipline is
+the only line of defense.</p>
+<h3 id="strict-mode-validation">Strict-mode validation</h3>
+<p>Set <code>STRICT_TEMPLATES=true</code> (or pass <code>--strict-templates</code> on the
+binary command line; the chart toggles this via
+<code>templating.strict: true</code>) to validate every compiled PR template
+at startup against a zero-value PRVars context. Templates that
+reference fields not on <code>PRVars</code> (e.g. <code>.Catalog.Owner</code>, which
+exists only on <code>FileVars</code>) fail startup with a location-prefixed
+error. Run this in CI to catch typos before deploy.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

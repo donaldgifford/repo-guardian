@@ -1,0 +1,2504 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#design-0023-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip-allowlist-middleware" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goals-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals and Non-Goals
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Goals and Non-Goals">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#d1-binary-delete-the-allowlist-middleware" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D1: Binary — delete the allowlist middleware
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d2-binary-config-surface-removal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D2: Binary — config-surface removal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d3-observability-disposition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D3: Observability disposition
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d4-chart-delete-the-tailscale-and-allowlist-surfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D4: Chart — delete the Tailscale and allowlist surfaces
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d5-chart-reject-removed-values-at-render-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D5: Chart — reject removed values at render time
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d6-documentation-the-ingress-options-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D6: Documentation — the ingress options matrix
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d7-historical-doc-supersession" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D7: Historical-doc supersession
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-interface-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API / Interface Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-rollout-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration / Rollout Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="design-0023-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip-allowlist-middleware">DESIGN 0023: Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware</h1>
+<p><strong>Status:</strong> Implemented
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-08-15</p>
+<!--toc:start-->
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#goals-and-non-goals">Goals and Non-Goals</a></li>
+<li><a href="#goals">Goals</a></li>
+<li><a href="#non-goals">Non-Goals</a></li>
+<li><a href="#background">Background</a></li>
+<li><a href="#detailed-design">Detailed Design</a></li>
+<li><a href="#d1-binary--delete-the-allowlist-middleware">D1: Binary — delete the allowlist middleware</a></li>
+<li><a href="#d2-binary--config-surface-removal">D2: Binary — config-surface removal</a></li>
+<li><a href="#d3-observability-disposition">D3: Observability disposition</a></li>
+<li><a href="#d4-chart--delete-the-tailscale-and-allowlist-surfaces">D4: Chart — delete the Tailscale and allowlist surfaces</a></li>
+<li><a href="#d5-chart--reject-removed-values-at-render-time">D5: Chart — reject removed values at render time</a></li>
+<li><a href="#d6-documentation--the-ingress-options-matrix">D6: Documentation — the ingress options matrix</a></li>
+<li><a href="#d7-historical-doc-supersession">D7: Historical-doc supersession</a></li>
+<li><a href="#api--interface-changes">API / Interface Changes</a></li>
+<li><a href="#data-model">Data Model</a></li>
+<li><a href="#testing-strategy">Testing Strategy</a></li>
+<li><a href="#migration--rollout-plan">Migration / Rollout Plan</a></li>
+<li><a href="#open-questions">Open Questions</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="overview">Overview</h2>
+<p>Remove every Tailscale-specific surface from the Helm chart and the
+webhook IP-allowlist middleware from the binary, per INV-0016's
+concluded findings: the middleware is spoofable behind every proxy we
+document, the sidecar path already forces it fail-open, and source-IP
+enforcement belongs at the edge layer that sees the true source
+address. Ingress becomes operator-owned and is documented as an
+<strong>options matrix</strong> (<code>docs/operations/ingress.md</code>) — no crowned winner,
+per-option validation checkboxes. HMAC remains the sole app-layer
+defense; OTEL (IMPL-0023) observes whichever edge the operator chose.</p>
+<h2 id="goals-and-non-goals">Goals and Non-Goals</h2>
+<h3 id="goals">Goals</h3>
+<ul>
+<li>Delete the chart's <code>tailscale.*</code> surface: values block, sidecar
+  container, volumes, serve-config ConfigMap, RBAC, env fork, tests.</li>
+<li>Delete the chart's <code>webhookIPAllowlist.*</code> values and env wiring.</li>
+<li>Delete <code>internal/webhook/allowlist.go</code> (+ test), its <code>main.go</code>
+  wiring, and the three config knobs across env + HCL
+  (<code>WEBHOOK_IP_ALLOWLIST</code>, <code>WEBHOOK_IP_ALLOWLIST_FAIL_OPEN</code>,
+  <code>TRUST_PROXY_HEADERS</code>).</li>
+<li>Fail loudly for operators still carrying the removed config:
+  HCL strict decode at binary startup, values rejection at chart
+  render, both pointing at a migration note.</li>
+<li>Ship <code>docs/operations/ingress.md</code> as the seven-row options matrix
+  from INV-0016 with per-option recipes and validation checkboxes.</li>
+<li>Rewrite SECURITY.md's webhook trust model; supersede INV-0001,
+  DESIGN-0003, DESIGN-0004.</li>
+<li>Keep the E4 evidence tier and alert catalogue truthful — no matcher
+  that matches nothing, no alert that cannot fire.</li>
+</ul>
+<h3 id="non-goals">Non-Goals</h3>
+<ul>
+<li><strong>Picking a homelab ingress winner.</strong> The matrix documents; the
+  deployment chooses (INV-0016 Recommendation, decided 2026-08-15).</li>
+<li><strong>Building any replacement IP filtering in the app.</strong> The entire
+  point is that the app stops pretending to do this.</li>
+<li><strong>Automating CIDR refresh</strong> for the edge allowlists (ALB prefix
+  list, Cloudflare list, ngrok policy). The matrix names the refresh
+  ownership question per option; automation is per-deployment
+  tooling (e.g. Terraform), not repo-guardian scope.</li>
+<li><strong>Validating matrix rows.</strong> Checkboxes get checked when an option
+  is exercised against a real GitHub App delivery, not in this
+  change.</li>
+<li><strong>Removing <code>repo_guardian_webhook_received_total</code> or the
+  WebhookSilence alert</strong> — webhook liveness is unrelated to ingress
+  choice.</li>
+</ul>
+<h2 id="background">Background</h2>
+<p>INV-0016 (Concluded 2026-08-15) established:</p>
+<ul>
+<li>The Tailscale surface is <strong>chart-only</strong>; the binary's webhook
+  handling is ingress-agnostic (Observation 1–2).</li>
+<li><code>tailscale.enabled=true</code> hard-forces
+  <code>WEBHOOK_IP_ALLOWLIST_FAIL_OPEN=true</code> + <code>TRUST_PROXY_HEADERS=true</code>
+  (<code>deployment.yaml:103-113</code>), so the SECURITY.md "two-layer defense"
+  is one layer on the public-facing path (Observation 3).</li>
+<li>The middleware validates the <strong>leftmost</strong> (client-controlled)
+  <code>X-Forwarded-For</code> entry (<code>allowlist.go:154</code>), making it spoofable
+  behind every documented proxy; proxies append the true source to
+  the end of the chain (Observation 5).</li>
+<li><code>TRUST_PROXY_HEADERS</code> has exactly one consumer (the allowlist
+  constructor); <code>repo_guardian_webhook_rejected_total</code> has exactly
+  one producer (the allowlist — the HMAC 401 path increments
+  nothing) (Observation 5).</li>
+<li>Gateway API reality per path: AWS LBC GA (v2.14.0+); Tailscale
+  operator none (Funnel is <code>Ingress</code>-class-only); ngrok operator
+  native; Cloudflare Tunnel via community operators or an
+  operator-injected stateless cloudflared sidecar (Observations
+  6–9).</li>
+</ul>
+<p>Precedents this design reuses:</p>
+<ul>
+<li><strong>IMPL-0016</strong> — remove-the-baked-thing pattern: values-schema
+  rejection of removed identifiers at render time, binary startup
+  error pointing at a migration doc.</li>
+<li><strong>IMPL-0018</strong> — <code>_helpers.tpl</code> render-time <code>fail</code> guards
+  (<code>validateBackendSecrets</code>) for values that are set but meaningless.</li>
+<li><strong>INV-0010</strong> — <code>guardian {}</code> strict decode: removed HCL attributes
+  fail load with "Unsupported argument" by construction; the straight
+  removal (no deprecation shim) was decided in INV-0016.</li>
+<li><strong>IMPL-0023</strong> — the generated monitoring tier and its drift gates
+  (<code>make lint-monitoring</code>, <code>TestLogLines_AreStillEmittedByTheBinary</code>),
+  which force D3's E4 changes to ship in the same PR as D1.</li>
+</ul>
+<h2 id="detailed-design">Detailed Design</h2>
+<h3 id="d1-binary-delete-the-allowlist-middleware">D1: Binary — delete the allowlist middleware</h3>
+<p>Deletions, verified against the current tree:</p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Location</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Middleware + meta fetcher</td>
+<td><code>internal/webhook/allowlist.go</code> (207 LOC)</td>
+<td>takes the <code>api.github.com/meta</code> outbound dependency, the 24h refresh goroutine, and fail-open/fail-closed semantics with it</td>
+</tr>
+<tr>
+<td>Tests</td>
+<td><code>internal/webhook/allowlist_test.go</code> (304 LOC)</td>
+<td></td>
+</tr>
+<tr>
+<td>Wiring</td>
+<td><code>cmd/repo-guardian/main.go.wrapWebhookAllowlist</code> (~line 665) and its call site (~line 188)</td>
+<td>the webhook handler mounts directly; no replacement wrapper</td>
+</tr>
+</tbody>
+</table>
+<p>The webhook route keeps its existing otelhttp instrumentation
+(OUTERMOST per the IMPL-0022/0023 transport-ordering contract) and
+the HMAC validation in <code>webhook.Handler.ServeHTTP</code>
+(<code>gh.ValidatePayload</code> → 401). HMAC is now the only app-layer gate,
+which SECURITY.md states plainly (D7).</p>
+<h3 id="d2-binary-config-surface-removal">D2: Binary — config-surface removal</h3>
+<p>Three knobs, each with two surfaces (env + HCL):</p>
+<ul>
+<li><code>internal/config/config.go</code>: drop <code>WebhookIPAllowlist</code>,
+  <code>WebhookIPAllowlistFailOpen</code>, <code>TrustProxyHeaders</code> fields and their
+  <code>envOrDefaultBool</code> loads (~lines 63–70, 278–290).</li>
+<li><code>internal/policy/types.go</code>: drop the three <code>GuardianConfig</code> fields
+  (<code>webhook_ip_allowlist</code>, <code>webhook_ip_allowlist_fail_open</code>,
+  <code>trust_proxy_headers</code>).</li>
+<li><code>internal/policy/loader.go</code>: the INV-0010 lockstep rule applies in
+  reverse — remove all three spots per attribute or the loader
+  breaks: the <code>guardianBodySchema</code> entries (~line 378), the
+  <code>setGuardianAttr</code> cases (~line 429), and the <code>mergeGuardianConfig</code>
+  carries (~line 1167). Plus the <code>applyEnvOverrides</code> lines (~line
+  1191) and <code>internal/policy/defaults.go</code> (~line 111).</li>
+</ul>
+<p>Post-removal behavior (all decided in INV-0016, all intended):</p>
+<ul>
+<li>A <code>guardian.hcl</code> still carrying any of the three attributes <strong>fails
+  load</strong> with HCL's "Unsupported argument" diagnostic. No deprecation
+  shim — the loud failure is what strict mode is for.</li>
+<li>A stale raw env var on a Deployment (e.g. a kustomize patch still
+  setting <code>TRUST_PROXY_HEADERS=true</code>) is <strong>silently ignored</strong> — env
+  removal has no rejection surface. The migration note carries this
+  asymmetry.</li>
+</ul>
+<h3 id="d3-observability-disposition">D3: Observability disposition</h3>
+<p>Every consumer of the deleted telemetry, and what happens to it:</p>
+<ul>
+<li><strong><code>metrics.WebhookRejectedTotal</code></strong> — sole producer is the deleted
+  middleware. <strong>Decided (OQ1 = a): repoint at the HMAC path</strong> — the
+  401 branch of <code>webhook.Handler.ServeHTTP</code> increments
+  <code>webhook_rejected_total{reason="signature"}</code>. The
+  <code>ip_not_allowed</code>/<code>allowlist_unavailable</code> reasons disappear; the
+  counter's one remaining reason is true and cheap.</li>
+<li><strong><code>RepoGuardianWebhookRejectionsHigh</code></strong>
+  (<code>internal/monitoring/alert/alert.go:154</code>) — exists only in the
+  catalogue/generated tier; the chart's PrometheusRule does <strong>not</strong>
+  carry it (verified 2026-08-15), so there is no hand-mirrored copy
+  to keep in step. The alert survives with its <code>Description</code>
+  rewritten (the current text promises allowlist 403s that will no
+  longer exist and signature 401s that today never reach the
+  counter).</li>
+<li><strong>E4 dashboard</strong> (<code>internal/monitoring/dashboard/e4.go:33-37</code>) —
+  <code>logRejectedIP</code> ("rejected request from non-GitHub IP") and
+  <code>logNoIP</code> stop being emitted; <code>webhookRejectedRe</code> reduces to
+  <code>logInvalidPayload</code> ("invalid webhook payload"). The webhook
+  panel's description (line ~207, which currently explains
+  allowlist-vs-signature and <code>TRUST_PROXY_HEADERS</code> behind Tailscale)
+  is rewritten. <code>TestLogLines_AreStillEmittedByTheBinary</code> <strong>fails
+  the build</strong> if the matcher edit doesn't ship in the same PR as D1
+  — the drift gate working as designed, and the reason D1+D3 are one
+  atomic change.</li>
+<li><strong><code>make lint-monitoring</code></strong> — <code>contrib/generated/</code> (rules.yaml +
+  repo-guardian-logs.json) regenerates in the same PR or CI goes
+  red.</li>
+<li><strong>Replacement signal</strong> for "someone is knocking": otelhttp
+  status-code metrics on the webhook route (401 rate), E4's
+  invalid-payload log line, and each edge's native telemetry (ALB
+  access logs, Cloudflare/Tailscale/ngrok dashboards). Documented in
+  <code>ingress.md</code> (D6).</li>
+</ul>
+<h3 id="d4-chart-delete-the-tailscale-and-allowlist-surfaces">D4: Chart — delete the Tailscale and allowlist surfaces</h3>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Location</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>webhookIPAllowlist:</code> block</td>
+<td><code>values.yaml:174-180</code></td>
+<td>delete</td>
+</tr>
+<tr>
+<td><code>tailscale:</code> block</td>
+<td><code>values.yaml:182-196</code></td>
+<td>delete</td>
+</tr>
+<tr>
+<td>Env fork + allowlist env</td>
+<td><code>templates/deployment.yaml:100-113</code> (<code>WEBHOOK_IP_ALLOWLIST</code>, the <code>tailscale.enabled</code> fork over <code>WEBHOOK_IP_ALLOWLIST_FAIL_OPEN</code>/<code>TRUST_PROXY_HEADERS</code>)</td>
+<td>delete</td>
+</tr>
+<tr>
+<td>Sidecar container + volumes</td>
+<td><code>templates/deployment.yaml</code> (tailscale container, <code>tailscale-state</code> emptyDir, serve-config mount)</td>
+<td>delete</td>
+</tr>
+<tr>
+<td>Serve config</td>
+<td><code>templates/tailscale-configmap.yaml</code></td>
+<td>delete file</td>
+</tr>
+<tr>
+<td>RBAC</td>
+<td><code>templates/tailscale-rbac.yaml</code></td>
+<td>delete file</td>
+</tr>
+<tr>
+<td>Chart tests</td>
+<td><code>tests/deployment_test.yaml</code> sidecar assertions</td>
+<td>delete; add negative render tests (D5)</td>
+</tr>
+<tr>
+<td>README</td>
+<td><code>README.md.gotmpl</code> → <code>make helm-docs</code></td>
+<td>regenerated rows disappear; any prose mentioning Tailscale/allowlist updated in the <code>.gotmpl</code>, never the rendered README</td>
+</tr>
+</tbody>
+</table>
+<h3 id="d5-chart-reject-removed-values-at-render-time">D5: Chart — reject removed values at render time</h3>
+<p>Both mechanisms from precedent, layered:</p>
+<ol>
+<li><strong><code>values.schema.json</code></strong> — the IMPL-0016 pattern. Add <code>tailscale</code>
+   and <code>webhookIPAllowlist</code> as explicitly rejected properties (JSON
+   Schema <code>"not": {}</code> with a <code>"description"</code> naming the migration
+   doc), so machine validation catches them even outside <code>helm
+   template</code>. Note INV-0016 Observation 1: <code>tailscale</code> never had a
+   schema entry at all, so this is the block's first and last
+   appearance in the schema.</li>
+<li><strong><code>_helpers.tpl</code> <code>fail</code> guard</strong> — the IMPL-0018
+   <code>validateBackendSecrets</code> pattern, included at the top of
+   <code>deployment.yaml</code>: if <code>.Values.tailscale</code> or
+   <code>.Values.webhookIPAllowlist</code> is present, fail render with a
+   message naming the removed block and the migration doc URL.
+   Schema violations produce JSON-Schema error walls; the helper
+   produces one legible sentence. They fire at different layers
+   (<code>helm lint</code>/CI vs render), which is why both exist.</li>
+</ol>
+<p><strong>Chart version (OQ3 decided): this change ships as <code>1.0.0</code> stable</strong>,
+graduating the rc series. Preconditions, because the publish
+workflow's <code>helm pull</code> idempotency precheck would <em>silently skip</em>
+publishing if a <code>1.0.0</code> already existed:</p>
+<ul>
+<li>GHCR verified clean 2026-08-15: <code>helm show chart
+  oci://ghcr.io/donaldgifford/charts/repo-guardian --version 1.0.0</code>
+  → "not found".</li>
+<li>ECR could not be checked from the workstation; the IMPL carries a
+  release-checklist step to verify no <code>1.0.0</code> exists in ECR before
+  tagging (an <code>aws ecr describe-images</code> or <code>helm show chart</code> against
+  the ECR OCI ref).</li>
+</ul>
+<p>Prerelease semantics make this clean: every <code>1.0.0-rc.*</code> sorts below
+<code>1.0.0</code>, and breaking changes inside the rc series were the series'
+stated purpose (IMPL-0016, IMPL-0018 precedent). The stable cut also
+means the migration note is part of the chart's 1.0.0 story rather
+than an rc-to-rc footnote.</p>
+<h3 id="d6-documentation-the-ingress-options-matrix">D6: Documentation — the ingress options matrix</h3>
+<p>New <code>docs/operations/ingress.md</code>, inheriting INV-0016's matrix
+verbatim as its spine:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Environment fit</th>
+<th>K8s routing API</th>
+<th>Source-IP enforcement</th>
+<th>Cost</th>
+<th>Validated</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AWS LBC + Gateway API (<code>HTTPRoute</code> → ALB)</td>
+<td>EKS / production</td>
+<td>Gateway API</td>
+<td>SG + GitHub prefix list, fail-closed</td>
+<td>AWS</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Tailscale operator Funnel</td>
+<td>homelab / tailnet clusters</td>
+<td><code>Ingress</code> (class <code>tailscale</code>)</td>
+<td>none — HMAC-only, stated plainly</td>
+<td>free</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Cloudflare Tunnel, operator-injected cloudflared sidecar</td>
+<td>homelab / any cluster</td>
+<td>none (edge → pod)</td>
+<td>CF WAF allowlist, fail-closed</td>
+<td>free + owned domain</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Cloudflare Tunnel via community operator (cfgate / lexfrei)</td>
+<td>homelab / any cluster</td>
+<td>Gateway API</td>
+<td>CF WAF allowlist, fail-closed</td>
+<td>free + owned domain</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Cloudflare Tunnel via STRRL controller</td>
+<td>homelab / any cluster</td>
+<td><code>Ingress</code> (class <code>cloudflare-tunnel</code>)</td>
+<td>CF WAF allowlist, fail-closed</td>
+<td>free + owned domain</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>ngrok Kubernetes operator</td>
+<td>homelab / any cluster</td>
+<td>Gateway API + <code>Ingress</code></td>
+<td><code>restrict-ips</code> Traffic Policy, fail-closed</td>
+<td>~$20/mo</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>ngrok CLI / <code>cloudflared</code> quick tunnel against localhost</td>
+<td>local dev (<code>make run-local</code> + docker-compose dev services)</td>
+<td>n/a</td>
+<td>none (ngrok policy is paid)</td>
+<td>free</td>
+<td>☑ ngrok; ☐ quick tunnel</td>
+</tr>
+</tbody>
+</table>
+<p>Per-option sections carry: the recipe (manifests/annotations/policy
+snippets), what sets <code>X-Forwarded-For</code> (telemetry-only post-removal),
+the source-IP enforcement setup where one exists, the CIDR-refresh
+ownership note for static allowlists, and the observability story
+(which edge-native signal plus which repo-guardian OTEL series answer
+"is traffic arriving / being rejected"). Two decided specifics:</p>
+<ul>
+<li><strong>(OQ6 = a)</strong> the cloudflared-sidecar row ships a complete,
+  copy-pasteable kustomize strategic-merge patch — container with a
+  <strong>pinned, renovate-annotated</strong> image (the supply-chain hygiene the
+  old sidecar lacked), tunnel-token Secret reference, and nothing
+  else, since remotely-managed tunnels keep the sidecar stateless.</li>
+<li><strong>(OQ5 = a)</strong> no in-app client-IP telemetry replaces the deleted
+  header read. Each matrix row documents where its edge's client-IP
+  evidence lives (ALB access logs, Cloudflare dashboard/Logpush,
+  ngrok inspector, Funnel — empirical checkbox item); otelhttp
+  metrics stay IP-free by design (cardinality), and E4 answers
+  "which repository", not "which caller".</li>
+</ul>
+<p>A closing section documents the checkbox contract: a box is checked
+only after the option carries a real GitHub App delivery end-to-end.</p>
+<h3 id="d7-historical-doc-supersession">D7: Historical-doc supersession</h3>
+<ul>
+<li><strong>SECURITY.md</strong> — the "two-layer defense" and Tailscale/Funnel
+  sections are rewritten: HMAC is the app-layer boundary; source-IP
+  enforcement is the operator's edge layer per <code>ingress.md</code>; the
+  removed middleware's history gets one paragraph pointing at
+  INV-0016 (including the spoofability finding, so nobody
+  reintroduces it as a "cheap second layer").</li>
+<li><strong>INV-0001, DESIGN-0003</strong> — superseded banners pointing at
+  INV-0016 + this design (docz status untouched; these are
+  historical records).</li>
+<li><strong>DESIGN-0004</strong> — status → Superseded (it designed the middleware
+  being deleted).</li>
+<li><strong><code>docs/operations/ent-setup.md</code></strong> and the chart's
+  <code>homelab-smoke.md</code> — Tailscale-sidecar references replaced with a
+  pointer to <code>ingress.md</code>.</li>
+</ul>
+<h2 id="api-interface-changes">API / Interface Changes</h2>
+<ul>
+<li><strong>Removed env vars:</strong> <code>WEBHOOK_IP_ALLOWLIST</code>,
+  <code>WEBHOOK_IP_ALLOWLIST_FAIL_OPEN</code>, <code>TRUST_PROXY_HEADERS</code> (ignored
+  if still set — the asymmetry is documented).</li>
+<li><strong>Removed HCL attributes</strong> on <code>guardian {}</code>:
+  <code>webhook_ip_allowlist</code>, <code>webhook_ip_allowlist_fail_open</code>,
+  <code>trust_proxy_headers</code> (fail load if still present).</li>
+<li><strong>Removed chart values:</strong> <code>tailscale.*</code>, <code>webhookIPAllowlist.*</code>
+  (fail render if still present).</li>
+<li><strong>Metric:</strong> <code>repo_guardian_webhook_rejected_total{reason}</code> — the
+  <code>ip_not_allowed</code>/<code>allowlist_unavailable</code> reasons disappear;
+  <code>signature</code> appears (OQ1 = a).</li>
+<li><strong>No Go interface changes.</strong> <code>github.Client</code>, <code>Store</code>, <code>Queue</code>,
+  the reconcilers, and the webhook <code>Handler</code> signature are untouched;
+  no mock regeneration needed.</li>
+</ul>
+<h2 id="data-model">Data Model</h2>
+<p>None. No store schema, queue payload, or policy-version-relevant
+changes — <code>policy.Version</code> hashes the policy struct, and removing
+<code>GuardianConfig</code> fields changes the hash exactly once at upgrade,
+which re-enqueues the fleet on the next sweep: harmless and expected
+(same class as any policy edit; note it in the migration doc so the
+post-upgrade sweep burst isn't mistaken for a bug).</p>
+<h2 id="testing-strategy">Testing Strategy</h2>
+<ul>
+<li><strong>Loader regression:</strong> a test asserting that a <code>guardian {}</code> block
+  containing <code>webhook_ip_allowlist = true</code> fails <code>Load</code> with
+  "Unsupported argument" — pinning the intended breakage so a future
+  schema addition can't silently resurrect the attribute. Verify
+  non-vacuously (add the attribute back to the schema, watch the
+  test fail, remove it).</li>
+<li><strong>Chart negative tests:</strong> helm-unittest cases asserting render
+  failure for <code>tailscale.enabled=true</code> and
+  <code>webhookIPAllowlist.enabled=true</code> with the migration message
+  (extend <code>tests/values_guard_test.yaml</code>, the IMPL-0018 suite), plus
+  removal of the sidecar assertions from <code>deployment_test.yaml</code>.</li>
+<li><strong>Monitoring drift gates (existing, load-bearing):</strong>
+  <code>TestLogLines_AreStillEmittedByTheBinary</code> forces the E4 matcher
+  edit; <code>make lint-monitoring</code> forces <code>contrib/generated/</code>
+  regeneration; <code>make lint-alerts-contrib</code> re-parses the generated
+  rules. No new machinery needed — the design leans on gates
+  IMPL-0023 already built.</li>
+<li><strong>Repointed counter (OQ1 = a):</strong> a handler test asserting the 401
+  path increments <code>webhook_rejected_total{reason="signature"}</code>
+  exactly once (<code>testutil.ToFloat64</code>), and the webhook 202 contract
+  tests keep passing unchanged.</li>
+<li><strong>Render sweep:</strong> <code>helm template</code> output diffed for exactly the
+  expected deletions (no sidecar container, no allowlist env, no
+  tailscale volumes/ConfigMap/RBAC) — the PR #67 namespace-stamping
+  check pattern.</li>
+</ul>
+<h2 id="migration-rollout-plan">Migration / Rollout Plan</h2>
+<ol>
+<li><strong>One release, both halves (OQ4 = a).</strong> Binary and chart ship
+   together in one atomic PR: appVersion bump <code>minor</code>, chart
+   <code>1.0.0</code> stable (OQ3). Shipping the chart removal against an old
+   binary would leave the allowlist enabled-by-default with no
+   values to disable it; shipping the binary first would strand
+   chart values that render env vars the binary ignores. Atomic is
+   simpler than either skew.</li>
+<li><strong>Operator steps, in the migration note</strong> (OQ2 = a — a
+   "Migrating from the baked sidecar" section at the top of
+   <code>docs/operations/ingress.md</code>; the chart guard message and the
+   startup-error pointer both name that one URL):
+   remove <code>tailscale.*</code> and <code>webhookIPAllowlist.*</code> from values;
+   remove the three <code>guardian.hcl</code> attributes; delete any stale env
+   patches (silently ignored, but confusing to future readers);
+   stand up the chosen <code>ingress.md</code> option <strong>before</strong> upgrading (the
+   old sidecar path dies with the upgrade — for the homelab that
+   means the Funnel <code>Ingress</code> or cloudflared sidecar must be
+   receiving deliveries first).</li>
+<li><strong>Failure modes are loud and immediate:</strong> stale values → render
+   failure with the migration message; stale HCL → startup failure
+   with "Unsupported argument". Both precede any traffic impact.</li>
+<li><strong>Post-upgrade expectations, documented:</strong> one full-fleet
+   re-enqueue from the policy-hash change (Data Model note); webhook
+   delivery gap during cutover recovered by the stale sweep
+   (INV-0016 Observation 9 — the system tolerates missed webhooks by
+   design, but GitHub's recent-deliveries view is the place to
+   redeliver anything urgent).</li>
+<li><strong>Rollback:</strong> re-deploy the previous chart+binary pair and
+   restore the removed values/attrs. No data migration in either
+   direction.</li>
+</ol>
+<h2 id="open-questions">Open Questions</h2>
+<p><strong>All six decided 2026-08-15</strong> (operator review): 1a, 2a,
+3 = other (cut as <code>1.0.0</code> stable, after verifying no published
+<code>1.0.0</code> exists — GHCR verified clean; ECR check moves to the release
+checklist), 4a, 5a, 6a. Decisions are folded into the sections above
+(D3, D5, D6, Migration); the original options are preserved below
+for the record.</p>
+<p><strong>1. Disposition of <code>webhook_rejected_total</code> and its alert.</strong>
+<em>Decided: (a).</em>
+The deleted middleware is the counter's only producer today; the
+HMAC 401 path increments nothing (INV-0016 Observation 5).</p>
+<ul>
+<li>(a) <strong>Repoint the counter at the HMAC path</strong> — increment
+  <code>webhook_rejected_total{reason="signature"}</code> on the 401 branch of
+  <code>webhook.Handler.ServeHTTP</code>. One line of producer; the
+  purpose-built low-cardinality counter and the
+  <code>RepoGuardianWebhookRejectionsHigh</code> alert survive with a truthful
+  description (which today promises signature visibility that
+  doesn't exist). E4 keeps a bespoke rejection series to graph next
+  to the invalid-payload log line.</li>
+<li>(b) Delete the counter and alert; re-express rejection monitoring
+  over otelhttp (<code>http_server_request_duration_seconds_count</code> by
+  <code>http_response_status_code</code>, the E3 vocabulary). One less bespoke
+  metric, but the alert loses the <code>reason</code> label and inherits
+  otel-semconv naming risk, and 401-rate-on-one-route is a clumsier
+  alert expression than a purpose-built counter.</li>
+<li>(c) Delete the counter and alert outright; rejected webhooks are
+  visible only in E4's invalid-payload log line and edge telemetry.
+  Smallest surface, but a silent-HMAC-failure regression (wrong
+  secret after a rotation) would page nobody.</li>
+<li>other: ____</li>
+</ul>
+<p><strong>2. Where the migration note lives.</strong>
+<em>Decided: (a).</em></p>
+<ul>
+<li>(a) <strong>A section in <code>docs/operations/ingress.md</code> itself</strong> —
+  "Migrating from the baked sidecar" at the top of the doc every
+  affected operator must read anyway; the chart guard message and
+  startup-error pointer both name one URL. One doc owns ingress
+  past, present, and future.</li>
+<li>(b) Extend <code>docs/operations/migrations.md</code> (the IMPL-0016 memory-
+  backend precedent lives there), keeping all breaking-change notes
+  in one file at the cost of splitting ingress reading across two
+  docs.</li>
+<li>(c) A standalone <code>docs/operations/ingress-migration.md</code>,
+  mirroring <code>template-migration.md</code>/<code>annotation-properties-migration.md</code>
+  precedent — cleanest separation, one more file to eventually
+  tombstone.</li>
+<li>other: ____</li>
+</ul>
+<p><strong>3. Chart version for the breaking change.</strong>
+<em>Decided: other — ship as <code>1.0.0</code> stable (see D5 for the
+published-version preconditions).</em></p>
+<ul>
+<li>(a) <strong>Stay in the rc series (<code>1.0.0-rc.13</code>)</strong> — the chart has
+  never shipped a stable 1.0.0; rc semantics permit breaking
+  changes, and every prior breaking rc (IMPL-0016's backend
+  removal, IMPL-0018) did exactly this. The migration note and
+  render guard carry the signal.</li>
+<li>(b) Jump to <code>2.0.0-rc.1</code> to signal loudly in the version number
+  itself — honest semver-major optics, but it majors a chart whose
+  1.0.0 never existed and breaks the rc narrative for the eventual
+  stable cut.</li>
+<li>(c) Cut <code>1.0.0</code> stable first, then <code>2.0.0-rc.1</code> with this change —
+  maximal semver correctness, two releases of ceremony for an
+  audience of one deployment fleet.</li>
+<li>other: ____</li>
+</ul>
+<p><strong>4. Sequencing of the removal.</strong>
+<em>Decided: (a).</em></p>
+<ul>
+<li>(a) <strong>One atomic PR</strong> — binary + chart + docs + generated
+  monitoring together. The drift gates effectively force D1+D3
+  atomicity already; splitting chart from binary creates the skew
+  states described in Migration step 1, and the whole diff is
+  mostly deletions (~500 LOC Go, ~100 lines chart, plus docs).</li>
+<li>(b) Two PRs: binary first (middleware + knobs + monitoring), chart</li>
+<li>docs second — smaller reviews, but the intermediate state ships
+  a binary that ignores env vars the current chart still renders,
+  and both PRs need the same migration doc.</li>
+<li>(c) Three phases IMPL-style (binary / chart / docs) — matches the
+  IMPL-0014 cleanup shape, but this change is a fraction of that
+  size and the docs are load-bearing for the other two phases'
+  failure messages.</li>
+<li>other: ____</li>
+</ul>
+<p><strong>5. Does anything replace the client-IP telemetry?</strong>
+<em>Decided: (a).</em>
+Post-removal, nothing in the app reads <code>X-Forwarded-For</code>; the
+<code>RemoteAddr</code> behind every documented edge is a proxy/sidecar
+address. INV-0016 flagged Funnel's forwarded-header behavior as
+unverified.</p>
+<ul>
+<li>(a) <strong>Nothing in-app; document per-edge.</strong> otelhttp does not
+  record client IPs in metrics (cardinality), request logs at the
+  edge (ALB access logs, CF, ngrok inspector) are strictly better
+  evidence, and the one consumer that ever cared is being deleted
+  for cause. <code>ingress.md</code> notes where each edge's client-IP evidence
+  lives, and the Funnel XFF question stays an empirical checkbox
+  item on that row.</li>
+<li>(b) Log the leftmost XFF value (clearly labeled untrusted) on the
+  webhook handler's Warn paths only — cheap forensic breadcrumb on
+  rejected requests, at the cost of resurrecting a header read this
+  design just finished calling spoofable, in the exact place a
+  future reader might mistake it for enforcement.</li>
+<li>other: ____</li>
+</ul>
+<p><strong>6. Does the sidecar image reference survive anywhere as a worked
+example?</strong>
+<em>Decided: (a).</em>
+INV-0016 Observation 9 makes the operator-injected cloudflared
+sidecar a first-class matrix row, and the homelab consumes the chart
+via kustomize+helm in ArgoCD.</p>
+<ul>
+<li>(a) <strong>Yes — ship a complete kustomize strategic-merge patch example
+  in <code>ingress.md</code></strong> for the cloudflared sidecar row (container,
+  token Secret reference, pinned+renovate-annotated image), so the
+  first operator to validate that row starts from a copy-pasteable
+  patch that already has the supply-chain hygiene the old sidecar
+  lacked. The chart itself stays ingress-free.</li>
+<li>(b) No example manifests in <code>ingress.md</code> — links to vendor docs
+  only. Less to maintain, but every operator re-derives the same
+  patch and the hygiene lessons (pinned image, no <code>:latest</code>) don't
+  carry.</li>
+<li>other: ____</li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="../../investigation/0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress/">INV-0016</a> — the concluded investigation this design executes (Observations 1–9, options matrix, straight-removal decision)</li>
+<li><a href="../0004-github-webhook-ip-allowlist-middleware/">DESIGN-0004</a> — the middleware being removed (to be marked Superseded)</li>
+<li><a href="../0003-tailscale-integration-research/">DESIGN-0003</a> — the sidecar being removed (supersession pointer)</li>
+<li><a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/">INV-0001</a> — the Funnel origin (supersession pointer)</li>
+<li><a href="../../impl/0016-deprecate-memory-backend/">IMPL-0016</a> — the remove-the-baked-thing precedent (schema rejection + migration pointer)</li>
+<li>IMPL-0018 — <code>_helpers.tpl</code> <code>fail</code>-guard precedent (<code>validateBackendSecrets</code>)</li>
+<li><code>SECURITY.md</code> — the two-layer webhook narrative being rewritten</li>
+<li><code>internal/monitoring/dashboard/e4.go</code> / <code>internal/monitoring/alert/alert.go</code> — the E4 matchers and <code>RepoGuardianWebhookRejectionsHigh</code> catalogue entry (D3)</li>
+<li>Provider references: see INV-0016's References section (Tailscale operator/Funnel, AWS LBC Gateway API GA, ngrok operator + Traffic Policy, Cloudflare Tunnel + WAF, cfgate/lexfrei/STRRL controllers)</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

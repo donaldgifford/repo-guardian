@@ -1,0 +1,2648 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Customizable PR templates and extensible template ConfigMap - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#design-0013-customizable-pr-templates-and-extensible-template-configmap" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Customizable PR templates and extensible template ConfigMap
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goals-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals and Non-Goals
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Goals and Non-Goals">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#unified-template-renderer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unified template renderer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#variable-contexts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Variable contexts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#helpers-curated-subset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Helpers (curated subset)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#render-time-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Render-time behavior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hcl-grammar-additions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HCL grammar additions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#template-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Template variables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#multi-rule-pr-title-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-rule PR title resolution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chart-values-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chart values surface
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-interface-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API / Interface Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-rollout-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration / Rollout Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolved-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolved Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="design-0013-customizable-pr-templates-and-extensible-template-configmap">DESIGN 0013: Customizable PR templates and extensible template ConfigMap</h1>
+<p><strong>Status:</strong> Implemented
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-05-03</p>
+<!--toc:start-->
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#goals-and-non-goals">Goals and Non-Goals</a></li>
+<li><a href="#goals">Goals</a></li>
+<li><a href="#non-goals">Non-Goals</a></li>
+<li><a href="#background">Background</a></li>
+<li><a href="#detailed-design">Detailed Design</a></li>
+<li><a href="#unified-template-renderer">Unified template renderer</a></li>
+<li><a href="#variable-contexts">Variable contexts</a></li>
+<li><a href="#helpers-curated-subset">Helpers (curated subset)</a></li>
+<li><a href="#render-time-behavior">Render-time behavior</a></li>
+<li><a href="#hcl-grammar-additions">HCL grammar additions</a></li>
+<li><a href="#template-variables">Template variables</a></li>
+<li><a href="#multi-rule-pr-title-resolution">Multi-rule PR title resolution</a></li>
+<li><a href="#chart-values-surface">Chart values surface</a></li>
+<li><a href="#api--interface-changes">API / Interface Changes</a></li>
+<li><a href="#data-model">Data Model</a></li>
+<li><a href="#testing-strategy">Testing Strategy</a></li>
+<li><a href="#migration--rollout-plan">Migration / Rollout Plan</a></li>
+<li><a href="#open-questions">Open Questions</a></li>
+<li><a href="#resolved-questions">Resolved Questions</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="overview">Overview</h2>
+<p>repo-guardian has two separate, weakly-related templating mechanisms
+today: file templates (<code>.tmpl</code> files rendered via simple
+uppercase-placeholder substitution like <code>OWNER_VALUE</code>) and PR titles
+/ bodies (hardcoded engine constants). Orgs that want Jira/Linear
+prefixes, conventional-commit titles, or doc links in PR bodies
+cannot adopt the tool without forking. Separately, the chart's
+template ConfigMap exposes only three hardcoded slots
+(<code>codeowners</code>, <code>dependabot</code>, <code>renovate</code>), so adding a sixth or
+seventh templated rule requires both an HCL change and a chart
+release.</p>
+<p>This design <strong>unifies all templating</strong> behind a single Go
+<code>text/template</code>-based renderer used by file-template generation,
+PR titles, and PR bodies. Variables and helpers are shared across
+all three contexts; only the variable struct passed in differs.
+Embedded templates are rewritten from <code>OWNER_VALUE</code>-style
+substitution to dotted-path Go template syntax (<code>{{ .Catalog.Owner }}</code>).
+The chart's hardcoded ConfigMap slots are replaced with a generic
+<code>templates.files</code> map plus an <code>existingConfigMap</code> escape hatch so
+adding new rule templates is a config-only operation.</p>
+<h2 id="goals-and-non-goals">Goals and Non-Goals</h2>
+<h3 id="goals">Goals</h3>
+<ul>
+<li><strong>One templating system everywhere.</strong> A single renderer in
+  <code>internal/template/</code> serves file-template rendering, PR titles,
+  and PR bodies. Same syntax, same helpers, different typed
+  variable contexts. Operators learn one mental model.</li>
+<li><strong>Per-rule PR title and body customization.</strong> Each rule (and each
+  reconciler that opens its own PR) can override the engine defaults
+  with a Go-template string.</li>
+<li><strong>Global defaults at the policy level.</strong> Orgs that want a uniform
+  prefix or footer set it once at <code>defaults.pr {}</code> and all rules
+  inherit unless they override.</li>
+<li><strong>Useful template variables.</strong> Repo identity, rule identity, the
+  list of files added in this PR, the current date, plus an <code>env</code>
+  helper for runtime substitution (Jira project ID, support URL,
+  etc.). Reconciler-specific contexts (e.g., catalog-info parsed
+  fields) are exposed as nested struct fields.</li>
+<li><strong>Generic template ConfigMap.</strong> Chart's <code>values.templates.files</code>
+  is a map of <code>&lt;filename&gt;: &lt;content&gt;</code> so any template name is
+  expressible without chart changes. Existing hardcoded slots
+  (<code>codeowners</code>, <code>dependabot</code>, <code>renovate</code>) are removed in this
+  release; users who set them must migrate to <code>templates.files</code>.</li>
+<li><strong><code>templates.existingConfigMap</code> escape hatch.</strong> Mirrors
+  <code>policy.existingConfigMap</code>. Operator points at a ConfigMap they
+  manage themselves (out-of-band, GitOps-managed, etc.) and the
+  chart skips creating its own.</li>
+<li><strong>Helm values pass-through.</strong> Operators expose arbitrary template
+  variables by setting environment variables on the Deployment
+  (via a chart values block); templates reference them with
+  <code>{{ env "MY_VAR" }}</code>. No new mechanism needed beyond the existing
+  <code>env</code> helper.</li>
+<li><strong>Safe-by-default templating.</strong> Template parse errors at config
+  load time, not at render time. A bad template fails the policy
+  load with a clear message, not silently at PR creation.</li>
+</ul>
+<h3 id="non-goals">Non-Goals</h3>
+<ul>
+<li><strong>A general-purpose templating language.</strong> No conditionals, no
+  loops over arbitrary data — just variable substitution + a small
+  set of helpers (<code>env</code>, <code>join</code>, <code>default</code>). Anything that wants
+  more belongs in a reconciler, not a PR title.</li>
+<li><strong>Markdown linting / rendering of bodies.</strong> Operators write
+  whatever Markdown they want; the engine only substitutes variables
+  and forwards the result to GitHub.</li>
+<li><strong>Localization / i18n.</strong> Single language per policy.</li>
+<li><strong>Per-installation overrides.</strong> A given policy file is one
+  configuration. Multi-org / multi-installation customization
+  remains the responsibility of the per-org scope blocks
+  (DESIGN-0010).</li>
+<li><strong>Replacing the embedded fallback templates.</strong> The binary still
+  ships embedded defaults so a chart with no <code>templates.files</code>
+  configured still works for the built-in rules.</li>
+<li><strong>Backward compatibility with <code>OWNER_VALUE</code>-style placeholders.</strong>
+  This design replaces the simple substitution renderer with Go
+  <code>text/template</code>. Existing reconciler templates (catalog-info,
+  set-custom-properties, renovate) are rewritten in this PR. There
+  is no compat layer — operators with custom <code>.tmpl</code> files using
+  the old uppercase placeholders must migrate when they upgrade.</li>
+</ul>
+<h2 id="background">Background</h2>
+<p>Today's engine state for PR generation:</p>
+<ul>
+<li><code>internal/checker/engine_policy.go</code> defines <code>PRTitle = "chore: add
+  missing files"</code> as a constant, and <code>buildPRBodyFromPolicy(actionable)</code>
+  hardcodes a Markdown summary of the rules being reconciled.</li>
+<li>Reconcilers that open their own PRs also have hardcoded titles:
+  <code>PropertiesPRTitle</code>, <code>CatalogInfoPRTitle</code> in
+  <code>internal/reconciler/custom_properties.go</code>.</li>
+<li>HCL <code>rule</code> blocks accept a <code>pr {}</code> sub-block today, but its only
+  field is <code>search_terms</code> (used for finding existing PRs to update).</li>
+<li>No template variable substitution exists in the binary for PR
+  titles / bodies.</li>
+</ul>
+<p>Today's state for file template rendering:</p>
+<ul>
+<li><code>internal/reconciler/reconciler.go</code> has a private <code>renderTemplate</code>
+  function that does naive <code>strings.ReplaceAll</code> substitution from
+  a <code>map[string]string</code>. No Go <code>text/template</code>, no helpers, no
+  validation.</li>
+<li>Reconcilers pass uppercase placeholder maps:</li>
+<li><code>catalog-info.tmpl</code> consumes <code>REPO_NAME</code> and <code>ORG_NAME</code></li>
+<li><code>set-custom-properties.tmpl</code> consumes <code>OWNER_VALUE</code>,
+    <code>COMPONENT_VALUE</code>, <code>JIRA_PROJECT_VALUE</code>, <code>JIRA_LABEL_VALUE</code></li>
+<li><code>renovate.tmpl</code> consumes <code>ORG_NAME</code></li>
+<li>This is the legacy renderer this design replaces. The new
+  unified renderer means file templates and PR templates share
+  syntax, helpers, and parse-time validation.</li>
+</ul>
+<p>Today's chart state for templates:</p>
+<ul>
+<li><code>charts/repo-guardian/templates/configmap.yaml</code> builds a ConfigMap
+  with three hardcoded keys (<code>CODEOWNERS.tmpl</code>, <code>dependabot.yml.tmpl</code>,
+  <code>renovate.json.tmpl</code>), each populated from
+  <code>.Values.templates.&lt;name&gt;</code> if set.</li>
+<li><code>cfg.TemplateDir</code> (env <code>TEMPLATE_DIR</code>, default
+  <code>/etc/repo-guardian/templates</code>) on the binary side already supports
+  loading any number of <code>*.tmpl</code> files from a directory and falling
+  back to embedded defaults — so the binary is fully extensible.</li>
+<li>The bottleneck is the chart's hardcoded values surface, not the
+  binary.</li>
+</ul>
+<h2 id="detailed-design">Detailed Design</h2>
+<h3 id="unified-template-renderer">Unified template renderer</h3>
+<p>A single package <code>internal/template/</code> exposes one renderer used by
+all three contexts:</p>
+<pre><code class="language-go">package template
+
+type Renderer struct {
+    funcs template.FuncMap
+}
+
+func NewRenderer() *Renderer { /* ... */ }
+
+// Parse compiles a template string at config-load time.
+// Errors here surface as policy validation failures.
+func (r *Renderer) Parse(name, body string) (*Compiled, error)
+
+type Compiled struct {
+    name string
+    tpl  *template.Template
+}
+
+// Render executes the compiled template against any typed context.
+// Returns wrapped error on render failure.
+func (c *Compiled) Render(vars any) (string, error)
+</code></pre>
+<p>The renderer uses Go <code>text/template</code> with a curated function map.
+Variable contexts are typed structs (not <code>map[string]any</code>) so
+templates fail at parse time when they reference a non-existent
+field — caught by <code>make test</code> instead of in production.</p>
+<h3 id="variable-contexts">Variable contexts</h3>
+<p>Three context structs, all sharing common base fields:</p>
+<pre><code class="language-go">package template
+
+// Common is embedded into every context.
+type Common struct {
+    Owner         string  // org / repo owner
+    Repo          string  // repo name
+    DefaultBranch string  // e.g., &quot;main&quot;
+    Date          string  // RFC3339 timestamp at render time
+}
+
+// FileVars is passed to file template rendering.
+type FileVars struct {
+    Common
+    Rule    Rule          // rule being applied
+    Catalog *CatalogInfo  // populated only for catalog-info-aware rules; nil otherwise
+    Org     string        // alias for Owner; convenience for org-named templates
+}
+
+// PRVars is passed to PR title and body rendering.
+type PRVars struct {
+    Common
+    Rule       Rule       // single-rule PR
+    Rules      []Rule     // bundled-PR body; nil for single-rule
+    Files      []string   // all files included in this PR
+    Reconciler string     // reconciler name if this is a reconciler-opened PR; &quot;&quot; otherwise
+}
+
+type Rule struct {
+    Name   string
+    Target string
+}
+
+type CatalogInfo struct {
+    Owner       string  // spec.owner from catalog-info.yaml
+    Component   string  // metadata.name
+    JiraProject string  // backstage.io/jira-project-key
+    JiraLabel   string  // backstage.io/jira-component
+}
+</code></pre>
+<p>The <code>Catalog</code> field is <code>nil</code> for any file template not produced by
+a catalog-info-aware reconciler. Templates that reference
+<code>{{ .Catalog.Owner }}</code> on a context where <code>Catalog</code> is nil fail
+at render time with a clear error — and at parse time we can
+optionally validate by running each template against a zero-value
+context.</p>
+<h3 id="helpers-curated-subset">Helpers (curated subset)</h3>
+<p>Available in all three contexts:</p>
+<table>
+<thead>
+<tr>
+<th>Helper</th>
+<th>Signature</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>env</code></td>
+<td><code>env "VAR"</code></td>
+<td>read environment variable; "" if unset</td>
+</tr>
+<tr>
+<td><code>default</code></td>
+<td><code>default fallback value</code></td>
+<td>fallback for empty values</td>
+</tr>
+<tr>
+<td><code>join</code></td>
+<td><code>join sep slice</code></td>
+<td>string-join a slice</td>
+</tr>
+<tr>
+<td><code>lower</code>, <code>upper</code>, <code>title</code></td>
+<td><code>lower str</code></td>
+<td>case helpers</td>
+</tr>
+</tbody>
+</table>
+<p>Not included: <code>now</code>, <code>regexReplaceAll</code>, <code>readFile</code>, <code>glob</code>,
+<code>hasPrefix</code>, anything Sprig-specific. Adding a helper requires a
+code change with a test — keeps the surface small and auditable.</p>
+<h3 id="render-time-behavior">Render-time behavior</h3>
+<ul>
+<li><strong>PR body truncation.</strong> Rendered PR bodies that exceed ~65000
+  chars (GitHub's PR body cap is 65535) are truncated to fit, with
+  a visible marker appended:
+  <code>&lt;!-- truncated by repo-guardian: original length=N chars, max=65535 --&gt;</code>.
+  Engine emits <code>slog.Warn</code> with the original length. PR creation
+  succeeds with the truncated body; the marker is visible to PR
+  reviewers and the warning is visible to operators in logs. PR
+  titles have no comparable limit issue (GitHub caps titles at 256
+  chars; templates that hit this are operator bugs, fail loud).</li>
+<li><strong>Strict template validation.</strong> Opt-in via <code>--strict-templates</code>
+  CLI flag on the binary (env var <code>STRICT_TEMPLATES=true</code>). When
+  enabled, every parsed template is execute-checked against a
+  zero-value variable context at policy-load time, surfacing
+  <code>.Catalog.Owner</code> references where <code>.Catalog</code> is nil before they
+  hit production. Off by default for V1; V2 may make it default
+  once the false-positive rate is known. Recommended in CI / dev
+  environments to catch template bugs before deploy.</li>
+</ul>
+<h3 id="hcl-grammar-additions">HCL grammar additions</h3>
+<p>A new <code>pr {}</code> block grammar, valid at three scopes:</p>
+<pre><code class="language-hcl"># 1. Policy-level defaults — applies to every rule that doesn't override
+defaults {
+  pr {
+    title  = &quot;chore: {{ .Rule.Name }}&quot;
+    body   = &lt;&lt;-EOT
+      Generated by repo-guardian.
+      Files added:
+      {{ range .Files }}- `{{ . }}`
+      {{ end }}
+    EOT
+    labels = [&quot;compliance&quot;, &quot;automated&quot;]
+  }
+}
+
+# 2. Per-rule override
+rule &quot;file&quot; &quot;codeowners&quot; {
+  check    = &quot;exists&quot;
+  target   = &quot;.github/CODEOWNERS&quot;
+  template = &quot;codeowners&quot;
+
+  pr {
+    title = &quot;[{{ env \&quot;JIRA_PROJECT\&quot; }}-CHORE] add CODEOWNERS&quot;
+    body  = &quot;Adds CODEOWNERS per [SEC-001](https://jira.example.com/browse/SEC-1)&quot;
+    # labels not set → inherits [&quot;compliance&quot;, &quot;automated&quot;] from defaults
+  }
+}
+
+# 3. Per-reconciler override (reconcilers that open their own PRs)
+rule &quot;file&quot; &quot;catalog_info&quot; {
+  check    = &quot;contains&quot;
+  target   = &quot;catalog-info.yaml&quot;
+  template = &quot;catalog-info&quot;
+
+  reconcile &quot;custom_properties&quot; {
+    mode  = &quot;github-action&quot;
+    watch = true
+
+    pr {
+      # inherits defaults to true; title and labels (unset here) come from
+      # defaults.pr; body uses the explicit override below.
+      body = &quot;Installs the GitHub Action that syncs Backstage metadata to repo properties.&quot;
+    }
+  }
+}
+
+# Cleaner alternative — opt out of inheritance entirely
+rule &quot;file&quot; &quot;internal_audit_log&quot; {
+  check    = &quot;exists&quot;
+  target   = &quot;.github/audit-log.yml&quot;
+  template = &quot;audit-log&quot;
+
+  pr {
+    # This PR is NOT a compliance PR; don't pick up [JIRA-CHORE] prefix
+    # or compliance/automated labels from defaults.pr.
+    inherits = false
+    title    = &quot;audit: enable repo audit logging&quot;
+    body     = &quot;Enables structured audit logging for SOC2 evidence collection.&quot;
+    labels   = [&quot;audit&quot;, &quot;soc2&quot;]
+  }
+}
+</code></pre>
+<p>Resolution order (most specific wins, walking up the chain):</p>
+<ol>
+<li>Reconciler-level <code>reconcile { pr {} }</code> (only for reconciler PRs)</li>
+<li>Rule-level <code>rule { pr {} }</code> (only for rule PRs)</li>
+<li>Policy-level <code>defaults { pr {} }</code></li>
+<li>Engine built-in (current behavior)</li>
+</ol>
+<p>Each <code>pr {}</code> block has an <code>inherits</code> boolean (default <code>true</code>) that
+controls whether unset fields cascade up the chain:</p>
+<ul>
+<li><code>inherits = true</code> (default): unset fields at this level pull from
+  the next level up. So a reconciler <code>pr {}</code> that sets only <code>title</code>
+  gets <code>body</code> and <code>labels</code> from <code>rule.pr</code> (if set) → <code>defaults.pr</code>
+  → built-in.</li>
+<li><code>inherits = false</code>: this block is canonical; unset fields skip
+  parent levels and use the engine built-in directly. Useful when
+  the <code>defaults.pr</code> template is compliance-flavored but a specific
+  rule or reconciler PR needs to read differently.</li>
+</ul>
+<p><code>defaults.pr</code> itself ignores <code>inherits</code> since it has no parent to
+inherit from.</p>
+<h3 id="template-variables">Template variables</h3>
+<p>Available in both <code>title</code> and <code>body</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.Owner</code></td>
+<td>string</td>
+<td>Repo owner / org login</td>
+</tr>
+<tr>
+<td><code>.Repo</code></td>
+<td>string</td>
+<td>Repo name</td>
+</tr>
+<tr>
+<td><code>.DefaultBranch</code></td>
+<td>string</td>
+<td>Default branch name</td>
+</tr>
+<tr>
+<td><code>.Rule.Name</code></td>
+<td>string</td>
+<td>HCL rule label (e.g., <code>codeowners</code>)</td>
+</tr>
+<tr>
+<td><code>.Rule.Target</code></td>
+<td>string</td>
+<td>Target file path (e.g., <code>.github/CODEOWNERS</code>)</td>
+</tr>
+<tr>
+<td><code>.Files</code></td>
+<td>[]string</td>
+<td>All file paths included in this PR</td>
+</tr>
+<tr>
+<td><code>.Date</code></td>
+<td>string</td>
+<td>RFC3339 timestamp at PR creation</td>
+</tr>
+<tr>
+<td><code>.Reconciler</code></td>
+<td>string</td>
+<td>Empty for rule PRs; reconciler name for reconciler PRs</td>
+</tr>
+</tbody>
+</table>
+<p>Helpers (Sprig-style subset):</p>
+<ul>
+<li><code>env "VAR"</code> — read environment variable; empty string if unset</li>
+<li><code>join sep slice</code> — string-join a slice</li>
+<li><code>default fallback value</code> — fallback if value is empty</li>
+<li><code>lower</code>, <code>upper</code>, <code>title</code> — case helpers</li>
+</ul>
+<p>The full Sprig library is <strong>not</strong> included — we want a minimal,
+auditable surface. Adding a helper requires a code change and tests.</p>
+<h3 id="multi-rule-pr-title-resolution">Multi-rule PR title resolution</h3>
+<p>When multiple file rules fire on the same sweep against the same
+repo, the engine bundles them into a single PR on
+<code>repo-guardian/add-missing-files</code>. With per-rule titles, this
+creates ambiguity. Resolution:</p>
+<ul>
+<li>If two or more rules with different <code>pr.title</code> values fire
+  together: use the policy-level <code>defaults.pr.title</code> (or built-in
+  if no default). The per-rule titles are ignored for the bundled
+  PR. The engine emits a <code>slog.Info</code> log noting the rules whose
+  titles were ignored.</li>
+<li>If exactly one rule fires (or all firing rules share the same
+  resolved title): use that title.</li>
+<li>Future option: <code>pr.bundle = "separate"</code> on a rule could force
+  it into its own PR (its own branch, its own title), at the cost
+  of more open PRs per repo. Out of scope for V1.</li>
+</ul>
+<p>The body is always built from a default template that lists <em>all</em>
+included rules and files, but the body template can reference
+<code>.Rules</code> (slice) instead of <code>.Rule.Name</code> to format the bundled list.</p>
+<h3 id="chart-values-surface">Chart values surface</h3>
+<p><code>values.yaml</code> schema change:</p>
+<pre><code class="language-yaml">templates:
+  # Generic map: any filename, any content.
+  # Filename WITHOUT .tmpl suffix matches the rule's `template = &quot;...&quot;` reference.
+  # Filename WITH .tmpl suffix is what gets written into the ConfigMap.
+  files: {}
+
+  # Escape hatch: point at a ConfigMap managed outside the chart.
+  # When set, the chart does NOT create its own template ConfigMap.
+  existingConfigMap: &quot;&quot;
+
+# REMOVED in this release (clean break):
+#   templates.codeowners
+#   templates.dependabot
+#   templates.renovate
+# Migration: move existing values into templates.files with the .tmpl suffix.
+
+# Helm values pass-through to template `env` helper.
+templating:
+  vars: {}
+  # Example:
+  #   JIRA_PROJECT: &quot;PLAT&quot;
+  #   DOCS_URL: &quot;https://docs.example.com/compliance&quot;
+  # Each key becomes an env var on the Deployment; templates reference
+  # them as {{ env &quot;JIRA_PROJECT&quot; }}.
+</code></pre>
+<p>Example filled-in:</p>
+<pre><code class="language-yaml">templates:
+  files:
+    codeowners.tmpl: |
+      * @platform-team
+    dependabot.yml.tmpl: |
+      version: 2
+      updates:
+        - package-ecosystem: github-actions
+          directory: /
+          schedule:
+            interval: weekly
+    custom-properties.tmpl: |
+      apiVersion: v1
+      kind: ConfigMap
+      ...
+    wf-security-scan.tmpl: |
+      name: Security Scan
+      on: { push: { branches: [main] } }
+      jobs: { ... }
+</code></pre>
+<p><code>templates/configmap.yaml</code> rewrite:</p>
+<ul>
+<li>If <code>templates.existingConfigMap</code> is set: skip rendering the
+  ConfigMap. Mount the named ConfigMap on the Deployment.</li>
+<li>Else: <code>range $name, $content := .Values.templates.files</code> and
+  emit a key per entry.</li>
+<li>Legacy slots removed entirely. NOTES.txt explains the migration
+  for users upgrading from a release that set them.</li>
+</ul>
+<p><code>templating.vars</code> rendering:</p>
+<ul>
+<li>Each <code>(key, value)</code> becomes an env var on the Deployment via
+  <code>range $k, $v := .Values.templating.vars</code> in the deployment
+  template. Standard k8s env-var rules apply (uppercase recommended,
+  values shell-safe).</li>
+<li>Templates reference them as <code>{{ env "KEY" }}</code> in any of the three
+  contexts. No special chart-side handling beyond emitting the env
+  vars.</li>
+</ul>
+<h2 id="api-interface-changes">API / Interface Changes</h2>
+<p>HCL grammar (added):</p>
+<ul>
+<li><code>defaults { pr {} }</code> block at top level</li>
+<li><code>pr {}</code> block inside <code>rule "file"</code> (extends existing)</li>
+<li><code>pr {}</code> block inside <code>reconcile { ... }</code> (new)</li>
+<li>Fields: <code>title</code>, <code>body</code>, <code>labels</code></li>
+</ul>
+<p>Go (added):</p>
+<ul>
+<li><code>internal/template/</code> — new package owning the renderer, variable
+  contexts (<code>FileVars</code>, <code>PRVars</code>, <code>Common</code>), helpers, and parse-time
+  validation. Mockable interface for tests.</li>
+<li><code>internal/policy/pr.go</code> — <code>PRTemplate</code> struct holding compiled
+  title/body/labels resolved at HCL load time.</li>
+<li><code>internal/checker/engine_policy.go</code> — wire compiled <code>PRTemplate</code>
+  into PR creation, fall through to defaults.</li>
+<li><code>internal/reconciler/custom_properties.go</code> (and any reconciler
+  that opens PRs) — accept a <code>*PRTemplate</code> from the reconciler
+  config and invoke it.</li>
+</ul>
+<p>Go (changed):</p>
+<ul>
+<li><code>internal/reconciler/reconciler.go.renderTemplate</code> — removed.
+  Replaced by <code>template.Renderer.Render(compiled, FileVars{...})</code>.</li>
+<li><code>internal/rules/registry.go.TemplateStore</code> — <code>Get(name)</code> now
+  returns a <code>*template.Compiled</code> (parsed at load time) instead of
+  a raw string. Old callers that did <code>strings.ReplaceAll</code> on the
+  return value are migrated to <code>Render(compiled, vars)</code>.</li>
+</ul>
+<p>Embedded templates (rewritten — see Migration for the diff):</p>
+<ul>
+<li><code>internal/rules/templates/catalog-info.tmpl</code> — <code>REPO_NAME</code> →
+  <code>{{ .Repo }}</code>, <code>ORG_NAME</code> → <code>{{ .Owner }}</code></li>
+<li><code>internal/rules/templates/set-custom-properties.tmpl</code> —
+  <code>OWNER_VALUE</code> → <code>{{ .Catalog.Owner }}</code>, <code>COMPONENT_VALUE</code> →
+  <code>{{ .Catalog.Component }}</code>, <code>JIRA_PROJECT_VALUE</code> →
+  <code>{{ .Catalog.JiraProject }}</code>, <code>JIRA_LABEL_VALUE</code> →
+  <code>{{ .Catalog.JiraLabel }}</code></li>
+<li><code>internal/rules/templates/renovate.tmpl</code> — <code>ORG_NAME</code> →
+  <code>{{ .Owner }}</code></li>
+</ul>
+<p>Chart <code>values.yaml</code> (changed):</p>
+<ul>
+<li>Add <code>templates.files</code> (map)</li>
+<li>Add <code>templates.existingConfigMap</code> (string)</li>
+<li>Add <code>templating.vars</code> (map) — Helm values → env-var pass-through</li>
+<li><strong>Remove</strong> <code>templates.codeowners</code>, <code>templates.dependabot</code>,
+  <code>templates.renovate</code> (clean break, no compat shim)</li>
+</ul>
+<p>Env vars: any <code>templating.vars</code> entry becomes a Deployment env var.</p>
+<h2 id="data-model">Data Model</h2>
+<p>No persistence. Everything is config-resolved at policy / template
+load time.</p>
+<p><code>PRTemplate</code> struct (sketch — references the unified renderer
+defined in Detailed Design):</p>
+<pre><code class="language-go">package policy
+
+import &quot;github.com/donaldgifford/repo-guardian/internal/template&quot;
+
+type PRTemplate struct {
+    Title    *template.Compiled  // parsed at policy load; nil = inherit
+    Body     *template.Compiled  // nil = inherit
+    Labels   []string             // applied verbatim, no templating; nil = inherit
+    Inherits bool                 // default true; false skips parent levels
+}
+
+func (p *PRTemplate) Render(r *template.Renderer, v *template.PRVars) (title, body string, err error) {
+    title, err = p.Title.Render(v)
+    if err != nil { return }
+    body, err = p.Body.Render(v)
+    return
+}
+</code></pre>
+<p>The <code>*template.Compiled</code> and <code>*template.PRVars</code> types are defined
+in <code>internal/template/</code> (see Detailed Design § Variable contexts).
+The same package's <code>*template.FileVars</code> is used by reconcilers
+when they render <code>.tmpl</code> files.</p>
+<p>Templates are parsed once at config load (HCL parse for <code>pr {}</code>
+blocks, template-store load for <code>.tmpl</code> files). Parse errors fail
+the load with a clear message identifying which template and what
+went wrong. Render-time errors are treated as engine errors
+(logged, the failing operation aborts for that repo).</p>
+<h2 id="testing-strategy">Testing Strategy</h2>
+<ul>
+<li><strong>Unit tests</strong> in <code>internal/template/</code>:</li>
+<li>Parse error surfacing (bad template → load fails with location)</li>
+<li>Each helper (<code>env</code>, <code>default</code>, <code>join</code>, <code>lower</code>, <code>upper</code>, <code>title</code>)
+    has positive + edge-case tests</li>
+<li>Render against zero-value contexts to catch templates that
+    deref nil pointers</li>
+<li>Render against <code>FileVars</code> and <code>PRVars</code> proves the same renderer
+    serves both</li>
+<li><strong>Unit tests</strong> in <code>internal/policy/pr_test.go</code>:</li>
+<li>Parse-time errors caught at policy load</li>
+<li>Resolution-order tests (reconciler &gt; rule &gt; defaults &gt; built-in)</li>
+<li><strong>Integration tests</strong> in <code>internal/checker/engine_policy_test.go</code>:</li>
+<li>Rule with custom title → PR created with rendered title</li>
+<li>Bundled PR with conflicting titles → falls back to defaults</li>
+<li>Reconciler with custom title → reconciler PR uses it</li>
+<li><strong>Reconciler tests</strong> updated:</li>
+<li><code>internal/reconciler/custom_properties_test.go</code> — assert the
+    rendered catalog-info / set-custom-properties bodies match
+    expected output under the new dotted variables</li>
+<li><strong>Helm-unittest</strong> for chart changes:</li>
+<li><code>templates.files</code> map renders into ConfigMap with all keys</li>
+<li><code>templates.existingConfigMap</code> skips ConfigMap rendering and
+    mounts the named one</li>
+<li><code>templating.vars</code> keys appear as Deployment env vars</li>
+<li><strong>Smoke test in homelab</strong> with at least one rule using a Jira-style
+  title and <code>env "JIRA_PROJECT"</code> substitution.</li>
+</ul>
+<h2 id="migration-rollout-plan">Migration / Rollout Plan</h2>
+<p>This design ships as one coordinated change set because the unified
+renderer touches both PR creation and reconciler file rendering;
+splitting them would leave the codebase mid-migration with two
+templating systems active simultaneously.</p>
+<ol>
+<li><strong>Land <code>internal/template/</code> package</strong> with renderer, contexts,
+   helpers, and tests. Pure addition; nothing yet calls it.</li>
+<li><strong>Migrate <code>TemplateStore.Get</code> to return <code>*template.Compiled</code>.</strong>
+   Update the engine's file-creation path and reconcilers
+   (<code>custom_properties.go</code>) to call <code>Render(compiled, FileVars{...})</code>
+   instead of <code>renderTemplate(content, map)</code>. Delete
+   <code>renderTemplate</code>. CI must stay green.</li>
+<li><strong>Rewrite the embedded templates</strong> to dotted-path syntax:</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Template</th>
+<th>Old → New</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>catalog-info.tmpl</code></td>
+<td><code>REPO_NAME</code> → <code>{{ .Repo }}</code>; <code>ORG_NAME</code> → <code>{{ .Owner }}</code></td>
+</tr>
+<tr>
+<td><code>set-custom-properties.tmpl</code></td>
+<td><code>OWNER_VALUE</code> → <code>{{ .Catalog.Owner }}</code>; <code>COMPONENT_VALUE</code> → <code>{{ .Catalog.Component }}</code>; <code>JIRA_PROJECT_VALUE</code> → <code>{{ .Catalog.JiraProject }}</code>; <code>JIRA_LABEL_VALUE</code> → <code>{{ .Catalog.JiraLabel }}</code></td>
+</tr>
+<tr>
+<td><code>renovate.tmpl</code></td>
+<td><code>ORG_NAME</code> → <code>{{ .Owner }}</code></td>
+</tr>
+</tbody>
+</table>
+<ol>
+<li><strong>Land HCL grammar + <code>PRTemplate</code></strong> for <code>defaults { pr {} }</code>,
+   per-rule <code>pr {}</code>, per-reconciler <code>pr {}</code>. Resolution order
+   wired through the engine.</li>
+<li><strong>Chart values surface change</strong>: add <code>templates.files</code>,
+   <code>templates.existingConfigMap</code>, <code>templating.vars</code>. Remove
+   <code>templates.codeowners</code> / <code>dependabot</code> / <code>renovate</code> outright
+   (clean break — the chart's NOTES.txt explains the migration).</li>
+<li><strong>Update <code>examples/guardian-full.hcl</code></strong> to demonstrate the new
+   <code>defaults { pr {} }</code> and per-rule <code>pr {}</code> blocks.</li>
+<li><strong>Document migration</strong> in chart README, <code>docs/ADDING_RULES.md</code>,
+   and a CHANGELOG entry covering both the binary and chart breaking
+   changes. Operators with custom <code>.tmpl</code> files using the old
+   placeholders OR with the legacy chart slots populated must
+   migrate before upgrading.</li>
+</ol>
+<p>This is a binary-breaking change for operators with custom <code>.tmpl</code>
+files using the old <code>OWNER_VALUE</code>-style placeholders. It's also a
+chart-breaking change because <code>templates.codeowners</code> etc. are
+removed. Both warrant a binary minor bump (e.g., 1.4.x → 1.5.0)
+and a chart minor bump.</p>
+<p>Rollback: revert the umbrella PR — there's no in-place rollback
+because the old <code>renderTemplate</code> and old chart slots are deleted
+in step 2 / 5.</p>
+<h2 id="open-questions">Open Questions</h2>
+<p>None outstanding. See <strong>Resolved Questions</strong> below.</p>
+<h2 id="resolved-questions">Resolved Questions</h2>
+<p>All resolved during PR #71 review walkthrough.</p>
+<ol>
+<li><strong>Sprig subset or full Sprig?</strong> → <strong>Small curated subset</strong>
+   (<code>env</code>, <code>default</code>, <code>join</code>, <code>lower</code>, <code>upper</code>, <code>title</code>). Revisit if
+   real user demand surfaces a missing helper. Adding helpers later
+   is non-breaking; removing them is.</li>
+<li><strong><code>labels</code> templating.</strong> → <strong>Stay literal.</strong> Labels are a fixed
+   taxonomy in most orgs; the few dynamic-label cases (e.g., a
+   <code>jira/PROJECT-123</code> label) can be hardcoded per rule or set on
+   <code>defaults.pr.labels</code>. Going from literal to templated later is
+   non-breaking (a no-<code>{{ }}</code> template is just a string), so we
+   can flip it on if a real need surfaces.</li>
+<li><strong>Multi-rule PR — opt-in to separate PRs?</strong> → <strong>Defer to V2.</strong>
+   V1 keeps "bundle and fall back to <code>defaults.pr.title</code> on title
+   conflict" behavior. <code>pr.bundle = "separate"</code> flag is non-breaking
+   to add later (default <code>"bundle"</code> preserves V1 behavior).</li>
+<li><strong>Reconciler PR config inheritance.</strong> → <strong>Explicit <code>inherits</code>
+   boolean on every <code>pr {}</code> block, default <code>true</code>.</strong> Resolution
+   order: reconciler → rule → defaults → built-in, with <code>inherits =
+   false</code> skipping parents and falling through to built-in directly.
+   See Detailed Design § HCL grammar additions for the resolved
+   shape.</li>
+<li><strong><code>existingConfigMap</code> validation.</strong> → <strong>Let k8s native behavior
+   handle it.</strong> Pod stays in <code>CreateContainerConfigError</code> until the
+   ConfigMap exists; chart README documents the dependency. No
+   chart-time validation hook (would be skipped by <code>helm template</code>
+   consumers like ArgoCD anyway).</li>
+<li><strong>Body length limits.</strong> → <strong>Truncate-with-warning.</strong> Engine
+   truncates rendered bodies to ~65000 chars, appends a visible
+   marker (<code>&lt;!-- truncated by repo-guardian: original length=N
+   chars, max=65535 --&gt;</code>), and emits <code>slog.Warn</code> with the original
+   length. PRs always succeed; reviewers see the marker; operators
+   see the warning in logs.</li>
+<li><strong>Global Markdown linter on bodies.</strong> → <strong>No.</strong> Engine is a
+   substitution layer, not a Markdown editor. Linter would add
+   dependencies and stylistic-opinion false positives. Convention
+   recommendations live in <code>docs/ADDING_RULES.md</code>.</li>
+<li><strong>Zero-value-context render check at parse time.</strong> → <strong>Opt-in
+   via <code>--strict-templates</code> CLI flag</strong> for V1. Default-off because
+   the engine knows which template is used in which context, and
+   per-context-type matching is more involved than running every
+   template against every zero-value context. V2 can be smarter
+   (per-template context matching) and make strict the default
+   once the false-positive rate is known.</li>
+</ol>
+<h2 id="references">References</h2>
+<ul>
+<li>DESIGN-0006 (HCL Policy Configuration and Rule Engine — the
+  grammar this design extends)</li>
+<li>DESIGN-0007 (Reconciler Interface — the reconciler pattern whose
+  PR creation this design also customizes)</li>
+<li>DESIGN-0010 (Per-org rule scoping — the multi-installation
+  customization story this design intentionally does not duplicate)</li>
+<li>Go <code>text/template</code> package:
+  https://pkg.go.dev/text/template</li>
+<li>Sprig template helpers:
+  https://masterminds.github.io/sprig/</li>
+<li>GitHub PR body length limit (empirical, undocumented but
+  consistent at 65535 chars)</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

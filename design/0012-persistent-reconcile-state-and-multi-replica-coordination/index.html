@@ -1,0 +1,2817 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Persistent reconcile state and multi-replica coordination - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#design-0012-persistent-reconcile-state-and-multi-replica-coordination" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Persistent reconcile state and multi-replica coordination
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goals-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals and Non-Goals
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Goals and Non-Goals">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#architectural-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architectural shape
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#store-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Store interface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#queue-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Queue interface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scheduler-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scheduler interface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sweep-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sweep flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backend-modes-and-chart-deployment-shapes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backend modes and chart deployment shapes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-not-postgres-for-the-queue-too" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why not Postgres for the queue too
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observability
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-interface-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API / Interface Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-rollout-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration / Rollout Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="design-0012-persistent-reconcile-state-and-multi-replica-coordination">DESIGN 0012: Persistent reconcile state and multi-replica coordination</h1>
+<p><strong>Status:</strong> Implemented
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-05-02</p>
+<!--toc:start-->
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#goals-and-non-goals">Goals and Non-Goals</a></li>
+<li><a href="#goals">Goals</a></li>
+<li><a href="#non-goals">Non-Goals</a></li>
+<li><a href="#background">Background</a></li>
+<li><a href="#detailed-design">Detailed Design</a></li>
+<li><a href="#architectural-shape">Architectural shape</a></li>
+<li><a href="#store-interface">Store interface</a></li>
+<li><a href="#queue-interface">Queue interface</a></li>
+<li><a href="#scheduler-interface">Scheduler interface</a></li>
+<li><a href="#sweep-flow">Sweep flow</a></li>
+<li><a href="#backend-modes-and-chart-deployment-shapes">Backend modes and chart deployment shapes</a></li>
+<li><a href="#why-not-postgres-for-the-queue-too">Why not Postgres for the queue too</a></li>
+<li><a href="#observability">Observability</a></li>
+<li><a href="#api--interface-changes">API / Interface Changes</a></li>
+<li><a href="#data-model">Data Model</a></li>
+<li><a href="#testing-strategy">Testing Strategy</a></li>
+<li><a href="#migration--rollout-plan">Migration / Rollout Plan</a></li>
+<li><a href="#open-questions">Open Questions</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="overview">Overview</h2>
+<p>repo-guardian today keeps all reconcile state in memory. On pod
+restart, the scheduler enqueues every repo from scratch; mid-sweep
+restarts lose progress; and a multi-replica deployment would have
+every pod racing on the same repo set. At ~1000 repos × ~5 API calls
+per check, a cold sweep already approaches the hourly GitHub
+rate-limit ceiling for a single installation. This design introduces
+durable persistence for state and queue, with <strong>interface boundaries</strong>
+between the engine and any concrete backend so that the storage,
+queue, and scheduler implementations can be swapped without engine
+changes. Day-one defaults: <strong>Postgres</strong> for state and <strong>Valkey</strong> for
+queue + scheduler-lock, both shipped baked into the Helm chart for
+the simplest install path. Operators can override either to use
+external infra (RDS, ElastiCache, CNPG cluster) or the in-memory
+mode for try-it-out / no-dep deployments.</p>
+<h2 id="goals-and-non-goals">Goals and Non-Goals</h2>
+<h3 id="goals">Goals</h3>
+<ul>
+<li><strong>Durability over pragmatism.</strong> Surviving a pod crash mid-sweep
+  must not redo completed work. State and in-flight jobs survive
+  restarts when the chart is configured with the durable backends.</li>
+<li><strong>Interface-first architecture.</strong> <code>Store</code>, <code>Queue</code>, and <code>Scheduler</code>
+  are Go interfaces with multiple implementations available from
+  day one. The engine depends only on the interfaces; concrete
+  backends are selected at startup. Same principle as the <code>Provider</code>
+  interface from INV-0004.</li>
+<li><strong><code>helm install</code> just works.</strong> Default chart config bakes Postgres
+  and Valkey into the install — no external dependencies required
+  for a standalone production-ish deployment. Both are gated on
+  values flags so operators can disable either to point at their own
+  infra.</li>
+<li><strong>Bring-your-own infra for every backend.</strong> Each baked dependency
+  has at least one external alternative:</li>
+<li>Postgres: <code>external</code> (DSN), <code>cnpg</code> (chart renders a CNPG
+    <code>Cluster</code> CR if the operator is installed), or <code>baked</code>
+    (chart-managed Deployment + PVC).</li>
+<li>Valkey: <code>external</code> (DSN — works with AWS ElastiCache,
+    Cloud Memorystore, etc.) or <code>baked</code> (chart-managed Deployment<ul>
+<li>PVC).</li>
+</ul>
+</li>
+<li><strong>No-dep mode is a first-class supported configuration.</strong> Because
+  every interface has an in-memory implementation, an operator can
+  run repo-guardian with zero external dependencies (no Postgres,
+  no Valkey) by selecting the <code>memory</code> backends. Restart-amnesia
+  and single-replica are accepted tradeoffs in this mode; it is
+  not a "test only" path that gets deprecated.</li>
+<li><strong>Multi-replica safe by default.</strong> No mode where running
+  <code>replicas: 2</code> is unsafe (with the durable backends). Coordination
+  primitives are part of the V1 design, not bolted on later.</li>
+<li><strong>Bounded API consumption per sweep.</strong> Each scheduler tick fits
+  within the installation's hourly rate-limit budget; remaining
+  repos carry to the next tick.</li>
+<li><strong>Webhook-driven reconciles remain parallel</strong> across all replicas
+  — they enqueue like any other job source, and any worker can
+  claim them.</li>
+</ul>
+<h3 id="non-goals">Non-Goals</h3>
+<ul>
+<li>Cross-cluster coordination. Single k8s cluster only.</li>
+<li>Replacing GitHub PR / branch state as the source of truth for
+  <em>what</em> needs reconciling. State tracks <em>when we last looked</em>,
+  not <em>desired configuration</em>.</li>
+<li>Backfilling historical <code>last_checked_at</code>. New state starts empty;
+  the first post-deploy sweep is a cold start, then steady state.</li>
+<li>Sub-second leader failover during sweep transitions. Valkey's
+  lock-TTL semantics give a few-seconds gap on leader pod death;
+  acceptable.</li>
+<li>A standalone NATS deployment or embedded NATS cluster. NATS is
+  reserved as a future <code>Queue</code> / <code>Scheduler</code> implementation if the
+  Valkey-based defaults don't fit a future need.</li>
+<li>Bitnami images or charts. Valkey ships as a self-contained
+  resource in our chart using the official <code>valkey/valkey</code> image.</li>
+</ul>
+<h2 id="background">Background</h2>
+<p>Current architecture (relevant parts):</p>
+<ul>
+<li><code>internal/scheduler/</code> ticks every <code>RECONCILE_INTERVAL</code> (default
+  weekly), enumerates installations, and enqueues every repo.</li>
+<li><code>internal/checker/queue.go</code> is a buffered channel + N worker
+  goroutines, all in-process.</li>
+<li><code>internal/checker/engine_policy.go</code> runs file rules + reconcilers
+  per repo. After PR #69 (INV-0003), each check is idempotent at
+  the GitHub API level.</li>
+<li>No persistence anywhere in the binary.</li>
+</ul>
+<p>Failure modes the current design exhibits:</p>
+<ol>
+<li><strong>Cold-start API burn.</strong> At T=0 (pod boot) the scheduler runs
+   immediately. ~5 API calls/repo × 1000 repos = ~5000 calls
+   approaches the 5000/hr installation rate-limit ceiling on every
+   restart.</li>
+<li><strong>Restart amnesia.</strong> Restart at T=20m loses the in-memory queue.
+   The next pod redoes work that was just completed.</li>
+<li><strong>Multi-replica race.</strong> Running <code>replicas: 2</code> would have both
+   pods enumerate the same repo set, double API consumption, and
+   contend on the same <code>repo-guardian/add-missing-files</code> branch.
+   The INV-0003 fix makes contention safe but wasteful.</li>
+</ol>
+<p>Why Valkey (not Redis, not embedded NATS):</p>
+<ul>
+<li><strong>Valkey is the Linux Foundation BSD fork of Redis,</strong> kept open
+  after Redis's BSL/SSPL relicense. API-compatible with Redis at
+  the wire protocol level, so the Go client (<code>github.com/redis/go-redis/v9</code>)
+  works unchanged against either.</li>
+<li><strong>Operationally simple.</strong> A single Valkey instance is plenty for
+  our scale (1000s of repos, &lt; 100 jobs/min steady state, ~kHz
+  burst). Familiar SETNX-based locks for leader election; LPUSH /
+  BRPOP atomic queue semantics. No clustering complexity unless
+  the operator opts in.</li>
+<li><strong>Durability is sufficient for the queue.</strong> With idempotent
+  reconciles (post-INV-0003), losing in-flight queue contents on a
+  Valkey restart just means the next sweep tick re-enqueues. AOF
+  persistence on the baked Valkey gives at-most-1-second loss
+  window.</li>
+<li><strong>No NATS embedded clustering.</strong> Considered in earlier drafts of
+  this design; rejected because the StatefulSet + headless Service</li>
+<li>per-pod PVC + raft-quorum bootstrap was disproportionate
+  complexity for a queue at our scale. The interface boundary
+  preserves the option to swap to NATS later if Valkey doesn't fit.</li>
+<li><strong>Not Bitnami.</strong> Valkey ships from the project's own
+  <code>valkey/valkey</code> image; no Bitnami image fork or chart dependency.</li>
+</ul>
+<p>Why Postgres for state (and not Valkey or embedded SQLite):</p>
+<ul>
+<li>The state queries we care about are relational with order-by:
+  "give me the N most-stale repos with <code>last_checked_at &lt; ?</code>".
+  Trivial in SQL, awkward in Valkey's KV-or-sorted-set model.</li>
+<li>CNPG in homelab and RDS in production are both well-trodden;
+  no new database-class infra to introduce. Plus the chart can
+  bake a quickstart Postgres for ops who don't already have one.</li>
+<li>Connection pooling, migrations, observability are all solved
+  problems for Postgres clients in Go (<code>pgx</code>, <code>golang-migrate</code>).</li>
+</ul>
+<h2 id="detailed-design">Detailed Design</h2>
+<h3 id="architectural-shape">Architectural shape</h3>
+<pre><code>            ┌─────────────────────────────────────┐
+            │            Engine                   │
+            │  (file rules, reconcilers,          │
+            │   Provider, idempotent ops)         │
+            └────────┬────────┬────────┬──────────┘
+                     │        │        │
+                     ▼        ▼        ▼
+                  Store    Queue   Scheduler   ← Go interfaces
+                     │        │        │
+                     ▼        ▼        ▼
+               Postgres   Valkey   Valkey-lock
+                                   (or k8s Lease)
+</code></pre>
+<p>The engine never imports <code>pgx</code>, <code>redis</code>, or any concrete client.
+It receives <code>Store</code>, <code>Queue</code>, and <code>Scheduler</code> instances at
+construction time and uses only their interface methods. Concrete
+implementations live in <code>internal/store/postgres</code>,
+<code>internal/queue/valkey</code>, <code>internal/scheduler/valkey</code>. Test code
+uses <code>internal/store/memory</code> etc.</p>
+<p>This pairs with the <code>Provider</code> interface from INV-0004
+(<code>internal/scm.Provider</code>, GitHub-only V1) — same interface-first
+principle applied to the SCM backend.</p>
+<h3 id="store-interface"><code>Store</code> interface</h3>
+<p>Persistent per-repo state.</p>
+<pre><code class="language-go">package store
+
+type RepoState struct {
+    InstallationID  int64
+    Owner           string
+    Repo            string
+    LastCheckedAt   *time.Time
+    LastCheckStatus string  // &quot;success&quot; | &quot;error&quot; | &quot;skipped&quot; | &quot;pending&quot;
+    LastError       string
+    PolicyVersion   string  // hash of active policy at last write
+}
+
+type Store interface {
+    GetRepoState(ctx context.Context, installationID int64, owner, repo string) (*RepoState, error)
+    UpdateRepoState(ctx context.Context, s *RepoState) error
+    // StaleRepos returns rows whose last_checked_at is older than
+    // freshness OR whose policy_version differs from currentPolicyVersion.
+    // The latter handles the new-rule-added scenario without per-rule
+    // freshness tracking — see Open Question #2.
+    StaleRepos(ctx context.Context, freshness time.Duration, currentPolicyVersion string, limit int) ([]RepoState, error)
+    Close() error
+}
+</code></pre>
+<p>Implementations:</p>
+<ul>
+<li><code>store/postgres</code> — durable, multi-replica safe. Uses <code>pgx/v5</code> +
+  <code>golang-migrate</code>.</li>
+<li><code>store/memory</code> — in-process map. Supported for both tests and
+  no-dep single-replica deployments. Restart loses all state;
+  operator accepts that tradeoff.</li>
+</ul>
+<h3 id="queue-interface"><code>Queue</code> interface</h3>
+<p>Durable work queue. At-least-once delivery; consumer-side dedupe
+is handled by the engine's existing idempotent reconcile path
+(per INV-0003).</p>
+<pre><code class="language-go">package queue
+
+type Job struct {
+    ID              string
+    InstallationID  int64
+    Owner           string
+    Repo            string
+    Trigger         string  // &quot;scheduler&quot; | &quot;webhook&quot; | &quot;push&quot;
+    EnqueuedAt      time.Time
+}
+
+type Queue interface {
+    Enqueue(ctx context.Context, j Job) error
+    Subscribe(ctx context.Context, handler func(context.Context, Job) error) error
+    Close() error
+}
+</code></pre>
+<p>The <code>Subscribe</code> handler is invoked once per claimed job; the
+implementation acks on <code>nil</code> return and nacks-with-retry on error.
+Workers are goroutines inside the binary; the queue manages the
+claim/ack lifecycle.</p>
+<p>Implementations:</p>
+<ul>
+<li><code>queue/valkey</code> — Valkey list-as-queue with <code>BRPOP</code> for blocking
+  consumer waits and <code>LPUSH</code> for enqueue. Worker consumes with a
+  per-job ack pattern using a separate "in-flight" sorted set keyed
+  by claim timestamp; orphaned in-flight jobs (claimed pod died)
+  are reaped after a configurable timeout (default 5 minutes).
+  Multi-replica safe: every worker pod connects to the same Valkey,
+  <code>BRPOP</code> is atomic, no two workers see the same job.</li>
+<li><code>queue/memory</code> — in-process buffered channel. Supported for tests
+  and no-dep single-replica deployments. Restart loses any
+  in-flight queue contents; webhook events arriving during a
+  restart window are dropped at the HTTP layer.</li>
+<li><em>Future option:</em> <code>queue/nats</code> — embedded NATS JetStream if Valkey
+  doesn't meet a future need (e.g., higher throughput, cross-cluster
+  replication). The interface stays the same.</li>
+<li><em>Future option:</em> <code>queue/postgres</code> — <code>SELECT ... FOR UPDATE SKIP
+  LOCKED</code> if a deployment wants to consolidate on Postgres only.</li>
+</ul>
+<h3 id="scheduler-interface"><code>Scheduler</code> interface</h3>
+<p>Periodic ticks that fire on exactly one pod cluster-wide.</p>
+<pre><code class="language-go">package scheduler
+
+type Scheduler interface {
+    Schedule(ctx context.Context, name string, interval time.Duration, handler func(context.Context) error) error
+    Stop() error
+}
+</code></pre>
+<p>Implementations:</p>
+<ul>
+<li><code>scheduler/valkey</code> — every pod runs a <code>time.Ticker</code> at the
+  configured interval; on each fire, the pod attempts to acquire a
+  Valkey lock via <code>SET key value NX EX &lt;ttl&gt;</code>. If acquired, the
+  pod runs the handler; if not, the pod skips this tick (some
+  other pod is leading). The lock TTL is set slightly longer than
+  the handler's expected runtime so leader hand-off is automatic
+  on pod death. No standing leader role — each tick is an
+  independent acquisition. Same Valkey instance as the queue, so
+  no extra dependency.</li>
+<li><code>scheduler/ticker</code> — <code>time.Ticker</code> for tests and no-dep
+  single-replica deployments. Each pod's ticker fires
+  independently, so this implementation must not be paired with
+  multi-replica without external coordination.</li>
+<li><em>Future option:</em> <code>scheduler/k8s-lease</code> — k8s <code>Lease</code> API for
+  leader election if some operator wants to avoid Valkey for
+  scheduling alone. Not necessary if Valkey is already deployed
+  for the queue.</li>
+<li><em>Future option:</em> <code>scheduler/nats</code> — JetStream-based tick
+  delivery if NATS replaces Valkey at the queue layer.</li>
+</ul>
+<h3 id="sweep-flow">Sweep flow</h3>
+<ol>
+<li><code>Scheduler</code> fires the sweep tick (Valkey-lock-coordinated; only
+   the lock-holder pod executes).</li>
+<li>Sweep handler queries
+   <code>Store.StaleRepos(freshness, currentPolicyVersion, batch_size)</code>.</li>
+<li>For each stale repo, calls <code>Queue.Enqueue(Job{...})</code>.</li>
+<li>Worker pods (all replicas) <code>Subscribe</code> to the queue, claim jobs
+   via Valkey <code>BRPOP</code> + in-flight set, run the engine on the repo.</li>
+<li>On success or error, worker calls <code>Store.UpdateRepoState(...)</code>
+   and removes the job from the in-flight set.</li>
+<li>Webhook handler bypasses the freshness check; it always
+   <code>Queue.Enqueue</code>s a job. Same worker pool consumes it.</li>
+</ol>
+<h3 id="backend-modes-and-chart-deployment-shapes">Backend modes and chart deployment shapes</h3>
+<p>Each interface has multiple implementations selected via chart
+values. The chart renders different resources depending on the
+combination:</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th><code>Store</code></th>
+<th><code>Queue</code></th>
+<th><code>Scheduler</code></th>
+<th>Chart resources rendered</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>No-dep</strong></td>
+<td><code>memory</code></td>
+<td><code>memory</code></td>
+<td><code>ticker</code></td>
+<td>Deployment only (single replica required)</td>
+</tr>
+<tr>
+<td><strong>Baked</strong> <em>(default)</em></td>
+<td><code>baked-postgres</code></td>
+<td><code>baked-valkey</code></td>
+<td><code>valkey-lock</code></td>
+<td>Deployment + Postgres Deployment + Valkey Deployment + PVCs + Services</td>
+</tr>
+<tr>
+<td><strong>CNPG + baked Valkey</strong></td>
+<td><code>cnpg</code></td>
+<td><code>baked-valkey</code></td>
+<td><code>valkey-lock</code></td>
+<td>Deployment + CNPG <code>Cluster</code> CR + Valkey Deployment + Valkey PVC + Services</td>
+</tr>
+<tr>
+<td><strong>External Postgres + ElastiCache</strong></td>
+<td><code>external</code></td>
+<td><code>external</code></td>
+<td><code>valkey-lock</code></td>
+<td>Deployment only (operator manages external infra)</td>
+</tr>
+<tr>
+<td><strong>External Postgres + baked Valkey</strong></td>
+<td><code>external</code></td>
+<td><code>baked-valkey</code></td>
+<td><code>valkey-lock</code></td>
+<td>Deployment + Valkey Deployment + Valkey PVC + Service</td>
+</tr>
+</tbody>
+</table>
+<p>CNPG mode requires the CNPG operator pre-installed cluster-wide;
+the chart renders a <code>Cluster</code> CR (and optional <code>Pooler</code> CR) but
+does NOT take a Helm sub-chart dependency on the operator and does
+NOT install a pre-flight helm hook. If the CNPG CRDs are missing,
+the CR application fails at apply time and surfaces in helm/Argo
+the way any other missing CRD would. CNPG provisions Postgres and
+creates a <code>&lt;cluster&gt;-app</code> Secret with <code>host</code>/<code>username</code>/<code>password</code>/
+<code>dbname</code> keys; the repo-guardian Deployment consumes those keys
+via <code>secretKeyRef</code> — no chart-rendered DB credentials Secret in
+this mode. This pattern mirrors the maintainer's
+server-price-tracker chart.</p>
+<h3 id="why-not-postgres-for-the-queue-too">Why not Postgres for the queue too</h3>
+<p>Considered. Tradeoff matrix:</p>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Postgres queue (<code>SKIP LOCKED</code>)</th>
+<th>Valkey queue</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Operational simplicity</td>
+<td>One DB to run</td>
+<td>One Valkey to run</td>
+</tr>
+<tr>
+<td>Latency</td>
+<td>Polling cost (50-200ms/poll)</td>
+<td>Atomic <code>BRPOP</code>; sub-ms delivery</td>
+</tr>
+<tr>
+<td>Throughput at 10k+ repos</td>
+<td>Adequate with tuning</td>
+<td>Plenty without tuning</td>
+</tr>
+<tr>
+<td>Survives DB outage</td>
+<td>No (queue is in same DB)</td>
+<td>Yes — queue is independent</td>
+</tr>
+<tr>
+<td>Familiarity</td>
+<td>Higher</td>
+<td>Higher (Redis API is well-known)</td>
+</tr>
+<tr>
+<td>Operator burden</td>
+<td>Same as state's</td>
+<td>Adds one chart-managed Deployment</td>
+</tr>
+</tbody>
+</table>
+<p>Valkey wins on isolation (queue available even if Postgres is
+briefly down) and latency. The interface boundary preserves the
+option to consolidate to Postgres-only later if the operator
+burden of running Valkey turns out to be unwelcome — that's a
+config flip, not an engine change.</p>
+<h3 id="observability">Observability</h3>
+<p>10 new Prometheus metrics on top of the existing 21. All
+per-repo / per-installation metrics carry an <code>org</code> label,
+consistent with IMPL-0009. Pod-identity labels are kept off
+everything except <code>scheduler_is_leader</code> to avoid cardinality
+blowup.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Type</th>
+<th>Labels</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>repo_guardian_queue_depth</code></td>
+<td>Gauge</td>
+<td><code>queue</code> (<code>jobs</code> / <code>in-flight</code>)</td>
+<td>Periodic <code>LLEN</code>/<code>ZCARD</code> poll</td>
+</tr>
+<tr>
+<td><code>repo_guardian_queue_enqueued_total</code></td>
+<td>Counter</td>
+<td><code>trigger</code> (<code>webhook</code> / <code>sweep</code>)</td>
+<td>At <code>Queue.Enqueue</code></td>
+</tr>
+<tr>
+<td><code>repo_guardian_queue_claimed_total</code></td>
+<td>Counter</td>
+<td>—</td>
+<td>At <code>BRPOP</code> success</td>
+</tr>
+<tr>
+<td><code>repo_guardian_queue_acked_total</code></td>
+<td>Counter</td>
+<td><code>outcome</code> (<code>success</code> / <code>error</code>)</td>
+<td>At <code>Queue.Ack</code></td>
+</tr>
+<tr>
+<td><code>repo_guardian_queue_reaped_total</code></td>
+<td>Counter</td>
+<td>—</td>
+<td>When in-flight ZSET entries time out</td>
+</tr>
+<tr>
+<td><code>repo_guardian_scheduler_is_leader</code></td>
+<td>Gauge</td>
+<td><code>pod</code></td>
+<td>1 on lock-holder pod, 0 elsewhere</td>
+</tr>
+<tr>
+<td><code>repo_guardian_scheduler_sweep_batch_size</code></td>
+<td>Histogram</td>
+<td>—</td>
+<td>At sweep handler exit</td>
+</tr>
+<tr>
+<td><code>repo_guardian_store_query_seconds</code></td>
+<td>Histogram</td>
+<td><code>op</code> (<code>stale_repos</code> / <code>update_repo_state</code> / ...)</td>
+<td>Wrap pgx calls</td>
+</tr>
+<tr>
+<td><code>repo_guardian_rate_limit_remaining</code></td>
+<td>Gauge</td>
+<td><code>installation_id</code></td>
+<td>Read from GitHub response headers</td>
+</tr>
+<tr>
+<td><code>repo_guardian_rate_limit_reserve_blocked_total</code></td>
+<td>Counter</td>
+<td><code>installation_id</code></td>
+<td>Increment when sweep skips an enqueue due to reserve</td>
+</tr>
+</tbody>
+</table>
+<p><strong>SLO targets are deliberately deferred.</strong> We don't yet have
+prod data on queue arrival rate at typical org sizes, how often
+the sweep tick lands on an empty stale-set, pgx pool contention
+under N-replica fan-in, or realistic rate-limit budget
+consumption. Ship the metrics, run for a release cycle, and
+draft a follow-up DESIGN with measured baselines and committed
+SLO targets at that point. Until then, treat the chart-bundled
+alerts (below) as starter shapes, not contractual SLOs.</p>
+<p>The chart surfaces a <code>serviceMonitor</code> block (matching the
+existing chart pattern) and a sibling <code>prometheusRule</code> block,
+both <code>enabled: false</code> by default. When <code>prometheusRule.enabled:
+true</code>, the chart renders a <code>PrometheusRule</code> with these starter
+alerts:</p>
+<ul>
+<li><code>RepoGuardianNoLeader</code> — <code>max(repo_guardian_scheduler_is_leader) == 0</code> for 5m → leader election broken</li>
+<li><code>RepoGuardianQueueBacklog</code> — <code>repo_guardian_queue_depth{queue="jobs"} &gt; 1000</code> for 15m → workers can't keep up</li>
+<li><code>RepoGuardianReapingTooMuch</code> — <code>rate(repo_guardian_queue_reaped_total[5m]) &gt; 0.1</code> → workers crashing or DSN flapping</li>
+<li><code>RepoGuardianRateLimitNearExhausted</code> — <code>repo_guardian_rate_limit_remaining &lt; 100</code> per installation</li>
+<li><code>RepoGuardianStoreLatencyHigh</code> — <code>histogram_quantile(0.99, store_query_seconds) &gt; 0.5s</code> for 10m</li>
+</ul>
+<p><code>for:</code> durations and thresholds are values-overridable so
+operators can tune for their fleet size.</p>
+<h2 id="api-interface-changes">API / Interface Changes</h2>
+<p>New environment variables on the binary:</p>
+<ul>
+<li><code>STORE_BACKEND</code> — <code>postgres</code> (default) or <code>memory</code>.</li>
+<li><code>STORE_DSN</code> — Postgres connection string. Required when
+  <code>STORE_BACKEND=postgres</code>. Read from a Secret in the chart.</li>
+<li><code>QUEUE_BACKEND</code> — <code>valkey</code> (default) or <code>memory</code>.</li>
+<li><code>QUEUE_VALKEY_DSN</code> — Valkey connection string
+  (<code>redis://host:6379/0</code>). Required when <code>QUEUE_BACKEND=valkey</code>.
+  Same protocol works with external Valkey, AWS ElastiCache,
+  Cloud Memorystore.</li>
+<li><code>SCHEDULER_BACKEND</code> — <code>valkey</code> (default) or <code>ticker</code>.</li>
+<li><code>RECONCILE_FRESHNESS</code> — duration (default <code>168h</code>).</li>
+<li><code>RATE_LIMIT_RESERVE</code> — fraction (default <code>0.2</code>).</li>
+<li><code>WORKER_CONCURRENCY</code> — int (default <code>5</code>). Number of in-process
+  worker goroutines per replica.</li>
+<li><code>JOB_ACK_TIMEOUT</code> — duration (default <code>5m</code>). In-flight set
+  reaper threshold.</li>
+<li><code>REAPER_INTERVAL</code> — duration (default <code>60s</code>). How often each
+  pod attempts the <code>lock:reaper</code> and runs the in-flight
+  reclamation pass.</li>
+<li><code>STORE_POSTGRES_MAX_CONNS</code> — int (default <code>5</code>). pgx pool max
+  per replica; tune up only if you've moved past the
+  recommended PgBouncer pattern at high replica counts.</li>
+<li><code>STORE_SWEEP_BATCH_SIZE</code> — int (default <code>200</code>). Hard cap on
+  repos enqueued per scheduler tick. Independent of the
+  per-installation rate-limit reserve check, which gates each
+  individual enqueue.</li>
+</ul>
+<p>Helm chart values surface (new):</p>
+<pre><code class="language-yaml"># Store: persistent state for reconcile freshness
+store:
+  backend: postgres        # postgres | memory
+  postgres:
+    mode: baked            # baked | cnpg | external
+    maxConns: 5            # STORE_POSTGRES_MAX_CONNS — pgx pool
+                           # max per replica
+    # baked: chart renders Postgres Deployment + PVC + Service.
+    # cnpg: chart renders a CNPG Cluster CR (requires the CNPG
+    #   operator pre-installed in the cluster).
+    # external: operator provides the DSN; chart renders nothing.
+    dsn: &quot;&quot;                # external mode: full DSN; usually from
+                           # an existingSecret reference
+    existingSecret: &quot;&quot;     # name of Secret holding STORE_DSN key
+    baked:
+      image: &quot;postgres:16&quot;
+      persistence:
+        size: 5Gi
+        storageClass: &quot;&quot;
+      # Same auto-generated-password pattern as Valkey. If
+      # store.postgres.existingSecret is unset, the chart creates
+      # &lt;release&gt;-postgres with a random password on first install
+      # and reuses it on upgrades.
+    cnpg:
+      # Chart renders a CNPG `Cluster` CR (and optional `Pooler` CR).
+      # The CNPG operator must be pre-installed cluster-wide; the
+      # chart does NOT depend on the CNPG operator chart and does
+      # NOT run a helm hook to verify the CRDs. If the operator is
+      # missing, the CR fails to reconcile and Argo/helm surfaces
+      # the error at apply time. This mirrors the pattern used in
+      # the maintainer's server-price-tracker chart.
+      #
+      # On install, CNPG provisions Postgres and creates an app
+      # Secret named `&lt;cluster&gt;-app` containing host/username/
+      # password/dbname keys. The repo-guardian Deployment consumes
+      # those keys via `secretKeyRef` — the chart does NOT render
+      # its own Postgres credentials Secret in this mode.
+      instances: 1
+      imageName: ghcr.io/cloudnative-pg/postgresql:17.2
+      bootstrap:
+        database: repo_guardian
+        owner: repo_guardian
+      storage:
+        size: 5Gi
+        storageClass: &quot;&quot;
+      managed:
+        services:
+          # Single-instance does not need read-only or replica
+          # services. Drop them to keep the namespace tidy.
+          disabledDefaultServices: [&quot;ro&quot;, &quot;r&quot;]
+      monitoring:
+        enablePodMonitor: false
+      postgresql:
+        parameters:
+          max_connections: &quot;200&quot;
+      resources: {}
+      # Optional PgBouncer in front of the cluster — only useful
+      # at high replica counts (&gt;5 worker pods).
+      pooler:
+        enabled: false
+        type: rw
+        instances: 1
+        pgbouncer:
+          poolMode: transaction
+          defaultPoolSize: 25
+          maxClientConnections: 100
+
+# Queue: durable work queue + scheduler-lock backend
+queue:
+  backend: valkey          # valkey | memory
+  valkey:
+    mode: baked            # baked | external
+    # baked: chart renders Valkey Deployment + PVC + Service.
+    # external: operator provides the DSN (works with AWS
+    #   ElastiCache, Cloud Memorystore, or any other Valkey/Redis-
+    #   compatible service).
+    dsn: &quot;&quot;
+    existingSecret: &quot;&quot;
+    baked:
+      image: &quot;valkey/valkey:8&quot;
+      persistence:
+        size: 1Gi
+        storageClass: &quot;&quot;
+      # AUTH is on by default. If existingSecret is unset, the
+      # chart auto-generates a random password Secret named
+      # &lt;release&gt;-valkey on first install and reuses it on upgrades
+      # (helm `lookup` + `randAlphaNum` pattern).
+
+# Scheduler
+scheduler:
+  backend: valkey          # valkey | ticker
+  # `valkey` reuses queue.valkey.dsn for leader-election locks.
+  # `ticker` is single-replica only.
+  sweep:
+    batchSize: 200         # STORE_SWEEP_BATCH_SIZE — hard cap
+                           # on repos enqueued per tick
+  reaper:
+    interval: 60s          # REAPER_INTERVAL — how often each pod
+                           # attempts lock:reaper
+
+# Observability — both off by default; opt in per cluster.
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  path: /metrics
+  labels: {}
+
+prometheusRule:
+  enabled: false
+  # Per-alert overrides. Operators can tune `for:` durations and
+  # threshold expressions without forking the chart.
+  alerts:
+    noLeader:
+      for: 5m
+    queueBacklog:
+      threshold: 1000
+      for: 15m
+    reapingTooMuch:
+      rate: 0.1
+    rateLimitNearExhausted:
+      threshold: 100
+    storeLatencyHigh:
+      quantile: 0.99
+      threshold: 0.5
+      for: 10m
+</code></pre>
+<p>ServiceAccount RBAC stays minimal — no leader-election Lease
+permissions needed when <code>scheduler.backend=valkey</code>. If a future
+<code>scheduler/k8s-lease</code> implementation lands, we add
+<code>coordination.k8s.io/leases</code> permissions then.</p>
+<p>Chart Deployment shape: stays a Deployment (not StatefulSet). No
+per-pod PVCs needed — repo-guardian pods are stateless; only the
+baked Postgres and baked Valkey have PVCs, and those are single-
+replica deployments with their own PVCs.</p>
+<p>Internal Go interface additions are listed under Detailed Design.</p>
+<h2 id="data-model">Data Model</h2>
+<p>Postgres schema, owned by <code>internal/store/postgres/migrations</code>:</p>
+<pre><code class="language-sql">CREATE TABLE repo_state (
+    installation_id BIGINT NOT NULL,
+    owner TEXT NOT NULL,
+    repo TEXT NOT NULL,
+    last_checked_at TIMESTAMP WITH TIME ZONE,
+    last_check_status TEXT NOT NULL DEFAULT 'pending',
+    last_error TEXT,
+    policy_version TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (installation_id, owner, repo)
+);
+
+CREATE INDEX idx_repo_state_freshness
+    ON repo_state(last_checked_at NULLS FIRST);
+CREATE INDEX idx_repo_state_policy_version
+    ON repo_state(policy_version);
+</code></pre>
+<p>Valkey key layout (no schema; documented as a contract):</p>
+<pre><code>repo-guardian:queue:jobs        # LIST — pending jobs (LPUSH / BRPOP)
+repo-guardian:queue:in-flight   # ZSET — claimed jobs, scored by claim ts
+repo-guardian:lock:sweep        # KEY  — sweep scheduler lock (SET NX EX)
+repo-guardian:lock:reaper       # KEY  — in-flight reaper lock
+</code></pre>
+<p>Job payload is a JSON-encoded <code>Job</code> struct (see Queue interface).
+TTLs:</p>
+<ul>
+<li><code>lock:sweep</code>, <code>lock:reaper</code>: 30s (longer than handler runtime).</li>
+<li><code>queue:in-flight</code> entries: reaped at <code>JOB_ACK_TIMEOUT</code> (default 5m)
+  — older entries are popped back onto <code>queue:jobs</code> for retry.</li>
+</ul>
+<p>No CNPG-specific schema differences; CNPG-managed Postgres is just
+a different deployment of the same Postgres image, so the
+<code>golang-migrate</code>-managed schema works against either.</p>
+<h2 id="testing-strategy">Testing Strategy</h2>
+<p>Two distinct test-double patterns:</p>
+<ul>
+<li><strong>In-memory implementations</strong> (<code>store/memory</code>, <code>queue/memory</code>,
+  <code>scheduler/ticker</code>) are full functional implementations of the
+  interface — they hold state, enforce contracts, and let
+  state-based tests assert on outcomes ("given these stale repos
+  in the store, the sweep enqueues these jobs"). They are part of
+  the production binary, not test-only fixtures.</li>
+<li><strong>Generated mocks</strong> via <code>mockery v2</code> (already pinned in
+  <code>mise.toml</code>, currently unused) for interaction-verification
+  tests ("the engine called <code>Store.UpdateRepoState</code> with
+  <code>status=success</code>"). A <code>.mockery.yaml</code> config will declare the
+  three interfaces and emit mocks under
+  <code>internal/&lt;pkg&gt;/mocks/&lt;Interface&gt;.go</code>. Regeneration via
+  <code>make mocks</code> (new target) or implicitly in <code>make ci</code>. This
+  catches interface-shape drift at compile time when an interface
+  changes — no manual mock edits required.</li>
+</ul>
+<p>The existing <code>github.Client</code> hand-written mocks in
+  <code>internal/checker/engine_test.go</code> and <code>internal/reconciler/*_test.go</code>
+  predate this decision. They can stay as-is; migrating them to
+  mockery is a follow-up cleanup, not a prerequisite.</p>
+<p>Test layers:</p>
+<ul>
+<li><strong>Unit tests</strong> at the interface boundary. Engine tests use
+  in-memory backends or hand-written mocks; do not require
+  Postgres or NATS at all.</li>
+<li><strong>Backend integration tests</strong> under an <code>_integration</code> build tag:</li>
+<li>Postgres via <code>testcontainers-go</code> running <code>postgres:16</code> (same
+    image as the baked deployment).</li>
+<li>Valkey via <code>testcontainers-go</code> running <code>valkey/valkey:8</code>.</li>
+<li><strong>Multi-replica concurrency test</strong>: spin up N worker goroutines
+  in one process all pointed at the same testcontainer Valkey,
+  enqueue 100 jobs, assert each is claimed exactly once across all
+  workers (atomic <code>BRPOP</code> is the load-bearing primitive).</li>
+<li><strong>Restart-safety test</strong>: kill the testcontainer Valkey mid-job,
+  bring it back, assert no job is lost (in-flight set's reaper
+  re-queues), and engine idempotency makes any double-claim safe.</li>
+<li><strong>Contract tests</strong> that run the same suite against every backend
+  pair (<code>memory</code> and <code>postgres</code> for <code>Store</code>; <code>memory</code> and <code>valkey</code>
+  for <code>Queue</code>; <code>ticker</code> and <code>valkey</code> for <code>Scheduler</code>). Catches
+  divergence between the in-memory and durable implementations
+  before it bites in production.</li>
+<li><strong>Helm-unittest</strong> for the chart's deployment-shape matrix:</li>
+<li><code>memory + memory + ticker</code> → only the repo-guardian Deployment</li>
+<li><code>baked + baked</code> → repo-guardian + Postgres Deployment + Valkey
+    Deployment + PVCs + Services</li>
+<li><code>cnpg + baked</code> → repo-guardian + CNPG Cluster CR + Valkey
+    Deployment + PVC + Service</li>
+<li><code>external + external</code> → only the repo-guardian Deployment with
+    DSN env vars sourced from a Secret</li>
+<li><strong>Homelab smoke test</strong>: deploy <code>baked + baked</code> with
+  <code>replicas: 3</code>, kill one pod, observe sweep continues; restart
+  all three, observe no duplicate reconciles.</li>
+</ul>
+<h2 id="migration-rollout-plan">Migration / Rollout Plan</h2>
+<p>Interface-first means we ship in small increments without doubling
+code paths.</p>
+<ol>
+<li><strong>Land the interfaces</strong> with <code>memory</code> implementations only
+   (<code>store/memory</code>, <code>queue/memory</code>, <code>scheduler/ticker</code>). Switch
+   existing engine code to depend on the interfaces. CI green,
+   no behavior change. Mockery-generated mocks land alongside.</li>
+<li><strong>Land the Postgres <code>Store</code> implementation</strong> behind
+   <code>STORE_BACKEND=postgres</code>. Includes <code>golang-migrate</code> setup and
+   the freshness gate plumbed through the sweep handler.</li>
+<li><strong>Land the Valkey <code>Queue</code> + <code>Scheduler</code> implementations</strong> behind
+   <code>QUEUE_BACKEND=valkey</code> and <code>SCHEDULER_BACKEND=valkey</code>. Adds the
+   in-flight set reaper as a goroutine on every worker pod.</li>
+<li><strong>Helm chart MINOR bump.</strong> Adds the four deployment shapes
+   (no-dep / baked / cnpg + baked / external). The <code>baked</code> mode
+   becomes the chart default since it's the simplest "helm install
+   just works" path. Existing operators on the legacy in-memory
+   chart see no behavior change unless they opt into a new mode.</li>
+<li><strong>Homelab smoke test</strong>: deploy <code>baked + baked</code> with
+   <code>replicas: 3</code>, validate one full sweep + Valkey-coordinated
+   leader election + in-flight reaper.</li>
+<li><strong>Decommission decision.</strong> The <code>memory</code> backends stay
+   supported indefinitely as a no-dep mode. <code>valkey-lock</code>
+   scheduler stays the default. No deprecation timeline for any
+   backend.</li>
+</ol>
+<p>Rollback at any step is a values flip + helm rollback. Switching
+from <code>memory</code> to <code>baked</code> (or vice versa) is not a data migration
+— <code>memory</code> has no persistent state to carry forward, and <code>baked</code>
+state is only <code>last_checked_at</code> which is non-load-bearing.</p>
+<p>Switching between Postgres modes (<code>baked</code> ↔ <code>cnpg</code> ↔ <code>external</code>)
+<em>is</em> a data migration if you want to preserve <code>last_checked_at</code>,
+but the cost of losing it is one extra sweep cycle. Operators
+who care about the migration can <code>pg_dump</code> / <code>pg_restore</code>; we
+don't ship tooling for it in V1.</p>
+<h2 id="open-questions">Open Questions</h2>
+<ol>
+<li><strong>Scheduler interface granularity.</strong> <strong>Resolved.</strong> One
+   global sweep is sufficient for V1. The <code>Scheduler</code> interface
+   admits per-installation schedules in a future iteration
+   (just another implementation slot — <code>scheduler/per-install</code>),
+   but adding it now would couple the interface to a concept we
+   don't have a use case for yet. Until an operator surfaces a
+   real "this installation needs hourly while others are weekly"
+   need, one <code>RECONCILE_FRESHNESS</code> window applied uniformly
+   keeps the scheduler trivial.</li>
+<li><strong>Per-rule freshness windows.</strong> <strong>Resolved.</strong> Track
+   freshness per <code>(installation_id, owner, repo)</code> only — not
+   per <code>(repo, rule)</code>. The new-rule-added scenario is handled
+   by hashing the active policy into a <code>policy_version</code> column
+   on <code>repo_state</code>: when the operator updates <code>guardian.hcl</code>
+   the binary's loader recomputes the hash, sweep treats every
+   row whose <code>policy_version</code> differs from current as stale,
+   and the next tick re-enqueues. This avoids the cardinality
+   blowup of per-rule rows (tens of rules × tens of thousands
+   of repos) and the schema churn of tracking which rule each
+   row corresponds to. Schema impact: add <code>policy_version TEXT</code>
+   to <code>repo_state</code>, default empty, populated on first write.</li>
+<li><strong>Webhook delivery semantics.</strong> <strong>Resolved.</strong> Single
+   shared <code>queue:jobs</code> LIST — no separate "high priority"
+   queue for webhook-driven jobs. Reconcile triggers are
+   limited (scheduler tick, new-repo install events, push to
+   default branch touching a watched file) rather than firing
+   on every PR/comment, so queue contention from webhook
+   floods is unlikely. Webhook ACK SLA: 202 within 2s
+   end-to-end (HMAC validation + IP allowlist + <code>Queue.Enqueue</code></li>
+<li>return). The Valkey enqueue itself is sub-millisecond;
+   the budget is for the upstream middleware. If the queue
+   ever becomes the contention point we promote to a two-list
+   pattern (<code>queue:jobs:high</code> / <code>queue:jobs:low</code> with a
+   priority-aware <code>BLPOP</code> over both keys), but not before
+   metrics show it's needed.</li>
+<li><strong>Operator force-recheck.</strong> <strong>Resolved.</strong> No HTTP admin
+   endpoint in V1. The chart owner also owns the state DB
+   (baked, CNPG, or external) and can run a one-liner —
+   <code>UPDATE repo_state SET last_checked_at = NULL WHERE
+   owner = '...';</code> — to force a recheck of any subset on the
+   next sweep tick. A future admin web UI is out of scope for
+   this design; if it lands, it adds an HTTP surface that
+   wraps the same SQL.</li>
+<li><strong>CNPG operator as a dependency.</strong> <strong>Resolved.</strong> No helm
+   hook, no chart-level pre-flight check, no Helm sub-chart
+   dependency on the CNPG operator chart — Argo and Helm hooks
+   are operationally awkward together, and the CNPG operator is
+   a cluster-scoped prereq that organizations install once and
+   reuse across many apps. Pattern follows the maintainer's
+   server-price-tracker chart: <code>store.postgres.mode = cnpg</code>
+   gates rendering of the <code>Cluster</code> (and optional <code>Pooler</code>) CR;
+   if the CRDs are absent the CR application fails at apply
+   time and surfaces in Argo/helm normally. Documentation in
+   the chart README and a clear binary-side error message when
+   <code>STORE_POSTGRES_MODE=cnpg</code> is set but the DSN can't be
+   resolved cover the discoverability gap. The chart consumes
+   the CNPG-generated <code>&lt;cluster&gt;-app</code> Secret via <code>secretKeyRef</code>
+   — no chart-rendered Postgres credentials Secret in cnpg
+   mode.</li>
+<li><strong>Observability.</strong> <strong>Resolved</strong> for the metric set and the
+   chart-bundled alert shapes — see the new "Observability"
+   subsection under Detailed Design (10 new metrics on top of
+   the existing 21, <code>serviceMonitor</code> + <code>prometheusRule</code> chart
+   blocks both off by default, 5 starter alerts when
+   <code>prometheusRule.enabled=true</code>). <strong>SLO targets are
+   deliberately deferred</strong> to a follow-up DESIGN once we have a
+   release cycle of prod data on queue arrival rate, sweep
+   batch sizes, pgx pool contention, and rate-limit budget
+   consumption. Until then, the chart-shipped alert thresholds
+   are starter shapes, not contractual SLOs, and operators can
+   tune <code>for:</code> durations and thresholds via values.</li>
+<li><strong>In-flight reaper ownership.</strong> <strong>Resolved.</strong> Every worker
+   pod runs a reaper goroutine; pods race on a separate
+   <code>repo-guardian:lock:reaper</code> Valkey key (already in the
+   schema). This decouples reaper cadence from sweep cadence
+   and keeps orphan reclamation resilient to scheduler-leader
+   churn — if the leader pod dies mid-sweep, the reaper still
+   runs from another pod, just with a 30s lock-TTL gap.
+   Defaults: reaper interval 60s, <code>lock:reaper</code> TTL 30s (longer
+   than expected reap runtime). Cost is one extra goroutine per
+   pod and one extra Valkey key — negligible.</li>
+<li><strong>Postgres connection pool sizing.</strong> <strong>Resolved.</strong> Default
+   pgx pool max = 5 per replica, values-tunable via
+   <code>STORE_POSTGRES_MAX_CONNS</code> (env) / <code>store.postgres.maxConns</code>
+   (helm). Math at default: 5 replicas → 25 conns, 10 → 50;
+   baked Postgres <code>max_connections=100</code> and CNPG <code>Cluster.spec.
+   postgresql.parameters.max_connections=200</code> (already in the
+   values block) both leave comfortable headroom. For replica
+   counts &gt;15, the already-exposed CNPG <code>Pooler</code> (PgBouncer) is
+   the recommended path rather than bumping <code>max_conns</code>.</li>
+<li><strong>Sweep batch size.</strong> <strong>Resolved.</strong> Hard cap of 200 repos
+   enqueued per scheduler tick, values-tunable via
+   <code>STORE_SWEEP_BATCH_SIZE</code> (env) / <code>scheduler.sweep.batchSize</code>
+   (helm). Rate-limit reserve is a <em>separate</em> per-repo enqueue
+   gate: at enqueue time, check the per-installation rate-limit
+   remaining; if under reserve, skip the enqueue and bump
+   <code>repo_guardian_rate_limit_reserve_blocked_total{installation_id}</code>
+   (the metric is already in the Q6 set). Decoupling keeps the
+   intent of each layer clear — the batch cap protects Postgres
+   and Valkey throughput; the reserve protects GitHub.</li>
+</ol>
+<h2 id="references">References</h2>
+<ul>
+<li>IMPL-0010 (chart 0.3.3 published the binary this design extends)</li>
+<li>INV-0003 (engine bug whose fix made same-repo reconciles
+  idempotent — prerequisite for safe multi-replica execution)</li>
+<li>INV-0004 (Provider interface refactor — same interface-first
+  principle, applied to the SCM layer)</li>
+<li>DESIGN-0005 (Helm chart, the deployment surface this design
+  modifies)</li>
+<li>GitHub REST API rate limits:
+  https://docs.github.com/en/rest/overview/rate-limits-for-the-rest-api</li>
+<li>Valkey: https://valkey.io</li>
+<li>CloudNativePG: https://cloudnative-pg.io/documentation/current/</li>
+<li>server-price-tracker chart (CNPG <code>Cluster</code> + <code>Pooler</code> template
+  pattern adopted here):
+  https://github.com/donaldgifford/server-price-tracker/tree/main/charts/server-price-tracker</li>
+<li>AWS ElastiCache for Redis (Valkey-compatible):
+  https://docs.aws.amazon.com/AmazonElastiCache/latest/red-ug/</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

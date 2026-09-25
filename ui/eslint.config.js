@@ -45,7 +45,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["server/**/*.ts", "scripts/**/*.ts"],
+    files: ["server/**/*.ts", "scripts/**/*.ts", "e2e/**/*.ts", "playwright.config.ts"],
     languageOptions: { globals: { ...globals.node, Bun: "readonly" } },
   },
 );

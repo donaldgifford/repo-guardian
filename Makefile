@@ -45,7 +45,7 @@ COVERAGE_OUT := coverage.out
 .PHONY: lint lint-fix lint-alerts lint-alerts-generated lint-alerts-chart fmt clean
 .PHONY: monitoring-generate lint-monitoring generate-sql lint-sql generate-api lint-api lint-temporal-contrib
 .PHONY: run run-local test-api ci check dev-services dev-stop
-.PHONY: ui-install generate-ui-api test-ui lint-ui
+.PHONY: ui-install generate-ui-api test-ui test-ui-e2e lint-ui
 .PHONY: release-check release-local
 
 ## Build Targets
@@ -265,7 +265,11 @@ generate-ui-api: ## Regenerate the UI's API types from api/openapi.yaml
 
 test-ui: ## Run the UI's bun tests
 	@ $(MAKE) --no-print-directory log-$@
-	@cd ui && bun test
+	@cd ui && bun run test
+
+test-ui-e2e: ## Run the UI's Playwright suite (needs Docker and Go)
+	@ $(MAKE) --no-print-directory log-$@
+	@cd ui && bunx playwright install chromium && bun run e2e
 
 lint-ui: ## Typecheck and ESLint the UI, and fail if its generated API types are stale
 	@ $(MAKE) --no-print-directory log-$@

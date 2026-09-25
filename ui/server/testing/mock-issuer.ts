@@ -21,6 +21,11 @@ export interface MockIssuerOptions {
   accessTokenTtl?: number;
   sub?: string;
   name?: string;
+  // apiAudience, when set, makes access tokens RS256 JWTs for that
+  // audience (what the Go API verifies) instead of opaque strings.
+  apiAudience?: string;
+  // groups is the access token's groups claim.
+  groups?: string[];
 }
 
 export interface MockIssuer {
@@ -62,11 +67,27 @@ export async function startMockIssuer(opts: MockIssuerOptions = {}): Promise<Moc
       .setExpirationTime("5m")
       .sign(privateKey);
 
+  // accessToken is opaque unless an API audience is configured; then it
+  // is a JWT access token (typ at+jwt, no nonce) the API accepts.
+  const accessToken = async () => {
+    if (!opts.apiAudience) {
+      return `at-${randomBytes(8).toString("hex")}`;
+    }
+    return new SignJWT({ azp: clientId, groups: opts.groups ?? [], name, preferred_username: "ada" })
+      .setProtectedHeader({ alg: "RS256", kid: "k1", typ: "at+jwt" })
+      .setIssuer(base)
+      .setAudience(opts.apiAudience)
+      .setSubject(sub)
+      .setIssuedAt()
+      .setExpirationTime(`${accessTokenTtl}s`)
+      .sign(privateKey);
+  };
+
   const tokens = async (nonce: string | undefined) => {
     const refresh = randomBytes(16).toString("hex");
     refreshTokens.add(refresh);
     return {
-      access_token: `at-${randomBytes(8).toString("hex")}`,
+      access_token: await accessToken(),
       token_type: "Bearer",
       expires_in: accessTokenTtl,
       refresh_token: refresh,

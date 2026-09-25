@@ -10,9 +10,10 @@
     "dev:web": "vite --config web/vite.config.ts",
     "build": "vite build --config web/vite.config.ts",
     "start": "bun server/main.ts",
-    "test": "bun test",
+    "test": "bun test ./server ./web ./scripts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "lint": "eslint --max-warnings=0 ."
+    "lint": "eslint --max-warnings=0 .",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.103.2",
@@ -30,6 +31,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/bun": "^1.4.2",
     "@types/react": "^19.3.0",

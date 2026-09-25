@@ -1397,14 +1397,14 @@ Land this phase as one PR, so the branch is never half-migrated.
     `posture.exportInterval` and `config.{workerCount, queueSize,
     scheduleInterval, maxJobAttempts}`;
   - remove the Valkey templates and helpers.
-- [ ] 17.6 Guards:
+- [x] 17.6 Guards:
   - `validateRemovedValues` and schema `const` entries for every
     removed key, each linking the runbook;
   - `api.auth.enabled` requires an issuer;
   - `split` plus `api.enabled` requires a read-only DSN source;
   - update `reservedEnvVars`;
   - a negative test for each guard.
-- [ ] 17.7 Add `checksum/policy` and `checksum/templates` annotations
+- [x] 17.7 Add `checksum/policy` and `checksum/templates` annotations
   on worker, ingest and `all`.
 - [ ] 17.8 Read-only role, per Postgres mode:
   - **baked:** init SQL for new volumes, plus OQ24 for existing ones;

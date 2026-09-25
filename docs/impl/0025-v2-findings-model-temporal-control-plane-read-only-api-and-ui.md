@@ -886,7 +886,7 @@ This phase can start right after Phase 1.
 
 #### Tasks
 
-- [ ] 10.1 Build the `internal/activities` package (OQ12):
+- [x] 10.1 Build the `internal/activities` package (OQ12):
   - `Activities{engine, Writer/Reader, ghFactory, policyVersion,
     logger}`;
   - activity names as constants in `internal/workflows/names.go`;

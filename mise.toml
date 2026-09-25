@@ -38,6 +38,9 @@ checkmake = "latest"
 # tools
 # renovate: datasource=github-releases depName=mikefarah/yq
 yq = "4.48.1"
+# sqlc generates internal/store/postgres/sqlcdb (IMPL-0025 Phase 2).
+# renovate: datasource=github-releases depName=sqlc-dev/sqlc
+sqlc = "1.31.1"
 # renovate: datasource=github-releases depName=jqlang/jq
 jq = "latest"
 # renovate: datasource=github-releases depName=donaldgifford/docz

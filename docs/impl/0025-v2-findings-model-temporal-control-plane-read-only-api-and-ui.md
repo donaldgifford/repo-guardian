@@ -420,7 +420,7 @@ it. Task IDs are `<phase>.<n>`.
   - engine fixes land on `main` first and merge forward;
   - rc tags are cut by hand, with `dont-release` PRs;
   - publishing is by `workflow_dispatch` with the tag (OQ9).
-- [ ] 1.9 Drill a merge-forward: merge `main` into `v2` and confirm CI
+- [ ] 1.9 **Deferred — human required:** needs the real `v2` branch on GitHub and a merge PR — Drill a merge-forward: merge `main` into `v2` and confirm CI
   runs on the merge PR.
 
 #### Success Criteria
@@ -437,7 +437,7 @@ it. Task IDs are `<phase>.<n>`.
 
 #### Tasks
 
-- [ ] 2.1 Add `github.com/pressly/goose/v3` to go.mod, use pgx's
+- [x] 2.1 Add `github.com/pressly/goose/v3` to go.mod, use pgx's
   `stdlib` driver, and pin `sqlc` in `mise.toml`.
 - [ ] 2.2 Set up the goose migrations:
   - put them in `internal/store/postgres/migrations_v2/`, embedded and

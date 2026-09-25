@@ -716,7 +716,7 @@ it. Task IDs are `<phase>.<n>`.
     fields rather than embedding;
   - hash exactly the set in DESIGN-0025 § Policy version v2;
   - return `"v2:" + hex(sha256)`.
-- [ ] 6.2 Add a golden test: a fixture policy and its templates must
+- [x] 6.2 Add a golden test: a fixture policy and its templates must
   produce a pinned version.
 - [ ] 6.3 Add a classification test. It reflects over every policy
   struct and fails on any exported field that is in neither the

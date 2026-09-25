@@ -259,3 +259,185 @@ Deployment and the migrate Job so the two can never disagree on the DSN.
       key: {{ include "repo-guardian.storeSecretKey" . }}
 {{- end }}
 {{- end }}
+
+{{/*
+===========================================================================
+v2 roles (DESIGN-0026 § Chart 2.0.0, IMPL-0025 Phase 17).
+
+topology=split renders one Deployment per role (ingest, worker, and api
+when api.enabled); topology=all renders a single Deployment running every
+role. Each role helper takes a dict: {ctx: $, role: "<name>"}.
+===========================================================================
+*/}}
+
+{{/*
+The roles rendered for the current topology.
+*/}}
+{{- define "repo-guardian.roles" -}}
+{{- if eq .Values.topology "all" -}}
+all
+{{- else -}}
+ingest worker{{ if .Values.api.enabled }} api{{ end }}
+{{- end -}}
+{{- end }}
+
+{{/*
+Resource name for one role.
+*/}}
+{{- define "repo-guardian.roleFullname" -}}
+{{- printf "%s-%s" (include "repo-guardian.fullname" .ctx) .role | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
+{{/*
+Selector labels for one role. The component label keeps a role's
+Service, PDB and ServiceMonitor off every other role's pods (and off the
+baked Postgres pod, which shares the name and instance labels).
+*/}}
+{{- define "repo-guardian.roleSelectorLabels" -}}
+{{ include "repo-guardian.selectorLabels" .ctx }}
+app.kubernetes.io/component: {{ .role }}
+{{- end }}
+
+{{- define "repo-guardian.roleLabels" -}}
+{{ include "repo-guardian.labels" .ctx }}
+app.kubernetes.io/component: {{ .role }}
+{{- end }}
+
+{{/*
+What each role holds. Secret scoping (DESIGN-0026): the App key only in
+worker and all, the webhook secret only in ingest and all, Temporal in
+every role that dials it, and nothing but the read-only DSN in api.
+*/}}
+{{- define "repo-guardian.roleHasAppKey" -}}{{ if has .role (list "worker" "all") }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleHasWebhookSecret" -}}{{ if has .role (list "ingest" "all") }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleDialsTemporal" -}}{{ if has .role (list "ingest" "worker" "all") }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleHasStore" -}}{{ if has .role (list "worker" "all") }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleServesAPI" -}}{{ if has .role (list "api" "all") }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleReadsPolicy" -}}{{ if has .role (list "ingest" "worker" "all") }}true{{ end }}{{- end }}
+
+{{/*
+Whether a policy file is mounted.
+*/}}
+{{- define "repo-guardian.hasPolicy" -}}
+{{- if or .Values.policy.config .Values.policy.existingConfigMap }}true{{ end -}}
+{{- end }}
+
+{{/*
+The API's listen port: the main port when the api role runs alone, the
+sidecar port beside other roles (all).
+*/}}
+{{- define "repo-guardian.apiPort" -}}
+{{- if eq .role "all" }}{{ .ctx.Values.api.port }}{{ else }}{{ .ctx.Values.config.port }}{{ end -}}
+{{- end }}
+
+{{/*
+Temporal connection env (TEMPORAL_*) and, with mTLS, the mounted paths.
+*/}}
+{{- define "repo-guardian.temporalEnv" -}}
+- name: TEMPORAL_ADDRESS
+  value: {{ required "temporal.address is required" .Values.temporal.address | quote }}
+- name: TEMPORAL_NAMESPACE
+  value: {{ .Values.temporal.namespace | quote }}
+- name: TEMPORAL_TASK_QUEUE
+  value: {{ .Values.temporal.taskQueue | quote }}
+{{- with .Values.temporal.tls.existingSecret }}
+- name: TEMPORAL_TLS_CERT_PATH
+  value: /etc/repo-guardian/temporal-tls/tls.crt
+- name: TEMPORAL_TLS_KEY_PATH
+  value: /etc/repo-guardian/temporal-tls/tls.key
+- name: TEMPORAL_TLS_CA_PATH
+  value: /etc/repo-guardian/temporal-tls/ca.crt
+{{- with $.Values.temporal.tls.serverName }}
+- name: TEMPORAL_TLS_SERVER_NAME
+  value: {{ . | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+The api role's env: listener, read-only DSN, auth and status.
+*/}}
+{{- define "repo-guardian.apiEnv" -}}
+{{- $v := .ctx.Values -}}
+- name: API_LISTEN_ADDR
+  value: ":{{ include "repo-guardian.apiPort" . }}"
+{{- if eq .role "api" }}
+{{- include "repo-guardian.storeRODSNEnv" .ctx }}
+{{- end }}
+{{- if and $v.api.enabled $v.api.auth.enabled }}
+- name: API_AUTH_ENABLED
+  value: "true"
+- name: OIDC_ISSUER
+  value: {{ $v.api.auth.issuer | quote }}
+- name: OIDC_AUDIENCE
+  value: {{ $v.api.auth.audience | quote }}
+- name: OIDC_NAME_CLAIM
+  value: {{ $v.api.auth.nameClaim | quote }}
+- name: OIDC_GROUPS_CLAIM
+  value: {{ $v.api.auth.groupsClaim | quote }}
+- name: API_AUTHZ_CONFIG
+  value: /etc/repo-guardian/authz/authz.yaml
+{{- else }}
+# The api role has no Service unless api.enabled, and with auth off it is
+# reachable on the pod network only (INV-0009).
+- name: API_AUTH_ENABLED
+  value: "false"
+{{- end }}
+- name: PR_STALE_AFTER
+  value: {{ $v.api.prStaleAfter | quote }}
+- name: STATUS_PUBLIC
+  value: {{ $v.api.status.public | quote }}
+{{- end }}
+
+{{/*
+STORE_RO_DSN for the api role (DESIGN-0027 § Chart). An operator Secret
+wins; otherwise baked and CNPG derive it from the chart-managed
+read-only role, and external has no source (a guard fails render).
+*/}}
+{{- define "repo-guardian.storeRODSNEnv" -}}
+{{- $pg := include "repo-guardian.postgresFullname" . -}}
+{{- if .Values.api.roDsn.existingSecret }}
+- name: STORE_RO_DSN
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.api.roDsn.existingSecret }}
+      key: {{ .Values.api.roDsn.existingSecretKey | default "STORE_RO_DSN" }}
+{{- else if eq .Values.store.postgres.mode "baked" }}
+- name: RO_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "repo-guardian.roSecretName" . }}
+      key: {{ include "repo-guardian.roSecretKey" . }}
+- name: STORE_RO_DSN
+  value: "postgres://repoguardian_ro:$(RO_PASSWORD)@{{ $pg }}.{{ .Release.Namespace }}.svc.cluster.local:5432/repoguardian?sslmode=disable"
+{{- else if eq .Values.store.postgres.mode "cnpg" }}
+- name: RO_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "repo-guardian.roSecretName" . }}
+      key: password
+{{- /* CNPG's -ro Service routes to replicas only; one instance has none. */}}
+- name: STORE_RO_DSN
+  value: "postgres://repoguardian_ro:$(RO_PASSWORD)@{{ $pg }}-{{ if gt (int .Values.store.postgres.cnpg.instances) 1 }}ro{{ else }}rw{{ end }}.{{ .Release.Namespace }}.svc.cluster.local:5432/repoguardian?sslmode=require"
+{{- end }}
+{{- end }}
+
+{{/*
+Secret holding the read-only role's password: the operator's baked
+Secret (key existingSecretROKey) or the chart-rendered <postgres>-ro.
+*/}}
+{{- define "repo-guardian.roSecretName" -}}
+{{- if and (eq .Values.store.postgres.mode "baked") .Values.store.postgres.baked.existingSecret -}}
+{{- .Values.store.postgres.baked.existingSecret -}}
+{{- else -}}
+{{- printf "%s-ro" (include "repo-guardian.postgresFullname" .) -}}
+{{- end -}}
+{{- end }}
+
+{{- define "repo-guardian.roSecretKey" -}}
+{{- if and (eq .Values.store.postgres.mode "baked") .Values.store.postgres.baked.existingSecret -}}
+{{- .Values.store.postgres.baked.existingSecretROKey | default "RO_PASSWORD" -}}
+{{- else -}}
+password
+{{- end -}}
+{{- end }}

@@ -106,6 +106,120 @@ config:
   # -- Skip archived repositories
   skipArchived: true
 
+# -- Deployment shape (DESIGN-0026 § Chart 2.0.0). `split` renders one
+# Deployment per role: `ingest` (webhooks), `worker` (Temporal worker)
+# and, when `api.enabled`, `api`. `all` renders a single Deployment
+# running every role, for small installs and the homelab.
+topology: split
+
+# -- Temporal connection. Every role that dials Temporal (ingest,
+# worker, all) gets these; api never does.
+temporal:
+  # -- Frontend `host:port`. Required.
+  address: ""
+  # -- Temporal namespace.
+  namespace: repo-guardian
+  # -- Task queue the worker polls and ingest signals through.
+  taskQueue: repo-guardian
+  tls:
+    # -- Secret with `tls.crt`, `tls.key` and (optionally) `ca.crt` for
+    # mTLS. Mounted only into roles that dial Temporal.
+    existingSecret: ""
+    # -- Server name to verify the frontend certificate against.
+    serverName: ""
+
+# -- Each repository's check cadence (Go duration).
+checkInterval: "24h"
+# -- Span a policy change is spread across: every repository is
+# re-checked at a random point inside it, not all at once.
+policyRolloutWindow: "24h"
+# -- How long check history is kept before SnapshotWorkflow prunes it.
+checksRetention: "2160h"
+
+# -- The ingest role: receives webhooks and signals workflows. Stateless.
+ingest:
+  # -- Replica count (split only).
+  replicas: 2
+  # -- Resources; empty falls back to `resources`.
+  resources: {}
+  pdb:
+    # -- Render a PodDisruptionBudget.
+    enabled: true
+    # -- Pods kept through voluntary disruptions.
+    minAvailable: 1
+
+# -- The worker role: runs workflows and activities (split only).
+worker:
+  # -- Replica count. Ignored when `worker.keda.enabled`.
+  replicas: 1
+  # -- Concurrent activities per pod (WORKER_ACTIVITY_CONCURRENCY).
+  concurrency: 10
+  # -- Resources; empty falls back to `resources`.
+  resources: {}
+  # -- KEDA autoscaling on Temporal backlog. Requires the KEDA CRDs.
+  keda:
+    # -- Render a ScaledObject with a `temporal` trigger.
+    enabled: false
+    # -- Floor.
+    minReplicas: 1
+    # -- Ceiling. Size it to the GitHub budget, not the backlog: checks
+    # are rate-limit bound, so pods past the budget only park more
+    # timers (INV-0018 Obs 7).
+    maxReplicas: 4
+    # -- Backlog per replica before KEDA scales out.
+    targetQueueSize: "50"
+
+# -- The api role: the read-only JSON API (DESIGN-0027). It holds only
+# a read-only database credential: no App key, no webhook secret.
+api:
+  # -- Render the api role (split) and its Service. In `all` the API
+  # always runs on `api.port`; this gates its Service and auth.
+  enabled: false
+  # -- Replica count (split only).
+  replicas: 2
+  # -- API port beside other roles (`all`). The api role alone serves
+  # on `config.port`.
+  port: 8081
+  # -- Resources; empty falls back to `resources`.
+  resources: {}
+  pdb:
+    # -- Render a PodDisruptionBudget.
+    enabled: true
+    # -- Pods kept through voluntary disruptions.
+    minAvailable: 1
+  roDsn:
+    # -- Secret holding STORE_RO_DSN. Required for `store.postgres.mode:
+    # external`; baked and cnpg derive it from the chart-managed
+    # `repoguardian_ro` role when empty.
+    existingSecret: ""
+    # -- Key inside existingSecret.
+    existingSecretKey: STORE_RO_DSN
+  auth:
+    # -- Require an OIDC bearer token on every data endpoint.
+    enabled: true
+    # -- OIDC issuer URL. Required when auth is enabled.
+    issuer: ""
+    # -- Expected token audience.
+    audience: repo-guardian-api
+    # -- Claim naming the caller in logs.
+    nameClaim: preferred_username
+    # -- Claim listing the caller's groups.
+    groupsClaim: groups
+  authz:
+    # -- Group → org grants, rendered into the authz ConfigMap. Keys are
+    # group names; values list orgs (`["*"]` for every org).
+    groups: {}
+    # -- Orgs granted to every authenticated caller.
+    defaultOrgs: []
+    # -- Machine clients (by `azp`) → groups above, for IdPs that put no
+    # groups on client-credentials tokens.
+    clients: {}
+  # -- Open repo-guardian PRs older than this count as stale.
+  prStaleAfter: "720h"
+  status:
+    # -- Serve /status without a token.
+    public: true
+
 # -- GitHub App secrets
 secrets:
   # -- Create secret resource (false = use existing secret)

@@ -1,0 +1,21 @@
+{{- if eq .Values.topology "split" }}
+{{- range $role := list "ingest" "api" }}
+{{- $rv := index $.Values $role }}
+{{- if and $rv.pdb.enabled (or (eq $role "ingest") $.Values.api.enabled) }}
+{{- $r := dict "ctx" $ "role" $role }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "repo-guardian.roleFullname" $r }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.roleLabels" $r | nindent 4 }}
+spec:
+  minAvailable: {{ $rv.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "repo-guardian.roleSelectorLabels" $r | nindent 6 }}
+{{- end }}
+{{- end }}
+{{- end }}

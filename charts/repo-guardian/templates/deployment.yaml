@@ -1,230 +1,252 @@
 {{- include "repo-guardian.validateTemplatingVars" . -}}
 {{- include "repo-guardian.validateBackendSecrets" . -}}
 {{- include "repo-guardian.validateRemovedValues" . -}}
+{{- range $role := splitList " " (include "repo-guardian.roles" .) }}
+{{- $r := dict "ctx" $ "role" $role }}
+{{- $v := $.Values }}
+{{- $roleValues := index $v $role | default dict }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "repo-guardian.fullname" . }}
-  namespace: {{ .Release.Namespace }}
+  name: {{ include "repo-guardian.roleFullname" $r }}
+  namespace: {{ $.Release.Namespace }}
   labels:
-    {{- include "repo-guardian.labels" . | nindent 4 }}
+    {{- include "repo-guardian.roleLabels" $r | nindent 4 }}
 spec:
-  replicas: {{ .Values.replicaCount }}
-  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  {{- if eq $role "all" }}
+  replicas: {{ $v.replicaCount }}
+  {{- else if not (and (eq $role "worker") $v.worker.keda.enabled) }}
+  replicas: {{ $roleValues.replicas }}
+  {{- end }}
+  revisionHistoryLimit: {{ $v.revisionHistoryLimit }}
   selector:
     matchLabels:
-      {{- include "repo-guardian.selectorLabels" . | nindent 6 }}
+      {{- include "repo-guardian.roleSelectorLabels" $r | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+        {{- if include "repo-guardian.roleReadsPolicy" $r }}
+        checksum/policy: {{ include (print $.Template.BasePath "/policy-configmap.yaml") $ | sha256sum }}
+        checksum/templates: {{ include (print $.Template.BasePath "/configmap.yaml") $ | sha256sum }}
+        {{- end }}
+        {{- if and (include "repo-guardian.roleServesAPI" $r) $v.api.enabled $v.api.auth.enabled }}
+        checksum/authz: {{ include (print $.Template.BasePath "/api-authz-configmap.yaml") $ | sha256sum }}
+        {{- end }}
+        {{- with $v.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
       labels:
-        {{- include "repo-guardian.labels" . | nindent 8 }}
-        {{- with .Values.podLabels }}
+        {{- include "repo-guardian.roleLabels" $r | nindent 8 }}
+        {{- with $v.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- with .Values.imagePullSecrets }}
+      {{- with $v.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "repo-guardian.serviceAccountName" . }}
+      serviceAccountName: {{ include "repo-guardian.serviceAccountName" $ }}
       terminationGracePeriodSeconds: 60
-      {{- with .Values.podSecurityContext }}
+      {{- with $v.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
-        - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- with .Values.command }}
+        - name: {{ $.Chart.Name }}
+          image: "{{ $v.image.repository }}:{{ $v.image.tag | default $.Chart.AppVersion }}"
+          imagePullPolicy: {{ $v.image.pullPolicy }}
+          {{- with $v.command }}
           command:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          args: [{{ $role | quote }}]
           ports:
-            - containerPort: {{ .Values.config.port }}
+            - containerPort: {{ $v.config.port }}
               name: http
               protocol: TCP
-            - containerPort: {{ .Values.config.metricsPort }}
+            - containerPort: {{ $v.config.metricsPort }}
               name: metrics
               protocol: TCP
+            {{- if eq $role "all" }}
+            - containerPort: {{ $v.api.port }}
+              name: api
+              protocol: TCP
+            {{- end }}
           env:
-            - name: GITHUB_APP_ID
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "repo-guardian.secretName" . }}
-                  key: app-id
+            - name: LISTEN_ADDR
+              value: ":{{ $v.config.port }}"
+            - name: METRICS_ADDR
+              value: ":{{ $v.config.metricsPort }}"
+            - name: LOG_LEVEL
+              value: {{ $v.config.logLevel | quote }}
+            {{- if include "repo-guardian.roleDialsTemporal" $r }}
+            {{- include "repo-guardian.temporalEnv" $ | nindent 12 }}
+            {{- end }}
+            {{- if include "repo-guardian.roleHasWebhookSecret" $r }}
             - name: GITHUB_WEBHOOK_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "repo-guardian.secretName" . }}
+                  name: {{ include "repo-guardian.secretName" $ }}
                   key: webhook-secret
-            {{- if .Values.secrets.privateKeyAsFile }}
+            {{- end }}
+            {{- if include "repo-guardian.roleHasAppKey" $r }}
+            - name: GITHUB_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "repo-guardian.secretName" $ }}
+                  key: app-id
+            {{- if $v.secrets.privateKeyAsFile }}
             - name: GITHUB_PRIVATE_KEY_PATH
               value: /etc/repo-guardian/private-key/private-key.pem
             {{- else }}
             - name: GITHUB_PRIVATE_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "repo-guardian.secretName" . }}
+                  name: {{ include "repo-guardian.secretName" $ }}
                   key: private-key
             {{- end }}
-            - name: LISTEN_ADDR
-              value: ":{{ .Values.config.port }}"
-            - name: METRICS_ADDR
-              value: ":{{ .Values.config.metricsPort }}"
-            - name: LOG_LEVEL
-              value: {{ .Values.config.logLevel | quote }}
+            {{- end }}
+            {{- if include "repo-guardian.roleReadsPolicy" $r }}
             - name: DRY_RUN
-              value: {{ .Values.config.dryRun | quote }}
-            - name: WORKER_COUNT
-              value: {{ .Values.config.workerCount | quote }}
-            - name: QUEUE_SIZE
-              value: {{ .Values.config.queueSize | quote }}
-            - name: MAX_JOB_ATTEMPTS
-              value: {{ .Values.config.maxJobAttempts | quote }}
-            - name: SCHEDULE_INTERVAL
-              value: {{ .Values.config.scheduleInterval | quote }}
+              value: {{ $v.config.dryRun | quote }}
             - name: SKIP_FORKS
-              value: {{ .Values.config.skipForks | quote }}
+              value: {{ $v.config.skipForks | quote }}
             - name: SKIP_ARCHIVED
-              value: {{ .Values.config.skipArchived | quote }}
+              value: {{ $v.config.skipArchived | quote }}
             - name: AUTO_CLOSE_PR
-              value: {{ .Values.policy.autoClosePR | quote }}
+              value: {{ $v.policy.autoClosePR | quote }}
             - name: ORPHAN_CLEANUP
-              value: {{ .Values.policy.orphanCleanup | quote }}
+              value: {{ $v.policy.orphanCleanup | quote }}
             - name: TEMPLATE_DIR
               value: /etc/repo-guardian/templates
-            {{- if or .Values.policy.config .Values.policy.existingConfigMap }}
+            {{- if include "repo-guardian.hasPolicy" $ }}
             - name: GUARDIAN_CONFIG
               value: /etc/repo-guardian/policy/guardian.hcl
             {{- end }}
-            {{- if .Values.templating.strict }}
+            {{- if $v.templating.strict }}
             - name: STRICT_TEMPLATES
               value: "true"
             {{- end }}
-            - name: STORE_BACKEND
-              value: {{ .Values.store.backend | quote }}
-            - name: QUEUE_BACKEND
-              value: {{ .Values.queue.backend | quote }}
-            - name: SCHEDULER_BACKEND
-              value: {{ .Values.scheduler.backend | quote }}
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            {{- if eq .Values.store.backend "postgres" }}
-            - name: STORE_POSTGRES_MAX_CONNS
-              value: {{ .Values.store.postgres.maxConns | quote }}
-            {{- include "repo-guardian.storeDSNEnv" . | nindent 12 }}
-            - name: RECONCILE_FRESHNESS
-              value: {{ .Values.staleSweep.freshness | quote }}
-            - name: STALE_SWEEP_BATCH_SIZE
-              value: {{ .Values.staleSweep.batchSize | quote }}
             {{- end }}
+            {{- if include "repo-guardian.roleHasStore" $r }}
+            - name: WORKER_ACTIVITY_CONCURRENCY
+              value: {{ $v.worker.concurrency | quote }}
+            - name: CHECK_INTERVAL
+              value: {{ $v.checkInterval | quote }}
+            - name: POLICY_ROLLOUT_WINDOW
+              value: {{ $v.policyRolloutWindow | quote }}
+            - name: CHECKS_RETENTION
+              value: {{ $v.checksRetention | quote }}
             - name: DISCOVERY_ENABLED
-              value: {{ .Values.discovery.enabled | quote }}
+              value: {{ $v.discovery.enabled | quote }}
             - name: DISCOVERY_INTERVAL
-              value: {{ .Values.discovery.interval | quote }}
-            - name: POSTURE_EXPORT_INTERVAL
-              value: {{ .Values.posture.exportInterval | quote }}
+              value: {{ $v.discovery.interval | quote }}
             - name: COMPLIANCE_SNAPSHOT_INTERVAL
-              value: {{ .Values.posture.snapshotInterval | quote }}
-            {{- if eq .Values.queue.backend "valkey" }}
-            {{- if and (eq .Values.queue.valkey.mode "baked") .Values.queue.valkey.baked.existingSecret }}
-            # Baked Valkey with an operator-supplied password: assemble
-            # QUEUE_VALKEY_DSN at runtime from $(VALKEY_PASSWORD).
-            - name: VALKEY_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.queue.valkey.baked.existingSecret }}
-                  key: {{ .Values.queue.valkey.baked.existingSecretKey | default "VALKEY_PASSWORD" }}
-            - name: QUEUE_VALKEY_DSN
-              value: "redis://:$(VALKEY_PASSWORD)@{{ include "repo-guardian.valkeyFullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:6379/0"
-            {{- else }}
-            - name: QUEUE_VALKEY_DSN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "repo-guardian.queueSecretName" . }}
-                  key: {{ include "repo-guardian.queueSecretKey" . }}
+              value: {{ $v.posture.snapshotInterval | quote }}
+            - name: STORE_POSTGRES_MAX_CONNS
+              value: {{ $v.store.postgres.maxConns | quote }}
+            {{- include "repo-guardian.storeDSNEnv" $ | nindent 12 }}
             {{- end }}
-            - name: JOB_ACK_TIMEOUT
-              value: {{ .Values.queue.valkey.jobAckTimeout | quote }}
-            - name: REAPER_INTERVAL
-              value: {{ .Values.queue.valkey.reaperInterval | quote }}
+            {{- if include "repo-guardian.roleServesAPI" $r }}
+            {{- include "repo-guardian.apiEnv" $r | nindent 12 }}
             {{- end }}
-            {{- range $k, $v := .Values.templating.vars }}
+            {{- if include "repo-guardian.roleReadsPolicy" $r }}
+            {{- range $k, $val := $v.templating.vars }}
             - name: {{ $k }}
-              value: {{ $v | quote }}
+              value: {{ $val | quote }}
             {{- end }}
-            {{- with .Values.extraEnv }}
+            {{- end }}
+            {{- with $v.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
           volumeMounts:
-            {{- if .Values.secrets.privateKeyAsFile }}
+            {{- if and (include "repo-guardian.roleHasAppKey" $r) $v.secrets.privateKeyAsFile }}
             - name: github-private-key
               mountPath: /etc/repo-guardian/private-key
               readOnly: true
             {{- end }}
+            {{- if and (include "repo-guardian.roleDialsTemporal" $r) $v.temporal.tls.existingSecret }}
+            - name: temporal-tls
+              mountPath: /etc/repo-guardian/temporal-tls
+              readOnly: true
+            {{- end }}
+            {{- if include "repo-guardian.roleReadsPolicy" $r }}
             - name: templates
               mountPath: /etc/repo-guardian/templates
               readOnly: true
-            {{- if or .Values.policy.config .Values.policy.existingConfigMap }}
+            {{- if include "repo-guardian.hasPolicy" $ }}
             - name: policy
               mountPath: /etc/repo-guardian/policy
               readOnly: true
             {{- end }}
-            {{- with .Values.extraVolumeMounts }}
+            {{- end }}
+            {{- if and (include "repo-guardian.roleServesAPI" $r) $v.api.enabled $v.api.auth.enabled }}
+            - name: authz
+              mountPath: /etc/repo-guardian/authz
+              readOnly: true
+            {{- end }}
+            {{- with $v.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-          {{- with .Values.securityContext }}
+          {{- with $v.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.resources }}
+          {{- with ($roleValues.resources | default $v.resources) }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.livenessProbe }}
+          {{- with $v.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.readinessProbe }}
+          {{- with $v.readinessProbe }}
           readinessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
       volumes:
-        {{- if .Values.secrets.privateKeyAsFile }}
+        {{- if and (include "repo-guardian.roleHasAppKey" $r) $v.secrets.privateKeyAsFile }}
         - name: github-private-key
           secret:
-            secretName: {{ include "repo-guardian.secretName" . }}
+            secretName: {{ include "repo-guardian.secretName" $ }}
             items:
               - key: private-key
                 path: private-key.pem
         {{- end }}
+        {{- if and (include "repo-guardian.roleDialsTemporal" $r) $v.temporal.tls.existingSecret }}
+        - name: temporal-tls
+          secret:
+            secretName: {{ $v.temporal.tls.existingSecret }}
+        {{- end }}
+        {{- if include "repo-guardian.roleReadsPolicy" $r }}
         - name: templates
           configMap:
-            name: {{ .Values.templates.existingConfigMap | default (printf "%s-templates" (include "repo-guardian.fullname" .)) }}
-        {{- if or .Values.policy.config .Values.policy.existingConfigMap }}
+            name: {{ $v.templates.existingConfigMap | default (printf "%s-templates" (include "repo-guardian.fullname" $)) }}
+        {{- if include "repo-guardian.hasPolicy" $ }}
         - name: policy
           configMap:
-            name: {{ .Values.policy.existingConfigMap | default (printf "%s-policy" (include "repo-guardian.fullname" .)) }}
+            name: {{ $v.policy.existingConfigMap | default (printf "%s-policy" (include "repo-guardian.fullname" $)) }}
         {{- end }}
-        {{- with .Values.extraVolumes }}
+        {{- end }}
+        {{- if and (include "repo-guardian.roleServesAPI" $r) $v.api.enabled $v.api.auth.enabled }}
+        - name: authz
+          configMap:
+            name: {{ include "repo-guardian.fullname" $ }}-authz
+        {{- end }}
+        {{- with $v.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-      {{- with .Values.nodeSelector }}
+      {{- with $v.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
+      {{- with $v.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.tolerations }}
+      {{- with $v.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- end }}

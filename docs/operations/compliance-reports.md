@@ -53,7 +53,7 @@ deployment, not to a reporting CLI. See
 [Postgres schema operations](migrations.md).
 
 **It does not load the server configuration.** No webhook secret, no
-Valkey DSN, no App credentials. A
+Temporal address, no App credentials. A
 read-only report has no use for any of it, and being told to set a
 webhook secret for a command that never serves a webhook would be
 absurd.
@@ -86,6 +86,12 @@ does not apply: out of scope, ignored, gate closed, branch missing) and
 **Unknown** (it could not be evaluated). Compliant is
 Passing / (Passing + Failing); N/A and Unknown sit beside it, never in
 it. The denominator is **per rule**, not per org.
+
+This differs from v1, which had no N/A or Unknown and counted some of
+those cases as passing. A v1 → v2 upgrade therefore moves some
+percentages on day one without any repository changing; the
+[divergence table](v2-migration.md#reporting-divergences) lists each
+case and which way it moves.
 
 This matters for scoped rules. A rule that applies to 10 of 100
 repositories and fails on 5 reads as **50%** here. Against an org-wide
@@ -129,9 +135,9 @@ today.
 
 One row per (repository, rule) currently failing, with its reason code
 (`file_missing`, `assertion_failed`, `setting_mismatch`, …) and the date
-the failure started. The date survives repeated sweeps: "missing since
-2026-06-14" does not reset to today every time the sweeper confirms it
-is still missing. It **is** cleared when the repository complies, so a
+the failure started. The date survives repeated checks: "missing since
+2026-06-14" does not reset to today every time a check confirms it is
+still missing. It **is** cleared when the repository complies, so a
 later regression starts a fresh clock rather than reporting a
 months-old date for a failure that was fixed in between.
 
@@ -206,14 +212,16 @@ reporting job can never damage the state the server depends on.
 
 ## Snapshot cadence
 
-The trend column reads from `compliance_snapshot`, written by the
-`compliance-snapshot` schedule handler inside the server. It is
-independent of the report command — the report only reads what the
-handler already stored.
+The trend column reads from `compliance_snapshots`, written by
+`SnapshotWorkflow` on the `snapshot` Temporal Schedule. It is independent
+of the report command, which only reads what the workflow already
+stored. The same workflow prunes `checks` rows older than
+`CHECKS_RETENTION`.
 
-| Knob | Default | Notes |
-|---|---|---|
-| `COMPLIANCE_SNAPSHOT_INTERVAL` | `24h` | Cadence between snapshots. |
+| Knob | Chart value | Default | Notes |
+|---|---|---|---|
+| `COMPLIANCE_SNAPSHOT_INTERVAL` | `posture.snapshotInterval` | `24h` | Cadence between snapshots. |
+| `CHECKS_RETENTION` | `checksRetention` | `2160h` | Check history kept; snapshots are not pruned. |
 
 Daily is the floor that makes quarter-over-quarter comparison possible
 without making the table large. Going faster does not make the report
@@ -222,47 +230,34 @@ every run, from the same query the snapshot uses. Only the **trend
 baseline** comes from history, and a baseline finer than daily is a
 baseline nobody asked a question about.
 
-!!! note "Chart wiring"
-    `COMPLIANCE_SNAPSHOT_INTERVAL` is not yet a first-class chart
-    value; set it through `extraEnv` until the chart bump lands
-    (IMPL-0023 task 7.3):
+### One run per interval is load-bearing here
 
-    ```yaml
-    extraEnv:
-      - name: COMPLIANCE_SNAPSHOT_INTERVAL
-        value: "24h"
-    ```
+A Temporal Schedule starts exactly one workflow per interval, however
+many worker replicas run. That matters more here than anywhere: two
+snapshot runs would each insert rows at their own timestamp, so a
+quarter-over-quarter query would count the same state twice or once,
+depending on whether the clocks happened to agree. v1 got the same
+guarantee from Valkey leader election.
 
-### Leader-gating is load-bearing here
-
-The handler runs under the same Valkey leader election as `stale-sweep`
-and the posture exporter, but for a stronger reason. Running the
-posture exporter on every replica merely duplicates effort. Running
-**this** on every replica would corrupt the history: each replica
-inserts its own rows at its own timestamp, so a quarter-over-quarter
-query would count the same state N times, or once, depending on whether
-the clocks happened to agree.
-
-A failed snapshot is logged and not retried within the interval. A
-missed snapshot leaves a visible, harmless gap in a daily series; a
-retry loop against a database that is already struggling is neither.
+A failed snapshot is retried by the workflow's activity retry policy
+and, failing that, left as a visible, harmless gap in a daily series.
 
 ## Retention
 
-**None ships, on purpose.** Volume is orgs × rules rows per day —
-roughly 120/day at target scale, about 44,000 rows a year. At that size
-retention machinery costs more to operate and reason about than the
-storage it would reclaim, and deleting compliance history is exactly
-the wrong default for a table whose entire purpose is answering "how
-compliant were we last quarter" after Prometheus retention has long
-since dropped the gauges.
+**None ships for snapshots, on purpose.** Volume is orgs × rules rows
+per day — roughly 120/day at target scale, about 44,000 rows a year. At
+that size retention machinery costs more to operate and reason about
+than the storage it would reclaim, and deleting compliance history is
+exactly the wrong default for a table whose entire purpose is answering
+"how compliant were we last quarter" after Prometheus retention has long
+since dropped the metrics.
 
 Revisit this if the fleet grows by orders of magnitude, not ahead of
 need. If you do need to prune, the table is a plain `DELETE` on
 `snapshot_at` with no foreign keys pointing at it:
 
 ```sql
-DELETE FROM compliance_snapshot WHERE snapshot_at < now() - interval '3 years';
+DELETE FROM compliance_snapshots WHERE snapshot_at < now() - interval '3 years';
 ```
 
 Take a backup first. There is no other copy of this data — the whole
@@ -274,10 +269,10 @@ point is that it outlives the metrics store.
 The command refuses rather than guessing at a local Postgres.
 
 **Every rule reads `new`, no trend column** — the server has not taken
-two snapshots yet. Check that a leader exists
-(`scheduler_is_leader{name="compliance-snapshot"}`) and that
-`COMPLIANCE_SNAPSHOT_INTERVAL` has elapsed twice since the schema
-migration.
+two snapshots yet. Check the `snapshot` Schedule in the Temporal UI
+(`temporal schedule describe --schedule-id snapshot`) and that
+`COMPLIANCE_SNAPSHOT_INTERVAL` has elapsed twice since the upgrade.
+Snapshots migrated from v1 count.
 
 **A report is empty / no files written** — nothing has been evaluated
 yet. `findings` is written by each check, so a fresh deployment has no
@@ -296,6 +291,6 @@ the chart's migrate Job run) first.
 
 ## See also
 
-- [Scaling repo-guardian](scaling.md) — posture exporter and metric catalog
+- [Migrating from v1 to v2](v2-migration.md) — the reporting divergences a v1 → v2 upgrade introduces
 - [Postgres schema operations](migrations.md) — migrations and backups
-- [Delayed requeue runbook](delayed-requeue-runbook.md) — why a repository may be stale rather than failing
+- [Scaling repo-guardian](scaling.md) — metric catalog

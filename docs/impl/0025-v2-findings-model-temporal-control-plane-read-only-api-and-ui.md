@@ -416,7 +416,7 @@ it. Task IDs are `<phase>.<n>`.
 - [x] 1.7 Add an `integration` job to `ci.yml` on `v2`. It runs
   `make test-integration` when the paths filter reports `go` or `sql`
   changes (OQ2).
-- [ ] 1.8 Document the branch workflow in CLAUDE.md on `v2`:
+- [x] 1.8 Document the branch workflow in CLAUDE.md on `v2`:
   - engine fixes land on `main` first and merge forward;
   - rc tags are cut by hand, with `dont-release` PRs;
   - publishing is by `workflow_dispatch` with the tag (OQ9).

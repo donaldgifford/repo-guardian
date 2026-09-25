@@ -256,6 +256,16 @@ The SLSA reusable workflow must stay referenced by a semver **tag** (`@v2.1.0`);
 
 **Helm CLI semantics drift in CI (PR #76):** two gotchas bit the helm-unittest job when migrating off the third-party `d3adb5/helm-unittest-action@v2`. (1) `helm plugin install --version "X.Y.Z"` on helm 3.20+ triggers verify mode; the helm-unittest source has no provenance data, so install fails with "plugin source does not support verification." Pass `--verify=false` explicitly, or omit `--version` to install latest (which skips the verify path). (2) `helm unittest --color` is a boolean flag on older plugin versions and an enum (`never|auto|always`) on newer ones — passing `--color charts/foo` on the newer CLI consumes the chart path as the enum value. Easiest fix: omit `--color`, since GitHub Actions terminals enable color via env detection. Both fixes live in the helm-unittest job in `.github/workflows/ci.yml`; if you ever swap that job back to a packaged action, re-verify these behaviors against whatever helm version it pins.
 
+## The v2 branch (IMPL-0025)
+
+v2 (DESIGN-0025/0026/0027) is built on a long-lived `v2` branch, worked phase by phase from `docs/impl/0025-*.md`.
+
+- **Engine fixes land on `main` first** and merge forward into `v2` regularly. Runtime plumbing (Temporal, roles, findings store) is v2-only.
+- **CI runs on both branches.** `ci.yml`, `license-check.yml` and `security.yml` trigger on `[main, v2]`; `ct.yaml` targets `v2` on this line. `release.yml` and `gh-pages.yml` stay `main`-only, so a push to `v2` never runs the semver bump.
+- **Pre-releases only.** rc tags (`v2.0.0-rc.N`) are cut by hand from `v2` behind `dont-release` PRs (rule 6), then published with a `workflow_dispatch` of `ghcr.yml` (and `ecr.yml` when enabled) passing the tag. A tag with a `-` suffix never moves `latest` — `docker-bake.hcl`'s `tags()` and both metadata steps gate it.
+- **Chart** is `2.0.0-rc.N` on this line so OCI publishes never collide with 1.x.
+- **At v2.0.0** `v2` fast-forwards `main` and the `v2` branch entries are reverted.
+
 ## Rules
 
 These rules must always be followed when working in this repository.

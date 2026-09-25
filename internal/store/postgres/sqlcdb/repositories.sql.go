@@ -121,6 +121,35 @@ func (q *Queries) ListActiveRepositories(ctx context.Context, arg ListActiveRepo
 	return items, nil
 }
 
+const lockRepository = `-- name: LockRepository :one
+SELECT id, provider, host, org, name, provider_repo_id, installation_id, active, park_reason, parked_at, discovered_at, next_due_at, last_checked_at, last_check_outcome, last_error, policy_version, catalog_parse_ok FROM repositories WHERE id = $1 FOR UPDATE
+`
+
+func (q *Queries) LockRepository(ctx context.Context, id int64) (Repository, error) {
+	row := q.db.QueryRow(ctx, lockRepository, id)
+	var i Repository
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.Host,
+		&i.Org,
+		&i.Name,
+		&i.ProviderRepoID,
+		&i.InstallationID,
+		&i.Active,
+		&i.ParkReason,
+		&i.ParkedAt,
+		&i.DiscoveredAt,
+		&i.NextDueAt,
+		&i.LastCheckedAt,
+		&i.LastCheckOutcome,
+		&i.LastError,
+		&i.PolicyVersion,
+		&i.CatalogParseOk,
+	)
+	return i, err
+}
+
 const lockRepositoryByName = `-- name: LockRepositoryByName :one
 SELECT id, provider, host, org, name, provider_repo_id, installation_id, active, park_reason, parked_at, discovered_at, next_due_at, last_checked_at, last_check_outcome, last_error, policy_version, catalog_parse_ok FROM repositories
 WHERE provider = $1 AND host = $2 AND lower(org) = lower($3) AND lower(name) = lower($4)
@@ -141,6 +170,43 @@ func (q *Queries) LockRepositoryByName(ctx context.Context, arg LockRepositoryBy
 		arg.Org,
 		arg.Name,
 	)
+	var i Repository
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.Host,
+		&i.Org,
+		&i.Name,
+		&i.ProviderRepoID,
+		&i.InstallationID,
+		&i.Active,
+		&i.ParkReason,
+		&i.ParkedAt,
+		&i.DiscoveredAt,
+		&i.NextDueAt,
+		&i.LastCheckedAt,
+		&i.LastCheckOutcome,
+		&i.LastError,
+		&i.PolicyVersion,
+		&i.CatalogParseOk,
+	)
+	return i, err
+}
+
+const lockRepositoryByProviderID = `-- name: LockRepositoryByProviderID :one
+SELECT id, provider, host, org, name, provider_repo_id, installation_id, active, park_reason, parked_at, discovered_at, next_due_at, last_checked_at, last_check_outcome, last_error, policy_version, catalog_parse_ok FROM repositories
+WHERE provider = $1 AND host = $2 AND provider_repo_id = $3
+FOR UPDATE
+`
+
+type LockRepositoryByProviderIDParams struct {
+	Provider       string
+	Host           string
+	ProviderRepoID *int64
+}
+
+func (q *Queries) LockRepositoryByProviderID(ctx context.Context, arg LockRepositoryByProviderIDParams) (Repository, error) {
+	row := q.db.QueryRow(ctx, lockRepositoryByProviderID, arg.Provider, arg.Host, arg.ProviderRepoID)
 	var i Repository
 	err := row.Scan(
 		&i.ID,
@@ -214,38 +280,14 @@ func (q *Queries) ParkRepository(ctx context.Context, arg ParkRepositoryParams) 
 
 const reactivateRepository = `-- name: ReactivateRepository :exec
 UPDATE repositories
-SET active = true, park_reason = NULL, parked_at = NULL,
-    installation_id = $1,
-    provider_repo_id = coalesce(provider_repo_id, $2)
-WHERE id = $3
+SET active = true, park_reason = NULL, parked_at = NULL
+WHERE id = $1
 `
 
-type ReactivateRepositoryParams struct {
-	InstallationID int64
-	ProviderRepoID *int64
-	ID             int64
-}
-
-func (q *Queries) ReactivateRepository(ctx context.Context, arg ReactivateRepositoryParams) error {
-	_, err := q.db.Exec(ctx, reactivateRepository, arg.InstallationID, arg.ProviderRepoID, arg.ID)
-	return err
-}
-
-const refreshRepositoryIdentity = `-- name: RefreshRepositoryIdentity :exec
-UPDATE repositories
-SET installation_id = $1,
-    provider_repo_id = coalesce(provider_repo_id, $2)
-WHERE id = $3
-`
-
-type RefreshRepositoryIdentityParams struct {
-	InstallationID int64
-	ProviderRepoID *int64
-	ID             int64
-}
-
-func (q *Queries) RefreshRepositoryIdentity(ctx context.Context, arg RefreshRepositoryIdentityParams) error {
-	_, err := q.db.Exec(ctx, refreshRepositoryIdentity, arg.InstallationID, arg.ProviderRepoID, arg.ID)
+// The only statement that sets active = true (INV-0015): discovery is
+// the sole un-parker.
+func (q *Queries) ReactivateRepository(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, reactivateRepository, id)
 	return err
 }
 
@@ -255,18 +297,14 @@ SET last_checked_at = $1,
     last_check_outcome = 'success',
     last_error = NULL,
     policy_version = $2,
-    catalog_parse_ok = $3,
-    provider_repo_id = coalesce($4, provider_repo_id),
-    name = coalesce($5, name)
-WHERE id = $6
+    catalog_parse_ok = $3
+WHERE id = $4
 `
 
 type UpdateRepositoryAfterCheckParams struct {
 	CheckedAt      *time.Time
 	PolicyVersion  string
 	CatalogParseOk *bool
-	ProviderRepoID *int64
-	Name           *string
 	ID             int64
 }
 
@@ -275,8 +313,6 @@ func (q *Queries) UpdateRepositoryAfterCheck(ctx context.Context, arg UpdateRepo
 		arg.CheckedAt,
 		arg.PolicyVersion,
 		arg.CatalogParseOk,
-		arg.ProviderRepoID,
-		arg.Name,
 		arg.ID,
 	)
 	return err
@@ -298,5 +334,33 @@ type UpdateRepositoryAfterErrorParams struct {
 
 func (q *Queries) UpdateRepositoryAfterError(ctx context.Context, arg UpdateRepositoryAfterErrorParams) error {
 	_, err := q.db.Exec(ctx, updateRepositoryAfterError, arg.CheckedAt, arg.LastError, arg.ID)
+	return err
+}
+
+const updateRepositoryIdentity = `-- name: UpdateRepositoryIdentity :exec
+UPDATE repositories
+SET org = $1,
+    name = $2,
+    installation_id = $3,
+    provider_repo_id = coalesce(provider_repo_id, $4)
+WHERE id = $5
+`
+
+type UpdateRepositoryIdentityParams struct {
+	Org            string
+	Name           string
+	InstallationID int64
+	ProviderRepoID *int64
+	ID             int64
+}
+
+func (q *Queries) UpdateRepositoryIdentity(ctx context.Context, arg UpdateRepositoryIdentityParams) error {
+	_, err := q.db.Exec(ctx, updateRepositoryIdentity,
+		arg.Org,
+		arg.Name,
+		arg.InstallationID,
+		arg.ProviderRepoID,
+		arg.ID,
+	)
 	return err
 }

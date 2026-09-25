@@ -93,9 +93,10 @@ type CheckRecord struct {
 	FinishedAt     time.Time
 	Outcomes       []Outcome
 	CatalogParseOK *bool
-	// ProviderRepoID and Name refresh the repository's identity when
-	// set (DESIGN-0025 § Identity).
+	// ProviderRepoID, Org and Name refresh the repository's identity
+	// from the check's GetRepository when set (DESIGN-0025 § Identity).
 	ProviderRepoID *int64
+	Org            string
 	Name           string
 	Rate           *RateSnapshot
 }

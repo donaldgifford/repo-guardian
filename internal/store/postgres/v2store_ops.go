@@ -136,8 +136,9 @@ func clearRepositoryFindings(ctx context.Context, q *sqlcdb.Queries, repoID int6
 	return err
 }
 
-// UpsertDiscovered implements store.Writer. It matches by name only;
-// IMPL-0025 Phase 5 adds matching by provider_repo_id and renames.
+// UpsertDiscovered implements store.Writer. It matches by provider id,
+// then by name (see matchRepository), refreshes the identity with
+// renamed/transferred events, and reactivates a parked row.
 // Reactivation here is the only way a parked repository comes back
 // (INV-0015's subset invariant).
 func (s *V2Store) UpsertDiscovered(ctx context.Context, r *store.DiscoveredRepo) (res store.UpsertResult, err error) {
@@ -146,30 +147,28 @@ func (s *V2Store) UpsertDiscovered(ctx context.Context, r *store.DiscoveredRepo)
 	provider, host := orDefault(r.Provider, defaultProvider), orDefault(r.Host, defaultHost)
 
 	err = s.inTx(ctx, func(q *sqlcdb.Queries) error {
-		existing, err := q.LockRepositoryByName(ctx, sqlcdb.LockRepositoryByNameParams{
-			Provider: provider, Host: host, Org: r.Org, Name: r.Name,
-		})
-		if errors.Is(err, pgx.ErrNoRows) {
+		existing, found, err := matchRepository(ctx, q, provider, host, r.Org, r.Name, r.ProviderRepoID)
+		if err != nil {
+			return err
+		}
+
+		if !found {
 			res, err = insertDiscovered(ctx, q, r, provider, host)
 
 			return err
 		}
 
-		if err != nil {
-			return fmt.Errorf("lock repository: %w", err)
-		}
-
 		res.ID = existing.ID
 
-		if existing.Active {
-			return q.RefreshRepositoryIdentity(ctx, sqlcdb.RefreshRepositoryIdentityParams{
-				ID: existing.ID, InstallationID: r.InstallationID, ProviderRepoID: r.ProviderRepoID,
-			})
+		if res.Renamed, err = applyIdentity(ctx, q, &existing, r.Org, r.Name, r.InstallationID, r.ProviderRepoID); err != nil {
+			return err
 		}
 
-		if err := q.ReactivateRepository(ctx, sqlcdb.ReactivateRepositoryParams{
-			ID: existing.ID, InstallationID: r.InstallationID, ProviderRepoID: r.ProviderRepoID,
-		}); err != nil {
+		if existing.Active {
+			return nil
+		}
+
+		if err := q.ReactivateRepository(ctx, existing.ID); err != nil {
 			return fmt.Errorf("reactivate: %w", err)
 		}
 

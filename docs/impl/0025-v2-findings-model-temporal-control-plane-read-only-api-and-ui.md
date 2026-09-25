@@ -677,7 +677,7 @@ it. Task IDs are `<phase>.<n>`.
   `client_test.go` fixtures.
 - [x] 5.2 `CheckResult.Repository` carries `{ID, Owner, Name}` from
   `GetRepository`, at no extra call cost.
-- [ ] 5.3 Match repositories in `UpsertDiscovered` and `RecordCheck`:
+- [x] 5.3 Match repositories in `UpsertDiscovered` and `RecordCheck`:
   - first by `provider_repo_id`;
   - then by `lower(org), lower(name)` where `provider_repo_id IS
     NULL`, filling in the ID;

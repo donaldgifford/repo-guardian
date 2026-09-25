@@ -291,10 +291,19 @@ func applyFindings(
 	return writeEvents(ctx, q, c.RepositoryID, &checkID, c.PolicyVersion, now, events)
 }
 
+// updateRepositoryAfterCheck records the check on the repository row and
+// refreshes its identity from the check's GetRepository. It never sets
+// active: un-parking is discovery's alone.
 func updateRepositoryAfterCheck(ctx context.Context, q *sqlcdb.Queries, c *store.CheckRecord, now time.Time) error {
-	var name *string
-	if c.Name != "" {
-		name = &c.Name
+	if c.Org != "" || c.Name != "" || c.ProviderRepoID != nil {
+		row, err := q.LockRepository(ctx, c.RepositoryID)
+		if err != nil {
+			return fmt.Errorf("lock repository: %w", notFound(err))
+		}
+
+		if _, err := applyIdentity(ctx, q, &row, c.Org, c.Name, 0, c.ProviderRepoID); err != nil {
+			return err
+		}
 	}
 
 	if err := q.UpdateRepositoryAfterCheck(ctx, sqlcdb.UpdateRepositoryAfterCheckParams{
@@ -302,8 +311,6 @@ func updateRepositoryAfterCheck(ctx context.Context, q *sqlcdb.Queries, c *store
 		CheckedAt:      &now,
 		PolicyVersion:  c.PolicyVersion,
 		CatalogParseOk: c.CatalogParseOK,
-		ProviderRepoID: c.ProviderRepoID,
-		Name:           name,
 	}); err != nil {
 		return fmt.Errorf("update repository: %w", err)
 	}

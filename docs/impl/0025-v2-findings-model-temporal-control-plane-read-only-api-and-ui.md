@@ -533,7 +533,7 @@ it. Task IDs are `<phase>.<n>`.
   plus `StageCheck(ctx, CheckRecord)`, which writes the `pending` row
   and `pending_result` (DESIGN-0026 OQ17). `RecordCheck` accepts either
   a staged key or inline outcomes.
-- [ ] 3.6 Write the sqlc query files in `queries/`:
+- [x] 3.6 Write the sqlc query files in `queries/`:
   `repositories.sql`, `installations.sql`, `findings.sql`, `checks.sql`,
   `events.sql`, `policy.sql`, `service_runs.sql` and `snapshots.sql`.
   Then run `make generate-sql` and commit the output.

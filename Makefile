@@ -190,7 +190,8 @@ lint-sql: ## Fail if sqlc vet fails or the committed sqlc output is stale
 	@ $(MAKE) --no-print-directory log-$@
 	@sqlc vet
 	@rm -rf $(BUILD_DIR)/sqlc && mkdir -p $(BUILD_DIR)/sqlc
-	@yq '.sql[0].schema = "$(CURDIR)/" + .sql[0].schema | .sql[0].queries = "$(CURDIR)/" + .sql[0].queries | .sql[0].gen.go.out = "out"' sqlc.yaml > $(BUILD_DIR)/sqlc/sqlc.yaml
+	@# sqlc resolves every path relative to its config file, so the copy under $(BUILD_DIR)/sqlc reaches the repo with ../../.
+	@yq '.sql[0].schema = "../../" + .sql[0].schema | .sql[0].queries = "../../" + .sql[0].queries | .sql[0].gen.go.out = "out"' sqlc.yaml > $(BUILD_DIR)/sqlc/sqlc.yaml
 	@cd $(BUILD_DIR)/sqlc && sqlc generate
 	@if ! diff -r -u $(BUILD_DIR)/sqlc/out $(SQLC_OUT); then \
 		echo "error: the committed sqlc output is stale" >&2; \

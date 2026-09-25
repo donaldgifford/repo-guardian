@@ -57,4 +57,4 @@ is missing or malformed.
 
 Every response carries `Content-Security-Policy: default-src 'self';
 connect-src 'self'; frame-ancestors 'none'; script-src 'self'`,
-`X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`.
+`X-Content-Type-Options: nosniff` and `Referrer-Policy: same-origin`.

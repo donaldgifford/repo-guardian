@@ -109,7 +109,7 @@ describe("security headers", () => {
       const res = await browser.request(path);
       expect(res.headers.get("content-security-policy")).toBe(contentSecurityPolicy);
       expect(res.headers.get("x-content-type-options")).toBe("nosniff");
-      expect(res.headers.get("referrer-policy")).toBe("no-referrer");
+      expect(res.headers.get("referrer-policy")).toBe("same-origin");
     }
   });
 });

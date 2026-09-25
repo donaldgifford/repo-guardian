@@ -14,7 +14,10 @@ export const securityHeaders: MiddlewareHandler = async (c, next) => {
   await next();
   c.header("content-security-policy", contentSecurityPolicy);
   c.header("x-content-type-options", "nosniff");
-  c.header("referrer-policy", "no-referrer");
+  // same-origin, not no-referrer: under no-referrer Chrome sends
+  // "Origin: null" on a same-origin form POST, which the logout Origin
+  // check (rightly) refuses. Nothing is sent to another origin either way.
+  c.header("referrer-policy", "same-origin");
 };
 
 // publicAppPaths are SPA routes rendered without a session.

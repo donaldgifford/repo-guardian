@@ -52,9 +52,12 @@ why" Loki panels (E4) need a new home. That home has three parts:
 - **A read-only HTTP API**, the `api` role of the repo-guardian binary.
   It serves findings, compliance and history from Postgres
   (DESIGN-0025) behind OIDC, through a SELECT-only database role.
-- **A business UI** in a separate repository (`repo-guardian-ui`):
-  Bun, React, TypeScript and shadcn/ui, with OIDC login and a client
-  generated from the API's OpenAPI contract.
+- **A business UI** whose code lives in a separate repository
+  (`repo-guardian-ui`) and which deploys from the repo-guardian chart.
+  It is a Bun server that serves a React/TypeScript/shadcn front end and
+  acts as a backend-for-frontend (BFF): it runs the OIDC login, keeps
+  tokens server-side, and proxies API calls. It runs from one container,
+  with no nginx.
 - **A public status page**, served by the same API from first-party
   state. It shows aggregate service health and fleet compliance, with no
   organization, repository or rule names.
@@ -82,9 +85,10 @@ findings → API → UI.
 - **Read-only by construction.** The database role can only `SELECT`,
   the API has no mutating routes, and the API holds no GitHub
   credentials.
-- **OIDC for people and machines.** The UI logs in with authorization
-  code + PKCE. The API validates bearer JWTs against the issuer's JWKS,
-  and machine clients use client-credentials tokens.
+- **OIDC for people and machines.** The UI's Bun server logs users in
+  with authorization code + PKCE as a confidential client, and tokens
+  never reach the browser. The API validates bearer JWTs against the
+  issuer's JWKS, and machine clients use client-credentials tokens.
 - **Coarse org-level authorization**: "may this identity see this org",
   from group claims. No RBAC hierarchy (INV-0018 Obs 9).
 - **A public status page** that is safe to expose: aggregate health and
@@ -146,32 +150,38 @@ findings → API → UI.
 
 ```mermaid
 flowchart LR
-  U["browser"]
+  U["browser<br/>session cookie only"]
+  M["machine client<br/>client-credentials token"]
   IDP["OIDC provider<br/>Keycloak / Okta / Entra"]
-  subgraph EDGE["operator ingress — one host"]
-    R1["/ → ui"]
-    R2["/api → api"]
+  ING["operator ingress<br/>one host"]
+  subgraph RG["repo-guardian chart"]
+    UI["ui ×2 — Bun BFF<br/>assets · OIDC · session · /api proxy"]
+    API["api ×2<br/>repo-guardian api"]
   end
-  UI["ui<br/>static SPA (repo-guardian-ui image)"]
-  API["api ×2<br/>repo-guardian api"]
   PG[("Postgres<br/>repoguardian_ro: SELECT only")]
   T["Temporal frontend<br/>(read-only calls)"]
-  U -->|code + PKCE| IDP
-  U --> EDGE
-  R1 --> UI
-  R2 --> API
+  U --> ING
+  M --> ING
+  ING --> UI
+  UI -->|code + PKCE, token refresh| IDP
+  UI -->|"GET /api/* + Bearer"| API
   API -->|JWKS| IDP
   API --> PG
   API -.->|DescribeTaskQueue| T
 ```
 
-- **Same origin** (OQ1). The UI is served at `/` and the API at `/api`
-  on one host. The browser therefore never makes a cross-origin call,
-  the API needs no CORS handling, and the attack surface stays smaller.
-- **The UI is static assets.** All data comes from the API with a
-  bearer token.
+- **One public host, served by `ui`.** The ingress routes the whole host
+  to the Bun server. It serves the front end, runs the login flow, and
+  proxies `/api/*` to the `api` Service inside the cluster. The browser
+  makes same-origin calls only, so the API needs no CORS handling (OQ1).
+- **`api` is not exposed directly.** It has a ClusterIP Service and no
+  Ingress of its own. Machine clients reach it through the same host:
+  the BFF passes a request that carries its own `Authorization: Bearer`
+  header straight through, and `api` validates it exactly as it would a
+  user's token.
 - **The API is stateless**: two replicas behind a PDB, with no session
-  store.
+  store. The BFF's sessions live in encrypted cookies (OQ15), so it is
+  stateless too.
 
 ### The `api` role
 
@@ -228,17 +238,24 @@ flowchart LR
 
 ```mermaid
 sequenceDiagram
-  participant B as browser (UI)
+  participant B as browser
+  participant U as ui (Bun BFF)
   participant I as OIDC provider
   participant A as api
-  B->>I: authorize (code + PKCE, scope openid profile groups)
-  I-->>B: redirect with code
-  B->>I: token (code + verifier)
-  I-->>B: access token (aud = repo-guardian-api), refresh token
-  B->>A: GET /api/v1/summary (Bearer)
-  A->>A: verify signature via cached JWKS, iss, aud, exp
-  A->>A: groups → visible orgs
-  A-->>B: 200 (scoped to visible orgs)
+  B->>U: GET /auth/login
+  U-->>B: 302 to issuer (code + PKCE, state, nonce)
+  B->>I: authorize
+  I-->>B: 302 /auth/callback?code&state
+  B->>U: GET /auth/callback
+  U->>I: token (code + verifier + client secret)
+  I-->>U: access token (aud = repo-guardian-api), refresh token, ID token
+  U-->>B: Set-Cookie __Host-rg_session (encrypted, HttpOnly, Secure, SameSite=Lax)
+  B->>U: GET /api/v1/summary (cookie)
+  U->>U: decrypt session, refresh token if near expiry
+  U->>A: GET /api/v1/summary (Bearer access token)
+  A->>A: verify via cached JWKS (iss, aud, exp), map groups → visible orgs
+  A-->>U: 200 (scoped to visible orgs)
+  U-->>B: 200
 ```
 
 ### Authorization
@@ -363,18 +380,51 @@ endpoint is cheap to hit.
 
 ### The UI (`repo-guardian-ui`)
 
+The code lives in its own repository and publishes one container image,
+`ghcr.io/donaldgifford/repo-guardian-ui`, which the repo-guardian chart
+deploys (see [Chart](#chart)).
+
 **Stack:**
 
 | Concern | Choice |
 | --- | --- |
 | Runtime, package manager, test runner | Bun |
-| Build | Vite (run under Bun) producing static assets |
+| Server | `Bun.serve` with Hono for routing and middleware (OQ16) |
+| OIDC (server side) | `openid-client` v6: authorization code + PKCE as a confidential client, refresh, RP-initiated logout |
+| Sessions | encrypted, stateless cookie (JWE, A256GCM via `jose`) (OQ15) |
+| Front-end build | Vite (run under Bun), output served by the same Bun process |
 | Framework | React 19 + TypeScript (strict) |
 | Components | shadcn/ui + Tailwind CSS; shadcn charts (Recharts) |
-| Routing and data | TanStack Router + TanStack Query (OQ9) |
-| API client | `openapi-typescript` types + `openapi-fetch`, generated from the pinned spec |
-| OIDC | `oidc-client-ts` via `react-oidc-context` (code + PKCE) |
-| Tests | `bun test` for units; Playwright e2e against a mock issuer and a seeded API |
+| Routing and data | TanStack Router + TanStack Query |
+| API client | `openapi-typescript` types + `openapi-fetch`, generated from the pinned spec, calling same-origin `/api` |
+| Tests | `bun test` for server and units; Playwright e2e against a mock issuer and a seeded API |
+| Image | Bun's distroless base image running the server, plus the built assets; one process, no nginx |
+
+**The Bun server's routes:**
+
+| Route | Auth | Does |
+| --- | --- | --- |
+| `GET /auth/login` | none | starts code + PKCE; `state`, `nonce` and the verifier go in a short-lived encrypted cookie |
+| `GET /auth/callback` | none | checks `state`, exchanges the code, sets the session cookie, redirects to the original path |
+| `POST /auth/logout` | session | clears the cookie, then redirects to the issuer's `end_session_endpoint` |
+| `GET /api/*` | session **or** caller's own Bearer | proxies to `api` with the access token; refreshes it first when it expires within 60s |
+| `GET /api/v1/status` | none | proxied without a token (public) |
+| `GET /status` | none | the public status page |
+| `GET /healthz`, `/readyz` | none | liveness; readiness checks the issuer's discovery document and the `api` upstream |
+| `GET /*` | session (redirects to login if absent) | front-end assets with SPA fallback; hashed assets cached long, `index.html` no-cache |
+
+**Sessions.**
+
+- The session cookie is `__Host-rg_session`: HttpOnly, Secure,
+  `SameSite=Lax`, path `/`, with no Domain attribute.
+- It carries the refresh token, the access token and its expiry, `sub`,
+  and a display name, all encrypted.
+- Cookies over 4 KB are split into numbered chunks.
+- Keys come from a Secret holding a list, so a key can be rotated
+  without logging everyone out: new sessions use the first key, and any
+  listed key decrypts.
+- Sessions last at most `UI_SESSION_TTL` (default 8h), however long the
+  refresh token lives.
 
 **Views:**
 
@@ -415,10 +465,24 @@ Timeline  09-15 renovate compliant → non_compliant (assertion_failed) · 09-15
 
 **Security:**
 
-- **Tokens** are held in memory, with refresh-token rotation for renewal
-  (OQ7). Nothing goes to `localStorage`.
-- **CSP:** no inline scripts, `connect-src 'self'` plus the issuer, and
-  `frame-ancestors 'none'`.
+- **Tokens never reach the browser.** It holds only the encrypted
+  session cookie, which scripts cannot read. A cross-site scripting bug
+  therefore cannot steal a token, and there is no token storage question
+  in the browser (OQ7 is superseded).
+- **CSRF.**
+  - The proxy forwards only `GET` and `HEAD`; the API is read-only
+    anyway.
+  - `POST /auth/logout` checks the `Origin` header.
+  - `SameSite=Lax` keeps the cookie off cross-site subrequests.
+- **Proxy hygiene.**
+  - The BFF drops the inbound `Cookie` header before forwarding.
+  - It sets `Authorization` only from the session or from the caller's
+    own bearer, never both.
+  - It forwards to a single configured upstream (`API_UPSTREAM`), never
+    to a path- or header-derived host.
+- **CSP:** no inline scripts, `connect-src 'self'` and
+  `frame-ancestors 'none'`. The browser never talks to the issuer
+  directly.
 - **Repository-controlled text** (assertion messages, file paths, PR
   titles) is rendered as text only: no `dangerouslySetInnerHTML`, no
   markdown rendering of evidence.
@@ -426,13 +490,15 @@ Timeline  09-15 renovate compliant → non_compliant (assertion_failed) · 09-15
   (`https://<host>/<org>/<name>/pull/<number>`), not from free-text URLs
   in evidence. They open with `rel="noopener noreferrer"`.
 
-**Runtime config:** one image serves every environment. `/config.json`
-is mounted from a ConfigMap and read at boot:
-`{issuer, clientId, apiBase: "/api", scopes}`.
+**Configuration** comes from environment variables on the `ui`
+container:
 
-**Serving:** a static build in an unprivileged nginx image (OQ6), with
-SPA fallback to `index.html`, long cache for hashed assets and no-cache
-for `index.html` and `config.json`.
+- `OIDC_ISSUER`, `OIDC_CLIENT_ID`;
+- from a Secret: `OIDC_CLIENT_SECRET` and `UI_SESSION_KEYS`;
+- `OIDC_SCOPES`, `API_UPSTREAM` (the `api` Service URL);
+- `UI_SESSION_TTL`, `PUBLIC_URL`.
+
+The browser receives only what it displays, from `/ui/config`.
 
 ### What the UI replaces
 
@@ -454,7 +520,9 @@ for `index.html` and `config.json`.
 
 ### Chart
 
-These values extend chart 2.0.0 (DESIGN-0026):
+The UI deploys from the repo-guardian chart (OQ8), so one
+`helm install` brings up the service and the UI. These values extend
+chart 2.0.0 (DESIGN-0026):
 
 ```yaml
 api:
@@ -471,23 +539,41 @@ api:
     groups: {}
   status:
     public: true
+
+ui:
+  enabled: false            # requires api.enabled and api.auth.enabled
+  replicas: 2
+  image:
+    repository: ghcr.io/donaldgifford/repo-guardian-ui
+    tag: ""                 # pinned per chart release; see below
+  oidc:
+    clientId: repo-guardian-ui
+    scopes: [openid, profile, groups, offline_access]
+  existingSecret: ""        # keys: oidc-client-secret, session-keys
+  sessionTTL: 8h
   ingress:
-    enabled: false          # fails render if auth.enabled is false
+    enabled: false          # the one public host; fails render unless api.auth.enabled
     className: ""
     host: ""
-    uiService: ""           # the UI release's Service, routed at /
+    tls: []
 ```
 
-The read-only role (DESIGN-0025 OQ12) is created per Postgres mode:
-
-- **baked:** by the StatefulSet's init SQL;
-- **CNPG:** declared in `spec.managed.roles`, with the API connecting
-  through the `-ro` Service;
-- **external:** the operator creates `repoguardian_ro`, and the docs
-  give the `CREATE ROLE` and `GRANT` statements.
-
-The UI ships its own chart from its own repository (OQ8).
-`api.ingress.uiService` wires both into one host.
+- **Rendered:** a `ui` Deployment, Service and PDB. The Ingress sends
+  the whole host to `ui`. `API_UPSTREAM` points at the `api` Service.
+- **Guards:** `ui.enabled` fails render without `api.enabled` and
+  `api.auth.enabled`. The Ingress fails render when auth is off, which
+  carries INV-0009's hard gate forward.
+- **Version pinning.** The chart pins a `ui.image.tag` known to work
+  with its `api` version, because the UI is built against a pinned spec.
+  A UI release opens a Renovate PR here that bumps the tag; the change
+  lands as a chart patch, unrelated to the binary's `appVersion`.
+- **The read-only database role** (DESIGN-0025 OQ12) is created per
+  Postgres mode:
+  - **baked:** by the StatefulSet's init SQL;
+  - **CNPG:** declared in `spec.managed.roles`, with the API connecting
+    through the `-ro` Service;
+  - **external:** the operator creates `repoguardian_ro`, and the docs
+    give the `CREATE ROLE` and `GRANT` statements.
 
 ### Observability
 
@@ -510,6 +596,8 @@ Rendering the spec inside mkdocs is OQ10.
 ## API / Interface Changes
 
 - New role `repo-guardian api`.
+- New image `repo-guardian-ui` (separate repository), deployed by this
+  chart.
 - New env vars:
   - `API_LISTEN_ADDR`, `STORE_RO_DSN`;
   - `OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_GROUPS_CLAIM`,
@@ -555,10 +643,22 @@ refresh, not materialized views.
   - schema has no free-text fields.
 - **Compliance parity:** the same seeded database through `report`,
   `/rules` and the snapshot writer yields identical percentages.
-- **UI:** unit tests for view models. Playwright e2e covers login via
-  mock issuer, fleet → rule → repository navigation, filters, the public
-  status page without login, and an evidence string containing HTML
-  rendered as text.
+- **BFF server** (`bun test`, against a mock issuer and a stub
+  upstream). Assert:
+  - the login round-trip rejects a mismatched `state`;
+  - session cookie attributes (`__Host-`, HttpOnly, Secure, SameSite);
+  - chunking, and key rotation (an old key still decrypts);
+  - refresh fires before expiry;
+  - expired sessions redirect to login;
+  - the proxy refuses anything but GET/HEAD, never forwards `Cookie`,
+    passes a caller's own bearer through untouched, and only ever
+    targets `API_UPSTREAM`.
+- **UI:** unit tests for view models. Playwright e2e covers:
+  - login via the mock issuer;
+  - fleet → rule → repository navigation, and filters;
+  - the public status page without login;
+  - an evidence string containing HTML, rendered as text;
+  - `document.cookie` showing no session and no token (HttpOnly).
 
 ## Implementation Phases
 
@@ -573,12 +673,16 @@ can run in parallel with DESIGN-0026.
 3. **Read endpoints.** The rest of the table, with sqlc queries and
    compliance-math unification with `report`.
 4. **Status page.** Cache, component rules, optional Temporal probe.
-5. **Chart.** `api.*` values, ingress guard, read-only role per
-   Postgres mode.
-6. **UI repository.** Scaffold, OIDC, generated client, Fleet and
-   Repository views first, then the rest.
-7. **E2E and docs.** Playwright suite, `docs/usage/api.md`, a Keycloak
-   homelab walkthrough.
+5. **UI repository: BFF.** Bun server with Hono, `openid-client` login,
+   encrypted sessions, the `/api` proxy, health endpoints, and the image
+   build and publish.
+6. **UI repository: views.** Generated client; Fleet and Repository
+   first, then the rest.
+7. **Chart.** `api.*` and `ui.*` values, the single-host Ingress,
+   render guards, the read-only role per Postgres mode, and the Renovate
+   rule for `ui.image.tag`.
+8. **E2E and docs.** Playwright suite, `docs/usage/api.md` and
+   `docs/usage/ui.md`, a Keycloak homelab walkthrough.
 
 ## Migration / Rollout Plan
 
@@ -587,9 +691,12 @@ can run in parallel with DESIGN-0026.
   immediately. Findings read `migrated_from_v1` until each repository's
   first v2 check, and the UI renders that reason as "last checked by v1;
   details on next check".
-- `api.enabled` stays false by default until auth has been validated in
-  the homelab (INV-0009). Operators enable it after configuring an
-  issuer.
+- `api.enabled` and `ui.enabled` stay false by default until auth has
+  been validated in the homelab (INV-0009). Operators enable them after
+  registering two clients with their issuer:
+  - the UI as a confidential client with a redirect URI of
+    `https://<host>/auth/callback`;
+  - the API as the audience `repo-guardian-api`.
 
 ## Risks
 
@@ -598,7 +705,8 @@ can run in parallel with DESIGN-0026.
 | Public status page leaks org or repo information | fixed schema with no names; test asserts no free-text fields |
 | Authz bug exposes another team's orgs | filtering only in SQL, 404 for invisible, two-org tests on every endpoint |
 | Evidence text used for XSS | text-only rendering, CSP, no markdown |
-| Tokens stolen from the browser | in-memory storage, short-lived access tokens, rotation; the BFF option (OQ6 b) if the threat model requires it |
+| Session cookie or BFF compromise | HttpOnly encrypted cookie, key rotation, 8h cap; BFF forwards only GET to one upstream; the API still validates every token |
+| UI image and API version skew | chart pins `ui.image.tag` per release; the UI is built against a pinned spec |
 | Spec and server drift | strict-server generation, drift gate, response validation in tests |
 | oapi-codegen 3.1 gaps | documented constructs only; Overlay fallback |
 | Aggregate queries slow at scale | indexed queries, 30s cache for hot aggregates, measured in the homelab |
@@ -606,12 +714,14 @@ can run in parallel with DESIGN-0026.
 ## Open Questions
 
 1. **Hosting the UI and API.**
+   **Resolved 2026-09-25: (a).**
    - (a) Same origin through the operator's ingress: the UI at `/` and
      the API at `/api`. No CORS.
    - (b) Separate hosts with a CORS allowlist in the API.
    - other:
 
 2. **Contract version and generator.**
+   **Resolved 2026-09-25: (a).**
    - (a) OpenAPI 3.1 with oapi-codegen ≥ v2.8.0 (std-http + strict),
      using an Overlay for any unsupported construct.
    - (b) OpenAPI 3.0.3 with oapi-codegen (mature path; loses 3.1 null
@@ -620,12 +730,14 @@ can run in parallel with DESIGN-0026.
    - other:
 
 3. **OIDC validation library.**
+   **Resolved 2026-09-25: (a).**
    - (a) `coreos/go-oidc/v3`.
    - (b) `zitadel/oidc`.
    - (c) `lestrrat-go/jwx` with hand-rolled discovery.
    - other:
 
 4. **Authorization model.**
+   **Resolved 2026-09-25: (a).**
    - (a) Group → org mapping in chart values, `*` for all orgs, 404 for
      invisible orgs.
    - (b) Every authenticated user sees every org.
@@ -633,6 +745,7 @@ can run in parallel with DESIGN-0026.
    - other:
 
 5. **Public status page content.**
+   **Resolved 2026-09-25: (a).**
    - (a) Overall and component health plus fleet-wide compliance %; no
      names.
    - (b) (a) plus per-rule compliance % (exposes rule names).
@@ -640,6 +753,7 @@ can run in parallel with DESIGN-0026.
    - other:
 
 6. **UI serving and token handling.**
+   **Resolved 2026-09-25: (b) — a Bun BFF runs the whole UI from one container, with no nginx; tokens stay server-side.**
    - (a) Static SPA in an unprivileged nginx image; tokens in the
      browser (in memory).
    - (b) A Bun backend-for-frontend holding tokens server-side, with an
@@ -648,11 +762,13 @@ can run in parallel with DESIGN-0026.
    - other:
 
 7. **Token storage in the browser** (if 6a).
+   **Resolved 2026-09-25: superseded by 6 (b): the browser holds only an HttpOnly encrypted session cookie, never a token.**
    - (a) Memory only, with refresh-token rotation.
    - (b) `sessionStorage`.
    - other:
 
 8. **UI deployment packaging.**
+   **Resolved 2026-09-25: (b) — one chart: the repo-guardian chart deploys the UI image (`ui.*`).**
    - (a) The UI repository publishes its own chart; the repo-guardian
      chart wires the ingress to it (`api.ingress.uiService`).
    - (b) The repo-guardian chart gains an optional `ui.*` Deployment
@@ -660,17 +776,20 @@ can run in parallel with DESIGN-0026.
    - other:
 
 9. **Router and data libraries.**
+   **Resolved 2026-09-25: (a).**
    - (a) TanStack Router + TanStack Query.
    - (b) React Router v7 + TanStack Query.
    - other:
 
 10. **API docs in mkdocs.**
+    **Resolved 2026-09-25: (a).**
     - (a) Add an OpenAPI-rendering mkdocs plugin alongside
       `techdocs-core`.
     - (b) Link to the spec file and the release artifact only.
     - other:
 
 11. **Read-only DSN fallback.**
+    **Resolved 2026-09-25: (a).**
     - (a) Require `STORE_RO_DSN` in `split` topology. `all` may fall
       back to `STORE_DSN`, and the read-only session settings still
       apply.
@@ -678,20 +797,38 @@ can run in parallel with DESIGN-0026.
     - other:
 
 12. **Policy view source.**
+    **Resolved 2026-09-25: (a).**
     - (a) The worker writes a summary into `policy_versions.summary`;
       the API reads only the database.
     - (b) The API mounts the policy ConfigMap and parses it.
     - other:
 
 13. **Temporal in the status page.**
+    **Resolved 2026-09-25: (a).**
     - (a) Optional read-only Temporal client (`DescribeTaskQueue`) for
       backlog and pollers.
     - (b) Database only: derive liveness from `checks` freshness.
     - other:
 
 14. **Stale-PR threshold.**
+    **Resolved 2026-09-25: (a).**
     - (a) `PR_STALE_AFTER` default 30 days, with a per-request override.
     - (b) Configurable per org in authz config.
+    - other:
+
+15. **BFF session storage** (new after 6 (b); needs review).
+    - (a) Stateless encrypted cookie (JWE, chunked above 4 KB, rotating
+      key list). The BFF stays stateless, with no new datastore and no
+      sticky sessions.
+    - (b) In-memory sessions per pod with sticky sessions at the ingress.
+    - (c) A sessions table in Postgres (gives the UI database access).
+    - other:
+
+16. **BFF HTTP framework** (new after 6 (b); needs review).
+    - (a) Hono on `Bun.serve`: routing, middleware and a typed proxy
+      helper, and portable if the runtime ever changes.
+    - (b) Plain `Bun.serve` with hand-written routing.
+    - (c) Elysia.
     - other:
 
 ## References
@@ -703,7 +840,7 @@ can run in parallel with DESIGN-0026.
 - DESIGN-0022 — compliance posture, dashboards E1–E4, report
 - [oapi-codegen v2.8.0 (OpenAPI 3.1)](https://github.com/oapi-codegen/oapi-codegen/releases/tag/v2.8.0) ·
   [go-oidc](https://github.com/coreos/go-oidc) ·
-  [oidc-client-ts](https://github.com/authts/oidc-client-ts) ·
+  [openid-client](https://github.com/panva/openid-client) · [Hono](https://hono.dev) ·
   [openapi-typescript](https://openapi-ts.dev) ·
   [shadcn/ui](https://ui.shadcn.com) ·
   [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)

@@ -734,7 +734,9 @@ and otherwise warn-and-ignored.
   - `ingest` Deployment with its own Service (webhook port), exposed
     through the operator's ingress;
   - `worker` Deployment, with an optional KEDA `ScaledObject`;
-  - `api` Deployment (DESIGN-0027);
+  - `api` Deployment (DESIGN-0027), ClusterIP only;
+  - `ui` Deployment (DESIGN-0027): the Bun BFF image from
+    `repo-guardian-ui`, which owns the single public UI/API host;
   - `migrate` hook Job.
 
   The `/metrics` port and ServiceMonitor apply to every role. PDBs are
@@ -903,6 +905,7 @@ See [Cutover from v1](#cutover-from-v1). The operator runbook
 ## Open Questions
 
 1. **Ingest shape.**
+   **Resolved 2026-09-25: (a).**
    - (a) Stateless: HMAC, parse, filter, start
      `WebhookWorkflow(webhook/<delivery>)`; routing happens in a worker
      activity. `ingest` has no DB and no App key, and GitHub
@@ -913,6 +916,7 @@ See [Cutover from v1](#cutover-from-v1). The operator runbook
    - other:
 
 2. **Rate budget mechanism.**
+   **Resolved 2026-09-25: (a).**
    - (a) `InstallationWorkflow` budget (acquire/report, leases) plus
      fairness keys per installation and priority.
    - (b) Fairness keys plus per-key rate limits plus reactive deferral
@@ -921,6 +925,7 @@ See [Cutover from v1](#cutover-from-v1). The operator runbook
    - other:
 
 3. **Default check cadence.**
+   **Resolved 2026-09-25: (a).**
    - (a) `CHECK_INTERVAL = 24h` per repository, the intent of v1's
      `RECONCILE_FRESHNESS`, with no batch cap; the budget gate keeps it
      inside quota.
@@ -930,6 +935,7 @@ See [Cutover from v1](#cutover-from-v1). The operator runbook
    - other:
 
 4. **Re-check at cutover.**
+   **Resolved 2026-09-25: (a).**
    - (a) Paced full re-check across `POLICY_ROLLOUT_WINDOW` (default
      24h). v1 policy versions never match v2's, and the re-check both
      fills real reasons and validates the swap.
@@ -939,6 +945,7 @@ See [Cutover from v1](#cutover-from-v1). The operator runbook
 
 5. **Discovery parks repositories missing from a complete installation
    listing.**
+   **Resolved 2026-09-25: (a).**
    - (a) Yes, reason `removed`, only after a listing that completed
      without error.
    - (b) No; leave them to fail with access-denied on their next check,
@@ -947,12 +954,14 @@ See [Cutover from v1](#cutover-from-v1). The operator runbook
 
 6. **New webhook handlers** (renamed, transferred, deleted, archived,
    unarchived, installation deleted/suspend, repositories removed).
+   **Resolved 2026-09-25: (a).**
    - (a) Handle all of them. Unarchive routes through single-installation
      discovery so discovery stays the only un-parker.
    - (b) Keep v1's handled set for v2.0 and add the rest later.
    - other:
 
 7. **Workflow code versioning.**
+   **Resolved 2026-09-25: (a).**
    - (a) Auto-Upgrade plus `GetVersion` patching plus replay tests in
      CI. Adopt Upgrade-on-Continue-as-New when it reaches GA.
    - (b) Upgrade-on-Continue-as-New now (public preview).
@@ -961,12 +970,14 @@ See [Cutover from v1](#cutover-from-v1). The operator runbook
    - other:
 
 8. **Temporal Server version floor.**
+   **Resolved 2026-09-25: (a).**
    - (a) 1.31, for fairness GA; track the latest minor.
    - (b) 1.30.1, the OpenSearch 2 minimum; no fairness.
    - other:
 
 9. **OpenSearch 3.x (Amazon OpenSearch Service is at 3.7; Temporal
    documents "OpenSearch 2+").**
+   **Resolved 2026-09-25: (a).**
    - (a) Document 2.19 as the supported Amazon version until the spike
      verifies 3.x against the pinned server.
    - (b) Assume 3.x works and document it.
@@ -974,12 +985,14 @@ See [Cutover from v1](#cutover-from-v1). The operator runbook
    - other:
 
 10. **Temporal namespace creation.**
+    **Resolved 2026-09-25: (a).**
     - (a) A one-shot admintools Job in `contrib/temporal/`.
     - (b) `repo-guardian migrate` registers the namespace through the
       API if it is missing (needs admin rights on the frontend).
     - other:
 
 11. **Temporal frontend access control.**
+    **Resolved 2026-09-25: (a).**
     - (a) mTLS plus a NetworkPolicy restricting the frontend to
       repo-guardian namespaces.
     - (b) mTLS only.
@@ -988,22 +1001,26 @@ See [Cutover from v1](#cutover-from-v1). The operator runbook
 
 12. **Removed `guardian {}` attributes** (`worker_count`, `queue_size`,
     `schedule_interval`).
+    **Resolved 2026-09-25: (a).**
     - (a) Fail load with a migration link from v2.0 (IMPL-0024 shape).
     - (b) Warn and ignore in v2.0; fail in v2.1.
     - other:
 
 13. **Chart default topology.**
+    **Resolved 2026-09-25: (a).**
     - (a) `split`, with `all` documented for the homelab and single-org
       installs.
     - (b) `all` by default; `split` opt-in.
     - other:
 
 14. **KEDA autoscaling.**
+    **Resolved 2026-09-25: (a).**
     - (a) Optional (`worker.keda.enabled: false` by default).
     - (b) On by default.
     - other:
 
 15. **Shadow run before cutover.**
+    **Resolved 2026-09-25: (a).**
     - (a) Documented optional step with a comparison command
       (`repo-guardian migrate verify-shadow`) that diffs v2 findings
       against v1 `rule_state`.
@@ -1012,12 +1029,14 @@ See [Cutover from v1](#cutover-from-v1). The operator runbook
     - other:
 
 16. **Pre-release image tags.**
+    **Resolved 2026-09-25: (a).**
     - (a) `2.0.0-rc.N` tags from the `v2` branch; never `latest` until
       v2.0.0; same image name.
     - (b) A separate image name (`repo-guardian-v2`) until GA.
     - other:
 
 17. **How outcomes reach `RecordCheck`.**
+    **Resolved 2026-09-25: (a).**
     - (a) `CheckRepo` stores them on the pending `checks` row and
       returns the `check_key`; nothing large enters workflow history.
     - (b) Return outcomes in the activity result (simpler; evidence
@@ -1025,6 +1044,7 @@ See [Cutover from v1](#cutover-from-v1). The operator runbook
     - other:
 
 18. **Failed checks after retries.**
+    **Resolved 2026-09-25: (a).**
     - (a) Record the error and try again next interval; never drop the
       repository.
     - (b) Park the repository after N consecutive failed intervals, with

@@ -886,6 +886,7 @@ runbook:
 ## Open Questions
 
 1. **Finding status shape.**
+   **Resolved 2026-09-25: (a).**
    - (a) Three facets: `status` × `reason` × `remediation`, with
      `pr_stale` derived at read time and `remediated` as an event.
    - (b) INV-0018's single eight-value enum (`compliant`, `missing`,
@@ -895,6 +896,7 @@ runbook:
    - other:
 
 2. **How a rule yielding to a human's PR counts.**
+   **Resolved 2026-09-25: (a).**
    - (a) `non_compliant` with `remediation = foreign_pr`; counts as
      failing, shown with the PR link.
    - (b) Count it as compliant, like v1, to keep compliance numbers
@@ -904,12 +906,14 @@ runbook:
    - other:
 
 3. **Repository key includes `host`.**
+   **Resolved 2026-09-25: (a).**
    - (a) Yes: `(provider, host, org, name)`, so GHEC data-residency
      organizations on `*.ghe.com` are distinguishable.
    - (b) No: `(provider, org, name)`; add `host` if and when needed.
    - other:
 
 4. **Status of backfilled non-compliant rows.**
+   **Resolved 2026-09-25: (a).**
    - (a) `non_compliant` / `migrated_from_v1`: v1's `actionable = true`
      is a true statement that the rule fails, only without the reason,
      and compliance numbers stay continuous across the swap.
@@ -918,6 +922,7 @@ runbook:
    - other:
 
 5. **Where migrations run.**
+   **Resolved 2026-09-25: (a).**
    - (a) `repo-guardian migrate` as a Helm `pre-install,pre-upgrade`
      hook Job; roles check the schema version at startup and fail
      readiness if it is behind.
@@ -927,6 +932,7 @@ runbook:
    - other:
 
 6. **v1 table retention.**
+   **Resolved 2026-09-25: (a).**
    - (a) Keep v1 tables untouched for the rollback window; drop them in
      a v2.1 migration once v2.0 has run in production for one release.
    - (b) Drop them at the end of the backfill.
@@ -934,12 +940,14 @@ runbook:
    - other:
 
 7. **Cross-kind duplicate rule names.**
+   **Resolved 2026-09-25: (a).**
    - (a) Allowed; findings are keyed by `(kind, name)`; one
      `slog.Warn` per collision at load.
    - (b) Reject at load (breaking for any v1 config that has them).
    - other:
 
 8. **Retention for `checks` and `finding_events`.**
+   **Resolved 2026-09-25: (a).**
    - (a) `checks` 90 days, pruned daily by the snapshot workflow;
      `finding_events` kept indefinitely.
    - (b) Both indefinitely.
@@ -947,23 +955,27 @@ runbook:
    - other:
 
 9. **Evidence may cost GitHub API calls.**
+   **Resolved 2026-09-25: (a).**
    - (a) Never: evidence uses only what the engine already fetched
      (first forbidden path, not all of them).
    - (b) Allow bounded extra calls for complete evidence.
    - other:
 
 10. **v1 compliance history.**
+    **Resolved 2026-09-25: (a).**
     - (a) Copy `compliance_snapshot` into `compliance_snapshots` with
       kind resolved from current rule names, so trends span the swap.
     - (b) Start history fresh at the swap.
     - other:
 
 11. **Case-insensitive repository names.**
+    **Resolved 2026-09-25: (a).**
     - (a) Unique index on `lower(org), lower(name)`; store display case.
     - (b) The `citext` extension.
     - other:
 
 12. **Read-only database role.**
+    **Resolved 2026-09-25: (a).**
     - (a) The chart (baked/CNPG) or operator (external) creates
       `repoguardian_ro`; migrations grant `SELECT` if it exists.
     - (b) Migrations create the role (requires `CREATEROLE` on the

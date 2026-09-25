@@ -1,9 +1,24 @@
 repo-guardian has been deployed!
 
+Topology: {{ .Values.topology }} ({{ include "repo-guardian.roles" . | replace " " ", " }})
+Temporal: {{ .Values.temporal.address }} (namespace {{ .Values.temporal.namespace }}, task queue {{ .Values.temporal.taskQueue }})
+
 Webhook endpoint: POST /webhooks/github
 Health check:     GET  /healthz
 Readiness check:  GET  /readyz
-Metrics:          GET  :{{ .Values.config.metricsPort }}/metrics
+Metrics:          GET  :{{ .Values.config.metricsPort }}/metrics (every role)
+{{- if .Values.api.enabled }}
+API:              {{ include "repo-guardian.fullname" . }}-api:{{ .Values.service.httpPort }}/api/v1 (ClusterIP)
+{{- if not .Values.api.auth.enabled }}
+
+WARNING: api.auth.enabled=false. Every data endpoint is open to anything
+that can reach the Service. Keep it off the network edge.
+{{- end }}
+{{- end }}
+{{- if .Values.migrate.enabled }}
+
+Schema migrations ran as the {{ include "repo-guardian.fullname" . }}-migrate hook Job.
+{{- end }}
 
 {{- if .Values.config.dryRun }}
 

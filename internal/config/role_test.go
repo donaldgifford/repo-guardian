@@ -135,6 +135,17 @@ func TestLoadRole_API(t *testing.T) {
 		})
 	}
 
+	for _, stale := range []string{"30m", "8761h"} {
+		t.Run("rejects PR_STALE_AFTER="+stale, func(t *testing.T) {
+			setAPIEnv(t)
+			t.Setenv("PR_STALE_AFTER", stale)
+
+			if _, err := LoadRole(RoleAPI); err == nil || !strings.Contains(err.Error(), "PR_STALE_AFTER") {
+				t.Errorf("LoadRole(api) with PR_STALE_AFTER=%s = %v", stale, err)
+			}
+		})
+	}
+
 	t.Run("disabled auth needs only the DSN", func(t *testing.T) {
 		t.Setenv("STORE_RO_DSN", "postgres://ro")
 		t.Setenv("API_AUTH_ENABLED", "false")

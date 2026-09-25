@@ -1231,7 +1231,7 @@ failed on a probe and passed once it was removed.
 - [x] 15.3 Cursors are base64url JSON carrying the sort key, the ID and
   a hash of the filters (OQ23). Reusing a cursor with different filters
   returns 400.
-- [ ] 15.4 Compute `pr_stale` in SQL, with `PR_STALE_AFTER` (default
+- [x] 15.4 Compute `pr_stale` in SQL, with `PR_STALE_AFTER` (default
   720h) and a `?stale_after=` override bounded to 1h–8760h.
 - [ ] 15.5 Build the merged events timeline (`UNION ALL`) with keyset
   paging, and `/policy`, which shows the current version, rollout state

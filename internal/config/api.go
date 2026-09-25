@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"time"
 )
@@ -33,7 +34,13 @@ type APIConfig struct {
 	PRStaleAfter time.Duration
 }
 
-const defaultPRStaleAfter = 720 * time.Hour
+// PR_STALE_AFTER defaults to 720h and is bounded to 1h–8760h, the same
+// bounds the API applies to ?stale_after= (IMPL-0025 15.4).
+const (
+	defaultPRStaleAfter = 720 * time.Hour
+	minPRStaleAfter     = time.Hour
+	maxPRStaleAfter     = 8760 * time.Hour
+)
 
 // Listener defaults. The api role alone takes the main port; beside
 // other roles it takes the next one.
@@ -101,6 +108,10 @@ func (c *Config) validateAPI(role Role) []error {
 
 	if c.APIStoreDSN(role) == "" {
 		errs = append(errs, errors.New("STORE_RO_DSN is required for the api role"))
+	}
+
+	if c.API.PRStaleAfter < minPRStaleAfter || c.API.PRStaleAfter > maxPRStaleAfter {
+		errs = append(errs, fmt.Errorf("PR_STALE_AFTER must be between %s and %s", minPRStaleAfter, maxPRStaleAfter))
 	}
 
 	if !c.API.AuthEnabled {

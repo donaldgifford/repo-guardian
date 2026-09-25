@@ -58,11 +58,9 @@ func (s *server) GetSummary(ctx context.Context, req gen.GetSummaryRequestObject
 		return nil, err
 	}
 
-	staleAfter := s.opts.StaleAfter
-	if req.Params.StaleAfter != nil {
-		if staleAfter, err = time.ParseDuration(*req.Params.StaleAfter); err != nil || staleAfter <= 0 {
-			return nil, statusError(http.StatusBadRequest, "stale_after must be a positive duration such as 720h")
-		}
+	staleAfter, err := s.staleAfter(req.Params.StaleAfter)
+	if err != nil {
+		return nil, err
 	}
 
 	sum, err := s.opts.Reader.Summary(ctx, p.Visible)
@@ -93,6 +91,7 @@ func (s *server) GetSummary(ctx context.Context, req gen.GetSummaryRequestObject
 		age := now.Sub(created)
 		counts[metrics.PRAgeBucket(age.Hours()/24)]++
 
+		// The same comparison as pr_stale in api_findings.sql.
 		if age > staleAfter {
 			out.StalePrs++
 		}
@@ -103,6 +102,27 @@ func (s *server) GetSummary(ctx context.Context, req gen.GetSummaryRequestObject
 	}
 
 	return out, nil
+}
+
+// stale_after bounds (DESIGN-0027 OQ14); PR_STALE_AFTER is held to the
+// same range at startup.
+const (
+	minStaleAfter = time.Hour
+	maxStaleAfter = 8760 * time.Hour
+)
+
+// staleAfter resolves ?stale_after=, defaulting to PR_STALE_AFTER.
+func (s *server) staleAfter(param *string) (time.Duration, error) {
+	if param == nil {
+		return s.opts.StaleAfter, nil
+	}
+
+	d, err := time.ParseDuration(*param)
+	if err != nil || d < minStaleAfter || d > maxStaleAfter {
+		return 0, statusError(http.StatusBadRequest, "stale_after must be a duration from 1h to 8760h, such as 720h")
+	}
+
+	return d, nil
 }
 
 // GetStatus is the public status page.

@@ -219,13 +219,27 @@ func TestSummary_NoVisibleOrgsIsForbiddenButMeAnswers(t *testing.T) {
 	}
 }
 
-func TestSummary_BadStaleAfterIs400(t *testing.T) {
+func TestSummary_StaleAfterIsBounded(t *testing.T) {
 	t.Parallel()
 
 	h := newHarness(t)
+	token := h.issuer.Valid(t, "platform")
 
-	if resp := h.client.Get("/summary?stale_after=0h", h.issuer.Valid(t, "platform")); resp.Status != http.StatusBadRequest {
-		t.Errorf("status = %d, want 400", resp.Status)
+	tests := []struct {
+		value string
+		want  int
+	}{
+		{value: "0h", want: http.StatusBadRequest},
+		{value: "59m", want: http.StatusBadRequest},
+		{value: "1h", want: http.StatusOK},
+		{value: "8760h", want: http.StatusOK},
+		{value: "8761h", want: http.StatusBadRequest},
+	}
+
+	for _, tt := range tests {
+		if resp := h.client.Get("/summary?stale_after="+tt.value, token); resp.Status != tt.want {
+			t.Errorf("stale_after=%s: status = %d, want %d", tt.value, resp.Status, tt.want)
+		}
 	}
 }
 

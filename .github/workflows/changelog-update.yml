@@ -27,6 +27,9 @@ jobs:
   update-changelog:
     name: Regenerate root CHANGELOG and open PR
     runs-on: ubuntu-latest
+    # Pre-release tags (v2.0.0-rc.N) are cut by hand on v2; a changelog
+    # PR against main for each would be noise.
+    if: github.event_name != 'push' || !contains(github.ref_name, '-')
     steps:
       - uses: actions/checkout@v7
         with:

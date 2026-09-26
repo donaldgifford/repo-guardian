@@ -4,9 +4,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, v2]
   pull_request:
-    branches: [main]
+    branches: [main, v2]
 
 permissions:
   contents: read
@@ -25,6 +25,10 @@ jobs:
       workflows: ${{ steps.filter.outputs.workflows }}
       alerts: ${{ steps.filter.outputs.alerts }}
       monitoring: ${{ steps.filter.outputs.monitoring }}
+      sql: ${{ steps.filter.outputs.sql }}
+      temporal: ${{ steps.filter.outputs.temporal }}
+      api: ${{ steps.filter.outputs.api }}
+      ui: ${{ steps.filter.outputs.ui }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v3
@@ -66,6 +70,26 @@ jobs:
               - 'internal/policy/**'
               - 'cmd/repo-guardian/monitoring.go'
               - 'Makefile'
+            # The store layer: schema migrations, sqlc queries and
+            # generated code. Gates the integration tests and the sqlc
+            # drift check alongside the go filter.
+            sql:
+              - 'internal/store/**'
+              - 'sqlc.yaml'
+            # Temporal workflow code and its captured histories. Gates the
+            # replay job; `workflows` above is the GitHub Actions directory.
+            temporal:
+              - 'internal/workflows/**'
+            # The OpenAPI contract and the server generated from it.
+            # Gates the spec lint and the codegen drift check.
+            api:
+              - 'api/**'
+              - 'internal/api/gen/**'
+              - 'go.mod'
+            # The UI and the contract its API types are generated from.
+            ui:
+              - 'ui/**'
+              - 'api/openapi.yaml'
 
   labeler:
     permissions:
@@ -140,6 +164,99 @@ jobs:
       - name: Check the committed monitoring tier is current
         run: make lint-monitoring
 
+  sql-drift:
+    name: SQL Drift
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.sql == 'true' || needs.changes.outputs.workflows == 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      # mise supplies the pinned sqlc and yq.
+      - name: Set up mise
+        uses: jdx/mise-action@v3
+
+      - name: Check the committed sqlc output is current
+        run: make lint-sql
+
+  api-drift:
+    name: API Contract
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.workflows == 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      # mise supplies the pinned vacuum and yq; oapi-codegen is a go.mod tool.
+      - name: Set up mise
+        uses: jdx/mise-action@v3
+
+      - name: Lint the spec and check the generated server is current
+        run: make lint-api
+
+  ui:
+    name: UI
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.ui == 'true' || needs.changes.outputs.workflows == 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      # mise supplies the pinned Bun.
+      - name: Set up mise
+        uses: jdx/mise-action@v3
+
+      - name: Install dependencies
+        run: make ui-install
+
+      - name: Typecheck and check the generated API types are current
+        run: make lint-ui
+
+      - name: Test
+        run: make test-ui
+
+      - name: Build
+        run: cd ui && bun run build
+
+  # Playwright against a seeded Postgres, the mock issuer and the Go api
+  # role (IMPL-0025 22.4). The API is part of the stack, so Go changes
+  # run it too.
+  ui-e2e:
+    name: UI e2e
+    runs-on: ubuntu-latest
+    needs: changes
+    if: >-
+      needs.changes.outputs.ui == 'true' || needs.changes.outputs.go == 'true' ||
+      needs.changes.outputs.workflows == 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      # mise supplies the pinned Go and Bun.
+      - name: Set up mise
+        uses: jdx/mise-action@v3
+
+      - name: Install dependencies
+        run: make ui-install
+
+      - name: Install Chromium
+        run: cd ui && bunx playwright install --with-deps chromium
+
+      - name: Playwright
+        run: make test-ui-e2e
+
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: ui/playwright-report
+          retention-days: 7
+
   test-go:
     name: Test Go
     runs-on: ubuntu-latest
@@ -163,6 +280,44 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: donaldgifford/repo-guardian
         continue-on-error: true
+
+  # Replays captured RepoWorkflow histories against the current workflow
+  # code (IMPL-0025 OQ13). A non-deterministic edit breaks every running
+  # execution at its next workflow task; this fails the PR instead. It
+  # also runs inside test-go, but as its own job the failure is named.
+  replay:
+    name: Workflow Replay
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.temporal == 'true' || needs.changes.outputs.workflows == 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Replay captured histories
+        run: go test -race -count=1 -run TestReplay ./internal/workflows/...
+
+  # Testcontainers-backed tests (build tag `integration`). The runner's
+  # Docker daemon hosts the Postgres containers.
+  test-integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.go == 'true' || needs.changes.outputs.sql == 'true' || needs.changes.outputs.workflows == 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Run integration tests
+        run: make test-integration
 
   security:
     name: Security Scan

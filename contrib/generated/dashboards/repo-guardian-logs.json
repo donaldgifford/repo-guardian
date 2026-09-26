@@ -480,7 +480,7 @@
       "type": "logs",
       "targets": [
         {
-          "expr": "{app=\"repo-guardian\"} |~ \"invalid webhook payload|failed to enqueue job\" | json",
+          "expr": "{app=\"repo-guardian\"} |~ \"invalid webhook payload|failed to start webhook workflow\" | json",
           "maxLines": 200
         }
       ],

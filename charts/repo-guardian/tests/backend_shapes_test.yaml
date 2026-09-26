@@ -1,25 +1,31 @@
 ---
-suite: backend deployment shapes (IMPL-0011 P6 / IMPL-0016 update)
+suite: store backend shapes
 templates:
   - templates/deployment.yaml
   - templates/store-postgres.yaml
   - templates/store-postgres-secret.yaml
   - templates/store-cnpg-cluster.yaml
   - templates/store-cnpg-pooler.yaml
-  - templates/queue-valkey.yaml
-  - templates/queue-valkey-secret.yaml
 
 set:
+  # One Deployment (topology: all) keeps these single-document; the
+  # split shape is covered by topology_test.yaml.
+  topology: all
+  temporal:
+    address: temporal:7233
   config:
     appId: "12345"
   secrets:
     webhookSecret: "x"
     privateKey: "x"
 
+  policy:
+    config: "guardian {}"
+
 tests:
-  - it: chart with no backend values set produces baked Postgres + baked Valkey resources
-    # Codifies the IMPL-0016 default. A fresh `helm install` with no
-    # values overrides renders the StatefulSets out-of-the-box.
+  - it: chart with no store values set produces baked Postgres resources
+    # A fresh `helm install` with no values overrides renders baked
+    # Postgres out of the box.
     asserts:
       - equal:
           path: kind
@@ -28,25 +34,13 @@ tests:
         documentIndex: 0
       - equal:
           path: kind
-          value: StatefulSet
-        template: templates/queue-valkey.yaml
-        documentIndex: 0
-      - equal:
-          path: kind
           value: Secret
         template: templates/store-postgres-secret.yaml
-      - equal:
-          path: kind
-          value: Secret
-        template: templates/queue-valkey-secret.yaml
 
-  - it: baked shape renders Postgres + Valkey StatefulSets, Services, and Secrets
+  - it: baked shape renders the Postgres StatefulSet, Service and Secret
     set:
       store.backend: postgres
       store.postgres.mode: baked
-      queue.backend: valkey
-      queue.valkey.mode: baked
-      scheduler.backend: valkey
     asserts:
       - equal:
           path: kind
@@ -62,28 +56,11 @@ tests:
           path: kind
           value: Secret
         template: templates/store-postgres-secret.yaml
-      - equal:
-          path: kind
-          value: StatefulSet
-        template: templates/queue-valkey.yaml
-        documentIndex: 0
-      - equal:
-          path: kind
-          value: Service
-        template: templates/queue-valkey.yaml
-        documentIndex: 1
-      - equal:
-          path: kind
-          value: Secret
-        template: templates/queue-valkey-secret.yaml
 
   - it: cnpg shape renders the Cluster CR but no baked Postgres StatefulSet
     set:
       store.backend: postgres
       store.postgres.mode: cnpg
-      queue.backend: valkey
-      queue.valkey.mode: baked
-      scheduler.backend: valkey
     asserts:
       - equal:
           path: kind
@@ -104,9 +81,6 @@ tests:
       store.backend: postgres
       store.postgres.mode: cnpg
       store.postgres.cnpg.pooler.enabled: true
-      queue.backend: valkey
-      queue.valkey.mode: baked
-      scheduler.backend: valkey
     asserts:
       - equal:
           path: kind
@@ -118,10 +92,6 @@ tests:
       store.backend: postgres
       store.postgres.mode: external
       store.postgres.existingSecret: my-existing-secret
-      queue.backend: valkey
-      queue.valkey.mode: external
-      queue.valkey.existingSecret: my-existing-valkey
-      scheduler.backend: valkey
     asserts:
       - equal:
           path: kind
@@ -133,27 +103,12 @@ tests:
       - hasDocuments:
           count: 0
         template: templates/store-postgres-secret.yaml
-      - hasDocuments:
-          count: 0
-        template: templates/queue-valkey.yaml
-      - hasDocuments:
-          count: 0
-        template: templates/queue-valkey-secret.yaml
 
   - it: postgres backend injects STORE_DSN env var sourced from chart-rendered secret
     set:
       store.backend: postgres
       store.postgres.mode: baked
-      queue.backend: valkey
-      queue.valkey.mode: baked
-      scheduler.backend: valkey
     asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: STORE_BACKEND
-            value: postgres
-        template: templates/deployment.yaml
       - contains:
           path: spec.template.spec.containers[0].env
           content:
@@ -168,9 +123,6 @@ tests:
     set:
       store.backend: postgres
       store.postgres.mode: cnpg
-      queue.backend: valkey
-      queue.valkey.mode: baked
-      scheduler.backend: valkey
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
@@ -182,24 +134,21 @@ tests:
                 key: uri
         template: templates/deployment.yaml
 
-  - it: termination grace period set to 60s for SIGTERM nack
+  - it: termination grace period set to 60s for a graceful worker drain
     set:
       store.backend: postgres
       store.postgres.mode: baked
-      queue.backend: valkey
-      queue.valkey.mode: baked
-      scheduler.backend: valkey
     asserts:
       - equal:
           path: spec.template.spec.terminationGracePeriodSeconds
           value: 60
         template: templates/deployment.yaml
 
-  - it: baked Postgres and Valkey pods run as the image non-root user with fsGroup
-    # Regression guard for the root-chown startup failure: both official
-    # images chown their data dir when started as root, which fails on
+  - it: baked Postgres pods run as the image non-root user with fsGroup
+    # Regression guard for the root-chown startup failure: the official
+    # image chowns their data dir when started as root, which fails on
     # clusters/storage that forbid chown. Running as uid 999 makes the
-    # entrypoints skip chown; fsGroup 999 keeps the PVC writable.
+    # entrypoint skip chown; fsGroup 999 keeps the PVC writable.
     asserts:
       - equal:
           path: spec.template.spec.securityContext.runAsUser
@@ -215,35 +164,15 @@ tests:
           path: spec.template.spec.securityContext.runAsNonRoot
           value: true
         template: templates/store-postgres.yaml
-        documentIndex: 0
-      - equal:
-          path: spec.template.spec.securityContext.runAsUser
-          value: 999
-        template: templates/queue-valkey.yaml
-        documentIndex: 0
-      - equal:
-          path: spec.template.spec.securityContext.fsGroup
-          value: 999
-        template: templates/queue-valkey.yaml
-        documentIndex: 0
-      - equal:
-          path: spec.template.spec.securityContext.runAsNonRoot
-          value: true
-        template: templates/queue-valkey.yaml
         documentIndex: 0
 
   - it: podSecurityContext can be nulled to restore the root entrypoint default
     set:
       store.postgres.baked.podSecurityContext: null
-      queue.valkey.baked.podSecurityContext: null
     asserts:
       - notExists:
           path: spec.template.spec.securityContext
         template: templates/store-postgres.yaml
-        documentIndex: 0
-      - notExists:
-          path: spec.template.spec.securityContext
-        template: templates/queue-valkey.yaml
         documentIndex: 0
 
   - it: baked with operator-supplied password sources it externally and skips the chart Secret
@@ -252,16 +181,12 @@ tests:
     # both read the operator's Secret, DSN assembled at runtime.
     set:
       store.postgres.baked.existingSecret: my-pg-secret
-      queue.valkey.baked.existingSecret: my-vk-secret
     release:
       namespace: rg-ns
     asserts:
       - hasDocuments:
           count: 0
         template: templates/store-postgres-secret.yaml
-      - hasDocuments:
-          count: 0
-        template: templates/queue-valkey-secret.yaml
       - contains:
           path: spec.template.spec.containers[0].env
           content:
@@ -282,24 +207,8 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: VALKEY_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: my-vk-secret
-                key: VALKEY_PASSWORD
-        template: templates/queue-valkey.yaml
-        documentIndex: 0
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
             name: STORE_DSN
             value: "postgres://repoguardian:$(POSTGRES_PASSWORD)@RELEASE-NAME-repo-guardian-postgres.rg-ns.svc.cluster.local:5432/repoguardian?sslmode=disable"
-        template: templates/deployment.yaml
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: QUEUE_VALKEY_DSN
-            value: "redis://:$(VALKEY_PASSWORD)@RELEASE-NAME-repo-guardian-valkey.rg-ns.svc.cluster.local:6379/0"
         template: templates/deployment.yaml
 
   - it: baked existingSecretKey overrides the default password key

@@ -1,0 +1,98 @@
+suite: ui-guards
+# DESIGN-0027 § Chart: the UI never renders in front of an
+# unauthenticated API, and the Ingress carries INV-0009's hard gate.
+templates:
+  - templates/deployment.yaml
+release:
+  name: rg
+set:
+  config:
+    appId: "12345"
+  secrets:
+    webhookSecret: "test-secret"
+    privateKey: "test-key"
+  temporal:
+    address: temporal:7233
+  policy:
+    config: "guardian {}"
+  api:
+    enabled: true
+    auth:
+      issuer: https://idp.example.com/realms/rg
+  ui:
+    enabled: true
+    existingSecret: ui-secret
+    ingress:
+      host: guardian.example.com
+tests:
+  - it: renders with a complete ui block
+    asserts:
+      - notFailedTemplate: {}
+
+  - it: fails when the api is off
+    set:
+      api:
+        enabled: false
+    asserts:
+      - failedTemplate:
+          errorPattern: "ui.enabled requires api.enabled and api.auth.enabled"
+
+  - it: fails when api auth is off
+    set:
+      api:
+        auth:
+          enabled: false
+    asserts:
+      - failedTemplate:
+          errorPattern: "ui.enabled requires api.enabled and api.auth.enabled"
+
+  - it: fails an ingress without api auth, even with the ui off
+    set:
+      ui:
+        enabled: false
+        ingress:
+          enabled: true
+      api:
+        auth:
+          enabled: false
+    asserts:
+      - failedTemplate:
+          errorPattern: "ui.ingress.enabled requires api.auth.enabled"
+
+  - it: fails an ingress without the ui
+    set:
+      ui:
+        enabled: false
+        ingress:
+          enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "ui.ingress.enabled requires ui.enabled"
+
+  - it: fails without the ui Secret
+    set:
+      ui:
+        existingSecret: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "ui.existingSecret is required"
+
+  - it: fails without a public URL or host
+    set:
+      ui:
+        ingress:
+          host: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "ui.publicUrl or ui.ingress.host is required"
+
+  - it: fails an ingress with no host
+    set:
+      ui:
+        publicUrl: https://ui.example.com
+        ingress:
+          enabled: true
+          host: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "ui.ingress.host is required with ui.ingress.enabled"

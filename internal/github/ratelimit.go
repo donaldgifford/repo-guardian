@@ -49,7 +49,7 @@ func (e *ThrottledError) Error() string {
 }
 
 // AsThrottled reports whether err carries a rate-limit deferral
-// signal, normalising the two shapes it can take:
+// signal, normalising the three shapes it can take:
 //
 //   - this package's *ThrottledError — the transport's pre-emptive
 //     reserve (remaining at or below the threshold);
@@ -57,7 +57,12 @@ func (e *ThrottledError) Error() string {
 //     which short-circuits ABOVE our transport whenever a prior
 //     response showed remaining=0 (the bypass context key is
 //     unexported in go-github v68, so this path is unavoidable and
-//     our transport never sees the request).
+//     our transport never sees the request);
+//   - go-github's *github.AbuseRateLimitError — a secondary rate limit,
+//     also a 403, which must never be read as access denial.
+//
+// The transport's above-cap secondary-limit error wraps a
+// *ThrottledError, so it is the first shape.
 //
 // Workers call this instead of errors.As directly so exactly one
 // deferral signal crosses the client boundary and go-github stays
@@ -76,6 +81,19 @@ func AsThrottled(err error) (*ThrottledError, bool) {
 			Remaining: rle.Rate.Remaining,
 			Limit:     rle.Rate.Limit,
 		}, true
+	}
+
+	// A secondary rate limit is a 403 too. It carries Retry-After rather
+	// than rate headers; without one the reset is zero and callers back
+	// off.
+	var abuse *gh.AbuseRateLimitError
+	if errors.As(err, &abuse) {
+		thr := &ThrottledError{}
+		if d := abuse.GetRetryAfter(); d > 0 {
+			thr.ResetAt = time.Now().Add(d)
+		}
+
+		return thr, true
 	}
 
 	return nil, false
@@ -102,9 +120,13 @@ type rateLimitTransport struct {
 }
 
 // newRateLimitTransport wraps the given transport with rate limit handling.
+//
+// The counting transport goes directly beneath it, so every request
+// actually sent — the rate-limit retry included — is counted, and a
+// request the reserve refuses is not.
 func newRateLimitTransport(next http.RoundTripper, logger *slog.Logger, threshold float64) *rateLimitTransport {
 	return &rateLimitTransport{
-		next:      next,
+		next:      &countingTransport{next: next},
 		logger:    logger,
 		threshold: threshold,
 		sleep:     sleepWithContext,
@@ -150,9 +172,11 @@ func (t *rateLimitTransport) RoundTrip(req *http.Request) (*http.Response, error
 			"status", resp.StatusCode,
 		)
 
+		// Wrapping a ThrottledError makes AsThrottled defer the work until
+		// the server's retry time instead of retrying it as a failure.
 		return nil, fmt.Errorf(
-			"github rate limited (%s): retry delay %s exceeds sleep cap %s; failing fast so the queue can retry",
-			reason, delay.Round(time.Second), maxRateLimitSleep)
+			"github rate limited (%s): retry delay %s exceeds sleep cap %s; failing fast so the queue can retry: %w",
+			reason, delay.Round(time.Second), maxRateLimitSleep, &ThrottledError{ResetAt: time.Now().Add(delay)})
 	}
 
 	t.logger.Warn("github api rate limited, waiting to retry",
@@ -221,33 +245,17 @@ func (t *rateLimitTransport) updateFromResponse(resp *http.Response) {
 		return
 	}
 
-	remaining := resp.Header.Get("X-RateLimit-Remaining")
-	limit := resp.Header.Get("X-RateLimit-Limit")
-	reset := resp.Header.Get("X-RateLimit-Reset")
-
-	if remaining == "" || limit == "" || reset == "" {
+	obs, ok := parseRateHeaders(resp)
+	if !ok {
 		return
 	}
 
-	r, err := strconv.Atoi(remaining)
-	if err != nil {
-		return
-	}
-
-	l, err := strconv.Atoi(limit)
-	if err != nil {
-		return
-	}
-
-	resetUnix, err := strconv.ParseInt(reset, 10, 64)
-	if err != nil {
-		return
-	}
+	r, l, resetAt := obs.Remaining, obs.Limit, obs.ResetAt
 
 	t.mu.Lock()
 	t.remaining = r
 	t.limit = l
-	t.resetAt = time.Unix(resetUnix, 0)
+	t.resetAt = resetAt
 	t.mu.Unlock()
 
 	metrics.GitHubRateRemaining.Set(float64(r))
@@ -255,7 +263,7 @@ func (t *rateLimitTransport) updateFromResponse(resp *http.Response) {
 	t.logger.Debug("github api rate limit",
 		"remaining", r,
 		"limit", l,
-		"reset", time.Unix(resetUnix, 0),
+		"reset", resetAt,
 	)
 }
 

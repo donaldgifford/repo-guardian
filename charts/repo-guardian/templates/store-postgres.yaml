@@ -61,9 +61,21 @@ spec:
             {{- end }}
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
+            {{- if include "repo-guardian.needsRORole" . }}
+            - name: RO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "repo-guardian.roSecretName" . }}
+                  key: {{ include "repo-guardian.roSecretKey" . }}
+            {{- end }}
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
+            {{- if include "repo-guardian.needsRORole" . }}
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+            {{- end }}
           {{- with .Values.store.postgres.baked.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -73,6 +85,12 @@ spec:
               command: ["pg_isready", "-U", "repoguardian", "-d", "repoguardian"]
             initialDelaySeconds: 10
             periodSeconds: 10
+      {{- if include "repo-guardian.needsRORole" . }}
+      volumes:
+        - name: init
+          configMap:
+            name: {{ include "repo-guardian.postgresFullname" . }}-init
+      {{- end }}
   volumeClaimTemplates:
     - metadata:
         name: data

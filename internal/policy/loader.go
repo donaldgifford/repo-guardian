@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -96,6 +98,7 @@ func Load(path string) (*PolicyConfig, error) {
 	}
 
 	warnLegacyPerRuleScope(cfg)
+	warnSharedRuleNames(cfg)
 
 	return cfg, nil
 }
@@ -130,6 +133,33 @@ func warnLegacyPerRuleScope(cfg *PolicyConfig) {
 			emitLegacyScopeWarning()
 
 			return
+		}
+	}
+}
+
+// warnSharedRuleNames emits one warning per rule name declared by more
+// than one rule kind. v2 keys findings by (kind, name) so the rules stay
+// distinct, but the name alone is ambiguous in dashboards and reports.
+// when gates are unaffected: rule_satisfied resolves file rules only.
+func warnSharedRuleNames(cfg *PolicyConfig) {
+	kinds := make(map[string][]string)
+
+	for i := range cfg.FileRules {
+		kinds[cfg.FileRules[i].Name] = append(kinds[cfg.FileRules[i].Name], "file")
+	}
+
+	for i := range cfg.SettingRules {
+		kinds[cfg.SettingRules[i].Name] = append(kinds[cfg.SettingRules[i].Name], "setting")
+	}
+
+	for i := range cfg.BranchProtectionRules {
+		kinds[cfg.BranchProtectionRules[i].Name] = append(kinds[cfg.BranchProtectionRules[i].Name], "branch_protection")
+	}
+
+	for _, name := range slices.Sorted(maps.Keys(kinds)) {
+		if k := kinds[name]; len(k) > 1 {
+			slog.Warn("rule name used by more than one rule kind; findings are keyed by kind and name",
+				"rule_name", name, "kinds", k)
 		}
 	}
 }

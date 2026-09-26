@@ -1,0 +1,59 @@
+[
+  {
+    "repo": "org/repo",
+    "writes": [
+      {
+        "method": "UpdatePRBranch",
+        "args": [
+          "org",
+          "repo",
+          4
+        ]
+      },
+      {
+        "method": "CreateOrUpdateFile",
+        "args": [
+          "org",
+          "repo",
+          "repo-guardian/add-missing-files",
+          ".github/CODEOWNERS",
+          "# Default CODEOWNERS - update with your team\n# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners\n#\n# IMPORTANT: Replace @org/CHANGEME with your actual team before merging.\n* @org/CHANGEME\n",
+          "chore: add .github/CODEOWNERS"
+        ]
+      },
+      {
+        "method": "UpdatePullRequest",
+        "args": [
+          "org",
+          "repo",
+          4,
+          "chore: add missing repo configuration files",
+          "## Repo Guardian — Configuration Drift\n\nThis PR was automatically created by **repo-guardian** to bring this\nrepository into line with the organization's file policy.\n\n### Added Files\n\n- `.github/CODEOWNERS` — needs_docs\n\n\u003e **Note:** The CODEOWNERS file contains a placeholder (`@org/CHANGEME`).\n\u003e Please replace it with your actual team before merging.\n\n### What to do\n\n1. Review the changes and adjust for your team's needs.\n2. Merge when ready — these are sensible defaults, not one-size-fits-all.\n\n---\n*Automated by [repo-guardian](https://github.com/apps/repo-guardian). Questions? Reach out in #platform-engineering.*\n"
+        ]
+      },
+      {
+        "method": "UpsertPRComment",
+        "args": [
+          "org",
+          "repo",
+          4,
+          "\u003c!-- repo-guardian:reconcile-log:v1 --\u003e",
+          "\u003c!-- repo-guardian:reconcile-log:hash:7adbb7dc2aa57821 --\u003e\n## repo-guardian reconcile log\n\nLast reconciled at \u003cTIME\u003e.\n\n| Rule | Status |\n|------|--------|\n| `needs_docs` | still actionable |\n| `needs_codeowners` | satisfied on main |\n"
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "kind": "file",
+        "name": "needs_docs",
+        "actionable": true
+      },
+      {
+        "kind": "file",
+        "name": "needs_codeowners",
+        "actionable": false
+      }
+    ],
+    "result": "non-nil"
+  }
+]

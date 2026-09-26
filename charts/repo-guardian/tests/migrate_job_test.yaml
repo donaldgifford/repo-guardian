@@ -1,0 +1,77 @@
+suite: migrate job
+templates:
+  - templates/migrate-job.yaml
+tests:
+  - it: is not rendered when disabled
+    set:
+      migrate.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders a post-install/pre-upgrade hook Job by default
+    release:
+      namespace: rg
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Job
+      - equal:
+          path: metadata.namespace
+          value: rg
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install,pre-upgrade
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: before-hook-creation,hook-succeeded
+      - equal:
+          path: spec.template.spec.restartPolicy
+          value: Never
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value: ["migrate"]
+
+  - it: reads the DSN from the store secret
+    set:
+      migrate.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STORE_DSN
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-repo-guardian-postgres
+                key: STORE_DSN
+          any: true
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RECONCILE_FRESHNESS
+            value: 24h
+
+  - it: assembles the DSN from a baked-Postgres operator secret
+    set:
+      migrate.enabled: true
+      store.postgres.baked.existingSecret: pg-pass
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: pg-pass
+                key: POSTGRES_PASSWORD
+
+  - it: passes migrate.freshness to the v1 backfill
+    set:
+      migrate.freshness: 48h
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RECONCILE_FRESHNESS
+            value: "48h"

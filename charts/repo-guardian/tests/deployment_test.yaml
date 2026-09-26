@@ -2,11 +2,19 @@ suite: deployment
 templates:
   - templates/deployment.yaml
 set:
+  # One Deployment (topology: all) keeps these single-document; the
+  # split shape is covered by topology_test.yaml.
+  topology: all
+  temporal:
+    address: temporal:7233
   config:
     appId: "12345"
   secrets:
     webhookSecret: "test-secret"
     privateKey: "test-key"
+  policy:
+    config: "guardian {}"
+
 tests:
   - it: should set replica count
     set:
@@ -60,8 +68,8 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: SCHEDULE_INTERVAL
-            value: "168h"
+            name: CHECK_INTERVAL
+            value: "24h"
       - contains:
           path: spec.template.spec.containers[0].env
           content:

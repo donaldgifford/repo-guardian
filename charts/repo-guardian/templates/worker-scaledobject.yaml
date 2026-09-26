@@ -1,0 +1,24 @@
+{{- if and (eq .Values.topology "split") .Values.worker.keda.enabled }}
+{{- $r := dict "ctx" . "role" "worker" }}
+# Scales the worker on Temporal backlog (DESIGN-0026 § Scaling, OQ14).
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "repo-guardian.roleFullname" $r }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.roleLabels" $r | nindent 4 }}
+spec:
+  scaleTargetRef:
+    name: {{ include "repo-guardian.roleFullname" $r }}
+  minReplicaCount: {{ .Values.worker.keda.minReplicas }}
+  maxReplicaCount: {{ .Values.worker.keda.maxReplicas }}
+  triggers:
+    - type: temporal
+      metadata:
+        endpoint: {{ .Values.temporal.address | quote }}
+        namespace: {{ .Values.temporal.namespace | quote }}
+        taskQueue: {{ .Values.temporal.taskQueue | quote }}
+        queueTypes: workflow,activity
+        targetQueueSize: {{ .Values.worker.keda.targetQueueSize | quote }}
+{{- end }}

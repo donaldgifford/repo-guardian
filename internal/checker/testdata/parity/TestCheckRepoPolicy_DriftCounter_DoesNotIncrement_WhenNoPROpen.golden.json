@@ -1,0 +1,19 @@
+[
+  {
+    "repo": "happy-org/repo",
+    "writes": null,
+    "outcomes": [
+      {
+        "kind": "file",
+        "name": "codeowners",
+        "actionable": false
+      },
+      {
+        "kind": "file",
+        "name": "dependabot",
+        "actionable": false
+      }
+    ],
+    "result": "non-nil"
+  }
+]

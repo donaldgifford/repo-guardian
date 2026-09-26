@@ -1,0 +1,19 @@
+[
+  {
+    "repo": "org/repo",
+    "writes": null,
+    "outcomes": [
+      {
+        "kind": "file",
+        "name": "renovate_workflow",
+        "actionable": false
+      },
+      {
+        "kind": "file",
+        "name": "renovate_config",
+        "actionable": false
+      }
+    ],
+    "result": "non-nil"
+  }
+]

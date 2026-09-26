@@ -4,9 +4,9 @@ name: License Check
 
 on:
   push:
-    branches: [main]
+    branches: [main, v2]
   pull_request:
-    branches: [main]
+    branches: [main, v2]
 
 permissions:
   contents: read
@@ -27,11 +27,20 @@ jobs:
         run: go install github.com/google/go-licenses@latest
 
       - name: Check licenses
-        run: go-licenses check ./... --allowed_licenses=Apache-2.0,MIT,BSD-2-Clause,BSD-3-Clause,ISC,MPL-2.0
+        # nexus-proto-annotations (a Temporal SDK dependency) ships no license
+        # file, so go-licenses cannot classify it.
+        run: >-
+          go-licenses check ./...
+          --allowed_licenses=Apache-2.0,MIT,BSD-2-Clause,BSD-3-Clause,ISC,MPL-2.0
+          --ignore github.com/nexus-rpc/nexus-proto-annotations
 
       - name: Generate license report
         if: always()
-        run: go-licenses report ./... --template=.github/licenses-csv.tpl > licenses.csv
+        run: >-
+          go-licenses report ./...
+          --template=.github/licenses-csv.tpl
+          --ignore github.com/nexus-rpc/nexus-proto-annotations
+          > licenses.csv
 
       - name: Upload license report
         if: always()

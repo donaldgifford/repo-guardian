@@ -1,0 +1,112 @@
+{{- if include "repo-guardian.needsRORole" . }}
+{{- $pg := include "repo-guardian.postgresFullname" . }}
+{{- $baked := eq .Values.store.postgres.mode "baked" }}
+{{- if not (and $baked .Values.store.postgres.baked.existingSecret) }}
+{{- /* The read-only role's password. lookup keeps it across upgrades; GitOps
+installs on baked should put it in baked.existingSecret instead (same
+rotation caveat as store-postgres-secret.yaml). CNPG requires the
+basic-auth shape for a managed role's passwordSecret. */}}
+{{- $existing := lookup "v1" "Secret" .Release.Namespace (printf "%s-ro" $pg) }}
+{{- $password := randAlphaNum 32 }}
+{{- if and $existing $existing.data $existing.data.password }}
+{{- $password = b64dec $existing.data.password }}
+{{- end }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $pg }}-ro
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+    {{- if not $baked }}
+    cnpg.io/reload: "true"
+    {{- end }}
+type: kubernetes.io/basic-auth
+data:
+  username: {{ "repoguardian_ro" | b64enc | quote }}
+  password: {{ $password | b64enc | quote }}
+{{- end }}
+{{- if $baked }}
+---
+# Creates repoguardian_ro when the baked Postgres initializes a new
+# volume. The entrypoint runs this once, on an empty data directory only;
+# the ro-role hook Job below covers volumes that already exist.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $pg }}-init
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+data:
+  10-ro-role.sh: |
+    #!/bin/sh
+    set -eu
+    psql -v ON_ERROR_STOP=1 -v pw="$RO_PASSWORD" --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<'SQL'
+    CREATE ROLE repoguardian_ro LOGIN PASSWORD :'pw';
+    {{- include "repo-guardian.roGrantsSQL" . | nindent 4 }}
+    SQL
+---
+# OQ24 (a): on volumes initialized before 2.0 the init script never ran.
+# This hook creates repoguardian_ro if it is missing, resets its password
+# to the Secret's, and re-runs the grants. Migrations never create roles.
+# Weight 10 runs it after the migrate hook on install.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $pg }}-ro-role
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    helm.sh/hook-weight: "10"
+spec:
+  backoffLimit: 6
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        {{- include "repo-guardian.labels" . | nindent 8 }}
+        app.kubernetes.io/component: postgres-ro-role
+    spec:
+      restartPolicy: Never
+      {{- with .Values.store.postgres.baked.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: ro-role
+          image: {{ .Values.store.postgres.baked.image | quote }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              psql -v ON_ERROR_STOP=1 -v pw="$RO_PASSWORD" <<'SQL'
+              SELECT NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'repoguardian_ro') AS missing \gset
+              \if :missing
+                CREATE ROLE repoguardian_ro LOGIN;
+              \endif
+              ALTER ROLE repoguardian_ro WITH LOGIN PASSWORD :'pw';
+              {{- include "repo-guardian.roGrantsSQL" . | nindent 14 }}
+              SQL
+          env:
+            - name: PGHOST
+              value: {{ $pg }}.{{ .Release.Namespace }}.svc.cluster.local
+            - name: PGDATABASE
+              value: repoguardian
+            - name: PGUSER
+              value: repoguardian
+            {{- include "repo-guardian.bakedAdminPasswordEnv" . | nindent 12 }}
+            - name: RO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "repo-guardian.roSecretName" . }}
+                  key: {{ include "repo-guardian.roSecretKey" . }}
+{{- end }}
+{{- end }}

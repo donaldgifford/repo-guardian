@@ -1,0 +1,38 @@
+{{- /*
+The only Ingress the chart renders (DESIGN-0027): the whole UI host goes
+to the ui Service, which serves the SPA and proxies /api. The webhook
+route stays operator-owned (docs/operations/ingress.md).
+*/ -}}
+{{- if and .Values.ui.enabled .Values.ui.ingress.enabled }}
+{{- $r := dict "ctx" . "role" "ui" }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "repo-guardian.roleFullname" $r }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.roleLabels" $r | nindent 4 }}
+  {{- with .Values.ui.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ui.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.ui.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ui.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "repo-guardian.roleFullname" $r }}
+                port:
+                  name: http
+{{- end }}

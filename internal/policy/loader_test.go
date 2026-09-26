@@ -1311,3 +1311,66 @@ func TestLoad_RemovedAllowlistAttrs_FailLoad(t *testing.T) {
 		})
 	}
 }
+
+func TestLoad_SharedRuleName_WarnsOncePerNameAndGateResolvesFileRule(t *testing.T) {
+	var buf bytes.Buffer
+
+	originalLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn})))
+
+	t.Cleanup(func() {
+		slog.SetDefault(originalLogger)
+	})
+
+	hclFile := filepath.Join(t.TempDir(), "guardian.hcl")
+	content := `
+rule "file" "security" {
+  paths    = ["SECURITY.md"]
+  target   = "SECURITY.md"
+  template = "codeowners"
+}
+
+rule "setting" "security" {
+  property = "vulnerability_alerts_enabled"
+  expected = true
+}
+
+rule "file" "codeowners" {
+  paths    = ["CODEOWNERS"]
+  target   = ".github/CODEOWNERS"
+  template = "codeowners"
+  when {
+    rule_satisfied = "security"
+  }
+}
+`
+
+	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(hclFile)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if n := strings.Count(buf.String(), "rule name used by more than one rule kind"); n != 1 {
+		t.Errorf("shared-name warnings = %d, want 1. Output:\n%s", n, buf.String())
+	}
+
+	if !strings.Contains(buf.String(), "rule_name=security") {
+		t.Errorf("warning does not name the rule. Output:\n%s", buf.String())
+	}
+
+	var gated *FileRuleConfig
+
+	for i := range cfg.FileRules {
+		if cfg.FileRules[i].Name == "codeowners" {
+			gated = &cfg.FileRules[i]
+		}
+	}
+
+	if gated == nil || gated.When == nil || gated.When.RuleSatisfied != "security" {
+		t.Fatalf("gate did not resolve to the file rule: %+v", gated)
+	}
+}

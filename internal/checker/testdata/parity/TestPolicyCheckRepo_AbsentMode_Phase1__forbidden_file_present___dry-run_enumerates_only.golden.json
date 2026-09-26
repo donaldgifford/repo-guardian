@@ -1,0 +1,14 @@
+[
+  {
+    "repo": "org/repo",
+    "writes": null,
+    "outcomes": [
+      {
+        "kind": "file",
+        "name": "no_dependabot",
+        "actionable": true
+      }
+    ],
+    "result": "non-nil"
+  }
+]

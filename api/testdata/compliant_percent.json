@@ -1,0 +1,13 @@
+[
+  { "compliant": 0, "non_compliant": 0, "percent": null },
+  { "compliant": 5, "non_compliant": 0, "percent": 100 },
+  { "compliant": 0, "non_compliant": 5, "percent": 0 },
+  { "compliant": 1, "non_compliant": 2, "percent": 33.3 },
+  { "compliant": 2, "non_compliant": 1, "percent": 66.6 },
+  { "compliant": 999, "non_compliant": 1, "percent": 99.9 },
+  { "compliant": 9999, "non_compliant": 1, "percent": 99.9 },
+  { "compliant": 1, "non_compliant": 9999, "percent": 0 },
+  { "compliant": 7, "non_compliant": 1, "percent": 87.5 },
+  { "compliant": 4812, "non_compliant": 1203, "percent": 80 },
+  { "compliant": 2, "non_compliant": 997, "percent": 0.2 }
+]

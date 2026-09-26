@@ -1,0 +1,33 @@
+# Baked visibility on an in-cluster OpenSearch 2.x (DESIGN-0026 OQ9:
+# 3.x is not in Temporal's documented support matrix until homelab
+# testing verifies it). Install OpenSearch first — see README.md for the
+# pinned chart — then layer this file instead of visibility-postgres.yaml.
+server:
+  config:
+    persistence:
+      visibilityStore: visibility
+      datastores:
+        visibility:
+          elasticsearch:
+            version: v7
+            url:
+              scheme: https
+              host: "opensearch-cluster-master.temporal.svc:9200"
+            username: temporal
+            existingSecret: temporal-opensearch
+            secretKey: password
+            logLevel: error
+            indices:
+              visibility: temporal_visibility_v1
+            tls:
+              enabled: true
+              caFile: /etc/temporal/opensearch/ca.crt
+              enableHostVerification: true
+  additionalVolumes:
+    - name: opensearch-ca
+      secret:
+        secretName: temporal-opensearch-ca
+  additionalVolumeMounts:
+    - name: opensearch-ca
+      mountPath: /etc/temporal/opensearch
+      readOnly: true

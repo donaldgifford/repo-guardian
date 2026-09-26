@@ -7,11 +7,12 @@ package checker
 //  1. every *evaluated* rule produces an outcome, across all three
 //     rule kinds — not just the actionable ones, because the satisfied
 //     ones are the denominator of every compliance percentage;
-//  2. every *skipped* rule produces none, so scope and ignore lists do
-//     not dilute that denominator with repos the rule never applied to;
-//  3. skip paths return an empty-but-non-nil result while error paths
-//     return nil, because those two drive opposite reconciliations in
-//     the worker write-back (clear this repo's rows vs. touch nothing).
+//  2. every *skipped* rule records not_applicable (DESIGN-0025), which
+//     compliance excludes from both terms, so scope and ignore lists do
+//     not dilute the denominator with repos the rule never applied to;
+//  3. repository-level skips return not_applicable outcomes while error
+//     paths return nil, because those two drive opposite reconciliations
+//     in the write-back (record this repo's posture vs. touch nothing).
 
 import (
 	"context"
@@ -19,12 +20,14 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/donaldgifford/repo-guardian/internal/findings"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 )
 
-// outcomeKey renders an outcome as "kind/name=actionable" for
-// order-independent set comparison.
+// outcomeKeys renders each outcome as "kind/name=state" for
+// order-independent set comparison. state is actionable or satisfied for
+// v1's two verdicts, else "status:reason".
 func outcomeKeys(t *testing.T, res *CheckResult) []string {
 	t.Helper()
 
@@ -34,9 +37,15 @@ func outcomeKeys(t *testing.T, res *CheckResult) []string {
 
 	keys := make([]string, 0, len(res.Outcomes))
 	for _, o := range res.Outcomes {
-		state := "satisfied"
-		if o.Actionable {
+		var state string
+
+		switch {
+		case o.Actionable():
 			state = "actionable"
+		case o.Status == findings.StatusCompliant:
+			state = "satisfied"
+		default:
+			state = string(o.Status) + ":" + string(o.Reason)
 		}
 
 		keys = append(keys, string(o.Kind)+"/"+o.RuleName+"="+state)
@@ -189,11 +198,12 @@ func TestCheckResult_RemediatedSettingIsNotActionable(t *testing.T) {
 	}
 }
 
-// TestCheckResult_IgnoredRuleProducesNoOutcome guards the denominator:
-// a rule that does not apply to a repo must not appear as "tracked and
-// compliant", or every per-rule compliance percentage silently inflates
-// with the repos that rule was never meant to cover.
-func TestCheckResult_IgnoredRuleProducesNoOutcome(t *testing.T) {
+// TestCheckResult_IgnoredRuleRecordsNotApplicable guards the
+// denominator: a rule that does not apply to a repo must not appear as
+// "tracked and compliant", or every per-rule compliance percentage
+// silently inflates with the repos that rule was never meant to cover.
+// v2 records it as not_applicable, which compliance excludes.
+func TestCheckResult_IgnoredRuleRecordsNotApplicable(t *testing.T) {
 	t.Parallel()
 
 	cfg := mixedKindPolicy()
@@ -213,37 +223,38 @@ func TestCheckResult_IgnoredRuleProducesNoOutcome(t *testing.T) {
 		t.Fatalf("CheckRepo: %v", err)
 	}
 
-	assertOutcomes(t, res, nil)
+	assertOutcomes(t, res, []string{"file/codeowners=not_applicable:ignored_rule"})
 }
 
-// TestCheckResult_SkipPathsReturnEmptyNotNil pins the distinction the
-// write-back reconciliation depends on. An empty result means "this
-// repo has no applicable rules" and clears its rows; nil means "we
-// learned nothing" and leaves them alone. Collapsing the two either
-// strands rows for out-of-scope repos forever or wipes them on every
-// transient API error.
+// TestCheckResult_SkipPathsRecordNotApplicable pins the repository-level
+// skips that stay in the normal flow. v1 returned an empty result here;
+// v2 records one not_applicable outcome per enabled rule with the skip's
+// reason, so an empty result now means only an archived/fork park
+// (DESIGN-0025 § Engine outcome enrichment). nil still means "we learned
+// nothing" and leaves rows alone.
 //
-// Archived and forked repos used to be a case here. INV-0015 made them
-// DURABLE skips, which return a *SkippedError and a nil result so the
-// worker can park the row — the empty-result-clears-posture call moved
-// with them, to Pool.park. TestCheckRepo_Skips covers the engine half
-// and TestPool_ArchivedRepo_ClearsPosture the worker half; what is left
-// here is the skips that stay in the normal flow.
-func TestCheckResult_SkipPathsReturnEmptyNotNil(t *testing.T) {
+// Archived and forked repos are DURABLE skips: they return a
+// *SkippedError and a nil result so the worker can park the row.
+// TestCheckRepo_Skips covers the engine half and
+// TestPool_ArchivedRepo_ClearsPosture the worker half.
+func TestCheckResult_SkipPathsRecordNotApplicable(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name  string
-		setup func(*policy.PolicyConfig, *mockClient)
+		name   string
+		reason string
+		setup  func(*policy.PolicyConfig, *mockClient)
 	}{
 		{
-			name: "global ignore list",
+			name:   "global ignore list",
+			reason: "ignored_global",
 			setup: func(cfg *policy.PolicyConfig, _ *mockClient) {
 				cfg.IgnoreList = policy.IgnoreConfig{Repos: []string{"org/repo"}}
 			},
 		},
 		{
-			name: "out of policy scope",
+			name:   "out of policy scope",
+			reason: "out_of_scope_policy",
 			setup: func(cfg *policy.PolicyConfig, _ *mockClient) {
 				cfg.Scope = &policy.ScopeConfig{Orgs: []string{"someotherorg"}}
 			},
@@ -272,13 +283,11 @@ func TestCheckResult_SkipPathsReturnEmptyNotNil(t *testing.T) {
 				t.Fatalf("CheckRepo: %v", err)
 			}
 
-			if res == nil {
-				t.Fatal("CheckRepo() result = nil on a skip path, want empty-but-non-nil so the repo's rule rows get reconciled away")
-			}
-
-			if len(res.Outcomes) != 0 {
-				t.Errorf("CheckRepo() outcomes = %v, want none on a skip path", outcomeKeys(t, res))
-			}
+			assertOutcomes(t, res, []string{
+				"branch_protection/protect_main=not_applicable:" + tt.reason,
+				"file/codeowners=not_applicable:" + tt.reason,
+				"setting/enable_issues=not_applicable:" + tt.reason,
+			})
 		})
 	}
 }

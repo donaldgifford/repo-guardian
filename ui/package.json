@@ -1,0 +1,49 @@
+{
+  "name": "repo-guardian-ui",
+  "private": true,
+  "type": "module",
+  "description": "repo-guardian business UI: a Bun BFF (Hono) serving a React SPA (DESIGN-0027).",
+  "scripts": {
+    "gen:api": "openapi-typescript ../api/openapi.yaml -o web/src/api/schema.gen.ts",
+    "check:api": "bun scripts/check-api.ts",
+    "dev:server": "bun --watch server/main.ts",
+    "dev:web": "vite --config web/vite.config.ts",
+    "build": "vite build --config web/vite.config.ts",
+    "start": "bun server/main.ts",
+    "test": "bun test ./server ./web ./scripts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint --max-warnings=0 .",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.103.2",
+    "@tanstack/react-router": "^1.170.39",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "hono": "^4.13.9",
+    "jose": "^6.2.12",
+    "openapi-fetch": "^0.17.0",
+    "openid-client": "^6.8.8",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "recharts": "^3.10.1",
+    "tailwind-merge": "^3.7.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/bun": "^1.4.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
+    "openapi-typescript": "^7.13.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9",
+    "typescript-eslint": "^8.70.1",
+    "vite": "^8.3.1"
+  }
+}

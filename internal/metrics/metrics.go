@@ -183,6 +183,30 @@ var (
 		Help: "Webhook requests rejected (signature validation).",
 	}, []string{labelReason})
 
+	// WebhookTemporalErrorsTotal counts webhooks ingest could not hand to
+	// Temporal (IMPL-0025 Phase 12). Each one was answered 503, so GitHub
+	// records a failed delivery an operator can redeliver.
+	WebhookTemporalErrorsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "repo_guardian_webhook_temporal_errors_total",
+		Help: "Webhooks answered 503 because the webhook workflow could not be started.",
+	})
+
+	// APIAuthFailuresTotal counts API requests refused authentication
+	// (IMPL-0025 14.7), by reason: missing, malformed, algorithm, issuer,
+	// audience, id_token, expired, not_yet_valid, signature, unavailable.
+	APIAuthFailuresTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_api_auth_failures_total",
+		Help: "API requests refused authentication, by reason.",
+	}, []string{labelReason})
+
+	// APIStatusRefreshSeconds times each status-page refresh (IMPL-0025
+	// 15.8), by outcome: ok or error. The page itself never queries.
+	APIStatusRefreshSeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "repo_guardian_api_status_refresh_seconds",
+		Help:    "Duration of status-page refreshes, by outcome.",
+		Buckets: prometheus.DefBuckets,
+	}, []string{labelOutcome})
+
 	// IgnoredTotal counts repos or rules skipped by ignore lists, by scope and org.
 	IgnoredTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_ignored_total",
@@ -350,6 +374,15 @@ var (
 		Name: "repo_guardian_rate_limit_remaining",
 		Help: "GitHub API rate limit remaining, per installation.",
 	}, []string{labelInstallationID})
+
+	// BudgetAcquireTotal counts InstallationWorkflow budget acquisitions
+	// by result (IMPL-0025 Phase 11): granted, optimistic (granted with
+	// no known budget) or wait. A rising wait share means installations
+	// are running at their reserve.
+	BudgetAcquireTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_budget_acquire_total",
+		Help: "Total rate-budget acquisitions, by result.",
+	}, []string{"result"})
 
 	// InstallationInfo is a constant-1 info gauge pairing an
 	// installation ID with the org that installed the App. It carries no

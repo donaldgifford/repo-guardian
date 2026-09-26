@@ -89,22 +89,182 @@ config:
   logLevel: "info"
   # -- Dry run mode
   dryRun: false
-  # -- Worker count for check queue
-  workerCount: 5
-  # -- Queue size for check queue
-  queueSize: 100
-  # -- Deliveries a single job may accumulate (rate-limit deferrals
-  # plus reaper requeues) before it is dropped with a terminal error
-  # written to repo_state. The next stale sweep re-enqueues the repo,
-  # so this bounds retry cost without permanently abandoning work.
-  # Must be >= 1.
-  maxJobAttempts: 10
-  # -- Reconciliation schedule interval (Go duration)
-  scheduleInterval: "168h"
   # -- Skip forked repositories
   skipForks: true
   # -- Skip archived repositories
   skipArchived: true
+
+# -- Deployment shape (DESIGN-0026 § Chart 2.0.0). `split` renders one
+# Deployment per role: `ingest` (webhooks), `worker` (Temporal worker)
+# and, when `api.enabled`, `api`. `all` renders a single Deployment
+# running every role, for small installs and the homelab.
+topology: split
+
+# -- Temporal connection. Every role that dials Temporal (ingest,
+# worker, all) gets these; api never does.
+temporal:
+  # -- Frontend `host:port`. Required.
+  address: ""
+  # -- Temporal namespace.
+  namespace: repo-guardian
+  # -- Task queue the worker polls and ingest signals through.
+  taskQueue: repo-guardian
+  tls:
+    # -- Secret with `tls.crt`, `tls.key` and (optionally) `ca.crt` for
+    # mTLS. Mounted only into roles that dial Temporal.
+    existingSecret: ""
+    # -- Server name to verify the frontend certificate against.
+    serverName: ""
+
+# -- Each repository's check cadence (Go duration).
+checkInterval: "24h"
+# -- Span a policy change is spread across: every repository is
+# re-checked at a random point inside it, not all at once.
+policyRolloutWindow: "24h"
+# -- How long check history is kept before SnapshotWorkflow prunes it.
+checksRetention: "2160h"
+
+# -- The ingest role: receives webhooks and signals workflows. Stateless.
+ingest:
+  # -- Replica count (split only).
+  replicas: 2
+  # -- Resources; empty falls back to `resources`.
+  resources: {}
+  pdb:
+    # -- Render a PodDisruptionBudget.
+    enabled: true
+    # -- Pods kept through voluntary disruptions.
+    minAvailable: 1
+
+# -- The worker role: runs workflows and activities (split only).
+worker:
+  # -- Replica count. Ignored when `worker.keda.enabled`.
+  replicas: 1
+  # -- Concurrent activities per pod (WORKER_ACTIVITY_CONCURRENCY).
+  concurrency: 10
+  # -- Resources; empty falls back to `resources`.
+  resources: {}
+  # -- KEDA autoscaling on Temporal backlog. Requires the KEDA CRDs.
+  keda:
+    # -- Render a ScaledObject with a `temporal` trigger.
+    enabled: false
+    # -- Floor.
+    minReplicas: 1
+    # -- Ceiling. Size it to the GitHub budget, not the backlog: checks
+    # are rate-limit bound, so pods past the budget only park more
+    # timers (INV-0018 Obs 7).
+    maxReplicas: 4
+    # -- Backlog per replica before KEDA scales out.
+    targetQueueSize: "50"
+
+# -- The api role: the read-only JSON API (DESIGN-0027). It holds only
+# a read-only database credential: no App key, no webhook secret.
+api:
+  # -- Render the api role (split) and its Service. In `all` the API
+  # always runs on `api.port`; this gates its Service and auth.
+  enabled: false
+  # -- Replica count (split only).
+  replicas: 2
+  # -- API port beside other roles (`all`). The api role alone serves
+  # on `config.port`.
+  port: 8081
+  # -- Resources; empty falls back to `resources`.
+  resources: {}
+  pdb:
+    # -- Render a PodDisruptionBudget.
+    enabled: true
+    # -- Pods kept through voluntary disruptions.
+    minAvailable: 1
+  roDsn:
+    # -- Secret holding STORE_RO_DSN. Required for `store.postgres.mode:
+    # external`; baked and cnpg derive it from the chart-managed
+    # `repoguardian_ro` role when empty.
+    existingSecret: ""
+    # -- Key inside existingSecret.
+    existingSecretKey: STORE_RO_DSN
+  auth:
+    # -- Require an OIDC bearer token on every data endpoint.
+    enabled: true
+    # -- OIDC issuer URL. Required when auth is enabled.
+    issuer: ""
+    # -- Expected token audience.
+    audience: repo-guardian-api
+    # -- Claim naming the caller in logs.
+    nameClaim: preferred_username
+    # -- Claim listing the caller's groups.
+    groupsClaim: groups
+  authz:
+    # -- Group → org grants, rendered into the authz ConfigMap. Keys are
+    # group names; values list orgs (`["*"]` for every org).
+    groups: {}
+    # -- Orgs granted to every authenticated caller.
+    defaultOrgs: []
+    # -- Machine clients (by `azp`) → groups above, for IdPs that put no
+    # groups on client-credentials tokens.
+    clients: {}
+  # -- Open repo-guardian PRs older than this count as stale.
+  prStaleAfter: "720h"
+  status:
+    # -- Serve /status without a token.
+    public: true
+
+# -- The business UI (DESIGN-0027): a Bun BFF serving the SPA, proxying
+# /api to the api Service and holding the OIDC session. Requires
+# api.enabled and api.auth.enabled.
+ui:
+  # -- Render the ui Deployment, Service and PDB.
+  enabled: false
+  # -- Replica count.
+  replicas: 2
+  image:
+    # -- UI image repository.
+    repository: ghcr.io/donaldgifford/repo-guardian-ui
+    # -- UI image tag; defaults to the chart's appVersion, because both
+    # images are released together from one tag.
+    tag: ""
+  # -- Container port the BFF listens on.
+  port: 3000
+  oidc:
+    # -- OIDC client ID (a confidential client). The issuer is
+    # api.auth.issuer: the UI and the API trust the same IdP.
+    clientId: repo-guardian-ui
+    # -- Scopes requested at login.
+    scopes: [openid, profile, groups, offline_access]
+  # -- Secret with keys `oidc-client-secret` and `session-keys`
+  # (comma-separated, at least 32 bytes each; the first seals). Required.
+  existingSecret: ""
+  # -- Absolute session length; token refresh never extends it.
+  sessionTTL: 8h
+  # -- Browser-facing origin (https://host). Defaults to
+  # https://<ui.ingress.host>; set it when the ingress is yours.
+  publicUrl: ""
+  # -- GitHub host PR and repository links point at.
+  githubHost: github.com
+  # -- Resources for the ui container.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    limits:
+      memory: 256Mi
+  pdb:
+    # -- Render a PodDisruptionBudget.
+    enabled: true
+    # -- Pods kept through voluntary disruptions.
+    minAvailable: 1
+  ingress:
+    # -- Render an Ingress sending the whole host to the ui Service. The
+    # only Ingress the chart renders; fails render unless
+    # api.auth.enabled.
+    enabled: false
+    # -- IngressClass name.
+    className: ""
+    # -- Annotations for the Ingress.
+    annotations: {}
+    # -- The UI's host name.
+    host: ""
+    # -- TLS blocks, as in networking.k8s.io/v1 IngressTLS.
+    tls: []
 
 # -- GitHub App secrets
 secrets:
@@ -190,6 +350,30 @@ prometheusRule:
   # PrometheusRule template for the canonical alert names.
   alerts: {}
 
+migrate:
+  # -- Run `repo-guardian migrate` as a hook Job (v2 schema migrations
+  # and the one-time v1 backfill): post-install, so a baked Postgres
+  # exists to connect to, and pre-upgrade, so the schema lands before
+  # new pods roll.
+  enabled: true
+  # -- The v1 backfill's freshness: a v1 repo checked within this window
+  # keeps its due-time; older ones are due immediately after cutover.
+  freshness: "24h"
+  # -- Job retries before the release fails. On a first install the
+  # Job may start before Postgres accepts connections; retries cover it.
+  backoffLimit: 6
+  # -- Upper bound on the Job's run time, in seconds. The v1 backfill is
+  # one transaction; raise this for very large fleets.
+  activeDeadlineSeconds: 600
+  # -- Resources for the migrate container.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
 # -- Persistent state store (per-repo reconcile state). See
 # DESIGN-0012 §Backend modes. The in-memory backend was removed
 # in IMPL-0016 (chart 1.0); postgres is the only supported value.
@@ -226,6 +410,10 @@ store:
       existingSecret: ""
       # -- Key inside existingSecret holding the password.
       existingSecretKey: POSTGRES_PASSWORD
+      # -- Key inside existingSecret holding the api role's read-only
+      # password (`repoguardian_ro`). Read only for a split API with no
+      # `api.roDsn.existingSecret`. URL-safe, like the admin password.
+      existingSecretROKey: RO_PASSWORD
       # -- Persistent volume size.
       storageSize: 10Gi
       # -- StorageClass name. Empty → cluster default.
@@ -294,108 +482,22 @@ store:
             bgp.cilium.io/advertise-service: default
             bgp.cilium.io/ip-pool: default
 
-# -- Work queue for reconcile jobs. The in-memory backend was
-# removed in IMPL-0016 (chart 1.0); valkey is the only supported
-# value.
-queue:
-  # -- Backend implementation. Only "valkey" is supported.
-  backend: valkey
-  # -- (deprecated) Buffered channel size; ignored since the
-  # in-memory backend was removed in IMPL-0016. Retained for
-  # values-schema backwards compatibility; will be deleted in a
-  # future chart-major release.
-  size: 1000
-  # -- Valkey-specific configuration. Ignored when backend != valkey.
-  valkey:
-    # -- Source of the Valkey deployment. One of:
-    # "baked"    — chart renders a single-pod Valkey Deployment;
-    # "external" — operator provides DSN via existingSecret.
-    mode: baked
-    # -- Operator-supplied secret holding QUEUE_VALKEY_DSN.
-    existingSecret: ""
-    # -- Key inside existingSecret holding the DSN.
-    existingSecretKey: QUEUE_VALKEY_DSN
-    # -- How long an in-flight job may sit before the reaper
-    # requeues it.
-    jobAckTimeout: "5m"
-    # -- Cadence between reaper iterations.
-    reaperInterval: "60s"
-    # -- Baked Valkey-only configuration.
-    baked:
-      # -- Pinned image. Bump intentionally.
-      image: valkey/valkey:9.1
-      # -- Operator-supplied Secret holding the Valkey password. Same
-      # GitOps rationale as store.postgres.baked.existingSecret. When set,
-      # the chart skips its generated password Secret; the baked Valkey
-      # reads the password from this Secret and the app assembles
-      # QUEUE_VALKEY_DSN at runtime via $(VALKEY_PASSWORD). URL-safe
-      # (alphanumeric) password required.
-      existingSecret: ""
-      # -- Key inside existingSecret holding the password.
-      existingSecretKey: VALKEY_PASSWORD
-      # -- Persistent volume size.
-      storageSize: 1Gi
-      # -- StorageClass name. Empty → cluster default.
-      storageClassName: ""
-      # -- Generated AUTH password length (random alphanumeric).
-      authPasswordLength: 32
-      # -- Pod securityContext. Runs Valkey as the image's built-in
-      # non-root user (uid/gid 999) so the entrypoint skips its
-      # root-only chown of /data (which fails on clusters/storage
-      # that forbid chown); fsGroup makes kubelet set volume group
-      # ownership instead. Set to `{}` to restore the image default
-      # (root entrypoint + chown).
-      podSecurityContext:
-        runAsNonRoot: true
-        runAsUser: 999
-        runAsGroup: 999
-        fsGroup: 999
-        fsGroupChangePolicy: OnRootMismatch
-
-# -- Scheduler (sweep cadence) backend. The single-replica ticker
-# scheduler was removed in IMPL-0016 (chart 1.0); valkey is the only
-# supported value. Scheduler shares the queue's Valkey instance.
-scheduler:
-  # -- Backend implementation. Only "valkey" is supported.
-  backend: valkey
-
-# -- Stale-sweep tuning (IMPL-0011 Phase 5d).
-staleSweep:
-  # -- Maximum age of a stored last_checked_at before the sweep
-  # requeues. Default 24h. Effective only with store.backend=postgres.
-  freshness: "24h"
-  # -- Cap on rows returned per StaleRepos query.
-  batchSize: 200
-
-# -- Repository discovery (IMPL-0015 Phase 1). The Discoverer runs on
-# the leader pod, enumerates installations + repos via the GitHub
-# API, and persists discovery rows via Store.UpsertIfMissing so the
-# stale-sweeper picks them up on the next tick. Webhook-driven
-# discovery (`installation_repositories.added` + `repository.created`)
-# is the primary on-ramp; the periodic Discoverer is the safety net
-# for missed deliveries.
+# -- Repository discovery. The discovery schedule enumerates every
+# installation's repositories and starts a RepoWorkflow for each new one.
+# Webhooks (`installation_repositories.added`, `repository.created`) are
+# the primary on-ramp; this is the safety net for missed deliveries.
 discovery:
-  # -- Toggle the Discoverer schedule. When false the binary still
-  # responds to discovery via webhooks; only the periodic enumeration
-  # path is disabled.
+  # -- Toggle the discovery schedule. When false, webhooks still
+  # discover repositories; only the periodic enumeration stops.
   enabled: true
-  # -- Cadence between Discoverer.Discover invocations. Lower values
-  # burn more API budget on list_installations +
-  # list_installation_repos; higher values delay discovery of repos
-  # the webhook path missed.
+  # -- Cadence between discovery runs. Lower values spend more API
+  # budget on list_installation_repos; higher values delay discovery
+  # of repositories the webhook path missed.
   interval: "1h"
 
-# -- Compliance posture export (IMPL-0023 / DESIGN-0022). The elected
-# leader projects the rule_state table onto the repos_actionable /
-# repos_tracked / repos_unmeasurable gauges on this cadence.
+# -- Compliance history (IMPL-0023 / DESIGN-0022). SnapshotWorkflow
+# writes one compliance_history row per org on this cadence.
 posture:
-  # -- Cadence between posture exporter ticks. Unlike the sweep and
-  # discovery intervals this costs no GitHub API budget — it is a few
-  # aggregates over an indexed table — so it is tuned against how stale
-  # the compliance gauges may be, not against rate limit. Values above
-  # 60s leave the exporter behind its own duration histogram, whose
-  # buckets stop there.
-  exportInterval: "60s"
   # -- Cadence between compliance-history snapshots, the rows
   # `repo-guardian report --since` reads. This is not the posture
   # gauges: Prometheus already keeps those for its retention window,

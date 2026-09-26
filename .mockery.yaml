@@ -26,6 +26,8 @@ packages:
       dir: internal/store/mocks
     interfaces:
       Store: {}
+      Writer: {}
+      Reader: {}
   github.com/donaldgifford/repo-guardian/internal/queue:
     config:
       dir: internal/queue/mocks

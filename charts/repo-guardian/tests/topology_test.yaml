@@ -1,0 +1,249 @@
+suite: topology (DESIGN-0026 § Chart 2.0.0)
+templates:
+  - templates/deployment.yaml
+  - templates/service.yaml
+  - templates/pdb.yaml
+  - templates/worker-scaledobject.yaml
+  - templates/api-authz-configmap.yaml
+  - templates/servicemonitor.yaml
+release:
+  name: rg
+  namespace: rg-ns
+set:
+  config:
+    appId: "12345"
+  secrets:
+    webhookSecret: "x"
+    privateKey: "x"
+  temporal:
+    address: temporal:7233
+  policy:
+    config: "guardian {}"
+tests:
+  - it: split renders ingest and worker, and no api by default
+    template: templates/deployment.yaml
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: metadata.name
+          value: rg-repo-guardian-ingest
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value: [ingest]
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: rg-repo-guardian-worker
+        documentIndex: 1
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value: [worker]
+        documentIndex: 1
+
+  - it: split selects each role by its component label
+    template: templates/deployment.yaml
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: worker
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/component"]
+          value: worker
+      - equal:
+          path: metadata.namespace
+          value: rg-ns
+
+  - it: split with api.enabled adds the api Deployment on the main port
+    template: templates/deployment.yaml
+    set:
+      api.enabled: true
+      api.auth.issuer: https://idp.example.com
+    documentSelector: {path: metadata.name, value: rg-repo-guardian-api}
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value: [api]
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: API_LISTEN_ADDR, value: ":8080"}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: API_AUTHZ_CONFIG, value: /etc/repo-guardian/authz/authz.yaml}
+      - exists:
+          path: spec.template.metadata.annotations["checksum/authz"]
+      - notExists:
+          path: spec.template.metadata.annotations["checksum/policy"]
+
+  - it: all renders one Deployment with the API beside the other roles
+    template: templates/deployment.yaml
+    set:
+      topology: all
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: rg-repo-guardian-all
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value: [all]
+      - contains:
+          path: spec.template.spec.containers[0].ports
+          content: {containerPort: 8081, name: api, protocol: TCP}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: API_LISTEN_ADDR, value: ":8081"}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: API_AUTH_ENABLED, value: "false"}
+
+  - it: policy-reading roles carry the checksum annotations
+    template: templates/deployment.yaml
+    documentIndex: 0
+    asserts:
+      - exists:
+          path: spec.template.metadata.annotations["checksum/policy"]
+      - exists:
+          path: spec.template.metadata.annotations["checksum/templates"]
+
+  - it: per-role resources override the shared default
+    template: templates/deployment.yaml
+    documentIndex: 1
+    set:
+      worker.resources:
+        requests: {cpu: 2}
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources
+          value: {requests: {cpu: 2}}
+
+  - it: KEDA owns the worker's replica count
+    set:
+      worker.keda.enabled: true
+    asserts:
+      - notExists:
+          path: spec.replicas
+        template: templates/deployment.yaml
+        documentIndex: 1
+      - equal:
+          path: spec.triggers[0].type
+          value: temporal
+        template: templates/worker-scaledobject.yaml
+      - equal:
+          path: spec.triggers[0].metadata.queueTypes
+          value: workflow,activity
+        template: templates/worker-scaledobject.yaml
+      - equal:
+          path: spec.scaleTargetRef.name
+          value: rg-repo-guardian-worker
+        template: templates/worker-scaledobject.yaml
+
+  - it: no ScaledObject without KEDA or in all
+    set:
+      topology: all
+      worker.keda.enabled: true
+    template: templates/worker-scaledobject.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: split renders the webhook and worker Services, the api one when enabled
+    template: templates/service.yaml
+    set:
+      api.enabled: true
+      api.auth.issuer: https://idp.example.com
+    asserts:
+      - hasDocuments:
+          count: 3
+      - equal:
+          path: spec.selector["app.kubernetes.io/component"]
+          value: ingest
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: rg-repo-guardian-worker
+        documentIndex: 1
+      - equal:
+          path: spec.type
+          value: ClusterIP
+        documentIndex: 2
+      - equal:
+          path: spec.selector["app.kubernetes.io/component"]
+          value: api
+        documentIndex: 2
+
+  - it: all points the api Service at the all pods' api port
+    template: templates/service.yaml
+    set:
+      topology: all
+      api.enabled: true
+      api.auth.issuer: https://idp.example.com
+    documentSelector: {path: metadata.name, value: rg-repo-guardian-api}
+    asserts:
+      - equal:
+          path: spec.selector["app.kubernetes.io/component"]
+          value: all
+      - equal:
+          path: spec.ports[0].targetPort
+          value: api
+
+  - it: PDBs cover ingest, and api when enabled
+    template: templates/pdb.yaml
+    set:
+      api.enabled: true
+      api.auth.issuer: https://idp.example.com
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: ingest
+        documentIndex: 0
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: api
+        documentIndex: 1
+
+  - it: no PDBs in all
+    template: templates/pdb.yaml
+    set:
+      topology: all
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders the authz file from values
+    template: templates/api-authz-configmap.yaml
+    set:
+      api.enabled: true
+      api.auth.issuer: https://idp.example.com
+      api.authz.groups:
+        platform: ["*"]
+        team-web: [acme-web]
+      api.authz.clients:
+        ci: [team-web]
+    asserts:
+      - equal:
+          path: data["authz.yaml"]
+          value: |
+            groups:
+              "platform": ["*"]
+              "team-web": ["acme-web"]
+            defaultOrgs: []
+            clients:
+              "ci": ["team-web"]
+
+  - it: the ServiceMonitor scrapes every role and not Postgres
+    template: templates/servicemonitor.yaml
+    set:
+      serviceMonitor.enabled: true
+    asserts:
+      - equal:
+          path: spec.selector.matchExpressions[0]
+          value:
+            key: app.kubernetes.io/component
+            operator: In
+            values: [ingest, worker, api, all]

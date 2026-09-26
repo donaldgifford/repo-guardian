@@ -7,10 +7,21 @@
     "config": {
       "type": "object",
       "properties": {
+        "workerCount": {
+          "const": "REMOVED in chart 2.0.0 — see docs/operations/v2-migration.md#removed-chart-values",
+          "description": "REMOVED in chart 2.0.0 (IMPL-0025): use worker.concurrency. See docs/operations/v2-migration.md#removed-chart-values."
+        },
+        "queueSize": {
+          "const": "REMOVED in chart 2.0.0 — see docs/operations/v2-migration.md#removed-chart-values",
+          "description": "REMOVED in chart 2.0.0 (IMPL-0025): there is no in-process queue. See docs/operations/v2-migration.md#removed-chart-values."
+        },
+        "scheduleInterval": {
+          "const": "REMOVED in chart 2.0.0 — see docs/operations/v2-migration.md#removed-chart-values",
+          "description": "REMOVED in chart 2.0.0 (IMPL-0025): use checkInterval. See docs/operations/v2-migration.md#removed-chart-values."
+        },
         "maxJobAttempts": {
-          "description": "Deliveries a job may accumulate (deferrals + reaper requeues) before it is dropped with a terminal repo_state error (IMPL-0022). Must be >= 1; the binary rejects 0 at startup.",
-          "type": "integer",
-          "minimum": 1
+          "const": "REMOVED in chart 2.0.0 — see docs/operations/v2-migration.md#removed-chart-values",
+          "description": "REMOVED in chart 2.0.0 (IMPL-0025): Temporal retry policies bound attempts. See docs/operations/v2-migration.md#removed-chart-values."
         }
       }
     },
@@ -20,7 +31,9 @@
         "backend": {
           "description": "Persistent state store backend. Only \"postgres\" is supported since IMPL-0016 (chart 1.0).",
           "type": "string",
-          "enum": ["postgres"]
+          "enum": [
+            "postgres"
+          ]
         },
         "postgres": {
           "type": "object",
@@ -28,41 +41,23 @@
             "mode": {
               "description": "Source of the Postgres deployment.",
               "type": "string",
-              "enum": ["baked", "cnpg", "external"]
+              "enum": [
+                "baked",
+                "cnpg",
+                "external"
+              ]
             }
           }
         }
       }
     },
     "queue": {
-      "type": "object",
-      "properties": {
-        "backend": {
-          "description": "Work queue backend. Only \"valkey\" is supported since IMPL-0016 (chart 1.0).",
-          "type": "string",
-          "enum": ["valkey"]
-        },
-        "valkey": {
-          "type": "object",
-          "properties": {
-            "mode": {
-              "description": "Source of the Valkey deployment.",
-              "type": "string",
-              "enum": ["baked", "external"]
-            }
-          }
-        }
-      }
+      "const": "REMOVED in chart 2.0.0 — see docs/operations/v2-migration.md#removed-chart-values",
+      "description": "REMOVED in chart 2.0.0 (IMPL-0025): the Valkey work queue is replaced by Temporal. See docs/operations/v2-migration.md#removed-chart-values."
     },
     "scheduler": {
-      "type": "object",
-      "properties": {
-        "backend": {
-          "description": "Sweep scheduler backend. Only \"valkey\" is supported since IMPL-0016 (chart 1.0).",
-          "type": "string",
-          "enum": ["valkey"]
-        }
-      }
+      "const": "REMOVED in chart 2.0.0 — see docs/operations/v2-migration.md#removed-chart-values",
+      "description": "REMOVED in chart 2.0.0 (IMPL-0025): Temporal Schedules replace the Valkey leader-elected scheduler. See docs/operations/v2-migration.md#removed-chart-values."
     },
     "discovery": {
       "type": "object",
@@ -82,8 +77,8 @@
       "description": "Compliance posture export (IMPL-0023 / DESIGN-0022) — the leader projects rule_state onto the posture gauges.",
       "properties": {
         "exportInterval": {
-          "type": "string",
-          "description": "Go duration (e.g. \"60s\", \"5m\"). Costs no GitHub API budget; tuned against gauge staleness."
+          "const": "REMOVED in chart 2.0.0 — see docs/operations/v2-migration.md#removed-chart-values",
+          "description": "REMOVED in chart 2.0.0 (IMPL-0025): the posture gauges are gone; the API reads compliance from Postgres. See docs/operations/v2-migration.md#removed-chart-values."
         },
         "snapshotInterval": {
           "type": "string",
@@ -98,6 +93,247 @@
     "webhookIPAllowlist": {
       "const": "REMOVED in IMPL-0024 — see docs/operations/ingress.md#migrating-from-the-baked-sidecar",
       "description": "REMOVED in IMPL-0024 (chart 1.0.0): the in-app IP allowlist middleware was deleted; source-IP enforcement lives at the operator's edge layer. See docs/operations/ingress.md#migrating-from-the-baked-sidecar."
+    },
+    "staleSweep": {
+      "const": "REMOVED in chart 2.0.0 — see docs/operations/v2-migration.md#removed-chart-values",
+      "description": "REMOVED in chart 2.0.0 (IMPL-0025): each RepoWorkflow schedules its own next check (checkInterval); the v1 backfill freshness moved to migrate.freshness. See docs/operations/v2-migration.md#removed-chart-values."
+    },
+    "topology": {
+      "description": "Deployment shape: split (one Deployment per role) or all (one Deployment).",
+      "type": "string",
+      "enum": [
+        "split",
+        "all"
+      ]
+    },
+    "temporal": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "taskQueue": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tls": {
+          "type": "object",
+          "properties": {
+            "existingSecret": {
+              "type": "string"
+            },
+            "serverName": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "checkInterval": {
+      "type": "string",
+      "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+    },
+    "policyRolloutWindow": {
+      "type": "string",
+      "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+    },
+    "checksRetention": {
+      "type": "string",
+      "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+    },
+    "worker": {
+      "type": "object",
+      "properties": {
+        "replicas": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "concurrency": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "keda": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "minReplicas": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maxReplicas": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    },
+    "ingest": {
+      "type": "object",
+      "properties": {
+        "replicas": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "api": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "replicas": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "port": {
+          "type": "integer"
+        },
+        "auth": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "issuer": {
+              "type": "string"
+            },
+            "audience": {
+              "type": "string"
+            }
+          }
+        },
+        "prStaleAfter": {
+          "type": "string",
+          "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+        },
+        "status": {
+          "type": "object",
+          "properties": {
+            "public": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "migrate": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "freshness": {
+          "type": "string",
+          "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+        }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "replicas": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": {
+              "type": "string",
+              "minLength": 1
+            },
+            "tag": {
+              "type": "string"
+            }
+          }
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "oidc": {
+          "type": "object",
+          "properties": {
+            "clientId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "scopes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "contains": {
+                "const": "openid"
+              }
+            }
+          }
+        },
+        "existingSecret": {
+          "type": "string"
+        },
+        "sessionTTL": {
+          "type": "string",
+          "pattern": "^([0-9]+(h|m|s))+$"
+        },
+        "publicUrl": {
+          "type": "string",
+          "pattern": "^(|https://[^/]+|http://(localhost|127\\.0\\.0\\.1)(:[0-9]+)?)$"
+        },
+        "githubHost": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9.-]+(:[0-9]+)?$"
+        },
+        "resources": {
+          "type": "object"
+        },
+        "pdb": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "minAvailable": {
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        },
+        "ingress": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "className": {
+              "type": "string"
+            },
+            "annotations": {
+              "type": "object"
+            },
+            "host": {
+              "type": "string"
+            },
+            "tls": {
+              "type": "array"
+            }
+          }
+        }
+      }
     }
   }
 }

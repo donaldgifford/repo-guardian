@@ -433,3 +433,13 @@ func TestWarnRemovedEnvVars_SilentWhenUnset(t *testing.T) {
 		t.Errorf("warnRemovedEnvVars output = %q, want empty when nothing is set", got)
 	}
 }
+
+func TestDispatch_RolesRejectUnknownFlags(t *testing.T) {
+	t.Parallel()
+
+	for _, role := range []string{"ingest", "worker", "api", "all"} {
+		if err := dispatch([]string{"repo-guardian", role, "--no-such-flag"}); err == nil {
+			t.Errorf("dispatch(%s --no-such-flag) = nil, want a flag error", role)
+		}
+	}
+}

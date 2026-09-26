@@ -4,13 +4,16 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/donaldgifford/repo-guardian/internal/findings"
 )
 
 // mdcell makes a string safe to place in a markdown table cell.
 //
 // Rule names come from operator-authored HCL and repository names come
-// from the API, so neither is guaranteed free of the one character that
-// breaks a table. A stray pipe silently shifts every column to its
+// from the API, so neither is guaranteed free of the characters that
+// break a table: a pipe splits a cell, a backtick opens a code span
+// that can swallow the rest of the row. A stray pipe silently shifts every column to its
 // right, which turns a compliance report into a misleading one rather
 // than an obviously broken one.
 //
@@ -19,6 +22,7 @@ import (
 // discipline as the IMPL-0020 A2 helpers and costs one function.
 func mdcell(s string) string {
 	s = strings.ReplaceAll(s, "|", "\\|")
+	s = strings.ReplaceAll(s, "`", "\\`")
 	s = strings.ReplaceAll(s, "\r\n", " ")
 	s = strings.ReplaceAll(s, "\n", " ")
 
@@ -78,5 +82,23 @@ func renderTrend(r RuleLine) string { //nolint:gocritic // value receiver: text/
 		return trendNewLabel
 	default:
 		return trendNewLabel
+	}
+}
+
+// renderPR renders a finding's PR cell from its remediation and the PR
+// recorded in its evidence. Repository-supplied text (the URL) goes
+// through mdcell like every other cell.
+func renderPR(f Finding) string { //nolint:gocritic // value receiver: text/template cannot address a range variable
+	switch {
+	case f.Remediation == findings.RemediationPROpen && f.PRURL != "":
+		return "[open](" + mdcell(f.PRURL) + ")"
+	case f.Remediation == findings.RemediationForeignPR && f.PRURL != "":
+		return "[human PR](" + mdcell(f.PRURL) + ")"
+	case f.Remediation == findings.RemediationDryRun:
+		return "dry run"
+	case f.Remediation == findings.RemediationDisabled:
+		return "remediation off"
+	default:
+		return "—"
 	}
 }

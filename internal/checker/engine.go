@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/donaldgifford/repo-guardian/internal/findings"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
@@ -124,6 +125,24 @@ func (e *Engine) CheckRepo(
 		return nil, fmt.Errorf("getting repository info: %w", err)
 	}
 
+	res, err := e.checkRepository(ctx, log, client, owner, repo, repoInfo)
+	if res != nil {
+		// Identity rides on every result at no extra call cost; the v2
+		// store matches by ID first (DESIGN-0025 § Identity).
+		res.Repository = &RepositoryIdentity{ID: repoInfo.ID, Owner: repoInfo.Owner, Name: repoInfo.Name}
+	}
+
+	return res, err
+}
+
+// checkRepository is CheckRepo after the repository metadata fetch.
+func (e *Engine) checkRepository(
+	ctx context.Context,
+	log *slog.Logger,
+	client ghclient.Client,
+	owner, repo string,
+	repoInfo *ghclient.Repository,
+) (*CheckResult, error) {
 	// Authoritative skip checks — the scheduler pre-filters as an
 	// optimization, but the engine is the single source of truth.
 	if reason, durable := e.skipReason(repoInfo); reason != "" {
@@ -141,15 +160,16 @@ func (e *Engine) CheckRepo(
 			return nil, &SkippedError{Reason: reason}
 		}
 
-		return &CheckResult{}, nil
+		// The only non-durable skip is an empty repository.
+		return notApplicableForAll(e.policy, findings.EmptyRepositoryEvidence{}), nil
 	}
 
 	// Global ignore list short-circuits all rule evaluation.
-	if e.policy.IgnoreList.Matches(owner + "/" + repo) {
+	if pattern, ignored := e.policy.IgnoreList.MatchPattern(owner, repo); ignored {
 		log.Info("repository matched global ignore list, skipping all rules")
 		metrics.IgnoredTotal.WithLabelValues("global", owner).Inc()
 
-		return &CheckResult{}, nil
+		return notApplicableForAll(e.policy, findings.IgnoredGlobalEvidence{Pattern: pattern}), nil
 	}
 
 	openPRs, err := client.ListOpenPullRequests(ctx, owner, repo)

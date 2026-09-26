@@ -56,4 +56,5 @@ docz create impl "Your Implementation Title"
 | IMPL-0022 | Delayed-requeue job contract and rate-limit consolidation | Completed | 2026-08-02 | Donald Gifford | [0022-delayed-requeue-job-contract-and-rate-limit-consolidation.md](0022-delayed-requeue-job-contract-and-rate-limit-consolidation.md) |
 | IMPL-0023 | Compliance posture state, dashboard suite, and OTEL-first observability | Completed | 2026-08-02 | Donald Gifford | [0023-compliance-posture-state-dashboard-suite-and-otel-first.md](0023-compliance-posture-state-dashboard-suite-and-otel-first.md) |
 | IMPL-0024 | Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware | Completed | 2026-08-15 | Donald Gifford | [0024-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip.md](0024-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip.md) |
+| IMPL-0025 | v2: findings model, Temporal control plane, read-only API and UI | Draft | 2026-09-25 | Donald Gifford | [0025-v2-findings-model-temporal-control-plane-read-only-api-and-ui.md](0025-v2-findings-model-temporal-control-plane-read-only-api-and-ui.md) |
 <!-- END DOCZ AUTO-GENERATED -->

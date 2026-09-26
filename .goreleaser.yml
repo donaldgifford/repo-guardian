@@ -68,6 +68,10 @@ release:
   draft: false
   prerelease: auto
   mode: prepend
+  # The API contract ships with every release (IMPL-0025 22.5), so a
+  # client can pin the spec for the version it targets.
+  extra_files:
+    - glob: ./api/openapi.yaml
   header: |
     ## Release {{ .Tag }} ({{ .Date }})
 

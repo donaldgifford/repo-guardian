@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/donaldgifford/repo-guardian/internal/store"
 )
 
 // TestWriteAll_OneFilePerOrg pins the file layout and its permissions.
@@ -20,11 +18,9 @@ func TestWriteAll_OneFilePerOrg(t *testing.T) {
 	t.Parallel()
 
 	data := fullData()
-	data.Current = append(data.Current, store.SnapshotRow{
-		Org: "globex", RuleName: "dependabot", ActionableCount: 1, TrackedCount: 3,
-	})
+	data.Current = append(data.Current, count("globex", "file", "dependabot", 2, 1, 0, 0))
 
-	r := newRenderer(t, nil)
+	r := newRenderer(t)
 
 	dir := filepath.Join(t.TempDir(), "reports")
 
@@ -71,7 +67,7 @@ func TestWriteAll_OneFilePerOrg(t *testing.T) {
 func TestWriteAll_CreatesTheDirectory(t *testing.T) {
 	t.Parallel()
 
-	r := newRenderer(t, nil)
+	r := newRenderer(t)
 	dir := filepath.Join(t.TempDir(), "nested", "reports")
 
 	if _, err := r.WriteAll(dir, r.Build(fullData())); err != nil {
@@ -145,7 +141,7 @@ func TestFilename_RejectsRatherThanSanitizes(t *testing.T) {
 func TestWriteAll_RefusesABadOrgName(t *testing.T) {
 	t.Parallel()
 
-	r := newRenderer(t, nil)
+	r := newRenderer(t)
 	dir := t.TempDir()
 
 	_, err := r.WriteAll(dir, []Org{{Name: "../escape", GeneratedAt: fixedNow}})

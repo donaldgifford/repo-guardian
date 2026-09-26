@@ -26,6 +26,10 @@ type Config struct {
 	// GitHubWebhookSecret is the HMAC secret for validating webhook payloads.
 	GitHubWebhookSecret string
 
+	// GitHubHost is the GitHub host every v2 repository and installation
+	// record is keyed under (DESIGN-0025 OQ7). Defaults to github.com.
+	GitHubHost string
+
 	// ListenAddr is the HTTP listen address for the webhook server.
 	ListenAddr string
 
@@ -87,6 +91,26 @@ type Config struct {
 	// backend (when QueueBackend=="valkey"). Same Valkey instance is
 	// reused by SchedulerBackend=="valkey".
 	QueueValkeyDSN string
+
+	// TemporalAddress is TEMPORAL_ADDRESS. The temporal package reads the
+	// full client configuration; it is kept here so role validation can
+	// require it.
+	TemporalAddress string
+
+	// CheckInterval is CHECK_INTERVAL, each repository's check cadence
+	// in v2 (DESIGN-0026 OQ3). Default 24h.
+	CheckInterval time.Duration
+
+	// PolicyRolloutWindow is POLICY_ROLLOUT_WINDOW, the span a policy
+	// change spreads its re-checks over. Default 24h.
+	PolicyRolloutWindow time.Duration
+
+	// API is the api role's configuration (DESIGN-0027).
+	API APIConfig
+
+	// ChecksRetention is CHECKS_RETENTION: SnapshotWorkflow prunes checks
+	// older than this. Default 2160h (90 days, DESIGN-0025 OQ8).
+	ChecksRetention time.Duration
 
 	// StorePostgresMaxConns caps the postgres pool connection count.
 	// Zero falls back to pgxpool's default (derived from GOMAXPROCS).
@@ -191,8 +215,40 @@ var deprecatedBackends = map[string]string{
 	"ticker": "ticker scheduler removed in IMPL-0016 (chart 1.0.0)",
 }
 
-// Load reads configuration from environment variables and applies defaults.
+// Load reads configuration from environment variables, applies defaults
+// and validates it for the v1 server.
 func Load() (*Config, error) {
+	cfg, err := parse()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+// LoadRole reads configuration for a v2 role (IMPL-0025 Phase 12). It
+// parses the same environment as Load, then validates only what the
+// role needs.
+func LoadRole(role Role) (*Config, error) {
+	cfg, err := parse()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cfg.ValidateRole(role); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+// parse reads configuration from environment variables and applies
+// defaults, without validation.
+func parse() (*Config, error) {
 	skipForks, err := envOrDefaultBool("SKIP_FORKS", true)
 	if err != nil {
 		return nil, err
@@ -209,7 +265,7 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		ListenAddr:           envOrDefault("LISTEN_ADDR", ":8080"),
+		ListenAddr:           envOrDefault("LISTEN_ADDR", defaultListenAddr),
 		MetricsAddr:          envOrDefault("METRICS_ADDR", ":9090"),
 		TemplateDir:          envOrDefault("TEMPLATE_DIR", "/etc/repo-guardian/templates"),
 		SkipForks:            skipForks,
@@ -219,6 +275,7 @@ func Load() (*Config, error) {
 		GitHubPrivateKeyPath: os.Getenv("GITHUB_PRIVATE_KEY_PATH"),
 		GitHubPrivateKey:     os.Getenv("GITHUB_PRIVATE_KEY"),
 		GitHubWebhookSecret:  os.Getenv("GITHUB_WEBHOOK_SECRET"),
+		GitHubHost:           envOrDefault("GITHUB_HOST", "github.com"),
 	}
 
 	appIDStr := os.Getenv("GITHUB_APP_ID")
@@ -260,12 +317,9 @@ func Load() (*Config, error) {
 	cfg.RateLimitThreshold = rateLimitThreshold
 
 	cfg.GuardianConfigPath = os.Getenv("GUARDIAN_CONFIG")
+	cfg.TemporalAddress = os.Getenv("TEMPORAL_ADDRESS")
 
 	if err := loadBackendConfig(cfg); err != nil {
-		return nil, err
-	}
-
-	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 
@@ -359,6 +413,43 @@ func loadDiscoveryConfig(cfg *Config) error {
 	}
 
 	cfg.ComplianceSnapshotInterval = snapshotInterval
+
+	if err := loadV2Durations(cfg); err != nil {
+		return err
+	}
+
+	return loadAPIConfig(cfg)
+}
+
+// v2 duration defaults (DESIGN-0026 § Configuration).
+const (
+	defaultCheckInterval       = 24 * time.Hour
+	defaultPolicyRolloutWindow = 24 * time.Hour
+	defaultChecksRetention     = 2160 * time.Hour
+)
+
+// loadV2Durations reads the v2 control plane's cadences.
+func loadV2Durations(cfg *Config) error {
+	for _, d := range []struct {
+		key  string
+		def  time.Duration
+		dest *time.Duration
+	}{
+		{"CHECK_INTERVAL", defaultCheckInterval, &cfg.CheckInterval},
+		{"POLICY_ROLLOUT_WINDOW", defaultPolicyRolloutWindow, &cfg.PolicyRolloutWindow},
+		{"CHECKS_RETENTION", defaultChecksRetention, &cfg.ChecksRetention},
+	} {
+		v, err := envOrDefaultDuration(d.key, d.def)
+		if err != nil {
+			return err
+		}
+
+		if v <= 0 {
+			return fmt.Errorf("%s must be positive, got %s", d.key, v)
+		}
+
+		*d.dest = v
+	}
 
 	return nil
 }

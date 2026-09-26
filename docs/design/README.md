@@ -55,4 +55,7 @@ docz create design "Your Design Title"
 | DESIGN-0021 | Delayed-requeue job contract and rate-limit consolidation | Implemented | 2026-07-26 | Donald Gifford | [0021-delayed-requeue-job-contract-and-rate-limit-consolidation.md](0021-delayed-requeue-job-contract-and-rate-limit-consolidation.md) |
 | DESIGN-0022 | Compliance posture state, dashboard suite, and OTEL-first observability | Implemented | 2026-08-02 | Donald Gifford | [0022-compliance-posture-state-dashboard-suite-and-otel-first.md](0022-compliance-posture-state-dashboard-suite-and-otel-first.md) |
 | DESIGN-0023 | Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware | Implemented | 2026-08-15 | Donald Gifford | [0023-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip.md](0023-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip.md) |
+| DESIGN-0025 | v2 findings model and v1 data migration | Approved | 2026-09-24 | Donald Gifford | [0025-v2-findings-model-and-v1-data-migration.md](0025-v2-findings-model-and-v1-data-migration.md) |
+| DESIGN-0026 | v2 Temporal control plane and role split | Approved | 2026-09-24 | Donald Gifford | [0026-v2-temporal-control-plane-and-role-split.md](0026-v2-temporal-control-plane-and-role-split.md) |
+| DESIGN-0027 | v2 read-only API, business UI, and status page | Approved | 2026-09-24 | Donald Gifford | [0027-v2-read-only-api-business-ui-and-status-page.md](0027-v2-read-only-api-business-ui-and-status-page.md) |
 <!-- END DOCZ AUTO-GENERATED -->

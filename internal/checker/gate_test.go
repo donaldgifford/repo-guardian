@@ -358,3 +358,21 @@ func TestFindActionableRules_GateOpenDespiteOpenRefereePR(t *testing.T) {
 
 	assertGateClosed(t, owner, "")
 }
+
+func TestGateDetail_CarriesRefereeError(t *testing.T) {
+	t.Parallel()
+
+	boom := errors.New("boom")
+	g := &gateEvaluator{memo: map[string]gateResult{
+		"renovate_config": {reason: gateReasonError, err: boom},
+	}}
+
+	res, ok := g.gateDetail("renovate_config")
+	if !ok || res.open || !errors.Is(res.err, boom) {
+		t.Errorf("gateDetail = %+v, %v; want closed with the referee error", res, ok)
+	}
+
+	if _, ok := g.gateDetail("unevaluated"); ok {
+		t.Error("gateDetail reported an unevaluated referee")
+	}
+}

@@ -1,0 +1,8 @@
+[
+  {
+    "repo": "myorg-prod/skipped",
+    "writes": null,
+    "outcomes": null,
+    "result": "non-nil"
+  }
+]

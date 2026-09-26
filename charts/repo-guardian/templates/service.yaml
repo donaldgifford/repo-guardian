@@ -1,10 +1,16 @@
+{{- /*
+The webhook Service keeps the release's full name so existing ingress
+routes survive the 2.0 upgrade: it selects ingest (split) or all.
+*/ -}}
+{{- $front := ternary "all" "ingest" (eq .Values.topology "all") }}
+{{- $f := dict "ctx" . "role" $front }}
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "repo-guardian.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "repo-guardian.labels" . | nindent 4 }}
+    {{- include "repo-guardian.roleLabels" $f | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -17,4 +23,53 @@ spec:
       protocol: TCP
       name: metrics
   selector:
-    {{- include "repo-guardian.selectorLabels" . | nindent 4 }}
+    {{- include "repo-guardian.roleSelectorLabels" $f | nindent 4 }}
+{{- if eq .Values.topology "split" }}
+{{- $w := dict "ctx" . "role" "worker" }}
+---
+# The worker serves no traffic; this Service exists for its /metrics.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "repo-guardian.roleFullname" $w }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.roleLabels" $w | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.service.metricsPort }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    {{- include "repo-guardian.roleSelectorLabels" $w | nindent 4 }}
+{{- end }}
+{{- if .Values.api.enabled }}
+{{- $a := dict "ctx" . "role" "api" }}
+{{- $target := dict "ctx" . "role" (ternary "all" "api" (eq .Values.topology "all")) }}
+---
+# The API is internal: ClusterIP only, fronted by the UI's BFF.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "repo-guardian.roleFullname" $a }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.roleLabels" $target | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.service.httpPort }}
+      targetPort: {{ ternary "api" "http" (eq .Values.topology "all") }}
+      protocol: TCP
+      name: http
+    {{- if eq .Values.topology "split" }}
+    - port: {{ .Values.service.metricsPort }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+    {{- end }}
+  selector:
+    {{- include "repo-guardian.roleSelectorLabels" $target | nindent 4 }}
+{{- end }}

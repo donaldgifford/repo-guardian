@@ -1,0 +1,22 @@
+# Default store on the CNPG cluster in persistence-cnpg.yaml.
+server:
+  config:
+    persistence:
+      defaultStore: default
+      datastores:
+        default:
+          sql:
+            pluginName: postgres12_pgx
+            driverName: postgres12_pgx
+            databaseName: temporal
+            connectAddr: "temporal-db-rw.temporal.svc:5432"
+            connectProtocol: tcp
+            user: temporal
+            existingSecret: temporal-db-app
+            secretKey: password
+            maxConns: 20
+            maxIdleConns: 20
+            maxConnLifetime: "1h"
+            # The chart's schema job creates and migrates the schema.
+            createDatabase: false
+            manageSchema: true

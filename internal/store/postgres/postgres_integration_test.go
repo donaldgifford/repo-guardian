@@ -906,7 +906,9 @@ func TestPostgresStore_DiscoveryReactivates(t *testing.T) {
 	dsn := startPostgres(ctx, t)
 	s := newStore(ctx, t, dsn)
 
-	checked := time.Now().UTC().Add(-2 * time.Hour)
+	// Truncated because Postgres keeps microseconds: Linux clocks carry
+	// nanoseconds, and the round-trip Equal below would fail on them.
+	checked := time.Now().UTC().Add(-2 * time.Hour).Truncate(time.Microsecond)
 
 	mustUpdate(ctx, t, s, &store.RepoState{
 		InstallationID: 1, Owner: "o", Repo: "r",

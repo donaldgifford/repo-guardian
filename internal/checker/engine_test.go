@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/donaldgifford/repo-guardian/internal/findings"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/github/mocks"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
@@ -485,7 +486,7 @@ func TestCheckRepo_AllFilesExist(t *testing.T) {
 	client.contents["org/repo/CODEOWNERS"] = true
 	client.contents["org/repo/.github/dependabot.yml"] = true
 
-	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := parityCheckRepo(context.Background(), t, engine, client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -507,7 +508,7 @@ func TestCheckRepo_MissingFiles_NoPR(t *testing.T) {
 	// No files exist, no open PRs.
 	client.branchSHAs["org/repo/main"] = "abc123"
 
-	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := parityCheckRepo(context.Background(), t, engine, client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -546,7 +547,7 @@ func TestCheckRepo_MissingFiles_ExistingPR(t *testing.T) {
 		{Number: 5, Title: PRTitle, Head: BranchName, State: "open"},
 	}
 
-	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := parityCheckRepo(context.Background(), t, engine, client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -581,7 +582,7 @@ func TestCheckRepo_MissingFiles_ThirdPartyPR(t *testing.T) {
 		{Number: 10, Title: "Add CODEOWNERS file", Head: "add-codeowners", State: "open"},
 	}
 
-	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := parityCheckRepo(context.Background(), t, engine, client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -645,7 +646,7 @@ func TestCheckRepo_Skips(t *testing.T) {
 			client.repo = &tt.repo
 			client.repo.Owner, client.repo.Name = "org", "repo"
 
-			res, err := engine.CheckRepo(context.Background(), client, "org", "repo")
+			res, err := parityCheckRepo(context.Background(), t, engine, client, "org", "repo")
 
 			skip, durable := AsSkipped(err)
 
@@ -661,16 +662,25 @@ func TestCheckRepo_Skips(t *testing.T) {
 			}
 
 			// The posture half of the same decision. A non-durable skip
-			// returns an empty-but-non-nil result, which clears the
-			// repo's rule rows so it stops counting against compliance.
-			// A durable skip returns nil and leaves that call to the
-			// worker, which is what decides disposition — see Pool.park.
+			// returns one not_applicable / empty_repository outcome per
+			// enabled rule, which compliance excludes from both terms
+			// (DESIGN-0025). A durable skip returns nil and leaves that
+			// call to the worker, which is what decides disposition —
+			// see Pool.park.
 			switch {
 			case tt.wantSkip == "" && res == nil:
-				t.Error("CheckRepo() = nil, _; a non-durable skip must return an empty result so posture clears")
-			case tt.wantSkip == "" && len(res.Outcomes) != 0:
-				t.Errorf("skipped repo evaluated %d rules, want 0", len(res.Outcomes))
-			case tt.wantSkip != "" && res != nil:
+				t.Error("CheckRepo() = nil, _; a non-durable skip must return a result so posture is recorded")
+			case tt.wantSkip == "":
+				for _, o := range res.Outcomes {
+					if o.Status != findings.StatusNotApplicable || o.Reason != findings.ReasonEmptyRepository {
+						t.Errorf("skipped repo outcome %s = %s/%s, want not_applicable/empty_repository", o.RuleName, o.Status, o.Reason)
+					}
+				}
+
+				if len(res.Outcomes) == 0 {
+					t.Error("skipped repo recorded no outcomes, want one per enabled rule")
+				}
+			case res != nil:
 				t.Errorf("CheckRepo() = %v, _; a durable skip must return nil per the error contract", res)
 			}
 
@@ -690,7 +700,7 @@ func TestCheckRepo_DryRun(t *testing.T) {
 		Owner: "org", Name: "repo", HasBranch: true, DefaultRef: "main",
 	}
 
-	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := parityCheckRepo(context.Background(), t, engine, client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}
@@ -717,7 +727,7 @@ func TestCheckRepo_StaleBranchCleanup(t *testing.T) {
 
 	// Branch exists but no open PR (previously closed).
 
-	_, err := engine.CheckRepo(context.Background(), client, "org", "repo")
+	_, err := parityCheckRepo(context.Background(), t, engine, client, "org", "repo")
 	if err != nil {
 		t.Fatalf("CheckRepo: %v", err)
 	}

@@ -551,14 +551,21 @@ func (p *Pool) writeBackRuleStates(
 	}
 
 	states := make([]store.RuleState, 0, len(res.Outcomes))
-	for _, o := range res.Outcomes {
+	for i := range res.Outcomes {
+		o := &res.Outcomes[i]
+		// v2's not_applicable outcomes stay out of v1's rule_state so
+		// its posture denominator is unchanged (IMPL-0025 Phase 4).
+		if !o.TrackedByV1() {
+			continue
+		}
+
 		states = append(states, store.RuleState{
 			InstallationID: j.InstallationID,
 			Owner:          j.Owner,
 			Repo:           j.Repo,
 			RuleName:       o.RuleName,
 			RuleKind:       string(o.Kind),
-			Actionable:     o.Actionable,
+			Actionable:     o.Actionable(),
 			PolicyVersion:  p.policyVersion,
 		})
 	}

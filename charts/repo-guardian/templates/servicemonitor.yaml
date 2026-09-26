@@ -1,4 +1,7 @@
 {{- if .Values.serviceMonitor.enabled -}}
+# One ServiceMonitor scrapes every role's /metrics: each role's Service
+# exposes a `metrics` port, and the component selector keeps the baked
+# Postgres Service out.
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -13,6 +16,10 @@ spec:
   selector:
     matchLabels:
       {{- include "repo-guardian.selectorLabels" . | nindent 6 }}
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values: [ingest, worker, api, all]
   endpoints:
     - port: metrics
       interval: {{ .Values.serviceMonitor.interval }}

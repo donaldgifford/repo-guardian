@@ -38,6 +38,8 @@ helm install repo-guardian \
 
 - Kubernetes 1.28+
 - Helm 3.14+ or 4.x (OCI support)
+- A Temporal cluster the pods can reach (`temporal.address`); see
+  `contrib/temporal/` for a pinned install
 - A registered [GitHub App](https://docs.github.com/en/apps/creating-github-apps) with:
   - **Permissions:** Contents (Read & Write), Pull Requests (Read & Write), Metadata (Read)
   - **Events:** `repository`, `installation_repositories`, `installation`, and `push` (needed for `watch = true` reconcilers)
@@ -50,6 +52,13 @@ helm install repo-guardian \
 config:
   appId: "YOUR_APP_ID"
   dryRun: true  # Start in dry-run mode
+
+temporal:
+  address: temporal-frontend.temporal.svc.cluster.local:7233
+
+policy:
+  config: |
+    guardian {}
 
 secrets:
   webhookSecret: "YOUR_WEBHOOK_SECRET"
@@ -74,54 +83,107 @@ helm install repo-guardian \
 
 ## Choosing a deployment shape
 
-Chart `1.0.0-rc.1`+ ships Postgres + Valkey as the only supported
-backends (IMPL-0016 removed the in-memory store/queue and the
-in-process ticker scheduler). Pick the row that matches your
-operator scenario; the baked shape is the default and brings up
-StatefulSets out-of-the-box.
+Chart 2.0.0 runs repo-guardian as roles on Temporal (DESIGN-0026).
+`topology` picks how the roles are packaged:
 
-| Shape | Values | Use when |
-|-------|--------|----------|
-| **Baked Postgres + Valkey** (default) | `store.postgres.mode=baked`, `queue.valkey.mode=baked` | You want multi-replica with no external operator dependencies. Chart renders single-pod Postgres + Valkey StatefulSets with auto-generated passwords. Suitable for homelab / small dev clusters. |
-| **CNPG-managed Postgres + baked Valkey** | `store.postgres.mode=cnpg`, `queue.valkey.mode=baked` | You already run [CloudNativePG](https://cloudnative-pg.io/) in the cluster and want the operator to handle Postgres lifecycle (HA replicas, backups, monitoring). The chart renders a `Cluster` CR and an optional `Pooler` (PgBouncer) CR. An optional `LoadBalancer` Service in front of the pooler (Cilium BGP-annotated by default) exposes the database to clients outside the cluster — enable via `store.postgres.cnpg.pooler.service.enabled`. |
-| **External Postgres + external Valkey** | `store.postgres.mode=external` + `existingSecret`; `queue.valkey.mode=external` + `existingSecret` | You're running a managed Postgres (RDS, Cloud SQL) and Redis-compatible service (ElastiCache for Valkey, etc.). Chart consumes the DSN from operator-supplied secrets and renders no backing resources. |
+| Topology | Renders | Use when |
+|----------|---------|----------|
+| `split` (default) | `ingest` (webhooks, 2 replicas + PDB), `worker` (workflows and activities, optional KEDA), and with `api.enabled` an `api` Deployment (ClusterIP + PDB) | Production: each role scales and fails on its own, and each holds only its own credentials. |
+| `all` | One Deployment running every role; the API listens on `api.port` | Homelab and small installs. |
+
+Each role holds only what it needs: the GitHub App key goes to
+`worker` and `all`, the webhook secret to `ingest` and `all`, the
+Temporal mTLS Secret (`temporal.tls.existingSecret`) to every role
+that dials Temporal, and `api` gets a read-only database login and
+nothing else.
+
+The store is still Postgres, in one of three modes:
+
+| Mode | Values | Use when |
+|------|--------|----------|
+| **Baked** (default) | `store.postgres.mode=baked` | No external operator dependencies. A single-pod Postgres StatefulSet with a generated password; homelab and dev clusters. |
+| **CNPG** | `store.postgres.mode=cnpg` | You run [CloudNativePG](https://cloudnative-pg.io/) and want it to own Postgres lifecycle. Renders a `Cluster` CR and an optional `Pooler`. |
+| **External** | `store.postgres.mode=external` + `existingSecret` | Managed Postgres (RDS, Cloud SQL). The chart renders no database. |
+
+### The API's read-only role
+
+The split `api` role reads through `repoguardian_ro` (DESIGN-0027):
+
+- **baked:** an init script creates it on new volumes, and a
+  `post-install,post-upgrade` hook Job creates it on existing ones,
+  resets its password and re-runs the grants. With
+  `store.postgres.baked.existingSecret`, put its password under
+  `existingSecretROKey` (default `RO_PASSWORD`).
+- **CNPG:** a managed role in `pg_read_all_data`. With one instance
+  the API connects through `-rw`, since `-ro` has no endpoints.
+- **external:** create the role yourself and set
+  `api.roDsn.existingSecret`; the render fails without it.
+
+In `all` the API reads with `STORE_DSN`.
+
+### The UI
+
+`ui.enabled` renders the business UI (DESIGN-0027): a Deployment,
+Service and PDB running `ghcr.io/donaldgifford/repo-guardian-ui` at
+the chart's `appVersion`. It proxies `/api` to the `api` Service and
+signs users in against `api.auth.issuer`.
+
+- **Requires** `api.enabled` and `api.auth.enabled`; the render fails
+  otherwise.
+- **Secret** `ui.existingSecret` with `oidc-client-secret` and
+  `session-keys` (comma-separated, each at least 32 bytes; the first
+  seals new sessions, any opens them, so rotate by prepending).
+- **Ingress.** `ui.ingress.enabled` renders the chart's only Ingress,
+  sending the whole `ui.ingress.host` to the UI. It fails render unless
+  `api.auth.enabled`. The webhook route stays yours
+  (`docs/operations/ingress.md`).
+- The UI holds no GitHub, Temporal or database credential.
+
+### Migrations
+
+`migrate.enabled` (default `true`) runs `repo-guardian migrate` as a
+hook Job: `post-install` (so a baked Postgres exists to connect to) and
+`pre-upgrade` (so the schema lands before new pods roll). On an adopted
+v1 database it also runs the one-time backfill.
 
 ### Mode-scoped secret knobs
 
 Each `existingSecret` value is read by exactly one mode:
-`store.postgres.existingSecret` / `queue.valkey.existingSecret` only in
-`external` mode; `store.postgres.baked.existingSecret` /
-`queue.valkey.baked.existingSecret` only in `baked` mode. Setting one
-under any other mode fails `helm template` / `helm install` with an
-error naming the offending value and the correct alternative (chart
-`1.0.0-rc.5`+) instead of silently deploying on the chart-generated
-secret.
+`store.postgres.existingSecret` only in `external` mode and
+`store.postgres.baked.existingSecret` only in `baked` mode. Setting one
+under any other mode fails the render with an error naming the right
+knob.
 
 ### Schema validation
 
-`values.schema.json` (shipped with chart `1.0.0-rc.1`+) locks
-`store.backend` to `"postgres"`, `queue.backend` to `"valkey"`, and
-`scheduler.backend` to `"valkey"`. Operators upgrading from chart
-`0.7.x` who carry forward `store.backend=memory` (or any other
-removed value) will see a schema error at `helm install` /
-`helm upgrade` time, *before* pod startup:
+`values.schema.json` rejects removed values by name, before any pod
+starts. The render-time `validateRemovedValues` guard repeats the check
+for installs that skip schema validation.
 
-```
-Error: values don't meet the specifications of the schema(s) in
-the following chart(s):
-repo-guardian:
-- at '/store/backend': value must be 'postgres'
-```
-
-This is intentional: failing fast at chart-render time gives a
-cleaner diagnostic than a `CrashLoopBackoff` from the binary's
-startup validation (which also rejects the old values, with a
-migration URL — see [migrations.md](../../docs/operations/migrations.md#removing-memory-backend)).
-
-For sizing knobs (`replicaCount`, `workerCount`, `maxConns`,
-`staleSweep.*`), see [docs/operations/scaling.md](../../docs/operations/scaling.md).
+For sizing, see [docs/operations/scaling.md](../../docs/operations/scaling.md).
 For Postgres schema operations, see
 [docs/operations/migrations.md](../../docs/operations/migrations.md).
+
+### Upgrade notes (chart 2.0.0) — Temporal runtime, breaking
+
+- **Temporal replaces Valkey.** `queue.*`, `scheduler.*`,
+  `staleSweep.*`, `posture.exportInterval` and
+  `config.{workerCount,queueSize,scheduleInterval,maxJobAttempts}` are
+  removed and fail the render. Use `worker.concurrency`,
+  `checkInterval` and `migrate.freshness`. The baked Valkey StatefulSet
+  is no longer rendered; delete its PVC once you have cut over.
+- **`temporal.address` and a policy are required.** The worker will not
+  start without `GUARDIAN_CONFIG`.
+- **Roles.** The default `topology: split` replaces the single
+  Deployment. The webhook Service keeps the release's full name, so
+  ingress routes survive.
+- **Pods roll on policy edits.** `checksum/policy` and
+  `checksum/templates` annotations roll every role that reads the
+  policy; the worker then spreads the re-check across
+  `policyRolloutWindow`.
+
+The full runbook is
+[docs/operations/v2-migration.md](../../docs/operations/v2-migration.md).
 
 ### Upgrade notes (chart 1.0.0 / appVersion 1.14.0) — operator-owned ingress, breaking
 
@@ -416,61 +478,27 @@ The chart's reserved-name list (`_helpers.tpl`) blocks
 helm-render time, but the `env` helper itself can read whatever
 the OS gives it.
 
-### Repository discovery and rate-limit budgeting (IMPL-0015)
+### Repository discovery and scheduling
 
-`repo-guardian` 1.0.0-rc.2+ ships two cooperating schedulers on the
-leader pod:
+Each repository has its own `RepoWorkflow` in Temporal: it checks the
+repository, schedules its next check `checkInterval` later (jittered),
+and waits on a durable timer. Webhooks signal it to re-check at once.
+A per-installation `InstallationWorkflow` hands out the GitHub rate
+budget; a check that finds the budget exhausted waits on a timer until
+the reset rather than holding a worker. Discovery
+(`discovery.interval`) enumerates installations and starts workflows
+for repositories the webhooks missed.
 
-- **`Discoverer`** (`scheduler/discoverer.go`) enumerates installations
-  + repos via the GitHub API at `DISCOVERY_INTERVAL` and persists
-  discovery rows via `Store.UpsertIfMissing` — atomic
-  `INSERT ... ON CONFLICT DO NOTHING` so concurrent webhooks +
-  Discoverer never race. Newly-seeded rows enter `repo_state` with a
-  jittered `LastCheckedAt` so a fleet onboarding doesn't cluster every
-  repo's due-time at the same instant. Webhook-driven discovery
-  (`installation_repositories.added`, `repository.created`,
-  `installation.created`) is the primary on-ramp; the periodic
-  Discoverer is the safety net for missed deliveries.
-- **`StaleSweeper`** (`checker/sweep.go`) queries Postgres for rows
-  whose `last_checked_at` is older than `RECONCILE_FRESHNESS` or whose
-  `policy_version` differs from the current one, and enqueues each to
-  the Valkey work queue. There is no full-fleet enumeration on every
-  tick — the legacy `sweep` schedule was removed in 1.0.0-rc.2.
+### Editing a policy or template
 
-Both schedulers consult a shared **`BudgetTracker`** before each
-enqueue. The tracker caches GitHub's rate-limit window per
-installation and refuses to enqueue when `remaining < limit ×
-reserveFraction`. When it blocks an enqueue,
-`repo_guardian_enqueue_gated_by_budget_total{installation_id}` ticks
-up; the starter alert `RepoGuardianBudgetGated` fires after 30
-minutes of sustained gating so operators know the deployment is
-rate-limit-bound. Tuning levers: `discovery.reserveFraction`
-(default `0.20`), `discovery.estimatedCostPerRepo` (default `10`),
-`staleSweep.freshness` (default `24h`). See
-[`docs/operations/scaling.md`](../../docs/operations/scaling.md#discoverer--budgettracker-impl-0015-phase-1)
-for the full metrics catalogue + alert tuning notes.
-
-### Editing a template ConfigMap invalidates the policy version
-
-`policy.Version` (the hash that gates stale-sweep re-enqueue) is
-computed over BOTH the HCL policy AND the loaded template bodies.
-Editing an entry in `templates.files` or in a ConfigMap referenced
-via `templates.existingConfigMap` therefore changes the policy
-hash on the next pod restart, which in turn marks every persisted
-`repo_state` row as drifted (`policy_version <> current`) and
-triggers the stale-sweeper to re-enqueue all repos on the next
-sweep tick.
-
-This is intentional — operators should observe
-`repos_checked_total` climb across all in-scope repos within one
-`SCHEDULE_INTERVAL` window after a template edit + redeploy. If
-that does not happen, suspect either:
-
-- The pod did not pick up the new ConfigMap content (Helm
-  ConfigMap mounts are not auto-reloaded; the rollout must
-  recreate the pod), or
-- `STORE_BACKEND` is unset / not `postgres` (the hash is only
-  consumed on the Postgres-backed sweep path).
+The policy version hashes the HCL policy and the loaded template
+bodies. Editing `policy.config` or `templates.files` changes the pod
+checksums, so the roles roll; the new worker then signals every
+repository to re-check at a random point inside
+`policyRolloutWindow` (default `24h`) rather than all at once. A
+ConfigMap you manage yourself (`policy.existingConfigMap`,
+`templates.existingConfigMap`) is not hashed: roll the pods after
+editing it.
 
 ### `STRICT_TEMPLATES` recommendation
 

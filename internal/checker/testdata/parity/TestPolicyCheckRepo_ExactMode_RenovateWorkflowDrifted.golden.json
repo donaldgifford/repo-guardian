@@ -1,0 +1,55 @@
+[
+  {
+    "repo": "org/repo",
+    "writes": [
+      {
+        "method": "CreateBranch",
+        "args": [
+          "org",
+          "repo",
+          "repo-guardian/add-missing-files",
+          "abc123"
+        ]
+      },
+      {
+        "method": "CreateOrUpdateFile",
+        "args": [
+          "org",
+          "repo",
+          "repo-guardian/add-missing-files",
+          ".github/workflows/renovate.yml",
+          "# Managed by repo-guardian — do not edit manually\n#\n# GitHub Actions expressions are emitted via backtick-raw-string Go\n# template actions so the unified renderer can parse this file without\n# colliding with the GHA expression syntax.\nname: Renovate\n\non:\n  schedule:\n    - cron: '0 3 * * 1'\n  workflow_dispatch:\n\npermissions:\n  contents: write\n  pull-requests: write\n  issues: write\n\njobs:\n  renovate:\n    name: Renovate Dependency Updates\n    runs-on: ubuntu-latest\n    steps:\n      - name: Generate GitHub App Token\n        id: app-token\n        uses: actions/create-github-app-token@v1\n        with:\n          app-id: ${{ secrets.RENOVATE_APP_ID }}\n          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}\n\n      - name: Run Renovate\n        run: |\n          docker run --rm \\\n            -e RENOVATE_TOKEN \\\n            -e RENOVATE_REPOSITORIES \\\n            -e RENOVATE_CONFIG_FILE \\\n            -e LOG_LEVEL \\\n            renovate/renovate:latest\n        env:\n          RENOVATE_TOKEN: ${{ steps.app-token.outputs.token }}\n          RENOVATE_REPOSITORIES: ${{ github.repository }}\n          RENOVATE_CONFIG_FILE: renovate.json\n          LOG_LEVEL: info\n",
+          "chore: add .github/workflows/renovate.yml"
+        ]
+      },
+      {
+        "method": "CreatePullRequest",
+        "args": [
+          "org",
+          "repo",
+          "chore: add missing repo configuration files",
+          "## Repo Guardian — Configuration Drift\n\nThis PR was automatically created by **repo-guardian** to bring this\nrepository into line with the organization's file policy.\n\n### Added Files\n\n- `.github/workflows/renovate.yml` — renovate_workflow\n\n\u003e **Note:** The CODEOWNERS file contains a placeholder (`@org/CHANGEME`).\n\u003e Please replace it with your actual team before merging.\n\n### What to do\n\n1. Review the changes and adjust for your team's needs.\n2. Merge when ready — these are sensible defaults, not one-size-fits-all.\n\n---\n*Automated by [repo-guardian](https://github.com/apps/repo-guardian). Questions? Reach out in #platform-engineering.*\n",
+          "repo-guardian/add-missing-files",
+          "main"
+        ]
+      },
+      {
+        "method": "AddLabelsToPR",
+        "args": [
+          "org",
+          "repo",
+          1,
+          null
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "kind": "file",
+        "name": "renovate_workflow",
+        "actionable": true
+      }
+    ],
+    "result": "non-nil"
+  }
+]

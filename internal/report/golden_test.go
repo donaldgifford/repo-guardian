@@ -1,14 +1,13 @@
 package report
 
 import (
-	"context"
-	"errors"
 	"flag"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/donaldgifford/repo-guardian/internal/findings"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 )
 
@@ -28,51 +27,11 @@ var fixedNow = time.Date(2026, 8, 10, 14, 30, 0, 0, time.UTC)
 // lastWeek dates the previous snapshot in the trend fixtures.
 var lastWeek = time.Date(2026, 8, 3, 2, 0, 0, 0, time.UTC)
 
-func ptrTime(t time.Time) *time.Time { return &t }
-
-// stubLinker stands in for the GitHub-backed resolver.
-//
-// It counts calls per repository because the per-repository (not
-// per-finding) call budget is a real contract: a repository failing
-// five rules produces five findings and must still cost one API call.
-type stubLinker struct {
-	urls  map[string]string
-	fail  map[string]bool
-	calls map[string]int
-
-	// installations records the ID Enrich scoped each lookup with, so a
-	// test can prove the finding's installation reached the linker
-	// rather than a zero value that would authenticate as nobody.
-	installations map[string]int64
-}
-
-func newStubLinker() *stubLinker {
-	return &stubLinker{
-		urls:          make(map[string]string),
-		fail:          make(map[string]bool),
-		calls:         make(map[string]int),
-		installations: make(map[string]int64),
-	}
-}
-
-func (s *stubLinker) PRURL(_ context.Context, installationID int64, owner, repo string) (string, error) {
-	key := owner + "/" + repo
-	s.calls[key]++
-	s.installations[key] = installationID
-
-	if s.fail[key] {
-		return "", errors.New("installation 1 lacks access")
-	}
-
-	return s.urls[key], nil
-}
-
 // newRenderer builds a Renderer with the clock pinned.
-func newRenderer(t *testing.T, links PRLinker) *Renderer {
+func newRenderer(t *testing.T) *Renderer {
 	t.Helper()
 
 	r, err := New(Options{
-		Links:  links,
 		Now:    func() time.Time { return fixedNow },
 		Logger: testLogger(),
 	})
@@ -81,6 +40,44 @@ func newRenderer(t *testing.T, links PRLinker) *Renderer {
 	}
 
 	return r
+}
+
+// percentOf is the test oracle for the shared query's percentage:
+// integer division floors, so 1999 of 2000 is 999 tenths, never 1000.
+func percentOf(compliant, nonCompliant int) *float64 {
+	if compliant+nonCompliant == 0 {
+		return nil
+	}
+
+	v := float64(compliant*1000/(compliant+nonCompliant)) / 10
+
+	return &v
+}
+
+// count builds one shared-query row with its percentage filled in the
+// way the SQL fills it.
+func count(org, kind, rule string, compliant, nonCompliant, na, unknown int) store.ComplianceCount {
+	return store.ComplianceCount{
+		Org: org, Kind: findings.RuleKind(kind), RuleName: rule,
+		Compliant: compliant, NonCompliant: nonCompliant, NotApplicable: na, Unknown: unknown,
+		Percent: percentOf(compliant, nonCompliant),
+	}
+}
+
+// snap builds one stored acme file-rule snapshot row.
+func snap(rule string, compliant, nonCompliant int, at time.Time) store.ComplianceSnapshot {
+	c := count("acme", "file", rule, compliant, nonCompliant, 0, 0)
+	c.Percent = nil
+
+	return store.ComplianceSnapshot{ComplianceCount: c, SnapshotAt: at}
+}
+
+// failing builds one non-compliant finding.
+func failing(org, repo, rule string, reason findings.Reason, since time.Time) store.FailingFinding {
+	return store.FailingFinding{
+		InstallationID: 11, Org: org, Repo: repo, Kind: findings.RuleKindFile, RuleName: rule,
+		Reason: reason, Remediation: findings.RemediationNone, Since: since,
+	}
 }
 
 // assertGolden compares rendered markdown against testdata.
@@ -112,48 +109,42 @@ func assertGolden(t *testing.T, name, got string) {
 }
 
 // fullData is the everything-at-once fixture: an improving rule, a flat
-// rule, a rule with no history, and — critically — a rule present only
-// in the history, which must NOT appear in the output.
-func fullData() *store.ReportData {
-	return &store.ReportData{
-		Findings: []store.ReportFinding{
-			{
-				InstallationID:  11,
-				Owner:           "acme",
-				Repo:            "api",
-				RuleName:        "codeowners",
-				RuleKind:        "file",
-				ActionableSince: ptrTime(time.Date(2026, 7, 1, 9, 0, 0, 0, time.UTC)),
-			},
-			// No ActionableSince: the column must render an em dash
-			// rather than a zero date claiming year 1.
-			{
-				InstallationID: 11,
-				Owner:          "acme",
-				Repo:           "web",
-				RuleName:       "codeowners",
-				RuleKind:       "file",
-			},
-			{
-				InstallationID:  11,
-				Owner:           "acme",
-				Repo:            "web",
-				RuleName:        "renovate",
-				RuleKind:        "file",
-				ActionableSince: ptrTime(time.Date(2026, 8, 9, 22, 0, 0, 0, time.UTC)),
-			},
+// rule, a rule with no history, a setting rule sharing nothing with the
+// file rules, and — critically — a rule present only in the history,
+// which must NOT appear in the output.
+func fullData() *store.ComplianceReport {
+	return &store.ComplianceReport{
+		Findings: []store.FailingFinding{
+			failing("acme", "api", "codeowners", findings.ReasonFileMissing, time.Date(2026, 7, 1, 9, 0, 0, 0, time.UTC)),
+			// Backfilled from v1: the reason says so and the date is v1's.
+			failing("acme", "web", "codeowners", findings.ReasonMigratedFromV1, time.Date(2026, 5, 14, 0, 0, 0, 0, time.UTC)),
+			failing("acme", "web", "renovate", findings.ReasonAssertionFailed, time.Date(2026, 8, 9, 22, 0, 0, 0, time.UTC)),
 		},
-		Current: []store.SnapshotRow{
-			{Org: "acme", RuleName: "codeowners", ActionableCount: 2, TrackedCount: 10},
-			{Org: "acme", RuleName: "dependabot", ActionableCount: 0, TrackedCount: 10},
-			{Org: "acme", RuleName: "renovate", ActionableCount: 1, TrackedCount: 4},
+		Current: []store.ComplianceCount{
+			count("acme", "file", "codeowners", 8, 2, 0, 0),
+			count("acme", "file", "dependabot", 10, 0, 0, 0),
+			count("acme", "file", "renovate", 3, 1, 6, 0),
+			count("acme", "setting", "vuln_alerts", 9, 0, 0, 1),
 		},
-		Previous: []store.SnapshotRow{
-			{Org: "acme", RuleName: "codeowners", ActionableCount: 5, TrackedCount: 10, SnapshotAt: lastWeek},
-			{Org: "acme", RuleName: "dependabot", ActionableCount: 0, TrackedCount: 9, SnapshotAt: lastWeek},
-			{Org: "acme", RuleName: "retired-rule", ActionableCount: 3, TrackedCount: 10, SnapshotAt: lastWeek},
+		Previous: []store.ComplianceSnapshot{
+			snap("codeowners", 5, 5, lastWeek),
+			snap("dependabot", 9, 0, lastWeek),
+			snap("retired-rule", 7, 3, lastWeek),
 		},
 	}
+}
+
+// withPRs is fullData with every PR-cell shape: our open PR, a human PR
+// the rule yields to, a dry run, and nothing.
+func withPRs() *store.ComplianceReport {
+	d := fullData()
+	d.Findings[0].Remediation = findings.RemediationPROpen
+	d.Findings[0].PRURL = "https://github.example/acme/api/pull/7"
+	d.Findings[1].Remediation = findings.RemediationForeignPR
+	d.Findings[1].PRURL = "https://github.example/acme/web/pull/3"
+	d.Findings[2].Remediation = findings.RemediationDryRun
+
+	return d
 }
 
 // TestRender_Golden pins the rendered markdown for the shapes an
@@ -163,13 +154,7 @@ func TestRender_Golden(t *testing.T) {
 
 	tests := []struct {
 		name string
-		data func() *store.ReportData
-
-		// links non-nil turns on the PR column. nil is not the same as
-		// an empty linker: nil omits the column entirely, because a
-		// column of dashes is indistinguishable from "no repository has
-		// an open PR".
-		links func() *stubLinker
+		data func() *store.ComplianceReport
 	}{
 		{
 			name: "full_with_history",
@@ -180,7 +165,7 @@ func TestRender_Golden(t *testing.T) {
 			// all, plus the note explaining why, rather than a column of
 			// zeroes claiming stability nobody measured.
 			name: "no_history",
-			data: func() *store.ReportData {
+			data: func() *store.ComplianceReport {
 				d := fullData()
 				d.Previous = nil
 
@@ -190,48 +175,35 @@ func TestRender_Golden(t *testing.T) {
 		{
 			// The happy fleet. Rules evaluated, nothing failing.
 			name: "all_passing",
-			data: func() *store.ReportData {
-				return &store.ReportData{
-					Current: []store.SnapshotRow{
-						{Org: "acme", RuleName: "codeowners", ActionableCount: 0, TrackedCount: 12},
-					},
-					Previous: []store.SnapshotRow{
-						{Org: "acme", RuleName: "codeowners", ActionableCount: 4, TrackedCount: 12, SnapshotAt: lastWeek},
-					},
+			data: func() *store.ComplianceReport {
+				return &store.ComplianceReport{
+					Current:  []store.ComplianceCount{count("acme", "file", "codeowners", 12, 0, 0, 0)},
+					Previous: []store.ComplianceSnapshot{snap("codeowners", 8, 4, lastWeek)},
 				}
 			},
 		},
 		{
-			// A configured rule nothing matched. Must read "n/a", never
-			// 100% — an unmeasured rule scoring perfectly is the most
-			// misleading cell this format could produce.
+			// A configured rule that applies nowhere. Must read "n/a",
+			// never 100% — an unmeasured rule scoring perfectly is the
+			// most misleading cell this format could produce.
 			name: "unmeasured_rule",
-			data: func() *store.ReportData {
-				return &store.ReportData{
-					Current: []store.SnapshotRow{
-						{Org: "acme", RuleName: "branch-protection", ActionableCount: 0, TrackedCount: 0},
-					},
+			data: func() *store.ComplianceReport {
+				return &store.ComplianceReport{
+					Current: []store.ComplianceCount{count("acme", "branch_protection", "main", 0, 0, 5, 0)},
 				}
 			},
 		},
 		{
 			// 1999 of 2000 is 99.95%: it must read 99.9%, not the 100.0%
-			// a rounding rule would print. A report calling a fleet fully
-			// compliant while one repository is not has told a lie
-			// somebody will act on.
-			//
-			// 2000 rather than the more obvious 1000 because 999-of-1000
-			// floors and rounds to the same 99.9% — a fixture built on it
-			// would look like it pinned this and pin nothing.
+			// a rounding rule would print. 2000 rather than 1000 because
+			// 999-of-1000 floors and rounds to the same 99.9%.
 			name: "floored_percent",
-			data: func() *store.ReportData {
-				return &store.ReportData{
-					Findings: []store.ReportFinding{
-						{InstallationID: 11, Owner: "acme", Repo: "straggler", RuleName: "codeowners", RuleKind: "file"},
+			data: func() *store.ComplianceReport {
+				return &store.ComplianceReport{
+					Findings: []store.FailingFinding{
+						failing("acme", "straggler", "codeowners", findings.ReasonFileMissing, lastWeek),
 					},
-					Current: []store.SnapshotRow{
-						{Org: "acme", RuleName: "codeowners", ActionableCount: 1, TrackedCount: 2000},
-					},
+					Current: []store.ComplianceCount{count("acme", "file", "codeowners", 1999, 1, 0, 0)},
 				}
 			},
 		},
@@ -239,56 +211,43 @@ func TestRender_Golden(t *testing.T) {
 			// Two orgs in one read must render as two independent
 			// documents; nothing from acme may leak into globex.
 			name: "second_org",
-			data: func() *store.ReportData {
+			data: func() *store.ComplianceReport {
 				d := fullData()
-				d.Findings = append(d.Findings, store.ReportFinding{
-					InstallationID: 22, Owner: "globex", Repo: "tools", RuleName: "dependabot", RuleKind: "file",
-				})
-				d.Current = append(d.Current, store.SnapshotRow{
-					Org: "globex", RuleName: "dependabot", ActionableCount: 1, TrackedCount: 3,
-				})
+				d.Findings = append(d.Findings,
+					failing("globex", "tools", "dependabot", findings.ReasonFileMissing, lastWeek))
+				d.Current = append(d.Current, count("globex", "file", "dependabot", 2, 1, 0, 0))
 
 				return d
 			},
 		},
 		{
-			// Names carrying a pipe would silently shift every column to
-			// their right, turning a compliance report into a misleading
-			// one rather than an obviously broken one.
+			// A pipe would silently shift every column to its right; a
+			// backtick would open a code span swallowing the row.
 			name: "escaped_cells",
-			data: func() *store.ReportData {
-				return &store.ReportData{
-					Findings: []store.ReportFinding{
-						{InstallationID: 11, Owner: "acme", Repo: "a|b", RuleName: "pipe|rule", RuleKind: "file"},
+			data: func() *store.ComplianceReport {
+				return &store.ComplianceReport{
+					Findings: []store.FailingFinding{
+						failing("acme", "a|b", "pipe|rule", findings.ReasonFileMissing, lastWeek),
+						failing("acme", "tick`repo", "pipe|rule", findings.ReasonFileMissing, lastWeek),
 					},
-					Current: []store.SnapshotRow{
-						{Org: "acme", RuleName: "pipe|rule", ActionableCount: 1, TrackedCount: 2},
-					},
+					Current: []store.ComplianceCount{count("acme", "file", "pipe|rule", 0, 2, 0, 0)},
 				}
 			},
 		},
 		{
+			// PR links come from evidence, never from a live lookup.
 			name: "with_pr_links",
-			data: fullData,
-			links: func() *stubLinker {
-				l := newStubLinker()
-				l.urls["acme/api"] = "https://github.example/acme/api/pull/7"
-
-				return l
-			},
+			data: withPRs,
 		},
 		{
-			// A partially enriched report must say so. A short list of
-			// links otherwise reads as "these repositories have no open
-			// PR", which is a different and wrong statement.
-			name: "pr_link_failure",
-			data: fullData,
-			links: func() *stubLinker {
-				l := newStubLinker()
-				l.urls["acme/api"] = "https://github.example/acme/api/pull/7"
-				l.fail["acme/web"] = true
+			// A rule yielding to a human PR is non-compliant with a link
+			// to that PR, not to ours.
+			name: "foreign_pr",
+			data: func() *store.ComplianceReport {
+				d := withPRs()
+				d.Findings = d.Findings[1:2]
 
-				return l
+				return d
 			},
 		},
 	}
@@ -297,17 +256,9 @@ func TestRender_Golden(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			var links PRLinker
-			if tt.links != nil {
-				links = tt.links()
-			}
+			r := newRenderer(t)
 
-			r := newRenderer(t, links)
-			data := tt.data()
-
-			orgs := r.Build(data)
-			r.Enrich(t.Context(), data, orgs)
-
+			orgs := r.Build(tt.data())
 			if len(orgs) == 0 {
 				t.Fatalf("Build() returned no orgs; the fixture renders nothing")
 			}
@@ -339,7 +290,7 @@ func TestRender_Golden(t *testing.T) {
 func TestRender_NoRulesEvaluated(t *testing.T) {
 	t.Parallel()
 
-	r := newRenderer(t, nil)
+	r := newRenderer(t)
 
 	body, err := r.Render(Org{Name: "acme", GeneratedAt: fixedNow})
 	if err != nil {

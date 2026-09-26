@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/donaldgifford/repo-guardian/internal/checker"
+	"github.com/donaldgifford/repo-guardian/internal/findings"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/queue"
 	"github.com/donaldgifford/repo-guardian/internal/store"
@@ -220,15 +221,21 @@ func TestWriteBack_PersistsRuleStates(t *testing.T) {
 		Repo:           "alpha",
 	}, nil, &checker.CheckResult{
 		Outcomes: []checker.RuleOutcome{
-			{RuleName: "codeowners", Kind: checker.RuleKindFile, Actionable: true},
-			{RuleName: "enable_issues", Kind: checker.RuleKindSetting, Actionable: false},
-			{RuleName: "protect_main", Kind: checker.RuleKindBranchProtection, Actionable: true},
+			{RuleName: "codeowners", Kind: checker.RuleKindFile, Status: findings.StatusNonCompliant},
+			{RuleName: "enable_issues", Kind: checker.RuleKindSetting, Status: findings.StatusCompliant},
+			{RuleName: "protect_main", Kind: checker.RuleKindBranchProtection, Status: findings.StatusNonCompliant},
+			// v2-only: v1 never recorded ignored rules, so rule_state
+			// must not either (IMPL-0025 Phase 4).
+			{
+				RuleName: "legacy_rule", Kind: checker.RuleKindFile,
+				Status: findings.StatusNotApplicable, Reason: findings.ReasonIgnoredRule,
+			},
 		},
 		CatalogParseOK: &parseOK,
 	})
 
 	if len(capturedRules) != 3 {
-		t.Fatalf("UpsertRuleStates states = %d, want 3", len(capturedRules))
+		t.Fatalf("UpsertRuleStates states = %d, want 3 (the not_applicable outcome excluded)", len(capturedRules))
 	}
 
 	for _, got := range capturedRules {
@@ -340,7 +347,7 @@ func TestWriteBack_RuleStateFailureIsBestEffort(t *testing.T) {
 		InstallationID: 3, Owner: "o", Repo: "r",
 	}, nil, &checker.CheckResult{
 		Outcomes: []checker.RuleOutcome{
-			{RuleName: "codeowners", Kind: checker.RuleKindFile, Actionable: true},
+			{RuleName: "codeowners", Kind: checker.RuleKindFile, Status: findings.StatusNonCompliant},
 		},
 	})
 

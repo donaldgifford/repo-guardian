@@ -2,13 +2,13 @@
 
 Generated 2026-08-10 14:30:00 UTC by repo-guardian.
 
-1 of 2 rule evaluations pass across 1 rule(s).
+0 of 2 rule evaluations pass across 1 rule(s).
 
 ## Compliance by rule
 
-| Rule | Kind | Failing | Applies to | Compliant |
-|---|---|---:|---:|---:|
-| pipe\|rule | file | 1 | 2 | 50.0% |
+| Rule | Kind | Failing | Passing | N/A | Unknown | Compliant |
+|---|---|---:|---:|---:|---:|---:|
+| pipe\|rule | file | 2 | 0 | 0 | 0 | 0.0% |
 
 
 No previous snapshot exists, so no trend is shown. Trends appear once
@@ -16,12 +16,19 @@ the `compliance-snapshot` handler has run at least twice.
 
 ## Findings
 
-| Repository | Rule | Failing since |
-|---|---|---|
-| a\|b | pipe\|rule | — |
+| Repository | Rule | Reason | Failing since | PR |
+|---|---|---|---|---|
+| a\|b | pipe\|rule | file_missing | 2026-08-03 | — |
+| tick\`repo | pipe\|rule | file_missing | 2026-08-03 | — |
 
 
 ---
+
+Compliant is Passing / (Passing + Failing). N/A (the rule does not apply
+to the repository) and Unknown (it could not be evaluated) are counted
+beside the percentage, never in it. A `migrated_from_v1` reason means
+repo-guardian v1 recorded the failure and v2 has not re-checked it yet;
+its date is v1's.
 
 Parked repositories — archived, forked, or unreadable by the App — are
 excluded from every number above. A repository nobody can measure is

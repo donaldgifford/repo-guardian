@@ -1,0 +1,14 @@
+[
+  {
+    "repo": "org/my-service",
+    "writes": null,
+    "outcomes": [
+      {
+        "kind": "file",
+        "name": "labels",
+        "actionable": false
+      }
+    ],
+    "result": "non-nil"
+  }
+]

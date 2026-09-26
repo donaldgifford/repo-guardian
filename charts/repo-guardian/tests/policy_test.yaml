@@ -4,6 +4,11 @@ templates:
   - templates/policy-configmap.yaml
   - templates/deployment.yaml
 set:
+  # One Deployment (topology: all) keeps these single-document; the
+  # split shape is covered by topology_test.yaml.
+  topology: all
+  temporal:
+    address: temporal:7233
   config:
     appId: "12345"
   secrets:
@@ -27,6 +32,9 @@ tests:
 
   - it: should not render policy ConfigMap when config is empty
     template: templates/policy-configmap.yaml
+    set:
+      policy:
+        existingConfigMap: my-external-policy
     asserts:
       - hasDocuments:
           count: 0
@@ -58,14 +66,11 @@ tests:
             name: GUARDIAN_CONFIG
             value: /etc/repo-guardian/policy/guardian.hcl
 
-  - it: should not set GUARDIAN_CONFIG when no policy config
+  - it: fails without a policy, since the worker needs GUARDIAN_CONFIG
     template: templates/deployment.yaml
     asserts:
-      - notContains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: GUARDIAN_CONFIG
-            value: /etc/repo-guardian/policy/guardian.hcl
+      - failedTemplate:
+          errorPattern: "policy.config or policy.existingConfigMap is required"
 
   - it: should mount policy volume when config is set
     template: templates/deployment.yaml
@@ -111,13 +116,3 @@ tests:
             name: policy
             configMap:
               name: my-external-policy
-
-  - it: should not mount policy volume when no policy config
-    template: templates/deployment.yaml
-    asserts:
-      - notContains:
-          path: spec.template.spec.containers[0].volumeMounts
-          content:
-            name: policy
-            mountPath: /etc/repo-guardian/policy
-            readOnly: true

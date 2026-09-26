@@ -1,0 +1,43 @@
+[
+  {
+    "repo": "org/repo",
+    "writes": [
+      {
+        "method": "UpdateRepositoryRuleset",
+        "args": [
+          "org",
+          "repo",
+          42,
+          {
+            "ID": 0,
+            "Name": "repo-guardian-main_protection",
+            "Enforcement": "active",
+            "Target": "branch",
+            "BypassActors": null,
+            "Conditions": {
+              "IncludePatterns": [
+                "refs/heads/main"
+              ],
+              "ExcludePatterns": null
+            },
+            "RequirePullRequest": {
+              "RequiredApprovals": 2,
+              "DismissStaleReviews": false,
+              "RequireCodeOwnerReview": false
+            },
+            "RequireStatusChecks": null,
+            "RequireLinearHistory": false
+          }
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "kind": "branch_protection",
+        "name": "main_protection",
+        "actionable": false
+      }
+    ],
+    "result": "non-nil"
+  }
+]

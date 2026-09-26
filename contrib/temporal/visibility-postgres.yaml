@@ -1,0 +1,25 @@
+# Baked (default) visibility: SQL visibility in its own database on the
+# same CNPG cluster as the default store (persistence-cnpg.yaml).
+# Advanced visibility on Postgres 12+ supports the search attributes
+# repo-guardian uses; move to OpenSearch only when list/count queries
+# over closed workflows become slow.
+server:
+  config:
+    persistence:
+      visibilityStore: visibility
+      datastores:
+        visibility:
+          sql:
+            pluginName: postgres12_pgx
+            driverName: postgres12_pgx
+            databaseName: temporal_visibility
+            connectAddr: "temporal-db-rw.temporal.svc:5432"
+            connectProtocol: tcp
+            user: temporal
+            existingSecret: temporal-db-app
+            secretKey: password
+            maxConns: 10
+            maxIdleConns: 10
+            maxConnLifetime: "1h"
+            createDatabase: false
+            manageSchema: true

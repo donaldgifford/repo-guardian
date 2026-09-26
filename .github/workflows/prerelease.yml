@@ -1,0 +1,52 @@
+---
+# $schema=https://www.schemastore.org/github-action.json
+name: Pre-release
+
+# Signed goreleaser binaries for a hand-cut pre-release tag
+# (v2.0.0-rc.N). release.yml's semver bump cannot cut pre-releases
+# (CLAUDE.md rule 6), so the tag is pushed by hand and this builds the
+# GitHub release from it; goreleaser's `prerelease: auto` marks it a
+# pre-release. Tags without a "-" suffix belong to release.yml and never
+# match the filter.
+#
+# A tag push, not workflow_dispatch: dispatch only works for workflows
+# on the default branch, and this one lives on v2 until v2.0.0.
+#
+# Images and the chart are published separately by dispatching ghcr.yml
+# with the same tag.
+
+on:
+  push:
+    tags:
+      - 'v*-*'
+
+permissions:
+  contents: write
+
+jobs:
+  goreleaser:
+    name: GoReleaser (pre-release)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v7
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GPG_FINGERPRINT: ${{ secrets.GPG_FINGERPRINT }}

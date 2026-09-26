@@ -39,10 +39,14 @@ tests:
           value: 10
 
   - it: should use default image tag from appVersion
+    # Pinned here, not read from Chart.yaml, so a release bump never
+    # breaks the test.
+    chart:
+      appVersion: 9.9.9-test
     asserts:
-      - matchRegex:
+      - equal:
           path: spec.template.spec.containers[0].image
-          pattern: "ghcr.io/donaldgifford/repo-guardian:1\\.14\\.0"
+          value: ghcr.io/donaldgifford/repo-guardian:9.9.9-test
 
   - it: should use custom image tag when set
     set:

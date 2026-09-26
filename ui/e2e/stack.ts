@@ -62,7 +62,12 @@ try {
   cleanups.push(() => $`docker rm -f ${container}`.quiet().then(() => undefined));
   const hostPort = (await $`docker port ${container} 5432/tcp`.text()).trim().split("\n")[0] ?? "";
   const dsn = `postgres://repoguardian:e2e@${hostPort}/repoguardian?sslmode=disable`;
-  await waitFor("postgres", async () => (await $`docker exec ${container} pg_isready -U repoguardian -d repoguardian`.nothrow().quiet()).exitCode === 0);
+  // Over TCP, not the socket: the image's first-boot init runs a
+  // socket-only server that answers pg_isready and then restarts.
+  await waitFor(
+    "postgres",
+    async () => (await $`docker exec ${container} pg_isready -h 127.0.0.1 -U repoguardian -d repoguardian`.nothrow().quiet()).exitCode === 0,
+  );
 
   await $`${bin} migrate --dsn ${dsn}`.quiet();
   await $`docker exec -i ${container} psql -q -U repoguardian -d repoguardian -v ON_ERROR_STOP=1 < ${join(uiRoot, "e2e/seed.sql")}`.quiet();

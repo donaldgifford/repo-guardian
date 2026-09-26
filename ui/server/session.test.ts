@@ -12,9 +12,9 @@ function session(extra: Partial<Session> = {}): Session {
   return {
     sub: "u1",
     name: "Ada",
-    accessToken: "at",
+    accessToken: "access-token-plaintext",
     accessTokenExpiresAt: Math.floor(Date.now() / 1000) + 300,
-    refreshToken: "rt",
+    refreshToken: "refresh-token-plaintext",
     expiresAt: newSessionExpiry(3600),
     ...extra,
   };
@@ -61,7 +61,7 @@ describe("SealedCookie", () => {
       expect(sc).toContain(attr);
     }
     expect(sc).not.toContain("Domain");
-    expect(await (await h.send("/read")).json()).toMatchObject({ sub: "u1", accessToken: "at", refreshToken: "rt" });
+    expect(await (await h.send("/read")).json()).toMatchObject({ sub: "u1", accessToken: "access-token-plaintext", refreshToken: "refresh-token-plaintext" });
   });
 
   test("the cookie value is opaque", async () => {
@@ -69,7 +69,8 @@ describe("SealedCookie", () => {
     await h.send("/write");
     const token = h.jar.get("__Host-rg_session") ?? "";
     expect(token.split(".")).toHaveLength(5);
-    expect(token).not.toContain("rt");
+    // Markers long enough never to occur by chance in base64url.
+    expect(token).not.toContain("plaintext");
   });
 
   test("splits a large session into chunks and reassembles it", async () => {

@@ -64,6 +64,11 @@ func WorkerConfigFromEnv(cfg *Config) (WorkerConfig, error) {
 	return wc, nil
 }
 
+// DevBuild reports whether the build ID fell through to "dev": no
+// TEMPORAL_BUILD_ID, no module version, no VCS revision. Two different
+// dev images then look like one version to Temporal.
+func (wc *WorkerConfig) DevBuild() bool { return wc.BuildID == devBuildID }
+
 // NewWorker returns a worker on wc's task queue with deployment
 // versioning on: the build ID is the binary version and workflows
 // default to AutoUpgrade. Callers register workflows and activities,

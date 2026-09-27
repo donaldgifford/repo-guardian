@@ -192,18 +192,16 @@ func bringUpRoles(
 
 	if roles.Has(config.RoleWorker) {
 		var (
-			pool *pgxpool.Pool
-			err  error
+			workerChecks []readinessCheck
+			err          error
 		)
 
-		w, pool, err = startV2Worker(ctx, cfg, tc, tcfg, strictTemplates, logger)
+		w, workerChecks, err = startV2Worker(ctx, cfg, tc, tcfg, strictTemplates, logger)
 		if err != nil {
 			return nil, err
 		}
 
-		checks = append(checks, readinessCheck{name: "schema", fn: func(ctx context.Context) error {
-			return pgstore.RequireSchema(ctx, pool, pgstore.SchemaVersion)
-		}})
+		checks = append(checks, workerChecks...)
 	}
 
 	if roles.Has(config.RoleIngest) {
@@ -237,8 +235,9 @@ func bringUpRoles(
 }
 
 // startV2Worker loads the policy and engine, opens the store and starts
-// a Temporal worker running every workflow and activity. It returns the
-// store pool for the readiness check.
+// a Temporal worker running every workflow and activity, then promotes
+// its build in the background. It returns the worker role's readiness
+// checks.
 func startV2Worker(
 	ctx context.Context,
 	cfg *config.Config,
@@ -246,7 +245,7 @@ func startV2Worker(
 	tcfg *temporal.Config,
 	strictTemplates bool,
 	logger *slog.Logger,
-) (worker.Worker, *pgxpool.Pool, error) {
+) (worker.Worker, []readinessCheck, error) {
 	policyCfg, engine, templates := loadPolicyAndEngine(cfg, strictTemplates, logger)
 
 	policyVersion, err := policy.VersionV2(policyCfg, templates.AsMap())
@@ -275,6 +274,11 @@ func startV2Worker(
 		pool.Close()
 
 		return nil, nil, err
+	}
+
+	if wc.DevBuild() {
+		logger.Warn("temporal: build ID resolved to \"dev\"; every image looks like the same version to Temporal",
+			"build_id", wc.BuildID, "fix", "set TEMPORAL_BUILD_ID (the chart sets it from the image tag)")
 	}
 
 	st := pgstore.NewV2Store(pool, logger, pgstore.WithHost(cfg.GitHubHost))
@@ -309,6 +313,14 @@ func startV2Worker(
 		"task_queue", wc.TaskQueue, "build_id", wc.BuildID,
 		"activity_concurrency", wc.ActivityConcurrency, "policy_version", policyVersion)
 
+	// Versioned workers get no tasks until their build is the
+	// deployment's current version; nothing else sets it.
+	go func() {
+		if err := temporal.PromoteBuild(ctx, tc, wc.BuildID, logger); err != nil && ctx.Err() == nil {
+			logger.Error("temporal: promoting build failed", "build_id", wc.BuildID, "error", err)
+		}
+	}()
+
 	// The pool lives as long as the process; the worker is stopped first
 	// on shutdown, so no activity is left holding a connection.
 	go func() {
@@ -317,7 +329,30 @@ func startV2Worker(
 		pool.Close()
 	}()
 
-	return w, pool, nil
+	return w, workerChecks(pool, tc, wc.BuildID, time.Now()), nil
+}
+
+// deploymentReadyGrace is how long a new worker may take to become the
+// deployment's current version before readiness reports the stall.
+const deploymentReadyGrace = 2 * time.Minute
+
+// workerChecks returns the worker role's readiness checks: the store
+// schema, and, after deploymentReadyGrace, that this build is the
+// deployment's current version. Without the second, a pod reports
+// Ready while Temporal dispatches it nothing.
+func workerChecks(pool *pgxpool.Pool, tc client.Client, buildID string, started time.Time) []readinessCheck {
+	return []readinessCheck{
+		{name: "schema", fn: func(ctx context.Context) error {
+			return pgstore.RequireSchema(ctx, pool, pgstore.SchemaVersion)
+		}},
+		{name: "deployment", fn: func(ctx context.Context) error {
+			if time.Since(started) < deploymentReadyGrace {
+				return nil
+			}
+
+			return temporal.RequireCurrentVersion(ctx, tc, buildID)
+		}},
+	}
 }
 
 // newIngestHandler builds the webhook handler. The policy is read only

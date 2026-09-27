@@ -193,6 +193,21 @@ classifies these cases when it compares v1 and v2.
 7. **Verify:**
    - `kubectl get pods`: ingest and worker are ready, and the migrate Job
      succeeded.
+   - **The worker's build is the deployment's current version.**
+     Temporal dispatches nothing to a versioned worker until its build
+     is current, and a v2 install left in that state sits idle. Workers
+     promote their own build at startup (log line `temporal: promoted
+     build to the deployment's current version`). Check it with:
+
+     ```bash
+     temporal worker deployment describe --deployment-name repo-guardian
+     ```
+
+     The current version's build ID should equal the image tag. The chart
+     sets it via `TEMPORAL_BUILD_ID` from `worker.buildId`, then
+     `image.tag`, then the chart's appVersion. A worker still not current
+     2 minutes after start fails its `deployment` readiness check, and
+     `/readyz` names the current build.
    - Temporal UI: `BootstrapWorkflow` completed, and there is one
      `repo/<id>` workflow per active repository.
    - `repo-guardian report`, or the API's `/api/v1/summary`, shows the
@@ -238,3 +253,16 @@ Rollback is supported until a later v2 release drops the v1 tables.
 
 Rollback loses everything v2 learned since the swap. If the backfill
 itself was bad, restore the `pg_dump` instead.
+
+**Rolling back between v2 releases** (`helm rollback` to an older 2.x)
+needs one manual step. A worker promotes its build only when it is
+newer, by semver, than the current version. That rule keeps a
+crash-restarting pod of the previous release from pulling a rollout
+backwards, but it also means an older build never takes over on its
+own. Its pods log `a newer build is the deployment's current version`,
+with the command to run:
+
+```bash
+temporal worker deployment set-current-version \
+  --deployment-name repo-guardian --build-id <older image tag>
+```

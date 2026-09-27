@@ -80,6 +80,7 @@ func Catalogue() []Spec {
 	specs = append(specs, coreSpecs()...)
 	specs = append(specs, mechanismSpecs()...)
 	specs = append(specs, infraSpecs()...)
+	specs = append(specs, temporalSpecs()...)
 
 	return specs
 }
@@ -543,4 +544,75 @@ func (s *Spec) skipReason(ms monitoring.Mechanisms) (string, bool) {
 	}
 
 	return "", false
+}
+
+// temporalGroup holds the worker-health alerts over the Temporal SDK's
+// own metrics (Temporal's worker-health guidance). The SDK's
+// histograms carry second-scale buckets via temporal.MetricViews. Its
+// counters keep their default names (no _total), exported as gauges;
+// rate() handles their resets all the same.
+//
+// They group by task_queue, never namespace: the SDK labels its series
+// with the Temporal namespace, and a ServiceMonitor scrape renames that
+// to exported_namespace because namespace is the pod's.
+const temporalGroup = "repo-guardian.temporal"
+
+// temporalSpecs are the Temporal worker-health alerts.
+func temporalSpecs() []Spec {
+	const group = temporalGroup
+
+	return []Spec{
+		{
+			Name:  "RepoGuardianTemporalActivityBacklog",
+			Group: group,
+			Expr: "histogram_quantile(0.99, sum by (le, task_queue) " +
+				"(rate(temporal_activity_schedule_to_start_latency_seconds_bucket[30m]))) > 60",
+			Window:   30 * time.Minute,
+			For:      30 * time.Minute,
+			Severity: SeverityWarning,
+			Summary:  "Activities wait more than a minute (p99) for a worker slot",
+			Description: "Far above Temporal's generic 200ms on purpose: checks are GitHub " +
+				"rate-limit bound and a policy rollout queues work by design. Minutes of " +
+				"sustained wait mean the fleet cannot keep up; add worker replicas (or KEDA " +
+				"maxReplicas) or WORKER_ACTIVITY_CONCURRENCY, within the GitHub budget.",
+		},
+		{
+			Name:     "RepoGuardianTemporalStickyCacheEvictions",
+			Group:    group,
+			Expr:     `sum(rate(temporal_sticky_cache_total_forced_eviction[30m])) > 1`,
+			Window:   30 * time.Minute,
+			For:      30 * time.Minute,
+			Severity: SeverityWarning,
+			Summary:  "Workers are force-evicting cached workflows",
+			Description: "More long-lived workflows are active than the sticky cache holds " +
+				"(one RepoWorkflow per repository), so evicted workflows replay their " +
+				"history on every task. Add worker replicas; each has its own cache.",
+		},
+		{
+			Name:  "RepoGuardianTemporalWorkerSlotsExhausted",
+			Group: group,
+			// max: fires only when no pod has a free slot. One busy pod
+			// is normal; the whole fleet busy is saturation.
+			Expr: `max by (task_queue, worker_type) ` +
+				`(temporal_worker_task_slots_available{worker_type=~"WorkflowWorker|ActivityWorker"}) == 0`,
+			For:      15 * time.Minute,
+			Severity: SeverityWarning,
+			Summary:  "No worker has a free task slot",
+			Description: "Every worker's slots are in use, so new tasks queue. Add worker " +
+				"replicas, or raise WORKER_ACTIVITY_CONCURRENCY within the GitHub budget.",
+		},
+		{
+			Name:  "RepoGuardianTemporalWorkflowTaskLatency",
+			Group: group,
+			Expr: "histogram_quantile(0.99, sum by (le, task_queue) " +
+				"(rate(temporal_workflow_task_schedule_to_start_latency_seconds_bucket[15m]))) > 0.2",
+			Window:   15 * time.Minute,
+			For:      15 * time.Minute,
+			Severity: SeverityWarning,
+			Summary:  "Workflow tasks wait more than 200ms (p99) to start",
+			Description: "Temporal's recommended threshold. Workflow tasks are short, so waiting " +
+				"means workers are saturated, down, or their build is not the deployment's " +
+				"current version (check the worker's deployment readiness check).",
+		},
+	}
 }

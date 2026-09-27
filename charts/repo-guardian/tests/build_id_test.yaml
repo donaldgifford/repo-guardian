@@ -1,0 +1,113 @@
+suite: worker build ID (TEMPORAL_BUILD_ID, rc.2)
+templates:
+  - templates/deployment.yaml
+release:
+  name: rg
+  namespace: rg-ns
+chart:
+  appVersion: 9.9.9-test
+set:
+  config:
+    appId: "12345"
+  secrets:
+    webhookSecret: "x"
+    privateKey: "x"
+  temporal:
+    address: temporal:7233
+  policy:
+    config: "guardian {}"
+tests:
+  - it: defaults to the chart appVersion
+    set:
+      topology: all
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TEMPORAL_BUILD_ID
+            value: 9.9.9-test
+
+  - it: follows image.tag, so a new image is a new version
+    set:
+      topology: all
+      image.tag: 2.0.0-rc.2
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TEMPORAL_BUILD_ID
+            value: 2.0.0-rc.2
+
+  - it: worker.buildId wins over image.tag
+    set:
+      topology: all
+      image.tag: sha-abc123
+      worker.buildId: 2.0.0-custom.1
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TEMPORAL_BUILD_ID
+            value: 2.0.0-custom.1
+
+  - it: split gives it to the worker only
+    set:
+      topology: split
+      api.enabled: true
+      api.auth.enabled: false
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TEMPORAL_BUILD_ID
+            value: 9.9.9-test
+        documentSelector:
+          path: metadata.name
+          value: rg-repo-guardian-worker
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TEMPORAL_BUILD_ID
+          any: true
+        documentSelector:
+          path: metadata.name
+          value: rg-repo-guardian-ingest
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TEMPORAL_BUILD_ID
+          any: true
+        documentSelector:
+          path: metadata.name
+          value: rg-repo-guardian-api
+
+  - it: templating.vars may not redeclare it
+    set:
+      topology: all
+      templating.vars.TEMPORAL_BUILD_ID: x
+    asserts:
+      - failedTemplate:
+          errorPattern: "templating.vars keys collide with chart-managed env vars: TEMPORAL_BUILD_ID"
+
+  - it: extraEnv may not set it, and names the replacement
+    set:
+      topology: all
+      extraEnv:
+        - name: TEMPORAL_BUILD_ID
+          value: x
+    asserts:
+      - failedTemplate:
+          errorPattern: "extraEnv sets TEMPORAL_BUILD_ID, which the chart manages: set worker.buildId instead"
+
+  - it: other extraEnv entries still render
+    set:
+      topology: all
+      extraEnv:
+        - name: SOMETHING_ELSE
+          value: y
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SOMETHING_ELSE
+            value: y

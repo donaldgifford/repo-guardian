@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/contrib/sysinfo"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 )
@@ -63,12 +64,21 @@ func WorkerConfigFromEnv(cfg *Config) (WorkerConfig, error) {
 	return wc, nil
 }
 
+// DevBuild reports whether the build ID fell through to "dev": no
+// TEMPORAL_BUILD_ID, no module version, no VCS revision. Two different
+// dev images then look like one version to Temporal.
+func (wc *WorkerConfig) DevBuild() bool { return wc.BuildID == devBuildID }
+
 // NewWorker returns a worker on wc's task queue with deployment
 // versioning on: the build ID is the binary version and workflows
 // default to AutoUpgrade. Callers register workflows and activities,
 // then Run or Start it.
 func NewWorker(c client.Client, wc *WorkerConfig) worker.Worker {
-	return worker.New(c, wc.TaskQueue, worker.Options{
+	return worker.New(c, wc.TaskQueue, workerOptions(wc))
+}
+
+func workerOptions(wc *WorkerConfig) worker.Options {
+	return worker.Options{
 		MaxConcurrentActivityExecutionSize: wc.ActivityConcurrency,
 		DeploymentOptions: worker.DeploymentOptions{
 			UseVersioning: true,
@@ -78,7 +88,12 @@ func NewWorker(c client.Client, wc *WorkerConfig) worker.Worker {
 			},
 			DefaultVersioningBehavior: workflow.VersioningBehaviorAutoUpgrade,
 		},
-	})
+		// Worker heartbeats (on by default since SDK 1.41) report 0 for
+		// CPU and memory without a provider. This one reads the pod's
+		// cgroup limits, so the numbers are the container's, not the
+		// node's.
+		SysInfoProvider: sysinfo.SysInfoProvider(),
+	}
 }
 
 // BuildID returns the binary's version: the module version for a tagged

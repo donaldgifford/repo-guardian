@@ -179,12 +179,13 @@ func (h *harness) startWorker(t *testing.T, eng activities.Engine, buildID strin
 		t.Fatalf("start worker: %v", err)
 	}
 
-	handle := h.temporal.Client.WorkerDeploymentClient().GetHandle(temporal.DeploymentName)
-	eventually(t, 30*time.Second, func() bool {
-		_, err := handle.SetCurrentVersion(t.Context(), client.WorkerDeploymentSetCurrentVersionOptions{BuildID: buildID})
+	// The same promotion the worker role runs at startup.
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
 
-		return err == nil
-	})
+	if err := temporal.PromoteBuild(ctx, h.temporal.Client, buildID, quiet); err != nil {
+		t.Fatalf("promote build: %v", err)
+	}
 
 	return w
 }

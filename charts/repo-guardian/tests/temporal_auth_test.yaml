@@ -1,0 +1,169 @@
+suite: temporal auth (OIDC bearer tokens, server-verified TLS, plaintext)
+templates:
+  - templates/deployment.yaml
+release:
+  name: rg
+  namespace: rg-ns
+set:
+  config:
+    appId: "12345"
+  secrets:
+    webhookSecret: "x"
+    privateKey: "x"
+  temporal:
+    address: temporal:7233
+  policy:
+    config: "guardian {}"
+tests:
+  - it: sets no auth or TLS-mode env by default
+    set:
+      topology: all
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TEMPORAL_OIDC_TOKEN_URL
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TEMPORAL_TLS_DISABLED
+          any: true
+
+  - it: wires OIDC as env plus a mounted secret file on the roles that dial Temporal
+    set:
+      topology: split
+      api.enabled: true
+      api.auth.enabled: false
+      temporal.auth.oidc.tokenUrl: https://kc/realms/lab/protocol/openid-connect/token
+      temporal.auth.oidc.clientId: repo-guardian
+      temporal.auth.oidc.existingSecret: rg-oidc
+      temporal.auth.oidc.scopes: [openid, temporal]
+      temporal.auth.oidc.audience: temporal
+      temporal.tls.caSecret: lab-ca
+      temporal.tls.serverName: temporal.lab
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TEMPORAL_OIDC_CLIENT_SECRET_PATH
+            value: /etc/repo-guardian/temporal-oidc/client-secret
+        documentSelector:
+          path: metadata.name
+          value: rg-repo-guardian-worker
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TEMPORAL_OIDC_SCOPES
+            value: openid temporal
+        documentSelector:
+          path: metadata.name
+          value: rg-repo-guardian-ingest
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TEMPORAL_TLS_CA_PATH
+            value: /etc/repo-guardian/temporal-ca/ca.crt
+        documentSelector:
+          path: metadata.name
+          value: rg-repo-guardian-worker
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TEMPORAL_TLS_SERVER_NAME
+            value: temporal.lab
+        documentSelector:
+          path: metadata.name
+          value: rg-repo-guardian-worker
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: temporal-oidc
+            secret:
+              secretName: rg-oidc
+              items:
+                - key: client-secret
+                  path: client-secret
+        documentSelector:
+          path: metadata.name
+          value: rg-repo-guardian-ingest
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TEMPORAL_OIDC_TOKEN_URL
+          any: true
+        documentSelector:
+          path: metadata.name
+          value: rg-repo-guardian-api
+      - isNullOrEmpty:
+          path: spec.template.spec.volumes
+        documentSelector:
+          path: metadata.name
+          value: rg-repo-guardian-api
+
+  - it: tls.disabled sets TEMPORAL_TLS_DISABLED
+    set:
+      topology: all
+      temporal.tls.disabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TEMPORAL_TLS_DISABLED
+            value: "true"
+
+  - it: refuses OIDC values without a token URL
+    set:
+      topology: all
+      temporal.auth.oidc.clientId: repo-guardian
+    asserts:
+      - failedTemplate:
+          errorPattern: "temporal.auth.oidc.tokenUrl is required"
+
+  - it: refuses a token URL without client ID and secret
+    set:
+      topology: all
+      temporal.auth.oidc.tokenUrl: https://kc/token
+    asserts:
+      - failedTemplate:
+          errorPattern: "temporal.auth.oidc needs clientId and existingSecret"
+
+  - it: refuses tls.disabled beside TLS secrets
+    set:
+      topology: all
+      temporal.tls.disabled: true
+      temporal.tls.existingSecret: mtls
+    asserts:
+      - failedTemplate:
+          errorPattern: "temporal.tls.disabled contradicts"
+
+  - it: refuses caSecret beside existingSecret
+    set:
+      topology: all
+      temporal.tls.existingSecret: mtls
+      temporal.tls.caSecret: ca
+      temporal.auth.oidc.tokenUrl: https://kc/token
+      temporal.auth.oidc.clientId: rg
+      temporal.auth.oidc.existingSecret: rg-oidc
+    asserts:
+      - failedTemplate:
+          errorPattern: "caSecret and temporal.tls.existingSecret are exclusive"
+
+  - it: refuses caSecret without OIDC
+    set:
+      topology: all
+      temporal.tls.caSecret: ca
+    asserts:
+      - failedTemplate:
+          errorPattern: "temporal.tls.caSecret is for temporal.auth.oidc"
+
+  - it: refuses KEDA with OIDC
+    set:
+      topology: split
+      worker.keda.enabled: true
+      temporal.auth.oidc.tokenUrl: https://kc/token
+      temporal.auth.oidc.clientId: rg
+      temporal.auth.oidc.existingSecret: rg-oidc
+    asserts:
+      - failedTemplate:
+          errorPattern: "worker.keda.enabled cannot be combined with temporal.auth.oidc"

@@ -306,3 +306,43 @@ tests:
           path: spec.groups[0].rules
           content:
             alert: RepoGuardianRepoAccessDenied
+
+  - it: renders the four Temporal worker-health alerts in their own group
+    set:
+      prometheusRule:
+        enabled: true
+    asserts:
+      - equal:
+          path: spec.groups[1].name
+          value: repo-guardian.temporal
+      - lengthEqual:
+          path: spec.groups[1].rules
+          count: 4
+      - equal:
+          path: spec.groups[1].rules[3].alert
+          value: RepoGuardianTemporalWorkflowTaskLatency
+      - matchRegex:
+          path: spec.groups[1].rules[3].expr
+          pattern: 'temporal_workflow_task_schedule_to_start_latency_seconds_bucket\[15m\]\)\)\) > 0\.2$'
+
+  - it: tunes and disables a Temporal alert like any other
+    set:
+      prometheusRule:
+        enabled: true
+        alerts:
+          TemporalActivityBacklog:
+            threshold: 120
+          TemporalStickyCacheEvictions:
+            enabled: false
+    asserts:
+      - lengthEqual:
+          path: spec.groups[1].rules
+          count: 3
+      - matchRegex:
+          path: spec.groups[1].rules[0].expr
+          pattern: '> 120$'
+      - notContains:
+          path: spec.groups[1].rules
+          content:
+            alert: RepoGuardianTemporalStickyCacheEvictions
+          any: true

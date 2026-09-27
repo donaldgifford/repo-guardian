@@ -1,7 +1,8 @@
 // Package temporal connects repo-guardian v2 to its Temporal cluster
-// (DESIGN-0026): configuration from TEMPORAL_* env vars, an mTLS client
-// that logs through slog and reports SDK metrics on the process's meter
-// provider, and the startup checks every role runs before doing work.
+// (DESIGN-0026): configuration from TEMPORAL_* env vars, a client that
+// authenticates with mTLS or an OIDC bearer token, logs through slog
+// and reports SDK metrics on the process's meter provider, and the
+// startup checks every role runs before doing work.
 package temporal
 
 import (
@@ -12,6 +13,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 
 	"go.opentelemetry.io/otel/metric"
@@ -49,11 +51,24 @@ type Config struct {
 	// TLS files for mTLS (TEMPORAL_TLS_CERT_PATH, _KEY_PATH, _CA_PATH)
 	// and the name expected on the server certificate
 	// (TEMPORAL_TLS_SERVER_NAME). Unset cert and key mean plaintext,
-	// which only the local dev server should use.
+	// which only the local dev server should use — unless OIDC is set,
+	// which always verifies the server over TLS and may use the CA and
+	// server name without a client certificate.
 	TLSCertPath   string
 	TLSKeyPath    string
 	TLSCAPath     string
 	TLSServerName string
+
+	// TLSDisabled (TEMPORAL_TLS_DISABLED) forces plaintext even with
+	// OIDC, whose bearer token would otherwise always travel over TLS.
+	// For a cluster-internal frontend that authorizes JWTs without
+	// serving TLS; Dial warns, because the token is then readable on
+	// the wire.
+	TLSDisabled bool
+
+	// OIDC, when set, authenticates with a bearer token from an OAuth2
+	// client-credentials grant (TEMPORAL_OIDC_*).
+	OIDC *OIDCConfig
 }
 
 // ConfigFromEnv reads Config from the TEMPORAL_* variables.
@@ -66,7 +81,15 @@ func ConfigFromEnv() (Config, error) {
 		TLSKeyPath:    os.Getenv("TEMPORAL_TLS_KEY_PATH"),
 		TLSCAPath:     os.Getenv("TEMPORAL_TLS_CA_PATH"),
 		TLSServerName: os.Getenv("TEMPORAL_TLS_SERVER_NAME"),
+		OIDC:          oidcFromEnv(),
 	}
+
+	disabled, err := envBool("TEMPORAL_TLS_DISABLED")
+	if err != nil {
+		return Config{}, err
+	}
+
+	cfg.TLSDisabled = disabled
 
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
@@ -86,28 +109,55 @@ func (c *Config) validate() error {
 		errs = append(errs, errors.New("TEMPORAL_TLS_CERT_PATH and TEMPORAL_TLS_KEY_PATH must be set together"))
 	}
 
-	if c.TLSCertPath == "" && (c.TLSCAPath != "" || c.TLSServerName != "") {
-		errs = append(errs, errors.New("TEMPORAL_TLS_CA_PATH and TEMPORAL_TLS_SERVER_NAME need a client certificate"))
+	if c.TLSCertPath == "" && c.OIDC == nil && (c.TLSCAPath != "" || c.TLSServerName != "") {
+		errs = append(errs, errors.New("TEMPORAL_TLS_CA_PATH and TEMPORAL_TLS_SERVER_NAME need a client certificate or OIDC"))
+	}
+
+	if c.TLSDisabled && (c.TLSCertPath != "" || c.TLSCAPath != "" || c.TLSServerName != "") {
+		errs = append(errs, errors.New("TEMPORAL_TLS_DISABLED contradicts the TEMPORAL_TLS_* files"))
+	}
+
+	if c.OIDC != nil {
+		errs = append(errs, c.OIDC.validate()...)
 	}
 
 	return errors.Join(errs...)
 }
 
-// tlsConfig builds the mTLS client config, or nil for plaintext.
-func (c *Config) tlsConfig() (*tls.Config, error) {
-	if c.TLSCertPath == "" {
-		return nil, nil //nolint:nilnil // nil config: plaintext (dev server)
+// envBool reads a boolean variable; unset is false.
+func envBool(name string) (bool, error) {
+	v := os.Getenv(name)
+	if v == "" {
+		return false, nil
 	}
 
-	cert, err := tls.LoadX509KeyPair(c.TLSCertPath, c.TLSKeyPath)
+	b, err := strconv.ParseBool(v)
 	if err != nil {
-		return nil, fmt.Errorf("temporal: loading client certificate: %w", err)
+		return false, fmt.Errorf("%s: %w", name, err)
+	}
+
+	return b, nil
+}
+
+// tlsConfig builds the client TLS config: mTLS with a client
+// certificate, server-verified TLS for OIDC, or nil for plaintext.
+func (c *Config) tlsConfig() (*tls.Config, error) {
+	if c.TLSDisabled || (c.TLSCertPath == "" && c.OIDC == nil) {
+		return nil, nil //nolint:nilnil // nil config: plaintext (dev server, or TLS disabled)
 	}
 
 	cfg := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		ServerName:   c.TLSServerName,
-		MinVersion:   tls.VersionTLS12,
+		ServerName: c.TLSServerName,
+		MinVersion: tls.VersionTLS12,
+	}
+
+	if c.TLSCertPath != "" {
+		cert, err := tls.LoadX509KeyPair(c.TLSCertPath, c.TLSKeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("temporal: loading client certificate: %w", err)
+		}
+
+		cfg.Certificates = []tls.Certificate{cert}
 	}
 
 	if c.TLSCAPath != "" {
@@ -156,12 +206,29 @@ func Dial(ctx context.Context, cfg *Config, opts DialOptions) (client.Client, er
 		HostPort:          cfg.Address,
 		Namespace:         cfg.Namespace,
 		Logger:            tlog.NewStructuredLogger(logger.With("component", "temporal-sdk")),
-		ConnectionOptions: client.ConnectionOptions{TLS: tlsCfg},
+		ConnectionOptions: client.ConnectionOptions{TLS: tlsCfg, TLSDisabled: cfg.TLSDisabled},
+	}
+
+	if cfg.OIDC != nil {
+		ts, err := cfg.OIDC.tokenSource(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		if cfg.TLSDisabled {
+			logger.Warn("temporal: TLS is disabled, so the OIDC bearer token is sent in plaintext", "address", cfg.Address)
+		}
+
+		co.Credentials = client.NewAPIKeyDynamicCredentials(tokenCallback(ts, logger))
 	}
 
 	if opts.MeterProvider != nil {
 		co.MetricsHandler = otelcontrib.NewMetricsHandler(otelcontrib.MetricsHandlerOptions{
-			Meter: opts.MeterProvider.Meter("temporal-sdk-go"),
+			Meter: opts.MeterProvider.Meter(SDKMeterName),
+			// UseMonotonicCounters stays off on purpose: Temporal's own
+			// dashboards (temporalio/dashboards sdk/temporal-go-sdk-otel)
+			// query the SDK counters by their default names, without
+			// _total, and rate() handles resets on these series either way.
 			// The contrib default panics on a meter error; a metrics
 			// fault must never take a worker down.
 			OnError: func(err error) { logger.Warn("temporal: SDK metric error", "error", err) },

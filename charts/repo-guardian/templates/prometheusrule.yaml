@@ -24,7 +24,7 @@ spec:
         {{- $a := .Values.prometheusRule.alerts -}}
         {{- /* QueueDepthHigh */ -}}
         {{- $alert := default dict $a.QueueDepthHigh -}}
-        {{- if ne (default true (get $alert "enabled")) false }}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
         - alert: RepoGuardianQueueDepthHigh
           expr: max(repo_guardian_queue_depth{queue="jobs"}) > {{ default 1000 (get $alert "threshold") }}
           for: {{ default "10m" (get $alert "for") | quote }}
@@ -36,7 +36,7 @@ spec:
         {{- end }}
         {{- /* ReaperRequeues */ -}}
         {{- $alert := default dict $a.ReaperRequeues -}}
-        {{- if ne (default true (get $alert "enabled")) false }}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
         - alert: RepoGuardianReaperRequeues
           expr: rate(repo_guardian_queue_reaped_total[15m]) > {{ default 0.1 (get $alert "threshold") }}
           for: {{ default "15m" (get $alert "for") | quote }}
@@ -48,7 +48,7 @@ spec:
         {{- end }}
         {{- /* NoLeader */ -}}
         {{- $alert := default dict $a.NoLeader -}}
-        {{- if ne (default true (get $alert "enabled")) false }}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
         - alert: RepoGuardianNoSchedulerLeader
           {{- /*
             name="stale-sweep", NOT name="sweep". The legacy full-
@@ -68,7 +68,7 @@ spec:
         {{- end }}
         {{- /* StoreErrors */ -}}
         {{- $alert := default dict $a.StoreErrors -}}
-        {{- if ne (default true (get $alert "enabled")) false }}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
         - alert: RepoGuardianStoreQueryErrors
           {{- /*
             clamp_min on the denominator, and a 10m window to match the
@@ -91,7 +91,7 @@ spec:
         {{- end }}
         {{- /* RateLimitNearExhaustion */ -}}
         {{- $alert := default dict $a.RateLimitNearExhaustion -}}
-        {{- if ne (default true (get $alert "enabled")) false }}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
         - alert: RepoGuardianRateLimitNearExhaustion
           expr: min(repo_guardian_rate_limit_remaining) < {{ default 200 (get $alert "threshold") }}
           for: {{ default "5m" (get $alert "for") | quote }}
@@ -103,7 +103,7 @@ spec:
         {{- end }}
         {{- /* RepoAccessDenied — INV-0015 circuit breaker */ -}}
         {{- $alert := default dict $a.RepoAccessDenied -}}
-        {{- if ne (default true (get $alert "enabled")) false }}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
         - alert: RepoGuardianRepoAccessDenied
           {{- /*
             The second disjunct catches the FIRST access_denied park.
@@ -128,7 +128,7 @@ spec:
         {{- end }}
         {{- /* StaleOpenPRs — IMPL-0013 Phase 1 drift visibility */ -}}
         {{- $alert := default dict $a.StaleOpenPRs -}}
-        {{- if ne (default true (get $alert "enabled")) false }}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
         - alert: RepoGuardianStaleOpenPRs
           expr: max(repo_guardian_open_prs_by_rule{age_bucket="30d+"}) > {{ default 0 (get $alert "threshold") }}
           for: {{ default "1h" (get $alert "for") | quote }}
@@ -140,7 +140,7 @@ spec:
         {{- end }}
         {{- /* PRDrift — INV-0005 drift surface */ -}}
         {{- $alert := default dict $a.PRDrift -}}
-        {{- if ne (default true (get $alert "enabled")) false }}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
         - alert: RepoGuardianPRDrift
           expr: sum(rate(repo_guardian_pr_open_with_empty_actionable_total[1h])) > {{ default 0 (get $alert "threshold") }}
           for: {{ default "30m" (get $alert "for") | quote }}
@@ -152,7 +152,7 @@ spec:
         {{- end }}
         {{- /* QueueBackpressure — IMPL-0022 delayed-requeue depth */ -}}
         {{- $alert := default dict $a.QueueBackpressure -}}
-        {{- if ne (default true (get $alert "enabled")) false }}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
         - alert: RepoGuardianQueueBackpressure
           {{- /*
             Gauge published by EVERY pod's reaper tick (each
@@ -171,7 +171,7 @@ spec:
         {{- end }}
         {{- /* JobsExhausted — IMPL-0022 attempt-cap terminal drops */ -}}
         {{- $alert := default dict $a.JobsExhausted -}}
-        {{- if ne (default true (get $alert "enabled")) false }}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
         - alert: RepoGuardianJobsExhausted
           {{- /*
             Two-legged on purpose: increase() cannot see a brand-new
@@ -195,7 +195,7 @@ spec:
         {{- end }}
         {{- /* PostureExportStalled — IMPL-0023 Phase 2 */ -}}
         {{- $alert := default dict $a.PostureExportStalled -}}
-        {{- if ne (default true (get $alert "enabled")) false }}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
         - alert: RepoGuardianPostureExportStalled
           {{- /*
             The one failure the compliance gauges cannot report about
@@ -216,7 +216,7 @@ spec:
         {{- end }}
         {{- /* PropertySchemaMissing — DESIGN-0019 schema preflight */ -}}
         {{- $alert := default dict $a.PropertySchemaMissing -}}
-        {{- if ne (default true (get $alert "enabled")) false }}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
         - alert: RepoGuardianPropertySchemaMissing
           {{- /*
             increase(...[1h]) with a short `for`, not rate(...[15m]) with
@@ -236,5 +236,65 @@ spec:
           annotations:
             summary: "repo-guardian custom property missing from org schema"
             description: "a mapped annotation_properties target has no matching org-level custom property definition; the sync for that property is being skipped. See docs/usage/policy-reference.md §Custom Property Schema Preflight — either define the property in the org's custom-property schema, or remove it from annotation_properties."
+        {{- end }}
+    {{- /*
+      Temporal worker health (rc.2), mirrored by hand from the generated
+      catalogue's repo-guardian.temporal group — keep the two in step.
+      Grouped by task_queue, never namespace: a ServiceMonitor renames
+      the SDK's Temporal-namespace label to exported_namespace. Each
+      window is at least its default `for`; raising `for` past the
+      window means the alert can never fire.
+    */}}
+    - name: repo-guardian.temporal
+      rules:
+        {{- $a := .Values.prometheusRule.alerts -}}
+        {{- /* TemporalActivityBacklog */ -}}
+        {{- $alert := default dict $a.TemporalActivityBacklog -}}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
+        - alert: RepoGuardianTemporalActivityBacklog
+          expr: histogram_quantile(0.99, sum by (le, task_queue) (rate(temporal_activity_schedule_to_start_latency_seconds_bucket[30m]))) > {{ default 60 (get $alert "threshold") }}
+          for: {{ default "30m" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "warning" (get $alert "severity") | quote }}
+          annotations:
+            summary: "repo-guardian activities wait more than a minute (p99) for a worker slot"
+            description: "far above Temporal's generic 200ms on purpose: checks are GitHub rate-limit bound and a policy rollout queues work by design. Minutes of sustained wait mean the fleet cannot keep up; add worker replicas (or KEDA maxReplicas) or WORKER_ACTIVITY_CONCURRENCY, within the GitHub budget."
+        {{- end }}
+        {{- /* TemporalStickyCacheEvictions */ -}}
+        {{- $alert := default dict $a.TemporalStickyCacheEvictions -}}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
+        - alert: RepoGuardianTemporalStickyCacheEvictions
+          expr: sum(rate(temporal_sticky_cache_total_forced_eviction[30m])) > {{ default 1 (get $alert "threshold") }}
+          for: {{ default "30m" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "warning" (get $alert "severity") | quote }}
+          annotations:
+            summary: "repo-guardian workers are force-evicting cached workflows"
+            description: "more long-lived workflows are active than the sticky cache holds (one RepoWorkflow per repository), so evicted workflows replay their history on every task. Add worker replicas; each has its own cache."
+        {{- end }}
+        {{- /* TemporalWorkerSlotsExhausted */ -}}
+        {{- $alert := default dict $a.TemporalWorkerSlotsExhausted -}}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
+        - alert: RepoGuardianTemporalWorkerSlotsExhausted
+          {{- /* max: fires only when no pod has a free slot. */}}
+          expr: max by (task_queue, worker_type) (temporal_worker_task_slots_available{worker_type=~"WorkflowWorker|ActivityWorker"}) == 0
+          for: {{ default "15m" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "warning" (get $alert "severity") | quote }}
+          annotations:
+            summary: "no repo-guardian worker has a free task slot"
+            description: "every worker's slots are in use, so new tasks queue. Add worker replicas, or raise WORKER_ACTIVITY_CONCURRENCY within the GitHub budget."
+        {{- end }}
+        {{- /* TemporalWorkflowTaskLatency */ -}}
+        {{- $alert := default dict $a.TemporalWorkflowTaskLatency -}}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
+        - alert: RepoGuardianTemporalWorkflowTaskLatency
+          expr: histogram_quantile(0.99, sum by (le, task_queue) (rate(temporal_workflow_task_schedule_to_start_latency_seconds_bucket[15m]))) > {{ default 0.2 (get $alert "threshold") }}
+          for: {{ default "15m" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "warning" (get $alert "severity") | quote }}
+          annotations:
+            summary: "repo-guardian workflow tasks wait more than 200ms (p99) to start"
+            description: "Temporal's recommended threshold. Workflow tasks are short, so waiting means workers are saturated, down, or their build is not the deployment's current version (check the worker's deployment readiness check)."
         {{- end }}
 {{- end }}

@@ -1,7 +1,9 @@
 {{- include "repo-guardian.validateTemplatingVars" . -}}
+{{- include "repo-guardian.validateExtraEnv" . -}}
 {{- include "repo-guardian.validateBackendSecrets" . -}}
 {{- include "repo-guardian.validateRemovedValues" . -}}
 {{- include "repo-guardian.validateRoles" . -}}
+{{- include "repo-guardian.validateTemporalAuth" . -}}
 {{- include "repo-guardian.validateUI" . -}}
 {{- range $role := splitList " " (include "repo-guardian.roles" .) }}
 {{- $r := dict "ctx" $ "role" $role }}
@@ -137,6 +139,10 @@ spec:
             {{- if include "repo-guardian.roleHasStore" $r }}
             - name: WORKER_ACTIVITY_CONCURRENCY
               value: {{ $v.worker.concurrency | quote }}
+            {{- /* The worker promotes this build to the deployment's
+            current version; the Go fallback is "dev" in every image. */}}
+            - name: TEMPORAL_BUILD_ID
+              value: {{ $v.worker.buildId | default ($v.image.tag | default $.Chart.AppVersion) | quote }}
             - name: CHECK_INTERVAL
               value: {{ $v.checkInterval | quote }}
             - name: POLICY_ROLLOUT_WINDOW
@@ -174,6 +180,16 @@ spec:
             {{- if and (include "repo-guardian.roleDialsTemporal" $r) $v.temporal.tls.existingSecret }}
             - name: temporal-tls
               mountPath: /etc/repo-guardian/temporal-tls
+              readOnly: true
+            {{- end }}
+            {{- if and (include "repo-guardian.roleDialsTemporal" $r) $v.temporal.tls.caSecret }}
+            - name: temporal-ca
+              mountPath: /etc/repo-guardian/temporal-ca
+              readOnly: true
+            {{- end }}
+            {{- if and (include "repo-guardian.roleDialsTemporal" $r) $v.temporal.auth.oidc.tokenUrl }}
+            - name: temporal-oidc
+              mountPath: /etc/repo-guardian/temporal-oidc
               readOnly: true
             {{- end }}
             {{- if include "repo-guardian.roleReadsPolicy" $r }}
@@ -223,6 +239,22 @@ spec:
         - name: temporal-tls
           secret:
             secretName: {{ $v.temporal.tls.existingSecret }}
+        {{- end }}
+        {{- if and (include "repo-guardian.roleDialsTemporal" $r) $v.temporal.tls.caSecret }}
+        - name: temporal-ca
+          secret:
+            secretName: {{ $v.temporal.tls.caSecret }}
+            items:
+              - key: ca.crt
+                path: ca.crt
+        {{- end }}
+        {{- if and (include "repo-guardian.roleDialsTemporal" $r) $v.temporal.auth.oidc.tokenUrl }}
+        - name: temporal-oidc
+          secret:
+            secretName: {{ $v.temporal.auth.oidc.existingSecret }}
+            items:
+              - key: client-secret
+                path: client-secret
         {{- end }}
         {{- if include "repo-guardian.roleReadsPolicy" $r }}
         - name: templates

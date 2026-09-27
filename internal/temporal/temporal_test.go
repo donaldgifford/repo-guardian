@@ -43,11 +43,24 @@ func TestConfigFromEnv_Invalid(t *testing.T) {
 		{"no address", map[string]string{}},
 		{"cert without key", map[string]string{"TEMPORAL_ADDRESS": "t:7233", "TEMPORAL_TLS_CERT_PATH": "c.pem"}},
 		{"CA without cert", map[string]string{"TEMPORAL_ADDRESS": "t:7233", "TEMPORAL_TLS_CA_PATH": "ca.pem"}},
+		{"OIDC token URL alone", map[string]string{"TEMPORAL_ADDRESS": "t:7233", "TEMPORAL_OIDC_TOKEN_URL": "https://idp/token"}},
+		{"OIDC secret without URL", map[string]string{
+			"TEMPORAL_ADDRESS": "t:7233", "TEMPORAL_OIDC_CLIENT_ID": "rg", "TEMPORAL_OIDC_CLIENT_SECRET_PATH": "s",
+		}},
+		{"OIDC URL not http", map[string]string{
+			"TEMPORAL_ADDRESS": "t:7233", "TEMPORAL_OIDC_TOKEN_URL": "idp/token",
+			"TEMPORAL_OIDC_CLIENT_ID": "rg", "TEMPORAL_OIDC_CLIENT_SECRET_PATH": "s",
+		}},
+		{"TLS disabled with a cert", map[string]string{
+			"TEMPORAL_ADDRESS": "t:7233", "TEMPORAL_TLS_DISABLED": "true",
+			"TEMPORAL_TLS_CERT_PATH": "c.pem", "TEMPORAL_TLS_KEY_PATH": "k.pem",
+		}},
+		{"TLS disabled not a bool", map[string]string{"TEMPORAL_ADDRESS": "t:7233", "TEMPORAL_TLS_DISABLED": "maybe"}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for _, k := range []string{"TEMPORAL_ADDRESS", "TEMPORAL_TLS_CERT_PATH", "TEMPORAL_TLS_KEY_PATH", "TEMPORAL_TLS_CA_PATH"} {
+			for _, k := range configEnv {
 				t.Setenv(k, tt.env[k])
 			}
 
@@ -55,6 +68,41 @@ func TestConfigFromEnv_Invalid(t *testing.T) {
 				t.Error("ConfigFromEnv succeeded, want an error")
 			}
 		})
+	}
+}
+
+// configEnv is every variable ConfigFromEnv reads, reset per case.
+var configEnv = []string{
+	"TEMPORAL_ADDRESS", "TEMPORAL_TLS_CERT_PATH", "TEMPORAL_TLS_KEY_PATH", "TEMPORAL_TLS_CA_PATH",
+	"TEMPORAL_TLS_SERVER_NAME", "TEMPORAL_TLS_DISABLED", "TEMPORAL_OIDC_TOKEN_URL", "TEMPORAL_OIDC_CLIENT_ID",
+	"TEMPORAL_OIDC_CLIENT_SECRET_PATH", "TEMPORAL_OIDC_SCOPES", "TEMPORAL_OIDC_AUDIENCE",
+}
+
+func TestConfigFromEnv_OIDC(t *testing.T) {
+	for _, k := range configEnv {
+		t.Setenv(k, "")
+	}
+
+	t.Setenv("TEMPORAL_ADDRESS", "temporal:7233")
+	t.Setenv("TEMPORAL_OIDC_TOKEN_URL", "https://keycloak/realms/lab/protocol/openid-connect/token")
+	t.Setenv("TEMPORAL_OIDC_CLIENT_ID", "repo-guardian")
+	t.Setenv("TEMPORAL_OIDC_CLIENT_SECRET_PATH", "/etc/secret")
+	t.Setenv("TEMPORAL_OIDC_SCOPES", "openid  temporal")
+	// Server-verified TLS: a CA and server name without a client cert.
+	t.Setenv("TEMPORAL_TLS_CA_PATH", "ca.pem")
+	t.Setenv("TEMPORAL_TLS_SERVER_NAME", "temporal.lab")
+
+	cfg, err := ConfigFromEnv()
+	if err != nil {
+		t.Fatalf("ConfigFromEnv: %v", err)
+	}
+
+	if cfg.OIDC == nil || cfg.OIDC.ClientID != "repo-guardian" || len(cfg.OIDC.Scopes) != 2 || cfg.OIDC.Scopes[1] != "temporal" {
+		t.Errorf("OIDC = %+v", cfg.OIDC)
+	}
+
+	if cfg.TLSDisabled {
+		t.Error("TLSDisabled defaulted to true")
 	}
 }
 
@@ -125,6 +173,25 @@ func TestTLSConfig(t *testing.T) {
 	badCA := &Config{Address: "t:7233", TLSCertPath: cert, TLSKeyPath: key, TLSCAPath: key}
 	if _, err := badCA.tlsConfig(); err == nil {
 		t.Error("a CA file with no certificate was accepted")
+	}
+
+	// OIDC always verifies the server: TLS with no client cert, the CA
+	// when given, system roots otherwise.
+	oidc := &OIDCConfig{TokenURL: "https://idp/token", ClientID: "rg", ClientSecretPath: "s"}
+
+	got, err = (&Config{Address: "t:7233", OIDC: oidc, TLSCAPath: cert, TLSServerName: "temporal.lab"}).tlsConfig()
+	if err != nil || got == nil || len(got.Certificates) != 0 || got.RootCAs == nil || got.ServerName != "temporal.lab" {
+		t.Errorf("OIDC with a CA: tlsConfig = %+v, %v; want server-verified TLS with the CA", got, err)
+	}
+
+	got, err = (&Config{Address: "t:7233", OIDC: oidc}).tlsConfig()
+	if err != nil || got == nil || got.RootCAs != nil {
+		t.Errorf("OIDC alone: tlsConfig = %+v, %v; want TLS on system roots", got, err)
+	}
+
+	got, err = (&Config{Address: "t:7233", OIDC: oidc, TLSDisabled: true}).tlsConfig()
+	if err != nil || got != nil {
+		t.Errorf("OIDC with TLS disabled: tlsConfig = %+v, %v; want nil, nil", got, err)
 	}
 }
 

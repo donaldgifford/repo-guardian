@@ -177,3 +177,37 @@ groups:
         annotations:
           description: The App lost access, or was never granted it. The repository is excluded from every compliance number until discovery sees it again (INV-0015).
           summary: A repository was parked because the installation cannot read it
+  - name: repo-guardian.temporal
+    rules:
+      - alert: RepoGuardianTemporalActivityBacklog
+        expr: histogram_quantile(0.99, sum by (le, task_queue) (rate(temporal_activity_schedule_to_start_latency_seconds_bucket[30m]))) > 60
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          description: 'Far above Temporal''s generic 200ms on purpose: checks are GitHub rate-limit bound and a policy rollout queues work by design. Minutes of sustained wait mean the fleet cannot keep up; add worker replicas (or KEDA maxReplicas) or WORKER_ACTIVITY_CONCURRENCY, within the GitHub budget.'
+          summary: Activities wait more than a minute (p99) for a worker slot
+      - alert: RepoGuardianTemporalStickyCacheEvictions
+        expr: sum(rate(temporal_sticky_cache_total_forced_eviction_total[30m])) > 1
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          description: More long-lived workflows are active than the sticky cache holds (one RepoWorkflow per repository), so evicted workflows replay their history on every task. Add worker replicas; each has its own cache.
+          summary: Workers are force-evicting cached workflows
+      - alert: RepoGuardianTemporalWorkerSlotsExhausted
+        expr: max by (task_queue, worker_type) (temporal_worker_task_slots_available{worker_type=~"WorkflowWorker|ActivityWorker"}) == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          description: Every worker's slots are in use, so new tasks queue. Add worker replicas, or raise WORKER_ACTIVITY_CONCURRENCY within the GitHub budget.
+          summary: No worker has a free task slot
+      - alert: RepoGuardianTemporalWorkflowTaskLatency
+        expr: histogram_quantile(0.99, sum by (le, task_queue) (rate(temporal_workflow_task_schedule_to_start_latency_seconds_bucket[15m]))) > 0.2
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          description: Temporal's recommended threshold. Workflow tasks are short, so waiting means workers are saturated, down, or their build is not the deployment's current version (check the worker's deployment readiness check).
+          summary: Workflow tasks wait more than 200ms (p99) to start

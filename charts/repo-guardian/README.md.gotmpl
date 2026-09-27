@@ -164,6 +164,32 @@ For sizing, see [docs/operations/scaling.md](../../docs/operations/scaling.md).
 For Postgres schema operations, see
 [docs/operations/migrations.md](../../docs/operations/migrations.md).
 
+### Upgrade notes (chart 2.0.0-rc.2) — worker versioning and Temporal alerts
+
+- **Workers promote their own build.** rc.1 workers never became the
+  worker deployment's current version, so Temporal dispatched them
+  nothing. From rc.2 each worker promotes its build at startup (newest
+  semver wins) and fails its `deployment` readiness check if it is still
+  not current after 2 minutes.
+- **`TEMPORAL_BUILD_ID` is chart-managed.** It is set from
+  `worker.buildId`, then `image.tag`, then appVersion. `extraEnv` or
+  `templating.vars` setting it now fails the render: move a pin to
+  `worker.buildId`.
+- **Temporal SDK metrics changed shape.** Latency histograms now use
+  second-scale buckets (they were unusable below 5s), and SDK counters
+  export as Prometheus counters with `_total`
+  (`temporal_sticky_cache_total_forced_eviction` →
+  `temporal_sticky_cache_total_forced_eviction_total`).
+- **New `repo-guardian.temporal` alert group:**
+  `RepoGuardianTemporalWorkflowTaskLatency`,
+  `RepoGuardianTemporalActivityBacklog`,
+  `RepoGuardianTemporalWorkerSlotsExhausted` and
+  `RepoGuardianTemporalStickyCacheEvictions`, tunable under
+  `prometheusRule.alerts.<name without the RepoGuardian prefix>`.
+- **`prometheusRule.alerts.<name>.enabled: false` now works.** Earlier
+  charts ignored it for every alert (sprig's `default` turned `false`
+  into `true`).
+
 ### Upgrade notes (chart 2.0.0) — Temporal runtime, breaking
 
 - **Temporal replaces Valkey.** `queue.*`, `scheduler.*`,

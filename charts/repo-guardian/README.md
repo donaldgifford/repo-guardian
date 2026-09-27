@@ -675,7 +675,8 @@ incoming webhook.
 | ui.replicas | int | `2` | Replica count. |
 | ui.resources | object | `{"limits":{"memory":"256Mi"},"requests":{"cpu":"50m","memory":"96Mi"}}` | Resources for the ui container. |
 | ui.sessionTTL | string | `"8h"` | Absolute session length; token refresh never extends it. |
-| worker | object | `{"concurrency":10,"keda":{"enabled":false,"maxReplicas":4,"minReplicas":1,"targetQueueSize":"50"},"replicas":1,"resources":{}}` | The worker role: runs workflows and activities (split only). |
+| worker | object | `{"buildId":"","concurrency":10,"keda":{"enabled":false,"maxReplicas":4,"minReplicas":1,"targetQueueSize":"50"},"replicas":1,"resources":{}}` | The worker role: runs workflows and activities (split only). |
+| worker.buildId | string | `""` | Temporal worker build ID (TEMPORAL_BUILD_ID). Empty uses `image.tag`, then the chart's appVersion. Each worker promotes its build to the deployment's current version at startup, and the newest semver build wins, so it must change whenever the image does. Set it only for images whose tag is not a version. |
 | worker.concurrency | int | `10` | Concurrent activities per pod (WORKER_ACTIVITY_CONCURRENCY). |
 | worker.keda | object | `{"enabled":false,"maxReplicas":4,"minReplicas":1,"targetQueueSize":"50"}` | KEDA autoscaling on Temporal backlog. Requires the KEDA CRDs. |
 | worker.keda.enabled | bool | `false` | Render a ScaledObject with a `temporal` trigger. |

@@ -142,6 +142,12 @@ worker:
   replicas: 1
   # -- Concurrent activities per pod (WORKER_ACTIVITY_CONCURRENCY).
   concurrency: 10
+  # -- Temporal worker build ID (TEMPORAL_BUILD_ID). Empty uses
+  # `image.tag`, then the chart's appVersion. Each worker promotes its
+  # build to the deployment's current version at startup, and the newest
+  # semver build wins, so it must change whenever the image does. Set it
+  # only for images whose tag is not a version.
+  buildId: ""
   # -- Resources; empty falls back to `resources`.
   resources: {}
   # -- KEDA autoscaling on Temporal backlog. Requires the KEDA CRDs.

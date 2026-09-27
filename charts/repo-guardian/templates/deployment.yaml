@@ -1,4 +1,5 @@
 {{- include "repo-guardian.validateTemplatingVars" . -}}
+{{- include "repo-guardian.validateExtraEnv" . -}}
 {{- include "repo-guardian.validateBackendSecrets" . -}}
 {{- include "repo-guardian.validateRemovedValues" . -}}
 {{- include "repo-guardian.validateRoles" . -}}
@@ -137,6 +138,10 @@ spec:
             {{- if include "repo-guardian.roleHasStore" $r }}
             - name: WORKER_ACTIVITY_CONCURRENCY
               value: {{ $v.worker.concurrency | quote }}
+            {{- /* The worker promotes this build to the deployment's
+            current version; the Go fallback is "dev" in every image. */}}
+            - name: TEMPORAL_BUILD_ID
+              value: {{ $v.worker.buildId | default ($v.image.tag | default $.Chart.AppVersion) | quote }}
             - name: CHECK_INTERVAL
               value: {{ $v.checkInterval | quote }}
             - name: POLICY_ROLLOUT_WINDOW

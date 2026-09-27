@@ -188,11 +188,10 @@ For Postgres schema operations, see
   `worker.buildId`, then `image.tag`, then appVersion. `extraEnv` or
   `templating.vars` setting it now fails the render: move a pin to
   `worker.buildId`.
-- **Temporal SDK metrics changed shape.** Latency histograms now use
-  second-scale buckets (they were unusable below 5s), and SDK counters
-  export as Prometheus counters with `_total`
-  (`temporal_sticky_cache_total_forced_eviction` →
-  `temporal_sticky_cache_total_forced_eviction_total`).
+- **Temporal SDK latency histograms are usable.** They now use
+  second-scale buckets; with the OTel defaults every latency under 5s
+  fell in one bucket. Metric names are unchanged, and match Temporal's
+  own SDK dashboard.
 - **New `repo-guardian.temporal` alert group:**
   `RepoGuardianTemporalWorkflowTaskLatency`,
   `RepoGuardianTemporalActivityBacklog`,

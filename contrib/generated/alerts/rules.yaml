@@ -188,7 +188,7 @@ groups:
           description: 'Far above Temporal''s generic 200ms on purpose: checks are GitHub rate-limit bound and a policy rollout queues work by design. Minutes of sustained wait mean the fleet cannot keep up; add worker replicas (or KEDA maxReplicas) or WORKER_ACTIVITY_CONCURRENCY, within the GitHub budget.'
           summary: Activities wait more than a minute (p99) for a worker slot
       - alert: RepoGuardianTemporalStickyCacheEvictions
-        expr: sum(rate(temporal_sticky_cache_total_forced_eviction_total[30m])) > 1
+        expr: sum(rate(temporal_sticky_cache_total_forced_eviction[30m])) > 1
         for: 30m
         labels:
           severity: warning

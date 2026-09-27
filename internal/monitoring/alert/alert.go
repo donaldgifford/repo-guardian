@@ -548,9 +548,9 @@ func (s *Spec) skipReason(ms monitoring.Mechanisms) (string, bool) {
 
 // temporalGroup holds the worker-health alerts over the Temporal SDK's
 // own metrics (Temporal's worker-health guidance). The SDK's
-// histograms carry second-scale buckets via temporal.MetricViews, and
-// its counters are monotonic, so the usual rate()/histogram_quantile
-// shapes apply.
+// histograms carry second-scale buckets via temporal.MetricViews. Its
+// counters keep their default names (no _total), exported as gauges;
+// rate() handles their resets all the same.
 //
 // They group by task_queue, never namespace: the SDK labels its series
 // with the Temporal namespace, and a ServiceMonitor scrape renames that
@@ -579,7 +579,7 @@ func temporalSpecs() []Spec {
 		{
 			Name:     "RepoGuardianTemporalStickyCacheEvictions",
 			Group:    group,
-			Expr:     `sum(rate(temporal_sticky_cache_total_forced_eviction_total[30m])) > 1`,
+			Expr:     `sum(rate(temporal_sticky_cache_total_forced_eviction[30m])) > 1`,
 			Window:   30 * time.Minute,
 			For:      30 * time.Minute,
 			Severity: SeverityWarning,

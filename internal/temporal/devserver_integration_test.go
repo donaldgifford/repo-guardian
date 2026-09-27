@@ -47,25 +47,12 @@ func TestDial_DevServer(t *testing.T) {
 		t.Fatalf("collect: %v", err)
 	}
 
-	n, monotonic := 0, 0
-
+	n := 0
 	for _, sm := range rm.ScopeMetrics {
 		n += len(sm.Metrics)
-
-		for _, m := range sm.Metrics {
-			if sum, ok := m.Data.(metricdata.Sum[int64]); ok && sum.IsMonotonic {
-				monotonic++
-			}
-		}
 	}
 
 	if n == 0 {
 		t.Error("no SDK metrics reached the meter provider")
-	}
-
-	// UseMonotonicCounters: SDK counters must be monotonic sums, or the
-	// Prometheus bridge exports them as gauges and rate() misreads resets.
-	if monotonic == 0 {
-		t.Error("no monotonic SDK counters; Dial lost UseMonotonicCounters")
 	}
 }

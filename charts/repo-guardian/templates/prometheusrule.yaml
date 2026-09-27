@@ -264,7 +264,7 @@ spec:
         {{- $alert := default dict $a.TemporalStickyCacheEvictions -}}
         {{- if ne (toString (get $alert "enabled")) "false" }}
         - alert: RepoGuardianTemporalStickyCacheEvictions
-          expr: sum(rate(temporal_sticky_cache_total_forced_eviction_total[30m])) > {{ default 1 (get $alert "threshold") }}
+          expr: sum(rate(temporal_sticky_cache_total_forced_eviction[30m])) > {{ default 1 (get $alert "threshold") }}
           for: {{ default "30m" (get $alert "for") | quote }}
           labels:
             severity: {{ default "warning" (get $alert "severity") | quote }}

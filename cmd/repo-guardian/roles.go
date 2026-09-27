@@ -66,7 +66,7 @@ func runRoles(name string, args []string, roles config.Role) error {
 	slog.SetDefault(logger)
 	warnRemovedEnvVars(logger)
 
-	obs, err := observability.New(observability.Options{Logger: logger})
+	obs, err := observability.New(observability.Options{Logger: logger, Views: temporal.MetricViews()})
 	if err != nil {
 		return fmt.Errorf("bootstrap observability: %w", err)
 	}

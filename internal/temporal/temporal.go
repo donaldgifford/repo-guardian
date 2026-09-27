@@ -161,7 +161,10 @@ func Dial(ctx context.Context, cfg *Config, opts DialOptions) (client.Client, er
 
 	if opts.MeterProvider != nil {
 		co.MetricsHandler = otelcontrib.NewMetricsHandler(otelcontrib.MetricsHandlerOptions{
-			Meter: opts.MeterProvider.Meter("temporal-sdk-go"),
+			Meter: opts.MeterProvider.Meter(SDKMeterName),
+			// Monotonic, so SDK counters export as Prometheus counters
+			// (_total, reset-aware rate()) rather than gauges.
+			UseMonotonicCounters: true,
 			// The contrib default panics on a meter error; a metrics
 			// fault must never take a worker down.
 			OnError: func(err error) { logger.Warn("temporal: SDK metric error", "error", err) },

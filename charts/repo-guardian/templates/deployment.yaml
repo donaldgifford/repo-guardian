@@ -3,6 +3,7 @@
 {{- include "repo-guardian.validateBackendSecrets" . -}}
 {{- include "repo-guardian.validateRemovedValues" . -}}
 {{- include "repo-guardian.validateRoles" . -}}
+{{- include "repo-guardian.validateTemporalAuth" . -}}
 {{- include "repo-guardian.validateUI" . -}}
 {{- range $role := splitList " " (include "repo-guardian.roles" .) }}
 {{- $r := dict "ctx" $ "role" $role }}
@@ -181,6 +182,16 @@ spec:
               mountPath: /etc/repo-guardian/temporal-tls
               readOnly: true
             {{- end }}
+            {{- if and (include "repo-guardian.roleDialsTemporal" $r) $v.temporal.tls.caSecret }}
+            - name: temporal-ca
+              mountPath: /etc/repo-guardian/temporal-ca
+              readOnly: true
+            {{- end }}
+            {{- if and (include "repo-guardian.roleDialsTemporal" $r) $v.temporal.auth.oidc.tokenUrl }}
+            - name: temporal-oidc
+              mountPath: /etc/repo-guardian/temporal-oidc
+              readOnly: true
+            {{- end }}
             {{- if include "repo-guardian.roleReadsPolicy" $r }}
             - name: templates
               mountPath: /etc/repo-guardian/templates
@@ -228,6 +239,22 @@ spec:
         - name: temporal-tls
           secret:
             secretName: {{ $v.temporal.tls.existingSecret }}
+        {{- end }}
+        {{- if and (include "repo-guardian.roleDialsTemporal" $r) $v.temporal.tls.caSecret }}
+        - name: temporal-ca
+          secret:
+            secretName: {{ $v.temporal.tls.caSecret }}
+            items:
+              - key: ca.crt
+                path: ca.crt
+        {{- end }}
+        {{- if and (include "repo-guardian.roleDialsTemporal" $r) $v.temporal.auth.oidc.tokenUrl }}
+        - name: temporal-oidc
+          secret:
+            secretName: {{ $v.temporal.auth.oidc.existingSecret }}
+            items:
+              - key: client-secret
+                path: client-secret
         {{- end }}
         {{- if include "repo-guardian.roleReadsPolicy" $r }}
         - name: templates

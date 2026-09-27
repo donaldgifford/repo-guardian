@@ -82,7 +82,7 @@ attempt and produce confusing behavior at runtime.
 Returns a space-separated string for has-element style checks.
 */}}
 {{- define "repo-guardian.reservedEnvVars" -}}
-GITHUB_APP_ID GITHUB_WEBHOOK_SECRET GITHUB_PRIVATE_KEY GITHUB_PRIVATE_KEY_PATH LISTEN_ADDR METRICS_ADDR LOG_LEVEL DRY_RUN SKIP_FORKS SKIP_ARCHIVED AUTO_CLOSE_PR ORPHAN_CLEANUP TEMPLATE_DIR GUARDIAN_CONFIG STRICT_TEMPLATES TEMPORAL_ADDRESS TEMPORAL_NAMESPACE TEMPORAL_TASK_QUEUE TEMPORAL_TLS_CERT_PATH TEMPORAL_TLS_KEY_PATH TEMPORAL_TLS_CA_PATH TEMPORAL_TLS_SERVER_NAME TEMPORAL_BUILD_ID WORKER_ACTIVITY_CONCURRENCY CHECK_INTERVAL POLICY_ROLLOUT_WINDOW CHECKS_RETENTION DISCOVERY_ENABLED DISCOVERY_INTERVAL COMPLIANCE_SNAPSHOT_INTERVAL STORE_DSN STORE_POSTGRES_MAX_CONNS POSTGRES_PASSWORD STORE_RO_DSN RO_PASSWORD RECONCILE_FRESHNESS API_LISTEN_ADDR API_AUTH_ENABLED OIDC_ISSUER OIDC_AUDIENCE OIDC_NAME_CLAIM OIDC_GROUPS_CLAIM API_AUTHZ_CONFIG PR_STALE_AFTER STATUS_PUBLIC
+GITHUB_APP_ID GITHUB_WEBHOOK_SECRET GITHUB_PRIVATE_KEY GITHUB_PRIVATE_KEY_PATH LISTEN_ADDR METRICS_ADDR LOG_LEVEL DRY_RUN SKIP_FORKS SKIP_ARCHIVED AUTO_CLOSE_PR ORPHAN_CLEANUP TEMPLATE_DIR GUARDIAN_CONFIG STRICT_TEMPLATES TEMPORAL_ADDRESS TEMPORAL_NAMESPACE TEMPORAL_TASK_QUEUE TEMPORAL_TLS_CERT_PATH TEMPORAL_TLS_KEY_PATH TEMPORAL_TLS_CA_PATH TEMPORAL_TLS_SERVER_NAME TEMPORAL_TLS_DISABLED TEMPORAL_OIDC_TOKEN_URL TEMPORAL_OIDC_CLIENT_ID TEMPORAL_OIDC_CLIENT_SECRET_PATH TEMPORAL_OIDC_SCOPES TEMPORAL_OIDC_AUDIENCE TEMPORAL_BUILD_ID WORKER_ACTIVITY_CONCURRENCY CHECK_INTERVAL POLICY_ROLLOUT_WINDOW CHECKS_RETENTION DISCOVERY_ENABLED DISCOVERY_INTERVAL COMPLIANCE_SNAPSHOT_INTERVAL STORE_DSN STORE_POSTGRES_MAX_CONNS POSTGRES_PASSWORD STORE_RO_DSN RO_PASSWORD RECONCILE_FRESHNESS API_LISTEN_ADDR API_AUTH_ENABLED OIDC_ISSUER OIDC_AUDIENCE OIDC_NAME_CLAIM OIDC_GROUPS_CLAIM API_AUTHZ_CONFIG PR_STALE_AFTER STATUS_PUBLIC
 {{- end }}
 
 {{/*
@@ -328,18 +328,70 @@ Temporal connection env (TEMPORAL_*) and, with mTLS, the mounted paths.
   value: {{ .Values.temporal.namespace | quote }}
 - name: TEMPORAL_TASK_QUEUE
   value: {{ .Values.temporal.taskQueue | quote }}
-{{- with .Values.temporal.tls.existingSecret }}
+{{- $tls := .Values.temporal.tls }}
+{{- $oidc := .Values.temporal.auth.oidc }}
+{{- if $tls.existingSecret }}
 - name: TEMPORAL_TLS_CERT_PATH
   value: /etc/repo-guardian/temporal-tls/tls.crt
 - name: TEMPORAL_TLS_KEY_PATH
   value: /etc/repo-guardian/temporal-tls/tls.key
 - name: TEMPORAL_TLS_CA_PATH
   value: /etc/repo-guardian/temporal-tls/ca.crt
-{{- with $.Values.temporal.tls.serverName }}
+{{- else if $tls.caSecret }}
+- name: TEMPORAL_TLS_CA_PATH
+  value: /etc/repo-guardian/temporal-ca/ca.crt
+{{- end }}
+{{- if and $tls.serverName (or $tls.existingSecret $oidc.tokenUrl) }}
 - name: TEMPORAL_TLS_SERVER_NAME
+  value: {{ $tls.serverName | quote }}
+{{- end }}
+{{- if $tls.disabled }}
+- name: TEMPORAL_TLS_DISABLED
+  value: "true"
+{{- end }}
+{{- if $oidc.tokenUrl }}
+- name: TEMPORAL_OIDC_TOKEN_URL
+  value: {{ $oidc.tokenUrl | quote }}
+- name: TEMPORAL_OIDC_CLIENT_ID
+  value: {{ $oidc.clientId | quote }}
+- name: TEMPORAL_OIDC_CLIENT_SECRET_PATH
+  value: /etc/repo-guardian/temporal-oidc/client-secret
+{{- with $oidc.scopes }}
+- name: TEMPORAL_OIDC_SCOPES
+  value: {{ join " " . | quote }}
+{{- end }}
+{{- with $oidc.audience }}
+- name: TEMPORAL_OIDC_AUDIENCE
   value: {{ . | quote }}
 {{- end }}
 {{- end }}
+{{- end }}
+
+{{/*
+Render guards for Temporal auth and TLS: each combination the binary
+would refuse at startup (or silently misapply) fails here instead.
+*/}}
+{{- define "repo-guardian.validateTemporalAuth" -}}
+{{- $tls := .Values.temporal.tls -}}
+{{- $oidc := .Values.temporal.auth.oidc -}}
+{{- if and (not $oidc.tokenUrl) (or $oidc.clientId $oidc.existingSecret $oidc.scopes $oidc.audience) -}}
+{{- fail "temporal.auth.oidc.tokenUrl is required when any other temporal.auth.oidc value is set" -}}
+{{- end -}}
+{{- if and $oidc.tokenUrl (not (and $oidc.clientId $oidc.existingSecret)) -}}
+{{- fail "temporal.auth.oidc needs clientId and existingSecret (with key client-secret) alongside tokenUrl" -}}
+{{- end -}}
+{{- if and $tls.disabled (or $tls.existingSecret $tls.caSecret $tls.serverName) -}}
+{{- fail "temporal.tls.disabled contradicts temporal.tls.existingSecret, caSecret and serverName" -}}
+{{- end -}}
+{{- if and $tls.caSecret $tls.existingSecret -}}
+{{- fail "temporal.tls.caSecret and temporal.tls.existingSecret are exclusive: put ca.crt in existingSecret for mTLS" -}}
+{{- end -}}
+{{- if and $tls.caSecret (not $oidc.tokenUrl) -}}
+{{- fail "temporal.tls.caSecret is for temporal.auth.oidc (server-verified TLS without a client certificate); for mTLS use temporal.tls.existingSecret" -}}
+{{- end -}}
+{{- if and $oidc.tokenUrl .Values.worker.keda.enabled -}}
+{{- fail "worker.keda.enabled cannot be combined with temporal.auth.oidc: KEDA's temporal trigger cannot mint OIDC tokens" -}}
+{{- end -}}
 {{- end }}
 
 {{/*

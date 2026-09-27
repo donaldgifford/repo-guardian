@@ -33,7 +33,10 @@ PR identity, so v2 picks up where v1 stopped. Designs:
   for repo-guardian (default `repo-guardian`). `contrib/temporal/` pins
   a tested install. Set `temporal.address`. For mTLS, also set
   `temporal.tls.existingSecret` (`tls.crt`, `tls.key`, optionally
-  `ca.crt`).
+  `ca.crt`). For a frontend that authorizes JWTs (Keycloak), set
+  `temporal.auth.oidc.{tokenUrl, clientId, existingSecret}` instead,
+  plus `temporal.tls.caSecret` if its certificate comes from a private
+  CA.
 - **`guardian.hcl` edited.** Remove `worker_count`, `queue_size` and
   `schedule_interval` from `guardian {}`. v2 fails to load a policy that
   still sets them.

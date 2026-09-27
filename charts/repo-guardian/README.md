@@ -93,9 +93,22 @@ Chart 2.0.0 runs repo-guardian as roles on Temporal (DESIGN-0026).
 
 Each role holds only what it needs: the GitHub App key goes to
 `worker` and `all`, the webhook secret to `ingest` and `all`, the
-Temporal mTLS Secret (`temporal.tls.existingSecret`) to every role
-that dials Temporal, and `api` gets a read-only database login and
-nothing else.
+Temporal credentials to every role that dials Temporal, and `api`
+gets a read-only database login and nothing else.
+
+Temporal authenticates one of two ways:
+
+- **mTLS:** `temporal.tls.existingSecret` holds `tls.crt`, `tls.key`
+  and optionally `ca.crt`.
+- **OIDC bearer token** (Keycloak and the like):
+  `temporal.auth.oidc.{tokenUrl, clientId, existingSecret}` runs an
+  OAuth2 client-credentials grant, with the client secret mounted from
+  the Secret's `client-secret` key. The token is cached and renewed a
+  minute before expiry. The frontend is verified over TLS, against
+  `temporal.tls.caSecret` (`ca.crt` only) or the system roots.
+  `temporal.tls.disabled: true` allows a plaintext frontend, but the
+  token is then readable on the wire. KEDA's temporal trigger cannot use
+  OIDC, so `worker.keda.enabled` is refused alongside it.
 
 The store is still Postgres, in one of three modes:
 
@@ -186,6 +199,9 @@ For Postgres schema operations, see
   `RepoGuardianTemporalWorkerSlotsExhausted` and
   `RepoGuardianTemporalStickyCacheEvictions`, tunable under
   `prometheusRule.alerts.<name without the RepoGuardian prefix>`.
+- **Temporal OIDC auth.** New `temporal.auth.oidc.*`,
+  `temporal.tls.caSecret` and `temporal.tls.disabled` values (see
+  *Choosing a deployment shape*). Nothing changes unless they are set.
 - **`prometheusRule.alerts.<name>.enabled: false` now works.** Earlier
   charts ignored it for every alert (sprig's `default` turned `false`
   into `true`).
@@ -673,10 +689,18 @@ incoming webhook.
 | templating | object | `{"strict":false,"vars":{}}` | Templating configuration: env-var injection and strict-mode validation.  `templating.vars` exposes arbitrary environment variables to the binary's `env "VAR"` template helper. Values flow through to the Deployment's container env list; they are NOT secrets — use `secrets.*` or `extraEnv` (with valueFrom: secretKeyRef) for secret material. The chart rejects keys that collide with chart-managed env vars (GITHUB_APP_ID, WEBHOOK_SECRET, etc).  `templating.strict` toggles `STRICT_TEMPLATES=true` on the Deployment. When enabled the binary validates every compiled PR template against a zero-value PRVars context at startup and fails fast on missing-field references. |
 | templating.strict | bool | `false` | Enable startup-time strict validation of compiled PR templates (sets STRICT_TEMPLATES=true on the Deployment). |
 | templating.vars | object | `{}` | Map of env-var key to value. Keys must not collide with chart-managed env vars; the chart fails template rendering on collisions. |
-| temporal | object | `{"address":"","namespace":"repo-guardian","taskQueue":"repo-guardian","tls":{"existingSecret":"","serverName":""}}` | Temporal connection. Every role that dials Temporal (ingest, worker, all) gets these; api never does. |
+| temporal | object | `{"address":"","auth":{"oidc":{"audience":"","clientId":"","existingSecret":"","scopes":[],"tokenUrl":""}},"namespace":"repo-guardian","taskQueue":"repo-guardian","tls":{"caSecret":"","disabled":false,"existingSecret":"","serverName":""}}` | Temporal connection. Every role that dials Temporal (ingest, worker, all) gets these; api never does. |
 | temporal.address | string | `""` | Frontend `host:port`. Required. |
+| temporal.auth.oidc | object | `{"audience":"","clientId":"","existingSecret":"","scopes":[],"tokenUrl":""}` | Authenticate with a bearer token from an OAuth2 client-credentials grant (Keycloak and the like) instead of mTLS. The token is cached and renewed a minute before it expires. KEDA's temporal trigger cannot mint these, so it is refused with `worker.keda.enabled`. |
+| temporal.auth.oidc.audience | string | `""` | `audience` parameter, for IdPs that take one. Keycloak sets the audience with a client-scope mapper instead. |
+| temporal.auth.oidc.clientId | string | `""` | OAuth2 client ID. |
+| temporal.auth.oidc.existingSecret | string | `""` | Secret holding the client secret under `client-secret`. Mounted as a file, never an env var. |
+| temporal.auth.oidc.scopes | list | `[]` | Scopes to request. |
+| temporal.auth.oidc.tokenUrl | string | `""` | The IdP's token endpoint, e.g. `https://keycloak/realms/<realm>/protocol/openid-connect/token`. |
 | temporal.namespace | string | `"repo-guardian"` | Temporal namespace. |
 | temporal.taskQueue | string | `"repo-guardian"` | Task queue the worker polls and ingest signals through. |
+| temporal.tls.caSecret | string | `""` | Secret with only `ca.crt`: verify the frontend's certificate without presenting one, for `auth.oidc` against a private CA. Empty with OIDC uses the system roots. |
+| temporal.tls.disabled | bool | `false` | Plaintext to the frontend (TEMPORAL_TLS_DISABLED). Only for a cluster-internal frontend that serves no TLS; with `auth.oidc` the bearer token is then readable on the wire, and the worker logs a warning. |
 | temporal.tls.existingSecret | string | `""` | Secret with `tls.crt`, `tls.key` and (optionally) `ca.crt` for mTLS. Mounted only into roles that dial Temporal. |
 | temporal.tls.serverName | string | `""` | Server name to verify the frontend certificate against. |
 | tolerations | list | `[]` | Tolerations |

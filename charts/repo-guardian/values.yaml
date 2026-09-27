@@ -115,6 +115,35 @@ temporal:
     existingSecret: ""
     # -- Server name to verify the frontend certificate against.
     serverName: ""
+    # -- Secret with only `ca.crt`: verify the frontend's certificate
+    # without presenting one, for `auth.oidc` against a private CA.
+    # Empty with OIDC uses the system roots.
+    caSecret: ""
+    # -- Plaintext to the frontend (TEMPORAL_TLS_DISABLED). Only for a
+    # cluster-internal frontend that serves no TLS; with `auth.oidc`
+    # the bearer token is then readable on the wire, and the worker
+    # logs a warning.
+    disabled: false
+  auth:
+    # -- Authenticate with a bearer token from an OAuth2
+    # client-credentials grant (Keycloak and the like) instead of mTLS.
+    # The token is cached and renewed a minute before it expires.
+    # KEDA's temporal trigger cannot mint these, so it is refused with
+    # `worker.keda.enabled`.
+    oidc:
+      # -- The IdP's token endpoint, e.g.
+      # `https://keycloak/realms/<realm>/protocol/openid-connect/token`.
+      tokenUrl: ""
+      # -- OAuth2 client ID.
+      clientId: ""
+      # -- Secret holding the client secret under `client-secret`.
+      # Mounted as a file, never an env var.
+      existingSecret: ""
+      # -- Scopes to request.
+      scopes: []
+      # -- `audience` parameter, for IdPs that take one. Keycloak sets
+      # the audience with a client-scope mapper instead.
+      audience: ""
 
 # -- Each repository's check cadence (Go duration).
 checkInterval: "24h"

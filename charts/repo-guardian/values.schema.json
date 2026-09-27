@@ -128,6 +128,40 @@
             },
             "serverName": {
               "type": "string"
+            },
+            "caSecret": {
+              "type": "string"
+            },
+            "disabled": {
+              "type": "boolean"
+            }
+          }
+        },
+        "auth": {
+          "type": "object",
+          "properties": {
+            "oidc": {
+              "type": "object",
+              "properties": {
+                "tokenUrl": {
+                  "type": "string"
+                },
+                "clientId": {
+                  "type": "string"
+                },
+                "existingSecret": {
+                  "type": "string"
+                },
+                "scopes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "audience": {
+                  "type": "string"
+                }
+              }
             }
           }
         }

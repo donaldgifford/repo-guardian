@@ -93,9 +93,22 @@ Chart 2.0.0 runs repo-guardian as roles on Temporal (DESIGN-0026).
 
 Each role holds only what it needs: the GitHub App key goes to
 `worker` and `all`, the webhook secret to `ingest` and `all`, the
-Temporal mTLS Secret (`temporal.tls.existingSecret`) to every role
-that dials Temporal, and `api` gets a read-only database login and
-nothing else.
+Temporal credentials to every role that dials Temporal, and `api`
+gets a read-only database login and nothing else.
+
+Temporal authenticates one of two ways:
+
+- **mTLS:** `temporal.tls.existingSecret` holds `tls.crt`, `tls.key`
+  and optionally `ca.crt`.
+- **OIDC bearer token** (Keycloak and the like):
+  `temporal.auth.oidc.{tokenUrl, clientId, existingSecret}` runs an
+  OAuth2 client-credentials grant, with the client secret mounted from
+  the Secret's `client-secret` key. The token is cached and renewed a
+  minute before expiry. The frontend is verified over TLS, against
+  `temporal.tls.caSecret` (`ca.crt` only) or the system roots.
+  `temporal.tls.disabled: true` allows a plaintext frontend, but the
+  token is then readable on the wire. KEDA's temporal trigger cannot use
+  OIDC, so `worker.keda.enabled` is refused alongside it.
 
 The store is still Postgres, in one of three modes:
 
@@ -186,6 +199,9 @@ For Postgres schema operations, see
   `RepoGuardianTemporalWorkerSlotsExhausted` and
   `RepoGuardianTemporalStickyCacheEvictions`, tunable under
   `prometheusRule.alerts.<name without the RepoGuardian prefix>`.
+- **Temporal OIDC auth.** New `temporal.auth.oidc.*`,
+  `temporal.tls.caSecret` and `temporal.tls.disabled` values (see
+  *Choosing a deployment shape*). Nothing changes unless they are set.
 - **`prometheusRule.alerts.<name>.enabled: false` now works.** Earlier
   charts ignored it for every alert (sprig's `default` turned `false`
   into `true`).

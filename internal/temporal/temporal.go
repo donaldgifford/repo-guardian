@@ -245,10 +245,17 @@ func Dial(ctx context.Context, cfg *Config, opts DialOptions) (client.Client, er
 
 // CheckServerVersion fails with ErrServerTooOld when the cluster runs a
 // server older than minVersion ("1.31.0" form).
+//
+// It reads GetSystemInfo, not GetClusterInfo. Both carry the server
+// version, but a JWT-authorizing frontend treats GetClusterInfo as
+// cluster-scoped and admits only a temporal-system role, which a
+// namespace-scoped worker never holds: rc.2 crash-looped on "Request
+// unauthorized" there. GetSystemInfo is on the authorizer's
+// always-allowed list, and the SDK already calls it to connect.
 func CheckServerVersion(ctx context.Context, c client.Client, minVersion string) error {
-	info, err := c.WorkflowService().GetClusterInfo(ctx, &workflowservice.GetClusterInfoRequest{})
+	info, err := c.WorkflowService().GetSystemInfo(ctx, &workflowservice.GetSystemInfoRequest{})
 	if err != nil {
-		return fmt.Errorf("temporal: reading cluster info: %w", err)
+		return fmt.Errorf("temporal: reading system info: %w", err)
 	}
 
 	got := info.GetServerVersion()

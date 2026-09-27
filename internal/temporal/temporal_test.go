@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	"google.golang.org/grpc"
@@ -209,10 +210,19 @@ type fakeService struct {
 	version string
 }
 
-func (f fakeService) GetClusterInfo(
+func (f fakeService) GetSystemInfo(
+	context.Context, *workflowservice.GetSystemInfoRequest, ...grpc.CallOption,
+) (*workflowservice.GetSystemInfoResponse, error) {
+	return &workflowservice.GetSystemInfoResponse{ServerVersion: f.version}, nil
+}
+
+// GetClusterInfo answers the way a JWT-authorizing 1.32 frontend does
+// for a namespace-scoped caller, so a regression to it fails the test
+// the way it failed rc.2 in the homelab.
+func (fakeService) GetClusterInfo(
 	context.Context, *workflowservice.GetClusterInfoRequest, ...grpc.CallOption,
 ) (*workflowservice.GetClusterInfoResponse, error) {
-	return &workflowservice.GetClusterInfoResponse{ServerVersion: f.version}, nil
+	return nil, serviceerror.NewPermissionDenied("Request unauthorized.", "")
 }
 
 func (f *fakeClient) WorkflowService() workflowservice.WorkflowServiceClient {

@@ -57,8 +57,8 @@ and on() (` + trackedTotal + ` > 0)`
 // compliance number needs to know, on the same screen, whether the
 // thing producing it is running. Everything else service-shaped lives
 // on E3.
-func e1KPI(_ *monitoring.Model, ds Datasources) Dashboard {
-	b := New("repo-guardian-kpi", "repo-guardian — KPI",
+func e1KPI(_ *monitoring.Model, ds Datasources, id Identity) Dashboard {
+	b := New(id.slug(kindKPI), id.title(labelKPI),
 		"Fleet compliance posture and the health of the service that measures it.",
 		[]string{tagProject, tagGenerated})
 
@@ -108,12 +108,7 @@ func e1KPI(_ *monitoring.Model, ds Datasources) Dashboard {
 				"stays open by design and will show up here.",
 			unitShort, Query{Expr: `sum(max by (org, rule) (repo_guardian_open_prs_by_rule{age_bucket="30d+"}))`}))
 
-	return Dashboard{
-		Slug:    "repo-guardian-kpi",
-		Title:   "repo-guardian — KPI",
-		Folder:  GrafanaFolder,
-		Builder: withServiceHealth(b, ds),
-	}
+	return id.dashboard(kindKPI, labelKPI, withServiceHealth(b, ds))
 }
 
 // withServiceHealth adds the "is the thing that measures this actually

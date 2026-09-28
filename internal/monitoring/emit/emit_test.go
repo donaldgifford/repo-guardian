@@ -399,3 +399,148 @@ func TestGenerate_IsDeterministic(t *testing.T) {
 		}
 	}
 }
+
+// TestGenerate_TwoNamesAreDisjoint pins issue #192: two installs
+// generated into one Grafana must not overwrite each other, so their CR
+// names, dashboard uids and titles must share nothing.
+func TestGenerate_TwoNamesAreDisjoint(t *testing.T) {
+	t.Parallel()
+
+	type ident struct{ name, uid, title, folder string }
+
+	render := func(name, folder string) []ident {
+		t.Helper()
+
+		m := modelWith(monitoring.MechanismFileRules)
+		suite := dashboard.Suite(m, dashboard.Datasources{}.WithDefaults(), dashboard.Identity{Name: name, Folder: folder})
+
+		opts := k8sOptions()
+		opts.Name = name
+
+		artifacts, err := emit.Generate(m, suite, opts)
+		if err != nil {
+			t.Fatalf("Generate(%s) = %v, want nil", name, err)
+		}
+
+		var out []ident
+
+		for i := range artifacts {
+			if !strings.HasPrefix(artifacts[i].Path, "dashboards/") {
+				continue
+			}
+
+			var cr struct {
+				Metadata struct{ Name string }
+				Spec     struct {
+					Folder string
+					JSON   string `yaml:"json"`
+				}
+			}
+
+			if err := yaml.Unmarshal(artifacts[i].Content, &cr); err != nil {
+				t.Fatalf("%s is not YAML: %v", artifacts[i].Path, err)
+			}
+
+			var d struct{ UID, Title string }
+			if err := json.Unmarshal([]byte(cr.Spec.JSON), &d); err != nil {
+				t.Fatalf("%s: spec.json is not JSON: %v", artifacts[i].Path, err)
+			}
+
+			out = append(out, ident{cr.Metadata.Name, d.UID, d.Title, cr.Spec.Folder})
+		}
+
+		if len(out) != len(suite) {
+			t.Fatalf("%s: rendered %d dashboards, want %d", name, len(out), len(suite))
+		}
+
+		return out
+	}
+
+	prod := render("repo-guardian", "")
+	dev := render("repo-guardian-dev", "RepoGuardian")
+
+	seen := map[string]bool{}
+	for _, d := range prod {
+		seen[d.name], seen[d.uid], seen[d.title] = true, true, true
+	}
+
+	for _, d := range dev {
+		for _, v := range []string{d.name, d.uid, d.title} {
+			if seen[v] {
+				t.Errorf("%q appears in both installs' output", v)
+			}
+		}
+
+		if d.name != d.uid || !strings.HasPrefix(d.name, "repo-guardian-dev-") {
+			t.Errorf("dev dashboard name %q / uid %q, want equal and prefixed repo-guardian-dev-", d.name, d.uid)
+		}
+
+		if !strings.HasPrefix(d.title, "repo-guardian-dev — ") {
+			t.Errorf("dev dashboard title %q, want prefixed with the name", d.title)
+		}
+
+		if d.folder != "RepoGuardian" {
+			t.Errorf("dev dashboard folder %q, want RepoGuardian", d.folder)
+		}
+	}
+
+	if prod[0].folder != dashboard.GrafanaFolder {
+		t.Errorf("default folder %q, want %q", prod[0].folder, dashboard.GrafanaFolder)
+	}
+}
+
+// TestGenerate_NameTooLongForAGrafanaUID pins the refusal: Grafana caps
+// uids at 40 characters, and silently truncating could collide two
+// installs again.
+func TestGenerate_NameTooLongForAGrafanaUID(t *testing.T) {
+	t.Parallel()
+
+	m := modelWith()
+	suite := dashboard.Suite(m, dashboard.Datasources{}.WithDefaults(),
+		dashboard.Identity{Name: "repo-guardian-a-very-long-install-name"})
+
+	_, err := emit.Generate(m, suite, k8sOptions())
+	if err == nil || !strings.Contains(err.Error(), "uid limit") {
+		t.Fatalf("Generate() = %v, want the uid-limit refusal", err)
+	}
+}
+
+// TestGenerate_PrometheusSelectorScopesAlerts checks the manifest, not
+// just the scoper: the selector has to survive into the rendered rules.
+func TestGenerate_PrometheusSelectorScopesAlerts(t *testing.T) {
+	t.Parallel()
+
+	const sel = `namespace="repo-guardian-dev"`
+
+	artifacts, err := emit.Generate(modelWith(monitoring.MechanismFileRules), nil,
+		&emit.Options{Format: emit.FormatJSON, PrometheusSelector: sel})
+	if err != nil {
+		t.Fatalf("Generate() = %v, want nil", err)
+	}
+
+	var doc struct {
+		Groups []struct {
+			Rules []struct{ Alert, Expr string }
+		}
+	}
+
+	if err := yaml.Unmarshal(find(t, artifacts, "alerts/rules.yaml"), &doc); err != nil {
+		t.Fatalf("rules.yaml is not YAML: %v", err)
+	}
+
+	n := 0
+
+	for _, g := range doc.Groups {
+		for _, r := range g.Rules {
+			n++
+
+			if !strings.Contains(r.Expr, "{"+sel) {
+				t.Errorf("%s is not scoped: %s", r.Alert, r.Expr)
+			}
+		}
+	}
+
+	if n == 0 {
+		t.Fatal("no rules rendered; the check would pass vacuously")
+	}
+}

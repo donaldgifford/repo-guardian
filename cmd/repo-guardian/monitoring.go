@@ -123,9 +123,11 @@ type generateFlags struct {
 	prometheusUID string
 	lokiUID       string
 	lokiSelector  string
+	promSelector  string
 
 	namespace        string
 	name             string
+	folder           string
 	instanceSelector labelMap
 	labels           labelMap
 	crossNamespace   bool
@@ -155,8 +157,14 @@ func parseGenerateFlags(args []string) (*generateFlags, error) {
 	fs.StringVar(&f.lokiSelector, "loki-selector", dashboard.DefaultLogStream,
 		"Loki stream selector matching repo-guardian's logs, without braces, e.g. job=\"ns/repo-guardian\"")
 
+	fs.StringVar(&f.promSelector, "prometheus-selector", "",
+		"label matchers, without braces, added to every PromQL series selector in the dashboards and alerts, "+
+			"e.g. namespace=\"repo-guardian\"; needed when the Prometheus holds more than one repo-guardian")
+
 	fs.StringVar(&f.namespace, "namespace", "", "namespace to stamp on generated Kubernetes objects ("+formatK8s+" only)")
-	fs.StringVar(&f.name, "name", emit.DefaultName, "base name for generated Kubernetes objects ("+formatK8s+" only)")
+	fs.StringVar(&f.name, "name", emit.DefaultName,
+		"base name for generated objects: prefixes each dashboard's uid, title and CR name, and names the PrometheusRule")
+	fs.StringVar(&f.folder, "folder", dashboard.GrafanaFolder, "Grafana folder the dashboards are filed under ("+formatK8s+" only)")
 	fs.Var(f.instanceSelector, "instance-selector",
 		"key=value matchLabels naming the Grafana instance to file dashboards into, repeatable ("+formatK8s+" only)")
 	fs.Var(f.labels, "label", "key=value label to add to every generated object, repeatable ("+formatK8s+" only)")
@@ -175,6 +183,10 @@ func parseGenerateFlags(args []string) (*generateFlags, error) {
 	// config file happens to say first.
 	if f.format != formatJSON && f.format != formatK8s {
 		return nil, fmt.Errorf("unknown --format %q; want %s or %s", f.format, formatJSON, formatK8s)
+	}
+
+	if err := monitoring.ValidateMatchers(f.promSelector); err != nil {
+		return nil, fmt.Errorf("--prometheus-selector: %w", err)
 	}
 
 	return f, nil
@@ -207,13 +219,17 @@ func runMonitoringGenerate(args []string) error {
 	warnUndeclarableOrgs(model, logger)
 
 	ds := dashboard.Datasources{
-		Prometheus: f.prometheusUID,
-		Loki:       f.lokiUID,
-		LogStream:  f.lokiSelector,
+		Prometheus:         f.prometheusUID,
+		Loki:               f.lokiUID,
+		LogStream:          f.lokiSelector,
+		PrometheusSelector: f.promSelector,
 	}.WithDefaults()
 
-	artifacts, err := emit.Generate(model, dashboard.Suite(model, ds), &emit.Options{
+	suite := dashboard.Suite(model, ds, dashboard.Identity{Name: f.name, Folder: f.folder})
+
+	artifacts, err := emit.Generate(model, suite, &emit.Options{
 		Format:                    f.format,
+		PrometheusSelector:        f.promSelector,
 		Name:                      f.name,
 		Namespace:                 f.namespace,
 		Labels:                    f.labels,

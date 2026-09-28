@@ -39,7 +39,7 @@ func strictModel() *monitoring.Model {
 func findDashboard(t *testing.T, m *monitoring.Model) map[string]any {
 	t.Helper()
 
-	suite := dashboard.Suite(m, dashboard.Datasources{}.WithDefaults())
+	suite := dashboard.Suite(m, dashboard.Datasources{}.WithDefaults(), dashboard.Identity{})
 
 	const slug = "repo-guardian-detail"
 

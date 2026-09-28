@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -36,9 +37,16 @@ type panelTarget struct {
 func suiteTargets(t *testing.T, m *monitoring.Model) []panelTarget {
 	t.Helper()
 
+	return suiteTargetsWith(t, m, dashboard.Datasources{}.WithDefaults())
+}
+
+// suiteTargetsWith extracts every query in the suite built against ds.
+func suiteTargetsWith(t *testing.T, m *monitoring.Model, ds dashboard.Datasources) []panelTarget {
+	t.Helper()
+
 	var out []panelTarget
 
-	suite := dashboard.Suite(m, dashboard.Datasources{}.WithDefaults())
+	suite := dashboard.Suite(m, ds, dashboard.Identity{})
 
 	for i := range suite {
 		d := &suite[i]
@@ -155,6 +163,13 @@ func TestSuite_EveryPanelQueryParses(t *testing.T) {
 		t.Skip("the suite has no panels yet; nothing to parse")
 	}
 
+	promtoolCheck(t, bin, targets)
+}
+
+// promtoolCheck parses every target's expression with promtool.
+func promtoolCheck(t *testing.T, bin string, targets []panelTarget) {
+	t.Helper()
+
 	var b strings.Builder
 
 	b.WriteString("groups:\n  - name: dashboard-panels\n    rules:\n")
@@ -246,7 +261,7 @@ func TestSuite_LeaderGaugesAreNotSummed(t *testing.T) {
 func TestSuite_EveryPanelIsDescribed(t *testing.T) {
 	t.Parallel()
 
-	suite := dashboard.Suite(strictModel(), dashboard.Datasources{}.WithDefaults())
+	suite := dashboard.Suite(strictModel(), dashboard.Datasources{}.WithDefaults(), dashboard.Identity{})
 
 	for i := range suite {
 		d := &suite[i]
@@ -277,5 +292,99 @@ func TestSuite_EveryPanelIsDescribed(t *testing.T) {
 				t.Errorf("%s: panel %q has no description", d.Slug, p.Title)
 			}
 		}
+	}
+}
+
+// testSelector is a two-matcher scope, so a splice that keeps only the
+// first matcher or drops the comma shows up.
+const testSelector = `namespace="repo-guardian-dev", job!="other"`
+
+// seriesName matches every metric the suite charts, and nothing that is
+// only a label name: `http_response_status_code` is a label, so the HTTP
+// pattern is anchored on the request-duration families. Independent of
+// the scoper's tokenizer on purpose — a test that reused its notion of
+// "metric" would agree with any bug in it.
+var seriesName = regexp.MustCompile(
+	`\b(repo_guardian_[a-z_]+|http_(?:server|client)_request_[a-z_]+|pgxpool_[a-z_]+|` +
+		`db_client_connections_[a-z_]+|go_goroutines|process_resident_memory_bytes|temporal_[a-z_]+)\b`)
+
+// TestSuite_PrometheusSelectorScopesEveryQuery pins issue #192: with a
+// selector set, no panel may read a series from another install.
+func TestSuite_PrometheusSelectorScopesEveryQuery(t *testing.T) {
+	t.Parallel()
+
+	ds := dashboard.Datasources{PrometheusSelector: testSelector}.WithDefaults()
+
+	targets := ofType(append(suiteTargetsWith(t, legacyModel(), ds), suiteTargetsWith(t, strictModel(), ds)...), dsPrometheus)
+	if len(targets) == 0 {
+		t.Fatal("the suite has no Prometheus panels; the scope check would pass vacuously")
+	}
+
+	seen := 0
+
+	for _, tgt := range targets {
+		for _, loc := range seriesName.FindAllStringIndex(tgt.Expr, -1) {
+			seen++
+
+			if rest := tgt.Expr[loc[1]:]; !strings.HasPrefix(rest, "{"+testSelector) {
+				t.Errorf("%s / %s: series %s is not scoped:\n%s",
+					tgt.Dashboard, tgt.Panel, tgt.Expr[loc[0]:loc[1]], tgt.Expr)
+			}
+		}
+	}
+
+	if seen < len(targets) {
+		t.Errorf("matched %d series across %d queries; the series pattern has fallen behind the suite", seen, len(targets))
+	}
+
+	if bin, err := exec.LookPath("promtool"); err == nil {
+		promtoolCheck(t, bin, targets)
+	}
+}
+
+// TestSuite_PrometheusSelectorScopesTheOrgVariable covers the one query
+// that is not a panel target.
+func TestSuite_PrometheusSelectorScopesTheOrgVariable(t *testing.T) {
+	t.Parallel()
+
+	ds := dashboard.Datasources{PrometheusSelector: testSelector}.WithDefaults()
+	want := `label_values(repo_guardian_repos_tracked{` + testSelector + `}, org)`
+
+	found := false
+
+	for _, d := range dashboard.Suite(legacyModel(), ds, dashboard.Identity{}) {
+		raw, err := dashboard.Render(d.Builder)
+		if err != nil {
+			t.Fatalf("Render(%s) = %v, want nil", d.Slug, err)
+		}
+
+		var decoded struct {
+			Templating struct {
+				List []struct {
+					Name  string `json:"name"`
+					Query any    `json:"query"`
+				} `json:"list"`
+			} `json:"templating"`
+		}
+
+		if err := json.Unmarshal(raw, &decoded); err != nil {
+			t.Fatalf("the rendered %s is not JSON: %v", d.Slug, err)
+		}
+
+		for _, v := range decoded.Templating.List {
+			if v.Name != "org" {
+				continue
+			}
+
+			found = true
+
+			if v.Query != want {
+				t.Errorf("%s: org variable query = %v, want %s", d.Slug, v.Query, want)
+			}
+		}
+	}
+
+	if !found {
+		t.Fatal("no dashboard declares the org variable for a model without declared orgs")
 	}
 }

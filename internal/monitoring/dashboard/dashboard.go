@@ -42,6 +42,8 @@ import (
 	"github.com/grafana/grafana-foundation-sdk/go/stat"
 	"github.com/grafana/grafana-foundation-sdk/go/table"
 	"github.com/grafana/grafana-foundation-sdk/go/timeseries"
+
+	"github.com/donaldgifford/repo-guardian/internal/monitoring"
 )
 
 // Datasource UIDs.
@@ -87,6 +89,18 @@ type Datasources struct {
 	// LogStream is the label matcher, without braces, that selects
 	// repo-guardian's log streams. See DefaultLogStream.
 	LogStream string
+
+	// PrometheusSelector is label matchers, without braces, added to
+	// every series selector on every Prometheus panel and variable, so a
+	// cluster running several repo-guardians (or anything else exporting
+	// the OTel HTTP semconv series) charts only this one. Empty leaves
+	// the queries unscoped.
+	PrometheusSelector string
+}
+
+// scope adds the Prometheus selector to a PromQL expression.
+func (d Datasources) scope(expr string) string {
+	return monitoring.ScopePromQL(expr, d.PrometheusSelector)
 }
 
 // WithDefaults fills empty fields with the defaults.
@@ -172,6 +186,7 @@ const noData = "no data"
 // Stat builds a single-value panel.
 func Stat(ds Datasources, title, description, unit string, q Query) *stat.PanelBuilder {
 	q.Instant = true
+	q.Expr = ds.scope(q.Expr)
 
 	return stat.NewPanelBuilder().
 		Title(title).
@@ -192,6 +207,7 @@ func TimeSeries(ds Datasources, title, description, unit string, queries ...Quer
 		NoValue(noData)
 
 	for _, q := range queries {
+		q.Expr = ds.scope(q.Expr)
 		b = b.WithTarget(q.target())
 	}
 
@@ -201,6 +217,7 @@ func TimeSeries(ds Datasources, title, description, unit string, queries ...Quer
 // Table builds a tabular panel.
 func Table(ds Datasources, title, description string, q Query) *table.PanelBuilder {
 	q.Instant = true
+	q.Expr = ds.scope(q.Expr)
 
 	return table.NewPanelBuilder().
 		Title(title).
@@ -284,11 +301,17 @@ func Row(title string) *sdk.RowBuilder {
 // including one with zero failures, whereas a counter only exists once
 // something has gone wrong. A variable driven by an event counter
 // would silently drop exactly the compliant orgs.
+//
+// Only the metric is scoped: label_values() takes a series selector and
+// a label name side by side, and ScopePromQL would read the label name
+// as a second metric.
 func OrgVariable(ds Datasources) *sdk.QueryVariableBuilder {
+	query := "label_values(" + ds.scope("repo_guardian_repos_tracked") + ", org)"
+
 	return sdk.NewQueryVariableBuilder("org").
 		Label("Organisation").
 		Datasource(ds.PrometheusRef()).
-		Query(sdk.StringOrMap{String: new("label_values(repo_guardian_repos_tracked, org)")}).
+		Query(sdk.StringOrMap{String: &query}).
 		Refresh(sdk.VariableRefreshOnTimeRangeChanged).
 		Sort(sdk.VariableSortAlphabeticalAsc).
 		Multi(true).

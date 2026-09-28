@@ -87,6 +87,12 @@ type Options struct {
 	// when repo-guardian and Grafana are deployed separately.
 	AllowCrossNamespaceImport bool
 
+	// PrometheusSelector is label matchers, without braces, added to
+	// every series selector in every alert expression. It must be the
+	// same selector the dashboards were built with, or the alerts and
+	// the panels would describe different fleets.
+	PrometheusSelector string
+
 	// ResyncPeriod re-applies the dashboard periodically so it
 	// self-heals against edits made in the Grafana UI. Empty leaves the
 	// operator's own default (10m0s).
@@ -182,6 +188,10 @@ func dashboardArtifacts(dashboards []dashboard.Dashboard, opts *Options) ([]Arti
 // finding-A failure this whole generator exists to prevent.
 func alertArtifact(m *monitoring.Model, opts *Options) (Artifact, error) {
 	kept, _ := alert.Generate(m)
+	for i := range kept {
+		kept[i].Expr = monitoring.ScopePromQL(kept[i].Expr, opts.PrometheusSelector)
+	}
+
 	groups := alert.Groups(kept)
 
 	if opts.Format == FormatJSON {

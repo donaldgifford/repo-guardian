@@ -17,8 +17,8 @@ const orgVar = "$org"
 // a per-org row of them would repeat the same number under every
 // heading and invite someone to read it as that org's share. They live
 // on E3.
-func e2Detail(m *monitoring.Model, ds Datasources) Dashboard {
-	b := New("repo-guardian-detail", "repo-guardian — detail",
+func e2Detail(m *monitoring.Model, ds Datasources, id Identity) Dashboard {
+	b := New(id.slug(kindDetail), id.title(labelDetail),
 		"Fleet aggregates and a section per organisation.",
 		[]string{tagProject, tagGenerated})
 
@@ -34,24 +34,14 @@ func e2Detail(m *monitoring.Model, ds Datasources) Dashboard {
 	b = withFleetSection(b, ds)
 
 	if len(orgs) == 0 {
-		return Dashboard{
-			Slug:    "repo-guardian-detail",
-			Title:   "repo-guardian — detail",
-			Folder:  GrafanaFolder,
-			Builder: withOrgSection(b, ds, orgVar, "Organisation: $org"),
-		}
+		return id.dashboard(kindDetail, labelDetail, withOrgSection(b, ds, orgVar, "Organisation: $org"))
 	}
 
 	for _, org := range orgs {
 		b = withOrgSection(b, ds, org, "Organisation: "+org)
 	}
 
-	return Dashboard{
-		Slug:    "repo-guardian-detail",
-		Title:   "repo-guardian — detail",
-		Folder:  GrafanaFolder,
-		Builder: b,
-	}
+	return id.dashboard(kindDetail, labelDetail, b)
 }
 
 // declarableOrgs returns the orgs a row can be generated for.

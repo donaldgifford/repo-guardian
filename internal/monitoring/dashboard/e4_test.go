@@ -63,7 +63,7 @@ func TestE4_EveryQueryStartsFromTheStreamSelector(t *testing.T) {
 
 	ds := dashboard.Datasources{LogStream: `job="platform/repo-guardian"`}.WithDefaults()
 
-	suite := dashboard.Suite(strictModel(), ds)
+	suite := dashboard.Suite(strictModel(), ds, dashboard.Identity{})
 
 	var found bool
 
@@ -190,7 +190,7 @@ func TestE4_IsModelIndependent(t *testing.T) {
 	render := func(m *monitoring.Model) string {
 		t.Helper()
 
-		suite := dashboard.Suite(m, dashboard.Datasources{}.WithDefaults())
+		suite := dashboard.Suite(m, dashboard.Datasources{}.WithDefaults(), dashboard.Identity{})
 
 		for i := range suite {
 			if suite[i].Slug != e4Slug {

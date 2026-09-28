@@ -28,8 +28,8 @@ const (
 // two carry different pool-name labels (`pool_name` versus
 // `db_client_connection_pool_name`). A panel built from the spec would
 // render empty and look like a quiet, healthy service.
-func e3System(_ *monitoring.Model, ds Datasources) Dashboard {
-	b := New("repo-guardian-system", "repo-guardian — system",
+func e3System(_ *monitoring.Model, ds Datasources, id Identity) Dashboard {
+	b := New(id.slug(kindSystem), id.title(labelSystem),
 		"Service and infrastructure health. No compliance numbers: those are E1's and E2's.",
 		[]string{tagProject, tagGenerated})
 
@@ -38,12 +38,7 @@ func e3System(_ *monitoring.Model, ds Datasources) Dashboard {
 	b = withStoreSection(b, ds)
 	b = withRuntimeSection(b, ds)
 
-	return Dashboard{
-		Slug:    "repo-guardian-system",
-		Title:   "repo-guardian — system",
-		Folder:  GrafanaFolder,
-		Builder: b,
-	}
+	return id.dashboard(kindSystem, labelSystem, b)
 }
 
 // withHTTPSection charts the semconv HTTP server and client.

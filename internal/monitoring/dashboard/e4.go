@@ -64,8 +64,8 @@ const maxLogLines = 200
 // the one input on these dashboards that cannot be verified from inside
 // this repository, so the first panel prints it: an empty E4 is far more
 // likely to be a label-scheme mismatch than a silent fleet.
-func e4Loki(_ *monitoring.Model, ds Datasources) Dashboard {
-	b := New("repo-guardian-logs", "repo-guardian — logs",
+func e4Loki(_ *monitoring.Model, ds Datasources, id Identity) Dashboard {
+	b := New(id.slug(kindLogs), id.title(labelLogs),
 		"Evidence tier: which repository, and why. Reads Loki, not Prometheus. "+
 			"If every panel is empty, check the stream selector before believing the silence.",
 		[]string{tagProject, tagGenerated})
@@ -76,12 +76,7 @@ func e4Loki(_ *monitoring.Model, ds Datasources) Dashboard {
 	b = withWebhookSection(b, ds)
 	b = withSweepLogSection(b, ds)
 
-	return Dashboard{
-		Slug:    "repo-guardian-logs",
-		Title:   "repo-guardian — logs",
-		Folder:  GrafanaFolder,
-		Builder: b,
-	}
+	return id.dashboard(kindLogs, labelLogs, b)
 }
 
 // withErrorSection charts the overall log shape.

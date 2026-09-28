@@ -52,8 +52,10 @@ ready for `kubectl apply` or an ArgoCD source.
 | `--prometheus-uid` | `prometheus` | UID of the Prometheus datasource the panels query. |
 | `--loki-uid` | `loki` | UID of the Loki datasource the log panels query. |
 | `--loki-selector` | `app="repo-guardian"` | Stream selector, without braces, matching repo-guardian's logs. See *The log dashboard's stream selector* below. |
+| `--prometheus-selector` | — | Label matchers, without braces, added to every PromQL series selector in the dashboards and alerts. See *Several installs in one Prometheus* below. |
 | `--namespace` | — | `k8s` only. Stamped on every generated object. |
-| `--name` | `repo-guardian` | `k8s` only. Base name for generated objects. |
+| `--name` | `repo-guardian` | Prefixes every dashboard's uid, title and CR name (`<name>-kpi`, `<name> — KPI`), and names the `PrometheusRule`. At most 33 characters, so `<name>-detail` fits Grafana's 40-character uid limit. |
+| `--folder` | `repo-guardian` | `k8s` only. The Grafana folder the dashboards are filed under (`spec.folder`). |
 | `--label` | — | `k8s` only, repeatable `key=value`. Added to every object's metadata. |
 | `--instance-selector` | — | `k8s` only, repeatable `key=value`. The `matchLabels` naming the Grafana instance. **Required when there are dashboards to emit.** |
 | `--allow-cross-namespace-import` | `false` | `k8s` only. Set when Grafana runs in a different namespace than the CRs. |
@@ -149,6 +151,32 @@ are a contract, not an implementation detail: a matcher that stops
 matching returns no rows, and no rows renders exactly like "this never
 happens". `TestLogLines_AreStillEmittedByTheBinary` walks `internal/`
 and fails the build if any of them stops being emitted.
+
+### Several installs in one Prometheus
+
+Out of the box the queries are unscoped: `repo_guardian_repos_tracked`
+means every series of that name in the datasource. That is right for a
+Prometheus holding one repo-guardian and nothing else, and wrong as soon
+as it holds two (prod and dev, v1 and v2), or anything else exporting
+the OpenTelemetry HTTP semconv series (`http_server_request_duration_seconds`
+is also what Alloy, among others, exports). Panels then sum the installs
+together, and the alerts evaluate across all of them and fire alongside
+each install's own.
+
+Give each install its own selector and its own name:
+
+```bash
+repo-guardian monitoring generate --config guardian.hcl --format k8s \
+  --namespace monitoring --instance-selector dashboards=grafana \
+  --name repo-guardian-dev \
+  --prometheus-selector 'namespace="repo-guardian-dev"'
+```
+
+The selector is added to every series selector on every panel, to the
+org variable, and to every alert expression, merged into any matchers
+already there. Use whichever label your scrape config gives the pods:
+`namespace`, `job`, `service`. `--name` keeps the two installs' dashboards
+from overwriting each other in Grafana, which keys dashboards by uid.
 
 ### Silent orgs
 

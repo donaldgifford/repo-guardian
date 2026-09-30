@@ -37,9 +37,10 @@ PR identity, so v2 picks up where v1 stopped. Designs:
   `temporal.auth.oidc.{tokenUrl, clientId, existingSecret}` instead,
   plus `temporal.tls.caSecret` if its certificate comes from a private
   CA.
-- **`guardian.hcl` edited.** Remove `worker_count`, `queue_size` and
-  `schedule_interval` from `guardian {}`. v2 fails to load a policy that
-  still sets them.
+- **`guardian.hcl` reviewed.** `worker_count`, `queue_size` and
+  `schedule_interval` in `guardian {}` are v1 knobs. v2 parses and
+  ignores them, so remove them to avoid confusion. Everything else in
+  the file is read unchanged.
 - **Values edited.** Every key in [Removed chart
   values](#removed-chart-values) is gone, and a policy is required
   (`policy.config` or `policy.existingConfigMap`).
@@ -91,9 +92,10 @@ New values: `topology` (`split` or `all`), `temporal.*`,
 
 ### HCL
 
-`guardian { worker_count, queue_size, schedule_interval }` fail the
-policy load. Delete them: concurrency is `WORKER_ACTIVITY_CONCURRENCY`
-and cadence is `CHECK_INTERVAL`.
+`guardian { worker_count, queue_size, schedule_interval }` are parsed
+and ignored. Delete them: concurrency is `WORKER_ACTIVITY_CONCURRENCY`
+and cadence is `CHECK_INTERVAL`. No other part of the policy language
+changes; see [v2 at a glance](v2-overview.md#writing-rules-before-you-migrate).
 
 ## The data migration
 

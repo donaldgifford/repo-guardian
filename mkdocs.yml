@@ -105,6 +105,8 @@ nav:
         - Running repo-guardian on AWS: operations/aws.md
         - Scaling repo-guardian: operations/scaling.md
         - Template migration guide (chart 0.3.x → 0.4.0): operations/template-migration.md
+        - Turning on repo-guardian v2 (onboarding runbook): operations/v2-onboarding.md
+        - repo-guardian and v2 at a glance — what it enforces, what v2 changes: operations/v2-overview.md
         - v1 → v2 migration (chart 2.0.0): operations/v2-migration.md
         - Webhook ingress: operations/ingress.md
         - repo-guardian GitHub App — Enterprise Setup Guide: operations/ent-setup.md

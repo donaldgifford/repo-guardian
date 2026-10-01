@@ -397,8 +397,9 @@ Behaviour:
   `TEMPORAL_TLS_RELOAD_INTERVAL` (chart `temporal.tls.reloadInterval`),
   default `30s`, bounded 5s–10m so a typo can neither hammer the disk
   nor leave a renewed certificate unused for most of its lifetime. One
-  goroutine per process, started by `Dial` and stopped by the client's
-  close.
+  goroutine per process, started by `Dial` and stopped by the stop func
+  `Dial` returns beside the client (IMPL-0026 OQ1: the SDK's
+  `worker.New` rejects a wrapped client).
 - **Server verification with a reloadable CA (OQ6, decided).** Go's client
   `tls.Config` has no per-handshake hook for `RootCAs`. The standard
   pattern is to set `InsecureSkipVerify: true` and do the full chain and
@@ -724,8 +725,9 @@ fact about the deployment, so it arrives by flag:
 - **Metrics:** the two in § Metrics.
 - **Behaviour:** the KEDA + OIDC render failure becomes conditional on
   `trigger: temporal`.
-- **Go:** unexported. `Dial`'s signature does not change; its returned
-  client stops the reload goroutine on `Close`.
+- **Go:** `Dial` returns `(client.Client, func(), error)`: the SDK's own
+  client plus a stop func for the reload goroutine (IMPL-0026 OQ1). The
+  reload types stay unexported.
 
 ## Data Model
 

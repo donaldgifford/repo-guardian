@@ -103,7 +103,7 @@ Verified against the code on `v2` (rc.4) before writing the phases:
 | A1 | The client certificate is read once | `tlsConfig` calls `tls.LoadX509KeyPair` and fills `Certificates`; `RootCAs` from one `os.ReadFile` | Phase 1 replaces both |
 | A2 | The OIDC secret is read once | `OIDCConfig.tokenSource` reads it once; its comment says rotation needs a restart | Phase 1 task 1.6 |
 | A3 | Certificate + OIDC together are allowed | `Config.validate` and `validateTemporalAuth` both allow them | No change needed |
-| A4 | `Dial` owns the client's lifetime | `Dial` returns a bare `client.Client`; callers are `cmd/repo-guardian/roles.go` (`dialTemporal`) and `cmd/rg-burst` | A goroutine needs a stop hook (OQ1) |
+| A4 | `Dial` owns the client's lifetime | `Dial` returns a bare `client.Client`; callers are `cmd/repo-guardian/roles.go` (`dialTemporal`) and `cmd/rg-burst` | A goroutine needs a stop hook (OQ1: `Dial` also returns a stop func) |
 | A5 | Metrics register through `internal/metrics` | Every repo-guardian metric is `promauto` in `internal/metrics/metrics.go` | Phase 1 follows it (OQ2) |
 | A6 | Mechanisms can be set from outside the policy | `Mechanisms.add` is unexported; `Derive(cfg, opts Options)` builds them from the policy | Add a `Derive` option (OQ3) |
 | A7 | The Temporal alerts are mirrored by hand in the chart | `prometheusrule.yaml` group `repo-guardian.temporal`, comment says "keep the two in step" | Same treatment for the new alert |
@@ -145,20 +145,18 @@ pass (OQ4), and this IMPL cannot close until they are done.
 - [x] 1.4 Rewrite `tlsConfig` to build from `credentialFiles` (no more
   `Certificates`/`RootCAs` fields). Keep `TestTLSConfig`'s cases and
   update its assertions to the callbacks.
-- [ ] 1.5 Lifecycle (OQ1: a `Close` wrapper): `Dial` returns a type
-  embedding `client.Client` whose `Close` stops the poller, then closes
-  the client. `run` starts on `context.WithoutCancel(ctx)` plus its own
-  cancel, so a startup timeout on the dial context never stops
-  reloading.
-
-  **BLOCKED (2026-10-01):** the Temporal SDK's `worker.New` type-asserts
-  its client to the SDK's concrete `*internal.WorkflowClient` and panics
-  otherwise ("Client must be created with client.Dial() or
-  client.NewLazyClient()", `internal/worker.go` in sdk v1.49.0).
-  `temporal.NewWorker` passes `Dial`'s client straight to `worker.New`,
-  so a wrapper embedding `client.Client` would crash the worker role at
-  startup. OQ1 (a) needs a new decision before 1.2–1.5 proceed. Both
-  callers (`dialTemporal`, `rg-burst`) keep their code unchanged.
+- [ ] 1.5 Lifecycle (OQ1: a stop func): `Dial` returns
+  `(client.Client, func(), error)`. The client is the SDK's own, untouched
+  (`worker.New` panics on anything else). The poller runs on
+  `context.WithoutCancel(ctx)` plus its own cancel, so a startup timeout
+  on the dial context never stops reloading; the stop func cancels it and
+  waits for the goroutine to exit, and is idempotent. Without reloadable
+  files (plaintext, or OIDC on system roots) it is a no-op, so callers
+  never branch on it. Update both callers: `dialTemporal` in
+  `cmd/repo-guardian/roles.go` (return the stop func; `defer stop()`
+  after `defer tc.Close()`, so the poller stops last) and
+  `cmd/rg-burst/main.go`. Tests: stop is idempotent; after stop the
+  poller no longer reloads (no goroutine leak under `-race`).
 - [x] 1.6 OIDC: replace the read-once secret with a `TokenSource` that
   reads `ClientSecretPath` on each fetch and builds the
   client-credentials request; keep the `ReuseTokenSourceWithExpiry`
@@ -212,7 +210,8 @@ pass (OQ4), and this IMPL cannot close until they are done.
 - Every test in 1.8 and 1.9 passes under `-race`, and 1.10 shows they
   fail without the change.
 - `make lint` clean, with exactly one justified `gosec` exclusion.
-- `Dial`'s signature and both callers are unchanged.
+- `Dial` returns the SDK's own client plus a stop func; both callers
+  defer the stop.
 - The parity suite and replay tests are untouched (no workflow or
   engine change).
 
@@ -495,32 +494,38 @@ task must be checked off before this IMPL is marked Completed.
 
 ### OQ1: How does the reload goroutine stop?
 
-- (a) ✅ decided: **`Dial` returns a thin wrapper that embeds `client.Client` and
-  overrides `Close`** to stop the poller, then close the client. The
+- (a) ✅ decided (2026-10-01, revised): **`Dial` returns a stop func beside
+  the client**, `(client.Client, func(), error)`. The stop func cancels
+  the poller and waits for it; it is a no-op when nothing reloads. The
   goroutine runs on a context detached from the dial context, so a
-  startup timeout never stops reloading. Callers stay unchanged.
-- (b) `DialOptions` gains a long-lived `Context` the caller cancels.
-  Explicit, but both callers change, and forgetting it leaks or stops
-  reload early.
-- (c) No stop: the goroutine lives for the process. Simplest, but tests
-  that dial repeatedly leak goroutines.
+  startup timeout never stops reloading. Both callers change by one
+  `defer`.
+- (b) The poller lives as long as the context passed to `Dial`. No
+  signature change, but `Dial`'s context then means "process lifetime"
+  instead of "connect deadline": a caller bounding the dial with
+  `context.WithTimeout` would silently stop reloading.
+- (c) `Dial` returns a struct holding the client and a `Close`. Also
+  idiomatic (`sql.DB`), but it changes every caller's type for one
+  method.
+- Rejected: the original decision, a wrapper embedding `client.Client`
+  with its own `Close`. The SDK's `worker.New` type-asserts its client to
+  `*internal.WorkflowClient` and panics otherwise ("Client must be
+  created with client.Dial() or client.NewLazyClient()", sdk v1.49.0),
+  and `temporal.NewWorker` passes `Dial`'s client straight to it.
 - other:
 
-Why, and what is typical. Go has two common shapes for a background
-goroutine owned by a component:
-
-| | `Close`/`Stop` on the owning object | `Run(ctx)` / a lifetime context |
-| --- | --- | --- |
-| Examples | `grpc.ClientConn.Close`, `http.Server.Shutdown`, `time.Ticker.Stop`, the Temporal SDK's own `client.Close` | controller-runtime `certwatcher.Start(ctx)`, Kubernetes `dynamiccertificates` `Run(ctx)` |
-| Lifetime | tied to the thing it serves: reload can neither outlive the client nor stop before it | tied to whatever context the caller passes; a short one stops reload while the client keeps working, and certificates go stale silently |
-| Callers | unchanged | every caller must thread a process-lifetime context through |
-| Go guidance | fits "contexts are for request scope, not object lifetime" (go.dev/blog/context-and-structs) | normal for components run under a manager or errgroup |
-| Cost | a wrapper type embedding `client.Client` | one more `DialOptions` field |
-
-The reloader is part of the client, not a separate component under a
-manager, so it follows the client's own `Close`. If the shared module
-later grows a standalone reloader for other consumers, that type can
-expose `Run(ctx)` too; the client wrapper would call it.
+Why. Temporal has no lifecycle hook for credential reload: its guidance
+for rotating mTLS is `tls.Config.GetClientCertificate`, leaving how the
+files are re-read to the application, and `worker.New` rules out
+wrapping the client. So this is a Go-idiom choice. A constructor that
+starts a goroutine returns the means to stop it beside its value
+(`context.WithCancel`'s cancel, OTel's `Shutdown`): ownership is
+explicit, the stop can wait for the goroutine (race-free tests), and the
+context keeps its request-scope meaning (go.dev/blog/context-and-structs).
+Reloading lazily inside the handshake callbacks was also considered and
+rejected: gRPC holds connections for hours, so handshakes are rare and
+the expiry gauge would keep reporting a renewed-away certificate,
+firing the expiry alert falsely.
 
 ### OQ2: Where do the two metrics register?
 

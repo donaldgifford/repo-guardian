@@ -236,7 +236,7 @@ pass (OQ4), and this IMPL cannot close until they are done.
   (usages `client auth`, `digital signature`; ECDSA P-256;
   `rotationPolicy: Always`), namespace stamped, rendered when
   `certManager.enabled`.
-- [ ] 2.4 `worker-scaledobject.yaml`: `prometheus` trigger with
+- [x] 2.4 `worker-scaledobject.yaml`: `prometheus` trigger with
   `serverAddress`, `query` (default built from `temporal.namespace` and
   `temporal.taskQueue`, as designed; task 6.3 confirms or corrects it
 before the tag), `threshold` from

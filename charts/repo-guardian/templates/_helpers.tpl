@@ -337,6 +337,19 @@ certManager.enabled alone is enough to present a certificate.
 {{- end }}
 
 {{/*
+The backlog query KEDA's prometheus trigger reads: the override, else
+the Temporal server's approximate_backlog_count for this task queue. The
+inner max stops a partition counting twice while it moves between hosts.
+*/}}
+{{- define "repo-guardian.kedaBacklogQuery" -}}
+{{- with .Values.worker.keda.prometheus.query -}}
+{{- . -}}
+{{- else -}}
+{{- printf "sum(max by (partition, task_type) (approximate_backlog_count{namespace=%q, taskqueue=%q}))" .Values.temporal.namespace .Values.temporal.taskQueue -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Temporal connection env (TEMPORAL_*) and, with mTLS, the mounted paths.
 */}}
 {{- define "repo-guardian.temporalEnv" -}}

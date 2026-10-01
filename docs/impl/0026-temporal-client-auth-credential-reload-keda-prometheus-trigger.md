@@ -286,7 +286,7 @@ before the tag), `threshold` from
 
 - [x] 3.1 `MechanismTemporalClientCert` in `mechanism.go`, with the
   membership comment naming its two series.
-- [ ] 3.2 Plumbing (OQ3): `monitoring.Options.TemporalClientCert bool`;
+- [x] 3.2 Plumbing (OQ3): `monitoring.Options.TemporalClientCert bool`;
   `Derive` adds the mechanism when set.
 - [ ] 3.3 `repo-guardian monitoring generate --temporal-client-cert`
   sets the option.

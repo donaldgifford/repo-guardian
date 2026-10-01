@@ -107,8 +107,38 @@ Temporal authenticates one of two ways:
   minute before expiry. The frontend is verified over TLS, against
   `temporal.tls.caSecret` (`ca.crt` only) or the system roots.
   `temporal.tls.disabled: true` allows a plaintext frontend, but the
-  token is then readable on the wire. KEDA's temporal trigger cannot use
-  OIDC, so `worker.keda.enabled` is refused alongside it.
+  token is then readable on the wire. Both may be configured together
+  (OIDC over mTLS, DESIGN-0028).
+
+TLS files and the OIDC client secret are reloaded without a restart:
+the binary checks them every `temporal.tls.reloadInterval` (default
+`30s`) and keeps the last good set when a read fails.
+`temporal.tls.certManager.enabled` renders a cert-manager `Certificate`
+(client auth, ECDSA P-256, 24h, renewed 8h early) against an
+operator-owned Issuer named by `temporal.tls.certManager.issuerRef.name`,
+typically a Vault issuer on OpenBao's PKI engine. Its Secret is
+`certManager.secretName`, else `temporal.tls.existingSecret`, else
+`<fullname>-temporal-tls`, and is mounted like `existingSecret`. With a
+client certificate, `RepoGuardianTemporalClientCertExpiring` joins the
+`repo-guardian.temporal` alert group.
+
+`worker.keda.enabled` (split only) scales the worker on Temporal
+backlog with one of two triggers:
+
+- **`prometheus`** (default): reads the Temporal server's
+  `approximate_backlog_count` from `worker.keda.prometheus.serverAddress`
+  (required), so KEDA never dials Temporal and any client auth works.
+  `worker.keda.prometheus.query` overrides the default query;
+  `authenticationRef` names an operator-owned TriggerAuthentication for
+  Prometheus.
+- **`temporal`**: KEDA's own scaler. With a client certificate the chart
+  renders a TriggerAuthentication from the TLS Secret. It cannot present
+  an OIDC token, so it is refused with `temporal.auth.oidc`.
+
+Either way the ScaledObject holds the worker at
+`worker.keda.fallbackReplicas` (default `worker.replicas`) after three
+failed metric polls. See
+[docs/operations/temporal-client-auth.md](../../docs/operations/temporal-client-auth.md).
 
 The store is still Postgres, in one of three modes:
 
@@ -688,7 +718,7 @@ incoming webhook.
 | templating | object | `{"strict":false,"vars":{}}` | Templating configuration: env-var injection and strict-mode validation.  `templating.vars` exposes arbitrary environment variables to the binary's `env "VAR"` template helper. Values flow through to the Deployment's container env list; they are NOT secrets — use `secrets.*` or `extraEnv` (with valueFrom: secretKeyRef) for secret material. The chart rejects keys that collide with chart-managed env vars (GITHUB_APP_ID, WEBHOOK_SECRET, etc).  `templating.strict` toggles `STRICT_TEMPLATES=true` on the Deployment. When enabled the binary validates every compiled PR template against a zero-value PRVars context at startup and fails fast on missing-field references. |
 | templating.strict | bool | `false` | Enable startup-time strict validation of compiled PR templates (sets STRICT_TEMPLATES=true on the Deployment). |
 | templating.vars | object | `{}` | Map of env-var key to value. Keys must not collide with chart-managed env vars; the chart fails template rendering on collisions. |
-| temporal | object | `{"address":"","auth":{"oidc":{"audience":"","clientId":"","existingSecret":"","scopes":[],"tokenUrl":""}},"namespace":"repo-guardian","taskQueue":"repo-guardian","tls":{"caSecret":"","disabled":false,"existingSecret":"","serverName":""}}` | Temporal connection. Every role that dials Temporal (ingest, worker, all) gets these; api never does. |
+| temporal | object | `{"address":"","auth":{"oidc":{"audience":"","clientId":"","existingSecret":"","scopes":[],"tokenUrl":""}},"namespace":"repo-guardian","taskQueue":"repo-guardian","tls":{"caSecret":"","certManager":{"commonName":"repo-guardian","duration":"24h","enabled":false,"issuerRef":{"group":"cert-manager.io","kind":"Issuer","name":""},"renewBefore":"8h","secretName":""},"disabled":false,"existingSecret":"","reloadInterval":"30s","serverName":""}}` | Temporal connection. Every role that dials Temporal (ingest, worker, all) gets these; api never does. |
 | temporal.address | string | `""` | Frontend `host:port`. Required. |
 | temporal.auth.oidc | object | `{"audience":"","clientId":"","existingSecret":"","scopes":[],"tokenUrl":""}` | Authenticate with a bearer token from an OAuth2 client-credentials grant (Keycloak and the like) instead of mTLS. The token is cached and renewed a minute before it expires. KEDA's temporal trigger cannot mint these, so it is refused with `worker.keda.enabled`. |
 | temporal.auth.oidc.audience | string | `""` | `audience` parameter, for IdPs that take one. Keycloak sets the audience with a client-scope mapper instead. |
@@ -699,8 +729,16 @@ incoming webhook.
 | temporal.namespace | string | `"repo-guardian"` | Temporal namespace. |
 | temporal.taskQueue | string | `"repo-guardian"` | Task queue the worker polls and ingest signals through. |
 | temporal.tls.caSecret | string | `""` | Secret with only `ca.crt`: verify the frontend's certificate without presenting one, for `auth.oidc` against a private CA. Empty with OIDC uses the system roots. |
+| temporal.tls.certManager | object | `{"commonName":"repo-guardian","duration":"24h","enabled":false,"issuerRef":{"group":"cert-manager.io","kind":"Issuer","name":""},"renewBefore":"8h","secretName":""}` | Render a cert-manager Certificate for the Temporal client certificate (DESIGN-0028). The Issuer is operator-owned, typically a Vault issuer backed by OpenBao's PKI engine. |
+| temporal.tls.certManager.commonName | string | `"repo-guardian"` | Common name on the certificate. |
+| temporal.tls.certManager.duration | string | `"24h"` | Certificate lifetime. |
+| temporal.tls.certManager.enabled | bool | `false` | Render the Certificate and mount the Secret it writes. |
+| temporal.tls.certManager.issuerRef | object | `{"group":"cert-manager.io","kind":"Issuer","name":""}` | The operator-owned Issuer or ClusterIssuer. `name` is required when enabled. |
+| temporal.tls.certManager.renewBefore | string | `"8h"` | Renew this long before expiry. |
+| temporal.tls.certManager.secretName | string | `""` | Secret the Certificate writes. Empty uses `temporal.tls.existingSecret`, then `<fullname>-temporal-tls`. |
 | temporal.tls.disabled | bool | `false` | Plaintext to the frontend (TEMPORAL_TLS_DISABLED). Only for a cluster-internal frontend that serves no TLS; with `auth.oidc` the bearer token is then readable on the wire, and the worker logs a warning. |
 | temporal.tls.existingSecret | string | `""` | Secret with `tls.crt`, `tls.key` and (optionally) `ca.crt` for mTLS. Mounted only into roles that dial Temporal. |
+| temporal.tls.reloadInterval | string | `"30s"` | How often the TLS files are checked for a renewed certificate or CA (TEMPORAL_TLS_RELOAD_INTERVAL, 5s–10m). Renewals are picked up without a restart. |
 | temporal.tls.serverName | string | `""` | Server name to verify the frontend certificate against. |
 | tolerations | list | `[]` | Tolerations |
 | topology | string | `"split"` | Deployment shape (DESIGN-0026 § Chart 2.0.0). `split` renders one Deployment per role: `ingest` (webhooks), `worker` (Temporal worker) and, when `api.enabled`, `api`. `all` renders a single Deployment running every role, for small installs and the homelab. |
@@ -724,14 +762,19 @@ incoming webhook.
 | ui.replicas | int | `2` | Replica count. |
 | ui.resources | object | `{"limits":{"memory":"256Mi"},"requests":{"cpu":"50m","memory":"96Mi"}}` | Resources for the ui container. |
 | ui.sessionTTL | string | `"8h"` | Absolute session length; token refresh never extends it. |
-| worker | object | `{"buildId":"","concurrency":10,"keda":{"enabled":false,"maxReplicas":4,"minReplicas":1,"targetQueueSize":"50"},"replicas":1,"resources":{}}` | The worker role: runs workflows and activities (split only). |
+| worker | object | `{"buildId":"","concurrency":10,"keda":{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":1,"prometheus":{"authenticationRef":"","query":"","serverAddress":""},"targetQueueSize":"50","trigger":"prometheus"},"replicas":1,"resources":{}}` | The worker role: runs workflows and activities (split only). |
 | worker.buildId | string | `""` | Temporal worker build ID (TEMPORAL_BUILD_ID). Empty uses `image.tag`, then the chart's appVersion. Each worker promotes its build to the deployment's current version at startup, and the newest semver build wins, so it must change whenever the image does. Set it only for images whose tag is not a version. |
 | worker.concurrency | int | `10` | Concurrent activities per pod (WORKER_ACTIVITY_CONCURRENCY). |
-| worker.keda | object | `{"enabled":false,"maxReplicas":4,"minReplicas":1,"targetQueueSize":"50"}` | KEDA autoscaling on Temporal backlog. Requires the KEDA CRDs. |
-| worker.keda.enabled | bool | `false` | Render a ScaledObject with a `temporal` trigger. |
+| worker.keda | object | `{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":1,"prometheus":{"authenticationRef":"","query":"","serverAddress":""},"targetQueueSize":"50","trigger":"prometheus"}` | KEDA autoscaling on Temporal backlog. Requires the KEDA CRDs. |
+| worker.keda.enabled | bool | `false` | Render a ScaledObject (split topology only). |
+| worker.keda.fallbackReplicas | string | `nil` | Replicas KEDA holds after 3 failed metric polls. Null uses `worker.replicas`. |
 | worker.keda.maxReplicas | int | `4` | Ceiling. Size it to the GitHub budget, not the backlog: checks are rate-limit bound, so pods past the budget only park more timers (INV-0018 Obs 7). |
 | worker.keda.minReplicas | int | `1` | Floor. |
-| worker.keda.targetQueueSize | string | `"50"` | Backlog per replica before KEDA scales out. |
+| worker.keda.prometheus.authenticationRef | string | `""` | Name of an operator-owned TriggerAuthentication for Prometheus, if it needs credentials. |
+| worker.keda.prometheus.query | string | `""` | PromQL returning the backlog. Empty builds the default from `temporal.namespace` and `temporal.taskQueue`. |
+| worker.keda.prometheus.serverAddress | string | `""` | Prometheus base URL KEDA queries. Required with `trigger: prometheus`. |
+| worker.keda.targetQueueSize | string | `"50"` | Backlog per replica before KEDA scales out (either trigger). |
+| worker.keda.trigger | string | `"prometheus"` | `prometheus` reads the Temporal server's `approximate_backlog_count` and works under any Temporal auth; `temporal` is KEDA's own Temporal scaler, for plaintext or mTLS clusters only (it cannot present an OIDC token). |
 | worker.replicas | int | `1` | Replica count. Ignored when `worker.keda.enabled`. |
 | worker.resources | object | `{}` | Resources; empty falls back to `resources`. |
 

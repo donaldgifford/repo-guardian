@@ -268,7 +268,7 @@ before the tag), `threshold` from
   `reloadInterval` env, certManager mounting); `certificate_test.yaml`
   (rendering, secret-name precedence, namespace); `prometheusrule_test.yaml`
   (alert gating). `make lint-alerts-chart` passes.
-- [ ] 2.10 `README.md.gotmpl` notes for the new blocks; `make
+- [x] 2.10 `README.md.gotmpl` notes for the new blocks; `make
   helm-docs`.
 
 #### Success Criteria

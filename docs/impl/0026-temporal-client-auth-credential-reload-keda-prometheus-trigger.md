@@ -342,7 +342,7 @@ before the tag), `threshold` from
 
 #### Tasks
 
-- [ ] 5.1 New page (OQ5) `docs/operations/temporal-client-auth.md`: the
+- [x] 5.1 New page (OQ5) `docs/operations/temporal-client-auth.md`: the
   posture and why (the INV-0020 trade-off table), environment isolation
   (client per environment + audience; separate tenants as the stronger
   option), the OpenBao commands, Issuer, token-request Role, chart

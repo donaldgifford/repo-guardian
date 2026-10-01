@@ -220,7 +220,7 @@ pass (OQ4), and this IMPL cannot close until they are done.
 
 #### Tasks
 
-- [ ] 2.1 Values: `temporal.tls.reloadInterval` (→
+- [x] 2.1 Values: `temporal.tls.reloadInterval` (→
   `TEMPORAL_TLS_RELOAD_INTERVAL` on roles that dial Temporal),
   `temporal.tls.certManager.{enabled, issuerRef.{name,kind,group},
   commonName, duration, renewBefore, secretName}`,

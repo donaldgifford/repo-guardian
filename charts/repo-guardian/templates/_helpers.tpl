@@ -349,6 +349,10 @@ Temporal connection env (TEMPORAL_*) and, with mTLS, the mounted paths.
 - name: TEMPORAL_TLS_DISABLED
   value: "true"
 {{- end }}
+{{- if or $tls.existingSecret $tls.caSecret $tls.certManager.enabled }}
+- name: TEMPORAL_TLS_RELOAD_INTERVAL
+  value: {{ $tls.reloadInterval | default "30s" | quote }}
+{{- end }}
 {{- if $oidc.tokenUrl }}
 - name: TEMPORAL_OIDC_TOKEN_URL
   value: {{ $oidc.tokenUrl | quote }}

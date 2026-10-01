@@ -170,7 +170,7 @@ pass (OQ4), and this IMPL cannot close until they are done.
   (`client_cert|ca|oidc_secret` × `changed|error`; unchanged polls
   count nothing). Pre-initialise the six label pairs so `increase()`
   sees the first change.
-- [ ] 1.8 Unit tests (`reload_test.go`), with a helper that mimics
+- [x] 1.8 Unit tests (`reload_test.go`), with a helper that mimics
   kubelet's `..data` symlink swap and a test CA:
   - rotation is picked up on the next tick;
   - mismatched pair, empty file, missing file and expired certificate

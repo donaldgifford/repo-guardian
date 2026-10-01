@@ -1,7 +1,7 @@
 ---
 id: INV-0020
 title: "KEDA worker autoscaling cannot authenticate to Temporal"
-status: Open
+status: Concluded
 author: Donald Gifford
 created: 2026-10-01
 ---

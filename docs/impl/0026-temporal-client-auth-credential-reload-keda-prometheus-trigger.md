@@ -1,7 +1,7 @@
 ---
 id: IMPL-0026
 title: "Temporal client auth: credential reload, KEDA Prometheus trigger and OpenBao-issued certificates"
-status: Draft
+status: In Progress
 author: Donald Gifford
 created: 2026-10-01
 ---
@@ -357,7 +357,7 @@ before the tag), `threshold` from
 - [x] 5.5 CLAUDE.md: one v2-branch entry (reload contract: strict
   first load, forgiving later loads, `InsecureSkipVerify` only with a
   CA path and why; the KEDA trigger default; the hand-mirrored alert).
-- [ ] 5.6 Status: INV-0020 → Concluded, DESIGN-0028 → Approved (if not
+- [x] 5.6 Status: INV-0020 → Concluded, DESIGN-0028 → Approved (if not
   already), this doc → In Progress / Completed as phases land; `docz
   update`.
 

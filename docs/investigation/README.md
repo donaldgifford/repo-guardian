@@ -30,7 +30,7 @@ Design docs, plans, and implementation docs can reference investigations by ID
 | INV-0016 | Retire the baked Tailscale sidecar for operator-managed ingress | Concluded | 2026-08-14 | Donald Gifford | [0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress.md](0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress.md) |
 | INV-0018 | repo-guardian v2: role split, business state, and a platform UI | Open | 2026-09-23 | Donald Gifford | [0018-repo-guardian-v2-role-split-business-state-and-a-platform-ui.md](0018-repo-guardian-v2-role-split-business-state-and-a-platform-ui.md) |
 | INV-0019 | Temporal as the repo-guardian control plane | Open | 2026-09-23 | Donald Gifford | [0019-temporal-as-the-repo-guardian-control-plane.md](0019-temporal-as-the-repo-guardian-control-plane.md) |
-| INV-0020 | KEDA worker autoscaling cannot authenticate to Temporal | Open | 2026-10-01 | Donald Gifford | [0020-keda-worker-autoscaling-cannot-authenticate-to-temporal.md](0020-keda-worker-autoscaling-cannot-authenticate-to-temporal.md) |
+| INV-0020 | KEDA worker autoscaling cannot authenticate to Temporal | Concluded | 2026-10-01 | Donald Gifford | [0020-keda-worker-autoscaling-cannot-authenticate-to-temporal.md](0020-keda-worker-autoscaling-cannot-authenticate-to-temporal.md) |
 <!-- END DOCZ AUTO-GENERATED -->
 <!-- BEGIN DOCZ AUTO-GENERATED -->
 <!-- END DOCZ AUTO-GENERATED -->

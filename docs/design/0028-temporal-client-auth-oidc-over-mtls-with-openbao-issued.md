@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0028
 title: "Temporal client auth: OIDC over mTLS with OpenBao-issued certificates, and KEDA scaling from server metrics"
-status: Draft
+status: Approved
 author: Donald Gifford
 created: 2026-10-01
 ---

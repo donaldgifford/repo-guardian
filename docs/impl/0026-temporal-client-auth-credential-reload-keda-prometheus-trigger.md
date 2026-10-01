@@ -250,7 +250,7 @@ before the tag), `threshold` from
   `ca` from the effective TLS Secret, rendered for `trigger: temporal`
   with a client certificate. `tlsServerName` in the trigger metadata
   from `temporal.tls.serverName`.
-- [ ] 2.6 Guards in `validateTemporalAuth`: `trigger: prometheus`
+- [x] 2.6 Guards in `validateTemporalAuth`: `trigger: prometheus`
   without `serverAddress` fails; the OIDC guard fails only for
   `trigger: temporal`, naming `trigger: prometheus` as the fix;
   `certManager.enabled` without `issuerRef.name` fails; an unknown

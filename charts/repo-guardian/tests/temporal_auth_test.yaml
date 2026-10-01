@@ -157,13 +157,14 @@ tests:
       - failedTemplate:
           errorPattern: "temporal.tls.caSecret is for temporal.auth.oidc"
 
-  - it: refuses KEDA with OIDC
+  - it: refuses KEDA's temporal trigger with OIDC, naming the prometheus trigger
     set:
       topology: split
       worker.keda.enabled: true
+      worker.keda.trigger: temporal
       temporal.auth.oidc.tokenUrl: https://kc/token
       temporal.auth.oidc.clientId: rg
       temporal.auth.oidc.existingSecret: rg-oidc
     asserts:
       - failedTemplate:
-          errorPattern: "worker.keda.enabled cannot be combined with temporal.auth.oidc"
+          errorPattern: "worker.keda.trigger: temporal cannot be combined with temporal.auth.oidc .*set worker.keda.trigger: prometheus"

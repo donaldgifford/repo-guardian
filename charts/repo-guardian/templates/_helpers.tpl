@@ -426,8 +426,21 @@ would refuse at startup (or silently misapply) fails here instead.
 {{- if and $tls.caSecret (not $oidc.tokenUrl) -}}
 {{- fail "temporal.tls.caSecret is for temporal.auth.oidc (server-verified TLS without a client certificate); for mTLS use temporal.tls.existingSecret" -}}
 {{- end -}}
-{{- if and $oidc.tokenUrl .Values.worker.keda.enabled -}}
-{{- fail "worker.keda.enabled cannot be combined with temporal.auth.oidc: KEDA's temporal trigger cannot mint OIDC tokens" -}}
+{{- if and $tls.certManager.enabled (not $tls.certManager.issuerRef.name) -}}
+{{- fail "temporal.tls.certManager.issuerRef.name is required when temporal.tls.certManager.enabled: name the operator-owned Issuer or ClusterIssuer" -}}
+{{- end -}}
+{{- $keda := .Values.worker.keda -}}
+{{- /* Only where the ScaledObject renders: in `all` it is ignored. */ -}}
+{{- if and $keda.enabled (eq .Values.topology "split") -}}
+{{- if not (has $keda.trigger (list "prometheus" "temporal")) -}}
+{{- fail (printf "worker.keda.trigger must be prometheus or temporal, got %q" $keda.trigger) -}}
+{{- end -}}
+{{- if and (eq $keda.trigger "prometheus") (not $keda.prometheus.serverAddress) -}}
+{{- fail "worker.keda.prometheus.serverAddress is required with worker.keda.trigger: prometheus" -}}
+{{- end -}}
+{{- if and (eq $keda.trigger "temporal") $oidc.tokenUrl -}}
+{{- fail "worker.keda.trigger: temporal cannot be combined with temporal.auth.oidc (KEDA's temporal trigger cannot mint OIDC tokens); set worker.keda.trigger: prometheus" -}}
+{{- end -}}
 {{- end -}}
 {{- end }}
 

@@ -386,6 +386,7 @@ task must be checked off before this IMPL is marked Completed.
 - [ ] 6.3 If 6.1/6.2 show double counting or a dropped split, change the
   default query in `worker-scaledobject.yaml` (group by the splitting
   label before summing), update its helm-unittest, and record why.
+  — *blocked on 6.1/6.2 (human)*.
 - [ ] 6.4 Confirm the installed cert-manager supports Vault Kubernetes
   auth with `serviceAccountRef` (record the token audience format it
   sends), and that the installed OpenBao signs through
@@ -402,7 +403,10 @@ task must be checked off before this IMPL is marked Completed.
   the published chart still ships a current one.
 - [ ] 6.6 PR to `v2` with `dont-release` (Rule 6); after merge, tag
   `v2.0.0-rc.5` and dispatch `ghcr.yml`; verify assets, signatures,
-  provenance, and that `latest` did not move.
+  provenance, and that `latest` did not move. — *deferred: human required*
+  (pushing and the PR wait for the go-ahead, `v2` is protected so the
+  merge is the maintainer's, and the tag is held until 6.1–6.4 and
+  task 1.5 land).
 - [ ] 6.7 Homelab, in DESIGN-0028's order: OpenBao mount, roles, policy
   and Kubernetes auth; Issuer; `certManager.enabled` (pods present a
   certificate the server does not yet require). — *deferred: human

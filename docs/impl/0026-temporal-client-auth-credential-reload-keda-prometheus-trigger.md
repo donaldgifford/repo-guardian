@@ -312,7 +312,7 @@ before the tag), `threshold` from
 
 #### Tasks
 
-- [ ] 4.1 `values-base.yaml`: `server.config.authorization`
+- [x] 4.1 `values-base.yaml`: `server.config.authorization`
   (`jwtKeyProvider.keySourceURIs` placeholder, `refreshInterval: 1m`,
   `permissionsClaimName: permissions`, `audience` placeholder,
   `authorizer: default`, `claimMapper: default`),

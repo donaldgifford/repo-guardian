@@ -112,11 +112,13 @@ lint-alerts-generated: ## Validate the committed generated alert rules
 lint-alerts-chart: ## Validate the alert rules the Helm chart renders
 	@ $(MAKE) --no-print-directory log-$@
 	@mkdir -p $(BUILD_DIR)
+	@# A client certificate renders the gated RepoGuardianTemporalClientCertExpiring too.
 	@helm template $(PROJECT_NAME) $(CHART_DIR) \
 		--set config.appId=12345 \
 		--set secrets.webhookSecret=placeholder \
 		--set secrets.privateKey=placeholder \
 		--set temporal.address=temporal:7233 \
+		--set temporal.tls.existingSecret=placeholder \
 		--set policy.config='guardian {}' \
 		--set prometheusRule.enabled=true \
 		| yq 'select(.kind == "PrometheusRule") | {"groups": .spec.groups}' \

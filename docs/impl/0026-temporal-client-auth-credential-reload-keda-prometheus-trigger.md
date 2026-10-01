@@ -257,7 +257,7 @@ before the tag), `threshold` from
   `trigger` fails. Messages name the value to change.
 - [x] 2.7 `values.schema.json`: the new keys, `trigger` enum,
   `reloadInterval` pattern.
-- [ ] 2.8 `prometheusrule.yaml`: `RepoGuardianTemporalClientCertExpiring`
+- [x] 2.8 `prometheusrule.yaml`: `RepoGuardianTemporalClientCertExpiring`
   in the `repo-guardian.temporal` group, rendered only with a client
   certificate configured, overridable like its siblings
   (`prometheusRule.alerts.TemporalClientCertExpiring`).

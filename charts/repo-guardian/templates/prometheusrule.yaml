@@ -297,4 +297,17 @@ spec:
             summary: "repo-guardian workflow tasks wait more than 200ms (p99) to start"
             description: "Temporal's recommended threshold. Workflow tasks are short, so waiting means workers are saturated, down, or their build is not the deployment's current version (check the worker's deployment readiness check)."
         {{- end }}
+        {{- /* TemporalClientCertExpiring: only when the pods present a client certificate. */ -}}
+        {{- $alert := default dict $a.TemporalClientCertExpiring -}}
+        {{- if and (include "repo-guardian.temporalTLSSecret" $) (ne (toString (get $alert "enabled")) "false") }}
+        - alert: RepoGuardianTemporalClientCertExpiring
+          {{- /* Threshold in seconds; a healthy 24h certificate renewed 8h early never drops below 8h. */}}
+          expr: min(repo_guardian_temporal_client_cert_expiry_timestamp_seconds) - time() < {{ default 14400 (get $alert "threshold") }}
+          for: {{ default "10m" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "warning" (get $alert "severity") | quote }}
+          annotations:
+            summary: "a repo-guardian pod presents a Temporal client certificate expiring within 4h"
+            description: "renewal or reload is failing. Check the Certificate's status, the Issuer's OpenBao auth, and repo_guardian_temporal_credential_reloads_total{outcome=\"error\"}."
+        {{- end }}
 {{- end }}

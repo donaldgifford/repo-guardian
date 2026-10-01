@@ -296,7 +296,7 @@ before the tag), `threshold` from
 - [x] 3.5 E3 stat "Temporal client certificate: time to expiry"
   (`min(...expiry_timestamp_seconds) - time()`, seconds unit), gated on
   the mechanism.
-- [ ] 3.6 Tests: alert and panel absent without the flag, present with
+- [x] 3.6 Tests: alert and panel absent without the flag, present with
   it; a test comparing the catalogue expression with the chart rule's
   rendered expression; existing promtool check covers the new spec.
 - [ ] 3.7 `make monitoring-generate` produces no diff (the committed

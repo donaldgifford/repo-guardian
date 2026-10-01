@@ -2,6 +2,7 @@ package alert_test
 
 import (
 	"bytes"
+	"os"
 	"regexp"
 	"slices"
 	"strconv"
@@ -194,7 +195,17 @@ func TestGenerate_MechanismScoping(t *testing.T) {
 				"RepoGuardianBranchProtectionChurn",
 				"RepoGuardianPRBurst",
 				"RepoGuardianPRDrift",
+				// The expiry series exists only once a pod loads a
+				// client certificate.
+				"RepoGuardianTemporalClientCertExpiring",
 			},
+		},
+		{
+			// --temporal-client-cert: the deployment presents a
+			// Temporal client certificate (DESIGN-0028).
+			name:       "temporal client certificate",
+			mechanisms: []monitoring.Mechanism{monitoring.MechanismTemporalClientCert},
+			wantKept:   []string{"RepoGuardianTemporalClientCertExpiring"},
 		},
 		{
 			// The IMPL's own example: no PropertySchemaMissing without a
@@ -548,5 +559,66 @@ func TestFor_RendersAsPrometheusDurations(t *testing.T) {
 
 	if strings.Contains(string(raw), "0m0s") {
 		t.Errorf("durations render in Go's format:\n%s", raw)
+	}
+}
+
+// chartRule is the path to the chart's hand-mirrored PrometheusRule.
+const chartRule = "../../../charts/repo-guardian/templates/prometheusrule.yaml"
+
+// TestCatalogue_ClientCertExpiringMatchesTheChart pins the catalogue's
+// RepoGuardianTemporalClientCertExpiring against the chart's copy. The
+// chart mirrors the catalogue by hand, and the two are only "the same
+// alert" while the expression, default threshold and default for agree.
+func TestCatalogue_ClientCertExpiringMatchesTheChart(t *testing.T) {
+	t.Parallel()
+
+	const name = "RepoGuardianTemporalClientCertExpiring"
+
+	raw, err := os.ReadFile(chartRule)
+	if err != nil {
+		t.Fatalf("reading the chart rule: %v", err)
+	}
+
+	tmpl := string(raw)
+
+	start := strings.Index(tmpl, "- alert: "+name)
+	if start < 0 {
+		t.Fatalf("%s is missing from %s", name, chartRule)
+	}
+
+	block := tmpl[start:]
+	if end := strings.Index(block, "{{- end }}"); end > 0 {
+		block = block[:end]
+	}
+
+	// Resolve the chart's tunables to their defaults.
+	defaults := regexp.MustCompile(`\{\{ default (\S+) \(get \$alert "\w+"\) (?:\| quote )?\}\}`)
+	block = defaults.ReplaceAllStringFunc(block, func(action string) string {
+		return strings.Trim(defaults.FindStringSubmatch(action)[1], `"`)
+	})
+
+	var spec alert.Spec
+
+	for _, s := range alert.Catalogue() {
+		if s.Name == name {
+			spec = s
+		}
+	}
+
+	if spec.Name == "" {
+		t.Fatalf("%s is missing from the catalogue", name)
+	}
+
+	if want := "expr: " + spec.Expr + "\n"; !strings.Contains(block, want) {
+		t.Errorf("chart expression differs from the catalogue's %q:\n%s", spec.Expr, block)
+	}
+
+	m := regexp.MustCompile(`(?m)^\s*for: (\S+)$`).FindStringSubmatch(block)
+	if m == nil {
+		t.Fatalf("chart rule has no for:\n%s", block)
+	}
+
+	if got, err := time.ParseDuration(m[1]); err != nil || got != spec.For {
+		t.Errorf("chart for = %s, want the catalogue's %s", m[1], spec.For)
 	}
 }

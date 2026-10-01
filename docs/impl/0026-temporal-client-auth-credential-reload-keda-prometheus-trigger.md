@@ -184,12 +184,14 @@ pass (OQ4), and this IMPL cannot close until they are done.
     secret; rotate the file, expire the token, the next fetch uses the
     new secret;
   - interval parsing (in 1.1).
-- [ ] 1.9 Integration test (`-tags integration`): an in-process TLS
+- [x] 1.9 Integration test (`-tags integration`): an in-process TLS
   proxy (requires client certs, ALPN `h2`) in front of
   `temporaltest.Start`. `Dial` with mTLS through it, rotate the client
   certificate, drop connections at the proxy, and assert the next call
   succeeds with the new serial and no new `Dial`.
-- [ ] 1.10 Non-vacuous check: temporarily restore static
+  `TestDial_ReloadsClientCertificateAcrossReconnect` in
+  `internal/temporal/mtls_integration_test.go`.
+- [x] 1.10 Non-vacuous check: temporarily restore static
   `Certificates`/`RootCAs` and a read-once secret; confirm the rotation,
   CA-rollover and OIDC tests fail; restore. Record the result in the
   task.
@@ -200,8 +202,12 @@ pass (OQ4), and this IMPL cannot close until they are done.
   `_RunReloadsOnTick`, `TestHandshake_PresentsRotatedClientCertificate`,
   `TestHandshake_CARolloverWithoutRestart`,
   `TestTokenSource_PicksUpRotatedSecret` — and all passed again once
-  restored. The 1.9 integration test still needs the same check once
-  1.5 is unblocked.
+  restored.
+
+  **Integration test done (2026-10-01):** with `GetClientCertificate`
+  replaced by a static `Certificates` slice read at dial time,
+  `TestDial_ReloadsClientCertificateAcrossReconnect` failed (the
+  reconnect presented serial 1, want 2) and passed again once restored.
 - [x] 1.11 Go doc comments on every new type and function;
   `internal/temporal` package doc mentions reload.
 

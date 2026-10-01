@@ -48,7 +48,7 @@ Prerequisites:
   (`temporal-dev`, `temporal-prod`, ...), so a token minted for one
   environment is refused by another even when they trust the same IdP.
   repo-guardian's client needs a `permissions` claim of
-  `repo-guardian:writer`.
+  `repo-guardian:write`.
 
 ```bash
 kubectl create namespace temporal
@@ -102,7 +102,7 @@ trusted certificate. With `authorization` on, a client without a valid
 token is refused, so:
 
 1. Create the IdP client for repo-guardian (`permissions` claim
-   `repo-guardian:writer`, this environment's audience) and set
+   `repo-guardian:write`, this environment's audience) and set
    `temporal.auth.oidc.*` in the repo-guardian chart **before** the
    Temporal upgrade; the token is ignored until the authorizer is on.
 2. If KEDA scales the worker, switch to `worker.keda.trigger:

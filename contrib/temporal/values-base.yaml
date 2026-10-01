@@ -41,7 +41,7 @@ server:
     # JWT authorization on the external frontend (DESIGN-0028): mTLS
     # bounds who can connect, the token bounds what they may do. The
     # default claim mapper reads "permissions" entries shaped
-    # <namespace>:<role> (e.g. repo-guardian:writer).
+    # <namespace>:<role> (e.g. repo-guardian:write).
     authorization:
       jwtKeyProvider:
         # Your IdP's JWKS, e.g. Keycloak's

@@ -293,7 +293,7 @@ before the tag), `threshold` from
 - [x] 3.4 Alert spec `RepoGuardianTemporalClientCertExpiring` in
   `temporalSpecs`, `Requires: MechanismTemporalClientCert`, same
   expression, threshold and `for` as the chart rule.
-- [ ] 3.5 E3 stat "Temporal client certificate: time to expiry"
+- [x] 3.5 E3 stat "Temporal client certificate: time to expiry"
   (`min(...expiry_timestamp_seconds) - time()`, seconds unit), gated on
   the mechanism.
 - [ ] 3.6 Tests: alert and panel absent without the flag, present with

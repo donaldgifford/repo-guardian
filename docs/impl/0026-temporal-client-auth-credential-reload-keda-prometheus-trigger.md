@@ -318,7 +318,7 @@ before the tag), `threshold` from
   `authorizer: default`, `claimMapper: default`),
   `server.config.tls.refreshInterval: 1m`,
   `server.internal-frontend.enabled: true`. Comments link DESIGN-0028.
-- [ ] 4.2 `namespace-job.yaml`: target the internal frontend with the
+- [x] 4.2 `namespace-job.yaml`: target the internal frontend with the
   internode certificate (OQ7 of DESIGN-0028); keep retention and
   idempotency; update the header comment.
 - [ ] 4.3 `networkpolicy.yaml`: allow the namespace Job to reach the

@@ -3,9 +3,11 @@
 #
 #   kubectl -n temporal apply -f namespace-job.yaml
 #
-# It connects through the external frontend with a client certificate
-# from the Secret temporal-admin-tls (kubernetes.io/tls with ca.crt),
-# issued from the CA the frontend trusts.
+# It connects through the internal frontend with the internode
+# certificate (temporal-internode-tls), because the external frontend
+# now requires a JWT with admin rights and this Job holds none
+# (DESIGN-0028 OQ7). The internal frontend skips the authorizer, and
+# networkpolicy.yaml keeps it reachable only from the temporal namespace.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -41,7 +43,7 @@ spec:
               fi
           env:
             - name: TEMPORAL_ADDRESS
-              value: temporal-frontend.temporal.svc:7233
+              value: temporal-internal-frontend.temporal.svc:7236
             - name: TEMPORAL_TLS_CERT
               value: /etc/temporal/tls/tls.crt
             - name: TEMPORAL_TLS_KEY
@@ -49,7 +51,7 @@ spec:
             - name: TEMPORAL_TLS_CA
               value: /etc/temporal/tls/ca.crt
             - name: TEMPORAL_TLS_SERVER_NAME
-              value: temporal-frontend
+              value: temporal-internode
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -62,4 +64,4 @@ spec:
       volumes:
         - name: tls
           secret:
-            secretName: temporal-admin-tls
+            secretName: temporal-internode-tls

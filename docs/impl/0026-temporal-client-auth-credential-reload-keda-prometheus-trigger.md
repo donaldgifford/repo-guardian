@@ -321,7 +321,7 @@ before the tag), `threshold` from
 - [x] 4.2 `namespace-job.yaml`: target the internal frontend with the
   internode certificate (OQ7 of DESIGN-0028); keep retention and
   idempotency; update the header comment.
-- [ ] 4.3 `networkpolicy.yaml`: allow the namespace Job to reach the
+- [x] 4.3 `networkpolicy.yaml`: allow the namespace Job to reach the
   internal frontend; repo-guardian still reaches only the external
   frontend.
 - [ ] 4.4 `README.md`: prerequisites (Keycloak or Okta JWKS, the

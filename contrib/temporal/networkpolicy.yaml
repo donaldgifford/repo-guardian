@@ -1,8 +1,8 @@
 # The frontend accepts gRPC only from Temporal's own pods and from
 # namespaces labelled as repo-guardian clients (DESIGN-0026 OQ11).
-# Open-source Temporal has no per-namespace authorization by default, so
-# network reachability plus mTLS is the boundary. Label each namespace
-# running repo-guardian:
+# Reachability plus mTLS bounds who can connect; the JWT authorizer in
+# values-base.yaml bounds what they may do (DESIGN-0028). Label each
+# namespace running repo-guardian:
 #
 #   kubectl label namespace repo-guardian repo-guardian.io/temporal-client=true
 apiVersion: networking.k8s.io/v1
@@ -35,3 +35,33 @@ spec:
       ports:
         - protocol: TCP
           port: 6933
+---
+# The internal frontend skips the JWT authorizer (DESIGN-0028), so it is
+# reachable only from inside the temporal namespace: the server
+# services and namespace-job.yaml. repo-guardian reaches only the
+# external frontend above, and never needs this one.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: temporal-internal-frontend
+  namespace: temporal
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: temporal
+      app.kubernetes.io/component: internal-frontend
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 7236
+    # Membership (ringpop) between server services.
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: temporal
+      ports:
+        - protocol: TCP
+          port: 6936

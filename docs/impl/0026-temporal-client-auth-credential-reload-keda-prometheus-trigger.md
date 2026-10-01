@@ -329,7 +329,7 @@ before the tag), `threshold` from
   § Why these choices (mTLS + NetworkPolicy bound reachability; the JWT
   authorizer bounds rights), and an "upgrading an mTLS-only install"
   note.
-- [ ] 4.5 `make lint-temporal-contrib` asserts the rendered config
+- [x] 4.5 `make lint-temporal-contrib` asserts the rendered config
   contains `authorization` with `authorizer: default`, the TLS
   `refreshInterval`, and an internal-frontend Service.
 

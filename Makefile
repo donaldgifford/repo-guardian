@@ -186,6 +186,8 @@ TEMPORAL_CONTRIB       := contrib/temporal
 
 lint-temporal-contrib: ## Render contrib/temporal against the pinned chart, every visibility mode
 	@ $(MAKE) --no-print-directory log-$@
+	@# The TLS refreshInterval is matched by its indent under tls:, which
+	@# tells it apart from jwtKeyProvider's (two deeper).
 	@for vis in visibility-postgres visibility-opensearch-baked visibility-external; do \
 		out=$$(helm template temporal temporal --repo $(TEMPORAL_CHART_REPO) --version $(TEMPORAL_CHART_VERSION) \
 			--namespace temporal \
@@ -197,6 +199,9 @@ lint-temporal-contrib: ## Render contrib/temporal against the pinned chart, ever
 			echo "error: $$vis rendered $$kinds Deployments, want the four server services" >&2; exit 1; \
 		fi; \
 		printf '%s\n' "$$out" | grep -q 'enableFairness' || { echo "error: $$vis lost matching.enableFairness" >&2; exit 1; }; \
+		printf '%s\n' "$$out" | grep -q 'authorizer: default' || { echo "error: $$vis lost the JWT authorizer (server.config.authorization)" >&2; exit 1; }; \
+		printf '%s\n' "$$out" | grep -q '^          refreshInterval: ' || { echo "error: $$vis lost the TLS refreshInterval (server.config.tls)" >&2; exit 1; }; \
+		printf '%s\n' "$$out" | grep -q '^  name: temporal-internal-frontend$$' || { echo "error: $$vis rendered no internal-frontend Service" >&2; exit 1; }; \
 		echo "✓ $$vis renders ($$kinds Deployments)"; \
 	done
 	@for m in persistence-cnpg namespace-job networkpolicy; do \

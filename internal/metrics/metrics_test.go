@@ -93,3 +93,14 @@ func TestTemporalCredentialReloads_PreInitialized(t *testing.T) {
 		t.Errorf("series = %d, want 6 (3 credentials x 2 outcomes)", got)
 	}
 }
+
+// A pod that never loads a client certificate must export no expiry
+// series: a zero would read as expired in 1970 and hold the expiry
+// alert firing.
+func TestTemporalClientCertExpiry_AbsentUntilSet(t *testing.T) {
+	t.Parallel()
+
+	if got := testutil.CollectAndCount(TemporalClientCertExpiry); got != 0 {
+		t.Errorf("series before any load = %d, want 0", got)
+	}
+}

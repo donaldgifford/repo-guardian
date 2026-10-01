@@ -577,10 +577,17 @@ var (
 	// certificate this process currently presents (DESIGN-0028), set on
 	// every successful load. No labels: one certificate per process,
 	// and the scrape adds pod identity.
-	TemporalClientCertExpiry = promauto.NewGauge(prometheus.GaugeOpts{
+	//
+	// A vector with no labels rather than a Gauge, so the series exists
+	// only once a certificate has loaded: a plain Gauge exports 0 from
+	// startup, and a pod without a client certificate (the api role)
+	// would then read as expired since 1970 and hold
+	// min(...) - time() < threshold firing forever. Set it through
+	// WithLabelValues().
+	TemporalClientCertExpiry = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "repo_guardian_temporal_client_cert_expiry_timestamp_seconds",
 		Help: "Unix time the Temporal client certificate this process presents expires.",
-	})
+	}, nil)
 
 	// TemporalCredentialReloadsTotal counts Temporal credential reloads
 	// that changed something or failed, by credential (client_cert, ca,

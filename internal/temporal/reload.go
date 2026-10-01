@@ -114,7 +114,7 @@ func (c *credentialFiles) reload() error {
 	c.mod = times
 
 	if next.cert != nil {
-		metrics.TemporalClientCertExpiry.Set(float64(next.cert.Leaf.NotAfter.Unix()))
+		metrics.TemporalClientCertExpiry.WithLabelValues().Set(float64(next.cert.Leaf.NotAfter.Unix()))
 	}
 
 	if prev != nil {

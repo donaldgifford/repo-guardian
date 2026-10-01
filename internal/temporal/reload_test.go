@@ -230,7 +230,7 @@ func TestCredentialFiles_PicksUpRotation(t *testing.T) {
 		t.Errorf("changed counter = %v, want %v", got, changed+1)
 	}
 
-	if got := testutil.ToFloat64(metrics.TemporalClientCertExpiry); got != float64(renewed.Unix()) {
+	if got := testutil.ToFloat64(metrics.TemporalClientCertExpiry.WithLabelValues()); got != float64(renewed.Unix()) {
 		t.Errorf("expiry gauge = %v, want %v", got, renewed.Unix())
 	}
 }

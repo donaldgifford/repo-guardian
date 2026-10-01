@@ -391,8 +391,15 @@ task must be checked off before this IMPL is marked Completed.
   sends), and that the installed OpenBao signs through
   `pki_*/sign/<role>` for a throwaway Certificate. Put the minimum
   versions in `temporal-client-auth.md`. — *deferred: human required*
-- [ ] 6.5 `Chart.yaml` `2.0.0-rc.5` / appVersion `2.0.0-rc.5`; helm
+- [x] 6.5 `Chart.yaml` `2.0.0-rc.5` / appVersion `2.0.0-rc.5`; helm
   unittest pins updated; CHANGELOG via git-cliff.
+  Done: Chart.yaml and the helm-docs README. No helm-unittest pins
+  the version (the tests set their own appVersion). Neither CHANGELOG
+  was regenerated: both are hand-curated and stale (root at 1.9.0,
+  chart at 1.0.0-rc.1), so git-cliff would replace their curated
+  entries, and rc.2 through rc.4 left them alone too. The publish
+  workflow regenerates the chart CHANGELOG before `helm package`, so
+  the published chart still ships a current one.
 - [ ] 6.6 PR to `v2` with `dont-release` (Rule 6); after merge, tag
   `v2.0.0-rc.5` and dispatch `ghcr.yml`; verify assets, signatures,
   provenance, and that `latest` did not move.

@@ -232,7 +232,7 @@ pass (OQ4), and this IMPL cannot close until they are done.
   else `<fullname>-temporal-tls` when `certManager.enabled`). The TLS
   env, volume and checksum logic use it, so `certManager.enabled` alone
   mounts the certificate.
-- [ ] 2.3 `templates/temporal-certificate.yaml`: the `Certificate`
+- [x] 2.3 `templates/temporal-certificate.yaml`: the `Certificate`
   (usages `client auth`, `digital signature`; ECDSA P-256;
   `rotationPolicy: Always`), namespace stamped, rendered when
   `certManager.enabled`.

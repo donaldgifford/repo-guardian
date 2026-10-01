@@ -134,6 +134,53 @@
             },
             "disabled": {
               "type": "boolean"
+            },
+            "reloadInterval": {
+              "type": "string",
+              "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$",
+              "description": "Go duration, 5s-10m (enforced by the binary)."
+            },
+            "certManager": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "issuerRef": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "Issuer",
+                        "ClusterIssuer"
+                      ]
+                    },
+                    "group": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "commonName": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "duration": {
+                  "type": "string",
+                  "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+                },
+                "renewBefore": {
+                  "type": "string",
+                  "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+                },
+                "secretName": {
+                  "type": "string"
+                }
+              }
             }
           }
         },
@@ -206,6 +253,34 @@
             "maxReplicas": {
               "type": "integer",
               "minimum": 1
+            },
+            "trigger": {
+              "type": "string",
+              "enum": [
+                "prometheus",
+                "temporal"
+              ]
+            },
+            "fallbackReplicas": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "prometheus": {
+              "type": "object",
+              "properties": {
+                "serverAddress": {
+                  "type": "string"
+                },
+                "query": {
+                  "type": "string"
+                },
+                "authenticationRef": {
+                  "type": "string"
+                }
+              }
             }
           }
         }

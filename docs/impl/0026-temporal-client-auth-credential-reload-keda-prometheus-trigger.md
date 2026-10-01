@@ -255,7 +255,7 @@ before the tag), `threshold` from
   `trigger: temporal`, naming `trigger: prometheus` as the fix;
   `certManager.enabled` without `issuerRef.name` fails; an unknown
   `trigger` fails. Messages name the value to change.
-- [ ] 2.7 `values.schema.json`: the new keys, `trigger` enum,
+- [x] 2.7 `values.schema.json`: the new keys, `trigger` enum,
   `reloadInterval` pattern.
 - [ ] 2.8 `prometheusrule.yaml`: `RepoGuardianTemporalClientCertExpiring`
   in the `repo-guardian.temporal` group, rendered only with a client

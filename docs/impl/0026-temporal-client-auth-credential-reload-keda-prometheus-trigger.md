@@ -410,8 +410,8 @@ task must be checked off before this IMPL is marked Completed.
   `v2.0.0-rc.5` and dispatch `ghcr.yml`; verify assets, signatures,
   provenance, and that `latest` did not move. — *deferred: human required*
   (pushing and the PR wait for the go-ahead, `v2` is protected so the
-  merge is the maintainer's, and the tag is held until 6.1–6.4 and
-  task 1.5 land).
+  merge is the maintainer's, and the tag is held until 6.1–6.4 pass;
+  task 1.5 landed 2026-10-01).
 - [ ] 6.7 Homelab, in DESIGN-0028's order: OpenBao mount, roles, policy
   and Kubernetes auth; Issuer; `certManager.enabled` (pods present a
   certificate the server does not yet require). — *deferred: human

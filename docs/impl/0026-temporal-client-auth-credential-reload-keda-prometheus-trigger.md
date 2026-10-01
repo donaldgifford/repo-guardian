@@ -195,6 +195,15 @@ pass (OQ4), and this IMPL cannot close until they are done.
   `Certificates`/`RootCAs` and a read-once secret; confirm the rotation,
   CA-rollover and OIDC tests fail; restore. Record the result in the
   task.
+
+  **Unit tests done (2026-10-01):** with reload made read-once and the
+  OIDC secret read once, six tests failed —
+  `TestCredentialFiles_PicksUpRotation`, `_KeepsLastGoodSnapshot`,
+  `_RunReloadsOnTick`, `TestHandshake_PresentsRotatedClientCertificate`,
+  `TestHandshake_CARolloverWithoutRestart`,
+  `TestTokenSource_PicksUpRotatedSecret` — and all passed again once
+  restored. The 1.9 integration test still needs the same check once
+  1.5 is unblocked.
 - [ ] 1.11 Go doc comments on every new type and function;
   `internal/temporal` package doc mentions reload.
 

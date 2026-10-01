@@ -348,7 +348,7 @@ before the tag), `threshold` from
   option), the OpenBao commands, Issuer, token-request Role, chart
   values, the rollout order and rollback from DESIGN-0028, and
   troubleshooting (the two metrics, the alert, `cmctl status`).
-- [ ] 5.2 `docs/operations/v2-onboarding.md`: link the page from
+- [x] 5.2 `docs/operations/v2-onboarding.md`: link the page from
   prerequisites; replace the KEDA guidance with the Prometheus trigger
   and the sizing note.
 - [ ] 5.3 `docs/operations/v2-migration.md`: the KEDA values change

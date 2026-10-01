@@ -110,6 +110,15 @@ const (
 	// unconditional (INV-0015).
 	MechanismRepoParking Mechanism = "repo_parking"
 
+	// MechanismTemporalClientCert gates
+	// temporal_client_cert_expiry_timestamp_seconds, which exists only
+	// once a pod has loaded a Temporal client certificate, and the
+	// credential="client_cert" series of temporal_credential_reloads_total,
+	// which is pre-initialized but moves only with one (DESIGN-0028). It
+	// is a fact about the deployment, not the policy, so it arrives by
+	// Options.TemporalClientCert rather than from Derive's policy walk.
+	MechanismTemporalClientCert Mechanism = "temporal_client_cert"
+
 	// MechanismDryRun is INVERTED: it does not enable a series, it
 	// SUPPRESSES prs_created_total. A generator that only knows how to
 	// add alerts will page a dry-run deployment forever with

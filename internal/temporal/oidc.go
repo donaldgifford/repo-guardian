@@ -9,10 +9,13 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
+
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 )
 
 const (
@@ -79,28 +82,71 @@ func (o *OIDCConfig) validate() []error {
 }
 
 // tokenSource returns a cached, self-renewing source of access tokens.
-// The client secret is read once, here; rotating it needs a restart,
-// like the TLS files.
+// The client secret is read here, so a missing file fails startup, and
+// again on every token fetch, so a rotated secret is used without a
+// restart (DESIGN-0028). Fetches happen once per token lifetime, not
+// per call: the reuse wrapper caches the token.
 func (o *OIDCConfig) tokenSource(ctx context.Context) (oauth2.TokenSource, error) {
-	secret, err := os.ReadFile(o.ClientSecretPath)
+	secret, err := o.readSecret()
 	if err != nil {
-		return nil, fmt.Errorf("temporal: reading OIDC client secret: %w", err)
-	}
-
-	cc := &clientcredentials.Config{
-		ClientID:     o.ClientID,
-		ClientSecret: strings.TrimSpace(string(secret)),
-		TokenURL:     o.TokenURL,
-		Scopes:       o.Scopes,
-	}
-
-	if o.Audience != "" {
-		cc.EndpointParams = url.Values{"audience": {o.Audience}}
+		return nil, err
 	}
 
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{Timeout: tokenFetchTimeout})
 
-	return oauth2.ReuseTokenSourceWithExpiry(nil, cc.TokenSource(ctx), tokenRefreshEarly), nil
+	return oauth2.ReuseTokenSourceWithExpiry(nil, &secretFileSource{ctx: ctx, oidc: o, last: secret}, tokenRefreshEarly), nil
+}
+
+// readSecret reads and trims the client secret file.
+func (o *OIDCConfig) readSecret() (string, error) {
+	secret, err := os.ReadFile(o.ClientSecretPath)
+	if err != nil {
+		return "", fmt.Errorf("temporal: reading OIDC client secret: %w", err)
+	}
+
+	return strings.TrimSpace(string(secret)), nil
+}
+
+// secretFileSource fetches a client-credentials token with the secret
+// currently on disk.
+type secretFileSource struct {
+	ctx  context.Context //nolint:containedctx // oauth2.TokenSource has no context parameter; this carries the HTTP client
+	oidc *OIDCConfig
+
+	mu   sync.Mutex
+	last string // the secret used for the previous fetch
+}
+
+// Token reads the secret and fetches a token. A read failure fails the
+// fetch: the SDK retries, and a cached token keeps working until it
+// expires.
+func (s *secretFileSource) Token() (*oauth2.Token, error) {
+	secret, err := s.oidc.readSecret()
+	if err != nil {
+		metrics.TemporalCredentialReloadsTotal.WithLabelValues(metrics.CredentialOIDCSecret, metrics.OutcomeError).Inc()
+
+		return nil, err
+	}
+
+	s.mu.Lock()
+	if secret != s.last {
+		s.last = secret
+		metrics.TemporalCredentialReloadsTotal.WithLabelValues(metrics.CredentialOIDCSecret, metrics.OutcomeChanged).Inc()
+	}
+	s.mu.Unlock()
+
+	cc := &clientcredentials.Config{
+		ClientID:     s.oidc.ClientID,
+		ClientSecret: secret,
+		TokenURL:     s.oidc.TokenURL,
+		Scopes:       s.oidc.Scopes,
+	}
+
+	if s.oidc.Audience != "" {
+		cc.EndpointParams = url.Values{"audience": {s.oidc.Audience}}
+	}
+
+	return cc.Token(s.ctx)
 }
 
 // tokenCallback adapts ts to the SDK's API-key credentials, which send

@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"sync/atomic"
 	"testing"
+
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 )
 
 // tokenServer is a client-credentials endpoint that counts requests and
@@ -144,5 +146,67 @@ func TestTokenSource_MissingSecretFile(t *testing.T) {
 	o := &OIDCConfig{TokenURL: "https://idp/token", ClientID: "rg", ClientSecretPath: filepath.Join(t.TempDir(), "absent")}
 	if _, err := o.tokenSource(t.Context()); err == nil {
 		t.Error("tokenSource with a missing secret file succeeded")
+	}
+}
+
+// TestTokenSource_PicksUpRotatedSecret pins that the secret file is
+// re-read per fetch: after the IdP and the file both move to a new
+// secret, the next fetch succeeds with no new token source. It reads a
+// process-global counter, so it does not run in parallel.
+func TestTokenSource_PicksUpRotatedSecret(t *testing.T) {
+	var accepted atomic.Value
+	accepted.Store("old")
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, secret, ok := r.BasicAuth()
+		if !ok {
+			_ = r.ParseForm()
+			secret = r.PostForm.Get("client_secret")
+		}
+
+		if secret != accepted.Load() {
+			http.Error(w, `{"error":"invalid_client"}`, http.StatusUnauthorized)
+
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		// Shorter than tokenRefreshEarly, so every call fetches.
+		_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "tok-" + secret, "token_type": "Bearer", "expires_in": 1})
+	}))
+	t.Cleanup(srv.Close)
+
+	path := filepath.Join(t.TempDir(), "client-secret")
+	if err := os.WriteFile(path, []byte("old\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	o := &OIDCConfig{TokenURL: srv.URL, ClientID: "repo-guardian", ClientSecretPath: path}
+
+	ts, err := o.tokenSource(t.Context())
+	if err != nil {
+		t.Fatalf("tokenSource: %v", err)
+	}
+
+	cb := tokenCallback(ts, slog.New(slog.DiscardHandler))
+
+	if tok, err := cb(t.Context()); err != nil || tok != "tok-old" {
+		t.Fatalf("first token = %q, %v; want tok-old", tok, err)
+	}
+
+	changed := reloads(metrics.CredentialOIDCSecret, metrics.OutcomeChanged)
+
+	accepted.Store("new")
+
+	if err := os.WriteFile(path, []byte("new\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if tok, err := cb(t.Context()); err != nil || tok != "tok-new" {
+		t.Fatalf("token after rotation = %q, %v; want tok-new", tok, err)
+	}
+
+	if got := reloads(metrics.CredentialOIDCSecret, metrics.OutcomeChanged); got != changed+1 {
+		t.Errorf("oidc_secret changed counter = %v, want %v", got, changed+1)
 	}
 }

@@ -159,7 +159,7 @@ pass (OQ4), and this IMPL cannot close until they are done.
   so a wrapper embedding `client.Client` would crash the worker role at
   startup. OQ1 (a) needs a new decision before 1.2–1.5 proceed. Both
   callers (`dialTemporal`, `rg-burst`) keep their code unchanged.
-- [ ] 1.6 OIDC: replace the read-once secret with a `TokenSource` that
+- [x] 1.6 OIDC: replace the read-once secret with a `TokenSource` that
   reads `ClientSecretPath` on each fetch and builds the
   client-credentials request; keep the `ReuseTokenSourceWithExpiry`
   wrapper. Update the `tokenSource` comment. A read failure counts

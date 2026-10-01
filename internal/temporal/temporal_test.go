@@ -34,6 +34,50 @@ func TestConfigFromEnv_Defaults(t *testing.T) {
 	if cfg.Namespace != DefaultNamespace || cfg.TaskQueue != DefaultTaskQueue {
 		t.Errorf("cfg = %+v, want default namespace and task queue", cfg)
 	}
+
+	if cfg.TLSReloadInterval != DefaultTLSReloadInterval {
+		t.Errorf("TLSReloadInterval = %s, want %s", cfg.TLSReloadInterval, DefaultTLSReloadInterval)
+	}
+}
+
+func TestConfigFromEnv_TLSReloadInterval(t *testing.T) {
+	tests := []struct {
+		value   string
+		want    time.Duration
+		wantErr bool
+	}{
+		{value: "", want: DefaultTLSReloadInterval},
+		{value: "5s", want: 5 * time.Second},
+		{value: "10m", want: 10 * time.Minute},
+		{value: "1m30s", want: 90 * time.Second},
+		{value: "4s", wantErr: true},
+		{value: "11m", wantErr: true},
+		{value: "soon", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.value, func(t *testing.T) {
+			for _, k := range configEnv {
+				t.Setenv(k, "")
+			}
+
+			t.Setenv("TEMPORAL_ADDRESS", "temporal:7233")
+			t.Setenv("TEMPORAL_TLS_RELOAD_INTERVAL", tt.value)
+
+			cfg, err := ConfigFromEnv()
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("ConfigFromEnv = %s, want an error", cfg.TLSReloadInterval)
+				}
+
+				return
+			}
+
+			if err != nil || cfg.TLSReloadInterval != tt.want {
+				t.Errorf("ConfigFromEnv = %s, %v; want %s", cfg.TLSReloadInterval, err, tt.want)
+			}
+		})
+	}
 }
 
 func TestConfigFromEnv_Invalid(t *testing.T) {
@@ -77,6 +121,7 @@ var configEnv = []string{
 	"TEMPORAL_ADDRESS", "TEMPORAL_TLS_CERT_PATH", "TEMPORAL_TLS_KEY_PATH", "TEMPORAL_TLS_CA_PATH",
 	"TEMPORAL_TLS_SERVER_NAME", "TEMPORAL_TLS_DISABLED", "TEMPORAL_OIDC_TOKEN_URL", "TEMPORAL_OIDC_CLIENT_ID",
 	"TEMPORAL_OIDC_CLIENT_SECRET_PATH", "TEMPORAL_OIDC_SCOPES", "TEMPORAL_OIDC_AUDIENCE",
+	"TEMPORAL_TLS_RELOAD_INTERVAL",
 }
 
 func TestConfigFromEnv_OIDC(t *testing.T) {

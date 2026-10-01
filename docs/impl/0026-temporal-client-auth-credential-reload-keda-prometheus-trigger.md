@@ -123,7 +123,7 @@ pass (OQ4), and this IMPL cannot close until they are done.
 
 #### Tasks
 
-- [ ] 1.1 `ConfigFromEnv`: add `TLSReloadInterval time.Duration` from
+- [x] 1.1 `ConfigFromEnv`: add `TLSReloadInterval time.Duration` from
   `TEMPORAL_TLS_RELOAD_INTERVAL` (Go duration, default `30s`). `validate`
   rejects values outside 5s–10m with a message naming the bounds. Table
   tests for default, valid, out of range, unparsable.

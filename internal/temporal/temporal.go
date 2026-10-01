@@ -15,6 +15,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/otel/metric"
 	"go.temporal.io/api/workflowservice/v1"
@@ -33,6 +34,18 @@ const MinServerVersion = "1.31.0"
 const (
 	DefaultNamespace = "repo-guardian"
 	DefaultTaskQueue = "repo-guardian"
+
+	// DefaultTLSReloadInterval is how often the client checks its TLS
+	// files for a renewed certificate or CA (DESIGN-0028).
+	DefaultTLSReloadInterval = 30 * time.Second
+)
+
+// Bounds on TEMPORAL_TLS_RELOAD_INTERVAL: below the floor a typo would
+// stat the files constantly; above the ceiling a renewed certificate
+// could sit unused for most of a short certificate's life.
+const (
+	minTLSReloadInterval = 5 * time.Second
+	maxTLSReloadInterval = 10 * time.Minute
 )
 
 // ErrServerTooOld is returned by CheckServerVersion when the server is
@@ -58,6 +71,11 @@ type Config struct {
 	TLSKeyPath    string
 	TLSCAPath     string
 	TLSServerName string
+
+	// TLSReloadInterval (TEMPORAL_TLS_RELOAD_INTERVAL, default 30s) is
+	// how often the TLS files are checked for changes, so a renewed
+	// certificate or CA is used without a restart. Bounded 5s–10m.
+	TLSReloadInterval time.Duration
 
 	// TLSDisabled (TEMPORAL_TLS_DISABLED) forces plaintext even with
 	// OIDC, whose bearer token would otherwise always travel over TLS.
@@ -91,6 +109,13 @@ func ConfigFromEnv() (Config, error) {
 
 	cfg.TLSDisabled = disabled
 
+	interval, err := envDuration("TEMPORAL_TLS_RELOAD_INTERVAL", DefaultTLSReloadInterval)
+	if err != nil {
+		return Config{}, err
+	}
+
+	cfg.TLSReloadInterval = interval
+
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
 	}
@@ -117,11 +142,31 @@ func (c *Config) validate() error {
 		errs = append(errs, errors.New("TEMPORAL_TLS_DISABLED contradicts the TEMPORAL_TLS_* files"))
 	}
 
+	if c.TLSReloadInterval != 0 && (c.TLSReloadInterval < minTLSReloadInterval || c.TLSReloadInterval > maxTLSReloadInterval) {
+		errs = append(errs, fmt.Errorf("TEMPORAL_TLS_RELOAD_INTERVAL %s is outside %s–%s",
+			c.TLSReloadInterval, minTLSReloadInterval, maxTLSReloadInterval))
+	}
+
 	if c.OIDC != nil {
 		errs = append(errs, c.OIDC.validate()...)
 	}
 
 	return errors.Join(errs...)
+}
+
+// envDuration reads a Go duration variable; unset is def.
+func envDuration(name string, def time.Duration) (time.Duration, error) {
+	v := os.Getenv(name)
+	if v == "" {
+		return def, nil
+	}
+
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", name, err)
+	}
+
+	return d, nil
 }
 
 // envBool reads a boolean variable; unset is false.

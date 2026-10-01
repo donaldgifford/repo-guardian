@@ -127,14 +127,14 @@ pass (OQ4), and this IMPL cannot close until they are done.
   `TEMPORAL_TLS_RELOAD_INTERVAL` (Go duration, default `30s`). `validate`
   rejects values outside 5s–10m with a message naming the bounds. Table
   tests for default, valid, out of range, unparsable.
-- [ ] 1.2 `reload.go`: `credentialFiles` with an
+- [x] 1.2 `reload.go`: `credentialFiles` with an
   `atomic.Pointer[tlsMaterial]` snapshot, `reload()` (stat with symlinks
   followed; skip when every modification time is unchanged; read, parse,
   validate pair match and `NotAfter > now`; swap), and `run(ctx)`
   ticking at `TLSReloadInterval`. The first `reload` is strict; later
   failures keep the last good snapshot, `slog.Warn` with the file and
   error, and count an error.
-- [ ] 1.3 `getClientCertificate` serves the snapshot's certificate.
+- [x] 1.3 `getClientCertificate` serves the snapshot's certificate.
   `verifyConnection` verifies the peer chain against the snapshot's
   pool: `x509.VerifyOptions{DNSName: serverName, Roots, Intermediates
   from PeerCertificates[1:], KeyUsages: [ExtKeyUsageServerAuth],
@@ -142,7 +142,7 @@ pass (OQ4), and this IMPL cannot close until they are done.
   configured, with `//nolint:gosec // G402: verification moved to
   VerifyConnection so the CA can reload (DESIGN-0028)`. Without a CA
   path (OIDC on system roots), standard verification stays.
-- [ ] 1.4 Rewrite `tlsConfig` to build from `credentialFiles` (no more
+- [x] 1.4 Rewrite `tlsConfig` to build from `credentialFiles` (no more
   `Certificates`/`RootCAs` fields). Keep `TestTLSConfig`'s cases and
   update its assertions to the callbacks.
 - [ ] 1.5 Lifecycle (OQ1: a `Close` wrapper): `Dial` returns a type

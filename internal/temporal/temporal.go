@@ -8,10 +8,10 @@ package temporal
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -186,9 +186,12 @@ func envBool(name string) (bool, error) {
 
 // tlsConfig builds the client TLS config: mTLS with a client
 // certificate, server-verified TLS for OIDC, or nil for plaintext.
-func (c *Config) tlsConfig() (*tls.Config, error) {
+// Certificates and CA bundles are served from credentialFiles, which
+// reloads them when they change; the returned *credentialFiles is nil
+// when there are no files to watch.
+func (c *Config) tlsConfig(logger *slog.Logger) (*tls.Config, *credentialFiles, error) {
 	if c.TLSDisabled || (c.TLSCertPath == "" && c.OIDC == nil) {
-		return nil, nil //nolint:nilnil // nil config: plaintext (dev server, or TLS disabled)
+		return nil, nil, nil
 	}
 
 	cfg := &tls.Config{
@@ -196,30 +199,44 @@ func (c *Config) tlsConfig() (*tls.Config, error) {
 		MinVersion: tls.VersionTLS12,
 	}
 
-	if c.TLSCertPath != "" {
-		cert, err := tls.LoadX509KeyPair(c.TLSCertPath, c.TLSKeyPath)
-		if err != nil {
-			return nil, fmt.Errorf("temporal: loading client certificate: %w", err)
-		}
+	if c.TLSCertPath == "" && c.TLSCAPath == "" {
+		// OIDC on the system roots: crypto/tls verifies as usual.
+		return cfg, nil, nil
+	}
 
-		cfg.Certificates = []tls.Certificate{cert}
+	files, err := newCredentialFiles(c.TLSCertPath, c.TLSKeyPath, c.TLSCAPath, c.serverName(), logger)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if c.TLSCertPath != "" {
+		cfg.GetClientCertificate = files.getClientCertificate
 	}
 
 	if c.TLSCAPath != "" {
-		pem, err := os.ReadFile(c.TLSCAPath)
-		if err != nil {
-			return nil, fmt.Errorf("temporal: reading CA: %w", err)
-		}
-
-		pool := x509.NewCertPool()
-		if !pool.AppendCertsFromPEM(pem) {
-			return nil, fmt.Errorf("temporal: %s holds no PEM certificate", c.TLSCAPath)
-		}
-
-		cfg.RootCAs = pool
+		// Verification moves to VerifyConnection, which checks the chain,
+		// name, EKU and validity against a CA pool that can reload.
+		cfg.InsecureSkipVerify = true
+		cfg.VerifyConnection = files.verifyConnection
 	}
 
-	return cfg, nil
+	return cfg, files, nil
+}
+
+// serverName is the name the frontend's certificate must carry:
+// TEMPORAL_TLS_SERVER_NAME, else the host of TEMPORAL_ADDRESS, which is
+// what gRPC itself would verify against.
+func (c *Config) serverName() string {
+	if c.TLSServerName != "" {
+		return c.TLSServerName
+	}
+
+	host, _, err := net.SplitHostPort(c.Address)
+	if err != nil {
+		return c.Address
+	}
+
+	return host
 }
 
 // DialOptions are the process-wide dependencies Dial wires in.
@@ -237,14 +254,14 @@ func Dial(ctx context.Context, cfg *Config, opts DialOptions) (client.Client, er
 		return nil, fmt.Errorf("temporal: %w", err)
 	}
 
-	tlsCfg, err := cfg.tlsConfig()
-	if err != nil {
-		return nil, err
-	}
-
 	logger := opts.Logger
 	if logger == nil {
 		logger = slog.Default()
+	}
+
+	tlsCfg, _, err := cfg.tlsConfig(logger)
+	if err != nil {
+		return nil, err
 	}
 
 	co := client.Options{

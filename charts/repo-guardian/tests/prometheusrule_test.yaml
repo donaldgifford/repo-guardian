@@ -346,3 +346,60 @@ tests:
           content:
             alert: RepoGuardianTemporalStickyCacheEvictions
           any: true
+
+  - it: renders the client-certificate expiry alert only with a client certificate
+    set:
+      prometheusRule:
+        enabled: true
+      temporal:
+        tls:
+          existingSecret: rg-temporal-tls
+    asserts:
+      - lengthEqual:
+          path: spec.groups[1].rules
+          count: 5
+      - equal:
+          path: spec.groups[1].rules[4].alert
+          value: RepoGuardianTemporalClientCertExpiring
+      - equal:
+          path: spec.groups[1].rules[4].expr
+          value: min(repo_guardian_temporal_client_cert_expiry_timestamp_seconds) - time() < 14400
+
+  - it: renders the expiry alert for a cert-manager certificate and tunes it
+    set:
+      prometheusRule:
+        enabled: true
+        alerts:
+          TemporalClientCertExpiring:
+            threshold: 7200
+            for: 5m
+      temporal:
+        tls:
+          certManager:
+            enabled: true
+            issuerRef:
+              name: openbao
+    asserts:
+      - matchRegex:
+          path: spec.groups[1].rules[4].expr
+          pattern: '< 7200$'
+      - equal:
+          path: spec.groups[1].rules[4].for
+          value: 5m
+
+  - it: omits the expiry alert without a client certificate, or when disabled
+    set:
+      prometheusRule:
+        enabled: true
+        alerts:
+          TemporalClientCertExpiring:
+            enabled: false
+      temporal:
+        tls:
+          existingSecret: rg-temporal-tls
+    asserts:
+      - notContains:
+          path: spec.groups[1].rules
+          content:
+            alert: RepoGuardianTemporalClientCertExpiring
+          any: true

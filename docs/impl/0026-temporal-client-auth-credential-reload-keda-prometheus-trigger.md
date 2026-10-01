@@ -261,7 +261,7 @@ before the tag), `threshold` from
   in the `repo-guardian.temporal` group, rendered only with a client
   certificate configured, overridable like its siblings
   (`prometheusRule.alerts.TemporalClientCertExpiring`).
-- [ ] 2.9 helm-unittest: new `keda_test.yaml` (both triggers, default
+- [x] 2.9 helm-unittest: new `keda_test.yaml` (both triggers, default
   and custom query, `authenticationRef`, `fallback`, composite metric
   absent, TriggerAuthentication present only for temporal + client
   cert); `temporal_auth_test.yaml` (relaxed and new guards,

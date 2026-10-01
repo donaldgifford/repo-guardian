@@ -1,0 +1,81 @@
+suite: temporal client certificate (cert-manager, DESIGN-0028)
+templates:
+  - templates/temporal-certificate.yaml
+release:
+  name: rg
+  namespace: rg-ns
+set:
+  config:
+    appId: "12345"
+  secrets:
+    webhookSecret: "x"
+    privateKey: "x"
+  temporal:
+    address: temporal:7233
+  policy:
+    config: "guardian {}"
+tests:
+  - it: renders nothing by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders a client-auth ECDSA certificate in the release namespace
+    set:
+      temporal.tls.certManager.enabled: true
+      temporal.tls.certManager.issuerRef.name: openbao
+    asserts:
+      - isKind:
+          of: Certificate
+      - equal:
+          path: metadata.namespace
+          value: rg-ns
+      - equal:
+          path: spec.secretName
+          value: rg-repo-guardian-temporal-tls
+      - equal:
+          path: spec.usages
+          value: [client auth, digital signature]
+      - equal:
+          path: spec.privateKey
+          value:
+            algorithm: ECDSA
+            size: 256
+            rotationPolicy: Always
+      - equal:
+          path: spec.issuerRef
+          value:
+            name: openbao
+            kind: Issuer
+            group: cert-manager.io
+      - equal:
+          path: spec.duration
+          value: 24h
+      - equal:
+          path: spec.renewBefore
+          value: 8h
+
+  - it: writes to existingSecret when no secretName is set
+    set:
+      temporal.tls.certManager.enabled: true
+      temporal.tls.certManager.issuerRef.name: openbao
+      temporal.tls.existingSecret: rg-temporal-tls
+    asserts:
+      - equal:
+          path: spec.secretName
+          value: rg-temporal-tls
+
+  - it: prefers certManager.secretName over existingSecret
+    set:
+      temporal.tls.certManager.enabled: true
+      temporal.tls.certManager.issuerRef.name: openbao
+      temporal.tls.certManager.issuerRef.kind: ClusterIssuer
+      temporal.tls.certManager.secretName: rg-cm-tls
+      temporal.tls.existingSecret: rg-temporal-tls
+    asserts:
+      - equal:
+          path: spec.secretName
+          value: rg-cm-tls
+      - equal:
+          path: spec.issuerRef.kind
+          value: ClusterIssuer

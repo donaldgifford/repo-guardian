@@ -1,0 +1,175 @@
+suite: KEDA worker autoscaling (DESIGN-0028 § KEDA)
+templates:
+  - templates/worker-scaledobject.yaml
+  - templates/worker-triggerauthentication.yaml
+  - templates/deployment.yaml
+release:
+  name: rg
+  namespace: rg-ns
+set:
+  config:
+    appId: "12345"
+  secrets:
+    webhookSecret: "x"
+    privateKey: "x"
+  temporal:
+    address: temporal:7233
+  policy:
+    config: "guardian {}"
+  topology: split
+  worker:
+    keda:
+      enabled: true
+      prometheus:
+        serverAddress: http://prometheus.monitoring:9090
+tests:
+  - it: defaults to the prometheus trigger with the default backlog query
+    template: templates/worker-scaledobject.yaml
+    asserts:
+      - lengthEqual:
+          path: spec.triggers
+          count: 1
+      - equal:
+          path: spec.triggers[0].type
+          value: prometheus
+      - equal:
+          path: spec.triggers[0].metadata
+          value:
+            serverAddress: http://prometheus.monitoring:9090
+            query: sum(max by (partition, task_type) (approximate_backlog_count{namespace="repo-guardian", taskqueue="repo-guardian"}))
+            threshold: "50"
+      - notExists:
+          path: spec.triggers[0].authenticationRef
+      - equal:
+          path: metadata.namespace
+          value: rg-ns
+
+  - it: builds the default query from temporal.namespace and taskQueue
+    template: templates/worker-scaledobject.yaml
+    set:
+      temporal.namespace: rg-prod
+      temporal.taskQueue: checks
+    asserts:
+      - equal:
+          path: spec.triggers[0].metadata.query
+          value: sum(max by (partition, task_type) (approximate_backlog_count{namespace="rg-prod", taskqueue="checks"}))
+
+  - it: uses a custom query and an operator-owned authenticationRef
+    template: templates/worker-scaledobject.yaml
+    set:
+      worker.keda.prometheus.query: sum(temporal_approximate_backlog_count)
+      worker.keda.prometheus.authenticationRef: prom-auth
+    asserts:
+      - equal:
+          path: spec.triggers[0].metadata.query
+          value: sum(temporal_approximate_backlog_count)
+      - equal:
+          path: spec.triggers[0].authenticationRef.name
+          value: prom-auth
+
+  - it: falls back to worker.replicas
+    template: templates/worker-scaledobject.yaml
+    set:
+      worker.replicas: 2
+    asserts:
+      - equal:
+          path: spec.fallback
+          value:
+            failureThreshold: 3
+            replicas: 2
+
+  - it: uses fallbackReplicas when set
+    template: templates/worker-scaledobject.yaml
+    set:
+      worker.keda.fallbackReplicas: 3
+    asserts:
+      - equal:
+          path: spec.fallback.replicas
+          value: 3
+
+  - it: renders no TriggerAuthentication for the prometheus trigger
+    template: templates/worker-triggerauthentication.yaml
+    set:
+      temporal.tls.existingSecret: rg-temporal-tls
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: temporal trigger with mTLS references a TriggerAuthentication and never the composite metric
+    template: templates/worker-scaledobject.yaml
+    set:
+      worker.keda.trigger: temporal
+      temporal.tls.existingSecret: rg-temporal-tls
+      temporal.tls.serverName: temporal-frontend
+    asserts:
+      - equal:
+          path: spec.triggers[0].type
+          value: temporal
+      - equal:
+          path: spec.triggers[0].metadata.tlsServerName
+          value: temporal-frontend
+      - equal:
+          path: spec.triggers[0].authenticationRef.name
+          value: rg-repo-guardian-worker-temporal
+      - equal:
+          path: spec.fallback.failureThreshold
+          value: 3
+      # KEDA 2.21's composite metric would scale on fleet size
+      # (INV-0020 Observation 6): the trigger's metadata is exactly this.
+      - equal:
+          path: spec.triggers[0].metadata
+          value:
+            endpoint: temporal:7233
+            namespace: repo-guardian
+            taskQueue: repo-guardian
+            queueTypes: workflow,activity
+            targetQueueSize: "50"
+            tlsServerName: temporal-frontend
+
+  - it: renders the TriggerAuthentication from the effective TLS Secret
+    template: templates/worker-triggerauthentication.yaml
+    set:
+      worker.keda.trigger: temporal
+      temporal.tls.certManager.enabled: true
+      temporal.tls.certManager.issuerRef.name: openbao
+    asserts:
+      - isKind:
+          of: TriggerAuthentication
+      - equal:
+          path: metadata.name
+          value: rg-repo-guardian-worker-temporal
+      - equal:
+          path: metadata.namespace
+          value: rg-ns
+      - equal:
+          path: spec.secretTargetRef
+          value:
+            - {parameter: cert, name: rg-repo-guardian-temporal-tls, key: tls.crt}
+            - {parameter: key, name: rg-repo-guardian-temporal-tls, key: tls.key}
+            - {parameter: ca, name: rg-repo-guardian-temporal-tls, key: ca.crt}
+
+  - it: temporal trigger without a client certificate has no authenticationRef
+    set:
+      worker.keda.trigger: temporal
+    asserts:
+      - notExists:
+          path: spec.triggers[0].authenticationRef
+        template: templates/worker-scaledobject.yaml
+      - hasDocuments:
+          count: 0
+        template: templates/worker-triggerauthentication.yaml
+
+  - it: refuses the prometheus trigger without serverAddress
+    template: templates/deployment.yaml
+    set:
+      worker.keda.prometheus.serverAddress: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "worker.keda.prometheus.serverAddress is required"
+
+  - it: refuses an unknown trigger
+    template: templates/deployment.yaml
+    set:
+      worker.keda.trigger: cpu
+    asserts:
+      - failedTemplate: {}

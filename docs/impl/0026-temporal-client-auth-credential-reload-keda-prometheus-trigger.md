@@ -324,7 +324,7 @@ before the tag), `threshold` from
 - [x] 4.3 `networkpolicy.yaml`: allow the namespace Job to reach the
   internal frontend; repo-guardian still reaches only the external
   frontend.
-- [ ] 4.4 `README.md`: prerequisites (Keycloak or Okta JWKS, the
+- [x] 4.4 `README.md`: prerequisites (Keycloak or Okta JWKS, the
   audience per environment, the client CA in `clientCaFiles`), rewrite
   § Why these choices (mTLS + NetworkPolicy bound reachability; the JWT
   authorizer bounds rights), and an "upgrading an mTLS-only install"

@@ -1,8 +1,16 @@
 // Package temporal connects repo-guardian v2 to its Temporal cluster
 // (DESIGN-0026): configuration from TEMPORAL_* env vars, a client that
-// authenticates with mTLS or an OIDC bearer token, logs through slog
-// and reports SDK metrics on the process's meter provider, and the
+// authenticates with mTLS, an OIDC bearer token, or both, logs through
+// slog and reports SDK metrics on the process's meter provider, and the
 // startup checks every role runs before doing work.
+//
+// Credentials are read from files and re-read when they change
+// (DESIGN-0028): the client certificate and CA bundle through
+// credentialFiles, polled every TEMPORAL_TLS_RELOAD_INTERVAL, and the
+// OIDC client secret on every token fetch. A renewal never needs a
+// restart. The first read is strict, so a pod never starts without
+// credentials; later failures keep the last good material and are
+// counted in repo_guardian_temporal_credential_reloads_total.
 package temporal
 
 import (

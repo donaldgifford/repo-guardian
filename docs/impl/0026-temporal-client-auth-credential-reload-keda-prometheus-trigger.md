@@ -204,7 +204,7 @@ pass (OQ4), and this IMPL cannot close until they are done.
   `TestTokenSource_PicksUpRotatedSecret` — and all passed again once
   restored. The 1.9 integration test still needs the same check once
   1.5 is unblocked.
-- [ ] 1.11 Go doc comments on every new type and function;
+- [x] 1.11 Go doc comments on every new type and function;
   `internal/temporal` package doc mentions reload.
 
 #### Success Criteria

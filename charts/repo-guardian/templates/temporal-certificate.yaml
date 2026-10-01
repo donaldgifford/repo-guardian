@@ -1,0 +1,29 @@
+{{- $cm := .Values.temporal.tls.certManager }}
+{{- if $cm.enabled }}
+# The Temporal client certificate (DESIGN-0028). cert-manager renews it
+# into the Secret the pods mount, and the binary reloads it without a
+# restart. The Issuer is operator-owned.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "repo-guardian.fullname" . }}-temporal-client
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.labels" . | nindent 4 }}
+spec:
+  secretName: {{ include "repo-guardian.temporalTLSSecret" . }}
+  commonName: {{ $cm.commonName | quote }}
+  usages:
+    - client auth
+    - digital signature
+  duration: {{ $cm.duration }}
+  renewBefore: {{ $cm.renewBefore }}
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  issuerRef:
+    name: {{ $cm.issuerRef.name | quote }}
+    kind: {{ $cm.issuerRef.kind }}
+    group: {{ $cm.issuerRef.group }}
+{{- end }}

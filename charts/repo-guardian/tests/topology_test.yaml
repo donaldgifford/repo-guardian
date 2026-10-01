@@ -123,6 +123,7 @@ tests:
   - it: KEDA owns the worker's replica count
     set:
       worker.keda.enabled: true
+      worker.keda.trigger: temporal
     asserts:
       - notExists:
           path: spec.replicas

@@ -76,10 +76,13 @@ func runRoles(name string, args []string, roles config.Role) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	tcfg, tc, err := dialTemporal(ctx, roles, obs, logger)
+	tcfg, tc, stopReload, err := dialTemporal(ctx, roles, obs, logger)
 	if err != nil {
 		return err
 	}
+
+	// Deferred first so it runs last: the poller outlives the client.
+	defer stopReload()
 
 	if tc != nil {
 		defer tc.Close()
@@ -100,33 +103,37 @@ func runRoles(name string, args []string, roles config.Role) error {
 }
 
 // dialTemporal connects to Temporal for the roles that use it. The api
-// role alone does not: it reads Postgres only.
+// role alone does not: it reads Postgres only. The returned stop func
+// ends the TLS reload poller and is never nil.
 func dialTemporal(
 	ctx context.Context, roles config.Role, obs *observability.Provider, logger *slog.Logger,
-) (temporal.Config, client.Client, error) {
-	tcfg, err := temporal.ConfigFromEnv()
+) (tcfg temporal.Config, tc client.Client, stop func(), err error) {
+	noop := func() {}
+
+	tcfg, err = temporal.ConfigFromEnv()
 	if roles == config.RoleAPI {
 		// The api role never dials, so an unset or incomplete Temporal
 		// env is not an error for it: the chart gives it none.
-		return tcfg, nil, nil
+		return tcfg, nil, noop, nil
 	}
 
 	if err != nil {
-		return tcfg, nil, err
+		return tcfg, nil, noop, err
 	}
 
-	tc, err := temporal.Dial(ctx, &tcfg, temporal.DialOptions{Logger: logger, MeterProvider: obs.MeterProvider})
+	tc, stop, err = temporal.Dial(ctx, &tcfg, temporal.DialOptions{Logger: logger, MeterProvider: obs.MeterProvider})
 	if err != nil {
-		return tcfg, nil, err
+		return tcfg, nil, noop, err
 	}
 
 	if err := temporal.CheckServerVersion(ctx, tc, temporal.MinServerVersion); err != nil {
 		tc.Close()
+		stop()
 
-		return tcfg, nil, err
+		return tcfg, nil, noop, err
 	}
 
-	return tcfg, tc, nil
+	return tcfg, tc, stop, nil
 }
 
 // listen starts the HTTP servers. The api role alone serves the API and

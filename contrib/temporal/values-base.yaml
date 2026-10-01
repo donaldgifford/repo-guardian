@@ -9,8 +9,9 @@ server:
     # NextRetryDelay, OpenSearch 2). repo-guardian refuses to start
     # against anything older.
     tag: 1.32.0
-  # mTLS on the frontend is the access-control boundary together with
-  # networkpolicy.yaml (DESIGN-0026 OQ11). Both secrets are
+  # mTLS on the frontend bounds who can connect, together with
+  # networkpolicy.yaml (DESIGN-0026 OQ11); the JWT authorizer below
+  # bounds what they may do (DESIGN-0028). Both secrets are
   # kubernetes.io/tls with ca.crt, issued from one CA (cert-manager or
   # external-secrets); the chart does not create them.
   tls:
@@ -24,8 +25,36 @@ server:
       secretName: temporal-frontend-tls
       requireClientAuth: true
       serverName: temporal-frontend
+  # The internal frontend serves server-to-server and admin traffic on
+  # the internode certificate and skips the JWT authorizer, so the
+  # worker service and namespace-job.yaml keep working once the external
+  # frontend requires tokens (DESIGN-0028). networkpolicy.yaml keeps it
+  # unreachable from outside the temporal namespace.
+  internal-frontend:
+    enabled: true
   config:
     logLevel: "info"
+    # Re-read the frontend and internode certificates from disk, so a
+    # renewed certificate is served without a restart.
+    tls:
+      refreshInterval: 1m
+    # JWT authorization on the external frontend (DESIGN-0028): mTLS
+    # bounds who can connect, the token bounds what they may do. The
+    # default claim mapper reads "permissions" entries shaped
+    # <namespace>:<role> (e.g. repo-guardian:write).
+    authorization:
+      jwtKeyProvider:
+        # Your IdP's JWKS, e.g. Keycloak's
+        # https://<host>/realms/<realm>/protocol/openid-connect/certs.
+        keySourceURIs:
+          - https://idp.example.com/realms/temporal/protocol/openid-connect/certs
+        refreshInterval: 1m
+      permissionsClaimName: permissions
+      # One audience per environment, so a dev token is refused by prod
+      # even when both trust the same IdP.
+      audience: temporal-prod
+      authorizer: default
+      claimMapper: default
     persistence:
       # Cannot change after the first deploy.
       numHistoryShards: 512

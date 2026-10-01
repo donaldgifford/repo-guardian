@@ -3,6 +3,8 @@ package dashboard_test
 import (
 	"strings"
 	"testing"
+
+	"github.com/donaldgifford/repo-guardian/internal/monitoring"
 )
 
 // e3Targets returns E3's panel queries.
@@ -251,4 +253,42 @@ func containsString(haystack []string, needle string) bool {
 	}
 
 	return false
+}
+
+// TestE3_ClientCertPanelIsGated pins that the client-certificate expiry
+// stat ships only with MechanismTemporalClientCert: without a client
+// certificate its series never exists and the panel would read "no
+// data" forever.
+func TestE3_ClientCertPanelIsGated(t *testing.T) {
+	t.Parallel()
+
+	const (
+		title  = "Temporal client certificate: time to expiry"
+		series = "repo_guardian_temporal_client_cert_expiry_timestamp_seconds"
+	)
+
+	has := func(m *monitoring.Model) bool {
+		for _, tgt := range suiteTargets(t, m) {
+			if tgt.Dashboard == "repo-guardian-system" && tgt.Panel == title {
+				if !strings.Contains(tgt.Expr, series) {
+					t.Errorf("%q queries %q, want %s", title, tgt.Expr, series)
+				}
+
+				return true
+			}
+		}
+
+		return false
+	}
+
+	if has(strictModel()) {
+		t.Errorf("%q rendered without the temporal_client_cert mechanism", title)
+	}
+
+	m := strictModel()
+	m.Mechanisms[monitoring.MechanismTemporalClientCert] = struct{}{}
+
+	if !has(m) {
+		t.Errorf("%q missing with the temporal_client_cert mechanism", title)
+	}
 }

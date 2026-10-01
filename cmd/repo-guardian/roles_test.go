@@ -12,7 +12,7 @@ import (
 func TestDialTemporal_APIRoleNeedsNoTemporal(t *testing.T) {
 	t.Setenv("TEMPORAL_ADDRESS", "")
 
-	_, tc, err := dialTemporal(t.Context(), config.RoleAPI, nil, slog.New(slog.DiscardHandler))
+	_, tc, stop, err := dialTemporal(t.Context(), config.RoleAPI, nil, slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatalf("dialTemporal(api) = %v, want nil", err)
 	}
@@ -20,12 +20,14 @@ func TestDialTemporal_APIRoleNeedsNoTemporal(t *testing.T) {
 	if tc != nil {
 		t.Fatal("dialTemporal(api) dialed Temporal")
 	}
+
+	stop() // never nil, even when nothing was dialed
 }
 
 func TestDialTemporal_OtherRolesRequireTemporal(t *testing.T) {
 	t.Setenv("TEMPORAL_ADDRESS", "")
 
-	if _, _, err := dialTemporal(t.Context(), config.RoleIngest, nil, slog.New(slog.DiscardHandler)); err == nil {
+	if _, _, _, err := dialTemporal(t.Context(), config.RoleIngest, nil, slog.New(slog.DiscardHandler)); err == nil {
 		t.Fatal("dialTemporal(ingest) with no TEMPORAL_ADDRESS = nil, want an error")
 	}
 }

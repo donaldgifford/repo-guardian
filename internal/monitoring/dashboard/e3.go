@@ -28,7 +28,7 @@ const (
 // two carry different pool-name labels (`pool_name` versus
 // `db_client_connection_pool_name`). A panel built from the spec would
 // render empty and look like a quiet, healthy service.
-func e3System(_ *monitoring.Model, ds Datasources, id Identity) Dashboard {
+func e3System(m *monitoring.Model, ds Datasources, id Identity) Dashboard {
 	b := New(id.slug(kindSystem), id.title(labelSystem),
 		"Service and infrastructure health. No compliance numbers: those are E1's and E2's.",
 		[]string{tagProject, tagGenerated})
@@ -38,7 +38,28 @@ func e3System(_ *monitoring.Model, ds Datasources, id Identity) Dashboard {
 	b = withStoreSection(b, ds)
 	b = withRuntimeSection(b, ds)
 
+	if m.Mechanisms.Has(monitoring.MechanismTemporalClientCert) {
+		b = withTemporalClientSection(b, ds)
+	}
+
 	return id.dashboard(kindSystem, labelSystem, b)
+}
+
+// withTemporalClientSection charts the Temporal client certificate
+// (DESIGN-0028). Gated on MechanismTemporalClientCert: without a client
+// certificate the expiry series never exists and the stat would read
+// "no data" forever.
+func withTemporalClientSection(b *Builder, ds Datasources) *Builder {
+	return b.
+		WithRow(Row("Temporal client")).
+		WithPanel(Stat(ds, "Temporal client certificate: time to expiry",
+			"The soonest-expiring certificate any pod presents. A 24h certificate renewed 8h "+
+				"early stays above 8h; lower means renewal or reload is failing, and "+
+				"RepoGuardianTemporalClientCertExpiring fires at 4h.",
+			unitSeconds, Query{
+				Expr:   `min(repo_guardian_temporal_client_cert_expiry_timestamp_seconds) - time()`,
+				Legend: "expiry",
+			}))
 }
 
 // withHTTPSection charts the semconv HTTP server and client.

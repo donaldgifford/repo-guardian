@@ -124,6 +124,31 @@ temporal:
     # the bearer token is then readable on the wire, and the worker
     # logs a warning.
     disabled: false
+    # -- How often the TLS files are checked for a renewed certificate or
+    # CA (TEMPORAL_TLS_RELOAD_INTERVAL, 5s–10m). Renewals are picked up
+    # without a restart.
+    reloadInterval: 30s
+    # -- Render a cert-manager Certificate for the Temporal client
+    # certificate (DESIGN-0028). The Issuer is operator-owned, typically
+    # a Vault issuer backed by OpenBao's PKI engine.
+    certManager:
+      # -- Render the Certificate and mount the Secret it writes.
+      enabled: false
+      # -- The operator-owned Issuer or ClusterIssuer. `name` is required
+      # when enabled.
+      issuerRef:
+        name: ""
+        kind: Issuer
+        group: cert-manager.io
+      # -- Common name on the certificate.
+      commonName: repo-guardian
+      # -- Certificate lifetime.
+      duration: 24h
+      # -- Renew this long before expiry.
+      renewBefore: 8h
+      # -- Secret the Certificate writes. Empty uses
+      # `temporal.tls.existingSecret`, then `<fullname>-temporal-tls`.
+      secretName: ""
   auth:
     # -- Authenticate with a bearer token from an OAuth2
     # client-credentials grant (Keycloak and the like) instead of mTLS.
@@ -181,7 +206,7 @@ worker:
   resources: {}
   # -- KEDA autoscaling on Temporal backlog. Requires the KEDA CRDs.
   keda:
-    # -- Render a ScaledObject with a `temporal` trigger.
+    # -- Render a ScaledObject (split topology only).
     enabled: false
     # -- Floor.
     minReplicas: 1
@@ -189,8 +214,26 @@ worker:
     # are rate-limit bound, so pods past the budget only park more
     # timers (INV-0018 Obs 7).
     maxReplicas: 4
-    # -- Backlog per replica before KEDA scales out.
+    # -- Backlog per replica before KEDA scales out (either trigger).
     targetQueueSize: "50"
+    # -- `prometheus` reads the Temporal server's
+    # `approximate_backlog_count` and works under any Temporal auth;
+    # `temporal` is KEDA's own Temporal scaler, for plaintext or mTLS
+    # clusters only (it cannot present an OIDC token).
+    trigger: prometheus
+    # -- Replicas KEDA holds after 3 failed metric polls. Null uses
+    # `worker.replicas`.
+    fallbackReplicas: null
+    prometheus:
+      # -- Prometheus base URL KEDA queries. Required with
+      # `trigger: prometheus`.
+      serverAddress: ""
+      # -- PromQL returning the backlog. Empty builds the default from
+      # `temporal.namespace` and `temporal.taskQueue`.
+      query: ""
+      # -- Name of an operator-owned TriggerAuthentication for
+      # Prometheus, if it needs credentials.
+      authenticationRef: ""
 
 # -- The api role: the read-only JSON API (DESIGN-0027). It holds only
 # a read-only database credential: no App key, no webhook secret.

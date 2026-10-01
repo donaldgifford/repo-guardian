@@ -22,12 +22,13 @@ func TestDial_DevServer(t *testing.T) {
 	srv := temporaltest.Start(t)
 	reader := metric.NewManualReader()
 
-	c, err := temporal.Dial(t.Context(), &srv.Config, temporal.DialOptions{
+	c, stop, err := temporal.Dial(t.Context(), &srv.Config, temporal.DialOptions{
 		MeterProvider: metric.NewMeterProvider(metric.WithReader(reader)),
 	})
 	if err != nil {
 		t.Fatalf("Dial: %v", err)
 	}
+	t.Cleanup(stop)
 	t.Cleanup(c.Close)
 
 	if err := temporal.Ping(t.Context(), c); err != nil {

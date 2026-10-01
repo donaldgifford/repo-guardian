@@ -45,6 +45,11 @@ type Options struct {
 	// signal at all, and forcing them into strict mode to obtain it
 	// would mean adding a scope block to every rule.
 	ExtraOrgs []string
+
+	// TemporalClientCert records that the pods present a Temporal client
+	// certificate, which the policy cannot say. It adds
+	// MechanismTemporalClientCert.
+	TemporalClientCert bool
 }
 
 // Derive projects a loaded policy onto the generation model.
@@ -77,6 +82,10 @@ func Derive(cfg *policy.PolicyConfig, opts Options) (*Model, error) {
 	}
 
 	deriveMechanisms(cfg, m)
+
+	if opts.TemporalClientCert {
+		m.Mechanisms.add(MechanismTemporalClientCert)
+	}
 
 	return m, nil
 }

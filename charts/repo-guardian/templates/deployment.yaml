@@ -177,7 +177,7 @@ spec:
               mountPath: /etc/repo-guardian/private-key
               readOnly: true
             {{- end }}
-            {{- if and (include "repo-guardian.roleDialsTemporal" $r) $v.temporal.tls.existingSecret }}
+            {{- if and (include "repo-guardian.roleDialsTemporal" $r) (include "repo-guardian.temporalTLSSecret" $) }}
             - name: temporal-tls
               mountPath: /etc/repo-guardian/temporal-tls
               readOnly: true
@@ -235,10 +235,10 @@ spec:
               - key: private-key
                 path: private-key.pem
         {{- end }}
-        {{- if and (include "repo-guardian.roleDialsTemporal" $r) $v.temporal.tls.existingSecret }}
+        {{- if and (include "repo-guardian.roleDialsTemporal" $r) (include "repo-guardian.temporalTLSSecret" $) }}
         - name: temporal-tls
           secret:
-            secretName: {{ $v.temporal.tls.existingSecret }}
+            secretName: {{ include "repo-guardian.temporalTLSSecret" $ }}
         {{- end }}
         {{- if and (include "repo-guardian.roleDialsTemporal" $r) $v.temporal.tls.caSecret }}
         - name: temporal-ca

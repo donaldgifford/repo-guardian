@@ -278,6 +278,28 @@ rule "file" "codeowners" {
 	}
 }
 
+// TestDerive_TemporalClientCert pins that the client-certificate
+// mechanism comes from the option alone: no policy can imply it.
+func TestDerive_TemporalClientCert(t *testing.T) {
+	t.Parallel()
+
+	const body = `
+rule "file" "codeowners" {
+  paths = ["CODEOWNERS"]
+  target = ".github/CODEOWNERS"
+  template = "CODEOWNERS.tmpl"
+}
+`
+
+	if derive(t, body, monitoring.Options{}).Mechanisms.Has(monitoring.MechanismTemporalClientCert) {
+		t.Error("temporal_client_cert present without Options.TemporalClientCert")
+	}
+
+	if !derive(t, body, monitoring.Options{TemporalClientCert: true}).Mechanisms.Has(monitoring.MechanismTemporalClientCert) {
+		t.Error("temporal_client_cert absent with Options.TemporalClientCert")
+	}
+}
+
 // TestDerive_DisabledRulesAreExcluded pins that a disabled rule
 // contributes neither a row nor a mechanism.
 func TestDerive_DisabledRulesAreExcluded(t *testing.T) {

@@ -49,6 +49,7 @@ ready for `kubectl apply` or an ArgoCD source.
 | `--out` | `./monitoring` | Output directory. Created if absent. |
 | `--format` | `json` | `json` for plain files, `k8s` for custom resources. |
 | `--org` | — | Repeatable. Adds an org to the per-org rows. See *Silent orgs* below. |
+| `--temporal-client-cert` | false | The pods present a Temporal client certificate (`temporal.tls.existingSecret` or `temporal.tls.certManager`). Adds `RepoGuardianTemporalClientCertExpiring` and E3's *time to expiry* stat; the policy cannot say this, so it is a flag (DESIGN-0028). |
 | `--prometheus-uid` | `prometheus` | UID of the Prometheus datasource the panels query. |
 | `--loki-uid` | `loki` | UID of the Loki datasource the log panels query. |
 | `--loki-selector` | `app="repo-guardian"` | Stream selector, without braces, matching repo-guardian's logs. See *The log dashboard's stream selector* below. |

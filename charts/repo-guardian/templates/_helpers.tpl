@@ -319,6 +319,37 @@ sidecar port beside other roles (all).
 {{- end }}
 
 {{/*
+The Secret holding the Temporal client certificate (tls.crt, tls.key,
+ca.crt), or "" when there is none: certManager.secretName, else
+existingSecret, else <fullname>-temporal-tls when cert-manager writes it.
+Every mTLS env var, mount and guard goes through this, so
+certManager.enabled alone is enough to present a certificate.
+*/}}
+{{- define "repo-guardian.temporalTLSSecret" -}}
+{{- $tls := .Values.temporal.tls -}}
+{{- if and $tls.certManager.enabled $tls.certManager.secretName -}}
+{{- $tls.certManager.secretName -}}
+{{- else if $tls.existingSecret -}}
+{{- $tls.existingSecret -}}
+{{- else if $tls.certManager.enabled -}}
+{{- printf "%s-temporal-tls" (include "repo-guardian.fullname" .) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+The backlog query KEDA's prometheus trigger reads: the override, else
+the Temporal server's approximate_backlog_count for this task queue. The
+inner max stops a partition counting twice while it moves between hosts.
+*/}}
+{{- define "repo-guardian.kedaBacklogQuery" -}}
+{{- with .Values.worker.keda.prometheus.query -}}
+{{- . -}}
+{{- else -}}
+{{- printf "sum(max by (partition, task_type) (approximate_backlog_count{namespace=%q, taskqueue=%q}))" .Values.temporal.namespace .Values.temporal.taskQueue -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Temporal connection env (TEMPORAL_*) and, with mTLS, the mounted paths.
 */}}
 {{- define "repo-guardian.temporalEnv" -}}
@@ -330,7 +361,8 @@ Temporal connection env (TEMPORAL_*) and, with mTLS, the mounted paths.
   value: {{ .Values.temporal.taskQueue | quote }}
 {{- $tls := .Values.temporal.tls }}
 {{- $oidc := .Values.temporal.auth.oidc }}
-{{- if $tls.existingSecret }}
+{{- $clientCert := include "repo-guardian.temporalTLSSecret" . }}
+{{- if $clientCert }}
 - name: TEMPORAL_TLS_CERT_PATH
   value: /etc/repo-guardian/temporal-tls/tls.crt
 - name: TEMPORAL_TLS_KEY_PATH
@@ -341,13 +373,17 @@ Temporal connection env (TEMPORAL_*) and, with mTLS, the mounted paths.
 - name: TEMPORAL_TLS_CA_PATH
   value: /etc/repo-guardian/temporal-ca/ca.crt
 {{- end }}
-{{- if and $tls.serverName (or $tls.existingSecret $oidc.tokenUrl) }}
+{{- if and $tls.serverName (or $clientCert $oidc.tokenUrl) }}
 - name: TEMPORAL_TLS_SERVER_NAME
   value: {{ $tls.serverName | quote }}
 {{- end }}
 {{- if $tls.disabled }}
 - name: TEMPORAL_TLS_DISABLED
   value: "true"
+{{- end }}
+{{- if or $clientCert $tls.caSecret }}
+- name: TEMPORAL_TLS_RELOAD_INTERVAL
+  value: {{ $tls.reloadInterval | default "30s" | quote }}
 {{- end }}
 {{- if $oidc.tokenUrl }}
 - name: TEMPORAL_OIDC_TOKEN_URL
@@ -380,17 +416,31 @@ would refuse at startup (or silently misapply) fails here instead.
 {{- if and $oidc.tokenUrl (not (and $oidc.clientId $oidc.existingSecret)) -}}
 {{- fail "temporal.auth.oidc needs clientId and existingSecret (with key client-secret) alongside tokenUrl" -}}
 {{- end -}}
-{{- if and $tls.disabled (or $tls.existingSecret $tls.caSecret $tls.serverName) -}}
-{{- fail "temporal.tls.disabled contradicts temporal.tls.existingSecret, caSecret and serverName" -}}
+{{- $clientCert := include "repo-guardian.temporalTLSSecret" . -}}
+{{- if and $tls.disabled (or $clientCert $tls.caSecret $tls.serverName) -}}
+{{- fail "temporal.tls.disabled contradicts temporal.tls.existingSecret, certManager, caSecret and serverName" -}}
 {{- end -}}
-{{- if and $tls.caSecret $tls.existingSecret -}}
-{{- fail "temporal.tls.caSecret and temporal.tls.existingSecret are exclusive: put ca.crt in existingSecret for mTLS" -}}
+{{- if and $tls.caSecret $clientCert -}}
+{{- fail "temporal.tls.caSecret and a client certificate (existingSecret or certManager) are exclusive: the client certificate's Secret carries ca.crt" -}}
 {{- end -}}
 {{- if and $tls.caSecret (not $oidc.tokenUrl) -}}
 {{- fail "temporal.tls.caSecret is for temporal.auth.oidc (server-verified TLS without a client certificate); for mTLS use temporal.tls.existingSecret" -}}
 {{- end -}}
-{{- if and $oidc.tokenUrl .Values.worker.keda.enabled -}}
-{{- fail "worker.keda.enabled cannot be combined with temporal.auth.oidc: KEDA's temporal trigger cannot mint OIDC tokens" -}}
+{{- if and $tls.certManager.enabled (not $tls.certManager.issuerRef.name) -}}
+{{- fail "temporal.tls.certManager.issuerRef.name is required when temporal.tls.certManager.enabled: name the operator-owned Issuer or ClusterIssuer" -}}
+{{- end -}}
+{{- $keda := .Values.worker.keda -}}
+{{- /* Only where the ScaledObject renders: in `all` it is ignored. */ -}}
+{{- if and $keda.enabled (eq .Values.topology "split") -}}
+{{- if not (has $keda.trigger (list "prometheus" "temporal")) -}}
+{{- fail (printf "worker.keda.trigger must be prometheus or temporal, got %q" $keda.trigger) -}}
+{{- end -}}
+{{- if and (eq $keda.trigger "prometheus") (not $keda.prometheus.serverAddress) -}}
+{{- fail "worker.keda.prometheus.serverAddress is required with worker.keda.trigger: prometheus" -}}
+{{- end -}}
+{{- if and (eq $keda.trigger "temporal") $oidc.tokenUrl -}}
+{{- fail "worker.keda.trigger: temporal cannot be combined with temporal.auth.oidc (KEDA's temporal trigger cannot mint OIDC tokens); set worker.keda.trigger: prometheus" -}}
+{{- end -}}
 {{- end -}}
 {{- end }}
 

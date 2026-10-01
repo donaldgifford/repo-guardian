@@ -147,7 +147,7 @@ tests:
       temporal.auth.oidc.existingSecret: rg-oidc
     asserts:
       - failedTemplate:
-          errorPattern: "caSecret and temporal.tls.existingSecret are exclusive"
+          errorPattern: "caSecret and a client certificate \(existingSecret or certManager\) are exclusive"
 
   - it: refuses caSecret without OIDC
     set:
@@ -157,13 +157,85 @@ tests:
       - failedTemplate:
           errorPattern: "temporal.tls.caSecret is for temporal.auth.oidc"
 
-  - it: refuses KEDA with OIDC
+  - it: refuses KEDA's temporal trigger with OIDC, naming the prometheus trigger
     set:
       topology: split
       worker.keda.enabled: true
+      worker.keda.trigger: temporal
       temporal.auth.oidc.tokenUrl: https://kc/token
       temporal.auth.oidc.clientId: rg
       temporal.auth.oidc.existingSecret: rg-oidc
     asserts:
       - failedTemplate:
-          errorPattern: "worker.keda.enabled cannot be combined with temporal.auth.oidc"
+          errorPattern: "worker.keda.trigger: temporal cannot be combined with temporal.auth.oidc .*set worker.keda.trigger: prometheus"
+
+  - it: allows the default prometheus trigger with OIDC
+    set:
+      topology: split
+      worker.keda.enabled: true
+      worker.keda.prometheus.serverAddress: http://prometheus:9090
+      temporal.auth.oidc.tokenUrl: https://kc/token
+      temporal.auth.oidc.clientId: rg
+      temporal.auth.oidc.existingSecret: rg-oidc
+    asserts:
+      - notFailedTemplate: {}
+
+  - it: refuses certManager without an issuer
+    set:
+      topology: all
+      temporal.tls.certManager.enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "temporal.tls.certManager.issuerRef.name is required"
+
+  - it: mounts the cert-manager Secret and sets the reload interval
+    set:
+      topology: all
+      temporal.tls.certManager.enabled: true
+      temporal.tls.certManager.issuerRef.name: openbao
+      temporal.tls.reloadInterval: 1m
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TEMPORAL_TLS_CERT_PATH
+            value: /etc/repo-guardian/temporal-tls/tls.crt
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TEMPORAL_TLS_RELOAD_INTERVAL
+            value: 1m
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: temporal-tls
+            secret:
+              secretName: rg-repo-guardian-temporal-tls
+          any: true
+
+  - it: sets the default reload interval with a CA-only secret
+    set:
+      topology: all
+      temporal.auth.oidc.tokenUrl: https://kc/token
+      temporal.auth.oidc.clientId: rg
+      temporal.auth.oidc.existingSecret: rg-oidc
+      temporal.tls.caSecret: rg-ca
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TEMPORAL_TLS_RELOAD_INTERVAL
+            value: 30s
+
+  - it: sets no reload interval on system roots
+    set:
+      topology: all
+      temporal.auth.oidc.tokenUrl: https://kc/token
+      temporal.auth.oidc.clientId: rg
+      temporal.auth.oidc.existingSecret: rg-oidc
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TEMPORAL_TLS_RELOAD_INTERVAL
+          any: true

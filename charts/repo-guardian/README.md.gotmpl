@@ -107,8 +107,38 @@ Temporal authenticates one of two ways:
   minute before expiry. The frontend is verified over TLS, against
   `temporal.tls.caSecret` (`ca.crt` only) or the system roots.
   `temporal.tls.disabled: true` allows a plaintext frontend, but the
-  token is then readable on the wire. KEDA's temporal trigger cannot use
-  OIDC, so `worker.keda.enabled` is refused alongside it.
+  token is then readable on the wire. Both may be configured together
+  (OIDC over mTLS, DESIGN-0028).
+
+TLS files and the OIDC client secret are reloaded without a restart:
+the binary checks them every `temporal.tls.reloadInterval` (default
+`30s`) and keeps the last good set when a read fails.
+`temporal.tls.certManager.enabled` renders a cert-manager `Certificate`
+(client auth, ECDSA P-256, 24h, renewed 8h early) against an
+operator-owned Issuer named by `temporal.tls.certManager.issuerRef.name`,
+typically a Vault issuer on OpenBao's PKI engine. Its Secret is
+`certManager.secretName`, else `temporal.tls.existingSecret`, else
+`<fullname>-temporal-tls`, and is mounted like `existingSecret`. With a
+client certificate, `RepoGuardianTemporalClientCertExpiring` joins the
+`repo-guardian.temporal` alert group.
+
+`worker.keda.enabled` (split only) scales the worker on Temporal
+backlog with one of two triggers:
+
+- **`prometheus`** (default): reads the Temporal server's
+  `approximate_backlog_count` from `worker.keda.prometheus.serverAddress`
+  (required), so KEDA never dials Temporal and any client auth works.
+  `worker.keda.prometheus.query` overrides the default query;
+  `authenticationRef` names an operator-owned TriggerAuthentication for
+  Prometheus.
+- **`temporal`**: KEDA's own scaler. With a client certificate the chart
+  renders a TriggerAuthentication from the TLS Secret. It cannot present
+  an OIDC token, so it is refused with `temporal.auth.oidc`.
+
+Either way the ScaledObject holds the worker at
+`worker.keda.fallbackReplicas` (default `worker.replicas`) after three
+failed metric polls. See
+[docs/operations/temporal-client-auth.md](../../docs/operations/temporal-client-auth.md).
 
 The store is still Postgres, in one of three modes:
 

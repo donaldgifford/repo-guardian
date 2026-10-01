@@ -1,20 +1,29 @@
 // Package temporal connects repo-guardian v2 to its Temporal cluster
 // (DESIGN-0026): configuration from TEMPORAL_* env vars, a client that
-// authenticates with mTLS or an OIDC bearer token, logs through slog
-// and reports SDK metrics on the process's meter provider, and the
+// authenticates with mTLS, an OIDC bearer token, or both, logs through
+// slog and reports SDK metrics on the process's meter provider, and the
 // startup checks every role runs before doing work.
+//
+// Credentials are read from files and re-read when they change
+// (DESIGN-0028): the client certificate and CA bundle through
+// credentialFiles, polled every TEMPORAL_TLS_RELOAD_INTERVAL, and the
+// OIDC client secret on every token fetch. A renewal never needs a
+// restart. The first read is strict, so a pod never starts without
+// credentials; later failures keep the last good material and are
+// counted in repo_guardian_temporal_credential_reloads_total.
 package temporal
 
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/otel/metric"
 	"go.temporal.io/api/workflowservice/v1"
@@ -33,6 +42,18 @@ const MinServerVersion = "1.31.0"
 const (
 	DefaultNamespace = "repo-guardian"
 	DefaultTaskQueue = "repo-guardian"
+
+	// DefaultTLSReloadInterval is how often the client checks its TLS
+	// files for a renewed certificate or CA (DESIGN-0028).
+	DefaultTLSReloadInterval = 30 * time.Second
+)
+
+// Bounds on TEMPORAL_TLS_RELOAD_INTERVAL: below the floor a typo would
+// stat the files constantly; above the ceiling a renewed certificate
+// could sit unused for most of a short certificate's life.
+const (
+	minTLSReloadInterval = 5 * time.Second
+	maxTLSReloadInterval = 10 * time.Minute
 )
 
 // ErrServerTooOld is returned by CheckServerVersion when the server is
@@ -58,6 +79,11 @@ type Config struct {
 	TLSKeyPath    string
 	TLSCAPath     string
 	TLSServerName string
+
+	// TLSReloadInterval (TEMPORAL_TLS_RELOAD_INTERVAL, default 30s) is
+	// how often the TLS files are checked for changes, so a renewed
+	// certificate or CA is used without a restart. Bounded 5s–10m.
+	TLSReloadInterval time.Duration
 
 	// TLSDisabled (TEMPORAL_TLS_DISABLED) forces plaintext even with
 	// OIDC, whose bearer token would otherwise always travel over TLS.
@@ -91,6 +117,13 @@ func ConfigFromEnv() (Config, error) {
 
 	cfg.TLSDisabled = disabled
 
+	interval, err := envDuration("TEMPORAL_TLS_RELOAD_INTERVAL", DefaultTLSReloadInterval)
+	if err != nil {
+		return Config{}, err
+	}
+
+	cfg.TLSReloadInterval = interval
+
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
 	}
@@ -117,11 +150,31 @@ func (c *Config) validate() error {
 		errs = append(errs, errors.New("TEMPORAL_TLS_DISABLED contradicts the TEMPORAL_TLS_* files"))
 	}
 
+	if c.TLSReloadInterval != 0 && (c.TLSReloadInterval < minTLSReloadInterval || c.TLSReloadInterval > maxTLSReloadInterval) {
+		errs = append(errs, fmt.Errorf("TEMPORAL_TLS_RELOAD_INTERVAL %s is outside %s–%s",
+			c.TLSReloadInterval, minTLSReloadInterval, maxTLSReloadInterval))
+	}
+
 	if c.OIDC != nil {
 		errs = append(errs, c.OIDC.validate()...)
 	}
 
 	return errors.Join(errs...)
+}
+
+// envDuration reads a Go duration variable; unset is def.
+func envDuration(name string, def time.Duration) (time.Duration, error) {
+	v := os.Getenv(name)
+	if v == "" {
+		return def, nil
+	}
+
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", name, err)
+	}
+
+	return d, nil
 }
 
 // envBool reads a boolean variable; unset is false.
@@ -141,9 +194,12 @@ func envBool(name string) (bool, error) {
 
 // tlsConfig builds the client TLS config: mTLS with a client
 // certificate, server-verified TLS for OIDC, or nil for plaintext.
-func (c *Config) tlsConfig() (*tls.Config, error) {
+// Certificates and CA bundles are served from credentialFiles, which
+// reloads them when they change; the returned *credentialFiles is nil
+// when there are no files to watch.
+func (c *Config) tlsConfig(logger *slog.Logger) (*tls.Config, *credentialFiles, error) {
 	if c.TLSDisabled || (c.TLSCertPath == "" && c.OIDC == nil) {
-		return nil, nil //nolint:nilnil // nil config: plaintext (dev server, or TLS disabled)
+		return nil, nil, nil
 	}
 
 	cfg := &tls.Config{
@@ -151,30 +207,44 @@ func (c *Config) tlsConfig() (*tls.Config, error) {
 		MinVersion: tls.VersionTLS12,
 	}
 
-	if c.TLSCertPath != "" {
-		cert, err := tls.LoadX509KeyPair(c.TLSCertPath, c.TLSKeyPath)
-		if err != nil {
-			return nil, fmt.Errorf("temporal: loading client certificate: %w", err)
-		}
+	if c.TLSCertPath == "" && c.TLSCAPath == "" {
+		// OIDC on the system roots: crypto/tls verifies as usual.
+		return cfg, nil, nil
+	}
 
-		cfg.Certificates = []tls.Certificate{cert}
+	files, err := newCredentialFiles(c.TLSCertPath, c.TLSKeyPath, c.TLSCAPath, c.serverName(), logger)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if c.TLSCertPath != "" {
+		cfg.GetClientCertificate = files.getClientCertificate
 	}
 
 	if c.TLSCAPath != "" {
-		pem, err := os.ReadFile(c.TLSCAPath)
-		if err != nil {
-			return nil, fmt.Errorf("temporal: reading CA: %w", err)
-		}
-
-		pool := x509.NewCertPool()
-		if !pool.AppendCertsFromPEM(pem) {
-			return nil, fmt.Errorf("temporal: %s holds no PEM certificate", c.TLSCAPath)
-		}
-
-		cfg.RootCAs = pool
+		// Verification moves to VerifyConnection, which checks the chain,
+		// name, EKU and validity against a CA pool that can reload.
+		cfg.InsecureSkipVerify = true
+		cfg.VerifyConnection = files.verifyConnection
 	}
 
-	return cfg, nil
+	return cfg, files, nil
+}
+
+// serverName is the name the frontend's certificate must carry:
+// TEMPORAL_TLS_SERVER_NAME, else the host of TEMPORAL_ADDRESS, which is
+// what gRPC itself would verify against.
+func (c *Config) serverName() string {
+	if c.TLSServerName != "" {
+		return c.TLSServerName
+	}
+
+	host, _, err := net.SplitHostPort(c.Address)
+	if err != nil {
+		return c.Address
+	}
+
+	return host
 }
 
 // DialOptions are the process-wide dependencies Dial wires in.
@@ -186,20 +256,24 @@ type DialOptions struct {
 	MeterProvider metric.MeterProvider
 }
 
-// Dial connects to the frontend. The caller must Close the client.
-func Dial(ctx context.Context, cfg *Config, opts DialOptions) (client.Client, error) {
+// Dial connects to the frontend and starts reloading the TLS files, if
+// any. It returns the SDK's own client, unwrapped, because worker.New
+// panics on any other client.Client, and the func that stops the reload
+// poller (a no-op when nothing reloads). The caller must Close the
+// client and call stop; ctx bounds the connect only, never the poller.
+func Dial(ctx context.Context, cfg *Config, opts DialOptions) (c client.Client, stop func(), err error) {
 	if err := cfg.validate(); err != nil {
-		return nil, fmt.Errorf("temporal: %w", err)
-	}
-
-	tlsCfg, err := cfg.tlsConfig()
-	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("temporal: %w", err)
 	}
 
 	logger := opts.Logger
 	if logger == nil {
 		logger = slog.Default()
+	}
+
+	tlsCfg, files, err := cfg.tlsConfig(logger)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	co := client.Options{
@@ -212,7 +286,7 @@ func Dial(ctx context.Context, cfg *Config, opts DialOptions) (client.Client, er
 	if cfg.OIDC != nil {
 		ts, err := cfg.OIDC.tokenSource(ctx)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		if cfg.TLSDisabled {
@@ -235,12 +309,22 @@ func Dial(ctx context.Context, cfg *Config, opts DialOptions) (client.Client, er
 		})
 	}
 
-	c, err := client.DialContext(ctx, co)
+	c, err = client.DialContext(ctx, co)
 	if err != nil {
-		return nil, fmt.Errorf("temporal: dial %s: %w", cfg.Address, err)
+		return nil, nil, fmt.Errorf("temporal: dial %s: %w", cfg.Address, err)
 	}
 
-	return c, nil
+	// Started only after a successful dial, so no error path leaks it.
+	return c, files.start(ctx, cfg.reloadInterval()), nil
+}
+
+// reloadInterval is TLSReloadInterval, or the default when unset.
+func (c *Config) reloadInterval() time.Duration {
+	if c.TLSReloadInterval == 0 {
+		return DefaultTLSReloadInterval
+	}
+
+	return c.TLSReloadInterval
 }
 
 // CheckServerVersion fails with ErrServerTooOld when the cluster runs a

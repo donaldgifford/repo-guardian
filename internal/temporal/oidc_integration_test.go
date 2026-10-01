@@ -43,10 +43,11 @@ func TestDial_OIDCPlaintext(t *testing.T) {
 	cfg.TLSDisabled = true
 	cfg.OIDC = &temporal.OIDCConfig{TokenURL: idp.URL, ClientID: "repo-guardian", ClientSecretPath: secret}
 
-	c, err := temporal.Dial(t.Context(), &cfg, temporal.DialOptions{})
+	c, stop, err := temporal.Dial(t.Context(), &cfg, temporal.DialOptions{})
 	if err != nil {
 		t.Fatalf("Dial: %v", err)
 	}
+	t.Cleanup(stop)
 	t.Cleanup(c.Close)
 
 	if err := temporal.Ping(t.Context(), c); err != nil {

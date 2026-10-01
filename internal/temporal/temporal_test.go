@@ -9,6 +9,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
+	"log/slog"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -33,6 +34,50 @@ func TestConfigFromEnv_Defaults(t *testing.T) {
 
 	if cfg.Namespace != DefaultNamespace || cfg.TaskQueue != DefaultTaskQueue {
 		t.Errorf("cfg = %+v, want default namespace and task queue", cfg)
+	}
+
+	if cfg.TLSReloadInterval != DefaultTLSReloadInterval {
+		t.Errorf("TLSReloadInterval = %s, want %s", cfg.TLSReloadInterval, DefaultTLSReloadInterval)
+	}
+}
+
+func TestConfigFromEnv_TLSReloadInterval(t *testing.T) {
+	tests := []struct {
+		value   string
+		want    time.Duration
+		wantErr bool
+	}{
+		{value: "", want: DefaultTLSReloadInterval},
+		{value: "5s", want: 5 * time.Second},
+		{value: "10m", want: 10 * time.Minute},
+		{value: "1m30s", want: 90 * time.Second},
+		{value: "4s", wantErr: true},
+		{value: "11m", wantErr: true},
+		{value: "soon", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.value, func(t *testing.T) {
+			for _, k := range configEnv {
+				t.Setenv(k, "")
+			}
+
+			t.Setenv("TEMPORAL_ADDRESS", "temporal:7233")
+			t.Setenv("TEMPORAL_TLS_RELOAD_INTERVAL", tt.value)
+
+			cfg, err := ConfigFromEnv()
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("ConfigFromEnv = %s, want an error", cfg.TLSReloadInterval)
+				}
+
+				return
+			}
+
+			if err != nil || cfg.TLSReloadInterval != tt.want {
+				t.Errorf("ConfigFromEnv = %s, %v; want %s", cfg.TLSReloadInterval, err, tt.want)
+			}
+		})
 	}
 }
 
@@ -77,6 +122,7 @@ var configEnv = []string{
 	"TEMPORAL_ADDRESS", "TEMPORAL_TLS_CERT_PATH", "TEMPORAL_TLS_KEY_PATH", "TEMPORAL_TLS_CA_PATH",
 	"TEMPORAL_TLS_SERVER_NAME", "TEMPORAL_TLS_DISABLED", "TEMPORAL_OIDC_TOKEN_URL", "TEMPORAL_OIDC_CLIENT_ID",
 	"TEMPORAL_OIDC_CLIENT_SECRET_PATH", "TEMPORAL_OIDC_SCOPES", "TEMPORAL_OIDC_AUDIENCE",
+	"TEMPORAL_TLS_RELOAD_INTERVAL",
 }
 
 func TestConfigFromEnv_OIDC(t *testing.T) {
@@ -154,25 +200,29 @@ func TestTLSConfig(t *testing.T) {
 	t.Parallel()
 
 	cert, key := writeCert(t)
+	logger := slog.New(slog.DiscardHandler)
 
 	plain := &Config{Address: "t:7233"}
-	if got, err := plain.tlsConfig(); err != nil || got != nil {
-		t.Errorf("plaintext tlsConfig = %v, %v; want nil, nil", got, err)
+	if got, files, err := plain.tlsConfig(logger); err != nil || got != nil || files != nil {
+		t.Errorf("plaintext tlsConfig = %v, %v, %v; want nil, nil, nil", got, files, err)
 	}
 
 	mtls := &Config{Address: "t:7233", TLSCertPath: cert, TLSKeyPath: key, TLSCAPath: cert, TLSServerName: "temporal-frontend"}
 
-	got, err := mtls.tlsConfig()
+	got, files, err := mtls.tlsConfig(logger)
 	if err != nil {
 		t.Fatalf("tlsConfig: %v", err)
 	}
 
-	if len(got.Certificates) != 1 || got.RootCAs == nil || got.ServerName != "temporal-frontend" {
-		t.Errorf("tlsConfig = %+v, want a client cert, a CA pool and the server name", got)
+	// Certificates and roots come from the reloadable files, never the
+	// static fields, or a renewal would go unused until a restart.
+	if len(got.Certificates) != 0 || got.RootCAs != nil || got.GetClientCertificate == nil ||
+		got.VerifyConnection == nil || !got.InsecureSkipVerify || got.ServerName != "temporal-frontend" || files == nil {
+		t.Errorf("tlsConfig = %+v, want reloadable cert and CA callbacks and the server name", got)
 	}
 
 	badCA := &Config{Address: "t:7233", TLSCertPath: cert, TLSKeyPath: key, TLSCAPath: key}
-	if _, err := badCA.tlsConfig(); err == nil {
+	if _, _, err := badCA.tlsConfig(logger); err == nil {
 		t.Error("a CA file with no certificate was accepted")
 	}
 
@@ -180,19 +230,39 @@ func TestTLSConfig(t *testing.T) {
 	// when given, system roots otherwise.
 	oidc := &OIDCConfig{TokenURL: "https://idp/token", ClientID: "rg", ClientSecretPath: "s"}
 
-	got, err = (&Config{Address: "t:7233", OIDC: oidc, TLSCAPath: cert, TLSServerName: "temporal.lab"}).tlsConfig()
-	if err != nil || got == nil || len(got.Certificates) != 0 || got.RootCAs == nil || got.ServerName != "temporal.lab" {
+	got, _, err = (&Config{Address: "t:7233", OIDC: oidc, TLSCAPath: cert, TLSServerName: "temporal.lab"}).tlsConfig(logger)
+	if err != nil || got == nil || got.GetClientCertificate != nil || got.VerifyConnection == nil || got.ServerName != "temporal.lab" {
 		t.Errorf("OIDC with a CA: tlsConfig = %+v, %v; want server-verified TLS with the CA", got, err)
 	}
 
-	got, err = (&Config{Address: "t:7233", OIDC: oidc}).tlsConfig()
-	if err != nil || got == nil || got.RootCAs != nil {
-		t.Errorf("OIDC alone: tlsConfig = %+v, %v; want TLS on system roots", got, err)
+	got, files, err = (&Config{Address: "t:7233", OIDC: oidc}).tlsConfig(logger)
+	if err != nil || got == nil || got.InsecureSkipVerify || got.VerifyConnection != nil || files != nil {
+		t.Errorf("OIDC alone: tlsConfig = %+v, %v; want standard TLS on system roots", got, err)
 	}
 
-	got, err = (&Config{Address: "t:7233", OIDC: oidc, TLSDisabled: true}).tlsConfig()
+	got, _, err = (&Config{Address: "t:7233", OIDC: oidc, TLSDisabled: true}).tlsConfig(logger)
 	if err != nil || got != nil {
 		t.Errorf("OIDC with TLS disabled: tlsConfig = %+v, %v; want nil, nil", got, err)
+	}
+}
+
+func TestServerName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		cfg  Config
+		want string
+	}{
+		{Config{Address: "temporal-frontend:7233"}, "temporal-frontend"},
+		{Config{Address: "temporal-frontend:7233", TLSServerName: "temporal.lab"}, "temporal.lab"},
+		{Config{Address: "10.0.0.1:7233"}, "10.0.0.1"},
+		{Config{Address: "no-port"}, "no-port"},
+	}
+
+	for _, tt := range tests {
+		if got := tt.cfg.serverName(); got != tt.want {
+			t.Errorf("serverName(%+v) = %q, want %q", tt.cfg, got, tt.want)
+		}
 	}
 }
 

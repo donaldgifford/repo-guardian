@@ -1,6 +1,12 @@
 {{- if and (eq .Values.topology "split") .Values.worker.keda.enabled }}
 {{- $r := dict "ctx" . "role" "worker" }}
-# Scales the worker on Temporal backlog (DESIGN-0026 § Scaling, OQ14).
+{{- $keda := .Values.worker.keda }}
+{{- $fallback := $keda.fallbackReplicas }}
+{{- if kindIs "invalid" $fallback }}
+{{- $fallback = .Values.worker.replicas }}
+{{- end }}
+# Scales the worker on Temporal backlog (DESIGN-0026 § Scaling, OQ14;
+# DESIGN-0028 § KEDA).
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
@@ -11,14 +17,44 @@ metadata:
 spec:
   scaleTargetRef:
     name: {{ include "repo-guardian.roleFullname" $r }}
-  minReplicaCount: {{ .Values.worker.keda.minReplicas }}
-  maxReplicaCount: {{ .Values.worker.keda.maxReplicas }}
+  minReplicaCount: {{ $keda.minReplicas }}
+  maxReplicaCount: {{ $keda.maxReplicas }}
+  # Hold the worker at a known size when the metric source fails, so a
+  # broken trigger is not a silent zero (INV-0020 Observation 2).
+  fallback:
+    failureThreshold: 3
+    replicas: {{ $fallback }}
   triggers:
+{{- if eq $keda.trigger "prometheus" }}
+    # The Temporal server's own backlog metric: works under any Temporal
+    # client auth, because KEDA never dials Temporal.
+    - type: prometheus
+      metadata:
+        serverAddress: {{ $keda.prometheus.serverAddress | quote }}
+        query: {{ include "repo-guardian.kedaBacklogQuery" . | quote }}
+        threshold: {{ $keda.targetQueueSize | quote }}
+      {{- with $keda.prometheus.authenticationRef }}
+      authenticationRef:
+        name: {{ . }}
+      {{- end }}
+{{- else }}
+    # NOTE: KEDA 2.21's composite running-workflows metric is deliberately
+    # never set. It counts open workflows, and every repository holds a
+    # RepoWorkflow open for its whole life, so the worker would scale on
+    # fleet size and always demand maxReplicas (INV-0020 Observation 6).
     - type: temporal
       metadata:
         endpoint: {{ .Values.temporal.address | quote }}
         namespace: {{ .Values.temporal.namespace | quote }}
         taskQueue: {{ .Values.temporal.taskQueue | quote }}
         queueTypes: workflow,activity
-        targetQueueSize: {{ .Values.worker.keda.targetQueueSize | quote }}
+        targetQueueSize: {{ $keda.targetQueueSize | quote }}
+        {{- with .Values.temporal.tls.serverName }}
+        tlsServerName: {{ . | quote }}
+        {{- end }}
+      {{- if include "repo-guardian.temporalTLSSecret" . }}
+      authenticationRef:
+        name: {{ include "repo-guardian.roleFullname" $r }}-temporal
+      {{- end }}
+{{- end }}
 {{- end }}

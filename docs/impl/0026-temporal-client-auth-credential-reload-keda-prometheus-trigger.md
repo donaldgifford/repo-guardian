@@ -1,7 +1,7 @@
 ---
 id: IMPL-0026
 title: "Temporal client auth: credential reload, KEDA Prometheus trigger and OpenBao-issued certificates"
-status: Draft
+status: In Progress
 author: Donald Gifford
 created: 2026-10-01
 ---
@@ -103,7 +103,7 @@ Verified against the code on `v2` (rc.4) before writing the phases:
 | A1 | The client certificate is read once | `tlsConfig` calls `tls.LoadX509KeyPair` and fills `Certificates`; `RootCAs` from one `os.ReadFile` | Phase 1 replaces both |
 | A2 | The OIDC secret is read once | `OIDCConfig.tokenSource` reads it once; its comment says rotation needs a restart | Phase 1 task 1.6 |
 | A3 | Certificate + OIDC together are allowed | `Config.validate` and `validateTemporalAuth` both allow them | No change needed |
-| A4 | `Dial` owns the client's lifetime | `Dial` returns a bare `client.Client`; callers are `cmd/repo-guardian/roles.go` (`dialTemporal`) and `cmd/rg-burst` | A goroutine needs a stop hook (OQ1) |
+| A4 | `Dial` owns the client's lifetime | `Dial` returns a bare `client.Client`; callers are `cmd/repo-guardian/roles.go` (`dialTemporal`) and `cmd/rg-burst` | A goroutine needs a stop hook (OQ1: `Dial` also returns a stop func) |
 | A5 | Metrics register through `internal/metrics` | Every repo-guardian metric is `promauto` in `internal/metrics/metrics.go` | Phase 1 follows it (OQ2) |
 | A6 | Mechanisms can be set from outside the policy | `Mechanisms.add` is unexported; `Derive(cfg, opts Options)` builds them from the policy | Add a `Derive` option (OQ3) |
 | A7 | The Temporal alerts are mirrored by hand in the chart | `prometheusrule.yaml` group `repo-guardian.temporal`, comment says "keep the two in step" | Same treatment for the new alert |
@@ -123,18 +123,18 @@ pass (OQ4), and this IMPL cannot close until they are done.
 
 #### Tasks
 
-- [ ] 1.1 `ConfigFromEnv`: add `TLSReloadInterval time.Duration` from
+- [x] 1.1 `ConfigFromEnv`: add `TLSReloadInterval time.Duration` from
   `TEMPORAL_TLS_RELOAD_INTERVAL` (Go duration, default `30s`). `validate`
   rejects values outside 5s–10m with a message naming the bounds. Table
   tests for default, valid, out of range, unparsable.
-- [ ] 1.2 `reload.go`: `credentialFiles` with an
+- [x] 1.2 `reload.go`: `credentialFiles` with an
   `atomic.Pointer[tlsMaterial]` snapshot, `reload()` (stat with symlinks
   followed; skip when every modification time is unchanged; read, parse,
   validate pair match and `NotAfter > now`; swap), and `run(ctx)`
   ticking at `TLSReloadInterval`. The first `reload` is strict; later
   failures keep the last good snapshot, `slog.Warn` with the file and
   error, and count an error.
-- [ ] 1.3 `getClientCertificate` serves the snapshot's certificate.
+- [x] 1.3 `getClientCertificate` serves the snapshot's certificate.
   `verifyConnection` verifies the peer chain against the snapshot's
   pool: `x509.VerifyOptions{DNSName: serverName, Roots, Intermediates
   from PeerCertificates[1:], KeyUsages: [ExtKeyUsageServerAuth],
@@ -142,27 +142,33 @@ pass (OQ4), and this IMPL cannot close until they are done.
   configured, with `//nolint:gosec // G402: verification moved to
   VerifyConnection so the CA can reload (DESIGN-0028)`. Without a CA
   path (OIDC on system roots), standard verification stays.
-- [ ] 1.4 Rewrite `tlsConfig` to build from `credentialFiles` (no more
+- [x] 1.4 Rewrite `tlsConfig` to build from `credentialFiles` (no more
   `Certificates`/`RootCAs` fields). Keep `TestTLSConfig`'s cases and
   update its assertions to the callbacks.
-- [ ] 1.5 Lifecycle (OQ1: a `Close` wrapper): `Dial` returns a type
-  embedding `client.Client` whose `Close` stops the poller, then closes
-  the client. `run` starts on `context.WithoutCancel(ctx)` plus its own
-  cancel, so a startup timeout on the dial context never stops
-  reloading. Both
-  callers (`dialTemporal`, `rg-burst`) keep their code unchanged.
-- [ ] 1.6 OIDC: replace the read-once secret with a `TokenSource` that
+- [x] 1.5 Lifecycle (OQ1: a stop func): `Dial` returns
+  `(client.Client, func(), error)`. The client is the SDK's own, untouched
+  (`worker.New` panics on anything else). The poller runs on
+  `context.WithoutCancel(ctx)` plus its own cancel, so a startup timeout
+  on the dial context never stops reloading; the stop func cancels it and
+  waits for the goroutine to exit, and is idempotent. Without reloadable
+  files (plaintext, or OIDC on system roots) it is a no-op, so callers
+  never branch on it. Update both callers: `dialTemporal` in
+  `cmd/repo-guardian/roles.go` (return the stop func; `defer stop()`
+  after `defer tc.Close()`, so the poller stops last) and
+  `cmd/rg-burst/main.go`. Tests: stop is idempotent; after stop the
+  poller no longer reloads (no goroutine leak under `-race`).
+- [x] 1.6 OIDC: replace the read-once secret with a `TokenSource` that
   reads `ClientSecretPath` on each fetch and builds the
   client-credentials request; keep the `ReuseTokenSourceWithExpiry`
   wrapper. Update the `tokenSource` comment. A read failure counts
   `credential="oidc_secret", outcome="error"`.
-- [ ] 1.7 Metrics (OQ2: `internal/metrics`, `promauto`): `repo_guardian_temporal_client_cert_expiry_timestamp_seconds`
+- [x] 1.7 Metrics (OQ2: `internal/metrics`, `promauto`): `repo_guardian_temporal_client_cert_expiry_timestamp_seconds`
   (gauge, set on every successful load) and
   `repo_guardian_temporal_credential_reloads_total{credential, outcome}`
   (`client_cert|ca|oidc_secret` × `changed|error`; unchanged polls
   count nothing). Pre-initialise the six label pairs so `increase()`
   sees the first change.
-- [ ] 1.8 Unit tests (`reload_test.go`), with a helper that mimics
+- [x] 1.8 Unit tests (`reload_test.go`), with a helper that mimics
   kubelet's `..data` symlink swap and a test CA:
   - rotation is picked up on the next tick;
   - mismatched pair, empty file, missing file and expired certificate
@@ -178,16 +184,31 @@ pass (OQ4), and this IMPL cannot close until they are done.
     secret; rotate the file, expire the token, the next fetch uses the
     new secret;
   - interval parsing (in 1.1).
-- [ ] 1.9 Integration test (`-tags integration`): an in-process TLS
+- [x] 1.9 Integration test (`-tags integration`): an in-process TLS
   proxy (requires client certs, ALPN `h2`) in front of
   `temporaltest.Start`. `Dial` with mTLS through it, rotate the client
   certificate, drop connections at the proxy, and assert the next call
   succeeds with the new serial and no new `Dial`.
-- [ ] 1.10 Non-vacuous check: temporarily restore static
+  `TestDial_ReloadsClientCertificateAcrossReconnect` in
+  `internal/temporal/mtls_integration_test.go`.
+- [x] 1.10 Non-vacuous check: temporarily restore static
   `Certificates`/`RootCAs` and a read-once secret; confirm the rotation,
   CA-rollover and OIDC tests fail; restore. Record the result in the
   task.
-- [ ] 1.11 Go doc comments on every new type and function;
+
+  **Unit tests done (2026-10-01):** with reload made read-once and the
+  OIDC secret read once, six tests failed —
+  `TestCredentialFiles_PicksUpRotation`, `_KeepsLastGoodSnapshot`,
+  `_RunReloadsOnTick`, `TestHandshake_PresentsRotatedClientCertificate`,
+  `TestHandshake_CARolloverWithoutRestart`,
+  `TestTokenSource_PicksUpRotatedSecret` — and all passed again once
+  restored.
+
+  **Integration test done (2026-10-01):** with `GetClientCertificate`
+  replaced by a static `Certificates` slice read at dial time,
+  `TestDial_ReloadsClientCertificateAcrossReconnect` failed (the
+  reconnect presented serial 1, want 2) and passed again once restored.
+- [x] 1.11 Go doc comments on every new type and function;
   `internal/temporal` package doc mentions reload.
 
 #### Success Criteria
@@ -195,7 +216,8 @@ pass (OQ4), and this IMPL cannot close until they are done.
 - Every test in 1.8 and 1.9 passes under `-race`, and 1.10 shows they
   fail without the change.
 - `make lint` clean, with exactly one justified `gosec` exclusion.
-- `Dial`'s signature and both callers are unchanged.
+- `Dial` returns the SDK's own client plus a stop func; both callers
+  defer the stop.
 - The parity suite and replay tests are untouched (no workflow or
   engine change).
 
@@ -203,23 +225,23 @@ pass (OQ4), and this IMPL cannot close until they are done.
 
 #### Tasks
 
-- [ ] 2.1 Values: `temporal.tls.reloadInterval` (→
+- [x] 2.1 Values: `temporal.tls.reloadInterval` (→
   `TEMPORAL_TLS_RELOAD_INTERVAL` on roles that dial Temporal),
   `temporal.tls.certManager.{enabled, issuerRef.{name,kind,group},
   commonName, duration, renewBefore, secretName}`,
   `worker.keda.{trigger, fallbackReplicas}`,
   `worker.keda.prometheus.{serverAddress, query, authenticationRef}`.
   Defaults per DESIGN-0028 § Chart values; `trigger: prometheus`.
-- [ ] 2.2 `_helpers.tpl`: `repo-guardian.temporalTLSSecret` returns the
+- [x] 2.2 `_helpers.tpl`: `repo-guardian.temporalTLSSecret` returns the
   effective Secret (`certManager.secretName`, else `existingSecret`,
   else `<fullname>-temporal-tls` when `certManager.enabled`). The TLS
   env, volume and checksum logic use it, so `certManager.enabled` alone
   mounts the certificate.
-- [ ] 2.3 `templates/temporal-certificate.yaml`: the `Certificate`
+- [x] 2.3 `templates/temporal-certificate.yaml`: the `Certificate`
   (usages `client auth`, `digital signature`; ECDSA P-256;
   `rotationPolicy: Always`), namespace stamped, rendered when
   `certManager.enabled`.
-- [ ] 2.4 `worker-scaledobject.yaml`: `prometheus` trigger with
+- [x] 2.4 `worker-scaledobject.yaml`: `prometheus` trigger with
   `serverAddress`, `query` (default built from `temporal.namespace` and
   `temporal.taskQueue`, as designed; task 6.3 confirms or corrects it
 before the tag), `threshold` from
@@ -229,29 +251,29 @@ before the tag), `threshold` from
   `fallbackReplicas` or `worker.replicas`) for both. A template comment
   explains why KEDA 2.21's composite running-workflows metric is never
   set.
-- [ ] 2.5 `templates/worker-triggerauthentication.yaml`: `cert`, `key`,
+- [x] 2.5 `templates/worker-triggerauthentication.yaml`: `cert`, `key`,
   `ca` from the effective TLS Secret, rendered for `trigger: temporal`
   with a client certificate. `tlsServerName` in the trigger metadata
   from `temporal.tls.serverName`.
-- [ ] 2.6 Guards in `validateTemporalAuth`: `trigger: prometheus`
+- [x] 2.6 Guards in `validateTemporalAuth`: `trigger: prometheus`
   without `serverAddress` fails; the OIDC guard fails only for
   `trigger: temporal`, naming `trigger: prometheus` as the fix;
   `certManager.enabled` without `issuerRef.name` fails; an unknown
   `trigger` fails. Messages name the value to change.
-- [ ] 2.7 `values.schema.json`: the new keys, `trigger` enum,
+- [x] 2.7 `values.schema.json`: the new keys, `trigger` enum,
   `reloadInterval` pattern.
-- [ ] 2.8 `prometheusrule.yaml`: `RepoGuardianTemporalClientCertExpiring`
+- [x] 2.8 `prometheusrule.yaml`: `RepoGuardianTemporalClientCertExpiring`
   in the `repo-guardian.temporal` group, rendered only with a client
   certificate configured, overridable like its siblings
   (`prometheusRule.alerts.TemporalClientCertExpiring`).
-- [ ] 2.9 helm-unittest: new `keda_test.yaml` (both triggers, default
+- [x] 2.9 helm-unittest: new `keda_test.yaml` (both triggers, default
   and custom query, `authenticationRef`, `fallback`, composite metric
   absent, TriggerAuthentication present only for temporal + client
   cert); `temporal_auth_test.yaml` (relaxed and new guards,
   `reloadInterval` env, certManager mounting); `certificate_test.yaml`
   (rendering, secret-name precedence, namespace); `prometheusrule_test.yaml`
   (alert gating). `make lint-alerts-chart` passes.
-- [ ] 2.10 `README.md.gotmpl` notes for the new blocks; `make
+- [x] 2.10 `README.md.gotmpl` notes for the new blocks; `make
   helm-docs`.
 
 #### Success Criteria
@@ -267,22 +289,22 @@ before the tag), `threshold` from
 
 #### Tasks
 
-- [ ] 3.1 `MechanismTemporalClientCert` in `mechanism.go`, with the
+- [x] 3.1 `MechanismTemporalClientCert` in `mechanism.go`, with the
   membership comment naming its two series.
-- [ ] 3.2 Plumbing (OQ3): `monitoring.Options.TemporalClientCert bool`;
+- [x] 3.2 Plumbing (OQ3): `monitoring.Options.TemporalClientCert bool`;
   `Derive` adds the mechanism when set.
-- [ ] 3.3 `repo-guardian monitoring generate --temporal-client-cert`
+- [x] 3.3 `repo-guardian monitoring generate --temporal-client-cert`
   sets the option.
-- [ ] 3.4 Alert spec `RepoGuardianTemporalClientCertExpiring` in
+- [x] 3.4 Alert spec `RepoGuardianTemporalClientCertExpiring` in
   `temporalSpecs`, `Requires: MechanismTemporalClientCert`, same
   expression, threshold and `for` as the chart rule.
-- [ ] 3.5 E3 stat "Temporal client certificate: time to expiry"
+- [x] 3.5 E3 stat "Temporal client certificate: time to expiry"
   (`min(...expiry_timestamp_seconds) - time()`, seconds unit), gated on
   the mechanism.
-- [ ] 3.6 Tests: alert and panel absent without the flag, present with
+- [x] 3.6 Tests: alert and panel absent without the flag, present with
   it; a test comparing the catalogue expression with the chart rule's
   rendered expression; existing promtool check covers the new spec.
-- [ ] 3.7 `make monitoring-generate` produces no diff (the committed
+- [x] 3.7 `make monitoring-generate` produces no diff (the committed
   tier is generated without the flag); `make lint-monitoring` clean.
 
 #### Success Criteria
@@ -295,24 +317,24 @@ before the tag), `threshold` from
 
 #### Tasks
 
-- [ ] 4.1 `values-base.yaml`: `server.config.authorization`
+- [x] 4.1 `values-base.yaml`: `server.config.authorization`
   (`jwtKeyProvider.keySourceURIs` placeholder, `refreshInterval: 1m`,
   `permissionsClaimName: permissions`, `audience` placeholder,
   `authorizer: default`, `claimMapper: default`),
   `server.config.tls.refreshInterval: 1m`,
   `server.internal-frontend.enabled: true`. Comments link DESIGN-0028.
-- [ ] 4.2 `namespace-job.yaml`: target the internal frontend with the
+- [x] 4.2 `namespace-job.yaml`: target the internal frontend with the
   internode certificate (OQ7 of DESIGN-0028); keep retention and
   idempotency; update the header comment.
-- [ ] 4.3 `networkpolicy.yaml`: allow the namespace Job to reach the
+- [x] 4.3 `networkpolicy.yaml`: allow the namespace Job to reach the
   internal frontend; repo-guardian still reaches only the external
   frontend.
-- [ ] 4.4 `README.md`: prerequisites (Keycloak or Okta JWKS, the
+- [x] 4.4 `README.md`: prerequisites (Keycloak or Okta JWKS, the
   audience per environment, the client CA in `clientCaFiles`), rewrite
   § Why these choices (mTLS + NetworkPolicy bound reachability; the JWT
   authorizer bounds rights), and an "upgrading an mTLS-only install"
   note.
-- [ ] 4.5 `make lint-temporal-contrib` asserts the rendered config
+- [x] 4.5 `make lint-temporal-contrib` asserts the rendered config
   contains `authorization` with `authorizer: default`, the TLS
   `refreshInterval`, and an internal-frontend Service.
 
@@ -325,22 +347,22 @@ before the tag), `threshold` from
 
 #### Tasks
 
-- [ ] 5.1 New page (OQ5) `docs/operations/temporal-client-auth.md`: the
+- [x] 5.1 New page (OQ5) `docs/operations/temporal-client-auth.md`: the
   posture and why (the INV-0020 trade-off table), environment isolation
   (client per environment + audience; separate tenants as the stronger
   option), the OpenBao commands, Issuer, token-request Role, chart
   values, the rollout order and rollback from DESIGN-0028, and
   troubleshooting (the two metrics, the alert, `cmctl status`).
-- [ ] 5.2 `docs/operations/v2-onboarding.md`: link the page from
+- [x] 5.2 `docs/operations/v2-onboarding.md`: link the page from
   prerequisites; replace the KEDA guidance with the Prometheus trigger
   and the sizing note.
-- [ ] 5.3 `docs/operations/v2-migration.md`: the KEDA values change
+- [x] 5.3 `docs/operations/v2-migration.md`: the KEDA values change
   (default trigger is now `prometheus`, needs `serverAddress`).
-- [ ] 5.4 `mkdocs.yml` nav; `make` docs build clean of new warnings.
-- [ ] 5.5 CLAUDE.md: one v2-branch entry (reload contract: strict
+- [x] 5.4 `mkdocs.yml` nav; `make` docs build clean of new warnings.
+- [x] 5.5 CLAUDE.md: one v2-branch entry (reload contract: strict
   first load, forgiving later loads, `InsecureSkipVerify` only with a
   CA path and why; the KEDA trigger default; the hand-mirrored alert).
-- [ ] 5.6 Status: INV-0020 → Concluded, DESIGN-0028 → Approved (if not
+- [x] 5.6 Status: INV-0020 → Concluded, DESIGN-0028 → Approved (if not
   already), this doc → In Progress / Completed as phases land; `docz
   update`.
 
@@ -369,16 +391,27 @@ task must be checked off before this IMPL is marked Completed.
 - [ ] 6.3 If 6.1/6.2 show double counting or a dropped split, change the
   default query in `worker-scaledobject.yaml` (group by the splitting
   label before summing), update its helm-unittest, and record why.
+  — *blocked on 6.1/6.2 (human)*.
 - [ ] 6.4 Confirm the installed cert-manager supports Vault Kubernetes
   auth with `serviceAccountRef` (record the token audience format it
   sends), and that the installed OpenBao signs through
   `pki_*/sign/<role>` for a throwaway Certificate. Put the minimum
   versions in `temporal-client-auth.md`. — *deferred: human required*
-- [ ] 6.5 `Chart.yaml` `2.0.0-rc.5` / appVersion `2.0.0-rc.5`; helm
+- [x] 6.5 `Chart.yaml` `2.0.0-rc.5` / appVersion `2.0.0-rc.5`; helm
   unittest pins updated; CHANGELOG via git-cliff.
+  Done: Chart.yaml and the helm-docs README. No helm-unittest pins
+  the version (the tests set their own appVersion). Neither CHANGELOG
+  was regenerated: both are hand-curated and stale (root at 1.9.0,
+  chart at 1.0.0-rc.1), so git-cliff would replace their curated
+  entries, and rc.2 through rc.4 left them alone too. The publish
+  workflow regenerates the chart CHANGELOG before `helm package`, so
+  the published chart still ships a current one.
 - [ ] 6.6 PR to `v2` with `dont-release` (Rule 6); after merge, tag
   `v2.0.0-rc.5` and dispatch `ghcr.yml`; verify assets, signatures,
-  provenance, and that `latest` did not move.
+  provenance, and that `latest` did not move. — *deferred: human required*
+  (pushing and the PR wait for the go-ahead, `v2` is protected so the
+  merge is the maintainer's, and the tag is held until 6.1–6.4 pass;
+  task 1.5 landed 2026-10-01).
 - [ ] 6.7 Homelab, in DESIGN-0028's order: OpenBao mount, roles, policy
   and Kubernetes auth; Issuer; `certManager.enabled` (pods present a
   certificate the server does not yet require). — *deferred: human
@@ -467,32 +500,38 @@ task must be checked off before this IMPL is marked Completed.
 
 ### OQ1: How does the reload goroutine stop?
 
-- (a) ✅ decided: **`Dial` returns a thin wrapper that embeds `client.Client` and
-  overrides `Close`** to stop the poller, then close the client. The
+- (a) ✅ decided (2026-10-01, revised): **`Dial` returns a stop func beside
+  the client**, `(client.Client, func(), error)`. The stop func cancels
+  the poller and waits for it; it is a no-op when nothing reloads. The
   goroutine runs on a context detached from the dial context, so a
-  startup timeout never stops reloading. Callers stay unchanged.
-- (b) `DialOptions` gains a long-lived `Context` the caller cancels.
-  Explicit, but both callers change, and forgetting it leaks or stops
-  reload early.
-- (c) No stop: the goroutine lives for the process. Simplest, but tests
-  that dial repeatedly leak goroutines.
+  startup timeout never stops reloading. Both callers change by one
+  `defer`.
+- (b) The poller lives as long as the context passed to `Dial`. No
+  signature change, but `Dial`'s context then means "process lifetime"
+  instead of "connect deadline": a caller bounding the dial with
+  `context.WithTimeout` would silently stop reloading.
+- (c) `Dial` returns a struct holding the client and a `Close`. Also
+  idiomatic (`sql.DB`), but it changes every caller's type for one
+  method.
+- Rejected: the original decision, a wrapper embedding `client.Client`
+  with its own `Close`. The SDK's `worker.New` type-asserts its client to
+  `*internal.WorkflowClient` and panics otherwise ("Client must be
+  created with client.Dial() or client.NewLazyClient()", sdk v1.49.0),
+  and `temporal.NewWorker` passes `Dial`'s client straight to it.
 - other:
 
-Why, and what is typical. Go has two common shapes for a background
-goroutine owned by a component:
-
-| | `Close`/`Stop` on the owning object | `Run(ctx)` / a lifetime context |
-| --- | --- | --- |
-| Examples | `grpc.ClientConn.Close`, `http.Server.Shutdown`, `time.Ticker.Stop`, the Temporal SDK's own `client.Close` | controller-runtime `certwatcher.Start(ctx)`, Kubernetes `dynamiccertificates` `Run(ctx)` |
-| Lifetime | tied to the thing it serves: reload can neither outlive the client nor stop before it | tied to whatever context the caller passes; a short one stops reload while the client keeps working, and certificates go stale silently |
-| Callers | unchanged | every caller must thread a process-lifetime context through |
-| Go guidance | fits "contexts are for request scope, not object lifetime" (go.dev/blog/context-and-structs) | normal for components run under a manager or errgroup |
-| Cost | a wrapper type embedding `client.Client` | one more `DialOptions` field |
-
-The reloader is part of the client, not a separate component under a
-manager, so it follows the client's own `Close`. If the shared module
-later grows a standalone reloader for other consumers, that type can
-expose `Run(ctx)` too; the client wrapper would call it.
+Why. Temporal has no lifecycle hook for credential reload: its guidance
+for rotating mTLS is `tls.Config.GetClientCertificate`, leaving how the
+files are re-read to the application, and `worker.New` rules out
+wrapping the client. So this is a Go-idiom choice. A constructor that
+starts a goroutine returns the means to stop it beside its value
+(`context.WithCancel`'s cancel, OTel's `Shutdown`): ownership is
+explicit, the stop can wait for the goroutine (race-free tests), and the
+context keeps its request-scope meaning (go.dev/blog/context-and-structs).
+Reloading lazily inside the handshake callbacks was also considered and
+rejected: gRPC holds connections for hours, so handshakes are rare and
+the expiry gauge would keep reporting a renewed-away certificate,
+firing the expiry alert falsely.
 
 ### OQ2: Where do the two metrics register?
 

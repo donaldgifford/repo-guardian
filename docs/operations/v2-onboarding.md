@@ -73,9 +73,12 @@ optional. It is shared infrastructure and is not part of this chart.
 - **Reachability** from the repo-guardian namespace to the frontend
   (port 7233). The reference `networkpolicy.yaml` admits namespaces
   labelled `repo-guardian.io/temporal-client=true`.
-- **Authentication**, one of:
+- **Authentication**, one or both (both is the recommended posture: see
+  [Temporal client auth](temporal-client-auth.md)):
   - **mTLS:** a client certificate from the frontend's CA, in a Secret
-    with `tls.crt`, `tls.key` and `ca.crt`.
+    with `tls.crt`, `tls.key` and `ca.crt`, or issued and renewed by
+    cert-manager (`temporal.tls.certManager`). Renewals are picked up
+    without a restart.
   - **OIDC (JWT authorizer, for example Keycloak):** an OAuth2
     client-credentials client whose token grants write on the namespace
     (for example `repo-guardian:write`). No cluster-scoped role is
@@ -83,13 +86,20 @@ optional. It is shared infrastructure and is not part of this chart.
     If the frontend's certificate is from a private CA, put that CA in
     a Secret under `ca.crt`.
 
-Record: `temporal.address`, `temporal.namespace`, and either
-`temporal.tls.existingSecret` or
-`temporal.auth.oidc.{tokenUrl, clientId, existingSecret}` (plus
-`temporal.tls.caSecret` if needed).
+Record: `temporal.address`, `temporal.namespace`, and
+`temporal.tls.existingSecret` or `temporal.tls.certManager.issuerRef.name`,
+and/or `temporal.auth.oidc.{tokenUrl, clientId, existingSecret}` (plus
+`temporal.tls.caSecret` for OIDC alone against a private CA).
 
-> KEDA's Temporal scaler cannot mint OIDC tokens, so the chart refuses
-> `worker.keda.enabled` together with `temporal.auth.oidc`.
+> **Autoscaling the worker.** `worker.keda.enabled` defaults to KEDA's
+> Prometheus trigger on the Temporal server's `approximate_backlog_count`.
+> KEDA then never dials Temporal, so it works under any client auth.
+> Record `worker.keda.prometheus.serverAddress` (required). Size
+> `worker.keda.maxReplicas` to the GitHub budget, not the backlog:
+> checks are rate-limit bound, so extra pods only wait on more timers
+> (INV-0018 Observation 7). KEDA's own Temporal trigger
+> (`trigger: temporal`) is for mTLS-only clusters, because it cannot
+> present an OIDC token.
 
 ### 3. Postgres
 

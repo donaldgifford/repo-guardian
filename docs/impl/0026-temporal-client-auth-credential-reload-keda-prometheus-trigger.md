@@ -351,7 +351,7 @@ before the tag), `threshold` from
 - [x] 5.2 `docs/operations/v2-onboarding.md`: link the page from
   prerequisites; replace the KEDA guidance with the Prometheus trigger
   and the sizing note.
-- [ ] 5.3 `docs/operations/v2-migration.md`: the KEDA values change
+- [x] 5.3 `docs/operations/v2-migration.md`: the KEDA values change
   (default trigger is now `prometheus`, needs `serverAddress`).
 - [ ] 5.4 `mkdocs.yml` nav; `make` docs build clean of new warnings.
 - [ ] 5.5 CLAUDE.md: one v2-branch entry (reload contract: strict

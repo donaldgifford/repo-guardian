@@ -90,6 +90,18 @@ New values: `topology` (`split` or `all`), `temporal.*`,
 `worker.*` (including optional KEDA), `api.*` and `migrate.freshness`.
 `migrate.enabled` now defaults to `true`. See the chart README.
 
+**KEDA changed in chart 2.0.0-rc.5.** `worker.keda.trigger` now
+defaults to `prometheus`, which scales on the Temporal server's
+`approximate_backlog_count` and needs
+`worker.keda.prometheus.serverAddress`; the render fails without it. A
+release already on rc.4 with `worker.keda.enabled` either sets
+`serverAddress`, or keeps KEDA's own scaler with
+`worker.keda.trigger: temporal`. That scaler now uses the client
+certificate through a rendered `TriggerAuthentication`, and is refused
+alongside `temporal.auth.oidc`. Both triggers gained a `fallback`
+(`worker.keda.fallbackReplicas`, default `worker.replicas`). See
+[Temporal client auth](temporal-client-auth.md#5-keda).
+
 ### HCL
 
 `guardian { worker_count, queue_size, schedule_interval }` are parsed

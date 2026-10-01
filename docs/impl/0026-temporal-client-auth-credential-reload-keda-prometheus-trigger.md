@@ -164,7 +164,7 @@ pass (OQ4), and this IMPL cannot close until they are done.
   client-credentials request; keep the `ReuseTokenSourceWithExpiry`
   wrapper. Update the `tokenSource` comment. A read failure counts
   `credential="oidc_secret", outcome="error"`.
-- [ ] 1.7 Metrics (OQ2: `internal/metrics`, `promauto`): `repo_guardian_temporal_client_cert_expiry_timestamp_seconds`
+- [x] 1.7 Metrics (OQ2: `internal/metrics`, `promauto`): `repo_guardian_temporal_client_cert_expiry_timestamp_seconds`
   (gauge, set on every successful load) and
   `repo_guardian_temporal_credential_reloads_total{credential, outcome}`
   (`client_cert|ca|oidc_secret` × `changed|error`; unchanged polls

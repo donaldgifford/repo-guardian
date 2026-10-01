@@ -82,3 +82,14 @@ func TestSetInstallationInfo_DropsBlankOrg(t *testing.T) {
 		t.Errorf(`installation_info{installation_id="42", org="octo"} = %v, want 1`, got)
 	}
 }
+
+// TestTemporalCredentialReloads_PreInitialized pins that every
+// credential/outcome series exists before anything reloads, so an
+// increase() alert sees the first error.
+func TestTemporalCredentialReloads_PreInitialized(t *testing.T) {
+	t.Parallel()
+
+	if got := testutil.CollectAndCount(TemporalCredentialReloadsTotal); got != 6 {
+		t.Errorf("series = %d, want 6 (3 credentials x 2 outcomes)", got)
+	}
+}

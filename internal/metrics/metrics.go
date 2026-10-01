@@ -572,7 +572,46 @@ var (
 		Name: "repo_guardian_pr_orphan_left_total",
 		Help: "Orphan files that could not be deleted from the reconcile branch.",
 	}, []string{labelOrg})
+
+	// TemporalClientCertExpiry is the NotAfter of the Temporal client
+	// certificate this process currently presents (DESIGN-0028), set on
+	// every successful load. No labels: one certificate per process,
+	// and the scrape adds pod identity.
+	TemporalClientCertExpiry = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "repo_guardian_temporal_client_cert_expiry_timestamp_seconds",
+		Help: "Unix time the Temporal client certificate this process presents expires.",
+	})
+
+	// TemporalCredentialReloadsTotal counts Temporal credential reloads
+	// that changed something or failed, by credential (client_cert, ca,
+	// oidc_secret) and outcome (changed, error). Unchanged polls count
+	// nothing.
+	TemporalCredentialReloadsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_temporal_credential_reloads_total",
+		Help: "Temporal credential reloads that changed something or failed.",
+	}, []string{"credential", labelOutcome})
 )
+
+// Temporal credential and outcome label values for
+// TemporalCredentialReloadsTotal.
+const (
+	CredentialClientCert = "client_cert"
+	CredentialCA         = "ca"
+	CredentialOIDCSecret = "oidc_secret"
+
+	OutcomeChanged = "changed"
+	OutcomeError   = "error"
+)
+
+// The six reload series exist from startup, so increase() sees the
+// first change or error rather than needing a prior sample.
+func init() {
+	for _, c := range []string{CredentialClientCert, CredentialCA, CredentialOIDCSecret} {
+		for _, o := range []string{OutcomeChanged, OutcomeError} {
+			TemporalCredentialReloadsTotal.WithLabelValues(c, o)
+		}
+	}
+}
 
 // Hard-coded age bucket labels for the OpenPRsByRule gauge.
 const (

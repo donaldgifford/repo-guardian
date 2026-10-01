@@ -577,6 +577,21 @@ func temporalSpecs() []Spec {
 				"maxReplicas) or WORKER_ACTIVITY_CONCURRENCY, within the GitHub budget.",
 		},
 		{
+			Name:  "RepoGuardianTemporalClientCertExpiring",
+			Group: group,
+			// A healthy 24h certificate renewed 8h early never drops
+			// below 8h, so 4h left means renewal or reload has failed
+			// with hours to spare. Mirrored by the chart's rule.
+			Expr:     `min(repo_guardian_temporal_client_cert_expiry_timestamp_seconds) - time() < 14400`,
+			For:      10 * time.Minute,
+			Severity: SeverityWarning,
+			Summary:  "A pod presents a Temporal client certificate expiring within 4h",
+			Description: "Renewal or reload is failing. Check the Certificate's status, the " +
+				"Issuer's OpenBao auth, and " +
+				`repo_guardian_temporal_credential_reloads_total{outcome="error"}.`,
+			Requires: []monitoring.Mechanism{monitoring.MechanismTemporalClientCert},
+		},
+		{
 			Name:     "RepoGuardianTemporalStickyCacheEvictions",
 			Group:    group,
 			Expr:     `sum(rate(temporal_sticky_cache_total_forced_eviction[30m])) > 1`,

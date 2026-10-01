@@ -290,7 +290,7 @@ before the tag), `threshold` from
   `Derive` adds the mechanism when set.
 - [x] 3.3 `repo-guardian monitoring generate --temporal-client-cert`
   sets the option.
-- [ ] 3.4 Alert spec `RepoGuardianTemporalClientCertExpiring` in
+- [x] 3.4 Alert spec `RepoGuardianTemporalClientCertExpiring` in
   `temporalSpecs`, `Requires: MechanismTemporalClientCert`, same
   expression, threshold and `for` as the chart rule.
 - [ ] 3.5 E3 stat "Temporal client certificate: time to expiry"

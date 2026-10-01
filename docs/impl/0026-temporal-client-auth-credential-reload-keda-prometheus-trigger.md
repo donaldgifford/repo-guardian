@@ -299,7 +299,7 @@ before the tag), `threshold` from
 - [x] 3.6 Tests: alert and panel absent without the flag, present with
   it; a test comparing the catalogue expression with the chart rule's
   rendered expression; existing promtool check covers the new spec.
-- [ ] 3.7 `make monitoring-generate` produces no diff (the committed
+- [x] 3.7 `make monitoring-generate` produces no diff (the committed
   tier is generated without the flag); `make lint-monitoring` clean.
 
 #### Success Criteria

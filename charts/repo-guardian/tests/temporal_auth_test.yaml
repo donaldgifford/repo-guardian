@@ -147,7 +147,7 @@ tests:
       temporal.auth.oidc.existingSecret: rg-oidc
     asserts:
       - failedTemplate:
-          errorPattern: "caSecret and temporal.tls.existingSecret are exclusive"
+          errorPattern: "caSecret and a client certificate \(existingSecret or certManager\) are exclusive"
 
   - it: refuses caSecret without OIDC
     set:

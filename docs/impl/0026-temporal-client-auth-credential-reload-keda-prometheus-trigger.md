@@ -227,7 +227,7 @@ pass (OQ4), and this IMPL cannot close until they are done.
   `worker.keda.{trigger, fallbackReplicas}`,
   `worker.keda.prometheus.{serverAddress, query, authenticationRef}`.
   Defaults per DESIGN-0028 § Chart values; `trigger: prometheus`.
-- [ ] 2.2 `_helpers.tpl`: `repo-guardian.temporalTLSSecret` returns the
+- [x] 2.2 `_helpers.tpl`: `repo-guardian.temporalTLSSecret` returns the
   effective Secret (`certManager.secretName`, else `existingSecret`,
   else `<fullname>-temporal-tls` when `certManager.enabled`). The TLS
   env, volume and checksum logic use it, so `certManager.enabled` alone

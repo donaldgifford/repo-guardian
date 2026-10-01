@@ -1,0 +1,26 @@
+{{- $keda := .Values.worker.keda }}
+{{- $secret := include "repo-guardian.temporalTLSSecret" . }}
+{{- if and (eq .Values.topology "split") $keda.enabled (eq $keda.trigger "temporal") $secret }}
+{{- $r := dict "ctx" . "role" "worker" }}
+# The client certificate KEDA's temporal trigger presents. KEDA re-reads
+# the Secret when it rebuilds the scaler after an error, so a renewed
+# certificate is picked up within a poll (INV-0020 Observation 4).
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: {{ include "repo-guardian.roleFullname" $r }}-temporal
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.roleLabels" $r | nindent 4 }}
+spec:
+  secretTargetRef:
+    - parameter: cert
+      name: {{ $secret }}
+      key: tls.crt
+    - parameter: key
+      name: {{ $secret }}
+      key: tls.key
+    - parameter: ca
+      name: {{ $secret }}
+      key: ca.crt
+{{- end }}

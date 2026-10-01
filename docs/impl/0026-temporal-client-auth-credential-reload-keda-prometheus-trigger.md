@@ -246,7 +246,7 @@ before the tag), `threshold` from
   `fallbackReplicas` or `worker.replicas`) for both. A template comment
   explains why KEDA 2.21's composite running-workflows metric is never
   set.
-- [ ] 2.5 `templates/worker-triggerauthentication.yaml`: `cert`, `key`,
+- [x] 2.5 `templates/worker-triggerauthentication.yaml`: `cert`, `key`,
   `ca` from the effective TLS Secret, rendered for `trigger: temporal`
   with a client certificate. `tlsServerName` in the trigger metadata
   from `temporal.tls.serverName`.

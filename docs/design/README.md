@@ -58,4 +58,5 @@ docz create design "Your Design Title"
 | DESIGN-0025 | v2 findings model and v1 data migration | Approved | 2026-09-24 | Donald Gifford | [0025-v2-findings-model-and-v1-data-migration.md](0025-v2-findings-model-and-v1-data-migration.md) |
 | DESIGN-0026 | v2 Temporal control plane and role split | Approved | 2026-09-24 | Donald Gifford | [0026-v2-temporal-control-plane-and-role-split.md](0026-v2-temporal-control-plane-and-role-split.md) |
 | DESIGN-0027 | v2 read-only API, business UI, and status page | Approved | 2026-09-24 | Donald Gifford | [0027-v2-read-only-api-business-ui-and-status-page.md](0027-v2-read-only-api-business-ui-and-status-page.md) |
+| DESIGN-0028 | Temporal client auth: OIDC over mTLS with OpenBao-issued certificates, and KEDA scaling from server metrics | Draft | 2026-10-01 | Donald Gifford | [0028-temporal-client-auth-oidc-over-mtls-with-openbao-issued.md](0028-temporal-client-auth-oidc-over-mtls-with-openbao-issued.md) |
 <!-- END DOCZ AUTO-GENERATED -->

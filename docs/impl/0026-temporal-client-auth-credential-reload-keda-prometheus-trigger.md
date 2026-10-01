@@ -288,7 +288,7 @@ before the tag), `threshold` from
   membership comment naming its two series.
 - [x] 3.2 Plumbing (OQ3): `monitoring.Options.TemporalClientCert bool`;
   `Derive` adds the mechanism when set.
-- [ ] 3.3 `repo-guardian monitoring generate --temporal-client-cert`
+- [x] 3.3 `repo-guardian monitoring generate --temporal-client-cert`
   sets the option.
 - [ ] 3.4 Alert spec `RepoGuardianTemporalClientCertExpiring` in
   `temporalSpecs`, `Requires: MechanismTemporalClientCert`, same

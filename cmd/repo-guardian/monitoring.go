@@ -120,6 +120,9 @@ type generateFlags struct {
 	format string
 	orgs   orgList
 
+	// temporalClientCert: the pods present a Temporal client certificate.
+	temporalClientCert bool
+
 	prometheusUID string
 	lokiUID       string
 	lokiSelector  string
@@ -149,6 +152,9 @@ func parseGenerateFlags(args []string) (*generateFlags, error) {
 	fs.StringVar(&f.format, "format", formatJSON, "output format: json|k8s")
 	fs.Var(&f.orgs, "org",
 		"org to generate a row for, repeatable; the escape hatch for configs with no top-level scope block")
+	fs.BoolVar(&f.temporalClientCert, "temporal-client-cert", false,
+		"the pods present a Temporal client certificate (temporal.tls.existingSecret or certManager): "+
+			"adds the certificate-expiry alert and panel")
 
 	fs.StringVar(&f.prometheusUID, "prometheus-uid", dashboard.DefaultPrometheusUID,
 		"uid of the Prometheus datasource the panels query")
@@ -281,8 +287,9 @@ func deriveModel(f *generateFlags) (*monitoring.Model, error) {
 	}
 
 	model, err := monitoring.Derive(cfg, monitoring.Options{
-		ConfigPath: f.config,
-		ExtraOrgs:  f.orgs,
+		ConfigPath:         f.config,
+		ExtraOrgs:          f.orgs,
+		TemporalClientCert: f.temporalClientCert,
 	})
 	if err != nil {
 		return nil, err

@@ -3,8 +3,8 @@ nav:
     - Usage:
         - Getting Started with repo-guardian: usage/getting-started.md
         - Policy Reference (guardian.hcl): usage/policy-reference.md
-        - The read-only API: usage/api.md
         - The business UI: usage/ui.md
+        - The read-only API: usage/api.md
     - ADRs:
         - Overview: adr/README.md
     - Adding a New Rule to Repo Guardian: ADDING_RULES.md
@@ -82,6 +82,7 @@ nav:
         - 'INV-0016: Retire the baked Tailscale sidecar for operator-managed ingress': investigation/0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress.md
         - 'INV-0018: repo-guardian v2: role split, business state, and a platform UI': investigation/0018-repo-guardian-v2-role-split-business-state-and-a-platform-ui.md
         - 'INV-0019: Temporal as the repo-guardian control plane': investigation/0019-temporal-as-the-repo-guardian-control-plane.md
+        - 'INV-0020: KEDA worker autoscaling cannot authenticate to Temporal': investigation/0020-keda-worker-autoscaling-cannot-authenticate-to-temporal.md
     - Plans:
         - Overview: plan/README.md
     - RFCs:
@@ -101,15 +102,15 @@ nav:
         - External Postgres on RDS — Terraform variable reference: operations/rds-terraform-variables.md
         - Generating dashboards and alerts: operations/monitoring-generation.md
         - Homelab CNPG cutover runbook: operations/cnpg-homelab-cutover.md
+        - Migrating from v1 to v2: operations/v2-migration.md
         - Postgres schema operations: operations/migrations.md
         - Running repo-guardian on AWS: operations/aws.md
         - Scaling repo-guardian: operations/scaling.md
         - Template migration guide (chart 0.3.x → 0.4.0): operations/template-migration.md
-        - Turning on repo-guardian v2 (onboarding runbook): operations/v2-onboarding.md
-        - repo-guardian and v2 at a glance — what it enforces, what v2 changes: operations/v2-overview.md
-        - v1 → v2 migration (chart 2.0.0): operations/v2-migration.md
+        - Turning on repo-guardian v2: operations/v2-onboarding.md
         - Webhook ingress: operations/ingress.md
         - repo-guardian GitHub App — Enterprise Setup Guide: operations/ent-setup.md
+        - repo-guardian and v2 at a glance: operations/v2-overview.md
 plugins:
     - techdocs-core
 site_description: Documentation for repo-guardian

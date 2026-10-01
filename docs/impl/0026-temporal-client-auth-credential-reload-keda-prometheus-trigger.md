@@ -149,7 +149,15 @@ pass (OQ4), and this IMPL cannot close until they are done.
   embedding `client.Client` whose `Close` stops the poller, then closes
   the client. `run` starts on `context.WithoutCancel(ctx)` plus its own
   cancel, so a startup timeout on the dial context never stops
-  reloading. Both
+  reloading.
+
+  **BLOCKED (2026-10-01):** the Temporal SDK's `worker.New` type-asserts
+  its client to the SDK's concrete `*internal.WorkflowClient` and panics
+  otherwise ("Client must be created with client.Dial() or
+  client.NewLazyClient()", `internal/worker.go` in sdk v1.49.0).
+  `temporal.NewWorker` passes `Dial`'s client straight to `worker.New`,
+  so a wrapper embedding `client.Client` would crash the worker role at
+  startup. OQ1 (a) needs a new decision before 1.2–1.5 proceed. Both
   callers (`dialTemporal`, `rg-burst`) keep their code unchanged.
 - [ ] 1.6 OIDC: replace the read-once secret with a `TokenSource` that
   reads `ClientSecretPath` on each fetch and builds the

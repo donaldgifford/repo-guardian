@@ -57,10 +57,11 @@ func run() error {
 		return err
 	}
 
-	c, err := temporal.Dial(ctx, &cfg, temporal.DialOptions{Logger: logger})
+	c, stop, err := temporal.Dial(ctx, &cfg, temporal.DialOptions{Logger: logger})
 	if err != nil {
 		return err
 	}
+	defer stop()
 	defer c.Close()
 
 	w := worker.New(c, taskQueue, worker.Options{})

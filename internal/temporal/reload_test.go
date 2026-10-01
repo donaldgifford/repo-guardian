@@ -354,3 +354,61 @@ func TestCredentialFiles_RunReloadsOnTick(t *testing.T) {
 		t.Fatal("run did not return after cancel")
 	}
 }
+
+func TestCredentialFiles_StartReloadsUntilStopped(t *testing.T) {
+	ca := newTestCA(t, "Temporal CA")
+	m := newSecretMount(t)
+	files := clientFiles(t, m, ca, leaf{serial: 1, usage: x509.ExtKeyUsageClientAuth})
+
+	// A context that is already done must not stop the poller: Dial's
+	// context bounds the connect, not reloading.
+	dialCtx, cancelDial := context.WithCancel(t.Context())
+	cancelDial()
+
+	stop := files.start(dialCtx, 10*time.Millisecond)
+
+	certPEM, keyPEM := ca.issue(t, leaf{serial: 2, usage: x509.ExtKeyUsageClientAuth})
+	m.update(map[string][]byte{"tls.crt": certPEM, "tls.key": keyPEM, "ca.crt": ca.pem})
+
+	deadline := time.Now().Add(5 * time.Second)
+	for serial(t, files) != 2 {
+		if time.Now().After(deadline) {
+			t.Fatal("the poller never picked up the rotated certificate (stopped by the dial context?)")
+		}
+
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	stopped := make(chan struct{})
+
+	go func() {
+		defer close(stopped)
+		stop()
+		stop() // idempotent
+	}()
+
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Second):
+		t.Fatal("stop did not return")
+	}
+
+	// Stopped means no more reloads.
+	certPEM, keyPEM = ca.issue(t, leaf{serial: 3, usage: x509.ExtKeyUsageClientAuth})
+	m.update(map[string][]byte{"tls.crt": certPEM, "tls.key": keyPEM, "ca.crt": ca.pem})
+	time.Sleep(100 * time.Millisecond)
+
+	if got := serial(t, files); got != 2 {
+		t.Errorf("serial after stop = %d, want 2: the poller kept running", got)
+	}
+}
+
+func TestCredentialFiles_StartWithNothingToReload(t *testing.T) {
+	t.Parallel()
+
+	var files *credentialFiles
+
+	stop := files.start(t.Context(), time.Second)
+	stop()
+	stop()
+}

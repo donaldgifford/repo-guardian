@@ -67,6 +67,35 @@ func newCredentialFiles(certPath, keyPath, caPath, serverName string, logger *sl
 	return c, nil
 }
 
+// start runs the poller in the background and returns the func that
+// stops it. The poller runs on ctx's values but not its cancellation,
+// so a deadline meant for dialing never stops reloading; only stop
+// does. stop cancels the poller, waits for it to return, and is safe to
+// call more than once. A nil receiver (nothing to reload) returns a
+// no-op, so callers never branch on it.
+func (c *credentialFiles) start(ctx context.Context, interval time.Duration) (stop func()) {
+	if c == nil {
+		return func() {}
+	}
+
+	ctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		c.run(ctx, interval)
+	}()
+
+	var once sync.Once
+
+	return func() {
+		once.Do(func() {
+			cancel()
+			<-done
+		})
+	}
+}
+
 // run reloads every interval until ctx is done. Errors are logged and
 // counted by reload; the last good snapshot stays in use.
 func (c *credentialFiles) run(ctx context.Context, interval time.Duration) {

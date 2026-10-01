@@ -256,10 +256,14 @@ type DialOptions struct {
 	MeterProvider metric.MeterProvider
 }
 
-// Dial connects to the frontend. The caller must Close the client.
-func Dial(ctx context.Context, cfg *Config, opts DialOptions) (client.Client, error) {
+// Dial connects to the frontend and starts reloading the TLS files, if
+// any. It returns the SDK's own client, unwrapped, because worker.New
+// panics on any other client.Client, and the func that stops the reload
+// poller (a no-op when nothing reloads). The caller must Close the
+// client and call stop; ctx bounds the connect only, never the poller.
+func Dial(ctx context.Context, cfg *Config, opts DialOptions) (c client.Client, stop func(), err error) {
 	if err := cfg.validate(); err != nil {
-		return nil, fmt.Errorf("temporal: %w", err)
+		return nil, nil, fmt.Errorf("temporal: %w", err)
 	}
 
 	logger := opts.Logger
@@ -267,9 +271,9 @@ func Dial(ctx context.Context, cfg *Config, opts DialOptions) (client.Client, er
 		logger = slog.Default()
 	}
 
-	tlsCfg, _, err := cfg.tlsConfig(logger)
+	tlsCfg, files, err := cfg.tlsConfig(logger)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	co := client.Options{
@@ -282,7 +286,7 @@ func Dial(ctx context.Context, cfg *Config, opts DialOptions) (client.Client, er
 	if cfg.OIDC != nil {
 		ts, err := cfg.OIDC.tokenSource(ctx)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		if cfg.TLSDisabled {
@@ -305,12 +309,22 @@ func Dial(ctx context.Context, cfg *Config, opts DialOptions) (client.Client, er
 		})
 	}
 
-	c, err := client.DialContext(ctx, co)
+	c, err = client.DialContext(ctx, co)
 	if err != nil {
-		return nil, fmt.Errorf("temporal: dial %s: %w", cfg.Address, err)
+		return nil, nil, fmt.Errorf("temporal: dial %s: %w", cfg.Address, err)
 	}
 
-	return c, nil
+	// Started only after a successful dial, so no error path leaks it.
+	return c, files.start(ctx, cfg.reloadInterval()), nil
+}
+
+// reloadInterval is TLSReloadInterval, or the default when unset.
+func (c *Config) reloadInterval() time.Duration {
+	if c.TLSReloadInterval == 0 {
+		return DefaultTLSReloadInterval
+	}
+
+	return c.TLSReloadInterval
 }
 
 // CheckServerVersion fails with ErrServerTooOld when the cluster runs a

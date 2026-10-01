@@ -145,7 +145,7 @@ pass (OQ4), and this IMPL cannot close until they are done.
 - [x] 1.4 Rewrite `tlsConfig` to build from `credentialFiles` (no more
   `Certificates`/`RootCAs` fields). Keep `TestTLSConfig`'s cases and
   update its assertions to the callbacks.
-- [ ] 1.5 Lifecycle (OQ1: a stop func): `Dial` returns
+- [x] 1.5 Lifecycle (OQ1: a stop func): `Dial` returns
   `(client.Client, func(), error)`. The client is the SDK's own, untouched
   (`worker.New` panics on anything else). The poller runs on
   `context.WithoutCancel(ctx)` plus its own cancel, so a startup timeout

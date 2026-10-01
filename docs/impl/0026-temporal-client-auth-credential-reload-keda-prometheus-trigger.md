@@ -354,7 +354,7 @@ before the tag), `threshold` from
 - [x] 5.3 `docs/operations/v2-migration.md`: the KEDA values change
   (default trigger is now `prometheus`, needs `serverAddress`).
 - [x] 5.4 `mkdocs.yml` nav; `make` docs build clean of new warnings.
-- [ ] 5.5 CLAUDE.md: one v2-branch entry (reload contract: strict
+- [x] 5.5 CLAUDE.md: one v2-branch entry (reload contract: strict
   first load, forgiving later loads, `InsecureSkipVerify` only with a
   CA path and why; the KEDA trigger default; the hand-mirrored alert).
 - [ ] 5.6 Status: INV-0020 → Concluded, DESIGN-0028 → Approved (if not

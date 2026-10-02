@@ -37,6 +37,10 @@ nav:
         - 'DESIGN-0026: v2 Temporal control plane and role split': design/0026-v2-temporal-control-plane-and-role-split.md
         - 'DESIGN-0027: v2 read-only API, business UI, and status page': design/0027-v2-read-only-api-business-ui-and-status-page.md
         - 'DESIGN-0028: Temporal client auth: OIDC over mTLS with OpenBao-issued certificates, and KEDA scaling from server metrics': design/0028-temporal-client-auth-oidc-over-mtls-with-openbao-issued.md
+        - 'DESIGN-0029: Controls and policies: opinionated compliance with separate evaluation and remediation': design/0029-controls-and-policies-opinionated-compliance-with-separate.md
+        - 'DESIGN-0030: Policy model: enterprise and org policies and control assignment': design/0030-policy-model-enterprise-and-org-policies-and-control-assignment.md
+        - 'DESIGN-0031: Control framework: controls, control rules and file controls': design/0031-control-framework-controls-control-rules-and-file-controls.md
+        - 'DESIGN-0032: Evaluation and remediation workflows: change-driven remediation with per-control PRs': design/0032-evaluation-and-remediation-workflows-change-driven-remediation.md
     - Implementation Plans:
         - Overview: impl/README.md
         - 'IMPL-0001: Repo Guardian Implementation Plan': impl/0001-repo-guardian-implementation-plan.md

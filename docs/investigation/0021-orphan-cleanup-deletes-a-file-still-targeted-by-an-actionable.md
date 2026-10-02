@@ -306,28 +306,42 @@ Build `path → owning actionable rule` once per check and pass it to `syncActio
 
 ## Recommendation
 
-1. **Fix R1 now (#199, `main`, `patch`).** In `discoverOrphans`, skip any candidate whose `Target` is in `plannedWrites(actionable)`, the helper `restoreInverseOrphans` already uses. This also saves that rule's two API probes. Tests:
-   - The R1 variants from the T2 axes: out of scope, ignored, gate closed, foreign PR, satisfied via another path.
-   - Assert I2 and I3: zero `DeleteFile` calls, and a second sweep makes no writes.
-   - Neutralize the fix and confirm the tests fail.
-2. **Merge forward (#200).** Merge the fix into `v2`, routing the new tests through `parityCheckRepo`. Goldens should change only where a bogus `DeleteFile` disappears.
-3. **Workaround until shipped.** Set `policy.orphanCleanup: false` in chart values, not in the HCL (Observation 6). For the wiz rule specifically, use the same `codeowners` template in both rules, so R3 cannot flip-flop inside the wiz org.
-4. **Follow-up issues**, one each, in this order:
-   - R2: fix both example policies (gate `dependabot` on `renovate_config` not being satisfied, or remove it), plus T3.
-   - T4: load-time overlap validation, which turns R2, R3 and R4 into load errors.
-   - T1 + T2: the overlap matrix.
-   - T5: the per-sweep ownership map, so the R1/R2 class holds by construction.
-   - R5: stranded changes from removed rules.
-   - R7: ruleset and setting ownership.
-   - R6: v1-only; v2 keys by kind.
-   - R8, R9: cosmetic or low.
-5. **Policy guidance.** Add a "rules that share files" section to `docs/usage/policy-reference.md`:
-   - a shared `target` needs identical or compatible templates;
-   - an add rule and an absent rule on one path need mutually exclusive gates;
-   - list `target` first in `paths`.
+### Main recommendation: controls, not rules (DESIGN-0029 to DESIGN-0032)
+
+Every finding R1–R5 has one root cause. The engine treats every file as an opaque blob with paths, a template and assertions. So it cannot know that "CODEOWNERS with a `.wiz` line" is *one file with two requirements*, and it sees two rules competing for a path. Patching each step that changes the reconcile branch fixes one pairing at a time. A generic planner that arbitrates between rules would add machinery to referee a problem the model creates.
+
+The durable fix is to make the model opinionated:
+
+- A **control** (for example "CODEOWNERS 1.0") is the expected state of one resource. Its **control rules** (1.1 "a valid CODEOWNERS exists in the standard location", 1.2 "`.wiz` is owned by security champions and appsec") are evaluated by Go code that understands that resource's format, the same way the catalog-info parser understands Backstage entities.
+- **One control owns its resource.** Its remediation renders the whole file when it is missing, and edits only the failing rules' lines when it exists, in one change. Two rules can no longer compete for a path, because they are the same control. The generic file control is an escape hatch: one path, one template, nothing else.
+- **Evaluation is separate from remediation.**
+  - Evaluation is read-only, always runs against the default branch, and records per-control and per-rule compliance.
+  - Remediation runs only when the evaluation changed, or when a remediation PR was edited or closed. It opens one PR per control.
+  - The two run as separate GitHub Apps, and in per-org modes (evaluate or remediate).
+- **Policies say who and what.** An enterprise policy assigns controls to orgs, and org policies add, exclude or scope controls for an org or for specific repos.
+
+DESIGN-0029 (overview) and DESIGN-0030 to DESIGN-0032 (policy model, control framework, evaluation and remediation) specify this on the `v2` line, with open questions for review. A follow-up investigation verifies their assumptions about which v2 code survives.
+
+### Interim and supporting steps
+
+1. **Fix R1 now (#199, `main`, `patch`).** In `discoverOrphans`, skip any candidate whose `Target` is in `plannedWrites(actionable)`, the helper `restoreInverseOrphans` already uses. This is deliberately small; it stops production deletions on v1, which keeps the current rules engine until v2 ships the controls model. Tests:
+   - the R1 variants: out of scope, ignored, gate closed, foreign PR, satisfied via another path;
+   - assert I2 and I3: zero `DeleteFile` calls, and a second sweep makes no writes;
+   - neutralize the fix and confirm the tests fail.
+2. **Merge forward (#200).** Merge the fix into `v2`, routing the tests through `parityCheckRepo`. Goldens should change only where a bogus `DeleteFile` disappears.
+3. **Workaround until shipped.** Set `policy.orphanCleanup: false` in chart values, not in the HCL (Observation 6). For the wiz rule, use one template that is a full CODEOWNERS plus the `.wiz` line, and list the wiz rule after `codeowners`, so R3 cannot flip-flop inside the wiz org.
+4. **v1 test harness, scoped down.** T3 (the shipped examples converge) and the R1 regression tests protect v1 for as long as it runs. The full T1/T2 overlap matrix targets the rule model being replaced, so it is not worth building for v1. Its invariants (I1–I6) carry into the v2 control tests instead.
+5. **T4 load-time validation on v1.** It turns R2–R4 into load errors for v1 policies today. v2 does not need it, because a control owns its resource by construction.
+6. **R2:** fix both example policies. Either gate `dependabot` so it cannot apply where `no_dependabot` does, or drop it.
+7. **Separate v1 issues:**
+   - R6 (v1-only; v2 keys by kind);
+   - R7 (ruleset and setting ownership: the same plan idea for non-file resources);
+   - R8, R9.
+8. **Policy guidance (v1).** Add a "rules that share files" section to `docs/usage/policy-reference.md`.
 
 ## References
 
+- DESIGN-0029 to DESIGN-0032: controls, policies, and the evaluate/remediate split (the main recommendation; on the `v2` branch)
 - #199: v1 fix
 - #200: v2 merge-forward
 - INV-0014: orphan cleanup deleted files the default branch owns (#174)

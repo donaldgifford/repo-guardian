@@ -63,4 +63,5 @@ docz create design "Your Design Title"
 | DESIGN-0030 | Policy model: enterprise and org policies and control assignment | Draft | 2026-10-02 | Donald Gifford | [0030-policy-model-enterprise-and-org-policies-and-control-assignment.md](0030-policy-model-enterprise-and-org-policies-and-control-assignment.md) |
 | DESIGN-0031 | Control framework: controls, control rules and file controls | Draft | 2026-10-02 | Donald Gifford | [0031-control-framework-controls-control-rules-and-file-controls.md](0031-control-framework-controls-control-rules-and-file-controls.md) |
 | DESIGN-0032 | Evaluation and remediation workflows: change-driven remediation with per-control PRs | Draft | 2026-10-02 | Donald Gifford | [0032-evaluation-and-remediation-workflows-change-driven-remediation.md](0032-evaluation-and-remediation-workflows-change-driven-remediation.md) |
+| DESIGN-0033 | fwsync as inspiration: shared HCL concepts and whether to reuse it | Draft | 2026-10-02 | Donald Gifford | [0033-fwsync-as-inspiration-shared-hcl-concepts-and-whether-to-reuse.md](0033-fwsync-as-inspiration-shared-hcl-concepts-and-whether-to-reuse.md) |
 <!-- END DOCZ AUTO-GENERATED -->

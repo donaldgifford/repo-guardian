@@ -59,6 +59,7 @@ The original brief is kept verbatim in `notes/2026-10-02-controls-and-policies-b
 | **DESIGN-0030** | Policy model: enterprise and org policies, the control catalogue, resolving which controls apply to a repository, modes | 3 |
 | **DESIGN-0031** | Control framework: the `Control` interface, control rules, results, file controls, the built-in control types | 2 |
 | **DESIGN-0032** | Evaluation and remediation workflows: the two GitHub Apps, change detection, per-control PRs and their lifecycle, data model, Temporal mapping | 4 |
+| **DESIGN-0033** | Companion: fwsync as inspiration — concept mapping, the conventions adopted from it, every reuse option evaluated, and the governed tag schema as the one shared seam | 4 |
 
 Each doc also carries a **Decisions** section: choices that were weighed and settled, with a one-line rationale, so the open questions are only the ones that need the maintainer.
 

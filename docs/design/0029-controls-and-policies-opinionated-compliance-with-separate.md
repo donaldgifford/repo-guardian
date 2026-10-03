@@ -31,6 +31,12 @@ created: 2026-10-02
 - [Testing Strategy](#testing-strategy)
 - [Migration / Rollout Plan](#migration--rollout-plan)
 - [Decisions](#decisions)
+- [Adversarial Review](#adversarial-review)
+  - [AR-0029-01 (high): Access loss must not erase known non-compliance](#ar-0029-01-high-access-loss-must-not-erase-known-non-compliance)
+  - [AR-0029-02 (high): The all topology is an exception to the credential boundary](#ar-0029-02-high-the-all-topology-is-an-exception-to-the-credential-boundary)
+  - [AR-0029-03 (high): Pre-release status does not make persisted workflows disposable](#ar-0029-03-high-pre-release-status-does-not-make-persisted-workflows-disposable)
+  - [AR-0029-04 (high): name@version does not freeze the meaning of a control](#ar-0029-04-high-nameversion-does-not-freeze-the-meaning-of-a-control)
+  - [AR-0029-05 (medium): Separate installations do not prove independent capacity](#ar-0029-05-medium-separate-installations-do-not-prove-independent-capacity)
 - [Open Questions](#open-questions)
   - [OQ1: When does the controls model land relative to v2.0.0?](#oq1-when-does-the-controls-model-land-relative-to-v200)
   - [OQ2: Where does this work happen?](#oq2-where-does-this-work-happen)
@@ -306,6 +312,64 @@ Owned by the per-area docs:
 - **D1 No v1 policy translation** — there is no automatic translation; a migration guide maps v1 rules to control types. The models differ in kind (paths and regexes versus typed rules), so a mechanical translation would produce generic `file` controls and miss the point, and the known fleet policies are small.
 - **D2 Identifiers** — a control's id is a stable slug (`codeowners`); rule ids are bare and unique within the control (`exists`, `wiz-owners`), stored under `(repository_id, control_id, rule_id)` and qualified as `codeowners@1/exists` only in logs and the UI; rule numbers (`1.1`, `1.2`) are display only. Slugs survive renumbering and keep database keys and URLs stable; the control is the namespace, so rule ids stay short in HCL.
 - **D3 Versions** — a control's version is an integer in the catalogue (`version = 2`), referenced exactly as `codeowners@2`. A bump is catalogue data served by the same Go type, an org trials `@2` through `replace` (DESIGN-0030), and `result_events` records the version each result came from. "Did the rules change" needs no semantic-version semantics.
+
+## Adversarial Review
+
+Reviewed 2026-10-03 against DESIGN-0029–0033 as one design set. **Disposition: changes required before implementation of the affected contracts.** Findings below are unresolved review findings, not accepted decisions. `critical` denotes a counterexample to a core safety guarantee, `high` a correctness or operational blocker, and `medium` a contract gap that needs an explicit decision. Each finding identifies the challenged section, a failure scenario, a proposed correction and a verification case.
+
+**Responses (2026-10-03):** 4 accepted, 1 accepted with changes. Each finding below carries a **Response** giving the disposition and the concrete change. Accepted changes are applied to the body and the Decisions ledger in the follow-up reconciliation pass; until then, where a response and the body differ, the response is the current position.
+
+### AR-0029-01 (high): Access loss must not erase known non-compliance
+
+**Basis:** Architecture's parking behavior, A3, and DESIGN-0030 D6. An Evaluation App 403 parks a repository, removes every assignment and deletes every current result. A repository with known failures therefore disappears from measured posture precisely when it becomes unreadable. This reverses v2's access-denied contract: preserve findings when nothing new was learned; clear them only for definitive non-applicability such as archived/fork filtering.
+
+**Proposed correction:** Distinguish desired assignments, eligibility to evaluate, and measurement availability. Keep last-known results for access-denied/suspended installations, mark them stale or unmeasurable, and expose coverage beside compliance. Reserve result removal for intentional withdrawal or confirmed non-applicability.
+
+**Verification:** Start with a failing repository, revoke access, rediscover it and restore access. At no point may access loss improve the displayed posture or silently discard its last-known failures.
+
+**Response:** **Accepted.** The access-denied contract v1 and v2 already hold stands: a repository that becomes unreadable keeps its last results. Assignments become pure desired state, derived from the policy snapshot and the repository's identity, and parking never removes them; the "Resolution reads stored state only" property in Architecture and assumption A3 are rewritten to say that v2's nil-vs-empty rule is kept, not reversed. Results are cleared in exactly two cases: a policy withdrawal or exclusion, which is an operator's decision, and parking for `archived`, `fork` or `removed`, which is definitive non-applicability (v1's empty-result rule). On access loss or installation suspension the results stay and the repository is reported as `unmeasurable{reason=access_denied|suspended}`. Compliance queries start from active assignments and report coverage, measured over assigned, beside the percentage. The storage model lands in DESIGN-0030, whose D6 is amended (AR-0030-05); the lifecycle rule for outstanding PRs lands in DESIGN-0032 (AR-0032-04). Verification: adopted.
+
+### AR-0029-02 (high): The `all` topology is an exception to the credential boundary
+
+**Basis:** Goals' least-privilege guarantee and DESIGN-0032 Roles/D2/D8. `all` runs evaluation and remediation in one process with both private keys and a database role belonging to both writers. An evaluator dependency or compromise in that process can reach write credentials even if the `Evaluate` method accepts only a reader. Interface separation does not enforce the process-level guarantee stated here.
+
+**Proposed correction:** State the guarantee per deployment topology. Either require split roles for the credential-isolated product or explicitly document `all` as a weaker combined-trust topology. Extend secret-scoping and database-grant checks to prove the split topology, rather than treating `all` as equivalent.
+
+**Verification:** Render and boot both topologies. A split evaluator must lack the remediation key and remediation database capabilities; documentation and UI/operator configuration must identify the combined topology's different boundary.
+
+**Response:** **Accepted.** The least-privilege goal is restated per topology. It holds for `topology: split`, which is the product's security claim; `all` is documented as a combined-trust topology for single-operator installs, with both App keys in one process and a database role that is a member of both writers. The `installation_info` gauge gains a `topology` label and the status page shows the value, so an operator can see which boundary a deployment actually has. helm-unittest asserts by env and secret name that a split evaluator pod carries neither the Remediation App key nor the remediator DSN, extending the existing `secret_scoping_test.yaml` pattern, and the database grant tests run as the two roles rather than as the owner (AR-0032-09). Verification: adopted.
+
+### AR-0029-03 (high): Pre-release status does not make persisted workflows disposable
+
+**Basis:** A16–A20 and Migration / Rollout Plan. A deployment can have live rc workflows, staged checks and GitHub PRs even without GA users. Reusing `repo/<id>` and discovery workflow IDs with changed commands/task queues can break replay. Closing v1 PRs while its workers still run allows v1 to reopen them; resetting Temporal without reconciling Postgres can lose in-flight intent. The migration sequence does not define writer quiescence, recovery or rollback.
+
+**Proposed correction:** Specify a concrete cutover: stop old writers, drain or terminate named executions, reconcile completed external writes, activate the new snapshot/schema, and only then start the new workflows. Choose replay-compatible rollout or an explicitly scoped reset, with a recovery path for rc installations. Retire parity tests only after their relevant safety scenarios have replacement coverage.
+
+**Verification:** Cut over with a running check, an open PR with human edits, and a GitHub write whose database record failed. Restart or roll back and demonstrate no duplicate writer, lost intent or recreated v1 PR.
+
+**Response:** **Accepted.** Replay compatibility with the Phase 10–13 histories is not attempted. The controls workflows get new workflow type names (`EvaluationWorkflow`, `RemediationWorkflow`, `ControlsDiscoveryWorkflow`) and new workflow IDs, so no old history can replay into new code and no `GetVersion` gate is needed; A16 is kept with that qualification. The cutover becomes an ordered runbook in DESIGN-0032's Migration / Rollout Plan: (1) scale the v2 `worker` role to zero and confirm no v1 pods run; (2) terminate `repo/*`, `installation/*` and `policy-rollout/*` executions and delete the `discovery` and `snapshot` schedules; (3) reconcile external writes by listing every open repo-guardian PR from GitHub and recording it before anything closes it; (4) run migrations 00004–00007; (5) deploy the new roles and bootstrap; (6) only then close v1's PRs with the pointer comment (A17). Because every current install is an rc with no GA users, this reset is the only supported rc path.
+
+Rollback is a Postgres restore plus the previous chart. A check in flight at step 1 is simply re-run after step 5, since checks are idempotent on their check key, and a GitHub write whose record failed is found in step 3 by exact identity rather than recreated. Parity tests are retired per scenario, and only when the IMPL names the replacement test for that scenario. Verification: amended — the rollback case is "restore and redeploy", not a live roll back, and the human-edited open PR is adopted (AR-0032-02), not recreated.
+
+### AR-0029-04 (high): `name@version` does not freeze the meaning of a control
+
+**Basis:** D3, A7 and DESIGN-0032's fingerprint definition. A catalogue definition, template or Go evaluator can change while retaining `codeowners@1`. If rule IDs/statuses and read blob SHAs stay the same, the fingerprint does not change even when the required owners or remediation template change. Re-evaluating on a policy rollout is insufficient: an already-acknowledged generation remains settled. Historical results also cannot identify which definition or implementation produced them.
+
+**Proposed correction:** Define immutable control revisions or a content digest covering effective parameters, templates, referenced schema bytes and evaluator semantics. Bind assignments, results and remediation intent to that revision. Specify which display-only edits are excluded and how a binary semantic change invalidates evaluations.
+
+**Verification:** Change required owners, template bytes and evaluator behavior separately without changing the integer version. Each semantic change must invalidate stale posture/remediation; title-only changes must follow the declared cosmetic-change policy.
+
+**Response:** **Accepted.** `name@version` stays the reference humans and policies use, and a content digest becomes the identity results bind to. Each control definition gets a `revision`: a sha256 over the canonical definition, which is the id, version, type name, the type's declared `Semantics` integer, the rules with their parameters, `apply`, the template bytes and any referenced schema bytes. Title, description and PR title and body are excluded as display-only, so a cosmetic edit changes nothing. `control_assignments.revision` and `control_results.revision` store it, the fingerprint includes it, and a revision change is a policy-version change that re-evaluates and re-remediates even an acknowledged generation. A Go evaluator whose meaning changes bumps its `Semantics` constant, and a golden digest test per built-in type pins the value so an accidental semantic change fails CI. The digest lands in DESIGN-0031 and its storage in DESIGN-0030, AR-0033-03 is closed the same way, and D3 is kept without its claim that the integer alone identifies behaviour. Verification: adopted.
+
+### AR-0029-05 (medium): Separate installations do not prove independent capacity
+
+**Basis:** Architecture's statement that evaluation never competes with remediation. Separate primary GitHub budgets/task queues are useful isolation, but both paths still share Temporal, Postgres, network capacity and potentially GitHub secondary limits. A fleet-wide evaluation rollout or thousands of due remediation workflows can overwhelm those shared services; a per-repository PR cap does not bound fleet-wide work.
+
+**Proposed correction:** Narrow the independence claim to the resources actually isolated. Specify activity concurrency, rollout fan-out, sweep batch limits, shared-capacity targets and throttle/hold retry cadence. Define how queue scaling leaves capacity for discovery, resolution and lifecycle cleanup.
+
+**Verification:** Exercise fleet onboarding and policy rollout together with exhausted GitHub budgets and a remediation backlog. Measure evaluation freshness, cleanup latency and database load against explicit targets.
+
+**Response:** **Accepted with changes.** The independence claim in Architecture is narrowed to what the two Apps actually isolate: the GitHub primary budget, the App credentials, the task queue and the worker role. The shared capacity is named next to it: Temporal, Postgres, egress and GitHub secondary limits. Explicit knobs land in DESIGN-0032: per-role activity concurrency (`EVALUATOR_CONCURRENCY`, `REMEDIATOR_CONCURRENCY`), rollout fan-out through the existing `POLICY_ROLLOUT_WINDOW`, batch sizes for the sweep and for lifecycle maintenance, and per-role pool sizes. Secondary-limit throttles already defer under IMPL-0022's one-mechanism rule, so no new gate is added. The rejected part is design-time capacity targets: they are operational SLOs, recorded as metrics (evaluation freshness p95, cleanup latency, Postgres pool wait) and set per deployment, not numbers this document commits to. Verification: amended — the combined load exercise is an IMPL soak task measured against those metrics rather than against design-time numbers.
 
 ## Open Questions
 

@@ -29,6 +29,14 @@ created: 2026-10-02
 - [Testing Strategy](#testing-strategy)
 - [Migration / Rollout Plan](#migration--rollout-plan)
 - [Decisions](#decisions)
+- [Adversarial Review](#adversarial-review)
+  - [AR-0033-01 (high): The adopted slug grammar rejects the design's own catalogue](#ar-0033-01-high-the-adopted-slug-grammar-rejects-the-designs-own-catalogue)
+  - [AR-0033-02 (high): orphan cleanup adds an undeclared and potentially destructive mechanism](#ar-0033-02-high-orphan-cleanup-adds-an-undeclared-and-potentially-destructive-mechanism)
+  - [AR-0033-03 (high): A shared decoder or copied fixture is not a shared schema revision](#ar-0033-03-high-a-shared-decoder-or-copied-fixture-is-not-a-shared-schema-revision)
+  - [AR-0033-04 (high): Three facts per tag are insufficient to derive safe writes](#ar-0033-04-high-three-facts-per-tag-are-insufficient-to-derive-safe-writes)
+  - [AR-0033-05 (high): The casing migration needs a provider and consumer contract](#ar-0033-05-high-the-casing-migration-needs-a-provider-and-consumer-contract)
+  - [AR-0033-06 (medium): In-root references need filesystem and snapshot semantics](#ar-0033-06-medium-in-root-references-need-filesystem-and-snapshot-semantics)
+  - [AR-0033-07 (medium): Preview availability and exit codes have conflicting contracts](#ar-0033-07-medium-preview-availability-and-exit-codes-have-conflicting-contracts)
 - [Open Questions](#open-questions)
   - [OQ1: Who owns GitHub repository custom properties?](#oq1-who-owns-github-repository-custom-properties)
   - [OQ2: How does repo-guardian read the governed tag definitions?](#oq2-how-does-repo-guardian-read-the-governed-tag-definitions)
@@ -221,6 +229,82 @@ None. The tag schema, if shared, is read at policy load like any other catalogue
 - **D3 One definition of the governed tags** — repo-guardian's `custom_properties` control derives its governed property names and value patterns from the platform tag schema rather than declaring them itself; how it reads that schema is OQ2 and what the keys are called is OQ3.
 - **D4 No generator layer in front of the catalogue** — the catalogue is hand-authored data. A `repo-guardian gen` compiling a compact schema into controls is reconsidered only if per-org or per-tier expansion appears.
 - **D5 `evaluate` preview emits JSON and Terraform-style exit codes from the first release** — fwsync's missing JSON mode is the one gap in an otherwise sound CLI contract; we do not repeat it.
+
+## Adversarial Review
+
+Reviewed 2026-10-03 as an amendment to DESIGN-0029–0032. **Disposition: changes required before adopting the shared-schema seam or the transferred conventions as contracts.** Findings are unresolved, with severity meanings defined in DESIGN-0029's Adversarial Review. This pass reviews the fwsync claims as recorded at `14fbbef`; it does not independently re-verify that external repository or the unverified Wiz assumptions F9/F10.
+
+**Responses (2026-10-03):** 4 accepted, 2 accepted with changes, 1 deferred. Each finding below carries a **Response** giving the disposition and the concrete change. Accepted changes are applied to the body and the Decisions ledger in the follow-up reconciliation pass; until then, where a response and the body differ, the response is the current position.
+
+### AR-0033-01 (high): The adopted slug grammar rejects the design's own catalogue
+
+**Basis:** What transfers item 2 and the sibling catalogue examples. `^[a-z0-9]+(-[a-z0-9]+)*$` rejects `catalog_info`, `dependency_updates`, `repo_settings`, `branch_ruleset` and `custom_properties` used throughout the set as control IDs. Separately, DESIGN-0030's settings example declares kind `setting`, while DESIGN-0031 offers `equals`; `rule "exists"` omits `kind` without defining whether IDs imply kinds. A strict decoder/registry cannot accept the examples as written.
+
+**Proposed correction:** Distinguish Go type identifiers from catalogue slugs, choose a consistent slug/reference grammar and update the examples together. Define explicit rule-kind syntax or a documented defaulting rule. Make the shipped examples executable inputs to the actual strict loader rather than illustrative text that silently diverges from its schema.
+
+**Verification:** Extract/load every non-hypothetical example catalogue and policy with the proposed strict grammar. Resolve all references and build every type; assert that intentionally invalid slugs and unknown rule kinds still fail with source locations.
+
+**Response:** **Accepted with changes.** The dash-only grammar is not adopted; the catalogue's names are. One grammar covers control slugs and rule ids, `^[a-z][a-z0-9]*([_-][a-z0-9]+)*$` (lower-case, no leading or trailing separator, no doubled separator), which accepts `catalog_info`, `custom_properties` and `wiz-owners` alike and keeps v1's rule names; Go type names are identifiers, not slugs, and are never written in policy. Rule-kind syntax is `rule "<id>" { kind = "<kind>" }`, and `kind` may be omitted only when the id equals a rule kind the type declares (`rule "exists" {}`); otherwise load fails with "rule <id>: kind is required" and a source location, and DESIGN-0030's `setting` example is corrected to `equals`. Every example catalogue and policy in the four documents and in `examples/` is loaded through the strict loader in a test, so the text cannot diverge from its schema again. The rejected part is item 2's dash convention as a constraint: what transfers is "slugs are stable identifiers", not fwsync's spelling. Verification: adopted.
+
+### AR-0033-02 (high): `orphan` cleanup adds an undeclared and potentially destructive mechanism
+
+**Basis:** What transfers item 5, DESIGN-0031's generic file control and DESIGN-0032's withdrawal lifecycle. A file no active control claims has no evaluator to report it, no ownership set authorizing its deletion and no stored per-file ownership history. DESIGN-0032 closes withdrawn PRs; it does not specify deletion of files already merged to main. Borrowing lockfile prune terminology cannot grant ownership of arbitrary repository files. Per-control PRs can still contain obsolete bot edits after a version change, but that is a different problem.
+
+**Proposed correction:** Restrict orphan handling to removing tracked, obsolete bot deltas from an owned unmerged proposal unless a separate merged-file retirement design is accepted. Specify creation/base/content provenance and human-edit conflict behavior for any cleanup. Do not treat removing a control from policy as permission to delete its former file from main.
+
+**Verification:** Remove a generic file control before and after its PR merges, then modify the file by hand. Withdrawal must preserve merged/human-owned content; cleanup may only remove the explicitly tracked proposal delta under its chosen ownership contract.
+
+**Response:** **Accepted.** The transferred convention was over-stated. Orphan cleanup means exactly what v1 does today: removing the bot's own obsolete delta from an open, unmerged proposal, identified by the journal of paths and blobs the bot wrote (DESIGN-0032 AR-0032-03), and never from the default branch. Withdrawing a control closes its PR with a comment (DESIGN-0032 D10) and never deletes a merged file; a merged-file retirement would need a design of its own, and none is proposed. Item 5 is reworded so that `orphan` names the tracked proposal delta only, and the lockfile-prune analogy is dropped from it. Verification: adopted.
+
+### AR-0033-03 (high): A shared decoder or copied fixture is not a shared schema revision
+
+**Basis:** D1/D3, OQ2, Data Model's “nothing stored” and the agreement test. A Go module can share decoding/rendering code while each tool reads different tag data. A test against a copied fixture stays green if fwsync changes and repo-guardian's copy never updates. An embedded-default/module upgrade or external `tag_schema` edit can change desired keys/patterns without changing any catalogue text. Without a recorded digest, historical results cannot identify which schema applied, and a fingerprint limited to `id@version`/statuses/blobs may not trigger remediation.
+
+**Proposed correction:** Identify the canonical data artifact separately from its parser library, pin its revision/digest, include effective schema bytes/rendering semantics in control and policy revisions, and expose that provenance in results/summaries. Define update ownership and a cross-consumer compatibility check tied to the canonical revision. Clarify D1's shared-library exception if OQ2(a) is chosen.
+
+**Verification:** Change only a tag pattern, rendered key, embedded default or decoder rendering behavior. Both tools must either agree on the new pinned revision or visibly remain on different revisions; stale fixtures must not claim agreement with current upstream data.
+
+**Response:** **Accepted.** The canonical artifact is the tag data, not the decoder. OQ2 is settled as a copied schema file referenced by `tag_schema = file(...)`, whose bytes enter the control revision digest of DESIGN-0029 AR-0029-04, and whose digest is recorded in `policy_versions.summary` as `tag_schema_digest` together with the upstream fwsync revision it was copied from. The agreement test compares that recorded upstream revision with fwsync's current one and fails when they differ, so a stale copy cannot claim agreement; a changed pattern or rendered key changes the digest, the control revision, and therefore re-evaluates and re-remediates. The Data Model's "nothing stored" is corrected accordingly, and D1 needs no exception because nothing shared is code. Verification: adopted.
+
+### AR-0033-04 (high): Three facts per tag are insufficient to derive safe writes
+
+**Basis:** The governed-tag seam's managed-set union and `value_pattern` proposal. Knowing tag scope, GitHub key and regex does not say where a new repo-scoped tag gets its value. Adding such a tag can expand the managed set with no catalog source and accidentally clear an existing property. `spec.owner` can be a Backstage entity reference rather than a bare group slug; value grammar needs a normalization contract. A failing non-remediable `value_pattern` does not block a failing remediable `matches` rule under DESIGN-0031's fail-over-error/whole-control behavior.
+
+**Proposed correction:** Require a source mapping and value/type/normalization contract per governed property, plus explicit missing/invalid-source behavior. Reject duplicate rendered keys and annotation targets colliding with governed names. Gate writes on valid source and org-schema compatibility per resource, regardless of aggregate status; do not derive destructive empty values from an unmapped tag.
+
+**Verification:** Add a repo-scoped tag with no source, use qualified/unqualified Backstage owners, introduce a malformed value and map an annotation to a governed key. Preserve valid existing properties and reject ambiguous or invalid writes with specific evidence.
+
+**Response:** **Accepted.** Three facts are not enough, and the seam is extended to five: every governed property carries a `source` (a catalog-info path such as `spec.owner`, or an annotation key) and a `normalize` rule (for example stripping a Backstage entity-reference prefix such as `group:default/` to the bare name) beside its scope, rendered key and value pattern. A tag without a source never enters the managed set, so adding one can never clear anything. Duplicate rendered keys, and an annotation whose target collides with a governed key, are load errors. Writes are gated per property on a valid, normalized source value and a property the org schema defines, independently of the control's aggregate status (DESIGN-0031 AR-0031-07), so a failing `value_pattern` blocks the write of that one property and nothing else. Verification: adopted.
+
+### AR-0033-05 (high): The casing migration needs a provider and consumer contract
+
+**Basis:** OQ3(a) and Migration step 2. “Write both until old keys are removed” assumes GitHub permits the two names to coexist with the intended case semantics and that both have compatible types and are writable. The app does not own org schema creation. Consumers such as Backstage, workflows, selectors and future Wiz rules may still depend on PascalCase. A partial dual-write can leave contradictory values, and the proposed single writer still needs to account for the existing scaffolder/sync mentioned in Background.
+
+**Proposed correction:** Verify GitHub naming/case behavior and org-property types/defaults/allowed values before selecting migration mechanics. Assign an operator to schema creation and define canonical keys, aliases, per-key eligibility, consumer cutover and retirement criteria. Coordinate all existing writers. Keep key renaming separate from source-value normalization so either can be diagnosed and rolled back.
+
+**Verification:** Exercise the real provider's schema behavior, an org missing one alias, incompatible property types and a consumer still using legacy names. Show convergent values, visible partial migration and a reversible consumer cutover before retiring old keys.
+
+**Response:** **Deferred.** Migration mechanics are not chosen until the INV verifies, on a real org, whether GitHub treats property names case-insensitively, whether two names differing only in case can coexist in one schema, and whether the types and allowed values of the old and new keys match. Until then OQ3(a) is a preference, not a plan, and Migration step 2's dual-write window is conditional on that answer. What is decided now: the operator owns org schema creation (the App never creates schema, as DESIGN-0019 already requires); every existing writer, including the scaffolder and the Backstage-to-Wiz sync named in Background, is inventoried before any cutover; key renaming is a separate step from source-value normalization so each can be rolled back alone; and every consumer still reading PascalCase is listed with an owner before the old keys are retired. Verification: amended — the provider behaviour test is the INV's first task and gates the rest.
+
+### AR-0033-06 (medium): In-root references need filesystem and snapshot semantics
+
+**Basis:** Documents-are-data item 1 and `tag_schema = file(...)`. Returning a cleaned relative path does not prove the eventual file read is in-root: symlinks can escape, and the mounted policy tree can change between enumerating HCL files and reading referenced schemas/templates. Kubernetes ConfigMap projections themselves use symlinks, so blindly banning all symlinks can also break the stated delivery model. An empty HCL evaluation context is not itself a literal-expression grammar; the promised syntactic validation must be precise.
+
+**Proposed correction:** Specify approved literal/reference expression forms, path resolution and symlink handling for projected volumes, allowed artifact types and byte limits. Load catalogue, policies, templates and referenced schema from one coherent immutable snapshot and hash those actual bytes. Define startup/reload behavior when a file is missing or changes mid-load.
+
+**Verification:** Cover traversal, absolute paths, escaping symlinks, legitimate projected ConfigMap links, nested references and a mount revision change mid-load. Accept one coherent snapshot or fail clearly; never mix versions or read unrelated filesystem contents.
+
+**Response:** **Accepted.** In-root means resolved, not lexical. The loader resolves the policy root and each referenced file with `filepath.EvalSymlinks` and requires the resolved file to lie under the resolved root, which admits Kubernetes ConfigMap projection links (they resolve inside the mount) and rejects links that escape it. The allowed expression forms are literals and `file()` only; referenced files are capped at 1 MiB; and the catalogue, policies, templates and referenced schema are read in one pass at load and hashed from those bytes, so the policy version is the digest of what was actually read. A missing file is a load error. There is no hot reload, as today: a change to the mount takes effect on restart, so two loads can never mix versions. Item 1 and DESIGN-0030 "Validation" are amended with these rules. Verification: adopted.
+
+### AR-0033-07 (medium): Preview availability and exit codes have conflicting contracts
+
+**Basis:** What transfers item 3, D5 and DESIGN-0032 D7. This document promises JSON remediation preview from the first release; DESIGN-0032 defers it to a later phase. Exit code 2 is described both as usage error and as non-compliance/diff, which makes automation unable to distinguish a bad command from measured drift. The evaluation result model has unknown/error/not-applicable outcomes, but their CLI precedence is unspecified for mixed results.
+
+**Proposed correction:** Set one preview delivery phase and separate normal evaluation output from optional remediation preview. Specify CLI exit precedence: usage/config/operational failure versus measured non-compliance, unknown-only results and empty/not-applicable denominators. Version the JSON payload, state which snapshot it uses and ensure preview never writes GitHub state.
+
+**Verification:** Run CLI cases for compliant, non-compliant, unknown-only, mixed fail/error, invalid usage and an unavailable preview capability. Automation must distinguish errors from drift, and preview output must match the same pinned inputs used for its reported evaluation.
+
+**Response:** **Accepted with changes.** Delivery is aligned: JSON output ships with the first `evaluate` release, and remediation preview ships when DESIGN-0032 D7 lands; D5 is amended to say so. Exit codes are separated: `0` compliant or nothing measured, `1` non-compliant (any failing control), `2` usage or configuration error, `3` operational failure (only unknown or error outcomes, or an API failure); a mixed fail-plus-error result is `1` with the errors listed in the JSON, which carries a `schema_version` and the evaluated commit. Preview never writes to GitHub. The rejected part is the Terraform exit-code mapping as written in item 3, because it conflated a usage error with measured drift. Verification: adopted.
 
 ## Open Questions
 

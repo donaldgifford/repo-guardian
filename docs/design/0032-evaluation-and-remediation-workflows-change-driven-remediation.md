@@ -38,6 +38,19 @@ created: 2026-10-02
 - [Testing Strategy](#testing-strategy)
 - [Migration / Rollout Plan](#migration--rollout-plan)
 - [Decisions](#decisions)
+- [Adversarial Review](#adversarial-review)
+  - [AR-0032-01 (high): A narrow update still loses concurrent PR changes](#ar-0032-01-high-a-narrow-update-still-loses-concurrent-pr-changes)
+  - [AR-0032-02 (high): Adoption both rejects human collaboration and misidentifies ownership](#ar-0032-02-high-adoption-both-rejects-human-collaboration-and-misidentifies-ownership)
+  - [AR-0032-03 (high): Re-evaluating an old PR head does not rebase onto new main](#ar-0032-03-high-re-evaluating-an-old-pr-head-does-not-rebase-onto-new-main)
+  - [AR-0032-04 (high): Withdrawal cleanup is unreachable through the due predicate](#ar-0032-04-high-withdrawal-cleanup-is-unreachable-through-the-due-predicate)
+  - [AR-0032-05 (high): The PR cap races across per-control workflows](#ar-0032-05-high-the-pr-cap-races-across-per-control-workflows)
+  - [AR-0032-06 (high): Retry safety needs durable operations and assignment epochs](#ar-0032-06-high-retry-safety-needs-durable-operations-and-assignment-epochs)
+  - [AR-0032-07 (high): Non-forced ref updates are not compare-and-swap](#ar-0032-07-high-non-forced-ref-updates-are-not-compare-and-swap)
+  - [AR-0032-08 (high): Error classification and fresh-state gating are incomplete](#ar-0032-08-high-error-classification-and-fresh-state-gating-are-incomplete)
+  - [AR-0032-09 (high): The proposed schema and grants cannot perform the stated transactions](#ar-0032-09-high-the-proposed-schema-and-grants-cannot-perform-the-stated-transactions)
+  - [AR-0032-10 (high): API remediation has neither atomic apply nor complete invalidation](#ar-0032-10-high-api-remediation-has-neither-atomic-apply-nor-complete-invalidation)
+  - [AR-0032-11 (medium): Cooldown and freshness need their own persisted state](#ar-0032-11-medium-cooldown-and-freshness-need-their-own-persisted-state)
+  - [AR-0032-12 (medium): Event and API boundaries need precise completeness and scope rules](#ar-0032-12-medium-event-and-api-boundaries-need-precise-completeness-and-scope-rules)
 - [Open Questions](#open-questions)
   - [OQ1: How is "something changed" tracked for remediation?](#oq1-how-is-something-changed-tracked-for-remediation)
   - [OQ2: Per-control PRs only, or a cap on how many open at once?](#oq2-per-control-prs-only-or-a-cap-on-how-many-open-at-once)
@@ -509,6 +522,143 @@ Schema changes land as four goose migrations, numbered up front so parallel work
 - **D8 Column-level grants enforce record-is-narrow.** Two database roles turn the prose invariant into a constraint: a remediator that saves a whole `control_results` row fails at the database. The cost is one more role and a membership for `all`; the alternative, trusting every future writer to remember which columns are theirs, is how the v1 orphan-cleanup bug happened.
 - **D9 Manual re-evaluate is an API `POST` backed by a signal-only Temporal client.** The `api` role keeps its read-only store access and gains nothing but the ability to signal `repo/<id>`; without `TEMPORAL_ADDRESS` the endpoint is `501` and the UI hides the button. A CLI-only trigger was considered and rejected because the button is the whole point for a non-operator reading the UI.
 - **D10 `closed_withdrawn`.** A PR whose control is no longer assigned is closed by repo-guardian with a comment rather than left open: leaving it would keep proposing a change nobody asked for, and recording it as `closed_compliant` or `closed_by_user` would lie about why.
+
+## Adversarial Review
+
+Reviewed 2026-10-03 against DESIGN-0029–0033, including race and retry interleavings. **Disposition: changes required before enabling remediation.** Findings are unresolved, not additions to the Decisions ledger; severity meanings are in DESIGN-0029's Adversarial Review. Git ref behavior below is checked against GitHub's [reference-update API](https://docs.github.com/en/rest/git/refs#update-a-reference).
+
+**Responses (2026-10-03):** 11 accepted, 1 accepted with changes. Each finding below carries a **Response** giving the disposition and the concrete change. Accepted changes are applied to the body and the Decisions ledger in the follow-up reconciliation pass; until then, where a response and the body differ, the response is the current position.
+
+### AR-0032-01 (high): A narrow update still loses concurrent PR changes
+
+**Basis:** PR observation, record-is-narrow and the end-of-run reloop. Remediation pins PR head H1; a human pushes H2; evaluation sets `pr_changed = true`; remediation records H1 and unconditionally clears the flag. If main's fingerprint did not change, the final re-read sees neither an advanced generation nor a flag. The human edit is lost as a trigger. Evaluator permission to update `head_sha_at_last_remediation` can also move the acknowledgement baseline without remediation acting.
+
+**Proposed correction:** Replace the boolean with observed/acknowledged PR revisions or head SHAs, advanced independently. A record acknowledges only the revision it actually processed and must compare-and-set against that revision. Separate last-observed from last-remediated head/state. Column grants restrict writers but do not solve same-column races.
+
+**Verification:** Observe H2 immediately before H1's record step and again immediately after it. Both interleavings must leave H2 due; the next run must process H2 exactly once without looping on the bot's own commit.
+
+**Response:** **Accepted.** The boolean is replaced by two SHAs that advance independently: `remediations.observed_head_sha`, written by the evaluator on every PR observation, and `remediations.acknowledged_head_sha`, written by the remediator only through a compare-and-set `UPDATE ... WHERE acknowledged_head_sha IS NOT DISTINCT FROM $previous`. The PR is due while the two differ, so an H2 observed on either side of the record step stays due, and a run acknowledges exactly the head it processed; after its own commit it acknowledges the new head in the same step record, so it does not loop on its own commit. `pr_changed` and `head_sha_at_last_remediation` are dropped from `control_results` and `remediations`, the PR observation table and the `needs_remediation` predicate are rewritten in terms of the two columns, and the evaluator's column grant no longer includes anything the remediator acknowledges with. Verification: adopted.
+
+### AR-0032-02 (high): Adoption both rejects human collaboration and misidentifies ownership
+
+**Basis:** Humans win, find-or-adopt and the foreign-branch hold. Every branch inherits the default branch's human-authored commits, so “every commit is the App's” fails unless the range is explicitly limited. Even with a branch-only range, a human filling in an owned catalog PR triggers `foreign_branch` before the promised PR-head evaluation. Git commit author metadata is not authenticated proof of who pushed or created a branch. A PR from a fork can also share a head branch name.
+
+**Proposed correction:** Separate already-tracked PRs that allow human collaboration from untracked branches eligible for adoption. Bound adoption to an exact repository/ref/PR identity, recorded operation/base/head and independently verified App-created PR/commit information; do not use author text alone as authority. Define what happens when an owned branch is replaced or gains unrelated changes.
+
+**Verification:** Use ordinary human history on main, a human-edited tracked PR, an untracked branch with spoofed bot author metadata, and a fork PR with the same branch name. Permit the declared collaboration while refusing foreign adoption.
+
+**Response:** **Accepted.** Two cases the design conflated are separated. A tracked PR, meaning a `remediations` row with a PR number, allows human commits: it is evaluated at its head and never holds `foreign_branch`. Adoption applies only to an untracked branch, and only by authenticated identity, never by commit author text: the open PR on that branch must be authored by the Remediation App's bot login, which GitHub authenticates, its head repository id must equal the repository (a fork PR is never adopted), and the range inspected is the PR's commits, not main's history. With `createCommitOnBranch` (AR-0032-07) the App is also the authenticated author of every commit it makes. An untracked branch with no such PR is held `foreign_branch`; an owned branch a human replaced, whose head no longer descends from the last journaled bot commit, is held `conflict` with a sticky comment and is never force-pushed. The find-or-adopt bullet and the first row of Failure semantics are rewritten accordingly. Verification: adopted.
+
+### AR-0032-03 (high): Re-evaluating an old PR head does not rebase onto new main
+
+**Basis:** Fingerprint D3, PR-head base selection and unversioned branch D4. Main changes CODEOWNERS while still failing; the PR head already contains the prior fix, so it passes. The run takes the no-failure record path and acknowledges the new generation without integrating main. The PR remains conflicted or stale. A version change that retires a previously added line or switches file locations has the same issue: adding current fixes does not remove old bot changes.
+
+**Proposed correction:** Define how to recompute the bot-owned delta against current main and combine it with human PR edits, with conflict/hold behavior and tracked base/diff ownership. Validate the proposed merge result, not only the isolated head. Handle obsolete bot edits, control-version changes, default-branch changes and old closed/merged branch reuse explicitly.
+
+**Verification:** Change the same file on main and on the PR, retire a rule, switch versions/tool choice and leave a branch after merge/closure. Each run must yield a mergeable current proposal or a visible conflict; it must not silently acknowledge an unusable PR.
+
+**Response:** **Accepted.** The run validates the merge result, not the isolated head, and acknowledges a generation only once a mergeable current proposal exists, so a stale PR is never silently accepted. The run becomes:
+
+1. compute the change set against current main;
+2. if a tracked PR exists and its head is behind main, call GitHub's update-branch endpoint for that PR to merge main into the head; a reported conflict holds the PR `conflict` with a sticky comment;
+3. re-observe the head, run `Remediate` on it, and commit any remaining delta by compare-and-swap (AR-0032-07);
+4. revert obsolete bot edits from `remediation_steps`, which journals every path and blob the bot wrote, reverting only where the current blob still equals the bot's (v1's orphan semantics, branch only);
+5. on a default-branch change, re-base the PR with a PATCH;
+6. delete the branch on terminal states, so a new PR always starts a fresh branch from current main.
+
+Steps 2 to 4 replace the "Evaluating the PR head, not main" bullet, which kept human edits but never integrated main. Verification: adopted.
+
+### AR-0032-04 (high): Withdrawal cleanup is unreachable through the due predicate
+
+**Basis:** D10, DESIGN-0030 D6, remediation sweep and the due predicate. Resolution removes the assignment and result when a control is withdrawn. The due predicate requires a managed repository, remediation mode and a current status, so there is then no due row to close its PR. Switching to evaluate also blocks compliant-PR cleanup. An API recommendation has no terminal transition when the control becomes compliant, unknown or withdrawn and may keep the unique “open” slot forever.
+
+**Proposed correction:** Separate new-remediation eligibility from lifecycle maintenance. Drive cleanup/recommendation invalidation from durable `remediations` rows and assignment changes, even when current results are gone. Define which cleanup writes are allowed after mode downgrade, parking or App access loss, and show blocked cleanup instead of promising success without credentials.
+
+**Verification:** Withdraw a control, exclude/park its repository, remove its org and switch it to evaluate with a PR or recommendation outstanding. Every artifact must reach the specified terminal or blocked-cleanup state without requiring a fresh failure result.
+
+**Response:** **Accepted.** Lifecycle maintenance is separated from the due predicate. A `remediation_maintenance` query over `remediations WHERE state IN ('open', 'recommended')`, joined to the current assignment and result, drives three outcomes without depending on a current failing result: withdrawal when the assignment is gone or excluded (close with a comment, `closed_withdrawn`), `closed_compliant` after a fresh default-branch read (AR-0032-08), and supersession of a recommendation when its intent changes (AR-0032-10). Recommendations gain the terminal states `superseded`, `withdrawn` and `resolved`, so the `remediations_one_open` slot is always released. Cleanup that needs write access the repository no longer grants, after a mode downgrade, parking or loss of the Remediation App, is recorded as `hold:permission` and shown as blocked cleanup rather than promised. `needs_remediation` keeps governing new remediation only. Verification: adopted.
+
+### AR-0032-05 (high): The PR cap races across per-control workflows
+
+**Basis:** One workflow per control and PR cap/OQ2. With two PRs open and a cap of three, four different controls can concurrently read `open_count = 2` and each create a PR. Serialization per control and a per-control unique index do not protect a repository-wide limit. Signalling controls in enterprise order does not guarantee their independent workers act in that order, and org-added controls have no specified ordering.
+
+**Proposed correction:** Reserve repository-wide PR slots atomically before external creation, keyed by an idempotent remediation operation, or arbitrate starts through a repository-scoped coordinator. Include adopted/unrecorded PRs, reservation recovery, deterministic priority and starvation policy. Release slots on terminal outcomes and reconcile them after failures.
+
+**Verification:** Start all failing controls simultaneously near the cap; crash between reservation, commit, PR creation and record. GitHub's actual open PR count must stay within the cap, and held controls must progress in the declared order.
+
+**Response:** **Accepted.** The cap is enforced in Postgres before anything external happens. The remediator inserts a `remediations` row in a new state `reserved` inside a transaction that locks the repository's `repository_policy_state` row with `SELECT ... FOR UPDATE` and counts `open + reserved < max_open_prs`; adopted PRs count because adoption inserts the row first. A reservation expires after `REMEDIATION_RESERVATION_TTL` if no PR is recorded against it, so a crash between reservation and PR creation frees the slot. Priority is deterministic: the catalogue order of the enterprise `controls` list, then the org's, then `repos` additions; held controls re-check in that order each sweep, so starvation is bounded by the cap turning over. Slots are released on terminal states and reconciled by maintenance (AR-0032-04) after failures. Verification: adopted.
+
+### AR-0032-06 (high): Retry safety needs durable operations and assignment epochs
+
+**Basis:** One-run-at-a-time/D6, store-failure recovery, result deletion and the staged evaluation log. Temporal activities are retryable external operations; a timed-out attempt can still be running when its replacement starts. GitHub success followed by database failure is not a transaction. Retrying a ref update with the old base can fail after its own successful write. Excluding and re-adding a control resets its result generation to 1, so an old run with a higher generation can acknowledge or contaminate the new row. Generation comparison alone is not a fence.
+
+**Proposed correction:** Persist an operation/check key, assignment epoch, expected base/head, intent and completed steps. Make result recording idempotent under that key and fence stale attempts. Recover GitHub side effects by exact identity and content, not author-only branch lookup. Define retry/cancellation handling and completion/signal handoff for workflows that are finishing.
+
+**Verification:** Lose responses after ref update and PR creation, overlap timed-out activity attempts, and delete/recreate an assignment during a record retry. Assert one logical event/generation acknowledgement and no stale write into the replacement assignment.
+
+**Response:** **Accepted.** Every remediation becomes a durable operation. `remediations` gains `operation_key` (the check key), the intent columns `base_sha`, `branch` and `expected_head`, and a `remediation_steps` journal written as each external step completes: `committed_sha`, `pr_number` and per-resource API steps. Recovery is by exact identity, the branch at the journaled SHA and a PR authored by the App on that branch (AR-0032-02), never by author-only branch lookup. Result recording is idempotent on the check key, as `RecordCheck` already is, and fenced by the assignment epoch of DESIGN-0030 AR-0030-03; generations are scoped per epoch, so a recreated assignment starting at generation 1 cannot be acknowledged by a run that read the old epoch. Activities heartbeat and carry a `ScheduleToClose` timeout, and an overlapping attempt takes the operation row with `FOR UPDATE SKIP LOCKED` and exits when it is already held. Verification: adopted.
+
+### AR-0032-07 (high): Non-forced ref updates are not compare-and-swap
+
+**Basis:** DESIGN-0031 `Writer.Commit` promises `ErrNotFastForward` whenever the ref differs from `baseSHA`. GitHub's PATCH ref body has `sha` and `force`, not an expected-old-SHA field. A normal concurrent child commit is rejected safely, but a ref moved back to an ancestor can still fast-forward to the bot's prepared commit. A deleted/recreated branch can similarly violate the claimed identity check. A preliminary GET does not make the subsequent PATCH atomic.
+
+**Proposed correction:** State the actual provider guarantee: atomic tree publication and fast-forward validation, with explicit limitations around force-push/deletion/recreation. Choose a supported lease/conditional mechanism if strict expected-head identity is required; otherwise define bounded checks, holds and recovery without claiming a CAS primitive the API lacks. Branch deletion also needs a deliberate policy for concurrent human changes.
+
+**Verification:** Exercise ordinary concurrent pushes, rewind to an ancestor, branch deletion/recreation and deletion after a human push. Distinguish what the provider rejects atomically from what must be detected or deliberately left untouched.
+
+**Response:** **Accepted.** The compare-and-swap claim was wrong for the REST ref update, and it is made true by changing the primitive rather than the claim. `Writer.Commit` is implemented over GitHub's GraphQL `createCommitOnBranch` mutation with `expectedHeadOid = baseSHA`, which GitHub rejects when the head is anything else, including a rewind to an ancestor or a branch deleted and recreated at a different commit; the commit is authored by the App and signed by GitHub. DESIGN-0031 D8 is amended from the git-data API to this mutation; the branch itself is still created through the REST ref create, which fails if it already exists. Branch deletion has no precondition, so the remediator re-reads the head and deletes only when it equals the last journaled bot head; the residual window is documented in Failure semantics together with GitHub's ability to restore a PR's branch. The "Ref update not fast-forward" row becomes "expected head mismatch". Verification: adopted.
+
+### AR-0032-08 (high): Error classification and fresh-state gating are incomplete
+
+**Basis:** Failure semantics' “read error → unknown,” DESIGN-0031's fail-over-error status order, and the run flow. A control can have one definite fail and one read error, yielding non-compliant rather than unknown and triggering remediation. Treating a throttle as a rule error also violates the promise that deferred runs record nothing. The close-compliant path uses stored main status before the advertised fresh evaluation, so it can close a still-needed PR after main drifted again.
+
+**Proposed correction:** Classify throttles and repository-level access loss before constructing rule outcomes; distinguish control-local permission/parse failures from whole-repository access denial. Gate each proposed write on successfully read prerequisites, not just aggregate status. Re-read current default-branch state before close-compliant decisions, and make failed observations non-destructive. Keep PR observation freshness distinct from default-branch evaluation freshness.
+
+**Verification:** Inject throttle, one failing plus one errored rule, endpoint-specific 403, and default-branch drift immediately before close. Verify deferral without false posture writes, no repository-wide parking for a local capability gap, and no destructive action based on stale/unknown inputs.
+
+**Response:** **Accepted.** Classification is fixed in order and repository-level first: throttle (deferred, nothing recorded), repository access loss (parked, results kept per DESIGN-0029 AR-0029-01), then rule outcomes. A control-local 403, for example no `administration` permission for rulesets, is `unknown{reason=permission}` for that rule and never parks the repository. A control with one failing and one errored rule is non-compliant, but remediation is gated per proposed write on its prerequisite reads having succeeded, which DESIGN-0031 AR-0031-04 returns as `Blocked`. `closed_compliant` is decided on a fresh default-branch evaluation performed in the same run, never on stored status, and PR observation freshness is tracked separately from evaluation freshness (AR-0032-11). The "Read error in a control" row is split into these cases. Verification: adopted.
+
+### AR-0032-09 (high): The proposed schema and grants cannot perform the stated transactions
+
+**Basis:** Data Model and Two application roles. `result_events.to_status` is NOT NULL although withdrawal writes NULL. Resolution deletes `control_results`, but the evaluator has no DELETE grant there and `rule_results` has no cascading delete. Every PR transition needs an event, yet the evaluator observes closures/merges without INSERT on `remediation_events`. API recommendation before/after data has no defined current-state column/event contract. The named `remediation_due` view is scheduled for migration but is not specified as SQL here.
+
+**Proposed correction:** Reconcile DDL, transition contracts, transaction ordering and the complete grant matrix, including identity/discovery/policy/service tables, check staging/finalization and sequence use. Define legal nullable terminal statuses, kind/state constraints and recommendation payload persistence. Review column-level INSERT rights too: a restricted UPDATE alone is not the entire writer boundary.
+
+**Verification:** Run actual resolution, evaluation, PR observation, withdrawal and recommendation transactions as non-owner evaluator/remediator roles. Assert valid operations succeed and prohibited cross-writer operations fail; owner/superuser tests cannot prove this contract.
+
+**Response:** **Accepted.** The DDL and the grant matrix are reconciled so the stated transactions run as written. `result_events.to_status` becomes nullable for withdrawal; resolution runs as the evaluator role, which gains DELETE on `control_results` with `rule_results` declared `ON DELETE CASCADE`; the evaluator gains INSERT on `remediation_events` and column UPDATE on `remediations (state, observed_head_sha)` for the closures and merges it observes; recommendation payloads persist in `remediations.proposal JSONB`; and `remediation_due` and `remediation_maintenance` are specified as SQL in the Data Model.
+
+The Two application roles table is replaced by the full matrix: every table either role touches, with SELECT, INSERT, UPDATE by column, DELETE and sequence usage. The grant tests run as `rg_evaluator` and `rg_remediator` through the existing `pgtest.AppRole` pattern, never as the owner, because a test that runs as the owner cannot fail on a missing grant. Verification: adopted.
+
+### AR-0032-10 (high): API remediation has neither atomic apply nor complete invalidation
+
+**Basis:** API remediations/OQ4, generation triggering and “nothing half-applies.” A settings/labels/properties change set spans independent API calls; failure after the first write leaves partial state. Fresh reads do not provide conditional writes against a concurrent human edit. A recommendation can acknowledge generation N, then policy changes `apply = "pr"` to `direct` with unchanged rule statuses/read SHAs; no new generation is guaranteed, so the direct change never runs. Similar acknowledgement problems arise after mode/App eligibility changes.
+
+**Proposed correction:** Track remediation-intent revision separately from observed-resource generation, including apply mode and eligibility changes. Define recommendation supersession and terminal resolution. Journal per-resource direct operations, validate their read prerequisites and ownership, apply idempotently with provider-supported conditions where available, and expose partial/failed application. Limit the one-commit atomicity claim to files.
+
+**Verification:** Fail the second of several API writes, mutate a target concurrently, toggle recommendation to direct, and restore App eligibility without file drift. Recovery must preserve unrelated human state and finish or explicitly report pending/partial work.
+
+**Response:** **Accepted.** Intent is versioned separately from observation. `remediations.intent_revision` hashes the generation, `apply`, the effective mode, `remediable` and the control revision (DESIGN-0029 AR-0029-04), so moving `apply` from a recommendation to `direct` (DESIGN-0031 AR-0031-06 settles the names) or restoring App eligibility creates work without a file change, and a recommendation is `superseded` when its intent revision moves. Direct API application is journaled per resource in `remediation_steps (resource_key, status, before, after, error)`, applied in order and idempotent on re-run, with each resource gated on its own read prerequisites and ownership; a failure part-way leaves the row `failed` with the completed steps visible, and the next run resumes from the journal. The one-commit atomicity claim is limited to files; for API resources the document states "read, write, read back", because GitHub offers no conditional write for them. Verification: adopted.
+
+### AR-0032-11 (medium): Cooldown and freshness need their own persisted state
+
+**Basis:** PR observation, due predicate/OQ3 and unchanged-fingerprint recording. If a PR is edited and then closed before remediation, a retained `pr_changed` flag bypasses cooldown even when no evaluation change occurred, contrary to “sooner only if evaluation changes.” Closed history alone does not record the generation observed at closure. Separately, updating only `evaluated_at` on unchanged fingerprints leaves `evaluated_sha` and evidence stale after an unrelated commit or changed validation evidence. A `pr_event` observation-only run must not freshen a main evaluation that never happened.
+
+**Proposed correction:** Persist closure-generation/intent and an explicit next-eligible time, with a rule for which changes bypass cooldown. Always refresh the selected controls' observation SHA/evidence independently of fingerprint changes, while incrementing generations only for defined semantic changes. Keep PR-only observations and partial-control evaluations from refreshing untouched controls.
+
+**Verification:** Edit then close a PR, wait through cooldown, evaluate an unrelated new commit, change evidence without changing status, and send a PR-only event. Reopening and every freshness field must reflect the work actually performed.
+
+**Response:** **Accepted.** Cooldown and freshness get their own columns. `remediations` gains `closed_generation` and `next_eligible_at`; a PR reopens only when the generation exceeds `closed_generation` or `next_eligible_at` has passed, so PR edits before closure do not bypass the cooldown. Every evaluation refreshes `evaluated_sha` and the evidence of the controls it selected, while the generation increments only on a fingerprint change; the "otherwise it updates only `evaluated_at`" sentence is corrected accordingly. A `pr_event` run writes PR observation columns only and never touches `evaluated_at` for controls it did not evaluate. Verification: adopted.
+
+### AR-0032-12 (medium): Event and API boundaries need precise completeness and scope rules
+
+**Basis:** When it runs, PR observation's one-call listing, `/policies` and manual evaluate D9. A push payload's completeness cannot be inferred from the stated “20-commit limit” without verifying the webhook contract. Coalescing must union changed paths; choosing only the highest-priority signal can drop dependencies. PR lists can paginate; truncated results must not mean a PR disappeared. `/policies` exposes an enterprise-wide summary despite org-scoped callers. A Temporal client described as “signal-only” still needs enforceable credentials/authorization, and a signal-only POST cannot start a missing workflow.
+
+**Proposed correction:** Define event completeness, changed-path union/unknown fallback, pagination and webhook reorder/redelivery handling. Scope policy metadata and catalogue visibility explicitly, not only SQL counts. Specify POST failure/status behavior, request deduplication/rate limits and Temporal permissions; verify repository visibility before signalling and return a defined response when `repo/<id>` is absent.
+
+**Verification:** Coalesce disjoint pushes and an unknown-path signal, observe more than one page of PRs, query policies as a single-org principal, and manually evaluate an absent/parked workflow. No dependency or PR may disappear through truncation, and no cross-org metadata/workflow signal may escape the declared scope.
+
+**Response:** **Accepted with changes.** The push contract is corrected: the payload carries at most 2048 commits, not 20, and a top-level `forced` flag; when the list is at the cap or the push is forced, the changed paths are unknown and every control is selected; coalescing unions the paths of buffered signals, and an unknown set dominates. PR listing paginates to completion, and a failed page is an observation `error`, never an absence. `/policies` is scoped to the principal's visible orgs, with enterprise-wide fields only for a principal that sees every org. `POST /repositories/{id}/evaluate` checks visibility through `APIScope` before signalling, returns `409` with `workflow_missing` when `repo/<id>` is absent and `409` with `parked` for a parked repository, and dedupes to one signal per repository per minute. The rejected part is server-enforced signal-only authorization: self-hosted Temporal authorizes per namespace, so "signal-only" is a property of the api role's code, which builds a client that reaches only `SignalWorkflow` under a dedicated mTLS identity, and that limitation is recorded as a risk (DESIGN-0029 Risks). Verification: adopted.
 
 ## Open Questions
 

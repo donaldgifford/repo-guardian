@@ -221,6 +221,115 @@ def extract(md: str):
     return decisions, oqs
 
 
+DISPOSITIONS = ("Accepted", "Accepted with changes", "Rejected", "Deferred")
+
+
+def extract_reviews(
+    md: str,
+    headings: list[tuple[int, str, str]],
+) -> list[tuple[str, str, str, str, str]]:
+    """Extract finding IDs, severities, titles, anchors and dispositions.
+
+    The disposition comes from the ``**Response:** **<Disposition>.**``
+    paragraph the design owner writes under each finding; a finding without
+    one is reported as ``pending``.
+    """
+    reviews = []
+    for level, text, anchor in headings:
+        match = re.fullmatch(
+            r"(AR-\d{4}-\d{2}) \((critical|high|medium)\): (.+)", text
+        )
+        if level != 3 or not match:
+            continue
+        finding_id = match.group(1)
+        section = re.search(
+            rf"^### {re.escape(finding_id)} .*?(?=^### |^## |\Z)",
+            md, re.M | re.S,
+        )
+        disposition = "pending"
+        if section:
+            resp = re.search(
+                r"\*\*Response:\*\* \*\*(" + "|".join(DISPOSITIONS) + r")\.\*\*",
+                section.group(0),
+            )
+            if resp:
+                disposition = resp.group(1)
+        reviews.append((*match.groups(), anchor, disposition))
+    return reviews
+
+
+def render_reviews(docs: list[dict]) -> str:
+    """Build the review overview directly from the design findings."""
+    counts = {
+        severity: sum(
+            finding[1] == severity
+            for doc in docs
+            for finding in doc["reviews"]
+        )
+        for severity in ("critical", "high", "medium")
+    }
+    total = sum(counts.values())
+    responses = {
+        d: sum(
+            finding[4] == d
+            for doc in docs
+            for finding in doc["reviews"]
+        )
+        for d in (*DISPOSITIONS, "pending")
+    }
+    response_summary = ", ".join(
+        f"{n} {d.lower()}" for d, n in responses.items() if n
+    )
+    parts = [
+        '<hr class="docsep"><section id="review">',
+        '<h1>Adversarial review</h1>',
+        '<p class="lede">Counterexamples, race conditions and contract '
+        'contradictions across DESIGN-0029 to DESIGN-0033.</p>',
+        '<p class="meta">Reviewed 2026-10-03; responded 2026-10-03. Each '
+        'finding in its source design records the challenged contract, '
+        'failure scenario, proposed correction and verification case, '
+        'followed by the design owners\' <strong>Response</strong> giving '
+        'the disposition and the concrete change.</p>',
+        '<p class="note"><strong>Review disposition: changes required before '
+        'implementation of the affected contracts.</strong> '
+        f'<strong>Response: {response_summary}.</strong> The explainer and '
+        'deep dives above still describe the guarantees as first proposed; '
+        'where a response and a body differ, the response is the current '
+        'position until the follow-up reconciliation pass applies the '
+        'accepted changes to the bodies and the Decisions ledgers.</p>',
+        f'<p><strong>{total} findings:</strong> '
+        f'{counts["critical"]} critical, {counts["high"]} high, '
+        f'{counts["medium"]} medium. Critical findings contradict a core '
+        'safety guarantee; high findings block correctness or operation; '
+        'medium findings need an explicit contract decision.</p>',
+        '<p>Read the critical CODEOWNERS ordering counterexample first. '
+        'The recurring themes are assignment and operation fencing, '
+        'ownership versus read dependencies, lifecycle cleanup independent '
+        'of remediation eligibility, measurement coverage, and shared '
+        'schema provenance. The index is generated from the source '
+        'documents so finding IDs and links stay in sync.</p>',
+    ]
+    for doc in docs:
+        did = doc["id"]
+        parts.append(
+            f'<h2 id="review-{did}">DESIGN-{did}</h2>'
+            f'<p><a href="#d{did}-adversarial-review">'
+            'Read this design\'s full review</a></p>'
+            '<table><thead><tr><th>Finding</th><th>Severity</th>'
+            '<th>Challenged contract</th><th>Response</th></tr></thead><tbody>'
+        )
+        for finding_id, severity, title, anchor, disposition in doc["reviews"]:
+            cls = "disp-" + disposition.lower().replace(" ", "-")
+            parts.append(
+                f'<tr><td><a href="#{anchor}">{finding_id}</a></td>'
+                f'<td>{severity}</td><td>{inline(title, "d" + did)}</td>'
+                f'<td><span class="disp {cls}">{disposition}</span></td></tr>'
+            )
+        parts.append('</tbody></table>')
+    parts.append('</section>')
+    return ''.join(parts)
+
+
 # ----------------------------------------------------------------------------
 # Explainer content (hand-written)
 # ----------------------------------------------------------------------------
@@ -408,6 +517,12 @@ blockquote{margin:12px 0;padding:8px 16px;border-left:4px solid var(--line);colo
 .oq-rec{background:var(--ok);padding:2px 6px;border-radius:4px}
 .note{background:var(--warn);border:1px solid #d4a72c;border-radius:6px;padding:10px 14px;font-size:14px}
 .note p{margin:6px 0}.note ul{margin:6px 0 0 18px;padding:0}.note li{margin:4px 0}
+.disp{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12.5px;font-weight:600;white-space:nowrap;border:1px solid transparent}
+.disp-accepted{background:#dafbe1;color:#116329;border-color:#aceebb}
+.disp-accepted-with-changes{background:#ddf4ff;color:#0a3069;border-color:#b6e3ff}
+.disp-rejected{background:#ffebe9;color:#82071e;border-color:#ffcecb}
+.disp-deferred{background:#fff8c5;color:#633c01;border-color:#f5d90a}
+.disp-pending{background:#eaeef2;color:#57606a;border-color:#d0d7de}
 pre code.hljs{background:transparent;padding:0}
 .kv{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .kv ul{margin:6px 0 0 18px;padding:0}
@@ -424,7 +539,16 @@ def main():
         title = re.search(r'^title:\s*"(.*)"', md, re.M).group(1)
         body, headings = convert(md, f"d{did}")
         decisions, oqs = extract(md)
-        docs.append(dict(id=did, title=title, html=body, headings=headings, decisions=decisions, oqs=oqs, path=Path(p).name))
+        docs.append(dict(
+            id=did,
+            title=title,
+            html=body,
+            headings=headings,
+            decisions=decisions,
+            oqs=oqs,
+            reviews=extract_reviews(md, headings),
+            path=Path(p).name,
+        ))
 
     deep_md = (Path(__file__).with_name("controls-redesign-deep-dives.md")).read_text()
     deep_html, deep_headings = convert(deep_md, "dd")
@@ -434,6 +558,12 @@ def main():
     side.append('<a class="doc" href="#explainer">Explainer</a>')
     for anchor, label in [("why", "The problem"), ("changes", "The big changes"), ("arch", "Architecture"), ("life", "A repository's life"), ("keep", "What stays, what goes"), ("fwsync", "fwsync"), ("ledger", "Decision ledger"), ("oqs", "Open questions"), ("read", "Reading order")]:
         side.append(f'<a class="h3" href="#x-{anchor}">{label}</a>')
+    side.append('<a class="doc" href="#review">Adversarial review</a>')
+    for d in docs:
+        side.append(
+            f'<a class="h3" href="#review-{d["id"]}">'
+            f'DESIGN-{d["id"]} findings</a>'
+        )
     side.append('<a class="doc" href="#deep">Deep dives</a>')
     for level, text, hid in deep_headings:
         if level == 2:
@@ -450,7 +580,15 @@ def main():
     x.append('<section id="explainer">')
     x.append("<h1>repo-guardian controls redesign</h1>")
     x.append('<p class="lede">Opinionated controls assigned by enterprise and org policies, evaluated read-only against every repository, remediated by one PR per control only when something changed.</p>')
-    x.append('<p class="meta">DESIGN-0029, 0030, 0031, 0032 and the fwsync companion DESIGN-0033 · Draft · 2026-10-02 · the four deep dives (data model, API, database, implementation order) and then all five documents follow in full. Reconciled 2026-10-03: every gap the deep dives found is now a numbered decision in its design. Diagrams render with mermaid from a CDN; open with network access.</p>')
+    x.append('<p class="meta">DESIGN-0029, 0030, 0031, 0032 and the fwsync companion DESIGN-0033 · Draft · 2026-10-02 · the four deep dives (data model, API, database, implementation order) and then all five documents follow in full. Reconciled 2026-10-03: every gap the deep dives found is now a numbered decision in its design. Adversarially reviewed and responded 2026-10-03. Diagrams render with mermaid from a CDN; open with network access.</p>')
+    x.append(
+        '<p class="note">The <a href="#review">2026-10-03 adversarial '
+        'review</a> adds findings to every design, each answered by a '
+        'design-owner response with its disposition. Read it alongside the '
+        'proposed guarantees in this explainer and the deep dives; where '
+        'they differ, the response wins until the reconciliation pass '
+        'lands.</p>'
+    )
 
     x.append('<h2 id="x-why">The problem</h2>')
     x.append("<p>v1 evaluates each rule in isolation against the files it names. Rules that target the same file have no shared view of the result: one rule's cleanup deleted a CODEOWNERS file another rule still required (the wiz-owners incident on v1.11.1), two rules could write one file in turn, and a &ldquo;must exist&rdquo; / &ldquo;must not exist&rdquo; pair on the same path looped forever. A review of the engine found nine places with the same shape. The conclusion was that the engine is too generic &mdash; a rule is a path plus a check mode, and nothing in the model knows that four of those rules are all <em>about CODEOWNERS</em>. The fix is structural, not another patch.</p>")
@@ -519,7 +657,7 @@ def main():
     x.append("</ol></section>")
 
     # ---- deep dives
-    body = ['<hr class="docsep">', '<section id="deep">',
+    body = [render_reviews(docs), '<hr class="docsep">', '<section id="deep">',
             '<h1>Deep dives</h1>',
             '<p class="lede">Four cross-cutting views that put the five documents next to each other: the types and how data flows through them, the API, the database schema, and the order to build it in. Each ends with the gaps found while drawing it and the decision in the designs that resolved it.</p>',
             deep_html, '</section>']

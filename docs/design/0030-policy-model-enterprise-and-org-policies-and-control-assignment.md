@@ -32,6 +32,14 @@ created: 2026-10-02
 - [Testing Strategy](#testing-strategy)
 - [Migration / Rollout Plan](#migration--rollout-plan)
 - [Decisions](#decisions)
+- [Adversarial Review](#adversarial-review)
+  - [AR-0030-01 (high): Pairwise enumeration is neither a proof nor a complete error model](#ar-0030-01-high-pairwise-enumeration-is-neither-a-proof-nor-a-complete-error-model)
+  - [AR-0030-02 (high): Resource identity needs canonicalization and write-boundary enforcement](#ar-0030-02-high-resource-identity-needs-canonicalization-and-write-boundary-enforcement)
+  - [AR-0030-03 (high): Assignment changes need revision fences around results and writes](#ar-0030-03-high-assignment-changes-need-revision-fences-around-results-and-writes)
+  - [AR-0030-04 (high): Org installation presence is not repository authorization](#ar-0030-04-high-org-installation-presence-is-not-repository-authorization)
+  - [AR-0030-05 (high): Compliance must expose unevaluated assignments and measurement loss](#ar-0030-05-high-compliance-must-expose-unevaluated-assignments-and-measurement-loss)
+  - [AR-0030-06 (high): Final-layer provenance cannot answer baseline compliance reliably](#ar-0030-06-high-final-layer-provenance-cannot-answer-baseline-compliance-reliably)
+  - [AR-0030-07 (medium): Overlapping modes and replacements need an executable precedence contract](#ar-0030-07-medium-overlapping-modes-and-replacements-need-an-executable-precedence-contract)
 - [Open Questions](#open-questions)
   - [OQ1: Is there a separate repository policy type?](#oq1-is-there-a-separate-repository-policy-type)
   - [OQ2: Can an org policy change a control's parameters (e.g. different owner teams)?](#oq2-can-an-org-policy-change-a-controls-parameters-eg-different-owner-teams)
@@ -467,6 +475,89 @@ Former open questions settled in this document; the body text above states each 
 - **D5 Counting exclusions** — excluded controls and excluded, unmanaged or parked repositories are recorded (`control_assignments.state`, `repository_policy_state`) and reported separately, never in the compliance denominator. "92% compliant, 14 exclusions" is honest; folding exclusions into either side of the percentage is not.
 - **D6 Results are cleared when an assignment stops being active** — a result row with no active assignment is posture nobody asked for: it would count in compliance, in the gauges and in the repository view until something noticed. Deleting it in the resolution transaction and recording the transition in `result_events` keeps "no assignment" and "no result" the same fact, and the history stays queryable.
 - **D7 Remediation settings are persisted per repository** — `max_open_prs` and `reopen_after` are resolved like mode (enterprise default, org override) and written to `repository_policy_state`, so the sweep query and the remediator read one row instead of re-deriving policy; a policy change re-resolves and rewrites them like every other assignment field.
+
+## Adversarial Review
+
+Reviewed 2026-10-03 against the full DESIGN-0029–0033 set. **Disposition: changes required before relying on resolution as the ownership and authorization boundary.** These are unresolved findings; severity meanings are defined in DESIGN-0029's Adversarial Review. Proposed corrections require a design decision before becoming implementation requirements.
+
+**Responses (2026-10-03):** 5 accepted, 2 accepted with changes. Each finding below carries a **Response** giving the disposition and the concrete change. Accepted changes are applied to the body and the Decisions ledger in the follow-up reconciliation pass; until then, where a response and the body differ, the response is the current position.
+
+### AR-0030-01 (high): Pairwise enumeration is neither a proof nor a complete error model
+
+**Basis:** Resource ownership and its testing strategy. The validator enumerates individual/pairwise `repos` layers while runtime may apply three or more. It can also reject unreachable subsets: if three blocks all match `*`, a later replacement/exclusion can make the actual final set safe while an enumerated pair is unsafe. Runtime collisions are described both as expected policy cases and as bugs. `resolution_error` is promised on assignments but is absent from `Assignment`, its SQL state CHECK and the result model.
+
+**Proposed correction:** Define validation over reachable final sets, or a conservative restriction whose false rejections are documented. Keep a runtime fail-closed check for every repository and give collisions a persisted, queryable error representation. Never omit conflicted requirements in a way that makes them look compliant or unassigned by choice.
+
+**Verification:** Test three-plus overlapping blocks, identical selectors with a later conflict-removing layer, and a new repository not known at load. Assert both write prohibition and visible error posture.
+
+**Response:** **Accepted with changes.** The runtime check is the guarantee, not the load-time enumeration: resolution computes every repository's final write set, the union of `Owns()` across its active assignments (AR-0031-02), and any overlap fails closed for that repository. Conflicted assignments are persisted rather than omitted: `control_assignments.state` gains `conflict`, a new `error TEXT` column holds the message (`resource_conflict: file:CODEOWNERS claimed by codeowners@1 and generic:wiz-config@1`), and a conflicted control is never evaluated or remediated and counts as `unmeasurable{reason=conflict}` in posture, never as compliant or unassigned. The `resolution_error` named in Resolution and Resource ownership is this `error` column, added to the `Assignment` type and to the state CHECK, and the sentence calling a runtime collision a bug is withdrawn: it is a policy state with a visible error. The load-time pairwise check stays as a conservative early warning and is documented as such: it can reject a layout a later layer would have resolved, and the remedy is restructuring the policy. Validation over reachable final sets is rejected, because repository names are not known at load, so "reachable" is undecidable there, which is exactly why the runtime check exists. Verification: adopted.
+
+### AR-0030-02 (high): Resource identity needs canonicalization and write-boundary enforcement
+
+**Basis:** Resource ownership's logical keys, DESIGN-0031's concrete file keys and the assignment primary key. `file:CODEOWNERS` is described here as covering three paths, while the interface claims each path individually. A generic control using `.github/./CODEOWNERS` must not evade the collision check. Labels/properties/rulesets also need provider-specific identity rules. `(repository_id, control_id)` prevents duplicate versions of a slug, not two different slugs writing the same resource. `replace` does not itself prove ownership safety.
+
+**Proposed correction:** Specify canonical resource keys and overlap rules, including whole-file versus sub-field ownership such as `package.json`'s Renovate key. Require every returned change to be within the assignment's current write set; replacements remove the predecessor before checking the final set. Either prohibit context-templated ownership keys or resolve them per repository.
+
+**Verification:** Try path aliases, different slugs owning one file, duplicate provider names under their actual comparison semantics, and a change set writing an undeclared path. All must be rejected at the appropriate boundary.
+
+**Response:** **Accepted.** Resource keys are canonicalized by the framework, not by each type: `file:<path>` runs through `path.Clean` and rejects absolute paths, `..`, empty segments and a leading `./`, then compares byte for byte as GitHub does; `label:<name>` is lower-cased because GitHub label names are case-insensitive; `property:<name>`, `ruleset:<name>` and `setting:<name>` compare exactly until the INV verifies each provider's case rules. Ownership is whole-resource only; sub-field ownership is out of scope for this release, so the `renovate` key of `package.json` becomes a read dependency (DESIGN-0031 `Reads()`) and `exclusive` fails non-remediably with a note instead of editing `package.json`. Resource keys are static per definition, with no per-repository templating, so the CODEOWNERS control owns all three locations as three `file:` keys, which is what the collision check and the interface already assume; the `file:CODEOWNERS` shorthand in the Resource ownership table is replaced by the three keys. `replace` removes the predecessor's resources before the final set is checked. Every `ChangeSet` is validated by the framework against the assignment's current `Owns()` before any write, independently of what the type returned. Verification: adopted.
+
+### AR-0030-03 (high): Assignment changes need revision fences around results and writes
+
+**Basis:** Compliance queries, resolution transactions and DESIGN-0032's separate activity record step. Assigning `codeowners@2` leaves an `@1` result joined by slug during rollout. Worse, an evaluation started before exclusion can finish after resolution deletes its results and insert them again. A remediator can read `mode = remediate`, spend time preparing a change, and write after the policy switched to evaluate or ownership moved to another control.
+
+**Proposed correction:** Give each resolved assignment a revision/epoch. Record results only if that revision is still active and matches; display older results as pending/stale rather than current compliance. Fence remediation records and revalidate authorization immediately before external action, with an explicit policy for a write already in flight at withdrawal. Rollout must prevent old-snapshot workers from resolving newer state backwards.
+
+**Verification:** Interleave exclusion, version replacement, mode downgrade and ownership transfer with evaluation/record/remediation. Stale activities must not resurrect results, acknowledge the new assignment or continue proposing an unauthorized change.
+
+**Response:** **Accepted.** Every resolved assignment carries `epoch BIGINT NOT NULL`, starting at 1 and incremented whenever the row's version, mode, write set, source or state changes, and `control_results.assignment_epoch` records which epoch produced a result. `RecordCheck` writes a result only if the assignment is active and the epoch matches; otherwise the result is discarded as stale, logged and counted in `results_discarded_total{reason=stale_epoch}`. Generations are scoped to `(repository, control, epoch)`, so a re-added control cannot inherit an old run's generation (AR-0032-06). The remediator re-reads the assignment (mode, epoch, write set, `remediable`) immediately before every external write and records `remediations.assignment_epoch`; a write that completes after withdrawal is not prevented, it is withdrawn by lifecycle maintenance on the next pass (AR-0032-04), and that window is documented. Policy rollout is monotonic: a resolver writes only if its policy version is the newest recorded, so an old-snapshot worker cannot resolve newer state backwards. Verification: adopted.
+
+### AR-0030-04 (high): Org installation presence is not repository authorization
+
+**Basis:** Resolution's installation booleans and When resolution runs; DESIGN-0032 gives the Remediation App no webhooks. GitHub Apps can be installed on selected repositories. A live remediation installation for an org says nothing about whether it includes this repository. The Evaluation App's installation events describe its own installation, not the other App's suspension/removal/selection changes. The resolver also takes Evaluation App presence as input without defining what absence does to an otherwise active repository.
+
+**Proposed correction:** Persist repository membership and lifecycle/permission observations separately for each App. Define how those facts are refreshed through each App's authenticated discovery or its lifecycle events. Resolve requested mode separately from effective write eligibility, and handle removal, suspension, permission acceptance and selected-repository changes for both Apps.
+
+**Verification:** Install both Apps with different repository selections, suspend/remove only the Remediation App, then grant it one additional repository. Stored eligibility, mode reasons and workflow triggers must converge without requiring an unrelated policy edit.
+
+**Response:** **Accepted.** Installation presence per org is replaced by per-App repository membership: `app_installations(app, account_login, installation_id, suspended_at, repository_selection, seen_at)` and `app_repository_access(repository_id, app, installation_id, seen_at)`. Each App refreshes its own facts: both Apps run discovery through their own installations (the Remediation App's discovery only lists repositories), and both deliver `installation` and `installation_repositories` lifecycle events to the same ingest endpoint, distinguished by the target app id header and signed with their own secret (DESIGN-0032). `evaluable` means the Evaluation App has access to this repository; `remediable` means the Remediation App has access to it and is not suspended. Resolution stores `requested_mode` and `effective_mode` (the requested mode when `remediable`, else `evaluate`) with a `mode_reason`, which replaces the single `mode` column and the org-wide `remediation_app_not_installed` override; the `installations{org → …}` input to `resolve` becomes these two per-repository booleans. Evaluation App absence on an active repository needs no new rule: the next complete discovery listing parks it `removed`. Verification: adopted.
+
+### AR-0030-05 (high): Compliance must expose unevaluated assignments and measurement loss
+
+**Basis:** Compliance queries/D5/D6 and DESIGN-0032's version-free result keys. An inner join drops newly assigned controls until their first evaluation. During a long rollout the dashboard can report 100% for the already-evaluated subset while most required controls have no result. Unknown, stale and access-denied cases can similarly shrink the measured denominator. “No assignment” and “no result” are not equivalent: an active assignment awaiting evaluation is a normal state.
+
+**Proposed correction:** Start posture queries from active desired assignments with a left join to matching-revision results. Expose pending, stale and unmeasurable counts plus measurement coverage alongside the compliant/(compliant + non-compliant) percentage. Define empty-denominator behavior consistently in SQL, API, reports, snapshots and gauges. Coordinate access-loss retention with AR-0029-01.
+
+**Verification:** Assign a control to 100 repositories and evaluate only one compliant repository. Every surface must show 99 pending measurements and must not imply a fully measured compliant fleet.
+
+**Response:** **Accepted.** D6 is amended as AR-0029-01 states: assignments are desired state and survive parking; results are cleared only on withdrawal or exclusion by policy and on `archived`, `fork` and `removed` parks, and are kept on `access_denied` and `suspended` parks. Posture queries start from active assignments with a LEFT JOIN to results at the matching epoch and revision, which yields explicit buckets: `compliant`, `non_compliant`, `pending` (no result yet), `stale` (a result from an older epoch or revision), `unmeasurable` (parked `access_denied` or `suspended`, or `conflict`), `not_applicable` and `unknown`. The percentage stays `compliant/(compliant+non_compliant)`, and `coverage`, measured over assigned, is reported beside it. The empty-denominator rule is one definition shared by `ComplianceByRule`, the API, the report, snapshots and the gauges: NULL, shown as "no data", as DESIGN-0022 already requires. Verification: adopted.
+
+### AR-0030-06 (high): Final-layer provenance cannot answer baseline compliance reliably
+
+**Basis:** Layers' final `source` and Compliance queries' enterprise/replaced filter. Re-adding an enterprise control after an org exclusion changes its source to a `repos` layer and removes it from the stated baseline query. Chained replacements can lose the original enterprise reference. Replacing with a different slug also changes the aggregation identity, so “baseline compliance” becomes a count of layer operations rather than the baseline requirements actually being fulfilled.
+
+**Proposed correction:** Store baseline requirement lineage separately from the last assignment decision: original baseline identity, replacement chain/effective definition, and explicit exception decisions. Give policy blocks stable identities rather than identifying them only by glob text. Define whether a replacement satisfies or departs from its baseline and avoid double-counting it as both baseline and org-specific posture.
+
+**Verification:** Resolve baseline → exclude → re-add, `@1 → @2 → @3`, and cross-slug replacement. Baseline and org-specific reports must attribute the same resolved requirements consistently before and after block reordering.
+
+**Response:** **Accepted with changes.** Lineage is stored on the assignment, separate from the final layer: `baseline_control TEXT NULL` holds the enterprise slug this assignment fulfils through the replacement chain (NULL for org-added controls), and `decision TEXT` is one of `baseline`, `replaced`, `org_added`, `excluded`. "Baseline compliance" is then "assignments with a `baseline_control`", regardless of which block last touched them, and a replacement counts once, as fulfilling its baseline, so the `source = enterprise` filter in Compliance queries is replaced by that column. `repos` blocks get a required label (`repos "frontend" { match = [...] }`) stored as `source_block`, so provenance survives reordering and glob edits, and `source` becomes `org:test-org/repos[frontend]`. The rejected part: a replacement always satisfies its baseline; whether it is a departure is what the required `reason` on the replacement records for humans, not a second compliance category. Verification: adopted.
+
+### AR-0030-07 (medium): Overlapping modes and replacements need an executable precedence contract
+
+**Basis:** Layers' file-order semantics versus Mode's most-specific-wins list. If an early matching block has a per-control `evaluate` override and a later block has `mode = remediate`, file-order application and override-specificity can produce different answers. The design also does not settle replacement chains in one layer, replacement of an absent/excluded source, or re-adding `@1` when an excluded `@2` row already occupies the slug key.
+
+**Proposed correction:** Define one ordered resolution algorithm, including how override specificity interacts with block order, what replacement sources must exist, and how excluded versions are retained or superseded. Reject ambiguous/conflicting declarations or specify their exact winner. Include requested mode, effective mode and provenance in the output.
+
+**Verification:** Publish table cases for early-specific/later-general mode overrides, reversed block order, same-layer replacement chains, and exclude/new-version/re-add combinations. Implementations must produce identical complete assignments for each case.
+
+**Response:** **Accepted.** One ordered algorithm replaces the prose in Layers and Mode, and it is published as golden cases, `testdata/resolution/*.hcl` with expected JSON, that every implementation must reproduce exactly. The output carries requested mode, effective mode and provenance (AR-0030-04, AR-0030-06). Verification: adopted.
+
+The algorithm:
+
+1. Start from the enterprise baseline.
+2. Apply the org policy in file order: `controls` adds, `replace` swaps (the source must be in the current set, else a load error), `exclude` removes and records; then apply each matching `repos` block in file order the same way.
+3. Keep one row per slug and repository: a later layer supersedes an earlier version or an earlier exclusion, so re-adding `@1` after excluding `@2` yields an active `@1` row and the `@2` exclusion is history.
+4. Choose mode by specificity, not file order: a per-control override in a matching `repos` block, then that block's `mode`, then a per-control override at org level, then the org `mode`, then the enterprise `mode`. Two declarations at the same specificity with different values fall to the later one in file order, and `validate` warns on them.
 
 ## Open Questions
 

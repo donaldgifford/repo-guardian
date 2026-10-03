@@ -257,6 +257,8 @@ resolve(policySnapshot,
   → RepositoryPolicyState{state, reason}, []Assignment
 ```
 
+`installations{org → …}` is read from `installations WHERE account_login = org AND suspended_at IS NULL AND removed_at IS NULL`, one row per App (`app IN ('eval', 'remediate')`, DESIGN-0032); a suspended or removed installation counts as not installed.
+
 The repository's `active` flag is the parking mechanism carried over from today: archived repositories, forks, removed repositories and repositories the Evaluation App cannot read are parked, and discovery (`UpsertDiscovered`) is the only thing that un-parks. A parked repository resolves to no assignments and is never scanned.
 
 ```mermaid
@@ -325,6 +327,8 @@ For `backstage-api`: the enterprise assigns `catalog_info@1`, the org excludes i
 | mode | `evaluate` or `remediate` |
 | mode_source | which layer set the mode |
 | mode_reason | `NULL` (from policy) or `remediation_app_not_installed` |
+
+Alongside the assignments, resolution writes the repository's effective remediation settings, `max_open_prs` and `reopen_after` (enterprise default, org override), onto its `repository_policy_state` row (D7). DESIGN-0032's `remediation_due` definition and the remediator read them from that row, never from a settings table or a re-parse of policy.
 
 Excluded assignments are stored, not dropped. "Excluded by policy, with reason" is posture information the UI shows, and it is distinct from "not applicable" (a control that ran and decided it does not apply). On an excluded row, `mode` holds the mode that would have applied had the control been active; it is informational.
 
@@ -400,7 +404,7 @@ The percentage rule (integer floor, computed once in SQL, shared by report, API 
 ## API / Interface Changes
 
 - New policy directory and HCL schema (above); `GUARDIAN_CONFIG` points at the directory (D3).
-- `policy.Snapshot`, with `Resolve(repo RepositoryRow, installs InstallationStatus) Resolution` (deterministic, no I/O) and `Version() string`. `Resolution` carries the repository policy state and the assignments.
+- `policy.Snapshot`, with `Resolve(repo RepositoryRow, installs InstallationStatus) Resolution` (deterministic, no I/O), `Version() string`, `Control(id control.ID) control.Control` and `Definition(id control.ID) control.Definition`. `Resolution{State, Reason, Assignments, MaxOpenPRs, ReopenAfter}` carries the repository policy state, the assignments and the effective remediation settings (D7). `Assignment` carries `Control, State, Source, Replaced, ExcludedBy, Reason, Mode, ModeSource, ModeReason`, one per `control_assignments` row.
 - API: `/policies` (the loaded snapshot, summarised), `/controls` (catalogue), `/repositories/{id}/controls` (assignments with provenance and the latest result), and `/orgs/{org}` gaining baseline-versus-org compliance (DESIGN-0032 lists the full set).
 
 ## Data Model
@@ -411,6 +415,8 @@ CREATE TABLE repository_policy_state (
     repository_id   BIGINT PRIMARY KEY REFERENCES repositories(id),
     state           TEXT   NOT NULL CHECK (state IN ('managed', 'excluded', 'unmanaged', 'parked')),
     reason          TEXT,                      -- exclusion reason or park reason
+    max_open_prs    INT    NOT NULL,           -- effective remediation settings (D7):
+    reopen_after    INTERVAL NOT NULL,         --   enterprise default, org override
     policy_version  TEXT   NOT NULL REFERENCES policy_versions(version),
     resolved_at     TIMESTAMPTZ NOT NULL
 );
@@ -436,6 +442,8 @@ CREATE TABLE control_assignments (
 
 There is one row per (repository, control name). That is the resource-ownership invariant, restated as a key: only one version of a control can be assigned to a repository. A repository in state `excluded`, `unmanaged` or `parked` has a `repository_policy_state` row and no `control_assignments` rows, so "no assignments" is always explained. Assignment and state changes write a `repository_events` row (`assignment_changed`) so the timeline shows when a control started or stopped applying; the `kind` CHECK on `repository_events` must be extended for it (assumption A4 covers the identity tables, not the event kinds).
 
+Results follow assignments (D6). When resolution flips an assignment to `excluded` or removes it (the control dropped from policy, the org removed from `enterprise.orgs`, the repository excluded or parked), the same transaction deletes that control's `control_results` and `rule_results` rows (DESIGN-0032) and writes a `result_events` row with `rule_id = NULL`, `from_status` set to the last status and `to_status = NULL`, so the timeline shows when posture stopped being tracked. `remediations` rows are kept; an open remediation PR for a control that is no longer assigned is closed by the next remediation run as `closed_withdrawn` (DESIGN-0032). The consequence is that compliance queries, the posture gauges and `/repositories/{id}/controls` never see a result without an active assignment: "no assignment" and "no result" are the same fact.
+
 ## Testing Strategy
 
 - **Resolution table tests:** every precedence row, replace, exclude, `exclude_repos`, overlapping `repos` blocks (including the worked example in both block orders), the five mode layers, the `remediation_app_not_installed` override, and each `repository_policy_state` outcome (parked, unmanaged, excluded, managed). Each case asserts the full assignment, including provenance.
@@ -457,6 +465,8 @@ Former open questions settled in this document; the body text above states each 
 - **D3 Policy source** — the policy directory is a mounted ConfigMap, as `GUARDIAN_CONFIG` is today. No new moving parts; changes go through the same values or Argo review path. A git-sync sidecar can be added later without changing the loader.
 - **D4 Fact selectors** — selection is by org and repository name globs only. Facts (visibility, topics, catalog-info `spec.type`) need an evaluation to have run first, which would make resolution two-pass; names cover the stated needs, and a `facts` selector can be added later.
 - **D5 Counting exclusions** — excluded controls and excluded, unmanaged or parked repositories are recorded (`control_assignments.state`, `repository_policy_state`) and reported separately, never in the compliance denominator. "92% compliant, 14 exclusions" is honest; folding exclusions into either side of the percentage is not.
+- **D6 Results are cleared when an assignment stops being active** — a result row with no active assignment is posture nobody asked for: it would count in compliance, in the gauges and in the repository view until something noticed. Deleting it in the resolution transaction and recording the transition in `result_events` keeps "no assignment" and "no result" the same fact, and the history stays queryable.
+- **D7 Remediation settings are persisted per repository** — `max_open_prs` and `reopen_after` are resolved like mode (enterprise default, org override) and written to `repository_policy_state`, so the sweep query and the remediator read one row instead of re-deriving policy; a policy change re-resolves and rewrites them like every other assignment field.
 
 ## Open Questions
 

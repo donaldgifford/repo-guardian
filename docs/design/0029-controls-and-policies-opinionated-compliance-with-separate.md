@@ -260,10 +260,10 @@ These shape the design and are **unverified**. A follow-up investigation checks 
 Summarised here; specified in the per-area docs.
 
 - **Policy files:** new HCL for the catalogue, the enterprise policy and org policies (DESIGN-0030).
-- **Go:** `control.Control` and the control-type registry; `github.Reader` / `github.Writer` (DESIGN-0031).
+- **Go:** `control.Control` and the control-type registry; `github.Reader`, `github.PRObserver` and `github.Writer` (DESIGN-0031 D7).
 - **Roles:** `evaluator` and `remediator` worker roles, each on its own task queue (`repo-guardian-eval`, `repo-guardian-remediate`) and holding only its own App's key (DESIGN-0032 D2).
 - **Env:** `EVAL_INTERVAL` replaces `CHECK_INTERVAL`. Both Apps' credentials are mounted as files, scoped per role.
-- **API:** new resources for controls, policies, `/repositories/{id}/controls` (assignments with provenance and the latest result) and remediations, replacing `/rules` and `/findings` (DESIGN-0032).
+- **API:** new resources for controls, policies, `/repositories/{id}/controls` (assignments with provenance and the latest result) and remediations, replacing `/rules` and `/findings`; one write, `POST /repositories/{id}/evaluate`, backed by a signal-only Temporal client in the api role (DESIGN-0032 D9).
 - **Chart:** credentials for both Apps, scoped per role (the evaluator never mounts the Remediation App key); `EVAL_INTERVAL` in place of `CHECK_INTERVAL`; the mode per org comes from policy rather than chart values.
 
 ## Data Model

@@ -30,6 +30,7 @@ created: 2026-10-02
     - [PR lifecycle](#pr-lifecycle)
   - [API remediations](#api-remediations)
 - [Data Model](#data-model)
+  - [Two application roles](#two-application-roles)
 - [API / Interface Changes](#api--interface-changes)
 - [Metrics](#metrics)
 - [Failure semantics](#failure-semantics)
@@ -97,7 +98,7 @@ repo-guardian runs as **two GitHub Apps** (D1). The private key is the security 
 - **The Remediation App's permission set is derived, not hand-listed.** The control registry (DESIGN-0031) knows which resource kinds the registered types can remediate; the binary prints the required set at startup and the operator docs list it. The exact GitHub permission names are an assumption to verify (A23).
 - **The Remediation App needs the read half too**, because a remediation run re-evaluates the base it is about to write (see [What one run does](#what-one-run-does)); it does not trust an evaluation that may be minutes old.
 - **Separate rate budgets.** Each App installation has its own id and its own rate limit. v2's budget workflow is keyed by installation id alone today (assumption A2 is rewritten: the key gains an app dimension), so the workflow id becomes `installation/<app>/<installation id>` and the two budgets never interact.
-- **Installations are stored per App.** `installations` gains `app IN ('eval', 'remediate')`. A repository is evaluable when the Evaluation App's installation covers it, and remediable when the Remediation App's does too. Resolution (DESIGN-0030) reads both: an org without the Remediation App resolves every assignment to `mode = 'evaluate'` with `mode_reason = 'remediation_app_not_installed'`, so such assignments never reach the remediator.
+- **Installations are stored per App.** `installations` gains `app IN ('eval', 'remediate')` and an index on `(account_login, app)`. `repositories.installation_id` references the **Evaluation App's** installation, because discovery runs through it; the Remediation App's installation is looked up by `(account_login = org, app = 'remediate')` and is never stored on the repository row. A repository is *evaluable* when its installation is live (neither suspended nor removed) and *remediable* when its org also has a live `remediate` installation; both booleans are exposed on `/repositories`. Resolution (DESIGN-0030) reads both: an org without the Remediation App resolves every assignment to `mode = 'evaluate'` with `mode_reason = 'remediation_app_not_installed'`, so such assignments never reach the remediator.
 - **Ingest** validates the Evaluation App's webhook secret, as today (the `ingest` role holds no private key).
 
 ### Roles
@@ -265,11 +266,13 @@ stateDiagram-v2
     open --> closed_compliant: main became compliant, remediation closes
     open --> closed_by_user: human closes, or deletes the branch
     closed_by_user --> open: still non_compliant and reopen_after elapsed → new PR
+    open --> closed_withdrawn: control no longer assigned, remediation closes with a comment
     merged --> [*]
     closed_compliant --> [*]
+    closed_withdrawn --> [*]
 ```
 
-Each transition writes a `remediation_events` row. A new PR after `closed_by_user` is a new `remediations` row, and the closed one keeps its history. A hold (`pr_cap`, `foreign_branch`) is not a PR state: it lives on `control_results` because there may be no PR yet.
+Each transition writes a `remediation_events` row. A new PR after `closed_by_user` is a new `remediations` row, and the closed one keeps its history. When a control stops being assigned to the repository while its PR is open, the next run closes the PR with a comment and records `closed_withdrawn` (D10); the row is kept. A hold (`pr_cap`, `foreign_branch`) is not a PR state: it lives on `control_results` because there may be no PR yet.
 
 ### API remediations
 
@@ -326,7 +329,7 @@ CREATE TABLE remediations (               -- one row per PR, or per API remediat
     repository_id          BIGINT NOT NULL,
     control_id             TEXT   NOT NULL,
     kind                   TEXT   NOT NULL CHECK (kind IN ('pull_request','api')),
-    state                  TEXT   NOT NULL CHECK (state IN ('open','merged','closed_compliant','closed_by_user','recommended','applied','failed')),
+    state                  TEXT   NOT NULL CHECK (state IN ('open','merged','closed_compliant','closed_by_user','closed_withdrawn','recommended','applied','failed')),
     pr_number              INT,
     pr_url                 TEXT,
     branch                 TEXT,
@@ -337,9 +340,9 @@ CREATE TABLE remediations (               -- one row per PR, or per API remediat
     closed_at              TIMESTAMPTZ,
     close_reason           TEXT
 );
--- at most one open PR per repository and control
+-- at most one open PR or outstanding recommendation per repository and control
 CREATE UNIQUE INDEX remediations_one_open
-    ON remediations (repository_id, control_id) WHERE state = 'open';
+    ON remediations (repository_id, control_id) WHERE state IN ('open', 'recommended');
 
 CREATE TABLE remediation_events (         -- append-only: opened, updated, closed, applied, failed
     id              BIGSERIAL PRIMARY KEY,
@@ -352,7 +355,23 @@ CREATE TABLE remediation_events (         -- append-only: opened, updated, close
 
 Two writers share `control_results` by column, never by row: evaluation owns `status`, `fingerprint`, `eval_generation`, `evaluated_sha`, `evaluated_at`, `last_changed_at` and sets `pr_changed = true`; remediation owns `remediated_generation`, `hold`, `hold_since` and clears `pr_changed` (record-is-narrow).
 
+`checks` keeps its shape as the evaluation log: the `trigger` CHECK gains `pr_event` and `manual`, and `pending_result` stays JSONB, holding per control the status, fingerprint, rule results and resource reads until the record step commits them; evidence is text-only (DESIGN-0027), so the staged payload is bounded. `result_events` **and** `remediation_events` are append-only by grant, as `finding_events` is today. When an assignment stops being active, resolution clears the control's `control_results` and `rule_results` rows and writes a `result_events` row with `to_status = NULL` (DESIGN-0030 D6), so a control that no longer applies cannot linger in posture. `max_open_prs` and `reopen_after` are resolved per repository onto `repository_policy_state` (DESIGN-0030 D7), so the remediation run and the sweep read them from the row rather than from the snapshot.
+
+On `repositories`, `next_due_at`, `last_error`, `active`, `park_reason` and `parked_at` stay. `last_check_outcome`, `policy_version` and `catalog_parse_ok` are rule-engine posture superseded by `control_results.evaluated_at`, `repository_policy_state.policy_version` and `catalog_info` evidence; they are dropped at cutover (see Migration).
+
 The **compliance snapshots** become `(org, control_id, source, snapshot_at)`, carrying compliant, non-compliant, unknown, not-applicable and excluded counts. That keeps the one-shared-SQL-query rule (IMPL-0025 Phase 8) with the new keys.
+
+### Two application roles
+
+The evaluator and the remediator connect as separate database roles, `rg_evaluator` and `rg_remediator`; `all` connects as a role that is a member of both (D8). The migrating role creates them, the way `pgtest.AppRole` already stands in for the application role when the append-only revoke on `finding_events` is tested.
+
+| Role | May write |
+| ---- | --------- |
+| `rg_evaluator` | INSERT on `control_results`, `rule_results`, `result_events`, `checks`; UPDATE on `control_results (status, fingerprint, eval_generation, control_version, evaluated_sha, evaluated_at, last_changed_at, pr_changed)`; UPDATE on `remediations (state, closed_at, close_reason, head_sha_at_last_remediation)` for PR observation; DELETE on `rule_results` (rules dropped by a version bump) |
+| `rg_remediator` | INSERT on `remediations`, `remediation_events`; UPDATE on `control_results (remediated_generation, pr_changed, hold, hold_since)`; UPDATE on `remediations` |
+| both | SELECT everywhere; UPDATE, DELETE and TRUNCATE revoked on `result_events` and `remediation_events` |
+
+Record-is-narrow stops being a sentence to remember and becomes a constraint: a remediator that saves a whole `control_results` row fails at the database instead of silently clobbering an evaluation's generation bump.
 
 ## API / Interface Changes
 
@@ -363,12 +382,24 @@ The resources replace `/rules` and `/findings` (assumption A14):
 | `/controls`, `/controls/{id}` | catalogue entry plus fleet compliance and per-org breakdown |
 | `/policies` | the loaded snapshot summary: enterprise orgs, org policies, exclusions |
 | `/orgs/{org}` | baseline-versus-org compliance, worst controls, exclusions |
+| `/repositories` | as today, plus `policy_state`, `policy_reason`, `evaluable` and `remediable` |
 | `/repositories/{id}/controls` | assignments with provenance and mode reason, statuses, rule results, evidence, holds and the latest remediation |
 | `/repositories/{id}/events` | assignment, result and remediation events merged into one timeline |
+| `/repositories/{id}/evaluations` | the evaluation log (today's `/repositories/{id}/checks`, renamed with the table's new role) |
+| `POST /repositories/{id}/evaluate` | sends `recheck` at priority 1 to `repo/<id>`; `202` with no body; `501` when the api role has no Temporal client (D9) |
 | `/remediations` | filter by state, org, control, age; open PRs older than N days |
 | `/summary`, `/status` | as today, with evaluation freshness and remediation backlog |
 
 Every query keeps the scope predicate (assumption A14).
+
+The `POST` is the one write the API performs, and it writes nothing to the store. The `api` role gains an **optional** Temporal client used only to signal: it never starts workflows and never reads the store through Temporal. It is enabled when `TEMPORAL_ADDRESS` is set for the role; without it the endpoint returns `501` and the UI hides the button. The UI's BFF, which proxies `GET` and `HEAD` only today, proxies this one `POST` with the same Origin check it applies to logout. Authorization is the org visibility the `GET` on the same repository already requires.
+
+Shapes worth pinning in the spec:
+
+- `/controls/{id}` is keyed by slug. Its per-org breakdown carries `version` (an org on `codeowners@2` through `replace` sits beside one on `@1`), and fleet totals sum over `control_id` across versions, which is what DESIGN-0030's version-free result key intends.
+- `/policies` returns `policy.Summarize` output: `version`, `first_seen_at`, `rollout_completed_at`, the enterprise orgs, mode and controls, and per org its mode, added, replaced and excluded controls with reasons, and `excluded_repos`.
+- Evidence objects carry `evidence_kind = "<control type>/<rule kind>"` and `evidence_version` as the `oneOf` discriminator; the UI renders only kinds and versions it knows, as it does for `reason` today.
+- The spec's existing `Remediation` schema is the findings remediation facet enum. It leaves with `/findings`, and the new remediation object takes the name in the same spec change.
 
 Configuration and chart:
 
@@ -398,6 +429,7 @@ No metric carries a repository or PR label (IMPL-0023); "which repository" is an
 
 | Situation | Behaviour |
 | --------- | --------- |
+| Any write to a PR or branch | repo-guardian closes, updates or deletes only PRs and branches recorded in `remediations`, and adopts a branch only when every commit is the Remediation App's (the lock-bounded principle, DESIGN-0033) |
 | Throttled (either App) | `AsThrottled` → defer (IMPL-0022); evaluation records nothing for a deferred run |
 | Evaluation App denied access to a repository (403/404) | the repository is parked, as today; discovery is the only un-parker |
 | Read error in a control | rule `error` → control `unknown` → no remediation |
@@ -408,6 +440,7 @@ No metric carries a repository or PR label (IMPL-0023); "which repository" is an
 | Open PRs at `max_open_prs` | `hold = 'pr_cap'`, nothing written; picked up on the next PR close or merge, or by the sweep |
 | Remediation App not installed for the org | resolution sets `mode = 'evaluate'`, `mode_reason = 'remediation_app_not_installed'`; the remediator never sees the assignment; `remediation_blocked_total{reason="app_not_installed"}` |
 | Remediation App lacks a permission for a resource kind | `hold = 'permission'`, `remediation_blocked_total{reason="permission"}`, alert; evaluation unaffected |
+| Control no longer assigned while its PR is open | the next run closes the PR with a comment, state `closed_withdrawn`; the row is kept (D10) |
 | Store write fails after GitHub write | Temporal retries the record activity; the PR exists, so the retry re-reads it by branch |
 
 ## Temporal mapping
@@ -455,6 +488,15 @@ The replay tests and history capture apply to both new workflow types. Before GA
    - `TestPRIdentity_IsFrozen` (checker and reconciler) is retired deliberately in the cutover PR: its literals pin v1's branch name, titles and reconcile-log marker so that v1 and v2 adopt each other's PRs, and per-control branches end that adoption on purpose;
    - v1's App is uninstalled, or becomes the Evaluation App if its permissions are reduced (D1).
 
+Schema changes land as four goose migrations, numbered up front so parallel work cannot collide:
+
+- `00004_controls_policy`: DESIGN-0030's `repository_policy_state` and `control_assignments`, the `repository_events.kind` CHECK, `installations.app` with a backfill to `'eval'` and the `(account_login, app)` index.
+- `00005_controls_results`: this document's tables, the `remediation_due` view, the `checks` and `service_runs` CHECK extensions, the append-only revokes and the two application roles (D8).
+- `00006_compliance_rekey`: the new snapshot shape; old rows are dropped, since cutover starts from a fresh evaluation (DESIGN-0029 A20).
+- `00007_drop_findings`: after cutover, in its own PR; drops `findings`, `finding_events` and the three `repositories` columns named under Data Model.
+
+`SchemaVersion` moves from 3 to 7, and each SQL file must be added to `postgres.DryRun`'s hand-wired replay, or `migrate --dry-run` will not exercise it.
+
 ## Decisions
 
 - **D1 Two GitHub Apps.** An Evaluation App that can only read and a Remediation App that can write, each with its own installations, budget, task queue and worker role. The private key is the boundary: one App with down-scoped tokens would still put a write-capable key in every evaluator, and a token broker would add a service to the critical path for the same guarantee.
@@ -464,6 +506,9 @@ The replay tests and history capture apply to both new workflow types. Before GA
 - **D5 No foreign-PR detection.** v1's `search_terms` substring matching produced false positives. If a human's PR fixes the same thing and merges first, the next evaluation sees compliance on main and closes ours as `closed_compliant`.
 - **D6 One run at a time per (repository, control),** signals set a re-check flag, and the run re-reads generation and `pr_changed` from the database before completing. A fresh workflow per signal can drop one that arrives just before completion; a permanently running workflow per control multiplies idle executions.
 - **D7 Evaluate mode previews remediation, in a later phase.** `Remediate` needs no write credentials, so the evaluator can compute the change set and store a summary ("would add 1 line to .github/CODEOWNERS") that makes evaluate mode a real dry run before remediation is enabled.
+- **D8 Column-level grants enforce record-is-narrow.** Two database roles turn the prose invariant into a constraint: a remediator that saves a whole `control_results` row fails at the database. The cost is one more role and a membership for `all`; the alternative, trusting every future writer to remember which columns are theirs, is how the v1 orphan-cleanup bug happened.
+- **D9 Manual re-evaluate is an API `POST` backed by a signal-only Temporal client.** The `api` role keeps its read-only store access and gains nothing but the ability to signal `repo/<id>`; without `TEMPORAL_ADDRESS` the endpoint is `501` and the UI hides the button. A CLI-only trigger was considered and rejected because the button is the whole point for a non-operator reading the UI.
+- **D10 `closed_withdrawn`.** A PR whose control is no longer assigned is closed by repo-guardian with a comment rather than left open: leaving it would keep proposing a change nobody asked for, and recording it as `closed_compliant` or `closed_by_user` would lie about why.
 
 ## Open Questions
 

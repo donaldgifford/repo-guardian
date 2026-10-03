@@ -1,6 +1,6 @@
 ## Deep dive 1: data model and type flow
 
-This section draws the types the five documents define and shows how each is produced and consumed, so the flow can be checked end to end. Everything here is taken from DESIGN-0030 (policy types), DESIGN-0031 (control framework), DESIGN-0032 (results and remediation) and DESIGN-0033 (the amendments it adds). Where a type is implied by the prose but never written down, it is marked **proposed** and listed under the gaps at the end of the section.
+This section draws the types the five documents define and shows how each is produced and consumed, so the flow can be checked end to end. Everything here is taken from DESIGN-0030 (policy types), DESIGN-0031 (control framework), DESIGN-0032 (results and remediation) and DESIGN-0033 (the amendments it adds). Drawing it the first time exposed types the prose relied on but never wrote down; those were folded back into the documents, and the list at the end of the section records where each landed.
 
 ### Three layers
 
@@ -282,8 +282,18 @@ classDiagram
     class Type {
         <<interface>>
         +Name() string
-        +RuleKinds() List~RuleKind~
+        +RuleKinds() List~RuleKindSpec~
         +Build(def Definition) Control
+    }
+    class Definition {
+        +ID ID
+        +Title string
+        +Type string
+        +Rules List~Rule~
+        +Template string
+        +PR PRConfig
+        +Apply string
+        +Params Map
     }
     class Control {
         <<interface>>
@@ -365,11 +375,16 @@ classDiagram
         +ListLabels() List~Label~
         +CodeownersErrors() List~CodeownersError~
     }
+    class PRObserver {
+        <<interface>>
+        +ListPullRequests(headPrefix) List~PullRequest~
+        +GetPullRequest(number) PullRequest
+        +ListCommits(branch) List~Commit~
+        +GetRef(branch) sha, exists
+    }
     class Writer {
         <<interface>>
-        +CreateOrUpdateFile(branch, path, content, message)
-        +DeleteFile(branch, path, message)
-        +UpdateRef(branch, sha, create)
+        +Commit(branch, baseSHA, changes, message) headSHA
         +CreatePullRequest(head, base, title, body) PullRequest
         +UpdatePullRequest(number, title, body)
         +ClosePullRequest(number)
@@ -379,6 +394,7 @@ classDiagram
         +SetCustomProperties(props)
         +UpsertLabel(l)
     }
+    Type ..> Definition : validates
     Type ..> Control : Build
     Control --> ID
     Control "1" --> "*" Resource : owns
@@ -398,15 +414,16 @@ classDiagram
     ChangeSet "1" *-- "*" APIChange
     APIChange --> Resource
     Writer ..> ChangeSet : applies, controls never see it
+    PRObserver ..> Writer : workflows only, never controls
 ```
 
-Two things on the diagram are not in DESIGN-0031's code and are worth confirming. `Reason` on `FileChange` and `APIChange` is the DESIGN-0033 amendment (item 3: `missing`, `rule_failed:<id>`, `orphan`, `stale`) that 0033 "lands in" 0032 but the structs in 0031 were never updated. `Definition`, the argument to `Type.Build`, is referenced in 0031 and never defined. The shape every other document assumes:
+Three things on the diagram were missing from DESIGN-0031's first draft and were added during this pass. `Reason` on `FileChange` and `APIChange` carries DESIGN-0033 item 3 (`missing`, `rule_failed:<id>`, `stale`, `orphan`). `PRObserver` is the third GitHub interface (0031 D7): the PR and branch reads the workflows need and no control does, which keeps `Reader` honest as "everything a control may read". `Writer.Commit` (0031 D8) replaces the Contents-API file methods so a change set is one commit on the git-data API with a non-forced ref update. `Definition`, the argument to `Type.Build`, is the catalogue entry after decode:
 
 ```go
 package control
 
-// Definition is one catalogue entry after HCL decode and before Build.
-// Proposed: referenced by Type.Build in DESIGN-0031, never written down.
+// Definition is one catalogue entry after HCL decode and before Build
+// (DESIGN-0031 "Supporting types").
 type Definition struct {
     ID       ID                 // slug + integer version
     Title    string
@@ -582,7 +599,7 @@ func (e *Evaluator) Evaluate(ctx context.Context, in EvaluateInput) (EvaluateOut
             Fingerprint: control.Fingerprint(a.Control, ev),
         })
     }
-    obs, _ := e.gh.ObservePRs(ctx, st.Repo, prs)                            // head SHA moved? closed? merged? missing?
+    obs, _ := observePRs(ctx, e.prs, prs)                                    // github.PRObserver: head SHA moved? closed? merged? missing?
 
     dec, err := e.store.RecordEvaluation(ctx, in.EvalKey, sha, outs, obs)  // ONE transaction, computes Changed/NeedsRemediation
     return EvaluateOutput{Decisions: dec}, err
@@ -611,7 +628,7 @@ func (r *Remediator) Run(ctx context.Context, in RunInput) error {
     if !s.NeedsRemediation { return nil }
     startGen := s.EvalGeneration                                              // recorded at the END, not the current one
 
-    lk, _ := r.gh.LookupBranch(ctx, s.Repo, "repo-guardian/"+in.Control.Slug) // branch, commits' authors, open PR by head
+    lk, _ := findOrAdopt(ctx, r.prs, "repo-guardian/"+in.Control.Slug)        // github.PRObserver: GetRef, ListCommits (authors), ListPullRequests (by head)
     if lk.HasForeignCommits { return r.store.Hold(ctx, s, "foreign_branch") }
     if s.Status == control.Compliant && lk.OpenPR != nil { return r.closeCompliant(ctx, s, lk.OpenPR) }
     if lk.OpenPR == nil && s.OpenPRs >= s.MaxOpenPRs { return r.store.Hold(ctx, s, "pr_cap") }
@@ -624,9 +641,9 @@ func (r *Remediator) Run(ctx context.Context, in RunInput) error {
     cs, _ := ctrl.Remediate(ctx, control.RemediationInput{EvalInput: control.EvalInput{Repo: rc(s.Repo, base), Reader: rd}, Evaluation: ev})
 
     if err := control.SelfCheck(ctx, ctrl, cs, rd); err != nil { return err } // changed content must pass; refuse otherwise
-    head, err := r.gh.Commit(ctx, s.Repo, "repo-guardian/"+in.Control.Slug, base, cs.Files, message(ctrl, ev)) // one commit, no force
+    head, err := r.writer.Commit(ctx, "repo-guardian/"+in.Control.Slug, base, cs.Files, message(ctrl, ev)) // git-data: one commit, no force (0031 D8)
     if errors.Is(err, github.ErrNotFastForward) { return queue.RetryAfter(…) }  // a human pushed; re-pin next run
-    pr, _ := r.gh.CreateOrUpdatePR(ctx, s.Repo, head, lk.OpenPR, renderPR(ctrl, ev, cs))
+    pr, _ := createOrUpdatePR(ctx, r.writer, head, lk.OpenPR, renderPR(ctrl, ev, cs))
     return r.store.Record(ctx, s, pr, startGen)                              // narrow UPDATE
 }
 ```
@@ -669,14 +686,14 @@ Two writers share one row by column, never by row. Getting this wrong is the exa
 - **Documents are data** (item 1): the loader's `EvalContext` has no variables and one function, a `file()`-style path reference that returns a cleaned in-root path, never contents.
 
 ```gap
-**Gaps found while drawing the data model**
+**Found while drawing the data model, resolved in the documents**
 
-- `control.Definition` is used by `Type.Build` and never defined (DESIGN-0031). The proposed struct above should be added, including where `remediation { apply }` and type-level params (`dependency_updates.tool`, `file.path`) live.
-- `FileChange` and `APIChange` need the `Reason` field DESIGN-0033 item 3 relies on; 0031's structs do not have it.
-- `github.Reader` has no pull-request methods, yet DESIGN-0032's evaluation lists open `repo-guardian/*` PRs and fetches tracked ones. Either `Reader` grows `ListPullRequests(headPrefix)` / `GetPullRequest(n)` (methods no control uses) or a separate `github.PRObserver` interface is defined for the evaluate activity. The second keeps `Reader` honest as "everything a control may read".
-- `github.Writer` cannot deliver "one commit per change set". `CreateOrUpdateFile` is the Contents API, one commit per file; the run in 0032 says "tree + commit + ref update, no force". `Writer` needs git-data methods (`CreateBlob`/`CreateTree`/`CreateCommit`, or a `Commit(branch, base, []FileChange, message)` wrapper) and find-or-adopt needs `GetRef`, `ListCommits(branch)` and `ListPullRequests(head)`, none of which is in 0031's `Writer`.
-- Mode is not in `EvalInput`. Fine for controls (they never need it), but the PR template vars (`.Control.Title`, `.Control.Version`) imply a `template.PRVars` extension that nobody defines.
-- `Params map[string]any` on `Rule` is validated by `Type.Build`, but nothing says how a type reports which params each kind accepts for docs generation ("documented from the types' own metadata"). `RuleKinds()` returns names only; a `RuleKindSpec{Kind, Params []ParamSpec}` would carry it.
+- `control.Definition` was used by `Type.Build` and never defined → added to DESIGN-0031 "Supporting types", including `Apply` (`remediation { apply }`) and type-level `Params`.
+- `FileChange` and `APIChange` lacked the `Reason` DESIGN-0033 item 3 relies on → added to both structs in DESIGN-0031.
+- `github.Reader` had no pull-request methods, yet evaluation observes PRs and the run does find-or-adopt → `github.PRObserver` (DESIGN-0031 D7): `ListPullRequests`, `GetPullRequest`, `ListCommits`, `GetRef`, used by workflows only.
+- `github.Writer` could not deliver one commit per change set → `Writer.Commit` on the git-data API with `ErrNotFastForward` (DESIGN-0031 D8); the Contents-API file methods are gone.
+- The PR templates used `.Control.Title` with no variables defined → `template.PRVars` gains `.Control`, `.Failing` and `.Notes` (DESIGN-0031 "API / Interface Changes").
+- Rule-kind parameters had no metadata for the docs generator → `RuleKinds()` returns `[]RuleKindSpec{Kind, Params, Remediable}` (DESIGN-0031).
 ```
 
 ## Deep dive 2: the API
@@ -692,9 +709,10 @@ DESIGN-0032 lists the resources; DESIGN-0030 names three of them; the v2 API ske
 | `GET /rules`, `GET /rules/{kind}/{name}` | **replaced by** `GET /controls`, `GET /controls/{id}` | catalogue from the snapshot, compliance from `control_assignments ⨝ control_results` |
 | `GET /orgs`, `GET /orgs/{org}` | **extended**: baseline-versus-org compliance, worst controls, exclusions with reasons | same join, cut by `source` |
 | `GET /findings` | **replaced by** `GET /repositories/{id}/controls` (per repository) and `GET /remediations` (fleet-wide PRs) | `control_assignments ⨝ control_results ⨝ rule_results ⨝ remediations` |
-| `GET /repositories`, `GET /repositories/{id}` | unchanged shape, plus `policy_state` and `policy_reason` | `repositories ⨝ repository_policy_state` |
+| `GET /repositories`, `GET /repositories/{id}` | unchanged shape, plus `policy_state`, `policy_reason`, `evaluable`, `remediable` | `repositories ⨝ repository_policy_state ⨝ installations` |
 | `GET /repositories/{id}/events` | **extended**: assignment, result and remediation events merged | `UNION ALL` of `repository_events`, `result_events`, `remediation_events` |
-| `GET /repositories/{id}/checks` | not specified, see gaps; proposed rename `/repositories/{id}/evaluations` | `checks` as the evaluation log (A6) |
+| `GET /repositories/{id}/checks` | **renamed** `GET /repositories/{id}/evaluations` | `checks` as the evaluation log (A6) |
+| — | **new** `POST /repositories/{id}/evaluate` → 202, signals `recheck` at priority 1; 501 when the api role has no Temporal client (DESIGN-0032 D9) | none (signal only) |
 | `GET /compliance/history` | unchanged path, new key `(org, control_id, source)` | `compliance_snapshots` |
 | `GET /policy` | **replaced by** `GET /policies` (enterprise orgs, org policies, exclusions, version) | the snapshot summary in `policy_versions.summary` |
 | `GET /installations` | gains `app` | `installations` |
@@ -741,6 +759,15 @@ classDiagram
         +version int
         +source string
         +compliance Compliance
+    }
+    class RepositoryRef {
+        +id int
+        +org string
+        +name string
+        +policy_state string
+        +policy_reason string
+        +evaluable bool
+        +remediable bool
     }
     class RepositoryControl {
         +control_id string
@@ -827,6 +854,7 @@ classDiagram
     ControlDetail "1" *-- "*" OrgControlCompliance
     ControlSummary --> Compliance
     OrgControlCompliance --> Compliance
+    RepositoryRef "1" *-- "*" RepositoryControl : controls
     RepositoryControl --> Assignment
     RepositoryControl "1" *-- "*" RuleResult
     RepositoryControl --> RemediationRef
@@ -835,7 +863,7 @@ classDiagram
     OrgPolicySummary "1" *-- "*" Exclusion
 ```
 
-Field names are snake_case and the enums stay open strings documented in `description`, as the v2 spec does today. `evidence_kind` is new: today the API injects `reason` so the `oneOf` discriminates; with evidence keyed by `(control type, rule kind, version)` the discriminator becomes `evidence_kind` (`codeowners/owners`, `catalog_info/field_set`, …), and the UI renders only kinds and versions it knows.
+Field names are snake_case and the enums stay open strings documented in `description`, as the v2 spec does today. `evidence_kind` replaces the injected `reason` as the `oneOf` discriminator: evidence is keyed by `(control type, rule kind, version)`, so the field is `"<control type>/<rule kind>"` (`codeowners/owners`, `catalog_info/field_set`, …) next to `evidence_version`, and the UI renders only kinds and versions it knows (DESIGN-0032 "API / Interface Changes").
 
 ### Example: one repository's controls
 
@@ -844,7 +872,7 @@ GET /repositories/4821/controls
 
 {
   "repository": { "id": 4821, "org": "test-org", "name": "payments-api",
-                  "policy_state": "managed", "policy_reason": null },
+                  "policy_state": "managed", "policy_reason": null, "evaluable": true, "remediable": true },
   "controls": [
     {
       "control_id": "codeowners", "control_version": 2,
@@ -958,9 +986,11 @@ stateDiagram-v2
         open --> merged
         open --> closed_compliant: main compliant, repo-guardian closes
         open --> closed_by_user
+        open --> closed_withdrawn: control no longer assigned, remediation closes with a comment
         closed_by_user --> [*]: a NEW remediations row opens after reopen_after
         merged --> [*]
         closed_compliant --> [*]
+        closed_withdrawn --> [*]
     }
     state "kind = api" as API {
         [*] --> recommended: apply = pr, reported never written
@@ -992,27 +1022,28 @@ flowchart LR
 | UI fleet view | `/summary`, `/controls`, `/orgs` | compliance tiles read `percent` as the SQL value, never recomputed |
 | UI control page | `/controls/{id}`, `/compliance/history?control=` | per-org breakdown with version and `source` |
 | UI org page | `/orgs/{org}` | baseline versus org-specific, exclusions with reasons |
-| UI repository page | `/repositories/{id}`, `/repositories/{id}/controls`, `/repositories/{id}/events` | the evidence renderer is keyed by `evidence_kind` + `evidence_version` |
+| UI repository page | `/repositories/{id}`, `/repositories/{id}/controls`, `/repositories/{id}/events`, `/repositories/{id}/evaluations` | the evidence renderer is keyed by `evidence_kind` + `evidence_version` |
+| UI "re-evaluate" button | `POST /repositories/{id}/evaluate` | the BFF proxies this one `POST` with the logout Origin check; hidden when the API answers 501 |
 | UI remediation queue | `/remediations?state=open&stale=true` | replaces the findings PR list |
 | `repo-guardian report` | none (direct SQL) | same `ComplianceByControl` query |
 | `repo-guardian evaluate --repo org/name --format json` | none (runs the control locally) | DESIGN-0032 D7 + DESIGN-0033 item 3; exit 2 under `--detailed-exitcode` when any control is non-compliant |
 | `repo-guardian policy validate` | none | slug grammar, unresolved references, unassigned controls (warning); exit 0 / 1 / 2 |
 
 ```gap
-**Gaps found while drawing the API**
+**Found while drawing the API, resolved in the documents**
 
-- **Manual re-evaluate has no home.** DESIGN-0032 lists "manual (API or UI re-evaluate)" as a trigger sending `recheck` at priority 1. The `api` role is read-only by design: read-only pool, no Temporal client, no write endpoint. Either the API gains `POST /repositories/{id}/evaluate` and the `api` role gains a Temporal client used only to signal (no store write), or the trigger is UI-only through the BFF, which has no Temporal access either. This needs a decision before Phase 5.
-- **The evaluation log endpoint** (`/repositories/{id}/checks` today) is not mentioned. `checks` becomes the evaluation log (A6); the endpoint should follow (`/repositories/{id}/evaluations`) or be dropped deliberately.
-- **`/policies` has no response shape** in any document; the `PolicySummary` above is derived from `policy.Summarize` and `policy_versions.summary` and needs confirming, in particular whether rule-level detail (`RuleDecl`) is exposed on `/controls/{id}` or only names.
-- **A control can be at two versions in one fleet** (`replace` per org). `/controls/{id}` is keyed by slug; the per-org breakdown must carry `version`, and fleet compliance across versions is a sum over `control_id` only, which is what 0030 intends but the spec should say so.
-- **`Remediation` already exists as a schema name** in the v2 spec (the findings remediation facet enum). The new object needs a different name or the old one is removed in the same change.
-- **`evidence_kind`** as the discriminator is this section's proposal; the designs say only "versioned JSON per (control type, rule kind)". The spec's `oneOf` needs an explicit field.
-- **`/installations` gains `app`**, and a repository now relates to two installations (one per App); `Repository` should expose `evaluable` / `remediable` booleans rather than one `installation_id`.
+- **Manual re-evaluate had no home** in a read-only API role → `POST /repositories/{id}/evaluate` backed by an optional, signal-only Temporal client in the `api` role; 501 without `TEMPORAL_ADDRESS`, the UI hides the button (DESIGN-0032 D9).
+- **The evaluation log endpoint** was unmentioned → `/repositories/{id}/checks` becomes `/repositories/{id}/evaluations` (DESIGN-0032 "API / Interface Changes").
+- **`/policies` had no response shape** → it returns `policy.Summarize` output: version, rollout timestamps, enterprise orgs/mode/controls, per org the additions, replacements and exclusions with reasons (DESIGN-0032).
+- **A control can run at two versions in one fleet** → the `/controls/{id}` per-org breakdown carries `version`; fleet totals sum over `control_id` (DESIGN-0032).
+- **`Remediation` was already a schema name** → the old enum leaves with `/findings` in the same spec change, and the new object takes the name (DESIGN-0032).
+- **The evidence discriminator** was unspecified → `evidence_kind = "<control type>/<rule kind>"` plus `evidence_version` (DESIGN-0032).
+- **One `installation_id` for two Apps** → `/repositories` exposes `evaluable` and `remediable`; the row keeps the Evaluation App's installation (DESIGN-0032 "Two GitHub Apps").
 ```
 
 ## Deep dive 3: database and schema
 
-DESIGN-0030 owns two tables, DESIGN-0032 owns five, DESIGN-0029 says `repositories` and `installations` stay and `installations` gains `app`. This section puts them next to the v2 tables they replace, shows the keys and the foreign keys, and follows a row through the two transactions that write it.
+DESIGN-0030 owns two tables, DESIGN-0032 owns five, DESIGN-0029 says `repositories` and `installations` stay and `installations` gains `app`. This section puts them next to the v2 tables they replace, shows the keys and the foreign keys, and follows a row through the two transactions that write it. The schema-level decisions this pass added (results cleared with their assignment, remediation settings on the policy-state row, two database roles, `closed_withdrawn`) are DESIGN-0030 D6 and D7 and DESIGN-0032 D8 and D10.
 
 ### Who writes what
 
@@ -1065,7 +1096,7 @@ erDiagram
     installations ||--o{ repositories : "discovered through (Evaluation App)"
     installations {
         bigint installation_id PK
-        text app "eval or remediate (NEW)"
+        text app "eval or remediate (NEW), indexed with account_login"
         text account_login "the org"
         text provider
         text host
@@ -1083,7 +1114,7 @@ erDiagram
         text org
         text name
         bigint provider_repo_id UK
-        bigint installation_id FK
+        bigint installation_id FK "the Evaluation App installation"
         boolean active "the parking flag"
         text park_reason
         timestamptz parked_at
@@ -1103,6 +1134,8 @@ erDiagram
         bigint repository_id PK, FK
         text state "managed, excluded, unmanaged, parked"
         text reason "exclusion or park reason"
+        int max_open_prs "resolved remediation setting (0030 D7)"
+        interval reopen_after "resolved remediation setting (0030 D7)"
         text policy_version FK
         timestamptz resolved_at
     }
@@ -1198,7 +1231,7 @@ erDiagram
         bigint repository_id
         text control_id
         text kind "pull_request or api"
-        text state "open, merged, closed_compliant, closed_by_user, recommended, applied, failed"
+        text state "open, merged, closed_compliant, closed_by_user, closed_withdrawn, recommended, applied, failed"
         int pr_number
         text pr_url
         text branch "repo-guardian/ plus the control slug"
@@ -1218,7 +1251,7 @@ erDiagram
     }
 ```
 
-Partial unique index `remediations_one_open ON (repository_id, control_id) WHERE state = 'open'` is the "at most one open PR per control" invariant, enforced by the database rather than by the workflow.
+Partial unique index `remediations_one_open ON (repository_id, control_id) WHERE state IN ('open', 'recommended')` is the "at most one open PR or outstanding recommendation per control" invariant, enforced by the database rather than by the workflow. `closed_withdrawn` (DESIGN-0032 D10) is the close reason for a PR whose control stopped being assigned while it was open.
 
 **Reporting and service state** (kept, re-keyed):
 
@@ -1254,28 +1287,29 @@ erDiagram
 | Table | Fate | Change |
 | ----- | ---- | ------ |
 | `installations` | changed | `+ app TEXT NOT NULL CHECK (app IN ('eval','remediate'))`, index on `(account_login, app)`; one row per org per App |
-| `repositories` | changed | keep identity, `active`, `park_reason`, `parked_at`, `next_due_at`, `last_error`; retire the rule-engine posture columns `last_check_outcome`, `policy_version`, `catalog_parse_ok` (see gaps) |
+| `repositories` | changed | keep identity, `active`, `park_reason`, `parked_at`, `next_due_at`, `last_error`; `installation_id` is the Evaluation App's installation; the rule-engine posture columns `last_check_outcome`, `policy_version`, `catalog_parse_ok` are dropped at cutover (DESIGN-0032) |
 | `policy_versions` | kept | the hash input changes (catalogue + policies + templates); `summary` carries `policy.Summarize` of the new shape |
 | `repository_events` | changed | `kind` CHECK gains `assignment_changed` |
-| `repository_policy_state` | **new** | DESIGN-0030 |
+| `repository_policy_state` | **new** | DESIGN-0030; carries the resolved `max_open_prs` and `reopen_after` (D7) |
 | `control_assignments` | **new** | DESIGN-0030; PK `(repository_id, control_id)` is the one-version-per-control invariant |
-| `control_results` | **new** | DESIGN-0032; two writers by column |
+| `control_results` | **new** | DESIGN-0032; two writers by column; rows are deleted with their assignment (DESIGN-0030 D6) |
 | `rule_results` | **new** | DESIGN-0032; composite FK to `control_results` |
 | `result_events` | **new** | DESIGN-0032; append-only by grant like `finding_events` |
-| `remediations` | **new** | DESIGN-0032; partial unique index on open |
+| `remediations` | **new** | DESIGN-0032; partial unique index on `open` or `recommended`; `closed_withdrawn` state |
 | `remediation_events` | **new** | DESIGN-0032; append-only by grant |
 | `checks` | changed | becomes the evaluation log (A6): `trigger` gains `pr_event`, `manual`; `pending_result` stages `[]controlOutcome` until the record step |
 | `compliance_snapshots` | re-keyed | `(org, control_id, source, snapshot_at)`; `excluded` count added; `rule_kind`/`rule_name` dropped |
 | `service_runs` | changed | `kind` gains `remediation_sweep` |
 | `findings` | **removed** | A5: replaced, not extended |
 | `finding_events` | **removed** | A5 |
+| database roles | **new** | `rg_evaluator`, `rg_remediator` with column-level grants; `all` is a member of both (DESIGN-0032 D8) |
 
 ### Column ownership, made enforceable
 
-DESIGN-0032 states the record-is-narrow invariant in prose. The evaluator/remediator role split makes it enforceable at the grant level, the same way `finding_events` is append-only today (the application role revokes its own UPDATE/DELETE). This is a proposal the designs do not make:
+DESIGN-0032 D8 turns the record-is-narrow invariant from prose into a constraint. The evaluator and remediator connect as separate database roles, the same mechanism that makes `finding_events` append-only today (the application role revokes its own UPDATE/DELETE), and `all` connects as a member of both:
 
 ```sql
--- Two application roles instead of one (proposal). Each worker role connects as its own.
+-- Two application roles (DESIGN-0032 D8). Each worker role connects as its own; `all` is a member of both.
 CREATE ROLE rg_evaluator;  CREATE ROLE rg_remediator;
 
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO rg_evaluator, rg_remediator;
@@ -1358,7 +1392,6 @@ JOIN control_assignments a ON (a.repository_id, a.control_id) = (cr.repository_i
                           AND a.state = 'active' AND a.mode = 'remediate'
 LEFT JOIN remediations rm ON (rm.repository_id, rm.control_id) = (cr.repository_id, cr.control_id)
                          AND rm.state IN ('open', 'closed_by_user')
-LEFT JOIN org_remediation_settings os ON os.org = (SELECT org FROM repositories WHERE id = cr.repository_id)
 WHERE cr.hold IS NULL
   AND (
         ( cr.status = 'non_compliant'
@@ -1366,7 +1399,7 @@ WHERE cr.hold IS NULL
                                                      AND rr.status = 'fail' AND rr.remediate)
           AND ( cr.eval_generation > cr.remediated_generation
                 OR cr.pr_changed
-                OR (rm.state = 'closed_by_user' AND rm.closed_at + os.reopen_after < now()) ) )
+                OR (rm.state = 'closed_by_user' AND rm.closed_at + ps.reopen_after < now()) ) )   -- reopen_after from the policy-state row (0030 D7)
      OR ( cr.status = 'compliant' AND rm.state = 'open' )
   );
 ```
@@ -1389,24 +1422,23 @@ ORDER BY occurred_at DESC, source, id DESC;
 
 | Migration | Contents | Note |
 | --------- | -------- | ---- |
-| `00004_controls_policy.sql` | `repository_policy_state`, `control_assignments`, `repository_events.kind` CHECK + `assignment_changed`, `installations.app` + backfill `'eval'` + index | additive, safe on a live rc |
-| `00005_controls_results.sql` | `control_results`, `rule_results`, `result_events`, `remediations`, `remediation_events`, `remediation_due` view, `checks.trigger` CHECK, `service_runs.kind` CHECK, append-only revokes | additive |
+| `00004_controls_policy.sql` | `repository_policy_state` (with `max_open_prs`, `reopen_after`), `control_assignments`, `repository_events.kind` CHECK + `assignment_changed`, `installations.app` + backfill `'eval'` + index on `(account_login, app)` | additive, safe on a live rc |
+| `00005_controls_results.sql` | `control_results`, `rule_results`, `result_events`, `remediations`, `remediation_events`, `remediation_due` view, `checks.trigger` CHECK, `service_runs.kind` CHECK, append-only revokes, the two application roles and their column grants | additive |
 | `00006_compliance_rekey.sql` | new `compliance_snapshots` shape; old rows are dropped (A20: cutover starts from a fresh evaluation) | destructive for history; acceptable on the rc line |
 | `00007_drop_findings.sql` | drop `findings`, `finding_events`; drop `repositories.last_check_outcome`, `policy_version`, `catalog_parse_ok` | **after** cutover, its own PR |
-| (Go) role grants | `rg_evaluator` / `rg_remediator` column grants, if the proposal above is accepted | mirrors the `pgtest.AppRole` pattern |
 
 `SchemaVersion` moves 3 → 7. `migrate --dry-run` replays pending migrations in one rolled-back transaction; its 00002 replay is hand-wired, so each new SQL file must be added to `postgres.DryRun`. The v1 backfill (`00003`) stays a no-op on a fresh v2 database and is not extended: DESIGN-0029 A20 says cutover starts from a fresh evaluation, not from migrated findings.
 
 ```gap
-**Gaps found while drawing the schema**
+**Found while drawing the schema, resolved in the documents**
 
-- **`repositories.installation_id` is a single FK**, but a repository now relates to two installations. Discovery runs through the Evaluation App, so the column should reference the `eval` installation, and the Remediation App's installation is looked up by `(account_login = org, app = 'remediate')`. DESIGN-0032 adds `installations.app` without saying which installation `repositories` points to.
-- **Result rows outlive their assignment.** When an org excludes a control, its `control_assignments` row flips to `excluded` but nothing in 0032 says what happens to `control_results` and `rule_results` for that control. Compliance queries join on active assignments, so they are harmless there, but `/repositories/{id}/controls` and the posture gauges must not count them. Proposal: resolution deletes result rows for controls that are no longer active and writes a `result_events` row with `to_status = NULL`, or the API filters by assignment state and the exporter joins assignments. Decide one.
-- **`remediations_one_open` covers `state = 'open'` only.** For `kind = 'api'`, repeated runs under `apply = "pr"` would insert many `recommended` rows for one control. The index should cover `state IN ('open', 'recommended')`.
-- **`remediation.reopen_after` and `max_open_prs` are policy values** with no table. The `remediation_due` view above invents `org_remediation_settings`; in practice the sweep reads them from the snapshot in Go, or resolution persists them per repository. Either works; the designs do not say.
-- **`checks` as the evaluation log** needs a `trigger` CHECK extension for `pr_event` and `manual`, and `pending_result` now stages `[]controlOutcome` (status, fingerprint, rule results, reads), which can be large for a repository with many controls. Confirm it stays JSONB or moves to a side table.
-- **`repositories` rule-engine columns** (`last_check_outcome`, `policy_version`, `catalog_parse_ok`) are not mentioned by any design. `catalog_parse_ok` becomes `catalog_info` evidence; the other two are superseded by `control_results.evaluated_at` and `repository_policy_state.policy_version`. Retire them in `00007`.
-- **Append-only grants** exist for `finding_events` today and should carry to `result_events` and `remediation_events`; 0032 says "grant-enforced, as finding_events" for `result_events` only.
+- **`repositories.installation_id` was one FK for two Apps** → it references the Evaluation App's installation; the Remediation App's is looked up by `(account_login, app = 'remediate')`, indexed (DESIGN-0032 "Two GitHub Apps").
+- **Result rows outlived their assignment** → resolution deletes `control_results` and `rule_results` for a control that stops being active, in the same transaction, and writes a `result_events` row with `to_status = NULL` (DESIGN-0030 D6).
+- **`remediations_one_open` covered `open` only** → `WHERE state IN ('open', 'recommended')` (DESIGN-0032 Data Model).
+- **`reopen_after` and `max_open_prs` had no table** → resolved like mode and persisted on `repository_policy_state` (DESIGN-0030 D7); the `remediation_due` view reads them from that row.
+- **`checks` as the evaluation log** → `trigger` CHECK gains `pr_event` and `manual`; `pending_result` stays JSONB because evidence is text-only and bounded (DESIGN-0032 Data Model).
+- **`repositories` rule-engine columns** → `last_check_outcome`, `policy_version`, `catalog_parse_ok` are dropped at cutover in `00007` (DESIGN-0032).
+- **Append-only grants** → stated for both `result_events` and `remediation_events`, created by the migrating role alongside the two application roles (DESIGN-0032 D8).
 ```
 
 ## Deep dive 4: implementation order
@@ -1418,13 +1450,13 @@ DESIGN-0029's rollout plan gives the order in one line each. This expands it int
 | # | Phase | Delivers | Depends on | Parallel lane |
 | - | ----- | -------- | ---------- | ------------- |
 | 0 | **Decide and verify** | the 15 open questions answered; investigation on A1–A23 and F1–F10 with keep / adapt / remove per assumption; the IMPL document | DESIGN-0029..0033 accepted | — (user-owned) |
-| 0.5 | **Contracts** | one commit on the integration branch: `internal/control` types (including `Definition`, `Reason`), the DDL for all seven tables, `policy.Assignment` / `Resolution`, `github.Reader` / `Writer` / `PRObserver` interfaces, `api/openapi.yaml` stubs for the new resources, migration numbers reserved | 0 | — (one author) |
+| 0.5 | **Contracts** | one commit on the integration branch: `internal/control` types (`Definition`, `Reason`, `RuleKindSpec`, `StatusOf`, `Fingerprint`), the DDL for all seven tables plus the two roles, `policy.Assignment` / `Resolution`, `github.Reader` / `PRObserver` / `Writer` (with `Commit`), `api/openapi.yaml` stubs for the new resources including `POST /repositories/{id}/evaluate`, migration numbers `00004`–`00007` reserved | 0 | — (one author) |
 | 1 | **Control framework + codeowners** | `internal/control` behaviour (`StatusOf`, `Fingerprint`, `FileSpec`, `LocateFile`, file helpers, registry, template self-check), `controltest` conformance suite, `internal/controls/codeowners` | 0.5 | A |
 | 2 | **Policy model** | catalogue / enterprise / org loader with empty `EvalContext`, slug grammar, validation (ownership, reasons, references), `Snapshot.Resolve`, `VersionV2` over the new inputs, `policy.Summarize`, table tests | 0.5 (and 1 for `Type.Build` at load) | B |
 | 3 | **Schema + store** | migrations `00004`–`00006`, sqlc queries (`RecordEvaluation`, narrow record, `remediation_due`, `ComplianceByControl`, `api_*`), `V2Store` methods, role grants, `DryRun` wiring, store integration tests | 0.5 | C |
 | 4 | **Evaluation workflow, evaluate-only** | pinned cached `Reader`, `Evaluate` activity, `RepoWorkflow` adaptation, discovery + resolution, policy rollout re-resolve, push scoping by `Resources()`, PR observation, `pr_event` ingest, budgets `installation/eval/<id>`, `evaluator` role, queue `repo-guardian-eval`, `EVAL_INTERVAL`, chart | 1, 2, 3 | — (integration) |
-| 5 | **API + UI reads** | `/controls`, `/policies`, `/repositories/{id}/controls`, `/remediations`, `/orgs/{org}` extension, merged events, `/summary` + `/status` extensions; UI views; `evidence_kind` renderer registry; report on `ComplianceByControl` | 3 (contracts suffice to start), 4 for e2e | D (can start after 0.5 against seeded rows) |
-| 6 | **Remediation + second App** | `Writer` with git-data commit, `PRObserver`, remediation workflow, find-or-adopt, PR cap, lifecycle, `remediation-sweep`, `remediator` role, queue `repo-guardian-remediate`, KEDA per queue, chart secret scoping, Remediation App permission derivation | 4 | E |
+| 5 | **API + UI** | `/controls`, `/policies`, `/repositories/{id}/controls`, `/repositories/{id}/evaluations`, `/remediations`, `/orgs/{org}` extension, merged events, `/summary` + `/status` extensions, `POST /repositories/{id}/evaluate` with the api role's optional signal-only Temporal client and the BFF `POST` proxy; UI views; `evidence_kind` renderer registry; report on `ComplianceByControl` | 3 (contracts suffice to start), 4 for e2e and the `POST` | D (can start after 0.5 against seeded rows) |
+| 6 | **Remediation + second App** | `Writer.Commit` on the git-data API, find-or-adopt through `PRObserver`, remediation workflow, PR cap, lifecycle including `closed_withdrawn`, `remediation-sweep` on the `remediation_due` view, `remediator` role connecting as `rg_remediator`, queue `repo-guardian-remediate`, KEDA per queue, chart secret scoping, Remediation App permission derivation | 4 | E |
 | 7 | **Remaining control types** | `catalog_info`, `dependency_updates`, `file`, `repo_settings`, `branch_ruleset`, `labels`, `custom_properties` (+ tag schema seam per 0033 OQ1–OQ3) | 1 for evaluate halves; 6 for API-remediated types' `direct` path | F1..F7, one worktree each |
 | 8 | **Observability + CLI** | metrics table from 0032, dashboards and alerts regenerated (`make monitoring-generate`), posture exporter on `control_results`, `repo-guardian evaluate --format json --detailed-exitcode`, `repo-guardian policy validate` | 4 (metrics), 6 (remediation metrics) | G |
 | 9 | **Cutover and removal** | close v1 PRs with a pointer comment, retire `TestPRIdentity_IsFrozen` literals deliberately, remove `internal/checker`, reconcilers, parity suite, v1 loader, `findings` tables (`00007`), migration guide `v1 rules → control types` | 4–8 shipped as rc | — |

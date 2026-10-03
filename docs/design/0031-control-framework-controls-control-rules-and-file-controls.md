@@ -20,7 +20,7 @@ created: 2026-10-02
   - [Package layout](#package-layout)
   - [The interface](#the-interface)
     - [Supporting types](#supporting-types)
-    - [Reader and writer](#reader-and-writer)
+    - [Reader, PR observer and writer](#reader-pr-observer-and-writer)
   - [Rules and results](#rules-and-results)
   - [File controls](#file-controls)
   - [Built-in control types](#built-in-control-types)
@@ -104,7 +104,7 @@ package control
 // bump is catalogue data, not a new Type.
 type Type interface {
     Name() string                          // "codeowners"
-    RuleKinds() []RuleKind                 // what rules a definition may declare
+    RuleKinds() []RuleKindSpec             // what rules a definition may declare, with their parameters
     Build(def Definition) (Control, error) // validates parameters at policy load
 }
 
@@ -131,6 +131,20 @@ Two methods rather than one `Run(mode)` (D1), because the methods need different
 ```go
 package control
 
+// Definition is one catalogue entry after HCL decode and before Build:
+// what the loader hands to Type.Build. It is data; the Control that
+// Build returns is the behaviour.
+type Definition struct {
+    ID       ID
+    Title    string
+    Type     string          // the Type.Name() that builds it
+    Rules    []Rule          // kinds and params validated by Type.Build
+    Template string          // template store name; must pass every remediable rule
+    PR       policy.PRConfig // pr {} block: title, body, labels (DESIGN-0030)
+    Apply    string          // "pr" (default) | "direct"; API-remediated types only
+    Params   map[string]any  // type-level params: dependency_updates.tool, file.path, …
+}
+
 // ID names one catalogue definition. Version is the integer the
 // catalogue declares; policies reference it as "codeowners@2".
 type ID struct {
@@ -149,6 +163,23 @@ type Resource struct {
 
 // RuleKind is a check a Type offers, such as "exists" or "owners".
 type RuleKind string
+
+// RuleKindSpec is what a Type says about one of its kinds: the
+// parameters it accepts and whether Remediate can fix it. The policy
+// loader validates against it and the reference docs are generated
+// from it, so the two cannot drift.
+type RuleKindSpec struct {
+    Kind       RuleKind
+    Params     []ParamSpec
+    Remediable bool // a rule of this kind may declare remediate = true
+}
+
+// ParamSpec is one parameter of a rule kind.
+type ParamSpec struct {
+    Name     string
+    Type     string // "string", "bool", "list(string)", …
+    Required bool
+}
 
 // Rule is one declared requirement of a control.
 type Rule struct {
@@ -218,6 +249,7 @@ type FileChange struct {
     Path    string
     Content []byte // ignored when Delete is set
     Delete  bool
+    Reason  string // missing | rule_failed:<rule id> | stale | orphan (DESIGN-0033 item 3)
 }
 
 // APIChange is one direct change to a non-file resource.
@@ -225,6 +257,7 @@ type APIChange struct {
     Resource Resource
     Op       string // "set" or "delete"
     Value    any    // the resource kind's value type; nil clears
+    Reason   string // as FileChange.Reason
 }
 
 // ChangeSet is what a remediation proposes.
@@ -235,11 +268,29 @@ type ChangeSet struct {
 }
 ```
 
-`template.Vars` is new: the variables a control template sees. It replaces `FileVars` for control code; the existing renderer is kept (assumption A10).
+`template.Vars` is new: the variables a control template sees. It replaces `FileVars` for control code; the existing renderer is kept (assumption A10). `Reason` on a change is not persisted; it feeds the PR body and the `repo-guardian evaluate --format json` preview (DESIGN-0032 D7).
 
-#### Reader and writer
+Two functions belong to the framework rather than to any type, because both workflows must compute them the same way:
 
-Both interfaces are scoped to one repository; the org and the installation are fixed when they are built.
+```go
+package control
+
+// StatusOf derives the control status from the rule results, in the
+// order of the table under "Rules and results": any fail → non_compliant,
+// else any error → unknown, else all not_applicable → not_applicable,
+// else compliant.
+func StatusOf(ev Evaluation) Status
+
+// Fingerprint is what DESIGN-0032 compares between evaluations. It hashes
+// the control id and version, the sorted (rule id, status) pairs and the
+// sorted (resource, blob SHA or "absent") reads, and nothing else: not
+// evidence wording, not timestamps, not the pinned commit.
+func Fingerprint(id ID, ev Evaluation) string
+```
+
+#### Reader, PR observer and writer
+
+Three interfaces, all scoped to one repository; the org and the installation are fixed when they are built. Controls receive only `Reader`. The evaluate activity and the remediation run use `PRObserver` for what they need to know about pull requests and branches. Only the remediator holds `Writer` (D7).
 
 ```go
 package github
@@ -257,12 +308,25 @@ type Reader interface {
     CodeownersErrors(ctx context.Context) ([]CodeownersError, error)
 }
 
+// PRObserver is what the workflows read about pull requests and
+// branches. No control uses it. The Evaluation App's token backs it in
+// the evaluate activity (PR observation, DESIGN-0032); the Remediation
+// App's token backs it in the remediation run (find or adopt).
+type PRObserver interface {
+    ListPullRequests(ctx context.Context, headPrefix string) ([]PullRequest, error) // open PRs whose head branch starts with headPrefix
+    GetPullRequest(ctx context.Context, number int) (*PullRequest, error)
+    ListCommits(ctx context.Context, branch string) ([]Commit, error) // each with its author App identity, for find or adopt
+    GetRef(ctx context.Context, branch string) (sha string, exists bool, err error)
+}
+
 // Writer is what the remediation workflow applies a ChangeSet with.
 // Controls never receive it. The Remediation App's token backs it.
 type Writer interface {
-    CreateOrUpdateFile(ctx context.Context, branch, path string, content []byte, message string) error
-    DeleteFile(ctx context.Context, branch, path, message string) error
-    UpdateRef(ctx context.Context, branch, sha string, create bool) error
+    // Commit builds blobs, a tree and one commit on top of baseSHA through
+    // the git-data API, then fast-forwards branch to it, creating the
+    // branch when absent. It returns ErrNotFastForward when the ref no
+    // longer points at baseSHA (D8).
+    Commit(ctx context.Context, branch, baseSHA string, changes []control.FileChange, message string) (headSHA string, err error)
     CreatePullRequest(ctx context.Context, head, base, title, body string) (*PullRequest, error)
     UpdatePullRequest(ctx context.Context, number int, title, body string) error
     ClosePullRequest(ctx context.Context, number int) error
@@ -274,7 +338,7 @@ type Writer interface {
 }
 ```
 
-`Reader` is the whole read surface a built-in type needs: file contents for every file control, directory listings for `dependency_updates`' location search, settings and rulesets for `repo_settings` and `branch_ruleset`, properties and labels for their types, and the CODEOWNERS errors endpoint for the `valid` rule kind.
+`Reader` is the whole read surface a built-in type needs: file contents for every file control, directory listings for `dependency_updates`' location search, settings and rulesets for `repo_settings` and `branch_ruleset`, properties and labels for their types, and the CODEOWNERS errors endpoint for the `valid` rule kind. `PRObserver` is the whole read surface DESIGN-0032 needs beyond that: the open `repo-guardian/*` PRs and any tracked PR for observation, and the branch head and its commits' authors for find or adopt. `Writer.Commit` is one commit per change set whatever the number of files; the Contents API would be one commit per file, so a multi-file change set could be left half-applied.
 
 ### Rules and results
 
@@ -469,7 +533,7 @@ Each carries `remediation { apply = "pr" | "direct" }` in its catalogue definiti
 control.Register(codeowners.Type{})
 ```
 
-At policy load, every catalogue definition is passed to its type's `Build`, which validates rule kinds and parameters and compiles templates. Load fails on unknown types, unknown rule kinds, bad parameters, or a template that fails its own remediable rules. The template check renders the template with the type's sample variables (org `example-org`, repository `example`) and evaluates the control against the output; it runs at load and again in the conformance suite (D2). A template whose output depends on real repository data is caught by the runtime self-check: after `Remediate`, the workflow evaluates the changed content and refuses a change that does not pass (DESIGN-0032).
+At policy load, every catalogue definition is decoded into a `Definition` and passed to its type's `Build`, which validates rule kinds and parameters against the type's `RuleKindSpec`s and compiles templates. Load fails on unknown types, unknown rule kinds, bad parameters, or a template that fails its own remediable rules. The template check renders the template with the type's sample variables (org `example-org`, repository `example`) and evaluates the control against the output; it runs at load and again in the conformance suite (D2). A template whose output depends on real repository data is caught by the runtime self-check: after `Remediate`, the workflow evaluates the changed content and refuses a change that does not pass (DESIGN-0032).
 
 A definition's version is part of its `ID`. The same `Type` builds `codeowners@1` and `codeowners@2`, so bumping a version is a catalogue change, not a release.
 
@@ -488,9 +552,9 @@ Several controls read the same data. For example, `catalog_info` and `custom_pro
 ## API / Interface Changes
 
 - New packages `internal/control`, `internal/control/controltest` and `internal/controls/*`.
-- `github.Reader` and `github.Writer` as defined above. They replace the single `github.Client` for control and remediation code (assumption A12).
-- `template.Vars`, the variables a control template sees.
-- Catalogue HCL as in DESIGN-0030; rule kinds and parameters per type, documented from the types' own metadata (`RuleKinds()`), so the docs cannot drift from the code.
+- `github.Reader`, `github.PRObserver` and `github.Writer` as defined above. They replace the single `github.Client` for control, evaluation and remediation code (assumption A12).
+- `template.Vars`, the variables a control template sees. `template.PRVars` gains `.Control` (`Slug`, `Version`, `Title`), `.Failing` (a `[]RuleView` of `ID`, `Number`, `Title` for the rules the PR fixes) and `.Notes` for the `pr {}` title and body.
+- Catalogue HCL as in DESIGN-0030; rule kinds and parameters per type, documented from the types' own metadata (`RuleKinds()` returning `RuleKindSpec`), so the docs cannot drift from the code.
 
 ## Data Model
 
@@ -539,6 +603,8 @@ Former open questions this document settles.
 - **D4 Controls share reads, never results** — one cached reader per evaluation; `custom_properties` parses `catalog-info.yaml` itself through the shared parser. Evaluation order never matters, and one control's failure cannot cascade into another. Explicit dependencies would introduce a graph and order-dependent results.
 - **D5 JSON Renovate configs get minimal edits; JSON5 gets a note** — a node-preserving JSON encoder for `.json`; a JSON5 `extends` failure becomes a manual note instead of rewriting a team's commented file through a JSON encoder.
 - **D6 The generic `file` control is `exists` or `exact` only** — no `contains` and no `absent`. Anything that inspects inside a file is, by definition, a control type, and "this path must not exist" belongs to a type that knows why the file is forbidden.
+- **D7 Three GitHub interfaces** — `Reader` is exactly what a control may read, `PRObserver` is what the workflows read about pull requests and branches, `Writer` is what the remediator applies. Putting PR reads on `Reader` would hand controls a surface none of them uses, and leaving them out left DESIGN-0032's PR observation and find-or-adopt with no method to call.
+- **D8 `Writer.Commit` through the git-data API** — one commit per change set, non-forced ref update, `ErrNotFastForward` when a human pushed in between. The Contents API is one commit per file, so a multi-file change set could be half-applied and the "nothing is half-applied, nothing is overwritten" guarantee in DESIGN-0032 would not hold.
 
 ## Open Questions
 

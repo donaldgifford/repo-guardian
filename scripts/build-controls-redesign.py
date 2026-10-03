@@ -450,7 +450,7 @@ def main():
     x.append('<section id="explainer">')
     x.append("<h1>repo-guardian controls redesign</h1>")
     x.append('<p class="lede">Opinionated controls assigned by enterprise and org policies, evaluated read-only against every repository, remediated by one PR per control only when something changed.</p>')
-    x.append('<p class="meta">DESIGN-0029, 0030, 0031, 0032 and the fwsync companion DESIGN-0033 · Draft · 2026-10-02 · the four deep dives (data model, API, database, implementation order) and then all five documents follow in full. Diagrams render with mermaid from a CDN; open with network access.</p>')
+    x.append('<p class="meta">DESIGN-0029, 0030, 0031, 0032 and the fwsync companion DESIGN-0033 · Draft · 2026-10-02 · the four deep dives (data model, API, database, implementation order) and then all five documents follow in full. Reconciled 2026-10-03: every gap the deep dives found is now a numbered decision in its design. Diagrams render with mermaid from a CDN; open with network access.</p>')
 
     x.append('<h2 id="x-why">The problem</h2>')
     x.append("<p>v1 evaluates each rule in isolation against the files it names. Rules that target the same file have no shared view of the result: one rule's cleanup deleted a CODEOWNERS file another rule still required (the wiz-owners incident on v1.11.1), two rules could write one file in turn, and a &ldquo;must exist&rdquo; / &ldquo;must not exist&rdquo; pair on the same path looped forever. A review of the engine found nine places with the same shape. The conclusion was that the engine is too generic &mdash; a rule is a path plus a check mode, and nothing in the model knows that four of those rules are all <em>about CODEOWNERS</em>. The fix is structural, not another patch.</p>")
@@ -493,7 +493,7 @@ def main():
     x.append("<p>fwsync is the maintainer's Wiz-side tool: frameworks, rules, scan policies and projects as HCL in git, compiled from a compact domain schema and diff-applied to the Wiz API with a lockfile. Its vocabulary rhymes with the controls model and its direction is the opposite &mdash; it owns its target, repo-guardian proposes. DESIGN-0033 maps every concept, adopts seven conventions and its test kit, rejects every form of code reuse with evidence from the source, and identifies the one real seam: the governed tag schema that both tools use to define the same GitHub custom properties.</p>")
 
     x.append('<h2 id="x-ledger">Decision ledger</h2>')
-    x.append("<p>Every settled choice, across the five documents. Each has a one-line rationale in its document.</p>")
+    x.append("<p>Every settled choice, across the five documents. Each has a one-line rationale in its document. The later-numbered ones (DESIGN-0030 D6–D7, DESIGN-0031 D7–D8, DESIGN-0032 D8–D10) were added by the reconciliation pass after the deep dives exposed types the prose relied on but never defined, and places where the documents disagreed.</p>")
     for d in docs:
         if not d["decisions"]:
             continue
@@ -521,7 +521,7 @@ def main():
     # ---- deep dives
     body = ['<hr class="docsep">', '<section id="deep">',
             '<h1>Deep dives</h1>',
-            '<p class="lede">Four cross-cutting views that put the five documents next to each other: the types and how data flows through them, the API, the database schema, and the order to build it in. Each ends with the gaps found while drawing it.</p>',
+            '<p class="lede">Four cross-cutting views that put the five documents next to each other: the types and how data flows through them, the API, the database schema, and the order to build it in. Each ends with the gaps found while drawing it and the decision in the designs that resolved it.</p>',
             deep_html, '</section>']
 
     # ---- docs

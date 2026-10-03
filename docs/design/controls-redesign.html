@@ -37,15 +37,18 @@ blockquote{margin:12px 0;padding:8px 16px;border-left:4px solid var(--line);colo
 .doc-title{font-size:26px;margin:0 0 4px}
 .oq-rec{background:var(--ok);padding:2px 6px;border-radius:4px}
 .note{background:var(--warn);border:1px solid #d4a72c;border-radius:6px;padding:10px 14px;font-size:14px}
+.note p{margin:6px 0}.note ul{margin:6px 0 0 18px;padding:0}.note li{margin:4px 0}
+pre code.hljs{background:transparent;padding:0}
 .kv{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .kv ul{margin:6px 0 0 18px;padding:0}
 @media (max-width:1100px){nav#side{display:none}main{margin-left:0;padding:24px}}
 @media print{nav#side{display:none}main{margin:0;max-width:none}h2{page-break-before:always}pre{white-space:pre-wrap}}
 </style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
 </head><body>
-<nav id="side"><h1>repo-guardian controls redesign</h1><div class="sub">DESIGN-0029 → 0033 · branch docs/controls-and-policies · PR #202</div><a class="doc" href="#explainer">Explainer</a><a class="h3" href="#x-why">The problem</a><a class="h3" href="#x-changes">The big changes</a><a class="h3" href="#x-arch">Architecture</a><a class="h3" href="#x-life">A repository's life</a><a class="h3" href="#x-keep">What stays, what goes</a><a class="h3" href="#x-fwsync">fwsync</a><a class="h3" href="#x-ledger">Decision ledger</a><a class="h3" href="#x-oqs">Open questions</a><a class="h3" href="#x-read">Reading order</a><a class="doc" href="#d0029">DESIGN-0029</a><a class="h3" href="#d0029-overview">Overview</a><a class="h3" href="#d0029-goals-and-non-goals">Goals and Non-Goals</a><a class="h3" href="#d0029-background">Background</a><a class="h3" href="#d0029-detailed-design">Detailed Design</a><a class="h3" href="#d0029-api--interface-changes">API / Interface Changes</a><a class="h3" href="#d0029-data-model">Data Model</a><a class="h3" href="#d0029-testing-strategy">Testing Strategy</a><a class="h3" href="#d0029-migration--rollout-plan">Migration / Rollout Plan</a><a class="h3" href="#d0029-decisions">Decisions</a><a class="h3" href="#d0029-open-questions">Open Questions</a><a class="doc" href="#d0030">DESIGN-0030</a><a class="h3" href="#d0030-overview">Overview</a><a class="h3" href="#d0030-goals-and-non-goals">Goals and Non-Goals</a><a class="h3" href="#d0030-background">Background</a><a class="h3" href="#d0030-detailed-design">Detailed Design</a><a class="h3" href="#d0030-api--interface-changes">API / Interface Changes</a><a class="h3" href="#d0030-data-model">Data Model</a><a class="h3" href="#d0030-testing-strategy">Testing Strategy</a><a class="h3" href="#d0030-migration--rollout-plan">Migration / Rollout Plan</a><a class="h3" href="#d0030-decisions">Decisions</a><a class="h3" href="#d0030-open-questions">Open Questions</a><a class="doc" href="#d0031">DESIGN-0031</a><a class="h3" href="#d0031-overview">Overview</a><a class="h3" href="#d0031-goals-and-non-goals">Goals and Non-Goals</a><a class="h3" href="#d0031-background">Background</a><a class="h3" href="#d0031-detailed-design">Detailed Design</a><a class="h3" href="#d0031-api--interface-changes">API / Interface Changes</a><a class="h3" href="#d0031-data-model">Data Model</a><a class="h3" href="#d0031-testing-strategy">Testing Strategy</a><a class="h3" href="#d0031-migration--rollout-plan">Migration / Rollout Plan</a><a class="h3" href="#d0031-decisions">Decisions</a><a class="h3" href="#d0031-open-questions">Open Questions</a><a class="doc" href="#d0032">DESIGN-0032</a><a class="h3" href="#d0032-overview">Overview</a><a class="h3" href="#d0032-goals-and-non-goals">Goals and Non-Goals</a><a class="h3" href="#d0032-background">Background</a><a class="h3" href="#d0032-detailed-design">Detailed Design</a><a class="h3" href="#d0032-data-model">Data Model</a><a class="h3" href="#d0032-api--interface-changes">API / Interface Changes</a><a class="h3" href="#d0032-metrics">Metrics</a><a class="h3" href="#d0032-failure-semantics">Failure semantics</a><a class="h3" href="#d0032-temporal-mapping">Temporal mapping</a><a class="h3" href="#d0032-testing-strategy">Testing Strategy</a><a class="h3" href="#d0032-migration--rollout-plan">Migration / Rollout Plan</a><a class="h3" href="#d0032-decisions">Decisions</a><a class="h3" href="#d0032-open-questions">Open Questions</a><a class="doc" href="#d0033">DESIGN-0033</a><a class="h3" href="#d0033-overview">Overview</a><a class="h3" href="#d0033-goals-and-non-goals">Goals and Non-Goals</a><a class="h3" href="#d0033-background">Background</a><a class="h3" href="#d0033-detailed-design">Detailed Design</a><a class="h3" href="#d0033-api--interface-changes">API / Interface Changes</a><a class="h3" href="#d0033-data-model">Data Model</a><a class="h3" href="#d0033-testing-strategy">Testing Strategy</a><a class="h3" href="#d0033-migration--rollout-plan">Migration / Rollout Plan</a><a class="h3" href="#d0033-decisions">Decisions</a><a class="h3" href="#d0033-open-questions">Open Questions</a><a class="h3" href="#d0033-references">References</a></nav>
+<nav id="side"><h1>repo-guardian controls redesign</h1><div class="sub">DESIGN-0029 → 0033 · branch docs/controls-and-policies · PR #202</div><a class="doc" href="#explainer">Explainer</a><a class="h3" href="#x-why">The problem</a><a class="h3" href="#x-changes">The big changes</a><a class="h3" href="#x-arch">Architecture</a><a class="h3" href="#x-life">A repository's life</a><a class="h3" href="#x-keep">What stays, what goes</a><a class="h3" href="#x-fwsync">fwsync</a><a class="h3" href="#x-ledger">Decision ledger</a><a class="h3" href="#x-oqs">Open questions</a><a class="h3" href="#x-read">Reading order</a><a class="doc" href="#deep">Deep dives</a><a class="h3" href="#dd-deep-dive-1-data-model-and-type-flow">Deep dive 1: data model and type flow</a><a class="h3" href="#dd-deep-dive-2-the-api">Deep dive 2: the API</a><a class="h3" href="#dd-deep-dive-3-database-and-schema">Deep dive 3: database and schema</a><a class="h3" href="#dd-deep-dive-4-implementation-order">Deep dive 4: implementation order</a><a class="doc" href="#d0029">DESIGN-0029</a><a class="h3" href="#d0029-overview">Overview</a><a class="h3" href="#d0029-goals-and-non-goals">Goals and Non-Goals</a><a class="h3" href="#d0029-background">Background</a><a class="h3" href="#d0029-detailed-design">Detailed Design</a><a class="h3" href="#d0029-api--interface-changes">API / Interface Changes</a><a class="h3" href="#d0029-data-model">Data Model</a><a class="h3" href="#d0029-testing-strategy">Testing Strategy</a><a class="h3" href="#d0029-migration--rollout-plan">Migration / Rollout Plan</a><a class="h3" href="#d0029-decisions">Decisions</a><a class="h3" href="#d0029-open-questions">Open Questions</a><a class="doc" href="#d0030">DESIGN-0030</a><a class="h3" href="#d0030-overview">Overview</a><a class="h3" href="#d0030-goals-and-non-goals">Goals and Non-Goals</a><a class="h3" href="#d0030-background">Background</a><a class="h3" href="#d0030-detailed-design">Detailed Design</a><a class="h3" href="#d0030-api--interface-changes">API / Interface Changes</a><a class="h3" href="#d0030-data-model">Data Model</a><a class="h3" href="#d0030-testing-strategy">Testing Strategy</a><a class="h3" href="#d0030-migration--rollout-plan">Migration / Rollout Plan</a><a class="h3" href="#d0030-decisions">Decisions</a><a class="h3" href="#d0030-open-questions">Open Questions</a><a class="doc" href="#d0031">DESIGN-0031</a><a class="h3" href="#d0031-overview">Overview</a><a class="h3" href="#d0031-goals-and-non-goals">Goals and Non-Goals</a><a class="h3" href="#d0031-background">Background</a><a class="h3" href="#d0031-detailed-design">Detailed Design</a><a class="h3" href="#d0031-api--interface-changes">API / Interface Changes</a><a class="h3" href="#d0031-data-model">Data Model</a><a class="h3" href="#d0031-testing-strategy">Testing Strategy</a><a class="h3" href="#d0031-migration--rollout-plan">Migration / Rollout Plan</a><a class="h3" href="#d0031-decisions">Decisions</a><a class="h3" href="#d0031-open-questions">Open Questions</a><a class="doc" href="#d0032">DESIGN-0032</a><a class="h3" href="#d0032-overview">Overview</a><a class="h3" href="#d0032-goals-and-non-goals">Goals and Non-Goals</a><a class="h3" href="#d0032-background">Background</a><a class="h3" href="#d0032-detailed-design">Detailed Design</a><a class="h3" href="#d0032-data-model">Data Model</a><a class="h3" href="#d0032-api--interface-changes">API / Interface Changes</a><a class="h3" href="#d0032-metrics">Metrics</a><a class="h3" href="#d0032-failure-semantics">Failure semantics</a><a class="h3" href="#d0032-temporal-mapping">Temporal mapping</a><a class="h3" href="#d0032-testing-strategy">Testing Strategy</a><a class="h3" href="#d0032-migration--rollout-plan">Migration / Rollout Plan</a><a class="h3" href="#d0032-decisions">Decisions</a><a class="h3" href="#d0032-open-questions">Open Questions</a><a class="doc" href="#d0033">DESIGN-0033</a><a class="h3" href="#d0033-overview">Overview</a><a class="h3" href="#d0033-goals-and-non-goals">Goals and Non-Goals</a><a class="h3" href="#d0033-background">Background</a><a class="h3" href="#d0033-detailed-design">Detailed Design</a><a class="h3" href="#d0033-api--interface-changes">API / Interface Changes</a><a class="h3" href="#d0033-data-model">Data Model</a><a class="h3" href="#d0033-testing-strategy">Testing Strategy</a><a class="h3" href="#d0033-migration--rollout-plan">Migration / Rollout Plan</a><a class="h3" href="#d0033-decisions">Decisions</a><a class="h3" href="#d0033-open-questions">Open Questions</a><a class="h3" href="#d0033-references">References</a></nav>
 <main>
-<section id="explainer"><h1>repo-guardian controls redesign</h1><p class="lede">Opinionated controls assigned by enterprise and org policies, evaluated read-only against every repository, remediated by one PR per control only when something changed.</p><p class="meta">DESIGN-0029, 0030, 0031, 0032 and the fwsync companion DESIGN-0033 · Draft · 2026-10-02 · all five documents follow the explainer in full. Diagrams render with mermaid from a CDN; open with network access.</p><h2 id="x-why">The problem</h2><p>v1 evaluates each rule in isolation against the files it names. Rules that target the same file have no shared view of the result: one rule's cleanup deleted a CODEOWNERS file another rule still required (the wiz-owners incident on v1.11.1), two rules could write one file in turn, and a &ldquo;must exist&rdquo; / &ldquo;must not exist&rdquo; pair on the same path looped forever. A review of the engine found nine places with the same shape. The conclusion was that the engine is too generic &mdash; a rule is a path plus a check mode, and nothing in the model knows that four of those rules are all <em>about CODEOWNERS</em>. The fix is structural, not another patch.</p><pre class="mermaid">flowchart LR
+<section id="explainer"><h1>repo-guardian controls redesign</h1><p class="lede">Opinionated controls assigned by enterprise and org policies, evaluated read-only against every repository, remediated by one PR per control only when something changed.</p><p class="meta">DESIGN-0029, 0030, 0031, 0032 and the fwsync companion DESIGN-0033 · Draft · 2026-10-02 · the four deep dives (data model, API, database, implementation order) and then all five documents follow in full. Diagrams render with mermaid from a CDN; open with network access.</p><h2 id="x-why">The problem</h2><p>v1 evaluates each rule in isolation against the files it names. Rules that target the same file have no shared view of the result: one rule's cleanup deleted a CODEOWNERS file another rule still required (the wiz-owners incident on v1.11.1), two rules could write one file in turn, and a &ldquo;must exist&rdquo; / &ldquo;must not exist&rdquo; pair on the same path looped forever. A review of the engine found nine places with the same shape. The conclusion was that the engine is too generic &mdash; a rule is a path plus a check mode, and nothing in the model knows that four of those rules are all <em>about CODEOWNERS</em>. The fix is structural, not another patch.</p><pre class="mermaid">flowchart LR
     subgraph V1["v1 today: rules in isolation"]
         R1["rule codeowners (exists)"] --&gt; F1["CODEOWNERS"]
         R2["rule wiz-owners (contains)"] --&gt; F1
@@ -110,7 +113,1295 @@ blockquote{margin:12px 0;padding:8px 16px;border-left:4px solid var(--line);colo
     GH--&gt;&gt;E: PR #12 merged (webhook to the Evaluation App)
     E-&gt;&gt;GH: read default branch
     E-&gt;&gt;DB: CODEOWNERS 1.0 compliant, generation 2, PR #12 merged</pre><h2 id="x-keep">What stays, what goes</h2><div class="kv"><div><strong>Kept (per the assumptions register, confirmed by the follow-up INV)</strong><ul><li>Temporal control plane: <code>RepoWorkflow</code> shape, signals, ContinueAsNew; the rate-budget <code>InstallationWorkflow</code> (gains an App dimension in its id); discovery and policy-rollout workflows</li><li>Repository identity (<code>repositories.id</code>, rename/transfer events) and parking via <code>UpsertDiscovered</code> as the only un-parker</li><li>Ingest role and HMAC validation; the API role, OIDC authn/authz, read-only pool and scoped queries; the UI</li><li>Policy version hashing (<code>VersionV2</code>) and the compliance snapshot query shape</li><li>The catalog-info parser, the template renderer with curated helpers, the GitHub client transport chain (otelhttp → rate limit → ghinstallation)</li></ul></div><div><strong>Replaced</strong><ul><li>The checker engine's two-pass rule iteration, gate evaluator, orphan cleanup and inverse-orphan restoration → <code>Control.Evaluate</code> / <code>Control.Remediate</code> per control</li><li>The reconciler registry (custom_properties, label_sync, branch_protection, workflow_sync) → control types with declared resources; <code>workflow_sync</code> dissolves into push-path scoping</li><li><code>rule_state</code> / findings keyed by (kind, name) → <code>control_results</code>, <code>rule_results</code>, <code>result_events</code>, <code>remediations</code> with generations</li><li>The single reconcile branch and sticky reconcile-log comment → per-control branches and PR lifecycle states</li><li>Per-rule <code>scope</code> / <code>ignore</code> blocks and strict/legacy scope modes → enterprise + org policies with layered resolution and provenance</li></ul></div></div><p class="note">The keep/replace split rests on the assumptions register in DESIGN-0029 (A1–A23) and DESIGN-0033 (F1–F10). The next step after the open questions is an investigation that verifies each assumption against the v2 code before the IMPL plan is written.</p><h2 id="x-fwsync">fwsync</h2><p>fwsync is the maintainer's Wiz-side tool: frameworks, rules, scan policies and projects as HCL in git, compiled from a compact domain schema and diff-applied to the Wiz API with a lockfile. Its vocabulary rhymes with the controls model and its direction is the opposite &mdash; it owns its target, repo-guardian proposes. DESIGN-0033 maps every concept, adopts seven conventions and its test kit, rejects every form of code reuse with evidence from the source, and identifies the one real seam: the governed tag schema that both tools use to define the same GitHub custom properties.</p><h2 id="x-ledger">Decision ledger</h2><p>Every settled choice, across the five documents. Each has a one-line rationale in its document.</p><h4>DESIGN-0029</h4><table><thead><tr><th style="width:60px">#</th><th style="width:34%">Decision</th><th>Rationale</th></tr></thead><tbody><tr><td>D1</td><td>No v1 policy translation</td><td>there is no automatic translation; a migration guide maps v1 rules to control types. The models differ in kind (paths and regexes versus typed rules), so a mechanical translation would produce generic <code>file</code> controls and miss the point, and the known fleet policies are small.</td></tr><tr><td>D2</td><td>Identifiers</td><td>a control's id is a stable slug (<code>codeowners</code>); rule ids are bare and unique within the control (<code>exists</code>, <code>wiz-owners</code>), stored under <code>(repository_id, control_id, rule_id)</code> and qualified as <code>codeowners@1/exists</code> only in logs and the UI; rule numbers (<code>1.1</code>, <code>1.2</code>) are display only. Slugs survive renumbering and keep database keys and URLs stable; the control is the namespace, so rule ids stay short in HCL.</td></tr><tr><td>D3</td><td>Versions</td><td>a control's version is an integer in the catalogue (<code>version = 2</code>), referenced exactly as <code>codeowners@2</code>. A bump is catalogue data served by the same Go type, an org trials <code>@2</code> through <code>replace</code> (DESIGN-0030), and <code>result_events</code> records the version each result came from. "Did the rules change" needs no semantic-version semantics.</td></tr></tbody></table><h4>DESIGN-0030</h4><table><thead><tr><th style="width:60px">#</th><th style="width:34%">Decision</th><th>Rationale</th></tr></thead><tbody><tr><td>D1</td><td>Org onboarding</td><td>the enterprise <code>orgs</code> list is the only onboarding gate; an org policy for an org not in it is a load error. Onboarding stays one reviewed change in one file, and a stray org file cannot silently bring an org under management.</td></tr><tr><td>D2</td><td>Exclusion reasons</td><td>every <code>exclude</code> and <code>exclude_repos</code> carries a required, non-empty <code>reason</code>, stored with the assignment or the repository state and shown in the UI. An exception without a reason is the one an auditor asks about.</td></tr><tr><td>D3</td><td>Policy source</td><td>the policy directory is a mounted ConfigMap, as <code>GUARDIAN_CONFIG</code> is today. No new moving parts; changes go through the same values or Argo review path. A git-sync sidecar can be added later without changing the loader.</td></tr><tr><td>D4</td><td>Fact selectors</td><td>selection is by org and repository name globs only. Facts (visibility, topics, catalog-info <code>spec.type</code>) need an evaluation to have run first, which would make resolution two-pass; names cover the stated needs, and a <code>facts</code> selector can be added later.</td></tr><tr><td>D5</td><td>Counting exclusions</td><td>excluded controls and excluded, unmanaged or parked repositories are recorded (<code>control_assignments.state</code>, <code>repository_policy_state</code>) and reported separately, never in the compliance denominator. "92% compliant, 14 exclusions" is honest; folding exclusions into either side of the percentage is not.</td></tr></tbody></table><h4>DESIGN-0031</h4><table><thead><tr><th style="width:60px">#</th><th style="width:34%">Decision</th><th>Rationale</th></tr></thead><tbody><tr><td>D1</td><td><code>Evaluate</code> + <code>Remediate</code>, not one <code>Run(mode)</code></td><td>two methods, with <code>Remediate</code> returning a <code>ChangeSet</code>. The type system enforces the capability split: evaluation workers call a method whose inputs hold no writer, and remediation is a pure function of state. A single <code>Run(ctx, mode, client)</code> needs a client capable of both, and a <code>Remediate</code> that writes through a <code>Writer</code> re-creates per-control commit logic and partial applies.</td></tr><tr><td>D2</td><td>The template check runs at load and in the conformance suite</td><td>the template is rendered with the type's sample variables and the control is evaluated against the output; load fails at deploy, the suite fails in CI, and the runtime self-check after <code>Remediate</code> covers templates that depend on real repository data.</td></tr><tr><td>D3</td><td><code>valid</code> is a separate CODEOWNERS rule kind</td><td>GitHub's errors endpoint reports unknown owners and bad patterns, the common real-world failure. Keeping it separate leaves <code>exists</code> cheap and lets a policy choose.</td></tr><tr><td>D4</td><td>Controls share reads, never results</td><td>one cached reader per evaluation; <code>custom_properties</code> parses <code>catalog-info.yaml</code> itself through the shared parser. Evaluation order never matters, and one control's failure cannot cascade into another. Explicit dependencies would introduce a graph and order-dependent results.</td></tr><tr><td>D5</td><td>JSON Renovate configs get minimal edits; JSON5 gets a note</td><td>a node-preserving JSON encoder for <code>.json</code>; a JSON5 <code>extends</code> failure becomes a manual note instead of rewriting a team's commented file through a JSON encoder.</td></tr><tr><td>D6</td><td>The generic <code>file</code> control is <code>exists</code> or <code>exact</code> only</td><td>no <code>contains</code> and no <code>absent</code>. Anything that inspects inside a file is, by definition, a control type, and "this path must not exist" belongs to a type that knows why the file is forbidden.</td></tr></tbody></table><h4>DESIGN-0032</h4><table><thead><tr><th style="width:60px">#</th><th style="width:34%">Decision</th><th>Rationale</th></tr></thead><tbody><tr><td>D1</td><td>Two GitHub Apps</td><td>An Evaluation App that can only read and a Remediation App that can write, each with its own installations, budget, task queue and worker role. The private key is the boundary: one App with down-scoped tokens would still put a write-capable key in every evaluator, and a token broker would add a service to the critical path for the same guarantee.</td></tr><tr><td>D2</td><td>Separate <code>evaluator</code> and <code>remediator</code> roles</td><td>on separate task queues, with <code>all</code> running both for small installs. The Remediation App key exists only in remediator pods; one shared <code>worker</code> role would defeat D1.</td></tr><tr><td>D3</td><td>Resource content changes count as changes</td><td>Blob SHAs of every resource a control read are part of the fingerprint, so a stale PR is rebuilt on the new content instead of sitting until it is unmergeable.</td></tr><tr><td>D4</td><td>Branch <code>repo-guardian/&lt;control slug&gt;</code></td><td>unversioned, so a version bump updates the same PR. At cutover v1's single PR is closed with a pointer comment; adopting it through a transition window would re-introduce the multi-control PR this design removes.</td></tr><tr><td>D5</td><td>No foreign-PR detection</td><td>v1's <code>search_terms</code> substring matching produced false positives. If a human's PR fixes the same thing and merges first, the next evaluation sees compliance on main and closes ours as <code>closed_compliant</code>.</td></tr><tr><td>D6</td><td>One run at a time per (repository, control)</td><td>signals set a re-check flag, and the run re-reads generation and <code>pr_changed</code> from the database before completing. A fresh workflow per signal can drop one that arrives just before completion; a permanently running workflow per control multiplies idle executions.</td></tr><tr><td>D7</td><td>Evaluate mode previews remediation, in a later phase</td><td><code>Remediate</code> needs no write credentials, so the evaluator can compute the change set and store a summary ("would add 1 line to .github/CODEOWNERS") that makes evaluate mode a real dry run before remediation is enabled.</td></tr></tbody></table><h4>DESIGN-0033</h4><table><thead><tr><th style="width:60px">#</th><th style="width:34%">Decision</th><th>Rationale</th></tr></thead><tbody><tr><td>D1</td><td>No runtime or library dependency on fwsync</td><td>nothing in repo-guardian imports, forks, shells out to or reads the output of fwsync. Its packages are <code>internal/</code>, its target is Wiz, and its direction (apply into a control plane you own) is not ours (propose by PR into repositories you do not).</td></tr><tr><td>D2</td><td>Borrow conventions, not code</td><td>the seven items in "What transfers" are adopted as amendments to DESIGN-0030/0031/0032 and tasks in the IMPL plan; this document is their provenance.</td></tr><tr><td>D3</td><td>One definition of the governed tags</td><td>repo-guardian's <code>custom_properties</code> control derives its governed property names and value patterns from the platform tag schema rather than declaring them itself; how it reads that schema is OQ2 and what the keys are called is OQ3.</td></tr><tr><td>D4</td><td>No generator layer in front of the catalogue</td><td>the catalogue is hand-authored data. A <code>repo-guardian gen</code> compiling a compact schema into controls is reconsidered only if per-org or per-tier expansion appears.</td></tr><tr><td>D5</td><td><code>evaluate</code> preview emits JSON and Terraform-style exit codes from the first release</td><td>fwsync's missing JSON mode is the one gap in an otherwise sound CLI contract; we do not repeat it.</td></tr></tbody></table><h2 id="x-oqs">Open questions</h2><p>The decisions that are yours. Each document lists alternatives and an <code>other:</code> line; the recommendation is shown here.</p><h4>DESIGN-0029</h4><table><thead><tr><th style="width:60px">#</th><th style="width:38%">Question</th><th>Recommendation</th></tr></thead><tbody><tr><td><a href="#d0029-oq1-when-does-the-controls-model-land-relative-to-v200">OQ1</a></td><td>When does the controls model land relative to v2.0.0?</td><td><span class="oq-rec"><strong>before v2.0.0, replacing the rule engine on the v2 line.</strong> v2 is pre-release, its data model is not frozen, and shipping v2.0.0 with rule-keyed findings would mean migrating a GA schema later. The rc line absorbs the churn.</span></td></tr><tr><td><a href="#d0029-oq2-where-does-this-work-happen">OQ2</a></td><td>Where does this work happen?</td><td><span class="oq-rec"><strong>on the <code>v2</code> branch, phase by phase like IMPL-0025.</strong> <code>main</code> (v1) gets bug fixes only. The <code>internal/checker</code> divergence between branches is accepted, because v1 stops receiving engine features.</span></td></tr></tbody></table><h4>DESIGN-0030</h4><table><thead><tr><th style="width:60px">#</th><th style="width:38%">Question</th><th>Recommendation</th></tr></thead><tbody><tr><td><a href="#d0030-oq1-is-there-a-separate-repository-policy-type">OQ1</a></td><td>Is there a separate repository policy type?</td><td><span class="oq-rec"><strong>no.</strong> Repository-level variation lives in <code>repos { match = [...] }</code> blocks inside the org policy. Every exception for an org is in one file the org's owners review, and resolution has two layers plus blocks rather than three file types. <code>match</code> globs also cover "these five repos", which a per-repo file would not.</span></td></tr><tr><td><a href="#d0030-oq2-can-an-org-policy-change-a-controls-parameters-eg-different-owner-teams">OQ2</a></td><td>Can an org policy change a control's parameters (e.g. different owner teams)?</td><td><span class="oq-rec"><strong>no parameter overrides; parameters are templated with repository context</strong> (<code>{{ .Org }}</code>), and a genuinely different requirement is a different control or version, used through <code>replace</code>. Results stay comparable across orgs: "CODEOWNERS 1.2" means the same thing everywhere. The cost is real: an org whose team slugs do not follow the templated convention (<code>@{{ .Org }}/security_champions</code>) has <code>replace</code> as its only escape, which means a second catalogue entry for that org.</span></td></tr><tr><td><a href="#d0030-oq3-at-what-granularity-is-the-mode-set">OQ3</a></td><td>At what granularity is the mode set?</td><td><span class="oq-rec"><strong>enterprise default, org, <code>repos</code> block, and a per-control <code>control &quot;name@N&quot; { mode }</code> override inside the org or a <code>repos</code> block</strong>, resolved most-specific-wins by the precedence table. This enables "remediate everything except the control we are trialling", which is the safe way to roll out a new remediation.</span></td></tr></tbody></table><h4>DESIGN-0031</h4><table><thead><tr><th style="width:60px">#</th><th style="width:38%">Question</th><th>Recommendation</th></tr></thead><tbody><tr><td><a href="#d0031-oq1-what-does-pattern-is-owned-by-owners-mean-for-codeowners">OQ1</a></td><td>What does "<code>pattern</code> is owned by <code>owners</code>" mean for CODEOWNERS?</td><td><span class="oq-rec"><strong>effective ownership.</strong> Using last-match-wins over the whole file, the owners GitHub would request for a path matching <code>pattern</code> include every listed owner. That is what the requirement means in practice, and the ordered insert (narrow patterns before any trailing <code>*</code>) satisfies it by construction.</span></td></tr><tr><td><a href="#d0031-oq2-can-catalog-info-remediation-edit-fields-in-an-existing-file">OQ2</a></td><td>Can catalog-info remediation edit fields in an existing file?</td><td><span class="oq-rec"><strong>no, only create from the template when absent; failing fields become manual notes in the PR or report.</strong> Field values (owner, system) need human knowledge, and inventing them produces plausible-looking wrong data.</span></td></tr></tbody></table><h4>DESIGN-0032</h4><table><thead><tr><th style="width:60px">#</th><th style="width:38%">Question</th><th>Recommendation</th></tr></thead><tbody><tr><td><a href="#d0032-oq1-how-is-something-changed-tracked-for-remediation">OQ1</a></td><td>How is "something changed" tracked for remediation?</td><td><span class="oq-rec"><strong>per-control <code>eval_generation</code> bumped by evaluation and <code>remediated_generation</code> advanced only by remediation, plus a <code>pr_changed</code> flag cleared by remediation.</strong> No change can be lost to an evaluation that runs before remediation (see the race table), and a new row is a change by construction.</span></td></tr><tr><td><a href="#d0032-oq2-per-control-prs-only-or-a-cap-on-how-many-open-at-once">OQ2</a></td><td>Per-control PRs only, or a cap on how many open at once?</td><td><span class="oq-rec"><strong>per-control PRs, with a per-repository cap on open remediation PRs</strong> (<code>remediation.max_open_prs</code>, default 3, set at enterprise or org level in DESIGN-0030). Onboarding a bare repository with six failing controls opens the first three in enterprise-policy order, holds the rest with <code>hold = &#x27;pr_cap&#x27;</code>, and releases them as PRs merge or close. That keeps the "one control, one PR" model without flooding a team.</span></td></tr><tr><td><a href="#d0032-oq3-what-happens-after-a-human-closes-a-remediation-pr-while-the-control-still-fails">OQ3</a></td><td>What happens after a human closes a remediation PR while the control still fails?</td><td><span class="oq-rec"><strong>open a new PR after a cooldown</strong> (<code>remediation.reopen_after</code>, default 14 days, set at enterprise or org level in DESIGN-0030). Sooner only if the evaluation changes in the meantime. The closure is recorded and shown, and excluding the control in the org policy is the way to stop it permanently. Closing a PR is often "not now", so a cooldown respects that without letting a control silently stay failing forever.</span></td></tr><tr><td><a href="#d0032-oq4-do-api-remediations-settings-rulesets-labels-properties-apply-directly">OQ4</a></td><td>Do API remediations (settings, rulesets, labels, properties) apply directly?</td><td><span class="oq-rec"><strong>only with a per-control opt-in (<code>remediation { apply = &quot;direct&quot; }</code> in the catalogue) in <code>remediate</code> mode. Otherwise they are recorded as recommended changes and shown in the UI.</strong> A direct change has no review step, so applying it should be a separate, explicit decision from opening PRs.</span></td></tr></tbody></table><h4>DESIGN-0033</h4><table><thead><tr><th style="width:60px">#</th><th style="width:38%">Question</th><th>Recommendation</th></tr></thead><tbody><tr><td><a href="#d0033-oq1-who-owns-github-repository-custom-properties">OQ1</a></td><td>Who owns GitHub repository custom properties?</td><td><span class="oq-rec"><strong>repo-guardian writes, Wiz detects.</strong> repo-guardian's <code>custom_properties</code> control is the reconciliation DESIGN-0003 assumes exists (it has the catalog file and write credentials per repository); fwsync's GitHub carrier, if it ships, is an independent audit of the same properties. Both read one tag definition (OQ2).</span></td></tr><tr><td><a href="#d0033-oq2-how-does-repo-guardian-read-the-governed-tag-definitions">OQ2</a></td><td>How does repo-guardian read the governed tag definitions?</td><td><span class="oq-rec"><strong>a public <code>tagschema</code> Go module</strong> promoted out of fwsync (decode only, no Wiz dependency), imported by both tools; repo-guardian's control derives managed names and patterns from it. Until it exists, a copied fixture with an agreement test.</span></td></tr><tr><td><a href="#d0033-oq3-what-are-the-github-property-keys-called">OQ3</a></td><td>What are the GitHub property keys called?</td><td><span class="oq-rec"><strong>kebab-case <code>component</code> / <code>owner</code>, as fwsync DESIGN-0003 renders them</strong>, and repo-guardian migrates off <code>Owner</code> / <code>Component</code>. One rendering rule across every carrier (<code>platform_key_style.github = &quot;kebab-case&quot;</code>); the org property schema carries both keys for a migration window and repo-guardian writes both until the old keys are removed.</span></td></tr><tr><td><a href="#d0033-oq4-should-repo-guardian-publish-repository-compliance-into-wiz">OQ4</a></td><td>Should repo-guardian publish repository compliance into Wiz?</td><td><span class="oq-rec"><strong>not in v2.</strong> Revisit when fwsync's DESIGN-0003 binding question is answered and if Wiz exposes an external-findings input (assumption F9). repo-guardian's <code>/rules</code>, <code>/orgs</code> endpoints and compliance snapshots are the data source either way.</span></td></tr></tbody></table><h2 id="x-read">Reading order</h2><ol><li><a href="#d0029">DESIGN-0029</a> — Overview — vocabulary, architecture, lifecycle, v1 mapping, the assumptions register (A1–A23), risks</li><li><a href="#d0030">DESIGN-0030</a> — Policy model — catalogue, enterprise and org policies, resolution, modes, ownership, data model</li><li><a href="#d0031">DESIGN-0031</a> — Control framework — the Go interfaces and types, rule results, file controls, the built-in types, conformance suite</li><li><a href="#d0032">DESIGN-0032</a> — Evaluation and remediation — the two Apps, change detection, PR lifecycle, schema, API, metrics, failure semantics, Temporal mapping</li><li><a href="#d0033">DESIGN-0033</a> — fwsync companion — concept mapping, what transfers, reuse options, the tag-schema seam</li></ol></section>
-<hr class="docsep"><section id="d0029"><div class="meta">docs/design/0029-controls-and-policies-opinionated-compliance-with-separate.md</div><h1 id="d0029-design-0029-controls-and-policies-opinionated-compliance-with-separate-evaluation-and-remediation">DESIGN-0029: Controls and policies: opinionated compliance with separate evaluation and remediation</h1>
+<hr class="docsep"><section id="deep"><h1>Deep dives</h1><p class="lede">Four cross-cutting views that put the five documents next to each other: the types and how data flows through them, the API, the database schema, and the order to build it in. Each ends with the gaps found while drawing it.</p><h2 id="dd-deep-dive-1-data-model-and-type-flow">Deep dive 1: data model and type flow</h2>
+<p>This section draws the types the five documents define and shows how each is produced and consumed, so the flow can be checked end to end. Everything here is taken from DESIGN-0030 (policy types), DESIGN-0031 (control framework), DESIGN-0032 (results and remediation) and DESIGN-0033 (the amendments it adds). Where a type is implied by the prose but never written down, it is marked <strong>proposed</strong> and listed under the gaps at the end of the section.</p>
+<h3 id="dd-three-layers">Three layers</h3>
+<p>Policy documents are data. Loading them produces one immutable <code>policy.Snapshot</code>, which holds built <code>control.Control</code> instances. Everything at run time either resolves a repository against the snapshot or runs a control from it, and every outcome lands in a table.</p>
+<pre class="mermaid">flowchart LR
+    subgraph Docs["Policy directory, HCL, data only"]
+        C1["catalogue/*.hcl&lt;br/&gt;control definitions"]
+        C2["enterprise.hcl&lt;br/&gt;orgs, baseline, defaults"]
+        C3["orgs/*.hcl&lt;br/&gt;add, replace, exclude, mode"]
+    end
+    subgraph Load["Policy load, once per process, fails loudly"]
+        L1["decode with an empty EvalContext&lt;br/&gt;documents are data (0033 item 1)"]
+        L2["Type.Build(def) per definition&lt;br/&gt;rule kinds, params, template self-check"]
+        L3["validate: slug grammar, references,&lt;br/&gt;ownership collisions, required reasons"]
+        SNAP["policy.Snapshot&lt;br/&gt;Version() = v2 hash"]
+    end
+    subgraph Run["Per repository, at run time"]
+        RES["Snapshot.Resolve(repo, installs)&lt;br/&gt;no I/O"]
+        EV["Control.Evaluate(EvalInput)&lt;br/&gt;reads only"]
+        RM["Control.Remediate(RemediationInput)&lt;br/&gt;returns a value"]
+    end
+    subgraph Rows["Postgres"]
+        T1["repository_policy_state&lt;br/&gt;control_assignments"]
+        T2["control_results, rule_results,&lt;br/&gt;result_events"]
+        T3["remediations,&lt;br/&gt;remediation_events"]
+    end
+    C1 --&gt; L1
+    C2 --&gt; L1
+    C3 --&gt; L1
+    L1 --&gt; L2 --&gt; L3 --&gt; SNAP
+    SNAP --&gt; RES --&gt; T1
+    SNAP --&gt; EV --&gt; T2
+    T2 -- "needs_remediation" --&gt; RM --&gt; T3</pre>
+<h3 id="dd-policy-and-resolution-types-design-0030">Policy and resolution types (DESIGN-0030)</h3>
+<pre class="mermaid">classDiagram
+    direction LR
+    class Snapshot {
+        +Version() string
+        +Resolve(repo RepositoryRow, installs InstallationStatus) Resolution
+        +Catalogue() List~Definition~
+        +Control(id ID) Control
+    }
+    class Definition {
+        +ID ID
+        +Title string
+        +Type string
+        +Rules List~Rule~
+        +Template string
+        +PR PRConfig
+        +Apply string
+        +Params Map
+    }
+    class EnterprisePolicy {
+        +Orgs List~string~
+        +Mode Mode
+        +Controls List~ID~
+        +Remediation RemediationSettings
+    }
+    class OrgPolicy {
+        +Org string
+        +Mode Optional~Mode~
+        +Controls List~ID~
+        +Replaces List~Replace~
+        +Excludes List~Exclude~
+        +ControlModes Map
+        +ExcludeRepos List~RepoExclusion~
+        +Repos List~ReposBlock~
+        +Remediation Optional~RemediationSettings~
+    }
+    class ReposBlock {
+        +Match List~string~
+        +Mode Optional~Mode~
+        +Controls List~ID~
+        +Replaces List~Replace~
+        +Excludes List~Exclude~
+        +ControlModes Map
+    }
+    class Replace {
+        +From ID
+        +With ID
+    }
+    class Exclude {
+        +Control ID
+        +Reason string
+    }
+    class RemediationSettings {
+        +MaxOpenPRs int
+        +ReopenAfter Duration
+    }
+    class RepositoryRow {
+        +ID int64
+        +Org string
+        +Name string
+        +Active bool
+        +Archived bool
+        +Fork bool
+    }
+    class InstallationStatus {
+        +Evaluation bool
+        +Remediation bool
+    }
+    class Resolution {
+        +State RepoPolicyState
+        +Reason string
+        +Assignments List~Assignment~
+    }
+    class Assignment {
+        +Control ID
+        +State string
+        +Source string
+        +Replaced Optional~ID~
+        +ExcludedBy string
+        +Reason string
+        +Mode Mode
+        +ModeSource string
+        +ModeReason string
+    }
+    Snapshot "1" o-- "*" Definition : catalogue
+    Snapshot "1" o-- "1" EnterprisePolicy
+    Snapshot "1" o-- "*" OrgPolicy
+    OrgPolicy "1" *-- "*" ReposBlock
+    OrgPolicy ..&gt; Replace
+    OrgPolicy ..&gt; Exclude
+    ReposBlock ..&gt; Replace
+    ReposBlock ..&gt; Exclude
+    EnterprisePolicy --&gt; RemediationSettings
+    OrgPolicy --&gt; RemediationSettings
+    Snapshot ..&gt; RepositoryRow : input
+    Snapshot ..&gt; InstallationStatus : input
+    Snapshot ..&gt; Resolution : output
+    Resolution "1" *-- "*" Assignment
+    Assignment --&gt; Definition : resolves to</pre>
+<p>The three documents, condensed to the attributes the types above carry:</p>
+<pre><code class="language-hcl"># catalogue/codeowners.hcl — one Definition
+control "codeowners" {
+  version = 2
+  title   = "CODEOWNERS"
+  type    = "codeowners"                  # the Go control type
+
+  rule "exists"     { number = "1.1"  title = "..."  remediate = true }
+  rule "wiz-owners" { number = "1.2"  title = "..."  kind = "owners"
+                      pattern = ".wiz"  owners = ["@{{ .Org }}/security_champions"]
+                      remediate = true }
+
+  template = "codeowners"                 # full-file template for an absent file
+  pr { title = "chore: CODEOWNERS ({{ .Control.Title }} v{{ .Control.Version }})" }
+}
+
+# enterprise.hcl — the baseline and the onboarding gate (no excludes)
+enterprise {
+  orgs     = ["donaldgifford", "test-org", "platform"]
+  mode     = "evaluate"
+  controls = ["codeowners@1", "catalog_info@1", "dependency_updates@1"]
+  remediation { max_open_prs = 3  reopen_after = "336h" }
+}
+
+# orgs/test-org.hcl — one layer plus N repos layers
+org "test-org" {
+  mode     = "remediate"
+  controls = ["branch_ruleset@1"]
+  replace "codeowners@1" { with = "codeowners@2" }
+  exclude "dependency_updates@1" { reason = "in-house updater" }
+  control "codeowners@2" { mode = "evaluate" }
+  exclude_repos { match = ["sandbox-*"]  reason = "throwaway" }
+  repos { match = ["legacy-*"]  mode = "evaluate"
+          exclude "catalog_info@1" { reason = "being decommissioned" } }
+}</code></pre>
+<p>The Go surface the rest of the system calls, as DESIGN-0030 names it (<code>policy.Snapshot</code>, <code>Resolve</code>, <code>Version</code>) with the field set taken from the resolution output table and the <code>control_assignments</code> columns:</p>
+<pre><code class="language-go">package policy
+
+// Snapshot is one loaded, validated policy directory. Immutable.
+type Snapshot struct { /* catalogue, enterprise, orgs, built controls, version */ }
+
+func (s *Snapshot) Version() string                 // "v2:&lt;sha256&gt;", hashes catalogue + policies + templates
+func (s *Snapshot) Control(id control.ID) control.Control
+
+// Resolve is deterministic and performs no I/O. It is called inline by
+// discovery, by policy rollout and when an installation changes.
+func (s *Snapshot) Resolve(repo RepositoryRow, installs InstallationStatus) Resolution
+
+type RepositoryRow struct {
+    ID                   int64
+    Org, Name            string
+    Active, Archived, Fork bool          // Active is the parking flag
+}
+
+type InstallationStatus struct {
+    Evaluation, Remediation bool         // per org, per App
+}
+
+type RepoPolicyState string             // managed | excluded | unmanaged | parked
+
+type Resolution struct {
+    State       RepoPolicyState
+    Reason      string                   // exclusion or park reason
+    Assignments []Assignment             // empty unless State == managed
+}
+
+// Assignment is one row of control_assignments.
+type Assignment struct {
+    Control    control.ID                // {Slug: "codeowners", Version: 2}
+    State      string                    // active | excluded
+    Source     string                    // enterprise | org:&lt;org&gt; | org:&lt;org&gt;/repos[&lt;glob&gt;]
+    Replaced   *control.ID               // codeowners@1 when a replace applied
+    ExcludedBy string
+    Reason     string
+    Mode       Mode                      // evaluate | remediate
+    ModeSource string
+    ModeReason string                    // "" | remediation_app_not_installed
+}</code></pre>
+<p>Resolution walks the layers. Each layer is one step that applies <code>replace</code>, additions, exclusions and mode together on top of the previous set:</p>
+<pre><code class="language-go">func (s *Snapshot) Resolve(repo RepositoryRow, inst InstallationStatus) Resolution {
+    if !repo.Active                          { return Resolution{State: Parked, Reason: repo.ParkReason} }
+    if !s.enterprise.HasOrg(repo.Org)        { return Resolution{State: Unmanaged} }
+    org := s.orgs[repo.Org]                  // may be zero-valued
+    if r, ok := org.ExcludeRepos.Match(repo.Name); ok {
+        return Resolution{State: Excluded, Reason: r.Reason}
+    }
+    set := newAssignmentSet(s.enterprise)    // layer 1: baseline, default mode
+    set.apply(org.Layer(), "org:"+repo.Org)  // layer 2: replace, add, exclude, mode, overrides
+    for _, b := range org.Repos {            // layers 3..n, file order
+        if b.Matches(repo.Name) {
+            set.apply(b.Layer(), fmt.Sprintf("org:%s/repos[%s]", repo.Org, b.Label()))
+        }
+    }
+    set.resolveModes()                       // most specific wins
+    if !inst.Remediation {
+        set.forceMode(Evaluate, "remediation_app_not_installed")
+    }
+    set.checkOwnership()                     // backstop; a collision here is a bug
+    return Resolution{State: Managed, Assignments: set.rows()}
+}</code></pre>
+<p>How a repository's policy state moves. Only discovery un-parks, and a parked row has no assignments:</p>
+<pre class="mermaid">stateDiagram-v2
+    [*] --&gt; unmanaged: discovered, org not in enterprise.orgs
+    [*] --&gt; managed: discovered, org listed, no exclude_repos match
+    [*] --&gt; excluded: discovered, matched by exclude_repos
+    managed --&gt; excluded: policy change adds a matching exclude_repos
+    excluded --&gt; managed: policy change removes the match
+    unmanaged --&gt; managed: org added to enterprise.orgs
+    managed --&gt; unmanaged: org removed from enterprise.orgs
+    managed --&gt; parked: archived, fork, removed, or access denied
+    excluded --&gt; parked: same park reasons
+    unmanaged --&gt; parked: same park reasons
+    parked --&gt; managed: discovery sees it again, re-resolved
+    note right of parked
+        Only UpsertDiscovered sets active = true.
+        No assignments, never read by evaluation.
+    end note</pre>
+<h3 id="dd-control-framework-types-design-0031">Control framework types (DESIGN-0031)</h3>
+<pre class="mermaid">classDiagram
+    direction TB
+    class Type {
+        &lt;&lt;interface&gt;&gt;
+        +Name() string
+        +RuleKinds() List~RuleKind~
+        +Build(def Definition) Control
+    }
+    class Control {
+        &lt;&lt;interface&gt;&gt;
+        +ID() ID
+        +Resources() List~Resource~
+        +Rules() List~Rule~
+        +Evaluate(ctx, in EvalInput) Evaluation
+        +Remediate(ctx, in RemediationInput) ChangeSet
+    }
+    class ID {
+        +Slug string
+        +Version int
+    }
+    class Resource {
+        +Kind string
+        +Key string
+    }
+    class Rule {
+        +ID string
+        +Number string
+        +Title string
+        +Kind RuleKind
+        +Params Map
+        +Remediate bool
+    }
+    class EvalInput {
+        +Repo RepoContext
+        +Reader Reader
+    }
+    class RepoContext {
+        +Org string
+        +Name string
+        +DefaultBranch string
+        +SHA string
+        +Vars template.Vars
+    }
+    class RemediationInput {
+        +EvalInput
+        +Evaluation Evaluation
+    }
+    class Evaluation {
+        +Results List~RuleResult~
+        +Reads List~ResourceRead~
+    }
+    class RuleResult {
+        +RuleID string
+        +Status RuleStatus
+        +Evidence Map
+    }
+    class ResourceRead {
+        +Resource Resource
+        +BlobSHA string
+        +Present bool
+    }
+    class ChangeSet {
+        +Files List~FileChange~
+        +API List~APIChange~
+        +Notes List~string~
+    }
+    class FileChange {
+        +Path string
+        +Content bytes
+        +Delete bool
+        +Reason string
+    }
+    class APIChange {
+        +Resource Resource
+        +Op string
+        +Value any
+        +Reason string
+    }
+    class Reader {
+        &lt;&lt;interface&gt;&gt;
+        +GetContents(path) content, blobSHA, found
+        +ListDirectory(path) List~string~
+        +GetRepository() RepositorySettings
+        +ListRulesets() List~Ruleset~
+        +GetCustomProperties() Map
+        +ListLabels() List~Label~
+        +CodeownersErrors() List~CodeownersError~
+    }
+    class Writer {
+        &lt;&lt;interface&gt;&gt;
+        +CreateOrUpdateFile(branch, path, content, message)
+        +DeleteFile(branch, path, message)
+        +UpdateRef(branch, sha, create)
+        +CreatePullRequest(head, base, title, body) PullRequest
+        +UpdatePullRequest(number, title, body)
+        +ClosePullRequest(number)
+        +UpsertPRComment(number, marker, body)
+        +UpdateRepository(settings)
+        +UpsertRuleset(rs)
+        +SetCustomProperties(props)
+        +UpsertLabel(l)
+    }
+    Type ..&gt; Control : Build
+    Control --&gt; ID
+    Control "1" --&gt; "*" Resource : owns
+    Control "1" --&gt; "*" Rule : declares
+    Control ..&gt; EvalInput : Evaluate
+    Control ..&gt; Evaluation : returns
+    Control ..&gt; RemediationInput : Remediate
+    Control ..&gt; ChangeSet : returns
+    EvalInput --&gt; RepoContext
+    EvalInput --&gt; Reader
+    RemediationInput --|&gt; EvalInput
+    RemediationInput --&gt; Evaluation
+    Evaluation "1" *-- "*" RuleResult
+    Evaluation "1" *-- "*" ResourceRead
+    ResourceRead --&gt; Resource
+    ChangeSet "1" *-- "*" FileChange
+    ChangeSet "1" *-- "*" APIChange
+    APIChange --&gt; Resource
+    Writer ..&gt; ChangeSet : applies, controls never see it</pre>
+<p>Two things on the diagram are not in DESIGN-0031's code and are worth confirming. <code>Reason</code> on <code>FileChange</code> and <code>APIChange</code> is the DESIGN-0033 amendment (item 3: <code>missing</code>, <code>rule_failed:&lt;id&gt;</code>, <code>orphan</code>, <code>stale</code>) that 0033 "lands in" 0032 but the structs in 0031 were never updated. <code>Definition</code>, the argument to <code>Type.Build</code>, is referenced in 0031 and never defined. The shape every other document assumes:</p>
+<pre><code class="language-go">package control
+
+// Definition is one catalogue entry after HCL decode and before Build.
+// Proposed: referenced by Type.Build in DESIGN-0031, never written down.
+type Definition struct {
+    ID       ID                 // slug + integer version
+    Title    string
+    Type     string             // Type.Name() this definition is built by
+    Rules    []Rule             // kinds and params validated by Type.Build
+    Template string             // template store name; must pass every remediable rule
+    PR       policy.PRConfig    // title/body/labels, rendered with internal/template
+    Apply    string             // "pr" (default) | "direct"  — API-remediated types only
+    Params   map[string]any     // type-level params: dependency_updates.tool, file.path, …
+}</code></pre>
+<p>Status derivation is a pure function of the rule results. <code>fail</code> outranks <code>error</code> on purpose: one definite failure is non-compliant whatever else could not be determined, and an <code>error</code> never triggers remediation.</p>
+<pre class="mermaid">flowchart LR
+    R["[]RuleResult"] --&gt; F{"any fail?"}
+    F -- yes --&gt; NC["non_compliant"]
+    F -- no --&gt; E{"any error?"}
+    E -- yes --&gt; U["unknown&lt;br/&gt;never remediated"]
+    E -- no --&gt; NA{"all not_applicable?"}
+    NA -- yes --&gt; N["not_applicable"]
+    NA -- no --&gt; C["compliant"]</pre>
+<pre><code class="language-go">package control
+
+type Status string // compliant | non_compliant | unknown | not_applicable
+
+func StatusOf(ev Evaluation) Status { /* table above, in that order */ }
+
+// Fingerprint is what DESIGN-0032 compares between evaluations. It hashes
+// rule statuses and resource blob SHAs and nothing else: not evidence
+// wording, not timestamps, not the pinned commit.
+func Fingerprint(id ID, ev Evaluation) string {
+    h := sha256.New()
+    fmt.Fprintf(h, "%s@%d\n", id.Slug, id.Version)
+    for _, r := range sortedByRuleID(ev.Results)   { fmt.Fprintf(h, "r %s %s\n", r.RuleID, r.Status) }
+    for _, rd := range sortedByResource(ev.Reads)  {
+        sha := rd.BlobSHA
+        if !rd.Present { sha = "absent" }
+        fmt.Fprintf(h, "x %s:%s %s\n", rd.Resource.Kind, rd.Resource.Key, sha)
+    }
+    return hex.EncodeToString(h.Sum(nil))
+}</code></pre>
+<h3 id="dd-writing-a-control-type-the-codeowners-example">Writing a control type: the codeowners example</h3>
+<p>A file control type supplies <code>Parse</code>, <code>Check</code>, <code>Fix</code> and <code>Render</code>; the framework supplies <code>LocateFile</code>, the absent-file template path, the unparseable-file guard and the minimal-edit rule. The helper names below (<code>control.EvaluateFile</code>, <code>control.RemediateFile</code>) are illustrative; DESIGN-0031 describes the behaviour, not the helper API.</p>
+<pre><code class="language-go">package codeowners
+
+var spec = control.FileSpec{
+    Locations: []string{".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS"}, // GitHub's precedence (A21)
+    Canonical: ".github/CODEOWNERS",
+}
+
+type Type struct{}
+
+func (Type) Name() string                  { return "codeowners" }
+func (Type) RuleKinds() []control.RuleKind { return []control.RuleKind{"exists", "valid", "owners", "default_owner"} }
+
+func (Type) Build(def control.Definition) (control.Control, error) {
+    for _, r := range def.Rules {
+        if err := validateParams(r); err != nil { return nil, err } // e.g. owners requires pattern + owners
+    }
+    tmpl, err := templates.Compile(def.Template)                     // internal/template (A10)
+    if err != nil { return nil, err }
+    c := &amp;ctl{def: def, tmpl: tmpl}
+    return c, control.SelfCheckTemplate(c)                           // the template must pass every remediable rule (D2)
+}
+
+type ctl struct { def control.Definition; tmpl *template.Compiled }
+
+func (c *ctl) ID() control.ID                { return c.def.ID }
+func (c *ctl) Rules() []control.Rule         { return c.def.Rules }
+func (c *ctl) Resources() []control.Resource { return control.FileResources(spec) } // file:&lt;each location&gt;
+
+func (c *ctl) Evaluate(ctx context.Context, in control.EvalInput) (control.Evaluation, error) {
+    return control.EvaluateFile(ctx, in, spec, c.def.Rules, parse, check) // absent → fail+file_missing, parse error → error
+}
+
+func (c *ctl) Remediate(ctx context.Context, in control.RemediationInput) (control.ChangeSet, error) {
+    return control.RemediateFile(ctx, in, spec, c.def.Rules, parse, fix, render, c.tmpl) // one FileChange, found path or Canonical
+}
+
+// fix inserts missing "pattern owners" lines least- to most-specific and
+// before any trailing "*" line, so a narrow pattern is never shadowed.
+func fix(m *model, failing []control.Rule) *model { /* ... */ }</code></pre>
+<h3 id="dd-runtime-flow-who-produces-and-consumes-each-type">Runtime flow: who produces and consumes each type</h3>
+<pre class="mermaid">sequenceDiagram
+    autonumber
+    participant D as Discovery activity
+    participant S as policy.Snapshot
+    participant DB as Postgres
+    participant E as Evaluate activity (evaluator)
+    participant GH as GitHub (Evaluation App)
+    participant R as Remediation run (remediator)
+    participant GW as GitHub (Remediation App)
+
+    D-&gt;&gt;S: Resolve(RepositoryRow, InstallationStatus)
+    S--&gt;&gt;D: Resolution{State, Assignments}
+    D-&gt;&gt;DB: write repository_policy_state + control_assignments, repository_events(assignment_changed)
+    D-&gt;&gt;E: signal policy_changed{by: next_due}
+
+    E-&gt;&gt;DB: read state, active assignments, prior control_results, tracked remediations
+    E-&gt;&gt;GH: pin default-branch HEAD → SHA, build cached Reader
+    loop each selected assignment
+        E-&gt;&gt;S: Control(assignment.Control)
+        E-&gt;&gt;E: Evaluate(EvalInput) → Evaluation, then StatusOf and Fingerprint
+    end
+    E-&gt;&gt;GH: observe open repo-guardian/* PRs
+    E-&gt;&gt;DB: one tx: control_results, rule_results, result_events, remediations observation, evaluated_at
+    E--&gt;&gt;R: signal-with-start remediation/{repo}/{control} where needs_remediation
+
+    R-&gt;&gt;DB: re-read generation, PR state, mode, hold
+    R-&gt;&gt;GW: find or adopt branch repo-guardian/{slug}, pin base (PR head or default HEAD)
+    R-&gt;&gt;R: Evaluate(base) → Remediate(RemediationInput) → ChangeSet
+    R-&gt;&gt;GW: apply ChangeSet as one commit, create or update PR
+    R-&gt;&gt;DB: narrow UPDATE: remediated_generation, pr columns, hold = NULL, pr_changed = false</pre>
+<p>The two activities, as consumers of the types. The evaluate activity returns only decisions to the workflow; the data stays in the database (DESIGN-0026's rule that payloads carry ids and counts, never evidence):</p>
+<pre><code class="language-go">package activities
+
+type EvaluateInput struct {
+    RepositoryID  int64
+    Trigger       string   // schedule | push | pr_event | policy_changed | manual
+    ChangedPaths  []string // push only; nil means "all"
+    EvalKey       string   // &lt;workflowID&gt;/&lt;runID&gt;/&lt;iteration&gt;, idempotency key for the evaluation log
+}
+
+type ControlDecision struct {
+    Control          control.ID
+    Changed          bool // fingerprint moved → eval_generation bumped
+    PRChanged        bool
+    NeedsRemediation bool // the predicate below
+}
+
+type EvaluateOutput struct {
+    Skipped   bool              // policy state not managed
+    Decisions []ControlDecision
+}
+
+func (e *Evaluator) Evaluate(ctx context.Context, in EvaluateInput) (EvaluateOutput, error) {
+    st, _ := e.store.RepositoryPolicyState(ctx, in.RepositoryID)
+    if st.State != policy.Managed { return EvaluateOutput{Skipped: true}, nil }
+
+    asg, _   := e.store.ActiveAssignments(ctx, in.RepositoryID)            // control_assignments WHERE state = 'active'
+    prior, _ := e.store.ControlResults(ctx, in.RepositoryID)               // fingerprints, generations, holds
+    prs, _   := e.store.TrackedRemediations(ctx, in.RepositoryID)          // open PRs we recorded
+
+    sha, _ := e.gh.DefaultBranchHead(ctx, st.Repo)                          // pin once
+    rd := e.gh.Reader(st.Repo, sha)                                         // cached; every control sees one state
+
+    var outs []controlOutcome
+    for _, a := range selectByChangedPaths(asg, in.ChangedPaths, e.snapshot) { // Resources() ∩ changed paths
+        ctrl := e.snapshot.Control(a.Control)
+        ev, err := ctrl.Evaluate(ctx, control.EvalInput{Repo: repoContext(st.Repo, sha), Reader: rd})
+        if err != nil { ev = control.ErrorEvaluation(ctrl, err) }           // every rule → error, control → unknown
+        outs = append(outs, controlOutcome{
+            Assignment: a, Evaluation: ev,
+            Status:      control.StatusOf(ev),
+            Fingerprint: control.Fingerprint(a.Control, ev),
+        })
+    }
+    obs, _ := e.gh.ObservePRs(ctx, st.Repo, prs)                            // head SHA moved? closed? merged? missing?
+
+    dec, err := e.store.RecordEvaluation(ctx, in.EvalKey, sha, outs, obs)  // ONE transaction, computes Changed/NeedsRemediation
+    return EvaluateOutput{Decisions: dec}, err
+}</code></pre>
+<pre><code class="language-text">needs_remediation(repository, control) =
+      repository_policy_state.state = 'managed'
+  AND assignment.mode = 'remediate'                       -- already 'evaluate' when the Remediation App is absent
+  AND (
+        (   status = 'non_compliant'
+        AND EXISTS failing rule WITH remediate = true
+        AND (   eval_generation &gt; remediated_generation   -- 1 &gt; 0 on a brand-new row
+             OR pr_changed
+             OR (remediation.state = 'closed_by_user' AND closed_at + reopen_after &lt; now()) ) )
+     OR (status = 'compliant' AND remediation.state = 'open')   -- close it as closed_compliant
+  )</code></pre>
+<p>The remediation run consumes the same <code>Control</code>, but against the PR head when one exists, and never trusts the stored evaluation:</p>
+<pre><code class="language-go">func (r *Remediator) Run(ctx context.Context, in RunInput) error {
+    s, _ := r.store.RemediationState(ctx, in.RepositoryID, in.Control)       // generation, PR, mode, hold
+    if !s.NeedsRemediation { return nil }
+    startGen := s.EvalGeneration                                              // recorded at the END, not the current one
+
+    lk, _ := r.gh.LookupBranch(ctx, s.Repo, "repo-guardian/"+in.Control.Slug) // branch, commits' authors, open PR by head
+    if lk.HasForeignCommits { return r.store.Hold(ctx, s, "foreign_branch") }
+    if s.Status == control.Compliant &amp;&amp; lk.OpenPR != nil { return r.closeCompliant(ctx, s, lk.OpenPR) }
+    if lk.OpenPR == nil &amp;&amp; s.OpenPRs &gt;= s.MaxOpenPRs { return r.store.Hold(ctx, s, "pr_cap") }
+
+    base := lk.HeadSHA; if lk.OpenPR == nil { base = lk.DefaultHeadSHA }
+    ctrl := r.snapshot.Control(in.Control)
+    rd := r.gh.Reader(s.Repo, base)                                           // Remediation App, read half
+    ev, _ := ctrl.Evaluate(ctx, control.EvalInput{Repo: rc(s.Repo, base), Reader: rd})
+    if !control.HasRemediableFailure(ctrl, ev) { return r.store.Record(ctx, s, lk, startGen) } // human fixed it on the PR
+    cs, _ := ctrl.Remediate(ctx, control.RemediationInput{EvalInput: control.EvalInput{Repo: rc(s.Repo, base), Reader: rd}, Evaluation: ev})
+
+    if err := control.SelfCheck(ctx, ctrl, cs, rd); err != nil { return err } // changed content must pass; refuse otherwise
+    head, err := r.gh.Commit(ctx, s.Repo, "repo-guardian/"+in.Control.Slug, base, cs.Files, message(ctrl, ev)) // one commit, no force
+    if errors.Is(err, github.ErrNotFastForward) { return queue.RetryAfter(…) }  // a human pushed; re-pin next run
+    pr, _ := r.gh.CreateOrUpdatePR(ctx, s.Repo, head, lk.OpenPR, renderPR(ctrl, ev, cs))
+    return r.store.Record(ctx, s, pr, startGen)                              // narrow UPDATE
+}</code></pre>
+<p>Per <code>(repository, control)</code> the result row moves between three conditions. "Due" is <code>needs_remediation</code> true:</p>
+<pre class="mermaid">stateDiagram-v2
+    [*] --&gt; due: first evaluation, eval_gen = 1, remediated_gen = 0
+    due --&gt; settled: run records remediated_gen = eval_gen read at start
+    settled --&gt; due: fingerprint changed, eval_gen++
+    settled --&gt; due: human pushed to the PR, pr_changed = true
+    settled --&gt; due: PR closed_by_user and reopen_after elapsed
+    settled --&gt; due: compliant on main while the PR is open (close it)
+    due --&gt; held: hold = pr_cap, foreign_branch or permission
+    held --&gt; due: another PR closed or merged, branch deleted, permission granted, or the hourly sweep
+    due --&gt; due: run ends, re-reads eval_gen or pr_changed, finds it moved, loops once more
+    settled --&gt; [*]: assignment excluded or repository parked
+    due --&gt; [*]: assignment excluded or repository parked</pre>
+<h3 id="dd-column-ownership-on-control-results">Column ownership on control_results</h3>
+<p>Two writers share one row by column, never by row. Getting this wrong is the exact loss the generation counters exist to prevent.</p>
+<table><thead><tr><th>Column</th><th>Written by</th><th>When</th></tr></thead><tbody><tr><td><code>status</code>, <code>fingerprint</code>, <code>evaluated_sha</code>, <code>evaluated_at</code>, <code>last_changed_at</code></td><td>evaluation</td><td>every evaluation (<code>evaluated_at</code> always, the rest on change)</td></tr><tr><td><code>eval_generation</code></td><td>evaluation</td><td>inserts 1 on the first row, increments on a fingerprint change</td></tr><tr><td><code>pr_changed = true</code></td><td>evaluation</td><td>PR head SHA moved since the last remediation</td></tr><tr><td><code>remediated_generation</code></td><td>remediation</td><td>set to the generation read at the start of the run, after the GitHub write</td></tr><tr><td><code>pr_changed = false</code>, <code>hold</code>, <code>hold_since</code></td><td>remediation</td><td>the narrow record UPDATE, or a hold without a write</td></tr><tr><td><code>control_version</code></td><td>evaluation</td><td>the version the assignment carried when the row was written</td></tr></tbody></table>
+<h3 id="dd-where-design-0033-touches-the-types">Where DESIGN-0033 touches the types</h3>
+<ul><li><strong>Slug grammar</strong> <code>^[a-z0-9]+(-[a-z0-9]+)*$</code> on <code>ID.Slug</code> and <code>Rule.ID</code>, enforced at load (item 2). A catalogue control no policy assigns is a load warning.</li><li><strong><code>Reason</code> on every change</strong> (item 3): <code>FileChange.Reason</code> and <code>APIChange.Reason</code> take <code>missing</code>, <code>rule_failed:&lt;rule id&gt;</code>, <code>stale</code>, <code>orphan</code>. They feed <code>repo-guardian evaluate --format json</code> and the PR body, and are not persisted.</li><li><strong><code>custom_properties</code> definition</strong> gains <code>tag_schema = file(&quot;...&quot;)</code> (OQ2a): the managed set becomes <code>{rendered GitHub key for every repo-scoped tag} ∪ annotation_properties values</code>, and a <code>value_pattern</code> rule kind checks well-formedness before a write. Evidence gains <code>source = tag_schema | annotation_properties</code>.</li><li><strong>Documents are data</strong> (item 1): the loader's <code>EvalContext</code> has no variables and one function, a <code>file()</code>-style path reference that returns a cleaned in-root path, never contents.</li></ul>
+<div class="note gap"><p><strong>Gaps found while drawing the data model</strong></p>
+<ul><li><code>control.Definition</code> is used by <code>Type.Build</code> and never defined (DESIGN-0031). The proposed struct above should be added, including where <code>remediation { apply }</code> and type-level params (<code>dependency_updates.tool</code>, <code>file.path</code>) live.</li><li><code>FileChange</code> and <code>APIChange</code> need the <code>Reason</code> field DESIGN-0033 item 3 relies on; 0031's structs do not have it.</li><li><code>github.Reader</code> has no pull-request methods, yet DESIGN-0032's evaluation lists open <code>repo-guardian/*</code> PRs and fetches tracked ones. Either <code>Reader</code> grows <code>ListPullRequests(headPrefix)</code> / <code>GetPullRequest(n)</code> (methods no control uses) or a separate <code>github.PRObserver</code> interface is defined for the evaluate activity. The second keeps <code>Reader</code> honest as "everything a control may read".</li><li><code>github.Writer</code> cannot deliver "one commit per change set". <code>CreateOrUpdateFile</code> is the Contents API, one commit per file; the run in 0032 says "tree + commit + ref update, no force". <code>Writer</code> needs git-data methods (<code>CreateBlob</code>/<code>CreateTree</code>/<code>CreateCommit</code>, or a <code>Commit(branch, base, []FileChange, message)</code> wrapper) and find-or-adopt needs <code>GetRef</code>, <code>ListCommits(branch)</code> and <code>ListPullRequests(head)</code>, none of which is in 0031's <code>Writer</code>.</li><li>Mode is not in <code>EvalInput</code>. Fine for controls (they never need it), but the PR template vars (<code>.Control.Title</code>, <code>.Control.Version</code>) imply a <code>template.PRVars</code> extension that nobody defines.</li><li><code>Params map[string]any</code> on <code>Rule</code> is validated by <code>Type.Build</code>, but nothing says how a type reports which params each kind accepts for docs generation ("documented from the types' own metadata"). <code>RuleKinds()</code> returns names only; a <code>RuleKindSpec{Kind, Params []ParamSpec}</code> would carry it.</li></ul></div>
+<h2 id="dd-deep-dive-2-the-api">Deep dive 2: the API</h2>
+<p>DESIGN-0032 lists the resources; DESIGN-0030 names three of them; the v2 API skeleton (IMPL-0025 Phases 14 and 15) supplies the machinery every one of them runs through: OpenAPI 3.1 as the source of truth, oapi-codegen strict server, authn outside the generated wrapper, authz into <code>store.APIScope</code>, the scope predicate on every query, read-only pool, keyset cursors. This section shows what changes on top of that and what each endpoint reads.</p>
+<h3 id="dd-surface-today-and-after">Surface: today and after</h3>
+<table><thead><tr><th>Today (v2 rc)</th><th>After</th><th>Reads</th></tr></thead><tbody><tr><td><code>GET /me</code></td><td>unchanged</td><td>principal, visible orgs</td></tr><tr><td><code>GET /summary</code></td><td><strong>extended</strong>: evaluation freshness, remediation backlog, holds</td><td><code>control_results</code>, <code>remediations</code>, <code>repository_policy_state</code></td></tr><tr><td><code>GET /rules</code>, <code>GET /rules/{kind}/{name}</code></td><td><strong>replaced by</strong> <code>GET /controls</code>, <code>GET /controls/{id}</code></td><td>catalogue from the snapshot, compliance from <code>control_assignments ⨝ control_results</code></td></tr><tr><td><code>GET /orgs</code>, <code>GET /orgs/{org}</code></td><td><strong>extended</strong>: baseline-versus-org compliance, worst controls, exclusions with reasons</td><td>same join, cut by <code>source</code></td></tr><tr><td><code>GET /findings</code></td><td><strong>replaced by</strong> <code>GET /repositories/{id}/controls</code> (per repository) and <code>GET /remediations</code> (fleet-wide PRs)</td><td><code>control_assignments ⨝ control_results ⨝ rule_results ⨝ remediations</code></td></tr><tr><td><code>GET /repositories</code>, <code>GET /repositories/{id}</code></td><td>unchanged shape, plus <code>policy_state</code> and <code>policy_reason</code></td><td><code>repositories ⨝ repository_policy_state</code></td></tr><tr><td><code>GET /repositories/{id}/events</code></td><td><strong>extended</strong>: assignment, result and remediation events merged</td><td><code>UNION ALL</code> of <code>repository_events</code>, <code>result_events</code>, <code>remediation_events</code></td></tr><tr><td><code>GET /repositories/{id}/checks</code></td><td>not specified, see gaps; proposed rename <code>/repositories/{id}/evaluations</code></td><td><code>checks</code> as the evaluation log (A6)</td></tr><tr><td><code>GET /compliance/history</code></td><td>unchanged path, new key <code>(org, control_id, source)</code></td><td><code>compliance_snapshots</code></td></tr><tr><td><code>GET /policy</code></td><td><strong>replaced by</strong> <code>GET /policies</code> (enterprise orgs, org policies, exclusions, version)</td><td>the snapshot summary in <code>policy_versions.summary</code></td></tr><tr><td><code>GET /installations</code></td><td>gains <code>app</code></td><td><code>installations</code></td></tr><tr><td><code>GET /status</code></td><td><strong>extended</strong>: per-queue backlog (<code>repo-guardian-eval</code>, <code>repo-guardian-remediate</code>)</td><td><code>StatusInputs</code> + <code>DescribeBacklog</code> per queue</td></tr><tr><td>—</td><td><strong>new</strong> <code>GET /remediations</code></td><td><code>remediations</code> filtered by state, org, control, age</td></tr><tr><td>—</td><td><strong>new</strong> <code>GET /controls/{id}/compliance</code> (per-org breakdown, optional split from the detail view)</td><td>same join</td></tr></tbody></table>
+<h3 id="dd-resource-schemas">Resource schemas</h3>
+<pre class="mermaid">classDiagram
+    direction LR
+    class ControlSummary {
+        +id string
+        +title string
+        +type string
+        +versions List~int~
+        +compliance Compliance
+    }
+    class ControlDetail {
+        +id string
+        +title string
+        +type string
+        +rules List~RuleDecl~
+        +by_org List~OrgControlCompliance~
+    }
+    class RuleDecl {
+        +id string
+        +number string
+        +title string
+        +kind string
+        +remediate bool
+    }
+    class Compliance {
+        +compliant int
+        +non_compliant int
+        +unknown int
+        +not_applicable int
+        +excluded int
+        +percent number
+    }
+    class OrgControlCompliance {
+        +org string
+        +version int
+        +source string
+        +compliance Compliance
+    }
+    class RepositoryControl {
+        +control_id string
+        +control_version int
+        +assignment Assignment
+        +status string
+        +evaluated_at datetime
+        +evaluated_sha string
+        +eval_generation int
+        +remediated_generation int
+        +hold string
+        +hold_since datetime
+        +rules List~RuleResult~
+        +remediation RemediationRef
+    }
+    class Assignment {
+        +state string
+        +source string
+        +replaced string
+        +excluded_by string
+        +reason string
+        +mode string
+        +mode_source string
+        +mode_reason string
+    }
+    class RuleResult {
+        +rule_id string
+        +number string
+        +title string
+        +status string
+        +remediate bool
+        +evidence_kind string
+        +evidence_version int
+        +evidence object
+    }
+    class RemediationRef {
+        +id int
+        +kind string
+        +state string
+        +pr_number int
+        +pr_url string
+        +branch string
+        +created_at datetime
+        +last_run_at datetime
+        +closed_at datetime
+        +stale bool
+    }
+    class PolicySummary {
+        +version string
+        +first_seen_at datetime
+        +rollout_completed_at datetime
+        +enterprise EnterpriseSummary
+        +orgs List~OrgPolicySummary~
+    }
+    class EnterpriseSummary {
+        +orgs List~string~
+        +mode string
+        +controls List~string~
+    }
+    class OrgPolicySummary {
+        +org string
+        +mode string
+        +added List~string~
+        +replaced List~string~
+        +excluded List~Exclusion~
+        +excluded_repos List~Exclusion~
+    }
+    class Exclusion {
+        +target string
+        +reason string
+        +source string
+    }
+    class Event {
+        +occurred_at datetime
+        +source string
+        +kind string
+        +control_id string
+        +rule_id string
+        +from_status string
+        +to_status string
+        +detail object
+    }
+    ControlDetail "1" *-- "*" RuleDecl
+    ControlDetail "1" *-- "*" OrgControlCompliance
+    ControlSummary --&gt; Compliance
+    OrgControlCompliance --&gt; Compliance
+    RepositoryControl --&gt; Assignment
+    RepositoryControl "1" *-- "*" RuleResult
+    RepositoryControl --&gt; RemediationRef
+    PolicySummary --&gt; EnterpriseSummary
+    PolicySummary "1" *-- "*" OrgPolicySummary
+    OrgPolicySummary "1" *-- "*" Exclusion</pre>
+<p>Field names are snake_case and the enums stay open strings documented in <code>description</code>, as the v2 spec does today. <code>evidence_kind</code> is new: today the API injects <code>reason</code> so the <code>oneOf</code> discriminates; with evidence keyed by <code>(control type, rule kind, version)</code> the discriminator becomes <code>evidence_kind</code> (<code>codeowners/owners</code>, <code>catalog_info/field_set</code>, …), and the UI renders only kinds and versions it knows.</p>
+<h3 id="dd-example-one-repositorys-controls">Example: one repository's controls</h3>
+<pre><code class="language-json">GET /repositories/4821/controls
+
+{
+  "repository": { "id": 4821, "org": "test-org", "name": "payments-api",
+                  "policy_state": "managed", "policy_reason": null },
+  "controls": [
+    {
+      "control_id": "codeowners", "control_version": 2,
+      "assignment": { "state": "active", "source": "org:test-org", "replaced": "codeowners@1",
+                      "mode": "evaluate", "mode_source": "org:test-org/control[codeowners@2]", "mode_reason": null },
+      "status": "non_compliant",
+      "evaluated_at": "2026-10-02T14:03:11Z", "evaluated_sha": "9f1c…",
+      "eval_generation": 3, "remediated_generation": 2, "hold": null,
+      "rules": [
+        { "rule_id": "exists",     "number": "1.1", "status": "pass", "remediate": true,
+          "evidence_kind": "codeowners/exists", "evidence_version": 1, "evidence": { "path": ".github/CODEOWNERS" } },
+        { "rule_id": "wiz-owners", "number": "1.2", "status": "fail", "remediate": true,
+          "evidence_kind": "codeowners/owners", "evidence_version": 1,
+          "evidence": { "pattern": ".wiz", "required": ["@test-org/security_champions"], "effective_owners": ["@test-org/payments"] } }
+      ],
+      "remediation": { "id": 77, "kind": "pull_request", "state": "open", "pr_number": 12,
+                       "pr_url": "https://github.com/test-org/payments-api/pull/12", "branch": "repo-guardian/codeowners",
+                       "created_at": "2026-09-20T09:00:00Z", "last_run_at": "2026-10-01T08:12:40Z", "stale": false }
+    },
+    {
+      "control_id": "dependency_updates", "control_version": 1,
+      "assignment": { "state": "excluded", "source": "enterprise", "excluded_by": "org:test-org",
+                      "reason": "test-org uses an in-house updater", "mode": "remediate", "mode_source": "org:test-org" },
+      "status": null, "rules": [], "remediation": null
+    }
+  ]
+}</code></pre>
+<p>The second entry is why excluded assignments are stored, not dropped: "excluded by policy, with reason" is posture the UI shows, and it is distinct from a control that ran and reported <code>not_applicable</code>.</p>
+<h3 id="dd-request-flow">Request flow</h3>
+<pre class="mermaid">sequenceDiagram
+    autonumber
+    participant C as Client (UI BFF or CLI)
+    participant O as otelhttp + request id + access log
+    participant N as authn (OIDC, classify then verify)
+    participant Z as authz (API_AUTHZ_CONFIG → APIScope)
+    participant H as strict handler GetRepositoryControls
+    participant R as APIReader (read-only tx)
+    participant PG as Postgres (RO pool)
+
+    C-&gt;&gt;O: GET /repositories/4821/controls
+    O-&gt;&gt;N: bearer token
+    N--&gt;&gt;C: 401 problem+json on any refusal (before param binding)
+    N-&gt;&gt;Z: principal
+    Z--&gt;&gt;C: 403 when no visible orgs (except /me, /status)
+    Z-&gt;&gt;H: ctx with APIScope{orgs}
+    H-&gt;&gt;R: RepositoryControls(ctx, scope, id)
+    R-&gt;&gt;PG: SELECT ... FROM repositories r WHERE r.id = $1 AND (@scope_all OR lower(r.org) = ANY(@scope_orgs))
+    PG--&gt;&gt;R: 0 rows → 404 (not 403: existence is not leaked across scope)
+    R-&gt;&gt;PG: assignments ⨝ control_results ⨝ rule_results ⨝ open remediation
+    PG--&gt;&gt;R: rows
+    R--&gt;&gt;H: store.RepositoryControls
+    H--&gt;&gt;C: 200, validated against the spec in tests (apitest)</pre>
+<h3 id="dd-query-shape">Query shape</h3>
+<p>Every <code>api_*.sql</code> query carries the scope predicate and <code>TestAPIQueries_AreScoped</code> enforces it. The new tables have no <code>org</code> column, so the predicate lands on the <code>repositories</code> join, aliased <code>r</code> as today:</p>
+<pre><code class="language-sql">-- name: APIRepositoryControls :many
+SELECT a.control_id, a.control_version, a.state, a.source, a.replaced, a.excluded_by, a.reason,
+       a.mode, a.mode_source, a.mode_reason,
+       cr.status, cr.evaluated_at, cr.evaluated_sha, cr.eval_generation, cr.remediated_generation,
+       cr.hold, cr.hold_since,
+       rm.id AS remediation_id, rm.kind, rm.state AS remediation_state, rm.pr_number, rm.pr_url, rm.branch,
+       rm.created_at, rm.last_run_at, rm.closed_at,
+       (rm.state = 'open' AND rm.created_at &lt; @stale_before::timestamptz) AS pr_stale
+FROM control_assignments a
+JOIN repositories r ON r.id = a.repository_id
+LEFT JOIN control_results cr ON (cr.repository_id, cr.control_id) = (a.repository_id, a.control_id)
+LEFT JOIN remediations rm   ON (rm.repository_id, rm.control_id) = (a.repository_id, a.control_id)
+                           AND rm.state IN ('open', 'recommended')
+WHERE a.repository_id = @repository_id
+  AND (@scope_all::bool OR lower(r.org) = ANY (@scope_orgs::text[]))
+ORDER BY a.state, a.control_id;</code></pre>
+<p>Compliance for <code>/controls</code>, <code>/orgs</code> and <code>/orgs/{org}</code> comes from one shared query so the report, the API and the snapshots cannot drift (the IMPL-0025 Phase 8 rule, with the new keys):</p>
+<pre><code class="language-sql">-- name: ComplianceByControl :many   (shared by report, API and InsertComplianceSnapshot)
+SELECT r.org, a.control_id, a.source,
+       count(*) FILTER (WHERE a.state = 'active' AND cr.status = 'compliant')      AS compliant,
+       count(*) FILTER (WHERE a.state = 'active' AND cr.status = 'non_compliant')  AS non_compliant,
+       count(*) FILTER (WHERE a.state = 'active' AND cr.status = 'unknown')        AS unknown,
+       count(*) FILTER (WHERE a.state = 'active' AND cr.status = 'not_applicable') AS not_applicable,
+       count(*) FILTER (WHERE a.state = 'excluded')                                AS excluded,
+       floor(100.0 * count(*) FILTER (WHERE a.state = 'active' AND cr.status = 'compliant')
+             / NULLIF(count(*) FILTER (WHERE a.state = 'active' AND cr.status IN ('compliant','non_compliant')), 0))::numeric
+                                                                                   AS percent  -- NULL on an empty denominator
+FROM control_assignments a
+JOIN repositories r ON r.id = a.repository_id AND r.active
+JOIN repository_policy_state ps ON ps.repository_id = r.id AND ps.state = 'managed'
+LEFT JOIN control_results cr ON (cr.repository_id, cr.control_id) = (a.repository_id, a.control_id)
+WHERE (@scope_all::bool OR lower(r.org) = ANY (@scope_orgs::text[]))
+GROUP BY r.org, a.control_id, a.source;</code></pre>
+<h3 id="dd-remediation-as-the-api-exposes-it">Remediation as the API exposes it</h3>
+<pre class="mermaid">stateDiagram-v2
+    state "kind = pull_request" as PR {
+        [*] --&gt; open
+        open --&gt; open: updated (eval changed or pr_changed)
+        open --&gt; merged
+        open --&gt; closed_compliant: main compliant, repo-guardian closes
+        open --&gt; closed_by_user
+        closed_by_user --&gt; [*]: a NEW remediations row opens after reopen_after
+        merged --&gt; [*]
+        closed_compliant --&gt; [*]
+    }
+    state "kind = api" as API {
+        [*] --&gt; recommended: apply = pr, reported never written
+        [*] --&gt; applied: apply = direct (OQ4)
+        [*] --&gt; failed
+        recommended --&gt; applied: operator applies by hand, or mode changes
+    }</pre>
+<p><code>hold</code> is not a remediation state. It lives on the result row because there may be no PR yet, and <code>GET /repositories/{id}/controls</code> shows it next to the status so "why is there no PR" has an answer: <code>pr_cap</code>, <code>foreign_branch</code>, <code>permission</code>.</p>
+<h3 id="dd-how-the-api-is-built-and-consumed">How the API is built and consumed</h3>
+<pre class="mermaid">flowchart LR
+    SPEC["api/openapi.yaml&lt;br/&gt;hand-written, source of truth"] -- "make generate-api&lt;br/&gt;oapi-codegen strict-server" --&gt; GEN["internal/api/gen&lt;br/&gt;types, strict interface, embedded spec"]
+    SPEC -- "make lint-api&lt;br/&gt;vacuum + regenerate + diff" --&gt; GATE["CI api-drift"]
+    GEN --&gt; H["internal/api handlers&lt;br/&gt;convert.go lifts rows → wire types"]
+    SQL["queries/api_*.sql&lt;br/&gt;scope predicate required"] -- "sqlc, make lint-sql" --&gt; DBPKG["sqlcdb"]
+    DBPKG --&gt; RDR["postgres.APIReader&lt;br/&gt;each method one ReadOnly tx"]
+    RDR --&gt; H
+    SPEC -- "generated TS types&lt;br/&gt;lint-ui drift check" --&gt; UI["ui/web SPA&lt;br/&gt;via Hono BFF, one token"]
+    H --&gt; UI
+    H --&gt; CLI["repo-guardian report&lt;br/&gt;(reads Postgres directly, same ComplianceByControl)"]</pre>
+<table><thead><tr><th>Consumer</th><th>Endpoints</th><th>Notes</th></tr></thead><tbody><tr><td>UI fleet view</td><td><code>/summary</code>, <code>/controls</code>, <code>/orgs</code></td><td>compliance tiles read <code>percent</code> as the SQL value, never recomputed</td></tr><tr><td>UI control page</td><td><code>/controls/{id}</code>, <code>/compliance/history?control=</code></td><td>per-org breakdown with version and <code>source</code></td></tr><tr><td>UI org page</td><td><code>/orgs/{org}</code></td><td>baseline versus org-specific, exclusions with reasons</td></tr><tr><td>UI repository page</td><td><code>/repositories/{id}</code>, <code>/repositories/{id}/controls</code>, <code>/repositories/{id}/events</code></td><td>the evidence renderer is keyed by <code>evidence_kind</code> + <code>evidence_version</code></td></tr><tr><td>UI remediation queue</td><td><code>/remediations?state=open&amp;stale=true</code></td><td>replaces the findings PR list</td></tr><tr><td><code>repo-guardian report</code></td><td>none (direct SQL)</td><td>same <code>ComplianceByControl</code> query</td></tr><tr><td><code>repo-guardian evaluate --repo org/name --format json</code></td><td>none (runs the control locally)</td><td>DESIGN-0032 D7 + DESIGN-0033 item 3; exit 2 under <code>--detailed-exitcode</code> when any control is non-compliant</td></tr><tr><td><code>repo-guardian policy validate</code></td><td>none</td><td>slug grammar, unresolved references, unassigned controls (warning); exit 0 / 1 / 2</td></tr></tbody></table>
+<div class="note gap"><p><strong>Gaps found while drawing the API</strong></p>
+<ul><li><strong>Manual re-evaluate has no home.</strong> DESIGN-0032 lists "manual (API or UI re-evaluate)" as a trigger sending <code>recheck</code> at priority 1. The <code>api</code> role is read-only by design: read-only pool, no Temporal client, no write endpoint. Either the API gains <code>POST /repositories/{id}/evaluate</code> and the <code>api</code> role gains a Temporal client used only to signal (no store write), or the trigger is UI-only through the BFF, which has no Temporal access either. This needs a decision before Phase 5.</li><li><strong>The evaluation log endpoint</strong> (<code>/repositories/{id}/checks</code> today) is not mentioned. <code>checks</code> becomes the evaluation log (A6); the endpoint should follow (<code>/repositories/{id}/evaluations</code>) or be dropped deliberately.</li><li><strong><code>/policies</code> has no response shape</strong> in any document; the <code>PolicySummary</code> above is derived from <code>policy.Summarize</code> and <code>policy_versions.summary</code> and needs confirming, in particular whether rule-level detail (<code>RuleDecl</code>) is exposed on <code>/controls/{id}</code> or only names.</li><li><strong>A control can be at two versions in one fleet</strong> (<code>replace</code> per org). <code>/controls/{id}</code> is keyed by slug; the per-org breakdown must carry <code>version</code>, and fleet compliance across versions is a sum over <code>control_id</code> only, which is what 0030 intends but the spec should say so.</li><li><strong><code>Remediation</code> already exists as a schema name</strong> in the v2 spec (the findings remediation facet enum). The new object needs a different name or the old one is removed in the same change.</li><li><strong><code>evidence_kind</code></strong> as the discriminator is this section's proposal; the designs say only "versioned JSON per (control type, rule kind)". The spec's <code>oneOf</code> needs an explicit field.</li><li><strong><code>/installations</code> gains <code>app</code></strong>, and a repository now relates to two installations (one per App); <code>Repository</code> should expose <code>evaluable</code> / <code>remediable</code> booleans rather than one <code>installation_id</code>.</li></ul></div>
+<h2 id="dd-deep-dive-3-database-and-schema">Deep dive 3: database and schema</h2>
+<p>DESIGN-0030 owns two tables, DESIGN-0032 owns five, DESIGN-0029 says <code>repositories</code> and <code>installations</code> stay and <code>installations</code> gains <code>app</code>. This section puts them next to the v2 tables they replace, shows the keys and the foreign keys, and follows a row through the two transactions that write it.</p>
+<h3 id="dd-who-writes-what">Who writes what</h3>
+<pre class="mermaid">flowchart LR
+    subgraph W["Writers"]
+        D["Discovery + resolution&lt;br/&gt;(evaluator role)"]
+        E["Evaluate activity&lt;br/&gt;(evaluator role)"]
+        R["Remediation run&lt;br/&gt;(remediator role)"]
+        S["Snapshot workflow&lt;br/&gt;(evaluator role)"]
+        M["repo-guardian migrate&lt;br/&gt;(migrating role)"]
+    end
+    subgraph T["Tables"]
+        T0["installations (+app)&lt;br/&gt;repositories"]
+        T1["repository_policy_state&lt;br/&gt;control_assignments&lt;br/&gt;repository_events"]
+        T2["control_results (eval columns)&lt;br/&gt;rule_results&lt;br/&gt;result_events&lt;br/&gt;checks"]
+        T3["control_results (remediation columns)&lt;br/&gt;remediations&lt;br/&gt;remediation_events"]
+        T4["compliance_snapshots&lt;br/&gt;service_runs"]
+        T5["policy_versions&lt;br/&gt;goose_db_version, v2_meta"]
+    end
+    subgraph RD["Readers"]
+        A["API (read-only role, RO pool)"]
+        P["report subcommand"]
+        X["posture exporter (leader)"]
+    end
+    D --&gt; T0
+    D --&gt; T1
+    E --&gt; T2
+    E -- "pr_changed = true, PR observations" --&gt; T3
+    R --&gt; T3
+    S --&gt; T4
+    M --&gt; T5
+    T1 --&gt; A
+    T2 --&gt; A
+    T3 --&gt; A
+    T4 --&gt; A
+    T1 --&gt; P
+    T2 --&gt; P
+    T2 --&gt; X</pre>
+<h3 id="dd-entity-relationships">Entity relationships</h3>
+<p>Split into four diagrams by concern. <code>repositories.id</code> is the stable key everywhere; <code>(repository_id, control_id)</code> is the key both designs share, deliberately without the version.</p>
+<p><strong>Identity and policy</strong> (kept tables plus DESIGN-0030's two):</p>
+<pre class="mermaid">erDiagram
+    installations ||--o{ repositories : "discovered through (Evaluation App)"
+    installations {
+        bigint installation_id PK
+        text app "eval or remediate (NEW)"
+        text account_login "the org"
+        text provider
+        text host
+        timestamptz suspended_at
+        timestamptz removed_at
+        int rate_limit
+        int rate_remaining
+        timestamptz rate_reset_at
+    }
+    repositories ||--|| repository_policy_state : "resolved to"
+    repositories ||--o{ control_assignments : "assigned"
+    repositories ||--o{ repository_events : "timeline"
+    repositories {
+        bigserial id PK
+        text org
+        text name
+        bigint provider_repo_id UK
+        bigint installation_id FK
+        boolean active "the parking flag"
+        text park_reason
+        timestamptz parked_at
+        timestamptz discovered_at
+        timestamptz next_due_at
+        text last_error
+    }
+    policy_versions ||--o{ repository_policy_state : "resolved under"
+    policy_versions ||--o{ control_assignments : "resolved under"
+    policy_versions {
+        text version PK "v2 hash of catalogue + policies + templates"
+        timestamptz first_seen_at
+        timestamptz rollout_completed_at
+        jsonb summary "policy.Summarize, no template bodies"
+    }
+    repository_policy_state {
+        bigint repository_id PK, FK
+        text state "managed, excluded, unmanaged, parked"
+        text reason "exclusion or park reason"
+        text policy_version FK
+        timestamptz resolved_at
+    }
+    control_assignments {
+        bigint repository_id PK, FK
+        text control_id PK "codeowners"
+        int control_version "2"
+        text state "active or excluded"
+        text source "enterprise, org:x, org:x/repos[glob]"
+        text replaced "codeowners@1"
+        text excluded_by
+        text reason
+        text mode "evaluate or remediate"
+        text mode_source
+        text mode_reason "NULL or remediation_app_not_installed"
+        text policy_version FK
+        timestamptz resolved_at
+    }
+    repository_events {
+        bigserial id PK
+        bigint repository_id FK
+        text kind "renamed, transferred, parked, assignment_changed (NEW kind)"
+        jsonb detail
+        timestamptz occurred_at
+    }</pre>
+<p><strong>Evaluation results</strong> (DESIGN-0032, replacing <code>findings</code> and <code>finding_events</code>):</p>
+<pre class="mermaid">erDiagram
+    repositories ||--o{ control_results : "one row per control"
+    control_assignments ||--o| control_results : "same key, no FK by design"
+    control_results ||--o{ rule_results : "FK (repository_id, control_id)"
+    control_results ||--o{ result_events : "transitions, append-only"
+    repositories ||--o{ checks : "evaluation log (A6)"
+    control_results {
+        bigint repository_id PK, FK
+        text control_id PK
+        int control_version
+        text status "compliant, non_compliant, unknown, not_applicable"
+        text fingerprint "sha256 of statuses + blob SHAs"
+        bigint eval_generation "evaluation writes, inserts 1"
+        bigint remediated_generation "remediation writes, default 0"
+        boolean pr_changed
+        text hold "pr_cap, foreign_branch, permission"
+        timestamptz hold_since
+        text evaluated_sha
+        timestamptz evaluated_at
+        timestamptz last_changed_at
+    }
+    rule_results {
+        bigint repository_id PK, FK
+        text control_id PK, FK
+        text rule_id PK "bare id, unique within the control"
+        text status "pass, fail, error, not_applicable"
+        boolean remediate "copied from the rule"
+        jsonb evidence "text-only, versioned"
+        smallint evidence_version
+    }
+    result_events {
+        bigserial id PK
+        bigint repository_id
+        text control_id
+        int control_version "the version that produced it"
+        text rule_id "NULL for a control-status transition"
+        text from_status
+        text to_status
+        bigint eval_generation
+        timestamptz occurred_at
+    }
+    checks {
+        bigserial id PK
+        bigint repository_id FK
+        text check_key UK "workflowID/runID/iteration"
+        text trigger "schedule, push, pr_event (NEW), policy_changed, manual"
+        text outcome "pending, success, error, skipped"
+        jsonb pending_result "staged outcomes until RecordEvaluation"
+        text policy_version
+        timestamptz started_at
+        timestamptz finished_at
+    }</pre>
+<p><strong>Remediation</strong> (DESIGN-0032):</p>
+<pre class="mermaid">erDiagram
+    control_results ||--o{ remediations : "same (repository_id, control_id)"
+    remediations ||--o{ remediation_events : "opened, updated, closed, applied, failed"
+    remediations {
+        bigserial id PK
+        bigint repository_id
+        text control_id
+        text kind "pull_request or api"
+        text state "open, merged, closed_compliant, closed_by_user, recommended, applied, failed"
+        int pr_number
+        text pr_url
+        text branch "repo-guardian/ plus the control slug"
+        text head_sha_at_last_remediation
+        bigint remediated_generation
+        timestamptz created_at
+        timestamptz last_run_at
+        timestamptz closed_at
+        text close_reason
+    }
+    remediation_events {
+        bigserial id PK
+        bigint remediation_id FK
+        text kind
+        jsonb detail "before and after values for API changes"
+        timestamptz occurred_at
+    }</pre>
+<p>Partial unique index <code>remediations_one_open ON (repository_id, control_id) WHERE state = &#x27;open&#x27;</code> is the "at most one open PR per control" invariant, enforced by the database rather than by the workflow.</p>
+<p><strong>Reporting and service state</strong> (kept, re-keyed):</p>
+<pre class="mermaid">erDiagram
+    compliance_snapshots {
+        text org PK
+        text control_id PK "was rule_kind + rule_name"
+        text source PK "enterprise, org:x, ... (NEW)"
+        timestamptz snapshot_at PK
+        int compliant
+        int non_compliant
+        int unknown
+        int not_applicable
+        int excluded "NEW"
+    }
+    service_runs {
+        bigserial id PK
+        text kind "discovery, snapshot, policy_rollout, bootstrap, remediation_sweep (NEW)"
+        text outcome
+        timestamptz started_at
+        timestamptz finished_at
+        jsonb detail
+    }
+    v2_meta {
+        text key PK
+        text value "backfilled_v1_at, bootstrap_pending"
+    }</pre>
+<h3 id="dd-table-ledger">Table ledger</h3>
+<table><thead><tr><th>Table</th><th>Fate</th><th>Change</th></tr></thead><tbody><tr><td><code>installations</code></td><td>changed</td><td><code>+ app TEXT NOT NULL CHECK (app IN (&#x27;eval&#x27;,&#x27;remediate&#x27;))</code>, index on <code>(account_login, app)</code>; one row per org per App</td></tr><tr><td><code>repositories</code></td><td>changed</td><td>keep identity, <code>active</code>, <code>park_reason</code>, <code>parked_at</code>, <code>next_due_at</code>, <code>last_error</code>; retire the rule-engine posture columns <code>last_check_outcome</code>, <code>policy_version</code>, <code>catalog_parse_ok</code> (see gaps)</td></tr><tr><td><code>policy_versions</code></td><td>kept</td><td>the hash input changes (catalogue + policies + templates); <code>summary</code> carries <code>policy.Summarize</code> of the new shape</td></tr><tr><td><code>repository_events</code></td><td>changed</td><td><code>kind</code> CHECK gains <code>assignment_changed</code></td></tr><tr><td><code>repository_policy_state</code></td><td><strong>new</strong></td><td>DESIGN-0030</td></tr><tr><td><code>control_assignments</code></td><td><strong>new</strong></td><td>DESIGN-0030; PK <code>(repository_id, control_id)</code> is the one-version-per-control invariant</td></tr><tr><td><code>control_results</code></td><td><strong>new</strong></td><td>DESIGN-0032; two writers by column</td></tr><tr><td><code>rule_results</code></td><td><strong>new</strong></td><td>DESIGN-0032; composite FK to <code>control_results</code></td></tr><tr><td><code>result_events</code></td><td><strong>new</strong></td><td>DESIGN-0032; append-only by grant like <code>finding_events</code></td></tr><tr><td><code>remediations</code></td><td><strong>new</strong></td><td>DESIGN-0032; partial unique index on open</td></tr><tr><td><code>remediation_events</code></td><td><strong>new</strong></td><td>DESIGN-0032; append-only by grant</td></tr><tr><td><code>checks</code></td><td>changed</td><td>becomes the evaluation log (A6): <code>trigger</code> gains <code>pr_event</code>, <code>manual</code>; <code>pending_result</code> stages <code>[]controlOutcome</code> until the record step</td></tr><tr><td><code>compliance_snapshots</code></td><td>re-keyed</td><td><code>(org, control_id, source, snapshot_at)</code>; <code>excluded</code> count added; <code>rule_kind</code>/<code>rule_name</code> dropped</td></tr><tr><td><code>service_runs</code></td><td>changed</td><td><code>kind</code> gains <code>remediation_sweep</code></td></tr><tr><td><code>findings</code></td><td><strong>removed</strong></td><td>A5: replaced, not extended</td></tr><tr><td><code>finding_events</code></td><td><strong>removed</strong></td><td>A5</td></tr></tbody></table>
+<h3 id="dd-column-ownership-made-enforceable">Column ownership, made enforceable</h3>
+<p>DESIGN-0032 states the record-is-narrow invariant in prose. The evaluator/remediator role split makes it enforceable at the grant level, the same way <code>finding_events</code> is append-only today (the application role revokes its own UPDATE/DELETE). This is a proposal the designs do not make:</p>
+<pre><code class="language-sql">-- Two application roles instead of one (proposal). Each worker role connects as its own.
+CREATE ROLE rg_evaluator;  CREATE ROLE rg_remediator;
+
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO rg_evaluator, rg_remediator;
+
+-- evaluation owns the posture columns
+GRANT INSERT ON control_results, rule_results, result_events, checks TO rg_evaluator;
+GRANT UPDATE (status, fingerprint, eval_generation, control_version, evaluated_sha, evaluated_at,
+              last_changed_at, pr_changed) ON control_results TO rg_evaluator;
+GRANT UPDATE (state, closed_at, close_reason, head_sha_at_last_remediation) ON remediations TO rg_evaluator; -- PR observation
+GRANT DELETE ON rule_results TO rg_evaluator;           -- rules dropped by a version bump
+
+-- remediation owns its own columns and nothing of evaluation's
+GRANT INSERT ON remediations, remediation_events TO rg_remediator;
+GRANT UPDATE (remediated_generation, pr_changed, hold, hold_since) ON control_results TO rg_remediator;
+GRANT UPDATE ON remediations TO rg_remediator;
+
+-- append-only, enforced on both
+REVOKE UPDATE, DELETE, TRUNCATE ON result_events, remediation_events FROM rg_evaluator, rg_remediator;</code></pre>
+<p>A remediator bug that tries a full-row save of <code>control_results</code> then fails loudly at the database instead of silently clobbering an evaluation's generation bump.</p>
+<h3 id="dd-the-two-transactions">The two transactions</h3>
+<pre class="mermaid">sequenceDiagram
+    autonumber
+    participant E as Evaluate activity
+    participant PG as Postgres
+    participant R as Remediation run
+
+    Note over E,PG: RecordEvaluation, one transaction, idempotent on check_key
+    E-&gt;&gt;PG: UPDATE checks SET outcome, finished_at WHERE check_key = $1 (no-op if already final → return stored decisions)
+    E-&gt;&gt;PG: for each control: SELECT fingerprint, eval_generation FROM control_results FOR UPDATE
+    E-&gt;&gt;PG: INSERT ... ON CONFLICT DO UPDATE SET status, fingerprint, eval_generation = CASE WHEN fingerprint changed THEN +1 END, evaluated_at, ...
+    E-&gt;&gt;PG: DELETE FROM rule_results WHERE rule_id NOT IN (current rules), then INSERT ... ON CONFLICT DO UPDATE
+    E-&gt;&gt;PG: INSERT result_events for each control or rule whose status moved
+    E-&gt;&gt;PG: UPDATE remediations SET state = 'merged' | 'closed_by_user', closed_at ... from PR observations
+    E-&gt;&gt;PG: UPDATE control_results SET pr_changed = true WHERE PR head SHA moved
+    E-&gt;&gt;PG: COMMIT, return decisions (changed, pr_changed, needs_remediation per control)
+
+    Note over R,PG: Record, the narrow UPDATE after the GitHub write
+    R-&gt;&gt;PG: INSERT remediations (new PR) or UPDATE remediations SET pr_number, pr_url, head_sha_at_last_remediation, remediated_generation, last_run_at
+    R-&gt;&gt;PG: UPDATE control_results SET remediated_generation = $startGen, pr_changed = false, hold = NULL, hold_since = NULL WHERE (repository_id, control_id) = ($1, $2)
+    R-&gt;&gt;PG: INSERT remediation_events (opened or updated)
+    R-&gt;&gt;PG: COMMIT
+    R-&gt;&gt;PG: SELECT eval_generation, pr_changed  — moved past $startGen? loop once more</pre>
+<p>The race the counters resolve, shown as the pair <code>(eval_generation, remediated_generation)</code>:</p>
+<pre class="mermaid">stateDiagram-v2
+    direction LR
+    s1: (1, 0) new row, due
+    s2: (1, 1) settled
+    s3: (2, 1) due again
+    s4: (2, 2) settled
+    s5: (3, 1) eval moved during a run
+    s6: (3, 2) run recorded its start generation, re-read sees 3 &gt; 2
+    [*] --&gt; s1: first evaluation
+    s1 --&gt; s2: run records gen 1
+    s2 --&gt; s3: fingerprint changed
+    s3 --&gt; s4: run records gen 2
+    s3 --&gt; s5: evaluation bumps while run is in flight
+    s5 --&gt; s6: run records 2, not 3
+    s6 --&gt; s4: loops once more and records 3, then (3, 3)</pre>
+<h3 id="dd-queries-the-workflows-depend-on">Queries the workflows depend on</h3>
+<p>The backstop sweep and the evaluate activity share one definition of "due", so the hourly sweep can never disagree with the signal path:</p>
+<pre><code class="language-sql">CREATE VIEW remediation_due AS
+SELECT cr.repository_id, cr.control_id
+FROM control_results cr
+JOIN repository_policy_state ps ON ps.repository_id = cr.repository_id AND ps.state = 'managed'
+JOIN control_assignments a ON (a.repository_id, a.control_id) = (cr.repository_id, cr.control_id)
+                          AND a.state = 'active' AND a.mode = 'remediate'
+LEFT JOIN remediations rm ON (rm.repository_id, rm.control_id) = (cr.repository_id, cr.control_id)
+                         AND rm.state IN ('open', 'closed_by_user')
+LEFT JOIN org_remediation_settings os ON os.org = (SELECT org FROM repositories WHERE id = cr.repository_id)
+WHERE cr.hold IS NULL
+  AND (
+        ( cr.status = 'non_compliant'
+          AND EXISTS (SELECT 1 FROM rule_results rr WHERE (rr.repository_id, rr.control_id) = (cr.repository_id, cr.control_id)
+                                                     AND rr.status = 'fail' AND rr.remediate)
+          AND ( cr.eval_generation &gt; cr.remediated_generation
+                OR cr.pr_changed
+                OR (rm.state = 'closed_by_user' AND rm.closed_at + os.reopen_after &lt; now()) ) )
+     OR ( cr.status = 'compliant' AND rm.state = 'open' )
+  );</code></pre>
+<p>The merged timeline for <code>/repositories/{id}/events</code> extends today's <code>UNION ALL</code> of <code>finding_events</code> and <code>repository_events</code> with a third source:</p>
+<pre><code class="language-sql">SELECT occurred_at, 'repository' AS source, kind, NULL AS control_id, NULL AS rule_id, NULL AS from_status, NULL AS to_status, detail
+  FROM repository_events WHERE repository_id = $1
+UNION ALL
+SELECT occurred_at, 'result', 'status_changed', control_id, rule_id, from_status, to_status, '{}'::jsonb
+  FROM result_events WHERE repository_id = $1
+UNION ALL
+SELECT e.occurred_at, 'remediation', e.kind, r.control_id, NULL, NULL, r.state, e.detail
+  FROM remediation_events e JOIN remediations r ON r.id = e.remediation_id WHERE r.repository_id = $1
+ORDER BY occurred_at DESC, source, id DESC;</code></pre>
+<h3 id="dd-migrations">Migrations</h3>
+<table><thead><tr><th>Migration</th><th>Contents</th><th>Note</th></tr></thead><tbody><tr><td><code>00004_controls_policy.sql</code></td><td><code>repository_policy_state</code>, <code>control_assignments</code>, <code>repository_events.kind</code> CHECK + <code>assignment_changed</code>, <code>installations.app</code> + backfill <code>&#x27;eval&#x27;</code> + index</td><td>additive, safe on a live rc</td></tr><tr><td><code>00005_controls_results.sql</code></td><td><code>control_results</code>, <code>rule_results</code>, <code>result_events</code>, <code>remediations</code>, <code>remediation_events</code>, <code>remediation_due</code> view, <code>checks.trigger</code> CHECK, <code>service_runs.kind</code> CHECK, append-only revokes</td><td>additive</td></tr><tr><td><code>00006_compliance_rekey.sql</code></td><td>new <code>compliance_snapshots</code> shape; old rows are dropped (A20: cutover starts from a fresh evaluation)</td><td>destructive for history; acceptable on the rc line</td></tr><tr><td><code>00007_drop_findings.sql</code></td><td>drop <code>findings</code>, <code>finding_events</code>; drop <code>repositories.last_check_outcome</code>, <code>policy_version</code>, <code>catalog_parse_ok</code></td><td><strong>after</strong> cutover, its own PR</td></tr><tr><td>(Go) role grants</td><td><code>rg_evaluator</code> / <code>rg_remediator</code> column grants, if the proposal above is accepted</td><td>mirrors the <code>pgtest.AppRole</code> pattern</td></tr></tbody></table>
+<p><code>SchemaVersion</code> moves 3 → 7. <code>migrate --dry-run</code> replays pending migrations in one rolled-back transaction; its 00002 replay is hand-wired, so each new SQL file must be added to <code>postgres.DryRun</code>. The v1 backfill (<code>00003</code>) stays a no-op on a fresh v2 database and is not extended: DESIGN-0029 A20 says cutover starts from a fresh evaluation, not from migrated findings.</p>
+<div class="note gap"><p><strong>Gaps found while drawing the schema</strong></p>
+<ul><li><strong><code>repositories.installation_id</code> is a single FK</strong>, but a repository now relates to two installations. Discovery runs through the Evaluation App, so the column should reference the <code>eval</code> installation, and the Remediation App's installation is looked up by <code>(account_login = org, app = &#x27;remediate&#x27;)</code>. DESIGN-0032 adds <code>installations.app</code> without saying which installation <code>repositories</code> points to.</li><li><strong>Result rows outlive their assignment.</strong> When an org excludes a control, its <code>control_assignments</code> row flips to <code>excluded</code> but nothing in 0032 says what happens to <code>control_results</code> and <code>rule_results</code> for that control. Compliance queries join on active assignments, so they are harmless there, but <code>/repositories/{id}/controls</code> and the posture gauges must not count them. Proposal: resolution deletes result rows for controls that are no longer active and writes a <code>result_events</code> row with <code>to_status = NULL</code>, or the API filters by assignment state and the exporter joins assignments. Decide one.</li><li><strong><code>remediations_one_open</code> covers <code>state = &#x27;open&#x27;</code> only.</strong> For <code>kind = &#x27;api&#x27;</code>, repeated runs under <code>apply = &quot;pr&quot;</code> would insert many <code>recommended</code> rows for one control. The index should cover <code>state IN (&#x27;open&#x27;, &#x27;recommended&#x27;)</code>.</li><li><strong><code>remediation.reopen_after</code> and <code>max_open_prs</code> are policy values</strong> with no table. The <code>remediation_due</code> view above invents <code>org_remediation_settings</code>; in practice the sweep reads them from the snapshot in Go, or resolution persists them per repository. Either works; the designs do not say.</li><li><strong><code>checks</code> as the evaluation log</strong> needs a <code>trigger</code> CHECK extension for <code>pr_event</code> and <code>manual</code>, and <code>pending_result</code> now stages <code>[]controlOutcome</code> (status, fingerprint, rule results, reads), which can be large for a repository with many controls. Confirm it stays JSONB or moves to a side table.</li><li><strong><code>repositories</code> rule-engine columns</strong> (<code>last_check_outcome</code>, <code>policy_version</code>, <code>catalog_parse_ok</code>) are not mentioned by any design. <code>catalog_parse_ok</code> becomes <code>catalog_info</code> evidence; the other two are superseded by <code>control_results.evaluated_at</code> and <code>repository_policy_state.policy_version</code>. Retire them in <code>00007</code>.</li><li><strong>Append-only grants</strong> exist for <code>finding_events</code> today and should carry to <code>result_events</code> and <code>remediation_events</code>; 0032 says "grant-enforced, as finding_events" for <code>result_events</code> only.</li></ul></div>
+<h2 id="dd-deep-dive-4-implementation-order">Deep dive 4: implementation order</h2>
+<p>DESIGN-0029's rollout plan gives the order in one line each. This expands it into phases with dependencies, shows what can run in parallel, and proposes a branch strategy for running several agents on worktrees without a merge pile-up at the end. Phase numbers here are for this page; the IMPL document assigns the real ones.</p>
+<h3 id="dd-phases">Phases</h3>
+<table><thead><tr><th>#</th><th>Phase</th><th>Delivers</th><th>Depends on</th><th>Parallel lane</th></tr></thead><tbody><tr><td>0</td><td><strong>Decide and verify</strong></td><td>the 15 open questions answered; investigation on A1–A23 and F1–F10 with keep / adapt / remove per assumption; the IMPL document</td><td>DESIGN-0029..0033 accepted</td><td>— (user-owned)</td></tr><tr><td>0.5</td><td><strong>Contracts</strong></td><td>one commit on the integration branch: <code>internal/control</code> types (including <code>Definition</code>, <code>Reason</code>), the DDL for all seven tables, <code>policy.Assignment</code> / <code>Resolution</code>, <code>github.Reader</code> / <code>Writer</code> / <code>PRObserver</code> interfaces, <code>api/openapi.yaml</code> stubs for the new resources, migration numbers reserved</td><td>0</td><td>— (one author)</td></tr><tr><td>1</td><td><strong>Control framework + codeowners</strong></td><td><code>internal/control</code> behaviour (<code>StatusOf</code>, <code>Fingerprint</code>, <code>FileSpec</code>, <code>LocateFile</code>, file helpers, registry, template self-check), <code>controltest</code> conformance suite, <code>internal/controls/codeowners</code></td><td>0.5</td><td>A</td></tr><tr><td>2</td><td><strong>Policy model</strong></td><td>catalogue / enterprise / org loader with empty <code>EvalContext</code>, slug grammar, validation (ownership, reasons, references), <code>Snapshot.Resolve</code>, <code>VersionV2</code> over the new inputs, <code>policy.Summarize</code>, table tests</td><td>0.5 (and 1 for <code>Type.Build</code> at load)</td><td>B</td></tr><tr><td>3</td><td><strong>Schema + store</strong></td><td>migrations <code>00004</code>–<code>00006</code>, sqlc queries (<code>RecordEvaluation</code>, narrow record, <code>remediation_due</code>, <code>ComplianceByControl</code>, <code>api_*</code>), <code>V2Store</code> methods, role grants, <code>DryRun</code> wiring, store integration tests</td><td>0.5</td><td>C</td></tr><tr><td>4</td><td><strong>Evaluation workflow, evaluate-only</strong></td><td>pinned cached <code>Reader</code>, <code>Evaluate</code> activity, <code>RepoWorkflow</code> adaptation, discovery + resolution, policy rollout re-resolve, push scoping by <code>Resources()</code>, PR observation, <code>pr_event</code> ingest, budgets <code>installation/eval/&lt;id&gt;</code>, <code>evaluator</code> role, queue <code>repo-guardian-eval</code>, <code>EVAL_INTERVAL</code>, chart</td><td>1, 2, 3</td><td>— (integration)</td></tr><tr><td>5</td><td><strong>API + UI reads</strong></td><td><code>/controls</code>, <code>/policies</code>, <code>/repositories/{id}/controls</code>, <code>/remediations</code>, <code>/orgs/{org}</code> extension, merged events, <code>/summary</code> + <code>/status</code> extensions; UI views; <code>evidence_kind</code> renderer registry; report on <code>ComplianceByControl</code></td><td>3 (contracts suffice to start), 4 for e2e</td><td>D (can start after 0.5 against seeded rows)</td></tr><tr><td>6</td><td><strong>Remediation + second App</strong></td><td><code>Writer</code> with git-data commit, <code>PRObserver</code>, remediation workflow, find-or-adopt, PR cap, lifecycle, <code>remediation-sweep</code>, <code>remediator</code> role, queue <code>repo-guardian-remediate</code>, KEDA per queue, chart secret scoping, Remediation App permission derivation</td><td>4</td><td>E</td></tr><tr><td>7</td><td><strong>Remaining control types</strong></td><td><code>catalog_info</code>, <code>dependency_updates</code>, <code>file</code>, <code>repo_settings</code>, <code>branch_ruleset</code>, <code>labels</code>, <code>custom_properties</code> (+ tag schema seam per 0033 OQ1–OQ3)</td><td>1 for evaluate halves; 6 for API-remediated types' <code>direct</code> path</td><td>F1..F7, one worktree each</td></tr><tr><td>8</td><td><strong>Observability + CLI</strong></td><td>metrics table from 0032, dashboards and alerts regenerated (<code>make monitoring-generate</code>), posture exporter on <code>control_results</code>, <code>repo-guardian evaluate --format json --detailed-exitcode</code>, <code>repo-guardian policy validate</code></td><td>4 (metrics), 6 (remediation metrics)</td><td>G</td></tr><tr><td>9</td><td><strong>Cutover and removal</strong></td><td>close v1 PRs with a pointer comment, retire <code>TestPRIdentity_IsFrozen</code> literals deliberately, remove <code>internal/checker</code>, reconcilers, parity suite, v1 loader, <code>findings</code> tables (<code>00007</code>), migration guide <code>v1 rules → control types</code></td><td>4–8 shipped as rc</td><td>—</td></tr></tbody></table>
+<h3 id="dd-dependencies">Dependencies</h3>
+<pre class="mermaid">flowchart LR
+    P0["0 Decide and verify"] --&gt; P05["0.5 Contracts"]
+    P05 --&gt; P1["1 Control framework + codeowners"]
+    P05 --&gt; P2["2 Policy model"]
+    P05 --&gt; P3["3 Schema + store"]
+    P05 -. "seeded rows" .-&gt; P5["5 API + UI reads"]
+    P1 --&gt; P2
+    P1 --&gt; P4["4 Evaluation workflow"]
+    P2 --&gt; P4
+    P3 --&gt; P4
+    P4 --&gt; P5
+    P4 --&gt; P6["6 Remediation + second App"]
+    P1 --&gt; P7["7 Remaining control types"]
+    P6 -. "direct apply" .-&gt; P7
+    P4 --&gt; P8["8 Observability + CLI"]
+    P6 --&gt; P8
+    P5 --&gt; P9["9 Cutover and removal"]
+    P6 --&gt; P9
+    P7 --&gt; P9
+    P8 --&gt; P9
+    P4 ==&gt;|"rc: evaluate-only"| RC1(["v2.0.0-rc.N"])
+    P6 ==&gt;|"rc: remediation"| RC2(["v2.0.0-rc.N+1"])
+    P9 ==&gt;|"GA"| GA(["v2.0.0"])</pre>
+<p>The two rc milestones are DESIGN-0029's "evaluate-only first": the first rc with controls ships evaluation alone so posture can be compared with v1 before anything writes.</p>
+<h3 id="dd-board">Board</h3>
+<pre class="mermaid">kanban
+  decide[Decide first]
+    oq[15 open questions across 0029 to 0033]@{ priority: 'Very High', ticket: 'OQ' }
+    inv[INV on A1 to A23 and F1 to F10]@{ priority: 'Very High', ticket: 'INV' }
+    impl[IMPL document with real phase numbers]@{ priority: 'High' }
+  contracts[Contracts, one author]
+    types[internal/control types incl Definition and Reason]@{ ticket: 'P0.5' }
+    ddl[DDL for seven tables, migration numbers reserved]@{ ticket: 'P0.5' }
+    ifaces[Reader, Writer, PRObserver, policy.Assignment]@{ ticket: 'P0.5' }
+    spec[openapi.yaml stubs for new resources]@{ ticket: 'P0.5' }
+  parallel1[Foundations, three worktrees]
+    fw[Lane A: control framework, controltest, codeowners]@{ ticket: 'P1', assigned: 'agent A' }
+    pol[Lane B: policy loader, validation, Resolve, VersionV2]@{ ticket: 'P2', assigned: 'agent B' }
+    sch[Lane C: migrations, sqlc, V2Store, grants]@{ ticket: 'P3', assigned: 'agent C' }
+    api[Lane D: API and UI reads against seeded rows]@{ ticket: 'P5', assigned: 'agent D' }
+  rc1[Evaluate-only rc]
+    ev[Evaluate activity, RepoWorkflow adaptation, Reader]@{ ticket: 'P4' }
+    disc[Discovery and rollout call Resolve]@{ ticket: 'P4' }
+    ing[pr_event ingest, push scoping by Resources]@{ ticket: 'P4' }
+    chart1[evaluator role, eval queue, EVAL_INTERVAL, chart]@{ ticket: 'P4' }
+    e2e1[e2e: onboarding to non_compliant posture]@{ ticket: 'P4' }
+  parallel2[Second fan-out]
+    rem[Lane E: remediation workflow, Writer, second App, remediator role, KEDA]@{ ticket: 'P6', assigned: 'agent E' }
+    ci[Lane F1: catalog_info]@{ ticket: 'P7' }
+    du[Lane F2: dependency_updates]@{ ticket: 'P7' }
+    gf[Lane F3: file]@{ ticket: 'P7' }
+    rs[Lane F4: repo_settings]@{ ticket: 'P7' }
+    br[Lane F5: branch_ruleset]@{ ticket: 'P7' }
+    lb[Lane F6: labels]@{ ticket: 'P7' }
+    cp[Lane F7: custom_properties and tag schema seam]@{ ticket: 'P7' }
+    obs[Lane G: metrics, dashboards, alerts, evaluate and policy validate CLIs]@{ ticket: 'P8' }
+  rc2[Remediation rc]
+    e2e2[e2e: PR opened, merged, compliant, closed_compliant]@{ ticket: 'P6' }
+    soak[homelab soak, remediate on one org]@{ ticket: 'P6' }
+  cut[Cutover]
+    close[close v1 PRs, retire frozen identity literals]@{ ticket: 'P9' }
+    rm[remove checker, reconcilers, parity suite, v1 loader]@{ ticket: 'P9' }
+    drop[00007 drop findings]@{ ticket: 'P9' }
+    guide[v1 to controls migration guide]@{ ticket: 'P9' }</pre>
+<h3 id="dd-branching-for-parallel-work">Branching for parallel work</h3>
+<p>The repository's rules: never commit to <code>main</code>, <code>v2</code> is protected and the user merges, rc tags are cut by hand behind <code>dont-release</code> PRs. An integration branch keeps the fan-out off <code>v2</code> until each milestone is whole:</p>
+<pre class="mermaid">%%{init: { 'gitGraph': { 'mainBranchName': 'v2', 'showCommitLabel': true } } }%%
+gitGraph
+    commit id: "IMPL-0025 done"
+    branch controls
+    commit id: "0.5 contracts" tag: "contracts frozen"
+    branch feat-control-framework
+    commit id: "1 framework"
+    commit id: "1 codeowners"
+    checkout controls
+    branch feat-controls-schema
+    commit id: "3 migrations"
+    commit id: "3 sqlc + store"
+    checkout controls
+    branch feat-policy-model
+    commit id: "2 loader"
+    commit id: "2 resolve"
+    checkout controls
+    branch feat-api-controls
+    commit id: "5 endpoints"
+    checkout controls
+    merge feat-controls-schema id: "merge C"
+    merge feat-control-framework id: "merge A"
+    merge feat-policy-model id: "merge B"
+    commit id: "4 evaluation workflow"
+    merge feat-api-controls id: "merge D"
+    commit id: "4 e2e evaluate-only"
+    checkout v2
+    merge controls tag: "v2.0.0-rc.N evaluate-only"
+    checkout controls
+    merge v2
+    branch feat-remediation
+    commit id: "6 remediation"
+    checkout controls
+    branch feat-control-types
+    commit id: "7 catalog_info"
+    commit id: "7 dependency_updates"
+    checkout controls
+    branch feat-observability
+    commit id: "8 metrics + dashboards"
+    checkout controls
+    merge feat-remediation id: "merge E"
+    merge feat-control-types id: "merge F"
+    merge feat-observability id: "merge G"
+    checkout v2
+    merge controls tag: "v2.0.0-rc.N+1 remediation"
+    checkout controls
+    merge v2
+    commit id: "9 cutover + removal"
+    checkout v2
+    merge controls tag: "v2.0.0"</pre>
+<p>Rules that make the fan-out mergeable:</p>
+<ul><li><strong>Contracts first, then fan out.</strong> Phase 0.5 is one commit by one author. Every lane codes against the frozen types, DDL and interfaces; a lane that needs a contract change opens a small PR to <code>controls</code> first, and the other lanes rebase on it. Interface drift is the only thing that produces a bad merge here.</li><li><strong>Lanes own disjoint directories.</strong> A: <code>internal/control</code>, <code>internal/controls/codeowners</code>. B: <code>internal/policy</code>. C: <code>internal/store/postgres</code> (migrations, queries, sqlcdb). D: <code>api/</code>, <code>internal/api</code>, <code>ui/</code>. E: <code>internal/activities</code>, <code>internal/workflows</code>, <code>charts/</code>. F*: <code>internal/controls/&lt;type&gt;</code>. G: <code>internal/monitoring</code>, <code>internal/metrics</code>, <code>cmd/</code>.</li><li><strong>Merge order within a fan-out: C, A, B, then D.</strong> Schema has no Go dependencies; the framework has none on policy; policy calls <code>Type.Build</code> from the framework; the API needs the store. Merging in this order means every merge compiles against already-merged code.</li><li><strong>Shared files are listed and pre-assigned.</strong> <code>go.mod</code>, <code>internal/workflows/names.go</code>, <code>api/openapi.yaml</code>, <code>charts/repo-guardian/values.yaml</code>, <code>CLAUDE.md</code>, <code>.mockery.yaml</code>, migration numbers. Migration numbers <code>00004</code>–<code>00007</code> are reserved in Phase 0.5. The control-type registry is one line per type in <code>internal/controls/all.go</code>, so seven lanes append seven lines and the conflict is trivial.</li><li><strong>Each lane is a worktree on a branch off <code>controls</code></strong>, PRs into <code>controls</code> with the <code>dont-release</code> label (CI runs on both <code>main</code> and <code>v2</code>; it does not run on <code>controls</code>, so lanes run <code>make ci</code> locally or the integration branch is added to the <code>ci.yml</code> branch list for the duration).</li><li><strong><code>controls</code> merges into <code>v2</code> only at a milestone</strong>, as the rc. Between milestones <code>v2</code> is merged back into <code>controls</code> so bug fixes that landed on <code>main</code> and were forwarded to <code>v2</code> reach the lanes.</li><li><strong>Each merged lane adds its entry to CLAUDE.md's v2 section</strong> in the same PR, so the next lane's agent reads an accurate map.</li></ul>
+<h3 id="dd-acceptance-per-milestone">Acceptance per milestone</h3>
+<table><thead><tr><th>Milestone</th><th>Proof</th></tr></thead><tbody><tr><td>contracts frozen</td><td><code>go build ./...</code> with the new packages compiling against stubs; <code>make lint-sql</code> and <code>make lint-api</code> green on the stubs</td></tr><tr><td>evaluate-only rc</td><td>conformance suite green for <code>codeowners</code>; resolution table tests; <code>TestCompliance_ParityAcrossReportAPIAndSnapshot</code> on the new query; e2e: discovery → resolve → evaluate → <code>/repositories/{id}/controls</code> shows <code>non_compliant</code> with evidence; replay histories captured for the adapted <code>RepoWorkflow</code>; posture comparable with v1 on the homelab</td></tr><tr><td>remediation rc</td><td>e2e: onboarding → PR opened → merged → compliant; closed_compliant path; <code>pr_changed</code> path; PR cap hold and release; foreign-branch hold; replay histories for the remediation workflow; secret-scoping chart tests prove the evaluator never mounts the Remediation App key</td></tr><tr><td>v2.0.0</td><td>every built-in type passes the conformance suite; v1 PRs closed with pointer comments; <code>internal/checker</code> and reconcilers gone; <code>findings</code> dropped; migration guide published; <code>make ci</code> green on <code>v2</code></td></tr></tbody></table></section><hr class="docsep"><section id="d0029"><div class="meta">docs/design/0029-controls-and-policies-opinionated-compliance-with-separate.md</div><h1 id="d0029-design-0029-controls-and-policies-opinionated-compliance-with-separate-evaluation-and-remediation">DESIGN-0029: Controls and policies: opinionated compliance with separate evaluation and remediation</h1>
 <ul><li><a href="#d0029-overview">Overview</a><ul><li><a href="#d0029-document-set">Document set</a></li></ul></li><li><a href="#d0029-goals-and-non-goals">Goals and Non-Goals</a><ul><li><a href="#d0029-goals">Goals</a></li><li><a href="#d0029-non-goals">Non-Goals</a></li></ul></li><li><a href="#d0029-background">Background</a><ul><li><a href="#d0029-why-the-rule-model-conflicts">Why the rule model conflicts</a></li><li><a href="#d0029-why-now">Why now</a></li></ul></li><li><a href="#d0029-detailed-design">Detailed Design</a><ul><li><a href="#d0029-vocabulary">Vocabulary</a></li><li><a href="#d0029-architecture">Architecture</a></li><li><a href="#d0029-lifecycle-of-one-repository">Lifecycle of one repository</a></li><li><a href="#d0029-what-happens-to-v1-concepts">What happens to v1 concepts</a></li><li><a href="#d0029-assumptions-about-the-current-v2-code">Assumptions about the current v2 code</a></li><li><a href="#d0029-risks">Risks</a></li></ul></li><li><a href="#d0029-api--interface-changes">API / Interface Changes</a></li><li><a href="#d0029-data-model">Data Model</a></li><li><a href="#d0029-testing-strategy">Testing Strategy</a></li><li><a href="#d0029-migration--rollout-plan">Migration / Rollout Plan</a></li><li><a href="#d0029-decisions">Decisions</a></li><li><a href="#d0029-open-questions">Open Questions</a><ul><li><a href="#d0029-oq1-when-does-the-controls-model-land-relative-to-v200">OQ1: When does the controls model land relative to v2.0.0?</a></li><li><a href="#d0029-oq2-where-does-this-work-happen">OQ2: Where does this work happen?</a></li></ul></li></ul>
 <h2 id="d0029-overview">Overview</h2>
 <p>repo-guardian today is a generic rules engine. A rule is a file path, a template and some assertions, and many rules can point at the same file. Rules that share a file delete, overwrite or loop against each other, because the engine cannot know that "CODEOWNERS with a <code>.wiz</code> line" is one file with two requirements.</p>
@@ -1080,6 +2371,8 @@ CREATE TABLE remediation_events (         -- append-only: opened, updated, close
 <h2 id="d0033-references">References</h2>
 <ul><li>fwsync at commit <code>14fbbef</code>: README; RFC-0001 Tag Governance Enforcement; DESIGN-0001 Wiz desired-state management and tag-compliance generation; DESIGN-0002 IaC governance framework; DESIGN-0003 Tag compliance extension (containers, Kubernetes, GitHub); ADR-0001 to ADR-0007; IMPL-0001; <code>schemas/tags.hcl</code>; <code>internal/model</code>, <code>internal/decode</code>, <code>internal/plan</code>, <code>internal/apply</code>, <code>internal/lockfile</code>, <code>internal/gen</code>.</li><li>DESIGN-0029 Controls and policies (overview); DESIGN-0030 Policy model; DESIGN-0031 Control framework; DESIGN-0032 Evaluation and remediation workflows.</li><li>DESIGN-0019 / IMPL-0017 — the current <code>custom_properties</code> reconciler (managed set <code>Owner</code>, <code>Component</code>, <code>annotation_properties</code>).</li><li><code>docs/operations/monitoring-generation.md</code> — repo-guardian's existing committed-generation pattern.</li></ul></section>
 </main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>hljs.configure({ ignoreUnescapedHTML: true }); hljs.highlightAll();</script>
 <script type="module">
 import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
 mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose", flowchart: { htmlLabels: true } });

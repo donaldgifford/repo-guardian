@@ -112,6 +112,9 @@ def convert(md: str, prefix: str):
             text = "\n".join(body)
             if lang == "mermaid":
                 out.append(f'<pre class="mermaid">{html.escape(text, quote=False)}</pre>')
+            elif lang == "gap":
+                inner, _ = convert(text, prefix)
+                out.append(f'<div class="note gap">{inner}</div>')
             else:
                 cls = f' class="language-{html.escape(lang)}"' if lang else ""
                 out.append(f"<pre><code{cls}>{html.escape(text, quote=False)}</code></pre>")
@@ -404,6 +407,8 @@ blockquote{margin:12px 0;padding:8px 16px;border-left:4px solid var(--line);colo
 .doc-title{font-size:26px;margin:0 0 4px}
 .oq-rec{background:var(--ok);padding:2px 6px;border-radius:4px}
 .note{background:var(--warn);border:1px solid #d4a72c;border-radius:6px;padding:10px 14px;font-size:14px}
+.note p{margin:6px 0}.note ul{margin:6px 0 0 18px;padding:0}.note li{margin:4px 0}
+pre code.hljs{background:transparent;padding:0}
 .kv{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .kv ul{margin:6px 0 0 18px;padding:0}
 @media (max-width:1100px){nav#side{display:none}main{margin-left:0;padding:24px}}
@@ -421,11 +426,18 @@ def main():
         decisions, oqs = extract(md)
         docs.append(dict(id=did, title=title, html=body, headings=headings, decisions=decisions, oqs=oqs, path=Path(p).name))
 
+    deep_md = (Path(__file__).with_name("controls-redesign-deep-dives.md")).read_text()
+    deep_html, deep_headings = convert(deep_md, "dd")
+
     # ---- sidebar
     side = ['<nav id="side"><h1>repo-guardian controls redesign</h1><div class="sub">DESIGN-0029 → 0033 · branch docs/controls-and-policies · PR #202</div>']
     side.append('<a class="doc" href="#explainer">Explainer</a>')
     for anchor, label in [("why", "The problem"), ("changes", "The big changes"), ("arch", "Architecture"), ("life", "A repository's life"), ("keep", "What stays, what goes"), ("fwsync", "fwsync"), ("ledger", "Decision ledger"), ("oqs", "Open questions"), ("read", "Reading order")]:
         side.append(f'<a class="h3" href="#x-{anchor}">{label}</a>')
+    side.append('<a class="doc" href="#deep">Deep dives</a>')
+    for level, text, hid in deep_headings:
+        if level == 2:
+            side.append(f'<a class="h3" href="#{hid}">{html.escape(re.sub("`", "", text))}</a>')
     for d in docs:
         side.append(f'<a class="doc" href="#d{d["id"]}">DESIGN-{d["id"]}</a>')
         for level, text, hid in d["headings"]:
@@ -438,7 +450,7 @@ def main():
     x.append('<section id="explainer">')
     x.append("<h1>repo-guardian controls redesign</h1>")
     x.append('<p class="lede">Opinionated controls assigned by enterprise and org policies, evaluated read-only against every repository, remediated by one PR per control only when something changed.</p>')
-    x.append('<p class="meta">DESIGN-0029, 0030, 0031, 0032 and the fwsync companion DESIGN-0033 · Draft · 2026-10-02 · all five documents follow the explainer in full. Diagrams render with mermaid from a CDN; open with network access.</p>')
+    x.append('<p class="meta">DESIGN-0029, 0030, 0031, 0032 and the fwsync companion DESIGN-0033 · Draft · 2026-10-02 · the four deep dives (data model, API, database, implementation order) and then all five documents follow in full. Diagrams render with mermaid from a CDN; open with network access.</p>')
 
     x.append('<h2 id="x-why">The problem</h2>')
     x.append("<p>v1 evaluates each rule in isolation against the files it names. Rules that target the same file have no shared view of the result: one rule's cleanup deleted a CODEOWNERS file another rule still required (the wiz-owners incident on v1.11.1), two rules could write one file in turn, and a &ldquo;must exist&rdquo; / &ldquo;must not exist&rdquo; pair on the same path looped forever. A review of the engine found nine places with the same shape. The conclusion was that the engine is too generic &mdash; a rule is a path plus a check mode, and nothing in the model knows that four of those rules are all <em>about CODEOWNERS</em>. The fix is structural, not another patch.</p>")
@@ -506,8 +518,13 @@ def main():
         x.append(f'<li><a href="#d{did}">DESIGN-{did}</a> — {desc}</li>')
     x.append("</ol></section>")
 
+    # ---- deep dives
+    body = ['<hr class="docsep">', '<section id="deep">',
+            '<h1>Deep dives</h1>',
+            '<p class="lede">Four cross-cutting views that put the five documents next to each other: the types and how data flows through them, the API, the database schema, and the order to build it in. Each ends with the gaps found while drawing it.</p>',
+            deep_html, '</section>']
+
     # ---- docs
-    body = []
     for d in docs:
         body.append('<hr class="docsep">')
         body.append(f'<section id="d{d["id"]}"><div class="meta">docs/design/{d["path"]}</div>')
@@ -518,12 +535,15 @@ def main():
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>repo-guardian controls redesign — DESIGN-0029 to 0033</title>
 <style>{CSS}</style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
 </head><body>
 {''.join(side)}
 <main>
 {''.join(x)}
 {''.join(body)}
 </main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>hljs.configure({{ ignoreUnescapedHTML: true }}); hljs.highlightAll();</script>
 <script type="module">
 import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
 mermaid.initialize({{ startOnLoad: true, theme: "neutral", securityLevel: "loose", flowchart: {{ htmlLabels: true }} }});

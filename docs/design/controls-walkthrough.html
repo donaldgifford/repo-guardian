@@ -1,0 +1,1021 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>repo-guardian · controls redesign walkthrough</title>
+<style>
+:root{--bg:#fff;--fg:#1f2328;--muted:#57606a;--line:#d0d7de;--soft:#f6f8fa;--accent:#0969da;--ok:#1a7f37;--warn:#9a6700;--bad:#cf222e;--new:#8250df;--chg:#bc4c00;--rm:#6e7781;--eval:#0a3069;--rem:#82071e}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font:15.5px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--fg);background:var(--bg)}
+code,pre,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+code{background:var(--soft);padding:1px 5px;border-radius:4px}
+pre{background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:12px;overflow:auto;line-height:1.45}
+a{color:var(--accent)}
+nav#side{position:fixed;top:0;left:0;bottom:0;width:250px;overflow:auto;border-right:1px solid var(--line);padding:18px 16px;font-size:13.5px;background:var(--soft)}
+nav#side .brand{font-weight:700;font-size:15px;margin-bottom:10px}
+nav#side a{display:block;color:var(--fg);text-decoration:none;padding:3px 0}
+nav#side a.h2{padding-left:0;font-weight:600;margin-top:8px}
+nav#side a.h3{padding-left:14px;color:var(--muted)}
+nav#side a.on{color:var(--accent)}
+main{margin-left:250px;max-width:1120px;padding:28px 44px 80px}
+h1{font-size:30px;margin:0 0 6px}
+h2{font-size:23px;margin:48px 0 10px;padding-top:14px;border-top:1px solid var(--line)}
+h3{font-size:17px;margin:26px 0 8px}
+h4{font-size:15px;margin:18px 0 6px}
+.lede{font-size:18px;color:var(--muted);margin:0 0 10px}
+.meta{font-size:13px;color:var(--muted)}
+.note{background:#fff8c5;border:1px solid #d4a72c;border-radius:6px;padding:10px 14px;font-size:14px;margin:12px 0}
+.callout{background:#ddf4ff;border:1px solid #54aeff;border-radius:6px;padding:10px 14px;font-size:14px;margin:12px 0}
+.good{background:#dafbe1;border:1px solid #4ac26b;border-radius:6px;padding:10px 14px;font-size:14px;margin:12px 0}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:10px 0}
+th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+th{background:var(--soft)}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+.card{border:1px solid var(--line);border-radius:8px;padding:14px 16px;background:#fff}
+.card h4{margin:0 0 6px}
+.card .k{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:8px}
+.tile{border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--soft);cursor:pointer;transition:transform .15s,box-shadow .15s}
+.tile:hover{transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,.08)}
+.tile b{display:block;margin-bottom:4px}
+.badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600;border:1px solid transparent;white-space:nowrap}
+.b-new{background:#fbefff;color:var(--new);border-color:#e2c5ff}
+.b-chg{background:#fff1e5;color:var(--chg);border-color:#ffd8b5}
+.b-rm{background:#eaeef2;color:var(--rm);border-color:#d0d7de}
+.b-ok{background:#dafbe1;color:#116329;border-color:#aceebb}
+.b-warn{background:#fff8c5;color:#633c01;border-color:#f5d90a}
+.b-bad{background:#ffebe9;color:#82071e;border-color:#ffcecb}
+.b-info{background:#ddf4ff;color:#0a3069;border-color:#b6e3ff}
+.b-eval{background:#ddf4ff;color:var(--eval);border-color:#b6e3ff}
+.b-rem{background:#ffebe9;color:var(--rem);border-color:#ffcecb}
+.btn{display:inline-block;border:1px solid var(--line);background:#fff;border-radius:6px;padding:6px 12px;font-size:13.5px;cursor:pointer;color:var(--fg);user-select:none}
+.btn:hover{background:var(--soft)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.on{background:#0969da;color:#fff;border-color:#0969da}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btnrow{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg .btn{border:0;border-radius:0;border-right:1px solid var(--line)}
+.seg .btn:last-child{border-right:0}
+/* diagram engine */
+.dg{position:relative;width:100%;border:1px solid var(--line);border-radius:8px;background:
+  linear-gradient(90deg,rgba(0,0,0,.025) 1px,transparent 1px) 0 0/40px 40px,
+  linear-gradient(rgba(0,0,0,.025) 1px,transparent 1px) 0 0/40px 40px,#fff;overflow:hidden}
+.dg svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.dg svg path{fill:none;stroke:#8c959f;stroke-width:1.6;transition:stroke .2s,opacity .2s}
+.dg svg path.active{stroke:var(--accent);stroke-width:2.4;stroke-dasharray:7 6;animation:dash 1s linear infinite}
+.dg svg path.dim{opacity:.18}
+.dg svg path.eval{stroke:var(--eval)}.dg svg path.rem{stroke:var(--rem)}
+.dg svg path.dashed{stroke-dasharray:4 5}
+@keyframes dash{to{stroke-dashoffset:-26}}
+.nd{position:absolute;border:1.5px solid var(--line);border-radius:8px;background:#fff;padding:6px 8px;font-size:12.5px;line-height:1.3;transition:all .2s;cursor:default;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.nd b{display:block;font-size:13px}
+.nd small{display:block;color:var(--muted);font-size:11.5px;overflow-wrap:anywhere}
+.nd.on{border-color:var(--accent);box-shadow:0 0 0 3px rgba(9,105,218,.25);background:#f0f6ff}
+.nd.dim{opacity:.3}
+.nd.new{border-color:var(--new);background:#fdf8ff}
+.nd.chg{border-color:var(--chg);background:#fff9f4}
+.nd.rm{border-style:dashed;color:var(--rm)}
+.nd.eval{border-color:var(--eval)}.nd.rem{border-color:var(--rem)}
+.nd.store{background:#f6f8fa;border-radius:14px}
+.nd.ext{background:#fafafa;border-style:dashed}
+.nd.pulse{animation:pulse .9s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(9,105,218,.25)}50%{box-shadow:0 0 0 9px rgba(9,105,218,.08)}}
+.lbl{position:absolute;z-index:2;transform:translate(-50%,-50%);font-size:11px;color:var(--muted);background:rgba(255,255,255,.92);padding:0 4px;border-radius:3px;pointer-events:none;white-space:nowrap}
+.lbl.active{color:var(--accent);font-weight:600}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin:6px 0}
+.legend span::before{content:"";display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-2px;border:1.5px solid var(--line);background:#fff}
+.legend .ln::before{border-color:var(--new);background:#fdf8ff}.legend .lc::before{border-color:var(--chg);background:#fff9f4}.legend .lr::before{border-style:dashed}
+/* walkthrough */
+.stages{display:flex;gap:4px;margin:10px 0;flex-wrap:wrap}
+.stage{flex:1 1 90px;text-align:center;font-size:12.5px;padding:7px 4px;border:1px solid var(--line);border-radius:6px;cursor:pointer;background:#fff}
+.stage.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.stage.done{background:#ddf4ff}
+.narr{border:1px solid var(--line);border-radius:8px;padding:14px 16px;background:var(--soft);min-height:150px}
+.narr h4{margin:0 0 6px}
+.narr .cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;font-size:13.5px;margin-top:8px}
+.narr .cols div{background:#fff;border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+.narr .cols b{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:3px}
+/* meters */
+.meter{display:inline-flex;gap:3px;vertical-align:middle}
+.meter i{width:11px;height:11px;border-radius:2px;background:#eaeef2;display:inline-block}
+.meter i.f{background:var(--accent)}.meter.r i.f{background:var(--bad)}.meter.w i.f{background:var(--warn)}
+/* simulators */
+.sim{border:1px solid var(--line);border-radius:8px;padding:14px 16px;background:#fff}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin:10px 0}
+.kv div{border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--soft)}
+.kv div b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.kv div.flash{animation:flash 1.2s ease-out}
+@keyframes flash{0%{background:#fff8c5;border-color:#d4a72c}100%{background:var(--soft);border-color:var(--line)}}
+.verdict{padding:10px 14px;border-radius:6px;font-weight:600;margin:8px 0}
+.verdict.yes{background:#ffebe9;color:#82071e}.verdict.no{background:#dafbe1;color:#116329}.verdict.hold{background:#fff8c5;color:#633c01}
+.log{max-height:170px;overflow:auto;font-size:12.5px;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+.log div{padding:2px 0;border-bottom:1px dashed #e6e8eb}
+.states{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.st{border:1.5px solid var(--line);border-radius:18px;padding:5px 12px;font-size:13px;background:#fff}
+.st.on{border-color:var(--accent);background:#f0f6ff;box-shadow:0 0 0 3px rgba(9,105,218,.2)}
+.st.term{border-style:dashed}
+.steps{list-style:none;padding:0;margin:8px 0}
+.steps li{padding:7px 10px;border-left:3px solid var(--line);margin:3px 0;font-size:14px;background:#fff}
+.steps li.on{border-left-color:var(--accent);background:#f0f6ff}
+.steps li.bad{border-left-color:var(--bad);background:#fff5f5}
+.steps li.hold{border-left-color:var(--warn);background:#fffaf0}
+.steps li.done{opacity:.7}
+.steps li small{display:block;color:var(--muted)}
+/* ER */
+.er .nd{cursor:pointer}
+.er .nd.rel{border-color:var(--accent);background:#f0f6ff}
+.cols2{display:grid;grid-template-columns:1.6fr 1fr;gap:14px}
+.collist{font-size:12.5px}
+.collist div{padding:2px 0;border-bottom:1px dashed #e6e8eb;display:flex;justify-content:space-between;gap:8px}
+/* grants */
+.gm td.y{background:#dafbe1;color:#116329;text-align:center}.gm td.n{background:#f6f8fa;color:#8c959f;text-align:center}.gm td.c{background:#fff8c5;color:#633c01;text-align:center}
+/* topology */
+.pods{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:10px 0}
+.pod{border:1.5px solid var(--line);border-radius:8px;padding:10px 12px;background:#fff;min-height:120px}
+.pod b{display:block;margin-bottom:6px}
+.chip{display:inline-block;font-size:11.5px;padding:2px 7px;border-radius:5px;margin:2px 2px 0 0;border:1px solid var(--line);background:var(--soft)}
+.chip.key{background:#ffebe9;border-color:#ffcecb;color:#82071e}.chip.rkey{background:#ddf4ff;border-color:#b6e3ff;color:#0a3069}.chip.sec{background:#fff8c5;border-color:#f5d90a;color:#633c01}.chip.db{background:#dafbe1;border-color:#aceebb;color:#116329}.chip.tls{background:#fbefff;border-color:#e2c5ff;color:#8250df}
+/* calculator */
+.calc{display:grid;grid-template-columns:1fr 1.3fr;gap:18px}
+.calc label{display:block;font-size:13px;margin:8px 0 2px;color:var(--muted)}
+.calc input[type=range]{width:100%}
+.bar{height:16px;background:#eaeef2;border-radius:8px;overflow:hidden;margin:4px 0 10px}
+.bar i{display:block;height:100%;background:var(--ok);transition:width .3s}
+.bar i.w{background:var(--warn)}.bar i.b{background:var(--bad)}
+.out div{display:flex;justify-content:space-between;border-bottom:1px dashed #e6e8eb;padding:4px 0;font-size:14px}
+.out div span:last-child{font-variant-numeric:tabular-nums;font-weight:600}
+/* OQ */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.chips .btn{padding:3px 10px;font-size:12.5px;border-radius:14px}
+.oq{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:#fff}
+.oq summary{cursor:pointer;font-weight:600;list-style:none}
+.oq summary::-webkit-details-marker{display:none}
+.oq .imp{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:8px;font-size:13px}
+.oq .imp div{background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+.oq .imp b{display:block;font-size:11px;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}
+details.x{border:1px solid var(--line);border-radius:8px;padding:8px 14px;margin:8px 0;background:#fff}
+details.x summary{cursor:pointer;font-weight:600}
+.timeline{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}
+.mig{border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:13px;background:#fff;cursor:pointer}
+.mig.on{border-color:var(--accent);background:#f0f6ff}
+.mig b{display:block}
+.footer{margin-top:60px;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
+@media (max-width:1100px){nav#side{display:none}main{margin-left:0;padding:20px}.g2,.g3,.g4,.cols2,.calc,.narr .cols{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav id="side">
+  <div class="brand">Controls redesign walkthrough</div>
+  <a class="h2" href="#start">Start here</a>
+  <a class="h2" href="#arch">Architecture, before and after</a>
+  <a class="h2" href="#life">Life of one repository</a>
+  <a class="h2" href="#changes">The eight big changes</a>
+  <a class="h2" href="#detect">Change detection, live</a>
+  <a class="h2" href="#prlife">PR lifecycle machine</a>
+  <a class="h2" href="#run">A remediation run, with faults</a>
+  <a class="h2" href="#temporal">Temporal: what changes</a>
+  <a class="h3" href="#tflow">Event flows</a>
+  <a class="h3" href="#tsetup">Setup impact</a>
+  <a class="h2" href="#db">Database and schema</a>
+  <a class="h3" href="#er">Entity explorer</a>
+  <a class="h3" href="#grants">Two roles, column grants</a>
+  <a class="h2" href="#sec">Security boundary</a>
+  <a class="h2" href="#scale">Performance and scale</a>
+  <a class="h2" href="#oq">Open questions explorer</a>
+  <a class="h2" href="#plan">Complexity and order of work</a>
+  <a class="h2" href="#risks">Where it can still go wrong</a>
+</nav>
+<main>
+
+<h1>Controls redesign walkthrough</h1>
+<p class="lede">An interactive tour of what DESIGN-0029 to DESIGN-0033 change in repo-guardian, why, what it costs, and what the adversarial review corrected.</p>
+<p class="meta">Companion to <a href="controls-redesign.html">controls-redesign.html</a> (the full documents, deep dives and review). State of the designs as of 2026-10-03, including the review responses, which are the current position where they differ from the bodies. No network needed: every diagram on this page is built in the page itself.</p>
+
+<h2 id="start">Start here</h2>
+<p>repo-guardian today evaluates <b>rules</b> about paths and regexes, bundles every fix into one PR per repository, and runs one GitHub App that can both read and write. The redesign replaces that with <b>controls</b>: typed opinions ("a CODEOWNERS file that GitHub accepts and that gives security a say over <code>.wiz</code>"), assigned to repositories by a layered <b>enterprise and org policy</b>, evaluated by a read-only App, and remediated one PR per control by a second, write-capable App only when something actually changed.</p>
+<div class="grid g4" id="tiles">
+  <div class="tile" data-go="#changes"><b>Controls, not rules</b>Typed control types with rules, resources and a self-checking remediation. <span class="badge b-new">new model</span></div>
+  <div class="tile" data-go="#changes"><b>Two Apps, two roles</b>Evaluation App reads, Remediation App writes. The private key is the boundary. <span class="badge b-new">security</span></div>
+  <div class="tile" data-go="#detect"><b>Change-driven</b>Fingerprints, generations, epochs and revisions decide when a PR is rebuilt. <span class="badge b-chg">mechanism</span></div>
+  <div class="tile" data-go="#prlife"><b>One PR per control</b>Lifecycle with cap, cooldown, withdrawal, compare-and-swap commits. <span class="badge b-chg">workflow</span></div>
+  <div class="tile" data-go="#db"><b>Posture from assignments</b>Compliance starts from what policy asked for, with coverage beside the percentage. <span class="badge b-chg">data</span></div>
+  <div class="tile" data-go="#temporal"><b>Temporal grows a queue</b>Second task queue, per-control remediation workflows, two budgets per org. <span class="badge b-chg">platform</span></div>
+  <div class="tile" data-go="#oq"><b>15 open questions</b>Most now have a recommendation; several were effectively settled by the review. <span class="badge b-info">decide</span></div>
+  <div class="tile" data-go="#plan"><b>Nine phases, parallel lanes</b>Contracts first, then fan out; two rc milestones; cutover last. <span class="badge b-info">plan</span></div>
+</div>
+<div class="callout"><b>How to read this page.</b> Each section has something to click: toggles, step-through walkthroughs, a live state simulator, sliders. The text under each one says what the designs commit to and where the trade-off is. Items marked <span class="badge b-new">new</span> did not exist in v2; <span class="badge b-chg">changed</span> items exist in v2 and are reshaped; <span class="badge b-rm">removed</span> items go away at cutover.</div>
+
+<h2 id="arch">Architecture, before and after</h2>
+<p>Toggle between the v2 line as it is today and the controls model. Hover a box for what it is; the dashed-outline boxes are removed at cutover, purple are new, orange are reshaped.</p>
+<div class="btnrow">
+  <div class="seg" id="archSeg"><span class="btn on" data-v="before">v2 today (rule engine)</span><span class="btn" data-v="after">Controls model</span></div>
+  <span class="btn" id="archAnim">Animate the main flow</span>
+</div>
+<div class="legend"><span class="ln">new</span><span class="lc">changed</span><span class="lr">removed at cutover</span><span>unchanged</span></div>
+<div class="dg" id="archDg" style="aspect-ratio:1000/560"></div>
+<div id="archText"></div>
+
+<h2 id="life">Life of one repository</h2>
+<p>Step through what happens to one repository from discovery to convergence. The diagram highlights the components involved at each step; the panel says what is read, written and signalled. Use the buttons or the arrow keys.</p>
+<div class="stages" id="lifeStages"></div>
+<div class="dg" id="lifeDg" style="aspect-ratio:1000/560"></div>
+<div class="btnrow"><span class="btn" id="lifePrev">← Previous</span><span class="btn primary" id="lifeNext">Next →</span><span class="btn" id="lifePlay">▶ Autoplay</span><span class="meta" id="lifeCount" style="align-self:center"></span></div>
+<div class="narr" id="lifeNarr"></div>
+
+<h2 id="changes">The eight big changes</h2>
+<p>Each card states what changes, why, the alternative that was considered, and two complexity meters: how much it costs to build, and how much it costs to run. Click a card to flip it to the trade-off side.</p>
+<div class="grid g2" id="changeCards"></div>
+<div class="note"><b>What the adversarial review changed in this list.</b> Four of the eight were reshaped by accepted findings: change detection gained epochs, revisions and an intent revision (AR-0030-03, AR-0029-04, AR-0032-10); PR handling gained slot reservation and compare-and-swap commits (AR-0032-05, AR-0032-07); posture now starts from assignments and keeps results through access loss (AR-0029-01, AR-0030-05); ownership split into <code>Owns()</code> and <code>Reads()</code> with canonical keys (AR-0030-02, AR-0031-02). The CODEOWNERS ordering was simply wrong and is reversed (AR-0031-01).</div>
+
+<h2 id="detect">Change detection, live</h2>
+<p>This is the heart of change-driven remediation. One (repository, control) pair is shown. Press the buttons to make things happen in the world and watch which fields move and whether remediation becomes due. Nothing here polls: a PR is rebuilt only when one of these fields says so.</p>
+<div class="sim">
+  <div class="btnrow" id="detectBtns"></div>
+  <div class="kv" id="detectKv"></div>
+  <div class="verdict no" id="detectVerdict"></div>
+  <div class="log" id="detectLog"></div>
+</div>
+<div class="grid g3" style="margin-top:12px">
+  <div class="card"><h4>Fingerprint</h4><p>sha256 over the control <b>revision</b>, every rule's status and every resource read's digest (blob SHA for files, canonical-JSON digest for API values). Excludes timestamps, evidence wording and the pinned commit, so an unrelated push is not a change.</p></div>
+  <div class="card"><h4>Generations</h4><p><code>eval_generation</code> is bumped by evaluation when the fingerprint moves; <code>remediated_generation</code> is advanced only by remediation, after it acted. A new row starts at 1 &gt; 0, so onboarding remediates by construction. No evaluation can erase a pending change.</p></div>
+  <div class="card"><h4>Epoch, revision, intent</h4><p><b>Epoch</b> (assignment changed: version, mode, write set) fences stale runs. <b>Revision</b> (definition content digest) catches a template or evaluator change behind the same <code>name@N</code>. <b>Intent revision</b> catches an <code>apply</code> or eligibility change with no file drift.</p></div>
+</div>
+
+<h2 id="prlife">PR lifecycle machine</h2>
+<p>One remediation PR for one control. Click an event to drive the machine; the panel shows the state, the hold (if any), and what row and event are written. Holds are not PR states: they live on the result row because there may be no PR yet.</p>
+<div class="sim">
+  <div class="states" id="prStates"></div>
+  <div class="btnrow" id="prEvents"></div>
+  <div class="kv" id="prKv"></div>
+  <div class="log" id="prLog"></div>
+</div>
+
+<h2 id="run">A remediation run, with faults</h2>
+<p>Step through one run of the remediation workflow. Pick a fault to inject and see where the run diverges and what it leaves behind. Every path ends with either a recorded outcome or a visible hold; nothing half-applies.</p>
+<div class="sim">
+  <div class="btnrow">
+    <label class="meta" style="align-self:center">Inject:</label>
+    <select id="runFault" class="btn">
+      <option value="none">no fault</option>
+      <option value="cas">branch moved between pin and commit (CAS mismatch)</option>
+      <option value="foreign">untracked branch without an App-authored PR</option>
+      <option value="cap">open PRs already at max_open_prs</option>
+      <option value="conflict">update-branch reports a merge conflict</option>
+      <option value="store">store write fails after the PR is created</option>
+      <option value="throttle">Remediation App throttled</option>
+      <option value="epoch">assignment epoch moved during the run</option>
+    </select>
+    <span class="btn" id="runReset">Reset</span><span class="btn primary" id="runStep">Step →</span><span class="btn" id="runAll">Run to end</span>
+  </div>
+  <ol class="steps" id="runSteps"></ol>
+</div>
+
+<h2 id="temporal">Temporal: what changes</h2>
+<p>v2 already runs on Temporal: one long-lived <code>RepoWorkflow</code> per repository, one budget workflow per installation, a webhook workflow per delivery, and three service workflows, all on one task queue served by one <code>worker</code> role. The controls model keeps that shape for evaluation and adds a second queue and a second kind of workflow for remediation.</p>
+<table>
+<thead><tr><th>Workflow</th><th>v2 today</th><th>Controls model</th><th>Change</th></tr></thead>
+<tbody>
+<tr><td>per repository</td><td><code>repo/&lt;id&gt;</code> on <code>repo-guardian</code>; CheckRepo activity</td><td><code>repo/&lt;id&gt;</code> on <code>repo-guardian-eval</code>; Evaluate activity; signal-with-starts remediation; <code>pr_event</code> signal</td><td><span class="badge b-chg">adapted, new type name</span></td></tr>
+<tr><td>per repository and control</td><td>none</td><td><code>remediation/&lt;id&gt;/&lt;slug&gt;</code> on <code>repo-guardian-remediate</code>; one run at a time, end-of-run reloop</td><td><span class="badge b-new">new</span></td></tr>
+<tr><td>budget</td><td><code>installation/&lt;id&gt;</code></td><td><code>installation/eval/&lt;id&gt;</code> and <code>installation/remediate/&lt;id&gt;</code>, each on its App's queue</td><td><span class="badge b-chg">app dimension</span></td></tr>
+<tr><td>webhook</td><td><code>webhook/&lt;delivery&gt;</code>, RouteWebhook</td><td>same; event table gains <code>pull_request</code> on <code>repo-guardian/*</code> and lifecycle events for both Apps</td><td><span class="badge b-chg">event table</span></td></tr>
+<tr><td>discovery</td><td>schedule <code>discovery</code></td><td>same, plus resolution after upsert; a second listing pass through the Remediation App for per-App access</td><td><span class="badge b-chg">resolution step</span></td></tr>
+<tr><td>policy rollout</td><td><code>policy-rollout/&lt;v&gt;</code></td><td>same, re-resolves assignments and re-signals; a control revision change is a policy version change</td><td><span class="badge b-chg">inputs</span></td></tr>
+<tr><td>snapshot</td><td>schedule <code>snapshot</code></td><td>same query family re-keyed by control</td><td><span class="badge b-chg">re-keyed</span></td></tr>
+<tr><td>remediation sweep</td><td>none</td><td>schedule <code>remediation-sweep</code> (hourly backstop) and the maintenance query on the remediate queue</td><td><span class="badge b-new">new</span></td></tr>
+</tbody>
+</table>
+
+<h3 id="tflow">Event flows</h3>
+<p>Press an event and watch it travel. Click any box for its details (id pattern, queue, signals, activities, what changed).</p>
+<div class="btnrow" id="tEvents"></div>
+<div class="dg" id="tDg" style="aspect-ratio:1000/520"></div>
+<div class="cols2" style="margin-top:10px">
+  <div class="narr" id="tNarr"><h4>Pick an event or click a workflow</h4><p class="meta">The flow highlights in order; the panel explains each hop.</p></div>
+  <div class="card" id="tDetail"><h4>Workflow details</h4><p class="meta">Click a workflow box.</p></div>
+</div>
+
+<h3 id="tsetup">Setup impact</h3>
+<div class="grid g2">
+  <div class="card"><h4>What you add</h4>
+    <ul>
+      <li><b>A second task queue</b> (<code>repo-guardian-remediate</code>) and a second worker Deployment (<code>remediator</code>), each scaled by KEDA on its own backlog. <span class="badge b-new">new</span></li>
+      <li><b>Two budget workflows per org</b> instead of one, because each App installation has its own rate limit.</li>
+      <li><b>One short-lived workflow per failing control in remediate mode.</b> Not permanent: it completes when the run records and nothing is due.</li>
+      <li><b>One schedule</b>: <code>remediation-sweep</code>, hourly, as a backstop for lost signals and cleared holds.</li>
+      <li><b>A Temporal client in the <code>api</code> role</b> for <code>POST /repositories/{id}/evaluate</code>, under its own mTLS identity. Signal-only by code, not by server policy (AR-0032-12).</li>
+    </ul></div>
+  <div class="card"><h4>What you do not change</h4>
+    <ul>
+      <li>The namespace, the Temporal cluster (contrib chart 1.7.0), the CLI pin, mTLS, the OTel metrics handler.</li>
+      <li>The selector, coalescing, priority keys and ContinueAsNew pattern of the repository workflow.</li>
+      <li><code>TaskPriority</code> (priority plus fairness by installation) on every activity and start.</li>
+      <li>Ingest: HMAC validation, 204 drops, <code>REJECT_DUPLICATE</code> starts, 503 on Temporal errors.</li>
+    </ul></div>
+</div>
+<div class="grid g3" style="margin-top:12px">
+  <div class="card"><h4>Versioning and replay <span class="badge b-chg">decided by AR-0029-03</span></h4><p>No <code>GetVersion</code> gates. The controls workflows get new type names and ids, so no Phase 10 to 13 history can replay into them. Cutover terminates the old executions after the writers stop. Replay tests and history capture apply to the new types from their first rc.</p></div>
+  <div class="card"><h4>Capacity you must size</h4><p>Activity concurrency per role (<code>EVALUATOR_CONCURRENCY</code>, <code>REMEDIATOR_CONCURRENCY</code>), rollout fan-out (<code>POLICY_ROLLOUT_WINDOW</code>), sweep batch sizes and per-role Postgres pools. Temporal, Postgres and egress are shared by both paths; only the GitHub budget, the key and the queue are isolated (AR-0029-05).</p></div>
+  <div class="card"><h4>Complexity</h4>
+    <p>Build: <span class="meter" data-m="3"></span> &nbsp; Operate: <span class="meter w" data-m="3"></span></p>
+    <p class="meta">Moderate on both counts: the shape is v2's, duplicated. The new risks are a second worker to scale, a second budget to watch, and signal-with-start fan-out from evaluation into remediation.</p></div>
+</div>
+
+<h2 id="db">Database and schema</h2>
+<p>The findings tables go; assignments, results and remediations replace them. Four goose migrations, numbered up front so parallel lanes cannot collide, take <code>SchemaVersion</code> from 3 to 7. Click a migration to see what it carries.</p>
+<div class="timeline" id="migs"></div>
+<div class="card" id="migDetail"><p class="meta">Click a migration.</p></div>
+
+<h3 id="er">Entity explorer</h3>
+<p>Hover a table to see its relations; click to pin it and read its columns. Purple tables and purple column badges were added by the review responses; orange columns are reshaped; strikethrough columns are dropped.</p>
+<div class="legend"><span class="ln">new table</span><span class="lc">changed table</span><span class="lr">removed at cutover</span></div>
+<div class="cols2">
+  <div class="dg er" id="erDg" style="aspect-ratio:700/560"></div>
+  <div class="card" id="erDetail"><h4>Columns</h4><p class="meta">Click a table.</p></div>
+</div>
+
+<h3 id="grants">Two roles, column grants</h3>
+<p>Record-is-narrow is enforced by the database, not by prose: the evaluator and the remediator connect as different roles and each may write only its own columns. Toggle the role to see what it can do. The <code>all</code> topology connects as a member of both, which is why it is the weaker boundary (AR-0029-02).</p>
+<div class="btnrow"><div class="seg" id="roleSeg"><span class="btn on" data-r="evaluator">rg_evaluator</span><span class="btn" data-r="remediator">rg_remediator</span><span class="btn" data-r="all">all (member of both)</span></div></div>
+<table class="gm" id="grantTable"></table>
+<p class="meta">Append-only tables (<code>result_events</code>, <code>remediation_events</code>, <code>remediation_steps</code>) revoke UPDATE and DELETE from both roles, as <code>finding_events</code> does today. Grant tests run as the two roles through <code>pgtest.AppRole</code>; a test as the owner proves nothing (AR-0032-09).</p>
+
+<h2 id="sec">Security boundary</h2>
+<p>The private key is the boundary: a process that holds a write-capable App key can mint a write token whatever it intends. Toggle the topology to see which pods hold what. The guarantee is stated for <code>split</code>; <code>all</code> is a documented combined-trust topology for single-operator installs.</p>
+<div class="btnrow"><div class="seg" id="topoSeg"><span class="btn on" data-t="split">topology: split</span><span class="btn" data-t="all">topology: all</span></div></div>
+<div class="pods" id="pods"></div>
+<div id="topoText"></div>
+
+<h2 id="scale">Performance and scale</h2>
+<p>Move the sliders to see what a fleet costs in GitHub calls, database rows and Temporal executions. Budgets use GitHub's documented App installation limits: 5,000 requests per hour, plus 50 per repository above 20, capped at 12,500. Two Apps means evaluation and remediation draw on separate budgets.</p>
+<div class="calc">
+  <div id="calcIn"></div>
+  <div class="out" id="calcOut"></div>
+</div>
+<div class="grid g2" style="margin-top:12px">
+  <div class="card"><h4>What the design does to keep this cheap</h4>
+    <ul>
+      <li><b>One pinned, cached Reader per evaluation.</b> Every control reads the same tree at the same SHA; a file read twice is fetched once.</li>
+      <li><b>Push rechecks are scoped</b> to controls whose <code>Owns() ∪ Reads()</code> intersect the changed paths; unknown paths (2,048-commit cap, forced push) select all.</li>
+      <li><b>Remediation only on change.</b> An unchanged fingerprint writes <code>evaluated_at</code> and nothing else; no signal is sent.</li>
+      <li><b>Resolution makes no API calls.</b> It is a pure function of the snapshot and stored rows.</li>
+      <li><b>PR observation is one list call</b> per evaluation, plus webhooks between schedules.</li>
+    </ul></div>
+  <div class="card"><h4>What the review added, and its cost</h4>
+    <ul>
+      <li><b>Posture LEFT JOIN</b> from assignments to results: the same row count, one more index, and a coverage number you did not have.</li>
+      <li><b>Slot reservation</b> locks the repository's policy-state row for the duration of one insert; contention is per repository, not fleet-wide.</li>
+      <li><b>Update-branch before re-evaluating a PR head</b>: one extra write call per stale PR, and a conflict is now a visible hold instead of a silently acknowledged PR.</li>
+      <li><b>A second discovery listing</b> through the Remediation App for per-App access facts: one list call per installation per interval.</li>
+      <li><b>Journaled steps</b> per remediation: a handful of small rows per run, which is what makes retries and recovery exact.</li>
+    </ul></div>
+</div>
+
+<h2 id="oq">Open questions explorer</h2>
+<p>Fifteen open questions remain across the five documents. Each has a recommended answer; several were effectively settled or reshaped by the review responses. Filter by what an answer affects, then open a card for the alternatives and the impact of each.</p>
+<div class="chips" id="oqFilters"></div>
+<div id="oqList"></div>
+
+<h2 id="plan">Complexity and order of work</h2>
+<p>Nine phases on an integration branch <code>controls</code> off <code>v2</code>. Contracts are frozen first by one author; then lanes fan out in worktrees and merge in dependency order (schema, framework, policy, API). Click a phase to see what it needs and what waits on it.</p>
+<div class="dg" id="planDg" style="aspect-ratio:1000/440"></div>
+<div class="card" id="planDetail"><p class="meta">Click a phase.</p></div>
+<h3>Complexity by area</h3>
+<table id="cxTable">
+<thead><tr><th>Area</th><th>Build</th><th>Operate</th><th>Risk</th><th>Why</th></tr></thead>
+<tbody></tbody>
+</table>
+<div class="grid g2">
+  <div class="card"><h4>Branching for parallel work</h4>
+    <ul>
+      <li><b>Contracts first, then fan out.</b> Phase 0.5 is one commit: types, DDL, interfaces, OpenAPI stubs, reserved migration numbers 00004 to 00007.</li>
+      <li><b>Lanes own disjoint directories</b> and merge in the order C (schema), A (framework), B (policy), D (API), so every merge compiles against merged code.</li>
+      <li><b>Shared files are pre-assigned</b>: <code>go.mod</code>, <code>names.go</code>, <code>openapi.yaml</code>, <code>values.yaml</code>, <code>CLAUDE.md</code>, the one-line-per-type registry.</li>
+      <li><b>Two rc milestones</b>: evaluate-only first, so posture can be compared with v1 before anything writes; then remediation.</li>
+    </ul></div>
+  <div class="card"><h4>Where the review moved effort</h4>
+    <ul>
+      <li>Phase 0.5 grows: epoch, revision, <code>Owns()/Reads()</code>, <code>Fixed/Manual/Blocked</code>, canonical resource keys, the two App-access tables.</li>
+      <li>Phase 1 grows: a real CODEOWNERS matcher with GitHub's last-match-wins, tested against independent expected owners.</li>
+      <li>Phase 6 changes primitive: <code>createCommitOnBranch</code> with <code>expectedHeadOid</code>, slot reservation, step journal, update-branch, maintenance query.</li>
+      <li>Phase 3 grows: nullable event status, cascade deletes, the grant matrix as a test, <code>remediation_due</code> and <code>remediation_maintenance</code> as SQL.</li>
+    </ul></div>
+</div>
+
+<h2 id="risks">Where it can still go wrong</h2>
+<p>The review's recurring themes, each with its status after the responses. Links go to the finding in the full explainer.</p>
+<div class="grid g2" id="riskCards"></div>
+
+<div class="footer">Generated by hand for the controls redesign review, 2026-10-03. Sources: DESIGN-0029 to DESIGN-0033 with their adversarial reviews and responses, the deep dives in <code>scripts/controls-redesign-deep-dives.md</code>, and the v2 architecture notes in <code>CLAUDE.md</code>. GitHub facts (push payload cap, <code>createCommitOnBranch</code>, CODEOWNERS errors <code>ref</code>) were checked against GitHub's API on the same day.</div>
+</main>
+<script>
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function meterHTML(n,cls){let h='<span class="meter '+(cls||'')+'">';for(let i=1;i<=5;i++)h+='<i class="'+(i<=n?'f':'')+'"></i>';return h+'</span>';}
+$$('.meter[data-m]').forEach(m=>{const n=+m.dataset.m;for(let i=1;i<=5;i++){const b=document.createElement('i');if(i<=n)b.className='f';m.appendChild(b);}});
+$$('#tiles .tile').forEach(t=>t.addEventListener('click',()=>location.hash=t.dataset.go));
+
+/* ---------- diagram engine ----------
+   nodes: {id,label,sub,x,y,w,h,cls,tip}   coordinates in viewBox units
+   links: {from,to,label,cls,id}            */
+function Diagram(el,W,H){
+  this.el=el;this.W=W;this.H=H;this.nodes={};this.links=[];
+  el.innerHTML='';
+  this.svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  this.svg.setAttribute('viewBox','0 0 '+W+' '+H);this.svg.setAttribute('preserveAspectRatio','none');
+  this.svg.innerHTML='<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8c959f"/></marker><marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#0969da"/></marker></defs>';
+  el.appendChild(this.svg);
+}
+Diagram.prototype.load=function(nodes,links){
+  const self=this;this.nodes={};this.links=[];
+  this.el.querySelectorAll('.nd,.lbl').forEach(n=>n.remove());
+  this.svg.querySelectorAll('path').forEach(p=>p.remove());
+  nodes.forEach(n=>{
+    const d=document.createElement('div');d.className='nd '+(n.cls||'');d.dataset.id=n.id;
+    d.style.left=(n.x/self.W*100)+'%';d.style.top=(n.y/self.H*100)+'%';d.style.width=(n.w/self.W*100)+'%';d.style.height=(n.h/self.H*100)+'%';
+    d.innerHTML='<b>'+esc(n.label)+'</b>'+(n.sub?'<small>'+esc(n.sub)+'</small>':'');
+    if(n.tip)d.title=n.tip;
+    self.el.appendChild(d);self.nodes[n.id]={...n,el:d};
+  });
+  links.forEach((l,i)=>{
+    const a=self.nodes[l.from],b=self.nodes[l.to];if(!a||!b)return;
+    const pts=edge(a,b);
+    const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+    p.setAttribute('d',pts.d);p.setAttribute('marker-end','url(#arr)');p.setAttribute('class',l.cls||'');
+    p.dataset.from=l.from;p.dataset.to=l.to;p.dataset.id=l.id||(l.from+'>'+l.to);
+    self.svg.appendChild(p);
+    const rec={...l,el:p,id:p.dataset.id};
+    if(l.label){const s=document.createElement('span');s.className='lbl';s.textContent=l.label;s.style.left=(pts.mx/self.W*100)+'%';s.style.top=(pts.my/self.H*100)+'%';self.el.appendChild(s);rec.lbl=s;}
+    self.links.push(rec);
+  });
+  return this;
+};
+function edge(a,b){
+  const ac={x:a.x+a.w/2,y:a.y+a.h/2},bc={x:b.x+b.w/2,y:b.y+b.h/2};
+  const dx=bc.x-ac.x,dy=bc.y-ac.y;let p1,p2,d;
+  if(Math.abs(dx)>Math.abs(dy)){
+    p1={x:dx>0?a.x+a.w:a.x,y:ac.y};p2={x:dx>0?b.x:b.x+b.w,y:bc.y};
+    const cx=(p1.x+p2.x)/2;d=`M${p1.x} ${p1.y} C${cx} ${p1.y}, ${cx} ${p2.y}, ${p2.x} ${p2.y}`;
+  }else{
+    p1={x:ac.x,y:dy>0?a.y+a.h:a.y};p2={x:bc.x,y:dy>0?b.y:b.y+b.h};
+    const cy=(p1.y+p2.y)/2;d=`M${p1.x} ${p1.y} C${p1.x} ${cy}, ${p2.x} ${cy}, ${p2.x} ${p2.y}`;
+  }
+  return {d,mx:(p1.x+p2.x)/2,my:(p1.y+p2.y)/2};
+}
+Diagram.prototype.highlight=function(nodeIds,linkIds,opts){
+  opts=opts||{};const ns=new Set(nodeIds||[]),ls=new Set(linkIds||[]);
+  Object.values(this.nodes).forEach(n=>{n.el.classList.toggle('on',ns.has(n.id));n.el.classList.toggle('dim',opts.dim&&ns.size>0&&!ns.has(n.id));n.el.classList.remove('pulse');});
+  this.links.forEach(l=>{const on=ls.has(l.id);l.el.classList.toggle('active',on);l.el.setAttribute('marker-end',on?'url(#arrA)':'url(#arr)');l.el.classList.toggle('dim',opts.dim&&ls.size>0&&!on);if(l.lbl)l.lbl.classList.toggle('active',on);});
+};
+Diagram.prototype.clear=function(){this.highlight([],[],{dim:false});};
+/* animate a sequence of hops: [{nodes:[],links:[],text}] with delay */
+Diagram.prototype.play=function(seq,ms,onStep){
+  const self=this;let i=0;clearInterval(self._t);self.clear();
+  const tick=()=>{if(i>=seq.length){clearInterval(self._t);return;}const s=seq[i];self.highlight(s.nodes,s.links,{dim:true});(s.nodes||[]).forEach(id=>self.nodes[id]&&self.nodes[id].el.classList.add('pulse'));if(onStep)onStep(s,i);i++;};
+  tick();self._t=setInterval(tick,ms||1100);
+};
+
+/* ---------- architecture before / after ---------- */
+const ARCH={
+ before:{
+  nodes:[
+   {id:'gh',label:'GitHub repositories',sub:'webhooks: push, installation, repository',x:20,y:40,w:170,h:60,cls:'ext'},
+   {id:'app',label:'One GitHub App',sub:'reads and writes with one key',x:20,y:140,w:170,h:52,cls:'rm',tip:'Replaced by two Apps'},
+   {id:'pol',label:'guardian.hcl',sub:'rule "file" / "setting" / "branch_protection", reconcile blocks, scope/ignore',x:20,y:300,w:170,h:70,cls:'rm',tip:'Replaced by catalogue + enterprise + org policies'},
+   {id:'ing',label:'ingest',sub:'HMAC → WebhookWorkflow',x:260,y:40,w:150,h:50},
+   {id:'wh',label:'webhook/<delivery>',sub:'RouteWebhook activity',x:260,y:130,w:150,h:50},
+   {id:'repo',label:'repo/<id>',sub:'RepoWorkflow: timer + recheck/policy_changed/park',x:470,y:130,w:190,h:60,cls:'chg'},
+   {id:'chk',label:'CheckRepo activity',sub:'rule engine: findActionableRules, reconcilers, drift, one PR',x:470,y:230,w:190,h:60,cls:'rm'},
+   {id:'bud',label:'installation/<id>',sub:'budget: acquire/report',x:470,y:40,w:190,h:50,cls:'chg'},
+   {id:'svc',label:'discovery · snapshot · policy-rollout · bootstrap',sub:'schedules and service workflows',x:260,y:230,w:150,h:70},
+   {id:'wk',label:'worker role',sub:'one queue: repo-guardian · holds the App key',x:470,y:330,w:190,h:50,cls:'chg'},
+   {id:'db',label:'Postgres',sub:'repositories · findings · finding_events · checks · compliance_snapshots',x:720,y:130,w:250,h:70,cls:'chg store'},
+   {id:'api',label:'api role + UI',sub:'read-only pool, OIDC',x:720,y:300,w:250,h:50},
+   {id:'pr',label:'one PR per repository',sub:'repo-guardian/add-missing-files',x:720,y:420,w:250,h:50,cls:'rm'}
+  ],
+  links:[
+   {from:'gh',to:'ing',label:'webhook'},{from:'ing',to:'wh'},{from:'wh',to:'repo',label:'signal'},{from:'repo',to:'chk'},{from:'repo',to:'bud',label:'acquire'},
+   {from:'chk',to:'app',cls:'dashed'},{from:'app',to:'gh'},{from:'chk',to:'db',label:'RecordCheck'},{from:'chk',to:'pr',label:'bundle PR'},
+   {from:'svc',to:'db'},{from:'db',to:'api'},{from:'pol',to:'chk',label:'rules'},{from:'wk',to:'chk',cls:'dashed'}
+  ],
+  text:'<div class="grid g3"><div class="card"><h4>One of everything</h4><p>One App with write permission in every worker, one task queue, one PR per repository bundling every fix, posture keyed by <code>(rule_kind, rule_name)</code>.</p></div><div class="card"><h4>What hurt</h4><p>Shared-file rules collided (CODEOWNERS owned by two rules), path-and-regex rules could not say what they meant, and one bundle PR mixed unrelated changes and had to track orphans.</p></div><div class="card"><h4>What stays</h4><p>Temporal shape, ingest, identity matching, the GitHub transport chain, the API skeleton, the chart roles, the posture-export patterns.</p></div></div>',
+  anim:[{nodes:['gh','ing'],links:['gh>ing']},{nodes:['wh'],links:['ing>wh']},{nodes:['repo'],links:['wh>repo']},{nodes:['chk','app'],links:['repo>chk','chk>app']},{nodes:['db','pr'],links:['chk>db','chk>pr']},{nodes:['api'],links:['db>api']}]
+ },
+ after:{
+  nodes:[
+   {id:'gh',label:'GitHub repositories',sub:'all webhooks to the Evaluation App',x:20,y:30,w:170,h:56,cls:'ext'},
+   {id:'ea',label:'Evaluation App',sub:'reads · read-only key · own installations and budget',x:20,y:120,w:170,h:56,cls:'new eval'},
+   {id:'ra',label:'Remediation App',sub:'writes · write key · installed only where remediate is used',x:20,y:210,w:170,h:56,cls:'new rem'},
+   {id:'pol',label:'Policy as data',sub:'control catalogue · enterprise policy · org policies (+ tag schema)',x:20,y:330,w:170,h:70,cls:'new'},
+   {id:'ing',label:'ingest',sub:'HMAC (two secrets) → WebhookWorkflow',x:260,y:30,w:150,h:52,cls:'chg'},
+   {id:'wh',label:'webhook/<delivery>',sub:'RouteWebhook: event table + pull_request on repo-guardian/*',x:260,y:120,w:150,h:60,cls:'chg'},
+   {id:'disc',label:'discovery + resolution',sub:'UpsertDiscovered → resolve assignments (no API calls)',x:260,y:230,w:150,h:60,cls:'chg'},
+   {id:'be',label:'installation/eval/<id>',sub:'budget',x:470,y:30,w:180,h:44,cls:'chg eval'},
+   {id:'ev',label:'repo/<id>  (evaluation)',sub:'Evaluate activity · pinned cached Reader · fingerprint, generation · PR observation',x:470,y:100,w:180,h:84,cls:'chg eval'},
+   {id:'rem',label:'remediation/<id>/<slug>',sub:'one run at a time · reserve slot · find-or-adopt · CAS commit · PR · journal',x:470,y:220,w:180,h:84,cls:'new rem'},
+   {id:'br',label:'installation/remediate/<id>',sub:'budget',x:470,y:330,w:180,h:44,cls:'new rem'},
+   {id:'roles',label:'evaluator · remediator roles',sub:'queues repo-guardian-eval / -remediate · KEDA per queue',x:470,y:410,w:180,h:56,cls:'new'},
+   {id:'db',label:'Postgres',sub:'repository_policy_state · control_assignments (epoch, revision) · control_results · rule_results · remediations (+steps) · events',x:720,y:100,w:250,h:96,cls:'chg store'},
+   {id:'api',label:'api role + UI',sub:'/controls /policies /repositories/{id}/controls /remediations · POST evaluate (signal-only client)',x:720,y:240,w:250,h:70,cls:'chg'},
+   {id:'pr',label:'one PR per control',sub:'repo-guardian/<control slug> · cap · cooldown · withdrawal',x:720,y:360,w:250,h:56,cls:'new'}
+  ],
+  links:[
+   {from:'gh',to:'ing',label:'webhook'},{from:'ing',to:'wh'},{from:'wh',to:'ev',label:'signals'},{from:'wh',to:'disc',label:'lifecycle'},
+   {from:'disc',to:'db',label:'assignments'},{from:'pol',to:'disc',label:'snapshot'},
+   {from:'ev',to:'be',label:'acquire',cls:'eval'},{from:'ev',to:'ea',cls:'eval dashed'},{from:'ea',to:'gh',cls:'eval dashed'},
+   {from:'ev',to:'db',label:'results'},{from:'ev',to:'rem',label:'signal-with-start'},
+   {from:'rem',to:'br',label:'acquire',cls:'rem'},{from:'rem',to:'ra',cls:'rem dashed'},{from:'ra',to:'gh',cls:'rem dashed'},
+   {from:'rem',to:'pr',label:'PR'},{from:'rem',to:'db',label:'record'},{from:'db',to:'api'},{from:'api',to:'ev',label:'POST evaluate',cls:'dashed'}
+  ],
+  text:'<div class="grid g3"><div class="card"><h4>Two of everything that scales</h4><p>Each App has its own installations, budget workflow, task queue and worker role. Evaluation load never competes with remediation for budget or workers, and only remediator pods hold a key that can write.</p></div><div class="card"><h4>The database is the meeting point</h4><p>Evaluation writes facts and generations; remediation reads them and records what it did in its own columns; the API reads both. Resolution is a pure function of policy and stored rows.</p></div><div class="card"><h4>Remediation is triggered by change</h4><p>An evaluation whose fingerprint moved signals the control\'s remediation workflow. An hourly sweep is only a backstop for a lost signal or a cleared hold.</p></div></div>',
+  anim:[{nodes:['gh','ing'],links:['gh>ing']},{nodes:['wh'],links:['ing>wh']},{nodes:['ev'],links:['wh>ev']},{nodes:['ev','be','ea'],links:['ev>be','ev>ea','ea>gh']},{nodes:['db'],links:['ev>db']},{nodes:['rem'],links:['ev>rem']},{nodes:['rem','br','ra'],links:['rem>br','rem>ra','ra>gh']},{nodes:['pr','db'],links:['rem>pr','rem>db']},{nodes:['api'],links:['db>api']}]
+ }
+};
+const archDg=new Diagram($('#archDg'),1000,560);
+let archView='before';
+function showArch(v){archView=v;archDg.load(ARCH[v].nodes,ARCH[v].links);$('#archText').innerHTML=ARCH[v].text;$$('#archSeg .btn').forEach(b=>b.classList.toggle('on',b.dataset.v===v));}
+$$('#archSeg .btn').forEach(b=>b.addEventListener('click',()=>showArch(b.dataset.v)));
+$('#archAnim').addEventListener('click',()=>archDg.play(ARCH[archView].anim,1000));
+showArch('before');
+
+/* ---------- life of one repository ---------- */
+const LIFE=[
+ {t:'Discover',h:'Discovery sees the repository',n:['gh','ea','disc','db'],l:['ea>gh','disc>db'],
+  what:'The discovery schedule lists each Evaluation App installation\'s repositories and calls UpsertDiscovered, the only un-parker. A second pass through the Remediation App records which repositories that App can reach.',
+  db:'repositories (active=true) · app_installations · app_repository_access for both Apps',gh:'1 list call per installation per App',tmp:'DiscoveryWorkflow on the eval queue'},
+ {t:'Resolve',h:'Policy becomes assignments',n:['pol','disc','db'],l:['pol>disc','disc>db'],
+  what:'Resolution is a pure function: enterprise baseline, then the org policy, then each matching repos block in file order. Mode is chosen by specificity, then forced to evaluate if the Remediation App cannot reach the repository. Overlapping ownership fails closed for this repository only.',
+  db:'repository_policy_state (managed, max_open_prs, reopen_after) · control_assignments: epoch=1, revision, requested/effective mode, mode_reason, baseline_control, source_block',gh:'none',tmp:'inline in the discovery or rollout activity; new rows start repo/<id> with policy_changed{by: next_due}'},
+ {t:'Evaluate',h:'First evaluation',n:['ev','be','ea','gh','db'],l:['ev>be','ev>ea','ea>gh','ev>db'],
+  what:'The repository workflow\'s timer fires. The Evaluate activity acquires budget, pins the default-branch HEAD, builds one cached Reader at that SHA, and runs every active assignment\'s control. Each returns rule results and resource reads; the framework checks there is exactly one result per declared rule.',
+  db:'control_results: status, fingerprint, eval_generation=1, assignment_epoch, revision · rule_results · result_events · checks row (staged, then final)',gh:'1 HEAD + 1 PR list + Σ reads per control (cached per path)',tmp:'repo/<id> → Evaluate activity, check key <wf>/<run>/<iteration>'},
+ {t:'Decide',h:'Is remediation due?',n:['ev','db','rem'],l:['ev>db','ev>rem'],
+  what:'needs_remediation: policy state managed ∧ effective mode remediate ∧ non_compliant with a remediable failing rule ∧ (eval_generation > remediated_generation ∨ observed PR head ≠ acknowledged ∨ cooldown elapsed). A new row is 1 > 0, so onboarding remediates by construction. unknown never remediates.',
+  db:'reads only',gh:'none',tmp:'signal-with-start remediation/<id>/<slug> on the remediate queue; a second signal while a run is in progress sets a reloop flag'},
+ {t:'Remediate',h:'One commit, one PR',n:['rem','br','ra','gh','pr','db'],l:['rem>br','rem>ra','ra>gh','rem>pr','rem>db'],
+  what:'The run re-reads state, acquires the Remediation App\'s budget, reserves a PR slot under the repository\'s row lock, looks up repo-guardian/<slug> and any App-authored PR on it, re-evaluates the base, calls Remediate for a ChangeSet {Files, Fixed, Manual, Blocked, Notes}, validates it against Owns(), and commits with createCommitOnBranch(expectedHeadOid = base). Then it opens or updates the PR.',
+  db:'remediations: reserved → open, operation_key, base_sha, branch, pr_number · remediation_steps journal · narrow UPDATE: remediated_generation, acknowledged_head_sha, hold=NULL',gh:'re-reads + 1 ref create + 1 commit mutation + 1 PR create/update',tmp:'remediation/<id>/<slug>, activities idempotent on the operation key'},
+ {t:'Observe',h:'Humans touch the PR',n:['gh','ing','wh','ev','db'],l:['gh>ing','ing>wh','wh>ev','ev>db'],
+  what:'pull_request webhooks reach the Evaluation App whichever App opened the PR. A pr_event signal records the observed head; a human push makes observed ≠ acknowledged, so the control is due again. The next run merges main into the PR head with update-branch, re-evaluates the head, and commits only the remaining delta, never reverting the human\'s work.',
+  db:'remediations.observed_head_sha (evaluator) vs acknowledged_head_sha (remediator, compare-and-set)',gh:'0 between schedules (webhooks); update-branch + reads on the next run',tmp:'pr_event signal, priority 2'},
+ {t:'Converge',h:'The PR merges, or main fixes itself',n:['gh','ev','db','rem','pr'],l:['wh>ev','ev>db','ev>rem','rem>pr'],
+  what:'A merge is a push to the default branch: evaluation sees the rules pass, bumps the generation, records compliant. If main became compliant another way while the PR is open, maintenance closes the PR as closed_compliant, after a fresh read of main, never from stored status.',
+  db:'control_results compliant, eval_generation+1 · remediations.state merged | closed_compliant · remediation_events',gh:'reads; 1 close + 1 comment + 1 branch delete when closing',tmp:'the remediation workflow completes when nothing is due'},
+ {t:'Maintain',h:'Closed by a human, or withdrawn',n:['db','rem','pr'],l:['rem>pr','rem>db'],
+  what:'A human closing the PR records closed_by_user with the generation at closure and a next-eligible time (reopen_after, default 14 days). A new PR opens sooner only if the generation moves. If policy stops assigning the control, the maintenance query finds the open PR even though its result row is gone and closes it as closed_withdrawn with a comment.',
+  db:'remediations: closed_generation, next_eligible_at · remediation_maintenance view drives withdrawal and supersession',gh:'1 close + 1 comment',tmp:'remediation-sweep schedule (hourly) covers lost signals'},
+ {t:'Posture',h:'Compliance is read back, not counted',n:['db','api'],l:['db>api'],
+  what:'Posture starts from active assignments and LEFT JOINs results at the matching epoch and revision. Buckets: compliant, non_compliant, pending (no result yet), stale, unmeasurable (parked for access, conflict), not_applicable, unknown. The percentage is compliant / (compliant + non_compliant); coverage sits beside it; an empty denominator is "no data", never 100%.',
+  db:'ComplianceByControl shared by API, report, snapshot and the leader-exported gauges',gh:'none',tmp:'SnapshotWorkflow; PostureExporter under leader election'},
+ {t:'Park',h:'Access lost, or archived',n:['gh','ea','ev','db'],l:['ev>ea','ea>gh','ev>db'],
+  what:'A 403 on the Evaluation App parks the repository; its assignments stay and its results are kept and reported unmeasurable (we learned nothing new). Archived or fork parks clear results: we read the repository fine and know no control applies. Discovery is still the only un-parker, and un-parking re-resolves.',
+  db:'repositories.active=false, park_reason · results kept (access_denied, suspended) or cleared (archived, fork, removed)',gh:'the failing read',tmp:'park signal; the workflow idles until discovery re-activates'}
+];
+const lifeDg=new Diagram($('#lifeDg'),1000,560);lifeDg.load(ARCH.after.nodes,ARCH.after.links);
+let lifeI=0,lifeTimer=null;
+function renderLife(){
+  const s=LIFE[lifeI];
+  $('#lifeStages').innerHTML=LIFE.map((x,i)=>'<div class="stage '+(i===lifeI?'on':i<lifeI?'done':'')+'" data-i="'+i+'">'+(i+1)+'. '+esc(x.t)+'</div>').join('');
+  $$('#lifeStages .stage').forEach(el=>el.addEventListener('click',()=>{lifeI=+el.dataset.i;renderLife();}));
+  lifeDg.highlight(s.n,s.l,{dim:true});s.n.forEach(id=>lifeDg.nodes[id]&&lifeDg.nodes[id].el.classList.add('pulse'));
+  $('#lifeNarr').innerHTML='<h4>'+(lifeI+1)+'. '+esc(s.h)+'</h4><p>'+esc(s.what)+'</p><div class="cols"><div><b>Postgres</b>'+esc(s.db)+'</div><div><b>GitHub calls</b>'+esc(s.gh)+'</div><div><b>Temporal</b>'+esc(s.tmp)+'</div></div>';
+  $('#lifeCount').textContent=(lifeI+1)+' / '+LIFE.length;
+  $('#lifePrev').toggleAttribute('disabled',lifeI===0);$('#lifeNext').toggleAttribute('disabled',lifeI===LIFE.length-1);
+}
+$('#lifePrev').addEventListener('click',()=>{if(lifeI>0){lifeI--;renderLife();}});
+$('#lifeNext').addEventListener('click',()=>{if(lifeI<LIFE.length-1){lifeI++;renderLife();}});
+$('#lifePlay').addEventListener('click',e=>{if(lifeTimer){clearInterval(lifeTimer);lifeTimer=null;e.target.textContent='▶ Autoplay';return;}e.target.textContent='■ Stop';lifeTimer=setInterval(()=>{lifeI=(lifeI+1)%LIFE.length;renderLife();},3500);});
+document.addEventListener('keydown',e=>{const r=$('#life').getBoundingClientRect();if(r.top>window.innerHeight||r.bottom<0)return;if(e.key==='ArrowRight'){$('#lifeNext').click();}if(e.key==='ArrowLeft'){$('#lifePrev').click();}});
+renderLife();
+
+/* ---------- eight big changes ---------- */
+const CHANGES=[
+ {t:'Controls replace rules',tag:'new',b:4,o:2,
+  what:'A control is a typed Go control type (codeowners, catalog_info, dependency_updates, file, repo_settings, branch_ruleset, labels, custom_properties) instantiated by a catalogue definition with rules, parameters, a template and a PR block. Rules are typed checks; remediation returns a ChangeSet the framework validates and self-checks.',
+  why:'Path-and-regex rules could not say what they meant, and two rules on one file collided. A control owns an opinion and its resources, so the collision is a load error and the fix is one coherent change.',
+  alt:'Keep rules and add composition (when gates, shared targets). Rejected: it patches symptoms; the orphan-cleanup bug on a shared target (#199) is the shape of the problem.',
+  cost:'Each type is a package with a parser, rules, template and conformance tests. The generic engine, reconcilers and parity suite are removed, so net size is unknown until the INV counts it.'},
+ {t:'Enterprise and org policies, layered',tag:'new',b:3,o:2,
+  what:'An enterprise policy lists orgs and the baseline controls. Org policies add, replace, exclude (with a required reason), set mode, and carry labelled repos blocks. Resolution walks the layers in file order, chooses mode by specificity, and persists every assignment with provenance, an epoch and a revision.',
+  why:'Scope and ignore globs scattered exceptions across rules. One reviewed file per org, with reasons, is what an auditor can read; parking stays the only thing that hides a repository.',
+  alt:'A repository-owned policy file in each repository (self-service). Rejected: a repository could exclude itself, which defeats the point of a policy (0030 OQ1).',
+  cost:'Resolution has to be a published algorithm with golden cases (AR-0030-07) and a runtime fail-closed conflict check; the pairwise load-time check is only a warning.'},
+ {t:'Two GitHub Apps, evaluator and remediator roles',tag:'new',b:3,o:3,
+  what:'An Evaluation App that can only read, installed everywhere; a Remediation App that can write, installed only where remediate is used. Separate installations, budgets, task queues, worker roles and database roles. Only remediator pods hold a key that can write.',
+  why:'The private key is the boundary: a process holding a write key can mint a write token whatever it intends. Interface separation alone does not enforce that at process level.',
+  alt:'One App with down-scoped tokens or a token broker. Rejected: the write key is still in every evaluator, or a broker joins the critical path for the same guarantee.',
+  cost:'Two installations per org, two keys, two budgets to watch, a second worker Deployment. The all topology collapses the boundary and is documented as such (AR-0029-02).'},
+ {t:'Change-driven remediation',tag:'chg',b:4,o:2,
+  what:'Evaluation computes a fingerprint and bumps eval_generation on change; remediation advances remediated_generation only after acting. The review added an assignment epoch, a definition revision, an intent revision, and observed/acknowledged PR heads in place of a boolean.',
+  why:'A boolean that the next evaluation resets loses changes whenever two evaluations run before remediation does, which is the normal state while remediation is backlogged or not yet installed.',
+  alt:'Diff result_events on every remediation decision. Correct but puts event-log scans on the hot path.',
+  cost:'More columns and one more predicate to get exactly right; the pay-off is that nothing polls and nothing loops on its own commit.'},
+ {t:'One PR per control, with a lifecycle',tag:'chg',b:4,o:3,
+  what:'Branch repo-guardian/<slug>, one PR per control, states open / merged / closed_compliant / closed_by_user / closed_withdrawn / recommended / applied / failed. A per-repository cap reserved in Postgres, a cooldown after a human closes, compare-and-swap commits through createCommitOnBranch, and a step journal for exact recovery.',
+  why:'v1\'s bundle PR mixed unrelated changes, needed orphan cleanup, and fought humans. Per-control PRs are reviewable, and a human edit on one never blocks another.',
+  alt:'Bundle on onboarding, then per-control. Rejected: two PR shapes to build, track and explain (0032 OQ2c).',
+  cost:'More open PRs per repository (bounded by the cap), more branches to clean up, and a workflow per failing control. The hardest correctness surface in the design; most review findings landed here.'},
+ {t:'Posture starts from assignments',tag:'chg',b:2,o:1,
+  what:'Compliance queries begin from active assignments and LEFT JOIN results at the matching epoch and revision. Pending, stale and unmeasurable are explicit buckets; coverage is reported beside the percentage; access loss keeps the last results.',
+  why:'An inner join reported 100% for the evaluated subset during a rollout, and parking on a 403 erased known failures exactly when the repository became unreadable (AR-0029-01, AR-0030-05).',
+  alt:'Keep D6 as written: clear results whenever an assignment stops being active. Rejected: it reverses v2\'s nil-vs-empty rule.',
+  cost:'One more index and a slightly bigger query; the model gets a vocabulary for "not measured yet" that v1 never had.'},
+ {t:'Resource ownership and read dependencies',tag:'chg',b:2,o:1,
+  what:'Owns() is what a control may write; Reads() is what invalidates it. Keys are canonical (cleaned paths, lower-cased labels), whole-resource only, static per definition. Every ChangeSet is validated against Owns() by the framework before any write.',
+  why:'Ownership and invalidation are different sets: custom_properties owns properties but reads catalog-info. Widening ownership to fix watching would forbid legitimate readers.',
+  alt:'Per-field ownership (the renovate key of package.json). Deferred: out of scope for this release; that case becomes a read dependency and a non-remediable rule.',
+  cost:'Two lists per type instead of one and a canonicaliser; cheap, and it closes the v1 shared-target class of bugs.'},
+ {t:'Policy as data, with provenance',tag:'new',b:2,o:2,
+  what:'The catalogue is hand-authored HCL with an empty evaluation context; referenced files (templates, the platform tag schema) are read once, bounded, resolved in-root, and hashed into the control revision. Slugs follow one grammar. The CLI gains evaluate --format json with separated exit codes.',
+  why:'What fwsync got right: documents are data, references are explicit, identifiers are stable. What did not transfer: its apply-into-a-control-plane direction and its code.',
+  alt:'A shared tagschema Go module with fwsync. Settled by AR-0033-03: the canonical artifact is the data file, pinned by digest; sharing a decoder is not sharing a revision.',
+  cost:'Low. The casing migration for property keys is deferred until GitHub\'s name-case behaviour is verified (AR-0033-05).'}
+];
+$('#changeCards').innerHTML=CHANGES.map((c,i)=>'<div class="card tile" data-i="'+i+'"><h4>'+esc(c.t)+' <span class="badge b-'+c.tag+'">'+(c.tag==='new'?'new':'changed')+'</span></h4><div class="front"><p>'+esc(c.what)+'</p><div class="k">Why</div><p style="margin:2px 0 8px">'+esc(c.why)+'</p><p class="meta">Build '+meterHTML(c.b)+' &nbsp; Operate '+meterHTML(c.o,'w')+' &nbsp; <i>click for the trade-off</i></p></div><div class="back" style="display:none"><div class="k">Alternative considered</div><p style="margin:2px 0 8px">'+esc(c.alt)+'</p><div class="k">What it costs</div><p style="margin:2px 0 8px">'+esc(c.cost)+'</p><p class="meta"><i>click to flip back</i></p></div></div>').join('');
+$$('#changeCards .card').forEach(c=>c.addEventListener('click',()=>{const f=c.querySelector('.front'),b=c.querySelector('.back');const show=f.style.display!=='none';f.style.display=show?'none':'';b.style.display=show?'':'none';}));
+
+/* ---------- change detection simulator ---------- */
+const D0=()=>({revision:'r:a91c',statuses:'exists=pass, owners=fail',digest:'blob 3f9e',sha:'main@c001',evalGen:1,remGen:0,epoch:1,active:true,mode:'remediate',intent:'i:7b2',observed:'—',ack:'—',pr:'none',closedGen:null,eligible:null,measurable:true,log:[]});
+let D=D0();let dPrev={};
+const DACT=[
+ {k:'push',l:'Unrelated push to main',f:s=>{s.sha='main@c'+(100+Math.floor(Math.random()*900));s.log.push('evaluation: fingerprint unchanged → evaluated_at and evaluated_sha only, no generation bump, no signal');}},
+ {k:'edit',l:'Team edits CODEOWNERS (still failing)',f:s=>{s.digest='blob '+rnd();s.sha='main@c'+(100+Math.floor(Math.random()*900));s.evalGen++;s.log.push('evaluation: resource digest moved → fingerprint changed → eval_generation '+s.evalGen+' → signal remediation (D3: rebuild on new content)');}},
+ {k:'rem',l:'Remediation runs',f:s=>{if(!due(s).yes){s.log.push('remediation: nothing due → run completes without writing');return;}if(s.pr==='none'||s.pr==='closed_by_user'||s.pr==='closed_withdrawn'){s.pr='open';s.observed='h'+rnd(3);s.log.push('remediation: reserved slot, CAS commit on repo-guardian/codeowners, PR opened');}else{s.observed='h'+rnd(3);s.log.push('remediation: update-branch, re-evaluated head, committed remaining delta');}s.ack=s.observed;s.remGen=s.evalGen;s.log.push('record (narrow): remediated_generation='+s.remGen+', acknowledged_head_sha='+s.ack);}},
+ {k:'human',l:'Human pushes to the PR',f:s=>{if(s.pr!=='open'){s.log.push('no open PR to push to');return;}s.observed='h'+rnd(3);s.log.push('pr_event: observed_head_sha='+s.observed+' ≠ acknowledged '+s.ack+' → due (evaluate at PR head after update-branch, never revert the human)');}},
+ {k:'merge',l:'PR merged',f:s=>{if(s.pr!=='open'){s.log.push('no open PR');return;}s.pr='merged';s.statuses='exists=pass, owners=pass';s.evalGen++;s.sha='main@m'+rnd(3);s.log.push('push on main: rules pass → eval_generation '+s.evalGen+', status compliant; remediations.state=merged');}},
+ {k:'close',l:'Human closes the PR',f:s=>{if(s.pr!=='open'){s.log.push('no open PR');return;}s.pr='closed_by_user';s.closedGen=s.evalGen;s.eligible='now + reopen_after (14d)';s.log.push('observation: closed_by_user, closed_generation='+s.closedGen+', next_eligible_at set → no reopen until generation > '+s.closedGen+' or cooldown passes');}},
+ {k:'cool',l:'Cooldown elapses',f:s=>{if(s.pr!=='closed_by_user'){s.log.push('nothing cooling down');return;}s.eligible='elapsed';s.log.push('next_eligible_at passed → due again if still non_compliant');}},
+ {k:'ver',l:'Bump template / control version',f:s=>{s.revision='r:'+rnd();s.evalGen++;s.log.push('policy rollout: control revision changed → fingerprint includes revision → eval_generation '+s.evalGen+' (AR-0029-04)');}},
+ {k:'intent',l:'apply recommend → direct',f:s=>{s.intent='i:'+rnd(3);s.log.push('intent_revision changed with no file drift → recommendation superseded, remediation due (AR-0032-10)');}},
+ {k:'excl',l:'Org policy excludes the control',f:s=>{s.active=false;s.epoch++;s.statuses='(cleared)';s.log.push('resolution: assignment inactive, epoch '+s.epoch+' → results cleared (intentional withdrawal); maintenance closes any open PR as closed_withdrawn');if(s.pr==='open')s.pr='closed_withdrawn';}},
+ {k:'readd',l:'Policy re-adds the control',f:s=>{s.active=true;s.epoch++;s.evalGen=1;s.remGen=0;s.statuses='exists=pass, owners=fail';s.log.push('resolution: new epoch '+s.epoch+'; first evaluation inserts generation 1 > 0 → due; an old run\'s generation cannot match this epoch (AR-0030-03)');}},
+ {k:'403',l:'Evaluation App loses access',f:s=>{s.measurable=!s.measurable;s.log.push(s.measurable?'access restored: discovery un-parks, assignments were never removed, results resume':'403: repository parked, assignments kept, last results kept and reported unmeasurable{access_denied} (AR-0029-01)');}},
+ {k:'reset',l:'Reset',f:s=>{Object.assign(s,D0());}}
+];
+function rnd(n){return Math.random().toString(16).slice(2,2+(n||4));}
+function due(s){
+  if(!s.measurable)return{yes:false,cls:'hold',t:'Not evaluable: parked for access loss. Results kept, reported unmeasurable. Nothing writes.'};
+  if(!s.active)return{yes:false,cls:'no',t:'No active assignment (epoch '+s.epoch+'). Lifecycle maintenance may still close a PR; no new remediation.'};
+  if(s.mode!=='remediate')return{yes:false,cls:'no',t:'Mode is evaluate.'};
+  const failing=s.statuses.includes('fail');
+  if(!failing){return s.pr==='open'?{yes:true,cls:'yes',t:'Compliant on main with an open PR → close it as closed_compliant after a fresh read.'}:{yes:false,cls:'no',t:'Compliant. Nothing to do.'};}
+  if(s.pr==='closed_by_user'){if(s.evalGen>s.closedGen)return{yes:true,cls:'yes',t:'Closed by a human, but the generation moved past closed_generation → a new PR is justified.'};if(s.eligible==='elapsed')return{yes:true,cls:'yes',t:'Closed by a human and the cooldown elapsed → new PR.'};return{yes:false,cls:'hold',t:'Closed by a human; cooling down until next_eligible_at. Not due.'};}
+  if(s.evalGen>s.remGen)return{yes:true,cls:'yes',t:'eval_generation '+s.evalGen+' > remediated_generation '+s.remGen+' → due.'};
+  if(s.pr==='open'&&s.observed!==s.ack)return{yes:true,cls:'yes',t:'observed PR head '+s.observed+' ≠ acknowledged '+s.ack+' → due (re-run on the PR head).'};
+  if(s.intent!==dPrev.intent&&dPrev.intent)return{yes:true,cls:'yes',t:'intent_revision moved → due.'};
+  return{yes:false,cls:'no',t:'Nothing moved: generation acknowledged, PR head acknowledged. Not due.'};
+}
+function renderDetect(){
+  const v=due(D);
+  const fields=[['assignment active / epoch',(D.active?'yes':'no')+' / '+D.epoch],['control revision',D.revision],['rule statuses',D.statuses],['resource digest',D.digest],['evaluated sha',D.sha],['eval_generation',D.evalGen],['remediated_generation',D.remGen],['intent_revision',D.intent],['PR state',D.pr],['observed head',D.observed],['acknowledged head',D.ack],['closed_generation / eligible',(D.closedGen===null?'—':D.closedGen)+' / '+(D.eligible||'—')],['measurable',D.measurable?'yes':'no (parked)']];
+  $('#detectKv').innerHTML=fields.map(([k,x])=>'<div class="'+(dPrev[k]!==undefined&&dPrev[k]!==String(x)?'flash':'')+'"><b>'+esc(k)+'</b>'+esc(x)+'</div>').join('');
+  dPrev={};fields.forEach(([k,x])=>dPrev[k]=String(x));dPrev.intent=D.intent;
+  $('#detectVerdict').className='verdict '+v.cls;$('#detectVerdict').textContent=(v.yes?'needs_remediation = true. ':'needs_remediation = false. ')+v.t;
+  $('#detectLog').innerHTML=D.log.slice(-8).map(l=>'<div>'+esc(l)+'</div>').join('')||'<div class="meta">no events yet</div>';$('#detectLog').scrollTop=1e6;
+}
+$('#detectBtns').innerHTML=DACT.map(a=>'<span class="btn" data-k="'+a.k+'">'+esc(a.l)+'</span>').join('');
+$$('#detectBtns .btn').forEach(b=>b.addEventListener('click',()=>{DACT.find(a=>a.k===b.dataset.k).f(D);renderDetect();}));
+renderDetect();
+
+/* ---------- PR lifecycle machine ---------- */
+const PRS=['none','reserved','open','merged','closed_compliant','closed_by_user','closed_withdrawn','recommended','superseded'];
+const PRTERM=new Set(['merged','closed_compliant','closed_withdrawn','superseded']);
+let P={state:'none',hold:null,gen:1,remGen:0,log:[],rowcount:0};
+const PRE=[
+ {k:'due',l:'Control fails, due',from:['none','closed_by_user'],f:s=>{if(s.state==='closed_by_user'){s.gen++;s.log.push('generation '+s.gen+' > closed_generation → eligible');}s.state='reserved';s.hold=null;s.rowcount++;s.log.push('remediator: INSERT remediations state=reserved under FOR UPDATE on repository_policy_state (open+reserved < max_open_prs)');}},
+ {k:'cap',l:'…but cap reached',from:['none'],f:s=>{s.hold='pr_cap';s.log.push('count ≥ max_open_prs → hold=pr_cap on control_results, nothing written; re-checked on next PR close/merge or sweep');}},
+ {k:'foreign',l:'…but foreign branch',from:['none'],f:s=>{s.hold='foreign_branch';s.log.push('branch repo-guardian/<slug> exists with no App-authored PR → hold=foreign_branch, nothing written, alert');}},
+ {k:'perm',l:'…but App lacks permission',from:['none'],f:s=>{s.hold='permission';s.log.push('Remediation App lacks the resource permission → hold=permission, remediation_blocked_total{reason=permission}');}},
+ {k:'commit',l:'Commit + PR created',from:['reserved'],f:s=>{s.state='open';s.remGen=s.gen;s.log.push('createCommitOnBranch(expectedHeadOid=base) → PR create → journal steps → narrow UPDATE remediated_generation='+s.gen+', acknowledged_head_sha; event: opened');}},
+ {k:'expire',l:'Reservation expires',from:['reserved'],f:s=>{s.state='none';s.log.push('no PR recorded within REMEDIATION_RESERVATION_TTL → reservation released by maintenance');}},
+ {k:'push',l:'Human pushes to PR',from:['open'],f:s=>{s.log.push('pr_event: observed_head_sha moves → due; next run: update-branch, evaluate head, commit delta; event: updated');}},
+ {k:'edit',l:'Main changed, still failing',from:['open'],f:s=>{s.gen++;s.log.push('eval_generation '+s.gen+' → run rebuilds onto new content; event: updated');s.remGen=s.gen;}},
+ {k:'merge',l:'Human merges',from:['open'],f:s=>{s.state='merged';s.log.push('observation: merged; next evaluation of main records compliant; event: merged');}},
+ {k:'fixed',l:'Main becomes compliant',from:['open'],f:s=>{s.state='closed_compliant';s.log.push('maintenance: fresh read of main is compliant → comment, close, delete branch; event: closed_compliant');}},
+ {k:'close',l:'Human closes PR',from:['open'],f:s=>{s.state='closed_by_user';s.log.push('observation: closed_by_user, closed_generation='+s.gen+', next_eligible_at=now+reopen_after; event: closed');}},
+ {k:'withdraw',l:'Control withdrawn',from:['open','recommended','closed_by_user'],f:s=>{s.state=s.state==='recommended'?'superseded':'closed_withdrawn';s.log.push('resolution removed the assignment → remediation_maintenance finds the row without a result → '+s.state+' with a comment (D10); row kept');}},
+ {k:'rec',l:'API change, apply=recommend',from:['none'],f:s=>{s.state='recommended';s.rowcount++;s.log.push('kind=api, state=recommended, proposal JSONB with before/after; nothing written to GitHub');}},
+ {k:'intent',l:'apply switched to direct',from:['recommended'],f:s=>{s.state='superseded';s.log.push('intent_revision moved → recommendation superseded; a new row applies per-resource with a step journal → applied | failed');}},
+ {k:'clearhold',l:'Hold clears',from:['none'],f:s=>{s.hold=null;s.log.push('PR closed elsewhere / branch deleted / permission granted → hold cleared; sweep re-checks');}},
+ {k:'reset',l:'Reset',from:PRS,f:s=>{Object.assign(s,{state:'none',hold:null,gen:1,remGen:0,log:[],rowcount:0});}}
+];
+function renderPR(){
+  $('#prStates').innerHTML=PRS.map(s=>'<span class="st '+(s===P.state?'on':'')+(PRTERM.has(s)?' term':'')+'">'+esc(s)+'</span>').join('');
+  $('#prEvents').innerHTML=PRE.map(e=>{const ok=e.from.includes(P.state)&&!(P.hold&&!['clearhold','reset'].includes(e.k)&&P.state==='none');return '<span class="btn" data-k="'+e.k+'" '+(ok?'':'disabled')+'>'+esc(e.l)+'</span>';}).join('');
+  $$('#prEvents .btn').forEach(b=>b.addEventListener('click',()=>{if(b.hasAttribute('disabled'))return;PRE.find(e=>e.k===b.dataset.k).f(P);renderPR();}));
+  $('#prKv').innerHTML='<div><b>remediations.state</b>'+esc(P.state)+'</div><div><b>hold (control_results)</b>'+esc(P.hold||'—')+'</div><div><b>eval / remediated generation</b>'+P.gen+' / '+P.remGen+'</div><div><b>rows for this control</b>'+P.rowcount+' (closed rows are kept)</div>';
+  $('#prLog').innerHTML=P.log.slice(-8).map(l=>'<div>'+esc(l)+'</div>').join('')||'<div class="meta">no events yet</div>';$('#prLog').scrollTop=1e6;
+}
+renderPR();
+
+/* ---------- remediation run simulator ---------- */
+const RUNBASE=[
+ {t:'Re-read state from Postgres',d:'generation, PR row, effective mode, assignment epoch, hold, max_open_prs'},
+ {t:'Still needs_remediation?',d:'managed ∧ remediate ∧ non_compliant+remediable ∧ (gen > remediated ∨ observed ≠ acknowledged ∨ cooldown elapsed)'},
+ {t:'Acquire budget',d:'AcquireBudget activity against installation/remediate/<id>; a wait is a deterministic WaitUntil, never a sleep in the handler'},
+ {t:'Reserve a PR slot',d:'INSERT remediations state=reserved inside FOR UPDATE on repository_policy_state; count open+reserved < max_open_prs'},
+ {t:'Find or adopt',d:'look up branch repo-guardian/<slug> and any open PR on it; adopt only a PR authored by the App with head.repo.id = this repository'},
+ {t:'Bring the PR head up to date',d:'if a tracked PR is behind main: pulls/{n}/update-branch; a conflict is a hold'},
+ {t:'Re-evaluate the base',d:'pin base (PR head or default HEAD); Evaluate with every prerequisite read succeeding'},
+ {t:'Compute the change set',d:'Remediate → ChangeSet{Files, API, Fixed, Manual, Blocked, Notes}; validated against Owns(), unique paths, size caps'},
+ {t:'Commit with compare-and-swap',d:'createCommitOnBranch(expectedHeadOid = base) → one App-authored, GitHub-signed commit'},
+ {t:'Create or update the PR',d:'create (adopt on 422 already exists) or PATCH title/body; apply labels; sticky notes for Manual rules'},
+ {t:'Journal and record',d:'remediation_steps rows per external step; narrow UPDATE: remediated_generation, acknowledged_head_sha, hold=NULL; event'},
+ {t:'End-of-run reloop check',d:'re-read generation and observed head; loop once more if either moved, else complete'}
+];
+const RUNFAULT={
+ none:{},
+ cas:{at:8,cls:'bad',t:'expectedHeadOid mismatch: a human pushed between pin and commit',d:'GitHub rejects the mutation; nothing written. Run defers, re-pins the new head, goes back to step 6. Journal records the attempt.',back:5},
+ foreign:{at:4,cls:'hold',t:'Branch exists, no App-authored PR on it',d:'hold=foreign_branch recorded, nothing written, alert fires. Cleared when the branch is deleted or its PR closes. Reservation released.',stop:true},
+ cap:{at:3,cls:'hold',t:'open + reserved already at max_open_prs',d:'hold=pr_cap recorded, nothing written. The next PR close/merge on the repository (observed by evaluation) or the hourly sweep re-checks in catalogue order.',stop:true},
+ conflict:{at:5,cls:'hold',t:'update-branch reports a merge conflict',d:'hold=conflict with a sticky comment asking the human to resolve. The PR is not acknowledged as current; nothing is force-pushed.',stop:true},
+ store:{at:10,cls:'bad',t:'Postgres write fails after the PR exists',d:'Temporal retries the record activity on the same operation key. The retry re-reads the branch and PR by exact identity (journaled SHA, App-authored PR) and records them; nothing is created twice.',back:10},
+ throttle:{at:2,cls:'hold',t:'Remediation App throttled',d:'AsThrottled → the activity returns Deferred; the workflow waits until the budget reset. No retry attempt is spent, nothing is recorded (a deferral is not a failure).',stop:true},
+ epoch:{at:10,cls:'bad',t:'assignment epoch moved during the run',d:'The record step compares the assignment epoch read at start with the current one; mismatch → the result and PR are left for lifecycle maintenance (withdrawal or re-run under the new epoch). No stale write lands in the new assignment.',stop:true}
+};
+let R={i:0,done:[],fault:'none',stopped:false,marks:{}};
+function renderRun(){
+  const f=RUNFAULT[R.fault];
+  $('#runSteps').innerHTML=RUNBASE.map((s,i)=>{let cls='';if(R.done.includes(i))cls='done';if(i===R.i&&!R.stopped)cls='on';if(R.marks[i])cls=R.marks[i].cls;const m=R.marks[i];return '<li class="'+cls+'"><b>'+(i+1)+'. '+esc(s.t)+'</b><small>'+esc(s.d)+'</small>'+(m?'<small style="color:inherit;font-weight:600;margin-top:4px">⚠ '+esc(m.t)+': '+esc(m.d)+'</small>':'')+'</li>';}).join('');
+  $('#runStep').toggleAttribute('disabled',R.stopped||R.i>=RUNBASE.length);
+}
+function runStep(){
+  if(R.stopped||R.i>=RUNBASE.length)return;
+  const f=RUNFAULT[R.fault];
+  if(f.at===R.i&&!R.marks[R.i]){R.marks[R.i]=f;if(f.stop){R.stopped=true;}else if(f.back!==undefined){R.done.push(R.i);R.i=f.back;}renderRun();return;}
+  R.done.push(R.i);R.i++;if(R.i>=RUNBASE.length)R.stopped=true;renderRun();
+}
+$('#runStep').addEventListener('click',runStep);
+$('#runAll').addEventListener('click',()=>{let n=0;while(!R.stopped&&n++<40)runStep();});
+$('#runReset').addEventListener('click',()=>{R={i:0,done:[],fault:$('#runFault').value,stopped:false,marks:{}};renderRun();});
+$('#runFault').addEventListener('change',()=>$('#runReset').click());
+renderRun();
+
+/* ---------- Temporal event flows ---------- */
+const TN=[
+ {id:'gh',label:'GitHub',sub:'webhooks (Evaluation App)',x:20,y:40,w:140,h:50,cls:'ext'},
+ {id:'ing',label:'ingest',sub:'HMAC, event table, 204 drops',x:200,y:40,w:150,h:50},
+ {id:'wh',label:'webhook/<delivery>',sub:'WebhookWorkflow → RouteWebhook',x:380,y:40,w:160,h:50,cls:'chg',d:{id:'webhook/<X-GitHub-Delivery>',q:'repo-guardian-eval',role:'evaluator',trig:'ingest start, REJECT_DUPLICATE (redelivery dedup)',sig:'none',act:'RouteWebhook',life:'seconds',chg:'event table gains pull_request on repo-guardian/* (→ pr_event) and installation lifecycle events for both Apps, keyed by the target app id header'}},
+ {id:'api',label:'api role',sub:'POST /repositories/{id}/evaluate',x:200,y:130,w:150,h:50,cls:'new',d:{id:'(client only)',q:'—',role:'api',trig:'authenticated POST, visibility via APIScope',sig:'sends recheck priority 1',act:'—',life:'—',chg:'new: optional signal-only Temporal client under its own mTLS identity; 409 workflow_missing / parked; 501 without TEMPORAL_ADDRESS'}},
+ {id:'disc',label:'discovery',sub:'schedule · per App listing · resolution',x:390,y:130,w:170,h:50,cls:'chg',d:{id:'discovery (Schedule) / discovery/installation/<id>/<delivery>',q:'repo-guardian-eval',role:'evaluator',trig:'schedule DISCOVERY_INTERVAL, installation-level webhooks',sig:'—',act:'ListInstallations, ListRepositories (both Apps), UpsertRepositories, Resolve, ParkMissing, SignalRepositories',life:'minutes',chg:'resolution runs after upsert; a second listing through the Remediation App records per-App access; new rows get policy_changed{by: next_due}'}},
+ {id:'roll',label:'policy-rollout/<v>',sub:'re-resolve, re-signal over the window',x:390,y:220,w:170,h:50,cls:'chg',d:{id:'policy-rollout/<policy version>',q:'repo-guardian-eval',role:'evaluator',trig:'first sight of a new policy version (catalogue, policies, templates, schema bytes)',sig:'—',act:'RecordPolicyVersion, Resolve (all), SignalRepositories, CompletePolicyRollout',life:'POLICY_ROLLOUT_WINDOW (24h)',chg:'a control revision change is a policy version change; resolution is monotonic by version'}},
+ {id:'ev',label:'repo/<id>',sub:'evaluation workflow',x:640,y:40,w:160,h:70,cls:'chg eval',d:{id:'repo/<repository id>',q:'repo-guardian-eval',role:'evaluator',trig:'timer (EVAL_INTERVAL, ±10% jitter) and signals',sig:'recheck (p1 manual, p2 push with paths) · pr_event (p2) · policy_changed · park',act:'AcquireBudget, Evaluate (pinned Reader, all or selected controls, PR observation), signal-with-start remediation per due control',life:'long-lived; ContinueAsNew on suggestion or 100 iterations',chg:'new type name (no replay of old histories); Evaluate replaces CheckRepo; pr_event signal; fan-out to remediation'}},
+ {id:'be',label:'budget (eval)',sub:'installation/eval/<id>',x:840,y:40,w:140,h:50,cls:'chg eval',d:{id:'installation/eval/<installation id>',q:'repo-guardian-eval',role:'evaluator',trig:'Update-with-start via AcquireBudget activity',sig:'report (release lease, newest ObservedAt)',act:'—',life:'long-lived; CAN at MaxHandled',chg:'key gains the app dimension; otherwise Phase 11 unchanged'}},
+ {id:'rem',label:'remediation/<id>/<slug>',sub:'remediation workflow',x:640,y:220,w:160,h:70,cls:'new rem',d:{id:'remediation/<repository id>/<control slug>',q:'repo-guardian-remediate',role:'remediator',trig:'signal-with-start from evaluation; remediation-sweep backstop',sig:'recheck (sets reloop flag while a run is in progress)',act:'AcquireBudget (remediate App), ReserveSlot, FindOrAdopt, UpdateBranch, Evaluate, Remediate, Commit (CAS), UpsertPR, Record, Maintain',life:'short-lived: completes when nothing is due',chg:'new; one run at a time per (repo, control); end-of-run reloop reads the DB, not a signal'}},
+ {id:'br',label:'budget (remediate)',sub:'installation/remediate/<id>',x:840,y:220,w:140,h:50,cls:'new rem',d:{id:'installation/remediate/<installation id>',q:'repo-guardian-remediate',role:'remediator',trig:'AcquireBudget from remediation runs',sig:'report',act:'—',life:'long-lived',chg:'new; the Remediation App has its own rate limit per installation'}},
+ {id:'sweep',label:'remediation-sweep',sub:'hourly schedule + maintenance',x:640,y:330,w:160,h:50,cls:'new rem',d:{id:'remediation-sweep (Schedule)',q:'repo-guardian-remediate',role:'remediator',trig:'hourly',sig:'signals remediation/<id>/<slug> for due rows with no running workflow',act:'RemediationDue (view), RemediationMaintenance (withdrawal, close-compliant, supersession, expired reservations)',life:'seconds',chg:'new; the only timer on the remediate queue'}},
+ {id:'snap',label:'snapshot',sub:'schedule · ComplianceByControl',x:390,y:330,w:170,h:50,cls:'chg',d:{id:'snapshot (Schedule)',q:'repo-guardian-eval',role:'evaluator',trig:'schedule, overlap skip',sig:'—',act:'InsertComplianceSnapshot (by control), PruneChecks',life:'seconds',chg:'re-keyed by control; posture starts from assignments'}},
+ {id:'db',label:'Postgres',sub:'',x:840,y:330,w:140,h:50,cls:'store'},
+ {id:'ghw',label:'GitHub',sub:'writes (Remediation App)',x:840,y:430,w:140,h:50,cls:'ext'}
+];
+const TL=[
+ {from:'gh',to:'ing'},{from:'ing',to:'wh'},{from:'wh',to:'ev',label:'recheck · pr_event'},{from:'wh',to:'disc'},{from:'api',to:'ev',label:'recheck p1',cls:'dashed'},
+ {from:'disc',to:'ev',label:'policy_changed'},{from:'roll',to:'ev'},{from:'ev',to:'be',cls:'eval'},{from:'ev',to:'rem',label:'signal-with-start'},{from:'rem',to:'br',cls:'rem'},
+ {from:'sweep',to:'rem',label:'signal'},{from:'rem',to:'ghw',label:'commit · PR',cls:'rem'},{from:'rem',to:'db'},{from:'ev',to:'db'},{from:'snap',to:'db'},{from:'disc',to:'db'}
+];
+const tDg=new Diagram($('#tDg'),1000,520);tDg.load(TN,TL);
+const TEV={
+ push:{l:'push to default branch',seq:[{nodes:['gh','ing'],links:['gh>ing'],t:'ingest validates the HMAC; a tag push, a non-default branch or a push touching no Owns()∪Reads() path is dropped with 204'},{nodes:['wh'],links:['ing>wh'],t:'WebhookWorkflow webhook/<delivery> starts with REJECT_DUPLICATE; RouteWebhook applies the event table'},{nodes:['ev'],links:['wh>ev'],t:'recheck (priority 2) with the changed paths; 2,048-commit cap or forced push → paths unknown → all controls'},{nodes:['ev','be'],links:['ev>be'],t:'AcquireBudget on the Evaluation App\'s installation; the half reserve for priority ≤ 2 is how human-triggered checks go first'},{nodes:['ev','db'],links:['ev>db'],t:'Evaluate: selected controls only; results, fingerprint, generation in one transaction'},{nodes:['rem'],links:['ev>rem'],t:'for each control now due: signal-with-start remediation/<id>/<slug> on the remediate queue'}]},
+ pr:{l:'pull_request event on repo-guardian/*',seq:[{nodes:['gh','ing'],links:['gh>ing'],t:'the webhook reaches the Evaluation App whichever App opened the PR'},{nodes:['wh'],links:['ing>wh'],t:'event table: pull_request on a repo-guardian/* head → pr_event'},{nodes:['ev'],links:['wh>ev'],t:'pr_event (priority 2): PR observation only, no default-branch evaluation, no evaluated_at refresh'},{nodes:['ev','db'],links:['ev>db'],t:'observed_head_sha, state (merged / closed_by_user) and events written by the evaluator'},{nodes:['rem'],links:['ev>rem'],t:'observed ≠ acknowledged → due → signal remediation'}]},
+ policy:{l:'policy or catalogue change',seq:[{nodes:['roll'],links:[],t:'worker startup records the new policy version; the first to see it starts policy-rollout/<v>'},{nodes:['roll','db'],links:['disc>db'],t:'re-resolve every repository: assignments, epochs, revisions, provenance; monotonic by version'},{nodes:['ev'],links:['roll>ev'],t:'policy_changed{by: now + POLICY_ROLLOUT_WINDOW} to every repository with changed assignments; stragglers re-signalled once'},{nodes:['ev','db'],links:['ev>db'],t:'each evaluation runs at its jittered time; a changed revision changes the fingerprint'},{nodes:['rem'],links:['ev>rem'],t:'remediation only where the generation moved and mode is remediate'}]},
+ manual:{l:'manual re-evaluate (UI)',seq:[{nodes:['api'],links:[],t:'POST /repositories/{id}/evaluate: authn, authz, APIScope visibility; 1 signal per repository per minute'},{nodes:['ev'],links:['api>ev'],t:'recheck priority 1 through the signal-only client; 409 workflow_missing if repo/<id> is absent, 409 parked'},{nodes:['ev','be'],links:['ev>be'],t:'budget acquired at the highest priority'},{nodes:['ev','db'],links:['ev>db'],t:'full evaluation, all controls'}]},
+ install:{l:'Remediation App installed on an org',seq:[{nodes:['gh','ing'],links:['gh>ing'],t:'installation event signed with the Remediation App\'s webhook secret, keyed by the target app id'},{nodes:['wh','disc'],links:['ing>wh','wh>disc'],t:'discovery/installation/<id>/<delivery>: list repositories through the new installation, record app_repository_access'},{nodes:['disc','db'],links:['disc>db'],t:'re-resolve the org: effective mode becomes remediate where requested, mode_reason cleared'},{nodes:['ev'],links:['disc>ev'],t:'policy_changed to the org\'s repositories'},{nodes:['rem'],links:['ev>rem'],t:'controls already non-compliant with gen > remediated become due'}]},
+ sweep:{l:'remediation sweep tick',seq:[{nodes:['sweep','db'],links:[],t:'hourly: remediation_due rows with no running workflow; remediation_maintenance: withdrawals, close-compliant after a fresh read, superseded recommendations, expired reservations'},{nodes:['rem'],links:['sweep>rem'],t:'signal-with-start for each due control, in catalogue order (held controls first)'},{nodes:['rem','br','ghw'],links:['rem>br','rem>ghw'],t:'the run acquires the remediate budget and writes through the Remediation App'},{nodes:['rem','db'],links:['rem>db'],t:'journal and narrow record'}]}
+};
+$('#tEvents').innerHTML=Object.entries(TEV).map(([k,v])=>'<span class="btn" data-k="'+k+'">'+esc(v.l)+'</span>').join('');
+$$('#tEvents .btn').forEach(b=>b.addEventListener('click',()=>{const ev=TEV[b.dataset.k];$$('#tEvents .btn').forEach(x=>x.classList.toggle('on',x===b));const lines=[];$('#tNarr').innerHTML='<h4>'+esc(ev.l)+'</h4><ol id="tSteps"></ol>';tDg.play(ev.seq,1300,(s,i)=>{lines.push(s.t);$('#tSteps').innerHTML=lines.map((l,j)=>'<li'+(j===lines.length-1?' style="font-weight:600"':'')+'>'+esc(l)+'</li>').join('');});}));
+Object.values(tDg.nodes).forEach(n=>{if(!n.d)return;n.el.style.cursor='pointer';n.el.addEventListener('click',()=>{const d=n.d;$('#tDetail').innerHTML='<h4>'+esc(n.label)+'</h4><div class="collist"><div><span>id</span><span class="mono">'+esc(d.id)+'</span></div><div><span>task queue · role</span><span>'+esc(d.q)+' · '+esc(d.role)+'</span></div><div><span>trigger</span><span>'+esc(d.trig)+'</span></div><div><span>signals</span><span>'+esc(d.sig)+'</span></div><div><span>activities</span><span>'+esc(d.act)+'</span></div><div><span>lifetime</span><span>'+esc(d.life)+'</span></div></div><p style="margin:8px 0 0"><span class="badge b-chg">what changes</span> '+esc(d.chg)+'</p>';});});
+
+/* ---------- migrations ---------- */
+const MIGS=[
+ {n:'00004_controls_policy',v:4,t:'Policy state',d:'repository_policy_state (state, reason, policy_version, max_open_prs, reopen_after, resolution error) · control_assignments (PK repository_id + control slug; version, epoch, revision, requested/effective mode, mode_reason, state incl. conflict, error, baseline_control, decision, source_block, provenance) · app_installations and app_repository_access (per App) · repository_events.kind CHECK · installations.app with backfill to eval and the (account_login, app) index.',w:'Lane C, from the frozen DDL of phase 0.5. The two App tables and the epoch/revision/lineage columns were added by the review responses.'},
+ {n:'00005_controls_results',v:5,t:'Results and remediations',d:'control_results (status, fingerprint, eval_generation, remediated_generation, assignment_epoch, revision, hold, evaluated_sha/at) · rule_results (status incl. unknown, remediate, evidence, evidence_kind, evidence_version; ON DELETE CASCADE) · result_events (to_status nullable) · remediations (kind, state, operation_key, branch, base_sha, observed_head_sha, acknowledged_head_sha, remediated_generation, closed_generation, next_eligible_at, intent_revision, proposal, reserved_until) · remediation_steps · remediation_events · unique index on one open/recommended/reserved row · views remediation_due and remediation_maintenance · checks.trigger gains pr_event, manual · the two roles rg_evaluator / rg_remediator with the column-grant matrix and append-only revokes.',w:'Lane C. Grant tests run as the two roles.'},
+ {n:'00006_compliance_rekey',v:6,t:'Snapshots by control',d:'compliance_snapshots re-keyed to (org, control_id, source, snapshot_at) with compliant, non_compliant, unknown, not_applicable, pending, unmeasurable and excluded counts plus coverage. Old rows dropped: cutover starts from a fresh evaluation.',w:'Lane C. The report, API and gauges read the same ComplianceByControl query.'},
+ {n:'00007_drop_findings',v:7,t:'Remove the rule engine\'s tables',d:'drops findings, finding_events and the three repositories columns (last_check_outcome, policy_version, catalog_parse_ok) that control_results and repository_policy_state supersede.',w:'Its own PR after cutover (phase 9). Until then both schemas coexist and v1-shaped posture is simply unread.'}
+];
+$('#migs').innerHTML=MIGS.map((m,i)=>'<div class="mig" data-i="'+i+'"><b>'+esc(m.n)+'</b>SchemaVersion → '+m.v+'<br><span class="meta">'+esc(m.t)+'</span></div>').join('');
+$$('#migs .mig').forEach(el=>el.addEventListener('click',()=>{$$('#migs .mig').forEach(x=>x.classList.toggle('on',x===el));const m=MIGS[+el.dataset.i];$('#migDetail').innerHTML='<h4>'+esc(m.n)+' <span class="badge b-info">SchemaVersion '+m.v+'</span></h4><p>'+esc(m.d)+'</p><p class="meta">'+esc(m.w)+' Every file is also added to postgres.DryRun\'s hand-wired replay, or migrate --dry-run will not exercise it.</p>';}));
+$$('#migs .mig')[0].click();
+
+/* ---------- ER explorer ---------- */
+const ER=[
+ {id:'repositories',x:20,y:20,w:150,h:46,cls:'chg',cols:[['id','PK'],['org, name, provider_repo_id',''],['installation_id','Evaluation App'],['active, park_reason, parked_at',''],['next_due_at, last_error',''],['last_check_outcome','drop'],['policy_version','drop'],['catalog_parse_ok','drop']]},
+ {id:'app_installations',x:20,y:110,w:150,h:46,cls:'new',cols:[['app','eval | remediate'],['account_login',''],['installation_id',''],['suspended_at',''],['repository_selection','new'],['seen_at','']]},
+ {id:'app_repository_access',x:20,y:200,w:150,h:46,cls:'new',cols:[['repository_id','FK'],['app',''],['installation_id',''],['seen_at','']]},
+ {id:'repository_policy_state',x:250,y:20,w:170,h:46,cls:'new',cols:[['repository_id','PK FK'],['state','managed | excluded | unmanaged | parked'],['reason',''],['policy_version',''],['max_open_prs','D7'],['reopen_after','D7'],['resolution error','new']]},
+ {id:'control_assignments',x:250,y:110,w:170,h:46,cls:'new',cols:[['repository_id','PK FK'],['control_slug','PK'],['version',''],['epoch','new'],['revision','new'],['requested_mode / effective_mode','new'],['mode_reason',''],['state','active | excluded | conflict'],['error','new'],['baseline_control','new'],['decision','new'],['source_block','new'],['reason','']]},
+ {id:'control_results',x:480,y:20,w:170,h:46,cls:'new',cols:[['repository_id, control_id','PK FK'],['control_version',''],['assignment_epoch','new'],['revision','new'],['status','compliant | non_compliant | unknown | not_applicable'],['fingerprint',''],['eval_generation','evaluator'],['remediated_generation','remediator'],['hold, hold_since','remediator'],['evaluated_sha, evaluated_at',''],['pr_changed','drop']]},
+ {id:'rule_results',x:480,y:110,w:170,h:46,cls:'new',cols:[['repository_id, control_id, rule_id','PK FK cascade'],['status','pass | fail | error | unknown | not_applicable'],['remediate',''],['evidence','≤ 16 KiB'],['evidence_kind, evidence_version','']]},
+ {id:'result_events',x:480,y:200,w:170,h:46,cls:'new',cols:[['id','PK'],['repository_id, control_id',''],['control_version, revision',''],['rule_id','NULL = control'],['from_status, to_status','to_status nullable'],['eval_generation',''],['occurred_at','append-only']]},
+ {id:'remediations',x:250,y:300,w:170,h:46,cls:'new',cols:[['id','PK'],['repository_id, control_id',''],['kind','pull_request | api'],['state','reserved | open | merged | closed_* | recommended | superseded | applied | failed'],['operation_key','new'],['branch, base_sha','new'],['pr_number, pr_url',''],['observed_head_sha','evaluator'],['acknowledged_head_sha','remediator CAS'],['remediated_generation',''],['closed_generation, next_eligible_at','new'],['intent_revision','new'],['proposal','JSONB'],['reserved_until','new'],['head_sha_at_last_remediation','drop']]},
+ {id:'remediation_steps',x:480,y:300,w:170,h:46,cls:'new',cols:[['remediation_id','FK'],['seq',''],['kind','ref | commit | pr | api'],['resource_key',''],['status, before, after, error',''],['sha / number','append-only']]},
+ {id:'remediation_events',x:480,y:390,w:170,h:46,cls:'new',cols:[['remediation_id','FK'],['kind','opened | updated | closed | applied | failed'],['detail','JSONB'],['occurred_at','append-only']]},
+ {id:'checks',x:20,y:300,w:150,h:46,cls:'chg',cols:[['check_key','PK idempotent'],['trigger','+ pr_event, manual'],['pending_result','staged per control'],['final, outcome','']]},
+ {id:'compliance_snapshots',x:20,y:390,w:150,h:46,cls:'chg',cols:[['org, control_id, source, snapshot_at','PK'],['compliant, non_compliant',''],['unknown, not_applicable',''],['pending, unmeasurable, excluded','new'],['coverage','new']]},
+ {id:'policy_versions',x:250,y:390,w:170,h:46,cls:'chg',cols:[['version','PK'],['summary','+ tag_schema_digest'],['first_seen_at','']]},
+ {id:'findings',x:20,y:480,w:150,h:46,cls:'rm',cols:[['(rule_kind, rule_name)','dropped in 00007']]},
+ {id:'finding_events',x:250,y:480,w:170,h:46,cls:'rm',cols:[['append-only','dropped in 00007']]}
+];
+const ERL=[
+ {from:'repositories',to:'repository_policy_state'},{from:'repositories',to:'app_repository_access'},{from:'app_installations',to:'app_repository_access'},
+ {from:'repository_policy_state',to:'control_assignments'},{from:'control_assignments',to:'control_results'},{from:'control_results',to:'rule_results'},{from:'control_results',to:'result_events'},
+ {from:'control_assignments',to:'remediations'},{from:'remediations',to:'remediation_steps'},{from:'remediations',to:'remediation_events'},{from:'repositories',to:'checks'},{from:'control_results',to:'compliance_snapshots',cls:'dashed'},{from:'policy_versions',to:'control_assignments',cls:'dashed'}
+];
+const erDg=new Diagram($('#erDg'),700,560);erDg.load(ER.map(t=>({id:t.id,label:t.id,x:t.x,y:t.y,w:t.w,h:t.h,cls:t.cls})),ERL);
+function erRel(id){const s=new Set([id]);const ls=[];erDg.links.forEach(l=>{if(l.from===id||l.to===id){s.add(l.from);s.add(l.to);ls.push(l.id);}});return{n:[...s],l:ls};}
+let erPinned=null;
+Object.values(erDg.nodes).forEach(n=>{
+  n.el.addEventListener('mouseenter',()=>{if(erPinned)return;const r=erRel(n.id);erDg.highlight(r.n,r.l,{dim:true});});
+  n.el.addEventListener('mouseleave',()=>{if(erPinned)return;erDg.clear();});
+  n.el.addEventListener('click',()=>{erPinned=erPinned===n.id?null:n.id;const t=ER.find(x=>x.id===n.id);if(erPinned){const r=erRel(n.id);erDg.highlight(r.n,r.l,{dim:true});}else erDg.clear();
+    const tag=c=>c==='new'?'<span class="badge b-new">new</span>':c==='drop'?'<span class="badge b-rm">drop</span>':c?'<span class="meta">'+esc(c)+'</span>':'';
+    $('#erDetail').innerHTML='<h4>'+esc(t.id)+' <span class="badge b-'+(t.cls==='rm'?'rm':t.cls)+'">'+(t.cls==='new'?'new table':t.cls==='chg'?'changed':'removed')+'</span></h4><div class="collist">'+t.cols.map(([c,k])=>'<div><span'+(k==='drop'?' style="text-decoration:line-through"':'')+'>'+esc(c)+'</span>'+tag(k)+'</div>').join('')+'</div><p class="meta" style="margin-top:8px">'+(erPinned?'pinned; click again to release':'')+'</p>';});
+});
+
+/* ---------- grants ---------- */
+const GT=[
+ ['repositories','r','r','identity is discovery\'s; both read'],
+ ['app_installations / app_repository_access','rw','r','each App\'s facts are written by discovery (evaluator)'],
+ ['repository_policy_state','rw','r','resolution runs as the evaluator; the remediator locks the row FOR UPDATE to reserve a slot (UPDATE on no column)'],
+ ['control_assignments','rw','r','resolution writes; the remediator re-reads before every external write'],
+ ['control_results','c:status, fingerprint, eval_generation, assignment_epoch, revision, evaluated_sha, evaluated_at, last_changed_at; DELETE','c:remediated_generation, hold, hold_since','record-is-narrow: a full-row save fails at the database'],
+ ['rule_results','rw (cascade)','r','evaluation owns rule outcomes'],
+ ['result_events','i','—','append-only; withdrawal writes to_status NULL'],
+ ['remediations','c:observed_head_sha, state (merged, closed_by_user)','i + c:state, branch, base_sha, pr_*, acknowledged_head_sha, remediated_generation, closed_generation, next_eligible_at, intent_revision, proposal, reserved_until','observation vs action: the evaluator records what it saw, the remediator what it did'],
+ ['remediation_steps','—','i','append-only journal'],
+ ['remediation_events','i','i','both observe transitions; append-only'],
+ ['checks','rw','r','staged evaluation log'],
+ ['compliance_snapshots','i','—','snapshot workflow on the eval queue'],
+ ['policy_versions','rw','r','rollout runs as the evaluator']
+];
+function cell(v){if(v==='—')return'<td class="n">—</td>';if(v.startsWith('c:'))return'<td class="c" title="'+esc(v.slice(2))+'">columns ⓘ</td>';if(v==='r')return'<td class="y">SELECT</td>';if(v==='i')return'<td class="y">INSERT</td>';if(v==='rw (cascade)')return'<td class="y">INSERT/UPDATE/DELETE</td>';return'<td class="y">INSERT/UPDATE'+(v.includes('DELETE')?'/DELETE':'')+'</td>';}
+function renderGrants(role){
+  $$('#roleSeg .btn').forEach(b=>b.classList.toggle('on',b.dataset.r===role));
+  const head='<thead><tr><th>Table</th><th>'+(role==='all'?'rg_evaluator ∪ rg_remediator':'rg_'+role)+'</th><th>Why</th></tr></thead>';
+  const rows=GT.map(([t,e,r,w])=>{let v;if(role==='evaluator')v=cell(e);else if(role==='remediator')v=cell(r);else{const both=[e,r].filter(x=>x!=='—');v=both.length?'<td class="y" title="'+esc(both.join(' + '))+'">union ⓘ</td>':'<td class="n">—</td>';}return'<tr><td><code>'+esc(t)+'</code></td>'+v+'<td class="meta">'+esc(w)+'</td></tr>';}).join('');
+  $('#grantTable').innerHTML=head+'<tbody>'+rows+'</tbody>';
+}
+$$('#roleSeg .btn').forEach(b=>b.addEventListener('click',()=>renderGrants(b.dataset.r)));
+renderGrants('evaluator');
+
+/* ---------- security topology ---------- */
+const PODS={
+ split:[
+  {n:'ingest',c:[['Eval App webhook secret','sec'],['Remediation App webhook secret','sec'],['Temporal mTLS (start only)','tls']],t:'No private key, no store. A leaked ingest pod holds nothing that can read a repository.'},
+  {n:'evaluator',c:[['Evaluation App key (read-only)','rkey'],['STORE_DSN as rg_evaluator','db'],['Temporal mTLS','tls']],t:'Can read every repository in scope and write evaluation columns. Cannot mint a write token.'},
+  {n:'remediator',c:[['Remediation App key (write)','key'],['STORE_DSN as rg_remediator','db'],['Temporal mTLS','tls']],t:'The only pods with a write-capable key. Scaled separately; installed only where remediate is used.'},
+  {n:'api',c:[['STORE_RO_DSN (read-only pool)','db'],['OIDC client','sec'],['Temporal mTLS (signal-only client)','tls']],t:'Reads posture; the one write it can cause is a recheck signal, bounded by APIScope and rate.'}
+ ],
+ all:[
+  {n:'all (one pod)',c:[['Eval App webhook secret','sec'],['Remediation App webhook secret','sec'],['Evaluation App key','rkey'],['Remediation App key (write)','key'],['STORE_DSN as member of both roles','db'],['STORE_RO_DSN','db'],['OIDC client','sec'],['Temporal mTLS','tls']],t:'Combined trust: an evaluator dependency or compromise in this process reaches the write key and both database roles. The interface split still prevents accidental writes; it does not prevent a hostile one.'}
+ ]
+};
+function renderTopo(t){
+  $$('#topoSeg .btn').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  $('#pods').innerHTML=PODS[t].map(p=>'<div class="pod"><b>'+esc(p.n)+'</b>'+p.c.map(([c,k])=>'<span class="chip '+k+'">'+esc(c)+'</span>').join('')+'<p class="meta" style="margin:8px 0 0">'+esc(p.t)+'</p></div>').join('');
+  $('#topoText').innerHTML=t==='split'?'<div class="good"><b>This is the guarantee.</b> helm-unittest asserts by env and secret name that evaluator pods carry neither the Remediation App key nor the remediator DSN, and the database grant tests run as the two roles. Secret scoping is by chart helper: roleHasEvalKey, roleHasRemediationKey, roleHasWebhookSecret, roleDialsTemporal, roleHasStore, roleServesAPI.</div>':'<div class="note"><b>Documented as weaker.</b> The least-privilege claim is stated per topology (AR-0029-02). The installation_info gauge gains a topology label and the status page shows it, so nobody reads an all deployment as credential-isolated.</div>';
+}
+$$('#topoSeg .btn').forEach(b=>b.addEventListener('click',()=>renderTopo(b.dataset.t)));
+renderTopo('split');
+
+/* ---------- scale calculator ---------- */
+const CI=[
+ {k:'orgs',l:'Organizations (installations per App)',min:1,max:50,v:4},
+ {k:'repos',l:'Repositories per org',min:10,max:5000,v:300,step:10},
+ {k:'controls',l:'Controls assigned per repository',min:1,max:12,v:6},
+ {k:'reads',l:'Resource reads per control (distinct paths, after caching)',min:1,max:6,v:2},
+ {k:'interval',l:'Evaluation interval (hours)',min:1,max:168,v:24},
+ {k:'pushes',l:'Pushes to default branches per repository per day',min:0,max:30,v:3},
+ {k:'noncomp',l:'Repositories with a failing control (%)',min:0,max:100,v:30},
+ {k:'remmode',l:'Assignments in remediate mode (%)',min:0,max:100,v:50},
+ {k:'cap',l:'max_open_prs',min:1,max:10,v:3}
+];
+const C={};CI.forEach(i=>C[i.k]=i.v);
+$('#calcIn').innerHTML=CI.map(i=>'<label>'+esc(i.l)+': <b id="cv-'+i.k+'">'+i.v+'</b></label><input type="range" data-k="'+i.k+'" min="'+i.min+'" max="'+i.max+'" step="'+(i.step||1)+'" value="'+i.v+'">').join('');
+$$('#calcIn input').forEach(r=>r.addEventListener('input',()=>{C[r.dataset.k]=+r.value;$('#cv-'+r.dataset.k).textContent=r.value;calc();}));
+function fmt(n){return n>=1e6?(n/1e6).toFixed(2)+' M':n>=1e4?Math.round(n/1e3)+' k':n>=1000?(n/1000).toFixed(1)+' k':String(Math.round(n));}
+function bar(ratio){const p=Math.min(100,ratio*100);const c=ratio>0.9?'b':ratio>0.6?'w':'';return'<div class="bar"><i class="'+c+'" style="width:'+p+'%"></i></div>';}
+function calc(){
+  const budget=Math.min(12500,5000+50*Math.max(0,C.repos-20));
+  const perEval=2+C.controls*C.reads;                 // HEAD + PR list + reads
+  const schedPerHour=C.repos/C.interval*perEval;
+  const pushEvalCalls=2+Math.max(1,Math.round(C.controls*0.35))*C.reads; // scoped rechecks
+  const pushPerHour=C.repos*C.pushes/24*pushEvalCalls;
+  const evalPerHour=schedPerHour+pushPerHour+1/1;    // + discovery
+  const failing=C.repos*C.noncomp/100;
+  const remAssign=failing*C.remmode/100;
+  const remRunsPerDay=remAssign*0.25;                // a quarter of due controls change per day
+  const remCalls=perEval+4;                          // re-reads + ref + commit + PR + update
+  const remPerHour=remRunsPerDay*remCalls/24;
+  const assignments=C.orgs*C.repos*C.controls;
+  const ruleRows=assignments*3;
+  const eventsPerDay=C.orgs*C.repos*C.controls*(1/(C.interval/24))*0.05+C.orgs*remRunsPerDay;
+  const openPRs=Math.min(C.orgs*remAssign,C.orgs*C.repos*C.cap);
+  const wfLong=C.orgs*C.repos+C.orgs*2;
+  const wfRem=Math.round(C.orgs*remRunsPerDay/24*0.5); // ~30 min each
+  const evalsPerHour=C.orgs*(C.repos/C.interval+C.repos*C.pushes/24);
+  const slots=Math.ceil(evalsPerHour*8/3600)+1;      // ~8 s per evaluation
+  const rows=[
+   ['GitHub budget per installation per hour',fmt(budget)+' calls'],
+   ['Evaluation App: calls per org per hour',fmt(evalPerHour)+' ('+Math.round(evalPerHour/budget*100)+'% of budget)'+bar(evalPerHour/budget)],
+   ['Remediation App: calls per org per hour',fmt(remPerHour)+' ('+Math.round(remPerHour/budget*100)+'% of its own budget)'+bar(remPerHour/budget)],
+   ['Evaluations per hour (fleet)',fmt(evalsPerHour)],
+   ['Evaluator activity slots needed (≈8 s each)',String(slots)],
+   ['control_assignments rows',fmt(assignments)],
+   ['rule_results rows (≈3 rules per control)',fmt(ruleRows)],
+   ['result + remediation events per day',fmt(eventsPerDay)],
+   ['Open remediation PRs at steady state (fleet, capped)',fmt(openPRs)],
+   ['Long-lived Temporal workflows (repo + 2 budgets per org)',fmt(wfLong)],
+   ['Remediation workflows running at once (≈30 min each)',fmt(wfRem)]
+  ];
+  $('#calcOut').innerHTML=rows.map(([k,v])=>'<div><span>'+esc(k)+'</span><span>'+v+'</span></div>').join('')+'<p class="meta" style="margin-top:8px">Rough model: an evaluation costs one HEAD read, one PR list and the cached reads per control; a push recheck touches about a third of the controls; a quarter of due controls change per day; a remediation run costs its re-reads plus four writes. The point is the shape, not the digits: evaluation scales with repositories and interval, remediation with failures and mode, and the two never share a budget.</p>';
+}
+calc();
+
+/* ---------- open questions ---------- */
+const OQ=[
+ {doc:'0029',id:'OQ1',q:'When does the controls model land relative to v2.0.0?',rec:'Before v2.0.0, replacing the rule engine on the v2 line: the rc line absorbs the churn and GA never ships rule-keyed findings.',alts:['After v2.0.0 as v3: two breaking migrations in a row','Behind a flag with both engines: doubles the test surface'],tags:['timeline','ops'],status:['open',''],imp:{timeline:'Delays v2.0.0 by the controls phases; avoids a GA schema migration later.',ops:'rc users (the homelab) re-evaluate from scratch once.',usage:'Users never learn the rule model.'}},
+ {doc:'0029',id:'OQ2',q:'Where does this work happen?',rec:'On the v2 branch, phase by phase like IMPL-0025; main gets bug fixes only.',alts:['A long-lived v2-controls branch merged into v2 when evaluation works: isolates churn at the cost of a second integration branch'],tags:['timeline','ops'],status:['proposed','deep dive 4 proposes an integration branch controls off v2 with lane worktrees, which is closer to (b)'],imp:{timeline:'Lanes in parallel need the integration branch; CI must be added for it.',ops:'Two merges per milestone (controls → v2, v2 → controls).'}},
+ {doc:'0030',id:'OQ1',q:'Is there a separate repository policy type?',rec:'No. Repository variation lives in labelled repos { match } blocks inside the org policy, reviewed by the org owners.',alts:['Per-repository files under policy/repos/: exceptions scatter','A repository-owned .github/repo-guardian.hcl: a repository could exclude itself'],tags:['usage','security'],status:['open',''],imp:{usage:'One file per org to review; "these five repos" is a glob.',security:'No self-exclusion path.',perf:'Resolution stays two layers plus blocks.'}},
+ {doc:'0030',id:'OQ2',q:'Can an org policy change a control\'s parameters?',rec:'No overrides; parameters are templated with repository context ({{ .Org }}), and a genuinely different requirement is a different control or version used through replace.',alts:['override blocks per org: the same control id then means different things per org and compliance stops being comparable'],tags:['usage'],status:['open',''],imp:{usage:'An org whose team slugs do not follow the convention needs a second catalogue entry.',perf:'None.',ops:'Comparable numbers across orgs; baseline lineage (AR-0030-06) keeps replacements counted once.'}},
+ {doc:'0030',id:'OQ3',q:'At what granularity is the mode set?',rec:'Enterprise default, org, repos block and a per-control override, most specific wins.',alts:['Org and enterprise only: a new control in a remediate org starts writing PRs the moment it is added','Per control in the catalogue: cannot express "remediate in the test org only"'],tags:['usage','ops'],status:['settled','AR-0030-07 publishes the ordered algorithm and golden cases that assume (a)'],imp:{usage:'"Remediate everything except the control we are trialling" is one line.',ops:'Rollout of a new remediation is a mode flip, no deploy.'}},
+ {doc:'0031',id:'OQ1',q:'What does "pattern is owned by owners" mean for CODEOWNERS?',rec:'Effective ownership under GitHub\'s last-match-wins.',alts:['A literal line: a later broader line silently overrides it','Literal and effective: fails correct files written differently'],tags:['correctness'],status:['amended','AR-0031-01: the ordering in (a) was backwards; required lines go after the default, and a human exception that overrides them is a reported failure, not reordered'],imp:{correctness:'The evaluator needs a real matcher tested against GitHub-documented examples.',usage:'Human exceptions are never silently undone.'}},
+ {doc:'0031',id:'OQ2',q:'Can catalog-info remediation edit fields in an existing file?',rec:'No: create from the template when absent; failing fields become manual notes in the PR.',alts:['Fill with placeholders: no_placeholders then fails forever','Per-rule opt-in with a constant value: only for org-wide constants'],tags:['usage'],status:['open','AR-0031-04 gives notes-only change sets a recorded state so they do not retry until the generation moves'],imp:{usage:'Owners and systems are typed by humans; the PR tells them exactly what.',perf:'None.'}},
+ {doc:'0032',id:'OQ1',q:'How is "something changed" tracked for remediation?',rec:'Per-control eval_generation and remediated_generation plus a pr_changed flag.',alts:['A boolean reset by the next evaluation: loses changes whenever two evaluations run before remediation','Diff result_events on every decision: event-log scans on the hot path'],tags:['perf','correctness'],status:['amended','AR-0032-01 and AR-0032-11 replace the boolean with observed/acknowledged head SHAs, add closed_generation and next_eligible_at; AR-0030-03 adds the assignment epoch'],imp:{perf:'Two integer comparisons and one SHA comparison per decision.',correctness:'No evaluation can erase a pending change; no run loops on its own commit.'}},
+ {doc:'0032',id:'OQ2',q:'Per-control PRs only, or a cap on how many open at once?',rec:'Per-control PRs with a per-repository cap (max_open_prs, default 3), held controls released as PRs close.',alts:['No cap: onboarding a large org can open thousands of PRs in an hour','Bundle on onboarding then per-control: two PR shapes to build and explain'],tags:['usage','perf'],status:['settled','AR-0032-05 makes the cap a Postgres slot reservation so concurrent per-control workflows cannot exceed it'],imp:{usage:'A team sees at most three bot PRs at once, in enterprise order.',perf:'Bounds remediation writes per repository; the lock is per repository.'}},
+ {doc:'0032',id:'OQ3',q:'What happens after a human closes a remediation PR while the control still fails?',rec:'Reopen after a cooldown (reopen_after, default 14 days), sooner only if the evaluation changes.',alts:['Reopen on the next run: the bot fights the team','Never reopen automatically: failing controls quietly stay failing'],tags:['usage'],status:['settled','AR-0032-11 persists closed_generation and next_eligible_at so cooldown has its own state'],imp:{usage:'"Not now" is respected; excluding the control is the way to say "never".',ops:'Closed rows are kept; the history is visible.'}},
+ {doc:'0032',id:'OQ4',q:'Do API remediations apply directly?',rec:'Only with a per-control opt-in in remediate mode; otherwise they are recorded as recommendations.',alts:['Apply whenever the mode is remediate: turning on remediation silently changes settings','Never apply; open a tracking issue: easy to ignore'],tags:['security','usage'],status:['amended','AR-0031-06 settles the names as recommend | direct | workflow; AR-0032-10 journals direct applies per resource and versions intent'],imp:{security:'A direct write is a separate, explicit decision from opening PRs; the App permission is per installation either way.',usage:'Recommendations are visible in the UI with before/after values.'}},
+ {doc:'0033',id:'OQ1',q:'Who owns GitHub repository custom properties?',rec:'repo-guardian writes, Wiz detects; both read one tag definition.',alts:['The Backstage↔Wiz sync writes and repo-guardian only evaluates presence','Both write: last writer wins'],tags:['ops'],status:['open',''],imp:{ops:'One writer per property; fwsync\'s GitHub carrier would be an audit, not a writer.',usage:'Values come from the repository\'s own catalog-info.'}},
+ {doc:'0033',id:'OQ2',q:'How does repo-guardian read the governed tag definitions?',rec:'(was) a shared tagschema Go module.',alts:['Read schemas/tags.hcl by path at policy load','Hand-copy the facts into the catalogue'],tags:['ops','correctness'],status:['settled','AR-0033-03: a copied schema file referenced by tag_schema = file(...), its bytes in the control revision digest and its upstream revision recorded; sharing a decoder is not sharing a revision'],imp:{ops:'No module to publish; an agreement test fails when the copy is stale.',correctness:'A pattern change changes the revision and re-evaluates.'}},
+ {doc:'0033',id:'OQ3',q:'What are the GitHub property keys called?',rec:'kebab-case component / owner with a migration off PascalCase.',alts:['PascalCase everywhere','Keep both tools as they are: two keys for one fact'],tags:['ops','usage'],status:['deferred','AR-0033-05: not chosen until the INV verifies GitHub\'s name-case behaviour and whether two names differing only in case can coexist'],imp:{ops:'The operator owns schema creation; every existing writer is inventoried first.',usage:'Consumers still reading PascalCase are listed with an owner before old keys retire.'}},
+ {doc:'0033',id:'OQ4',q:'Should repo-guardian publish repository compliance into Wiz?',rec:'Not in v2; revisit when fwsync\'s binding question is answered and Wiz exposes an external-findings input.',alts:['Design a Wiz exporter now','Never; Backstage is the hub'],tags:['timeline'],status:['open',''],imp:{timeline:'Nothing in the v2 plan.',usage:'/rules, /orgs and snapshots are the data source either way.'}}
+];
+const OQTAGS=['perf','usage','ops','security','correctness','timeline'];
+const OQST={open:['b-info','open'],settled:['b-ok','settled by review'],amended:['b-chg','amended by review'],deferred:['b-warn','deferred'],proposed:['b-info','proposal in deep dives']};
+let oqTag='all',oqSt='all';
+function renderOQ(){
+  $('#oqFilters').innerHTML='<span class="btn '+(oqTag==='all'?'on':'')+'" data-t="all">all impacts</span>'+OQTAGS.map(t=>'<span class="btn '+(oqTag===t?'on':'')+'" data-t="'+t+'">'+t+'</span>').join('')+'<span style="width:12px"></span><span class="btn '+(oqSt==='all'?'on':'')+'" data-s="all">any status</span>'+Object.keys(OQST).map(s=>'<span class="btn '+(oqSt===s?'on':'')+'" data-s="'+s+'">'+OQST[s][1]+'</span>').join('');
+  $$('#oqFilters .btn').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.t)oqTag=b.dataset.t;if(b.dataset.s)oqSt=b.dataset.s;renderOQ();}));
+  const list=OQ.filter(o=>(oqTag==='all'||o.tags.includes(oqTag))&&(oqSt==='all'||o.status[0]===oqSt));
+  $('#oqList').innerHTML=list.map(o=>'<details class="oq"><summary>DESIGN-'+o.doc+' '+o.id+': '+esc(o.q)+' <span class="badge '+OQST[o.status[0]][0]+'">'+OQST[o.status[0]][1]+'</span> '+o.tags.map(t=>'<span class="badge b-info" style="font-weight:400">'+t+'</span>').join(' ')+'</summary><p><b>Recommended:</b> '+esc(o.rec)+'</p>'+(o.status[1]?'<p class="callout" style="margin:6px 0">'+esc(o.status[1])+'</p>':'')+'<p><b>Alternatives:</b></p><ul>'+o.alts.map(a=>'<li>'+esc(a)+'</li>').join('')+'</ul><div class="imp">'+Object.entries(o.imp).map(([k,v])=>'<div><b>'+k+'</b>'+esc(v)+'</div>').join('')+'</div></details>').join('')||'<p class="meta">No open question matches.</p>';
+}
+renderOQ();
+
+/* ---------- plan ---------- */
+const PH=[
+ {id:'p0',label:'0 Decide and verify',sub:'15 OQs · INV on A1–A23, F1–F10 · IMPL',x:20,y:180,w:150,h:56,lane:'user',b:1,dep:[],d:'User-owned. Answers the open questions, runs the investigation that checks every assumption against the v2 branch, and produces the IMPL document.'},
+ {id:'p05',label:'0.5 Contracts',sub:'one author, one commit',x:200,y:180,w:140,h:56,lane:'one',b:3,dep:['p0'],d:'Types in internal/control, DDL for every table and the two roles, policy.Assignment/Resolution, the three GitHub interfaces with Commit over createCommitOnBranch, OpenAPI stubs, reserved migration numbers. Grown by the review: epoch, revision, Owns/Reads, Fixed/Manual/Blocked, canonical keys, App-access tables.'},
+ {id:'p1',label:'1 Framework + codeowners',sub:'lane A',x:380,y:40,w:160,h:56,lane:'A',b:4,dep:['p05'],d:'Framework behaviour (StatusOf, Fingerprint, file helpers, registry, template self-check), the conformance suite, and codeowners with a real last-match-wins matcher tested against independent expected owners.'},
+ {id:'p2',label:'2 Policy model',sub:'lane B',x:380,y:130,w:160,h:56,lane:'B',b:3,dep:['p05','p1'],d:'Catalogue, enterprise and org loaders with the empty EvalContext, slug grammar, validation, Snapshot.Resolve as the published algorithm with golden cases, VersionV2 over the new inputs, Summarize.'},
+ {id:'p3',label:'3 Schema + store',sub:'lane C',x:380,y:220,w:160,h:56,lane:'C',b:3,dep:['p05'],d:'Migrations 00004–00006, sqlc queries (RecordEvaluation, narrow record, remediation_due, remediation_maintenance, ComplianceByControl, api_*), V2Store methods, role grants tested as the roles, DryRun wiring.'},
+ {id:'p4',label:'4 Evaluation workflow',sub:'integration · rc evaluate-only',x:580,y:130,w:170,h:56,lane:'int',b:4,dep:['p1','p2','p3'],d:'Pinned cached Reader, Evaluate activity, the adapted repository workflow with its new type name, discovery plus resolution for both Apps, rollout re-resolve, push scoping, PR observation, pr_event ingest, eval budgets, evaluator role and queue, chart.'},
+ {id:'p5',label:'5 API + UI',sub:'lane D',x:580,y:40,w:170,h:56,lane:'D',b:3,dep:['p3','p4'],d:'/controls, /policies (scoped), /repositories/{id}/controls and /evaluations, /remediations, merged events, /summary and /status extensions, POST evaluate with the signal-only client and the BFF proxy, UI views, evidence renderer registry, report on ComplianceByControl.'},
+ {id:'p6',label:'6 Remediation + 2nd App',sub:'lane E · rc remediation',x:580,y:220,w:170,h:56,lane:'E',b:5,dep:['p4'],d:'Commit over createCommitOnBranch, find-or-adopt by authenticated identity, slot reservation, update-branch, step journal, the lifecycle with withdrawal and supersession, maintenance and sweep, remediator role and queue, KEDA per queue, chart secret scoping, derived App permissions.'},
+ {id:'p7',label:'7 Remaining control types',sub:'lanes F1–F7',x:800,y:40,w:170,h:56,lane:'F',b:4,dep:['p1','p6'],d:'catalog_info, dependency_updates, file, repo_settings, branch_ruleset, labels, custom_properties with the tag schema seam. Evaluate halves after phase 1; direct-apply paths after phase 6. One worktree per type; the registry is one line per type.'},
+ {id:'p8',label:'8 Observability + CLI',sub:'lane G',x:800,y:130,w:170,h:56,lane:'G',b:2,dep:['p4','p6'],d:'Metrics table, regenerated dashboards and alerts, posture exporter on control_results with coverage, evaluate --format json with separated exit codes, policy validate.'},
+ {id:'p9',label:'9 Cutover and removal',sub:'GA',x:800,y:220,w:170,h:56,lane:'int',b:3,dep:['p5','p6','p7','p8'],d:'Ordered runbook (AR-0029-03): stop writers, terminate old executions, reconcile open PRs, migrate, deploy, bootstrap, close v1 PRs with a pointer; retire frozen-identity tests deliberately; remove the rule engine, reconcilers, parity suite and findings tables (00007); migration guide.'}
+];
+const PL=[];PH.forEach(p=>p.dep.forEach(d=>PL.push({from:d,to:p.id,cls:(d==='p05'&&p.id==='p5')||(d==='p6'&&p.id==='p7')?'dashed':''})));
+const planDg=new Diagram($('#planDg'),1000,440);planDg.load(PH.map(p=>({id:p.id,label:p.label,sub:p.sub,x:p.x,y:p.y,w:p.w,h:p.h,cls:p.lane==='int'?'chg':p.lane==='user'?'ext':''})),PL);
+[{id:'rc1',label:'v2.0.0-rc: evaluate-only',x:580,y:330,w:170,h:40,cls:'store'},{id:'rc2',label:'v2.0.0-rc: remediation',x:800,y:330,w:170,h:40,cls:'store'},{id:'ga',label:'v2.0.0',x:800,y:390,w:170,h:36,cls:'store'}].forEach(n=>{const d=document.createElement('div');d.className='nd '+n.cls;d.style.left=(n.x/10)+'%';d.style.top=(n.y/4.4)+'%';d.style.width=(n.w/10)+'%';d.style.height=(n.h/4.4)+'%';d.innerHTML='<b>'+esc(n.label)+'</b>';$('#planDg').appendChild(d);});
+Object.values(planDg.nodes).forEach(n=>{n.el.style.cursor='pointer';n.el.addEventListener('click',()=>{const p=PH.find(x=>x.id===n.id);const pre=p.dep,post=PH.filter(x=>x.dep.includes(p.id)).map(x=>x.id);const ls=planDg.links.filter(l=>l.to===p.id||l.from===p.id).map(l=>l.id);planDg.highlight([p.id,...pre,...post],ls,{dim:true});n.el.classList.add('pulse');
+  $('#planDetail').innerHTML='<h4>'+esc(p.label)+' <span class="badge b-info">'+esc(p.sub)+'</span> &nbsp; build '+meterHTML(p.b)+'</h4><p>'+esc(p.d)+'</p><p class="meta">needs: '+(pre.length?pre.map(x=>esc(PH.find(y=>y.id===x).label)).join(', '):'nothing')+' · unblocks: '+(post.length?post.map(x=>esc(PH.find(y=>y.id===x).label)).join(', '):'nothing')+'</p>';});});
+const CX=[
+ ['Control framework and codeowners',4,1,3,'A new abstraction with a conformance suite; the CODEOWNERS matcher must agree with GitHub, not with itself.'],
+ ['Policy model and resolution',3,2,2,'A published algorithm with golden cases; conflict handling fails closed at runtime.'],
+ ['Schema, grants, migrations',3,2,2,'Many tables, but each is simple; the grant matrix is a test. DryRun wiring is easy to forget.'],
+ ['Evaluation workflow',4,3,3,'Reuses v2\'s workflow shape; new activity, PR observation, per-App discovery, rollout re-resolve.'],
+ ['Remediation workflow and second App',5,4,5,'CAS commits, slot reservation, update-branch, journal, adoption by identity, maintenance: the densest correctness surface and where most review findings landed.'],
+ ['API and UI',3,2,2,'New resources on an existing skeleton; scoping and cursors follow established patterns.'],
+ ['Remaining control types',4,2,3,'Seven packages; API-remediated types need read-back verification and per-resource journaling.'],
+ ['Observability and CLI',2,2,1,'Regenerated from the model; coverage and unmeasurable buckets are new gauges.'],
+ ['Cutover',3,4,4,'A runbook with ordering that matters; rc installs reset; a wrong step recreates v1 PRs or loses in-flight intent.']
+];
+$('#cxTable tbody').innerHTML=CX.map(([a,b,o,r,w])=>'<tr><td>'+esc(a)+'</td><td>'+meterHTML(b)+'</td><td>'+meterHTML(o,'w')+'</td><td>'+meterHTML(r,'r')+'</td><td class="meta">'+esc(w)+'</td></tr>').join('');
+
+/* ---------- risks ---------- */
+const RISKS=[
+ {t:'Fencing: stale runs writing into new state',s:'addressed',d:'Assignment epochs, operation keys, idempotent record on the check key and FOR UPDATE SKIP LOCKED on the operation row. Residual: a write that completes in the window before withdrawal is cleaned up by maintenance, not prevented.',a:['0030-ar-0030-03-high-assignment-changes-need-revision-fences-around-results-and-writes','0032-ar-0032-06-high-retry-safety-needs-durable-operations-and-assignment-epochs']},
+ {t:'Ownership versus read dependencies',s:'addressed',d:'Owns() and Reads() with canonical keys; every ChangeSet validated against Owns(). Residual: sub-field ownership is out of scope, so the renovate key in package.json is a non-remediable note.',a:['0031-ar-0031-02-high-owned-resources-and-read-dependencies-are-different-sets','0030-ar-0030-02-high-resource-identity-needs-canonicalization-and-write-boundary-enforcement']},
+ {t:'Lifecycle cleanup independent of eligibility',s:'addressed',d:'A maintenance query over open and recommended rows drives withdrawal, close-compliant and supersession without a current result. Residual: cleanup that needs write access the repository no longer grants is a visible hold, not a promise.',a:['0032-ar-0032-04-high-withdrawal-cleanup-is-unreachable-through-the-due-predicate']},
+ {t:'Measurement coverage and access loss',s:'addressed',d:'Posture starts from assignments; pending, stale and unmeasurable are explicit; results survive a 403. Residual: the empty-denominator rule must be identical in SQL, API, report, snapshot and gauges, which is one shared query and a parity test.',a:['0029-ar-0029-01-high-access-loss-must-not-erase-known-non-compliance','0030-ar-0030-05-high-compliance-must-expose-unevaluated-assignments-and-measurement-loss']},
+ {t:'Compare-and-swap that is not one',s:'addressed',d:'Writer.Commit moves to createCommitOnBranch with expectedHeadOid. Residual: branch deletion has no precondition; the remediator re-reads the head first and GitHub can restore a PR\'s branch.',a:['0032-ar-0032-07-high-non-forced-ref-updates-are-not-compare-and-swap']},
+ {t:'CODEOWNERS semantics',s:'addressed',d:'Ordering reversed, effective ownership evaluated by a real matcher, validity never inferred from the local parser alone. Residual: the matcher must be tested against GitHub-documented examples and the errors endpoint on real repositories.',a:['0031-ar-0031-01-critical-codeowners-remediation-orders-the-rules-backwards','0031-ar-0031-05-high-parser-fallback-cannot-prove-codeowners-validity']},
+ {t:'Shared capacity under fleet events',s:'partly',d:'The independence claim is narrowed and knobs are named, but targets are operational SLOs set per deployment and measured in an IMPL soak, not design-time numbers.',a:['0029-ar-0029-05-medium-separate-installations-do-not-prove-independent-capacity']},
+ {t:'Property key casing migration',s:'deferred',d:'Mechanics wait for the INV to verify GitHub\'s name-case behaviour on a real org; the operator owns schema creation; renaming is separated from value normalisation.',a:['0033-ar-0033-05-high-the-casing-migration-needs-a-provider-and-consumer-contract']},
+ {t:'Signal-only authorization for the api role',s:'accepted',d:'Self-hosted Temporal authorizes per namespace; "signal-only" is a property of the api role\'s code under its own mTLS identity, recorded as a risk rather than claimed as server-enforced.',a:['0032-ar-0032-12-medium-event-and-api-boundaries-need-precise-completeness-and-scope-rules']}
+];
+const RS={addressed:['b-ok','addressed'],partly:['b-warn','partly'],deferred:['b-warn','deferred'],accepted:['b-info','accepted risk']};
+$('#riskCards').innerHTML=RISKS.map(r=>'<div class="card"><h4>'+esc(r.t)+' <span class="badge '+RS[r.s][0]+'">'+RS[r.s][1]+'</span></h4><p>'+esc(r.d)+'</p><p class="meta">'+r.a.map(a=>'<a href="controls-redesign.html#d'+a+'">'+a.slice(5,15).toUpperCase()+'</a>').join(' · ')+'</p></div>').join('');
+
+/* ---------- nav highlight ---------- */
+const navLinks=$$('nav#side a');const secs=navLinks.map(a=>$(a.getAttribute('href'))).filter(Boolean);
+function navSync(){let cur=secs[0];secs.forEach(s=>{if(s.getBoundingClientRect().top<120)cur=s;});navLinks.forEach(a=>a.classList.toggle('on',cur&&a.getAttribute('href')==='#'+cur.id));}
+document.addEventListener('scroll',navSync,{passive:true});navSync();
+</script>
+</body>
+</html>

@@ -481,53 +481,62 @@ READING_ORDER = [
 ]
 
 CSS = """
-:root{--bg:#fff;--fg:#1b1f23;--muted:#57606a;--line:#d0d7de;--accent:#0969da;--soft:#f6f8fa;--warn:#fff8c5;--ok:#dafbe1;--side:300px}
+:root{--bg:#0f1218;--panel:#161b24;--panel2:#1c2330;--border:#263040;--deep:#0b0e13;--fg:#d8dee9;--muted:#8b96a8;--dim:#5d6778;
+--blue:#6cb6ff;--green:#5fd38d;--amber:#f0b84a;--red:#f07178;--purple:#c792ea;--cyan:#5ccfe6;
+--line:var(--border);--accent:var(--blue);--soft:var(--panel);--side:300px}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{margin:0;font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--fg);background:var(--bg)}
-nav#side{position:fixed;top:0;left:0;bottom:0;width:var(--side);overflow:auto;border-right:1px solid var(--line);background:var(--soft);padding:18px 16px;font-size:13px}
-nav#side h1{font-size:15px;margin:0 0 8px}
-nav#side .sub{color:var(--muted);margin-bottom:14px}
-nav#side a{color:var(--fg);text-decoration:none;display:block;padding:2px 0}
-nav#side a:hover{color:var(--accent)}
-nav#side .doc{margin-top:12px;font-weight:600}
-nav#side .h3{padding-left:14px;color:var(--muted)}
-main{margin-left:var(--side);padding:32px 48px 96px;max-width:1080px}
+body{margin:0;font:15.5px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;color:var(--fg);background:var(--bg)}
+nav#side{position:fixed;top:0;left:0;bottom:0;width:var(--side);overflow:auto;border-right:1px solid var(--border);background:#0c0f14;padding:18px 14px;font-size:13px}
+nav#side h1{font-size:14px;margin:0 0 4px;color:var(--fg)}
+nav#side .sub{color:var(--muted);margin-bottom:14px;font-size:12px}
+nav#side a{color:var(--muted);text-decoration:none;display:block;padding:3px 8px;border-radius:6px;border-left:2px solid transparent}
+nav#side a:hover{color:var(--fg);background:var(--panel)}
+nav#side .doc{margin-top:12px;font-weight:600;color:var(--fg)}
+nav#side .h3{padding-left:20px;font-size:12.5px}
+main{margin-left:var(--side);padding:32px 48px 120px;max-width:1120px}
 h1{font-size:30px;line-height:1.25;margin:0 0 6px}
-h2{font-size:24px;margin:48px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+h2{font-size:24px;margin:48px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--border)}
 h3{font-size:19px;margin:30px 0 8px}
 h4{font-size:16px;margin:22px 0 6px}
 p{margin:10px 0}
-code{font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--soft);padding:1px 5px;border-radius:4px}
-pre{background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:12px 14px;overflow:auto;font-size:13px;line-height:1.45}
-pre code{background:none;padding:0}
-pre.mermaid{background:#fff;text-align:center}
-table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
-th,td{border:1px solid var(--line);padding:7px 10px;vertical-align:top;text-align:left}
-th{background:var(--soft)}
-blockquote{margin:12px 0;padding:8px 16px;border-left:4px solid var(--line);color:var(--muted)}
-.lede{font-size:18px;color:var(--muted);margin:0 0 20px}
+a{color:var(--blue)}
+code{font:12.5px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--deep);border:1px solid var(--border);padding:0 4px;border-radius:4px}
+pre{background:var(--deep);border:1px solid var(--border);border-radius:8px;padding:12px 14px;overflow:auto;font-size:12.5px;line-height:1.45}
+pre code{background:none;border:0;padding:0}
+pre.mermaid{background:var(--deep);text-align:center}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13.5px}
+th,td{border-bottom:1px solid var(--border);padding:7px 10px;vertical-align:top;text-align:left}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em;background:#121720}
+tr:hover td{background:#141a23}
+blockquote{margin:12px 0;padding:8px 16px;border-left:3px solid var(--border);color:var(--muted)}
+.lede{font-size:17px;color:var(--muted);margin:0 0 20px;max-width:900px}
 .meta{font-size:13px;color:var(--muted);margin-bottom:28px}
-.card{border:1px solid var(--line);border-radius:8px;padding:16px 20px;margin:14px 0;background:#fff}
-.card h4{margin:0 0 8px;font-size:17px}
-.card .row{display:grid;grid-template-columns:120px 1fr;gap:6px 14px;font-size:14.5px}
+.hero{padding:26px 28px;border:1px solid var(--border);border-radius:14px;background:linear-gradient(135deg,#17202d,#121722 60%,#1a1726);margin-bottom:36px}
+.hero h1{font-size:32px;margin:0 0 8px}
+.hero .lede{margin-bottom:10px}
+.hero .meta{margin-bottom:0}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin:14px 0}
+.card h4{margin:0 0 8px;font-size:16px}
+.card .row{display:grid;grid-template-columns:120px 1fr;gap:6px 14px;font-size:14px}
 .card .k{color:var(--muted);font-weight:600}
-.docsep{margin:72px 0 24px;border:0;border-top:3px double var(--line)}
+.docsep{margin:72px 0 24px;border:0;border-top:3px double var(--border)}
 .doc-title{font-size:26px;margin:0 0 4px}
-.oq-rec{background:var(--ok);padding:2px 6px;border-radius:4px}
-.note{background:var(--warn);border:1px solid #d4a72c;border-radius:6px;padding:10px 14px;font-size:14px}
+.oq-rec{background:#11201a;color:var(--green);border:1px solid #285a3d;padding:1px 7px;border-radius:999px;font-size:12.5px}
+.note{border-left:3px solid var(--amber);background:#1d1a12;padding:10px 14px;border-radius:0 8px 8px 0;font-size:14px;margin:14px 0}
 .note p{margin:6px 0}.note ul{margin:6px 0 0 18px;padding:0}.note li{margin:4px 0}
-.disp{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12.5px;font-weight:600;white-space:nowrap;border:1px solid transparent}
-.disp-accepted{background:#dafbe1;color:#116329;border-color:#aceebb}
-.disp-accepted-with-changes{background:#ddf4ff;color:#0a3069;border-color:#b6e3ff}
-.disp-rejected{background:#ffebe9;color:#82071e;border-color:#ffcecb}
-.disp-deferred{background:#fff8c5;color:#633c01;border-color:#f5d90a}
-.disp-pending{background:#eaeef2;color:#57606a;border-color:#d0d7de}
+.disp{display:inline-block;padding:1px 9px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap;border:1px solid var(--border);background:var(--panel)}
+.disp-accepted{color:var(--green);border-color:#285a3d}
+.disp-accepted-with-changes{color:var(--blue);border-color:#2b4a6b}
+.disp-rejected{color:var(--red);border-color:#5f2a30}
+.disp-deferred{color:var(--amber);border-color:#5f4a20}
+.disp-pending{color:var(--muted);border-color:#3a4a60}
 pre code.hljs{background:transparent;padding:0}
 .kv{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .kv ul{margin:6px 0 0 18px;padding:0}
+hr{border:0;border-top:1px solid var(--border)}
 @media (max-width:1100px){nav#side{display:none}main{margin-left:0;padding:24px}}
-@media print{nav#side{display:none}main{margin:0;max-width:none}h2{page-break-before:always}pre{white-space:pre-wrap}}
+@media print{nav#side{display:none}main{margin:0;max-width:none;color:#000;background:#fff}h2{page-break-before:always}pre{white-space:pre-wrap}}
 """
 
 
@@ -578,9 +587,11 @@ def main():
     # ---- explainer
     x = []
     x.append('<section id="explainer">')
+    x.append('<div class="hero">')
     x.append("<h1>repo-guardian controls redesign</h1>")
     x.append('<p class="lede">Opinionated controls assigned by enterprise and org policies, evaluated read-only against every repository, remediated by one PR per control only when something changed.</p>')
     x.append('<p class="meta">DESIGN-0029, 0030, 0031, 0032 and the fwsync companion DESIGN-0033 · Draft · 2026-10-02 · the four deep dives (data model, API, database, implementation order) and then all five documents follow in full. Reconciled 2026-10-03: every gap the deep dives found is now a numbered decision in its design. Adversarially reviewed and responded 2026-10-03. An interactive walkthrough of the changes, trade-offs, open questions and Temporal impact lives in <a href="controls-walkthrough.html">controls-walkthrough.html</a>. Diagrams render with mermaid from a CDN; open with network access.</p>')
+    x.append('</div>')
     x.append(
         '<p class="note">The <a href="#review">2026-10-03 adversarial '
         'review</a> adds findings to every design, each answered by a '
@@ -673,7 +684,7 @@ def main():
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>repo-guardian controls redesign — DESIGN-0029 to 0033</title>
 <style>{CSS}</style>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
 </head><body>
 {''.join(side)}
 <main>
@@ -684,7 +695,21 @@ def main():
 <script>hljs.configure({{ ignoreUnescapedHTML: true }}); hljs.highlightAll();</script>
 <script type="module">
 import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
-mermaid.initialize({{ startOnLoad: true, theme: "neutral", securityLevel: "loose", flowchart: {{ htmlLabels: true }} }});
+mermaid.initialize({{ startOnLoad: true, theme: "dark", securityLevel: "loose", flowchart: {{ htmlLabels: true }},
+  themeCSS: ".row-rect-odd path {{ fill: #121720 !important; }} .row-rect-even path {{ fill: #161b24 !important; }}",
+  themeVariables: {{ background: "#0b0e13", mainBkg: "#1c2330", primaryColor: "#1c2330", primaryTextColor: "#d8dee9", primaryBorderColor: "#3a4a60",
+    secondaryColor: "#15202f", secondaryBorderColor: "#2b4a6b", tertiaryColor: "#121720", tertiaryBorderColor: "#263040", lineColor: "#8b96a8", textColor: "#d8dee9",
+    edgeLabelBackground: "#0b0e13", clusterBkg: "#121720", clusterBorder: "#263040", titleColor: "#d8dee9",
+    noteBkgColor: "#1d1a12", noteTextColor: "#d8dee9", noteBorderColor: "#5f4a20",
+    actorBkg: "#1c2330", actorBorder: "#3a4a60", actorTextColor: "#d8dee9", actorLineColor: "#3a4a60", signalColor: "#8b96a8", signalTextColor: "#d8dee9",
+    labelBoxBkgColor: "#15202f", labelBoxBorderColor: "#2b4a6b", labelTextColor: "#d8dee9", loopTextColor: "#d8dee9", activationBkgColor: "#1e3350", activationBorderColor: "#6cb6ff",
+    attributeBackgroundColorOdd: "#161b24", attributeBackgroundColorEven: "#121720",
+    git0: "#6cb6ff", git1: "#5fd38d", git2: "#f0b84a", git3: "#c792ea", git4: "#5ccfe6", git5: "#f07178", git6: "#ff9e64", git7: "#e39ad6",
+    gitBranchLabel0: "#0b0e13", gitBranchLabel1: "#0b0e13", gitBranchLabel2: "#0b0e13", gitBranchLabel3: "#0b0e13", gitBranchLabel4: "#0b0e13", gitBranchLabel5: "#0b0e13", gitBranchLabel6: "#0b0e13", gitBranchLabel7: "#0b0e13",
+    cScale0: "#3a4a60", cScale1: "#2b4a6b", cScale2: "#285a3d", cScale3: "#5f4a20", cScale4: "#5f2a30", cScale5: "#4b3463", cScale6: "#1f4b55", cScale7: "#5a3b22", cScale8: "#3a4a60", cScale9: "#2b4a6b", cScale10: "#285a3d", cScale11: "#5f4a20",
+    cScaleLabel0: "#d8dee9", cScaleLabel1: "#d8dee9", cScaleLabel2: "#d8dee9", cScaleLabel3: "#d8dee9", cScaleLabel4: "#d8dee9", cScaleLabel5: "#d8dee9", cScaleLabel6: "#d8dee9", cScaleLabel7: "#d8dee9", cScaleLabel8: "#d8dee9", cScaleLabel9: "#d8dee9", cScaleLabel10: "#d8dee9", cScaleLabel11: "#d8dee9",
+    commitLabelColor: "#d8dee9", commitLabelBackground: "#1c2330", tagLabelColor: "#0b0e13", tagLabelBackground: "#f0b84a", tagLabelBorder: "#5f4a20",
+    fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, Inter, Roboto, sans-serif" }} }});
 </script>
 </body></html>
 """

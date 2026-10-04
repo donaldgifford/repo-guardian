@@ -61,11 +61,11 @@ The original brief is kept verbatim in `notes/2026-10-02-controls-and-policies-b
 
 | Doc | Covers | Open questions |
 | --- | ------ | -------------- |
-| **DESIGN-0029** (this) | Vocabulary, architecture, end-to-end lifecycle, assumptions about v2 code, cross-cutting decisions | 2 |
-| **DESIGN-0030** | Policy model: enterprise and org policies, the control catalogue, resolving which controls apply to a repository, modes | 3 |
-| **DESIGN-0031** | Control framework: the `Control` interface, control rules, results, file controls, the built-in control types | 2 |
-| **DESIGN-0032** | Evaluation and remediation workflows: the two GitHub Apps, change detection, per-control PRs and their lifecycle, data model, Temporal mapping | 4 |
-| **DESIGN-0033** | Companion: fwsync as inspiration — concept mapping, the conventions adopted from it, every reuse option evaluated, and the governed tag schema as the one shared seam | 4 |
+| **DESIGN-0029** (this) | Vocabulary, architecture, end-to-end lifecycle, assumptions about v2 code, cross-cutting decisions | 0 (both resolved 2026-10-04) |
+| **DESIGN-0030** | Policy model: enterprise and org policies, the control catalogue, resolving which controls apply to a repository, modes | 0 (all resolved 2026-10-04) |
+| **DESIGN-0031** | Control framework: the `Control` interface, control rules, results, file controls, the built-in control types | 1 (OQ1, CODEOWNERS ownership semantics; OQ2 resolved 2026-10-04) |
+| **DESIGN-0032** | Evaluation and remediation workflows: the two GitHub Apps, change detection, per-control PRs and their lifecycle, data model, Temporal mapping | 0 (all resolved 2026-10-04) |
+| **DESIGN-0033** | Companion: fwsync as inspiration — concept mapping, the conventions adopted from it, every reuse option evaluated and rejected; no shared code, schema or definition | 0 (all resolved 2026-10-04) |
 
 Each doc also carries a **Decisions** section: choices that were weighed and settled, with a one-line rationale, so the open questions are only the ones that need the maintainer.
 
@@ -312,6 +312,8 @@ Owned by the per-area docs:
 - **D1 No v1 policy translation** — there is no automatic translation; a migration guide maps v1 rules to control types. The models differ in kind (paths and regexes versus typed rules), so a mechanical translation would produce generic `file` controls and miss the point, and the known fleet policies are small.
 - **D2 Identifiers** — a control's id is a stable slug (`codeowners`); rule ids are bare and unique within the control (`exists`, `wiz-owners`), stored under `(repository_id, control_id, rule_id)` and qualified as `codeowners@1/exists` only in logs and the UI; rule numbers (`1.1`, `1.2`) are display only. Slugs survive renumbering and keep database keys and URLs stable; the control is the namespace, so rule ids stay short in HCL.
 - **D3 Versions** — a control's version is an integer in the catalogue (`version = 2`), referenced exactly as `codeowners@2`. A bump is catalogue data served by the same Go type, an org trials `@2` through `replace` (DESIGN-0030), and `result_events` records the version each result came from. "Did the rules change" needs no semantic-version semantics.
+- **D4 Timing** — the controls model lands before v2.0.0 on the rc line, replacing the rule engine (OQ1, resolved 2026-10-04). v2 is pre-release and its data model is not frozen; shipping v2.0.0 with rule-keyed findings would mean migrating a GA schema later.
+- **D5 Branch** — the work happens on `v2`, phase by phase like IMPL-0025; `main` receives bug fixes only and the `internal/checker` divergence between the branches is accepted (OQ2, resolved 2026-10-04).
 
 ## Adversarial Review
 
@@ -375,12 +377,16 @@ Rollback is a Postgres restore plus the previous chart. A check in flight at ste
 
 ### OQ1: When does the controls model land relative to v2.0.0?
 
+**Resolved 2026-10-04: (a).**
+
 - (a) ✅ recommended: **before v2.0.0, replacing the rule engine on the v2 line.** v2 is pre-release, its data model is not frozen, and shipping v2.0.0 with rule-keyed findings would mean migrating a GA schema later. The rc line absorbs the churn.
 - (b) After v2.0.0, as v3. v2.0.0 ships sooner on the current engine, but users get two breaking migrations in a row, and the shared-file conflicts ship in GA.
 - (c) On v2.0.0 behind a flag, with both engines. It doubles the surface the team must test, for a pre-release product.
 - other:
 
 ### OQ2: Where does this work happen?
+
+**Resolved 2026-10-04: (a).**
 
 - (a) ✅ recommended: **on the `v2` branch, phase by phase like IMPL-0025.** `main` (v1) gets bug fixes only. The `internal/checker` divergence between branches is accepted, because v1 stops receiving engine features.
 - (b) A new long-lived `v2-controls` branch merged into `v2` when evaluation works end to end. It isolates churn from the v2 rc line, at the cost of a second integration branch to keep current.

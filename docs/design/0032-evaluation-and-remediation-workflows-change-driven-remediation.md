@@ -522,6 +522,10 @@ Schema changes land as four goose migrations, numbered up front so parallel work
 - **D8 Column-level grants enforce record-is-narrow.** Two database roles turn the prose invariant into a constraint: a remediator that saves a whole `control_results` row fails at the database. The cost is one more role and a membership for `all`; the alternative, trusting every future writer to remember which columns are theirs, is how the v1 orphan-cleanup bug happened.
 - **D9 Manual re-evaluate is an API `POST` backed by a signal-only Temporal client.** The `api` role keeps its read-only store access and gains nothing but the ability to signal `repo/<id>`; without `TEMPORAL_ADDRESS` the endpoint is `501` and the UI hides the button. A CLI-only trigger was considered and rejected because the button is the whole point for a non-operator reading the UI.
 - **D10 `closed_withdrawn`.** A PR whose control is no longer assigned is closed by repo-guardian with a comment rather than left open: leaving it would keep proposing a change nobody asked for, and recording it as `closed_compliant` or `closed_by_user` would lie about why.
+- **D11 Generation counters.** Change detection is a per-control `eval_generation` bumped by evaluation and a `remediated_generation` advanced only by remediation, plus a `pr_changed` flag cleared by remediation (OQ1, resolved 2026-10-04). No change can be lost to an evaluation that runs before remediation, and a new row is a change by construction.
+- **D12 Per-control PRs under a per-repository cap.** One PR per control, at most `remediation.max_open_prs` (default 3) open per repository; the rest are held with `hold = 'pr_cap'` in enterprise-policy order and released as PRs merge or close (OQ2, resolved 2026-10-04; the cap is a Postgres slot reservation per AR-0032-05).
+- **D13 Reopen after a cooldown.** A remediation PR a human closed while the control still fails is reopened after `remediation.reopen_after` (default 14 days), sooner only if the evaluation changes; the closure is recorded and shown, and excluding the control in the org policy is how to stop it permanently (OQ3, resolved 2026-10-04).
+- **D14 Direct API remediation is a per-control opt-in.** Settings, rulesets, labels and properties apply directly only with the catalogue's direct `apply` setting and `remediate` mode; otherwise they are recorded as recommended changes and shown in the UI (OQ4, resolved 2026-10-04; the `apply` vocabulary is settled by AR-0031-06).
 
 ## Adversarial Review
 
@@ -664,6 +668,8 @@ The Two application roles table is replaced by the full matrix: every table eith
 
 ### OQ1: How is "something changed" tracked for remediation?
 
+**Resolved 2026-10-04: (a).**
+
 This confirms a departure from the brief, which described a boolean.
 
 - (a) ✅ recommended: **per-control `eval_generation` bumped by evaluation and `remediated_generation` advanced only by remediation, plus a `pr_changed` flag cleared by remediation.** No change can be lost to an evaluation that runs before remediation (see the race table), and a new row is a change by construction.
@@ -673,6 +679,8 @@ This confirms a departure from the brief, which described a boolean.
 
 ### OQ2: Per-control PRs only, or a cap on how many open at once?
 
+**Resolved 2026-10-04: (a).**
+
 - (a) ✅ recommended: **per-control PRs, with a per-repository cap on open remediation PRs** (`remediation.max_open_prs`, default 3, set at enterprise or org level in DESIGN-0030). Onboarding a bare repository with six failing controls opens the first three in enterprise-policy order, holds the rest with `hold = 'pr_cap'`, and releases them as PRs merge or close. That keeps the "one control, one PR" model without flooding a team.
 - (b) No cap: every failing control opens its PR immediately. Matches the brief literally, but onboarding a large org can open thousands of PRs in an hour.
 - (c) An onboarding exception: the first remediation of a repository bundles every control into one PR, then switches to per-control. Fewer PRs at onboarding, but two PR shapes to build, track and explain.
@@ -680,12 +688,16 @@ This confirms a departure from the brief, which described a boolean.
 
 ### OQ3: What happens after a human closes a remediation PR while the control still fails?
 
+**Resolved 2026-10-04: (a).**
+
 - (a) ✅ recommended: **open a new PR after a cooldown** (`remediation.reopen_after`, default 14 days, set at enterprise or org level in DESIGN-0030). Sooner only if the evaluation changes in the meantime. The closure is recorded and shown, and excluding the control in the org policy is the way to stop it permanently. Closing a PR is often "not now", so a cooldown respects that without letting a control silently stay failing forever.
 - (b) Open a new PR on the next remediation run, as the brief describes. Simple, but it immediately reopens what a human just closed, and that reads as the bot fighting the team.
 - (c) Never reopen automatically; the UI shows "closed by user, still failing" and a human re-triggers. Respectful, but failing controls quietly stay failing.
 - other:
 
 ### OQ4: Do API remediations (settings, rulesets, labels, properties) apply directly?
+
+**Resolved 2026-10-04: (a).**
 
 GitHub App permissions are granted per installation, not per control. The opt-in below narrows what repo-guardian *does*, not what the Remediation App *may* do: once any control in an org opts in, the App holds that write permission for every repository in the installation.
 

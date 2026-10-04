@@ -22,7 +22,7 @@ created: 2026-10-02
   - [What transfers, and where it lands](#what-transfers-and-where-it-lands)
   - [What does not transfer](#what-does-not-transfer)
   - [Reuse options evaluated](#reuse-options-evaluated)
-  - [The one real seam: the governed tag schema](#the-one-real-seam-the-governed-tag-schema)
+  - [The tag schema: evaluated and rejected](#the-tag-schema-evaluated-and-rejected)
   - [Assumptions about fwsync](#assumptions-about-fwsync)
 - [API / Interface Changes](#api--interface-changes)
 - [Data Model](#data-model)
@@ -49,7 +49,7 @@ created: 2026-10-02
 
 [fwsync](https://github.com/donaldgifford/fwsync) is the maintainer's other HCL-schema-driven governance tool: Wiz configuration (security frameworks, cloud configuration rules, scan policies, projects) kept as HCL documents in git and diff-applied to the Wiz API, with a generator that compiles a compact domain schema into those documents. It was designed a few weeks before the controls model in DESIGN-0029 to DESIGN-0032, by the same author, against the same Backstage-centred platform, and its vocabulary — framework, subcategory, rule, policy, scope, audit-first ratchet — reads like ours.
 
-This document does two things. It maps fwsync's concepts onto the controls model so the overlap and the real differences are explicit, and it names what transfers (seven conventions and a test kit, each landing in a specific place in DESIGN-0030 to DESIGN-0032). Then it evaluates every way repo-guardian could *use* fwsync — to manage the policy, to manage the controls, to consume its output, to feed it, or as a library — and recommends against all of them except one: the governed **tag schema** that fwsync owns (`component`, `owner`, their value grammar and per-platform rendering) is the single artifact both tools should read, because repo-guardian's `custom_properties` control and fwsync's DESIGN-0003 GitHub carrier otherwise govern the same repository properties from two definitions.
+This document does two things. It maps fwsync's concepts onto the controls model so the overlap and the real differences are explicit, and it names what transfers (seven conventions and a test kit, each landing in a specific place in DESIGN-0030 to DESIGN-0032). Then it evaluates every way repo-guardian could *use* fwsync — to manage the policy, to manage the controls, to consume its output, to feed it, or as a library — and recommends against all of them. The governed tag schema was evaluated as a possible shared seam and rejected on 2026-10-04 (D6): repo-guardian declares its own property names and value rules in its catalogue, and the only relationship the two tools may have is fwsync generating repo-guardian policy in repo-guardian's documented format.
 
 ## Goals and Non-Goals
 
@@ -58,13 +58,13 @@ This document does two things. It maps fwsync's concepts onto the controls model
 - A concept-by-concept mapping between fwsync's document model and the controls model, naming what each concept solves in each tool.
 - A concrete list of fwsync conventions to adopt, each with the DESIGN-0030/0031/0032 section it amends.
 - A decision on each reuse option: fwsync managing the policy, managing the catalogue, its output as our input, our output as its input, fwsync as a Go library.
-- A recorded boundary for the one shared concern: GitHub repository custom properties.
+- A recorded boundary for the one concern both tools touch, GitHub repository custom properties: repo-guardian writes them from its own control, and nothing is shared.
 
 ### Non-Goals
 
-- Changing fwsync. Where a seam needs a change on the fwsync side (promoting `tagschema` to a public module), this document records the ask; the design belongs in fwsync's docs.
+- Changing fwsync, or depending on it. fwsync is a private repository with its own target. If it ever generates repo-guardian policy, that is fwsync tooling emitting repo-guardian's documented format, designed in fwsync's docs.
 - Re-litigating DESIGN-0029 to DESIGN-0032. This document amends them with specific conventions; it does not reopen their decisions.
-- Pushing repo-guardian compliance into Wiz. Evaluated and deferred (OQ4), not designed.
+- Pushing repo-guardian compliance into Wiz. Evaluated and rejected for v2 (OQ4, D7), not designed.
 - Rego anywhere in repo-guardian. Controls are typed Go (DESIGN-0031 D1); fwsync's rego conventions are noted for the *shape* they share, not adopted.
 
 ## Background
@@ -152,30 +152,27 @@ Also worth a look during the IMPL, not a design decision: fwsync decodes through
 | ------ | ------------------ | ------- | --- |
 | A. fwsync manages repo-guardian's **policy** | enterprise/org policies as fwsync documents, synced to repo-guardian | **No** | fwsync syncs into Wiz only: its target interfaces are typed on `wizclient` structs, its four kinds are hardcoded in plan ordering, apply switches and lock validation, and nothing is importable (everything is `internal/`). repo-guardian's policy is a mounted ConfigMap loaded at start (DESIGN-0030 D3); git plus the chart is already its delivery, and the policy-rollout workflow is its "apply" |
 | B. fwsync manages the **control catalogue** | same, for `control` documents | **No** | same reasons; and a generator layer in front of the catalogue earns nothing (D4 here) |
-| C. repo-guardian **consumes fwsync output** | read the committed `wiz/` tree, the lockfile or `plan` text | **No, except the tag schema** | fwsync's outputs are Wiz rules, rego and a slug→GUID lock; none is an input repo-guardian evaluates. The exception is the *input* side, `schemas/tags.hcl`: it defines the governed tags whose GitHub rendering repo-guardian writes (next section) |
-| D. fwsync **consumes repo-guardian output** | repository compliance rolled into a Wiz framework so the heatmap shows repo governance next to cloud posture | **Deferred (OQ4)** | Wiz frameworks roll up Wiz *findings*; there is no external-findings input (assumption F9). fwsync DESIGN-0003's own open question — can repo-scan findings attach to custom subcategories at all — is the gate. repo-guardian's `/rules`, `/orgs` and compliance snapshots are the data if it opens |
+| C. repo-guardian **consumes fwsync output** | read the committed `wiz/` tree, the lockfile or `plan` text | **No** | fwsync's outputs are Wiz rules, rego and a slug→GUID lock; none is an input repo-guardian evaluates. The *input* side, `schemas/tags.hcl`, was evaluated as a shared definition of the governed tags and rejected (next section, D6) |
+| D. fwsync **consumes repo-guardian output** | repository compliance rolled into a Wiz framework so the heatmap shows repo governance next to cloud posture | **No in v2 (OQ4, D7)** | Wiz frameworks roll up Wiz *findings*; there is no external-findings input (assumption F9). If a consumer ever wants repo-guardian's posture, it reads the `/rules`, `/orgs` endpoints or the compliance snapshots; an exporter would be its own design |
 | E. fwsync as a **Go library** (plan/apply engine, decoder, lockfile) | import or fork `internal/plan`, `internal/apply`, `internal/decode` | **No** | not importable, Wiz-typed, builds only with the private `wiz-go-gen` SDK and `WIZ_*` credentials, and the direction is wrong: repo-guardian never applies a repository, it proposes a PR. Patterns transfer (previous section); code does not |
 | F. **Shared decode layer** (`hclkit`) | both tools decode HCL with the same range-aware kit | **IMPL question** | depends on whether `hclkit` is published; no design impact |
+| G. fwsync **generates repo-guardian policy** | fwsync's generator emits enterprise or org policy, or catalogue documents, in repo-guardian's format | **Allowed, outside this design** | the dependency points one way, fwsync → repo-guardian, through the documented policy format; repo-guardian neither knows nor cares who wrote its policy. Designed in fwsync's docs if it is ever wanted |
 
-### The one real seam: the governed tag schema
+### The tag schema: evaluated and rejected
 
-fwsync's `schemas/tags.hcl` is the source of truth for *what the platform tags things with*: `component` (Backstage component entity name, pattern `^[a-z0-9]([-_.a-z0-9]*[a-z0-9])?$`), `owner` (Backstage group), `account-class` (accounts only), each with meaning, remediation text, scope and per-platform key rendering (`platform_key_style`, per-tag `platform "k8s" { key = ... }` overrides). DESIGN-0003 extends scope to `repo` and renders GitHub custom properties kebab-case: `component`, `owner`.
+fwsync's `schemas/tags.hcl` defines *what the platform tags things with*: `component`, `owner`, `account-class`, each with meaning, remediation text, scope and per-platform key rendering, and its DESIGN-0003 sketches rendering them as kebab-case GitHub custom properties. repo-guardian's `custom_properties` control writes `Owner` and `Component` from `catalog-info.yaml` plus any annotation mapped by `annotation_properties`. The first draft of this document treated the overlap as a shared seam and proposed one definition read by both tools (a promoted `tagschema` module, or a copied file with an agreement test).
 
-repo-guardian's `custom_properties` control writes `Owner` and `Component` (PascalCase, the reserved names since IMPL-0017) from `catalog-info.yaml`'s `spec.owner` and `metadata.name`, plus any annotation mapped by `annotation_properties`. Two definitions of the same two properties, in two repositories, by the same author, already disagree on casing.
+That was rejected on 2026-10-04 (OQ1 to OQ3, D6). repo-guardian has its own policy, controls and rules; the custom-properties write is one of its API-backed controls, fed by the catalog-info control, and it is the same whether or not Wiz, fwsync or anything else ever looks at the result. fwsync is a private repository aimed at a different control plane, and tying repo-guardian's catalogue to a schema it does not own would make a private tool's revision history part of repo-guardian's policy version. The two tools are designed closely, by the same author, against the same platform, and they stay separate: the only relationship allowed is fwsync *generating* repo-guardian policy in repo-guardian's documented format, which needs nothing from this design.
 
 ```mermaid
-flowchart TD
-    TS["fwsync schemas/tags.hcl<br/>component, owner: meaning, pattern, platform keys"]
-    TS -- "gen tags" --> WR["Wiz rules: detect missing or invalid<br/>(DESIGN-0003 GitHub carrier, when Wiz Code can see properties)"]
-    TS -- "shared module or fixture (OQ2)" --> CP["repo-guardian custom_properties control<br/>managed names and value grammar"]
-    CI["catalog-info.yaml<br/>spec.owner, metadata.name"] --> CP
+flowchart LR
+    CI["catalog-info.yaml<br/>spec.owner, metadata.name, annotations"] --> CP["repo-guardian custom_properties control<br/>names and value rules from its own catalogue"]
     CP -- "Remediation App, PATCH properties" --> GHP["GitHub repository<br/>custom properties"]
-    GHP -. "VCS resource export" .-> WR
+    FW["fwsync (private)"] -. "may generate policy documents<br/>in repo-guardian's format" .-> POL["repo-guardian policy"]
+    POL --> CP
 ```
 
-The boundary this document proposes (OQ1): **repo-guardian writes, Wiz detects.** repo-guardian's control is the "Backstage↔Wiz sync reconciles drift" that DESIGN-0003 assumes, because it already runs per repository with write credentials and the catalog file in hand; Wiz's rules, if the carrier ships, are the independent audit of the same properties. For that to be one requirement rather than two, the property names and value grammar must come from one place (OQ2) and the casing must be settled (OQ3).
-
-What repo-guardian would take from the tag schema, concretely: the set of governed tags with `repo` in scope, each tag's rendered GitHub key, and each tag's value pattern — three facts per tag. The `custom_properties` control's managed set becomes `{rendered key for every repo-scoped tag} ∪ annotation_properties values`, and a `value_pattern` rule kind checks well-formedness before writing (today a malformed `spec.owner` is written as-is). Catalog *existence* stays downstream (fwsync's own rule: "value validation is well-formedness only").
+What survives from the evaluation is the shape of a property definition, which AR-0033-04 showed needs five facts rather than three: a `source` (a catalog-info path or an annotation key), a `normalize` rule, the scope, the rendered key and a value pattern. Those become fields of repo-guardian's own `custom_properties` catalogue entries; a property without a source never enters the managed set, so adding one can never clear anything.
 
 ### Assumptions about fwsync
 
@@ -183,16 +180,16 @@ Verified against commit `14fbbef` unless marked.
 
 | # | Assumption | If wrong |
 | - | ---------- | -------- |
-| F1 | Every fwsync package is under `internal/`; there is no `pkg/` and no importable API | option E and the `tagschema` module (OQ2a) get cheaper |
+| F1 | Every fwsync package is under `internal/`; there is no `pkg/` and no importable API | option E gets cheaper; it stays wrong in direction |
 | F2 | fwsync has no machine-readable output; `plan` and `apply` render human text only | option C gains a surface, still not one we need |
 | F3 | The four document kinds are hardcoded in plan ordering, apply dispatch and lock validation; there is no kind or surface registry | options A/B remain wrong in direction even if they become possible |
 | F4 | fwsync has not been applied to a live tenant (no `wiz/fwsync.lock.json` in the repo); IMPL-0001's integration suite is deferred | none for us; it bounds how much to lean on its conventions as proven |
 | F5 | The `control` kind is designed (DESIGN-0002) and rejected by the decoder today | none |
-| F6 | `schemas/tags.hcl` has no `platform "github"` block yet; DESIGN-0003's GitHub carrier is a sketch, and `tagschema` decodes `platform` blocks only for `k8s` | OQ2's shared module has to grow the GitHub platform before repo-guardian can read rendered keys from it |
+| F6 | `schemas/tags.hcl` has no `platform "github"` block yet; DESIGN-0003's GitHub carrier is a sketch, and `tagschema` decodes `platform` blocks only for `k8s` | nothing, since D6: repo-guardian reads no fwsync schema |
 | F7 | fwsync builds only with the private `wiz-go-gen` module (`GOPRIVATE`, PAT) | reinforces E = no |
 | F8 | fwsync's decoder is `hclkit` (external); whether it is importable by repo-guardian is unknown | option F |
 | F9 | *Unverified.* Wiz has no API for ingesting findings produced outside Wiz; framework rollups come only from Wiz rules and controls | if wrong, option D becomes a design of its own, not a deferral |
-| F10 | DESIGN-0003's GitHub carrier depends on an open question in fwsync (can repo-scan findings bind to custom subcategories; do VCS native types expose custom properties) | if it never ships, repo-guardian is the only enforcement of repository properties, which strengthens OQ1a |
+| F10 | DESIGN-0003's GitHub carrier depends on an open question in fwsync (can repo-scan findings bind to custom subcategories; do VCS native types expose custom properties) | if it never ships, repo-guardian is the only enforcement of repository properties, which is D6's position either way |
 
 ## API / Interface Changes
 
@@ -200,17 +197,17 @@ No new surface in repo-guardian from this document alone. The conventions above 
 
 - `repo-guardian evaluate --repo <org>/<name> [--format json] [--detailed-exitcode]` (DESIGN-0032 D7) gains the exit-code contract and the `Reason` field on preview changes.
 - `repo-guardian policy validate` reports slug-grammar failures, unresolved references and unassigned catalogue controls (warning), with exit codes 0 / 1 / 2 as fwsync's `validate`.
-- The `custom_properties` catalogue definition gains, under OQ2a, a `tag_schema = file("...")` reference (or an import of the shared module's embedded defaults) from which managed names and value patterns derive; `annotation_properties` stays for the non-governed extras.
+- The `custom_properties` catalogue definition declares its managed properties itself (the built-in `Owner` and `Component` plus `annotation_properties`), each with the five facts AR-0033-04 added (source, normalize, scope, key, value pattern); there is no external schema reference (D6).
 
-On the fwsync side, the ask recorded for OQ2a: promote `internal/tagschema` to a public Go module exposing the decoded schema (tags, scopes, platform key rendering) with no Wiz dependency.
+There is no ask on the fwsync side.
 
 ## Data Model
 
-None. The tag schema, if shared, is read at policy load like any other catalogue input; nothing about it is stored. `custom_properties` evidence gains `source = tag_schema | annotation_properties` per managed name so the UI can show where a property came from.
+None. `custom_properties` evidence records the `source` (a catalog-info path or an annotation key) per managed name so the UI can show where a value came from.
 
 ## Testing Strategy
 
-- **Agreement test (any OQ2 answer).** A copy of fwsync's `schemas/tags.hcl` as a repo-guardian test fixture, and a test that the `custom_properties` control's managed names and patterns equal the schema's repo-scoped tags. Under OQ2a the fixture is replaced by the module; under OQ2c the test is the only thing stopping silent divergence.
+- **Property definitions are table-tested.** Every managed property's five facts are exercised by a fixture per property: a catalog-info sample, the normalised value and the rendered key. There is no external schema to agree with (D6).
 - **Defect directories** for the policy loader: `testdata/bad-slug/`, `dangling-control/`, `unassigned-control/` (warning), `expression-in-document/`, `escape-path/`, each asserting a diagnostic substring — fwsync's `internal/decode` and `internal/validate` layout.
 - **Seeded-change tests** on resolution: one policy edit changes exactly the expected assignments and nothing else (fwsync's `gen` seeded-change pattern applied to `resolve`).
 - **Fail-safe lookup** in the conformance suite: for every file control, a fixture where the file exists at a path *not* in `Locations` yields `not found`, never a pass or a parse of the wrong file.
@@ -218,17 +215,18 @@ None. The tag schema, if shared, is read at policy load like any other catalogue
 ## Migration / Rollout Plan
 
 1. Fold items 1 to 7 of "What transfers" into DESIGN-0030/0031/0032 as one amendment PR, then into the IMPL plan as tasks.
-2. Resolve OQ1 to OQ3 before the `custom_properties` control is rewritten under DESIGN-0031; casing (OQ3) is a breaking change for any org whose property schema already carries `Owner`/`Component`, and needs both keys during a migration window.
-3. If OQ2a: open the `tagschema` promotion in fwsync; until it lands, ship with the fixture + agreement test.
-4. Revisit option D when fwsync's DESIGN-0003 binding question is answered.
+2. Rewrite the `custom_properties` control under DESIGN-0031 with catalogue-declared property definitions; the built-in keys stay `Owner` and `Component`, so no org schema migration is needed (OQ3, D6).
+3. Option D stays outside v2 (OQ4, D7); a consumer that wants repo-guardian's posture reads its API or snapshots.
 
 ## Decisions
 
 - **D1 No runtime or library dependency on fwsync** — nothing in repo-guardian imports, forks, shells out to or reads the output of fwsync. Its packages are `internal/`, its target is Wiz, and its direction (apply into a control plane you own) is not ours (propose by PR into repositories you do not).
 - **D2 Borrow conventions, not code** — the seven items in "What transfers" are adopted as amendments to DESIGN-0030/0031/0032 and tasks in the IMPL plan; this document is their provenance.
-- **D3 One definition of the governed tags** — repo-guardian's `custom_properties` control derives its governed property names and value patterns from the platform tag schema rather than declaring them itself; how it reads that schema is OQ2 and what the keys are called is OQ3.
+- **D3 One definition of the governed tags** — *superseded 2026-10-04 by D6.* The first draft had repo-guardian derive its governed property names and value patterns from fwsync's tag schema; it now declares them itself.
 - **D4 No generator layer in front of the catalogue** — the catalogue is hand-authored data. A `repo-guardian gen` compiling a compact schema into controls is reconsidered only if per-org or per-tier expansion appears.
 - **D5 `evaluate` preview emits JSON and Terraform-style exit codes from the first release** — fwsync's missing JSON mode is the one gap in an otherwise sound CLI contract; we do not repeat it.
+- **D6 No shared code, schema or definition with fwsync** — repo-guardian declares its own custom-property names and value rules in its control catalogue; the built-in keys stay `Owner` and `Component`; it reads no fwsync artefact and fwsync reads nothing of repo-guardian's. The one permitted relationship is fwsync generating repo-guardian policy in repo-guardian's documented format, owned and designed in fwsync. The tools are designed closely and kept separate (OQ1 to OQ3, resolved 2026-10-04).
+- **D7 Compliance is not published into Wiz in v2** — anything that wants repo-guardian's posture reads its API or its compliance snapshots; an exporter is a separate design if ever wanted (OQ4, resolved 2026-10-04).
 
 ## Adversarial Review
 
@@ -266,6 +264,8 @@ Reviewed 2026-10-03 as an amendment to DESIGN-0029–0032. **Disposition: change
 
 **Response:** **Accepted.** The canonical artifact is the tag data, not the decoder. OQ2 is settled as a copied schema file referenced by `tag_schema = file(...)`, whose bytes enter the control revision digest of DESIGN-0029 AR-0029-04, and whose digest is recorded in `policy_versions.summary` as `tag_schema_digest` together with the upstream fwsync revision it was copied from. The agreement test compares that recorded upstream revision with fwsync's current one and fails when they differ, so a stale copy cannot claim agreement; a changed pattern or rendered key changes the digest, the control revision, and therefore re-evaluates and re-remediates. The Data Model's "nothing stored" is corrected accordingly, and D1 needs no exception because nothing shared is code. Verification: adopted.
 
+**Superseded 2026-10-04:** OQ2 is resolved as no external schema (D6); the copied file, its digest and the upstream-revision agreement test fall away with it.
+
 ### AR-0033-04 (high): Three facts per tag are insufficient to derive safe writes
 
 **Basis:** The governed-tag seam's managed-set union and `value_pattern` proposal. Knowing tag scope, GitHub key and regex does not say where a new repo-scoped tag gets its value. Adding such a tag can expand the managed set with no catalog source and accidentally clear an existing property. `spec.owner` can be a Backstage entity reference rather than a bare group slug; value grammar needs a normalization contract. A failing non-remediable `value_pattern` does not block a failing remediable `matches` rule under DESIGN-0031's fail-over-error/whole-control behavior.
@@ -276,6 +276,8 @@ Reviewed 2026-10-03 as an amendment to DESIGN-0029–0032. **Disposition: change
 
 **Response:** **Accepted.** Three facts are not enough, and the seam is extended to five: every governed property carries a `source` (a catalog-info path such as `spec.owner`, or an annotation key) and a `normalize` rule (for example stripping a Backstage entity-reference prefix such as `group:default/` to the bare name) beside its scope, rendered key and value pattern. A tag without a source never enters the managed set, so adding one can never clear anything. Duplicate rendered keys, and an annotation whose target collides with a governed key, are load errors. Writes are gated per property on a valid, normalized source value and a property the org schema defines, independently of the control's aggregate status (DESIGN-0031 AR-0031-07), so a failing `value_pattern` blocks the write of that one property and nothing else. Verification: adopted.
 
+**Superseded 2026-10-04:** the five facts survive as the fields of repo-guardian's own property definitions (D6); the seam they extended no longer exists.
+
 ### AR-0033-05 (high): The casing migration needs a provider and consumer contract
 
 **Basis:** OQ3(a) and Migration step 2. “Write both until old keys are removed” assumes GitHub permits the two names to coexist with the intended case semantics and that both have compatible types and are writable. The app does not own org schema creation. Consumers such as Backstage, workflows, selectors and future Wiz rules may still depend on PascalCase. A partial dual-write can leave contradictory values, and the proposed single writer still needs to account for the existing scaffolder/sync mentioned in Background.
@@ -285,6 +287,8 @@ Reviewed 2026-10-03 as an amendment to DESIGN-0029–0032. **Disposition: change
 **Verification:** Exercise the real provider's schema behavior, an org missing one alias, incompatible property types and a consumer still using legacy names. Show convergent values, visible partial migration and a reversible consumer cutover before retiring old keys.
 
 **Response:** **Deferred.** Migration mechanics are not chosen until the INV verifies, on a real org, whether GitHub treats property names case-insensitively, whether two names differing only in case can coexist in one schema, and whether the types and allowed values of the old and new keys match. Until then OQ3(a) is a preference, not a plan, and Migration step 2's dual-write window is conditional on that answer. What is decided now: the operator owns org schema creation (the App never creates schema, as DESIGN-0019 already requires); every existing writer, including the scaffolder and the Backstage-to-Wiz sync named in Background, is inventoried before any cutover; key renaming is a separate step from source-value normalization so each can be rolled back alone; and every consumer still reading PascalCase is listed with an owner before the old keys are retired. Verification: amended — the provider behaviour test is the INV's first task and gates the rest.
+
+**Superseded 2026-10-04:** no casing migration: keys are catalogue-declared and the built-in defaults stay `Owner` and `Component` (OQ3, D6). The investigation into GitHub's case handling is no longer needed.
 
 ### AR-0033-06 (medium): In-root references need filesystem and snapshot semantics
 
@@ -310,12 +314,16 @@ Reviewed 2026-10-03 as an amendment to DESIGN-0029–0032. **Disposition: change
 
 ### OQ1: Who owns GitHub repository custom properties?
 
+**Resolved 2026-10-04: other.** repo-guardian writes custom properties as one of its own API-backed controls, fed by the catalog-info control, with no dependency on or reference to Wiz or fwsync; what, if anything, audits them afterwards is outside this design (D6).
+
 - (a) ✅ recommended: **repo-guardian writes, Wiz detects.** repo-guardian's `custom_properties` control is the reconciliation DESIGN-0003 assumes exists (it has the catalog file and write credentials per repository); fwsync's GitHub carrier, if it ships, is an independent audit of the same properties. Both read one tag definition (OQ2).
 - (b) The Backstage↔Wiz sync writes properties; repo-guardian drops the `custom_properties` control and only evaluates presence. Loses the per-repository catalog-info read that makes the values correct.
 - (c) Both write. Last writer wins and nobody can explain a value.
 - other:
 
 ### OQ2: How does repo-guardian read the governed tag definitions?
+
+**Resolved 2026-10-04: other.** It does not. Property names and value rules are declared in repo-guardian's own catalogue (D6).
 
 - (a) ✅ recommended: **a public `tagschema` Go module** promoted out of fwsync (decode only, no Wiz dependency), imported by both tools; repo-guardian's control derives managed names and patterns from it. Until it exists, a copied fixture with an agreement test.
 - (b) repo-guardian reads `schemas/tags.hcl` by path at policy load (`tag_schema = file(...)`), with its own minimal decoder. Two decoders of one grammar drift.
@@ -324,12 +332,16 @@ Reviewed 2026-10-03 as an amendment to DESIGN-0029–0032. **Disposition: change
 
 ### OQ3: What are the GitHub property keys called?
 
+**Resolved 2026-10-04: other.** Whatever the catalogue declares; the built-in defaults stay `Owner` and `Component`, and there is no fwsync-driven migration (D6).
+
 - (a) ✅ recommended: **kebab-case `component` / `owner`, as fwsync DESIGN-0003 renders them**, and repo-guardian migrates off `Owner` / `Component`. One rendering rule across every carrier (`platform_key_style.github = "kebab-case"`); the org property schema carries both keys for a migration window and repo-guardian writes both until the old keys are removed.
 - (b) PascalCase `Component` / `Owner` everywhere on GitHub; fwsync sets `platform_key_style.github = "PascalCase"`. No repo-guardian migration; GitHub becomes the one carrier that does not follow the kebab-case convention.
 - (c) Keep both tools as they are. Two keys for one fact on every repository.
 - other:
 
 ### OQ4: Should repo-guardian publish repository compliance into Wiz?
+
+**Resolved 2026-10-04: (a).** Not in v2, and not as a repo-guardian concern: a consumer reads the API or the snapshots (D7).
 
 - (a) ✅ recommended: **not in v2.** Revisit when fwsync's DESIGN-0003 binding question is answered and if Wiz exposes an external-findings input (assumption F9). repo-guardian's `/rules`, `/orgs` endpoints and compliance snapshots are the data source either way.
 - (b) Design a Wiz exporter now, assuming an ingestion path exists.

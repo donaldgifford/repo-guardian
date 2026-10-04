@@ -475,6 +475,10 @@ Former open questions settled in this document; the body text above states each 
 - **D5 Counting exclusions** — excluded controls and excluded, unmanaged or parked repositories are recorded (`control_assignments.state`, `repository_policy_state`) and reported separately, never in the compliance denominator. "92% compliant, 14 exclusions" is honest; folding exclusions into either side of the percentage is not.
 - **D6 Results are cleared when an assignment stops being active** — a result row with no active assignment is posture nobody asked for: it would count in compliance, in the gauges and in the repository view until something noticed. Deleting it in the resolution transaction and recording the transition in `result_events` keeps "no assignment" and "no result" the same fact, and the history stays queryable.
 - **D7 Remediation settings are persisted per repository** — `max_open_prs` and `reopen_after` are resolved like mode (enterprise default, org override) and written to `repository_policy_state`, so the sweep query and the remediator read one row instead of re-deriving policy; a policy change re-resolves and rewrites them like every other assignment field.
+- **D8 No repository policy type** — repository-level variation lives in `repos { match = [...] }` blocks inside the org policy (OQ1, resolved 2026-10-04). Every exception for an org is in the one file its owners review, and `match` globs cover "these five repos" without a third file type.
+- **D9 No parameter overrides** — parameters are templated with repository context (`{{ .Org }}`); a genuinely different requirement is a different control or version, used through `replace` (OQ2, resolved 2026-10-04). "CODEOWNERS 1.2" means the same thing in every org.
+- **D10 Mode granularity** — enterprise default, org, `repos` block and a per-control `control "name@N" { mode }` override, most specific wins (OQ3, resolved 2026-10-04). This is what makes "remediate everything except the control we are trialling" expressible.
+- **D11 One org is enough, and a user account is an org** — the enterprise `orgs` list may hold a single entry, and every level below the enterprise default is optional, so an enterprise policy alone is a complete policy. "Org" means the installation's account login whatever GitHub's account type is: a personal account with the Apps installed on its repositories is managed exactly like an organisation, and is the first test target. What GitHub does not offer on a user account (teams as CODEOWNERS owners, custom properties) is the control's concern, not the policy model's: DESIGN-0031 D10.
 
 ## Adversarial Review
 
@@ -563,6 +567,8 @@ The algorithm:
 
 ### OQ1: Is there a separate repository policy type?
 
+**Resolved 2026-10-04: (a).**
+
 - (a) ✅ recommended: **no.** Repository-level variation lives in `repos { match = [...] }` blocks inside the org policy. Every exception for an org is in one file the org's owners review, and resolution has two layers plus blocks rather than three file types. `match` globs also cover "these five repos", which a per-repo file would not.
 - (b) Yes: `repo "org/name" {}` files under `policy/repos/`. Repository owners could own their file, but exceptions scatter, and precedence gains a third file type.
 - (c) A repository-owned file inside the repository (`.github/repo-guardian.hcl`). Self-service, but a repository could exclude itself from controls, which defeats the point of a policy.
@@ -570,11 +576,15 @@ The algorithm:
 
 ### OQ2: Can an org policy change a control's parameters (e.g. different owner teams)?
 
+**Resolved 2026-10-04: (a).**
+
 - (a) ✅ recommended: **no parameter overrides; parameters are templated with repository context** (`{{ .Org }}`), and a genuinely different requirement is a different control or version, used through `replace`. Results stay comparable across orgs: "CODEOWNERS 1.2" means the same thing everywhere. The cost is real: an org whose team slugs do not follow the templated convention (`@{{ .Org }}/security_champions`) has `replace` as its only escape, which means a second catalogue entry for that org.
 - (b) `override "codeowners@1" { rule "wiz-owners" { owners = [...] } }` in org policies. Flexible, but the same control id then means different things per org, and compliance numbers stop being comparable.
 - other:
 
 ### OQ3: At what granularity is the mode set?
+
+**Resolved 2026-10-04: (a).** Every level below the enterprise default is optional; D11 records what that means for a single org or a personal account.
 
 - (a) ✅ recommended: **enterprise default, org, `repos` block, and a per-control `control "name@N" { mode }` override inside the org or a `repos` block**, resolved most-specific-wins by the precedence table. This enables "remediate everything except the control we are trialling", which is the safe way to roll out a new remediation.
 - (b) Org and enterprise only. Simpler, but a new control in a `remediate` org starts writing PRs the moment it is added.

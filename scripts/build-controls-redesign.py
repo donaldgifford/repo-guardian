@@ -211,13 +211,19 @@ def extract(md: str):
             decisions.append((m.group(1), m.group(2).rstrip(".,"), m.group(3)))
         m = re.match(r"^### (OQ\d+): (.*)$", line)
         if m:
-            rec = ""
+            rec, res = "", "open"
             for j in range(k + 1, min(k + 12, len(lines))):
                 r = re.match(r"^- \(a\) ✅ recommended:\s*(.*)$", lines[j])
                 if r:
                     rec = r.group(1)
                     break
-            oqs.append((m.group(1), m.group(2), rec))
+                r = re.match(r"^\*\*(Resolved \d{4}-\d{2}-\d{2}: [^*]+)\*\*\s*(.*)$", lines[j])
+                if r:
+                    res = (r.group(1) + " " + r.group(2)).strip()
+                r = re.match(r"^\*\*Open\.\*\*\s*(.*)$", lines[j])
+                if r:
+                    res = "open; " + r.group(1).split(":")[0].lower()
+            oqs.append((m.group(1), m.group(2), rec, res))
     return decisions, oqs
 
 
@@ -444,14 +450,14 @@ BIG_CHANGES = [
     (
         "Fewer open questions, decisions on record",
         "32 open questions across the first draft, most already assumed by the body text.",
-        "11 open questions remain in the four core docs (plus 4 in the fwsync companion); everything else is a numbered Decision with a one-line rationale. The remaining questions are real trade-offs: timing against v2.0.0, a repo policy type, parameter overrides, mode granularity, CODEOWNERS ownership semantics, catalog-info edits, the generation scheme, PR cap, close cooldown, direct apply for API resources.",
+        "11 open questions remained in the four core docs (plus 4 in the fwsync companion) after the first rework; everything else became a numbered Decision with a one-line rationale. On 2026-10-04 the maintainer answered fourteen of the fifteen, each now a Decision in its document (DESIGN-0029 D4–D5, DESIGN-0030 D8–D11, DESIGN-0031 D9–D10, DESIGN-0032 D11–D14, DESIGN-0033 D6–D7). One stays open: DESIGN-0031 OQ1, CODEOWNERS ownership semantics, amended to exact-set effective ownership after the review and the <code>.wiz</code> example.",
         "A question whose answer the body already depends on is not a question; it is an unflagged decision. Recording them lets a reviewer disagree with a specific line instead of re-deriving the design.",
     ),
     (
-        "fwsync: borrow conventions, not code; share the tag schema",
+        "fwsync: borrow conventions, not code, share nothing",
         "Two tools (fwsync for Wiz, repo-guardian for GitHub) with similar HCL vocabularies and no stated relationship.",
-        "Seven fwsync conventions are adopted into the design (documents-are-data decoding, slug grammar, plan-as-data with exit codes, lock-bounded action, drift verdicts, fail-safe fact lookup, its test kit). Every way of <em>using</em> fwsync is rejected — it is <code>internal/</code>-only, Wiz-typed, has no JSON output and has never been applied live. The one shared artifact is fwsync's governed tag schema, which defines the same <code>component</code>/<code>owner</code> properties repo-guardian writes.",
-        "Importing or forking a Draft, never-deployed tool pointed at a different control plane buys nothing. But two definitions of the same GitHub properties — already disagreeing on casing (<code>Owner</code> vs <code>owner</code>) — is a real defect; DESIGN-0033 OQ1–OQ3 settle who writes, how the definition is shared and what the keys are called.",
+        "Seven fwsync conventions are adopted into the design (documents-are-data decoding, slug grammar, plan-as-data with exit codes, lock-bounded action, drift verdicts, fail-safe fact lookup, its test kit). Every way of <em>using</em> fwsync is rejected — it is <code>internal/</code>-only, Wiz-typed, has no JSON output and has never been applied live. The governed tag schema was evaluated as a shared artifact and rejected on 2026-10-04 (DESIGN-0033 D6): repo-guardian declares its own property names and value rules, the built-in keys stay <code>Owner</code>/<code>Component</code>, and the only relationship allowed is fwsync generating repo-guardian policy in repo-guardian's documented format.",
+        "Importing or forking a Draft, never-deployed tool pointed at a different control plane buys nothing. Two definitions of the same GitHub properties looked like a defect to share away; the maintainer's call is that they are two tools' definitions, designed closely and kept separate, because fwsync is private and tying repo-guardian's catalogue to a schema it does not own would put another tool's revision history inside repo-guardian's policy version.",
     ),
 ]
 
@@ -590,7 +596,7 @@ def main():
     x.append('<div class="hero">')
     x.append("<h1>repo-guardian controls redesign</h1>")
     x.append('<p class="lede">Opinionated controls assigned by enterprise and org policies, evaluated read-only against every repository, remediated by one PR per control only when something changed.</p>')
-    x.append('<p class="meta">DESIGN-0029, 0030, 0031, 0032 and the fwsync companion DESIGN-0033 · Draft · 2026-10-02 · the four deep dives (data model, API, database, implementation order) and then all five documents follow in full. Reconciled 2026-10-03: every gap the deep dives found is now a numbered decision in its design. Adversarially reviewed and responded 2026-10-03. An interactive walkthrough of the changes, trade-offs, open questions and Temporal impact lives in <a href="controls-walkthrough.html">controls-walkthrough.html</a>. Diagrams render with mermaid from a CDN; open with network access.</p>')
+    x.append('<p class="meta">DESIGN-0029, 0030, 0031, 0032 and the fwsync companion DESIGN-0033 · Draft · 2026-10-02 · the four deep dives (data model, API, database, implementation order) and then all five documents follow in full. Reconciled 2026-10-03: every gap the deep dives found is now a numbered decision in its design. Adversarially reviewed and responded 2026-10-03. Open questions answered 2026-10-04: fourteen of fifteen resolved, DESIGN-0031 OQ1 open. An interactive walkthrough of the changes, trade-offs, open questions and Temporal impact lives in <a href="controls-walkthrough.html">controls-walkthrough.html</a>. Diagrams render with mermaid from a CDN; open with network access.</p>')
     x.append('</div>')
     x.append(
         '<p class="note">The <a href="#review">2026-10-03 adversarial '
@@ -652,14 +658,14 @@ def main():
         x.append("</tbody></table>")
 
     x.append('<h2 id="x-oqs">Open questions</h2>')
-    x.append("<p>The decisions that are yours. Each document lists alternatives and an <code>other:</code> line; the recommendation is shown here.</p>")
+    x.append("<p>Each document lists alternatives and an <code>other:</code> line; the recommendation is shown here. On 2026-10-04 the maintainer answered fourteen of the fifteen; the status column records the choice. DESIGN-0031 OQ1 (CODEOWNERS ownership semantics) is the one still open, amended to exact-set effective ownership after the review.</p>")
     for d in docs:
         if not d["oqs"]:
             continue
-        x.append(f'<h4>DESIGN-{d["id"]}</h4><table><thead><tr><th style="width:60px">#</th><th style="width:38%">Question</th><th>Recommendation</th></tr></thead><tbody>')
-        for num, q, rec in d["oqs"]:
+        x.append(f'<h4>DESIGN-{d["id"]}</h4><table><thead><tr><th style="width:60px">#</th><th style="width:30%">Question</th><th>Recommendation</th><th style="width:26%">Status</th></tr></thead><tbody>')
+        for num, q, rec, res in d["oqs"]:
             hid = f"d{d['id']}-{slugify(num + ': ' + q)}"
-            x.append(f'<tr><td><a href="#{hid}">{num}</a></td><td>{inline(q, "d"+d["id"])}</td><td><span class="oq-rec">{inline(rec, "d"+d["id"])}</span></td></tr>')
+            x.append(f'<tr><td><a href="#{hid}">{num}</a></td><td>{inline(q, "d"+d["id"])}</td><td><span class="oq-rec">{inline(rec, "d"+d["id"])}</span></td><td>{inline(res, "d"+d["id"])}</td></tr>')
         x.append("</tbody></table>")
 
     x.append('<h2 id="x-read">Reading order</h2><ol>')

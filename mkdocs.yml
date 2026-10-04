@@ -42,6 +42,7 @@ nav:
         - 'DESIGN-0031: Control framework: controls, control rules and file controls': design/0031-control-framework-controls-control-rules-and-file-controls.md
         - 'DESIGN-0032: Evaluation and remediation workflows: change-driven remediation with per-control PRs': design/0032-evaluation-and-remediation-workflows-change-driven-remediation.md
         - 'DESIGN-0033: fwsync as inspiration: shared HCL concepts and whether to reuse it': design/0033-fwsync-as-inspiration-shared-hcl-concepts-and-whether-to-reuse.md
+        - 'DESIGN-0034: CODEOWNERS ownership control': design/0034-codeowners-ownership-control.md
     - Implementation Plans:
         - Overview: impl/README.md
         - 'IMPL-0001: Repo Guardian Implementation Plan': impl/0001-repo-guardian-implementation-plan.md

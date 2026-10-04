@@ -176,7 +176,7 @@ fingerprint = sha256( control id@version
 ```
 
 - Rule *statuses* catch compliance changes.
-- Resource *blob SHAs* catch "still failing, but the file changed" (D3). For example, a team edited CODEOWNERS on main without adding `.wiz`. The open PR may now conflict, so remediation must rebase its change onto the new content.
+- Resource *blob SHAs* catch "still failing, but the file changed" (D3). For example, a team edited `renovate.json` on main without adding the preset the `extends` rule requires. The open PR may now conflict, so remediation must rebase its change onto the new content.
 - Timestamps, evidence wording and the pinned commit SHA are excluded, so an unrelated push does not count as a change.
 
 **A missing prior row is a change.** The first evaluation of a (repository, control) inserts the row with `eval_generation = 1`; the column default of 0 is what `remediated_generation` starts at, never what an evaluation writes. Onboarding therefore triggers remediation on the first evaluation: `1 > 0`.

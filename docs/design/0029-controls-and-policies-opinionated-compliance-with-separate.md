@@ -49,7 +49,7 @@ repo-guardian today is a generic rules engine. A rule is a file path, a template
 This design set replaces the rule model with an **opinionated controls model**, and splits **evaluation** from **remediation**:
 
 - A **policy** says *who* and *what*: which orgs and repositories, and which controls apply to them.
-- A **control** (for example `codeowners@1`, displayed as "CODEOWNERS 1.0") is the expected state of one resource, defined by its **control rules** ("1.1 a valid CODEOWNERS exists in the standard location", "1.2 `.wiz` is owned by security champions and appsec"). A control is implemented in Go by a package that understands its resource, so a control owns its resource outright.
+- A **control** (for example `codeowners@1`, displayed as "CODEOWNERS 1.0") is the expected state of one resource, defined by its **control rules** ("1.1 a CODEOWNERS file exists in a standard location"; a later version may add "1.2 `.wiz` is owned by security champions and appsec", the ownership control deferred to DESIGN-0034). A control is implemented in Go by a package that understands its resource, so a control owns its resource outright.
 - **Evaluation** is read-only and idempotent. It always runs against the default branch, and records which controls and control rules pass or fail. It is the default mode, so an enterprise can measure its posture before anything writes to a repository.
 - **Remediation** is a separate, opt-in, write-capable workflow. It runs only when an evaluation *changed*, or when a remediation PR was edited or closed. It opens **one PR per control**, containing every fix that control needs.
 
@@ -63,9 +63,10 @@ The original brief is kept verbatim in `notes/2026-10-02-controls-and-policies-b
 | --- | ------ | -------------- |
 | **DESIGN-0029** (this) | Vocabulary, architecture, end-to-end lifecycle, assumptions about v2 code, cross-cutting decisions | 0 (both resolved 2026-10-04) |
 | **DESIGN-0030** | Policy model: enterprise and org policies, the control catalogue, resolving which controls apply to a repository, modes | 0 (all resolved 2026-10-04) |
-| **DESIGN-0031** | Control framework: the `Control` interface, control rules, results, file controls, the built-in control types | 1 (OQ1, CODEOWNERS ownership semantics; OQ2 resolved 2026-10-04) |
+| **DESIGN-0031** | Control framework: the `Control` interface, control rules, results, file controls, the built-in control types | 0 (OQ2 resolved, OQ1 deferred to DESIGN-0034, 2026-10-04) |
 | **DESIGN-0032** | Evaluation and remediation workflows: the two GitHub Apps, change detection, per-control PRs and their lifecycle, data model, Temporal mapping | 0 (all resolved 2026-10-04) |
 | **DESIGN-0033** | Companion: fwsync as inspiration — concept mapping, the conventions adopted from it, every reuse option evaluated and rejected; no shared code, schema or definition | 0 (all resolved 2026-10-04) |
+| **DESIGN-0034** | CODEOWNERS ownership control: `owners` and `default_owner` rules, effective ownership under last-match-wins, the errors endpoint. **Deferred** and not decided; this version's `codeowners` is existence plus template (DESIGN-0031 D11) | 1 (deferred) |
 
 Each doc also carries a **Decisions** section: choices that were weighed and settled, with a one-line rationale, so the open questions are only the ones that need the maintainer.
 
@@ -111,7 +112,7 @@ v2 is pre-release (`2.0.0-rc.N`) and already replaces v1's runtime with a Tempor
 | **Control catalogue** | The set of control definitions that policies refer to by id and version, for example `codeowners@2` (DESIGN-0030). |
 | **Control** | A named, versioned expected state of one resource, for example `codeowners@1`, displayed as "CODEOWNERS 1.0". It is an instance of a control type with parameters and rules. The version is an integer (D3). |
 | **Control type** | The Go implementation behind a control: `codeowners`, `catalog_info`, `dependency_updates`, `file`, `repo_settings`, … (DESIGN-0031). One Go type serves every version of a control. |
-| **Control rule** | One verifiable requirement inside a control, for example `CODEOWNERS 1.2: .wiz is owned by @org/security_champions and @org/application_security`. Its id is bare and unique within the control (`wiz-owners`), qualified as `codeowners@1/wiz-owners` only in logs and the UI (D2). |
+| **Control rule** | One verifiable requirement inside a control, for example `Repository settings 1.1: the wiki is disabled`. Its id is bare and unique within the control (`no-wiki`), qualified as `repo_settings@1/no-wiki` only in logs and the UI (D2). |
 | **Rule kind** | The typed check a control rule performs, implemented by the control type: `exists`, `owners`, `field_set`, … A rule names its kind and parameters (DESIGN-0031). |
 | **Rule number** | The display numbering of a rule inside its control (`1.1`, `1.2`). Display only, and a separate axis from the control version. |
 | **Remediable** | A control rule with `remediate = true`: its control type can produce a fix for it. A rule without it only reports. |
@@ -310,7 +311,7 @@ Owned by the per-area docs:
 ## Decisions
 
 - **D1 No v1 policy translation** — there is no automatic translation; a migration guide maps v1 rules to control types. The models differ in kind (paths and regexes versus typed rules), so a mechanical translation would produce generic `file` controls and miss the point, and the known fleet policies are small.
-- **D2 Identifiers** — a control's id is a stable slug (`codeowners`); rule ids are bare and unique within the control (`exists`, `wiz-owners`), stored under `(repository_id, control_id, rule_id)` and qualified as `codeowners@1/exists` only in logs and the UI; rule numbers (`1.1`, `1.2`) are display only. Slugs survive renumbering and keep database keys and URLs stable; the control is the namespace, so rule ids stay short in HCL.
+- **D2 Identifiers** — a control's id is a stable slug (`codeowners`); rule ids are bare and unique within the control (`exists`, `no-wiki`), stored under `(repository_id, control_id, rule_id)` and qualified as `codeowners@1/exists` only in logs and the UI; rule numbers (`1.1`, `1.2`) are display only. Slugs survive renumbering and keep database keys and URLs stable; the control is the namespace, so rule ids stay short in HCL.
 - **D3 Versions** — a control's version is an integer in the catalogue (`version = 2`), referenced exactly as `codeowners@2`. A bump is catalogue data served by the same Go type, an org trials `@2` through `replace` (DESIGN-0030), and `result_events` records the version each result came from. "Did the rules change" needs no semantic-version semantics.
 - **D4 Timing** — the controls model lands before v2.0.0 on the rc line, replacing the rule engine (OQ1, resolved 2026-10-04). v2 is pre-release and its data model is not frozen; shipping v2.0.0 with rule-keyed findings would mean migrating a GA schema later.
 - **D5 Branch** — the work happens on `v2`, phase by phase like IMPL-0025; `main` receives bug fixes only and the `internal/checker` divergence between the branches is accepted (OQ2, resolved 2026-10-04).

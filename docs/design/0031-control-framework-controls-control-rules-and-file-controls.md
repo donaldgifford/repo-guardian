@@ -67,7 +67,7 @@ Policies (who gets which control) are in DESIGN-0030. Running controls and apply
 
 ### Goals
 
-- **All knowledge of a resource lives in one package.** For example, `internal/controls/codeowners` knows where GitHub looks for CODEOWNERS, how to parse it, what "`.wiz` is owned by X" means, and how to fix it.
+- **All knowledge of a resource lives in one package.** For example, `internal/controls/codeowners` knows where GitHub looks for CODEOWNERS and how to write one; when DESIGN-0034 lands, the same package learns how to parse it and what "`.wiz` is owned by X" means.
 - **Remediation is whole-control.** An absent file gets the full template, which satisfies every remediable rule at once. A present file gets the edits for exactly the failing rules, all in one change.
 - **Evaluation cannot write.** `Evaluate` receives a reader with no write methods, enforced by the type system and backed by the Evaluation App (DESIGN-0032).
 - **Remediation is a value.** `Remediate` returns a change set, and the workflow applies it. Controls stay testable without a GitHub fake that records writes.
@@ -171,7 +171,7 @@ type Resource struct {
     Key  string
 }
 
-// RuleKind is a check a Type offers, such as "exists" or "owners".
+// RuleKind is a check a Type offers, such as "exists" or "setting".
 type RuleKind string
 
 // RuleKindSpec is what a Type says about one of its kinds: the
@@ -193,7 +193,7 @@ type ParamSpec struct {
 
 // Rule is one declared requirement of a control.
 type Rule struct {
-    ID        string         // bare and unique within the control: "wiz-owners"
+    ID        string         // bare and unique within the control: "no-wiki"
     Number    string         // display only: "1.2"
     Title     string         // display only
     Kind      RuleKind       // one of Type.RuleKinds()
@@ -356,10 +356,10 @@ A rule is declared in the catalogue (DESIGN-0030) using a **rule kind** its cont
 
 | Field | Meaning |
 | ----- | ------- |
-| `id` | stable slug, bare and unique within the control: `wiz-owners`. Logs and the UI qualify it as `codeowners@2/wiz-owners` |
-| `number`, `title` | display only: `1.2`, ".wiz is owned by …". Rule numbers are a separate axis from the control's integer version |
-| `kind` | a kind the type offers: `exists`, `owners`, … |
-| parameters | kind-specific: `pattern`, `owners`, … |
+| `id` | stable slug, bare and unique within the control: `no-wiki`. Logs and the UI qualify it as `repo_settings@1/no-wiki` |
+| `number`, `title` | display only: `1.1`, "The wiki is disabled". Rule numbers are a separate axis from the control's integer version |
+| `kind` | a kind the type offers: `exists`, `setting`, `extends`, … |
+| parameters | kind-specific: `property`, `value`, `tool`, … |
 | `remediate` | whether `Remediate` fixes this rule's failures (`remediate = true`); such a rule is **remediable** |
 
 Evaluating a rule gives a **rule result**:
@@ -407,7 +407,7 @@ A file control owns `file:<location>` for every location in its `FileSpec`, so a
 
 A file control type implements three things:
 
-1. **Parse(content) → model.** For example, CODEOWNERS entries with their line numbers and comments preserved.
+1. **Parse(content) → model.** For example, catalog-info's YAML node tree, or a Renovate JSON config as a node-preserving tree (D5).
 2. **Check(model, rule) → result.** One rule kind, evaluated against the parsed model.
 3. **Fix(model, failing rules) → model, and Render(model) → content.** Edits that leave unrelated lines byte-identical.
 
@@ -441,24 +441,18 @@ The framework's rules for file remediation:
 
 #### CODEOWNERS
 
+This version is deliberately v1's check and nothing more: a CODEOWNERS file exists in one of GitHub's standard locations, and when it does not, the PR adds the operator's template. Ownership rules (which owners a pattern must have, effective ownership under last-match-wins, the CODEOWNERS errors endpoint) are **deferred to DESIGN-0034** and are not decided; repo-guardian is not the first tool to reach for that workflow today, and the control grows into it when a team needs it (D11).
+
 | Aspect | Behaviour |
 | ------ | --------- |
 | Locations | `.github/CODEOWNERS`, `CODEOWNERS`, `docs/CODEOWNERS`; the first found is the one GitHub uses (assumption A21) |
 | Resources | `file:.github/CODEOWNERS`, `file:CODEOWNERS`, `file:docs/CODEOWNERS` |
-| Model | ordered entries `{pattern, owners, line}`, with comments and blank lines preserved |
-| Rule kind `exists` | a CODEOWNERS file is found and parses. "Parses" means the parser accepts every line and the file has at least one non-comment entry with at least one owner; a syntax error fails `exists` with the line as evidence |
-| Rule kind `valid` | GitHub's CODEOWNERS errors endpoint reports no errors (D3, assumption A22). `remediate = false`: unknown owners and bad patterns need a human. When the endpoint is unsupported for the installation, the rule passes on parser evidence (`validator = parser`); a transient endpoint error is `error` |
-| Rule kind `owners` | `pattern` is owned by at least `owners` (OQ1 defines "owned") |
-| Rule kind `default_owner` | `*` has an owner |
-| Fix for `owners` and `default_owner` | write the missing `pattern owner…` lines ordered least- to most-specific. CODEOWNERS is last-match-wins across **every** pattern that matches a path, not per identical pattern, so a narrow pattern is inserted before any trailing `*` line and never appended after it; a new `*` line goes last |
-| Template | the operator's `codeowners` template, which must satisfy every remediable rule (tested) |
+| Model | the file as text; this version does not parse entries |
+| Rule kind `exists` | a CODEOWNERS file is found at one of the locations and has at least one non-comment, non-blank line. The only rule kind in this version |
+| Fix | write the operator's `codeowners` template to `.github/CODEOWNERS` when no location has a file, as v1's `target` does today; an existing file is never edited |
+| Template | the operator's `codeowners` template; the embedded `codeowners.tmpl` (`* @org/CHANGEME` with a comment telling the team to replace it) is the default, as in v1 |
 
-The wiz example under this type:
-
-- **No CODEOWNERS:** the template is written, and it already contains the `.wiz` line, because the template must pass `wiz-owners`.
-- **A team's CODEOWNERS without `.wiz`:** one line is inserted before the file's `*` line, or appended when there is none, and the team's file is otherwise untouched.
-- **`default_owner` and `wiz-owners` both failing:** the `.wiz` line is written before the new `*` line, so the default owner cannot override the `.wiz` owners it was written next to.
-- **An org that does not get the control:** it is never evaluated there (DESIGN-0030), so it cannot touch the file.
+Under this type: with no CODEOWNERS the template is written; with any CODEOWNERS present the control passes and never touches the file; an org that does not get the control is never evaluated there (DESIGN-0030), so it cannot touch the file either.
 
 #### Catalog info
 
@@ -553,8 +547,7 @@ Several controls read the same data. For example, `catalog_info` and `custom_pro
 
 ### Risks
 
-- **CODEOWNERS fix ordering** is where a wrong assumption about last-match-wins would reproduce v1's two-rules-on-one-file conflict inside one control. The two-rules-fail-together fixture in the conformance suite is the guard.
-- **`valid` depends on an endpoint not every installation has** (assumption A22). The parser fallback hides unknown-owner errors there; the `validator = parser` evidence makes that visible.
+- **CODEOWNERS is existence-only in this version.** A file that exists but names no valid owner passes `exists`; ownership, ordering under last-match-wins and validity are DESIGN-0034's scope, deferred, and the risks that came with them (fix ordering, the errors endpoint) moved there.
 - **A template can pass the sample-variable check and fail on a real repository.** The runtime self-check after `Remediate` is the backstop, and it costs one extra evaluation per remediation.
 - **`apply = "direct"` has no review step.** DESIGN-0032 OQ4 decides whether it is allowed at all.
 - **Minimal-edit encoders** for YAML and JSON are the hardest code in the set. D5 keeps JSON5 out of it.
@@ -584,7 +577,7 @@ Per control type, in its own package:
 3. **Idempotence:** `remediate(apply(state, remediate(state)))` is an empty change set.
 4. **Minimal edits:** untouched lines are byte-identical after `Fix`/`Render`. Round-trip fuzzing of the parser (`Render(Parse(x)) == x`) covers this for every input the parser accepts.
 5. **Template passes its rules:** the default template (and any operator template in tests) evaluated with sample variables passes every remediable rule of the control.
-6. **Two rules failing together:** every file type with more than one remediable rule kind ships a fixture where two of them fail at once (for CODEOWNERS, `default_owner` and an `owners` rule), and the remediated file must pass both. This is the test for the ordering class of bug.
+6. **Two rules failing together:** every file type with more than one remediable rule kind ships a fixture where two of them fail at once (for `dependency_updates`, `configured` and `extends`, or `configured` and `exclusive`), and the remediated file must pass both. This is the test for the ordering class of bug; CODEOWNERS joins when DESIGN-0034 adds its ownership rules.
 7. **Framework tests:** `LocateFile` precedence, control-status derivation (every row of the table), and registry validation errors.
 
 A shared conformance suite (`control/controltest`) runs properties 2–6 against any type given its fixtures. A new control type gets them by adding fixtures.
@@ -595,7 +588,7 @@ Resource-ownership collisions between controls are not this suite's job. They ar
 
 The order in which types are built:
 
-1. `codeowners`: the motivating case, and the reference implementation of a file control.
+1. `codeowners` (existence plus template): the simplest file control and the reference implementation; its ownership rules are DESIGN-0034, deferred.
 2. `file`.
 3. `catalog_info`.
 4. `dependency_updates`.
@@ -609,14 +602,15 @@ Former open questions this document settles.
 
 - **D1 `Evaluate` + `Remediate`, not one `Run(mode)`** — two methods, with `Remediate` returning a `ChangeSet`. The type system enforces the capability split: evaluation workers call a method whose inputs hold no writer, and remediation is a pure function of state. A single `Run(ctx, mode, client)` needs a client capable of both, and a `Remediate` that writes through a `Writer` re-creates per-control commit logic and partial applies.
 - **D2 The template check runs at load and in the conformance suite** — the template is rendered with the type's sample variables and the control is evaluated against the output; load fails at deploy, the suite fails in CI, and the runtime self-check after `Remediate` covers templates that depend on real repository data.
-- **D3 `valid` is a separate CODEOWNERS rule kind** — GitHub's errors endpoint reports unknown owners and bad patterns, the common real-world failure. Keeping it separate leaves `exists` cheap and lets a policy choose.
+- **D3 `valid` is a separate CODEOWNERS rule kind** — *moved 2026-10-04 to DESIGN-0034.* GitHub's errors endpoint reports unknown owners and bad patterns; a separate kind leaves `exists` cheap and lets a policy choose. This version's `codeowners` has no `valid` (D11).
 - **D4 Controls share reads, never results** — one cached reader per evaluation; `custom_properties` parses `catalog-info.yaml` itself through the shared parser. Evaluation order never matters, and one control's failure cannot cascade into another. Explicit dependencies would introduce a graph and order-dependent results.
 - **D5 JSON Renovate configs get minimal edits; JSON5 gets a note** — a node-preserving JSON encoder for `.json`; a JSON5 `extends` failure becomes a manual note instead of rewriting a team's commented file through a JSON encoder.
 - **D6 The generic `file` control is `exists` or `exact` only** — no `contains` and no `absent`. Anything that inspects inside a file is, by definition, a control type, and "this path must not exist" belongs to a type that knows why the file is forbidden.
 - **D7 Three GitHub interfaces** — `Reader` is exactly what a control may read, `PRObserver` is what the workflows read about pull requests and branches, `Writer` is what the remediator applies. Putting PR reads on `Reader` would hand controls a surface none of them uses, and leaving them out left DESIGN-0032's PR observation and find-or-adopt with no method to call.
 - **D8 `Writer.Commit` through the git-data API** — one commit per change set, non-forced ref update, `ErrNotFastForward` when a human pushed in between. The Contents API is one commit per file, so a multi-file change set could be half-applied and the "nothing is half-applied, nothing is overwritten" guarantee in DESIGN-0032 would not hold.
 - **D9 catalog-info remediation creates only** — the `catalog_info` control creates `catalog-info.yaml` from the template when it is absent and never edits fields in an existing file; a failing field becomes a manual note in the PR or the report (OQ2, resolved 2026-10-04). Field values need human knowledge, and inventing them produces plausible wrong data.
-- **D10 Organisation-only resources on user-owned repositories are `not_applicable`** — a repository whose installation account is a user rather than an organisation has no teams and no custom property schema. A rule whose resource GitHub cannot provide there (an `@org/team` owner, a `property:<name>`) evaluates `not_applicable` with `account_type = user` in the evidence, so a personal-account installation (DESIGN-0030 D11) is measurable without failing every repository on features it cannot have. A policy written for a personal account names users (`@login`) as owners; the repository rulesets GitHub does offer on user accounts evaluate normally.
+- **D10 Organisation-only resources on user-owned repositories are `not_applicable`** — a repository whose installation account is a user rather than an organisation has no teams and no custom property schema. A rule whose resource GitHub cannot provide there (a `property:<name>` today; DESIGN-0034's team owners when it lands) evaluates `not_applicable` with `account_type = user` in the evidence, so a personal-account installation (DESIGN-0030 D11) is measurable without failing every repository on features it cannot have. A policy written for a personal account names users (`@login`) as owners; the repository rulesets GitHub does offer on user accounts evaluate normally.
+- **D11 CODEOWNERS is existence plus template in this version** — `codeowners` has one rule kind, `exists`, remediated by writing the operator's template when no standard location has a file: exactly v1's behaviour. Ownership rules (`owners`, `default_owner`), the `valid` rule, the local matcher and effective-ownership semantics are deferred to DESIGN-0034 and are not decided. repo-guardian should not be the first option used for that workflow; it will be used for a much more in-depth CODEOWNERS control later, and deferring keeps this version's control trivially correct (OQ1, deferred 2026-10-04).
 
 ## Adversarial Review
 
@@ -635,6 +629,8 @@ Reviewed 2026-10-03 with the sibling policy/workflow designs. **Disposition: cha
 **Response:** **Accepted.** The Fix row and all three wiz examples are wrong under GitHub's last-match-wins rule and are reversed: a `*` line is written first, or left where it is, and a required narrow line goes after it, appended at the end of the file so that it wins. `owners` is evaluated as effective ownership rather than line presence: the type carries a local matcher implementing GitHub's gitignore-style patterns and last-match-wins, computes the owners GitHub would request for the paths `pattern` covers, and passes only when every required owner is among them. `Fix` edits minimally: an identical pattern line has its owners extended in place; otherwise the line is appended; if a later line, or an ownerless exception, would still override the required owners for a covered path, the control does not reorder a human's exceptions, the rule fails with a note naming the overriding line, and that observation is non-remediable. A requirement on a path that does not exist yet is checked against the pattern alone, because GitHub applies patterns to paths that may not exist yet. OQ1(a) is amended to this definition and the "CODEOWNERS fix ordering" risk is rewritten around it. Verification: amended — the fixture's expected owners come from an independent table of GitHub-documented examples rather than from the type's own parser, and the integration suite compares the local matcher against the CODEOWNERS errors endpoint on real repositories.
 
 The three examples read, corrected: with no CODEOWNERS the template is written with its `*` line first and the `.wiz` line after it; in a team's file without `.wiz` the `.wiz` line is appended at the end, after the team's `*` when there is one; with `default_owner` and `wiz-owners` both failing the new `*` line goes first and the `.wiz` line after it, so the default owner cannot override the owners it was written next to.
+
+**Moved 2026-10-04:** this finding and its response concern the ownership rules, which are now DESIGN-0034's scope and deferred; this document's `codeowners` has only `exists` (D11). The text stays as the record of what was reviewed.
 
 ### AR-0031-02 (high): Owned resources and read dependencies are different sets
 
@@ -675,6 +671,8 @@ The three examples read, corrected: with no CODEOWNERS the template is written w
 **Verification:** Include nonexistent/ineligible owners, an oversized file, unsupported endpoint and different main/PR CODEOWNERS contents. None may yield a full-validity pass solely because the local parser accepted text.
 
 **Response:** **Accepted.** The parser fallback is removed. When the CODEOWNERS errors endpoint is unsupported the `valid` rule is `unknown{reason=capability_unsupported}` with a note, never `pass`; a permission error is `unknown{reason=permission}`; a transient failure is `error`. `Reader.CodeownersErrors` takes the ref and is called with the observed commit, which the endpoint accepts (a branch, tag or commit, checked against GitHub's documentation), so validation is bound to the file that was read. `valid` is declared per definition, so an operator on an instance without the endpoint omits it from the catalogue rather than carrying a permanent unknown. The local parser additionally enforces GitHub's size limit and reports an oversized file as a definite failure. A self-check on an uncommitted PR-head overlay cannot reach the endpoint, so it uses the local parser only and its evidence says `validator = parser`. The "`valid` depends on an endpoint" risk is rewritten accordingly. Verification: adopted.
+
+**Moved 2026-10-04:** this finding and its response concern the ownership rules, which are now DESIGN-0034's scope and deferred; this document's `codeowners` has only `exists` (D11). The text stays as the record of what was reviewed.
 
 ### AR-0031-06 (high): API proposals and the client surface contradict the workflow design
 
@@ -725,13 +723,7 @@ The three examples read, corrected: with no CODEOWNERS the template is written w
 
 ### OQ1: What does "`pattern` is owned by `owners`" mean for CODEOWNERS?
 
-**Open.** Amended 2026-10-04: the original (a) ordered the fix backwards under GitHub's last-match-wins rule (AR-0031-01, accepted), and the `.wiz` example that motivates the control needs exclusivity ("only these two teams can approve"), which the original "include every listed owner" wording did not give. The GitHub facts the options rest on: later lines override earlier ones for the paths they match, so a `* @org/default` line at the top is the fallback and a `.wiz @org/security @org/platform` line after it wins for every `.wiz` path; a pattern without a leading slash matches at any depth, so `.wiz` already means "any `.wiz` file in the repository"; a later `/services/foo/ @org/foo` line takes `services/foo/.wiz` back for `@org/foo`; and with "require review from code owners" on, an approval from **any one** owner on the matching line satisfies it, so an extra owner on the effective line is an extra approver.
-
-- (a) ✅ recommended: **effective ownership, exact set.** Using a local matcher that implements GitHub's gitignore-style patterns and last-match-wins over the whole file, the owners GitHub would request for every path `pattern` covers are exactly `owners`: no missing owner, no extra approver. Remediation appends the control's own `pattern owners…` line at the end of the file (or, if a line with exactly this pattern exists, rewrites its owners to the required set and moves it to the end when a later line would override it), so it is the last match for the paths it covers. A narrow pattern only ever matches its own paths, so this never changes who owns anything else, which is what "enforce these owners on this path without breaking the rest of the file" means; the control never reorders or edits a human's lines. A later human line that *specifically* targets covered paths (a pattern equal to or narrower than ours that matches nothing else, or an ownerless `.wiz` exception) is a deliberate conflict: the rule fails with a note naming the line and is non-remediable until a human resolves it. A requirement on a path that does not exist yet is checked against the pattern alone, as GitHub applies patterns to paths that may not exist.
-- (b) Effective ownership, superset: every required owner is among the owners GitHub would request; extra owners are allowed. Weaker for the exclusivity case, since any extra owner can approve. Could be offered later as a per-rule relaxation of (a) if a policy needs it.
-- (c) A literal line: there is a line whose pattern is exactly `.wiz` with exactly those owners. Rejected by AR-0031-01: a broader later line silently overrides it and the check still passes.
-- (d) A literal line *and* effective ownership. Strict, but it fails files that are correct under (a) and written differently.
-- other:
+**Deferred 2026-10-04 to DESIGN-0034.** This version's `codeowners` control is existence plus template (D11), so the question does not arise here. The ownership-semantics question, amended after AR-0031-01 and the `.wiz` example, moves to DESIGN-0034 OQ1 with its options intact and stays undecided until that design is picked up.
 
 ### OQ2: Can catalog-info remediation edit fields in an existing file?
 

@@ -121,19 +121,13 @@ control "codeowners" {
 
   rule "exists" {
     number = "1.1"
-    title  = "A valid CODEOWNERS file exists in the standard location"
+    title  = "A CODEOWNERS file exists in a standard location"
     remediate = true                  # this rule is remediable
   }
 
-  rule "wiz-owners" {
-    number  = "1.2"
-    title   = ".wiz is owned by security champions and application security"
-    kind    = "owners"                # a rule kind the codeowners type provides
-    pattern = ".wiz"
-    owners  = ["@{{ .Org }}/security_champions", "@{{ .Org }}/application_security"]
-    remediate = true
-  }
-
+  # Ownership rules (kind = "owners", pattern/owners parameters) are
+  # DESIGN-0034, deferred. Version 2 here differs from version 1 by its
+  # template, which is a catalogue change, not a Go change (DESIGN-0029 D3).
   template = "codeowners"             # full-file template for an absent file
 
   pr {
@@ -161,7 +155,7 @@ control "repo_settings" {
 }
 ```
 
-Rule ids (`exists`, `wiz-owners`) are bare and unique within their control. Rule **numbers** (`1.1`, `1.2`) are display-only labels for reports and the UI; they are a different axis from the control **version** (`2`), which is what policies pin. A new version of a control is a new catalogue definition under the same name, not a new Go type.
+Rule ids (`exists`, `no-wiki`) are bare and unique within their control. Rule **numbers** (`1.1`, `1.2`) are display-only labels for reports and the UI; they are a different axis from the control **version** (`2`), which is what policies pin. A new version of a control is a new catalogue definition under the same name, not a new Go type.
 
 Which rule kinds and parameters a control can use is defined by its control type, and validated at load (DESIGN-0031). The catalogue holds definitions only. A control in the catalogue that no policy references is inert.
 

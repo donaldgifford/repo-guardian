@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs/design/controls-redesign.html"
-DOC_IDS = ["0029", "0030", "0031", "0032", "0033"]
+DOC_IDS = ["0029", "0030", "0031", "0032", "0033", "0034"]
 
 # ----------------------------------------------------------------------------
 # Minimal markdown → HTML
@@ -223,6 +223,9 @@ def extract(md: str):
                 r = re.match(r"^\*\*Open\.\*\*\s*(.*)$", lines[j])
                 if r:
                     res = "open; " + r.group(1).split(":")[0].lower()
+                r = re.match(r"^\*\*(Deferred[^*]*)\*\*\s*(.*)$", lines[j])
+                if r:
+                    res = r.group(1).strip()
             oqs.append((m.group(1), m.group(2), rec, res))
     return decisions, oqs
 
@@ -308,7 +311,7 @@ def render_reviews(docs: list[dict]) -> str:
         f'{counts["medium"]} medium. Critical findings contradict a core '
         'safety guarantee; high findings block correctness or operation; '
         'medium findings need an explicit contract decision.</p>',
-        '<p>Read the critical CODEOWNERS ordering counterexample first. '
+        '<p>The critical CODEOWNERS ordering counterexample now belongs to the deferred ownership design (DESIGN-0034); this version\'s codeowners control is existence plus template. '
         'The recurring themes are assignment and operation fencing, '
         'ownership versus read dependencies, lifecycle cleanup independent '
         'of remediation eligibility, measurement coverage, and shared '
@@ -387,7 +390,7 @@ LIFE = """sequenceDiagram
     D->>DB: repository discovered and active, controls resolved from policy, repository state and App installations
     D->>E: start evaluation
     E->>GH: read default branch (Evaluation App)
-    E->>DB: CODEOWNERS 1.0 non_compliant (1.1 fail, 1.2 fail), first evaluation inserts generation 1
+    E->>DB: CODEOWNERS 1.0 non_compliant (1.1 fail), first evaluation inserts generation 1
     E->>R: changed, mode = remediate
     R->>GH: branch repo-guardian/codeowners, full template, open PR (Remediation App)
     R->>DB: PR #12 open, remediated generation 1
@@ -406,7 +409,7 @@ V1_VS_NEW = """flowchart LR
         R3["orphan cleanup"] -. "deletes what another rule still wants" .-> F1
     end
     subgraph NEW["controls: one owner per resource"]
-        C1["control codeowners@2<br/>rules: exists, valid, default_owner, wiz-owners"] --> F2["CODEOWNERS"]
+        C1["control codeowners@1<br/>rule: exists; ownership rules deferred to DESIGN-0034"] --> F2["CODEOWNERS"]
         C1 -- "one Evaluate, one Remediate,<br/>one PR" --> P2["PR repo-guardian/codeowners"]
     end"""
 
@@ -450,7 +453,7 @@ BIG_CHANGES = [
     (
         "Fewer open questions, decisions on record",
         "32 open questions across the first draft, most already assumed by the body text.",
-        "11 open questions remained in the four core docs (plus 4 in the fwsync companion) after the first rework; everything else became a numbered Decision with a one-line rationale. On 2026-10-04 the maintainer answered fourteen of the fifteen, each now a Decision in its document (DESIGN-0029 D4–D5, DESIGN-0030 D8–D11, DESIGN-0031 D9–D10, DESIGN-0032 D11–D14, DESIGN-0033 D6–D7). One stays open: DESIGN-0031 OQ1, CODEOWNERS ownership semantics, amended to exact-set effective ownership after the review and the <code>.wiz</code> example.",
+        "11 open questions remained in the four core docs (plus 4 in the fwsync companion) after the first rework; everything else became a numbered Decision with a one-line rationale. On 2026-10-04 the maintainer answered fourteen of the fifteen, each now a Decision in its document (DESIGN-0029 D4–D5, DESIGN-0030 D8–D11, DESIGN-0031 D9–D11, DESIGN-0032 D11–D14, DESIGN-0033 D6–D7), and deferred the fifteenth: CODEOWNERS ownership semantics moved to DESIGN-0034, undecided, while this version's codeowners control is existence plus template.",
         "A question whose answer the body already depends on is not a question; it is an unflagged decision. Recording them lets a reviewer disagree with a specific line instead of re-deriving the design.",
     ),
     (
@@ -483,7 +486,8 @@ READING_ORDER = [
     ("0030", "Policy model — catalogue, enterprise and org policies, resolution, modes, ownership, data model"),
     ("0031", "Control framework — the Go interfaces and types, rule results, file controls, the built-in types, conformance suite"),
     ("0032", "Evaluation and remediation — the two Apps, change detection, PR lifecycle, schema, API, metrics, failure semantics, Temporal mapping"),
-    ("0033", "fwsync companion — concept mapping, what transfers, reuse options, the tag-schema seam"),
+    ("0033", "fwsync companion — concept mapping, what transfers, reuse options; nothing shared"),
+    ("0034", "CODEOWNERS ownership control — deferred and undecided; read only when a team needs ownership enforcement"),
 ]
 
 CSS = """
@@ -569,7 +573,7 @@ def main():
     deep_html, deep_headings = convert(deep_md, "dd")
 
     # ---- sidebar
-    side = ['<nav id="side"><h1>repo-guardian controls redesign</h1><div class="sub">DESIGN-0029 → 0033 · branch docs/controls-and-policies · PR #202</div>']
+    side = ['<nav id="side"><h1>repo-guardian controls redesign</h1><div class="sub">DESIGN-0029 → 0034 · branch docs/controls-and-policies · PR #202</div>']
     side.append('<a class="doc" href="#explainer">Explainer</a>')
     for anchor, label in [("why", "The problem"), ("changes", "The big changes"), ("arch", "Architecture"), ("life", "A repository's life"), ("keep", "What stays, what goes"), ("fwsync", "fwsync"), ("ledger", "Decision ledger"), ("oqs", "Open questions"), ("read", "Reading order")]:
         side.append(f'<a class="h3" href="#x-{anchor}">{label}</a>')
@@ -596,7 +600,7 @@ def main():
     x.append('<div class="hero">')
     x.append("<h1>repo-guardian controls redesign</h1>")
     x.append('<p class="lede">Opinionated controls assigned by enterprise and org policies, evaluated read-only against every repository, remediated by one PR per control only when something changed.</p>')
-    x.append('<p class="meta">DESIGN-0029, 0030, 0031, 0032 and the fwsync companion DESIGN-0033 · Draft · 2026-10-02 · the four deep dives (data model, API, database, implementation order) and then all five documents follow in full. Reconciled 2026-10-03: every gap the deep dives found is now a numbered decision in its design. Adversarially reviewed and responded 2026-10-03. Open questions answered 2026-10-04: fourteen of fifteen resolved, DESIGN-0031 OQ1 open. An interactive walkthrough of the changes, trade-offs, open questions and Temporal impact lives in <a href="controls-walkthrough.html">controls-walkthrough.html</a>. Diagrams render with mermaid from a CDN; open with network access.</p>')
+    x.append('<p class="meta">DESIGN-0029, 0030, 0031, 0032, the fwsync companion DESIGN-0033 and the deferred DESIGN-0034 · Draft · 2026-10-02 · the four deep dives (data model, API, database, implementation order) and then all five documents follow in full. Reconciled 2026-10-03: every gap the deep dives found is now a numbered decision in its design. Adversarially reviewed and responded 2026-10-03. Open questions answered 2026-10-04: fourteen of fifteen resolved, CODEOWNERS ownership deferred to DESIGN-0034. An interactive walkthrough of the changes, trade-offs, open questions and Temporal impact lives in <a href="controls-walkthrough.html">controls-walkthrough.html</a>. Diagrams render with mermaid from a CDN; open with network access.</p>')
     x.append('</div>')
     x.append(
         '<p class="note">The <a href="#review">2026-10-03 adversarial '
@@ -658,7 +662,7 @@ def main():
         x.append("</tbody></table>")
 
     x.append('<h2 id="x-oqs">Open questions</h2>')
-    x.append("<p>Each document lists alternatives and an <code>other:</code> line; the recommendation is shown here. On 2026-10-04 the maintainer answered fourteen of the fifteen; the status column records the choice. DESIGN-0031 OQ1 (CODEOWNERS ownership semantics) is the one still open, amended to exact-set effective ownership after the review.</p>")
+    x.append("<p>Each document lists alternatives and an <code>other:</code> line; the recommendation is shown here. On 2026-10-04 the maintainer answered fourteen of the fifteen and deferred the last; the status column records each. CODEOWNERS ownership semantics now live in DESIGN-0034, undecided.</p>")
     for d in docs:
         if not d["oqs"]:
             continue
@@ -688,7 +692,7 @@ def main():
 
     page = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>repo-guardian controls redesign — DESIGN-0029 to 0033</title>
+<title>repo-guardian controls redesign — DESIGN-0029 to 0034</title>
 <style>{CSS}</style>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
 </head><body>

@@ -294,18 +294,18 @@ def render_reviews(docs: list[dict]) -> str:
         '<h1>Adversarial review</h1>',
         '<p class="lede">Counterexamples, race conditions and contract '
         'contradictions across DESIGN-0029 to DESIGN-0033.</p>',
-        '<p class="meta">Reviewed 2026-10-03; responded 2026-10-03. Each '
+        '<p class="meta">Reviewed 2026-10-03; responded 2026-10-03; applied 2026-10-04. Each '
         'finding in its source design records the challenged contract, '
         'failure scenario, proposed correction and verification case, '
         'followed by the design owners\' <strong>Response</strong> giving '
-        'the disposition and the concrete change.</p>',
+        'the disposition and the concrete change, and an <strong>Applied</strong> line naming where the change landed in the body or the Decisions ledger.</p>',
         '<p class="note"><strong>Review disposition: changes required before '
         'implementation of the affected contracts.</strong> '
-        f'<strong>Response: {response_summary}.</strong> The explainer and '
-        'deep dives above still describe the guarantees as first proposed; '
-        'where a response and a body differ, the response is the current '
-        'position until the follow-up reconciliation pass applies the '
-        'accepted changes to the bodies and the Decisions ledgers.</p>',
+        f'<strong>Response: {response_summary}.</strong> The accepted changes '
+        'were applied to the design bodies and Decisions ledgers on 2026-10-04, '
+        'so the designs are authoritative. The explainer and deep dives above '
+        'describe the guarantees as first proposed; where they differ from a '
+        'design body, the body wins.</p>',
         f'<p><strong>{total} findings:</strong> '
         f'{counts["critical"]} critical, {counts["high"]} high, '
         f'{counts["medium"]} medium. Critical findings contradict a core '
@@ -465,12 +465,19 @@ BIG_CHANGES = [
 ]
 
 KEEP_GO = {
-    "Kept (per the assumptions register, confirmed by the follow-up INV)": [
+    "Kept (assumptions register, verified against the v2 code in INV-0021)": [
         "Temporal control plane: <code>RepoWorkflow</code> shape, signals, ContinueAsNew; the rate-budget <code>InstallationWorkflow</code> (gains an App dimension in its id); discovery and policy-rollout workflows",
         "Repository identity (<code>repositories.id</code>, rename/transfer events) and parking via <code>UpsertDiscovered</code> as the only un-parker",
         "Ingest role and HMAC validation; the API role, OIDC authn/authz, read-only pool and scoped queries; the UI",
-        "Policy version hashing (<code>VersionV2</code>) and the compliance snapshot query shape",
+        "The <code>VersionV2</code> pattern (classified-field hash with its every-field-classified test) and the compliance snapshot query shape",
         "The catalog-info parser, the template renderer with curated helpers, the GitHub client transport chain (otelhttp → rate limit → ghinstallation)",
+    ],
+    "Lifted or adapted (the INV-0021 caveats)": [
+        "<code>UpsertRepositories</code> gains a resolution step between upsert and SignalWithStart; the rollout re-resolves before it re-signals (A3, A7)",
+        "Discovery, ingest, config and the chart model one App today and gain an App dimension: per-App access tables, two webhook secrets selected by target App id, two credential blocks (A3, A13, A15)",
+        "Five checker pieces are lifted, not deleted: durable-skip classification, identity capture, the setting/ruleset/label comparators, foreign-PR matching, the E4-locked log lines (A8)",
+        "<code>control.Reader</code>/<code>PRObserver</code>/<code>Writer</code> need client methods that do not exist yet (ref-pinned reads, tree listing, git-data commit); the <code>VersionV2</code> input is rewritten wholesale (A7, A12)",
+        "A posture exporter over control results is new work: no v2 role exports posture today (A19); the catalog parser must expose the entity, not only the properties projection (A11)",
     ],
     "Replaced": [
         "The checker engine's two-pass rule iteration, gate evaluator, orphan cleanup and inverse-orphan restoration → <code>Control.Evaluate</code> / <code>Control.Remediate</code> per control",
@@ -600,15 +607,15 @@ def main():
     x.append('<div class="hero">')
     x.append("<h1>repo-guardian controls redesign</h1>")
     x.append('<p class="lede">Opinionated controls assigned by enterprise and org policies, evaluated read-only against every repository, remediated by one PR per control only when something changed.</p>')
-    x.append('<p class="meta">DESIGN-0029, 0030, 0031, 0032, the fwsync companion DESIGN-0033 and the deferred DESIGN-0034 · Draft · 2026-10-02 · the four deep dives (data model, API, database, implementation order) and then all five documents follow in full. Reconciled 2026-10-03: every gap the deep dives found is now a numbered decision in its design. Adversarially reviewed and responded 2026-10-03. Open questions answered 2026-10-04: fourteen of fifteen resolved, CODEOWNERS ownership deferred to DESIGN-0034. An interactive walkthrough of the changes, trade-offs, open questions and Temporal impact lives in <a href="controls-walkthrough.html">controls-walkthrough.html</a>. Diagrams render with mermaid from a CDN; open with network access.</p>')
+    x.append('<p class="meta">DESIGN-0029, 0030, 0031, 0032, the fwsync companion DESIGN-0033 and the deferred DESIGN-0034 · Draft · 2026-10-02 · the four deep dives (data model, API, database, implementation order) and then all five documents follow in full. Reconciled 2026-10-03: every gap the deep dives found is now a numbered decision in its design. Adversarially reviewed and responded 2026-10-03. Open questions answered 2026-10-04: fourteen of fifteen resolved, CODEOWNERS ownership deferred to DESIGN-0034. Review responses applied to the bodies and Decisions ledgers 2026-10-04; the assumptions register (A1–A23) audited against the v2 code in INV-0021 the same day. An interactive walkthrough of the changes, trade-offs, open questions and Temporal impact lives in <a href="controls-walkthrough.html">controls-walkthrough.html</a>. Diagrams render with mermaid from a CDN; open with network access.</p>')
     x.append('</div>')
     x.append(
         '<p class="note">The <a href="#review">2026-10-03 adversarial '
         'review</a> adds findings to every design, each answered by a '
         'design-owner response with its disposition. Read it alongside the '
-        'proposed guarantees in this explainer and the deep dives; where '
-        'they differ, the response wins until the reconciliation pass '
-        'lands.</p>'
+        'proposed guarantees in this explainer and the deep dives; the '
+        'accepted changes were applied to the design bodies on 2026-10-04, '
+        'so where this page and a design differ, the design wins.</p>'
     )
 
     x.append('<h2 id="x-why">The problem</h2>')
@@ -646,13 +653,13 @@ def main():
     for k, items in KEEP_GO.items():
         x.append(f"<div><strong>{k}</strong><ul>" + "".join(f"<li>{t}</li>" for t in items) + "</ul></div>")
     x.append("</div>")
-    x.append('<p class="note">The keep/replace split rests on the assumptions register in DESIGN-0029 (A1–A23) and DESIGN-0033 (F1–F10). The next step after the open questions is an investigation that verifies each assumption against the v2 code before the IMPL plan is written.</p>')
+    x.append('<p class="note">The keep/replace split rests on the assumptions register in DESIGN-0029 (A1–A23), verified against the v2 code in INV-0021 on 2026-10-04: ten hold, ten hold with a caveat that changes the plan but not the model, three (A21–A23) are GitHub facts for a homelab probe, none fails. The F1–F10 register of DESIGN-0033 is mostly moot after its D6. INV-0021 also raises three open questions for the maintainer (suspension model, the fate of <code>repositories.installation_id</code>, retiring live <code>RepoWorkflow</code> executions).</p>')
 
     x.append('<h2 id="x-fwsync">fwsync</h2>')
-    x.append("<p>fwsync is the maintainer's Wiz-side tool: frameworks, rules, scan policies and projects as HCL in git, compiled from a compact domain schema and diff-applied to the Wiz API with a lockfile. Its vocabulary rhymes with the controls model and its direction is the opposite &mdash; it owns its target, repo-guardian proposes. DESIGN-0033 maps every concept, adopts seven conventions and its test kit, rejects every form of code reuse with evidence from the source, and identifies the one real seam: the governed tag schema that both tools use to define the same GitHub custom properties.</p>")
+    x.append("<p>fwsync is the maintainer's Wiz-side tool: frameworks, rules, scan policies and projects as HCL in git, compiled from a compact domain schema and diff-applied to the Wiz API with a lockfile. Its vocabulary rhymes with the controls model and its direction is the opposite &mdash; it owns its target, repo-guardian proposes. DESIGN-0033 maps every concept, adopts seven conventions and its test kit, rejects every form of code reuse with evidence from the source, and evaluated the one apparent seam, the governed tag schema both tools would use to define the same GitHub custom properties, before rejecting it on 2026-10-04 (DESIGN-0033 D6): repo-guardian declares its own property definitions, the built-in keys stay <code>Owner</code>/<code>Component</code>, and the only relationship permitted is fwsync generating repo-guardian policy in repo-guardian's documented format.</p>")
 
     x.append('<h2 id="x-ledger">Decision ledger</h2>')
-    x.append("<p>Every settled choice, across the five documents. Each has a one-line rationale in its document. The later-numbered ones (DESIGN-0030 D6–D7, DESIGN-0031 D7–D8, DESIGN-0032 D8–D10) were added by the reconciliation pass after the deep dives exposed types the prose relied on but never defined, and places where the documents disagreed.</p>")
+    x.append("<p>Every settled choice, across the five documents. Each has a one-line rationale in its document. The later-numbered ones were added in three passes: the 2026-10-03 reconciliation after the deep dives (DESIGN-0030 D6–D7, DESIGN-0031 D7–D8, DESIGN-0032 D8–D10), the 2026-10-04 open-question answers (DESIGN-0029 D4–D5, DESIGN-0030 D8–D11, DESIGN-0031 D9–D11, DESIGN-0032 D11–D14, DESIGN-0033 D6–D7), and the 2026-10-04 application of the adversarial-review responses (DESIGN-0029 D6–D10, DESIGN-0030 D12–D18, DESIGN-0031 D12–D19, DESIGN-0032 D15–D26, DESIGN-0033 D8–D10), which also amended DESIGN-0029 D3, DESIGN-0030 D6, DESIGN-0031 D8, DESIGN-0032 D3, D6, D8, D9 and D11, and DESIGN-0033 D5 in place.</p>")
     for d in docs:
         if not d["decisions"]:
             continue
@@ -680,7 +687,7 @@ def main():
     # ---- deep dives
     body = [render_reviews(docs), '<hr class="docsep">', '<section id="deep">',
             '<h1>Deep dives</h1>',
-            '<p class="lede">Four cross-cutting views that put the five documents next to each other: the types and how data flows through them, the API, the database schema, and the order to build it in. Each ends with the gaps found while drawing it and the decision in the designs that resolved it.</p>',
+            '<p class="lede">Four cross-cutting views that put the five documents next to each other: the types and how data flows through them, the API, the database schema, and the order to build it in. Each ends with the gaps found while drawing it and the decision in the designs that resolved it. The deep dives are a 2026-10-02 snapshot and were not rewritten afterwards: their CODEOWNERS ownership examples (<code>wiz-owners</code>, rule 1.2, the effective-owner matcher) now belong to the deferred DESIGN-0034, and the custom-properties "tag schema seam" was rejected by DESIGN-0033 D6. Where a deep dive and a design body differ, the body wins.</p>',
             deep_html, '</section>']
 
     # ---- docs

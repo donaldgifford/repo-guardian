@@ -91,6 +91,7 @@ nav:
         - 'INV-0018: repo-guardian v2: role split, business state, and a platform UI': investigation/0018-repo-guardian-v2-role-split-business-state-and-a-platform-ui.md
         - 'INV-0019: Temporal as the repo-guardian control plane': investigation/0019-temporal-as-the-repo-guardian-control-plane.md
         - 'INV-0020: KEDA worker autoscaling cannot authenticate to Temporal': investigation/0020-keda-worker-autoscaling-cannot-authenticate-to-temporal.md
+        - 'INV-0021: Controls model assumptions A1 to A23 against the v2 code': investigation/0021-controls-model-assumptions-a1-to-a23-against-the-v2-code.md
     - Plans:
         - Overview: plan/README.md
     - RFCs:

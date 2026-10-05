@@ -49,7 +49,7 @@ created: 2026-10-05
 
 `rgctl` is a small Go command-line tool that answers two operator questions repo-guardian itself cannot answer once it is switched off: *which pull requests did repo-guardian leave open in this org or repository*, and *what did its v1 policy file say*. It reads a v1 `guardian.hcl`, lists the orgs, rules, reconcilers and PR templates it declares, scans an org or a repository for open pull requests authored by the App on `repo-guardian/*` branches, prints them with their links, records them as JSON, and on request closes them with a pointer comment.
 
-It lives outside the engine on purpose. Turning v1 off in an org leaves its pull requests open, and v2 does not reap them: the controls model opens one branch per control and ends the frozen-identity adoption that let v1 and v2 recognise each other's PRs (DESIGN-0032 D4, D27). The cutover runbook already needs this tool twice, to record every open repo-guardian PR before anything closes it (step 3) and to close v1's PRs with a pointer comment after the new release is up (step 6). The v1 packages that know how those PRs were made are scheduled for deletion, so the tool depends on none of them: it talks to GitHub through go-github and reads HCL through hclparse, and a lint rule keeps it that way.
+It lives outside the engine on purpose, as its own Go module under `tools/`. Turning v1 off in an org leaves its pull requests open, and v2 does not reap them: the controls model opens one branch per control and ends the frozen-identity adoption that let v1 and v2 recognise each other's PRs (DESIGN-0032 D4, D27). The cutover runbook already needs this tool twice, to record every open repo-guardian PR before anything closes it (step 3) and to close v1's PRs with a pointer comment after the new release is up (step 6). The v1 packages that know how those PRs were made are scheduled for deletion, so the tool depends on none of them: it talks to GitHub through go-github and reads HCL through hclparse, and a lint rule keeps it that way.
 
 ## Goals and Non-Goals
 
@@ -58,7 +58,7 @@ It lives outside the engine on purpose. Turning v1 off in an org leaves its pull
 - **Inventory open repo-guardian PRs** for one repository, one org, or every org a v1 policy names, with repository, number, branch, title, age, URL and whether a human has pushed to the branch.
 - **Record and close.** Write the inventory as JSON, and close exactly the recorded PRs with a pointer comment, idempotently, with a dry run as the default.
 - **Show what a v1 policy says** without the v1 loader: orgs, `guardian {}` knobs, rules by kind with paths and check mode, reconcilers, PR templates.
-- **Outlive v1.** No import of `internal/`, no shared build tag, no database. The binary builds at any tag of this repository and after v2 fast-forwards `main`.
+- **Outlive v1.** Its own Go module under `tools/`, no requirement on the parent module, no import of `internal/`, no database. The binary installs from any tag or from `main` and keeps building after v2 fast-forwards `main`.
 - **Be safe to point at production.** Act only on PRs authored by the configured App login, never on a PR a human has pushed to unless asked, never on a branch that is not `repo-guardian/*`.
 
 ### Non-Goals
@@ -78,7 +78,7 @@ It lives outside the engine on purpose. Turning v1 off in an org leaves its pull
 
 **What GitHub search can do.** The issues-and-pull-requests search accepts `is:pr is:open org:<org> author:app/<slug> head:<branch>`; `author:app/` selects an integration account, and `head:` matches branch names *beginning with* the given text, so `head:repo-guardian/` selects every repo-guardian branch in one query per org. Search is limited to 30 requests per minute, returns at most 1000 results per query in pages of 100, and may return `incomplete_results = true` on timeout. A search hit is an index entry, not the PR: before anything acts on it the tool reads the PR itself.
 
-**Precedent in this repository.** `cmd/rg-burst` is a side binary in `cmd/` with its own build tag. `.golangci.yml` on the `v2` line uses `depguard` three times to keep packages apart (workflow code may not import the engine, the API may not import the GitHub client); `main` has no `depguard` configuration yet. `cmd/repo-guardian` parses flags with the standard library and dispatches subcommands by hand; the maintainer's standard for new tools is cobra. `internal/github/client_test.go` mocks the GitHub API with `httptest.Server`.
+**Precedent in this repository.** `cmd/rg-burst` is a side binary in `cmd/` with its own build tag, inside the product module; there is no nested module yet. `.golangci.yml` on the `v2` line uses `depguard` three times to keep packages apart (workflow code may not import the engine, the API may not import the GitHub client); `main` has no `depguard` configuration yet. `cmd/repo-guardian` parses flags with the standard library and dispatches subcommands by hand; the maintainer's standard for new tools is cobra. `internal/github/client_test.go` mocks the GitHub API with `httptest.Server`.
 
 ## Detailed Design
 
@@ -86,7 +86,7 @@ It lives outside the engine on purpose. Turning v1 off in an org leaves its pull
 
 ```mermaid
 flowchart LR
-    subgraph tool["cmd/rgctl (no import of internal/)"]
+    subgraph tool["tools/rgctl, its own Go module (never requires the parent module)"]
         main["main.go: flags, dispatch, exit codes"]
         cfg["internal/v1config: loose HCL decode"]
         gh["internal/ghapi: App or token auth, search, verify, close"]
@@ -99,10 +99,10 @@ flowchart LR
     gh --> api["GitHub REST: search, pulls, issues, git refs, apps"]
     prs --> rec["open-prs.json"]
     rec --> prs
-    lint["golangci-lint depguard: deny github.com/donaldgifford/repo-guardian/internal"] -.-> tool
+    lint["module boundary: tools/rgctl/go.mod has no require on the parent, plus depguard"] -.-> tool
 ```
 
-`cmd/rgctl/internal/...` is importable only from under `cmd/rgctl`, which is the point: the tool's own packages are private to it, and the repository's `internal/` tree is denied to it by lint. Three of its dependencies, go-github v68, ghinstallation v2 and hcl v2, are already in `go.mod`; `spf13/cobra` (D7) and `charmbracelet/log` (D15) are new.
+`tools/rgctl` is a separate Go module (`module github.com/donaldgifford/repo-guardian/tools/rgctl`) with its own `go.mod`, so it has its own dependency set and none of them enter the product's `go.mod`: go-github v68, ghinstallation v2, hcl v2, `spf13/cobra` (D7) and `charmbracelet/log` (D15). A directory under the repository's import-path prefix could still import `internal/` (Go's internal rule is by path prefix, not by module), which is why the guard is the module boundary: the tool's `go.mod` never requires `github.com/donaldgifford/repo-guardian`, so an `internal/` import fails to resolve at all, and a depguard rule in the tool's own lint run says why. `tools/rgctl/internal/...` is importable only from under `tools/rgctl`, so the tool's packages are private to it.
 
 ### Commands
 
@@ -226,10 +226,11 @@ The table is for a person; `--format json` is the record, written to `--out <pat
 
 ## API / Interface Changes
 
-- **New binary** `rgctl` from `cmd/rgctl`, with `cmd/rgctl/internal/{v1config,ghapi,prs}` as its private packages.
-- **Lint.** `depguard` is enabled on `main` for the first time, with one rule: files under `cmd/rgctl/` may not import `github.com/donaldgifford/repo-guardian/internal`. The rule is probed once in the PR that adds it (a deliberate bad import must turn `make lint` red, then is removed), because the glob form that works on this golangci-lint version had to be found by experiment on the `v2` line.
-- **Build.** `make build-rgctl` beside `build-core` for local builds. No goreleaser entry on this line: the tool is installed with `go install github.com/donaldgifford/repo-guardian/cmd/rgctl@<tag>` (D13). When it becomes first-class in v2 it gets a `builds:` entry (`main: ./cmd/rgctl`, the package directory, never a file).
-- **CI.** The `go` paths filter already covers `cmd/**`; no new job.
+- **New binary** `rgctl` from `tools/rgctl`, with `tools/rgctl/internal/{v1config,ghapi,prs}` as its private packages.
+- **Module.** `tools/rgctl/go.mod` with its own dependencies; the product's `go.mod` is untouched. The module never requires the parent module, which is asserted by `make lint-rgctl` (a grep on `go.mod` for the parent path fails the build) and by a depguard rule in the tool's own `.golangci.yml` denying `github.com/donaldgifford/repo-guardian/internal`, probed once with a deliberate bad import.
+- **Make.** `build-rgctl`, `lint-rgctl` and `test-rgctl` run inside the module directory; `make lint`, `make test` and `make ci` include them, since `go test ./...` from the root does not descend into a nested module. Renovate picks up the second `go.mod` on its own.
+- **Install.** No goreleaser entry on this line: `go install github.com/donaldgifford/repo-guardian/tools/rgctl@main` (or a `tools/rgctl/vX.Y.Z` tag if one is ever cut) (D13). When it becomes first-class in v2 it moves into the product module and gets a `builds:` entry (the package directory, never a file).
+- **CI.** The `go` paths filter (`**/*.go`, `go.mod`) already matches the module's files; the Make targets above are what put it in the existing jobs.
 - **Docs.** `docs/operations/rgctl.md` with the three commands and the cutover usage; DESIGN-0032's runbook steps 3 and 6 gain a pointer to this tool.
 
 ## Data Model
@@ -262,7 +263,7 @@ There is no database. The record file written by `prs list --format json` and re
 - **Identity rule table test** over author, branch, state and head-repository combinations, including case differences in the login.
 - **Config reader goldens**: every v1 example in `examples/` and the chart's default policy decode to a golden JSON; a file with an unknown block lands it under `unrecognised` with a location; a file that does not parse exits `2` with the HCL diagnostic.
 - **Exit code tests** for each of the four codes.
-- **Lint probe**, once: add `import _ "github.com/donaldgifford/repo-guardian/internal/policy"` to `cmd/rgctl/main.go`, confirm `make lint` fails with the rule's message, remove it.
+- **Lint probe**, once: add `import _ "github.com/donaldgifford/repo-guardian/internal/policy"` to `tools/rgctl/main.go`, confirm `make lint` fails with the rule's message, remove it.
 - **Homelab smoke** (human): `prs list --org <org>` against the homelab installation, compare with the GitHub UI, then `prs close --from` on one throwaway PR with `--yes`.
 
 ## Migration / Rollout Plan
@@ -278,9 +279,9 @@ There is no database. The record file written by `prs list --format json` and re
 - **D1 Identity is author plus branch prefix** — a PR is repo-guardian's when the App's bot login authored it and its head branch starts with `repo-guardian/`; titles and bodies are operator-templated and the reconcile-log marker is absent on first-reconcile PRs, so neither can be required. The same two facts hold for v2's per-control branches, so the tool is not v1-only.
 - **D2 Search finds, the Pull Requests API decides** — every search hit is re-read before it is listed and again before it is acted on; the index is a shortcut, never evidence.
 - **D3 Dry run is the default and every write re-reads first** — `--yes` is required to act, and comment, close and branch deletion are each idempotent so a re-run after a partial failure is safe.
-- **D4 The tool imports nothing under `internal/`** — enforced by `depguard`, probed once; this is the whole reason it can outlive v1.
+- **D4 The tool imports nothing under `internal/`** — enforced by the module boundary (no requirement on the parent module) and restated by `depguard`, probed once; this is the whole reason it can outlive v1.
 - **D5 The record file is the cutover contract** — step 3 writes it, step 6 reads it, and the close pass acts on exact identities rather than on a fresh search.
-- **D6 `cmd/rgctl`, named `rgctl`** — in this repository, private packages under `cmd/rgctl/internal`, the depguard rule as the boundary (OQ1, OQ2, resolved 2026-10-05).
+- **D6 `tools/rgctl` as its own Go module, named `rgctl`** — in this repository but outside the product module: its own `go.mod` that never requires the parent, its own dependencies, `go install`-able on its own, movable later. The module boundary is the guard; depguard restates it (OQ1 amended and OQ2, resolved 2026-10-05).
 - **D7 cobra** — the maintainer's standard for new command-line tools; completion and help for free, one new dependency (OQ3, resolved 2026-10-05).
 - **D8 Search first, verify always** — org scans search then read every hit through the Pull Requests API; `--exhaustive` is the opt-in full walk (OQ4, resolved 2026-10-05, restating D2).
 - **D9 Edited PRs need `--force`** — a PR with a commit by anyone other than the App is skipped and reported; `--force` closes it anyway; its branch is never deleted. The cutover leaves edited PRs for the controls engine to adopt (OQ5, resolved 2026-10-05).
@@ -295,7 +296,7 @@ There is no database. The record file written by `prs list --format json` and re
 
 ### OQ1: Where does the tool live?
 
-**Resolved 2026-10-05: (a).** `cmd/rgctl` (D6).
+**Resolved 2026-10-05: other.** `tools/rgctl` as its own Go module: the same repository as (a), but outside the product module, so `go install` works on its own, its dependencies stay out of the product's `go.mod`, and it can be moved or retired without touching v1 or v2 (D6).
 
 - (a) ✅ recommended: `cmd/rgctl` in this repository, private packages under `cmd/rgctl/internal`, guarded by the `depguard` rule. One repository, one release pipeline, the dependencies already present, and the lint rule makes the "outlives v1" promise mechanical.
 - (b) A separate repository (`repo-guardian-tools`). Cleaner separation, but a second goreleaser, signing and renovate setup for one small binary, and nothing stops it importing this module later.
@@ -369,7 +370,7 @@ There is no database. The record file written by `prs list --format json` and re
 
 **Resolved 2026-10-05: (b).** `go install` only; the tool moves into goreleaser when it is first-class in v2 (D13).
 
-- (a) ✅ recommended: a second `builds:` entry in `.goreleaser.yml`, shipped, signed and attached to the same release as `repo-guardian`, plus `go install github.com/donaldgifford/repo-guardian/cmd/rgctl@<tag>`.
+- (a) ✅ recommended: a second `builds:` entry in `.goreleaser.yml`, shipped, signed and attached to the same release as `repo-guardian`, plus `go install github.com/donaldgifford/repo-guardian/tools/rgctl@<tag>`.
 - (b) `go install` only. No release work, but no signed artifact and a Go toolchain required on the operator's machine.
 - (c) Its own release cadence and tags. Only worth it if the tool moves to its own repository (OQ1 b).
 - other:
@@ -391,4 +392,4 @@ There is no database. The record file written by `prs list --format json` and re
 - `internal/checker/engine.go` (`BranchName`, `PRTitle`), `internal/reconciler/custom_properties.go` (`PropertiesBranchName`, `CatalogInfoBranchName`), `internal/checker/drift.go` (`reconcileLogMarker`), `TestPRIdentity_IsFrozen`.
 - GitHub docs: searching issues and pull requests (`author:app/`, `head:` prefix match); REST search (30 requests per minute, 1000 results per query, `incomplete_results`).
 - `.golangci.yml` on the `v2` line: the three existing `depguard` rules; CLAUDE.md note that `**/internal/workflows/*.go` was the glob form that matched.
-- `cmd/rg-burst`: precedent for a side binary under `cmd/`.
+- `cmd/rg-burst`: precedent for a side binary in this repository; `tools/rgctl` differs by being its own module.

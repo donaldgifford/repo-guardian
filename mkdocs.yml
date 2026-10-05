@@ -98,6 +98,7 @@ nav:
         - Generating dashboards and alerts: operations/monitoring-generation.md
         - Homelab CNPG cutover runbook: operations/cnpg-homelab-cutover.md
         - Postgres schema operations: operations/migrations.md
+        - "rgctl: find and close repo-guardian pull requests": operations/rgctl.md
         - Running repo-guardian on AWS: operations/aws.md
         - Scaling repo-guardian: operations/scaling.md
         - Template migration guide (chart 0.3.x → 0.4.0): operations/template-migration.md

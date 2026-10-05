@@ -244,7 +244,9 @@ Makes the tool findable and records the one human-run check.
 - [x] 5.2 CLAUDE.md: a short `tools/rgctl` entry (own module, never requires the parent, Make targets, the lint probe, go-github v75 versus the product's v68).
 - [x] 5.3 Complete `tools/rgctl/README.md`; one paragraph in the root README pointing at it.
 - [ ] 5.4 Homelab smoke (operator): `rgctl prs list --org <personal account> --format json --out smoke.json` compared with the GitHub UI, then `rgctl prs close --from smoke.json --yes` on one throwaway PR; paste the summary lines here. Mark `deferred - human required` if not run before merge.
+  - `deferred - human required`: the smoke needs the homelab App credentials and a throwaway PR on the personal account. Run the two commands above and paste their summary lines here.
 - [ ] 5.5 Follow-up on the `v2` line: a one-line pointer to `rgctl` in DESIGN-0032's runbook steps 3 and 6, as its own PR against `v2`; link it here.
+  - `deferred - blocked`: DESIGN-0032 is not on `v2` yet. It exists only in open PR #202 (`docs/controls-and-policies` into `v2`), so a separate PR against `v2` has nothing to edit. Add the pointer in #202 before it merges, or in a follow-up against `v2` after it does.
 - [ ] 5.6 `docz update design impl`: DESIGN-0035 → Implemented, IMPL-0027 → Completed.
 
 #### Success Criteria

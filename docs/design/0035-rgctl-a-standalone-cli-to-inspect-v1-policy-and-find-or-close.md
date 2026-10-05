@@ -23,6 +23,7 @@ created: 2026-10-05
   - [Finding PRs](#finding-prs)
   - [Closing PRs](#closing-prs)
   - [Reading a v1 policy](#reading-a-v1-policy)
+  - [Logging and output](#logging-and-output)
   - [Output and exit codes](#output-and-exit-codes)
   - [Guarantees](#guarantees)
 - [API / Interface Changes](#api--interface-changes)
@@ -67,6 +68,7 @@ It lives outside the engine on purpose. Turning v1 off in an org leaves its pull
 - Replacing `repo-guardian evaluate` or `policy validate`. `config show` describes a v1 file; it does not validate it against the v1 schema.
 - Managing GitHub App installations, secrets or webhooks.
 - Closing PRs from other tools. The author and branch rules are deliberately narrow.
+- An interactive terminal UI. A bubbletea front end for interactive searches is attractive, and deferred to v2, where it can run against the API instead of against GitHub directly (D12).
 
 ## Background
 
@@ -76,7 +78,7 @@ It lives outside the engine on purpose. Turning v1 off in an org leaves its pull
 
 **What GitHub search can do.** The issues-and-pull-requests search accepts `is:pr is:open org:<org> author:app/<slug> head:<branch>`; `author:app/` selects an integration account, and `head:` matches branch names *beginning with* the given text, so `head:repo-guardian/` selects every repo-guardian branch in one query per org. Search is limited to 30 requests per minute, returns at most 1000 results per query in pages of 100, and may return `incomplete_results = true` on timeout. A search hit is an index entry, not the PR: before anything acts on it the tool reads the PR itself.
 
-**Precedent in this repository.** `cmd/rg-burst` is a side binary in `cmd/` with its own build tag. `.golangci.yml` on the `v2` line uses `depguard` three times to keep packages apart (workflow code may not import the engine, the API may not import the GitHub client); `main` has no `depguard` configuration yet. `cmd/repo-guardian` parses flags with the standard library and dispatches subcommands by hand. `internal/github/client_test.go` mocks the GitHub API with `httptest.Server`.
+**Precedent in this repository.** `cmd/rg-burst` is a side binary in `cmd/` with its own build tag. `.golangci.yml` on the `v2` line uses `depguard` three times to keep packages apart (workflow code may not import the engine, the API may not import the GitHub client); `main` has no `depguard` configuration yet. `cmd/repo-guardian` parses flags with the standard library and dispatches subcommands by hand; the maintainer's standard for new tools is cobra. `internal/github/client_test.go` mocks the GitHub API with `httptest.Server`.
 
 ## Detailed Design
 
@@ -100,7 +102,7 @@ flowchart LR
     lint["golangci-lint depguard: deny github.com/donaldgifford/repo-guardian/internal"] -.-> tool
 ```
 
-`cmd/rgctl/internal/...` is importable only from under `cmd/rgctl`, which is the point: the tool's own packages are private to it, and the repository's `internal/` tree is denied to it by lint. The three external dependencies, go-github v68, ghinstallation v2 and hcl v2, are already in `go.mod`.
+`cmd/rgctl/internal/...` is importable only from under `cmd/rgctl`, which is the point: the tool's own packages are private to it, and the repository's `internal/` tree is denied to it by lint. Three of its dependencies, go-github v68, ghinstallation v2 and hcl v2, are already in `go.mod`; `spf13/cobra` (D7) and `charmbracelet/log` (D15) are new.
 
 ### Commands
 
@@ -120,7 +122,7 @@ Selection flags shared by `list` and `close`:
 | `--config path` | every org in the file's `scope { orgs }`; without a `scope` block the installations of the App, since legacy mode applies to every installed org | |
 | `--branch name` | restrict to one head branch, repeatable; default is the prefix `repo-guardian/` | prefix |
 | `--exhaustive` | list every repository and its open PRs instead of searching, for the final cutover pass or when search reports incomplete results | off |
-| `--include-edited` | also act on PRs with commits by someone other than the App | off |
+| `--force` | also close PRs with commits by someone other than the App; their branch is still never deleted | off |
 | `--format table \| json` | output | table |
 
 Auth flags, read from flags or environment, never from positional arguments:
@@ -176,7 +178,7 @@ Search is the default for an org because it is one request per page of 100 PRs r
 ```mermaid
 stateDiagram-v2
     [*] --> Selected
-    Selected --> Skipped: not ours, or edited without --include-edited
+    Selected --> Skipped: not ours, or edited without --force
     Selected --> Planned: ours
     Planned --> Planned: dry run, printed
     Planned --> Commented: --yes, POST comment
@@ -187,7 +189,7 @@ stateDiagram-v2
     Planned --> Skipped: already closed when re-read
 ```
 
-`prs close` re-reads every PR immediately before acting, so a record from `prs list` that has gone stale is handled rather than trusted: a PR closed by a human in the meantime is reported as already closed and skipped. The order is comment, then close, then branch, so a failure leaves a PR that still explains itself. Each step is idempotent on re-run: a comment whose first line is the tool's marker `<!-- rgctl:closed-by-migration:v1 -->` is not posted twice, a closed PR is not closed again, a missing branch is not an error. The default comment names the tool and the date and says the repository is now managed by the per-control PRs of repo-guardian v2; `--comment` replaces it. The branch is deleted only with `--delete-branch`, and never for an edited PR even with `--include-edited`, because a human's commits are on it.
+`prs close` re-reads every PR immediately before acting, so a record from `prs list` that has gone stale is handled rather than trusted: a PR closed by a human in the meantime is reported as already closed and skipped. The order is comment, then close, then branch, so a failure leaves a PR that still explains itself. Each step is idempotent on re-run: a comment whose first line is the tool's marker `<!-- rgctl:closed-by-migration:v1 -->` is not posted twice, a closed PR is not closed again, a missing branch is not an error. The default comment names the tool and the date and says the repository is now managed by the per-control PRs of repo-guardian v2; `--comment` replaces it. The branch is deleted only with `--delete-branch`, and never for an edited PR even with `--force`, because a human's commits are on it.
 
 `--from open-prs.json` is the cutover shape: the record written by step 3 is the only input to step 6, so the close pass acts on exact identities rather than on a fresh search that might see a different set.
 
@@ -206,15 +208,19 @@ stateDiagram-v2
 
 This is deliberately a reader, not a loader. The v1 loader's strict decode, merge order, env overrides and validation stay in `internal/policy` and are not reproduced; when they are deleted the reader keeps working because it never depended on them.
 
+### Logging and output
+
+Human-facing output is a `log/slog` logger backed by `charmbracelet/log`'s handler: levelled, timestamped, coloured when stdout is a terminal, plain when it is not or when `NO_COLOR` or `--no-color` is set, `--log-level` for verbosity (D15). Progress lines ("org acme: 3 pages, 212 hits, 209 verified, 3 dropped") and every planned or performed action are logged, so a dry run reads as a plan and a `--yes` run reads as a journal. The table and the log both go to stdout. The one exception is the JSON record: when `--format json` writes to stdout rather than to `--out <path>`, the log moves to stderr for that run so the record stays parseable with a plain redirect.
+
 ### Output and exit codes
 
-The table is for a person; `--format json` is the record. Exit codes follow the convention the controls CLI adopts (DESIGN-0033 AR-0033-07): `0` nothing found or every planned action done, `1` open repo-guardian PRs found (`list`) or PRs skipped as edited (`close`), `2` usage or configuration error, `3` operational failure (auth, rate limit exhausted, API error). A runbook can therefore gate on `rgctl prs list --org X; test $? -eq 0`.
+The table is for a person; `--format json` is the record, written to `--out <path>` or to stdout. Exit codes follow the convention the controls CLI adopts (DESIGN-0033 AR-0033-07): `0` nothing found or every planned action done, `1` open repo-guardian PRs found (`list`) or PRs skipped as edited (`close`), `2` usage or configuration error, `3` operational failure (auth, rate limit exhausted, API error). A runbook can therefore gate on `rgctl prs list --org X; test $? -eq 0`.
 
 ### Guarantees
 
 - Nothing is written without `--yes`, and nothing is ever written by `list` or `config show`.
 - No PR is touched whose author is not the configured bot login, whatever its branch.
-- No PR with a human commit is touched without `--include-edited`, and its branch is never deleted.
+- No PR with a human commit is touched without `--force`, and its branch is never deleted.
 - Every write is preceded by a fresh read of the PR.
 - The tool never holds a database connection, never reads repo-guardian's own config env vars, and imports nothing under `internal/`.
 
@@ -222,7 +228,7 @@ The table is for a person; `--format json` is the record. Exit codes follow the 
 
 - **New binary** `rgctl` from `cmd/rgctl`, with `cmd/rgctl/internal/{v1config,ghapi,prs}` as its private packages.
 - **Lint.** `depguard` is enabled on `main` for the first time, with one rule: files under `cmd/rgctl/` may not import `github.com/donaldgifford/repo-guardian/internal`. The rule is probed once in the PR that adds it (a deliberate bad import must turn `make lint` red, then is removed), because the glob form that works on this golangci-lint version had to be found by experiment on the `v2` line.
-- **Build and release.** `make build-rgctl` beside `build-core`; a second `builds:` entry in `.goreleaser.yml` (`id: rgctl`, `main: ./cmd/rgctl`, the package directory, never a file) in the same release as `repo-guardian`, same platforms, same signing.
+- **Build.** `make build-rgctl` beside `build-core` for local builds. No goreleaser entry on this line: the tool is installed with `go install github.com/donaldgifford/repo-guardian/cmd/rgctl@<tag>` (D13). When it becomes first-class in v2 it gets a `builds:` entry (`main: ./cmd/rgctl`, the package directory, never a file).
 - **CI.** The `go` paths filter already covers `cmd/**`; no new job.
 - **Docs.** `docs/operations/rgctl.md` with the three commands and the cutover usage; DESIGN-0032's runbook steps 3 and 6 gain a pointer to this tool.
 
@@ -261,10 +267,11 @@ There is no database. The record file written by `prs list --format json` and re
 
 ## Migration / Rollout Plan
 
-1. Ship `rgctl` in the next v1 release from `main`, so it is available before anyone turns v1 off anywhere.
+1. Land `rgctl` on `main` so it is installable with `go install` at any later tag, before anyone turns v1 off anywhere.
 2. Use it whenever v1 is removed from an org: `prs list --org X --format json > X.json`, review, `prs close --from X.json --yes`.
 3. At the v2.0.0 cutover it is runbook steps 3 and 6 (DESIGN-0032): the step-3 record is the step-6 input. Edited PRs are left for the controls engine to adopt as tracked PRs.
 4. After v2 fast-forwards `main`, the tool keeps building because it never imported the deleted packages; the lint rule is what makes that true rather than lucky.
+5. In v2 the in-app CLI, and later a TUI, replace it as a fast follow, running against repo-guardian's API rather than against GitHub; `rgctl` then either becomes that first-class tool with a goreleaser entry or is retired (D12, D13).
 
 ## Decisions
 
@@ -273,10 +280,22 @@ There is no database. The record file written by `prs list --format json` and re
 - **D3 Dry run is the default and every write re-reads first** — `--yes` is required to act, and comment, close and branch deletion are each idempotent so a re-run after a partial failure is safe.
 - **D4 The tool imports nothing under `internal/`** — enforced by `depguard`, probed once; this is the whole reason it can outlive v1.
 - **D5 The record file is the cutover contract** — step 3 writes it, step 6 reads it, and the close pass acts on exact identities rather than on a fresh search.
+- **D6 `cmd/rgctl`, named `rgctl`** — in this repository, private packages under `cmd/rgctl/internal`, the depguard rule as the boundary (OQ1, OQ2, resolved 2026-10-05).
+- **D7 cobra** — the maintainer's standard for new command-line tools; completion and help for free, one new dependency (OQ3, resolved 2026-10-05).
+- **D8 Search first, verify always** — org scans search then read every hit through the Pull Requests API; `--exhaustive` is the opt-in full walk (OQ4, resolved 2026-10-05, restating D2).
+- **D9 Edited PRs need `--force`** — a PR with a commit by anyone other than the App is skipped and reported; `--force` closes it anyway; its branch is never deleted. The cutover leaves edited PRs for the controls engine to adopt (OQ5, resolved 2026-10-05).
+- **D10 App key or operator token** — both credential shapes; the bot login is discovered under App auth and required under token auth (OQ6, resolved 2026-10-05).
+- **D11 Branch deletion is opt-in** — `--delete-branch`, never for an edited PR (OQ7, resolved 2026-10-05).
+- **D12 A loose reader, and a bounded lifetime** — `config show` renders what the file says without the v1 loader. The tool exists to troubleshoot v1 and to cut over to v2; in v2 an in-app CLI, and later a bubbletea TUI, replace it against the API as a fast follow (OQ8, resolved 2026-10-05).
+- **D13 `go install` only on this line** — no goreleaser entry until the tool is first-class in v2 (OQ9, resolved 2026-10-05).
+- **D14 A default pointer comment** — fixed text behind the tool's marker line, `--comment` to replace it (OQ10, resolved 2026-10-05).
+- **D15 Human-readable logs through `charmbracelet/log`** — an `slog` handler, coloured on a terminal, on stdout beside the table; on stderr only while a JSON record is being written to stdout (2026-10-05).
 
 ## Open Questions
 
 ### OQ1: Where does the tool live?
+
+**Resolved 2026-10-05: (a).** `cmd/rgctl` (D6).
 
 - (a) ✅ recommended: `cmd/rgctl` in this repository, private packages under `cmd/rgctl/internal`, guarded by the `depguard` rule. One repository, one release pipeline, the dependencies already present, and the lint rule makes the "outlives v1" promise mechanical.
 - (b) A separate repository (`repo-guardian-tools`). Cleaner separation, but a second goreleaser, signing and renovate setup for one small binary, and nothing stops it importing this module later.
@@ -285,12 +304,16 @@ There is no database. The record file written by `prs list --format json` and re
 
 ### OQ2: What is it called?
 
+**Resolved 2026-10-05: (a).** `rgctl` (D6).
+
 - (a) ✅ recommended: `rgctl`. Short, does not collide with `rg` (ripgrep) or the user's `forge`, and reads as "repo-guardian control" beside `kubectl`.
 - (b) `rg-prs`. Says what it does today, but `config show` and any later subcommand do not fit the name.
 - (c) `repo-guardian-cli`. Unambiguous and long.
 - other:
 
 ### OQ3: Which command-line framework?
+
+**Resolved 2026-10-05: (b).** cobra is the standard for new tools here (D7).
 
 - (a) ✅ recommended: the standard library `flag` package with hand-written subcommand dispatch, as `cmd/repo-guardian` does. Three subcommands and a dozen flags do not need a framework, and no new dependency enters `go.mod`.
 - (b) `spf13/cobra`. Completion and help for free, one more dependency and a different style from the main binary.
@@ -299,12 +322,16 @@ There is no database. The record file written by `prs list --format json` and re
 
 ### OQ4: How does an org scan find PRs by default?
 
+**Resolved 2026-10-05: (a).** Search then verify, `--exhaustive` opt-in (D8).
+
 - (a) ✅ recommended: search first, verify every hit through the Pull Requests API, `--exhaustive` as an opt-in that lists every repository. One request per 100 PRs instead of one per repository, with the index's two failure modes (timeout, 1000-result cap) surfaced as warnings that name the fallback.
 - (b) Exhaustive by default, search never. Always correct, but one request per repository per org, which at twenty-plus orgs is thousands of calls for a handful of PRs.
 - (c) Search only, no verification. Fewer calls, but a stale index hit could be acted on.
 - other:
 
 ### OQ5: What happens to a PR a human has pushed to?
+
+**Resolved 2026-10-05: other.** As (a), with the flag named `--force`: edited PRs are skipped and reported, `--force` closes them, their branch is never deleted (D9).
 
 - (a) ✅ recommended: skipped and reported, with `--include-edited` to close it anyway and its branch never deleted. This matches DESIGN-0032's runbook, which adopts edited PRs as tracked PRs rather than closing them.
 - (b) Closed like any other, with the comment. Simpler, but discards human work that v2 would otherwise pick up.
@@ -313,12 +340,16 @@ There is no database. The record file written by `prs list --format json` and re
 
 ### OQ6: Which credentials?
 
+**Resolved 2026-10-05: (a).** Both (D10).
+
 - (a) ✅ recommended: both an App id plus private-key file (installation tokens per org, bot login discovered from `GET /app`, repository set equal to what v1 could see) and a `GH_TOKEN` operator token (then `--bot-login` is required). App auth is the natural cutover shape; token auth is what an operator reaches for on a laptop.
 - (b) App auth only. One code path, but every use needs the key file.
 - (c) Token only. Simplest, but the closing comment and the close itself are attributed to a person, and listing an org's repositories needs the token's own org access.
 - other:
 
 ### OQ7: Is the branch deleted when a PR is closed?
+
+**Resolved 2026-10-05: (a).** Opt-in with `--delete-branch` (D11).
 
 - (a) ✅ recommended: only with `--delete-branch`, and never for an edited PR. Closing is reversible, deleting a branch is not, and GitHub keeps a closed PR's branch restorable only while the PR exists.
 - (b) Always delete. Tidier, and the default most people want at cutover, but one flag away either way.
@@ -327,6 +358,8 @@ There is no database. The record file written by `prs list --format json` and re
 
 ### OQ8: How much of the v1 policy does `config show` understand?
 
+**Resolved 2026-10-05: (a).** A loose reader is enough: the tool is a troubleshooting and cutover aid for the v1 line, replaced in v2 by the in-app CLI and TUI as a fast follow (D12).
+
 - (a) ✅ recommended: a loose reader, the six top-level block types and the attributes of `rule` and `reconcile` blocks, with everything else listed as unrecognised and no evaluation. Enough to answer "what orgs, what rules, what mode" from any v1 file, and nothing to keep in step with the v1 schema.
 - (b) A vendored copy of the v1 schema and merge rules. Exact, but a second copy of code that is being deleted.
 - (c) No `config show`; orgs come from `--org` flags only. Smaller, and loses the "what did v1 say" answer the tool is partly for.
@@ -334,12 +367,16 @@ There is no database. The record file written by `prs list --format json` and re
 
 ### OQ9: How is it distributed?
 
+**Resolved 2026-10-05: (b).** `go install` only; the tool moves into goreleaser when it is first-class in v2 (D13).
+
 - (a) ✅ recommended: a second `builds:` entry in `.goreleaser.yml`, shipped, signed and attached to the same release as `repo-guardian`, plus `go install github.com/donaldgifford/repo-guardian/cmd/rgctl@<tag>`.
 - (b) `go install` only. No release work, but no signed artifact and a Go toolchain required on the operator's machine.
 - (c) Its own release cadence and tags. Only worth it if the tool moves to its own repository (OQ1 b).
 - other:
 
 ### OQ10: What does the default pointer comment say?
+
+**Resolved 2026-10-05: (a).** Fixed default text, `--comment` to replace it (D14).
 
 - (a) ✅ recommended: a fixed text naming the tool, the date and that the repository is now managed by repo-guardian v2's per-control PRs, overridable with `--comment`, always preceded by the tool's marker line so a re-run never posts twice.
 - (b) `--comment` required, no default. Forces the operator to write something accurate, and makes the cutover command longer.

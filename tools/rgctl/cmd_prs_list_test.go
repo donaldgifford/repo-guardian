@@ -77,7 +77,7 @@ func TestPRsList_Org(t *testing.T) {
 	srv := fake(t)
 	seedOrg(srv)
 
-	r := runFake(t, srv, tokenEnv(), "prs", "list", "--org", "acme", "--format", "json")
+	r := runFake(t, srv, tokenEnv(), cmdPRs, cmdList, "--org", "acme", "--format", "json")
 	if r.code != exitFound {
 		t.Fatalf("exit = %d, want %d\nstderr:\n%s", r.code, exitFound, r.stderr)
 	}
@@ -135,7 +135,7 @@ func TestPRsList_Exhaustive(t *testing.T) {
 	seedOrg(srv)
 	srv.Repos = []ghapitest.Repo{{Owner: "acme", Name: "web"}, {Owner: "acme", Name: "api"}, {Owner: "acme", Name: "bulk"}}
 
-	r := runFake(t, srv, tokenEnv(), "prs", "list", "--org", "acme", "--exhaustive", "--format", "json")
+	r := runFake(t, srv, tokenEnv(), cmdPRs, cmdList, "--org", "acme", "--exhaustive", "--format", "json")
 	if r.code != exitFound {
 		t.Fatalf("exit = %d, want %d\n%s", r.code, exitFound, r.stderr)
 	}
@@ -155,7 +155,7 @@ func TestPRsList_RepoGolden(t *testing.T) {
 	srv := fake(t)
 	seedOrg(srv)
 
-	r := runFake(t, srv, tokenEnv(), "prs", "list", "--repo", "acme/web", "--format", "json")
+	r := runFake(t, srv, tokenEnv(), cmdPRs, cmdList, "--repo", "acme/web", "--format", "json")
 	if r.code != exitFound {
 		t.Fatalf("exit = %d, want %d\n%s", r.code, exitFound, r.stderr)
 	}
@@ -180,7 +180,7 @@ func TestPRsList_Table(t *testing.T) {
 	seedOrg(srv)
 	out := filepath.Join(t.TempDir(), "acme.json")
 
-	r := runFake(t, srv, tokenEnv(), "prs", "list", "--repo", "acme/web", "--out", out)
+	r := runFake(t, srv, tokenEnv(), cmdPRs, cmdList, "--repo", "acme/web", "--out", out)
 	if r.code != exitFound {
 		t.Fatalf("exit = %d, want %d\n%s", r.code, exitFound, r.stderr)
 	}
@@ -213,7 +213,7 @@ func TestPRsList_Config(t *testing.T) {
 		t.Parallel()
 		srv := fake(t)
 		seedOrg(srv)
-		r := runFake(t, srv, tokenEnv(), "prs", "list", "--config", scoped, "--format", "json")
+		r := runFake(t, srv, tokenEnv(), cmdPRs, cmdList, "--config", scoped, "--format", "json")
 		if r.code != exitFound || !slices.Equal(decodeRecord(t, r.stdout).Selection.Orgs, []string{"acme"}) {
 			t.Errorf("exit = %d, want %d scanning acme\n%s", r.code, exitFound, r.stderr)
 		}
@@ -221,7 +221,7 @@ func TestPRsList_Config(t *testing.T) {
 	t.Run("legacy mode under token auth", func(t *testing.T) {
 		t.Parallel()
 		srv := fake(t)
-		r := runFake(t, srv, tokenEnv(), "prs", "list", "--config", legacy)
+		r := runFake(t, srv, tokenEnv(), cmdPRs, cmdList, "--config", legacy)
 		if r.code != exitUsage || !strings.Contains(r.stdout+r.stderr, "needs App credentials") {
 			t.Errorf("exit = %d, want %d with the App-credentials message\n%s%s", r.code, exitUsage, r.stdout, r.stderr)
 		}
@@ -231,7 +231,7 @@ func TestPRsList_Config(t *testing.T) {
 		srv := fake(t)
 		seedOrg(srv)
 		env := map[string]string{envAppID: "7", envKeyFile: appKey(t)}
-		r := runFake(t, srv, env, "prs", "list", "--config", legacy, "--format", "json")
+		r := runFake(t, srv, env, cmdPRs, cmdList, "--config", legacy, "--format", "json")
 		rec := decodeRecord(t, r.stdout)
 		orgs := slices.Sorted(slices.Values(rec.Selection.Orgs))
 		if r.code != exitFound || !slices.Equal(orgs, []string{"acme", "globex"}) {
@@ -245,7 +245,7 @@ func TestPRsList_IncompleteWarnsOnce(t *testing.T) {
 	srv := fake(t)
 	seedOrg(srv)
 	srv.SearchIncomplete = true
-	r := runFake(t, srv, tokenEnv(), "prs", "list", "--org", "acme")
+	r := runFake(t, srv, tokenEnv(), cmdPRs, cmdList, "--org", "acme")
 	if got := strings.Count(r.stdout, "--exhaustive"); got != 1 {
 		t.Errorf("--exhaustive named %d times, want once:\n%s", got, r.stdout)
 	}
@@ -280,7 +280,7 @@ func TestPRsList_ExitCodes(t *testing.T) {
 			if tt.fault {
 				srv.Fail(http.MethodGet, "/search/issues", http.StatusInternalServerError, -1)
 			}
-			r := runFake(t, srv, tt.env, append([]string{"prs", "list"}, tt.args...)...)
+			r := runFake(t, srv, tt.env, append([]string{cmdPRs, cmdList}, tt.args...)...)
 			if r.code != tt.want {
 				t.Errorf("exit = %d, want %d\n%s%s", r.code, tt.want, r.stdout, r.stderr)
 			}

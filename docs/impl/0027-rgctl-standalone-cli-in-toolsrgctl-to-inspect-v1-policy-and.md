@@ -105,6 +105,8 @@ flowchart LR
 
 Phases 1 and 2 are independent and can be built in parallel after Phase 0.
 
+**Delivery (OQ3, OQ4):** one PR against `main` carries every phase, labelled `dont-release`; the phases are the order of work on the branch and are checked off here as they land, not separate reviews.
+
 ---
 
 ### Phase 0: Module skeleton and guardrails
@@ -116,9 +118,9 @@ Establishes the module, the command surface, logging, the lint boundary and the 
 - [ ] 0.1 Create `tools/rgctl/go.mod` (`module github.com/donaldgifford/repo-guardian/tools/rgctl`, `go 1.26`) and `main.go`: cobra root command `rgctl` with persistent flags `--log-level` (default `info`) and `--no-color`, a `version` subcommand reading `debug.ReadBuildInfo` (module version, VCS revision, dirty flag), and the `config` and `prs` parent commands as empty groups. Pin cobra v1.10.2, charmbracelet/log v0.4.2, go-github v75.0.0, ghinstallation v2.17.0, hcl v2.24.0.
 - [ ] 0.2 Exit codes: an `exitError{code int, err error}` type returned by commands and mapped once in `main` (0 none or done, 1 found or skipped, 2 usage or configuration, 3 operational), with cobra's own usage errors mapped to 2. `SilenceUsage` and `SilenceErrors` on, so the tool prints one error line through the logger, never a usage dump after a runtime failure.
 - [ ] 0.3 Logging: `internal/clog` builds a `*slog.Logger` from `charmbracelet/log` (`log.NewWithOptions(w, log.Options{ReportTimestamp: true, Level: ...})` wrapped by `slog.New`); colour follows the terminal, `NO_COLOR` and `--no-color`; a `Streams{Out, Log io.Writer}` value is threaded to commands so Phase 3 can move the log to stderr when a JSON record goes to stdout (DESIGN-0035 D15).
-- [ ] 0.4 Lint boundary (OQ2): the depguard rule denying `github.com/donaldgifford/repo-guardian/internal` with the message "rgctl must outlive v1 and the controls rewrite", and `make lint-rgctl` failing if `tools/rgctl/go.mod` contains a `require` on `github.com/donaldgifford/repo-guardian`. Probe once: add `import _ "github.com/donaldgifford/repo-guardian/internal/policy"` to `main.go`, run `make lint-rgctl`, confirm it fails with the rule's message (and that `go build` fails to resolve the import), remove the line, note the result in the PR.
-- [ ] 0.5 Makefile: `build-rgctl` (`cd tools/rgctl && go build -o ../../build/bin/rgctl .`), `lint-rgctl`, `test-rgctl` (`go test -v -race ./...` in the module), `test-coverage-rgctl` (profile to `build/coverage-rgctl.out`); add them as prerequisites of `build`, `lint`, `test` and `test-coverage` so `make ci` and `make check` cover the module. One Makefile, no include.
-- [ ] 0.6 CI: in `ci.yml` add a second `golangci-lint-action@v9` step to the lint job with `working-directory: tools/rgctl` (config path per OQ2); confirm the test job's `make test-coverage` now runs the module; widen the `go` paths filter with `'**/go.mod'` and `'**/go.sum'`; upload the module's coverage profile per OQ8.
+- [ ] 0.4 Lint boundary (OQ2): enable `depguard` in the root `.golangci.yml` with one rule, files glob scoped to `tools/rgctl`, denying `github.com/donaldgifford/repo-guardian/internal` with the message "rgctl must outlive v1 and the controls rewrite", and `make lint-rgctl` (`cd tools/rgctl && golangci-lint run --config ../../.golangci.yml ./...`) also failing if `tools/rgctl/go.mod` contains a `require` on `github.com/donaldgifford/repo-guardian`. Probe once: add `import _ "github.com/donaldgifford/repo-guardian/internal/policy"` to `main.go`, run `make lint-rgctl`, confirm it fails with the rule's message (and that `go build` fails to resolve the import), remove the line, note the failing output in the PR description. Because the root config is shared, confirm `make lint` on the product module is unchanged by the enable (the glob matches nothing there).
+- [ ] 0.5 Makefile: `build-rgctl` (`cd tools/rgctl && go build -o ../../build/bin/rgctl .`), `lint-rgctl`, `test-rgctl` (`go test -v -race ./...` in the module), `test-coverage-rgctl` (profile to `coverage-rgctl.out` beside the root `coverage.out`, removed by `clean`); add them as prerequisites of `build`, `lint`, `test` and `test-coverage` so `make ci` and `make check` cover the module. One Makefile, no include.
+- [ ] 0.6 CI: in `ci.yml` add a second `golangci-lint-action@v9` step to the lint job with `working-directory: tools/rgctl` and `args: --config ../../.golangci.yml`; confirm the test job's `make test-coverage` now runs the module; widen the `go` paths filter with `'**/go.mod'` and `'**/go.sum'`; add a second `codecov-action` step uploading `coverage-rgctl.out` with `flags: rgctl`, and a `flags.rgctl` entry (`paths: [tools/rgctl/]`) in `.codecov.yml`. Check the PR's Codecov status: if the product's project number moved, exclude `tools/rgctl/` from the default status so the flag is the only place the tool is measured (OQ8).
 - [ ] 0.7 `tools/rgctl/README.md` stub with the `go install github.com/donaldgifford/repo-guardian/tools/rgctl@main` line and the three commands; confirm renovate's `gomod` manager lists the new `go.mod` in its next dependency dashboard run (observe, no config change expected).
 - [ ] 0.8 Tests: `main_test.go` table test for the exit-code mapping; `clog` test that `--no-color` and `NO_COLOR` produce no escape sequences and that the level flag is honoured.
 
@@ -186,9 +188,9 @@ Delivers `rgctl prs list` end to end (D1, D2, D8), the JSON record (D5), and the
 - [ ] 3.1 `internal/prs` identity: `Identity{BotLogin string, Prefix string, Branches []string}` and `Match(pr) (ok bool, reason string)`: open, author login equal case-insensitively, head ref has the prefix or equals a listed branch, head repository id equals the base repository id (a fork is never ours). The three v1 branch names and the reconcile-log marker are string constants with a comment naming their source files.
 - [ ] 3.2 Classification: `edited` when any commit's author or committer login is not the bot (an unresolved author with a non-bot committer counts), reading commit pages until the first such commit; `reconcile_log` when any comment's first line is the v1 marker; `edited_by` collects the logins seen.
 - [ ] 3.3 Record types matching DESIGN-0035's Data Model exactly (`schema_version: 1`, `generated_at`, `selection`, `bot_login`, `prs[]`, `summary{hits, verified, dropped, clean, edited, incomplete}`), JSON tags in snake_case, `Load`/`Save` with a schema-version check.
-- [ ] 3.4 Selection: `--repo org/name` → `ListOpenPRs`; `--org` → search then `GetPR` per hit, or `--exhaustive` → repositories then `ListOpenPRs`; `--config path` → `v1config.Orgs()`; legacy mode under App auth → every installation; legacy mode under token auth per OQ6. `--branch` repeatable narrows the identity to exact names.
+- [ ] 3.4 Selection: `--repo org/name` → `ListOpenPRs`; `--org` → search then `GetPR` per hit, or `--exhaustive` → repositories then `ListOpenPRs`; `--config path` → `v1config.Orgs()`; legacy mode under App auth → every installation; legacy mode under token auth → exit 2 naming App credentials or an explicit `--org` (OQ6). `--branch` repeatable narrows the identity to exact names.
 - [ ] 3.5 Warnings and summary: `Incomplete` or `Capped` → one warning naming `--exhaustive`; per-org progress line "org X: N pages, H hits, V verified, D dropped"; a verify that finds the PR closed drops it; an org that fails continues to the next and the run exits 3 at the end.
-- [ ] 3.6 Output: `text/tabwriter` table (repository, number, branch, age, edited, URL) or `--format json` to `--out <path>` or stdout; when the record goes to stdout the log moves to stderr for the run (Phase 0.3's `Streams`).
+- [ ] 3.6 Output: `text/tabwriter` table (OQ7) (repository, number, branch, age, edited, URL) or `--format json` to `--out <path>` or stdout; when the record goes to stdout the log moves to stderr for the run (Phase 0.3's `Streams`).
 - [ ] 3.7 Exit codes: 0 none found, 1 found, 2 usage, 3 any org failed.
 - [ ] 3.8 Tests: identity table test (author case, prefix versus exact branch, fork head, closed); end-to-end `prs list --org` against the fake with two search pages, a stale hit that verifies as closed, a non-bot author, a fork, and an edited PR whose human commit is on page two; `--exhaustive`; `--repo`; `--config` with explicit orgs and with legacy mode; JSON golden of the record; the stream rule (stdout holds only JSON when `--format json` has no `--out`); each exit code.
 
@@ -257,7 +259,8 @@ Makes the tool findable and records the one human-run check.
 | `tools/rgctl/README.md` | install and usage |
 | `Makefile` | `build-rgctl`, `lint-rgctl`, `test-rgctl`, `test-coverage-rgctl`, wired into the aggregates |
 | `.github/workflows/ci.yml` | module lint step, widened `go` filter, coverage upload |
-| `.golangci.yml` or `tools/rgctl/.golangci.yml` | depguard rule (OQ2) |
+| `.golangci.yml` | depguard enabled with the one rule, files glob scoped to `tools/rgctl` (OQ2) |
+| `.codecov.yml` | `flags.rgctl` for the module's coverage (OQ8) |
 | `docs/operations/rgctl.md`, `mkdocs.yml` | operator page |
 | `CLAUDE.md`, `README.md` | module note, pointer |
 | `docs/design/0035-*.md`, `docs/impl/0027-*.md` | status flips |
@@ -265,10 +268,10 @@ Makes the tool findable and records the one human-run check.
 ## Testing Plan
 
 - Unit tests per package under `-race`, no network: the fake is the only GitHub.
-- Goldens for the reader (five fixtures) and for the JSON record, regenerated only with `-update`.
+- Goldens for the reader (five fixtures, copied into the module per OQ9) and for the JSON record, regenerated only with `-update`.
 - Request-log assertions on the fake for idempotency, order and dry-run guarantees (the mock-fidelity rule: a list after a write must return the write).
-- The depguard probe, once, recorded in the Phase 0 PR.
-- Coverage target 80 percent for `internal/prs` and `internal/v1config`; the product's Codecov threshold is untouched (OQ8).
+- The depguard probe, once, recorded in the PR description.
+- Coverage target 80 percent for `internal/prs` and `internal/v1config`, uploaded under the `rgctl` Codecov flag so the product's number and threshold are untouched (OQ8).
 - One operator-run smoke on the homelab, recorded in Phase 5.
 
 ## Dependencies
@@ -286,7 +289,11 @@ No dependency on the product module, ever.
 
 ## Open Questions
 
+All nine resolved 2026-10-05; the resolutions are folded into the phases above.
+
 ### OQ1: Which go-github major version does the module use?
+
+**Resolved 2026-10-05: (a).** v75, the version ghinstallation v2.17.0 requires.
 
 - (a) ✅ recommended: v75, the version ghinstallation v2.17.0 requires, so the module graph holds one copy of go-github and the transport and client agree on types.
 - (b) v68, mirroring the product's `internal/github` so patterns can be read across; the module then carries v68 and v75 side by side.
@@ -294,11 +301,15 @@ No dependency on the product module, ever.
 
 ### OQ2: Where does the lint configuration for the module live?
 
+**Resolved 2026-10-05: (a).** The root `.golangci.yml`, run from `tools/rgctl` with `--config ../../.golangci.yml`; depguard is enabled there with the one rule scoped to the module.
+
 - (a) ✅ recommended: reuse the root `.golangci.yml` by running `golangci-lint run --config ../../.golangci.yml ./...` from `tools/rgctl` (and the same `args` on the CI step with `working-directory: tools/rgctl`), adding the `depguard` enable and the one rule, scoped by glob to `tools/rgctl`, to the root file. One linter configuration, as there is one Makefile; the rule matches nothing in the product module, so enabling depguard there changes nothing today.
 - (b) A module-local `tools/rgctl/.golangci.yml` copying the root linter set and adding the rule. Self-contained, and a second copy of fifty linter settings to keep in step by hand (golangci-lint v2 has no extends).
 - other:
 
 ### OQ3: How many pull requests?
+
+**Resolved 2026-10-05: other.** One PR for the whole tool: a per-phase split is not worth it for a tool this size. The phases stay as the order of work and are checked off on the branch as they land.
 
 - (a) ✅ recommended: one PR per phase against `main` (Phases 1 and 2 may ship together), each small enough to review in one sitting, each green on `make ci`; `feat/rgctl` stays the integration branch and this plan is checked off as each lands.
 - (b) A single PR for the whole tool. Fewer reviews, one large diff.
@@ -306,11 +317,15 @@ No dependency on the product module, ever.
 
 ### OQ4: Which semver label do the PRs carry?
 
+**Resolved 2026-10-05: (a).** `dont-release` on the one PR.
+
 - (a) ✅ recommended: `dont-release` on every one. The product binary is untouched and root tags do not version a nested module, so a release would ship nothing new.
 - (b) `patch` on the last PR, to cut a root tag that marks "rgctl is on main", even though `go install ...@main` needs no tag.
 - other:
 
 ### OQ5: How is GitHub faked in tests?
+
+**Resolved 2026-10-05: (a).** A hand-written stateful `httptest` server with a request log.
 
 - (a) ✅ recommended: a hand-written stateful `httptest` server (`ghapitest`) with a request log, the pattern of `internal/github/client_test.go`, so list-then-act paths are tested against real HTTP shapes and a write is visible to the next read.
 - (b) A `Client` interface with mockery-generated mocks driven by expectations. Faster to write, but the IMPL-0013 lesson applies: an always-empty list mock makes idempotency tests vacuous.
@@ -318,11 +333,15 @@ No dependency on the product module, ever.
 
 ### OQ6: What does `--config` do in legacy mode under token auth?
 
+**Resolved 2026-10-05: (a).** Exit 2, naming App credentials or an explicit `--org` as the way forward.
+
 - (a) ✅ recommended: exit 2 with "legacy mode means every installed org; that needs App credentials or an explicit --org". Token auth cannot list the App's installations, and guessing from the token's own org memberships could scan orgs the App was never in.
 - (b) Enumerate the orgs the token can see (`/user/orgs`) with a warning that this may differ from the App's installations.
 - other:
 
 ### OQ7: How is the table rendered?
+
+**Resolved 2026-10-05: (a).** `text/tabwriter`.
 
 - (a) ✅ recommended: `text/tabwriter` from the standard library: aligned columns, zero dependencies, pipes cleanly.
 - (b) `charmbracelet/lipgloss`'s table for borders and colour. Prettier, one more dependency, and borders do not pipe well.
@@ -330,11 +349,15 @@ No dependency on the product module, ever.
 
 ### OQ8: Is the module's coverage reported?
 
+**Resolved 2026-10-05: (a).** Uploaded to Codecov under its own `rgctl` flag.
+
 - (a) ✅ recommended: upload `build/coverage-rgctl.out` to Codecov under its own flag (`rgctl`) so it is visible but does not move the product's number or threshold.
 - (b) Run the tests, skip the upload; coverage is checked locally only.
 - other:
 
 ### OQ9: Where do the reader's fixtures come from?
+
+**Resolved 2026-10-05: (a).** Copies under the module's `testdata/` with a source header.
 
 - (a) ✅ recommended: copies of the two `examples/*.hcl` files under the module's `testdata/` with a header naming the source and date, plus hand-written legacy, unknown-block and broken files. The module does not depend on the repository layout, and `go test` works from a module checkout alone.
 - (b) Read `../../examples/*.hcl` at test time. Always current, and the tests break if the directory moves or the module is extracted later.

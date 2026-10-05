@@ -1,7 +1,7 @@
 ---
 id: INV-0021
 title: "Controls model assumptions A1 to A23 against the v2 code"
-status: Open
+status: Concluded
 author: Donald Gifford
 created: 2026-10-04
 ---
@@ -382,7 +382,11 @@ The six findings that change the implementation plan are: resolution must run in
 10. **DESIGN-0032 priorities table.** Give change-triggered remediation runs a priority value (A18).
 11. **IMPL plan.** Order the phases so `control.Reader` and its new client methods (ref-pinned reads, tree listing, CODEOWNERS errors, git-data commit) land before any control type, since every type depends on them (A12). Keep goose `00003` as a versioned no-op and delete only its body (A20). Apply `Content()` decode to every block in the new loader (A9).
 
+**Outcome (2026-10-05):** all three questions are resolved below. Recommendation 4's migration wording and the `00004` numbering are superseded by DESIGN-0032 D27: the controls schema is a fresh goose chain on a fresh database, with no migrations over the rc schema.
+
 ### OQ1: How is installation suspension modelled under the controls model?
+
+**Resolved 2026-10-05: (a).** Suspension of either App is `app_installations.suspended_at`, never a park; "ignore but keep visible" is `exclude_repos` with its required free-text reason (DESIGN-0029 D6 and DESIGN-0030 D6 amended).
 
 - (a) ✅ recommended: as `app_installations.suspended_at`, from which `remediable` and `unmeasurable` are derived; not a park. Today suspension is only a budget gate (`route.go:224-247`) and `park_reason` has no `suspended` value; keeping it out of parking preserves "discovery is the only un-parker" and needs no un-park path on `installation.unsuspend`.
 - (b) add `suspended` to `park_reason`, park on `installation.suspend` keeping results, and un-park on `installation.unsuspend`, which makes `unsuspend` a second un-parker.
@@ -390,11 +394,15 @@ The six findings that change the implementation plan are: resolution must run in
 
 ### OQ2: Does `repositories.installation_id` stay once `app_repository_access` exists?
 
+**Resolved 2026-10-05: (b).** The column is dropped: one record of the fact is logically cleaner even though the two options are functionally the same (DESIGN-0030 D19).
+
 - (a) ✅ recommended: keep it as the Evaluation App's installation, `NOT NULL`, refreshed by `applyIdentity` on transfer as today (`identity.go:98-99`), with `app_repository_access` as the authority for `evaluable` and `remediable`. Discovery inserts stay one statement and the identity tests stay green.
 - (b) drop it in `00004` and make `matchRepository` / `applyIdentity` installation-free, reading the Evaluation App installation from `app_repository_access` wherever `CheckRepo` and `TaskPriority` need it.
 - other:
 
 ### OQ3: How are live `RepoWorkflow` executions retired when the build stops registering the type?
+
+**Resolved 2026-10-05: (a), widened.** The cutover installs against a fresh database with no in-place upgrade path (DESIGN-0029 D11, DESIGN-0032 D27); the runbook still terminates every live execution before the new build is promoted, and the new histories are captured in the PR that removes `RepoWorkflow`.
 
 - (a) ✅ recommended: the cutover runbook terminates every `repo/<id>` and `installation/<id>` execution before the new build is promoted, and the PR that removes `RepoWorkflow` replaces the two replay fixtures with captures of the new workflows.
 - (b) the new build keeps a tombstone `RepoWorkflow` that completes immediately, so executions drain on their own under `AutoUpgrade`, and the fixtures are kept until the tombstone is removed one release later.

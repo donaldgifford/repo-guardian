@@ -97,7 +97,7 @@ test-rgctl: ## Run rgctl's tests with race detector
 
 test-coverage-rgctl: ## Run rgctl's tests with a coverage profile
 	@ $(MAKE) --no-print-directory log-$@
-	@cd $(RGCTL_DIR) && go test -v -race -coverprofile=$(CURDIR)/$(RGCTL_COVERAGE_OUT) ./...
+	@cd $(RGCTL_DIR) && go test -v -race -coverpkg=./... -coverprofile=$(CURDIR)/$(RGCTL_COVERAGE_OUT) ./...
 
 test-integration: ## Run integration tests (requires Docker for testcontainers)
 	@ $(MAKE) --no-print-directory log-$@

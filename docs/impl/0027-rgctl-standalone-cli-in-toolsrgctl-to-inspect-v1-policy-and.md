@@ -198,8 +198,8 @@ Delivers `rgctl prs list` end to end (D1, D2, D8), the JSON record (D5), and the
 - [x] 3.3 Record types matching DESIGN-0035's Data Model exactly (`schema_version: 1`, `generated_at`, `selection`, `bot_login`, `prs[]`, `summary{hits, verified, dropped, clean, edited, incomplete}`), JSON tags in snake_case, `Load`/`Save` with a schema-version check.
 - [x] 3.4 Selection: `--repo org/name` → `ListOpenPRs`; `--org` → search then `GetPR` per hit, or `--exhaustive` → repositories then `ListOpenPRs`; `--config path` → `v1config.Orgs()`; legacy mode under App auth → every installation; legacy mode under token auth → exit 2 naming App credentials or an explicit `--org` (OQ6). `--branch` repeatable narrows the identity to exact names.
 - [x] 3.5 Warnings and summary: `Incomplete` or `Capped` → one warning naming `--exhaustive`; per-org progress line "org X: N pages, H hits, V verified, D dropped"; a verify that finds the PR closed drops it; an org that fails continues to the next and the run exits 3 at the end.
-- [ ] 3.6 Output: `text/tabwriter` table (OQ7) (repository, number, branch, age, edited, URL) or `--format json` to `--out <path>` or stdout; when the record goes to stdout the log moves to stderr for the run (Phase 0.3's `Streams`).
-- [ ] 3.7 Exit codes: 0 none found, 1 found, 2 usage, 3 any org failed.
+- [x] 3.6 Output: `text/tabwriter` table (OQ7) (repository, number, branch, age, edited, URL) or `--format json` to `--out <path>` or stdout; when the record goes to stdout the log moves to stderr for the run (Phase 0.3's `Streams`).
+- [x] 3.7 Exit codes: 0 none found, 1 found, 2 usage, 3 any org failed.
 - [ ] 3.8 Tests: identity table test (author case, prefix versus exact branch, fork head, closed); end-to-end `prs list --org` against the fake with two search pages, a stale hit that verifies as closed, a non-bot author, a fork, and an edited PR whose human commit is on page two; `--exhaustive`; `--repo`; `--config` with explicit orgs and with legacy mode; JSON golden of the record; the stream rule (stdout holds only JSON when `--format json` has no `--out`); each exit code.
 
 #### Success Criteria

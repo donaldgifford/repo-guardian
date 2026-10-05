@@ -21,6 +21,15 @@ func (a *app) versionCommand() *cobra.Command {
 	}
 }
 
+// moduleVersion is the module version from the build info, "(devel)" for a
+// build from a checkout.
+func moduleVersion() string {
+	if bi, ok := debug.ReadBuildInfo(); ok {
+		return bi.Main.Version
+	}
+	return "(devel)"
+}
+
 // versionString renders the module path, version and VCS state from the
 // build info. A `go install ...@main` build carries a pseudo-version; a build
 // from a checkout carries the revision and dirty flag.

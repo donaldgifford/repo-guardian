@@ -25,7 +25,11 @@ func main() {
 // run executes rgctl with args and returns the process exit code. It never
 // calls os.Exit, so tests can drive it.
 func run(args []string, stdout, stderr io.Writer) int {
-	a := newApp(stdout, stderr)
+	return newApp(stdout, stderr).run(args)
+}
+
+// run executes the command tree with args against a's streams and hooks.
+func (a *app) run(args []string) int {
 	root := a.rootCommand()
 	root.SetArgs(args)
 

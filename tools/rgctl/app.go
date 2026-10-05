@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"io"
 	"log/slog"
+	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -19,10 +22,18 @@ type app struct {
 
 	logOpts clog.Options
 	log     *slog.Logger
+
+	auth authFlags
+
+	// getenv, now and sleep are os.Getenv, time.Now and nil (a real sleep)
+	// outside tests.
+	getenv func(string) string
+	now    func() time.Time
+	sleep  func(context.Context, time.Duration) error
 }
 
 func newApp(stdout, stderr io.Writer) *app {
-	return &app{out: stdout, stderr: stderr}
+	return &app{out: stdout, stderr: stderr, getenv: os.Getenv, now: time.Now}
 }
 
 // logger returns the configured logger. Before the persistent flags are
@@ -69,7 +80,7 @@ func (a *app) rootCommand() *cobra.Command {
 	root.AddCommand(
 		a.versionCommand(),
 		a.configCommand(),
-		&cobra.Command{Use: "prs", Short: "Find or close repo-guardian pull requests"},
+		a.prsCommand(),
 	)
 	return root
 }

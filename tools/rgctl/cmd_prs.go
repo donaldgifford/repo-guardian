@@ -19,6 +19,13 @@ import (
 
 // Environment variables the prs commands read. GH_TOKEN is deliberately not
 // a flag: a token on a command line lands in shell history.
+// Command names.
+const (
+	cmdPRs   = "prs"
+	cmdList  = "list"
+	cmdClose = "close"
+)
+
 const (
 	envAppID      = "RGCTL_APP_ID"
 	envKeyFile    = "RGCTL_PRIVATE_KEY_FILE"
@@ -45,13 +52,13 @@ type selectFlags struct {
 }
 
 func (a *app) prsCommand() *cobra.Command {
-	cmd := &cobra.Command{Use: "prs", Short: "Find or close repo-guardian pull requests"}
+	cmd := &cobra.Command{Use: cmdPRs, Short: "Find or close repo-guardian pull requests"}
 	f := cmd.PersistentFlags()
 	f.StringVar(&a.auth.appID, "app-id", "", "GitHub App id (env "+envAppID+")")
 	f.StringVar(&a.auth.keyFile, "private-key-file", "", "path to the App's private key PEM (env "+envKeyFile+")")
 	f.StringVar(&a.auth.botLogin, "bot-login", "", "the App's bot login, <slug>[bot]; required with "+envToken+" (env "+envBotLogin+")")
 	f.StringVar(&a.auth.githubHost, "github-host", "", "GitHub Enterprise Server host or URL; default github.com (env "+envGitHubHost+")")
-	cmd.AddCommand(a.prsListCommand())
+	cmd.AddCommand(a.prsListCommand(), a.prsCloseCommand())
 	return cmd
 }
 
@@ -161,7 +168,7 @@ func (a *app) prsListCommand() *cobra.Command {
 		out    string
 	)
 	cmd := &cobra.Command{
-		Use:   "list",
+		Use:   cmdList,
 		Short: "Find open repo-guardian pull requests",
 		Long: "list finds open pull requests authored by the App on " + prs.DefaultPrefix + " branches. Org scans search, then\n" +
 			"read every hit back through the Pull Requests API; --exhaustive walks every repository instead.\n" +

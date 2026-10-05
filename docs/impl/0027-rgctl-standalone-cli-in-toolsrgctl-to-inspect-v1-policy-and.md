@@ -217,12 +217,12 @@ Delivers the close path (D3, D9, D11, D14): re-read, plan, comment, close, optio
 
 #### Tasks
 
-- [ ] 4.1 Inputs: `--from <record.json>` (schema version checked) or the Phase 3 selection flags; `--yes`, `--force`, `--delete-branch`, `--comment <text>`, `--out <path>` for the result record.
+- [x] 4.1 Inputs: `--from <record.json>` (schema version checked) or the Phase 3 selection flags; `--yes`, `--force`, `--delete-branch`, `--comment <text>`, `--out <path>` for the result record.
 - [x] 4.2 Plan: for every PR, `GetPR` again and re-apply the identity rule (`skipped_not_ours`), detect `already_closed`, re-classify edited (`skipped_edited` unless `--force`), compare the head SHA with the record and log when it moved. Without `--yes` the plan is printed and nothing else happens.
 - [x] 4.3 Act, per PR, in order: comment (first line `<!-- rgctl:closed-by-migration:v1 -->`, then the default text naming the tool, the date and repo-guardian v2's per-control PRs, or `--comment`; skipped when a comment with the marker already exists), close (`ClosePR`), then branch deletion only with `--delete-branch` and never for an edited PR even under `--force`; a missing ref is not an error. A failing step records `error` with the message and the run continues with the next PR.
   - **Addition found in testing.** If the close succeeds and branch deletion then fails, a plain re-run would see the PR as already closed and never finish. With `--yes --delete-branch`, a closed PR whose comments carry rgctl's own marker and which still has no foreign commits gets its branch deleted, after a `BranchExists` read so a finished PR costs no write. A PR someone else closed is never touched. `ghapi` gained `BranchExists` for this.
-- [ ] 4.4 Result record: the input record plus `result` per PR (`planned`, `commented`, `closed`, `branch_deleted`, `already_closed`, `skipped_edited`, `skipped_not_ours`, `error`), to `--out` or stdout with the same stream rule; summary line.
-- [ ] 4.5 Exit codes: 0 everything planned was done or nothing to do, 1 any `skipped_edited`, 2 usage (no `--from` and no selection, bad schema version), 3 any `error`.
+- [x] 4.4 Result record: the input record plus `result` per PR (`planned`, `commented`, `closed`, `branch_deleted`, `already_closed`, `skipped_edited`, `skipped_not_ours`, `error`), to `--out` or stdout with the same stream rule; summary line.
+- [x] 4.5 Exit codes: 0 everything planned was done or nothing to do, 1 any `skipped_edited`, 2 usage (no `--from` and no selection, bad schema version), 3 any `error`.
 - [ ] 4.6 Tests against the fake: dry run performs zero non-GET requests; a second `--yes` run posts no second comment and sends no second close (request log); fault injection at comment, close and delete leaves the earlier steps done and the result `error`; `--force` closes an edited PR and still never deletes its branch; a `--from` record whose PR was closed meanwhile yields `already_closed`; a record whose PR gained a human commit since listing yields `skipped_edited`; `--delete-branch` on an already-deleted ref succeeds.
 
 #### Success Criteria

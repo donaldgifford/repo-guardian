@@ -263,7 +263,11 @@ func TestPRsClose_Selection(t *testing.T) {
 	t.Parallel()
 	srv := fake(t)
 	seedClose(srv)
-	r, rec := closeRun(t, srv, "--repo", "acme/api", "--yes")
+	r, rec := closeRun(t, srv, "--repo", "acme/api")
+	if r.code != exitOK || results(rec)[3] != prs.ResultPlanned || len(srv.Writes()) != 0 {
+		t.Errorf("dry run: exit = %d results = %v writes = %d, want %d, planned, none", r.code, results(rec), len(srv.Writes()), exitOK)
+	}
+	r, rec = closeRun(t, srv, "--repo", "acme/api", "--yes")
 	if r.code != exitOK || results(rec)[3] != prs.ResultClosed {
 		t.Errorf("exit = %d results = %v, want #3 closed from a fresh listing", r.code, results(rec))
 	}

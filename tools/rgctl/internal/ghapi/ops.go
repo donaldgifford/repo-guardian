@@ -234,6 +234,25 @@ func (c *Client) ClosePR(ctx context.Context, repo string, number int) error {
 	})
 }
 
+// BranchExists reports whether a branch is present.
+func (c *Client) BranchExists(ctx context.Context, repo, branch string) (bool, error) {
+	cl, owner, name, err := c.repoClient(repo)
+	if err != nil {
+		return false, err
+	}
+	var exists bool
+	err = c.call(ctx, "get branch", func() error {
+		_, _, err := cl.Git.GetRef(ctx, owner, name, "heads/"+branch)
+		if er, ok := errors.AsType[*gh.ErrorResponse](err); ok && er.Response != nil && er.Response.StatusCode == http.StatusNotFound {
+			exists = false
+			return nil
+		}
+		exists = err == nil
+		return err
+	})
+	return exists, err
+}
+
 // DeleteBranch deletes a branch. A branch that does not exist is not an
 // error, so a re-run after a partial failure is safe.
 func (c *Client) DeleteBranch(ctx context.Context, repo, branch string) error {

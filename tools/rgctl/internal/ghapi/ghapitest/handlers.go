@@ -180,7 +180,7 @@ func (s *Server) listCommits(w http.ResponseWriter, r *http.Request) {
 	}
 	items := make([]map[string]any, 0, len(pr.Commits))
 	for i, c := range pr.Commits {
-		items = append(items, map[string]any{"sha": fmt.Sprintf("c%d", i), "author": user(c.Author), "committer": user(c.Committer)})
+		items = append(items, map[string]any{keySHA: fmt.Sprintf("c%d", i), "author": user(c.Author), "committer": user(c.Committer)})
 	}
 	s.mu.Unlock()
 	paginate(w, r, items, asIs)
@@ -226,6 +226,17 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{"id": c.ID, "body": c.Body, keyUser: user(c.Author)})
 }
 
+func (s *Server) getRef(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	branch := r.PathValue("branch")
+	if !s.refs[r.PathValue("owner")+"/"+r.PathValue("repo")+":"+branch] {
+		writeJSON(w, http.StatusNotFound, map[string]any{keyMessage: "Not Found"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ref": "refs/heads/" + branch, "object": map[string]any{keySHA: "abc", "type": "commit"}})
+}
+
 func (s *Server) deleteRef(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -245,7 +256,7 @@ func prJSON(pr *PR) map[string]any {
 		"title":      pr.Title,
 		"html_url":   fmt.Sprintf("https://github.example/%s/%s/pull/%d", pr.Owner, pr.Repo, pr.Number),
 		keyUser:      user(pr.Author),
-		"head":       map[string]any{"ref": pr.HeadRef, "sha": pr.HeadSHA, "repo": map[string]any{"id": pr.HeadRepoID}},
+		"head":       map[string]any{"ref": pr.HeadRef, keySHA: pr.HeadSHA, "repo": map[string]any{"id": pr.HeadRepoID}},
 		"base":       map[string]any{"repo": map[string]any{"id": pr.BaseRepoID}},
 		"created_at": pr.CreatedAt.Format(time.RFC3339),
 		"updated_at": pr.UpdatedAt.Format(time.RFC3339),

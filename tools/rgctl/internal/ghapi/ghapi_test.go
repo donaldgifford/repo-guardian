@@ -328,6 +328,9 @@ func TestReadsAndWrites(t *testing.T) {
 		t.Errorf("after ClosePR state = %q, want closed", pr.State)
 	}
 
+	if ok, err := c.BranchExists(ctx, "acme/web", prefix+"add-missing-files"); err != nil || !ok {
+		t.Errorf("BranchExists(before delete) = %v, %v, want true", ok, err)
+	}
 	for range 2 {
 		if err := c.DeleteBranch(ctx, "acme/web", prefix+"add-missing-files"); err != nil {
 			t.Errorf("DeleteBranch() error = %v, want nil both times", err)
@@ -335,6 +338,9 @@ func TestReadsAndWrites(t *testing.T) {
 	}
 	if srv.BranchExists(testOrg, "web", prefix+"add-missing-files") {
 		t.Error("branch still exists after DeleteBranch")
+	}
+	if ok, err := c.BranchExists(ctx, "acme/web", prefix+"add-missing-files"); err != nil || ok {
+		t.Errorf("BranchExists(after delete) = %v, %v, want false", ok, err)
 	}
 }
 

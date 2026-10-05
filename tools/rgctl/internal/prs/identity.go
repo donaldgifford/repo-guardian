@@ -31,6 +31,9 @@ const (
 	unresolvedCommitAuthor = "(unresolved)"
 )
 
+// stateOpen is the state of an open pull request.
+const stateOpen = "open"
+
 // Reasons a pull request is not repo-guardian's.
 const (
 	ReasonClosed = "closed"
@@ -53,7 +56,7 @@ type Identity struct {
 // Match reports whether pr is repo-guardian's, and why not when it is not.
 func (id *Identity) Match(pr *ghapi.PullRequest) (ok bool, reason string) {
 	switch {
-	case pr.State != "open":
+	case pr.State != stateOpen:
 		return false, ReasonClosed
 	case !id.isBot(pr.Author):
 		return false, ReasonAuthor

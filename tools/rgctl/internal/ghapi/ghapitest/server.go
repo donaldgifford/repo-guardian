@@ -28,6 +28,7 @@ const (
 	keyMessage = "message"
 	keyLogin   = "login"
 	keyUser    = "user"
+	keySHA     = "sha"
 )
 
 // InstallationToken is the token the fake mints for installation id.
@@ -140,6 +141,7 @@ func New() *Server {
 	mux.HandleFunc("GET "+p+"/repos/{owner}/{repo}/pulls/{number}/commits", s.listCommits)
 	mux.HandleFunc("GET "+p+"/repos/{owner}/{repo}/issues/{number}/comments", s.listComments)
 	mux.HandleFunc("POST "+p+"/repos/{owner}/{repo}/issues/{number}/comments", s.createComment)
+	mux.HandleFunc("GET "+p+"/repos/{owner}/{repo}/git/ref/heads/{branch...}", s.getRef)
 	mux.HandleFunc("DELETE "+p+"/repos/{owner}/{repo}/git/refs/heads/{branch...}", s.deleteRef)
 	s.Server = httptest.NewServer(s.record(mux))
 	return s
@@ -193,6 +195,13 @@ func (s *Server) AddCommit(owner, repo string, number int, c Commit) {
 		pr.Commits = append(pr.Commits, c)
 		pr.HeadSHA += "+"
 	}
+}
+
+// RemoveBranch deletes a branch behind rgctl's back.
+func (s *Server) RemoveBranch(owner, repo, branch string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.refs, owner+"/"+repo+":"+branch)
 }
 
 // PR returns a copy of a pull request's current state.

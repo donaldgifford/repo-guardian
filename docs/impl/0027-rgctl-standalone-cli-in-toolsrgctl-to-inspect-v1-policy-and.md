@@ -152,7 +152,8 @@ Delivers `rgctl config show`, a loose reader of a v1 policy file that depends on
 - [x] 1.3 `config show <file>`: table output grouped as orgs, guardian, rules, pr, ignore, unrecognised (the sections of DESIGN-0035's reader table); `--format json` emits `Document`; a parse diagnostic or a missing file exits 2 with the HCL diagnostic text; a file with no `scope` block reports `LegacyMode: true` and the orgs line "every installed org (legacy mode)".
 - [x] 1.4 Fixtures (OQ9): `testdata/guardian-full.hcl` and `testdata/guardian-enterprise.hcl` copied from `examples/` with a header comment naming the source and date, plus `testdata/legacy-mode.hcl` (no `scope`), `testdata/unknown-block.hcl` (a `widget {}` block and an unknown rule attribute) and `testdata/broken.hcl`. Golden JSON per fixture under `testdata/golden/`, regenerated with `-update`.
 - [x] 1.5 Tests: goldens; unknown block and attribute land under `Unrecognised` with the right line; `locals` and an interpolated attribute show source text; `broken.hcl` exits 2; `Orgs()` helper returns the explicit list or legacy mode.
-- [ ] 1.6 `rgctl config show examples/guardian-full.hcl` run by hand and pasted into the PR.
+- [x] 1.6 `rgctl config show examples/guardian-full.hcl` run by hand and pasted into the PR.
+  - Ran 2026-10-05: exit 0, no warnings, `UNRECOGNISED (none)`; all 12 rules (7 file, 4 setting, 1 branch protection), every `pr` block and both reconcilers rendered. Output pasted into the PR description.
 
 #### Success Criteria
 

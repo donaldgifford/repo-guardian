@@ -133,7 +133,7 @@ Establishes the module, the command surface, logging, the lint boundary and the 
 #### Success Criteria
 
 - `make ci` is green and its log shows `lint-rgctl`, `test-rgctl` and `build-rgctl` running.
-- From a clean clone, `go install ./tools/rgctl` produces a binary whose `rgctl version` prints the module path and revision.
+- From a clean clone, `cd tools/rgctl && go install .` produces a binary whose `rgctl version` prints the module path and revision. (`go install ./tools/rgctl` from the root cannot work: the root is a different module. Verified 2026-10-05.)
 - `git diff --stat -- go.mod go.sum` against `main` is empty: the product module is untouched.
 - The depguard probe is recorded in the PR description with the failing lint output.
 - The CI run for the PR shows the module lint step and the module's tests in the test job.

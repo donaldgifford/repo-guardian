@@ -1,7 +1,7 @@
 ---
 id: IMPL-0027
 title: "rgctl: standalone CLI in tools/rgctl to inspect v1 policy and find or close repo-guardian PRs"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-10-05
 ---
@@ -247,7 +247,7 @@ Makes the tool findable and records the one human-run check.
   - `deferred - human required`: the smoke needs the homelab App credentials and a throwaway PR on the personal account. Run the two commands above and paste their summary lines here.
 - [ ] 5.5 Follow-up on the `v2` line: a one-line pointer to `rgctl` in DESIGN-0032's runbook steps 3 and 6, as its own PR against `v2`; link it here.
   - `deferred - blocked`: DESIGN-0032 is not on `v2` yet. It exists only in open PR #202 (`docs/controls-and-policies` into `v2`), so a separate PR against `v2` has nothing to edit. Add the pointer in #202 before it merges, or in a follow-up against `v2` after it does.
-- [ ] 5.6 `docz update design impl`: DESIGN-0035 → Implemented, IMPL-0027 → Completed.
+- [x] 5.6 `docz update design impl`: DESIGN-0035 → Implemented, IMPL-0027 → Completed.
 
 #### Success Criteria
 

@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0035
 title: "rgctl: a standalone CLI to inspect v1 policy and find or close repo-guardian pull requests"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-10-05
 ---

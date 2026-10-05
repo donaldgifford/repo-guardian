@@ -10,3 +10,8 @@ ignore:
   - "main.go"
   - "docs"
   - "scripts"
+# rgctl (tools/rgctl) uploads under its own flag; see ci.yml.
+flags:
+  rgctl:
+    paths:
+      - tools/rgctl/

@@ -68,7 +68,7 @@ func (a *app) rootCommand() *cobra.Command {
 
 	root.AddCommand(
 		a.versionCommand(),
-		&cobra.Command{Use: "config", Short: "Inspect a repo-guardian v1 policy file"},
+		a.configCommand(),
 		&cobra.Command{Use: "prs", Short: "Find or close repo-guardian pull requests"},
 	)
 	return root

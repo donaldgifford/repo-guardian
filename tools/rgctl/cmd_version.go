@@ -41,7 +41,7 @@ func versionString() string {
 	}
 	if rev != "" {
 		s += " revision " + rev
-		if modified == "true" {
+		if modified == literalTrue {
 			s += " (dirty)"
 		}
 	}

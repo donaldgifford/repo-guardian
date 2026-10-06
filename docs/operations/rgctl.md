@@ -62,7 +62,9 @@ results or hits its 1000-result cap, rgctl warns once; rerun with
 `--exhaustive`, which reads every repository's open pull requests instead.
 
 Each pull request is marked `edited` when any commit on it is by someone other
-than the App.
+than the App. The committer `web-flow` does not count: GitHub records it on
+every commit made through the API, the App's included. A person editing in the
+web UI is still the commit's author, so their edit is still caught.
 
 Output is a table by default. `--format json` writes the record to stdout,
 and `--out <path>` writes it to a file as well.

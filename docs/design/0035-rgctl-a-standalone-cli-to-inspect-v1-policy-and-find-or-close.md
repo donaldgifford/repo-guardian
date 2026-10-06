@@ -144,7 +144,7 @@ A pull request is repo-guardian's when, read from the Pull Requests API, all of 
 3. its head branch starts with `repo-guardian/` (or equals one of the `--branch` names);
 4. its head repository is the repository itself, not a fork.
 
-The reconcile-log marker on a comment is reported when present (`reconcile_log: true`) but is not required, because a PR that was reconciled once has no comment. Title is never used. A PR is **edited** when any commit on it has an author or committer login other than the bot, or a commit whose GitHub author is unresolved and whose committer is not the bot; the tool lists commits until it finds the first such commit, so the cost is one page for a clean PR.
+The reconcile-log marker on a comment is reported when present (`reconcile_log: true`) but is not required, because a PR that was reconciled once has no comment. Title is never used. A PR is **edited** when any commit on it has an author or committer login other than the bot, or a commit whose GitHub author is unresolved and whose committer is not the bot. The committer `web-flow` is never counted: GitHub records every Contents API write with that committer, so it is on the App's own commits, and a human editing in the web UI is still the author (found by the IMPL-0027 homelab smoke, where all 21 PRs read as edited until this was added); the tool lists commits until it finds the first such commit, so the cost is one page for a clean PR.
 
 ### Finding PRs
 

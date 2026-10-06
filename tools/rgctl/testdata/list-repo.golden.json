@@ -29,8 +29,7 @@
       "updated_at": "2026-09-01T00:00:00Z",
       "edited": true,
       "edited_by": [
-        "octocat",
-        "web-flow"
+        "octocat"
       ],
       "reconcile_log": false
     }

@@ -88,7 +88,9 @@ func TestIdentity_ForeignLogins(t *testing.T) {
 	}{
 		{name: "bot commit", commit: ghapi.Commit{AuthorLogin: bot, CommitterLogin: bot}},
 		{name: "human author", commit: ghapi.Commit{AuthorLogin: "octocat", CommitterLogin: bot}, want: []string{"octocat"}},
-		{name: "web-flow committer", commit: ghapi.Commit{AuthorLogin: "octocat", CommitterLogin: "web-flow"}, want: []string{"octocat", "web-flow"}},
+		{name: "bot author, web-flow committer", commit: ghapi.Commit{AuthorLogin: bot, CommitterLogin: "web-flow"}},
+		{name: "human web edit", commit: ghapi.Commit{AuthorLogin: "octocat", CommitterLogin: "web-flow"}, want: []string{"octocat"}},
+		{name: "unresolved author, web-flow committer", commit: ghapi.Commit{CommitterLogin: "web-flow"}, want: []string{unresolvedCommitAuthor}},
 		{name: "unresolved author, bot committer", commit: ghapi.Commit{CommitterLogin: bot}},
 		{name: "unresolved author, human committer", commit: ghapi.Commit{CommitterLogin: "octocat"}, want: []string{"octocat"}},
 		{name: "nothing resolved", commit: ghapi.Commit{}, want: []string{unresolvedCommitAuthor}},

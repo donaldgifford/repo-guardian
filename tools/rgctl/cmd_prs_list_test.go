@@ -31,7 +31,7 @@ func seedOrg(srv *ghapitest.Server) {
 		Author:   testBot,
 		HeadRef:  prs.BranchAddMissingFiles,
 		Title:    "chore: add missing repo configuration files",
-		Commits:  []ghapitest.Commit{{Author: testBot, Committer: testBot}},
+		Commits:  []ghapitest.Commit{{Author: testBot, Committer: "web-flow"}}, // a Contents API write, as GitHub records it
 		Comments: []ghapitest.Comment{{Author: testBot, Body: prs.ReconcileLogMarker + "\n| rule | status |"}},
 	})
 	edited := make([]ghapitest.Commit, 0, 101)
@@ -96,8 +96,8 @@ func TestPRsList_Org(t *testing.T) {
 	if e := byNum[1]; e.Edited || !e.ReconcileLog {
 		t.Errorf("web#1 = %+v, want clean with the reconcile log", e)
 	}
-	if e := byNum[2]; !e.Edited || !slices.Equal(e.EditedBy, []string{"octocat", "web-flow"}) || e.ReconcileLog {
-		t.Errorf("web#2 = %+v, want edited by octocat and web-flow", e)
+	if e := byNum[2]; !e.Edited || !slices.Equal(e.EditedBy, []string{"octocat"}) || e.ReconcileLog {
+		t.Errorf("web#2 = %+v, want edited by octocat alone", e)
 	}
 	for _, n := range []int{3, 5, 6} {
 		if _, ok := byNum[n]; ok {
@@ -184,7 +184,7 @@ func TestPRsList_Table(t *testing.T) {
 	if r.code != exitFound {
 		t.Fatalf("exit = %d, want %d\n%s", r.code, exitFound, r.stderr)
 	}
-	for _, want := range []string{"REPOSITORY", "acme/web", "#2", prs.BranchAddCatalogInfo, "34d", "yes (octocat, web-flow)", "record written"} {
+	for _, want := range []string{"REPOSITORY", "acme/web", "#2", prs.BranchAddCatalogInfo, "34d", "yes (octocat)", "record written"} {
 		if !strings.Contains(r.stdout, want) {
 			t.Errorf("stdout lacks %q:\n%s", want, r.stdout)
 		}

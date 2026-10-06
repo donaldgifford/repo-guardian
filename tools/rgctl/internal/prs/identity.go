@@ -29,6 +29,7 @@ const (
 	BranchSetCustomProps   = "repo-guardian/set-custom-properties"
 	ReconcileLogMarker     = "<!-- repo-guardian:reconcile-log:v1 -->"
 	unresolvedCommitAuthor = "(unresolved)"
+	webFlowLogin           = "web-flow"
 )
 
 // stateOpen is the state of an open pull request.
@@ -89,6 +90,13 @@ func (id *Identity) branchMatches(ref string) bool {
 	return strings.HasPrefix(ref, id.Prefix)
 }
 
+// foreignCommitter reports whether a commit's committer is a separate,
+// non-bot account worth naming.
+func (id *Identity) foreignCommitter(c ghapi.Commit) bool {
+	login := c.CommitterLogin
+	return login != "" && login != webFlowLogin && !id.isBot(login) && login != c.AuthorLogin
+}
+
 func (id *Identity) isBot(login string) bool {
 	return login != "" && strings.EqualFold(login, id.BotLogin)
 }
@@ -96,12 +104,16 @@ func (id *Identity) isBot(login string) bool {
 // foreignLogins returns the non-bot accounts on a commit, empty when the
 // commit is the bot's own. A commit whose author GitHub could not resolve
 // counts as foreign unless the bot committed it.
+//
+// NOTE: webFlowLogin is never foreign as a committer. GitHub commits every
+// Contents API write as web-flow, so the App's own commits carry it; a human
+// editing in the web UI is still the author, which is what gets reported.
 func (id *Identity) foreignLogins(c ghapi.Commit) []string {
 	var out []string
 	if c.AuthorLogin != "" && !id.isBot(c.AuthorLogin) {
 		out = append(out, c.AuthorLogin)
 	}
-	if c.CommitterLogin != "" && !id.isBot(c.CommitterLogin) && c.CommitterLogin != c.AuthorLogin {
+	if id.foreignCommitter(c) {
 		out = append(out, c.CommitterLogin)
 	}
 	if c.AuthorLogin == "" && !id.isBot(c.CommitterLogin) && len(out) == 0 {

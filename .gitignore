@@ -54,3 +54,6 @@ site/
 # Keys and certs
 *.pem
 *.cert
+
+# Personal working notes, never committed
+notes/

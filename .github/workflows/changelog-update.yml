@@ -44,7 +44,7 @@ jobs:
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
       - name: Open changelog PR
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: chore/changelog-${{ steps.tag.outputs.tag }}

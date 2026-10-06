@@ -1,0 +1,2845 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Stale PRs when file rules become satisfied on main - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#inv-0005-stale-prs-when-file-rules-become-satisfied-on-main" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Stale PRs when file rules become satisfied on main
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#question" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Question
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hypothesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hypothesis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#approach" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Approach
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#findings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Findings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Findings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#observation-1-file-rules-gap-confirmed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 1 — file rules: gap confirmed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-2-setting-rules-convergent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 2 — setting rules: convergent
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-3-branch_protection-rules-convergent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 3 — branch_protection rules: convergent
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-4-reconcilers-idempotent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 4 — reconcilers: idempotent
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-5-legacy-engine-has-the-same-gap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 5 — legacy engine has the same gap
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#code-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code references
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#log-signatures-for-live-verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Log signatures for live verification
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Log signatures for live verification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#smoking-gun-grep-actionable-set-is-empty-but-pr-is-open" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Smoking-gun grep — actionable set is empty but PR is open
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#partial-update-grep-some-still-missing-others-stale" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Partial-update grep — some still missing, others stale
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#negative-control-convergent-rule-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Negative control — convergent rule types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#counting-the-blast-radius" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Counting the blast radius
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conclusion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommendation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing strategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Testing strategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tier-1-multi-sweep-unit-tests-do-during-the-fix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tier 1 — Multi-sweep unit tests (do during the fix)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tier-2-diagnostic-metric-prometheus-alert-separate-small-pr-before-the-fix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tier 2 — Diagnostic metric + Prometheus alert (separate small PR, before the fix)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tier-3-integration-test-scaffold-using-httptestserver-medium-effort-broader-payoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tier 3 — Integration test scaffold using httptest.Server (medium effort, broader payoff)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tier-4-end-to-end-against-a-real-github-org-dont-bother-for-this-bug" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tier 4 — End-to-end against a real GitHub org (don't bother for this bug)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-we-are-not-proposing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What we are NOT proposing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recommendation_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommendation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#observability-and-operator-ux-extended" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observability and operator UX (extended)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Observability and operator UX (extended)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#stale-pr-gauge-bucketed-by-rule-age" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stale-PR gauge bucketed by rule × age
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reconciliation-comments-on-the-pr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconciliation comments on the PR
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#anti-pattern-do-not-use-pr-comments-for-engine-state-recovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Anti-pattern: do not use PR comments for engine state recovery
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scale-considerations-4000-repos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scale considerations (4000+ repos)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#updated-impl-sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Updated IMPL sequence
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="inv-0005-stale-prs-when-file-rules-become-satisfied-on-main">INV 0005: Stale PRs when file rules become satisfied on main</h1>
+<p><strong>Status:</strong> Open
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-05-26</p>
+<!--toc:start-->
+<ul>
+<li><a href="#question">Question</a></li>
+<li><a href="#hypothesis">Hypothesis</a></li>
+<li><a href="#context">Context</a></li>
+<li><a href="#approach">Approach</a></li>
+<li><a href="#environment">Environment</a></li>
+<li><a href="#findings">Findings</a></li>
+<li><a href="#observation-1--file-rules-gap-confirmed">Observation 1 — file rules: gap confirmed</a></li>
+<li><a href="#observation-2--setting-rules-convergent">Observation 2 — setting rules: convergent</a></li>
+<li><a href="#observation-3--branchprotection-rules-convergent">Observation 3 — branch_protection rules: convergent</a></li>
+<li><a href="#observation-4--reconcilers-idempotent">Observation 4 — reconcilers: idempotent</a></li>
+<li><a href="#observation-5--legacy-engine-has-the-same-gap">Observation 5 — legacy engine has the same gap</a></li>
+<li><a href="#code-references">Code references</a></li>
+<li><a href="#log-signatures-for-live-verification">Log signatures for live verification</a></li>
+<li><a href="#smoking-gun-grep--actionable-set-is-empty-but-pr-is-open">Smoking-gun grep — actionable set is empty but PR is open</a></li>
+<li><a href="#partial-update-grep--some-still-missing-others-stale">Partial-update grep — some still missing, others stale</a></li>
+<li><a href="#negative-control--convergent-rule-types">Negative control — convergent rule types</a></li>
+<li><a href="#counting-the-blast-radius">Counting the blast radius</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+<li><a href="#recommendation">Recommendation</a></li>
+<li><a href="#testing-strategy">Testing strategy</a></li>
+<li><a href="#tier-1--multi-sweep-unit-tests-do-during-the-fix">Tier 1 — Multi-sweep unit tests (do during the fix)</a></li>
+<li><a href="#tier-2--diagnostic-metric--prometheus-alert-separate-small-pr-before-the-fix">Tier 2 — Diagnostic metric + Prometheus alert (separate small PR, before the fix)</a></li>
+<li><a href="#tier-3--integration-test-scaffold-using-httptestserver-medium-effort-broader-payoff">Tier 3 — Integration test scaffold using httptest.Server (medium effort, broader payoff)</a></li>
+<li><a href="#tier-4--end-to-end-against-a-real-github-org-dont-bother-for-this-bug">Tier 4 — End-to-end against a real GitHub org (don't bother for this bug)</a></li>
+<li><a href="#what-we-are-not-proposing">What we are NOT proposing</a></li>
+<li><a href="#recommendation-1">Recommendation</a></li>
+<li><a href="#observability-and-operator-ux-extended">Observability and operator UX (extended)</a></li>
+<li><a href="#stale-pr-gauge-bucketed-by-rule--age">Stale-PR gauge bucketed by rule × age</a></li>
+<li><a href="#reconciliation-comments-on-the-pr">Reconciliation comments on the PR</a></li>
+<li><a href="#anti-pattern-do-not-use-pr-comments-for-engine-state-recovery">Anti-pattern: do not use PR comments for engine state recovery</a></li>
+<li><a href="#scale-considerations-4000-repos">Scale considerations (4000+ repos)</a></li>
+<li><a href="#updated-impl-sequence">Updated IMPL sequence</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="question">Question</h2>
+<p>When a file rule becomes satisfied via a non-guardian path (e.g.,
+an operator adds <code>.github/CODEOWNERS</code> to <code>main</code> via their own PR while
+a <code>repo-guardian/add-missing-files</code> PR is open), does repo-guardian
+reconcile the open PR on its next sweep — drop the orphaned file from
+the branch, refresh the PR body, and close the PR when nothing is
+left to do?</p>
+<p>And more broadly: does the same gap apply to setting rules,
+branch_protection rules, and the four built-in reconcilers, or is it
+isolated to the PR-mediated file-rule path?</p>
+<h2 id="hypothesis">Hypothesis</h2>
+<p>The PR-mediated path is leaky in three places:</p>
+<ol>
+<li>The reconcile branch never has files removed when their rule
+   becomes satisfied between sweeps.</li>
+<li>The PR body is generated at creation time only; it is not
+   regenerated when the actionable set shrinks.</li>
+<li>The PR is never closed when the actionable set becomes empty.</li>
+</ol>
+<p>Setting rules, branch_protection rules, and reconcilers should NOT
+have this gap because they check current state and short-circuit when
+the desired state already matches — no out-of-band intermediate
+artifact (like a PR branch) needs cleanup.</p>
+<h2 id="context">Context</h2>
+<p><strong>Triggered by:</strong> Production observation on PR #79
+(<a href="https://github.com/donaldgifford/repo-guardian/pull/79">donaldgifford/repo-guardian#79</a>).
+The homelab deployment has an open repo-guardian PR proposing three
+files (<code>CODEOWNERS</code>, <code>renovate.json</code>, <code>catalog-info.yaml</code>). The
+question is what happens if any one of those files is added to <code>main</code>
+by a different code path before the PR merges:</p>
+<ul>
+<li>Does the next sweep drop that file from the PR?</li>
+<li>Does it close the PR when all three are satisfied externally?</li>
+<li>And: is this a leak only for file rules, or do setting /
+  branch_protection rules / reconcilers behave the same way?</li>
+</ul>
+<p>Behavior matters because operators frequently land convenience files
+manually (especially CODEOWNERS) and expect repo-guardian to converge
+on the resulting state without their having to hand-close stale PRs.</p>
+<h2 id="approach">Approach</h2>
+<ol>
+<li>Read <code>internal/checker/engine_policy.go</code> to trace the file-rule
+   evaluation path end-to-end:</li>
+<li><code>checkRepoWithPolicy</code> dispatch</li>
+<li><code>findActionableRules</code> → produces the actionable set</li>
+<li><code>createOrUpdatePRFromPolicy</code> → mutates the branch and PR</li>
+<li>Confirm setting rule and branch_protection rule behavior by
+   reading <code>evaluateSettingRule</code> and <code>evaluateBranchProtectionRule</code>.</li>
+<li>Audit the four built-in reconcilers
+   (<code>internal/reconciler/{custom_properties,label_sync,branch_protection,workflow_sync}.go</code>)
+   for idempotency.</li>
+<li>Confirm the legacy engine path (<code>engine.go.findMissingFiles</code> +
+   <code>createOrUpdatePR</code>) shares the same gap.</li>
+<li>Compile log-message signatures emitted on the leaky path so the
+   bug can be confirmed in a live deployment via <code>kubectl logs ...
+   | grep ...</code>.</li>
+</ol>
+<h2 id="environment">Environment</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Version / Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>chart</td>
+<td>0.5.0</td>
+</tr>
+<tr>
+<td>appVersion</td>
+<td>1.6.0</td>
+</tr>
+<tr>
+<td>Go</td>
+<td>1.25.4</td>
+</tr>
+<tr>
+<td>Engine path exercised</td>
+<td>policy-based (<code>NewEngineFromPolicy</code> — used whenever <code>GUARDIAN_CONFIG</code> HCL is present)</td>
+</tr>
+<tr>
+<td>Reference operator config</td>
+<td><code>examples/guardian-full.hcl</code></td>
+</tr>
+<tr>
+<td>Trigger surface for the bug</td>
+<td>every sweep (<code>Scheduler.Schedule(name="sweep", ...)</code>) and every webhook re-check</td>
+</tr>
+</tbody>
+</table>
+<h2 id="findings">Findings</h2>
+<h3 id="observation-1-file-rules-gap-confirmed">Observation 1 — file rules: gap confirmed</h3>
+<p>The engine's update path <strong>never removes files from the
+reconcile branch and never closes the open PR.</strong></p>
+<p><code>engine_policy.go:40-49</code> dispatches based on the size of the
+<code>actionable</code> set:</p>
+<pre><code class="language-go">switch {
+case len(actionable) == 0:
+    log.Info(&quot;all required files present&quot;)
+case e.dryRun:
+    log.Info(&quot;dry run: would create PR&quot;, &quot;actionable_rules&quot;, policyRuleNames(actionable))
+default:
+    if err := e.createOrUpdatePRFromPolicy(ctx, client, owner, repo, defaultBranch, actionable, openPRs); err != nil {
+        return err
+    }
+}
+</code></pre>
+<p>When the actionable set is <strong>empty</strong> the engine logs a single line
+and returns. It does <strong>not</strong> look for an existing repo-guardian PR
+to close, and does <strong>not</strong> delete the reconcile branch.</p>
+<p>When the actionable set is <strong>non-empty but smaller than the prior
+sweep</strong> — meaning some files are now satisfied on <code>main</code> while others
+are still missing — the call into <code>createOrUpdatePRFromPolicy</code>
+iterates only the still-actionable rules
+(<code>engine_policy.go:561-590</code>):</p>
+<pre><code class="language-go">for i := range actionable {
+    r := &amp;actionable[i]
+    // ... render template ...
+    if err := client.CreateOrUpdateFile(ctx, owner, repo, BranchName, r.Target, content, msg); err != nil {
+        return fmt.Errorf(&quot;creating file %s: %w&quot;, r.Target, err)
+    }
+    log.Info(&quot;added file&quot;, &quot;path&quot;, r.Target)
+}
+</code></pre>
+<p>The loop <strong>adds and updates</strong> but never <strong>removes</strong>. Files
+previously committed to the reconcile branch for a now-satisfied
+rule remain on the branch.</p>
+<p><code>createNewPolicyPR</code> (<code>engine_policy.go:605-644</code>) is the only place
+the PR body is rendered — it runs only when no existing PR was
+found. The update branch (<code>engine_policy.go:596-599</code>) emits
+<code>PRsUpdatedTotal.Inc()</code> + a single log line and returns; <strong>the PR
+body is never regenerated</strong>. So the "Files changed" list in the body
+remains the historical at-creation snapshot.</p>
+<p>A WARN comment at <code>engine_policy.go:546-558</code> already acknowledges a
+closely-related risk (branch drifts versus default branch when the
+PR sits open for a long time) but does not name the
+file-rule-satisfied case directly.</p>
+<h3 id="observation-2-setting-rules-convergent">Observation 2 — setting rules: convergent</h3>
+<p><code>engine_policy.go:731-755</code>:</p>
+<pre><code class="language-go">if settingMatches(currentValue, rule.Expected) {
+    log.Debug(&quot;setting matches expected value&quot;, &quot;current&quot;, currentValue)
+    return nil
+}
+
+metrics.SettingsMismatchedTotal.WithLabelValues(rule.Name, owner).Inc()
+log.Info(&quot;setting mismatch&quot;, &quot;current&quot;, currentValue, &quot;expected&quot;, rule.Expected)
+
+if !rule.Remediate {
+    return nil
+}
+// ... remediation ...
+</code></pre>
+<p>Setting rules read the current repository value on every sweep and
+no-op when it matches. There is no intermediate artifact (no PR, no
+branch) that can become stale. <strong>No gap.</strong></p>
+<h3 id="observation-3-branch_protection-rules-convergent">Observation 3 — branch_protection rules: convergent</h3>
+<p><code>engine_policy.go:944-947</code>:</p>
+<pre><code class="language-go">mismatches := compareBranchProtection(existing, rule)
+if len(mismatches) == 0 {
+    log.Debug(&quot;branch protection matches expected configuration&quot;)
+    return nil
+}
+</code></pre>
+<p>Branch protection rules diff the existing ruleset against the
+desired one and short-circuit when there are no mismatches. <strong>No
+gap.</strong></p>
+<h3 id="observation-4-reconcilers-idempotent">Observation 4 — reconcilers: idempotent</h3>
+<p>All four built-in reconcilers check current state and no-op when in
+sync:</p>
+<ul>
+<li><code>internal/reconciler/custom_properties.go:84</code> —
+  <code>log.Info("custom properties already correct")</code> and returns. Also
+  <code>:143</code> short-circuits when a PR for property sync already exists.</li>
+<li><code>internal/reconciler/label_sync.go</code> — only emits API calls for
+  labels that need create / update / rename / delete; an in-sync
+  label set produces no mutations.</li>
+<li><code>internal/reconciler/branch_protection.go</code> — same
+  diff-then-short-circuit pattern as the BP rule type.</li>
+<li><code>internal/reconciler/workflow_sync.go</code> — observability only, never
+  mutates.</li>
+</ul>
+<p><strong>No gap.</strong> Reconcilers are robust against repeated sweeps.</p>
+<h3 id="observation-5-legacy-engine-has-the-same-gap">Observation 5 — legacy engine has the same gap</h3>
+<p>The legacy non-policy path (<code>engine.go.findMissingFiles</code> +
+<code>createOrUpdatePR</code>) has the equivalent gap with one additional
+quirk: <code>hasExistingPR</code> (<code>engine.go:196-210</code>) skips a rule when an
+open PR matches its <code>PRSearchTerms</code>. So once a PR exists, that
+rule's existence-check result no longer drives any behavior — the
+file added in the prior PR sticks around regardless of <code>main</code> state.
+Same three sub-bugs as the policy path.</p>
+<p>Most operators are on the policy path (<code>GUARDIAN_CONFIG</code> set), so the
+fix will focus on <code>engine_policy.go</code>. The legacy path should get the
+same treatment but is lower priority.</p>
+<h2 id="code-references">Code references</h2>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>File</th>
+<th>Lines</th>
+<th>What to change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dispatch when <code>len(actionable) == 0</code> does nothing</td>
+<td><code>internal/checker/engine_policy.go</code></td>
+<td>40-49</td>
+<td>Add a branch: if PR exists AND actionable is empty → close PR, delete branch.</td>
+</tr>
+<tr>
+<td>File-add loop never removes</td>
+<td><code>internal/checker/engine_policy.go</code></td>
+<td>561-590</td>
+<td>Compute "satisfied-since-last-sweep" set; call <code>client.DeleteFile</code> for each <code>r.Target</code> whose rule is now satisfied. Needs new client method (<code>DeleteFile</code>) or reuse of <code>Repositories.DeleteFile</code> go-github wrapper.</td>
+</tr>
+<tr>
+<td>PR body never regenerated</td>
+<td><code>internal/checker/engine_policy.go</code></td>
+<td>592-599</td>
+<td>On the "existing PR" branch, recompute <code>rendered.Body</code> via <code>buildPRBodyFromPolicy(actionable)</code> and call a new <code>client.UpdatePullRequest(ctx, owner, repo, prNumber, body)</code> to push it.</td>
+</tr>
+<tr>
+<td>Legacy non-policy path has same three sub-bugs</td>
+<td><code>internal/checker/engine.go</code></td>
+<td>103-117, 212-310</td>
+<td>Mirror the fixes here once the policy path lands.</td>
+</tr>
+<tr>
+<td>Existing WARN comment on related drift</td>
+<td><code>internal/checker/engine_policy.go</code></td>
+<td>546-558</td>
+<td>Update once the rebase question is also resolved.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="log-signatures-for-live-verification">Log signatures for live verification</h2>
+<p>The leaky behavior produces a specific log signature that an
+operator can confirm against a live deployment without code
+changes. All entries come from the <code>checker</code> subsystem with
+<code>owner=&lt;owner&gt; repo=&lt;repo&gt;</code> slog fields.</p>
+<h3 id="smoking-gun-grep-actionable-set-is-empty-but-pr-is-open">Smoking-gun grep — actionable set is empty but PR is open</h3>
+<pre><code class="language-bash">kubectl logs -n repo-guardian -l app.kubernetes.io/name=repo-guardian --since=24h \
+  | grep &quot;all required files present&quot; \
+  | grep &quot;owner=&lt;owner&gt; repo=&lt;repo&gt;&quot;
+</code></pre>
+<p>If this matches AND the repository has an open PR with head
+<code>repo-guardian/add-missing-files</code>, the bug is firing: the engine
+just confirmed everything is satisfied and walked away from the
+stale PR.</p>
+<p>Pair it with:</p>
+<pre><code class="language-bash">gh pr list --repo &lt;owner&gt;/&lt;repo&gt; --head repo-guardian/add-missing-files --state open
+</code></pre>
+<h3 id="partial-update-grep-some-still-missing-others-stale">Partial-update grep — some still missing, others stale</h3>
+<pre><code class="language-bash">kubectl logs -n repo-guardian -l app.kubernetes.io/name=repo-guardian --since=24h \
+  | grep -E &quot;updated existing PR|added file&quot; \
+  | grep &quot;owner=&lt;owner&gt; repo=&lt;repo&gt;&quot;
+</code></pre>
+<p>The <code>"added file"</code> lines enumerate exactly the rules the engine
+considered actionable on that sweep. If the open PR's diff contains
+files NOT in that enumeration, those files are orphans from a prior
+sweep.</p>
+<p>Example correlation:</p>
+<pre><code>checker  added file  path=.github/dependabot.yml  owner=foo  repo=bar
+checker  updated existing PR  pr_number=42  owner=foo  repo=bar
+</code></pre>
+<p>If PR #42 also contains <code>.github/CODEOWNERS</code>, that's an orphan
+addition — CODEOWNERS became satisfied on <code>main</code> between the prior
+sweep and this one.</p>
+<h3 id="negative-control-convergent-rule-types">Negative control — convergent rule types</h3>
+<p>Setting rules log <code>"setting matches expected value"</code> (Debug) when
+in sync — no behavior to confirm because there's no gap.
+Branch protection rules log <code>"branch protection matches expected
+configuration"</code> (Debug). Reconcilers log e.g. <code>"custom properties
+already correct"</code> (Info). None of these produce stale state.</p>
+<p>To raise verbosity for the convergent paths if you want to confirm
+the no-op:</p>
+<pre><code class="language-bash">LOG_LEVEL=debug kubectl set env deploy/repo-guardian LOG_LEVEL=debug -n repo-guardian
+</code></pre>
+<p>(reset to <code>info</code> after observation)</p>
+<h3 id="counting-the-blast-radius">Counting the blast radius</h3>
+<pre><code class="language-bash">kubectl logs -n repo-guardian -l app.kubernetes.io/name=repo-guardian --since=24h \
+  | grep -c &quot;all required files present&quot;
+</code></pre>
+<p>Each occurrence is a candidate stale-PR event. Cross-reference
+against <code>gh pr list --search 'head:repo-guardian/add-missing-files
+state:open'</code> across installed repos to count the actual orphans.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p><strong>Answer:</strong> Yes, the gap is real, and it is <strong>isolated to the
+file-rule + PR path</strong>. Setting rules, branch_protection rules, and
+the four built-in reconcilers all short-circuit cleanly when target
+state matches current state.</p>
+<p>The PR-mediated path has three distinct sub-bugs that compose:</p>
+<ol>
+<li><strong>Orphaned files on the reconcile branch</strong> — files added in a
+   prior sweep are never removed when the rule becomes satisfied.</li>
+<li><strong>PR body becomes stale</strong> — generated once at PR creation; never
+   regenerated when the actionable set shrinks.</li>
+<li><strong>PR is never closed</strong> — when the actionable set becomes empty
+   the engine logs "all required files present" and walks away,
+   leaving the open PR untouched.</li>
+</ol>
+<p>The hypothesis is fully confirmed.</p>
+<h2 id="recommendation">Recommendation</h2>
+<p>Open an IMPL plan to fix all three sub-bugs together. They share
+enough mechanism (the <code>createOrUpdatePRFromPolicy</code> rewrite) that
+splitting them into separate PRs would just create coordination
+overhead.</p>
+<p>Sketch of the work, scoped to the policy path first:</p>
+<ol>
+<li>Add a "satisfied-this-sweep" set derived from
+   <code>policy.FileRules ∖ actionable</code>, restricted to rules whose
+   <code>Target</code> was previously committed to the reconcile branch.</li>
+<li>Add <code>client.DeleteFile(ctx, owner, repo, branch, path, sha,
+   msg)</code> to the github wrapper (the underlying
+   <code>Repositories.DeleteFile</code> exists; just needs a thin wrapper).</li>
+<li>In the update path:</li>
+<li>For each target in the satisfied-set: <code>DeleteFile</code>.</li>
+<li>Regenerate the PR body via <code>buildPRBodyFromPolicy(actionable)</code>
+     and call a new <code>client.UpdatePullRequest(ctx, owner, repo,
+     prNumber, &amp;UpdatePR{Body: ...})</code>.</li>
+<li>When <code>len(actionable) == 0</code> and an existing PR is found: close
+   the PR (<code>client.ClosePullRequest</code>) and delete the reconcile
+   branch (<code>client.DeleteBranch</code>).</li>
+<li>Add a new metric <code>prs_closed_total{org}</code> to count auto-closes.</li>
+<li>Mirror the fix in the legacy <code>engine.go</code> path (lower priority).</li>
+<li>Decide policy on auto-close: do operators want repo-guardian
+   closing PRs that humans may be reviewing? Suggested default:
+   close with a comment ("All required files now present on
+   default branch — closing automatically"). Make it gated by a
+   new HCL knob <code>guardian.auto_close_satisfied = true</code> (default
+   true) for operators who want the legacy behavior.</li>
+</ol>
+<p>Open question to discuss before writing IMPL: should
+<code>DeleteFile</code> work as a separate commit per file (cleaner history)
+or as a single squashed commit ("sync to current actionable set")?
+The latter is faster on multi-file repos but loses per-file
+attribution in the branch history.</p>
+<h2 id="testing-strategy">Testing strategy</h2>
+<p>The bug is a state-transition class — single-sweep tests can't catch
+it. What matters is what the engine does on sweep N+1 given the
+artifacts left by sweep N. Four options, ranked by ROI:</p>
+<h3 id="tier-1-multi-sweep-unit-tests-do-during-the-fix">Tier 1 — Multi-sweep unit tests (do during the fix)</h3>
+<p>The existing <code>mockClient</code> in <code>internal/checker/engine_test.go</code>
+already models state in maps (<code>contents</code>, <code>branchSHAs</code>,
+<code>openPRs</code>, etc.) and lets a test mutate that state between
+engine calls. The fix introduces three new interface methods
+(<code>DeleteFile</code>, <code>UpdatePullRequest</code>, <code>ClosePullRequest</code>); each
+needs a recording field on the mock plus an assertion in the
+test. Cheap because we're writing it alongside the fix.</p>
+<p>Three scenarios to lock in:</p>
+<ol>
+<li><strong>Orphan cleanup</strong> — Sweep 1: rule <code>codeowners</code> actionable;
+   <code>.github/CODEOWNERS</code> written to branch. Mutate mock so the
+   file exists on <code>main</code>. Sweep 2: assert
+   <code>mock.deletedFiles</code> contains the target and
+   <code>mock.createdFiles</code> does NOT include it.</li>
+<li><strong>Body refresh on partial satisfaction</strong> — Sweep 1: three
+   rules actionable; PR created with body listing all three.
+   Mutate mock so one rule's path exists on main. Sweep 2:
+   assert <code>mock.updatedPRBody</code> reflects the two-rule list, and
+   the orphaned target was deleted from the branch.</li>
+<li><strong>Auto-close on empty actionable</strong> — Sweep 1: one rule
+   actionable; PR created. Mutate mock so the path exists on
+   main. Sweep 2: assert <code>mock.closedPRs</code> contains the PR
+   number AND <code>mock.deletedBranches</code> contains
+   <code>repo-guardian/add-missing-files</code>.</li>
+</ol>
+<p>Pattern is the established convention from
+<code>internal/checker/engine_policy_test.go</code> — no new infrastructure
+required.</p>
+<h3 id="tier-2-diagnostic-metric-prometheus-alert-separate-small-pr-before-the-fix">Tier 2 — Diagnostic metric + Prometheus alert (separate small PR, before the fix)</h3>
+<p>Add a counter that increments <strong>exactly when the bug fires</strong>.
+Name suggestion: <code>pr_orphan_left_total{org}</code> (incremented in
+<code>createOrUpdatePRFromPolicy</code> whenever a previously-committed file
+on the reconcile branch is no longer in <code>actionable</code>) and
+<code>pr_open_with_empty_actionable_total{org}</code> (incremented in
+<code>checkRepoWithPolicy</code> when <code>len(actionable) == 0</code> AND
+<code>findOurPR(openPRs) != nil</code>).</p>
+<p>Value: ship the metric BEFORE the fix to gather production
+evidence of how often the bug fires in the homelab. Pair with a
+PrometheusRule alert (extends <code>templates/prometheusrule.yaml</code>,
+which already ships 5 starter alerts from IMPL-0011 P6):</p>
+<pre><code class="language-yaml">- alert: RepoGuardianStalePRLikely
+  expr: |
+    sum(rate(pr_open_with_empty_actionable_total[1h])) by (org) &gt; 0
+  for: 15m
+  annotations:
+    summary: &quot;Repo Guardian observed satisfied rules with an open PR (org={{ $labels.org }})&quot;
+</code></pre>
+<p>Keep the metric post-fix — it stays useful as a regression
+canary. If the fix lands and the counter resumes climbing, we
+have a smoke detector for that whole class of bug.</p>
+<h3 id="tier-3-integration-test-scaffold-using-httptestserver-medium-effort-broader-payoff">Tier 3 — Integration test scaffold using httptest.Server (medium effort, broader payoff)</h3>
+<p>Precedent exists in <code>internal/github/client_test.go</code>, which uses
+<code>httptest.NewServer</code> to stand up a fake GitHub API surface. The
+existing tests are scoped to one API call per test. A multi-sweep
+engine test would extend the pattern:</p>
+<ol>
+<li>Stand up a <code>httptest.Server</code> that records every request and
+   serves canned responses from an in-test state map.</li>
+<li>Construct an installation-scoped <code>ghclient.Client</code> pointed at
+   the fake's URL.</li>
+<li>Wire it into <code>Engine.NewEngineFromPolicy</code> directly (no
+   webhooks, no scheduler, no queue).</li>
+<li>Drive the engine through N synthetic sweeps, mutating the
+   fake's state map between each.</li>
+<li>Assert on the request log: did the engine call <code>DeleteFile</code>,
+   <code>UpdatePullRequest</code>, <code>ClosePullRequest</code> at the right moments?</li>
+</ol>
+<p>Cost: roughly 1-2 days to write the harness; ~50 LOC per new
+test. Payoff: catches engine-flow bugs that single-method mocks
+miss (e.g., a CreateFile-then-DeleteFile that targets the wrong
+branch SHA). The harness becomes the canonical test bed for any
+future engine-loop change.</p>
+<p>Recommendation: scope this in a separate IMPL phase or follow-up
+RFC, not in the bug-fix PR. The fix itself is fine with Tier 1.</p>
+<h3 id="tier-4-end-to-end-against-a-real-github-org-dont-bother-for-this-bug">Tier 4 — End-to-end against a real GitHub org (don't bother for this bug)</h3>
+<p>Stand up a sandbox GitHub org with throwaway repos, install
+repo-guardian as a real App, drive sweeps end-to-end, assert
+via <code>gh pr view</code>. This is the "is the whole system actually
+working?" tier.</p>
+<p>Cost is significant: sandbox org + GitHub App secret management
+in CI + rate-limit budget + cleanup between runs. The bug in
+INV-0005 is deterministic from code paths — it does not need
+real GitHub to surface. E2E would be valuable for chart-deploy
+smoke testing (already partially covered by
+<code>charts/repo-guardian/docs/homelab-smoke.md</code>), but it does not
+catch a different failure mode for this bug class than Tier 3
+catches more cheaply.</p>
+<h3 id="what-we-are-not-proposing">What we are NOT proposing</h3>
+<ul>
+<li><strong>Property-based / fuzz testing</strong> — possible (the invariant
+  "files on branch == targets of actionable rules" is clean) but
+  requires the Tier 3 harness first. Re-evaluate after Tier 3
+  exists.</li>
+<li><strong>Mutation testing</strong> — would surface gaps in existing
+  coverage, but the gap here is identified already. Useful as a
+  separate codebase-wide initiative, not for this bug.</li>
+<li><strong>Snapshot tests on PR body</strong> — the body changes legitimately
+  when operators tune <code>defaults.pr.body</code>. Snapshots would
+  generate noise. Tier 1's explicit assertions on body content
+  are sufficient.</li>
+</ul>
+<h3 id="recommendation_1">Recommendation</h3>
+<p>For the IMPL plan that follows this investigation:</p>
+<ol>
+<li>Land Tier 2 (diagnostic metric + alert) as a small standalone
+   PR before the fix, so we can observe the bug rate in the
+   homelab now.</li>
+<li>Bundle Tier 1 (multi-sweep unit tests) with the fix in the
+   same PR — that's the bar for "we believe the fix is
+   correct."</li>
+<li>Open a separate planning issue or RFC for Tier 3 (httptest
+   integration scaffold). Don't block the bug fix on it.</li>
+<li>Skip Tier 4 unless we discover a separate class of bug that
+   only manifests against real GitHub.</li>
+</ol>
+<h2 id="observability-and-operator-ux-extended">Observability and operator UX (extended)</h2>
+<p>Beyond catching the bug class with tests, two operator-visible
+surfaces would make the file-rule reconcile loop legible to humans
+and produce fleet-wide insight even when nothing is broken.</p>
+<h3 id="stale-pr-gauge-bucketed-by-rule-age">Stale-PR gauge bucketed by rule × age</h3>
+<p>Today there is no metric that answers "how many repos haven't
+merged the <code>codeowners</code> rule yet?" or "how many repo-guardian
+PRs have been open more than a week?" An operator looking at
+fleet health has to manually correlate <code>gh pr list</code> output
+against the policy file.</p>
+<p>Proposed:</p>
+<pre><code class="language-go">// internal/metrics/metrics.go
+OpenPRsByRule = promauto.NewGaugeVec(prometheus.GaugeOpts{
+    Name: &quot;open_prs_by_rule&quot;,
+    Help: &quot;Open repo-guardian PRs by org, rule, and PR age bucket. Reset and recomputed every sweep.&quot;,
+}, []string{&quot;org&quot;, &quot;rule&quot;, &quot;age_bucket&quot;})
+</code></pre>
+<p>Implementation on every sweep:</p>
+<ol>
+<li><code>OpenPRsByRule.Reset()</code> at the start of <code>ReconcileAll</code> (or
+   the sweep handler in <code>internal/checker/sweep.go</code>).</li>
+<li>For every open repo-guardian PR (<code>findOurPR(openPRs) !=
+   nil</code>), compute <code>age := now.Sub(pr.CreatedAt)</code> and bucket it
+   into one of <code>0-3d</code>, <code>3-7d</code>, <code>7-30d</code>, <code>30d+</code>.</li>
+<li>For every rule still in <code>actionable</code> on that sweep,
+   <code>OpenPRsByRule.WithLabelValues(org, rule.Name,
+   bucket).Inc()</code>.</li>
+</ol>
+<p>This gives operators three natural views:</p>
+<pre><code class="language-promql"># Bubble-up by rule: how many repos haven't merged each rule.
+sum by (rule) (open_prs_by_rule)
+
+# Worst offenders: rules with the most month-plus stale PRs.
+sum by (rule) (open_prs_by_rule{age_bucket=&quot;30d+&quot;})
+
+# Fleet aging curve over time.
+sum by (age_bucket) (open_prs_by_rule)
+</code></pre>
+<p>Companion alert in <code>templates/prometheusrule.yaml</code>:</p>
+<pre><code class="language-yaml">- alert: RepoGuardianPRsStuckLongTerm
+  expr: |
+    sum by (org, rule) (open_prs_by_rule{age_bucket=&quot;30d+&quot;}) &gt; 0
+  for: 1h
+  annotations:
+    summary: &quot;{{ $labels.rule }} PRs open &gt;30d in {{ $labels.org }}&quot;
+    description: |
+      Repo-guardian has had open PRs for rule `{{ $labels.rule }}`
+      in org `{{ $labels.org }}` for more than 30 days.
+      `gh pr list --search 'head:repo-guardian/add-missing-files
+      state:open' --json title,url,createdAt`.
+</code></pre>
+<p>Cardinality bound: orgs × file rules × 4 buckets. With ~5 rules
+and a handful of orgs, that is at most low-hundreds of series —
+well within Prometheus comfort zones. <code>installation_id</code> is
+deliberately not a label (already redundant with <code>org</code> per the
+IMPL-0009 convention captured in MEMORY.md).</p>
+<p>Note on "updated_at" semantics: GitHub's <code>updated_at</code> advances on
+any commit, comment, label change, or assignee change — including
+repo-guardian's own reconcile writes. So a PR repo-guardian
+"touches" every sweep would never look stale by that field. Age
+from <code>created_at</code> is the right input for the staleness gauge.
+Separately, a <code>time_since_last_reconcile_seconds</code> gauge could
+track the inverse if we ever want it, but it duplicates what the
+sweep cadence already implies.</p>
+<h3 id="reconciliation-comments-on-the-pr">Reconciliation comments on the PR</h3>
+<p>Today the engine writes the PR body once at creation and never
+again. The operator has no inline record of what repo-guardian
+has done over the PR's lifetime (added file X, removed orphan Y,
+refreshed body because Z became satisfied, etc.).</p>
+<p>Proposed: emit a structured PR comment on every state-transition
+event. Two design choices to settle in the IMPL plan:</p>
+<p><strong>Option A — append-only comment stream.</strong> Every event is a new
+comment. Easy to implement. Maps cleanly to per-event
+attribution. Downside: noisy on long-lived PRs (one comment per
+sweep that does anything).</p>
+<p><strong>Option B — sticky single comment, edited in place.</strong> First
+event creates a comment; subsequent events <code>UpdatePRComment</code> the
+same comment by ID, appending to its body. Standard GitHub
+Actions bot pattern (<code>actions/github-script</code> recipes). Find the
+existing comment by a marker line:</p>
+<pre><code>&lt;!-- repo-guardian-reconcile-log v1 --&gt;
+</code></pre>
+<p>This stays clean on long-lived PRs. Implementation cost is one
+ListComments call per sweep per repo with an open PR (cheap;
+already inside the sweep's API budget per IMPL-0011).</p>
+<p><strong>Recommended: Option B.</strong> Operators reading a stale PR want
+"what has repo-guardian done to this PR in the past week?" as a
+single scrollable artifact, not a wall of bot comments.</p>
+<p>Comment body shape (sticky):</p>
+<pre><code class="language-markdown">&lt;!-- repo-guardian-reconcile-log v1 --&gt;
+
+## Repo Guardian reconcile log
+
+| Date (UTC) | Event |
+|---|---|
+| 2026-05-26 03:00 | Created with rules: `codeowners`, `renovate_config`, `catalog_info` |
+| 2026-05-29 03:00 | `catalog_info` rule satisfied on default branch — removed `catalog-info.yaml` from PR |
+| 2026-06-02 03:00 | Body refreshed: 2 rules remaining |
+</code></pre>
+<p>Engine side: add <code>client.UpsertPRComment(ctx, owner, repo,
+prNumber, markerLine, body)</code> to the github wrapper. On each
+state-transition event in <code>createOrUpdatePRFromPolicy</code>, render
+the new log row and call upsert.</p>
+<p>A new metric records the surface so it's observable:</p>
+<pre><code class="language-go">PRCommentsWrittenTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+    Name: &quot;pr_comments_written_total&quot;,
+    Help: &quot;PR reconcile-log comments written or updated, by org and event type.&quot;,
+}, []string{&quot;org&quot;, &quot;event&quot;})
+</code></pre>
+<p>Where <code>event ∈ {created, file_removed, body_refreshed,
+auto_closed}</code>.</p>
+<h3 id="anti-pattern-do-not-use-pr-comments-for-engine-state-recovery">Anti-pattern: do not use PR comments for engine state recovery</h3>
+<p>A natural-sounding follow-up — "read the comments back to know
+what we did last sweep" — should be explicitly <strong>out of scope</strong>.
+Two reasons:</p>
+<ol>
+<li>The durable Store added in IMPL-0011 (<code>repo_state</code> in
+   Postgres) is the canonical record of per-repo reconcile
+   history. Adding a second authority (PR comments) creates a
+   split-brain problem: which is right if they disagree?</li>
+<li>PR comments are user-editable. An operator who deletes the
+   reconcile-log comment, or a third-party bot that mass-deletes
+   bot comments, would corrupt engine state if the engine
+   trusted comment content.</li>
+</ol>
+<p>Comments are the <strong>human-readable</strong> view; <code>repo_state</code> is the
+<strong>engine-readable</strong> record. If the IMPL plan needs additional
+per-PR state (e.g., "files we committed last sweep, for the
+orphan-detection step"), add a column to <code>repo_state</code> — do not
+parse PR comment markdown.</p>
+<h3 id="scale-considerations-4000-repos">Scale considerations (4000+ repos)</h3>
+<p>Cardinality of the proposed metrics is bounded by <strong>label
+combinations, not gauge values</strong>. Worked example for a 4000-repo
+fleet spread across 10 orgs:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Label set</th>
+<th>Series count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>open_prs_by_rule</code></td>
+<td><code>org</code> × <code>rule</code> × <code>age_bucket</code></td>
+<td>10 × ~5 rules × 4 buckets = <strong>200</strong></td>
+</tr>
+<tr>
+<td><code>pr_orphan_left_total</code></td>
+<td><code>org</code> × <code>rule</code></td>
+<td>10 × 5 = <strong>50</strong></td>
+</tr>
+<tr>
+<td><code>pr_open_with_empty_actionable_total</code></td>
+<td><code>org</code></td>
+<td><strong>10</strong></td>
+</tr>
+<tr>
+<td><code>pr_comments_written_total</code></td>
+<td><code>org</code> × <code>event</code></td>
+<td>10 × 4 events = <strong>40</strong></td>
+</tr>
+</tbody>
+</table>
+<p>These are series, not values. If 300 of the 4000 repos have a
+stale <code>codeowners</code> PR in the 7-30d bucket, the <strong>value</strong> of
+<code>open_prs_by_rule{org="acme", rule="codeowners",
+age_bucket="7-30d"}</code> is 300 — but it's still one series.
+Prometheus comfort zone is hundreds of thousands of series, so
+this is nowhere near the danger zone.</p>
+<p><strong>What would explode cardinality (and why I deliberately did
+not propose any of these):</strong></p>
+<ul>
+<li>Adding <code>repo</code> as a label: 4000 repos × 5 rules × 4 buckets =
+  80K series <strong>per metric</strong>. Cardinality bomb on a metric you'd
+  scrape every 30s.</li>
+<li>Adding <code>pr_number</code> as a label: unbounded over the system's
+  lifetime (PR numbers monotonically increase, old PRs stay in
+  the label set forever).</li>
+<li>Fine-grained age buckets (per-hour): 720 × 50 orgs × 10 rules
+  = 360K series. Same problem.</li>
+</ul>
+<p><strong>Convention preserved:</strong> the codebase already disallows <code>repo</code>
+as a label across all 32 existing metrics. <code>installation_id</code>
+appears on exactly two metrics
+(<code>rate_limit_remaining</code>, <code>rate_limit_reserve_blocked_total</code>) —
+both genuinely installation-scoped because the rate-limit
+budget is per-installation. The per-rule and per-PR metrics
+stay labeled by <code>org</code> only. The new metrics follow the same
+convention.</p>
+<p><strong>Other 4000-repo scale concerns worth naming explicitly:</strong></p>
+<ol>
+<li><strong>Sweep throughput vs API budget — plan-dependent.</strong> GitHub
+   App rate limit is <strong>plan-sensitive</strong>, not a flat 5000/hr:<ul>
+<li>Free / Pro / Team installations: 5,000 requests/hr per
+  installation as a floor, scaling upward by user / repo
+  count via a documented formula.</li>
+<li>Enterprise Cloud organizations: 15,000 requests/hr per
+  installation.</li>
+<li>Enterprise Server: governed by the appliance's
+  configured limit; typically higher.</li>
+</ul>
+</li>
+</ol>
+<p>Per-repo cost is ~5-20 API calls in steady state depending on
+   policy density (one <code>GetRepository</code> + one
+   <code>ListOpenPullRequests</code> + N × <code>GetContents</code> for each file
+   rule's path list, plus setting / branch-protection / reconciler
+   calls).</p>
+<p>But importantly: <strong>the sweep does not enumerate the whole
+   fleet per tick.</strong> IMPL-0011's <code>StaleSweeper</code>
+   (<code>internal/checker/sweep.go</code>) queries
+   <code>Store.StaleRepos(freshness, policyVersion,
+   batchSize)</code> and only processes <code>batchSize</code> repos per scheduler
+   tick. <code>STORE_SWEEP_BATCH_SIZE</code> defaults to 100; tune up for
+   bigger fleets, down for smaller budgets.</p>
+<p>Steady-state worked examples at 4000 repos, assuming ~10 API
+   calls per repo:</p>
+<pre><code>| Plan | Limit | Freshness | Calls/hr at saturation | Comfortable? |
+|---|---|---|---|---|
+| Free/Pro/Team | 5,000/hr | 24h | ~1,700 | Yes, ~35% util |
+| Free/Pro/Team | 5,000/hr | 7m   | ~17,000 | **No** — gate would block |
+| Enterprise Cloud | 15,000/hr | 24h | ~1,700 | Yes, ~11% util |
+| Enterprise Cloud | 15,000/hr | 7m | ~17,000 | Just over — tune batch_size down or freshness up |
+</code></pre>
+<p>At Enterprise Cloud + 4000 repos, 24h freshness with
+   <code>STORE_SWEEP_BATCH_SIZE</code> somewhere around 100-200 per tick
+   leaves comfortable headroom. The <code>RATE_LIMIT_RESERVE</code> gate
+   (<code>internal/checker/sweep.go:175-189</code>) falls open on lookup
+   failure and short-circuits enqueue when budget runs low, so
+   the worst case is "sweep slows down," not "sweep crashes."</p>
+<ol>
+<li><strong>Stale-PR gauge granularity at long sweep cadences.</strong> With
+   24h freshness, the gauge reflects fleet state as of the most
+   recent stale-pass per repo, not the most recent
+   <code>kubectl exec</code> second. Alert <code>for:</code> windows should match
+   sweep cadence — <code>for: 2h</code> minimum at 24h-freshness scale,
+   <code>for: 15m</code> is fine at 7m freshness.</li>
+<li><strong>Postgres <code>repo_state</code> at 4000 rows.</strong> Trivial. No
+   concern; the existing schema supports this without
+   modification. The <code>(installation_id, owner, repo)</code> index from
+   IMPL-0011 P2 makes the <code>StaleRepos</code> query a bounded index scan
+   regardless of fleet size.</li>
+<li><strong>Sticky comment API cost.</strong> The proposed sticky pattern
+   does <strong>one</strong> <code>ListComments</code> call per repo with an open PR
+   per sweep tick that touches it, plus one <code>Update</code> or
+   <code>Create</code> only when a state-transition event fires. At 4000
+   repos with ~10% having an open PR (≈ 400 PRs) and the
+   sweep processing 100/tick → only ~10 of those touched per
+   tick. If state transitions on ~5%, that's &lt;1 comment write
+   per tick. The cost scales with <strong>churn</strong>, not fleet size,
+   and most ticks see zero comment-related API calls.</li>
+<li><strong>Orphan-cleanup cost in the fix PR.</strong> <code>DeleteFile</code> is one
+   call per orphan per affected repo. Bounded by "how many
+   files became satisfied between sweeps" — for an actively
+   maintained fleet this trends toward small numbers per
+   sweep, since most rules either stay satisfied or stay
+   broken between sweeps.</li>
+</ol>
+<p>If the operator scales past ~10K repos in a single installation
+<strong>or</strong> runs into the 5K/hr floor on free-plan installations
+without room to bump batch size or freshness, the right next
+investigation is per-installation sharding of the sweep (each
+pod handles a slice of installations), not metric-level tuning.
+The interface-first design from IMPL-0011 makes that scope-able
+as a follow-up RFC.</p>
+<h3 id="updated-impl-sequence">Updated IMPL sequence</h3>
+<p>Folding the above back into the recommendation chain at the top:</p>
+<ol>
+<li><strong>PR A (tiny)</strong> — diagnostic counters
+   (<code>pr_orphan_left_total</code>, <code>pr_open_with_empty_actionable_total</code>)
+   from Tier 2 + the <code>open_prs_by_rule</code> gauge from this section.
+   Alerts in <code>templates/prometheusrule.yaml</code>. No engine behavior
+   change. Ship now to see the homelab numbers.</li>
+<li><strong>PR B (the actual fix)</strong> — orphan deletion, body
+   regeneration, auto-close. Multi-sweep unit tests bundled.
+   Reconcile-log PR comments (sticky pattern, human-readable
+   only — see anti-pattern subsection above) emitted on each
+   state-transition event. New <code>PRCommentsWrittenTotal</code> metric.</li>
+<li><strong>PR C (separate, deferrable)</strong> — httptest integration
+   scaffold from Tier 3.</li>
+</ol>
+<p>The Option B sticky-comment design needs an explicit
+<code>UpsertPRComment</code> method on <code>ghclient.Client</code> and a
+corresponding mock. Calling that out so the IMPL plan can size
+it correctly.</p>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="../../examples/guardian-full.hcl">examples/guardian-full.hcl</a>
+  — the reference config that produced this scenario.</li>
+<li><a href="../0003-pre-existing-branch-422-on-subsequent-reconciles/">INV-0003</a>
+  — adjacent stale-branch bug; precedent for the
+  "investigate then fix in one PR" cadence (PR #69).</li>
+<li><a href="../../design/0007-reconciler-interface-and-push-event-handler/">DESIGN-0007</a>
+  — push handler for watched paths; relevant because watched-path
+  pushes are one way the gap manifests faster than the sweep cadence.</li>
+<li><a href="https://github.com/donaldgifford/repo-guardian/pull/79">PR #79</a>
+  — the open homelab PR that motivates this investigation.</li>
+<li>WARN comment at
+  <a href="../../internal/checker/engine_policy.go"><code>internal/checker/engine_policy.go:546-558</code></a>
+  — already acknowledges a closely-related stale-branch class of bug
+  (referencing this conversation in PR #71).</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

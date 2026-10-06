@@ -1,0 +1,2484 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Per-installation Valkey queue partitioning - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#design-0015-per-installation-valkey-queue-partitioning" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Per-installation Valkey queue partitioning
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goals-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals and Non-Goals
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Goals and Non-Goals">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#relationship-to-design-0021-re-baselined-2026-07-29" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Relationship to DESIGN-0021 (re-baselined 2026-07-29)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key layout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#worker-scheduling-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Worker scheduling strategies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-installation-concurrency-cap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-installation concurrency cap
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reaper-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reaper changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installation-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compatibility-with-cluster-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compatibility with cluster mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-interface-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API / Interface Changes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API / Interface Changes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#internalqueuequeue-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        internal/queue/Queue interface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#internalqueuevalkey" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        internal/queue/valkey/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#internalworker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        internal/worker/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#internalmetrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        internal/metrics/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chart-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chart values
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Strategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Testing Strategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#unit-tests-internalqueuevalkey" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unit tests (internal/queue/valkey/)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#behaviour-tests-inline-in-valkey_integration_testgo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Behaviour tests (inline in valkey_integration_test.go)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#integration-tests-_integration_testgo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration tests (_integration_test.go)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chaos-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chaos tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-rollout-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration / Rollout Plan
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Migration / Rollout Plan">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-feature-flag-default-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1 — Feature flag (default off)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-drain-and-cutover" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 — Drain-and-cutover
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-promote-to-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3 — Promote to default
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rollback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rollback
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="design-0015-per-installation-valkey-queue-partitioning">DESIGN 0015: Per-installation Valkey queue partitioning</h1>
+<p><strong>Status:</strong> Draft
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-06-22</p>
+<!--toc:start-->
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#goals-and-non-goals">Goals and Non-Goals</a></li>
+<li><a href="#goals">Goals</a></li>
+<li><a href="#non-goals">Non-Goals</a></li>
+<li><a href="#background">Background</a></li>
+<li><a href="#relationship-to-design-0021-re-baselined-2026-07-29">Relationship to DESIGN-0021 (re-baselined 2026-07-29)</a></li>
+<li><a href="#detailed-design">Detailed Design</a></li>
+<li><a href="#key-layout">Key layout</a></li>
+<li><a href="#worker-scheduling-strategies">Worker scheduling strategies</a></li>
+<li><a href="#per-installation-concurrency-cap">Per-installation concurrency cap</a></li>
+<li><a href="#reaper-changes">Reaper changes</a></li>
+<li><a href="#installation-lifecycle">Installation lifecycle</a></li>
+<li><a href="#compatibility-with-cluster-mode">Compatibility with cluster mode</a></li>
+<li><a href="#api--interface-changes">API / Interface Changes</a></li>
+<li><a href="#internalqueuequeue-interface">internal/queue/Queue interface</a></li>
+<li><a href="#internalqueuevalkey">internal/queue/valkey/</a></li>
+<li><a href="#internalworker">internal/worker/</a></li>
+<li><a href="#internalmetrics">internal/metrics/</a></li>
+<li><a href="#chart-values">Chart values</a></li>
+<li><a href="#data-model">Data Model</a></li>
+<li><a href="#testing-strategy">Testing Strategy</a></li>
+<li><a href="#unit-tests-internalqueuevalkey">Unit tests (internal/queue/valkey/)</a></li>
+<li><a href="#behaviour-tests-inline-in-valkeyintegrationtestgo">Behaviour tests (inline in valkeyintegrationtest.go)</a></li>
+<li><a href="#integration-tests-integrationtestgo">Integration tests (integrationtest.go)</a></li>
+<li><a href="#chaos-tests">Chaos tests</a></li>
+<li><a href="#migration--rollout-plan">Migration / Rollout Plan</a></li>
+<li><a href="#phase-1--feature-flag-default-off">Phase 1 — Feature flag (default off)</a></li>
+<li><a href="#phase-2--drain-and-cutover">Phase 2 — Drain-and-cutover</a></li>
+<li><a href="#phase-3--promote-to-default">Phase 3 — Promote to default</a></li>
+<li><a href="#rollback">Rollback</a></li>
+<li><a href="#open-questions">Open Questions</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="overview">Overview</h2>
+<p>Split the single global Valkey queue (<code>repo-guardian:queue:jobs</code>) into per-installation
+queues so that one noisy installation cannot starve work for the rest. Workers schedule
+across the per-installation queues with bounded per-installation concurrency,
+producing strict fairness and unlocking per-installation queue-depth metrics.</p>
+<p>This is <strong>partitioning</strong> at the application layer — different conceptually from Valkey
+cluster-mode sharding. See <code>docs/operations/aws.md</code> for the distinction.</p>
+<h2 id="goals-and-non-goals">Goals and Non-Goals</h2>
+<h3 id="goals">Goals</h3>
+<ul>
+<li>Bound noisy-installation impact: a single installation cannot consume more than its
+  fair share of worker slots.</li>
+<li>Per-installation observability: <code>queue_depth{installation_id}</code> and
+  <code>queue_dispatched_total{installation_id}</code> exposed as Prometheus metric labels.</li>
+<li>Backward-compatible rollout: existing single-queue deployments continue to work;
+  partitioning is opt-in via a chart value.</li>
+<li>Survives in both single-node Valkey and Valkey cluster-mode-disabled topologies
+  (the recommended ElastiCache shape per <code>docs/operations/aws.md</code>).</li>
+</ul>
+<h3 id="non-goals">Non-Goals</h3>
+<ul>
+<li>Valkey cluster-mode (sharding) support. Tracked separately — orthogonal axis. This
+  design DOES leave the door open by keeping all per-installation keys for one
+  installation in the same hash slot via tags, so a future cluster-mode rollout
+  doesn't require redesign.</li>
+<li>Per-installation priority weights or QoS tiers. Future enhancement; the initial
+  scheduler is round-robin with a uniform cap.</li>
+<li>Cross-installation work stealing. Strategy A (BRPOP-many) is naturally
+  work-conserving; explicit work-stealing is out of scope for v1.</li>
+</ul>
+<h2 id="background">Background</h2>
+<p>repo-guardian's queue today is a LIST + two ZSETs (the delayed set arrives with
+DESIGN-0021):</p>
+<pre><code class="language-text">repo-guardian:queue:jobs        LIST   (FIFO of pending jobs; LPUSH / BRPOP)
+repo-guardian:queue:in-flight   ZSET   (member = job JSON, score = claim nanos)
+repo-guardian:queue:delayed     ZSET   (member = job JSON, score = due nanos — DESIGN-0021)
+repo-guardian:lock:reaper       STRING (reaper leader lock, SETNX)
+</code></pre>
+<p><code>Queue.Enqueue(job)</code> LPUSHes onto <code>jobs</code>. <code>Subscribe</code> consumers <code>BRPOP</code> a job, then
+<code>ZADD</code> it into <code>in-flight</code> to claim it; a nil handler return ZREMs the entry (ack).
+The reaper — one pod at a time, leader-elected via <code>lock:reaper</code> — ticks every
+<code>REAPER_INTERVAL</code> (default 1m) and atomically requeues in-flight entries older than
+<code>JOB_ACK_TIMEOUT</code> (default 5m) via a Lua script; under DESIGN-0021 the same tick also
+promotes due entries from <code>delayed</code> back to <code>jobs</code>.</p>
+<p>At fleet scale (3000 repos across 25 GitHub orgs — see <code>docs/operations/aws.md</code>), one
+large org can have 500+ actionable repos per sweep while smaller orgs have only a
+handful. The single-FIFO queue means the noisy org's burst always enters before the
+smaller orgs' webhook-triggered work, regardless of webhook arrival order. Workers
+drain the noisy org's burst before getting to smaller orgs.</p>
+<p>The existing <code>staleSweep.batchSize</code> and <code>config.workerCount</code> knobs give <em>eventual</em>
+fairness — every org's work clears within a sweep cycle — but not strict round-robin.
+For operators with per-org SLAs or sensitive webhook-driven workflows, eventual
+fairness is insufficient.</p>
+<h2 id="relationship-to-design-0021-re-baselined-2026-07-29">Relationship to DESIGN-0021 (re-baselined 2026-07-29)</h2>
+<p><a href="../0021-delayed-requeue-job-contract-and-rate-limit-consolidation/">DESIGN-0021</a>
+was drafted after this design and changes both the facts underneath it and part of
+its motivation. This design now sequences <strong>after</strong> 0021, and its go/no-go becomes
+data-driven rather than speculative.</p>
+<p><strong>What 0021 removes from the motivation.</strong> The worst starvation mode in the original
+framing was a <em>rate-limited</em> noisy org: workers pull its jobs and block in the
+transport's pre-emptive sleep, so one org's exhausted budget parks the entire worker
+pool. 0021 eliminates that mode outright. Because installation clients are cached
+(<code>client.go.getInstallClient</code> — one <code>rateLimitTransport</code> per installation, shared
+across jobs), once one job observes exhaustion every subsequent job for that
+installation gets <code>ThrottledError</code> from cached state with <strong>zero API calls</strong>, defers
+to the delayed set, and frees its worker slot in milliseconds. The residual
+motivation for this design is narrower: plain FIFO burst starvation by a large org
+doing <em>real, unthrottled</em> work.</p>
+<p><strong>The go/no-go datum.</strong> 0021 Phase 5 adds <code>queue_wait_seconds{installation_id}</code>
+(enqueue→dispatch latency, measurable today because <code>Job</code> carries both
+<code>InstallationID</code> and <code>EnqueuedAt</code>). That histogram directly measures the starvation
+this design exists to fix, without partitioning anything. Proceed with this design
+only if soak data shows small installations' wait times degrading under large
+installations' bursts; otherwise it stays Draft.</p>
+<p><strong>Mechanical deltas this design must absorb from 0021:</strong></p>
+<ul>
+<li><strong>A third per-installation key.</strong> Each installation gets
+  <code>{install-N}:delayed</code> alongside <code>jobs</code> and <code>inflight</code>, sharing the installation's
+  hash tag — 0021's <code>deferScript</code> is a multi-key Lua across in-flight + delayed, so
+  the pair must co-locate in cluster mode exactly like the requeue pair.</li>
+<li><strong>Scripts are already partition-ready.</strong> <code>deferScript</code> / <code>promoteScript</code> /
+  <code>requeueScript</code> take their keys as <code>KEYS[]</code> parameters, so partitioning changes
+  only Go-side key selection (the <code>installKeys</code> helper), not the Lua.</li>
+<li><strong>Promotion joins the reaper's per-installation iteration.</strong> The reaper loop that
+  scans each installation's inflight ZSET also promotes each installation's delayed
+  ZSET. Same O(installations)-per-tick cost analysis; still negligible.</li>
+<li><strong><code>EnqueueAfter</code> routes like <code>Enqueue</code>.</strong> Key selection by <code>job.InstallationID</code>
+  applies to both producer methods.</li>
+<li><strong><code>Attempts</code>/<code>AvailableAt</code></strong> travel inside the job JSON and are key-layout
+  agnostic — no interaction.</li>
+</ul>
+<p><strong>New capability unlocked (future extension, not v1).</strong> Once queues are
+per-installation, a deferral for installation N can pause N's <em>entire queue</em>: record
+<code>paused_until = ThrottledError.ResetAt</code> and drop N from the BRPOP-many key list until
+it passes. Today each of N's queued jobs must individually claim → defer; with
+partitioning one deferral parks all of them for free. This subsumes Strategy C's
+"rate-limit headroom" weighting with a measured signal instead of a modelled one,
+and is the strongest 0021-era argument <em>for</em> this design if the wait-time data ever
+justifies it.</p>
+<h2 id="detailed-design">Detailed Design</h2>
+<h3 id="key-layout">Key layout</h3>
+<p>Each known installation gets its own LIST + ZSET. A registry SET tracks known
+installation IDs so workers and the reaper can iterate.</p>
+<pre><code class="language-text">repo-guardian:queue:{install-12345}:jobs       LIST
+repo-guardian:queue:{install-12345}:inflight   ZSET
+repo-guardian:queue:{install-12345}:delayed    ZSET  (DESIGN-0021 delayed set)
+repo-guardian:queue:{install-67890}:jobs       LIST
+repo-guardian:queue:{install-67890}:inflight   ZSET
+repo-guardian:queue:{install-67890}:delayed    ZSET
+repo-guardian:queue:installations              SET  (member: stringified install ID)
+</code></pre>
+<p>Note the <code>{install-N}</code> hash-tag braces. Valkey treats text inside <code>{ }</code> as the hash
+slot key in cluster mode. Tagging all three keys for installation N together
+guarantees they land on the same shard — required for the multi-key Lua scripts that
+operate atomically across pairs (<code>requeueScript</code>: inflight→jobs; <code>deferScript</code>:
+inflight→delayed; <code>promoteScript</code>: delayed→jobs). The installations-registry SET has
+no tag because no multi-key operation needs it alongside the per-installation keys.</p>
+<p><code>Enqueue(job)</code> becomes:</p>
+<pre><code class="language-redis">LPUSH repo-guardian:queue:{install-&lt;job.InstallationID&gt;}:jobs &lt;job-json&gt;
+SADD  repo-guardian:queue:installations &lt;job.InstallationID&gt;
+</code></pre>
+<p>Both ops; SADD is idempotent so no harm if the installation already exists in the
+registry.</p>
+<h3 id="worker-scheduling-strategies">Worker scheduling strategies</h3>
+<p>Three workable shapes considered. Recommended initial implementation is <strong>A with a
+per-installation soft cap</strong>; B and C are future extensions if A proves insufficient.</p>
+<table>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>How it works</th>
+<th>Pros</th>
+<th>Cons</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>A. BRPOP across all keys</strong></td>
+<td>Worker reads <code>SMEMBERS installations</code>, issues <code>BRPOP key1 key2 … keyN &lt;timeout&gt;</code> — Valkey returns from whichever queue has work first</td>
+<td>Trivial code; natural fairness for ready work; no extra coordination state</td>
+<td>No strict cap on per-installation parallelism — a noisy org can still claim every worker slot</td>
+</tr>
+<tr>
+<td><strong>B. Round-robin with per-installation concurrency cap</strong></td>
+<td>Maintain <code>repo-guardian:queue:{install-N}:in_flight_count</code> counter; worker iterates installations in round-robin order, skips any at cap</td>
+<td>Strict fairness; bounds noisy-installation parallelism</td>
+<td>More state; atomic check-and-incr Lua script required</td>
+</tr>
+<tr>
+<td><strong>C. Weighted random by depth + rate-limit headroom</strong></td>
+<td>Worker picks an installation at random, weighted by <code>(queue_depth × rate_limit_remaining)</code></td>
+<td>Adapts dynamically to rate limits; statistically fair</td>
+<td>Most state; depth + headroom snapshots; harder to reason about</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommendation: A with a soft cap.</strong> Combines BRPOP-many's simplicity with an
+explicit per-installation in-flight ceiling. The cap is enforced application-side:
+when a worker successfully BRPOPs from installation N's queue, it increments a local
+counter for N; subsequent BRPOPs exclude N from the key list once N is at cap. The
+counter decrements on job completion. No Valkey-side coordination needed.</p>
+<pre><code class="language-go">// Sketch
+func (w *Worker) loop(ctx context.Context) {
+    for ctx.Err() == nil {
+        installs := w.snapshotInstallations()              // local cache, refreshed periodically
+        eligible := w.filterAtCap(installs)                // exclude installations at perInstallationCap
+        if len(eligible) == 0 { time.Sleep(idleBackoff); continue }
+        keys := installToKeys(eligible)
+        result, err := w.redis.BRPop(ctx, w.brpopTimeout, keys...).Result()
+        // ... dispatch
+    }
+}
+</code></pre>
+<h3 id="per-installation-concurrency-cap">Per-installation concurrency cap</h3>
+<p>Default formula:</p>
+<pre><code class="language-text">perInstallationCap = max(2, ceil(workerCount / max(installations_count, 1)))
+</code></pre>
+<p>Examples (workerCount=15 per replica, 3 replicas → 45 concurrent workers total):</p>
+<ul>
+<li>1 installation:  cap = 45 (effectively uncapped — only one tenant)</li>
+<li>5 installations: cap = 9   (no one tenant exceeds 9 of 45)</li>
+<li>25 installations: cap = 2  (noisy org limited to 2 of 45)</li>
+</ul>
+<p>Operator override: <code>queue.partitioning.perInstallationCap</code> in values.yaml.</p>
+<h3 id="reaper-changes">Reaper changes</h3>
+<p>The current reaper scans two ZSETs on every tick: <code>in-flight</code> (requeue expired
+claims) and, post-DESIGN-0021, <code>delayed</code> (promote due jobs). With partitioning, it
+scans both per installation:</p>
+<pre><code class="language-go">installs, err := r.redis.SMembers(ctx, &quot;repo-guardian:queue:installations&quot;).Result()
+for _, install := range installs {
+    jobs, inflight, delayed := installKeys(install)
+    // requeueScript: expired inflight entries → jobs (existing)
+    // promoteScript: due delayed entries → jobs (DESIGN-0021)
+}
+</code></pre>
+<p>Per-tick cost grows O(installations). At 25 installations × 2 script calls = 50
+Valkey ops per tick. With the default 1-minute <code>REAPER_INTERVAL</code>, that's &lt;1 op/sec.
+Negligible.</p>
+<h3 id="installation-lifecycle">Installation lifecycle</h3>
+<p><strong>Discovery:</strong> installations are added to the registry on first Enqueue (idempotent
+SADD). The <code>Discoverer</code> (shipped in IMPL-0015 Phase 1, replacing the legacy
+<code>Sweeper</code> this draft originally referenced) populates <code>repo_state</code>, and the
+<code>StaleSweeper</code>'s enqueues populate the registry from there.</p>
+<p><strong>Removal:</strong> uninstalling a GitHub App should remove the installation from the
+registry. Handled via the existing <code>installation.deleted</code> webhook event — webhook
+handler issues <code>SREM</code> and deletes the per-installation LIST + ZSET keys.</p>
+<p><strong>Stale registry entries:</strong> if a worker crashes mid-removal, an installation may
+linger in the registry with no LIST. BRPOP on a non-existent key blocks waiting for
+LPUSH; this is fine — no jobs ever arrive, the worker times out and moves on. A
+janitor goroutine could periodically <code>EXISTS</code> each registry entry and SREM stale
+ones, but it's not on the critical path.</p>
+<h3 id="compatibility-with-cluster-mode">Compatibility with cluster mode</h3>
+<p>The hash-tag layout (<code>{install-N}</code>) ensures cluster-mode safety even though this
+design doesn't target cluster mode in v1. If a future operator deploys against
+ElastiCache cluster-mode-enabled, each installation's three keys still co-locate on
+one shard — required for every multi-key Lua transition (<code>requeueScript</code>,
+<code>deferScript</code>, <code>promoteScript</code>) and for multi-key <code>BRPOP</code> within that installation.
+Note the <em>global</em> keys of the pre-partitioned layout are cluster-mode-unsafe for the
+same scripts; partitioning is what makes cluster mode possible at all, which is why
+the tags are in the v1 layout despite v1 not targeting cluster mode.</p>
+<p>Also requires the <code>cmd/repo-guardian/main.go</code> wiring to use <code>redis.NewUniversalClient</code>
+(or detect cluster topology) instead of <code>redis.NewClient</code>. Out of scope for this
+DESIGN — captured as a follow-up.</p>
+<h2 id="api-interface-changes">API / Interface Changes</h2>
+<h3 id="internalqueuequeue-interface"><code>internal/queue/Queue</code> interface</h3>
+<p>Unchanged externally — this design adds no methods to the post-DESIGN-0021 surface:</p>
+<pre><code class="language-go">type Queue interface {
+    Enqueue(ctx context.Context, j Job) error
+    Subscribe(ctx context.Context, handler func(context.Context, Job) error) error
+    Close() error
+    EnqueueAfter(ctx context.Context, j Job, at time.Time) error // DESIGN-0021
+}
+</code></pre>
+<p>The <code>Job</code> struct already carries <code>InstallationID</code>. The implementation selects keys
+from this field — for <code>Enqueue</code>, <code>EnqueueAfter</code>, claim, defer, and promote alike.</p>
+<h3 id="internalqueuevalkey"><code>internal/queue/valkey/</code></h3>
+<ul>
+<li>Lua scripts need <strong>no rewrite</strong> — <code>requeueScript</code>, <code>deferScript</code>, and
+  <code>promoteScript</code> take their keys as <code>KEYS[]</code> parameters. Only the Go-side key
+  selection changes.</li>
+<li>The key-naming helper (<code>installKeys(installationID) (jobs, inflight, delayed
+  string)</code>) extends the single key-construction point DESIGN-0021 Phase 2
+  establishes.</li>
+<li>BRPOP-multi loop in <code>Subscribe</code> polls all installations registered in
+  <code>repo-guardian:queue:installations</code>.</li>
+</ul>
+<h3 id="internalworker"><code>internal/worker/</code></h3>
+<ul>
+<li>Per-worker local state: <code>inFlightByInstall map[int64]int</code>.</li>
+<li>Configurable <code>PerInstallationCap</code> (default per formula above).</li>
+<li>Filter eligible installations before BRPOP.</li>
+</ul>
+<h3 id="internalmetrics"><code>internal/metrics/</code></h3>
+<ul>
+<li><code>repo_guardian_queue_depth</code> becomes <code>repo_guardian_queue_depth{installation_id}</code> —
+  GaugeVec rather than Gauge.</li>
+<li><code>repo_guardian_queue_dispatched_total</code> gains the same label.</li>
+<li><code>repo_guardian_queue_partitions</code> (new) — count of registered installations.</li>
+<li>Cardinality budget: 25 installations × 4 series = 100 series. Negligible.</li>
+</ul>
+<h3 id="chart-values">Chart values</h3>
+<pre><code class="language-yaml">queue:
+  valkey:
+    partitioning:
+      enabled: false               # opt-in during rollout
+      perInstallationCap: &quot;&quot;       # empty → formula default; integer to override
+</code></pre>
+<h2 id="data-model">Data Model</h2>
+<p>No schema changes (queue is Valkey, not Postgres). Key namespace evolves as
+described in <a href="#key-layout">Key layout</a>. Existing single-queue deployments retain the
+<code>repo-guardian:queue:jobs</code>, <code>repo-guardian:queue:in-flight</code>, and
+<code>repo-guardian:queue:delayed</code> keys until the
+<a href="#migration--rollout-plan">migration</a> drains them.</p>
+<h2 id="testing-strategy">Testing Strategy</h2>
+<h3 id="unit-tests-internalqueuevalkey">Unit tests (<code>internal/queue/valkey/</code>)</h3>
+<ul>
+<li>Key-name selector correctness for various <code>installationID</code> values.</li>
+<li>Idempotent SADD on repeated Enqueue.</li>
+<li>BRPOP-multi returns from any non-empty installation queue.</li>
+</ul>
+<h3 id="behaviour-tests-inline-in-valkey_integration_testgo">Behaviour tests (inline in <code>valkey_integration_test.go</code>)</h3>
+<p>The multi-backend contract suite this draft originally targeted is gone —
+post-IMPL-0016 there is one Queue backend and contract assertions live inline under
+the <code>integration</code> build tag (see <code>internal/queue/valkey/valkey_integration_test.go</code>).
+Add fairness assertions there:</p>
+<ul>
+<li><strong>Strict fairness under burst:</strong> enqueue 100 jobs for install-A, 1 job for
+  install-B; with <code>perInstallationCap=2</code> and 5 workers, install-B's job dispatches
+  within 1 second of install-A's burst arrival.</li>
+<li><strong>No starvation under uniform load:</strong> enqueue 50 jobs for each of 5 installations;
+  every installation's first job dispatches before any installation's tenth.</li>
+<li><strong>Cap enforcement:</strong> with <code>perInstallationCap=3</code>, no worker dispatches more than 3
+  concurrent jobs for a single installation.</li>
+</ul>
+<h3 id="integration-tests-_integration_testgo">Integration tests (<code>_integration_test.go</code>)</h3>
+<ul>
+<li>Run the existing in-flight + reaper integration tests with the new key layout.</li>
+<li>Add ElastiCache test target (<code>cache.t4g.micro</code>) running alongside the existing
+  testcontainer Valkey target.</li>
+</ul>
+<h3 id="chaos-tests">Chaos tests</h3>
+<ul>
+<li>Worker crash mid-job: verify reaper requeues from the correct per-installation
+  inflight ZSET.</li>
+<li>Installation uninstall during active processing: verify <code>installation.deleted</code>
+  webhook drains the queue cleanly.</li>
+</ul>
+<h2 id="migration-rollout-plan">Migration / Rollout Plan</h2>
+<h3 id="phase-1-feature-flag-default-off">Phase 1 — Feature flag (default off)</h3>
+<ul>
+<li>Land partitioning behind <code>queue.valkey.partitioning.enabled=false</code>.</li>
+<li>Existing deployments unaffected.</li>
+<li>Operators opt in by enabling the flag + bumping the chart.</li>
+</ul>
+<h3 id="phase-2-drain-and-cutover">Phase 2 — Drain-and-cutover</h3>
+<ul>
+<li>When <code>enabled=true</code>, binary on startup:</li>
+<li>Drains residual jobs from the legacy <code>repo-guardian:queue:jobs</code> LIST by
+     re-enqueueing them through the new partitioning logic (jobs already carry
+     <code>InstallationID</code>; they route to per-installation keys).</li>
+<li>Deletes the legacy keys when drained.</li>
+<li>
+<p>Resumes normal operation against the per-installation key space.</p>
+</li>
+<li>
+<p>The drain is idempotent — repeated restarts during the migration window do not
+  duplicate work.</p>
+</li>
+</ul>
+<h3 id="phase-3-promote-to-default">Phase 3 — Promote to default</h3>
+<p>After ≥ 1 release cycle of opt-in production usage:</p>
+<ul>
+<li>Flip the chart default to <code>enabled=true</code>.</li>
+<li>Document the migration recipe in <code>docs/operations/</code>.</li>
+<li>Mark the legacy single-key code path deprecated; remove in a future release.</li>
+</ul>
+<h3 id="rollback">Rollback</h3>
+<p>If a bug surfaces in partitioning, operators set <code>enabled=false</code> and restart. The
+binary drains residual partitioned jobs back into the legacy LIST on startup (mirror
+of the Phase 2 drain).</p>
+<h2 id="open-questions">Open Questions</h2>
+<p><strong>(a)</strong> Per-installation cap formula.</p>
+<ul>
+<li><strong>(a) = <code>max(2, ceil(workerCount / installations_count))</code> (recommended).</strong> Scales
+  inversely with fleet breadth; gives single-tenant deployments effectively-uncapped
+  behaviour and multi-tenant deployments strict fairness.</li>
+<li>(b) Static cap (<code>perInstallationCap=N</code> fixed by operator). Simpler, but requires
+  retuning whenever installations are added or workerCount changes.</li>
+<li>(c) Dynamic cap derived from per-installation rate-limit headroom. More fair
+  under unequal rate-limit budgets (e.g., GHEC orgs at 12.5k/hr vs non-enterprise at
+  5k/hr); much more state.</li>
+<li>other:</li>
+</ul>
+<p><strong>(b)</strong> Worker scheduling strategy at GA.</p>
+<ul>
+<li><strong>(a) = Strategy A (BRPOP-many) with soft cap (recommended).</strong> Simplest implementation;
+  good enough for the vast majority of fleets.</li>
+<li>(b) Strategy B (round-robin with hard cap). Reach for it if BRPOP-many's
+  "exclude-at-cap" application-side check proves insufficient (e.g., under sustained
+  noisy-org bursts where the local cap counter races against worker startup).</li>
+<li>(c) Strategy C (weighted random by depth + headroom). Future enhancement only.</li>
+<li>other:</li>
+</ul>
+<p><strong>(c)</strong> Installation registry consistency mechanism.</p>
+<ul>
+<li><strong>(a) = Idempotent SADD on Enqueue, SREM on <code>installation.deleted</code> webhook, no
+  periodic janitor (recommended).</strong> Simplest; stale entries cause BRPOP timeouts
+  but no correctness issue.</li>
+<li>(b) Periodic janitor SCAN/EXISTS pass. Defensive but more code. Easy to add later
+  if stale entries accumulate.</li>
+<li>other:</li>
+</ul>
+<p><strong>(d)</strong> Per-installation metric cardinality cap.</p>
+<ul>
+<li><strong>(a) = No cap (recommended).</strong> Realistic fleets are &lt; 100 installations; 4 series
+  × 100 = 400 series per metric, well under Prometheus practical limits.</li>
+<li>(b) Cardinality cap (e.g., top-N by depth). Defensive but adds aggregation
+  complexity. Premature optimisation.</li>
+<li>other:</li>
+</ul>
+<p><strong>(e)</strong> Drain-on-cutover behaviour during Phase 2.</p>
+<ul>
+<li><strong>(a) = Auto-drain on startup, idempotent (recommended).</strong> Operators flip the flag
+  and restart; the binary handles the migration transparently.</li>
+<li>(b) Operator-driven drain via a CLI subcommand (e.g.,
+  <code>repo-guardian queue migrate-partitioned</code>). More explicit, less convenient.</li>
+<li>other:</li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li><code>docs/operations/aws.md</code> § Partitioning, sharding, and the noisy-org problem —
+  explains the distinction and the user-visible motivation</li>
+<li><code>docs/operations/scaling.md</code> § Scaling for GitHub Enterprise (multi-org,
+  multi-thousand-repo) — the fleet shape this design targets</li>
+<li><a href="../0012-persistent-reconcile-state-and-multi-replica-coordination/">DESIGN-0012: Persistent reconcile state and multi-replica coordination</a>
+  — established the Queue + Scheduler interfaces this design extends</li>
+<li><a href="../../impl/0011-persistent-reconcile-state-and-multi-replica-coordination/">IMPL-0011: Persistent reconcile state and multi-replica coordination</a>
+  — implementation of DESIGN-0012; baseline for this design's deltas</li>
+<li><a href="../0017-stale-sweep-cutover-and-repository-discovery/">DESIGN-0017: Stale-sweep cutover and repository discovery</a>
+  — shipped via IMPL-0015; its Discoverer populates the repo_state this design's
+  registry hangs off</li>
+<li><a href="../0021-delayed-requeue-job-contract-and-rate-limit-consolidation/">DESIGN-0021: Delayed-requeue job contract and rate-limit consolidation</a>
+  — sequences before this design; supplies the delayed set, the key-naming
+  centralisation, and the <code>queue_wait_seconds{installation_id}</code> go/no-go datum (see
+  <a href="#relationship-to-design-0021-re-baselined-2026-07-29">Relationship to DESIGN-0021</a>)</li>
+<li><a href="../../investigation/0012-inert-budgettracker-and-untrustworthy-alert-pack/">INV-0012</a>
+  — the investigation that produced DESIGN-0021; finding I (lease-outliving sleeps)
+  is the starvation mode 0021 removes from this design's motivation</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

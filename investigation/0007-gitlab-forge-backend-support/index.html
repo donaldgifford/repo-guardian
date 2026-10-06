@@ -1,0 +1,2732 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>GitLab provider backend support - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#inv-0007-gitlab-provider-backend-support" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              GitLab provider backend support
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#question" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Question
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hypothesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hypothesis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#approach" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Approach
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#findings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Findings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Findings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#finding-1-go-sdk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finding 1 — Go SDK
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finding-2-codeowners-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finding 2 — CODEOWNERS support
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finding-3-custom-properties-equivalent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finding 3 — Custom-properties equivalent
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finding-4-webhook-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finding 4 — Webhook authentication
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finding-5-rate-limit-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finding 5 — Rate-limit model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finding-6-wiz-consumption-does-custom_properties-even-matter-on-gitlab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finding 6 — Wiz consumption (does custom_properties even matter on GitLab?)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finding-7-auth-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finding 7 — Auth model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finding-8-groups-as-the-scope-unit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finding 8 — Groups as the scope unit
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-provider-feature-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-provider feature matrix
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cross-provider feature matrix">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#file-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#setting-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setting rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reconcilers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconcilers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#platform-plumbing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Platform plumbing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-taxonomy-config-only-vs-code-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation taxonomy: config-only vs code changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conclusion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommendation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="inv-0007-gitlab-provider-backend-support">INV 0007: GitLab provider backend support</h1>
+<p><strong>Status:</strong> Open
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-05-29 (extended 2026-06-08 with Finding 8 + Implementation taxonomy)</p>
+<!--toc:start-->
+<ul>
+<li><a href="#question">Question</a></li>
+<li><a href="#hypothesis">Hypothesis</a></li>
+<li><a href="#context">Context</a></li>
+<li><a href="#approach">Approach</a></li>
+<li><a href="#findings">Findings</a></li>
+<li><a href="#finding-1--go-sdk">Finding 1 — Go SDK</a></li>
+<li><a href="#finding-2--codeowners-support">Finding 2 — CODEOWNERS support</a></li>
+<li><a href="#finding-3--custom-properties-equivalent">Finding 3 — Custom-properties equivalent</a></li>
+<li><a href="#finding-4--webhook-authentication">Finding 4 — Webhook authentication</a></li>
+<li><a href="#finding-5--rate-limit-model">Finding 5 — Rate-limit model</a></li>
+<li><a href="#finding-6--wiz-consumption-does-customproperties-even-matter-on-gitlab">Finding 6 — Wiz consumption (does custom_properties even matter on GitLab?)</a></li>
+<li><a href="#finding-7--auth-model">Finding 7 — Auth model</a></li>
+<li><a href="#finding-8--groups-as-the-scope-unit">Finding 8 — Groups as the scope unit</a></li>
+<li><a href="#cross-provider-feature-matrix">Cross-provider feature matrix</a></li>
+<li><a href="#file-rules">File rules</a></li>
+<li><a href="#setting-rules">Setting rules</a></li>
+<li><a href="#reconcilers">Reconcilers</a></li>
+<li><a href="#platform-plumbing">Platform plumbing</a></li>
+<li><a href="#implementation-taxonomy-config-only-vs-code-changes">Implementation taxonomy: config-only vs code changes</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+<li><a href="#recommendation">Recommendation</a></li>
+<li><a href="#open-questions">Open questions</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="question">Question</h2>
+<p>INV-0004 established a <code>Provider</code> interface seam for Forgejo. Can we
+add <strong>GitLab</strong> as a third provider backend alongside GitHub and
+Forgejo, and what are the GitLab-specific differences in:</p>
+<ol>
+<li><strong>API surface + Go SDK</strong> — what's the supported Go client in
+   2026 (the popular <code>xanzy/go-gitlab</code> was archived in late 2024)?</li>
+<li><strong>Authentication</strong> — GitHub uses installation-scoped App tokens;
+   Forgejo uses PATs. What does GitLab look like?</li>
+<li><strong>Webhook auth + payload shape</strong> — does GitLab use HMAC like
+   GitHub or something else, and how does that map onto the
+   existing middleware?</li>
+<li><strong>Rate-limit model</strong> — does the sweeper's
+   <code>RateLimitRemaining</code> reserve gate translate?</li>
+<li><strong>Feature gaps</strong> — what GitHub-specific concepts (custom
+   properties, rulesets, App installation auth) have no GitLab
+   equivalent and must surface as "reconciler unavailable on this
+   backend" the same way INV-0004 resolved for Forgejo?</li>
+<li><strong>CODEOWNERS portability</strong> — does the existing <code>codeowners</code>
+   file rule's path strategy work unchanged on GitLab and Forgejo?</li>
+</ol>
+<h2 id="hypothesis">Hypothesis</h2>
+<p>GitLab's API is rich enough to support the core file-CRUD + MR +
+labels path with minimal vendor-conditional code, slotting into the
+existing <code>Provider</code> interface from INV-0004. The likely friction
+points:</p>
+<ul>
+<li><strong>No GitHub-App equivalent.</strong> Auth becomes per-instance +
+  per-project/group, more like Forgejo than GitHub.</li>
+<li><strong>Branch-protection model is different enough</strong> that the
+  <code>branch_protection</code> reconciler likely needs a GitLab-specific
+  implementation path.</li>
+<li><strong>Custom properties have no first-class equivalent.</strong> GitLab's
+  Custom Attributes API exists but is admin-only.</li>
+<li><strong>Self-hosted instances are the common case</strong> for GitLab — base
+  URL is per-instance config, like Forgejo.</li>
+</ul>
+<p>I expect the work to look more like INV-0004's Forgejo refactor
+than a from-scratch effort, because the interface seam already
+exists.</p>
+<h2 id="context">Context</h2>
+<p><strong>Triggered by:</strong> Operator review during INV-0006 follow-up
+discussion (2026-05-29). The same operator runs 20+ GitHub orgs
+plus a few self-hosted GitLab instances. INV-0006 clarified that
+GitLab support is orthogonal to per-org-app-credentials — it sits
+behind the existing <code>Provider</code> abstraction (INV-0004).</p>
+<p>This investigation captures the GitLab-specific shape so that when
+the operator is ready to onboard the GitLab instances, the work
+isn't blocked on a clean-slate analysis.</p>
+<h2 id="approach">Approach</h2>
+<ol>
+<li>Confirm the <code>Provider</code> interface seam from INV-0004 covers the
+   GitLab method set.</li>
+<li>Identify the supported Go SDK for GitLab in 2026.</li>
+<li>Cross-reference each <code>Provider</code> method against the GitLab REST
+   API v4 and map 1:1 / requires-translation / no-equivalent.</li>
+<li>Audit GitLab's auth model — PAT, Project Access Token, Group
+   Access Token, OAuth app — and decide which fits the
+   reconciler's long-lived-background-job persona.</li>
+<li>Compare webhook authentication and payload shape against
+   GitHub's existing handler.</li>
+<li>Inspect GitLab's rate-limit headers and map them onto the
+   sweeper's <code>RateLimitRemaining</code> gate.</li>
+<li>Build a cross-provider feature matrix covering every rule,
+   setting, and reconciler in repo-guardian today, so the gaps
+   are explicit before design begins.</li>
+<li>Confirm whether Wiz (the primary downstream consumer of the
+   <code>custom_properties</code> reconciler) actually reads GitLab Topics
+   or Custom Attributes — informs whether the GitLab analog is
+   even necessary.</li>
+</ol>
+<h2 id="findings">Findings</h2>
+<h3 id="finding-1-go-sdk">Finding 1 — Go SDK</h3>
+<p><strong>Use <code>gitlab.com/gitlab-org/api/client-go</code></strong> for any new Go
+integration in 2026.</p>
+<ul>
+<li><code>github.com/xanzy/go-gitlab</code> was archived <strong>2024-12-10</strong>. The
+  final release was a deprecation pointer to the new home. It
+  still resolves via the Go module proxy but receives no updates.</li>
+<li>The replacement lives at <code>gitlab.com/gitlab-org/api/client-go</code>,
+  reached v1.0 with a backwards-compatibility guarantee, and is
+  at <strong>v1.8.1</strong> as of 2026.</li>
+<li><strong>Important caveat:</strong> the module is hosted under <code>gitlab-org/</code>
+  but is community-maintained. It is <strong>not</strong> covered by GitLab
+  paid-subscription support.</li>
+<li>API surface is largely a drop-in for <code>xanzy/go-gitlab</code>;
+  migration is mostly an import-path swap.</li>
+<li>A community fork lives at
+  <code>gitlab.com/gitlab-community/gitlab-org/api/client-go</code> if the
+  primary maintainer cadence slips.</li>
+</ul>
+<h3 id="finding-2-codeowners-support">Finding 2 — CODEOWNERS support</h3>
+<p><strong>GitLab: Premium/Ultimate only. Different paths from GitHub.
+Different syntax.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Axis</th>
+<th>GitHub</th>
+<th>GitLab</th>
+<th>Forgejo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tier</td>
+<td>Free+</td>
+<td>Premium / Ultimate only</td>
+<td>Free</td>
+</tr>
+<tr>
+<td>Paths</td>
+<td><code>.github/CODEOWNERS</code>, root, <code>docs/</code></td>
+<td>root, <code>docs/</code>, <code>.gitlab/CODEOWNERS</code></td>
+<td><code>.forgejo/</code>, <code>.gitea/</code>, root, <code>docs/</code></td>
+</tr>
+<tr>
+<td>Reads <code>.github/CODEOWNERS</code>?</td>
+<td>Yes</td>
+<td><strong>No</strong></td>
+<td><strong>No</strong></td>
+</tr>
+<tr>
+<td>Syntax</td>
+<td>gitignore globs</td>
+<td><code>File::fnmatch</code> (shell-glob subset) + sections + role-based <code>@@Developer</code>/<code>@@Maintainer</code>/<code>@@Owner</code></td>
+<td>Go regex (NOT globs)</td>
+</tr>
+<tr>
+<td>Enforcement</td>
+<td>Free</td>
+<td>Premium + protected branch</td>
+<td><strong>Advisory only</strong> (any write-access user can approve)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Implications for the <code>codeowners</code> file rule:</strong></p>
+<ul>
+<li>Path strategy must be provider-aware. GitHub-migrated repos
+  carrying <code>.github/CODEOWNERS</code> are silently uncovered on both
+  GitLab and Forgejo. The <code>FileRule</code> registry needs provider-specific
+  <code>Paths</code> resolution at check time.</li>
+<li>The current rule body (stamp a default CODEOWNERS pointing at
+  the default reviewer team) is the same shape on every provider —
+  only the path changes.</li>
+<li>Document clearly that Forgejo CODEOWNERS is advisory-only —
+  setting up the file does NOT block merges without owner approval.</li>
+</ul>
+<h3 id="finding-3-custom-properties-equivalent">Finding 3 — Custom-properties equivalent</h3>
+<p><strong>Two GitLab candidates. Topics is the realistic target; Custom
+Attributes is admin-only and impractical.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Scope</th>
+<th>Permission needed</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Topics</strong> (<code>/projects/:id</code>, <code>topics</code> field; Topics API)</td>
+<td>String list per project, widely consumed by external tools (Backstage, etc.)</td>
+<td>Project Maintainer</td>
+<td><strong>Recommended target.</strong> Pragmatic, works for non-admin tokens, ecosystem-friendly.</td>
+</tr>
+<tr>
+<td><strong>Custom Attributes</strong> (<code>GET/PUT /projects/:id/custom_attributes/:key</code>)</td>
+<td>Arbitrary key/value, true GitHub-Custom-Properties analog</td>
+<td><strong>Instance admin only</strong></td>
+<td>Impractical. Cannot set from a normal user / Project Access Token. Terraform's <code>gitlab_project_custom_attribute</code> exists but requires admin token.</td>
+</tr>
+<tr>
+<td>CI/CD variables (<code>/projects/:id/variables</code>)</td>
+<td>Key/value, but secrets-shaped</td>
+<td>Maintainer</td>
+<td>Wrong shape. Not metadata.</td>
+</tr>
+<tr>
+<td>Description</td>
+<td>Single text blob</td>
+<td>Maintainer</td>
+<td>Not key/value.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommendation:</strong> if a GitLab <code>custom_properties</code> reconciler is
+built, sync <code>catalog-info.yaml</code> values into <strong>Topics</strong>. Drop the
+Custom Attributes path entirely — its admin-only requirement
+would force operators to grant the bot's PAT
+instance-administrator rights, which violates least-privilege.</p>
+<h3 id="finding-4-webhook-authentication">Finding 4 — Webhook authentication</h3>
+<p><strong>Two mechanisms — pick the modern one.</strong></p>
+<ul>
+<li><strong>Legacy</strong> (<code>X-Gitlab-Token</code> header, plaintext static secret,
+  constant-time compare): still default for GitLab.com webhooks
+  configured before 19.1. Marked "not recommended for new webhooks"
+  in current docs. Secret is on the wire every request.</li>
+<li><strong>Modern</strong> (Standard Webhooks signing, GitLab 19.1+, 2026):
+  headers <code>webhook-id</code>, <code>webhook-timestamp</code>, <code>webhook-signature</code>.
+  Signature format <code>v1,{base64_signature}</code> where HMAC-SHA256 is
+  over <code>{webhook-id}.{webhook-timestamp}.{body}</code>. Same scheme
+  Svix, Resend, Polar.sh use.</li>
+</ul>
+<p><strong>Payload shapes diverge significantly from GitHub.</strong> GitLab uses
+event-type-specific top-level keys (<code>object_kind: "push" |
+"merge_request" | ...</code>), nested <code>project</code> and <code>user</code> objects, and
+entirely different field names. <strong>Not drop-in compatible</strong> —
+<code>internal/webhook/</code> needs per-provider schema dispatch (route by
+header, then dispatch to a per-provider parser).</p>
+<h3 id="finding-5-rate-limit-model">Finding 5 — Rate-limit model</h3>
+<p><strong>Per-user (authenticated) or per-IP (unauthenticated),
+operator-configurable on self-hosted.</strong></p>
+<ul>
+<li>Headers (<code>RateLimit-Limit</code>, <code>RateLimit-Remaining</code>,
+  <code>RateLimit-Reset</code>) follow the IETF draft standard since GitLab
+  13.8. <code>Retry-After</code> on 429.</li>
+<li><strong>No per-installation/per-app bucket</strong> equivalent to GitHub's
+  5k/15k installation buckets. The closest model is per-token —
+  one bot token consumed by repo-guardian counts as one user.</li>
+<li><strong>GitLab.com:</strong> limits are fixed.</li>
+<li><strong>Self-hosted:</strong> fully operator-configurable. Setting <code>0</code>
+  disables a limit.</li>
+<li><strong>Caveat:</strong> only the most-restrictive Rack::Attack rate limit
+  is reflected in headers. Application-level limits (issue
+  creation, project export, etc.) can still 429 you without
+  warning in headers.</li>
+</ul>
+<p><strong>Implication:</strong> <code>Client.RateLimitRemaining(installationID)</code>
+should be polymorphic over provider — the parameter changes semantic
+meaning per backend. On GitLab, the "installation ID" maps to the
+token identity (or the project group). The reserve-gate logic in
+<code>internal/checker/sweep.go</code> itself is reusable; only the lookup
+key changes.</p>
+<h3 id="finding-6-wiz-consumption-does-custom_properties-even-matter-on-gitlab">Finding 6 — Wiz consumption (does custom_properties even matter on GitLab?)</h3>
+<p><strong>Likely not.</strong> Wiz's public docs do not call out GitLab Topics or
+Custom Attributes as a primary categorization signal.</p>
+<p>What Wiz <strong>does</strong> appear to consume from a connected GitLab
+instance:</p>
+<ul>
+<li>Repo metadata (name, default branch, description, languages).</li>
+<li>VCS structure: groups, subgroups, projects, branches, teams,
+  user roles.</li>
+<li>CI/CD config (<code>.gitlab-ci.yml</code>).</li>
+<li>Code content scans (vulnerabilities, secrets, misconfigurations,
+  IaC) on default branch and every MR.</li>
+<li>Benchmarks: GitLab CIS, OpenSSF SCM Best Practices, OWASP Top 10
+  CI/CD risks.</li>
+</ul>
+<p><strong>Implication:</strong> if Wiz consumption is the primary driver for the
+existing <code>custom_properties</code> reconciler on GitHub, the GitLab
+equivalent may be <strong>unnecessary for parity</strong>. Before designing a
+GitLab <code>custom_properties</code> reconciler, <strong>confirm with the Wiz
+team or a discovery call</strong> what categorization signal Wiz reads
+from GitLab. As a safe default — syncing <code>catalog-info.yaml</code>
+values into GitLab <strong>Topics</strong> gives broad ecosystem value
+(Backstage and most other tools consume Topics) even if Wiz
+itself doesn't read them.</p>
+<h3 id="finding-7-auth-model">Finding 7 — Auth model</h3>
+<p><strong>GitLab has no GitHub-App-equivalent installation-token mode.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Auth shape</th>
+<th>Lifecycle</th>
+<th>Scope</th>
+<th>Best for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Personal Access Token (PAT)</td>
+<td>User-bound; revoked when user offboarded</td>
+<td>User-wide</td>
+<td>Single-operator pilots only</td>
+</tr>
+<tr>
+<td>Group Access Token</td>
+<td>Group-bound (bot user backing)</td>
+<td>Group-wide</td>
+<td><strong>Recommended</strong> for repo-guardian operating across many projects in one group</td>
+</tr>
+<tr>
+<td>Project Access Token</td>
+<td>Project-bound</td>
+<td>Single project</td>
+<td>Per-repo overrides if needed</td>
+</tr>
+<tr>
+<td>OAuth App</td>
+<td>User-delegated</td>
+<td>Per-user OAuth grant</td>
+<td>Wrong shape for background daemon</td>
+</tr>
+<tr>
+<td>Service Account (GitLab 16.1+, Ultimate)</td>
+<td>Admin-managed bot user</td>
+<td>Configurable</td>
+<td>Closest to GitHub-App spirit; Ultimate only</td>
+</tr>
+</tbody>
+</table>
+<p><strong>No JWT-bearer / auto-rotating installation tokens.</strong> The
+<code>ghinstallation</code> token-caching pattern doesn't apply on GitLab —
+tokens are long-lived (configurable expiry, no auto-rotation).</p>
+<p><strong>Recommendation:</strong> default to a <strong>Group Access Token</strong> for the
+reconciler, scoped to the group containing the managed projects.
+Cache the token in the existing config surface (or a <code>provider.gitlab.token</code>
+HCL block). Document the expiry/rotation responsibility on the
+operator.</p>
+<h3 id="finding-8-groups-as-the-scope-unit">Finding 8 — Groups as the scope unit</h3>
+<p>DESIGN-0010 introduced <code>scope { orgs = [...] }</code> for per-org rule
+scoping on GitHub. The vocabulary needs to generalize for GitLab
+and Forgejo without breaking existing configs.</p>
+<p><strong>Org-like concepts per provider:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Scope unit</th>
+<th>Shape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GitHub</td>
+<td>Organization</td>
+<td>Flat — one level</td>
+</tr>
+<tr>
+<td>GitLab</td>
+<td>Top-level group</td>
+<td><strong>Hierarchical</strong> — top-level group contains subgroups, projects, more subgroups (arbitrary nesting)</td>
+</tr>
+<tr>
+<td>Forgejo</td>
+<td>Organization</td>
+<td>Flat — Gitea-derived model</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Three options for the scope vocabulary:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Shape</th>
+<th>Trade-off</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>A.</strong> Keep <code>scope { orgs = [...] }</code></td>
+<td>Universal name; values are provider-specific slugs (GitLab top-level group, Forgejo org, GitHub org)</td>
+<td>Backward-compatible. Term is GitHub-leaning but operators learn quickly. <strong>Recommended.</strong></td>
+</tr>
+<tr>
+<td><strong>B.</strong> Rename to <code>scope { namespaces = [...] }</code></td>
+<td>Provider-agnostic name</td>
+<td>Breaks every existing HCL config; requires migration recipe. Cosmetic win only.</td>
+</tr>
+<tr>
+<td><strong>C.</strong> Polymorphic: <code>scope { github_orgs, gitlab_groups, forgejo_orgs }</code></td>
+<td>Per-provider typed fields</td>
+<td>Most precise but verbose; loader needs provider-aware dispatch; every operator with &gt; 1 provider writes more YAML.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommendation: Option A.</strong> <code>orgs</code> reads as "logical owners";
+document in the HCL reference that the values map to whatever each
+provider calls its top-level container. No breaking change.</p>
+<p><strong>Subgroup semantics on GitLab.</strong> Top-level groups can contain
+arbitrary subgroup nesting (<code>myorg/sub/team/project</code>). The scope
+matcher needs explicit semantics:</p>
+<table>
+<thead>
+<tr>
+<th>Semantics</th>
+<th>Behavior</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Top-level only</strong></td>
+<td><code>orgs = ["myorg"]</code> matches <code>myorg/*</code> projects but not <code>myorg/sub/*</code></td>
+<td>Surprising; operator must explicitly enumerate subgroups. Rejected.</td>
+</tr>
+<tr>
+<td><strong>Recursive (default)</strong></td>
+<td><code>orgs = ["myorg"]</code> matches every project owned by <code>myorg</code> at any depth</td>
+<td>Matches GitHub flat-org expectations. <strong>Recommended.</strong></td>
+</tr>
+<tr>
+<td><strong>Explicit only</strong></td>
+<td><code>orgs = ["myorg", "myorg/sub"]</code> — no recursion, no shortcuts</td>
+<td>Over-precise; operators write more config; combinatoric for deep hierarchies. Rejected.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommended default: recursive.</strong> Operators who need narrower
+targeting use the existing glob-pattern support in DESIGN-0010 to
+match specific paths (<code>orgs = ["myorg/prod-*"]</code>). This keeps the
+single-org GitHub idiom unchanged while supporting GitLab's
+nesting cleanly.</p>
+<p><strong>Cross-provider scope evaluation:</strong> when multiple provider backends are
+configured, <code>orgs = [...]</code> matches against the <strong>fully-qualified
+project owner</strong> for each backend. Two distinct GitLab instances
+both having a top-level group named <code>platform</code> are NOT
+ambiguous — they're distinguished by the <code>provider { ... }</code> instance
+name, not by the org slug.</p>
+<h2 id="cross-provider-feature-matrix">Cross-provider feature matrix</h2>
+<p>The repo-guardian feature surface, mapped across all three providers.
+Legend: <strong>✓</strong> = directly supported, <strong>~</strong> = supported with
+caveats, <strong>✗</strong> = not supported, <strong>N/A</strong> = concept doesn't apply.</p>
+<h3 id="file-rules">File rules</h3>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>GitHub (today)</th>
+<th>GitLab</th>
+<th>Forgejo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>codeowners</code></td>
+<td>✓ paths: <code>.github/CODEOWNERS</code>, root, <code>docs/</code></td>
+<td>~ paths differ: root, <code>docs/</code>, <code>.gitlab/</code>; Premium/Ultimate for enforcement</td>
+<td>~ paths differ: <code>.forgejo/</code>, <code>.gitea/</code>, root, <code>docs/</code>; advisory-only</td>
+</tr>
+<tr>
+<td><code>dependabot</code></td>
+<td>✓ <code>.github/dependabot.yml</code></td>
+<td>✗ Dependabot is GitHub-only; GitLab uses native Dependency Scanning (CI-driven)</td>
+<td>✗ no Dependabot</td>
+</tr>
+<tr>
+<td><code>renovate_config</code></td>
+<td>✓ <code>renovate.json*</code> (disabled by default)</td>
+<td>✓ same file; Renovate self-hosts against GitLab</td>
+<td>✓ same file</td>
+</tr>
+<tr>
+<td><code>renovate_workflow</code></td>
+<td>✓ <code>.github/workflows/renovate.yml</code> (disabled by default)</td>
+<td>~ translate to <code>.gitlab-ci.yml</code> job</td>
+<td>~ translate to <code>.forgejo/workflows/renovate.yml</code></td>
+</tr>
+<tr>
+<td><code>catalog_info</code></td>
+<td>✓ <code>catalog-info.yaml</code>, paired with <code>custom_properties</code> reconciler</td>
+<td>✓ same file; reconciler retargets to <strong>Topics</strong> instead of Custom Properties</td>
+<td>✓ same file; reconciler retargets to <strong>Topics</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="setting-rules">Setting rules</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>GitHub (today)</th>
+<th>GitLab</th>
+<th>Forgejo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>default_branch</code></td>
+<td>✓ <code>Repositories.Edit.DefaultBranch</code></td>
+<td>✓ <code>projects.default_branch</code></td>
+<td>✓ same</td>
+</tr>
+<tr>
+<td><code>has_issues</code></td>
+<td>✓</td>
+<td>✓ <code>issues_enabled</code></td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>has_wiki</code></td>
+<td>✓</td>
+<td>✓ <code>wiki_enabled</code></td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>delete_branch_on_merge</code></td>
+<td>✓</td>
+<td>✓ <code>remove_source_branch_after_merge</code></td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>allow_merge_commit</code></td>
+<td>✓</td>
+<td>~ part of <code>merge_method</code> enum (<code>merge</code>, <code>rebase_merge</code>, <code>ff</code>)</td>
+<td>~ similar</td>
+</tr>
+<tr>
+<td><code>allow_squash_merge</code></td>
+<td>✓</td>
+<td>~ separate flag <code>squash_option</code></td>
+<td>~ similar</td>
+</tr>
+<tr>
+<td><code>allow_rebase_merge</code></td>
+<td>✓</td>
+<td>~ encoded in <code>merge_method</code></td>
+<td>~ similar</td>
+</tr>
+<tr>
+<td><code>vulnerability_alerts_enabled</code></td>
+<td>✓ (Dependabot Alerts GraphQL)</td>
+<td>~ GitLab uses Dependency Scanning + Container Scanning CI jobs; no on/off toggle in the same shape</td>
+<td>✗</td>
+</tr>
+</tbody>
+</table>
+<p>GitLab merge-strategy settings need an HCL-level translation:
+GitLab's <code>merge_method</code> is a single enum, while GitHub exposes
+three booleans. The setting-rule schema may need a provider-aware
+remediator.</p>
+<h3 id="reconcilers">Reconcilers</h3>
+<table>
+<thead>
+<tr>
+<th>Reconciler</th>
+<th>GitHub (today)</th>
+<th>GitLab</th>
+<th>Forgejo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>custom_properties</code></td>
+<td>✓ Custom Properties API</td>
+<td>~ retarget to <strong>Topics</strong> (Custom Attributes is admin-only, impractical); <strong>may be unnecessary if Wiz is the only consumer</strong></td>
+<td>~ retarget to Topics</td>
+</tr>
+<tr>
+<td><code>label_sync</code></td>
+<td>✓ <code>Issues.ListLabels</code>/<code>Create</code>/<code>Edit</code>/<code>Delete</code></td>
+<td>✓ same shape, project-scoped</td>
+<td>✓ same shape</td>
+</tr>
+<tr>
+<td><code>branch_protection</code></td>
+<td>✓ Repository Rulesets API</td>
+<td>~ split across Protected Branches, Push Rules (Premium), MR Approval Settings — three separate concepts. Needs a GitLab-specific reconciler.</td>
+<td>~ Forgejo has Branch Protection but not Rulesets-shape</td>
+</tr>
+<tr>
+<td><code>workflow_sync</code></td>
+<td>✓ observational on <code>.github/workflows/</code></td>
+<td>✓ retarget to <code>.gitlab-ci.yml</code> (single file, not a directory)</td>
+<td>✓ retarget to <code>.forgejo/workflows/</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="platform-plumbing">Platform plumbing</h3>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>GitHub (today)</th>
+<th>GitLab</th>
+<th>Forgejo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Go SDK</td>
+<td><code>google/go-github</code> v68 + <code>ghinstallation</code> v2</td>
+<td><code>gitlab.com/gitlab-org/api/client-go</code> v1.8.1 (community, not paid-support-covered)</td>
+<td><code>code.gitea.io/sdk/gitea</code> (Forgejo is Gitea-API-compatible)</td>
+</tr>
+<tr>
+<td>Auth model</td>
+<td>GitHub App + installation tokens (JWT, auto-rotating)</td>
+<td>PAT / <strong>Group Access Token</strong> (recommended) / Project Access Token / Service Account (Ultimate); long-lived, no auto-rotate</td>
+<td>PAT</td>
+</tr>
+<tr>
+<td>Webhook auth</td>
+<td>HMAC-SHA256 in <code>X-Hub-Signature-256</code></td>
+<td>Legacy: <code>X-Gitlab-Token</code> plaintext. Modern (19.1+): Standard Webhooks (<code>webhook-signature</code>)</td>
+<td>HMAC-SHA256 in <code>X-Forgejo-Signature</code></td>
+</tr>
+<tr>
+<td>Webhook payload</td>
+<td>GitHub event types</td>
+<td><code>object_kind</code>-keyed; nested <code>project</code>/<code>user</code>; entirely different field names</td>
+<td>Gitea-compatible payload</td>
+</tr>
+<tr>
+<td>Rate-limit gate</td>
+<td>Per-installation bucket (5k/15k/hr)</td>
+<td>Per-user (authed) / per-IP (unauthed); headers <code>RateLimit-*</code>; operator-tunable on self-hosted</td>
+<td>Operator-configured</td>
+</tr>
+<tr>
+<td>Multi-org/instance model</td>
+<td>Multi-installation under one App (or per-org Apps per INV-0006)</td>
+<td>Multi-instance (each GitLab is its own URL + token)</td>
+<td>Multi-instance</td>
+</tr>
+<tr>
+<td>Custom-properties consumer</td>
+<td>Wiz uses GitHub Custom Properties</td>
+<td>Wiz does NOT appear to consume GitLab Topics/Custom Attributes (confirm w/ vendor)</td>
+<td>N/A</td>
+</tr>
+</tbody>
+</table>
+<h2 id="implementation-taxonomy-config-only-vs-code-changes">Implementation taxonomy: config-only vs code changes</h2>
+<p>Adding a new provider backend splits cleanly into three buckets. The
+distinction matters for scoping the work and for setting operator
+expectations about what a future backend toggle costs.</p>
+<table>
+<thead>
+<tr>
+<th>Bucket</th>
+<th>Where</th>
+<th>Examples</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Pure HCL config</strong></td>
+<td>Operator sets values in <code>guardian.hcl</code>; no code change.</td>
+<td><code>provider.gitlab.url</code>, <code>provider.gitlab.token</code>, per-provider <code>scope { orgs }</code> lists, per-provider <code>ignore { }</code> blocks, all rule definitions (paths, templates, assertions), PR template scopes</td>
+</tr>
+<tr>
+<td><strong>Code — provider backend</strong></td>
+<td>New Go code in <code>internal/provider/&lt;name&gt;/</code> implementing the <code>Provider</code> interface from INV-0004. Built once into the binary.</td>
+<td>GitLab API client + auth + rate-limit gate, per-provider webhook payload parser, retry/backoff per provider, Standard Webhooks signing verifier</td>
+</tr>
+<tr>
+<td><strong>Code — provider-aware reconciler logic</strong></td>
+<td>Existing reconciler / rule has different semantics per provider. Branches inside the reconciler.</td>
+<td><code>branch_protection</code> reconciler (3-way split on GitLab into Protected Branches + Push Rules + MR Approvals), <code>codeowners</code> path strategy, <code>custom_properties</code> retargeting to Topics, <code>dependabot</code> rule disabled outside GitHub</td>
+</tr>
+</tbody>
+</table>
+<p><strong>No reconciler or rule is currently "pure config" for a brand-new
+backend.</strong> Every reconciler in the codebase today contains
+GitHub-specific code paths (custom-properties API calls, rulesets
+JSON shape, etc.). Adding a provider means <em>either</em> writing the
+provider-side code for each reconciler you want to support, <em>or</em>
+having the reconciler return "unavailable on this backend" the
+same way INV-0004 resolved for Forgejo gaps.</p>
+<p><strong>Config knobs a new provider introduces:</strong></p>
+<pre><code class="language-hcl">provider &quot;gitlab&quot; &quot;instance-1&quot; {
+  url   = &quot;https://gitlab.example.com&quot;  # required, no default
+  token = env(&quot;GITLAB_TOKEN&quot;)            # Group Access Token recommended
+  # rate_limit_threshold inherits from guardian {} defaults
+}
+
+provider &quot;github&quot; &quot;default&quot; {
+  # existing GitHub App config; backward-compatible
+  app_id              = env(&quot;GITHUB_APP_ID&quot;)
+  private_key         = env(&quot;GITHUB_PRIVATE_KEY&quot;)
+  webhook_secret      = env(&quot;WEBHOOK_SECRET&quot;)
+}
+</code></pre>
+<p><code>provider { }</code> is keyed by <code>&lt;type&gt; &lt;name&gt;</code> so an operator can run
+repo-guardian against multiple GitLab instances (different
+self-hosted servers, or <code>gitlab.com</code> + on-prem) from one deployment.
+Each instance is an independent <code>Provider</code> instance with its own
+client, rate-limit bucket, and scope.</p>
+<p><strong>Order of work for a fresh backend.</strong> This is the rough sequence
+once a backend gets promoted from INV to DESIGN to IMPL:</p>
+<ol>
+<li><strong>Interface compatibility check</strong> — confirm <code>Provider</code> covers every
+   method needed, add new methods if not (e.g.,
+   <code>ManageTopics(ctx, project, []string)</code> for GitLab).</li>
+<li><strong>Backend package</strong> — <code>internal/provider/&lt;name&gt;/</code> implementing the
+   interface, with its own tests.</li>
+<li><strong>Auth + webhook plumbing</strong> — config block, secret loading,
+   webhook handler dispatch (route or header-based).</li>
+<li><strong>Reconciler audit</strong> — for each existing reconciler, add the
+   provider code path OR flag it explicitly unavailable.</li>
+<li><strong>Path / setting strategy adjustments</strong> — <code>codeowners</code> paths,
+   merge-strategy enum translation for GitLab, etc.</li>
+<li><strong>Chart values + docs</strong> — <code>provider.gitlab.*</code> values, ECR/GHCR
+   parity, operator runbook.</li>
+</ol>
+<p>Skipping any one of these surfaces as a runtime failure or as
+silent feature unavailability the operator only discovers from a
+log line.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p><strong>Answer:</strong> <em>Inconclusive pending execution</em> — but the preliminary
+research is strong enough to scope the work:</p>
+<ul>
+<li><strong>Feasible.</strong> The <code>Provider</code> interface seam from INV-0004 absorbs
+  GitLab cleanly. The community Go SDK is stable, well-maintained,
+  and at v1.8.1.</li>
+<li><strong>Largest gaps:</strong> <code>custom_properties</code> (Topics is the only
+  realistic target, and may not even matter if Wiz doesn't read
+  it) and <code>branch_protection</code> (GitLab splits the GitHub Rulesets
+  concept into three separate APIs — needs a GitLab-specific
+  reconciler implementation).</li>
+<li><strong>Smallest gaps:</strong> file CRUD, MR (PR) operations, labels,
+  comments. These map 1:1 with renames only.</li>
+<li><strong>Path strategy gap:</strong> <code>codeowners</code> file rule's hard-coded
+  <code>.github/CODEOWNERS</code> default needs provider-aware path resolution
+  — not just GitLab, but Forgejo too.</li>
+<li><strong>Webhook handler refactor required.</strong> Standard Webhooks
+  signing dispatch + per-provider payload parser. Not trivial; needs
+  its own DESIGN doc.</li>
+</ul>
+<h2 id="recommendation">Recommendation</h2>
+<p><strong>Promote to DESIGN when operator is ready to onboard GitLab
+instances.</strong> Specifically, the DESIGN doc should cover:</p>
+<ol>
+<li>The <code>Provider</code> interface contract — confirm INV-0004's seam,
+   identify any new methods needed (e.g.,
+   <code>ManageTopics(ctx, project, []string)</code>).</li>
+<li>Auth strategy — Group Access Token as default, with
+   per-instance config block.</li>
+<li>Webhook router — Standard Webhooks signing dispatch, per-provider
+   payload parser, route prefix or header-based dispatch.</li>
+<li>The <code>branch_protection</code> reconciler split for GitLab (Protected
+   Branches API + MR Approval Settings + Push Rules).</li>
+<li>Topics-vs-Custom-Properties decision for <code>custom_properties</code>,
+   pending the Wiz-consumption confirmation.</li>
+<li>Helm chart auth surface (<code>provider.gitlab.token</code> block,
+   <code>existingSecret</code> plumbing).</li>
+<li>Migration recipe — how an operator running repo-guardian
+   against GitHub today adds a GitLab instance without disturbing
+   the existing deployment.</li>
+</ol>
+<h2 id="open-questions">Open questions</h2>
+<p>These are blocking design decisions, not blocking the
+investigation itself:</p>
+<ul>
+<li><strong>(a)</strong> Confirm with Wiz (or the platform team that owns the
+  Wiz integration) what categorization signal Wiz reads from
+  GitLab. If "none / not first-class," drop GitLab
+  <code>custom_properties</code> from MVP scope.</li>
+<li><strong>(b)</strong> Does the operator's deployment use Premium/Ultimate
+  GitLab? CODEOWNERS enforcement and Push Rules require it. If
+  Free-tier, scope down the GitLab reconciler set accordingly.</li>
+<li><strong>(c)</strong> GitLab Service Accounts (Ultimate only, 16.1+) are the
+  closest analog to GitHub Apps. If the deployment has Ultimate,
+  prefer Service Accounts over Group Access Tokens. Confirm
+  edition.</li>
+<li><strong>(d)</strong> Webhook URL routing — single <code>/webhook</code> with header-based
+  dispatch (recommended), or per-provider route prefix
+  (<code>/webhook/github</code>, <code>/webhook/gitlab</code>, <code>/webhook/forgejo</code>)?
+  Single-route + header dispatch reuses existing IP-allowlist
+  middleware patterns more cleanly.</li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="../0004-forge-interface-and-package-refactor-for-forgejo-backend/">INV-0004</a>
+  — established the <code>Provider</code> interface seam this backend slots
+  into. Required reading before executing this investigation.</li>
+<li><a href="../0002-multi-org-and-forgejo-support-for-repo-guardian/">INV-0002</a>
+  — earlier multi-provider thinking; predates the current
+  <code>Provider</code>-abstraction layout.</li>
+<li><a href="../0006-per-org-github-app-credentials/">INV-0006</a> — the
+  conversation that surfaced this question. INV-0006 clarified
+  that GitLab support is orthogonal to per-org-app-credentials.</li>
+<li><a href="https://gitlab.com/gitlab-org/api/client-go"><code>gitlab.com/gitlab-org/api/client-go</code></a>
+  — recommended Go SDK.</li>
+<li><a href="https://docs.gitlab.com/user/project/codeowners/">GitLab Docs: Code Owners</a></li>
+<li><a href="https://docs.gitlab.com/user/project/codeowners/reference/">GitLab Docs: CODEOWNERS reference</a></li>
+<li><a href="https://docs.gitlab.com/api/custom_attributes/">GitLab Docs: Custom Attributes API</a></li>
+<li><a href="https://docs.gitlab.com/api/topics/">GitLab Docs: Topics API</a></li>
+<li><a href="https://docs.gitlab.com/user/project/integrations/webhooks/">GitLab Docs: Webhooks</a></li>
+<li><a href="https://docs.gitlab.com/administration/settings/user_and_ip_rate_limits/">GitLab Docs: User and IP rate limits</a></li>
+<li><a href="https://docs.gitlab.com/security/rate_limits/">GitLab Docs: Rate limits overview</a></li>
+<li><a href="https://forgejo.org/docs/next/user/webhooks/">Forgejo Docs: Webhooks</a></li>
+<li><a href="https://pkg.go.dev/code.gitea.io/sdk/gitea"><code>code.gitea.io/sdk/gitea</code></a>
+  — Forgejo-compatible Go SDK.</li>
+<li><a href="https://www.wiz.io/blog/wiz-code-unify-security-across-github-gitlab-and-azure-repos">Wiz Blog: Unify security across GitHub, GitLab, Azure Repos</a>
+  — Wiz consumption story.</li>
+<li><a href="https://backstage.io/docs/integrations/gitlab/discovery/">Backstage GitLab integration</a>
+  — Topics consumption example.</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

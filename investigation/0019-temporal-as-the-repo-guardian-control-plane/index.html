@@ -1,0 +1,2560 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Temporal as the repo-guardian control plane - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#inv-0019-temporal-as-the-repo-guardian-control-plane" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Temporal as the repo-guardian control plane
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#question" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Question
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hypothesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hypothesis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#approach" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Approach
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#findings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Findings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Findings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#observation-1-the-control-plane-is-a-hand-built-workflow-engine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 1: the control plane is a hand-built workflow engine
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-2-the-natural-model-is-one-long-running-workflow-per-repository" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 2: the natural model is one long-running workflow per repository
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-3-the-nothing-blocks-in-handler-rule-gets-easier-to-keep-not-harder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 3: the "nothing blocks in-handler" rule gets easier to keep, not harder
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-4-the-rate-budget-belongs-in-the-activity-layer-and-temporal-can-hold-it-precisely" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 4: the rate budget belongs in the activity layer, and Temporal can hold it precisely
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-5-temporal-is-a-real-system-to-operate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 5: Temporal is a real system to operate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-6-what-it-deletes-and-what-it-gives-the-system-tier" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 6: what it deletes, and what it gives the system tier
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-7-valkey-has-no-job-left-under-temporal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 7: Valkey has no job left under Temporal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-8-api-limit-control-does-not-depend-on-workflow-granularity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 8: API-limit control does not depend on workflow granularity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-9-fleet-fan-out-doesnt-need-the-visibility-store" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 9: fleet fan-out doesn't need the visibility store
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conclusion
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Conclusion">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-i-think" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What I think
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommendation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Recommendation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="inv-0019-temporal-as-the-repo-guardian-control-plane">INV-0019: Temporal as the repo-guardian control plane</h1>
+<!--toc:start-->
+<ul>
+<li><a href="#question">Question</a></li>
+<li><a href="#hypothesis">Hypothesis</a></li>
+<li><a href="#context">Context</a></li>
+<li><a href="#approach">Approach</a></li>
+<li><a href="#environment">Environment</a></li>
+<li><a href="#findings">Findings</a></li>
+<li><a href="#observation-1-the-control-plane-is-a-hand-built-workflow-engine">Observation 1: the control plane is a hand-built workflow engine</a></li>
+<li><a href="#observation-2-the-natural-model-is-one-long-running-workflow-per-repository">Observation 2: the natural model is one long-running workflow per repository</a></li>
+<li><a href="#observation-3-the-nothing-blocks-in-handler-rule-gets-easier-to-keep-not-harder">Observation 3: the "nothing blocks in-handler" rule gets easier to keep, not harder</a></li>
+<li><a href="#observation-4-the-rate-budget-belongs-in-the-activity-layer-and-temporal-can-hold-it-precisely">Observation 4: the rate budget belongs in the activity layer, and Temporal can hold it precisely</a></li>
+<li><a href="#observation-5-temporal-is-a-real-system-to-operate">Observation 5: Temporal is a real system to operate</a></li>
+<li><a href="#observation-6-what-it-deletes-and-what-it-gives-the-system-tier">Observation 6: what it deletes, and what it gives the system tier</a></li>
+<li><a href="#observation-7-valkey-has-no-job-left-under-temporal">Observation 7: Valkey has no job left under Temporal</a></li>
+<li><a href="#observation-8-api-limit-control-does-not-depend-on-workflow-granularity">Observation 8: API-limit control does not depend on workflow granularity</a></li>
+<li><a href="#observation-9-fleet-fan-out-doesnt-need-the-visibility-store">Observation 9: fleet fan-out doesn't need the visibility store</a></li>
+<li><a href="#options">Options</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+<li><a href="#what-i-think">What I think</a></li>
+<li><a href="#recommendation">Recommendation</a></li>
+<li><a href="#open-questions">Open questions</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="question">Question</h2>
+<p>Should v2 (INV-0018) replace repo-guardian's hand-built control plane
+with <a href="https://temporal.io">Temporal</a>? The control plane here means the
+Valkey queue, the delayed-requeue machinery, the reaper, leader
+election, the stale sweep and the scheduled jobs. The rules engine
+stays exactly as it is either way.</p>
+<p>Concretely: does Temporal fit the <em>shape</em> of this workload, what code
+would it delete, what does it cost to run, and is that a better trade
+than INV-0018 OQ1's River option or keeping the current queue?</p>
+<h2 id="hypothesis">Hypothesis</h2>
+<p>That Temporal is a closer fit to the domain than a job queue, because
+repo-guardian's real unit is not "a job" but "a repository that must be
+re-checked on a timer, or sooner when something happens to it". A lot
+of the current control plane approximates that by hand. The cost is
+operational: Temporal is a stateful distributed system that someone has
+to run, and today repo-guardian's pitch is <code>helm install</code> against a
+Postgres and a Valkey.</p>
+<h2 id="context">Context</h2>
+<p>INV-0018 concluded v2 is a re-topology around an unchanged engine, and
+left the queue open (OQ1) between keeping the custom Valkey queue and
+moving to River on Postgres. The deciding argument there was
+<em>transactional durability</em>: once findings are the product the UI reads,
+a best-effort write-back becomes a correctness bug rather than a
+monitoring gap.</p>
+<p>Temporal answers the same question from a different angle, and takes
+more of the stack with it. It replaces the queue <em>and</em> the scheduler,
+leader election, reaper and sweep.</p>
+<p>Decisions already made that constrain this (INV-0018, 2026-09-23): the
+UI is read-only, Prometheus holds zero business metrics, and only
+GitHub Enterprise Cloud is supported.</p>
+<p><strong>Triggered by:</strong> INV-0018 OQ1; branch <code>docs/inv-refactor-investigation</code>.</p>
+<h2 id="approach">Approach</h2>
+<ol>
+<li>Inventory every control-plane mechanism and the contract it
+   implements (CLAUDE.md records most of them as post-mortems).</li>
+<li>Map each to a Temporal primitive, or note where none fits.</li>
+<li>Verify the load-bearing Temporal facts at the source rather than from
+   memory: self-hosting components and persistence, SQL visibility,
+   KEDA support, and whether an activity can dictate its own retry
+   delay.</li>
+<li>Size the code Temporal would delete versus reshape.</li>
+<li>Compare against INV-0018's two queue options on the same axes.</li>
+</ol>
+<h2 id="environment">Environment</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Version / Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Base</td>
+<td><code>main</code> @ <code>ccb1e29</code></td>
+</tr>
+<tr>
+<td>Temporal Go SDK</td>
+<td><code>go.temporal.io/sdk</code> v1.49.0 (pkg.go.dev at time of writing)</td>
+</tr>
+<tr>
+<td><code>ApplicationErrorOptions.NextRetryDelay</code></td>
+<td>present in <code>sdk-go</code> <code>internal/error.go</code>; honoured by Temporal Server ≥ v1.24.2</td>
+</tr>
+<tr>
+<td>Persistence / visibility</td>
+<td>Postgres 12+ supported for both, including advanced visibility (Server ≥ v1.20); Elasticsearch recommended at volume, not required</td>
+</tr>
+<tr>
+<td>KEDA</td>
+<td>Temporal scaler, available from v2.17, community-maintained, scales on task-queue backlog</td>
+</tr>
+<tr>
+<td>Helm chart</td>
+<td><code>temporalio/helm-charts</code>: frontend, history, matching, worker, web UI, admintools; MySQL/Postgres/Cassandra persistence</td>
+</tr>
+</tbody>
+</table>
+<h2 id="findings">Findings</h2>
+<h3 id="observation-1-the-control-plane-is-a-hand-built-workflow-engine">Observation 1: the control plane is a hand-built workflow engine</h3>
+<p>Every mechanism in the current control plane exists to give a
+repository check durability, deferral, deduplication, or a schedule.
+Each one was built by hand and each has a contract recorded in
+CLAUDE.md:</p>
+<pre><code class="language-mermaid">flowchart LR
+  subgraph TODAY[&quot;today — hand-built on Valkey&quot;]
+    Q[&quot;jobs LIST + in-flight ZSET&lt;br/&gt;queue/valkey · 830 LOC&quot;]
+    D[&quot;delayed ZSET + RetryAfterError&lt;br/&gt;(IMPL-0022)&quot;]
+    R[&quot;reaper + JOB_ACK_TIMEOUT&quot;]
+    L[&quot;SETNX leader election&lt;br/&gt;scheduler/valkey&quot;]
+    S[&quot;stale-sweep over repo_state&quot;]
+    P[&quot;push writes StatusPending&lt;br/&gt;before Enqueue (dedupe workaround)&quot;]
+    U[&quot;UpsertIfMissing race handling&quot;]
+    W[&quot;best-effort write-back&quot;]
+  end
+  subgraph TEMPORAL[&quot;Temporal primitive&quot;]
+    TQ[&quot;task queue&quot;]
+    NR[&quot;NextRetryDelay / durable timer&quot;]
+    TO[&quot;activity StartToClose + heartbeat&quot;]
+    SC[&quot;Schedules — run once, no election&quot;]
+    RW[&quot;per-repo workflow timer&quot;]
+    ID[&quot;workflow ID uniqueness&quot;]
+    SWS[&quot;SignalWithStart&quot;]
+    AR[&quot;activity retried to success&quot;]
+  end
+  Q --&gt; TQ
+  D --&gt; NR
+  R --&gt; TO
+  L --&gt; SC
+  S --&gt; RW
+  P --&gt; ID
+  U --&gt; SWS
+  W --&gt; AR
+</code></pre>
+<p>Several of these contracts exist only because the queue has no notion
+of <em>which repository</em> a job is for:</p>
+<ul>
+<li><strong>"A job is in exactly one key at every instant"</strong> (IMPL-0022) needs
+  three Lua scripts.</li>
+<li><strong>"Push writes <code>StatusPending</code> before <code>Enqueue</code>"</strong> (IMPL-0015 Phase 0)
+  exists so the sweep does not enqueue a duplicate while a job is in
+  flight.</li>
+<li><strong><code>UpsertIfMissing</code> race handling</strong> is pinned by a 16-goroutine
+  test.</li>
+</ul>
+<p>A workflow ID is a per-repository lock the platform enforces, so all
+three collapse into "start or signal the workflow for <code>org/repo</code>".</p>
+<h3 id="observation-2-the-natural-model-is-one-long-running-workflow-per-repository">Observation 2: the natural model is one long-running workflow per repository</h3>
+<p>The stale sweep answers "which repositories are due?" by scanning
+<code>repo_state</code> on an interval. Temporal inverts it: each repository <em>is</em>
+a workflow that knows when it is next due.</p>
+<pre><code class="language-mermaid">sequenceDiagram
+  participant GH as GitHub
+  participant ING as ingest
+  participant T as Temporal
+  participant WF as RepoWorkflow(org/repo)
+  participant A as activities (worker pods)
+  participant PG as Postgres findings
+  participant J as Jira / Slack
+  GH-&gt;&gt;ING: push / repository.created
+  ING-&gt;&gt;T: SignalWithStart(id = org/repo, &quot;recheck&quot;)
+  T-&gt;&gt;WF: start if absent, else deliver signal
+  loop until parked or continue-as-new
+    WF-&gt;&gt;A: CheckRepo (engine, unchanged)
+    A--&gt;&gt;WF: outcomes, or throttled (NextRetryDelay)
+    WF-&gt;&gt;A: WriteFindings
+    A-&gt;&gt;PG: upsert findings + finding_events (one tx)
+    A--&gt;&gt;WF: transitions
+    opt a transition needs action
+      WF-&gt;&gt;A: Notify (idempotent via external_ref)
+      A-&gt;&gt;J: create / update / close ticket
+    end
+    WF-&gt;&gt;WF: await timer(freshness) OR signal(recheck | policy-changed)
+  end
+</code></pre>
+<p>How existing behaviour maps:</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour today</th>
+<th>As a <code>RepoWorkflow</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stale sweep every interval</td>
+<td>a durable timer per repository, set to the freshness window</td>
+</tr>
+<tr>
+<td>Push to a watched path → <code>TriggerPush</code></td>
+<td><code>SignalWithStart</code> with a <code>recheck</code> signal</td>
+</tr>
+<tr>
+<td>Discovery → <code>UpsertIfMissing</code></td>
+<td>a <code>DiscoveryWorkflow</code> on a Temporal Schedule, <code>SignalWithStart</code> per repo</td>
+</tr>
+<tr>
+<td>Parking (<code>Deactivate</code>)</td>
+<td>the workflow completes; discovery's <code>SignalWithStart</code> is the only thing that restarts it, so <strong>INV-0015's subset invariant carries over unchanged</strong></td>
+</tr>
+<tr>
+<td>Policy change re-enqueues the fleet</td>
+<td>a <code>PolicyRolloutWorkflow</code> pages the repository list from our Postgres and signals <code>policy-changed</code>, paced per installation (Observation 9)</td>
+</tr>
+<tr>
+<td>Compliance snapshot, discovery cadence</td>
+<td>Temporal Schedules; no leader election needed, because a Schedule fires once</td>
+</tr>
+<tr>
+<td>Best-effort write-back</td>
+<td><code>WriteFindings</code> is an activity, retried until it succeeds; the workflow does not advance past it</td>
+</tr>
+<tr>
+<td><code>MAX_JOB_ATTEMPTS</code> and <code>dropExhausted</code></td>
+<td>the activity retry policy's maximum attempts, with the same semantics: deferrals count as attempts, as they do today (IMPL-0022)</td>
+</tr>
+</tbody>
+</table>
+<p>The engine itself (<code>checker</code>, <code>policy</code>, <code>reconciler</code>, <code>github</code>) runs
+inside activities, so it needs no change and stays exempt from
+Temporal's determinism rules. Only the thin orchestration loop above is
+workflow code.</p>
+<p>The last row of the durability comparison is the one INV-0018 cared
+about most. River solves "findings write and job completion" with one
+database transaction. Temporal solves it by making the write a retried
+activity the workflow cannot skip. Both remove the best-effort gap.
+Temporal also extends the same guarantee to notification side effects,
+which a single database transaction cannot cover.</p>
+<h3 id="observation-3-the-nothing-blocks-in-handler-rule-gets-easier-to-keep-not-harder">Observation 3: the "nothing blocks in-handler" rule gets easier to keep, not harder</h3>
+<p>IMPL-0022's central rule is that a worker holding a claim must never
+sleep waiting on the rate limit. It returns <code>RetryAfterError</code> so the
+queue parks the job and frees the slot. That rule exists because the
+queue cannot hold a job without holding a worker.</p>
+<p>In Temporal the two are separate:</p>
+<ul>
+<li><strong>Activity-level deferral</strong> — the activity returns an
+  <code>ApplicationError</code> with <code>NextRetryDelay</code> set to the rate-limit reset.
+  The worker slot is freed and the server schedules the retry. This is
+  <code>RetryAfterError</code> with the platform owning the delayed ZSET, the
+  promotion timer and <code>REAPER_INTERVAL</code>'s double duty. It needs Temporal
+  Server ≥ v1.24.2, since older servers silently ignore the field. That
+  is an easy mistake to make with an external dependency, and worth a
+  startup version check.</li>
+<li><strong>Workflow-level waiting</strong> — a workflow can <code>workflow.Sleep</code> until the
+  budget resets at no cost. A durable timer holds no worker, no
+  goroutine and no claim. The throttled case stops being an error path
+  at all.</li>
+</ul>
+<p>Reactive throttle detection (<code>github.AsThrottled</code>, including go-github's
+pre-check path) stays exactly as it is. It just returns a different
+error type.</p>
+<h3 id="observation-4-the-rate-budget-belongs-in-the-activity-layer-and-temporal-can-hold-it-precisely">Observation 4: the rate budget belongs in the activity layer, and Temporal can hold it precisely</h3>
+<p>Today each worker pod tracks each installation's remaining budget from
+its own responses (INV-0018 Observation 7), so N pods hold N optimistic
+views. Temporal offers two layers, and v2 wants both:</p>
+<ul>
+<li><strong>Coarse smoothing:</strong> <code>worker.Options.TaskQueueActivitiesPerSecond</code>
+  is a <strong>server-enforced</strong> limit per task queue across every worker.
+  With one task queue per installation, bursts are paced fleet-wide. It
+  counts activities, not API calls, and one <code>CheckRepo</code> makes a
+  variable number of GitHub calls, so on its own it is an approximation.</li>
+<li><strong>Precise budget:</strong> an <code>InstallationWorkflow</code> entity per installation
+  holds the shared budget itself (Observation 8). This is the job
+  INV-0018 had assigned to Valkey.</li>
+</ul>
+<p>Reactive throttling (<code>AsThrottled</code> → <code>NextRetryDelay</code>) stays as the
+backstop under both.</p>
+<h3 id="observation-5-temporal-is-a-real-system-to-operate">Observation 5: Temporal is a real system to operate</h3>
+<p>This is the cost side, and it is substantial:</p>
+<ul>
+<li><strong>Four server services</strong> — frontend, history, matching and worker —
+  plus the web UI and admin tools, per the official Helm chart.</li>
+<li><strong>Its own persistence and visibility stores.</strong> Postgres 12+ works for
+  both, including advanced visibility (Server ≥ v1.20), so no
+  Elasticsearch is strictly required. Temporal recommends Elasticsearch
+  or OpenSearch "for any setup that spawns more than a few Workflow
+  Executions", which a 20,000-repo fleet with one long-running workflow
+  per repository is. Whether SQL visibility copes at that count is a
+  spike question, not something to assume.</li>
+<li><strong>Schema migrations and upgrades of its own</strong>, on Temporal's release
+  cadence, independent of repo-guardian's. Temporal's upgrade guidance
+  should be read at spike time; it has historically asked for
+  sequential minor-version upgrades.</li>
+<li><strong>A determinism discipline</strong> for workflow code. Changing the
+  <code>RepoWorkflow</code> loop while 20,000 executions are mid-flight needs
+  <code>workflow.GetVersion</code> patching or Worker Versioning. That is a new
+  class of bug this codebase has never had. It is mitigated by keeping
+  the workflow loop small and every piece of logic in activities.</li>
+<li><strong>History growth</strong> — a long-running workflow must <code>ContinueAsNew</code>
+  periodically to stay well under Temporal's per-execution history
+  limits.</li>
+</ul>
+<p>And the deployment story changes shape. repo-guardian's chart today
+bakes Postgres and Valkey so a single org — or a single repository —
+can <code>helm install</code> and go. <strong>Temporal should not be baked into the
+chart.</strong> Operating it well is a platform-team job. That makes Temporal
+an <em>external prerequisite</em>: a self-hosted cluster the operator already
+runs, or Temporal Cloud. For large deployments with platform teams that
+is a reasonable ask. For a small team running repo-guardian on one org,
+it is a large one.</p>
+<p>Temporal Cloud removes the operations and adds a per-action bill and a
+data-residency question. Workflow payloads would carry org and
+repository names, which a payload codec can encrypt.</p>
+<h3 id="observation-6-what-it-deletes-and-what-it-gives-the-system-tier">Observation 6: what it deletes, and what it gives the system tier</h3>
+<p>Measured on <code>main</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Fate</th>
+<th>Code</th>
+<th>LOC</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Deleted</strong></td>
+<td><code>queue</code> + <code>queue/valkey</code> (incl. reaper), <code>scheduler</code> + <code>scheduler/valkey</code>, <code>checker/sweep.go</code></td>
+<td>~1,380</td>
+</tr>
+<tr>
+<td><strong>Reshaped into workflows/activities</strong></td>
+<td><code>worker/worker.go</code>, <code>scheduler/discoverer.go</code>, <code>checker/snapshot.go</code></td>
+<td>~900</td>
+</tr>
+<tr>
+<td><strong>Deleted regardless</strong> (INV-0018: zero business metrics)</td>
+<td><code>checker/posture.go</code></td>
+<td>~140</td>
+</tr>
+</tbody>
+</table>
+<p>Deletions also take out the Valkey queue integration tests, the Lua
+scripts and the leader-election tests, which are some of the most
+intricate tests in the repository. Temporal's <code>testsuite</code> replaces them
+with deterministic, time-skipping workflow tests.</p>
+<p>On the system tier (the only tier Prometheus holds in v2), Temporal
+gives better signals than the hand-built queue:</p>
+<ul>
+<li><strong>Schedule-to-start latency</strong>, which is the real queue-wait metric.</li>
+<li>Activity failure and retry counts by type.</li>
+<li>Task-queue backlog, which the KEDA scaler consumes directly.</li>
+<li>A per-repository execution history in the Temporal UI, answering
+  "what happened to this repo's last three checks" for operators.</li>
+</ul>
+<p>The Temporal UI is an <em>operator</em> tool, the same way Grafana is. It does
+not replace the read-only business UI, which reads findings from
+Postgres.</p>
+<h3 id="observation-7-valkey-has-no-job-left-under-temporal">Observation 7: Valkey has no job left under Temporal</h3>
+<p>Measured on <code>main</code>, Valkey's only consumers are <code>queue/valkey</code> (jobs,
+in-flight, delayed, reaper lock), <code>scheduler/valkey</code> (SETNX leader
+election), their OTel instrumentation in <code>observability/valkey.go</code>, and
+config/wiring in <code>main.go</code> and <code>report.go</code>. There are no caches in it:
+the org custom-property schema cache is already in-process
+(<code>custom_properties.go</code>, <code>schemaCache</code> + singleflight), and there is no
+conditional-request/ETag cache anywhere.</p>
+<p>Temporal replaces every one of those consumers, and the shared rate
+budget INV-0018 wanted to move into Valkey lives in an
+<code>InstallationWorkflow</code> instead (Observation 8). <strong>Valkey is dropped in
+v2.</strong> That removes a stateful dependency, a baked StatefulSet, a secret
+and a DSN from the chart, and its integration-test tier from CI.</p>
+<h3 id="observation-8-api-limit-control-does-not-depend-on-workflow-granularity">Observation 8: API-limit control does not depend on workflow granularity</h3>
+<p>The obvious argument for one workflow <em>per check</em> is control over API
+limits: a starter that decides how many checks to launch per
+installation looks like a natural throttle. It isn't, for one reason:
+<strong>in both shapes the same <code>CheckRepo</code> activity makes the same GitHub
+calls.</strong> Budget is spent by activities, so it has to be controlled
+where activities run, and that works the same whichever workflow shape
+starts them.</p>
+<p>The per-check starter is also a sweep again. It needs a leader (or a
+Schedule), a view of what is due, and dedupe against in-flight checks,
+which is the machinery Observation 1 deletes.</p>
+<p>So the control goes into an entity per installation:</p>
+<pre><code class="language-mermaid">sequenceDiagram
+  participant RW as RepoWorkflow(org/repo)
+  participant IW as InstallationWorkflow(installation)
+  participant A as CheckRepo activity
+  participant GH as GitHub
+  RW-&gt;&gt;IW: Update acquire(estimated cost, priority)
+  alt budget available
+    IW--&gt;&gt;RW: granted
+    RW-&gt;&gt;A: CheckRepo
+    A-&gt;&gt;GH: API calls
+    GH--&gt;&gt;A: responses + rate-limit headers
+    A--&gt;&gt;RW: outcomes + observed remaining / reset
+    RW-&gt;&gt;IW: Signal report(remaining, reset)
+  else budget reserved or exhausted
+    IW--&gt;&gt;RW: wait until reset
+    RW-&gt;&gt;RW: durable timer (holds no worker)
+  end
+</code></pre>
+<ul>
+<li><strong>Precise and shared.</strong> One writer per installation, fed by what
+  GitHub actually reported, instead of N per-pod guesses.</li>
+<li><strong>Priority for free.</strong> <code>acquire</code> carries a priority, so push-triggered
+  rechecks can jump ahead of timer-driven ones when the budget is
+  scarce. That is the one thing a per-check starter would have offered,
+  and here it doesn't need a leader.</li>
+<li><strong>Waiting costs nothing.</strong> A denied repo workflow sleeps on a durable
+  timer until the reset, with no claim, goroutine or worker slot held.
+  It is IMPL-0022's deferral with the machinery gone.</li>
+<li><strong>Load is tiny.</strong> 20,000 repos on a 24h freshness window is about 0.25
+  acquisitions per second fleet-wide. The InstallationWorkflow must
+  <code>ContinueAsNew</code> periodically (every grant is history), and bursts are
+  the spike question (Recommendation).</li>
+</ul>
+<p><strong>Where per-check genuinely wins is versioning, not API limits.</strong> A
+short-lived workflow finishes before the next deploy, so changing its
+code needs no <code>GetVersion</code> patching. The per-repo shape keeps that
+problem small by putting every piece of logic in activities, which are
+not replayed. The workflow is a loop of about a dozen lines: acquire,
+check, write, notify, wait. If the loop ever turns out to change often,
+the fallback is <strong>per-repo entity + child workflow per check</strong>: the
+entity keeps the timer, signals and dedupe, and each check gets its own
+short history and versioning boundary.</p>
+<h3 id="observation-9-fleet-fan-out-doesnt-need-the-visibility-store">Observation 9: fleet fan-out doesn't need the visibility store</h3>
+<p>The one hot-path use of Temporal visibility in Observation 2 was "batch
+signal every running <code>RepoWorkflow</code> on a policy change". It doesn't need
+visibility. Our Postgres already holds the repository list, so a
+<code>PolicyRolloutWorkflow</code> can read it in pages via an activity and signal
+each repository, paced per installation. Visibility is then only for
+operators browsing the Temporal UI, which keeps the Elasticsearch
+question (OQ6) about operator ergonomics rather than correctness.</p>
+<h2 id="options">Options</h2>
+<pre><code class="language-mermaid">flowchart TB
+  GH[GitHub]
+  subgraph RG[&quot;repo-guardian — one image&quot;]
+    ING[&quot;ingest&lt;br/&gt;webhook · HMAC · SignalWithStart&quot;]
+    WRK[&quot;worker ×N&lt;br/&gt;RepoWorkflow · InstallationWorkflow · activities&lt;br/&gt;KEDA Temporal scaler (v2.17+)&quot;]
+    API[&quot;api — read-only&quot;]
+  end
+  subgraph TMP[&quot;Temporal — self-hosted on Kubernetes, separate release&quot;]
+    TS[&quot;frontend · history · matching · worker · web&quot;]
+  end
+  PG[(&quot;Postgres&lt;br/&gt;findings · finding_events · snapshots · repos&quot;)]
+  TPG[(&quot;Temporal persistence + SQL visibility&lt;br/&gt;CNPG Postgres, separate cluster&quot;)]
+  UI[&quot;UI — read-only&quot;]
+  GH --&gt;|webhooks| ING
+  ING --&gt;|gRPC| TS
+  TS &lt;--&gt;|task queue per installation| WRK
+  WRK --&gt;|API calls| GH
+  WRK --&gt; PG
+  TS --&gt; TPG
+  API --&gt; PG
+  UI --&gt; API
+</code></pre>
+<p>Under Temporal, INV-0018's four roles become three: <code>ingest</code>, <code>worker</code>
+and <code>api</code> (plus <code>all</code>). The <code>controller</code> role disappears, because
+Schedules and workflows own everything it did.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Custom Valkey queue (today)</th>
+<th>River (Postgres)</th>
+<th>Temporal</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Findings write durability</strong></td>
+<td>best-effort</td>
+<td>transactional with job completion</td>
+<td>retried activity; workflow cannot skip it</td>
+</tr>
+<tr>
+<td><strong>Notification side effects</strong></td>
+<td>new code</td>
+<td>new code, own retries</td>
+<td>activities with retry policies</td>
+</tr>
+<tr>
+<td><strong>Rate-limit deferral</strong></td>
+<td><code>RetryAfterError</code> + delayed ZSET + reaper promotion</td>
+<td>job snooze</td>
+<td><code>NextRetryDelay</code>, or a free durable timer</td>
+</tr>
+<tr>
+<td><strong>Per-repo dedupe</strong></td>
+<td>pending-status workaround</td>
+<td>unique jobs</td>
+<td>workflow ID</td>
+</tr>
+<tr>
+<td><strong>Scheduling / leader election</strong></td>
+<td>SETNX + four schedules</td>
+<td>periodic jobs (leader election to verify)</td>
+<td>Schedules, no election</td>
+</tr>
+<tr>
+<td><strong>Shared rate budget</strong></td>
+<td>per-pod</td>
+<td>per-pod (or a new shared store)</td>
+<td><code>InstallationWorkflow</code>, precise, plus task-queue smoothing</td>
+</tr>
+<tr>
+<td><strong>Autoscaling</strong></td>
+<td>KEDA Redis lists</td>
+<td>KEDA PostgreSQL</td>
+<td>KEDA Temporal (v2.17+, community)</td>
+</tr>
+<tr>
+<td><strong>Operator visibility</strong></td>
+<td>Grafana only</td>
+<td>River UI</td>
+<td>Temporal UI with per-repo history</td>
+</tr>
+<tr>
+<td><strong>New dependency to run</strong></td>
+<td>none</td>
+<td>none — reuses Postgres</td>
+<td><strong>Temporal cluster</strong></td>
+</tr>
+<tr>
+<td><strong>Dependencies dropped</strong></td>
+<td>—</td>
+<td>none (Valkey stays for budget)</td>
+<td><strong>Valkey</strong></td>
+</tr>
+<tr>
+<td><strong>New failure class</strong></td>
+<td>none</td>
+<td>none significant</td>
+<td>workflow determinism and versioning</td>
+</tr>
+<tr>
+<td><strong>Control-plane code deleted</strong></td>
+<td>—</td>
+<td>queue, reaper, delayed machinery</td>
+<td>queue, reaper, delayed, scheduler, leader election, sweep</td>
+</tr>
+</tbody>
+</table>
+<h2 id="conclusion">Conclusion</h2>
+<p><strong>Answer:</strong> Temporal fits the shape of the problem <strong>better</strong> than
+either queue option, at the cost of operating a Temporal cluster.</p>
+<p><strong>Decided 2026-09-23:</strong> Temporal is the v2 control plane, <strong>self-hosted
+on Kubernetes</strong>. <strong>Valkey is dropped</strong> (Observation 7). This resolves
+INV-0018 OQ1.</p>
+<h3 id="what-i-think">What I think</h3>
+<p>The fit argument is strong, and I did not expect it to be this strong.
+A repository is an entity with a timer, signals and durable side
+effects, and that is exactly what a workflow is. Much of the
+intricacy CLAUDE.md records (three Lua scripts, a pending-status
+dedupe, a reaper whose interval doubles as a promotion timer, a SETNX
+election, a best-effort write-back) is this codebase building a small
+workflow engine one post-mortem at a time. Temporal deletes that rather
+than re-hosting it.</p>
+<p>The shape I recommend is <strong>one entity workflow per repository and one
+per installation</strong>. The repository workflow owns the when (timer,
+signals, parking). The installation workflow owns the how-much (the
+shared API budget and priority). Neither requires a leader.</p>
+<p>The one-mechanism rule from DESIGN-0021 still applies. <strong>There is one
+control plane; it is not pluggable.</strong> No Valkey fallback, no "Temporal
+optional" mode. The small-install story becomes "run Temporal", with a
+documented minimal setup, and that is the price of the decision.</p>
+<h2 id="recommendation">Recommendation</h2>
+<ol>
+<li><strong>Deploy Temporal as its own release</strong>, not a dependency of the
+   repo-guardian chart: the upstream <code>temporalio/helm-charts</code>, on a
+   separate CNPG Postgres cluster, visibility <code>baked</code> (Postgres) by
+   default or <code>external</code> (Elasticsearch/OpenSearch) (OQ6). The
+   repo-guardian chart takes an endpoint, a namespace and mTLS
+   credentials, and the binary refuses to start against a server older
+   than v1.24.2 (<code>NextRetryDelay</code>).</li>
+<li><strong>Spike in the homelab before the IMPL</strong>, to de-risk the design
+   rather than decide it:</li>
+<li><code>RepoWorkflow</code> with timer + <code>recheck</code> signal + <code>ContinueAsNew</code>,
+     calling the real <code>CheckRepo</code> in an activity;</li>
+<li><code>InstallationWorkflow</code> budget with <code>acquire</code>/<code>report</code>, including a
+     burst of 20,000 acquisitions against one installation;</li>
+<li><code>NextRetryDelay</code> deferral against a deliberately low reserve;</li>
+<li><code>PolicyRolloutWorkflow</code> fanning out from our Postgres;</li>
+<li>the KEDA Temporal scaler on the worker Deployment.</li>
+</ol>
+<p>Success criteria: acquisition latency stays bounded under the burst;
+   deferred and denied checks hold no worker slots and resume on time;
+   a <code>RepoWorkflow</code> change deploys under <code>GetVersion</code> without breaking
+   in-flight executions; Temporal's Postgres copes at 20,000 open
+   executions.
+3. <strong>Sequence it with INV-0018.</strong> The findings model (INV-0018 Phase 1)
+   is needed regardless and lands first. The Temporal cut-over replaces
+   INV-0018 Phase 2's role split; the <code>controller</code> role is never built.
+4. <strong>Valkey leaves at the same cut.</strong> The queue, scheduler and Valkey go
+   out together, since the only thing that needs Valkey is what Temporal
+   replaces.</p>
+<h3 id="open-questions">Open questions</h3>
+<ul>
+<li>
+<p><strong>OQ1 — Who runs v2?</strong> — <strong>RESOLVED: Temporal is the v2 control
+  plane.</strong> Operators run Temporal; small installs get a documented
+  minimal setup. ~~(b)=self-contained install → River; (c)=both~~</p>
+</li>
+<li>
+<p><strong>OQ2 — Run the spike?</strong> — <strong>RESOLVED: yes</strong>, in the homelab before
+  the IMPL, with the Recommendation step 2 success criteria, as
+  de-risking rather than a go/no-go. ~~(b)=go straight to a DESIGN~~</p>
+</li>
+<li>
+<p><strong>OQ3 — Workflow granularity.</strong> — <strong>RESOLVED: one entity workflow per
+  repository, plus one per installation for the API budget</strong>
+  (Observation 8). API-limit control lives in the activity layer and
+  the <code>InstallationWorkflow</code>, independent of workflow granularity.
+  Fallback if the loop's versioning proves painful: per-repo entity +
+  child workflow per check. ~~(b)=one short workflow per check~~</p>
+</li>
+<li>
+<p><strong>OQ4 — Valkey under Temporal.</strong> — <strong>RESOLVED: dropped.</strong> It has no
+  remaining consumer (Observation 7).</p>
+</li>
+<li>
+<p><strong>OQ5 — Self-hosted or Cloud?</strong> — <strong>RESOLVED: self-hosted on
+  Kubernetes</strong>, as a separate Helm release on its own CNPG Postgres.
+  ~~(b)=Temporal Cloud~~</p>
+</li>
+<li>
+<p><strong>OQ6 — Visibility store.</strong> — <strong>RESOLVED: deployed with the upstream
+  <code>temporalio/helm-charts</code>, in <code>baked</code> | <code>external</code> modes like the
+  repo-guardian chart's Postgres.</strong> No wrapper chart.</p>
+</li>
+<li><strong><code>baked</code> Postgres (default):</strong> SQL visibility in its own database
+    on Temporal's CNPG cluster. No extra system, and sufficient because
+    nothing on the hot path queries visibility (Observation 9).</li>
+<li><strong><code>baked</code> Elasticsearch/OpenSearch:</strong> deployed in-cluster by Helm
+    chart, pinned to a version the pinned Temporal Server supports as a
+    visibility store.</li>
+<li><strong><code>external</code>:</strong> bring-your-own Elasticsearch/OpenSearch. The AWS
+    target is <strong>Amazon OpenSearch Service</strong> at its current engine
+    version. Endpoint, index and credentials come from a secret.
+    (ElastiCache is AWS's Redis/Valkey service, not a search engine.)</li>
+</ul>
+<p>Each mode ships as a reference values file for the upstream chart.
+  The DESIGN picks the Temporal Server pin, and with it the supported
+  Elasticsearch/OpenSearch versions and whether Amazon OpenSearch
+  Service's current version falls inside them. The spike runs <code>baked</code>
+  Postgres, and a <code>baked</code> OpenSearch if time allows.</p>
+<h2 id="references">References</h2>
+<ul>
+<li>INV-0018 — v2 re-topology; OQ1 (queue), Observations 6 and 7</li>
+<li>DESIGN-0021, IMPL-0022 — delayed-requeue contract, one-mechanism
+  rule, <code>MAX_JOB_ATTEMPTS</code></li>
+<li>IMPL-0015 — discovery, pending-status write before enqueue,
+  <code>UpsertIfMissing</code></li>
+<li>INV-0015 (cited in CLAUDE.md) — parking and the subset invariant</li>
+<li><a href="https://docs.temporal.io">Temporal</a> ·
+  <a href="https://docs.temporal.io/self-hosted-guide/visibility">SQL / advanced visibility</a> ·
+  <a href="https://github.com/temporalio/helm-charts">temporalio/helm-charts</a> ·
+  <a href="https://pkg.go.dev/go.temporal.io/sdk">Go SDK</a> ·
+  <a href="https://keda.sh/docs/latest/scalers/temporal/">KEDA Temporal scaler</a></li>
+<li><a href="https://github.com/riverqueue/river">River</a> — the comparison baseline
+</content>
+</invoke></li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

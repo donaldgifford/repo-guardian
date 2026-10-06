@@ -32,6 +32,32 @@ When both are set, the App wins and rgctl logs a warning. For GitHub
 Enterprise Server, set `--github-host` or `RGCTL_GITHUB_HOST` to the host or
 its URL.
 
+### App setup
+
+Use the repo-guardian App itself: rgctl must see the same installations v1
+does, and the bot login it matches on is that App's. Its existing permissions
+already cover everything rgctl does. A separate read-only App for auditing
+needs only the `prs list` column.
+
+| Repository permission | `prs list` | `prs close` | Used for |
+| --------------------- | ---------- | ----------- | -------- |
+| Metadata | read | read | installation repositories, search |
+| Pull requests | read | write | search, read PRs, commits and comments; post the comment and close |
+| Contents | none | write | check the head branch exists and delete it (`--delete-branch` only) |
+
+Keep the private key outside the repository and readable only by you:
+
+```bash
+mkdir -p ~/.config/rgctl
+mv ~/Downloads/<app>.private-key.pem ~/.config/rgctl/app.pem
+chmod 600 ~/.config/rgctl/app.pem
+export RGCTL_APP_ID=<app id>
+export RGCTL_PRIVATE_KEY_FILE=~/.config/rgctl/app.pem
+```
+
+With a token, `gh auth token` carries the `repo` scope, which covers the same
+calls.
+
 ## Commands
 
 ### `rgctl config show <guardian.hcl>`
@@ -73,7 +99,17 @@ and `--out <path>` writes it to a file as well.
 
 Closes pull requests: posts a pointer comment, closes, and with
 `--delete-branch` deletes the head branch. Input is a record (`--from
-record.json`) or the same selection flags as `list`.
+record.json`) or the same selection flags as `list`, not both: `--from`
+already names the PRs, so it is never combined with `--repo`, `--org` or
+`--config` (exit 2).
+
+To close a subset, cut the record down with `jq` first:
+
+```bash
+jq '.prs |= map(select(.repository == "acme/web" and .number == 12))' acme.json > one.json
+rgctl prs close --from one.json                          # plan
+rgctl prs close --from one.json --yes --delete-branch    # act
+```
 
 - **Dry run by default.** Without `--yes` it prints the plan and writes
   nothing.
@@ -134,3 +170,6 @@ that run, so `rgctl prs list --org acme --format json | jq .summary` works.
   exit 3.
 - Search returns at most 1000 results per query. Use `--exhaustive` for a
   complete list.
+- `--exhaustive` with a token lists repositories through the organization
+  endpoint, so it fails for a personal account. Use App credentials there;
+  search mode works for both.

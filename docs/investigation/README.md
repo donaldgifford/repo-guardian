@@ -32,6 +32,7 @@ Design docs, plans, and implementation docs can reference investigations by ID
 | INV-0019 | Temporal as the repo-guardian control plane | Open | 2026-09-23 | Donald Gifford | [0019-temporal-as-the-repo-guardian-control-plane.md](0019-temporal-as-the-repo-guardian-control-plane.md) |
 | INV-0020 | KEDA worker autoscaling cannot authenticate to Temporal | Open | 2026-10-01 | Donald Gifford | [0020-keda-worker-autoscaling-cannot-authenticate-to-temporal.md](0020-keda-worker-autoscaling-cannot-authenticate-to-temporal.md) |
 | INV-0021 | Controls model assumptions A1 to A23 against the v2 code | Concluded | 2026-10-04 | Donald Gifford | [0021-controls-model-assumptions-a1-to-a23-against-the-v2-code.md](0021-controls-model-assumptions-a1-to-a23-against-the-v2-code.md) |
+| INV-0022 | Controls designs against the v2 code, GitHub and Temporal | Concluded | 2026-10-06 | Donald Gifford | [0022-controls-designs-against-the-v2-code-github-and-temporal.md](0022-controls-designs-against-the-v2-code-github-and-temporal.md) |
 <!-- END DOCZ AUTO-GENERATED -->
 <!-- BEGIN DOCZ AUTO-GENERATED -->
 <!-- END DOCZ AUTO-GENERATED -->

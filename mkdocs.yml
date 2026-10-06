@@ -92,6 +92,7 @@ nav:
         - 'INV-0019: Temporal as the repo-guardian control plane': investigation/0019-temporal-as-the-repo-guardian-control-plane.md
         - 'INV-0020: KEDA worker autoscaling cannot authenticate to Temporal': investigation/0020-keda-worker-autoscaling-cannot-authenticate-to-temporal.md
         - 'INV-0021: Controls model assumptions A1 to A23 against the v2 code': investigation/0021-controls-model-assumptions-a1-to-a23-against-the-v2-code.md
+        - 'INV-0022: Controls designs against the v2 code, GitHub and Temporal': investigation/0022-controls-designs-against-the-v2-code-github-and-temporal.md
     - Plans:
         - Overview: plan/README.md
     - RFCs:

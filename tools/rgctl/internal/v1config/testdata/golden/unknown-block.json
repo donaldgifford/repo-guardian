@@ -1,0 +1,74 @@
+{
+  "path": "testdata/unknown-block.hcl",
+  "orgs": [
+    "acme"
+  ],
+  "legacy_mode": false,
+  "guardian": [
+    {
+      "name": "dry_run",
+      "source": "false",
+      "line": 10
+    }
+  ],
+  "locals": null,
+  "ignore": null,
+  "rules": [
+    {
+      "type": "file",
+      "name": "renovate",
+      "line": 14,
+      "paths": [
+        "renovate.json"
+      ],
+      "scope": [
+        "*"
+      ],
+      "reconcilers": [
+        {
+          "type": "workflow_sync",
+          "line": 20,
+          "attrs": [
+            {
+              "name": "watch",
+              "source": "true",
+              "line": 21
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "unrecognised": [
+    {
+      "kind": "block",
+      "name": "widget",
+      "source": "widget \"sprocket\"",
+      "line": 5
+    },
+    {
+      "kind": "attribute",
+      "name": "guardian \u003e webhook_ip_allowlist",
+      "source": "webhook_ip_allowlist = [\"10.0.0.0/8\"]",
+      "line": 11
+    },
+    {
+      "kind": "attribute",
+      "name": "rule \"file\" \"renovate\" \u003e colour",
+      "source": "colour = \"blue\"",
+      "line": 16
+    },
+    {
+      "kind": "attribute",
+      "name": "rule \"file\" \"renovate\" \u003e reconcile \"workflow_sync\" \u003e cadence",
+      "source": "cadence = \"daily\"",
+      "line": 22
+    },
+    {
+      "kind": "block",
+      "name": "rule",
+      "source": "rule \"teleport\" \"beam\"",
+      "line": 26
+    }
+  ]
+}

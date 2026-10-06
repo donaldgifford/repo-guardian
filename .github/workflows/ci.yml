@@ -31,10 +31,13 @@ jobs:
         id: filter
         with:
           filters: |
+            # `**/go.mod` and `**/go.sum` cover the nested tools/rgctl
+            # module, so a renovate bump that touches only its go.mod/go.sum
+            # still runs the Go jobs.
             go:
               - '**/*.go'
-              - 'go.mod'
-              - 'go.sum'
+              - '**/go.mod'
+              - '**/go.sum'
             docker:
               - 'Dockerfile'
               - 'docker-bake.hcl'
@@ -93,6 +96,24 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.12.2
+
+      # tools/rgctl is its own Go module (DESIGN-0035), so the step above
+      # never descends into it. Same linter set, via the root config.
+      - name: Run golangci-lint (rgctl)
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.2
+          working-directory: tools/rgctl
+          args: --config ../../.golangci.yml
+
+      # The module-boundary half of `make lint-rgctl`: rgctl's go.mod must
+      # never require or replace the product module (DESIGN-0035 D4).
+      - name: Check rgctl never requires the product module
+        run: |
+          if grep -En '^[[:space:]]*((require|replace)[[:space:]]+)?github\.com/donaldgifford/repo-guardian([[:space:]]|$)' tools/rgctl/go.mod; then
+            echo "::error file=tools/rgctl/go.mod::rgctl must not depend on the product module (DESIGN-0035 D4)"
+            exit 1
+          fi
 
       - name: Set up Helm
         uses: azure/setup-helm@v5
@@ -160,6 +181,18 @@ jobs:
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
         with:
           files: coverage.out
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: donaldgifford/repo-guardian
+        continue-on-error: true
+
+      # `make test-coverage` also ran rgctl's tests (test-coverage-rgctl).
+      # Its profile goes up under its own flag so the tool never moves the
+      # product's coverage number or threshold.
+      - name: Upload rgctl coverage to Codecov
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
+        with:
+          files: coverage-rgctl.out
+          flags: rgctl
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: donaldgifford/repo-guardian
         continue-on-error: true

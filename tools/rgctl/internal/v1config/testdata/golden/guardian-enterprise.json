@@ -1,0 +1,365 @@
+{
+  "path": "testdata/guardian-enterprise.hcl",
+  "orgs": [
+    "myent-platform",
+    "myent-product",
+    "myent-sandbox"
+  ],
+  "legacy_mode": false,
+  "guardian": [
+    {
+      "name": "log_level",
+      "source": "\"info\"",
+      "line": 39
+    },
+    {
+      "name": "dry_run",
+      "source": "false",
+      "line": 40
+    },
+    {
+      "name": "worker_count",
+      "source": "5",
+      "line": 41
+    },
+    {
+      "name": "queue_size",
+      "source": "1000",
+      "line": 42
+    },
+    {
+      "name": "schedule_interval",
+      "source": "\"168h\"",
+      "line": 43
+    },
+    {
+      "name": "skip_forks",
+      "source": "true",
+      "line": 44
+    },
+    {
+      "name": "skip_archived",
+      "source": "true",
+      "line": 45
+    }
+  ],
+  "locals": null,
+  "ignore": [
+    "*/.github",
+    "*/archive-*"
+  ],
+  "defaults_pr": {
+    "line": 87,
+    "attrs": [
+      {
+        "name": "title",
+        "source": "\"[{{ env \\\"JIRA_PROJECT\\\" | default \\\"GUARDIAN\\\" }}] guardian: {{ .Owner }}/{{ .Repo }}\"",
+        "line": 88
+      },
+      {
+        "name": "body",
+        "source": "\u003c\u003cEOT\n## Repo Guardian\n\nThis PR was opened automatically by **repo-guardian** for\n`{{ .Owner }}/{{ .Repo }}` (default branch: `{{ .DefaultBranch }}`).\n\n### Files changed\n{{ range .Files }}- `{{ . }}`\n{{ end }}\n\n### What to do\n1. Review each file for your team's needs.\n2. Merge when ready — these are sensible defaults, not one-size-fits-all.\n\n---\n*Need help? Reach out in #platform-engineering.*\nEOT",
+        "line": 89
+      },
+      {
+        "name": "labels",
+        "source": "[\"automated\", \"guardian\"]",
+        "line": 106
+      }
+    ]
+  },
+  "rules": [
+    {
+      "type": "file",
+      "name": "codeowners",
+      "line": 125,
+      "paths": [
+        "CODEOWNERS",
+        ".github/CODEOWNERS",
+        "docs/CODEOWNERS"
+      ],
+      "template": "codeowners",
+      "target": ".github/CODEOWNERS",
+      "scope": [
+        "*"
+      ],
+      "pr": {
+        "line": 136,
+        "attrs": [
+          {
+            "name": "search_terms",
+            "source": "[\"codeowners\", \"CODEOWNERS\"]",
+            "line": 137
+          },
+          {
+            "name": "title",
+            "source": "\"chore({{ .Repo }}): adopt CODEOWNERS\"",
+            "line": 138
+          }
+        ]
+      }
+    },
+    {
+      "type": "file",
+      "name": "dependabot",
+      "line": 142,
+      "paths": [
+        ".github/dependabot.yml",
+        ".github/dependabot.yaml"
+      ],
+      "template": "dependabot",
+      "target": ".github/dependabot.yml",
+      "scope": [
+        "*"
+      ],
+      "pr": {
+        "line": 151,
+        "attrs": [
+          {
+            "name": "search_terms",
+            "source": "[\"dependabot\"]",
+            "line": 152
+          }
+        ]
+      }
+    },
+    {
+      "type": "file",
+      "name": "catalog_info",
+      "line": 164,
+      "paths": [
+        "catalog-info.yaml",
+        "catalog-info.yml"
+      ],
+      "check": "contains",
+      "template": "catalog-info",
+      "target": "catalog-info.yaml",
+      "scope": [
+        "*"
+      ],
+      "assertions": [
+        {
+          "name": "assertion",
+          "source": "pattern = \"owner:\", message = \"catalog-info.yaml must have an owner field\"",
+          "line": 179
+        },
+        {
+          "name": "assertion",
+          "source": "yaml_path = \"spec.owner\", contains = \"team\", message = \"spec.owner must reference a team (e.g., team-platform)\"",
+          "line": 185
+        },
+        {
+          "name": "assertion",
+          "source": "not_pattern = \"TODO\", message = \"catalog-info.yaml must not contain TODO placeholders\"",
+          "line": 192
+        }
+      ],
+      "reconcilers": [
+        {
+          "type": "custom_properties",
+          "line": 203,
+          "attrs": [
+            {
+              "name": "mode",
+              "source": "\"api\"",
+              "line": 204
+            },
+            {
+              "name": "watch",
+              "source": "true",
+              "line": 205
+            },
+            {
+              "name": "annotation_properties",
+              "source": "{\n      \"jira/project-key\" = \"JiraProject\"\n      \"jira/label\"       = \"JiraLabel\"\n    }",
+              "line": 207
+            }
+          ],
+          "pr": {
+            "line": 215,
+            "attrs": [
+              {
+                "name": "title",
+                "source": "\"chore({{ .Repo }}): sync custom properties from catalog-info\"",
+                "line": 216
+              },
+              {
+                "name": "labels",
+                "source": "[\"automated\", \"catalog-sync\"]",
+                "line": 217
+              },
+              {
+                "name": "inherits",
+                "source": "false",
+                "line": 218
+              }
+            ]
+          }
+        }
+      ],
+      "pr": {
+        "line": 174,
+        "attrs": [
+          {
+            "name": "search_terms",
+            "source": "[\"catalog-info\"]",
+            "line": 175
+          }
+        ]
+      }
+    },
+    {
+      "type": "branch_protection",
+      "name": "main_required",
+      "line": 229,
+      "scope": [
+        "myent-platform"
+      ],
+      "attrs": [
+        {
+          "name": "branch",
+          "source": "\"main\"",
+          "line": 230
+        },
+        {
+          "name": "require_pr",
+          "source": "true",
+          "line": 231
+        },
+        {
+          "name": "required_approvals",
+          "source": "2",
+          "line": 232
+        },
+        {
+          "name": "dismiss_stale_reviews",
+          "source": "true",
+          "line": 233
+        },
+        {
+          "name": "enforce_admins",
+          "source": "true",
+          "line": 234
+        }
+      ]
+    },
+    {
+      "type": "setting",
+      "name": "vulnerability_alerts",
+      "line": 242,
+      "scope": [
+        "myent-platform"
+      ],
+      "attrs": [
+        {
+          "name": "property",
+          "source": "\"vulnerability_alerts_enabled\"",
+          "line": 243
+        },
+        {
+          "name": "expected",
+          "source": "true",
+          "line": 244
+        },
+        {
+          "name": "remediate",
+          "source": "true",
+          "line": 245
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "renovate_workflow",
+      "line": 256,
+      "paths": [
+        ".github/workflows/renovate.yml"
+      ],
+      "check": "exact",
+      "template": "renovate-workflow",
+      "target": ".github/workflows/renovate.yml",
+      "scope": [
+        "myent-product"
+      ],
+      "reconcilers": [
+        {
+          "type": "workflow_sync",
+          "line": 266,
+          "attrs": [
+            {
+              "name": "watch",
+              "source": "true",
+              "line": 267
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "renovate_config",
+      "line": 276,
+      "paths": [
+        "renovate.json",
+        ".github/renovate.json"
+      ],
+      "check": "contains",
+      "template": "renovate",
+      "target": "renovate.json",
+      "scope": [
+        "myent-product"
+      ],
+      "assertions": [
+        {
+          "name": "assertion",
+          "source": "yaml_path = \"extends\", contains = \"github\u003emyent-product/renovate-config\", message = \"renovate.json must extend the shared org preset\"",
+          "line": 290
+        }
+      ],
+      "pr": {
+        "line": 286,
+        "attrs": [
+          {
+            "name": "search_terms",
+            "source": "[\"renovate\"]",
+            "line": 287
+          }
+        ]
+      }
+    },
+    {
+      "type": "file",
+      "name": "no_dependabot",
+      "line": 303,
+      "paths": [
+        ".github/dependabot.yml",
+        ".github/dependabot.yaml"
+      ],
+      "check": "absent",
+      "scope": [
+        "myent-product"
+      ],
+      "when": {
+        "name": "rule_satisfied",
+        "source": "\"renovate_config\"",
+        "line": 308
+      },
+      "pr": {
+        "line": 315,
+        "attrs": [
+          {
+            "name": "search_terms",
+            "source": "[\"remove dependabot\"]",
+            "line": 318
+          },
+          {
+            "name": "title",
+            "source": "\"chore({{ .Repo }}): remove Dependabot config (repo uses Renovate)\"",
+            "line": 319
+          }
+        ]
+      }
+    }
+  ],
+  "unrecognised": null
+}

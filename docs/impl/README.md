@@ -56,4 +56,5 @@ docz create impl "Your Implementation Title"
 | IMPL-0022 | Delayed-requeue job contract and rate-limit consolidation | Completed | 2026-08-02 | Donald Gifford | [0022-delayed-requeue-job-contract-and-rate-limit-consolidation.md](0022-delayed-requeue-job-contract-and-rate-limit-consolidation.md) |
 | IMPL-0023 | Compliance posture state, dashboard suite, and OTEL-first observability | Completed | 2026-08-02 | Donald Gifford | [0023-compliance-posture-state-dashboard-suite-and-otel-first.md](0023-compliance-posture-state-dashboard-suite-and-otel-first.md) |
 | IMPL-0024 | Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware | Completed | 2026-08-15 | Donald Gifford | [0024-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip.md](0024-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip.md) |
+| IMPL-0027 | rgctl: standalone CLI in tools/rgctl to inspect v1 policy and find or close repo-guardian PRs | Completed | 2026-10-05 | Donald Gifford | [0027-rgctl-standalone-cli-in-toolsrgctl-to-inspect-v1-policy-and.md](0027-rgctl-standalone-cli-in-toolsrgctl-to-inspect-v1-policy-and.md) |
 <!-- END DOCZ AUTO-GENERATED -->

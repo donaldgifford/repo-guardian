@@ -372,6 +372,18 @@ internal/
 
 **Core flow:** GitHub webhook (or periodic Discoverer for missed deliveries) seeds `repo_state` via `Store.UpsertIfMissing`. The leader-elected StaleSweeper queries Postgres for rows older than `RECONCILE_FRESHNESS` (or whose `policy_version` differs) and enqueues them to the Valkey work queue. Worker pool consumes the queue, runs the checker engine + reconcilers against the GitHub API, then writes the outcome back to Postgres so a multi-replica sweep converges without duplicate work. Both schedulers gate enqueue on a shared `BudgetTracker` so a single installation can't burn the hourly rate-limit window.
 
+## Operator CLI: rgctl
+
+[`tools/rgctl`](tools/rgctl/README.md) is a separate command-line tool for operators. It reads a v1
+`guardian.hcl` without starting the app, finds the pull requests repo-guardian opened, and closes them with a
+pointer comment, dry run unless `--yes`. It is its own Go module and never depends on the app's packages.
+
+```bash
+go install github.com/donaldgifford/repo-guardian/tools/rgctl@main
+```
+
+See [docs/operations/rgctl.md](docs/operations/rgctl.md).
+
 ## Documentation
 
 Structured documentation is managed with [docz](https://github.com/donaldgifford/docz):

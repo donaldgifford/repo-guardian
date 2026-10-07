@@ -167,8 +167,10 @@ flowchart TD
   P6 --> P7
 ```
 
-Each phase lands as one PR into `v2` with the `dont-release` label (OQ9)
-and leaves `make ci` and `make test-integration` green. The release
+The plan lands as one PR into `v2` with the `dont-release` label (OQ9).
+Each phase still leaves `make ci` and `make test-integration` green, and
+a task that needs the maintainer is marked `deferred - human required`
+instead of holding up the rest. The release
 candidate is cut once, at the end (OQ8).
 
 ## Implementation Phases
@@ -429,8 +431,8 @@ activity, so this phase deletes the v1 runtime only, never the checker.
 - [ ] 3.1 Config: two credential sets, `EVAL_GITHUB_APP_ID` /
   `EVAL_GITHUB_PRIVATE_KEY_PATH` / `EVAL_WEBHOOK_SECRET` and
   `REMEDIATE_GITHUB_APP_ID` / `REMEDIATE_GITHUB_PRIVATE_KEY_PATH` /
-  `REMEDIATE_WEBHOOK_SECRET` (names per DESIGN-0032 § Config; amend the
-  design if it names them differently). The rc's single-App variables
+  `REMEDIATE_WEBHOOK_SECRET` (DESIGN-0032 § Config; adopted 2026-10-07,
+  and may still be renamed while this phase runs). The rc's single-App variables
   keep working for the rc roles until IMPL-0029's switch-over (OQ1).
   `ValidateRole` refuses an evaluator without the evaluation set and a
   remediator without the remediation set.
@@ -625,7 +627,7 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
   resets passwords for an existing one); `store-cnpg-cluster.yaml` adds
   both to `spec.managed.roles` with their password Secrets; external
   mode documents the SQL. One Secret and one DSN per role
-  (`STORE_DSN_EVALUATOR`, `STORE_DSN_REMEDIATOR`, names per DESIGN-0032
+  (`STORE_DSN_EVALUATOR`, `STORE_DSN_REMEDIATOR`, DESIGN-0032
   § Config), mounted only into that role's pods; the migrate Job keeps
   the owner DSN.
 - [ ] 6.5 `pgtest`: `AppRole` becomes an owner role plus `EvaluatorRole`
@@ -741,6 +743,8 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
 
 ### OQ1: Does Foundations keep the v2 rc releasable?
 
+**Resolved 2026-10-07: (a).**
+
 - (a) ✅ recommended: **yes.** New pieces land beside the old: new
   packages, new routes, new roles, a separate migration chain. The rc's
   `worker` role, single-App config, `/webhooks/github` and rc schema keep
@@ -754,6 +758,8 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
 
 ### OQ2: Where do the Phase-0 results go?
 
+**Resolved 2026-10-07: (a).**
+
 - (a) ✅ recommended: **an addendum section in INV-0022**, "Phase-0
   results", one subsection per spike. The questions are INV-0022's, so
   the answers sit beside them.
@@ -763,6 +769,8 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
 
 ### OQ3: Does the v1 runtime deletion land before the client split?
 
+**Resolved 2026-10-07: (a).**
+
 - (a) ✅ recommended: **before** (Phase 1). Every later phase edits
   `cmd/repo-guardian`, config, metrics and the chart, and editing around
   a dead runtime doubles the work.
@@ -771,6 +779,8 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
 - other:
 
 ### OQ4: Which GraphQL client?
+
+**Resolved 2026-10-07: (a).**
 
 - (a) ✅ recommended: **`github.com/shurcooL/githubv4`**. Typed against
   GitHub's schema, takes any `*http.Client` so it rides the existing
@@ -785,6 +795,8 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
 
 ### OQ5: What is the Writer package called?
 
+**Resolved 2026-10-07: (a).**
+
 - (a) ✅ recommended: **`internal/github/write`**. It sits next to the
   client it shares the transport with, and depguard can still deny it by
   path.
@@ -794,6 +806,8 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
 - other:
 
 ### OQ6: Where do the client interfaces live before IMPL-0029?
+
+**Resolved 2026-10-07: (a).**
 
 - (a) ✅ recommended: **create `internal/control` now with only the
   client-facing interfaces and value types**; IMPL-0029 adds
@@ -805,6 +819,8 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
 
 ### OQ7: Is the `temporal` KEDA trigger kept alongside `prometheus`?
 
+**Resolved 2026-10-07: (a).**
+
 - (a) ✅ recommended: **keep both, `prometheus` the default**, as
   DESIGN-0028 decided. mTLS installs without a Prometheus can still use
   the `temporal` trigger; OIDC installs must use `prometheus`.
@@ -813,6 +829,8 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
 - other:
 
 ### OQ8: How many release candidates does Foundations cut?
+
+**Resolved 2026-10-07: (a).**
 
 - (a) ✅ recommended: **one, at the end** (`2.0.0-rc.5` if IMPL-0026 has
   not taken it, otherwise the next number). Dev can follow the branch
@@ -823,12 +841,17 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
 
 ### OQ9: How many PRs?
 
-- (a) ✅ recommended: **one PR per phase** into `v2`, each with
-  `dont-release`, as DESIGN-0029 OQ2 decided for the v2 line.
-- (b) Phases 2 to 4 as one PR, since they share the role wiring.
+**Resolved 2026-10-07: (a).** The maintainer's direction: one PR per plan, so the agent does every task it can without waiting on a merge between phases. A task that needs the maintainer (homelab runs, GitHub App registration, approving a large `git rm`, release tags) is marked `deferred - human required` and done by the maintainer, during review or after the merge.
+
+- (a) ✅ recommended: **one PR for the whole plan** into `v2`, with
+  `dont-release`; human-only tasks are `deferred - human required`.
+- (b) One PR per phase into `v2`. Smaller reviews, but every phase waits
+  on a merge before the next starts.
 - other:
 
 ### OQ10: Does `all` topology carry both Apps' keys?
+
+**Resolved 2026-10-07: (a).**
 
 - (a) ✅ recommended: **yes.** `all` is for small installs and the
   homelab and runs every role, so it carries both credential sets and
@@ -839,6 +862,8 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
 - other:
 
 ### OQ11: Where does the controls chain live?
+
+**Resolved 2026-10-07: (a).**
 
 - (a) ✅ recommended: **a new directory, `migrations_controls/`**, with
   its own embed and `migrate` mode, unused by the chart until IMPL-0029

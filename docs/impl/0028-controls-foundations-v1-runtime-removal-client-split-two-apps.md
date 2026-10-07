@@ -197,21 +197,26 @@ write-up.
   current version of worker deployment `repo-guardian` and the task
   queues it has polled (`temporal worker deployment describe
   --deployment-name repo-guardian`).
+  **Deferred - human required.**
 - [ ] 0.2 **Bring dev in line with `contrib/temporal/` (IMPL-0025 9.3,
   human-run).** Apply the deviations 0.1 found or record why each stays.
+  **Deferred - human required.**
 - [ ] 0.3 **mTLS smoke (IMPL-0025 9.8, human-run).** From a dev machine,
   start and terminate a throwaway workflow on the dev frontend over the
   client certificate the chart mounts.
+  **Deferred - human required.**
 - [ ] 0.4 **Budget burst (IMPL-0025 11.7, human-run).** Run `cmd/rg-burst`
   (`-tags burst`) with 20,000 acquire/report pairs against one
   installation on dev. Record p50/p99 latency, history size and frontend
   CPU, and set the `InstallationWorkflow` ContinueAsNew threshold from
   them. The budget workflow is reused under `installation/<app>/<id>`,
   so the threshold carries into Phase 4.
+  **Deferred - human required.**
 - [ ] 0.5 **Budget branch on the live build (IMPL-0025 11.8,
   human-run).** Confirm dev's running build takes the `budget-v1` branch
   with zero `WorkflowTaskFailed` over a day of checks, and capture a
   fresh `InstallationWorkflow` history for the replay suite.
+  **Deferred - human required.**
 - [ ] 0.6 **GraphQL commit (INV-0022 spike 1, human-run against a
   throwaway repository).** Through a client built on the real transport
   chain (otelhttp → rate-limit transport → ghinstallation): a
@@ -221,11 +226,13 @@ write-up.
   message), the real limits, the `x-ratelimit-resource` and remaining
   headers, and whether the commit is signed. Can change DESIGN-0031 D8
   and AR-0031-09.
+  **Deferred - human required.** Run `TestSpike_GraphQLCommit` in `internal/github/spike_github_test.go` (`-tags spike`); it writes `build/spike/TestSpike_GraphQLCommit.json`.
 - [ ] 0.7 **update-branch (spike 2, human-run).** On a throwaway
   repository: an up-to-date PR, a PR with a conflicting base change, and
   a call with a stale `expected_head_sha`. Record status codes and
   bodies, and how long the background merge takes to move the head. Can
   change DESIGN-0032 D17 and the flowchart.
+  **Deferred - human required.** Run `TestSpike_UpdateBranch` in `internal/github/spike_github_test.go` (`-tags spike`); it writes `build/spike/TestSpike_UpdateBranch.json`.
 - [ ] 0.8 **Evaluation App minimal permissions (spike 3, human-run).**
   Register a test App with Metadata read, Contents read, Pull requests
   read and organisation Custom properties read only. Confirm
@@ -233,12 +240,14 @@ write-up.
   `source_type` and, fetched by id, `rules`, and property values are
   readable. Record any field that needs Administration read. Can change
   the DESIGN-0032 permission table and A23.
+  **Deferred - human required.** Run `TestSpike_EvalAppPermissions` in `internal/github/spike_github_test.go` (`-tags spike`); it writes `build/spike/TestSpike_EvalAppPermissions.json`.
 - [ ] 0.9 **`installation_repositories` on an all-repositories install
   (spike 4, human-run).** Create a repository in an org where a test App
   is installed on all repositories; record whether the event fires. If
   not, record that the Remediation App learns of new repositories only
   through its own discovery.
-- [ ] 0.10 **Temporal behaviours (spike 5).** On the dev server or
+  **Deferred - human required.**
+- [x] 0.10 **Temporal behaviours (spike 5).** On the dev server or
   `temporaltest`: (a) signal-with-start into a workflow that is
   completing, asserting no lost signal with `GetUnhandledSignalNames`;
   (b) the labels of `approximate_backlog_count` across two queues
@@ -246,19 +255,23 @@ write-up.
   Phase 5 query; (c) evaluation history growth with maximum-size
   changed-path signals and N signal-with-start activities per iteration
   against the ContinueAsNew bounds.
-- [ ] 0.11 **Database role provisioning (spike 6).** Prototype
+  Done 2026-10-07; results in INV-0022 § Phase-0 results.
+- [x] 0.11 **Database role provisioning (spike 6).** Prototype
   `rg_evaluator` and `rg_remediator` in baked mode (init script plus the
   existing-database hook pattern of `store-postgres-ro.yaml`), CNPG mode
   (`spec.managed.roles`) and external mode (documented SQL), and the
   extended `pgtest` harness. Record anything a mode cannot do.
-- [ ] 0.12 **Template sourcing (spike 7).** Prototype rendering operator
+  Done 2026-10-07; results in INV-0022 § Phase-0 results.
+- [x] 0.12 **Template sourcing (spike 7).** Prototype rendering operator
   templates into the policy ConfigMap under the policy root and hashing
   them with the policies, with the embedded `rules.TemplateStore` as the
   fallback. Record the ConfigMap size limits that apply. Can change
   DESIGN-0030 D20.
-- [ ] 0.13 **Policy revert (spike 8).** Against the rc schema, show the
+  Done 2026-10-07; results in INV-0022 § Phase-0 results.
+- [x] 0.13 **Policy revert (spike 8).** Against the rc schema, show the
   `ON CONFLICT DO NOTHING` revert bug with a test, then prototype the
   `activated_at` upsert DESIGN-0030 D14 specifies.
+  Done 2026-10-07; results in INV-0022 § Phase-0 results.
 - [ ] 0.14 **Per-role deployment rehearsal (spike 9, human-run).** On
   dev: start a build that polls `repo-guardian-eval` under deployment
   `repo-guardian-eval` while the rc's `repo-guardian` deployment keeps
@@ -266,13 +279,16 @@ write-up.
   stop it and confirm the rc resumes with no `set-current-version`.
   Confirm a `repo-guardian-remediate` deployment at zero replicas does
   not block the evaluator's promotion.
+  **Deferred - human required.**
 - [ ] 0.15 **Label case (spike 10, human-run).** Create and update a
   label whose name differs from an existing one only in case; record
   GitHub's behaviour for DESIGN-0031's `labels` control.
+  **Deferred - human required.** Run `TestSpike_LabelCase` in `internal/github/spike_github_test.go` (`-tags spike`); it writes `build/spike/TestSpike_LabelCase.json`.
 - [ ] 0.16 Write the "Phase-0 results" addendum to INV-0022 with every
   recorded value, and apply any design change a result forces to the
   affected design in the same PR, marked "Amended (INV-0022 Phase-0
   results)".
+  In progress: the addendum holds results for 0.10 to 0.13, and the corrections they force are applied to DESIGN-0028, DESIGN-0030, DESIGN-0032 and IMPL-0029. Phase-0 OQ1 (what activates a policy version) is open; the human-run results are added as they arrive.
 
 #### Success Criteria
 
@@ -553,9 +569,11 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
 - [ ] 5.1 `templates/worker-scaledobject.yaml` becomes one `ScaledObject`
   per role (`evaluator`, `remediator`), each targeting that role's
   Deployment, with a `prometheus` trigger: `serverAddress`, a `query`
-  defaulting to that role's queue (`taskqueue="repo-guardian-eval"` or
-  `"repo-guardian-remediate"`) built from `temporal.namespace` and the
-  queue name, the grouping Phase 0 task 0.10(b) recorded, `threshold`
+  defaulting to that role's queue (`taskqueue="repo_guardian_eval"` or
+  `"repo_guardian_remediate"`) built from `temporal.namespace` and the
+  queue name with `-` replaced by `_`, the grouping Phase 0 task 0.10(b)
+  recorded (`max by (partition, task_type, task_priority,
+  worker_build_id)` inside the `sum`, DESIGN-0028), `threshold`
   from `targetQueueSize`, optional `authenticationRef`, and `fallback`
   (`failureThreshold: 3`, `replicas` from `fallbackReplicas` or the
   role's replicas). The `temporal` trigger remains selectable (OQ7) with
@@ -580,7 +598,8 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
   composite metric absent, TriggerAuthentication only for temporal with
   a client certificate. `make lint-alerts-chart` passes.
 - [ ] 5.6 Homelab (human-run, on dev): list the series and labels of
-  `approximate_backlog_count{namespace="repo-guardian"}` for both queues;
+  `approximate_backlog_count{namespace="repo_guardian"}` for both queues
+  (label values are sanitised, `-` to `_`: INV-0022 Phase-0 results);
   with each queue non-empty, compare the default query's value with
   `temporal task-queue describe`; if they disagree, fix the default
   query and its helm-unittest and record why (IMPL-0026 6.1 to 6.3).
@@ -629,10 +648,16 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
   mode documents the SQL. One Secret and one DSN per role
   (`STORE_DSN_EVALUATOR`, `STORE_DSN_REMEDIATOR`, DESIGN-0032
   § Config), mounted only into that role's pods; the migrate Job keeps
-  the owner DSN.
+  the owner DSN. In baked mode the init script also creates a
+  non-superuser owner role without `CREATEROLE` and the migrate Job
+  connects as it, since the image's `POSTGRES_USER` is a superuser
+  (INV-0022 Phase-0 results, spike 6). `rg_all` for the `all` topology
+  is `IN ROLE rg_evaluator, rg_remediator` (CNPG: `inRoles`).
 - [ ] 6.5 `pgtest`: `AppRole` becomes an owner role plus `EvaluatorRole`
   and `RemediatorRole`, created the way the chart creates them, with
-  per-role DSNs. Tests for `00001_core`'s grants run as each role, never
+  per-role DSNs (Phase 0's `pgtest.ControlsRoles` is the starting point;
+  surrogate keys are identity columns, and every row-level security
+  write policy has its `FOR SELECT ... USING (true)` pair, DESIGN-0032). Tests for `00001_core`'s grants run as each role, never
   as the owner, and assert a prohibited cross-writer statement fails.
 - [ ] 6.6 `migrate --dry-run` for the controls chain applies the whole
   chain to an empty database in one rolled-back transaction.

@@ -694,7 +694,7 @@ evaluator's store.
 
 ### Phase 7: Switch-over
 
-The phase that deletes. Ideally one PR (OQ6), so `v2` never holds a
+The phase that deletes. It lands inside the plan's one PR (OQ6), so `v2` never holds a
 half-switched binary.
 
 #### Tasks
@@ -971,6 +971,8 @@ half-switched binary.
 
 ### OQ1: Where does the new policy package live while the rule engine still builds?
 
+**Resolved 2026-10-07: (a).**
+
 The old loader owns `internal/policy` until Phase 7, and the new one must
 end up there (DESIGN-0031 D17 names it).
 
@@ -987,6 +989,8 @@ end up there (DESIGN-0031 D17 names it).
 
 ### OQ2: Do the control types implement Remediate in this plan?
 
+**Resolved 2026-10-07: (a).**
+
 `Remediate` writes nothing (it returns a `ChangeSet`), and the
 conformance suite's properties 2–6 test it.
 
@@ -1000,6 +1004,8 @@ conformance suite's properties 2–6 test it.
 - other:
 
 ### OQ3: Which control types must exist before the first controls rc?
+
+**Resolved 2026-10-07: (a).**
 
 DESIGN-0031 says the first evaluate-only rc needs only the types v1's
 built-in defaults cover.
@@ -1016,6 +1022,8 @@ built-in defaults cover.
 
 ### OQ4: Does this plan ship an evaluate-only rc, and where does it run?
 
+**Resolved 2026-10-07: (a).**
+
 - (a) ✅ recommended: **yes, and it replaces the homelab dev install**:
   a fresh install in the dev namespace against a new database, with the
   Evaluation App only, beside prod v1. It cannot write, so it can watch
@@ -1028,6 +1036,8 @@ built-in defaults cover.
 - other:
 
 ### OQ5: What does the evaluate-only rc do with mode = "remediate"?
+
+**Resolved 2026-10-07: (a).**
 
 The rc has no remediator. Usually the Remediation App is absent too, so
 resolution already sets `effective_mode = evaluate` with
@@ -1043,15 +1053,20 @@ resolution already sets `effective_mode = evaluate` with
 
 ### OQ6: How is the work split into pull requests?
 
-- (a) ✅ recommended: **one PR per phase to `v2`** (DESIGN-0029 D5), with
-  Phase 7 as a single PR because it deletes and re-points together; only
-  Phase 9's PR carries the rc.
-- (b) One PR for the whole plan, as IMPL-0027 did. Simple to track, but
-  very large to review.
+**Resolved 2026-10-07: (a).** The maintainer's direction: one PR per plan, so the agent does every task it can without waiting on a merge between phases. A task that needs the maintainer (homelab runs, GitHub App registration, approving a large `git rm`, release tags) is marked `deferred - human required` and done by the maintainer, during review or after the merge.
+
+- (a) ✅ recommended: **one PR for the whole plan** into `v2`, with
+  `dont-release`, as IMPL-0027 did. Phase 7 deletes and re-points inside
+  it, so `v2` never holds a half-switched binary; the rc tag and the
+  homelab runs in Phase 9 are `deferred - human required`.
+- (b) One PR per phase, with Phase 7 as a single PR. Smaller reviews, but
+  every phase waits on a merge.
 - (c) Two PRs: build (Phases 1–6), then switch, API and release (7–9).
 - other:
 
 ### OQ7: Does 00003_controls_results land whole in this plan?
+
+**Resolved 2026-10-07: (a).**
 
 DESIGN-0032 fixes the file split up front; `00003` holds the evaluation
 tables and the remediation tables, views and grants.
@@ -1067,6 +1082,8 @@ tables and the remediation tables, views and grants.
 - other:
 
 ### OQ8: Which process exports the posture gauges?
+
+**Resolved 2026-10-07: (a).**
 
 v2 has no SETNX leader; the v1 exporter is deleted with the v1 runtime.
 
@@ -1084,6 +1101,8 @@ v2 has no SETNX leader; the v1 exporter is deleted with the v1 runtime.
 
 ### OQ9: How much of the UI does this plan rebuild?
 
+**Resolved 2026-10-07: (a).**
+
 - (a) ✅ recommended: **every view D32 affects** (8.7), leaving the
   Remediations view and the remediation fields of the Repository view to
   IMPL-0030. The homelab comparison (9.8) needs the controls views.
@@ -1095,6 +1114,8 @@ v2 has no SETNX leader; the v1 exporter is deleted with the v1 runtime.
 
 ### OQ10: When is the monitoring tier regenerated?
 
+**Resolved 2026-10-07: (a).**
+
 - (a) ✅ recommended: **in Phase 6 of this plan, over evaluation**, so
   the rc ships with working E1–E4 and alerts and `lint-monitoring` stays
   meaningful; IMPL-0030 adds the remediation panels and alerts.
@@ -1103,6 +1124,8 @@ v2 has no SETNX leader; the v1 exporter is deleted with the v1 runtime.
 - other:
 
 ### OQ11: How does the chart express a policy directory in a ConfigMap?
+
+**Resolved 2026-10-07: (a).**
 
 ConfigMap keys cannot contain `/`, and the policy root has
 `catalogue/`, `orgs/` and `templates/`.
@@ -1118,6 +1141,8 @@ ConfigMap keys cannot contain `/`, and the policy root has
 - other:
 
 ### OQ12: Where does POST /evaluate keep its one-per-minute dedupe?
+
+**Resolved 2026-10-07: (a).**
 
 The api role has a read-only DSN and no shared cache.
 

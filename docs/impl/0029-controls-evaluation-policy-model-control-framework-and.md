@@ -504,9 +504,12 @@ evaluator's store.
     generation and writes `result_events`; `evaluated_sha`,
     `evaluated_at` and evidence refresh only for selected controls;
     recording is idempotent on the check key;
-  - `RecordPolicyVersion` upserts with `ON CONFLICT (version) DO UPDATE
-    SET activated_at = now()`, and the rollout reads the version with the
-    latest `activated_at`.
+  - activation runs in the migrate Job, never at worker startup
+    (INV-0022 Phase-0 OQ1 (a)): `repo-guardian migrate` loads the
+    policy root, computes the controls version and calls IMPL-0028's
+    `ActivatePolicyVersion`; workers read `CurrentActivation` and start
+    the rollout for it. The rc's per-pod `RecordPolicyVersion` start
+    path is deleted with the rc services.
 - [ ] 4.6 Park with the result rule: `archived`, `fork`, `removed` and
   `installation_removed` clear results (with `result_events`);
   `access_denied` and `unknown` keep them; Evaluation App suspension is
@@ -553,7 +556,9 @@ evaluator's store.
   (`evaluation/<repository id>`), `ControlsDiscoveryWorkflowID`
   (`controls-discovery/installation/<id>/<delivery>`), schedule ids
   `controls-discovery` and `controls-snapshot`,
-  `ControlsRolloutWorkflowID` (`controls-rollout/<version>`); signals
+  `ControlsRolloutWorkflowID`
+  (`controls-rollout/<version>/<activated_at unix seconds>`, so a revert
+  or rollback rolls out again); signals
   `Recheck{Paths []string, Unknown bool, Priority}` and
   `PolicyChanged`; `PriorityManual Priority = 1`.
 - [ ] 5.2 `EvaluationWorkflow` (`evaluation.go`), built from `repoLoop`:
@@ -583,8 +588,10 @@ evaluator's store.
   `UpsertRepositories`, which resolves inline between the upsert and the
   SignalWithStart of `evaluation/<id>`; parks missing repositories;
   records a `service_runs` row; sets `installation_info{app="eval"}`.
-- [ ] 5.6 Controls rollout: on a new or re-activated policy version,
-  `controls-rollout/<version>` re-resolves every repository, then
+- [ ] 5.6 Controls rollout: every worker reads `CurrentActivation` at
+  startup and starts `controls-rollout/<version>/<activated_at>` with
+  `REJECT_DUPLICATE` (one rollout per activation, however many pods
+  start), which re-resolves every repository, then
   signals `policy_changed` spread over `POLICY_ROLLOUT_WINDOW`, and marks
   the rollout complete. The evaluator's bootstrap ensures only the
   `controls-discovery` and `controls-snapshot` schedules.

@@ -288,7 +288,7 @@ write-up.
   recorded value, and apply any design change a result forces to the
   affected design in the same PR, marked "Amended (INV-0022 Phase-0
   results)".
-  In progress: the addendum holds results for 0.10 to 0.13, and the corrections they force are applied to DESIGN-0028, DESIGN-0030, DESIGN-0032 and IMPL-0029. Phase-0 OQ1 (what activates a policy version) is open; the human-run results are added as they arrive.
+  In progress: the addendum holds results for 0.10 to 0.13, and the corrections they force are applied to DESIGN-0028, DESIGN-0030, DESIGN-0032 and IMPL-0029. Phase-0 OQ1 is resolved (a): the migrate Job activates (task 6.8 here, IMPL-0029 4.5 and 5.6). The human-run results are added as they arrive.
 
 #### Success Criteria
 
@@ -664,6 +664,17 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
 - [ ] 6.7 helm-unittest for the three provisioning modes and the per-role
   DSN mounts; `validateBackendSecrets` extended for the new Secret
   knobs.
+- [ ] 6.8 Policy activation plumbing (INV-0022 Phase-0 OQ1 (a)): a store
+  method `ActivatePolicyVersion(ctx, version, summary) (firstSeen bool,
+  err error)` running the upsert spike 8 proved (`ON CONFLICT (version)
+  DO UPDATE SET activated_at = now() RETURNING (xmax = 0)`), and
+  `CurrentActivation(ctx) (version string, activatedAt time.Time, err
+  error)` ordered by `activated_at`; the migrate Job gains
+  `pre-rollback` in its hook list and mounts the policy ConfigMap. The
+  Job does not compute a version yet: the controls policy loader is
+  IMPL-0029's, which wires the call (IMPL-0029 4.5). Integration test:
+  A, B, A activates A last and keeps both `first_seen_at` values;
+  helm-unittest asserts the hook list and the mount.
 
 #### Success Criteria
 

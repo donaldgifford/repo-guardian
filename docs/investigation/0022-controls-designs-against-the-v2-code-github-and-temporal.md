@@ -337,6 +337,8 @@ Run 2026-10-07: `internal/store/postgres/policy_revert_spike_integration_test.go
 
 #### OQ1: What activates a policy version?
 
+**Resolved 2026-10-07: (a).** Split across the plans: IMPL-0028 Phase 6 builds the store method and the migrate Job's hook and policy mount; IMPL-0029 computes the controls version in the migrate Job and keys the rollout on the activation.
+
 - (a) ✅ recommended: **the migrate Job.** It already runs once per `helm install`/`upgrade` (add `pre-rollback` to its hook list so a `helm rollback` also activates), loads the same binary and policy ConfigMap, computes the version and upserts `activated_at` as the owner. Workers only read the newest activation and start `controls-rollout/<version>/<activated_at unix seconds>` with `REJECT_DUPLICATE`, so each activation rolls out exactly once and a pod restart activates nothing.
 - (b) Workers activate only when the version they load is not the current activation **and** their pod template hash is newer than the one recorded with it (a `deploy_generation` column fed from a chart-stamped env var). Keeps activation in the worker but adds a deploy-identity value to the chart and schema.
 - (c) Keep per-pod activation and accept the straggler window: a restarting old pod discards resolutions until a new pod restarts. Simplest; wrong in exactly the failure it exists to prevent.

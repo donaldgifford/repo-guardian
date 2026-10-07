@@ -545,7 +545,7 @@ The evaluator and the remediator connect as separate database roles, `rg_evaluat
 | `repositories` | INSERT; UPDATE (identity columns, `active`, `park_reason`, `parked_at`, `next_due_at`, `last_error`): discovery, identity and parking | — |
 | `repository_events` | INSERT | — |
 | `app_installations`, `app_repository_access` | SELECT on every row (`FOR SELECT TO rg_evaluator, rg_remediator USING (true)`: resolution reads both Apps' access); INSERT, UPDATE, DELETE on rows with `app = 'eval'` (`TO rg_evaluator USING (app = 'eval')`) | SELECT on every row (same policy); INSERT, UPDATE, DELETE on rows with `app = 'remediate'` (`TO rg_remediator USING (app = 'remediate')`) |
-| `policy_versions` | INSERT; UPDATE (`activated_at`, `rollout_completed_at`) | — |
+| `policy_versions` | UPDATE (`rollout_completed_at`); activation is the migrate Job's, as the owner (DESIGN-0030 D14) | — |
 | `repository_policy_state` | INSERT, UPDATE, DELETE: resolution | UPDATE (`last_remediation_at`), which is what `SELECT ... FOR UPDATE` on the row requires |
 | `control_assignments` | INSERT, UPDATE, DELETE: resolution | — |
 | `control_results` | INSERT; UPDATE (`status`, `fingerprint`, `intent_revision`, `eval_generation`, `control_version`, `revision`, `assignment_epoch`, `evaluated_sha`, `evaluated_at`, `last_changed_at`); DELETE: withdrawal, cascading to `rule_results` | UPDATE (`remediated_generation`, `hold`, `hold_since`) |
@@ -689,7 +689,7 @@ The posture gauge is new work on v2, not a re-pointing: today `PostureExporter` 
 | `ControlsDiscoveryWorkflow` (Evaluation App) | schedule `controls-discovery`, or `controls-discovery/installation/<id>/<delivery>` from lifecycle events | `repo-guardian-eval` | new type: discovery with resolution added (A3, A7) |
 | Remediation App discovery | schedule `controls-discovery-remediate` | `repo-guardian-remediate` | new: lists repositories only and refreshes the `app = 'remediate'` rows of `app_installations` and `app_repository_access` |
 | webhook | `webhook/<delivery id>` | `repo-guardian-eval` | reused: each delivery is its own short execution, so no long history can replay into changed code; the router now handles both Apps' lifecycle events, with the App taken from the webhook path (D29), and starts a Remediation App lifecycle change on `repo-guardian-remediate` |
-| snapshot, policy rollout | schedule `controls-snapshot`, `controls-rollout/<policy version>` | `repo-guardian-eval` | reused types under new ids, with resolution added to rollout |
+| snapshot, policy rollout | schedule `controls-snapshot`, `controls-rollout/<policy version>/<activated_at unix seconds>` | `repo-guardian-eval` | reused types under new ids, with resolution added to rollout; the id carries the activation so a revert or rollback rolls out again instead of being rejected as a duplicate of the earlier run (Amended 2026-10-07 (INV-0022 Phase-0 results, OQ1)) |
 | remediation sweep and lifecycle maintenance | schedule `remediation-sweep` | `repo-guardian-remediate` | new |
 
 **Priorities order tasks within one task queue only** (INV-0022), so they rank work inside each role, not evaluation against remediation; the two queues isolate that instead. On `repo-guardian-eval`, a manual re-evaluation is priority 1, a constant added by this design (`TaskPriority` defines 2, 3 and 4 today), pushes and PR events are 2, and the schedule and rollout follow at 3 and 4 as today (INV-0021 A18). On `repo-guardian-remediate`, change-driven runs are 3 and the sweep is 4.

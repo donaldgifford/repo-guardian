@@ -1,0 +1,263 @@
+---
+id: INV-0022
+title: "Controls designs against the v2 code, GitHub and Temporal"
+status: Concluded
+author: Donald Gifford
+created: 2026-10-06
+---
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+# INV-0022: Controls designs against the v2 code, GitHub and Temporal
+
+<!--toc:start-->
+- [Question](#question)
+- [Hypothesis](#hypothesis)
+- [Context](#context)
+- [Approach](#approach)
+- [Environment](#environment)
+- [Findings](#findings)
+  - [F1 — One worker deployment cannot carry the cutover, the rollback or two roles](#f1--one-worker-deployment-cannot-carry-the-cutover-the-rollback-or-two-roles)
+  - [F2 — The cutover terminate list is incomplete](#f2--the-cutover-terminate-list-is-incomplete)
+  - [F3 — The replay suite keeps a fixture](#f3--the-replay-suite-keeps-a-fixture)
+  - [F4 — Workflow-side signal-with-start does not exist; signals can be lost at completion](#f4--workflow-side-signal-with-start-does-not-exist-signals-can-be-lost-at-completion)
+  - [F5 — Priority does not cross task queues](#f5--priority-does-not-cross-task-queues)
+  - [F6 — The single-queue assumption runs through the code](#f6--the-single-queue-assumption-runs-through-the-code)
+  - [F7 — The webhook secret header is undocumented](#f7--the-webhook-secret-header-is-undocumented)
+  - [F8 — The Remediation App lacks Workflows; the Evaluation App is over-scoped](#f8--the-remediation-app-lacks-workflows-the-evaluation-app-is-over-scoped)
+  - [F9 — The compare-and-swap commit needs GraphQL, which the throttle path cannot see](#f9--the-compare-and-swap-commit-needs-graphql-which-the-throttle-path-cannot-see)
+  - [F10 — update-branch is asynchronous and its conflicts are 422s](#f10--update-branch-is-asynchronous-and-its-conflicts-are-422s)
+  - [F11 — A human-closed PR leaves its branch behind](#f11--a-human-closed-pr-leaves-its-branch-behind)
+  - [F12 — Ruleset reads miss inherited rulesets](#f12--ruleset-reads-miss-inherited-rulesets)
+  - [F13 — Database roles cannot be created by migrations](#f13--database-roles-cannot-be-created-by-migrations)
+  - [F14 — Policy rollout ignores a revert](#f14--policy-rollout-ignores-a-revert)
+  - [F15 — Two park reasons have no result rule](#f15--two-park-reasons-have-no-result-rule)
+  - [F16 — The API section understates what the UI loses](#f16--the-api-section-understates-what-the-ui-loses)
+  - [F17 — The v1 runtime is still on the branch](#f17--the-v1-runtime-is-still-on-the-branch)
+  - [F18 — Smaller corrections](#f18--smaller-corrections)
+- [Conclusion](#conclusion)
+- [Recommendation](#recommendation)
+  - [Decisions](#decisions)
+  - [Phase-0 spikes](#phase-0-spikes)
+- [References](#references)
+<!--toc:end-->
+
+## Question
+
+Do DESIGN-0029 to DESIGN-0032 rest on true assumptions about three things they cannot change: the v2 code they replace or reuse, GitHub's API and webhook behaviour, and Temporal's worker versioning and workflow semantics? INV-0021 checked the twenty-three code assumptions DESIGN-0029 lists. This investigation is wider: it checks every concrete claim the four designs make in those three areas, before the implementation plans are written, so that a wrong claim changes a design rather than a half-built phase.
+
+## Hypothesis
+
+The designs hold in shape, because INV-0021 already verified the code they reuse. Problems are most likely where the controls model adds something the release candidate never had: a second GitHub App, a second task queue and worker role, a GraphQL write path, and a cutover onto a fresh database (DESIGN-0032 D27, added late on 2026-10-05).
+
+## Context
+
+The four designs were complete and every open question resolved except DESIGN-0034's deferred CODEOWNERS question. The next step was the implementation plans. A pre-implementation audit of cross-cutting designs is the project's practice, and an operations-docs review on the same day had already found one D27 contradiction in DESIGN-0032 (the `app_*` tables described as backfilled).
+
+**Triggered by:** DESIGN-0029, DESIGN-0030, DESIGN-0031, DESIGN-0032
+
+## Approach
+
+Three read-only passes ran in parallel, one per area:
+
+1. **Code reuse.** Extract every claim the designs make about existing packages, types, tests, workflows, tables, endpoints and chart values; check each against the code and its importers; look for code no design mentions that must change.
+2. **GitHub.** Check every GitHub assumption against docs.github.com, the public GraphQL schema, go-github v68 in the module cache and `internal/github` / `internal/ingest`. Read-only `gh api` calls only; no writes.
+3. **Temporal.** Check worker versioning, promotion, replay, signals, schedules and KEDA against the SDK source in the module cache and `internal/temporal`, `internal/workflows`, `internal/activities` and the chart.
+
+Each claim got a verdict (confirmed, wrong, risky, incomplete, or needs a spike) with file or documentation evidence. Findings below are the ones that change a design or the implementation plan; confirmed claims are summarised in the conclusion.
+
+## Environment
+
+| Component | Version / Value |
+| --------- | --------------- |
+| Branch | `docs/controls-and-policies` on the `v2` line, commit `8deb08e` |
+| Chart / appVersion | `2.0.0-rc.4` |
+| go-github | `v68.0.0` (REST only; no GraphQL client in `go.mod`) |
+| Temporal SDK / API | `go.temporal.io/sdk v1.49.0`, `go.temporal.io/api v1.63.5` |
+| Temporal server (reference) | 1.31 minimum, 1.32 in `contrib/temporal` |
+
+## Findings
+
+### F1 — One worker deployment cannot carry the cutover, the rollback or two roles
+
+**Verdict:** wrong (DESIGN-0032 Temporal mapping, Migration, D26/D27).
+
+- Every worker joins one deployment, `DeploymentName = "repo-guardian"` (`internal/temporal/worker.go`), and promotes its own build at startup (`internal/temporal/deployment.go`).
+- `SetCurrentVersion` is refused unless the new version polls every task queue the current version has polled, minus queues with an empty backlog and no recently added tasks (SDK `internal/worker_deployment_client.go:149-169`). The rc build is current on queue `repo-guardian`; the controls builds poll `repo-guardian-eval` and `repo-guardian-remediate`. Any task left on `repo-guardian` makes `PromoteBuild` retry, the `deployment` readiness check fails after two minutes, and nothing is dispatched. How long "recently added" lasts is undocumented.
+- Rollback to "the previous chart against the previous database" does not roll Temporal back. `decide()` in `deployment.go` returns `superseded` when the current build has a higher semver, so rc workers never promote themselves over `2.0.0` and receive no tasks until someone runs `set-current-version` by hand.
+- With both roles in one deployment, neither can be promoted until pods of the other role on the same build poll. A remediator at zero replicas (an evaluate-only install, KEDA minimum 0, or a scale-down) blocks every future promotion.
+
+**Consequence:** one deployment per role under new names. See [Decisions](#decisions) 1.
+
+### F2 — The cutover terminate list is incomplete
+
+**Verdict:** incomplete (DESIGN-0032 Migration step 2).
+
+Step 2 terminates `repo/*`, `installation/*` and `policy-rollout/*` and deletes the `discovery` and `snapshot` schedules. Queue `repo-guardian` also carries `bootstrap/v1`, `discovery/installation/<id>/<delivery>`, in-flight `webhook/*` executions and the runs the schedules started. Under F1 any one of them blocks promotion; with per-role deployments they are still old writers that must stop before the new database is used.
+
+**Consequence:** terminate every running execution on task queue `repo-guardian`, not a list of id prefixes.
+
+### F3 — The replay suite keeps a fixture
+
+**Verdict:** wrong (DESIGN-0032 Testing, INV-0021 A16).
+
+The replay suite does fail on an empty directory (`internal/workflows/replay_test.go:31`). But only `check_then_park.json` is a `RepoWorkflow` history; `installation_grant_report.json` is an `InstallationWorkflow` history, a type the design keeps under a new id, so removing `RepoWorkflow` never empties the directory. That fixture must be recaptured if `InstallationWorkflowInput` gains the App. The stated hazard, that an `AutoUpgrade` worker would receive tasks for a type it no longer registers, does not arise: the new queues never poll `repo-guardian`. The real hazard is F1. History capture is wired to `TestIntegration_OneCheck` (`integration_test.go:50,300`); `EvaluationWorkflow` and `RemediationWorkflow` need their own capture tests.
+
+### F4 — Workflow-side signal-with-start does not exist; signals can be lost at completion
+
+**Verdict:** risky wording (DESIGN-0032 sequence diagram, Workflow shape, D6).
+
+- The Go SDK exposes only `SignalExternalWorkflow` and `ExecuteChildWorkflow` inside a workflow (`workflow/workflow.go`). Starting `remediation/<id>/<slug>` with a signal has to be an activity calling `client.SignalWithStartWorkflow`, as `startRepo` already does (`internal/activities/route.go`). The default id reuse policy lets a completed id start again.
+- A signal received but never read from its channel is lost when the run completes; the SDK only warns through `GetUnhandledSignalNames`. The end of each run must drain the channel.
+- Changed-path sets of up to 2048 commits travel in signals and in ContinueAsNew state, and an evaluation may start several remediation runs per iteration, so history growth needs measuring; one batched start activity per evaluation bounds it.
+- The per-control id does serialize one run per (repository, control). Evaluation versus remediation, and controls within one repository, are not serialized by Temporal; the design relies on Postgres for that, which is consistent. `FOR UPDATE SKIP LOCKED` holds only while a transaction stays open across the GitHub-calling activity: one long-held connection per running remediation, which sizes the pool.
+
+### F5 — Priority does not cross task queues
+
+**Verdict:** wrong rationale (DESIGN-0032 Temporal mapping, A18).
+
+Priority orders tasks within one queue. "Remediation runs at priority 3 and 4 so human (1) and push (2) evaluation go first" cannot hold across `-eval` and `-remediate`. There is also no priority 1 constant today (`internal/workflows/types.go` has 2, 3 and 4).
+
+### F6 — The single-queue assumption runs through the code
+
+**Verdict:** unplanned work.
+
+- `startV2Worker` builds one worker; `all` needs two, one per queue, with separate registration sets, while the replay test registers the union. `workflows.Register` registers everything.
+- Ingest's `RouteWebhook`, `NewRouter` and `NewServices` take one task queue.
+- `serviceStarter.ensureSchedules` runs in every pod and must be partitioned per role.
+- The api role already holds a Temporal client, for `DescribeTaskQueue` on one queue (`cmd/repo-guardian/api.go:46`, `internal/temporal/backlog.go`); the status backlog needs both. DESIGN-0032 calls it signal-only.
+- The KEDA template renders one `ScaledObject` for `worker` with `.Values.temporal.taskQueue`, and DESIGN-0028's default query hard-codes `taskqueue="repo-guardian"`.
+- `DefaultLeaseTTL` is the CheckRepo timeout plus 5 minutes and does not cover remediation activity timeouts; the budget `Holder` is the workflow id, so its format changes.
+
+### F7 — The webhook secret header is undocumented
+
+**Verdict:** risky (DESIGN-0032 Two GitHub Apps, A13).
+
+`X-GitHub-Hook-Installation-Target-Type` and `-ID` are documented as headers, but their values are not. Real deliveries show `integration` and the App id (github/rest-api-description#7210); a pending docs change proposes documenting the type as `app`. The design's rationale for reading the header first, that `ValidatePayload` consumes the body, is also wrong: go-github has `ValidateSignature` and `ValidatePayloadFromBody` (`messages.go:194,275`). Selecting a secret from an unauthenticated header is not itself a hole, since a forger still needs a valid HMAC; the risk is trusting the header for attribution afterwards. A leaked Evaluation App secret could forge Evaluation App `installation` events, so the payload's `installation.app_id` should be checked against the App whose secret validated.
+
+**Consequence:** one webhook URL per App. See [Decisions](#decisions) 2.
+
+### F8 — The Remediation App lacks Workflows; the Evaluation App is over-scoped
+
+**Verdict:** wrong (DESIGN-0032 permission tables, A23).
+
+- `apply = "workflow"` writes `.github/workflows/repo-guardian-<slug>.yml`. GitHub gates files under `.github/workflows/` on the **Workflows** permission, which neither the design nor any doc mentions.
+- Rulesets (`GET /repos/{o}/{r}/rulesets[/{id}]`) and custom property values (`GET .../properties/values`) need only **Metadata: read**. Administration: read is needed only for vulnerability alerts. Pull requests read covers labels, so Issues: read is redundant. The organisation property schema does need organisation Custom properties: read.
+- Whether merge-policy settings fields are returned to a read-only App token is not stated in the docs.
+
+### F9 — The compare-and-swap commit needs GraphQL, which the throttle path cannot see
+
+**Verdict:** wrong, as an unstated dependency (DESIGN-0032 AR-0032-07, D21; DESIGN-0031 D8).
+
+- `createCommitOnBranch` with `expectedHeadOid` is a real compare-and-swap (public schema: "expected at the head of the branch prior to the commit"). The branch must already exist, paths must be unique, there is no file-mode field (regular files only), and GitHub signs the commit "if supported". The REST alternatives give no such guarantee: `PATCH git/refs` takes only `sha` and `force`, and the Contents API is one commit per file.
+- go-github is REST-only; `go.mod` has no GraphQL client.
+- The throttle path cannot classify GraphQL limits. Primary-limit exhaustion returns HTTP 200 with an error body; secondary limits return 200 or 403. `isRateLimited` checks only 403 (`internal/github/ratelimit.go:271`), so REST 429 is missed as well, although the docs name both. `updateFromResponse` keeps one remaining/limit snapshot and ignores `x-ratelimit-resource`, so GraphQL traffic (its own `graphql` bucket, 5000 points per installation) would overwrite the core snapshot.
+- The 100-file and 1 MiB limits DESIGN-0031 AR-0031-09 cites are in neither the schema nor the changelog.
+
+### F10 — update-branch is asynchronous and its conflicts are 422s
+
+**Verdict:** risky (DESIGN-0032 AR-0032-03, D17).
+
+`PUT /pulls/{n}/update-branch` returns 202 and merges in the background. A conflict is a 422 ("merge conflict between base and head"); an `expected_head_sha` mismatch is also a 422 with a different message. The design never sets `expected_head_sha`, the existing call passes `nil` (`internal/github/client.go:981`) and treats every non-202 as an error, and the response for an already up-to-date branch is undocumented.
+
+### F11 — A human-closed PR leaves its branch behind
+
+**Verdict:** design gap (DESIGN-0032 D13, flowchart).
+
+Closing a PR without merging does not delete its branch; GitHub's delete-on-merge setting fires only on merge. After the cooldown the ref create fails because `repo-guardian/<slug>` exists with no open PR, and the flowchart holds the control on `foreign_branch` permanently. The design's own update loop also deletes branches on terminal states (step 6), so the engine deletes branches today in design terms.
+
+**Consequence:** repo-guardian never deletes branches. See [Decisions](#decisions) 4.
+
+### F12 — Ruleset reads miss inherited rulesets
+
+**Verdict:** risky in the code (DESIGN-0031 `branch_ruleset`).
+
+The API offers `source_type` and `includes_parents` (default true). The client passes `includes_parents=false` (`internal/github/client.go:653`), so organisation and enterprise rulesets never appear, and go-github's `GetAllRulesets` does not paginate past its default page of 30. The list response also omits `rules`; each ruleset must be fetched by id.
+
+### F13 — Database roles cannot be created by migrations
+
+**Verdict:** incomplete (DESIGN-0032 D8).
+
+`pgtest.AppRole` creates one fixed role, `rg_app`, which owns the schema and runs the migrations (`internal/store/postgres/pgtest.go:75-100`); migrations grant to `current_user`, and the read-only role is operator-provisioned. Creating `rg_evaluator` and `rg_remediator` from a migration needs CREATEROLE and per-role DSNs, and the chart has one `STORE_DSN`.
+
+### F14 — Policy rollout ignores a revert
+
+**Verdict:** wrong in effect (DESIGN-0030 D14).
+
+"Newest recorded in `policy_versions`" means `ORDER BY first_seen_at`, and the insert is `ON CONFLICT DO NOTHING` (`queries/policy.sql`). Reverting the policy to an earlier version keeps that version's old `first_seen_at`, so the monotonic resolver would discard every resolution under it forever.
+
+### F15 — Two park reasons have no result rule
+
+**Verdict:** incomplete (DESIGN-0030 D6).
+
+`park_reason` also has `installation_removed` and `unknown`, and the code writes the first (`internal/store/postgres/v2store_ops.go:237`). The design says what happens to results on `access_denied` (kept) and on `archived`, `fork` and `removed` (cleared), but not on these two.
+
+### F16 — The API section understates what the UI loses
+
+**Verdict:** wrong (DESIGN-0032 API).
+
+- `/repositories` is not "as today, plus": the `Repository` schema requires `installation_id`, `last_check_outcome` and `policy_version` (`api/openapi.yaml:1139`), all dropped by `00001_core`.
+- The UI uses `/policy`, `/installations` (its table is dropped), `/compliance/history` and `/rules/{kind}/{name}`, none of which the design gives a fate.
+- `TestAPIQueries_AreScoped` scans only `api_*.sql`, and `/policy` today is an unscoped JSONB summary, so per-org filtering of `/policies` would be Go code the test cannot see.
+
+### F17 — The v1 runtime is still on the branch
+
+**Verdict:** unplanned blast radius.
+
+IMPL-0025 Phase 16 (delete the v1 runtime) is open, with every task "deferred, human required", as are 17.1, 17.2, 17.5, 17.9 and 18.5 to 18.7. The `v1` subcommand still wires `internal/worker`, `scheduler`, `webhook`, `queue`, the checker's StaleSweeper, PostureExporter and SnapshotTaker, and the v1 Store. `internal/findings` is imported by `policy`, `api`, `report`, `store`, `store/postgres`, `activities`, `checker`, `worker` and `shadow`, and no design names it; `internal/report` hard-codes the findings remediation enums. `pgtest` seeds the v1 golang-migrate schema, and `adopt_v1.go`, `backfill_v1.go`, `dry_run.go` and `CheckV1Idle` are wired into `migrate`. D27 makes 18.3, 18.5 and 18.7 (shadow, backfill) obsolete.
+
+### F18 — Smaller corrections
+
+- **Compliance rounding** (DESIGN-0030): the percent is floored to one decimal (`compliance.sql:21`), not to an integer, and a Go copy, `store.CompliantPercent` (`api_views.go:22`), serves summed totals.
+- **`service_runs.kind`** (DESIGN-0032 `00001_core`): the CHECK allows `discovery`, `snapshot`, `policy_rollout` and `bootstrap`; the remediator's `sweep`, `maintenance` and Remediation App discovery rows need it extended.
+- **Foreign-PR matching** (DESIGN-0029 Non-goals) is listed as lifted from the checker, contradicting DESIGN-0032 D5, which drops foreign-PR detection.
+- **E4 log lines** (DESIGN-0029 Non-goals): of nine matchers in `monitoring/dashboard/e4.go`, five are emitted only by `internal/worker`, one by `checker/sweep.go` and one by `reconciler/custom_properties.go`. `TestLogLines_AreStillEmittedByTheBinary` fails once those packages go; the matchers need re-cutting for v2 emitters.
+- **`installation_info` topology label** (DESIGN-0029 D7): the gauge is per installation, needs an `app` label with two Apps, and IMPL-0025 16.3 deletes it.
+- **Writer capability proof** (DESIGN-0032): depguard denies imports by file glob, and one package implementing Reader and Writer cannot be split by it; the Writer needs its own package.
+- **Templates** (DESIGN-0030, DESIGN-0031 D11): templates come from `TEMPLATE_DIR` (a separate mount) plus the embedded `rules.TemplateStore`, while DESIGN-0030 requires every referenced file under the policy root, hashed in one pass.
+- **Environment variables** (DESIGN-0032): the design does not say whether `EVALUATOR_CONCURRENCY` and the per-role pool sizes replace `WORKER_ACTIVITY_CONCURRENCY` and `STORE_POSTGRES_MAX_CONNS`.
+- **PR listing and adoption**: the `head` filter is an exact ref, not a prefix, so listing is client-side over open PRs; the client does not capture `user` or `head.repo.id` (`client.go:160-168`), and adoption should match the bot's user id and type, not its login string.
+- **Push events**: GitHub sends none when more than three tags or 5000 branches are pushed at once; the evaluation schedule covers it.
+
+## Conclusion
+
+**Answer:** The designs hold in shape but not in detail. Most code claims are confirmed (INV-0021's verdicts stand: the transport chain and throttle normalisation, the budget workflow's call sites, discovery's un-park rule, the API framework and scope test, the chart's secret scoping, the frozen v1 PR identity), as are the GitHub facts about push payloads, per-installation budgets, event permissions and the GraphQL compare-and-swap. Eighteen findings change a design or the plan. Four are structural: the single worker deployment (F1), the GraphQL dependency and the throttle path that cannot see it (F9), the two-App permission and webhook model (F7, F8), and database role provisioning (F13). The rest are corrections, gaps, and unplanned work that the implementation plan must sequence, chiefly the v1 runtime still on the branch (F17) and the single-queue assumptions in the code (F6).
+
+## Recommendation
+
+### Decisions
+
+Resolved with the maintainer on 2026-10-06 and applied to DESIGN-0029 to DESIGN-0032 the same day.
+
+1. **Worker deployments (F1, F2): (a).** One Temporal worker deployment per role, `repo-guardian-eval` and `repo-guardian-remediate`, with no version suffix: the deployment name is the stable identity and the build ID is the version. The new names are a one-time break; a future breaking cutover may add a generation (`repo-guardian-v3-eval`), never a release tag. The rc deployment is left untouched, so the new builds become current without draining `repo-guardian`, rollback needs no `set-current-version`, and each role promotes independently.
+2. **Webhook routing (F7): (a).** One webhook URL per App. The path selects the secret and the App; nothing relies on the undocumented header values.
+3. **Database roles (F13): (a).** The operator or the chart provisions `rg_evaluator` and `rg_remediator`, like today's read-only role: CNPG managed roles, an init script in baked mode, documented SQL for external Postgres, each with its own Secret and DSN. Migrations grant, never create.
+4. **Branches (F11): repo-guardian never deletes branches.** Cleanup after merge is the organisation's GitHub setting, and repo-guardian does not compete with it. A branch left by a PR a human closed without merging holds the control with a reason that names the branch and says to delete it; a human or the organisation's tooling clears it. The update loop's delete-on-terminal step is removed. `rgctl prs close --delete-branch` is an operator's one-off migration step and is unaffected.
+5. **Policy rollout (F14): (a).** An `activated_at` timestamp, updated whenever a version is deployed, orders the rollout.
+6. **Park reasons (F15): (a).** `installation_removed` clears results (the repository has left the fleet); `unknown` keeps them (fail-safe).
+7. **The v1 runtime (F17): (a).** The first phase of the controls implementation absorbs IMPL-0025 Phase 16; IMPL-0025 Phase 16 and tasks 18.3, 18.5 and 18.7 are superseded by D27.
+8. **API (F16): (a).** DESIGN-0032 lists each existing endpoint and dropped field with its fate and the UI view it affects.
+
+The corrections in F3 to F6, F8 to F10, F12 and F18 apply without a decision.
+
+### Phase-0 spikes
+
+1. **GraphQL commit through the transport chain:** the stale-head error's shape, the file-count and size limits, rate-limit headers, `AsThrottled` classification and budget accounting for GraphQL points (F9).
+2. **update-branch:** an up-to-date branch, a conflict, a stale `expected_head_sha`, and the latency of the background merge (F10).
+3. **Evaluation App minimal permissions:** register an App with the Metadata-based set and confirm settings fields, rulesets with `source_type` and `rules`, and property values are all readable (F8).
+4. **`installation_repositories` for "all repositories" installations:** whether it fires on repository creation, or the Remediation App learns of a repository only from its own discovery.
+5. **Temporal:** signal-with-start into a just-completing `RemediationWorkflow`, per-queue `approximate_backlog_count` labels for the KEDA query, and `EvaluationWorkflow` history growth under maximum changed-path signals (F4, F6).
+6. **Database role provisioning** in baked, CNPG and external modes, and the extended `pgtest` harness (F13).
+7. **Template sourcing** under the policy-root rule and its effect on the revision hash (F18).
+8. **A policy revert** under the activation-ordered resolver (F14).
+9. **Upgrade and rollback rehearsal** on the dev server with per-role deployments, which under decision 1 should only confirm.
+10. **Label names:** case-insensitivity on create and update.
+
+## References
+
+- DESIGN-0029, DESIGN-0030, DESIGN-0031, DESIGN-0032 (as amended 2026-10-06)
+- INV-0021 (assumptions A1 to A23, the code half of this audit)
+- IMPL-0025 Phases 16 to 18 (the v1 runtime and shadow/backfill tasks)
+- DESIGN-0028 / IMPL-0026 (KEDA trigger and Temporal auth, not implemented)
+- GitHub: webhook events and payloads; permissions required for GitHub Apps; REST rate limits; GraphQL rate limits; `createCommitOnBranch` in the public GraphQL schema; github/rest-api-description#7210
+- Temporal Go SDK v1.49.0: `internal/worker_deployment_client.go`, `internal/internal_worker.go`, `workflow/workflow.go`

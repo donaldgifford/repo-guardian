@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0026
 title: "v2 Temporal control plane and role split"
-status: Approved
+status: Implemented
 author: Donald Gifford
 created: 2026-09-24
 ---

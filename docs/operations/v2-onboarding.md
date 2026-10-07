@@ -44,7 +44,9 @@ GitHub ──webhook──▶ ingest ──▶ Temporal ──▶ worker ──�
 
 Everything is one Helm chart, `oci://ghcr.io/donaldgifford/charts/repo-guardian`,
 with `topology: split` (one Deployment per role, the default) or `all`
-(one Deployment running ingest and worker together, for small installs).
+(one Deployment running every role, for small installs; the API is always
+served there on `api.port`, 8081, and `api.enabled` only adds its Service
+and auth).
 
 ## Prerequisites
 
@@ -88,8 +90,32 @@ Record: `temporal.address`, `temporal.namespace`, and either
 `temporal.auth.oidc.{tokenUrl, clientId, existingSecret}` (plus
 `temporal.tls.caSecret` if needed).
 
+Other Temporal values, and the combinations the chart refuses to render:
+
+| Value | Use |
+| --- | --- |
+| `temporal.tls.serverName` | name to verify the frontend's certificate against, when it differs from `address` |
+| `temporal.tls.caSecret` | OIDC only: a Secret with just `ca.crt`. Cannot be combined with `tls.existingSecret`; for mTLS, put `ca.crt` in that Secret instead |
+| `temporal.tls.disabled` | plaintext, for a cluster-internal frontend with no TLS. Contradicts the three values above, and with OIDC the bearer token is readable on the wire |
+| `temporal.auth.oidc.scopes` | scopes to request, if your IdP needs them |
+| `temporal.auth.oidc.audience` | `audience` parameter, for IdPs that take one (Keycloak uses a client-scope mapper instead) |
+
 > KEDA's Temporal scaler cannot mint OIDC tokens, so the chart refuses
 > `worker.keda.enabled` together with `temporal.auth.oidc`.
+
+Two worker values follow from Temporal:
+
+- **`worker.keda.enabled`** renders a KEDA ScaledObject that scales the
+  worker Deployment on Temporal backlog (`targetQueueSize`, default 50 per
+  replica, between `minReplicas` and `maxReplicas`). It needs the KEDA
+  CRDs and `topology: split`, and replaces `worker.replicas`. Size
+  `maxReplicas` to the GitHub rate limit, not the backlog: checks are
+  rate-limit bound, so extra pods only wait.
+- **`worker.buildId`** is the worker's Temporal build ID. Leave it empty
+  and it follows `image.tag`, then the chart's appVersion. Set it only
+  for an image whose tag is not a version, and change it whenever the
+  image changes: each worker promotes its build at startup and the
+  newest semver build wins.
 
 ### 3. Postgres
 
@@ -135,9 +161,12 @@ In short:
    selection. You can install into more organisations at any time; see
    [Onboarding organisations](#onboarding-organisations-and-repositories).
 
-Record: `config.appId`, and a Secret holding the webhook secret and the
-private key (`secrets.existingSecret`, or `secrets.webhookSecret` and
-`secrets.privateKey` for a quick trial).
+Record a Secret with three keys, `app-id`, `webhook-secret` and
+`private-key`, and set `secrets.create: false` and
+`secrets.existingSecret` to its name. The pods read the App ID from that
+Secret: `config.appId` is used only when the chart creates the Secret
+itself (`secrets.create: true` with `secrets.webhookSecret` and
+`secrets.privateKey`, for a quick trial).
 
 ### 5. A public route for webhooks
 
@@ -149,7 +178,8 @@ check the app itself makes. If you want to restrict source IPs to
 GitHub's hook ranges, do it at your edge.
 
 The Service keeps the release's full name (`repo-guardian` for a
-release of that name), port 8080.
+release of that name) and listens on port 80 (`service.httpPort`),
+forwarding to the container's 8080.
 
 ### 6. An OIDC identity provider (API and UI only)
 
@@ -166,10 +196,18 @@ Skip this if you do not enable `api` or `ui`.
 - **Who sees what:** `api.authz.groups` maps IdP groups to the
   organisations they may read (`["*"]` for all). A caller with no
   mapped organisation gets 403 on everything except `/me` and `/status`.
+- **Machine clients:** if your IdP puts no groups on client-credentials
+  tokens, map the client's `azp` to groups in `api.authz.clients`.
+- **Status page:** `/status` is served without a token by default; set
+  `api.status.public: false` to require one.
+- **UI origin:** the UI's browser-facing URL defaults to
+  `https://<ui.ingress.host>`. If you bring your own ingress, set
+  `ui.publicUrl`.
 
 ### 7. Prometheus and Grafana (optional)
 
-Every pod exposes `/metrics` on port 9090. Dashboards and alerts are
+Every repo-guardian pod (ingest, worker, api, or the single `all` pod)
+exposes `/metrics` on port 9090; the ui pod does not. Dashboards and alerts are
 generated from your policy rather than shipped by hand:
 
 ```bash
@@ -216,6 +254,10 @@ repo-guardian monitoring generate --config guardian.hcl --out /tmp/check
 
 Keep the policy in git. Every later change goes through review.
 
+Ship it either inline as `policy.config`, or as a ConfigMap you manage,
+named in `policy.existingConfigMap`. That ConfigMap must hold the file
+under the key `guardian.hcl`, the path the pods read.
+
 ## Turning it on
 
 1. **Create the Secrets** from prerequisites 2–6 in the release
@@ -227,12 +269,11 @@ Keep the policy in git. Every later change goes through review.
    topology: split
 
    config:
-     appId: "123456"
      dryRun: true # remove once the findings look right
 
    secrets:
      create: false
-     existingSecret: repo-guardian-github # webhook secret + private key
+     existingSecret: repo-guardian-github # app-id, webhook-secret, private-key
 
    temporal:
      address: temporal-frontend.temporal.svc:7233
@@ -245,7 +286,7 @@ Keep the policy in git. Every later change goes through review.
        mode: cnpg
 
    policy:
-     existingConfigMap: repo-guardian-policy # or policy.config: |- ...
+     existingConfigMap: repo-guardian-policy # key guardian.hcl; or policy.config: |- ...
 
    # Optional: the API and the UI.
    api:

@@ -55,7 +55,9 @@ PR identity, so v2 picks up where v1 stopped. Designs:
 
 ### Environment variables
 
-These are warned about and ignored at startup:
+These are ignored. Under the v2 roles nothing reads them, but nothing
+warns about them either yet (IMPL-0025 task 16.5), so remove them from
+the Deployment by hand rather than relying on the logs:
 
 | Removed | Replacement |
 | --- | --- |
@@ -72,7 +74,7 @@ repository's first due time. Otherwise it is ignored.
 
 ### Removed chart values
 
-Chart 2.0.0 fails the render on each of these, naming the key:
+Chart 2.x fails the render on each of these, naming the key:
 
 | Removed | Replacement |
 | --- | --- |
@@ -187,8 +189,11 @@ classifies these cases when it compares v1 and v2.
 
    ```bash
    helm upgrade repo-guardian oci://ghcr.io/donaldgifford/charts/repo-guardian \
-     --version 2.0.0 -n repo-guardian -f values.yaml
+     --version <2.x version> -n repo-guardian -f values.yaml
    ```
+
+   Use the newest 2.x chart; until 2.0.0 is released that is a release
+   candidate (`2.0.0-rc.4` at the time of writing).
 
    The `pre-upgrade` hook runs `migrate`. The worker then starts
    `BootstrapWorkflow`, which starts one `RepoWorkflow` per active
@@ -220,6 +225,13 @@ classifies these cases when it compares v1 and v2.
      rollout window.
 8. **Redeliver** the outage window's failed webhooks (below). This is
    optional.
+9. **Delete v1's Valkey volume.** The upgrade removes the Valkey
+   StatefulSet but not the claim its `volumeClaimTemplates` created, and
+   nothing in it is needed (below):
+
+   ```bash
+   kubectl -n repo-guardian delete pvc data-<release>-valkey-0
+   ```
 
 ## Redelivering webhooks
 
@@ -233,10 +245,14 @@ push-triggered re-checks forward.
 
 - **Webhooks.** `POST /webhooks/github` on the same Service, with the
   same secret.
-- **Pull requests.** The branch `repo-guardian/add-missing-files`, the
-  PR title, the `<!-- repo-guardian:reconcile-log:v1 -->` marker and its
-  hash tag are unchanged, and a test locks them. v2's first check finds
-  v1's open PR and updates it.
+- **Pull requests.** v1's three branches (`repo-guardian/add-missing-files`
+  for file rules, and `repo-guardian/add-catalog-info` and
+  `repo-guardian/set-custom-properties` for the `custom_properties`
+  reconciler), their PR titles, the
+  `<!-- repo-guardian:reconcile-log:v1 -->` marker and its hash tag are
+  unchanged, and tests lock them (`TestPRIdentity_IsFrozen` in the
+  checker and the reconciler). v2's first check finds v1's open PR and
+  updates it.
 - **Parked repositories stay parked.** Bootstrap starts workflows only
   for active rows, and discovery re-applies v1's un-park rule.
 - **Nothing in Valkey is needed.** Postgres was always the source of

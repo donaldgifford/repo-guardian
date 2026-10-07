@@ -1,6 +1,6 @@
 ---
 id: IMPL-0026
-title: "Temporal client auth: credential reload, KEDA Prometheus trigger and OpenBao-issued certificates"
+title: "Temporal client auth: credential reload and OpenBao-issued certificates"
 status: Draft
 author: Donald Gifford
 created: 2026-10-01
@@ -8,7 +8,7 @@ created: 2026-10-01
 
 <!-- markdownlint-disable-file MD024 MD025 MD041 -->
 
-# IMPL-0026: Temporal client auth: credential reload, KEDA Prometheus trigger and OpenBao-issued certificates
+# IMPL-0026: Temporal client auth: credential reload and OpenBao-issued certificates
 
 <!--toc:start-->
 - [Objective](#objective)
@@ -49,6 +49,13 @@ created: 2026-10-01
   - [OQ7: Should the expiry gauge carry a label for which certificate it is?](#oq7-should-the-expiry-gauge-carry-a-label-for-which-certificate-it-is)
 - [References](#references)
 <!--toc:end-->
+
+> **Scope change (2026-10-07):** the KEDA Prometheus trigger moved to
+> IMPL-0028 (controls foundations), which builds one ScaledObject per role
+> and task queue. Building a single-queue Prometheus trigger here first
+> would be rebuilt there. This plan keeps credential reload, the OpenBao
+> certificates and their monitoring, and runs after IMPL-0028. Tasks
+> marked "Moved" are tracked in IMPL-0028 Phase 5.
 
 ## Objective
 
@@ -219,7 +226,7 @@ pass (OQ4), and this IMPL cannot close until they are done.
   (usages `client auth`, `digital signature`; ECDSA P-256;
   `rotationPolicy: Always`), namespace stamped, rendered when
   `certManager.enabled`.
-- [ ] 2.4 `worker-scaledobject.yaml`: `prometheus` trigger with
+- [x] 2.4 **Moved 2026-10-07 to IMPL-0028 Phase 5:** the KEDA half of this plan is folded into the controls foundations, which build one ScaledObject per role and queue. `worker-scaledobject.yaml`: `prometheus` trigger with
   `serverAddress`, `query` (default built from `temporal.namespace` and
   `temporal.taskQueue`, as designed; task 6.3 confirms or corrects it
 before the tag), `threshold` from
@@ -229,11 +236,11 @@ before the tag), `threshold` from
   `fallbackReplicas` or `worker.replicas`) for both. A template comment
   explains why KEDA 2.21's composite running-workflows metric is never
   set.
-- [ ] 2.5 `templates/worker-triggerauthentication.yaml`: `cert`, `key`,
+- [x] 2.5 **Moved 2026-10-07 to IMPL-0028 Phase 5:** the KEDA half of this plan is folded into the controls foundations, which build one ScaledObject per role and queue. `templates/worker-triggerauthentication.yaml`: `cert`, `key`,
   `ca` from the effective TLS Secret, rendered for `trigger: temporal`
   with a client certificate. `tlsServerName` in the trigger metadata
   from `temporal.tls.serverName`.
-- [ ] 2.6 Guards in `validateTemporalAuth`: `trigger: prometheus`
+- [ ] 2.6 **Split 2026-10-07:** the `trigger` and OIDC-with-KEDA guards moved to IMPL-0028 Phase 5; this task keeps the `certManager.enabled` without `issuerRef.name` guard. Guards in `validateTemporalAuth`: `trigger: prometheus`
   without `serverAddress` fails; the OIDC guard fails only for
   `trigger: temporal`, naming `trigger: prometheus` as the fix;
   `certManager.enabled` without `issuerRef.name` fails; an unknown
@@ -244,7 +251,7 @@ before the tag), `threshold` from
   in the `repo-guardian.temporal` group, rendered only with a client
   certificate configured, overridable like its siblings
   (`prometheusRule.alerts.TemporalClientCertExpiring`).
-- [ ] 2.9 helm-unittest: new `keda_test.yaml` (both triggers, default
+- [ ] 2.9 **Split 2026-10-07:** `keda_test.yaml` moved to IMPL-0028 Phase 5; this task keeps the temporal-auth, certificate and prometheusrule tests. helm-unittest: new `keda_test.yaml` (both triggers, default
   and custom query, `authenticationRef`, `fallback`, composite metric
   absent, TriggerAuthentication present only for temporal + client
   cert); `temporal_auth_test.yaml` (relaxed and new guards,
@@ -334,7 +341,7 @@ before the tag), `threshold` from
 - [ ] 5.2 `docs/operations/v2-onboarding.md`: link the page from
   prerequisites; replace the KEDA guidance with the Prometheus trigger
   and the sizing note.
-- [ ] 5.3 `docs/operations/v2-migration.md`: the KEDA values change
+- [x] 5.3 **Moved 2026-10-07 to IMPL-0028 Phase 5:** the KEDA half of this plan is folded into the controls foundations, which build one ScaledObject per role and queue. `docs/operations/v2-migration.md`: the KEDA values change
   (default trigger is now `prometheus`, needs `serverAddress`).
 - [ ] 5.4 `mkdocs.yml` nav; `make` docs build clean of new warnings.
 - [ ] 5.5 CLAUDE.md: one v2-branch entry (reload contract: strict
@@ -357,16 +364,16 @@ task must be checked off before this IMPL is marked Completed.
 
 #### Tasks
 
-- [ ] 6.1 In the homelab Prometheus, list the series and labels of
+- [x] 6.1 **Moved 2026-10-07 to IMPL-0028 Phase 5:** the KEDA half of this plan is folded into the controls foundations, which build one ScaledObject per role and queue. In the homelab Prometheus, list the series and labels of
   `approximate_backlog_count{namespace="repo-guardian"}` (and any
   prefixed variant). Record whether per-`priority` series coexist with
   an aggregate, and whether `worker_build_id` splits a partition. —
   *deferred: human required*
-- [ ] 6.2 With the queue non-empty, compare the default query's value
+- [x] 6.2 **Moved 2026-10-07 to IMPL-0028 Phase 5:** the KEDA half of this plan is folded into the controls foundations, which build one ScaledObject per role and queue. With the queue non-empty, compare the default query's value
   with the backlog `DescribeTaskQueue` reports (the status page in
   `all` topology, or `temporal task-queue describe`). Record both
   numbers under § Verification results. — *deferred: human required*
-- [ ] 6.3 If 6.1/6.2 show double counting or a dropped split, change the
+- [x] 6.3 **Moved 2026-10-07 to IMPL-0028 Phase 5:** the KEDA half of this plan is folded into the controls foundations, which build one ScaledObject per role and queue. If 6.1/6.2 show double counting or a dropped split, change the
   default query in `worker-scaledobject.yaml` (group by the splitting
   label before summing), update its helm-unittest, and record why.
 - [ ] 6.4 Confirm the installed cert-manager supports Vault Kubernetes
@@ -386,7 +393,7 @@ task must be checked off before this IMPL is marked Completed.
 - [ ] 6.8 Frontend `requireClientAuth` with the OpenBao CA in
   `clientCaFiles`, `tls.refreshInterval`, `authorization.audience`. —
   *deferred: human required*
-- [ ] 6.9 `worker.keda.enabled` with the Prometheus trigger; generate a
+- [x] 6.9 **Moved 2026-10-07 to IMPL-0028 Phase 5:** the KEDA half of this plan is folded into the controls foundations, which build one ScaledObject per role and queue. `worker.keda.enabled` with the Prometheus trigger; generate a
   backlog (a policy change, or `rg-burst`) and watch it scale out and
   back. — *deferred: human required*
 - [ ] 6.10 `cmctl renew` the client certificate and restart the

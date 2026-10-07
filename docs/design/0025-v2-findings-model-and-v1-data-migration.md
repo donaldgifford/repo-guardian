@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0025
 title: "v2 findings model and v1 data migration"
-status: Approved
+status: Superseded
 author: Donald Gifford
 created: 2026-09-24
 ---

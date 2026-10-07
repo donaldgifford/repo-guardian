@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0027
 title: "v2 read-only API, business UI, and status page"
-status: Approved
+status: Implemented
 author: Donald Gifford
 created: 2026-09-24
 ---

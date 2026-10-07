@@ -1,7 +1,7 @@
 ---
 id: IMPL-0025
 title: "v2: findings model, Temporal control plane, read-only API and UI"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-09-25
 ---
@@ -387,6 +387,32 @@ the three designs, and facts the phases depend on.
   | `prometheusrule_test.yaml` | 7 |
   | `values_guard_test.yaml` | 15 |
 
+## Close-out (2026-10-07)
+
+This plan shipped the v2 release candidates, `v2.0.0-rc.1` to `rc.4`: the
+findings model, the Temporal control plane, the read-only API and the UI.
+It closes as Completed without a GA, because the controls designs
+(DESIGN-0029 to DESIGN-0032) replace the rule engine before `v2.0.0`, and
+DESIGN-0032 D27 makes the move to `v2.0.0` a fresh install. Every task
+left open on 2026-10-07 was closed with one of three dispositions:
+
+| Open task | Disposition | Where it went |
+| --- | --- | --- |
+| 1.1 | done | the `v2` branch exists and PRs target it |
+| 1.9 | not needed | `main` receives bug fixes only |
+| 9.1, 9.3, 9.8 | moved | IMPL-0028 Phase 0, against the homelab dev install |
+| 11.7, 11.8 | moved | IMPL-0028 Phase 0; the budget workflow is reused |
+| 16.1–16.8 | moved | IMPL-0028 Phase 1; the maintainer approves the `git rm` |
+| 17.1, 17.2, 17.9 | moved | IMPL-0029, monitoring regenerated over control results |
+| 17.5 | moved | IMPL-0028 Phase 1 |
+| 18.5, 18.7 | superseded | DESIGN-0032 D27: no v1 data migration, no shadow run |
+| 18.6, 22.6 | done | rc.1 to rc.4 published; homelab verification moves to the IMPL-0030 fresh install |
+| 19.1, 19.3 | superseded | dev (rc) and prod (v1) are replaced by one fresh install in IMPL-0030 |
+| 19.2 | moved | IMPL-0029, where the API and UI are re-keyed |
+| 19.4, 22.7 | done | this close-out: DESIGN-0026 and DESIGN-0027 Implemented, DESIGN-0025 Superseded by DESIGN-0029 and DESIGN-0032 |
+| Testing Plan: removed-knob regressions | moved | IMPL-0028 Phase 1 |
+| Testing Plan: homelab burst, deploy, rehearsal, shadow run, cutover | moved / superseded | burst and deploy to IMPL-0028 Phase 0; the rest by D27 and the IMPL-0030 fresh install |
+
 ## Implementation Phases
 
 Each phase lists tasks to check off and the success criteria that close
@@ -398,7 +424,7 @@ it. Task IDs are `<phase>.<n>`.
 
 #### Tasks
 
-- [ ] 1.1 **Deferred — human required:** work happens on the current branch per the operator; creating, pushing and protecting `v2` on GitHub is a repo-admin action — Create `v2` from `main`, push it, and protect it: PR
+- [x] 1.1 **Closed 2026-10-07 — done: the `v2` branch exists on GitHub and PRs target it.** **Deferred — human required:** work happens on the current branch per the operator; creating, pushing and protecting `v2` on GitHub is a repo-admin action — Create `v2` from `main`, push it, and protect it: PR
   required, with the same required checks as `main`.
 - [x] 1.2 On `v2`, set `branches: [main, v2]` in `ci.yml:7,9`,
   `license-check.yml:7,9` and `security.yml:5-7`. `release.yml` and
@@ -420,7 +446,7 @@ it. Task IDs are `<phase>.<n>`.
   - engine fixes land on `main` first and merge forward;
   - rc tags are cut by hand, with `dont-release` PRs;
   - publishing is by `workflow_dispatch` with the tag (OQ9).
-- [ ] 1.9 **Deferred — human required:** needs the real `v2` branch on GitHub and a merge PR — Drill a merge-forward: merge `main` into `v2` and confirm CI
+- [x] 1.9 **Closed 2026-10-07 — not needed: `main` receives bug fixes only (DESIGN-0029 OQ2), so no merge-forward drill.** **Deferred — human required:** needs the real `v2` branch on GitHub and a merge PR — Drill a merge-forward: merge `main` into `v2` and confirm CI
   runs on the merge PR.
 
 #### Success Criteria
@@ -842,7 +868,7 @@ This phase can start right after Phase 1.
 
 #### Tasks
 
-- [ ] 9.1 **Deferred — human required:** needs read access to the operator's homelab Temporal cluster to record the version, stores, fairness flag, TLS and namespace baseline — Audit the homelab Temporal cluster and record the results
+- [x] 9.1 **Closed 2026-10-07 — moved to IMPL-0028 Phase 0, run against the homelab dev install.** **Deferred — human required:** needs read access to the operator's homelab Temporal cluster to record the version, stores, fairness flag, TLS and namespace baseline — Audit the homelab Temporal cluster and record the results
   here, under "Homelab Temporal baseline":
   - server version, which must be at least 1.31;
   - persistence and visibility stores;
@@ -853,7 +879,7 @@ This phase can start right after Phase 1.
   table, plus a README. Pin the upstream chart, and add
   `make lint-temporal-contrib`, which runs `helm template` on each
   combination.
-- [ ] 9.3 **Deferred — human required:** changes the operator's homelab cluster to match contrib/temporal/ — Bring the homelab in line with `contrib/temporal/` and
+- [x] 9.3 **Closed 2026-10-07 — moved to IMPL-0028 Phase 0, run against the homelab dev install.** **Deferred — human required:** changes the operator's homelab cluster to match contrib/temporal/ — Bring the homelab in line with `contrib/temporal/` and
   record any deviations.
 - [x] 9.4 Add `go.temporal.io/sdk` and its OpenTelemetry contrib
   module, both pinned.
@@ -869,7 +895,7 @@ This phase can start right after Phase 1.
   `dev-services` to match.
 - [x] 9.7 Add a `temporaltest.Start(t)` harness using
   `testsuite.StartDevServer` with a pinned CLI (OQ10).
-- [ ] 9.8 **Deferred — human required:** needs homelab mTLS client certs and network reachability to the homelab frontend — Smoke test: from a dev machine, run and delete a throwaway
+- [x] 9.8 **Closed 2026-10-07 — moved to IMPL-0028 Phase 0, run against the homelab dev install.** **Deferred — human required:** needs homelab mTLS client certs and network reachability to the homelab frontend — Smoke test: from a dev machine, run and delete a throwaway
   workflow on the homelab over mTLS.
 
 #### Success Criteria
@@ -998,12 +1024,12 @@ This phase can start right after Phase 1.
   - `Deferred` closing the gate;
   - EWMA convergence;
   - ContinueAsNew keeping the leases.
-- [ ] 11.7 **Deferred — human required:** the homelab 20,000-pair run, frontend CPU and the resulting MaxHandled threshold. `cmd/rg-burst` is built (`-tags burst`). A local dev-server smoke run of 2,000 pairs at concurrency 20 gave p50 4.7ms, p99 476ms and a current-run history of 809 events / 146KB, with 3–6 acquires hitting the expected UNHANDLED_COMMAND ContinueAsNew handoff — Burst test on the homelab (`cmd/rg-burst`, behind the
+- [x] 11.7 **Closed 2026-10-07 — moved to IMPL-0028 Phase 0; the budget workflow is reused under the controls model.** **Deferred — human required:** the homelab 20,000-pair run, frontend CPU and the resulting MaxHandled threshold. `cmd/rg-burst` is built (`-tags burst`). A local dev-server smoke run of 2,000 pairs at concurrency 20 gave p50 4.7ms, p99 476ms and a current-run history of 809 events / 146KB, with 3–6 acquires hitting the expected UNHANDLED_COMMAND ContinueAsNew handoff — Burst test on the homelab (`cmd/rg-burst`, behind the
   `burst` build tag):
   - 20,000 acquire/report pairs against one installation;
   - record p50/p99 latency, history size and frontend CPU here;
   - set the ContinueAsNew threshold from those numbers.
-- [ ] 11.8 **Deferred — human required:** the live deploy. Caveat for the operator: the Phase 10 build recorded `budget-v1=1` with a no-op branch, so executions started on a Phase 10 build hit a non-determinism error on this build instead of taking the `budget-v1` branch. No Phase 10 build was deployed, so deploy Phase 11 or later first. Histories from this build are captured in `internal/workflows/testdata/histories/` — Deploy this build over the live Phase 10 executions:
+- [x] 11.8 **Closed 2026-10-07 — moved to IMPL-0028 Phase 0, against the homelab dev install.** **Deferred — human required:** the live deploy. Caveat for the operator: the Phase 10 build recorded `budget-v1=1` with a no-op branch, so executions started on a Phase 10 build hit a non-determinism error on this build instead of taking the `budget-v1` branch. No Phase 10 build was deployed, so deploy Phase 11 or later first. Histories from this build are captured in `internal/workflows/testdata/histories/` — Deploy this build over the live Phase 10 executions:
   - they must take the `budget-v1` branch with zero
     `WorkflowTaskFailed`;
   - capture new histories.
@@ -1304,29 +1330,29 @@ Land this phase as one PR, so the branch is never half-migrated.
 
 #### Tasks
 
-- [ ] 16.1 **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — Delete the v1 runtime:
+- [x] 16.1 **Closed 2026-10-07 — moved to IMPL-0028 Phase 1; the maintainer approves the `git rm` when that phase runs.** **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — Delete the v1 runtime:
   - `internal/queue/**`, `internal/scheduler/**` and
     `internal/worker/**`;
   - `checker/{sweep,posture}*` and `multireplica_integration_test.go`;
   - `observability/valkey*`;
   - the v1 store implementation and interface, and its mock. The v1
     `migrations/` directory and `pgtest/v1sql` stay as test fixtures.
-- [ ] 16.2 **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — In `main.go`, remove `bringUp`, `newQueue`, `newScheduler`,
+- [x] 16.2 **Closed 2026-10-07 — moved to IMPL-0028 Phase 1; the maintainer approves the `git rm` when that phase runs.** **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — In `main.go`, remove `bringUp`, `newQueue`, `newScheduler`,
   `scheduleHandlers`, `podID` and `newStore`. Rewrite shutdown per role:
   - `worker.Stop` drains within `shutdownTimeout`;
   - then close the client and pool, and shut down the HTTP servers.
-- [ ] 16.3 **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — Metrics:
+- [x] 16.3 **Closed 2026-10-07 — moved to IMPL-0028 Phase 1; the maintainer approves the `git rm` when that phase runs.** **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — Metrics:
   - reconcile the removal list against the 52 current registrations
     and record it here;
   - delete the business and queue/scheduler series,
     `github_rate_remaining` and `installation_info`;
   - add `checks_total{outcome}`;
   - `metrics_test.go` asserts the exact set of names.
-- [ ] 16.4 **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — In `e4.go`, in the same commit as 16.1:
+- [x] 16.4 **Closed 2026-10-07 — moved to IMPL-0028 Phase 1; the maintainer approves the `git rm` when that phase runs.** **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — In `e4.go`, in the same commit as 16.1:
   - remove the five deleted log lines;
   - add "check deferred until budget reset" and "check failed after
     retries".
-- [ ] 16.5 **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — Remove config:
+- [x] 16.5 **Closed 2026-10-07 — moved to IMPL-0028 Phase 1; the maintainer approves the `git rm` when that phase runs.** **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — Remove config:
   - add the 13 env vars to `removedEnvVars`, so they warn and are
     ignored, with a link to the runbook (OQ17);
   - remove the three HCL attributes in lockstep (schema, set and
@@ -1334,12 +1360,12 @@ Land this phase as one PR, so the branch is never half-migrated.
     test is proven non-vacuous;
   - fix the five `examples/` files and `examples_test.go` in the same
     commit.
-- [ ] 16.6 **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — Drop go-redis, redisotel and rediscmd, and run
+- [x] 16.6 **Closed 2026-10-07 — moved to IMPL-0028 Phase 1; the maintainer approves the `git rm` when that phase runs.** **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — Drop go-redis, redisotel and rediscmd, and run
   `go mod tidy`. Remove the `v1` compose profile and Valkey. Remove v1
   `Version` (the TODO from 6.6).
-- [ ] 16.7 **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — Remove the queue, scheduler and v1 `Store` entries from
+- [x] 16.7 **Closed 2026-10-07 — moved to IMPL-0028 Phase 1; the maintainer approves the `git rm` when that phase runs.** **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — Remove the queue, scheduler and v1 `Store` entries from
   `.mockery.yaml`, then run `make mocks`.
-- [ ] 16.8 **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — Rewrite the runtime contracts in CLAUDE.md on `v2`:
+- [x] 16.8 **Closed 2026-10-07 — moved to IMPL-0028 Phase 1; the maintainer approves the `git rm` when that phase runs.** **Deferred — human required:** the auto-mode permission classifier refuses `git rm` of the v1 runtime (Irreversible Local Destruction); a human must approve the deletion — Rewrite the runtime contracts in CLAUDE.md on `v2`:
   - payloads carry IDs only;
   - `Deferred` is a result, and nothing blocks inside an activity;
   - `repo/<id>` is the lock;
@@ -1364,14 +1390,14 @@ Land this phase as one PR, so the branch is never half-migrated.
 
 #### Tasks
 
-- [ ] 17.1 **Deferred — human required:** depends on the Phase 16 metrics removal (16.3), which is deferred — Monitoring generator:
+- [x] 17.1 **Closed 2026-10-07 — moved to IMPL-0029: monitoring is regenerated over control results.** **Deferred — human required:** depends on the Phase 16 metrics removal (16.3), which is deferred — Monitoring generator:
   - delete E1 and E2;
   - rebuild E3 around otelhttp, otelpgx, the Temporal SDK series,
     `checks_total`, the budget and rate series, discovery, and an API
     row;
   - trim E4;
   - regenerate `contrib/generated/`.
-- [ ] 17.2 **Deferred — human required:** depends on the Phase 16 metrics removal (16.3), which is deferred, and needs the homelab's real Temporal /metrics output — Alert catalogue: apply the audit's lists. Confirm the
+- [x] 17.2 **Closed 2026-10-07 — moved to IMPL-0029: monitoring is regenerated over control results.** **Deferred — human required:** depends on the Phase 16 metrics removal (16.3), which is deferred, and needs the homelab's real Temporal /metrics output — Alert catalogue: apply the audit's lists. Confirm the
   Temporal metric names against the homelab's real `/metrics` output
   before committing. Update
   `TestCatalogue_RareEventAlertsCatchTheFirstIncrement`.
@@ -1389,7 +1415,7 @@ Land this phase as one PR, so the branch is never half-migrated.
   - the webhook secret goes only to `ingest` and `all`;
   - the Temporal mTLS secret goes to every role that dials Temporal;
   - `api` gets no App key and no webhook secret.
-- [ ] 17.5 **Deferred — human required:** the Valkey template files (templates/queue-valkey.yaml, queue-valkey-secret.yaml) could not be deleted — the file deletion was denied by the permission classifier; they are gated to never render and carry a TODO. Values and helpers are removed — Values:
+- [x] 17.5 **Closed 2026-10-07 — moved to IMPL-0028 Phase 1, with the v1 runtime deletion.** **Deferred — human required:** the Valkey template files (templates/queue-valkey.yaml, queue-valkey-secret.yaml) could not be deleted — the file deletion was denied by the permission classifier; they are gated to never render and carry a TODO. Values and helpers are removed — Values:
   - add `temporal.*`, `checkInterval`, `policyRolloutWindow`,
     `checksRetention`, `worker.*`, `ingest.*`, `api.*` (DESIGN-0027) and
     `migrate.{enabled: true, freshness}`;
@@ -1410,7 +1436,7 @@ Land this phase as one PR, so the branch is never half-migrated.
   - **baked:** init SQL for new volumes, plus OQ24 for existing ones;
   - **CNPG:** `spec.managed.roles`, with the `-ro` Service;
   - **external:** the operator provides a Secret.
-- [ ] 17.9 **Deferred — human required:** depends on the Phase 16 metrics removal (16.3), which is deferred (mirrors the 17.2 catalogue) — Mirror the new alert catalogue in `prometheusrule.yaml`.
+- [x] 17.9 **Closed 2026-10-07 — moved to IMPL-0029, with 17.2.** **Deferred — human required:** depends on the Phase 16 metrics removal (16.3), which is deferred (mirrors the 17.2 catalogue) — Mirror the new alert catalogue in `prometheusrule.yaml`.
   `make lint-alerts-chart` stays green.
 - [x] 17.10 Rewrite the chart test suites and add `topology_test.yaml`.
   `ci/ci-values.yaml` gets `temporal.address`.
@@ -1453,17 +1479,17 @@ Land this phase as one PR, so the branch is never half-migrated.
 - [x] 18.4 Add a PR-identity lock test. The branch name, title
   constant, reconcile-log marker and hash tag format must equal literal
   strings.
-- [ ] 18.5 **Deferred — human required:** needs the homelab v1 database dump restored into a scratch database and the comparison against v1's report from the same dump — Rehearse the data migration. Restore the homelab v1 dump
+- [x] 18.5 **Closed 2026-10-07 — superseded by DESIGN-0032 D27: no v1 data is migrated.** **Deferred — human required:** needs the homelab v1 database dump restored into a scratch database and the comparison against v1's report from the same dump — Rehearse the data migration. Restore the homelab v1 dump
   into a scratch database, run `migrate --dry-run` and then `migrate`,
   and record the counts here. Compare `report` with v1's report from
   the same dump.
-- [ ] 18.6 **Deferred — human required:** cutting and publishing a release candidate is an outward-facing action (tag push, OCI publish, signing) that needs the maintainer — Cut `v2.0.0-rc.1` (OQ9):
+- [x] 18.6 **Closed 2026-10-07 — done: v2.0.0-rc.1 to rc.4 are published.** **Deferred — human required:** cutting and publishing a release candidate is an outward-facing action (tag push, OCI publish, signing) that needs the maintainer — Cut `v2.0.0-rc.1` (OQ9):
   - a `dont-release` PR bumps the chart to `2.0.0-rc.1` and sets
     `appVersion`;
   - tag it and dispatch the publish;
   - verify that `latest` did not move, that cosign signatures and SLSA
     provenance are present, and that the chart is on OCI.
-- [ ] 18.7 **Deferred — human required:** needs the live v1 database restored and rc.1 deployed to the homelab cluster — Shadow run (OQ16):
+- [x] 18.7 **Closed 2026-10-07 — superseded by DESIGN-0032 D27: no shadow run on a fresh database.** **Deferred — human required:** needs the live v1 database restored and rc.1 deployed to the homelab cluster — Shadow run (OQ16):
   - restore the live v1 database to a scratch database;
   - deploy rc.1 there with `DRY_RUN=true`, its own Temporal namespace
     and `all` topology;
@@ -1483,7 +1509,7 @@ Land this phase as one PR, so the branch is never half-migrated.
 
 #### Tasks
 
-- [ ] 19.1 **Deferred — human required:** a live homelab cutover (scale v1 down, upgrade the cluster, repoint ingress, redeliver webhooks) runs against production infrastructure — Cut the homelab over from its live v1 instance, following
+- [x] 19.1 **Closed 2026-10-07 — superseded: dev (rc) and prod (v1) are replaced by one fresh v2 install in IMPL-0030.** **Deferred — human required:** a live homelab cutover (scale v1 down, upgrade the cluster, repoint ingress, redeliver webhooks) runs against production infrastructure — Cut the homelab over from its live v1 instance, following
   the runbook step by step:
   1. `pg_dump`;
   2. `migrate --dry-run`;
@@ -1494,17 +1520,17 @@ Land this phase as one PR, so the branch is never half-migrated.
 
   Watch one rollout window, and record the timings, budget use and any
   runbook edits.
-- [ ] 19.2 **Deferred — human required:** needs the homelab Keycloak: client registration, audience and groups mapper — Enable `api` against the homelab's existing Keycloak (OQ28):
+- [x] 19.2 **Closed 2026-10-07 — moved to IMPL-0029, where the API and UI are re-keyed to controls.** **Deferred — human required:** needs the homelab Keycloak: client registration, audience and groups mapper — Enable `api` against the homelab's existing Keycloak (OQ28):
   register the UI client and the `repo-guardian-api` audience, add a
   groups mapper, and create two groups
   mapped to different orgs. Verify that each group sees different orgs,
   that a machine client can read `/findings`, and that `/status` works
   anonymously.
-- [ ] 19.3 **Deferred — human required:** a rollback drill against the live homelab deployment — Rollback drill:
+- [x] 19.3 **Closed 2026-10-07 — superseded: rollback is covered by the IMPL-0030 fresh install, which keeps the old databases until v2 is verified.** **Deferred — human required:** a rollback drill against the live homelab deployment — Rollback drill:
   - scale v2 to 0, then redeploy the last v1 chart;
   - v1 must start, sweep, and adopt a PR that v2 updated;
   - then roll forward again.
-- [ ] 19.4 **Deferred — human required:** records what the homelab cutover (19.1-19.3) taught, which has not happened — Update the docz statuses and CLAUDE.md on `v2` with what
+- [x] 19.4 **Closed 2026-10-07 — done by this close-out.** **Deferred — human required:** records what the homelab cutover (19.1-19.3) taught, which has not happened — Update the docz statuses and CLAUDE.md on `v2` with what
   the cutover taught us.
 
 #### Success Criteria
@@ -1681,10 +1707,10 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
     errors, compatibility);
   - `docs/usage/ui.md` (views, sessions, key rotation);
   - the spec attached to releases through goreleaser `extra_files`.
-- [ ] 22.6 **Deferred — human required:** pushing the v2.0.0-rc.2 tag, dispatching ghcr.yml, and the homelab login/scoping/status verification are outward-facing and need the homelab — Cut `v2.0.0-rc.2`. On the homelab, enable `ui` and
+- [x] 22.6 **Closed 2026-10-07 — done: rc.2 to rc.4 are published; homelab verification moves to the IMPL-0030 fresh install.** **Deferred — human required:** pushing the v2.0.0-rc.2 tag, dispatching ghcr.yml, and the homelab login/scoping/status verification are outward-facing and need the homelab — Cut `v2.0.0-rc.2`. On the homelab, enable `ui` and
   `ui.ingress`, then verify login, per-group visibility and the
   anonymous status page.
-- [ ] 22.7 **Deferred — human required:** happens at GA, which has not been cut — Mark DESIGN-0025/0026/0027 Implemented and this IMPL
+- [x] 22.7 **Closed 2026-10-07 — done by this close-out: DESIGN-0026 and DESIGN-0027 Implemented, DESIGN-0025 Superseded by DESIGN-0029 and DESIGN-0032.** **Deferred — human required:** happens at GA, which has not been cut — Mark DESIGN-0025/0026/0027 Implemented and this IMPL
   Completed at GA, not at rc.2.
 
 #### Success Criteria
@@ -1739,13 +1765,13 @@ directory on `v2` (OQ19; DESIGN-0027 amended to match).
   idempotency, webhook → findings (10, 12).
 - [x] API: contract validation, authn matrix, authz scoping, scope
   lint, read-only pool, status privacy, perf fixture (14, 15).
-- [ ] Removed-knob regressions: env, HCL, chart values (16, 17).
+- [x] **Closed 2026-10-07 — moved to IMPL-0028 Phase 1.** Removed-knob regressions: env, HCL, chart values (16, 17).
   Chart values and the removed env vars' warnings are covered; the HCL
   half (`worker_count`, `queue_size`, `schedule_interval` failing load)
   is **deferred - human required** with Phase 16.5.
 - [x] Chart: topology, secret scoping, guards, alerts (17, 22).
 - [x] BFF `bun test` matrix and Playwright e2e (20, 22).
-- [ ] **Deferred - human required:** Homelab: burst, patched deploy, rehearsal, shadow run, cutover,
+- [x] **Closed 2026-10-07 — burst and patched deploy moved to IMPL-0028 Phase 0; rehearsal, shadow run and cutover superseded by D27 and the IMPL-0030 fresh install.** Homelab: burst, patched deploy, rehearsal, shadow run, cutover,
   rollback drill (11, 18, 19).
 
 ## Dependencies

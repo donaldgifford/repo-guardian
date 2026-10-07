@@ -63,6 +63,7 @@ created: 2026-10-07
   - [OQ10: Is there a built-in default PR body?](#oq10-is-there-a-built-in-default-pr-body)
   - [OQ11: Which remediation holds alert?](#oq11-which-remediation-holds-alert)
   - [OQ12: Where is v2.0.0 tagged?](#oq12-where-is-v200-tagged)
+  - [OQ13: How many PRs?](#oq13-how-many-prs)
 - [References](#references)
 <!--toc:end-->
 
@@ -145,9 +146,11 @@ it visible. Phase 8 is the cutover code and the docs, written against
 the built behaviour. Phase 9 is human-run: the remediation rc and the
 homelab fresh install. Phase 10 is GA.
 
-No assignment is in `remediate` mode until Phase 9, so Phases 1 to 8
-can merge to `v2` one at a time without changing what a running
-deployment does.
+The plan lands as one PR into `v2` with the `dont-release` label (OQ13).
+No assignment is in `remediate` mode until Phase 9, so merging Phases 1
+to 8 changes nothing a running deployment does. Phases 9 and 10 (the
+homelab fresh install and the tags) are human-run and marked `deferred -
+human required`.
 
 ## Implementation Phases
 
@@ -724,6 +727,8 @@ does not matter.
 
 ### OQ1: Where do the remediation tables land in the goose chain?
 
+**Resolved 2026-10-07: (a).**
+
 - (a) ✅ recommended: **In `00003_controls_results`, created by IMPL-0029
   before its evaluate-only rc**, as DESIGN-0032 numbers them, so the rc
   schema is already the GA schema and this plan adds behaviour only;
@@ -738,6 +743,8 @@ does not matter.
 
 ### OQ2: Who owns PR observation and the start-due-remediations activity?
 
+**Resolved 2026-10-07: (a).**
+
 - (a) ✅ recommended: **This plan (Phase 2).** Both act on `remediations`
   rows, which do not exist before remediation; IMPL-0029's
   `EvaluationWorkflow` leaves the call site after `Record`.
@@ -745,6 +752,8 @@ does not matter.
 - other:
 
 ### OQ3: Which control types remediate in v2.0.0?
+
+**Resolved 2026-10-07: (a).**
 
 - (a) ✅ recommended: **All built-in types.** File types through PRs;
   API types `recommend` by default with `direct` and `workflow`
@@ -757,6 +766,8 @@ does not matter.
 
 ### OQ4: Does remediation ship as an rc before v2.0.0?
 
+**Resolved 2026-10-07: (a).**
+
 - (a) ✅ recommended: **Yes, one or more `v2.0.0-rc.N` tags**
   (`dont-release` plus a manual tag); the homelab fresh install runs on
   the rc, and GA is cut from the same code after Phase 9.
@@ -765,6 +776,8 @@ does not matter.
 - other:
 
 ### OQ5: Which Apps does the fresh install use?
+
+**Resolved 2026-10-07: (a).**
 
 - (a) ✅ recommended: **Two new Apps** (Evaluation, read-only;
   Remediation, write). New bot identities make the old PRs plainly
@@ -779,6 +792,8 @@ does not matter.
 
 ### OQ6: When are the old deployments' PRs closed?
 
+**Resolved 2026-10-07: (a).**
+
 - (a) ✅ recommended: **Per org, when that org turns on `remediate`.**
   Old PRs keep proposing their fixes while the org is evaluate-only,
   and are closed with a pointer comment once per-control PRs replace
@@ -789,6 +804,8 @@ does not matter.
 - other:
 
 ### OQ7: What gates turning remediation on for the remaining orgs, and GA?
+
+**Resolved 2026-10-07: (a).**
 
 - (a) ✅ recommended: **`donaldgifford` in `remediate` for 7 days** with
   every hold explained and no PR over the cap, then the remaining orgs;
@@ -801,6 +818,8 @@ does not matter.
 
 ### OQ8: How long are the old databases kept?
 
+**Resolved 2026-10-07: (a).**
+
 - (a) ✅ recommended: **Until v2.0.0 has run in the homelab for 14
   days**, then a `pg_dump` archive is kept and the databases are
   dropped with the dev and prod uninstall.
@@ -809,6 +828,8 @@ does not matter.
 - other:
 
 ### OQ9: What does the sticky PR comment look like?
+
+**Resolved 2026-10-07: (a).**
 
 - (a) ✅ recommended: **One sticky comment per PR with marker
   `<!-- repo-guardian:control:v1 -->` on row 1**, edited in place for
@@ -821,6 +842,8 @@ does not matter.
 
 ### OQ10: Is there a built-in default PR body?
 
+**Resolved 2026-10-07: (a).**
+
 - (a) ✅ recommended: **Yes.** An embedded default title
   (`chore: <control title>`) and body (what it fixes from `.Fixed`, what
   needs a human from `.Manual` and `.Notes`, a link to the
@@ -830,6 +853,8 @@ does not matter.
 - other:
 
 ### OQ11: Which remediation holds alert?
+
+**Resolved 2026-10-07: (a).**
 
 - (a) ✅ recommended: **`foreign_branch`, `permission` and
   `remediation_app_no_access`/`suspended` alert (warning, with
@@ -842,10 +867,22 @@ does not matter.
 
 ### OQ12: Where is v2.0.0 tagged?
 
+**Resolved 2026-10-07: (a).**
+
 - (a) ✅ recommended: **Fast-forward `main` to `v2` and tag `v2.0.0` on
   `main`**, with the `dont-release` label on the merge PR and the tag
   pushed by hand, so `main` is the v2 line from GA on.
 - (b) Tag on `v2` and merge to `main` later.
+- other:
+
+### OQ13: How many PRs?
+
+**Resolved 2026-10-07: (a).** The maintainer's direction: one PR per plan, so the agent does every task it can without waiting on a merge between phases. A task that needs the maintainer (homelab runs, GitHub App registration, approving a large `git rm`, release tags) is marked `deferred - human required` and done by the maintainer, during review or after the merge.
+
+- (a) ✅ recommended: **one PR for the whole plan** into `v2`, with
+  `dont-release`; Phases 9 and 10 are `deferred - human required`.
+- (b) One PR per phase into `v2`. Smaller reviews, but every phase waits
+  on a merge.
 - other:
 
 ## References

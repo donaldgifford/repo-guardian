@@ -591,7 +591,8 @@ evaluator's store.
 - [ ] 5.7 Webhook routing on `/webhooks/github/eval`: a default-branch
   push signals `recheck` at priority 2 with the changed paths filtered
   through `Snapshot.WatchedPaths()` (a push with no watched path signals
-  nothing; 2048 commits or `forced` is unknown); `repository` created,
+  nothing; 2048 commits, `forced`, or more than 256 filtered paths is
+  unknown, DESIGN-0032 § history growth); `repository` created,
   renamed, transferred, archived, unarchived and deleted run discovery,
   resolution or park; `installation` and `installation_repositories`
   from either App re-resolve the affected repositories, because a

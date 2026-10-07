@@ -582,23 +582,26 @@ The default query is built from `temporal.namespace` and
 
 ```promql
 sum(
-  max by (partition, task_type) (
-    approximate_backlog_count{namespace="repo-guardian", taskqueue="repo-guardian"}
+  max by (partition, task_type, task_priority, worker_build_id) (
+    approximate_backlog_count{namespace="repo_guardian", taskqueue="repo_guardian_eval"}
   )
 )
 ```
 
 The inner `max` stops a partition counting twice while it moves between
-matching hosts. Two label questions must be answered against live series
-before the default is pinned, because either could double-count:
-
-- Does the server also emit per-`priority` series beside an aggregate?
-  Fairness is on, so priority keys are in use.
-- Does `worker_build_id` split a partition's backlog during a version
-  rollover?
-
-The rollout plan makes this a gate. If either splits, the default
-groups by that label too, rather than letting `max` drop real backlog.
+matching hosts. IMPL-0028 Phase 0 answered the two label questions on
+the dev server (INV-0022 Phase-0 results, spike 5): there is no aggregate
+series, only one per `task_priority`, and `worker_build_id` (with
+`worker_deployment_name` and `worker_version`) is a label, so both are
+grouped on rather than letting `max` drop real backlog. Label values are
+sanitised, `-` becoming `_`, so the namespace `repo-guardian` and the
+queue `repo-guardian-eval` are selected as `repo_guardian` and
+`repo_guardian_eval`; the chart builds the selector from
+`temporal.namespace` and the queue name with that substitution. The
+homelab check still confirms the labels against the production metrics
+reporter before the default is pinned, and the value is approximate
+(five queued tasks read as three), which suits a scaling signal with an
+activation threshold of one. Amended 2026-10-07 (INV-0022 Phase-0 results).
 The query stays overridable because the metric may carry a prefix,
 depending on the server's metrics configuration.
 

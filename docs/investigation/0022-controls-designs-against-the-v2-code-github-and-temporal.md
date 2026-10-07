@@ -253,6 +253,95 @@ The corrections in F3 to F6, F8 to F10, F12 and F18 apply without a decision.
 9. **Upgrade and rollback rehearsal** on the dev server with per-role deployments, which under decision 1 should only confirm.
 10. **Label names:** case-insensitivity on create and update.
 
+## Phase-0 results
+
+Recorded by IMPL-0028 Phase 0 (OQ2: results live here, one subsection per spike). Spikes marked *pending* are maintainer-run; their tests are in the tree and write raw observations to `build/spike/<test>.json`.
+
+### Spike 1: GraphQL commit (IMPL-0028 0.6)
+
+*Pending, maintainer-run.* `go test -tags spike -count=1 -v -run TestSpike_GraphQLCommit ./internal/github/` against a throwaway repository (environment in the file header of `internal/github/spike_github_test.go`). It commits through `getInstallClient`, so every request crosses otelhttp, the rate-limit transport and ghinstallation, and records the correct-head, stale-head, 100-file, 101-file, 1 MiB and 1 MiB + 1 cases with their status, body and `x-ratelimit-*` headers, plus the commit's signature state.
+
+### Spike 2: update-branch (IMPL-0028 0.7)
+
+*Pending, maintainer-run.* `TestSpike_UpdateBranch` in the same file: an up-to-date PR, a stale `expected_head_sha`, a behind-and-clean PR with the time until its head moves, and a conflicting PR. The default branch of the throwaway repository must be unprotected; the test commits to it.
+
+### Spike 3: Evaluation App minimal permissions (IMPL-0028 0.8)
+
+*Pending, maintainer-run.* Register a test App with Metadata read, Contents read, Pull requests read and organisation Custom properties read, install it on the throwaway repository's owner, and run `TestSpike_EvalAppPermissions` with the `RG_SPIKE_EVAL_*` variables. It is read-only and records which merge-policy fields `GET /repos` returns, rulesets with parents and by id, property values, and the three endpoints expected to need Administration read.
+
+### Spike 4: `installation_repositories` on an all-repositories install (IMPL-0028 0.9)
+
+*Pending, maintainer-run.* No script: create a repository in an org where a test App is installed on all repositories and check the App's recent deliveries for `installation_repositories` and `repository`.
+
+### Spike 5: Temporal behaviours (IMPL-0028 0.10)
+
+Run 2026-10-07 on the pinned dev server (CLI v1.9.1); tests in `internal/temporal/spike_integration_test.go`.
+
+- **(a) Signal-with-start into a completing workflow.** 4 senders, 200 signal-with-starts against one id whose runs take one 30 ms activity and complete. With the end-of-run drain (`ReceiveAsync` until empty): 13 runs consumed **200 of 200**. Without it: 11 runs consumed 11, **189 lost**. F4 holds as written, and the drain DESIGN-0032 specifies was sufficient under this load: no signal was lost, including those that arrived while a run was completing.
+- **(b) Backlog metric labels.** `approximate_backlog_count` is emitted per `namespace`, `taskqueue`, `partition` (4 by default), `task_priority`, `task_type`, `worker_build_id`, `worker_deployment_name` and `worker_version`, with `operation="TaskQueuePartitionManager"`. Three findings for the KEDA query:
+  1. **Label values are sanitised: `-` becomes `_`.** The series read `namespace="repo_guardian"` and `taskqueue="repo_guardian_eval"`; the system namespace reads `temporal_system`. A query selecting `namespace="repo-guardian"` (DESIGN-0028, IMPL-0028 task 5.x as written) matches nothing. This is the dev server's Prometheus reporter; DESIGN-0028's homelab check confirms it against the production reporter before Phase 5.
+  2. There is no aggregate series: the count is split by `task_priority`, and `worker_build_id` is a label. Both answer DESIGN-0028's two label questions with "it splits", so its default query now groups on both inside the `max` (`max by (partition, task_type, task_priority, worker_build_id)`) before summing; a `max` over priorities would keep only the largest and drop real backlog.
+  3. It is approximate: five queued workflow tasks per queue read as 3 after 60 s. Fine as a scaling signal with an activation threshold of 1; not a count to alert on. The `physical_*`, `pri_physical_*` and `fair_physical_*` variants are per-physical-queue duplicates and must not be summed with it.
+- **(c) Evaluation history growth.** One signal per iteration carrying N 60-byte changed paths, one batched start activity per iteration, measured with `DescribeWorkflowExecution`:
+
+  | Paths per signal | Iterations | Events | History bytes | Bytes per iteration | Projected at 100 iterations |
+  | ---------------- | ---------- | ------ | ------------- | ------------------- | --------------------------- |
+  | 200 (filtered to the policy's paths) | 100 | 909 | 1.37 MB | 13.7 KB | 1.4 MB |
+  | 2048 (one path per commit, full push) | 100 | 834 | 13.0 MB | 130 KB | 13 MB |
+  | 20,000 (raw, many paths per commit) | 5 | 55 | 6.3 MB | 1.26 MB | 126 MB |
+
+  Temporal warns at 10 MB of history and terminates at 50 MB, and a single payload is capped at 2 MB. An unfiltered push therefore breaks the 100-iteration bound DESIGN-0032 relies on: a 2048-path push stream crosses the warning, and a raw monorepo push crosses the hard limit by iteration 40. **The bound only holds if the signal carries paths already filtered to the policy's `Owns() ∪ Reads()`, with a cap above which the signal carries the unknown set instead.** DESIGN-0032's history-growth paragraph is amended accordingly (filter at the router, cap 256 paths).
+
+### Spike 6: Database role provisioning (IMPL-0028 0.11)
+
+Run 2026-10-07; `pgtest.ControlsRoles` (owner without `CREATEROLE`, `rg_evaluator`, `rg_remediator`, and `rg_all` created `IN ROLE` both) plus a cut-down controls schema with DESIGN-0032's matrix in `internal/store/postgres/roles_spike_integration_test.go`, every assertion run as the application role.
+
+- **Column grants enforce record-is-narrow.** The remediator updating `remediated_generation, hold` succeeds; adding `status` to the same `UPDATE` fails with `42501 permission denied for table control_results`. The evaluator touching `hold` fails the same way. An evaluator `INSERT ... ON CONFLICT DO UPDATE` over its own columns succeeds.
+- **`SELECT ... FOR UPDATE` needs only the one-column UPDATE grant**, as the matrix states (`repository_policy_state.last_remediation_at`).
+- **The withdrawal cascade needs no DELETE on `rule_results`**: referential actions run with the owner's rights. The evaluator keeps DELETE there only for direct rule removal.
+- **Identity columns need no sequence grant; `BIGSERIAL` does.** An INSERT into a `GENERATED ALWAYS AS IDENTITY` table succeeded with no sequence privilege; the same INSERT into a `BIGSERIAL` table failed with `permission denied for sequence`. The controls schema uses identity columns, and the matrix's "USAGE on the sequences" line is dropped.
+- **The row-level security policies as written hide the other App's rows from reads.** A `CREATE POLICY ... TO rg_evaluator USING (app = 'eval')` policy is `FOR ALL`, so it filters SELECT too: the evaluator saw 1 of 2 `app_repository_access` rows. Resolution runs as the evaluator and needs the Remediation App's rows to compute `remediable`, so every `remediate` assignment would have resolved to `evaluate` with no error. Adding `CREATE POLICY ... FOR SELECT TO rg_evaluator, rg_remediator USING (true)` restores reads (2 of 2) while writes stay fenced: an evaluator `UPDATE` of a `remediate` row affects zero rows **without an error**, so the application must check affected-row counts where it relies on the fence. DESIGN-0032's matrix is amended.
+- **`all` as a member of both roles** writes both Apps' rows (policies granted to a role apply to its members).
+- **Modes.** External: the SQL `ControlsRoles` runs is the documented SQL. Baked: the rc's init-script plus hook pattern (`store-postgres-ro.yaml`) carries over; on the fresh install D27 requires, the init script always runs, and the hook remains for password rotation. One baked-mode gap: the image's `POSTGRES_USER` is a superuser, so "the migrating role holds no `CREATEROLE`" holds only if the init script also creates the owner role and the migrate Job connects as it. CNPG: managed roles carry login, password Secret, `inRoles` and the role flags, and no table privileges, which is consistent with migrations granting; `rg_all` is `inRoles: [rg_evaluator, rg_remediator]`. CNPG was not run here; Phase 6's chart tests cover rendering, and the homelab install covers behaviour.
+
+### Spike 7: Template sourcing (IMPL-0028 0.12)
+
+Run 2026-10-07: `internal/rules/policyroot_spike_test.go`, plus a throwaway local kind cluster (deleted) to confirm the projected layout.
+
+- **ConfigMap keys cannot contain `/`.** `templates/codeowners.tmpl` is rejected (`[-._a-zA-Z0-9]+`). The chart encodes a nested path into the key (`templates__codeowners.tmpl`, rejecting file names that contain `__`) and maps it back with the volume's `items[].path`. This works: the pod saw `/policy/orgs/acme.hcl` and `/policy/templates/codeowners.tmpl`.
+- **The projected layout defeats a naive walk.** Kubelet writes the data into `..<timestamp>/`, points `..data` at it, and makes each top-level path component a symlink through `..data` (`templates -> ..data/templates`). `filepath.WalkDir` on the mount does not follow those symlinks: it saw only the timestamped copies, whose directory name changes on every update. The reader must walk `<root>/..data/` when it exists, skip names starting with `..`, and key files by their path relative to it. The prototype does, reads all three files, and its hash is stable across reads.
+- **Hash.** The prototype hashes root files and the embedded templates the root does not shadow, length-prefixed and sorted. A template edit and an embedded-default change each move the hash; a change to an embedded template the root shadows does not. DESIGN-0030 D20 says the embedded bytes are hashed; that is refined to the unshadowed ones, so a binary upgrade does not re-roll a fleet whose operator overrides that template.
+- **Size.** A ConfigMap's data is capped at 1 MiB (`Too long: may not be more than 1048576 bytes`, confirmed). The policy root, HCL and templates together, must fit; `existingConfigMap` has the same cap. Helm also stores the release (values and rendered manifests, gzipped) in a Secret with the same cap, so the policy counts twice before compression.
+
+### Spike 8: Policy revert (IMPL-0028 0.13)
+
+Run 2026-10-07: `internal/store/postgres/policy_revert_spike_integration_test.go`.
+
+- **The rc bug is confirmed.** Deploying A, then B, then A again: the third `RecordPolicyVersion` reports `firstSeen = false`, so no rollout starts, and the rc's `CurrentPolicyVersion` (ordered by `first_seen_at`) still returns B.
+- **The D14 upsert fixes the ordering.** With `activated_at` and `ON CONFLICT (version) DO UPDATE SET activated_at = now() RETURNING (xmax = 0)`, the sequence A, B, C, A reports the right "newest by `activated_at`" at every step, `first_seen` is true only for C, and `first_seen_at` survives every reactivation.
+- **Two problems the spike exposed beyond F14:**
+  1. *Activation per pod is not activation per deploy.* D14 sets `activated_at` "on every deploy that loads that version", but the code that runs it is worker startup, once per pod. During a rollout from A to B, an old-version pod that restarts (eviction, OOM, node drain) re-activates A after B, and the monotonic resolver then discards every resolution under B until another B pod restarts. A pod cannot tell a revert from a straggler.
+  2. *The rollout id rejects a revert's rollout.* Rollouts start as `policy-rollout/<version>` (`controls-rollout/<version>` in DESIGN-0032) with `REJECT_DUPLICATE`, so re-activating A cannot start A's rollout again while the earlier run is within namespace retention.
+
+  See Phase-0 OQ1.
+
+### Spike 9: Per-role deployment rehearsal (IMPL-0028 0.14)
+
+*Pending, maintainer-run on dev.*
+
+### Spike 10: Label case (IMPL-0028 0.15)
+
+*Pending, maintainer-run.* `TestSpike_LabelCase` creates a mixed-case label, attempts its lower-case twin, reads by the other case, renames through the lower-case name and lists the result.
+
+### Phase-0 open questions
+
+#### OQ1: What activates a policy version?
+
+- (a) ✅ recommended: **the migrate Job.** It already runs once per `helm install`/`upgrade` (add `pre-rollback` to its hook list so a `helm rollback` also activates), loads the same binary and policy ConfigMap, computes the version and upserts `activated_at` as the owner. Workers only read the newest activation and start `controls-rollout/<version>/<activated_at unix seconds>` with `REJECT_DUPLICATE`, so each activation rolls out exactly once and a pod restart activates nothing.
+- (b) Workers activate only when the version they load is not the current activation **and** their pod template hash is newer than the one recorded with it (a `deploy_generation` column fed from a chart-stamped env var). Keeps activation in the worker but adds a deploy-identity value to the chart and schema.
+- (c) Keep per-pod activation and accept the straggler window: a restarting old pod discards resolutions until a new pod restarts. Simplest; wrong in exactly the failure it exists to prevent.
+- other:
+
 ## References
 
 - DESIGN-0029, DESIGN-0030, DESIGN-0031, DESIGN-0032 (as amended 2026-10-06)

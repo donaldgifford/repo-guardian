@@ -108,3 +108,61 @@ func AppRole(tb testing.TB, dsn string) string {
 
 	return u.String()
 }
+
+// ControlsDSNs connects as each role the controls schema expects
+// (DESIGN-0032 D8, D31).
+type ControlsDSNs struct {
+	// Owner owns the schema and runs migrations; it holds no CREATEROLE.
+	Owner string
+	// Evaluator and Remediator are the two application roles.
+	Evaluator  string
+	Remediator string
+	// All is the `all` topology's role: a member of both.
+	All string
+}
+
+// ControlsRoles provisions the controls roles the way the chart and the
+// external-database docs do, then returns a DSN for each. Migrations
+// grant to the application roles and never create them, so this runs
+// before any migration, as the admin in dsn.
+//
+// NOTE: IMPL-0028 task 0.11 prototype. Phase 6 keeps the statements in
+// step with the chart's init script and the external-mode SQL.
+func ControlsRoles(tb testing.TB, dsn string) ControlsDSNs {
+	tb.Helper()
+
+	ctx := context.Background()
+
+	conn, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		tb.Fatalf("pgtest: connect: %v", err)
+	}
+
+	defer conn.Close(ctx) //nolint:errcheck // test cleanup; nothing to recover
+
+	for _, stmt := range []string{
+		"CREATE ROLE rg_owner LOGIN PASSWORD 'rg_owner' NOSUPERUSER NOCREATEROLE",
+		"GRANT ALL ON SCHEMA public TO rg_owner",
+		"CREATE ROLE rg_evaluator LOGIN PASSWORD 'rg_evaluator' NOSUPERUSER",
+		"CREATE ROLE rg_remediator LOGIN PASSWORD 'rg_remediator' NOSUPERUSER",
+		"CREATE ROLE rg_all LOGIN PASSWORD 'rg_all' NOSUPERUSER IN ROLE rg_evaluator, rg_remediator",
+		"GRANT USAGE ON SCHEMA public TO rg_evaluator, rg_remediator",
+	} {
+		if _, err := conn.Exec(ctx, stmt); err != nil {
+			tb.Fatalf("pgtest: %s: %v", stmt, err)
+		}
+	}
+
+	as := func(role string) string {
+		u, err := url.Parse(dsn)
+		if err != nil {
+			tb.Fatalf("pgtest: parse dsn: %v", err)
+		}
+
+		u.User = url.UserPassword(role, role)
+
+		return u.String()
+	}
+
+	return ControlsDSNs{Owner: as("rg_owner"), Evaluator: as("rg_evaluator"), Remediator: as("rg_remediator"), All: as("rg_all")}
+}

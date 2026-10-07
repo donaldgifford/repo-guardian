@@ -23,6 +23,7 @@ created: 2026-09-25
   - [Findings model and store](#findings-model-and-store)
   - [Control plane and runtime](#control-plane-and-runtime)
   - [API, UI and chart](#api-ui-and-chart)
+- [Close-out (2026-10-07)](#close-out-2026-10-07)
 - [Implementation Phases](#implementation-phases)
   - [Phase 1: The v2 branch, CI and release plumbing](#phase-1-the-v2-branch-ci-and-release-plumbing)
     - [Tasks](#tasks)

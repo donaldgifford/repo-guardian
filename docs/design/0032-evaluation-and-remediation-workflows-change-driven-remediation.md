@@ -616,7 +616,9 @@ Configuration and chart:
 | `EVALUATOR_CONCURRENCY`, `REMEDIATOR_CONCURRENCY` | activity slots per pod for each role (DESIGN-0029 AR-0029-05); they replace `WORKER_ACTIVITY_CONCURRENCY`, which goes with the `worker` role |
 | `REMEDIATION_SWEEP_BATCH`, `REMEDIATION_MAINTENANCE_BATCH` | rows one sweep run signals or maintains before yielding |
 | `EVALUATOR_DB_POOL_SIZE`, `REMEDIATOR_DB_POOL_SIZE` | per-role Postgres pool sizes, replacing `STORE_POSTGRES_MAX_CONNS`; the roles share one Postgres, so the pools are sized together, and the remediator's covers one connection held per running operation (the `FOR UPDATE SKIP LOCKED` row lock) |
-| store DSNs | one per database role (evaluator, remediator, migrating owner), each from its own Secret (D31) |
+| `STORE_DSN_EVALUATOR`, `STORE_DSN_REMEDIATOR` | one DSN per database role, each from its own Secret and mounted only into that role's pods; the migrate Job keeps the owner DSN, `STORE_DSN` (D31) |
+| `EVAL_GITHUB_APP_ID`, `EVAL_GITHUB_PRIVATE_KEY_PATH`, `EVAL_WEBHOOK_SECRET` | the Evaluation App's credentials, replacing the single-App `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY_PATH` and `GITHUB_WEBHOOK_SECRET` |
+| `REMEDIATE_GITHUB_APP_ID`, `REMEDIATE_GITHUB_PRIVATE_KEY_PATH`, `REMEDIATE_WEBHOOK_SECRET` | the Remediation App's credentials |
 | webhook URLs | `/webhooks/github/eval` and `/webhooks/github/remediate`, one per App; each App's webhook URL is set to its own path (D29) |
 | Temporal worker deployments | `repo-guardian-eval` and `repo-guardian-remediate`, one per role, versioned by build ID (D28) |
 | `POLICY_ROLLOUT_WINDOW` | unchanged; it is the fan-out limit for a fleet-wide re-evaluation |

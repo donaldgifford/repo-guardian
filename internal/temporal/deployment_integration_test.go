@@ -101,3 +101,83 @@ func TestPromoteBuild_DevServer(t *testing.T) {
 		t.Errorf("newer build did not become current: %v", err)
 	}
 }
+
+// TestControlsDeployments_DevServer is IMPL-0028 task 4.11, the code
+// twin of Phase 0 task 0.14: the evaluator and remediator each join
+// their own worker deployment and become current at first start, and a
+// remediator at zero replicas (no worker at all) never blocks the
+// evaluator's promotion.
+func TestControlsDeployments_DevServer(t *testing.T) {
+	t.Parallel()
+
+	srv := temporaltest.Start(t)
+	c := srv.Client
+	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	const buildID = "2.0.0"
+
+	start := func(role, queue string) {
+		t.Helper()
+
+		w := temporal.NewWorker(c, &temporal.WorkerConfig{
+			TaskQueue: queue, Deployment: temporal.DeploymentName(role), ActivityConcurrency: 1, BuildID: buildID,
+		})
+		w.RegisterWorkflowWithOptions(promoteTestWorkflowFn, workflow.RegisterOptions{Name: promoteTestWorkflow})
+
+		if err := w.Start(); err != nil {
+			t.Fatalf("start %s worker: %v", role, err)
+		}
+		t.Cleanup(w.Stop)
+
+		ctx, cancel := context.WithTimeout(t.Context(), 90*time.Second)
+		defer cancel()
+
+		if err := temporal.PromoteBuild(ctx, c, temporal.DeploymentName(role), buildID, quiet); err != nil {
+			t.Fatalf("PromoteBuild(%s): %v", role, err)
+		}
+	}
+
+	execute := func(queue string) {
+		t.Helper()
+
+		ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+		defer cancel()
+
+		run, err := c.ExecuteWorkflow(ctx, client.StartWorkflowOptions{TaskQueue: queue}, promoteTestWorkflow)
+		if err != nil {
+			t.Fatalf("ExecuteWorkflow on %s: %v", queue, err)
+		}
+
+		var got string
+		if err := run.Get(ctx, &got); err != nil || got != "ok" {
+			t.Fatalf("workflow on %s = %q, %v; want \"ok\"", queue, got, err)
+		}
+	}
+
+	// Remediator at zero replicas: only the evaluator runs, and it is
+	// promoted and dispatched to on its own.
+	start("evaluator", temporal.TaskQueueEval)
+
+	if err := temporal.RequireCurrentVersion(t.Context(), c, temporal.DeploymentEval, buildID); err != nil {
+		t.Fatalf("evaluator not current with no remediator running: %v", err)
+	}
+
+	execute(temporal.TaskQueueEval)
+
+	if err := temporal.RequireCurrentVersion(t.Context(), c, temporal.DeploymentRemediate, buildID); err == nil {
+		t.Error("RequireCurrentVersion(remediate) with no remediator = nil, want an error")
+	}
+
+	// Scaling the remediator up makes its own deployment current.
+	start("remediator", temporal.TaskQueueRemediate)
+
+	if err := temporal.RequireCurrentVersion(t.Context(), c, temporal.DeploymentRemediate, buildID); err != nil {
+		t.Fatalf("remediator not current at first start: %v", err)
+	}
+
+	execute(temporal.TaskQueueRemediate)
+
+	if err := temporal.RequireCurrentVersion(t.Context(), c, temporal.DeploymentEval, buildID); err != nil {
+		t.Errorf("remediator's promotion displaced the evaluator: %v", err)
+	}
+}

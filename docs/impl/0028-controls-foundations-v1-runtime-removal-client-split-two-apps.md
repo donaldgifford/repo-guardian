@@ -703,10 +703,14 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   (`WORKER_ACTIVITY_CONCURRENCY`, discovery, snapshot, intervals) stays
   on worker/all. `tests/controls_roles_test.yaml` plus the split
   secret-scoping assertions deferred from 3.5.
-- [ ] 4.11 Integration test on the dev server: an evaluator and a
+- [x] 4.11 Integration test on the dev server: an evaluator and a
   remediator start under their own deployments, each becomes current at
   first start, and a remediator at zero replicas does not block the
   evaluator's promotion (the code-level twin of Phase 0 task 0.14).
+  Done: `TestControlsDeployments_DevServer`
+  (`internal/temporal/deployment_integration_test.go`): the evaluator is
+  promoted and dispatched to with no remediator worker, then the
+  remediator's promotion leaves the evaluator current.
 
 #### Success Criteria
 

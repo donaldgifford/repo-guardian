@@ -300,6 +300,8 @@ write-up.
   recorded value, and apply any design change a result forces to the
   affected design in the same PR, marked "Amended (INV-0022 Phase-0
   results)".
+  **Deferred - human required** for the remaining entries: they are the
+  results of the human-run tasks 0.1–0.5, 0.9 and 0.14.
   In progress: the addendum holds results for 0.10 to 0.13, and the corrections they force are applied to DESIGN-0028, DESIGN-0030, DESIGN-0032 and IMPL-0029. Phase-0 OQ1 is resolved (a): the migrate Job activates (task 6.8 here, IMPL-0029 4.5 and 5.6). The human-run results are added as they arrive.
 
 #### Success Criteria
@@ -915,13 +917,18 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
 
 #### Tasks
 
-- [ ] 7.1 CLAUDE.md (on `v2`): the new contracts: the Writer package and
+- [x] 7.1 CLAUDE.md (on `v2`): the new contracts: the Writer package and
   its depguard rule; GraphQL through the same transport chain and
   per-bucket snapshots; the 429 and GraphQL throttle shapes through
   `AsThrottled`; one webhook URL per App and the app-id cross-check;
   per-role worker deployments with no version suffix; priority orders
   within a queue only; the controls chain and the operator-provisioned
   roles; repo-guardian never deletes a branch.
+  Done: the per-phase CLAUDE.md paragraphs (Phases 2–6) state each
+  contract; Phase 2's names the Writer depguard rules, the shared
+  transport chain and per-bucket snapshots, the throttle shapes through
+  `AsThrottled`, and the no-branch-delete rule; Phase 4's the unsuffixed
+  per-role deployments and queue-local priority.
 - [ ] 7.2 `docs/operations/v2-onboarding.md`: the two credential blocks,
   the two webhook URLs and the role DSNs as optional new values, marked
   as not yet active until IMPL-0029 (the full rewrite is IMPL-0029's).

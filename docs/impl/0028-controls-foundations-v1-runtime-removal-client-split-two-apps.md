@@ -637,10 +637,14 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   Done: `temporal.DeploymentName(role)`, `DeploymentRC/Eval/Remediate`,
   `WorkerConfig.Deployment`; `PromoteBuild`/`RequireCurrentVersion` and
   `workerChecks` take the name, and the promote-manually hint names it.
-- [ ] 4.4 Schedules: `serviceStarter.ensureSchedules` takes the role and
+- [x] 4.4 Schedules: `serviceStarter.ensureSchedules` takes the role and
   ensures only that role's schedules (evaluation: controls discovery,
   snapshot; remediation: sweep, maintenance), so pods of one role never
   create the other's.
+  Done: `serviceStarter.schedules(role)` is the per-role table and
+  `ensureSchedules(ctx, role)` applies it. The rc worker keeps discovery
+  and snapshot; the evaluator's and remediator's entries are empty until
+  their workflows exist (IMPL-0029, IMPL-0030).
 - [ ] 4.5 Priorities: add `PriorityHuman = 1`; document in
   `internal/workflows/types.go` that priority orders tasks within one
   queue only (INV-0022 F5).

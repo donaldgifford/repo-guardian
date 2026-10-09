@@ -34,7 +34,7 @@ type serviceStarter struct {
 }
 
 func (s *serviceStarter) start(ctx context.Context, policyVersion string, summary store.PolicySummary) error {
-	if err := s.ensureSchedules(ctx); err != nil {
+	if err := s.ensureSchedules(ctx, config.RoleWorker); err != nil {
 		return err
 	}
 
@@ -45,29 +45,56 @@ func (s *serviceStarter) start(ctx context.Context, policyVersion string, summar
 	return s.startBootstrap(ctx)
 }
 
-// ensureSchedules reconciles the discovery and snapshot Schedules with
-// the configuration. DISCOVERY_ENABLED=false removes discovery's.
-func (s *serviceStarter) ensureSchedules(ctx context.Context) error {
+// ensureSchedules reconciles role's Schedules with the configuration
+// and touches no other role's, so pods of one role never create the
+// other's (IMPL-0028 task 4.4).
+func (s *serviceStarter) ensureSchedules(ctx context.Context, role config.Role) error {
+	ensure, remove := s.schedules(role)
+
+	for _, id := range remove {
+		if err := temporal.RemoveSchedule(ctx, s.client, id); err != nil {
+			return err
+		}
+	}
+
+	for _, sc := range ensure {
+		if err := temporal.EnsureSchedule(ctx, s.client, sc); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// schedules returns the Schedules role owns: those to ensure and those
+// to remove. The rc worker owns discovery (removed when
+// DISCOVERY_ENABLED=false) and snapshot. The evaluator will own
+// controls discovery and snapshot (IMPL-0029) and the remediator sweep
+// and maintenance (IMPL-0030); neither has a workflow to schedule yet.
+func (s *serviceStarter) schedules(role config.Role) (ensure []*temporal.Schedule, remove []string) {
+	if role != config.RoleWorker {
+		return nil, nil
+	}
+
 	if s.cfg.DiscoveryEnabled {
-		if err := temporal.EnsureSchedule(ctx, s.client, &temporal.Schedule{
+		ensure = append(ensure, &temporal.Schedule{
 			ID: workflows.DiscoveryScheduleID, Every: s.cfg.DiscoveryInterval, Workflow: workflows.DiscoveryWorkflowName,
 			Args: []any{&workflows.DiscoveryInput{}}, TaskQueue: s.taskQueue,
 			Priority: workflows.TaskPriority(workflows.PrioritySchedule, 0),
-		}); err != nil {
-			return err
-		}
-	} else if err := temporal.RemoveSchedule(ctx, s.client, workflows.DiscoveryScheduleID); err != nil {
-		return err
+		})
+	} else {
+		remove = append(remove, workflows.DiscoveryScheduleID)
 	}
 
-	return temporal.EnsureSchedule(ctx, s.client, &temporal.Schedule{
+	ensure = append(ensure, &temporal.Schedule{
 		ID: workflows.SnapshotScheduleID, Every: s.cfg.ComplianceSnapshotInterval, Workflow: workflows.SnapshotWorkflowName,
 		Args: []any{&workflows.SnapshotInput{Retention: s.cfg.ChecksRetention}}, TaskQueue: s.taskQueue,
 		Priority: workflows.TaskPriority(workflows.PrioritySchedule, 0),
 	})
+
+	return ensure, remove
 }
 
-// startRollout records the policy version and, the first time any
 // worker sees it, starts policy-rollout/<version>.
 func (s *serviceStarter) startRollout(ctx context.Context, version string, summary store.PolicySummary) error {
 	first, err := s.store.RecordPolicyVersion(ctx, version, summary)

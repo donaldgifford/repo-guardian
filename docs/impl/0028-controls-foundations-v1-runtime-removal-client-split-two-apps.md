@@ -461,7 +461,7 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   branch removed, the `rest 429` and `rest 429 without headers` cases
   fail; restored. `Usage` (the installation budget report) also keeps
   only the core bucket's headers.
-- [ ] 2.6 Writer in its own package, `internal/github/write` (OQ5),
+- [x] 2.6 Writer in its own package, `internal/github/write` (OQ5),
   implementing `control.Writer`: `Commit` over `createCommitOnBranch`
   with `expectedHeadOid` (mapping the Phase 0 stale-head error to
   `ErrExpectedHeadMismatch`), `CreateRef` (REST, fails when the branch
@@ -472,6 +472,14 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   `CreatePullRequest`, `UpdatePullRequest`, `ClosePullRequest`,
   `UpsertPRComment`, `UpdateRepository`, `UpsertRuleset`,
   `SetCustomProperties`. No branch delete (D30).
+  Done: `internal/github/write.Writer`. STALE_DATA is read through
+  `github.WithGraphQLErrorTypes`, a per-context collector the transport
+  fills (githubv4 keeps only an error's message). A 422 from
+  update-branch is classified from state per the INV-0022 spike 2
+  amendment: head moved → `ErrExpectedHeadMismatch`, `behind_by == 0` →
+  no-op, still behind → `ErrMergeConflict`. `Commit` enforces the
+  100-file / 1 MiB change-set bound. Probe: with the STALE_DATA branch
+  disabled, `TestCommit/stale_head` fails; restored.
 - [ ] 2.7 depguard: a rule denying `internal/github/write` to every path
   except the remediation activities' package and `cmd/repo-guardian`,
   and denying it to `internal/control`, `internal/controls/**`,

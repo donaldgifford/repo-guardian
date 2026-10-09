@@ -51,7 +51,7 @@ func (o *RepoObserver) ListPullRequests(ctx context.Context, headPrefix string) 
 
 		for _, pr := range prs {
 			if strings.HasPrefix(pr.GetHead().GetRef(), headPrefix) {
-				out = append(out, toControlPR(pr))
+				out = append(out, ControlPullRequest(pr))
 			}
 		}
 
@@ -70,7 +70,7 @@ func (o *RepoObserver) GetPullRequest(ctx context.Context, number int) (*control
 		return nil, fmt.Errorf("reading pull request %s/%s#%d: %w", o.owner, o.repo, number, err)
 	}
 
-	out := toControlPR(pr)
+	out := ControlPullRequest(pr)
 
 	return &out, nil
 }
@@ -128,10 +128,11 @@ func (o *RepoObserver) GetRef(ctx context.Context, branch string) (string, bool,
 	return ref.GetObject().GetSHA(), true, nil
 }
 
-// toControlPR captures what adoption needs (DESIGN-0032 D16): the
-// author's user id and type, which GitHub authenticates, and the head
-// repository id, which is 0 when the fork was deleted.
-func toControlPR(pr *gh.PullRequest) control.PullRequest {
+// ControlPullRequest converts a go-github PR. It captures what adoption
+// needs (DESIGN-0032 D16): the author's user id and type, which GitHub
+// authenticates, and the head repository id, which is 0 when the fork
+// was deleted.
+func ControlPullRequest(pr *gh.PullRequest) control.PullRequest {
 	return control.PullRequest{
 		Number:      pr.GetNumber(),
 		Title:       pr.GetTitle(),

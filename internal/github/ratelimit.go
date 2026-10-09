@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -378,6 +379,8 @@ func (t *rateLimitTransport) graphQLThrottle(resp *http.Response) *ThrottledErro
 		errs = decodeGraphQLErrors(peek)
 	}
 
+	recordGraphQLErrors(resp.Request, errs)
+
 	for _, e := range errs {
 		if e.Type == "RATE_LIMITED" || strings.Contains(strings.ToLower(e.Message), "secondary rate limit") {
 			obs, _ := parseRateHeaders(resp)
@@ -438,5 +441,54 @@ func sleepWithContext(ctx context.Context, d time.Duration) error {
 		return ctx.Err()
 	case <-timer.C:
 		return nil
+	}
+}
+
+// GraphQLErrorTypes collects the errors[].type values of the GraphQL
+// responses sent under one context. The GraphQL client keeps only an
+// error's message, but the writer must tell STALE_DATA from any other
+// failure, so the transport, which already reads the body, records
+// the types here. Safe for concurrent use.
+type GraphQLErrorTypes struct {
+	mu    sync.Mutex
+	types []string
+}
+
+type graphQLErrorTypesKey struct{}
+
+// WithGraphQLErrorTypes returns a context under which the transport
+// records every GraphQL error type into the returned collector.
+func WithGraphQLErrorTypes(ctx context.Context) (context.Context, *GraphQLErrorTypes) {
+	g := &GraphQLErrorTypes{}
+
+	return context.WithValue(ctx, graphQLErrorTypesKey{}, g), g
+}
+
+// Has reports whether any recorded GraphQL error carried typ.
+func (g *GraphQLErrorTypes) Has(typ string) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	return slices.Contains(g.types, typ)
+}
+
+// recordGraphQLErrors adds errs' types to req's collector, if any.
+func recordGraphQLErrors(req *http.Request, errs []graphQLError) {
+	if req == nil || len(errs) == 0 {
+		return
+	}
+
+	g, ok := req.Context().Value(graphQLErrorTypesKey{}).(*GraphQLErrorTypes)
+	if !ok {
+		return
+	}
+
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	for _, e := range errs {
+		if e.Type != "" {
+			g.types = append(g.types, e.Type)
+		}
 	}
 }

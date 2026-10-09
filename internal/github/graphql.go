@@ -42,3 +42,16 @@ func graphQLURL(rest *gh.Client) string {
 
 	return base.String()
 }
+
+// GraphQLClient returns the GraphQL client on this client's transport
+// chain. It exists for internal/github/write, which depguard keeps
+// away from every evaluator-side package; reads go through RepoReader.
+func (c *GitHubClient) GraphQLClient() *githubv4.Client {
+	return c.graphQL()
+}
+
+// RESTClient returns the go-github client this client wraps, for
+// internal/github/write (see GraphQLClient).
+func (c *GitHubClient) RESTClient() *gh.Client {
+	return c.ghClient()
+}

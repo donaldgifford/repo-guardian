@@ -55,9 +55,10 @@ PR identity, so v2 picks up where v1 stopped. Designs:
 
 ### Environment variables
 
-These are ignored. Under the v2 roles nothing reads them, but nothing
-warns about them either yet (IMPL-0025 task 16.5), so remove them from
-the Deployment by hand rather than relying on the logs:
+These are ignored. Every role logs one warning at startup naming each
+one still set (`removed configuration env vars are set and ignored`,
+with `migration` pointing here), so a stale Deployment patch shows up
+in the logs. Remove them:
 
 | Removed | Replacement |
 | --- | --- |
@@ -68,6 +69,7 @@ the Deployment by hand rather than relying on the logs:
 | `POSTURE_EXPORT_INTERVAL` | none; the API reads compliance from Postgres |
 | `WORKER_COUNT`, `QUEUE_SIZE` | `WORKER_ACTIVITY_CONCURRENCY` |
 | `SCHEDULE_INTERVAL` | `CHECK_INTERVAL` |
+| `STORE_BACKEND` | none; Postgres is the only store |
 
 `RECONCILE_FRESHNESS` is read once, by `migrate`, to seed each
 repository's first due time. Otherwise it is ignored.

@@ -392,7 +392,7 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   remaining Valkey values and helpers; helm-unittest still passes.
 - [x] 1.8 Remove the queue, scheduler and v1 `Store` entries from
   `.mockery.yaml`; `make mocks`.
-- [ ] 1.9 Update `docs/operations/v2-migration.md`: the removed env vars
+- [x] 1.9 Update `docs/operations/v2-migration.md`: the removed env vars
   now warn (the note added 2026-10-06 is replaced).
 
 #### Success Criteria

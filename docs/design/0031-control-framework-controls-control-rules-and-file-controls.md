@@ -408,8 +408,9 @@ func Revision(t Type, def Definition, env BuildEnv) (string, error)
 
 // ValidateChangeSet checks a ChangeSet before anything leaves Remediate
 // (D18): unique paths, every path and API resource within c.Owns(), at
-// most 100 files and 1 MiB per file (the limits of the commit mutation,
-// DESIGN-0032 AR-0032-07), regular files only, and every failing rule of
+// most 100 files and 1 MiB per file (repo-guardian's own bound: the
+// commit mutation accepted 101 files and a 1 MiB + 1 byte file, INV-0022
+// Phase-0 results), regular files only, and every failing rule of
 // ev in exactly one of Fixed, Manual or Blocked.
 func ValidateChangeSet(c Control, ev Evaluation, cs ChangeSet) error
 ```
@@ -485,7 +486,7 @@ type Writer interface {
 
 - **Rulesets** are listed with `includes_parents=true`, paginated to completion (go-github's `GetAllRulesets` returns 30 per page by default), and each is then fetched by id, because the list omits `rules`. `Source` comes from the API's `source_type`. The rc client passes `includes_parents=false` (`internal/github/client.go:653`), so inherited org and enterprise rulesets never appear and `unknown{reason=inherited}` could never fire; the adapter changes that.
 - **Permissions for reads.** Listing and reading rulesets and reading custom property values need only Metadata: read. Creating, updating or deleting a ruleset needs Administration: write; writing property values needs repository Custom properties: write; `OrgPropertySchema` needs organization Custom properties: read. Pull requests read and write covers a PR's labels.
-- **`Writer.Commit` is GraphQL.** `createCommitOnBranch` with `expectedHeadOid` is a real compare-and-swap (the schema describes `expectedHeadOid` as the commit "expected at the head of the branch prior to the commit"), but the module has no GraphQL client, and the throttle path knows only REST headers. The adapter adds a GraphQL client and the throttle classification for its rate limits (DESIGN-0032). The 100-file and 1 MiB limits AR-0031-09 adopts are not in the schema documentation; they are a phase-0 spike, together with the shape of the stale-head error.
+- **`Writer.Commit` is GraphQL.** `createCommitOnBranch` with `expectedHeadOid` is a real compare-and-swap (the schema describes `expectedHeadOid` as the commit "expected at the head of the branch prior to the commit"), but the module has no GraphQL client, and the throttle path knows only REST headers. The adapter adds a GraphQL client and the throttle classification for its rate limits (DESIGN-0032). The 100-file and 1 MiB limits AR-0031-09 adopts are not in the schema documentation; they are a phase-0 spike, together with the shape of the stale-head error. The spike answered both: the mutation accepted 101 files and a 1 MiB + 1 byte file, so the limits are repo-guardian's own bound on a change set, kept because no control needs more; and a stale head is an HTTP 200 whose body has `data.createCommitOnBranch: null` and `errors[].type == "STALE_DATA"`, which is what `ErrExpectedHeadMismatch` is mapped from. Each mutation costs one point of the separate `graphql` rate-limit bucket, and every commit is signed by GitHub (`web-flow`) with the App's bot as author and `GitHub` as committer. Amended 2026-10-09 (INV-0022 Phase-0 results).
 
 ### Rules and results
 
@@ -661,7 +662,7 @@ One control for one opinion, which replaces v1's `renovate_config` and `dependab
 
 | Aspect | Behaviour |
 | ------ | --------- |
-| Owns | `label:<name>` for every label the definition manages, including the ones it retires; names are lower-cased for comparison because GitHub's are case-insensitive. How GitHub's create and update calls treat a name differing only in case is a phase-0 spike (*amended 2026-10-06, INV-0022*) |
+| Owns | `label:<name>` for every label the definition manages, including the ones it retires; names are lower-cased for comparison because GitHub's are case-insensitive. How GitHub's create and update calls treat a name differing only in case is a phase-0 spike (*amended 2026-10-06, INV-0022*). The spike showed names are unique case-insensitively: creating a case twin returns 422 `already_exists`, `GET` and `PATCH` address a label in any case, and `PATCH new_name` changes only the case. A case-only difference is remediated as an update, never a create, and an `already_exists` on create means the read was stale (*amended 2026-10-09, INV-0022 Phase-0 results*) |
 | Reads | none with a push signal; evaluated on the schedule |
 | Rule kind `present` | the label exists with the declared colour and description |
 | Rule kind `absent` | a retired label is gone |

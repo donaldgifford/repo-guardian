@@ -229,7 +229,7 @@ write-up.
   with zero `WorkflowTaskFailed` over a day of checks, and capture a
   fresh `InstallationWorkflow` history for the replay suite.
   **Deferred - human required.**
-- [ ] 0.6 **GraphQL commit (INV-0022 spike 1, human-run against a
+- [x] 0.6 **GraphQL commit (INV-0022 spike 1, human-run against a
   throwaway repository).** Through a client built on the real transport
   chain (otelhttp → rate-limit transport → ghinstallation): a
   `createCommitOnBranch` with a correct `expectedHeadOid`, with a stale
@@ -238,13 +238,13 @@ write-up.
   message), the real limits, the `x-ratelimit-resource` and remaining
   headers, and whether the commit is signed. Can change DESIGN-0031 D8
   and AR-0031-09.
-  **Deferred - human required.** Run `TestSpike_GraphQLCommit` in `internal/github/spike_github_test.go` (`-tags spike`); it writes `build/spike/TestSpike_GraphQLCommit.json`.
-- [ ] 0.7 **update-branch (spike 2, human-run).** On a throwaway
+  Done 2026-10-09 (maintainer run); results in INV-0022 § Phase-0 results.
+- [x] 0.7 **update-branch (spike 2, human-run).** On a throwaway
   repository: an up-to-date PR, a PR with a conflicting base change, and
   a call with a stale `expected_head_sha`. Record status codes and
   bodies, and how long the background merge takes to move the head. Can
   change DESIGN-0032 D17 and the flowchart.
-  **Deferred - human required.** Run `TestSpike_UpdateBranch` in `internal/github/spike_github_test.go` (`-tags spike`); it writes `build/spike/TestSpike_UpdateBranch.json`.
+  Done 2026-10-09 (maintainer run); results in INV-0022 § Phase-0 results.
 - [ ] 0.8 **Evaluation App minimal permissions (spike 3, human-run).**
   Register a test App with Metadata read, Contents read, Pull requests
   read and organisation Custom properties read only. Confirm
@@ -253,6 +253,7 @@ write-up.
   readable. Record any field that needs Administration read. Can change
   the DESIGN-0032 permission table and A23.
   **Deferred - human required.** Run `TestSpike_EvalAppPermissions` in `internal/github/spike_github_test.go` (`-tags spike`); it writes `build/spike/TestSpike_EvalAppPermissions.json`.
+  First run done 2026-10-09: merge-policy settings are not Metadata reads (DESIGN-0032 amended). Second run pending with Organization Custom properties read, Administration read, an org property value and an org ruleset.
 - [ ] 0.9 **`installation_repositories` on an all-repositories install
   (spike 4, human-run).** Create a repository in an org where a test App
   is installed on all repositories; record whether the event fires. If
@@ -292,10 +293,10 @@ write-up.
   Confirm a `repo-guardian-remediate` deployment at zero replicas does
   not block the evaluator's promotion.
   **Deferred - human required.**
-- [ ] 0.15 **Label case (spike 10, human-run).** Create and update a
+- [x] 0.15 **Label case (spike 10, human-run).** Create and update a
   label whose name differs from an existing one only in case; record
   GitHub's behaviour for DESIGN-0031's `labels` control.
-  **Deferred - human required.** Run `TestSpike_LabelCase` in `internal/github/spike_github_test.go` (`-tags spike`); it writes `build/spike/TestSpike_LabelCase.json`.
+  Done 2026-10-09 (maintainer run); results in INV-0022 § Phase-0 results.
 - [ ] 0.16 Write the "Phase-0 results" addendum to INV-0022 with every
   recorded value, and apply any design change a result forces to the
   affected design in the same PR, marked "Amended (INV-0022 Phase-0

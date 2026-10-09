@@ -259,15 +259,48 @@ Recorded by IMPL-0028 Phase 0 (OQ2: results live here, one subsection per spike)
 
 ### Spike 1: GraphQL commit (IMPL-0028 0.6)
 
-*Pending, maintainer-run.* `go test -tags spike -count=1 -v -run TestSpike_GraphQLCommit ./internal/github/` against a throwaway repository (environment in the file header of `internal/github/spike_github_test.go`). It commits through `getInstallClient`, so every request crosses otelhttp, the rate-limit transport and ghinstallation, and records the correct-head, stale-head, 100-file, 101-file, 1 MiB and 1 MiB + 1 cases with their status, body and `x-ratelimit-*` headers, plus the commit's signature state.
+Run 2026-10-09 by the maintainer against `repo-guardian/test` as a test Remediation App (Contents, Pull requests, Issues, Administration, Custom properties and Workflows write), through `getInstallClient`, so every call crossed otelhttp, the rate-limit transport and ghinstallation. Raw observations: `build/spike/TestSpike_GraphQLCommit.json` (not committed).
+
+- **Correct `expectedHeadOid`:** HTTP 200, `data.createCommitOnBranch.commit.oid` set.
+- **Stale `expectedHeadOid`: HTTP 200, not an HTTP error.** `data.createCommitOnBranch` is `null` and the body carries `errors: [{"type": "STALE_DATA", "path": ["createCommitOnBranch"], "message": "Expected branch to point to \"<oid>\" but it did not.  Pull and try again."}]`. `ErrExpectedHeadMismatch` is therefore `errors[].type == "STALE_DATA"` on a 200, which a status-code check never sees. The GraphQL error path is read before the throttle path's REST-shaped checks, and a `RATE_LIMITED` type is the throttle signal on the same 200 shape.
+- **Limits: 101 files and a 1 MiB + 1 byte file both committed.** The 100-file and 1 MiB-per-file limits DESIGN-0031 AR-0031-09 cites are not the mutation's; the real ceiling was not reached (the 1 MiB + 1 request carried about 1.4 MB of base64). DESIGN-0031's change-set bounds stay as repo-guardian's own conservative limits, reworded so they no longer claim to be GitHub's.
+- **Rate limit:** `x-ratelimit-resource: graphql`, limit 5000, and each mutation cost 1 point (`used` 1 to 6 over six mutations). GraphQL is its own bucket, separate from REST's `core`, confirming DESIGN-0032's per-resource budget snapshot.
+- **Signature:** every commit `isValid: true`, `state: VALID`, `wasSignedByGitHub: true`, signer `web-flow`; REST `verification.verified: true, reason: valid`. The author is the App's bot (`<app-slug>[bot]`, its numeric noreply address) and the committer is `GitHub <noreply@github.com>`. Adoption by authenticated author (DESIGN-0032 AR-0032-02) keys on the author, never the committer, the same distinction rgctl's `web-flow` fix makes (IMPL-0027).
 
 ### Spike 2: update-branch (IMPL-0028 0.7)
 
-*Pending, maintainer-run.* `TestSpike_UpdateBranch` in the same file: an up-to-date PR, a stale `expected_head_sha`, a behind-and-clean PR with the time until its head moves, and a conflicting PR. The default branch of the throwaway repository must be unprotected; the test commits to it.
+Run 2026-10-09 by the maintainer; raw observations in `build/spike/TestSpike_UpdateBranch.json`.
+
+| Case | Status | Body `message` |
+| ---- | ------ | -------------- |
+| PR already contains the base head | 422 | `There are no new commits on the base branch.` |
+| `expected_head_sha` stale | 422 | `expected head sha didn’t match current head ref.` (a typographic apostrophe) |
+| behind and clean | 202 | `Updating pull request branch.`; the head moved 1.7 s later |
+| conflicting change on both sides | 422 | `merge conflict between base and head` |
+
+Three different outcomes share one status, distinguished only by free-text messages, and the "already up to date" case is not in DESIGN-0032 D17 at all: treated as a conflict it would hold a healthy PR, treated as a mismatch it would defer forever. D17 is amended: after any 422 the run re-reads the PR (head SHA and the compare's `behind_by`) and classifies from state, so a head that moved defers, `behind_by == 0` is a no-op that proceeds to `Remediate`, and only a PR still behind at the expected head holds `conflict`. The message is logged, never matched. The 202 latency supports D17's "defer and re-pin on the next run".
 
 ### Spike 3: Evaluation App minimal permissions (IMPL-0028 0.8)
 
-*Pending, maintainer-run.* Register a test App with Metadata read, Contents read, Pull requests read and organisation Custom properties read, install it on the throwaway repository's owner, and run `TestSpike_EvalAppPermissions` with the `RG_SPIKE_EVAL_*` variables. It is read-only and records which merge-policy fields `GET /repos` returns, rulesets with parents and by id, property values, and the three endpoints expected to need Administration read.
+First run 2026-10-09 by the maintainer as a test Evaluation App holding Metadata, Contents and Pull requests read plus **repository** Custom properties read (the Organization permission the design names was not yet granted); raw observations in `build/spike/TestSpike_EvalAppPermissions.json`. For comparison the same reads were run as the test Remediation App (`build/spike/remediation-readback.json`).
+
+| Read | Evaluation App (Metadata-based) | Remediation App (Administration write) |
+| ---- | ------------------------------- | -------------------------------------- |
+| `GET /repos`: `has_wiki`, `has_issues`, `has_projects`, `web_commit_signoff_required` | present | present |
+| `GET /repos`: `allow_merge_commit`, `allow_squash_merge`, `allow_rebase_merge`, `allow_auto_merge`, `allow_update_branch`, `delete_branch_on_merge`, the four merge-commit title/message fields | **absent** | present |
+| `GET /repos`: `security_and_analysis` | **absent** | present |
+| rulesets `?includes_parents=true`, and by id with `conditions` and `rules` | 200, `source_type: Repository` | same |
+| `GET /properties/values` | 200, `[]` | 200, `[]` |
+| `GET /orgs/{org}/properties/schema` | 403 | 403 |
+| `GET /vulnerability-alerts` | 403 | 204 |
+| `GET /branches/main/protection` | 403 | 404 (no classic protection) |
+| `GET /codeowners/errors` | 200, both lines reported | 200 |
+
+- **Rulesets and CODEOWNERS errors hold** under the Metadata/Contents set, including `source_type`, `conditions` and `rules`.
+- **The merge-policy settings and `security_and_analysis` do not.** DESIGN-0032's "repository settings are Metadata reads" is wrong for exactly the fields `repo_settings` manages: they are omitted, not nulled, so a reader that defaults a missing field would report every repository's merge policy as false. The design is amended to say so; which permission is the minimum (Administration read is the candidate, since the design already grants it for the vulnerability-alerts read) is the second run.
+- **Not yet answered:** no org ruleset and no property value were visible to either App, so whether an inherited org ruleset and property values are Metadata reads is open; and the org schema 403 is expected until the App holds Organization Custom properties read.
+
+**Second run (pending):** on the test Evaluation App, replace repository Custom properties read with **Organization Custom properties read**, add **Administration read**, define an org custom property with a value on `repo-guardian/test` and an org ruleset targeting it (if the org's plan offers org rulesets), then re-run `TestSpike_EvalAppPermissions`.
 
 ### Spike 4: `installation_repositories` on an all-repositories install (IMPL-0028 0.9)
 
@@ -331,7 +364,13 @@ Run 2026-10-07: `internal/store/postgres/policy_revert_spike_integration_test.go
 
 ### Spike 10: Label case (IMPL-0028 0.15)
 
-*Pending, maintainer-run.* `TestSpike_LabelCase` creates a mixed-case label, attempts its lower-case twin, reads by the other case, renames through the lower-case name and lists the result.
+Run 2026-10-09 by the maintainer; raw observations in `build/spike/TestSpike_LabelCase.json`.
+
+- Creating `spike-case-N` when `Spike-Case-N` exists: **422** `Validation Failed`, `errors: [{"resource": "Label", "code": "already_exists", "field": "name"}]`.
+- `GET /labels/spike-case-N` returns the label named `Spike-Case-N`: lookup is case-insensitive.
+- `PATCH /labels/spike-case-N` with `new_name: SPIKE-CASE-N` succeeds and changes only the case; the old mixed-case path then also resolves to it, and the list holds one label.
+
+Label names are unique case-insensitively, every endpoint addresses them case-insensitively, and a case change is an update. DESIGN-0031's `labels` control compares lower-cased names (as written) and remediates a case-only difference with `PATCH new_name`, never a create; a create returning `already_exists` means the read is stale and the run re-reads.
 
 ### Phase-0 open questions
 

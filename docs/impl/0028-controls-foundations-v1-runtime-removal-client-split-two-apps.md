@@ -935,8 +935,11 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
   Done: § The controls Apps (optional, not yet active), the per-App
   webhook URL table in § 5, and § Controls database roles marked not yet
   active.
-- [ ] 7.3 `make ci`, `make test-integration`, `make lint-monitoring` and
+- [x] 7.3 `make ci`, `make test-integration`, `make lint-monitoring` and
   the replay suite green; the docs site builds with no new warnings.
+  Done 2026-10-09: `make ci` green; `make test-integration` 28 packages
+  ok (replay included); `make lint-monitoring` current; mkdocs build
+  14 warnings, identical to the merge base's.
 - [x] 7.4 `Chart.yaml` `version` and `appVersion` bumped by hand to the
   next rc (OQ8); helm-docs regenerated from `README.md.gotmpl`.
   Done: chart `2.0.0-rc.5` / appVersion `2.0.0-rc.5`; README regenerated.

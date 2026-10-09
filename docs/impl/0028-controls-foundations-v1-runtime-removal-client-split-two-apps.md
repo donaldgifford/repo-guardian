@@ -587,9 +587,13 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   `repo_guardian_deployment_info{topology}`, set at startup (`all` when
   one process runs every role). Dashboards join with `max by
   (installation_id, org)`, so the generated tier is unchanged.
-- [ ] 3.7 Tests: a delivery on each path validates only with that path's
+- [x] 3.7 Tests: a delivery on each path validates only with that path's
   secret; a payload signed with the other App's secret is 401; the
   app-id mismatch is rejected; config refusals per role.
+  Done with tasks 3.1–3.3: `TestNewApp_EachRouteValidatesOnlyItsOwnSecret`,
+  `TestNewApp_AppMismatch` (counter asserted), `TestNew_SingleAppRouteStampsNoApp`,
+  `TestLoadRole_ControlsWorkers`, `TestLoadRole_IngestAppRoutes`,
+  `TestRouteWebhook_RemediationAppAccess`.
 
 #### Success Criteria
 

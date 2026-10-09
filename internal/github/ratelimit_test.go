@@ -438,9 +438,7 @@ func primeRateLimitState(t *testing.T, tr *rateLimitTransport, remaining, limit 
 	t.Helper()
 
 	tr.mu.Lock()
-	tr.remaining = remaining
-	tr.limit = limit
-	tr.resetAt = resetAt
+	tr.snapshots[bucketCore] = rateSnapshot{remaining: remaining, limit: limit, resetAt: resetAt}
 	tr.mu.Unlock()
 }
 
@@ -661,5 +659,174 @@ func TestRateLimitTransport_FindingITimeline_CapPreventsDoubleClaim(t *testing.T
 
 	if nextCalls != 0 {
 		t.Errorf("next.RoundTrip calls = %d, want 0 — no calls should be issued against an exhausted budget", nextCalls)
+	}
+}
+
+// TestRateLimitTransport_ThrottleShapes is IMPL-0028 task 2.5: every
+// shape GitHub uses to say "rate limited" reaches the caller as a
+// *ThrottledError through AsThrottled. Retry-After values exceed the
+// sleep cap so the REST shapes fail fast instead of retrying.
+func TestRateLimitTransport_ThrottleShapes(t *testing.T) {
+	t.Parallel()
+
+	reset := time.Now().Add(30 * time.Minute)
+
+	tests := []struct {
+		name   string
+		path   string
+		status int
+		header map[string]string
+		body   string
+	}{
+		{
+			name: "rest 429", path: "/repos/o/r", status: http.StatusTooManyRequests,
+			header: map[string]string{"Retry-After": "120"},
+		},
+		{
+			name: "rest 429 without headers", path: "/repos/o/r", status: http.StatusTooManyRequests,
+			header: map[string]string{"X-RateLimit-Reset": strconv.FormatInt(reset.Unix(), 10)},
+		},
+		{
+			name: "rest secondary 403", path: "/repos/o/r", status: http.StatusForbidden,
+			header: map[string]string{"Retry-After": "120"},
+		},
+		{
+			name: "graphql RATE_LIMITED 200", path: "/graphql", status: http.StatusOK,
+			body: `{"errors":[{"type":"RATE_LIMITED","message":"API rate limit exceeded"}]}`,
+		},
+		{
+			name: "graphql secondary 200", path: "/graphql", status: http.StatusOK,
+			body: `{"errors":[{"message":"You have exceeded a secondary rate limit. Please wait."}]}`,
+		},
+		{
+			name: "graphql secondary 403", path: "/graphql", status: http.StatusForbidden,
+			body: `{"message":"x","errors":[{"message":"You have exceeded a secondary rate limit"}]}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				for k, v := range tt.header {
+					w.Header().Set(k, v)
+				}
+
+				w.WriteHeader(tt.status)
+				_, _ = io.WriteString(w, tt.body)
+			}))
+			defer srv.Close()
+
+			client := &http.Client{Transport: newRateLimitTransport(http.DefaultTransport, slog.Default(), 0.10)}
+
+			req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, srv.URL+tt.path, http.NoBody)
+			if err != nil {
+				t.Fatalf("NewRequest: %v", err)
+			}
+
+			resp, err := client.Do(req)
+			if err == nil {
+				_ = resp.Body.Close()
+				t.Fatalf("Do(%s) = %d, nil; want a throttle", tt.name, resp.StatusCode)
+			}
+
+			if _, ok := AsThrottled(err); !ok {
+				t.Errorf("Do(%s) error = %v, want AsThrottled", tt.name, err)
+			}
+		})
+	}
+}
+
+// TestRateLimitTransport_GraphQLBodyRestored pins that classifying a
+// GraphQL body leaves it readable for the caller.
+func TestRateLimitTransport_GraphQLBodyRestored(t *testing.T) {
+	t.Parallel()
+
+	const body = `{"data":{"repository":{"name":"r"}},"errors":[{"type":"FORBIDDEN","message":"no"}]}`
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, body)
+	}))
+	defer srv.Close()
+
+	client := &http.Client{Transport: newRateLimitTransport(http.DefaultTransport, slog.Default(), 0.10)}
+
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, srv.URL+"/graphql", http.NoBody)
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Do = %v, want nil: a FORBIDDEN error is not a rate limit", err)
+	}
+	defer resp.Body.Close()
+
+	if got, _ := io.ReadAll(resp.Body); string(got) != body {
+		t.Errorf("body = %s, want %s", got, body)
+	}
+}
+
+// TestRateLimitTransport_BucketsAreSeparate pins per-resource snapshots:
+// an exhausted graphql bucket refuses GraphQL calls but leaves core
+// alone, and a GraphQL response never moves the core snapshot.
+func TestRateLimitTransport_BucketsAreSeparate(t *testing.T) {
+	t.Parallel()
+
+	reset := time.Now().Add(time.Hour)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/graphql") {
+			withRateLimitHeaders(w, 10, 5000, reset)
+			w.Header().Set("X-RateLimit-Resource", bucketGraphQL)
+		} else {
+			withRateLimitHeaders(w, 4000, 5000, reset)
+			w.Header().Set("X-RateLimit-Resource", bucketCore)
+		}
+
+		_, _ = io.WriteString(w, `{}`)
+	}))
+	defer srv.Close()
+
+	tr := newRateLimitTransport(http.DefaultTransport, slog.Default(), 0.10)
+	client := &http.Client{Transport: tr}
+
+	do := func(path string) error {
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, srv.URL+path, http.NoBody)
+		if err != nil {
+			t.Fatalf("NewRequest: %v", err)
+		}
+
+		resp, err := client.Do(req)
+		if err == nil {
+			_ = resp.Body.Close()
+		}
+
+		return err
+	}
+
+	if err := do("/repos/o/r"); err != nil {
+		t.Fatalf("core call = %v", err)
+	}
+
+	if err := do("/graphql"); err != nil {
+		t.Fatalf("first graphql call = %v", err)
+	}
+
+	tr.mu.Lock()
+	core := tr.snapshots[bucketCore]
+	tr.mu.Unlock()
+
+	if core.remaining != 4000 {
+		t.Errorf("core remaining = %d after a GraphQL response, want 4000 (untouched)", core.remaining)
+	}
+
+	if _, ok := AsThrottled(do("/graphql")); !ok {
+		t.Error("second graphql call was sent; want the exhausted graphql bucket to refuse it")
+	}
+
+	if err := do("/repos/o/r"); err != nil {
+		t.Errorf("core call after graphql exhaustion = %v, want nil", err)
 	}
 }

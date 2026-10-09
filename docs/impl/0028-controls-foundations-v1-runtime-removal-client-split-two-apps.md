@@ -447,7 +447,7 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   rate-limit transport, then ghinstallation).
   `TestTransportOrder_ThrottledRequestIsStillMeasured` gains a GraphQL
   case.
-- [ ] 2.5 Throttle classification in `internal/github/ratelimit.go`:
+- [x] 2.5 Throttle classification in `internal/github/ratelimit.go`:
   `isRateLimited` recognises REST 429 as well as 403; GraphQL responses
   are classified from the body (`errors[].type == "RATE_LIMITED"` on a
   200, and secondary-limit 200 and 403) into the same `*ThrottledError`,
@@ -456,6 +456,11 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   `search`), and `shouldThrottle` consults the bucket the request will
   spend. Table tests for each shape, and a non-vacuous check (revert the
   429 branch, watch the test fail).
+  Done: `TestRateLimitTransport_ThrottleShapes` (six shapes),
+  `_BucketsAreSeparate`, `_GraphQLBodyRestored`. Probe: with the 429
+  branch removed, the `rest 429` and `rest 429 without headers` cases
+  fail; restored. `Usage` (the installation budget report) also keeps
+  only the core bucket's headers.
 - [ ] 2.6 Writer in its own package, `internal/github/write` (OQ5),
   implementing `control.Writer`: `Commit` over `createCommitOnBranch`
   with `expectedHeadOid` (mapping the Phase 0 stale-head error to

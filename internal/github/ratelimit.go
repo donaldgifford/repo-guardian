@@ -1,12 +1,16 @@
 package github
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -99,9 +103,10 @@ func AsThrottled(err error) (*ThrottledError, bool) {
 
 // rateLimitTransport is an http.RoundTripper that handles GitHub API rate
 // limits transparently. It wraps another transport and provides:
-//   - Pre-emptive throttling when remaining budget is below a threshold
-//   - Automatic retry on primary rate limits (403 + X-RateLimit-Remaining: 0)
-//   - Automatic retry on secondary rate limits (403 + Retry-After header)
+//   - Pre-emptive throttling when a bucket's remaining budget is below a threshold
+//   - Automatic retry on primary rate limits (403 + X-RateLimit-Remaining: 0, or 429)
+//   - Automatic retry on secondary rate limits (403 or 429 + Retry-After header)
+//   - GraphQL rate limits classified from the body into a *ThrottledError
 type rateLimitTransport struct {
 	next      http.RoundTripper
 	logger    *slog.Logger
@@ -111,10 +116,49 @@ type rateLimitTransport struct {
 	// without waiting them out.
 	sleep func(ctx context.Context, d time.Duration) error
 
+	// snapshots holds one budget view per x-ratelimit-resource: GitHub
+	// meters core, graphql and search separately, so a GraphQL response
+	// must not move the core view, nor core's exhaustion refuse a
+	// GraphQL call (IMPL-0028 task 2.5).
 	mu        sync.Mutex
+	snapshots map[string]rateSnapshot
+}
+
+// rateSnapshot is the last rate headers seen for one bucket.
+type rateSnapshot struct {
 	remaining int
 	limit     int
 	resetAt   time.Time
+}
+
+// The rate-limit buckets the transport tracks by name. Any other
+// x-ratelimit-resource value is tracked under its own name too.
+const (
+	bucketCore    = "core"
+	bucketGraphQL = "graphql"
+	bucketSearch  = "search"
+)
+
+// bucketFor names the bucket req will spend.
+func bucketFor(req *http.Request) string {
+	switch path := req.URL.Path; {
+	case strings.HasSuffix(path, graphQLPath):
+		return bucketGraphQL
+	case strings.Contains(path, "/search/"):
+		return bucketSearch
+	default:
+		return bucketCore
+	}
+}
+
+// responseBucket names the bucket resp was metered against: GitHub's
+// x-ratelimit-resource header, else the request's bucket.
+func responseBucket(req *http.Request, resp *http.Response) string {
+	if r := resp.Header.Get("X-RateLimit-Resource"); r != "" {
+		return r
+	}
+
+	return bucketFor(req)
 }
 
 // newRateLimitTransport wraps the given transport with rate limit handling.
@@ -128,13 +172,17 @@ func newRateLimitTransport(next http.RoundTripper, logger *slog.Logger, threshol
 		logger:    logger,
 		threshold: threshold,
 		sleep:     sleepWithContext,
+		snapshots: make(map[string]rateSnapshot),
 	}
 }
 
 // RoundTrip executes an HTTP request with rate limit awareness.
 func (t *rateLimitTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if thr := t.shouldThrottle(); thr != nil {
+	bucket := bucketFor(req)
+
+	if thr := t.shouldThrottle(bucket); thr != nil {
 		t.logger.Warn("pre-emptive rate limit throttle; deferring for queue retry",
+			"bucket", bucket,
 			"remaining", thr.Remaining,
 			"limit", thr.Limit,
 			"reset_at", thr.ResetAt,
@@ -148,7 +196,17 @@ func (t *rateLimitTransport) RoundTrip(req *http.Request) (*http.Response, error
 		return nil, err
 	}
 
-	t.updateFromResponse(resp)
+	t.updateFromResponse(req, resp)
+
+	if bucket == bucketGraphQL {
+		if thr := t.graphQLThrottle(resp); thr != nil {
+			_ = resp.Body.Close()
+
+			t.logger.Warn("github graphql rate limited; deferring for queue retry", "reset_at", thr.ResetAt)
+
+			return nil, thr
+		}
+	}
 
 	if !t.isRateLimited(resp) {
 		return resp, nil
@@ -202,43 +260,42 @@ func (t *rateLimitTransport) RoundTrip(req *http.Request) (*http.Response, error
 		return nil, retryErr
 	}
 
-	t.updateFromResponse(retryResp)
+	t.updateFromResponse(req, retryResp)
 
 	return retryResp, nil
 }
 
-// shouldThrottle returns a ThrottledError when the remaining budget
-// is at or below the configured threshold and the reset is still
-// ahead, nil otherwise. It never sleeps — deferring the work until
-// the reset is the queue's job, not the transport's (DESIGN-0021
+// shouldThrottle returns a ThrottledError when bucket's remaining
+// budget is at or below the configured threshold and its reset is
+// still ahead, nil otherwise. It never sleeps — deferring the work
+// until the reset is the queue's job, not the transport's (DESIGN-0021
 // Phase 3, INV-0012 finding I).
-func (t *rateLimitTransport) shouldThrottle() *ThrottledError {
+func (t *rateLimitTransport) shouldThrottle(bucket string) *ThrottledError {
 	t.mu.Lock()
-	limit := t.limit
-	remaining := t.remaining
-	resetAt := t.resetAt
+	snap := t.snapshots[bucket]
 	t.mu.Unlock()
 
 	// Skip on first request (no rate limit data yet).
-	if limit == 0 {
+	if snap.limit == 0 {
 		return nil
 	}
 
-	if remaining > int(float64(limit)*t.threshold) {
+	if snap.remaining > int(float64(snap.limit)*t.threshold) {
 		return nil
 	}
 
 	// Reset already elapsed — the next response repopulates the
 	// snapshot with the fresh window.
-	if time.Until(resetAt) <= 0 {
+	if time.Until(snap.resetAt) <= 0 {
 		return nil
 	}
 
-	return &ThrottledError{ResetAt: resetAt, Remaining: remaining, Limit: limit}
+	return &ThrottledError{ResetAt: snap.resetAt, Remaining: snap.remaining, Limit: snap.limit}
 }
 
-// updateFromResponse parses rate limit headers and updates internal state.
-func (t *rateLimitTransport) updateFromResponse(resp *http.Response) {
+// updateFromResponse records resp's rate headers under the bucket it
+// was metered against.
+func (t *rateLimitTransport) updateFromResponse(req *http.Request, resp *http.Response) {
 	if resp == nil {
 		return
 	}
@@ -248,25 +305,92 @@ func (t *rateLimitTransport) updateFromResponse(resp *http.Response) {
 		return
 	}
 
-	r, l, resetAt := obs.Remaining, obs.Limit, obs.ResetAt
+	bucket := responseBucket(req, resp)
 
 	t.mu.Lock()
-	t.remaining = r
-	t.limit = l
-	t.resetAt = resetAt
+	t.snapshots[bucket] = rateSnapshot{remaining: obs.Remaining, limit: obs.Limit, resetAt: obs.ResetAt}
 	t.mu.Unlock()
 
 	t.logger.Debug("github api rate limit",
-		"remaining", r,
-		"limit", l,
-		"reset", resetAt,
+		"bucket", bucket,
+		"remaining", obs.Remaining,
+		"limit", obs.Limit,
+		"reset", obs.ResetAt,
 	)
 }
 
-// isRateLimited returns true if the response indicates a rate limit error.
+// isRateLimited returns true if the response indicates a rate limit
+// error: any 429, or a 403 carrying exhausted rate headers or
+// Retry-After.
 func (*rateLimitTransport) isRateLimited(resp *http.Response) bool {
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return true
+	}
+
 	return resp.StatusCode == http.StatusForbidden &&
 		(resp.Header.Get("X-RateLimit-Remaining") == "0" || resp.Header.Get("Retry-After") != "")
+}
+
+// maxGraphQLPeek bounds how much of a GraphQL body the transport reads
+// to classify it. Rate-limit errors are short; a larger body is data.
+const maxGraphQLPeek = 64 << 10
+
+// graphQLError is one entry of a GraphQL response's errors array.
+type graphQLError struct {
+	Type    string `json:"type"`
+	Message string `json:"message"`
+}
+
+// decodeGraphQLErrors returns body's errors array, or nil when body is
+// not a GraphQL JSON response.
+func decodeGraphQLErrors(body []byte) []graphQLError {
+	var env struct {
+		Errors []graphQLError `json:"errors"`
+	}
+
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil
+	}
+
+	return env.Errors
+}
+
+// graphQLThrottle classifies a GraphQL response from its body. GitHub
+// reports a primary GraphQL limit as a 200 with errors[].type
+// RATE_LIMITED and a secondary limit as a 200 or 403 whose message
+// names it; both become a *ThrottledError so AsThrottled stays the only
+// detector. The body is restored for the caller whatever the outcome.
+func (t *rateLimitTransport) graphQLThrottle(resp *http.Response) *ThrottledError {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusForbidden {
+		return nil
+	}
+
+	peek, err := io.ReadAll(io.LimitReader(resp.Body, maxGraphQLPeek))
+	resp.Body = struct {
+		io.Reader
+		io.Closer
+	}{io.MultiReader(bytes.NewReader(peek), resp.Body), resp.Body}
+
+	// An unreadable or non-JSON body is not a rate-limit response; the
+	// caller meets the same read error, or the data, itself.
+	var errs []graphQLError
+	if err == nil {
+		errs = decodeGraphQLErrors(peek)
+	}
+
+	for _, e := range errs {
+		if e.Type == "RATE_LIMITED" || strings.Contains(strings.ToLower(e.Message), "secondary rate limit") {
+			obs, _ := parseRateHeaders(resp)
+
+			return &ThrottledError{
+				ResetAt:   time.Now().Add(t.rateLimitDelay(resp)),
+				Remaining: obs.Remaining,
+				Limit:     obs.Limit,
+			}
+		}
+	}
+
+	return nil
 }
 
 // rateLimitDelay computes how long to wait before retrying.

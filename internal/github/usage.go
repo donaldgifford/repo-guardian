@@ -81,6 +81,14 @@ func (u *Usage) record(resp *http.Response) {
 
 	u.calls++
 
+	// Only the core bucket feeds the installation budget; a GraphQL or
+	// search response meters a different allowance.
+	if ok {
+		if r := resp.Header.Get("X-RateLimit-Resource"); r != "" && r != bucketCore {
+			ok = false
+		}
+	}
+
 	if ok {
 		obs.ObservedAt = time.Now()
 		u.rate = &obs

@@ -7,9 +7,15 @@ import (
 	"github.com/shurcooL/githubv4"
 )
 
-// dotComAPIHost is api.github.com, whose GraphQL endpoint is not under
-// the REST path the way an Enterprise Server's is.
-const dotComAPIHost = "api.github.com"
+const (
+	// dotComAPIHost is api.github.com, whose GraphQL endpoint is not
+	// under the REST path the way an Enterprise Server's is.
+	dotComAPIHost = "api.github.com"
+
+	// graphQLPath ends every GraphQL endpoint path; the rate-limit
+	// transport also uses it to name the bucket a request spends.
+	graphQLPath = "/graphql"
+)
 
 // graphQLFor returns a GraphQL client that shares rest's *http.Client,
 // so every GraphQL call goes through the same transport chain as REST:
@@ -27,12 +33,12 @@ func graphQLFor(rest *gh.Client) *githubv4.Client {
 func graphQLURL(rest *gh.Client) string {
 	base := *rest.BaseURL
 	if base.Host == dotComAPIHost {
-		base.Path = "/graphql"
+		base.Path = graphQLPath
 
 		return base.String()
 	}
 
-	base.Path = strings.TrimSuffix(strings.TrimSuffix(base.Path, "/"), "/v3") + "/graphql"
+	base.Path = strings.TrimSuffix(strings.TrimSuffix(base.Path, "/"), "/v3") + graphQLPath
 
 	return base.String()
 }

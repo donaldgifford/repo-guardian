@@ -34,6 +34,12 @@ type Config struct {
 	// read by the remediator role and /webhooks/github/remediate.
 	RemediateApp AppCredentials
 
+	// Evaluator and Remediator size the controls workers
+	// (EVALUATOR_*/REMEDIATOR_*, IMPL-0028 task 4.9). The rc's worker
+	// keeps WORKER_ACTIVITY_CONCURRENCY and STORE_POSTGRES_MAX_CONNS.
+	Evaluator  WorkerSizing
+	Remediator WorkerSizing
+
 	// GitHubHost is the GitHub host every v2 repository and installation
 	// record is keyed under (DESIGN-0025 OQ7). Defaults to github.com.
 	GitHubHost string
@@ -193,6 +199,14 @@ func parse() (*Config, error) {
 	}
 
 	if cfg.RemediateApp, err = parseAppCredentials(AppRemediate); err != nil {
+		return nil, err
+	}
+
+	if cfg.Evaluator, err = parseWorkerSizing("EVALUATOR"); err != nil {
+		return nil, err
+	}
+
+	if cfg.Remediator, err = parseWorkerSizing("REMEDIATOR"); err != nil {
 		return nil, err
 	}
 

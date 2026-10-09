@@ -24,6 +24,7 @@ type controlsHalf struct {
 	name      string
 	app       string
 	taskQueue string
+	sizing    config.WorkerSizing
 	register  func(worker.WorkflowRegistry)
 }
 
@@ -34,13 +35,15 @@ func controlsHalves(cfg *config.Config, roles config.Role, tcfg *temporal.Config
 
 	if cfg.RunsControls(roles, config.RoleEvaluator) {
 		halves = append(halves, controlsHalf{
-			name: cmdEvaluator, app: workflows.AppEval, taskQueue: tcfg.EvalTaskQueue, register: workflows.RegisterEvaluator,
+			name: cmdEvaluator, app: workflows.AppEval, taskQueue: tcfg.EvalTaskQueue, sizing: cfg.Evaluator,
+			register: workflows.RegisterEvaluator,
 		})
 	}
 
 	if cfg.RunsControls(roles, config.RoleRemediator) {
 		halves = append(halves, controlsHalf{
-			name: cmdRemediator, app: workflows.AppRemediate, taskQueue: tcfg.RemediateTaskQueue, register: workflows.RegisterRemediator,
+			name: cmdRemediator, app: workflows.AppRemediate, taskQueue: tcfg.RemediateTaskQueue, sizing: cfg.Remediator,
+			register: workflows.RegisterRemediator,
 		})
 	}
 
@@ -62,7 +65,16 @@ func startControlsWorker(
 ) (func(), []readinessCheck, error) {
 	logger = logger.With("worker", half.name)
 
-	pool, err := pgxpool.New(ctx, cfg.StoreDSN)
+	pcfg, err := pgxpool.ParseConfig(cfg.StoreDSN)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: parse STORE_DSN: %w", half.name, err)
+	}
+
+	if half.sizing.DBPoolSize > 0 {
+		pcfg.MaxConns = half.sizing.DBPoolSize
+	}
+
+	pool, err := pgxpool.NewWithConfig(ctx, pcfg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s: open store: %w", half.name, err)
 	}
@@ -81,6 +93,9 @@ func startControlsWorker(
 	}
 
 	wc.TaskQueue = half.taskQueue
+	if half.sizing.Concurrency > 0 {
+		wc.ActivityConcurrency = half.sizing.Concurrency
+	}
 	wc.Deployment = temporal.DeploymentName(half.name)
 
 	w := temporal.NewWorker(tc, &wc)

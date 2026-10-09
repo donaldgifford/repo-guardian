@@ -321,3 +321,31 @@ func TestLoadRole_AllRunsControlsHalvesOnlyWhenConfigured(t *testing.T) {
 		}
 	})
 }
+
+// TestParse_WorkerSizing is IMPL-0028 task 4.9: each controls role is
+// sized by its own env vars, independent of the rc worker's.
+func TestParse_WorkerSizing(t *testing.T) {
+	t.Setenv("EVALUATOR_CONCURRENCY", "20")
+	t.Setenv("EVALUATOR_DB_POOL_SIZE", "12")
+	t.Setenv("REMEDIATOR_CONCURRENCY", "3")
+	t.Setenv("WORKER_ACTIVITY_CONCURRENCY", "99")
+
+	cfg, err := parse()
+	if err != nil {
+		t.Fatalf("parse = %v", err)
+	}
+
+	if want := (WorkerSizing{Concurrency: 20, DBPoolSize: 12}); cfg.Evaluator != want {
+		t.Errorf("Evaluator = %+v, want %+v", cfg.Evaluator, want)
+	}
+
+	if want := (WorkerSizing{Concurrency: 3}); cfg.Remediator != want {
+		t.Errorf("Remediator = %+v, want %+v", cfg.Remediator, want)
+	}
+
+	t.Setenv("REMEDIATOR_DB_POOL_SIZE", "-1")
+
+	if _, err := parse(); err == nil || !strings.Contains(err.Error(), "REMEDIATOR_DB_POOL_SIZE") {
+		t.Errorf("parse with a negative REMEDIATOR_DB_POOL_SIZE = %v, want an error naming it", err)
+	}
+}

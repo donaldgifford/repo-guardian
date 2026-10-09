@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 )
@@ -139,4 +140,34 @@ func (c *Config) validateAppRoutes() []error {
 	}
 
 	return errs
+}
+
+// WorkerSizing sizes one controls worker. Zero means the default: the
+// temporal package's activity concurrency, pgxpool's pool size.
+type WorkerSizing struct {
+	// Concurrency caps concurrent activity executions
+	// (<ROLE>_CONCURRENCY).
+	Concurrency int
+
+	// DBPoolSize caps the worker's Postgres pool (<ROLE>_DB_POOL_SIZE).
+	DBPoolSize int32
+}
+
+// parseWorkerSizing reads <prefix>_CONCURRENCY and <prefix>_DB_POOL_SIZE.
+func parseWorkerSizing(prefix string) (WorkerSizing, error) {
+	concurrency, err := envOrDefaultInt(prefix+"_CONCURRENCY", 0)
+	if err != nil {
+		return WorkerSizing{}, err
+	}
+
+	poolSize, err := envOrDefaultInt(prefix+"_DB_POOL_SIZE", 0)
+	if err != nil {
+		return WorkerSizing{}, err
+	}
+
+	if concurrency < 0 || poolSize < 0 || poolSize > math.MaxInt32 {
+		return WorkerSizing{}, fmt.Errorf("%s_CONCURRENCY and %s_DB_POOL_SIZE must be positive integers", prefix, prefix)
+	}
+
+	return WorkerSizing{Concurrency: concurrency, DBPoolSize: int32(poolSize)}, nil
 }

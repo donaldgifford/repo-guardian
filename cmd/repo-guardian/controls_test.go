@@ -53,3 +53,25 @@ func TestControlsHalves(t *testing.T) {
 		})
 	}
 }
+
+// TestControlsHalves_Sizing pins that each half carries its own role's
+// sizing, never the other's.
+func TestControlsHalves_Sizing(t *testing.T) {
+	t.Parallel()
+
+	cfg := &config.Config{
+		EvalApp:      config.AppCredentials{AppID: 1},
+		RemediateApp: config.AppCredentials{AppID: 2},
+		Evaluator:    config.WorkerSizing{Concurrency: 20, DBPoolSize: 12},
+		Remediator:   config.WorkerSizing{Concurrency: 3},
+	}
+
+	halves := controlsHalves(cfg, config.RoleAll, &temporal.Config{})
+	if len(halves) != 2 {
+		t.Fatalf("controlsHalves = %d halves, want 2", len(halves))
+	}
+
+	if halves[0].sizing != cfg.Evaluator || halves[1].sizing != cfg.Remediator {
+		t.Errorf("sizing = %+v, %+v, want %+v, %+v", halves[0].sizing, halves[1].sizing, cfg.Evaluator, cfg.Remediator)
+	}
+}

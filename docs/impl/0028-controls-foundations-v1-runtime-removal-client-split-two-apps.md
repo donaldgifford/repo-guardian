@@ -682,11 +682,15 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   `QueueProbe` per queue, rendered as components `backlog` (rc),
   `backlog_evaluation` and `backlog_remediation`. A half the process does
   not run is not probed (its queue has no pollers here by design).
-- [ ] 4.9 Env vars: `EVALUATOR_CONCURRENCY`, `REMEDIATOR_CONCURRENCY`,
+- [x] 4.9 Env vars: `EVALUATOR_CONCURRENCY`, `REMEDIATOR_CONCURRENCY`,
   `EVALUATOR_DB_POOL_SIZE`, `REMEDIATOR_DB_POOL_SIZE` replace
   `WORKER_ACTIVITY_CONCURRENCY` and `STORE_POSTGRES_MAX_CONNS` for the
   new roles; the old names keep serving the rc's `worker` role until the
   switch-over, then join `removedEnvVars`.
+  Done: `config.WorkerSizing` (`Config.Evaluator`/`Remediator`, zero =
+  default) carried on each `controlsHalf`; the pool is built with
+  `pgxpool.NewWithConfig`. The old names still serve the rc worker; they
+  join `removedEnvVars` with the switch-over (Phase 5).
 - [ ] 4.10 Chart: `evaluator` and `remediator` in `repo-guardian.roles`
   with a Deployment each in split topology, `evaluator.*` and
   `remediator.*` values (replicas, concurrency, resources), the helpers

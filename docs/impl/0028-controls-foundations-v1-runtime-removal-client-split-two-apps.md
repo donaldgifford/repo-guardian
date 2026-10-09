@@ -245,15 +245,14 @@ write-up.
   bodies, and how long the background merge takes to move the head. Can
   change DESIGN-0032 D17 and the flowchart.
   Done 2026-10-09 (maintainer run); results in INV-0022 § Phase-0 results.
-- [ ] 0.8 **Evaluation App minimal permissions (spike 3, human-run).**
+- [x] 0.8 **Evaluation App minimal permissions (spike 3, human-run).**
   Register a test App with Metadata read, Contents read, Pull requests
   read and organisation Custom properties read only. Confirm
   `GET /repos` returns the merge-policy settings fields, rulesets return
   `source_type` and, fetched by id, `rules`, and property values are
   readable. Record any field that needs Administration read. Can change
   the DESIGN-0032 permission table and A23.
-  **Deferred - human required.** Run `TestSpike_EvalAppPermissions` in `internal/github/spike_github_test.go` (`-tags spike`); it writes `build/spike/TestSpike_EvalAppPermissions.json`.
-  Runs 1 and 2 done 2026-10-09: merge-policy settings are read through GraphQL; Administration read covers vulnerability alerts and `security_and_analysis`; the org schema needs Organization Custom properties read (DESIGN-0032 amended). A third run confirms property values under Metadata alone and an inherited org ruleset.
+  Done 2026-10-09 (maintainer, three runs): merge-policy settings are read through GraphQL; Administration read covers vulnerability alerts and `security_and_analysis`; property values need no Custom properties permission; the org schema needs Organization Custom properties read (DESIGN-0032 amended). Inherited org rulesets are untestable on the test org's plan.
 - [ ] 0.9 **`installation_repositories` on an all-repositories install
   (spike 4, human-run).** Create a repository in an org where a test App
   is installed on all repositories; record whether the event fires. If

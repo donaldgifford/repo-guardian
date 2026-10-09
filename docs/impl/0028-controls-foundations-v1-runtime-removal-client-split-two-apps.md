@@ -335,12 +335,31 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   `podID` and `newStore`. Shutdown per role: the worker drains within
   `shutdownTimeout`, then the client and pool close, then the HTTP
   servers shut down.
-- [ ] 1.3 Metrics: reconcile the removal list against the current
+- [x] 1.3 Metrics: reconcile the removal list against the current
   registrations and record it in this task; delete the v1 business,
   queue and scheduler series and `github_rate_remaining`. Do **not**
   delete `installation_info` here: DESIGN-0032 keeps it with an `app`
   label (Phase 3 task 3.6). Add `checks_total{outcome}`.
   `metrics_test.go` asserts the exact set of names.
+  **Done 2026-10-09.** Reconciled against the 56 registrations on the
+  branch: removed the 21 series with no producer after task 1.1 —
+  `github_rate_remaining`; the queue series (`queue_depth`,
+  `queue_delayed_depth`, `queue_enqueued_total`, `queue_claimed_total`,
+  `queue_acked_total`, `queue_reaped_total`,
+  `queue_attempts_exhausted_total`, `queue_delayed_total`,
+  `queue_delay_seconds`, `queue_wait_seconds`); the scheduler series
+  (`scheduler_sweep_batch_size`, `scheduler_is_leader`); the v1 business
+  series (`posture_export_total`, `posture_export_duration_seconds`,
+  `repos_actionable`, `repos_tracked`, `repos_unmeasurable`,
+  `discovery_duration_seconds`, `store_writeback_total`,
+  `store_writeback_duration_seconds`). The checker's own counters
+  (`files_missing_total`, `prs_created_total`, …) stay: the rc's
+  `CheckRepo` activity still increments them until IMPL-0029 retires the
+  checker. `checks_total{outcome=checked|deferred|parked|error}` is
+  incremented by the `CheckRepo` activity; 36 names remain, pinned by
+  `TestMetricNames_ExactSet`. The generated dashboards and the chart's
+  PrometheusRule still name the removed posture and queue series; their
+  re-cut is IMPL-0029's (IMPL-0025 17.1/17.2/17.9).
 - [x] 1.4 `internal/monitoring/dashboard/e4.go`, in the same commit as
   1.1: remove the matchers whose log lines are deleted and add "check
   deferred until budget reset" and "check failed after retries";

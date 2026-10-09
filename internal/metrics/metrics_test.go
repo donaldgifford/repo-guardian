@@ -1,6 +1,9 @@
 package metrics
 
 import (
+	"os"
+	"regexp"
+	"slices"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -80,5 +83,75 @@ func TestSetInstallationInfo_DropsBlankOrg(t *testing.T) {
 
 	if got := testutil.ToFloat64(InstallationInfo.WithLabelValues("42", "octo")); got != 1 {
 		t.Errorf(`installation_info{installation_id="42", org="octo"} = %v, want 1`, got)
+	}
+}
+
+// TestMetricNames_ExactSet pins every series this package registers.
+// Deleting the v1 runtime removed the queue, scheduler, posture and
+// write-back series (IMPL-0028 task 1.3); a name added or removed
+// without updating this list fails here, so a dashboard or alert built
+// on a series cannot lose its producer unnoticed.
+//
+// It reads the Name literals from metrics.go: promauto registers into
+// the default registry, which cannot list its collectors, and a vector
+// with no series yet is absent from Gather.
+func TestMetricNames_ExactSet(t *testing.T) {
+	t.Parallel()
+
+	want := []string{
+		"repo_guardian_api_auth_failures_total",
+		"repo_guardian_api_status_refresh_seconds",
+		"repo_guardian_branch_protection_checked_total",
+		"repo_guardian_branch_protection_remediated_total",
+		"repo_guardian_budget_acquire_total",
+		"repo_guardian_catalog_parse_failed_total",
+		"repo_guardian_check_duration_seconds",
+		"repo_guardian_checks_total",
+		"repo_guardian_custom_property_cleared_total",
+		"repo_guardian_custom_property_missing_schema_total",
+		"repo_guardian_discovery_api_calls_total",
+		"repo_guardian_errors_total",
+		"repo_guardian_files_forbidden_present_total",
+		"repo_guardian_files_missing_total",
+		"repo_guardian_ignored_total",
+		"repo_guardian_installation_info",
+		"repo_guardian_open_prs_by_rule",
+		"repo_guardian_out_of_scope_total",
+		"repo_guardian_pr_open_with_empty_actionable_total",
+		"repo_guardian_pr_orphan_left_total",
+		"repo_guardian_property_schema_missing",
+		"repo_guardian_prs_closed_total",
+		"repo_guardian_prs_created_total",
+		"repo_guardian_prs_updated_total",
+		"repo_guardian_rate_limit_remaining",
+		"repo_guardian_repo_discovered_total",
+		"repo_guardian_repos_checked_total",
+		"repo_guardian_repos_parked_total",
+		"repo_guardian_rule_gate_closed_total",
+		"repo_guardian_settings_checked_total",
+		"repo_guardian_settings_mismatched_total",
+		"repo_guardian_settings_remediated_total",
+		"repo_guardian_store_query_seconds",
+		"repo_guardian_webhook_received_total",
+		"repo_guardian_webhook_rejected_total",
+		"repo_guardian_webhook_temporal_errors_total",
+	}
+
+	src, err := os.ReadFile("metrics.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	matches := regexp.MustCompile(`Name:\s+"([a-z_]+)"`).FindAllStringSubmatch(string(src), -1)
+	got := make([]string, 0, len(matches))
+
+	for _, m := range matches {
+		got = append(got, m[1])
+	}
+
+	slices.Sort(got)
+
+	if !slices.Equal(got, want) {
+		t.Errorf("registered metric names = %v\nwant %v", got, want)
 	}
 }

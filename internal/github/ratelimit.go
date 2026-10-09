@@ -11,8 +11,6 @@ import (
 	"time"
 
 	gh "github.com/google/go-github/v68/github"
-
-	"github.com/donaldgifford/repo-guardian/internal/metrics"
 )
 
 // maxRateLimitSleep caps how long the transport may block a caller
@@ -257,8 +255,6 @@ func (t *rateLimitTransport) updateFromResponse(resp *http.Response) {
 	t.limit = l
 	t.resetAt = resetAt
 	t.mu.Unlock()
-
-	metrics.GitHubRateRemaining.Set(float64(r))
 
 	t.logger.Debug("github api rate limit",
 		"remaining", r,

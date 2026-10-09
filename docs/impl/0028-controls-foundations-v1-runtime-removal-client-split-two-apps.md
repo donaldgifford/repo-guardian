@@ -417,7 +417,7 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   the sentinel `ErrExpectedHeadMismatch` (OQ6). `Writer.UpdateBranch`
   takes the expected head SHA (DESIGN-0031's signature is amended in the
   same PR). It imports nothing of ours.
-- [ ] 2.2 Reader on `GitHubClient`, per repository (a small adapter bound
+- [x] 2.2 Reader on `GitHubClient`, per repository (a small adapter bound
   to owner and repo): `GetContents`, `ListDirectory`, `GetRepository`,
   `ListRulesets` (`includes_parents=true`, paginated past 30, each
   fetched by id for `rules`, `Source` from `source_type`, replacing the
@@ -429,6 +429,10 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   the response lacks maps to `unknown{reason=permission}`, never false
   (INV-0022 Phase-0 results, spike 3). The GraphQL client is the one
   task 2.4 adds for `Writer.Commit`.
+  Done: `GitHubClient.RepoReader(owner, repo, ref)` in
+  `internal/github/reader.go`, memoized per evaluation. The v1
+  `ListRepositoryRulesets` keeps its `false` for the rc's reconciler
+  (task 2.8, OQ1); controls read rulesets through the Reader.
 - [ ] 2.3 PRObserver: `ListPullRequests(headPrefix)` lists open PRs and
   filters client-side (GitHub's `head` filter is an exact ref), paginated
   to completion, capturing author user id and type and head repository

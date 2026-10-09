@@ -252,3 +252,38 @@ func TestParse_AppCredentials(t *testing.T) {
 		t.Errorf("parse with a bad EVAL_GITHUB_APP_ID = %v, want an error naming it", err)
 	}
 }
+
+func TestLoadRole_IngestAppRoutes(t *testing.T) {
+	t.Run("a route secret needs its App id", func(t *testing.T) {
+		t.Setenv("TEMPORAL_ADDRESS", "temporal:7233")
+		t.Setenv("GITHUB_WEBHOOK_SECRET", "s")
+		t.Setenv("EVAL_WEBHOOK_SECRET", "e")
+
+		if _, err := LoadRole(RoleIngest); err == nil || !strings.Contains(err.Error(), "EVAL_GITHUB_APP_ID") {
+			t.Errorf("LoadRole(ingest) = %v, want EVAL_GITHUB_APP_ID required", err)
+		}
+	})
+
+	t.Run("refuses an App key", func(t *testing.T) {
+		t.Setenv("TEMPORAL_ADDRESS", "temporal:7233")
+		t.Setenv("GITHUB_WEBHOOK_SECRET", "s")
+		t.Setenv("REMEDIATE_GITHUB_PRIVATE_KEY_PATH", "/keys/r.pem")
+
+		if _, err := LoadRole(RoleIngest); err == nil || !strings.Contains(err.Error(), "App key") {
+			t.Errorf("LoadRole(ingest) with a remediation key = %v, want a refusal", err)
+		}
+	})
+
+	t.Run("both routes", func(t *testing.T) {
+		t.Setenv("TEMPORAL_ADDRESS", "temporal:7233")
+		t.Setenv("GITHUB_WEBHOOK_SECRET", "s")
+		t.Setenv("EVAL_GITHUB_APP_ID", "1")
+		t.Setenv("EVAL_WEBHOOK_SECRET", "e")
+		t.Setenv("REMEDIATE_GITHUB_APP_ID", "2")
+		t.Setenv("REMEDIATE_WEBHOOK_SECRET", "r")
+
+		if _, err := LoadRole(RoleIngest); err != nil {
+			t.Errorf("LoadRole(ingest) with both routes = %v, want nil", err)
+		}
+	})
+}

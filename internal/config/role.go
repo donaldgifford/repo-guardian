@@ -39,18 +39,8 @@ func (c *Config) ValidateRole(role Role) error {
 		errs = append(errs, errors.New("TEMPORAL_ADDRESS is required"))
 	}
 
-	if role.Has(RoleIngest) && c.GitHubWebhookSecret == "" {
-		errs = append(errs, errors.New("GITHUB_WEBHOOK_SECRET is required for the ingest role"))
-	}
-
-	if role == RoleIngest {
-		if c.GitHubPrivateKeyPath != "" || c.GitHubPrivateKey != "" {
-			errs = append(errs, errors.New("the ingest role must not hold the GitHub App key: unset GITHUB_PRIVATE_KEY_PATH and GITHUB_PRIVATE_KEY"))
-		}
-
-		if c.StoreDSN != "" {
-			errs = append(errs, errors.New("the ingest role must not hold database credentials: unset STORE_DSN"))
-		}
+	if role.Has(RoleIngest) {
+		errs = append(errs, c.validateIngest(role == RoleIngest)...)
 	}
 
 	if role.Has(RoleWorker) {
@@ -70,6 +60,37 @@ func (c *Config) ValidateRole(role Role) error {
 	}
 
 	return errors.Join(errs...)
+}
+
+// validateIngest checks the webhook secrets and, when ingest runs alone,
+// that the process holds no App key and no database credentials.
+func (c *Config) validateIngest(alone bool) []error {
+	var errs []error
+
+	if c.GitHubWebhookSecret == "" {
+		errs = append(errs, errors.New("GITHUB_WEBHOOK_SECRET is required for the ingest role"))
+	}
+
+	errs = append(errs, c.validateAppRoutes()...)
+
+	if !alone {
+		return errs
+	}
+
+	if c.EvalApp.PrivateKeyPath != "" || c.RemediateApp.PrivateKeyPath != "" {
+		errs = append(errs, errors.New(
+			"the ingest role must not hold an App key: unset EVAL_GITHUB_PRIVATE_KEY_PATH and REMEDIATE_GITHUB_PRIVATE_KEY_PATH"))
+	}
+
+	if c.GitHubPrivateKeyPath != "" || c.GitHubPrivateKey != "" {
+		errs = append(errs, errors.New("the ingest role must not hold the GitHub App key: unset GITHUB_PRIVATE_KEY_PATH and GITHUB_PRIVATE_KEY"))
+	}
+
+	if c.StoreDSN != "" {
+		errs = append(errs, errors.New("the ingest role must not hold database credentials: unset STORE_DSN"))
+	}
+
+	return errs
 }
 
 func (c *Config) validateWorker() []error {

@@ -538,7 +538,7 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   `Config.Credentials`); keys are paths only. `RoleEvaluator` and
   `RoleRemediator` are declared here for validation and join `RoleAll`
   with their subcommands in task 4.1.
-- [ ] 3.2 Ingest: two routes, `/webhooks/github/eval` and
+- [x] 3.2 Ingest: two routes, `/webhooks/github/eval` and
   `/webhooks/github/remediate` (D29). Each route validates with its own
   secret (`ValidatePayload` per route) and stamps the App on
   `WebhookInput`; the App never comes from a header. Installation and
@@ -546,6 +546,10 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   the route's App are rejected with 401 and counted under
   `webhook_rejected_total{reason="app_mismatch"}`. The rc's
   `/webhooks/github` route stays until the switch-over.
+  Done: `ingest.NewApp` stamps `WebhookInput.App` and refuses another
+  App's installation payloads; `cmd/repo-guardian` mounts a route per
+  App whose `*_WEBHOOK_SECRET` is set. Ingest requires the App id with
+  the secret and, alone, refuses either App's key path.
 - [ ] 3.3 Router: `RouteWebhook` and its helpers carry the App;
   Remediation App `installation` and `installation_repositories` events
   upsert that App's access (written to the controls tables once

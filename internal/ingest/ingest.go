@@ -19,17 +19,23 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/workflows"
 )
 
-// reasonSignature labels WebhookRejectedTotal for a failed HMAC check,
-// the only app-layer rejection (DESIGN-0023).
-const reasonSignature = "signature"
+// WebhookRejectedTotal reasons. A failed HMAC check is the app-layer
+// defense (DESIGN-0023); an installation payload for another App on a
+// per-App route is the second (IMPL-0028 task 3.2).
+const (
+	reasonSignature   = "signature"
+	reasonAppMismatch = "app_mismatch"
+)
 
 // deliveryHeader carries GitHub's per-delivery id; redeliveries reuse it.
 const deliveryHeader = "X-GitHub-Delivery"
 
 // Event names used by more than one route.
 const (
-	eventPush       = "push"
-	eventRepository = "repository"
+	eventPush                     = "push"
+	eventRepository               = "repository"
+	eventInstallation             = "installation"
+	eventInstallationRepositories = "installation_repositories"
 )
 
 // Starter starts workflows. client.Client satisfies it.
@@ -39,6 +45,12 @@ type Starter interface {
 
 // Handler is the ingest webhook handler.
 type Handler struct {
+	// app and appID are set on a per-App route (NewApp): every delivery
+	// is stamped with app, and an installation payload naming another
+	// App id is refused.
+	app   string
+	appID int64
+
 	secret    []byte
 	temporal  Starter
 	taskQueue string
@@ -50,6 +62,17 @@ type Handler struct {
 // to the default branch that touches none of them is dropped.
 func New(secret string, starter Starter, taskQueue string, watched map[string]bool, logger *slog.Logger) *Handler {
 	return &Handler{secret: []byte(secret), temporal: starter, taskQueue: taskQueue, watched: watched, logger: logger}
+}
+
+// NewApp returns the handler for one controls App's route: deliveries
+// validate with that App's secret only and are stamped with app, and an
+// installation or installation_repositories payload whose
+// installation.app_id is not appID is refused with 401.
+func NewApp(app string, appID int64, secret string, starter Starter, taskQueue string, watched map[string]bool, logger *slog.Logger) *Handler {
+	h := New(secret, starter, taskQueue, watched, logger.With("app", app))
+	h.app, h.appID = app, appID
+
+	return h
 }
 
 // ServeHTTP answers 401 for a bad signature, 400 for an unparseable or
@@ -76,6 +99,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if id, ok := installationAppID(event); ok && h.appID != 0 && id != h.appID {
+		h.logger.Warn("webhook for another App on this route", "event", eventType, "app_id", id, "want_app_id", h.appID)
+		metrics.WebhookRejectedTotal.WithLabelValues(reasonAppMismatch).Inc()
+		http.Error(w, "app mismatch", http.StatusUnauthorized)
+
+		return
+	}
+
 	metrics.WebhookReceivedTotal.WithLabelValues(eventType).Inc()
 
 	in, ok := h.route(eventType, event)
@@ -84,6 +115,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
+
+	in.App = h.app
 
 	in.DeliveryID = r.Header.Get(deliveryHeader)
 	if in.DeliveryID == "" {
@@ -105,6 +138,20 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
+// installationAppID returns the App id an installation or
+// installation_repositories payload names. Other events carry no App id
+// in their payload; the route's secret is their only App binding.
+func installationAppID(event any) (int64, bool) {
+	switch e := event.(type) {
+	case *gh.InstallationEvent:
+		return e.GetInstallation().GetAppID(), true
+	case *gh.InstallationRepositoriesEvent:
+		return e.GetInstallation().GetAppID(), true
+	default:
+		return 0, false
+	}
+}
+
 // start starts webhook/<delivery>. A duplicate is success: GitHub
 // redelivered something already handled or in progress.
 func (h *Handler) start(ctx context.Context, in *workflows.WebhookInput) error {
@@ -123,9 +170,9 @@ func (h *Handler) start(ctx context.Context, in *workflows.WebhookInput) error {
 
 // Handled actions per event (DESIGN-0026's event table).
 var handled = map[string]map[string]bool{
-	eventRepository:             {"created": true, "deleted": true, "archived": true, "unarchived": true, "renamed": true, "transferred": true},
-	"installation":              {"created": true, "deleted": true, "suspend": true, "unsuspend": true},
-	"installation_repositories": {"added": true, "removed": true},
+	eventRepository:               {"created": true, "deleted": true, "archived": true, "unarchived": true, "renamed": true, "transferred": true},
+	eventInstallation:             {"created": true, "deleted": true, "suspend": true, "unsuspend": true},
+	eventInstallationRepositories: {"added": true, "removed": true},
 }
 
 // route decides statelessly whether an event needs a workflow and builds

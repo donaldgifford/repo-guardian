@@ -193,6 +193,11 @@ type WebhookRepo struct {
 // WebhookInput is WebhookWorkflow's input: the routing facts of one
 // delivery, never its payload.
 type WebhookInput struct {
+	// App is the controls App whose route received the delivery, eval or
+	// remediate, stamped by ingest from the route and never from a
+	// header; empty on the rc's single-App route (IMPL-0028 task 3.2).
+	App string `json:",omitempty"`
+
 	DeliveryID     string
 	Event          string
 	Action         string

@@ -209,12 +209,14 @@ func bringUpRoles(
 	}
 
 	if roles.Has(config.RoleIngest) {
-		h, err := newIngestHandler(cfg, tc, tcfg.TaskQueue, logger)
+		routes, err := newIngestRoutes(cfg, tc, tcfg.TaskQueue, logger)
 		if err != nil {
 			return fail(err)
 		}
 
-		mux.Handle(webhookRoute, observability.Handler(h, webhookRoute))
+		for route, h := range routes {
+			mux.Handle(route, observability.Handler(h, route))
+		}
 	}
 
 	if roles.Has(config.RoleAPI) {
@@ -357,16 +359,33 @@ func workerChecks(pool *pgxpool.Pool, tc client.Client, buildID string, started 
 	}
 }
 
-// newIngestHandler builds the webhook handler. The policy is read only
-// for its watched paths, so a policy error fails startup rather than
-// silently dropping every push.
-func newIngestHandler(cfg *config.Config, tc client.Client, taskQueue string, logger *slog.Logger) (http.Handler, error) {
+// newIngestRoutes builds the webhook handlers by route: the rc's
+// single-App route, plus one route per controls App whose webhook
+// secret is set (IMPL-0028 task 3.2, D29). Each validates with its own
+// secret only. The policy is read only for its watched paths, so a
+// policy error fails startup rather than silently dropping every push.
+func newIngestRoutes(cfg *config.Config, tc client.Client, taskQueue string, logger *slog.Logger) (map[string]http.Handler, error) {
 	policyCfg, err := policy.Load(cfg.GuardianConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("load policy for watched paths: %w", err)
 	}
 
-	return ingest.New(cfg.GitHubWebhookSecret, tc, taskQueue, policy.ExtractWatchedPaths(policyCfg), logger), nil
+	watched := policy.ExtractWatchedPaths(policyCfg)
+
+	routes := map[string]http.Handler{
+		webhookRoute: ingest.New(cfg.GitHubWebhookSecret, tc, taskQueue, watched, logger),
+	}
+
+	for _, app := range []config.App{config.AppEval, config.AppRemediate} {
+		creds := cfg.Credentials(app)
+		if creds.WebhookSecret == "" {
+			continue
+		}
+
+		routes[webhookRoute+"/"+string(app)] = ingest.NewApp(string(app), creds.AppID, creds.WebhookSecret, tc, taskQueue, watched, logger)
+	}
+
+	return routes, nil
 }
 
 // stopRoles shuts a process down in dependency order: the worker drains

@@ -120,3 +120,18 @@ func (c *Config) validateControlsWorker(role string) []error {
 
 	return errs
 }
+
+// validateAppRoutes checks ingest's per-App routes: a route is mounted
+// when its webhook secret is set, and it then needs the App id to
+// refuse another App's installation payloads.
+func (c *Config) validateAppRoutes() []error {
+	var errs []error
+
+	for _, a := range []App{AppEval, AppRemediate} {
+		if creds := c.Credentials(a); creds.WebhookSecret != "" && creds.AppID == 0 {
+			errs = append(errs, fmt.Errorf("%s_GITHUB_APP_ID is required with %s_WEBHOOK_SECRET", a.envPrefix(), a.envPrefix()))
+		}
+	}
+
+	return errs
+}

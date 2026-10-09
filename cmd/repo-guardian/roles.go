@@ -319,7 +319,7 @@ func startV2Worker(
 	w := temporal.NewWorker(tc, &wc)
 	workflows.Register(w)
 	activities.New(engine, st, gh, policyVersion, logger).Register(w)
-	activities.NewBudget(tc, wc.TaskQueue, cfg.RateLimitThreshold).Register(w)
+	activities.NewBudget(tc, "", wc.TaskQueue, cfg.RateLimitThreshold).Register(w)
 	activities.NewRouter(st, tc, wc.TaskQueue, cfg.CheckInterval, cfg.RateLimitThreshold, logger).Register(w)
 	activities.NewServices(&activities.ServicesConfig{
 		Store: st, GitHub: gh, Temporal: tc, TaskQueue: wc.TaskQueue,

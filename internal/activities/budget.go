@@ -17,6 +17,7 @@ import (
 // Update-with-Start, so RepoWorkflow reaches its InstallationWorkflow
 // through this activity.
 type Budget struct {
+	app       string
 	client    client.Client
 	taskQueue string
 	threshold float64
@@ -27,16 +28,24 @@ type Budget struct {
 	MaxHandled int
 }
 
-// NewBudget returns the budget activity. threshold is
-// RATE_LIMIT_THRESHOLD, the reserve each InstallationWorkflow keeps.
-func NewBudget(c client.Client, taskQueue string, threshold float64) *Budget {
-	return &Budget{client: c, taskQueue: taskQueue, threshold: threshold, leaseTTL: workflows.DefaultLeaseTTL}
+// NewBudget returns the budget activity for app ("" is the rc's single
+// App), starting InstallationWorkflows on taskQueue, the App's queue.
+// threshold is RATE_LIMIT_THRESHOLD, the reserve each
+// InstallationWorkflow keeps.
+func NewBudget(c client.Client, app, taskQueue string, threshold float64) *Budget {
+	return &Budget{app: app, client: c, taskQueue: taskQueue, threshold: threshold, leaseTTL: workflows.LeaseTTL(app)}
 }
 
-// AcquireBudget sends acquire to installation/<id>, starting the
-// InstallationWorkflow if it is not running.
+// AcquireBudget sends acquire to installation/<app>/<id> (the rc's
+// installation/<id>), starting the InstallationWorkflow if it is not
+// running. A request naming another App is refused: each App's budget
+// is reached only through its own worker.
 func (b *Budget) AcquireBudget(ctx context.Context, in *workflows.AcquireInput) (*workflows.AcquireResult, error) {
-	id := workflows.InstallationWorkflowID(in.InstallationID)
+	if in.App != b.app {
+		return nil, fmt.Errorf("acquire for App %q on the %q budget worker", in.App, b.app)
+	}
+
+	id := workflows.InstallationWorkflowID(b.app, in.InstallationID)
 
 	start := b.client.NewWithStartWorkflowOperation(client.StartWorkflowOptions{
 		ID:                       id,
@@ -44,6 +53,7 @@ func (b *Budget) AcquireBudget(ctx context.Context, in *workflows.AcquireInput) 
 		WorkflowIDConflictPolicy: enumspb.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING,
 		Priority:                 workflows.TaskPriority(in.Request.Priority, in.InstallationID),
 	}, workflows.InstallationWorkflowName, &workflows.InstallationWorkflowInput{
+		App:            b.app,
 		InstallationID: in.InstallationID,
 		Threshold:      b.threshold,
 		LeaseTTL:       b.leaseTTL,

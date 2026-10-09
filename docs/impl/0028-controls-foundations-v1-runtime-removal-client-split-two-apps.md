@@ -648,7 +648,7 @@ activity, so this phase deletes the v1 runtime only, never the checker.
 - [x] 4.5 Priorities: add `PriorityHuman = 1`; document in
   `internal/workflows/types.go` that priority orders tasks within one
   queue only (INV-0022 F5).
-- [ ] 4.6 Budget: the `InstallationWorkflow` id becomes
+- [x] 4.6 Budget: the `InstallationWorkflow` id becomes
   `installation/<app>/<id>` (`names.go`, `repo.go`, `activities/budget.go`,
   `route.go`, `cmd/rg-burst`); `NewBudget` takes the App's queue;
   `DefaultLeaseTTL` is set per App to cover that App's longest activity

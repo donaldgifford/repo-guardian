@@ -22,6 +22,7 @@ import (
 // worker deployment, its task queue, and what it registers.
 type controlsHalf struct {
 	name      string
+	app       string
 	taskQueue string
 	register  func(worker.WorkflowRegistry)
 }
@@ -33,13 +34,13 @@ func controlsHalves(cfg *config.Config, roles config.Role, tcfg *temporal.Config
 
 	if cfg.RunsControls(roles, config.RoleEvaluator) {
 		halves = append(halves, controlsHalf{
-			name: cmdEvaluator, taskQueue: tcfg.EvalTaskQueue, register: workflows.RegisterEvaluator,
+			name: cmdEvaluator, app: workflows.AppEval, taskQueue: tcfg.EvalTaskQueue, register: workflows.RegisterEvaluator,
 		})
 	}
 
 	if cfg.RunsControls(roles, config.RoleRemediator) {
 		halves = append(halves, controlsHalf{
-			name: cmdRemediator, taskQueue: tcfg.RemediateTaskQueue, register: workflows.RegisterRemediator,
+			name: cmdRemediator, app: workflows.AppRemediate, taskQueue: tcfg.RemediateTaskQueue, register: workflows.RegisterRemediator,
 		})
 	}
 
@@ -84,7 +85,7 @@ func startControlsWorker(
 
 	w := temporal.NewWorker(tc, &wc)
 	half.register(w)
-	activities.NewBudget(tc, wc.TaskQueue, cfg.RateLimitThreshold).Register(w)
+	activities.NewBudget(tc, half.app, wc.TaskQueue, cfg.RateLimitThreshold).Register(w)
 
 	if err := w.Start(); err != nil {
 		pool.Close()

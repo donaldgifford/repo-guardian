@@ -63,6 +63,11 @@ type Suspend struct {
 // InstallationWorkflowInput is InstallationWorkflow's input and its
 // ContinueAsNew state.
 type InstallationWorkflowInput struct {
+	// App is the controls App the budget belongs to; empty is the rc's
+	// single App (IMPL-0028 task 4.6). omitempty keeps the rc's payloads,
+	// and so its captured histories, byte-identical.
+	App string `json:",omitempty"`
+
 	InstallationID int64
 
 	// Threshold is RATE_LIMIT_THRESHOLD: the fraction of the limit held
@@ -343,4 +348,16 @@ func (b *budget) untilSweep(now time.Time) time.Duration {
 	}
 
 	return next
+}
+
+// LeaseTTL is the lease TTL for app's budget: its longest
+// budget-holding activity timeout plus a margin, so a crashed holder
+// cannot leak budget for longer than it could have run. The controls
+// Apps' activities arrive with IMPL-0029 and IMPL-0030, which set their
+// own; until then every App uses the CheckRepo bound.
+//
+// TODO(IMPL-0029, IMPL-0030): give AppEval and AppRemediate their
+// evaluate and remediate activity timeouts plus a margin.
+func LeaseTTL(_ string) time.Duration {
+	return DefaultLeaseTTL
 }

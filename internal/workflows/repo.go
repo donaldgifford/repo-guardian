@@ -299,7 +299,7 @@ func (r *repoLoop) report(lease string, res *CheckRepoResult) {
 		}
 	}
 
-	err := workflow.SignalExternalWorkflow(r.ctx, InstallationWorkflowID(r.state.InstallationID), "", ReportSignal, &rep).Get(r.ctx, nil)
+	err := workflow.SignalExternalWorkflow(r.ctx, InstallationWorkflowID("", r.state.InstallationID), "", ReportSignal, &rep).Get(r.ctx, nil)
 	if err != nil {
 		workflow.GetLogger(r.ctx).Warn("budget report failed; the lease will expire", "lease", lease, "error", err)
 	}

@@ -185,6 +185,10 @@ type RepoWorkflowInput struct {
 // retried acquire return the first attempt's answer instead of taking a
 // second lease.
 type AcquireInput struct {
+	// App is the controls App whose budget to draw from; empty is the
+	// rc's single App.
+	App string `json:",omitempty"`
+
 	InstallationID int64
 	UpdateID       string
 	Request        AcquireRequest

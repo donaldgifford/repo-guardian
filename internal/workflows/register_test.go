@@ -44,3 +44,23 @@ func TestRegister_EachRoleRegistersOnlyItsSet(t *testing.T) {
 		t.Errorf("RegisterUnion registered %v, want each name once", union.names)
 	}
 }
+
+// TestInstallationWorkflowID is IMPL-0028 task 4.6: each controls App
+// has its own budget per installation, and the rc's id is unchanged.
+func TestInstallationWorkflowID(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct{ app, want, holder string }{
+		{"", "installation/7", "repo/1"},
+		{AppEval, "installation/eval/7", "eval/repo/1"},
+		{AppRemediate, "installation/remediate/7", "remediate/repo/1"},
+	} {
+		if got := InstallationWorkflowID(tt.app, 7); got != tt.want {
+			t.Errorf("InstallationWorkflowID(%q, 7) = %q, want %q", tt.app, got, tt.want)
+		}
+
+		if got := BudgetHolder(tt.app, "repo/1"); got != tt.holder {
+			t.Errorf("BudgetHolder(%q, repo/1) = %q, want %q", tt.app, got, tt.holder)
+		}
+	}
+}

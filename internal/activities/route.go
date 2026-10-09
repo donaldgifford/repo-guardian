@@ -294,10 +294,12 @@ func (r *Router) suspend(ctx context.Context, in *workflows.WebhookInput, suspen
 		return err
 	}
 
-	_, err := r.client.SignalWithStartWorkflow(ctx, workflows.InstallationWorkflowID(in.InstallationID),
+	// The rc's budget: until the controls switch-over, the router runs on
+	// the rc's queue for every App's repository events (task 3.3).
+	_, err := r.client.SignalWithStartWorkflow(ctx, workflows.InstallationWorkflowID("", in.InstallationID),
 		workflows.SuspendSignal, workflows.Suspend{Suspended: suspended},
 		client.StartWorkflowOptions{
-			ID:        workflows.InstallationWorkflowID(in.InstallationID),
+			ID:        workflows.InstallationWorkflowID("", in.InstallationID),
 			TaskQueue: r.taskQueue,
 			Priority:  workflows.TaskPriority(workflows.PriorityWebhook, in.InstallationID),
 		},

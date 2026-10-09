@@ -76,9 +76,27 @@ func RepoWorkflowID(repositoryID int64) string {
 }
 
 // InstallationWorkflowID is the workflow ID for an installation's rate
-// budget.
-func InstallationWorkflowID(installationID int64) string {
-	return "installation/" + strconv.FormatInt(installationID, 10)
+// budget under app: installation/<app>/<id> for a controls App, whose
+// installations each keep their own budget (IMPL-0028 task 4.6), and
+// installation/<id> for the rc's single App (app ""), so running rc
+// executions keep their id.
+func InstallationWorkflowID(app string, installationID int64) string {
+	if app == "" {
+		return "installation/" + strconv.FormatInt(installationID, 10)
+	}
+
+	return "installation/" + app + "/" + strconv.FormatInt(installationID, 10)
+}
+
+// BudgetHolder is the AcquireRequest.Holder for workflowID acting as
+// app: <app>/<workflow id> for a controls App, the bare workflow id for
+// the rc's.
+func BudgetHolder(app, workflowID string) string {
+	if app == "" {
+		return workflowID
+	}
+
+	return app + "/" + workflowID
 }
 
 // WebhookWorkflowID is the workflow ID for a GitHub delivery. It makes

@@ -655,6 +655,16 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   timeout; the budget `Holder` format follows. Recapture
   `installation_grant_report.json` when `InstallationWorkflowInput` gains
   the App.
+  Done: `InstallationWorkflowID(app, id)` and `BudgetHolder(app, wfID)`;
+  the rc (app `""`) keeps `installation/<id>` and its bare holder, so no
+  running rc execution changes id and `repo.go`'s command order is
+  untouched (no `GetVersion` needed). `App` is `omitempty` on
+  `InstallationWorkflowInput` and `AcquireInput`, so the rc's payloads,
+  and `installation_grant_report.json`, are byte-identical: replay passes
+  without a recapture. `NewBudget(c, app, queue, threshold)` refuses
+  another App's request; `LeaseTTL(app)` is the per-App hook (all
+  `DefaultLeaseTTL` until IMPL-0029/0030 add their activities);
+  `rg-burst -app`.
 - [ ] 4.7 Signal-with-start helper: one activity,
   `StartRemediations(ctx, []RemediationStart)`, calling
   `client.SignalWithStartWorkflow` once per entry on the remediation

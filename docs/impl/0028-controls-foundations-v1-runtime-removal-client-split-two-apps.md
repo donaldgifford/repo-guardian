@@ -558,11 +558,14 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   Done: `activities.AppAccessRecorder` (default logs and records
   nothing; `Router.WithAccessRecorder` swaps it). The Evaluation App's
   installation events route exactly as the rc's.
-- [ ] 3.4 Permission printer: at startup each role logs the App
+- [x] 3.4 Permission printer: at startup each role logs the App
   permission set it needs, derived from the registered control types
   (Workflows read and write on the Remediation App only when a type
   declares workflow apply). Until IMPL-0029 registers types the printer
   prints the base sets from DESIGN-0032's table.
+  Done: `control.EvaluationPermissions` / `RemediationPermissions(resources,
+  workflowApply)`; `cmd/repo-guardian` logs each running role's set at
+  startup (the rc's worker logs both).
 - [ ] 3.5 Chart: `github.eval` and `github.remediate` credential blocks
   (existing Secret or created), mounted by role: the evaluation key into
   evaluator and `all` pods, the remediation key into remediator and

@@ -14,6 +14,7 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/activities"
 	"github.com/donaldgifford/repo-guardian/internal/api"
 	"github.com/donaldgifford/repo-guardian/internal/config"
+	"github.com/donaldgifford/repo-guardian/internal/control"
 	"github.com/donaldgifford/repo-guardian/internal/ingest"
 	"github.com/donaldgifford/repo-guardian/internal/observability"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
@@ -189,6 +190,8 @@ func bringUpRoles(
 	up := &rolesUp{mux: http.NewServeMux()}
 	mux := up.mux
 
+	logAppPermissions(logger, roles)
+
 	if roles.Has(config.RoleWorker) {
 		stop, workerChecks, err := startV2Worker(ctx, cfg, tc, tcfg, strictTemplates, logger)
 		if err != nil {
@@ -357,6 +360,32 @@ func workerChecks(pool *pgxpool.Pool, tc client.Client, buildID string, started 
 			return temporal.RequireCurrentVersion(ctx, tc, buildID)
 		}},
 	}
+}
+
+// logAppPermissions logs, once at startup, the App permission set each
+// running role acts with (IMPL-0028 task 3.4), so an operator can check
+// the installation against it. The Remediation App's set is derived
+// from the registered control types; until IMPL-0029 registers any it is
+// the base set. The rc's worker acts as both.
+func logAppPermissions(logger *slog.Logger, roles config.Role) {
+	if roles&(config.RoleEvaluator|config.RoleWorker) != 0 {
+		logger.Info("Evaluation App permissions required", "app", config.AppEval,
+			"permissions", permissionStrings(control.EvaluationPermissions()))
+	}
+
+	if roles&(config.RoleRemediator|config.RoleWorker) != 0 {
+		logger.Info("Remediation App permissions required", "app", config.AppRemediate,
+			"permissions", permissionStrings(control.RemediationPermissions(nil, false)))
+	}
+}
+
+func permissionStrings(ps []control.Permission) []string {
+	out := make([]string, 0, len(ps))
+	for _, p := range ps {
+		out = append(out, p.String())
+	}
+
+	return out
 }
 
 // newIngestRoutes builds the webhook handlers by route: the rc's

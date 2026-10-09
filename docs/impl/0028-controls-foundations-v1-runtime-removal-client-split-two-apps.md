@@ -929,9 +929,12 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
   transport chain and per-bucket snapshots, the throttle shapes through
   `AsThrottled`, and the no-branch-delete rule; Phase 4's the unsuffixed
   per-role deployments and queue-local priority.
-- [ ] 7.2 `docs/operations/v2-onboarding.md`: the two credential blocks,
+- [x] 7.2 `docs/operations/v2-onboarding.md`: the two credential blocks,
   the two webhook URLs and the role DSNs as optional new values, marked
   as not yet active until IMPL-0029 (the full rewrite is IMPL-0029's).
+  Done: § The controls Apps (optional, not yet active), the per-App
+  webhook URL table in § 5, and § Controls database roles marked not yet
+  active.
 - [ ] 7.3 `make ci`, `make test-integration`, `make lint-monitoring` and
   the replay suite green; the docs site builds with no new warnings.
 - [ ] 7.4 `Chart.yaml` `version` and `appVersion` bumped by hand to the

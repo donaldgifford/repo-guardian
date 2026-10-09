@@ -187,8 +187,10 @@ to save a whole result row fails at the database. Migrations grant to
 these roles and never create them; the owner that runs the migrations
 holds no `CREATEROLE`.
 
-`store.controls.enabled` (off until the controls switch-over, and only
-for an empty database) turns this on:
+`store.controls.enabled` turns this on. It is **not yet active**: leave
+it off until the controls switch-over (IMPL-0029), and turn it on only
+for an empty database, since the migrate Job then applies the controls
+chain instead of the rc's.
 
 - **`baked`**: the chart creates the roles, plus a non-superuser owner,
   `rg_owner`, that the migrate Job connects as (the image's
@@ -256,6 +258,36 @@ Secret: `config.appId` is used only when the chart creates the Secret
 itself (`secrets.create: true` with `secrets.webhookSecret` and
 `secrets.privateKey`, for a quick trial).
 
+#### The controls Apps (optional, not yet active)
+
+> **Not yet active.** These values prepare the controls line
+> (IMPL-0028); the evaluator and remediator start and report ready, but
+> do no evaluation or remediation until IMPL-0029 and IMPL-0030. The
+> single App above keeps doing all the work until the switch-over, and
+> this page is rewritten then.
+
+The controls line splits the App in two: a read-only **Evaluation App**
+and a **Remediation App** that writes. Each has its own block, and its
+private key reaches only the role that acts as it:
+
+```yaml
+github:
+  eval:
+    appId: "123456"                  # empty disables the block
+    existingSecret: rg-eval-app      # keys: private-key, webhook-secret
+  remediate:
+    appId: "234567"
+    existingSecret: rg-remediate-app
+```
+
+Without `existingSecret` the chart creates `<release>-eval` /
+`<release>-remediate` from `privateKey` and `webhookSecret`. Setting an
+`appId` also renders that App's role in `topology: split` (`evaluator`
+or `remediator`), sized by `evaluator.*` / `remediator.*`. The keys are
+mounted as files; the binary reads `EVAL_GITHUB_PRIVATE_KEY_PATH` and
+`REMEDIATE_GITHUB_PRIVATE_KEY_PATH`, never a key value. Each role logs
+the permission set its App needs at startup.
+
 ### 5. A public route for webhooks
 
 GitHub must reach the ingest Service at `POST /webhooks/github`. The
@@ -264,6 +296,21 @@ chart deliberately ships no webhook Ingress: pick an option from
 Cloudflare Tunnel, ngrok). The webhook's HMAC signature is the only
 check the app itself makes. If you want to restrict source IPs to
 GitHub's hook ranges, do it at your edge.
+
+Each controls App has its own webhook URL on the same Service, mounted
+when that App's webhook secret is set:
+
+| App | Webhook URL |
+| --- | --- |
+| Evaluation App | `POST /webhooks/github/eval` |
+| Remediation App | `POST /webhooks/github/remediate` |
+
+Each route checks only its own App's secret and refuses an installation
+event naming the other App's id (401, counted as
+`webhook_rejected_total{reason="app_mismatch"}`). Like the blocks above,
+the routes are not yet fully active: the Evaluation App's deliveries
+route as the single App's do, and the Remediation App's installation
+events are dropped until IMPL-0029 records its access.
 
 The Service keeps the release's full name (`repo-guardian` for a
 release of that name) and listens on port 80 (`service.httpPort`),

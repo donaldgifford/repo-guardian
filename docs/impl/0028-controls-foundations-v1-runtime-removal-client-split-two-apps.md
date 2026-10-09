@@ -433,11 +433,14 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   `internal/github/reader.go`, memoized per evaluation. The v1
   `ListRepositoryRulesets` keeps its `false` for the rc's reconciler
   (task 2.8, OQ1); controls read rulesets through the Reader.
-- [ ] 2.3 PRObserver: `ListPullRequests(headPrefix)` lists open PRs and
+- [x] 2.3 PRObserver: `ListPullRequests(headPrefix)` lists open PRs and
   filters client-side (GitHub's `head` filter is an exact ref), paginated
   to completion, capturing author user id and type and head repository
   id (`client.go:144-180` today captures neither); `GetPullRequest`,
   `ListCommits`, `GetRef`.
+  Done: `GitHubClient.RepoObserver(owner, repo)` in
+  `internal/github/observer.go`; uncached, and `ListCommits` is bounded
+  at 250 (a branch listing walks main's ancestry).
 - [x] 2.4 GraphQL client (OQ4): add the dependency; the client takes the
   same `*http.Client` the REST client uses, so every GraphQL call goes
   through `instrumentedClient`'s order (otelhttp outermost, then the

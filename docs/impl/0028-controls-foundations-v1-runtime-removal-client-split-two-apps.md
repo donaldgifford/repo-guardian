@@ -946,9 +946,13 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
 - [ ] 7.5 PR to `v2` with `dont-release` (Rule 6). After merge the
   maintainer tags the rc and confirms the image and chart publish
   (human-run).
+  PR opened: #205 into `v2`, labelled `dont-release`.
+  **Deferred - human required:** merge, tag `v2.0.0-rc.5`, and confirm the
+  image and chart publish.
 - [ ] 7.6 Deploy the rc to dev (human-run): the rc roles keep running;
   an evaluator and a remediator start on their deployments with both
   Apps' credentials and report ready.
+  **Deferred - human required.**
 
 #### Success Criteria
 

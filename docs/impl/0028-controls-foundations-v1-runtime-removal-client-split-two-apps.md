@@ -937,8 +937,9 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
   active.
 - [ ] 7.3 `make ci`, `make test-integration`, `make lint-monitoring` and
   the replay suite green; the docs site builds with no new warnings.
-- [ ] 7.4 `Chart.yaml` `version` and `appVersion` bumped by hand to the
+- [x] 7.4 `Chart.yaml` `version` and `appVersion` bumped by hand to the
   next rc (OQ8); helm-docs regenerated from `README.md.gotmpl`.
+  Done: chart `2.0.0-rc.5` / appVersion `2.0.0-rc.5`; README regenerated.
 - [ ] 7.5 PR to `v2` with `dont-release` (Rule 6). After merge the
   maintainer tags the rc and confirms the image and chart publish
   (human-run).

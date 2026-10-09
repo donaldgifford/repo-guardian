@@ -13,7 +13,7 @@ SLSA Level 3 provenance attestations.
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 2.0.0-rc.4 \
+  --version 2.0.0-rc.5 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -28,7 +28,7 @@ aws ecr get-login-password --region <region> | \
 
 helm install repo-guardian \
   oci://<account>.dkr.ecr.<region>.amazonaws.com/repo-guardian-chart \
-  --version 2.0.0-rc.4 \
+  --version 2.0.0-rc.5 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -73,7 +73,7 @@ secrets:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 2.0.0-rc.4 \
+  --version 2.0.0-rc.5 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -402,7 +402,7 @@ cosign verify \
     '^https://github.com/donaldgifford/repo-guardian/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:2.0.0-rc.4
+  ghcr.io/donaldgifford/charts/repo-guardian:2.0.0-rc.5
 ```
 
 ### SLSA provenance
@@ -413,7 +413,7 @@ cosign verify-attestation --type slsaprovenance \
     '^https://github.com/slsa-framework/slsa-github-generator/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:2.0.0-rc.4
+  ghcr.io/donaldgifford/charts/repo-guardian:2.0.0-rc.5
 ```
 
 The provenance attestation records the build workflow path, source

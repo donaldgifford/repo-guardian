@@ -37,11 +37,8 @@ func TestLogLines_AreStillEmittedByTheBinary(t *testing.T) {
 	for _, line := range []struct{ name, text string }{
 		{"logCatalogParseFailed", logCatalogParseFailed},
 		{"logRepositoryParked", logRepositoryParked},
-		{"logAttemptCapDropped", logAttemptCapDropped},
-		{"logStoreWriteback", logStoreWriteback},
-		{"logRuleStateWriteback", logRuleStateWriteback},
-		{"logDeferringJob", logDeferringJob},
-		{"logSweepComplete", logSweepComplete},
+		{"logCheckDeferred", logCheckDeferred},
+		{"logCheckFailed", logCheckFailed},
 		{"logInvalidPayload", logInvalidPayload},
 		{"logEnqueueFailed", logEnqueueFailed},
 	} {

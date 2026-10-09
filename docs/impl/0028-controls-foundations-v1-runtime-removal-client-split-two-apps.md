@@ -323,14 +323,14 @@ activity, so this phase deletes the v1 runtime only, never the checker.
 
 #### Tasks
 
-- [ ] 1.1 Delete `internal/queue/**`, `internal/scheduler/**`,
+- [x] 1.1 Delete `internal/queue/**`, `internal/scheduler/**`,
   `internal/worker/**`, `internal/webhook/**` (if no v2 code imports
   it), `checker/{sweep,posture}*`, `multireplica_integration_test.go`,
   `observability/valkey*`, and the v1 store implementation and
   interface with its mock. Keep the v1 `migrations/` directory and
   `pgtest/v1sql` as test fixtures until IMPL-0029 retires the rc schema.
   Move `internal/observability/http_test.go` off `internal/webhook`.
-- [ ] 1.2 `cmd/repo-guardian/main.go`: remove the `v1` subcommand
+- [x] 1.2 `cmd/repo-guardian/main.go`: remove the `v1` subcommand
   (`cmdV1`), `bringUp`, `newQueue`, `newScheduler`, `scheduleHandlers`,
   `podID` and `newStore`. Shutdown per role: the worker drains within
   `shutdownTimeout`, then the client and pool close, then the HTTP
@@ -341,7 +341,7 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   delete `installation_info` here: DESIGN-0032 keeps it with an `app`
   label (Phase 3 task 3.6). Add `checks_total{outcome}`.
   `metrics_test.go` asserts the exact set of names.
-- [ ] 1.4 `internal/monitoring/dashboard/e4.go`, in the same commit as
+- [x] 1.4 `internal/monitoring/dashboard/e4.go`, in the same commit as
   1.1: remove the matchers whose log lines are deleted and add "check
   deferred until budget reset" and "check failed after retries";
   `TestLogLines_AreStillEmittedByTheBinary` passes against the remaining

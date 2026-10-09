@@ -14,6 +14,7 @@ import (
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	gh "github.com/google/go-github/v68/github"
+	"github.com/shurcooL/githubv4"
 
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/observability"
@@ -113,6 +114,12 @@ func newClientFromTransport(transport *ghinstallation.AppsTransport, logger *slo
 		rateLimitThreshold: rateLimitThreshold,
 		installClients:     make(map[int64]*gh.Client),
 	}
+}
+
+// graphQL returns the GraphQL client for the same installation and
+// transport chain as ghClient.
+func (c *GitHubClient) graphQL() *githubv4.Client {
+	return graphQLFor(c.ghClient())
 }
 
 // ghClient returns the appropriate go-github client. If this GitHubClient

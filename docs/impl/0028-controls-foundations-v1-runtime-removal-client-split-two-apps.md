@@ -434,7 +434,7 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   to completion, capturing author user id and type and head repository
   id (`client.go:144-180` today captures neither); `GetPullRequest`,
   `ListCommits`, `GetRef`.
-- [ ] 2.4 GraphQL client (OQ4): add the dependency; the client takes the
+- [x] 2.4 GraphQL client (OQ4): add the dependency; the client takes the
   same `*http.Client` the REST client uses, so every GraphQL call goes
   through `instrumentedClient`'s order (otelhttp outermost, then the
   rate-limit transport, then ghinstallation).

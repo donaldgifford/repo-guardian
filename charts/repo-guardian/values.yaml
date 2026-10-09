@@ -314,6 +314,36 @@ secrets:
   # -- Mount private key as file (true) or env var (false)
   privateKeyAsFile: true
 
+# -- The two controls GitHub Apps (IMPL-0028 Phase 3, DESIGN-0032 §
+# Two Apps). Each block is off until its appId is set. The private key
+# is always mounted as a file. Keys go only to the roles that act as
+# that App: the Evaluation App's to evaluator and `all` pods, the
+# Remediation App's to remediator and `all` pods. Each webhook secret
+# (and App id, for the app-mismatch check) goes to ingest and `all`.
+# The rc's single-App `config.appId` / `secrets` keep serving the rc
+# roles until the controls switch-over.
+github:
+  eval:
+    # -- The Evaluation App's numeric id. Empty disables the block.
+    appId: ""
+    # -- Existing Secret with keys `private-key` and `webhook-secret`.
+    # Empty: the chart creates `<release>-eval` from the two values below.
+    existingSecret: ""
+    # -- The Evaluation App's private key (PEM), when the chart creates the Secret.
+    privateKey: ""
+    # -- The Evaluation App's webhook secret, when the chart creates the Secret.
+    webhookSecret: ""
+  remediate:
+    # -- The Remediation App's numeric id. Empty disables the block.
+    appId: ""
+    # -- Existing Secret with keys `private-key` and `webhook-secret`.
+    # Empty: the chart creates `<release>-remediate` from the two values below.
+    existingSecret: ""
+    # -- The Remediation App's private key (PEM), when the chart creates the Secret.
+    privateKey: ""
+    # -- The Remediation App's webhook secret, when the chart creates the Secret.
+    webhookSecret: ""
+
 # -- File-template overrides for the binary's TemplateStore.
 #
 # Breaking change in chart 0.4.0: the legacy `templates.codeowners`,

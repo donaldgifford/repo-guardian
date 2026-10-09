@@ -592,6 +592,15 @@ incoming webhook.
 | extraVolumeMounts | list | `[]` | Additional volume mounts |
 | extraVolumes | list | `[]` | Additional volumes |
 | fullnameOverride | string | `""` | Override the full release name |
+| github | object | `{"eval":{"appId":"","existingSecret":"","privateKey":"","webhookSecret":""},"remediate":{"appId":"","existingSecret":"","privateKey":"","webhookSecret":""}}` | The two controls GitHub Apps (IMPL-0028 Phase 3, DESIGN-0032 § Two Apps). Each block is off until its appId is set. The private key is always mounted as a file. Keys go only to the roles that act as that App: the Evaluation App's to evaluator and `all` pods, the Remediation App's to remediator and `all` pods. Each webhook secret (and App id, for the app-mismatch check) goes to ingest and `all`. The rc's single-App `config.appId` / `secrets` keep serving the rc roles until the controls switch-over. |
+| github.eval.appId | string | `""` | The Evaluation App's numeric id. Empty disables the block. |
+| github.eval.existingSecret | string | `""` | Existing Secret with keys `private-key` and `webhook-secret`. Empty: the chart creates `<release>-eval` from the two values below. |
+| github.eval.privateKey | string | `""` | The Evaluation App's private key (PEM), when the chart creates the Secret. |
+| github.eval.webhookSecret | string | `""` | The Evaluation App's webhook secret, when the chart creates the Secret. |
+| github.remediate.appId | string | `""` | The Remediation App's numeric id. Empty disables the block. |
+| github.remediate.existingSecret | string | `""` | Existing Secret with keys `private-key` and `webhook-secret`. Empty: the chart creates `<release>-remediate` from the two values below. |
+| github.remediate.privateKey | string | `""` | The Remediation App's private key (PEM), when the chart creates the Secret. |
+| github.remediate.webhookSecret | string | `""` | The Remediation App's webhook secret, when the chart creates the Secret. |
 | image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | image.repository | string | `"ghcr.io/donaldgifford/repo-guardian"` | Container image repository |
 | image.tag | string | `""` | Overrides the image tag (default: appVersion) |

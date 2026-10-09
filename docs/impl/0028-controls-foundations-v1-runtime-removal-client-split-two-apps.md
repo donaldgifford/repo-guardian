@@ -566,13 +566,20 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   Done: `control.EvaluationPermissions` / `RemediationPermissions(resources,
   workflowApply)`; `cmd/repo-guardian` logs each running role's set at
   startup (the rc's worker logs both).
-- [ ] 3.5 Chart: `github.eval` and `github.remediate` credential blocks
+- [x] 3.5 Chart: `github.eval` and `github.remediate` credential blocks
   (existing Secret or created), mounted by role: the evaluation key into
   evaluator and `all` pods, the remediation key into remediator and
   `all` pods (OQ10), each webhook secret into ingest and `all`.
   `roleHasAppKey` splits per App. helm-unittest asserts by env and
   Secret name that a split evaluator pod carries neither the remediation
   key nor (after Phase 6) the remediator DSN.
+  Done: `github.eval` / `github.remediate` (off until `appId`), Secret
+  per App in `templates/secret-apps.yaml`, helpers `roleHasEvalKey` /
+  `roleHasRemediateKey` / `appEnv` / `appSecretName`; keys always mount
+  as files. `secret_scoping_test.yaml` covers ingest, the rc worker and
+  `all`; the split evaluator/remediator pod assertions land with their
+  Deployments in task 4.10. Probe: adding `ingest` to `roleHasEvalKey`
+  fails the ingest case; reverted.
 - [ ] 3.6 `installation_info` gains an `app` label; `topology` moves to a
   deployment-level info series (DESIGN-0029 D7 as amended).
 - [ ] 3.7 Tests: a delivery on each path validates only with that path's

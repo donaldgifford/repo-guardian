@@ -297,6 +297,9 @@ worker and all, the webhook secret only in ingest and all, Temporal in
 every role that dials it, and nothing but the read-only DSN in api.
 */}}
 {{- define "repo-guardian.roleHasAppKey" -}}{{ if has .role (list "worker" "all") }}true{{ end }}{{- end }}
+{{- /* Per-App keys (IMPL-0028 task 3.5): each App's key reaches only the roles that act as it, and only when its block is enabled. */ -}}
+{{- define "repo-guardian.roleHasEvalKey" -}}{{ if and .ctx.Values.github.eval.appId (has .role (list "evaluator" "all")) }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleHasRemediateKey" -}}{{ if and .ctx.Values.github.remediate.appId (has .role (list "remediator" "all")) }}true{{ end }}{{- end }}
 {{- define "repo-guardian.roleHasWebhookSecret" -}}{{ if has .role (list "ingest" "all") }}true{{ end }}{{- end }}
 {{- define "repo-guardian.roleDialsTemporal" -}}{{ if has .role (list "ingest" "worker" "all") }}true{{ end }}{{- end }}
 {{- define "repo-guardian.roleHasStore" -}}{{ if has .role (list "worker" "all") }}true{{ end }}{{- end }}
@@ -579,4 +582,40 @@ the chart's only public host and carries INV-0009's hard gate forward.
 {{- if and .Values.ui.ingress.enabled (not .Values.ui.ingress.host) -}}
 {{- fail "ui.ingress.host is required with ui.ingress.enabled" -}}
 {{- end -}}
+{{- end }}
+
+{{/*
+The Secret holding one controls App's private key and webhook secret.
+Takes (dict "ctx" $ "app" "eval"|"remediate").
+*/}}
+{{- define "repo-guardian.appSecretName" -}}
+{{- $a := index .ctx.Values.github .app -}}
+{{- $a.existingSecret | default (printf "%s-%s" (include "repo-guardian.fullname" .ctx) .app) -}}
+{{- end }}
+
+{{/*
+One controls App's env: the webhook secret and App id for ingest, the
+App id and key path for the role that acts as it. Takes (dict "ctx" $
+"role" <role> "app" "eval"|"remediate").
+*/}}
+{{- define "repo-guardian.appEnv" -}}
+{{- $a := index .ctx.Values.github .app -}}
+{{- $prefix := ternary "EVAL" "REMEDIATE" (eq .app "eval") -}}
+{{- $hasKey := ternary (include "repo-guardian.roleHasEvalKey" .) (include "repo-guardian.roleHasRemediateKey" .) (eq .app "eval") -}}
+{{- $hasHook := and $a.appId (include "repo-guardian.roleHasWebhookSecret" .) -}}
+{{- if or $hasKey $hasHook }}
+- name: {{ $prefix }}_GITHUB_APP_ID
+  value: {{ $a.appId | quote }}
+{{- end }}
+{{- if $hasHook }}
+- name: {{ $prefix }}_WEBHOOK_SECRET
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "repo-guardian.appSecretName" . }}
+      key: webhook-secret
+{{- end }}
+{{- if $hasKey }}
+- name: {{ $prefix }}_GITHUB_PRIVATE_KEY_PATH
+  value: /etc/repo-guardian/{{ .app }}-key/private-key.pem
+{{- end }}
 {{- end }}

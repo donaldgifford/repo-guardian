@@ -114,6 +114,9 @@ spec:
                   key: private-key
             {{- end }}
             {{- end }}
+            {{- range $app := list "eval" "remediate" }}
+            {{- include "repo-guardian.appEnv" (dict "ctx" $ "role" $r.role "app" $app) | nindent 12 }}
+            {{- end }}
             {{- if include "repo-guardian.roleReadsPolicy" $r }}
             - name: DRY_RUN
               value: {{ $v.config.dryRun | quote }}
@@ -177,6 +180,13 @@ spec:
               mountPath: /etc/repo-guardian/private-key
               readOnly: true
             {{- end }}
+            {{- range $app := list "eval" "remediate" }}
+            {{- if include (printf "repo-guardian.roleHas%sKey" (title $app)) (dict "ctx" $ "role" $r.role) }}
+            - name: {{ $app }}-app-key
+              mountPath: /etc/repo-guardian/{{ $app }}-key
+              readOnly: true
+            {{- end }}
+            {{- end }}
             {{- if and (include "repo-guardian.roleDialsTemporal" $r) $v.temporal.tls.existingSecret }}
             - name: temporal-tls
               mountPath: /etc/repo-guardian/temporal-tls
@@ -234,6 +244,16 @@ spec:
             items:
               - key: private-key
                 path: private-key.pem
+        {{- end }}
+        {{- range $app := list "eval" "remediate" }}
+        {{- if include (printf "repo-guardian.roleHas%sKey" (title $app)) (dict "ctx" $ "role" $r.role) }}
+        - name: {{ $app }}-app-key
+          secret:
+            secretName: {{ include "repo-guardian.appSecretName" (dict "ctx" $ "app" $app) }}
+            items:
+              - key: private-key
+                path: private-key.pem
+        {{- end }}
         {{- end }}
         {{- if and (include "repo-guardian.roleDialsTemporal" $r) $v.temporal.tls.existingSecret }}
         - name: temporal-tls

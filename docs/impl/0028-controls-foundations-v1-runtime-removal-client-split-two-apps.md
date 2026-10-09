@@ -550,11 +550,14 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   App's installation payloads; `cmd/repo-guardian` mounts a route per
   App whose `*_WEBHOOK_SECRET` is set. Ingest requires the App id with
   the secret and, alone, refuses either App's key path.
-- [ ] 3.3 Router: `RouteWebhook` and its helpers carry the App;
+- [x] 3.3 Router: `RouteWebhook` and its helpers carry the App;
   Remediation App `installation` and `installation_repositories` events
   upsert that App's access (written to the controls tables once
   IMPL-0029 switches over; until then routed to a no-op recorder behind
   the rc's store interface).
+  Done: `activities.AppAccessRecorder` (default logs and records
+  nothing; `Router.WithAccessRecorder` swaps it). The Evaluation App's
+  installation events route exactly as the rc's.
 - [ ] 3.4 Permission printer: at startup each role logs the App
   permission set it needs, derived from the registered control types
   (Workflows read and write on the Remediation App only when a type

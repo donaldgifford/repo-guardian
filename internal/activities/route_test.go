@@ -338,3 +338,64 @@ func TestRouteWebhook_UnroutedEventIsDropped(t *testing.T) {
 
 	wantSignals(t, tc)
 }
+
+// recordingAccess records the access changes the router hands it.
+type recordingAccess struct{ got []AppAccess }
+
+func (r *recordingAccess) RecordAppAccess(_ context.Context, a *AppAccess) error {
+	r.got = append(r.got, *a)
+
+	return nil
+}
+
+// TestRouteWebhook_RemediationAppAccess is IMPL-0028 task 3.3: the
+// Remediation App's installation events update its access and never
+// drive discovery; the Evaluation App's route the same event as the rc.
+func TestRouteWebhook_RemediationAppAccess(t *testing.T) {
+	for _, ev := range [][2]string{
+		{"installation", "created"},
+		{"installation", "deleted"},
+		{"installation", "suspend"},
+		{"installation_repositories", "added"},
+		{"installation_repositories", "removed"},
+	} {
+		t.Run(ev[0]+"."+ev[1], func(t *testing.T) {
+			r, _, tc := newRouter(t)
+			rec := &recordingAccess{}
+			r.WithAccessRecorder(rec)
+
+			in := webhook(ev[0], ev[1], widgets)
+			in.App = workflows.AppRemediate
+
+			if err := r.RouteWebhook(t.Context(), in); err != nil {
+				t.Fatal(err)
+			}
+
+			wantSignals(t, tc)
+
+			if len(rec.got) != 1 || rec.got[0].App != workflows.AppRemediate || rec.got[0].Action != ev[1] || len(rec.got[0].Repositories) != 1 {
+				t.Errorf("recorded = %+v, want one %s access change", rec.got, ev[1])
+			}
+		})
+	}
+
+	t.Run("evaluation App discovers", func(t *testing.T) {
+		r, st, tc := newRouter(t)
+		rec := &recordingAccess{}
+		r.WithAccessRecorder(rec)
+		st.MockWriter.EXPECT().UpsertInstallation(mock.Anything, store.Installation{InstallationID: 7, AccountLogin: "acme"}).Return(nil)
+
+		in := webhook("installation", "created", widgets)
+		in.App = workflows.AppEval
+
+		if err := r.RouteWebhook(t.Context(), in); err != nil {
+			t.Fatal(err)
+		}
+
+		wantSignals(t, tc, signal{workflowID: "discovery/installation/7/d1", name: workflows.DiscoveryWorkflowName, started: true})
+
+		if len(rec.got) != 0 {
+			t.Errorf("recorded = %+v, want nothing for the Evaluation App", rec.got)
+		}
+	})
+}

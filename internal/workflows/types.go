@@ -190,6 +190,13 @@ type WebhookRepo struct {
 	Name string
 }
 
+// The controls Apps as WebhookInput.App names them; they match
+// config.AppEval and config.AppRemediate.
+const (
+	AppEval      = "eval"
+	AppRemediate = "remediate"
+)
+
 // WebhookInput is WebhookWorkflow's input: the routing facts of one
 // delivery, never its payload.
 type WebhookInput struct {

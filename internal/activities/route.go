@@ -19,11 +19,18 @@ import (
 // actionSuspend is the installation action that suspends the App.
 const actionSuspend = "suspend"
 
+// The installation-level webhook events.
+const (
+	eventInstallation             = "installation"
+	eventInstallationRepositories = "installation_repositories"
+)
+
 // Router is the RouteWebhook activity (DESIGN-0026 § Ingest and webhook
 // routing). Ingest has already validated and filtered the delivery; the
 // router upserts rows as needed, resolves the repository and signals the
 // workflow that owns it.
 type Router struct {
+	access        AppAccessRecorder
 	store         Store
 	client        client.Client
 	taskQueue     string
@@ -35,7 +42,52 @@ type Router struct {
 // NewRouter returns the router. checkInterval seeds the RepoWorkflows it
 // starts and threshold (RATE_LIMIT_THRESHOLD) the InstallationWorkflows.
 func NewRouter(st Store, c client.Client, taskQueue string, checkInterval time.Duration, threshold float64, logger *slog.Logger) *Router {
-	return &Router{store: st, client: c, taskQueue: taskQueue, checkInterval: checkInterval, threshold: threshold, logger: logger}
+	return &Router{
+		access: noopAccessRecorder{logger: logger}, store: st, client: c, taskQueue: taskQueue,
+		checkInterval: checkInterval, threshold: threshold, logger: logger,
+	}
+}
+
+// AppAccess is one change to a controls App's access: an installation
+// created, deleted, suspended or unsuspended, or repositories added to
+// or removed from it.
+type AppAccess struct {
+	App            string
+	InstallationID int64
+	AccountLogin   string
+	Event          string
+	Action         string
+	Repositories   []workflows.WebhookRepo
+}
+
+// AppAccessRecorder records a controls App's access. The controls
+// tables own it once IMPL-0029 switches over; until then the router's
+// default recorder only logs.
+type AppAccessRecorder interface {
+	RecordAppAccess(ctx context.Context, a *AppAccess) error
+}
+
+// WithAccessRecorder replaces the router's no-op access recorder.
+func (r *Router) WithAccessRecorder(rec AppAccessRecorder) *Router {
+	r.access = rec
+
+	return r
+}
+
+// noopAccessRecorder is the recorder before the controls tables exist.
+type noopAccessRecorder struct{ logger *slog.Logger }
+
+// RecordAppAccess logs the change and records nothing.
+func (n noopAccessRecorder) RecordAppAccess(_ context.Context, a *AppAccess) error {
+	n.logger.Debug("app access change not recorded before the controls switch-over",
+		"app", a.App, "installation_id", a.InstallationID, "event", a.Event, "action", a.Action, "repositories", len(a.Repositories))
+
+	return nil
+}
+
+// isAccessEvent reports whether event is an installation-level change.
+func isAccessEvent(event string) bool {
+	return event == eventInstallation || event == eventInstallationRepositories
 }
 
 // Register registers RouteWebhook under its workflows package name.
@@ -47,7 +99,17 @@ func (r *Router) Register(reg Registry) {
 // is safe to retry: every step is an upsert, a park of an already-parked
 // row, or a signal that coalesces.
 func (r *Router) RouteWebhook(ctx context.Context, in *workflows.WebhookInput) error {
-	log := r.logger.With("delivery", in.DeliveryID, "event", in.Event, "action", in.Action, "installation_id", in.InstallationID)
+	log := r.logger.With("delivery", in.DeliveryID, "app", in.App, "event", in.Event, "action", in.Action, "installation_id", in.InstallationID)
+
+	// The Remediation App's installation events describe where it may
+	// write, not which repositories exist: they update its access and
+	// never drive discovery (IMPL-0028 task 3.3).
+	if in.App == workflows.AppRemediate && isAccessEvent(in.Event) {
+		return r.access.RecordAppAccess(ctx, &AppAccess{
+			App: in.App, InstallationID: in.InstallationID, AccountLogin: in.AccountLogin,
+			Event: in.Event, Action: in.Action, Repositories: in.Repositories,
+		})
+	}
 
 	switch in.Event + "." + in.Action {
 	case "push.":

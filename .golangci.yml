@@ -109,6 +109,33 @@ linters:
               desc: the api reads through its Reader interface, never the store implementation
             - pkg: github.com/jackc/pgx/v5
               desc: the api reads through its Reader interface, never the database driver
+        # Only remediation writes to GitHub (DESIGN-0031 D17, IMPL-0028
+        # task 2.7): the Writer is importable from the remediation
+        # activities and the binary that wires them, nowhere else.
+        writer:
+          files:
+            - "$all"
+            - "!**/internal/github/write/*.go"
+            - "!**/internal/activities/remediate*.go"
+            - "!**/cmd/repo-guardian/*.go"
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal/github/write
+              desc: only the remediation activities write to GitHub
+        # The evaluator side, named so a later exception to the rule
+        # above can never open it.
+        writer-evaluator-side:
+          files:
+            - "**/internal/control/*.go"
+            - "**/internal/control/*/*.go"
+            - "**/internal/controls/*.go"
+            - "**/internal/controls/*/*.go"
+            - "**/internal/policy/*.go"
+            - "**/internal/policy/*/*.go"
+            - "**/internal/activities/evaluate*.go"
+            - "**/internal/activities/check.go"
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal/github/write
+              desc: evaluation reads through control.Reader and never writes
         api-contract:
           files:
             - "**/internal/api/*_test.go"

@@ -480,12 +480,24 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   no-op, still behind → `ErrMergeConflict`. `Commit` enforces the
   100-file / 1 MiB change-set bound. Probe: with the STALE_DATA branch
   disabled, `TestCommit/stale_head` fails; restored.
-- [ ] 2.7 depguard: a rule denying `internal/github/write` to every path
+- [x] 2.7 depguard: a rule denying `internal/github/write` to every path
   except the remediation activities' package and `cmd/repo-guardian`,
   and denying it to `internal/control`, `internal/controls/**`,
   `internal/policy` and the evaluation activities. Probe once: add a
   deliberate import from an evaluator-side file, record the lint failure
   in this task, revert.
+  Done: rules `writer` (`$all` minus `internal/github/write`,
+  `internal/activities/remediate*.go` — IMPL-0030's file names — and
+  `cmd/repo-guardian`) and `writer-evaluator-side` (named paths, so a
+  future exception to `writer` cannot open them). Probes:
+  `internal/checker/zz_probe.go` → `import '.../internal/github/write'
+  is not allowed from list 'writer': only the remediation activities
+  write to GitHub`; with `internal/policy` temporarily excepted from
+  `writer`, `internal/policy/zz_probe.go` → `... not allowed from list
+  'writer-evaluator-side': evaluation reads through control.Reader and
+  never writes`. Both reverted. Globs use explicit `*.go` and `*/*.go`
+  depths: `**/internal/policy/**/*.go` matched nothing in the directory
+  itself.
 - [ ] 2.8 The existing `github.Client` interface keeps serving the rc's
   checker and reconcilers unchanged (OQ1); the new surfaces sit beside
   it. `make mocks` regenerates mocks for `control.Reader`,

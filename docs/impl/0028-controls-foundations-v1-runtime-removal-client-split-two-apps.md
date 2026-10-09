@@ -838,7 +838,7 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
   Done: grants name both roles, so a missing role fails the migration.
   `service_runs` INSERT goes to both roles; the matrix fences its kinds
   only in prose, so the SQL does not.
-- [ ] 6.4 Chart role provisioning, mirroring `repoguardian_ro`:
+- [x] 6.4 Chart role provisioning, mirroring `repoguardian_ro`:
   `store-postgres-roles.yaml` creates both roles in baked mode (an init
   script for a new volume plus a hook that creates missing roles and
   resets passwords for an existing one); `store-cnpg-cluster.yaml` adds
@@ -851,6 +851,17 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
   connects as it, since the image's `POSTGRES_USER` is a superuser
   (INV-0022 Phase-0 results, spike 6). `rg_all` for the `all` topology
   is `IN ROLE rg_evaluator, rg_remediator` (CNPG: `inRoles`).
+  Done: all behind `store.controls.enabled` (default false: the switch-
+  over is IMPL-0029's). `templates/store-postgres-roles.yaml` renders one
+  basic-auth Secret per role (lookup-preserved), and in baked mode the
+  `<pg>-controls-init` script (projected with the ro init into
+  `/docker-entrypoint-initdb.d`) plus a `post-install,pre-upgrade` hook at
+  weight -5, before migrate, sharing `repo-guardian.controlsRolesSQL`
+  with it. CNPG: `managed.roles` with `rg_all` `inRoles`. `all` gets both
+  DSNs as `rg_all`. The migrate Job's owner DSN is `rg_owner` on baked,
+  `STORE_DSN` elsewhere. External SQL: `docs/operations/v2-onboarding.md`
+  § Controls database roles. Controls DSNs are mounted but not yet read
+  by the binary (IMPL-0029).
 - [x] 6.5 `pgtest`: `AppRole` becomes an owner role plus `EvaluatorRole`
   and `RemediatorRole`, created the way the chart creates them, with
   per-role DSNs (Phase 0's `pgtest.ControlsRoles` is the starting point;
@@ -867,10 +878,14 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
   Done: `postgres.ControlsDryRun` replays every pending file's Up section
   (no per-file wiring); `migrate --chain controls --dry-run` reports them
   as pending. `TestControlsChain_DryRunRollsBack`.
-- [ ] 6.7 helm-unittest for the three provisioning modes and the per-role
+- [x] 6.7 helm-unittest for the three provisioning modes and the per-role
   DSN mounts; `validateBackendSecrets` extended for the new Secret
   knobs.
-- [ ] 6.8 Policy activation plumbing (INV-0022 Phase-0 OQ1 (a)): a store
+  Done: `tests/controls_store_test.yaml` (17 cases); guards live in
+  `validateControlsStore`, included from `validateBackendSecrets`
+  (per-role Secrets read only on external, required there per running
+  half). Probe: leaking the remediator DSN into the evaluator fails it.
+- [x] 6.8 Policy activation plumbing (INV-0022 Phase-0 OQ1 (a)): a store
   method `ActivatePolicyVersion(ctx, version, summary) (firstSeen bool,
   err error)` running the upsert spike 8 proved (`ON CONFLICT (version)
   DO UPDATE SET activated_at = now() RETURNING (xmax = 0)`), and
@@ -881,6 +896,11 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
   IMPL-0029's, which wires the call (IMPL-0029 4.5). Integration test:
   A, B, A activates A last and keeps both `first_seen_at` values;
   helm-unittest asserts the hook list and the mount.
+  Done: `postgres.ControlsStore.ActivatePolicyVersion`/`CurrentActivation`
+  (`json.RawMessage` summary, stored on first sight only);
+  `TestControlsStore_ActivationHonoursARevert`. The spike's prototype half
+  is removed. The migrate Job's hook list is `post-install,pre-upgrade,
+  pre-rollback` and it mounts the policy with `GUARDIAN_CONFIG`.
 
 #### Success Criteria
 

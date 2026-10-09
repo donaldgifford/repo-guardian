@@ -68,10 +68,13 @@ spec:
                   name: {{ include "repo-guardian.roSecretName" . }}
                   key: {{ include "repo-guardian.roSecretKey" . }}
             {{- end }}
+            {{- if include "repo-guardian.controlsProvisioned" . }}
+            {{- include "repo-guardian.controlsPasswordEnv" . | nindent 12 }}
+            {{- end }}
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
-            {{- if include "repo-guardian.needsRORole" . }}
+            {{- if or (include "repo-guardian.needsRORole" .) (include "repo-guardian.controlsProvisioned" .) }}
             - name: init
               mountPath: /docker-entrypoint-initdb.d
               readOnly: true
@@ -85,11 +88,21 @@ spec:
               command: ["pg_isready", "-U", "repoguardian", "-d", "repoguardian"]
             initialDelaySeconds: 10
             periodSeconds: 10
-      {{- if include "repo-guardian.needsRORole" . }}
+      {{- if or (include "repo-guardian.needsRORole" .) (include "repo-guardian.controlsProvisioned" .) }}
       volumes:
+        {{- /* One init directory for every role script: the entrypoint
+        runs them in name order on a new volume. */}}
         - name: init
-          configMap:
-            name: {{ include "repo-guardian.postgresFullname" . }}-init
+          projected:
+            sources:
+              {{- if include "repo-guardian.needsRORole" . }}
+              - configMap:
+                  name: {{ include "repo-guardian.postgresFullname" . }}-init
+              {{- end }}
+              {{- if include "repo-guardian.controlsProvisioned" . }}
+              - configMap:
+                  name: {{ include "repo-guardian.postgresFullname" . }}-controls-init
+              {{- end }}
       {{- end }}
   volumeClaimTemplates:
     - metadata:

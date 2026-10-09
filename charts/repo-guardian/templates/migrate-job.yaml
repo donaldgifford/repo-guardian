@@ -4,6 +4,11 @@
 # backfill. before-hook-creation replaces a failed Job on the next
 # attempt; hook-succeeded removes a finished one.
 #
+# With store.controls.enabled it applies the controls chain instead
+# (IMPL-0028 Phase 6), as the owner. pre-rollback re-runs it on a
+# rollback, and the policy is mounted for IMPL-0029's activation step
+# (DESIGN-0030 D14).
+#
 # NOTE: post-install, not pre-install: a pre-install hook runs before the
 # release's own resources exist, so with baked Postgres (or a
 # chart-rendered store Secret) it would have nothing to connect to. On a
@@ -18,7 +23,7 @@ metadata:
     {{- include "repo-guardian.labels" . | nindent 4 }}
     app.kubernetes.io/component: migrate
   annotations:
-    helm.sh/hook: post-install,pre-upgrade
+    helm.sh/hook: post-install,pre-upgrade,pre-rollback
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
     helm.sh/hook-weight: "0"
 spec:
@@ -46,11 +51,25 @@ spec:
         - name: migrate
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.store.controls.enabled }}
+          args: ["migrate", "--chain", "controls"]
+          {{- else }}
           args: ["migrate"]
+          {{- end }}
           env:
-            {{- include "repo-guardian.storeDSNEnv" . | nindent 12 }}
+            {{- include "repo-guardian.migrateDSNEnv" . | nindent 12 }}
             - name: RECONCILE_FRESHNESS
               value: {{ .Values.migrate.freshness | quote }}
+            {{- if include "repo-guardian.hasPolicy" . }}
+            - name: GUARDIAN_CONFIG
+              value: /etc/repo-guardian/policy/guardian.hcl
+            {{- end }}
+          {{- if include "repo-guardian.hasPolicy" . }}
+          volumeMounts:
+            - name: policy
+              mountPath: /etc/repo-guardian/policy
+              readOnly: true
+          {{- end }}
           {{- with .Values.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
@@ -59,4 +78,10 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+      {{- if include "repo-guardian.hasPolicy" . }}
+      volumes:
+        - name: policy
+          configMap:
+            name: {{ .Values.policy.existingConfigMap | default (printf "%s-policy" (include "repo-guardian.fullname" .)) }}
+      {{- end }}
 {{- end }}

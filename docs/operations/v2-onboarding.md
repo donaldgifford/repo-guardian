@@ -177,6 +177,51 @@ generated password otherwise changes on every `helm template` render.
 Schema migrations run automatically as a Helm hook Job
 (`migrate.enabled`, on by default).
 
+#### Controls database roles
+
+The controls line (IMPL-0028 onward) splits the database writer in two:
+the evaluator connects as `rg_evaluator`, the remediator as
+`rg_remediator`, and `topology: all` as `rg_all`, a member of both.
+Column-level grants are the writer boundary, so a remediator that tries
+to save a whole result row fails at the database. Migrations grant to
+these roles and never create them; the owner that runs the migrations
+holds no `CREATEROLE`.
+
+`store.controls.enabled` (off until the controls switch-over, and only
+for an empty database) turns this on:
+
+- **`baked`**: the chart creates the roles, plus a non-superuser owner,
+  `rg_owner`, that the migrate Job connects as (the image's
+  `POSTGRES_USER` is a superuser, which would bypass every grant). An
+  init script covers a new volume; a hook Job creates missing roles and
+  resets passwords on an existing one. Each role's password is in its
+  own Secret, `<release>-repo-guardian-postgres-rg-<role>`.
+- **`cnpg`**: the roles are CNPG managed roles with the same Secrets; the
+  cluster's application owner runs the migrations.
+- **`external`**: create the roles yourself, as an administrator, before
+  the first migration, then put each role's DSN in a Secret
+  (`store.controls.evaluator.existingSecret`,
+  `store.controls.remediator.existingSecret`, and for `topology: all`
+  `store.controls.all.existingSecret`). `STORE_DSN` stays the owner's.
+
+```sql
+-- The owner: owns the schema and runs `repo-guardian migrate`. Skip it
+-- if your STORE_DSN user is already a non-superuser owner.
+CREATE ROLE rg_owner LOGIN PASSWORD '...' NOSUPERUSER NOCREATEROLE;
+GRANT ALL ON SCHEMA public TO rg_owner;
+
+-- The application roles.
+CREATE ROLE rg_evaluator  LOGIN PASSWORD '...' NOSUPERUSER;
+CREATE ROLE rg_remediator LOGIN PASSWORD '...' NOSUPERUSER;
+CREATE ROLE rg_all        LOGIN PASSWORD '...' NOSUPERUSER IN ROLE rg_evaluator, rg_remediator;
+GRANT USAGE ON SCHEMA public TO rg_evaluator, rg_remediator;
+```
+
+Each DSN is mounted only into the pods of the role that uses it:
+`STORE_DSN_EVALUATOR` into the evaluator, `STORE_DSN_REMEDIATOR` into
+the remediator. The migrate Job runs `repo-guardian migrate --chain
+controls`, which refuses a database that already holds the rc schema.
+
 ### 4. The GitHub App
 
 Follow [the enterprise setup guide](ent-setup.md) for the full procedure.

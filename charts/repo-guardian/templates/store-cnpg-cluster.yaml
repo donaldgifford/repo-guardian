@@ -20,18 +20,40 @@ spec:
     initdb:
       database: repoguardian
       owner: repoguardian
-  {{- if include "repo-guardian.needsRORole" . }}
-  # The api role's read-only login. pg_read_all_data grants SELECT on
-  # every table, including ones later migrations add, without depending
-  # on whether this role existed when the migration ran.
+  {{- if or (include "repo-guardian.needsRORole" .) (include "repo-guardian.controlsProvisioned" .) }}
   managed:
     roles:
+      {{- if include "repo-guardian.needsRORole" . }}
+      # The api role's read-only login. pg_read_all_data grants SELECT on
+      # every table, including ones later migrations add, without depending
+      # on whether this role existed when the migration ran.
       - name: repoguardian_ro
         ensure: present
         login: true
         inRoles: [pg_read_all_data]
         passwordSecret:
           name: {{ include "repo-guardian.postgresFullname" . }}-ro
+      {{- end }}
+      {{- if include "repo-guardian.controlsProvisioned" . }}
+      # The controls application roles (DESIGN-0032 D31). The controls
+      # chain grants to them; the cluster's owner runs it.
+      - name: rg_evaluator
+        ensure: present
+        login: true
+        passwordSecret:
+          name: {{ include "repo-guardian.postgresFullname" . }}-rg-evaluator
+      - name: rg_remediator
+        ensure: present
+        login: true
+        passwordSecret:
+          name: {{ include "repo-guardian.postgresFullname" . }}-rg-remediator
+      - name: rg_all
+        ensure: present
+        login: true
+        inRoles: [rg_evaluator, rg_remediator]
+        passwordSecret:
+          name: {{ include "repo-guardian.postgresFullname" . }}-rg-all
+      {{- end }}
   {{- end }}
   storage:
     size: {{ .Values.store.postgres.cnpg.storage.size }}

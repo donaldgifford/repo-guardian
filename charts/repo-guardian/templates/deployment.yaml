@@ -176,6 +176,7 @@ spec:
               value: {{ $v.store.postgres.maxConns | quote }}
             {{- end }}
             {{- include "repo-guardian.storeDSNEnv" $ | nindent 12 }}
+            {{- include "repo-guardian.controlsDSNEnv" $r | nindent 12 }}
             {{- end }}
             {{- if include "repo-guardian.roleServesAPI" $r }}
             {{- include "repo-guardian.apiEnv" $r | nindent 12 }}

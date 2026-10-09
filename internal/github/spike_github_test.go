@@ -446,6 +446,7 @@ func TestSpike_EvalAppPermissions(t *testing.T) {
 	}
 
 	r.do("custom property values", http.MethodGet, r.repoPath("/properties/values"), nil)
+	r.do("org custom property schema", http.MethodGet, "/orgs/"+r.owner+"/properties/schema", nil)
 	r.do("vulnerability alerts (expect admin-only)", http.MethodGet, r.repoPath("/vulnerability-alerts"), nil)
 	r.do("branch protection (expect admin-only)", http.MethodGet, r.repoPath("/branches/"+r.defaultBranch()+"/protection"), nil)
 	r.do("CODEOWNERS errors", http.MethodGet, r.repoPath("/codeowners/errors"), nil)

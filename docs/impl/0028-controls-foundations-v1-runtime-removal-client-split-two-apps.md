@@ -136,6 +136,18 @@ from IMPL-0026), and the INV-0022 decisions.
   auth-only).
 - Any change to the rc's behaviour beyond what deleting the v1 runtime
   removes.
+- **Follow-up: a test-org provisioning tool** (noted 2026-10-09). Phase 0's
+  GitHub spikes run against a test org prepared by hand: one repository
+  with an initialised, unprotected default branch, a `CODEOWNERS` with
+  one valid and one broken line, an org ruleset and a repository ruleset
+  in evaluate mode, an org custom property with a value on the
+  repository, and Dependabot alerts enabled. A Go tool (or script) that
+  creates and resets exactly that, idempotently, from a declared spec,
+  is the seed of an end-to-end toolset for preparing an org for testing,
+  and later for running the controls end to end in CI. It needs its own
+  design (docz) before it is built: credentials, which org it may touch,
+  teardown, and how CI gets a disposable org are open questions. Not
+  part of this plan; the spikes do not wait for it.
 
 ## How the phases are ordered
 

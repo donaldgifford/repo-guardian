@@ -31,6 +31,7 @@ type signal struct {
 	arg        any
 	started    bool
 	priority   int
+	queue      string
 }
 
 // recordingTemporal records signals; the embedded mock panics on
@@ -50,7 +51,7 @@ func (c *recordingTemporal) SignalWithStartWorkflow(
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.signals = append(c.signals, signal{workflowID: id, name: name, arg: arg, started: true, priority: o.Priority.PriorityKey})
+	c.signals = append(c.signals, signal{workflowID: id, name: name, arg: arg, started: true, priority: o.Priority.PriorityKey, queue: o.TaskQueue})
 
 	return &temporalmocks.WorkflowRun{}, nil
 }
@@ -108,7 +109,7 @@ func wantSignals(t *testing.T, tc *recordingTemporal, want ...signal) {
 	}
 }
 
-func recheckOf(t *testing.T, s signal) workflows.Recheck {
+func recheckOf(t *testing.T, s *signal) workflows.Recheck {
 	t.Helper()
 
 	r, ok := s.arg.(workflows.Recheck)
@@ -130,7 +131,7 @@ func TestRouteWebhook_PushRechecksKnownActiveRepo(t *testing.T) {
 
 	wantSignals(t, tc, signal{workflowID: "repo/42", name: workflows.RecheckSignal, started: true, priority: int(workflows.PriorityWebhook)})
 
-	if got := recheckOf(t, tc.signals[0]); got.Trigger != workflows.TriggerPush {
+	if got := recheckOf(t, &tc.signals[0]); got.Trigger != workflows.TriggerPush {
 		t.Errorf("trigger = %q", got.Trigger)
 	}
 }
@@ -184,7 +185,7 @@ func TestRouteWebhook_PayloadDiscoveryEvents(t *testing.T) {
 
 			wantSignals(t, tc, signal{workflowID: "repo/42", name: workflows.RecheckSignal, started: true, priority: int(tt.priority)})
 
-			if got := recheckOf(t, tc.signals[0]); got.Trigger != tt.trigger || got.Priority != tt.priority {
+			if got := recheckOf(t, &tc.signals[0]); got.Trigger != tt.trigger || got.Priority != tt.priority {
 				t.Errorf("recheck = %+v", got)
 			}
 		})

@@ -194,6 +194,29 @@ type AcquireInput struct {
 	Request        AcquireRequest
 }
 
+// RemediationStart is one remediation an evaluation found due: the
+// repository, the control (its slug), the installation for the task's
+// fairness key, and the start priority.
+type RemediationStart struct {
+	RepositoryID   int64
+	Control        string
+	InstallationID int64
+	Priority       Priority
+}
+
+// RemediationInput is RemediationWorkflow's input. The run re-reads
+// everything else from the database (DESIGN-0032 § Remediation).
+type RemediationInput struct {
+	RepositoryID   int64
+	Control        string
+	InstallationID int64
+}
+
+// Remediate is RemediateSignal's payload. It carries nothing the run
+// trusts: the run re-reads the generation from the database, so the
+// signal only says "look again".
+type Remediate struct{}
+
 // WebhookRepo identifies one repository in a webhook. ID is GitHub's
 // repository id, which survives renames and transfers.
 type WebhookRepo struct {

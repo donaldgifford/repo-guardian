@@ -665,11 +665,16 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   another App's request; `LeaseTTL(app)` is the per-App hook (all
   `DefaultLeaseTTL` until IMPL-0029/0030 add their activities);
   `rg-burst -app`.
-- [ ] 4.7 Signal-with-start helper: one activity,
+- [x] 4.7 Signal-with-start helper: one activity,
   `StartRemediations(ctx, []RemediationStart)`, calling
   `client.SignalWithStartWorkflow` once per entry on the remediation
   queue (batched to bound evaluation history, INV-0022 F4). Registered
   with no caller until IMPL-0029.
+  Done: `activities.RemediationStarter` registered on the evaluator
+  worker; targets `remediation/<repository id>/<control>`
+  (`RemediationWorkflowName`, `RemediateSignal`, `RemediationInput` fixed
+  in `internal/workflows` for IMPL-0030). Every entry is attempted and
+  failures are joined.
 - [ ] 4.8 The api role's Temporal client calls `DescribeTaskQueue` on both
   queues; `internal/temporal/backlog.go` returns a backlog per queue and
   the status page shows both.

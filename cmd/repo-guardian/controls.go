@@ -87,6 +87,10 @@ func startControlsWorker(
 	half.register(w)
 	activities.NewBudget(tc, half.app, wc.TaskQueue, cfg.RateLimitThreshold).Register(w)
 
+	if half.app == workflows.AppEval {
+		activities.NewRemediationStarter(tc, tcfg.RemediateTaskQueue).Register(w)
+	}
+
 	if err := w.Start(); err != nil {
 		pool.Close()
 

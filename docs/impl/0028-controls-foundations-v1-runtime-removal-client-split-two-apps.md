@@ -729,7 +729,7 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
 
 #### Tasks
 
-- [ ] 5.1 `templates/worker-scaledobject.yaml` becomes one `ScaledObject`
+- [x] 5.1 `templates/worker-scaledobject.yaml` becomes one `ScaledObject`
   per role (`evaluator`, `remediator`), each targeting that role's
   Deployment, with a `prometheus` trigger: `serverAddress`, a `query`
   defaulting to that role's queue (`taskqueue="repo_guardian_eval"` or
@@ -743,23 +743,38 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
   `authenticationRef` when a client certificate is configured. A
   template comment explains why KEDA's composite running-workflows
   metric is never set.
-- [ ] 5.2 `templates/worker-triggerauthentication.yaml`: `cert`, `key`,
+  Done: ranged over `repo-guardian.controlsRoles` (split only; a role
+  renders only with its App), default query from
+  `repo-guardian.kedaQuery`, per-role `keda.query` override, `fallback`
+  replicas `null` → the role's `replicas` (`kindIs "invalid"`, so an
+  explicit 0 survives). The rc worker's ScaledObject is gone; a leftover
+  `worker.keda` fails render in `validateRemovedValues`.
+- [x] 5.2 `templates/worker-triggerauthentication.yaml`: `cert`, `key`,
   `ca` from the effective TLS Secret, rendered only for `trigger:
   temporal` with a client certificate; `tlsServerName` from
   `temporal.tls.serverName`.
-- [ ] 5.3 Guards in `validateTemporalAuth`: `trigger: prometheus` without
+  Done: one shared `<fullname>-temporal-keda`; `tlsServerName` is set in
+  the trigger metadata (KEDA reads it there, not from auth params).
+- [x] 5.3 Guards in `validateTemporalAuth`: `trigger: prometheus` without
   `serverAddress` fails; the OIDC guard fails only for `trigger:
   temporal`, naming `trigger: prometheus` as the fix; an unknown
   `trigger` fails. Messages name the value to change.
-- [ ] 5.4 Values and `values.schema.json`: `evaluator.keda.*` and
+  Done: the serverAddress and OIDC guards apply once a role's
+  ScaledObject renders (`repo-guardian.kedaEnabled`); the unknown-trigger
+  guard is unconditional (the schema enum also refuses it).
+- [x] 5.4 Values and `values.schema.json`: `evaluator.keda.*` and
   `remediator.keda.*` (enabled, min, max, targetQueueSize,
   fallbackReplicas), a shared `keda.trigger` enum and
   `keda.prometheus.*`. Minimum replicas may be 0 for the remediator
   (promotion no longer depends on it, D28).
-- [ ] 5.5 helm-unittest `keda_test.yaml`: both roles, both triggers,
+  Done: the evaluator's floor is 1, the remediator's 0.
+- [x] 5.5 helm-unittest `keda_test.yaml`: both roles, both triggers,
   default and custom query per queue, `authenticationRef`, `fallback`,
   composite metric absent, TriggerAuthentication only for temporal with
   a client certificate. `make lint-alerts-chart` passes.
+  Done: `tests/keda_test.yaml` (16 cases); the old worker-KEDA cases in
+  `topology_test.yaml`/`temporal_auth_test.yaml` were replaced.
+  `make lint-alerts-chart`: 16 rules, SUCCESS.
 - [ ] 5.6 Homelab (human-run, on dev): list the series and labels of
   `approximate_backlog_count{namespace="repo_guardian"}` for both queues
   (label values are sanitised, `-` to `_`: INV-0022 Phase-0 results);

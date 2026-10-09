@@ -1,0 +1,24 @@
+{{- /* The temporal trigger's client certificate (DESIGN-0028 § Temporal
+trigger, INV-0020 Option A). KEDA re-reads the Secret when it rebuilds
+the scaler, and it rebuilds on error, so renewal self-heals within a
+poll. Rendered only for trigger: temporal with a client certificate. */ -}}
+{{- if and (include "repo-guardian.kedaEnabled" .) (eq .Values.keda.trigger "temporal") .Values.temporal.tls.existingSecret }}
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: {{ include "repo-guardian.fullname" . }}-temporal-keda
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.labels" . | nindent 4 }}
+spec:
+  secretTargetRef:
+    - parameter: cert
+      name: {{ .Values.temporal.tls.existingSecret }}
+      key: tls.crt
+    - parameter: key
+      name: {{ .Values.temporal.tls.existingSecret }}
+      key: tls.key
+    - parameter: ca
+      name: {{ .Values.temporal.tls.existingSecret }}
+      key: ca.crt
+{{- end }}

@@ -20,7 +20,7 @@ metadata:
 spec:
   {{- if eq $role "all" }}
   replicas: {{ $v.replicaCount }}
-  {{- else if not (and (eq $role "worker") $v.worker.keda.enabled) }}
+  {{- else if not (dig "keda" "enabled" false $roleValues) }}
   replicas: {{ $roleValues.replicas }}
   {{- end }}
   revisionHistoryLimit: {{ $v.revisionHistoryLimit }}

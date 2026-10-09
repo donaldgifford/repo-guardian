@@ -213,6 +213,9 @@ the entry once operators have had a release or two to notice.
 {{- if hasKey (.Values.posture | default dict) "exportInterval" -}}
 {{- fail "posture.exportInterval was removed in chart 2.0.0: the posture gauges are gone and the API reads compliance from Postgres. Delete the value. See docs/operations/v2-migration.md#removed-chart-values" -}}
 {{- end -}}
+{{- if hasKey .Values.worker "keda" -}}
+{{- fail "worker.keda.* was removed in IMPL-0028: KEDA scales the evaluator and remediator per queue. Move the block to evaluator.keda / remediator.keda and set keda.trigger. See docs/operations/v2-onboarding.md#autoscaling-with-keda" -}}
+{{- end -}}
 {{- if hasKey .Values "tailscale" -}}
 {{- fail "tailscale.* was removed in IMPL-0024: ingress is operator-owned (the baked sidecar also forced the IP allowlist fail-open — INV-0016). Delete the block and pick an ingress option. See docs/operations/ingress.md#migrating-from-the-baked-sidecar" -}}
 {{- end -}}
@@ -277,6 +280,38 @@ refuses to start without its App's credentials.
 {{- define "repo-guardian.controlsRoles" -}}
 {{- if .Values.github.eval.appId }} evaluator{{ end -}}
 {{- if .Values.github.remediate.appId }} remediator{{ end -}}
+{{- end }}
+
+{{/*
+Whether any controls role's ScaledObject renders (split only).
+*/}}
+{{- define "repo-guardian.kedaEnabled" -}}
+{{- if eq .Values.topology "split" -}}
+{{- range $role := splitList " " (trim (include "repo-guardian.controlsRoles" .)) -}}
+{{- if (index $.Values $role).keda.enabled }}true{{ end -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+A controls role's task queue: the binary's defaults
+(temporal.TaskQueueEval, temporal.TaskQueueRemediate).
+*/}}
+{{- define "repo-guardian.roleTaskQueue" -}}
+{{- if eq .role "evaluator" }}repo-guardian-eval{{ else }}repo-guardian-remediate{{ end -}}
+{{- end }}
+
+{{/*
+A controls role's default KEDA query (DESIGN-0028 § Prometheus trigger).
+Temporal sanitises label values, `-` becoming `_` (INV-0022 Phase-0
+results); the inner max stops a partition counting twice while it
+moves, and groups on task_priority and worker_build_id because there is
+no aggregate series across them.
+*/}}
+{{- define "repo-guardian.kedaQuery" -}}
+{{- $ns := .ctx.Values.temporal.namespace | replace "-" "_" -}}
+{{- $q := include "repo-guardian.roleTaskQueue" . | replace "-" "_" -}}
+sum(max by (partition, task_type, task_priority, worker_build_id) (approximate_backlog_count{namespace="{{ $ns }}", taskqueue="{{ $q }}"}))
 {{- end }}
 
 {{/*
@@ -402,8 +437,17 @@ would refuse at startup (or silently misapply) fails here instead.
 {{- if and $tls.caSecret (not $oidc.tokenUrl) -}}
 {{- fail "temporal.tls.caSecret is for temporal.auth.oidc (server-verified TLS without a client certificate); for mTLS use temporal.tls.existingSecret" -}}
 {{- end -}}
-{{- if and $oidc.tokenUrl .Values.worker.keda.enabled -}}
-{{- fail "worker.keda.enabled cannot be combined with temporal.auth.oidc: KEDA's temporal trigger cannot mint OIDC tokens" -}}
+{{- $trigger := .Values.keda.trigger -}}
+{{- if not (has $trigger (list "prometheus" "temporal")) -}}
+{{- fail (printf "keda.trigger %q is unknown: set keda.trigger to prometheus or temporal" $trigger) -}}
+{{- end -}}
+{{- if include "repo-guardian.kedaEnabled" . -}}
+{{- if and (eq $trigger "prometheus") (not .Values.keda.prometheus.serverAddress) -}}
+{{- fail "keda.trigger: prometheus needs keda.prometheus.serverAddress (the Prometheus that scrapes the Temporal server)" -}}
+{{- end -}}
+{{- if and (eq $trigger "temporal") $oidc.tokenUrl -}}
+{{- fail "keda.trigger: temporal cannot be combined with temporal.auth.oidc: KEDA's temporal trigger cannot mint OIDC tokens. Set keda.trigger: prometheus" -}}
+{{- end -}}
 {{- end -}}
 {{- end }}
 

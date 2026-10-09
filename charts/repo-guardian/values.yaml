@@ -128,8 +128,8 @@ temporal:
     # -- Authenticate with a bearer token from an OAuth2
     # client-credentials grant (Keycloak and the like) instead of mTLS.
     # The token is cached and renewed a minute before it expires.
-    # KEDA's temporal trigger cannot mint these, so it is refused with
-    # `worker.keda.enabled`.
+    # KEDA's temporal trigger cannot mint these, so use
+    # `keda.trigger: prometheus` with OIDC.
     oidc:
       # -- The IdP's token endpoint, e.g.
       # `https://keycloak/realms/<realm>/protocol/openid-connect/token`.
@@ -167,7 +167,7 @@ ingest:
 
 # -- The worker role: runs workflows and activities (split only).
 worker:
-  # -- Replica count. Ignored when `worker.keda.enabled`.
+  # -- Replica count.
   replicas: 1
   # -- Concurrent activities per pod (WORKER_ACTIVITY_CONCURRENCY).
   concurrency: 10
@@ -179,24 +179,12 @@ worker:
   buildId: ""
   # -- Resources; empty falls back to `resources`.
   resources: {}
-  # -- KEDA autoscaling on Temporal backlog. Requires the KEDA CRDs.
-  keda:
-    # -- Render a ScaledObject with a `temporal` trigger.
-    enabled: false
-    # -- Floor.
-    minReplicas: 1
-    # -- Ceiling. Size it to the GitHub budget, not the backlog: checks
-    # are rate-limit bound, so pods past the budget only park more
-    # timers (INV-0018 Obs 7).
-    maxReplicas: 4
-    # -- Backlog per replica before KEDA scales out.
-    targetQueueSize: "50"
 
 # -- The evaluator role: the controls evaluation worker on the
 # `repo-guardian-eval` queue (IMPL-0028 Phase 4). Rendered in split when
 # `github.eval.appId` is set; in `all` it runs beside the rc worker.
 evaluator:
-  # -- Replica count (split only).
+  # -- Replica count (split only). Ignored when `evaluator.keda.enabled`.
   replicas: 1
   # -- Concurrent activities per pod (EVALUATOR_CONCURRENCY).
   concurrency: 10
@@ -205,13 +193,32 @@ evaluator:
   dbPoolSize: 0
   # -- Resources; empty falls back to `resources`.
   resources: {}
+  # -- KEDA autoscaling on this role's queue backlog (split only).
+  # Requires the KEDA CRDs. The trigger is the shared `keda.trigger`.
+  keda:
+    # -- Render a ScaledObject. KEDA then owns the replica count.
+    enabled: false
+    # -- Floor.
+    minReplicas: 1
+    # -- Ceiling. Size it to the GitHub budget, not the backlog: checks
+    # are rate-limit bound, so pods past the budget only park more
+    # timers (INV-0018 Obs 7).
+    maxReplicas: 4
+    # -- Backlog per replica before KEDA scales out (either trigger).
+    targetQueueSize: "50"
+    # -- Replicas KEDA holds when the trigger fails three polls in a
+    # row. null uses `evaluator.replicas`.
+    fallbackReplicas: null
+    # -- Prometheus query (trigger `prometheus`). Empty builds the
+    # default from `temporal.namespace` and this role's queue.
+    query: ""
 
 # -- The remediator role: the controls remediation worker on the
 # `repo-guardian-remediate` queue. Rendered in split when
 # `github.remediate.appId` is set. Zero replicas never blocks the
 # evaluator's promotion: each role has its own worker deployment.
 remediator:
-  # -- Replica count (split only).
+  # -- Replica count (split only). Ignored when `remediator.keda.enabled`.
   replicas: 1
   # -- Concurrent activities per pod (REMEDIATOR_CONCURRENCY).
   concurrency: 10
@@ -220,6 +227,39 @@ remediator:
   dbPoolSize: 0
   # -- Resources; empty falls back to `resources`.
   resources: {}
+  # -- KEDA autoscaling on this role's queue backlog (split only).
+  # Requires the KEDA CRDs. The trigger is the shared `keda.trigger`.
+  keda:
+    # -- Render a ScaledObject. KEDA then owns the replica count.
+    enabled: false
+    # -- Floor. 0 is allowed: promotion does not depend on a
+    # running remediator (DESIGN-0032 D28).
+    minReplicas: 0
+    # -- Ceiling. Size it to the GitHub budget, not the backlog: checks
+    # are rate-limit bound, so pods past the budget only park more
+    # timers (INV-0018 Obs 7).
+    maxReplicas: 4
+    # -- Backlog per replica before KEDA scales out (either trigger).
+    targetQueueSize: "50"
+    # -- Replicas KEDA holds when the trigger fails three polls in a
+    # row. null uses `remediator.replicas`.
+    fallbackReplicas: null
+    # -- Prometheus query (trigger `prometheus`). Empty builds the
+    # default from `temporal.namespace` and this role's queue.
+    query: ""
+
+# -- Settings shared by the controls roles' ScaledObjects.
+keda:
+  # -- `prometheus` (default) scales on the Temporal server's
+  # `approximate_backlog_count` and works with `temporal.auth.oidc`;
+  # `temporal` asks the frontend directly and is refused with OIDC.
+  trigger: prometheus
+  prometheus:
+    # -- The Prometheus that scrapes the Temporal server. Required with
+    # `trigger: prometheus` once a role enables KEDA.
+    serverAddress: ""
+    # -- An operator-owned TriggerAuthentication for that Prometheus.
+    authenticationRef: ""
 
 # -- The api role: the read-only JSON API (DESIGN-0027). It holds only
 # a read-only database credential: no App key, no webhook secret.

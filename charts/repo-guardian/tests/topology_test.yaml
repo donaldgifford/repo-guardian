@@ -3,7 +3,6 @@ templates:
   - templates/deployment.yaml
   - templates/service.yaml
   - templates/pdb.yaml
-  - templates/worker-scaledobject.yaml
   - templates/api-authz-configmap.yaml
   - templates/servicemonitor.yaml
 release:
@@ -119,36 +118,6 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].resources
           value: {requests: {cpu: 2}}
-
-  - it: KEDA owns the worker's replica count
-    set:
-      worker.keda.enabled: true
-    asserts:
-      - notExists:
-          path: spec.replicas
-        template: templates/deployment.yaml
-        documentIndex: 1
-      - equal:
-          path: spec.triggers[0].type
-          value: temporal
-        template: templates/worker-scaledobject.yaml
-      - equal:
-          path: spec.triggers[0].metadata.queueTypes
-          value: workflow,activity
-        template: templates/worker-scaledobject.yaml
-      - equal:
-          path: spec.scaleTargetRef.name
-          value: rg-repo-guardian-worker
-        template: templates/worker-scaledobject.yaml
-
-  - it: no ScaledObject without KEDA or in all
-    set:
-      topology: all
-      worker.keda.enabled: true
-    template: templates/worker-scaledobject.yaml
-    asserts:
-      - hasDocuments:
-          count: 0
 
   - it: split renders the webhook and worker Services, the api one when enabled
     template: templates/service.yaml

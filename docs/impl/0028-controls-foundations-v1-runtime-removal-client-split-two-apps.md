@@ -390,7 +390,7 @@ activity, so this phase deletes the v1 runtime only, never the checker.
 - [x] 1.7 Chart: delete `templates/queue-valkey.yaml` and
   `templates/queue-valkey-secret.yaml` (IMPL-0025 17.5); remove any
   remaining Valkey values and helpers; helm-unittest still passes.
-- [ ] 1.8 Remove the queue, scheduler and v1 `Store` entries from
+- [x] 1.8 Remove the queue, scheduler and v1 `Store` entries from
   `.mockery.yaml`; `make mocks`.
 - [ ] 1.9 Update `docs/operations/v2-migration.md`: the removed env vars
   now warn (the note added 2026-10-06 is replaced).

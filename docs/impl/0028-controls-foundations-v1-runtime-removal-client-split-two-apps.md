@@ -253,7 +253,7 @@ write-up.
   readable. Record any field that needs Administration read. Can change
   the DESIGN-0032 permission table and A23.
   **Deferred - human required.** Run `TestSpike_EvalAppPermissions` in `internal/github/spike_github_test.go` (`-tags spike`); it writes `build/spike/TestSpike_EvalAppPermissions.json`.
-  First run done 2026-10-09: merge-policy settings are not Metadata reads (DESIGN-0032 amended). Second run pending with Organization Custom properties read, Administration read, an org property value and an org ruleset.
+  Runs 1 and 2 done 2026-10-09: merge-policy settings are read through GraphQL; Administration read covers vulnerability alerts and `security_and_analysis`; the org schema needs Organization Custom properties read (DESIGN-0032 amended). A third run confirms property values under Metadata alone and an inherited org ruleset.
 - [ ] 0.9 **`installation_repositories` on an all-repositories install
   (spike 4, human-run).** Create a repository in an org where a test App
   is installed on all repositories; record whether the event fires. If
@@ -393,7 +393,12 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   fetched by id for `rules`, `Source` from `source_type`, replacing the
   `false` at `client.go:653`), `GetCustomProperties`,
   `OrgPropertySchema`, `ListLabels`. Ref-pinned reads where DESIGN-0031
-  asks for them.
+  asks for them. `RepositorySettings` comes from one GraphQL
+  `repository { ... }` query (the merge-policy fields REST omits without
+  a write permission) plus `security_and_analysis` from REST; a field
+  the response lacks maps to `unknown{reason=permission}`, never false
+  (INV-0022 Phase-0 results, spike 3). The GraphQL client is the one
+  task 2.4 adds for `Writer.Commit`.
 - [ ] 2.3 PRObserver: `ListPullRequests(headPrefix)` lists open PRs and
   filters client-side (GitHub's `head` filter is an exact ref), paginated
   to completion, capturing author user id and type and head repository

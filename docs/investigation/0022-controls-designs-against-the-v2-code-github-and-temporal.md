@@ -300,7 +300,16 @@ First run 2026-10-09 by the maintainer as a test Evaluation App holding Metadata
 - **The merge-policy settings and `security_and_analysis` do not.** DESIGN-0032's "repository settings are Metadata reads" is wrong for exactly the fields `repo_settings` manages: they are omitted, not nulled, so a reader that defaults a missing field would report every repository's merge policy as false. The design is amended to say so; which permission is the minimum (Administration read is the candidate, since the design already grants it for the vulnerability-alerts read) is the second run.
 - **Not yet answered:** no org ruleset and no property value were visible to either App, so whether an inherited org ruleset and property values are Metadata reads is open; and the org schema 403 is expected until the App holds Organization Custom properties read.
 
-**Second run (pending):** on the test Evaluation App, replace repository Custom properties read with **Organization Custom properties read**, add **Administration read**, define an org custom property with a value on `repo-guardian/test` and an org ruleset targeting it (if the org's plan offers org rulesets), then re-run `TestSpike_EvalAppPermissions`.
+**Second run (2026-10-09)**, after the org approved Administration read and Organization Custom properties read (repository Custom properties read was still granted), with an org property `Owner` set to `donald` on the repository:
+
+- `security_and_analysis` is now returned, and `GET /vulnerability-alerts` is 204: **Administration read** is the permission for both, as the design already states for the vulnerability-alerts read.
+- **The merge-policy fields are still omitted from REST `GET /repos` under Administration read.** They appear only for an App holding write permissions, which the Evaluation App must never hold.
+- **GraphQL returns all of them under the same read-only set:** `repository { mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed autoMergeAllowed allowUpdateBranch deleteBranchOnMerge squashMergeCommitTitle squashMergeCommitMessage mergeCommitTitle mergeCommitMessage webCommitSignoffRequired hasWikiEnabled }` answered 200 with the real values (`deleteBranchOnMerge: true`, `allowUpdateBranch: false`, ...), costing one point of the `graphql` bucket, with `viewerCanAdminister: false`. The settings reader therefore reads repository settings through GraphQL, the same client `Writer.Commit` already adds.
+- `GET /orgs/{org}/properties/schema` is 200 with Organization Custom properties read, returning `Owner` with `value_type`, `required`, `values_editable_by` and `require_explicit_values`.
+- `GET /properties/values` returned `[{"property_name": "Owner", "value": "donald"}]`: the earlier `[]` meant no value was set. Whether values are readable with Metadata alone is still unproven, because repository Custom properties read was granted throughout.
+- Still no org ruleset was visible.
+
+**Still to confirm (third run):** remove repository Custom properties read from the test Evaluation App and re-run, to show property values are a Metadata read; and create an org ruleset targeting the repository, if the org's plan offers one, to show inherited rulesets list with `source_type: Organization`.
 
 ### Spike 4: `installation_repositories` on an all-repositories install (IMPL-0028 0.9)
 

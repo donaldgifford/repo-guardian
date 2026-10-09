@@ -13,34 +13,6 @@ func TestValidate_ValidDefaults(t *testing.T) {
 	}
 }
 
-func TestValidate_GuardianWorkerCount(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.Guardian.WorkerCount = 0
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for WorkerCount = 0")
-	}
-
-	if !strings.Contains(err.Error(), "worker_count") {
-		t.Errorf("error %q should mention worker_count", err)
-	}
-}
-
-func TestValidate_GuardianQueueSize(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.Guardian.QueueSize = -1
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for QueueSize = -1")
-	}
-
-	if !strings.Contains(err.Error(), "queue_size") {
-		t.Errorf("error %q should mention queue_size", err)
-	}
-}
-
 func TestValidate_GuardianRateLimitThreshold(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -473,7 +445,7 @@ func TestValidate_BranchProtection_DuplicateNames(t *testing.T) {
 
 func TestValidate_ErrorMessageClarity(t *testing.T) {
 	cfg := BuiltinDefaults()
-	cfg.Guardian.WorkerCount = 0
+	cfg.Guardian.RateLimitThreshold = 2
 	cfg.Guardian.LogLevel = "invalid"
 
 	err := Validate(cfg)
@@ -483,8 +455,8 @@ func TestValidate_ErrorMessageClarity(t *testing.T) {
 
 	errStr := err.Error()
 
-	if !strings.Contains(errStr, "guardian.worker_count") {
-		t.Error("error should include full field path guardian.worker_count")
+	if !strings.Contains(errStr, "guardian.rate_limit_threshold") {
+		t.Error("error should include full field path guardian.rate_limit_threshold")
 	}
 
 	if !strings.Contains(errStr, "guardian.log_level") {

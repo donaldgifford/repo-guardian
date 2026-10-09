@@ -17,9 +17,8 @@ const VersionV2Prefix = "v2:"
 // every template's name and content.
 //
 // Only settings that can change an outcome or an action are hashed.
-// Operational knobs (log_level, schedule_interval, worker_count,
-// queue_size, rate_limit_threshold) are not, so tuning them never
-// re-checks the fleet. The input is built by copying fields, never by
+// Operational knobs (log_level, rate_limit_threshold) are not, so
+// tuning them never re-checks the fleet. The input is built by copying fields, never by
 // embedding, so renaming a Go field cannot change the version; the
 // classification test fails for any policy field not explicitly
 // declared hashed or not hashed.

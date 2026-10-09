@@ -11,7 +11,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
@@ -80,10 +79,6 @@ func Load(path string) (*PolicyConfig, error) {
 	}
 
 	applyEnvOverrides(&cfg.Guardian)
-
-	if err := parseScheduleInterval(&cfg.Guardian); err != nil {
-		return nil, err
-	}
 
 	if err := Validate(cfg); err != nil {
 		return nil, fmt.Errorf("validating config: %w", err)
@@ -398,9 +393,6 @@ func decodeRuleOrSettingBlock(block *hcl.Block, ctx *hcl.EvalContext, raw *hclCo
 var guardianBodySchema = &hcl.BodySchema{
 	Attributes: []hcl.AttributeSchema{
 		{Name: "dry_run"},
-		{Name: "schedule_interval"},
-		{Name: "worker_count"},
-		{Name: "queue_size"},
 		{Name: "log_level"},
 		{Name: "skip_forks"},
 		{Name: "skip_archived"},
@@ -410,10 +402,59 @@ var guardianBodySchema = &hcl.BodySchema{
 	},
 }
 
+// removedGuardianAttrsURL is the runbook a removed guardian attribute's
+// diagnostic points at.
+const removedGuardianAttrsURL = "docs/operations/v2-migration.md#hcl"
+
+// removedGuardianAttrs are the v1 runtime's guardian {} knobs (IMPL-0028
+// task 1.5). They fail load with a migration hint rather than the bare
+// "Unsupported argument" the strict schema would give, so an operator
+// carrying a v1 policy forward learns what replaced them.
+var removedGuardianAttrs = map[string]string{
+	"schedule_interval": "each repository's check cadence is CHECK_INTERVAL",
+	"worker_count":      "activity concurrency is WORKER_ACTIVITY_CONCURRENCY",
+	"queue_size":        "Temporal task queues are unbounded",
+}
+
+// removedGuardianDiags returns one error per removed attribute body sets,
+// and the body with them stripped so the strict decode does not report
+// them a second time.
+func removedGuardianDiags(body hcl.Body) (hcl.Body, hcl.Diagnostics) {
+	names := slices.Sorted(maps.Keys(removedGuardianAttrs))
+
+	schema := &hcl.BodySchema{Attributes: make([]hcl.AttributeSchema, 0, len(names))}
+	for _, name := range names {
+		schema.Attributes = append(schema.Attributes, hcl.AttributeSchema{Name: name})
+	}
+
+	removed, rest, diags := body.PartialContent(schema)
+
+	for _, name := range names {
+		attr, ok := removed.Attributes[name]
+		if !ok {
+			continue
+		}
+
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Removed argument",
+			Detail: fmt.Sprintf("guardian.%s was removed in v2: %s. Delete it; see %s.",
+				name, removedGuardianAttrs[name], removedGuardianAttrsURL),
+			Subject: attr.NameRange.Ptr(),
+		})
+	}
+
+	return rest, diags
+}
+
 func decodeGuardianBlock(block *hcl.Block, ctx *hcl.EvalContext) (*GuardianConfig, hcl.Diagnostics) {
 	g := &GuardianConfig{}
 
-	content, diags := block.Body.Content(guardianBodySchema)
+	body, diags := removedGuardianDiags(block.Body)
+
+	content, d := body.Content(guardianBodySchema)
+	diags = append(diags, d...)
+
 	if diags.HasErrors() {
 		return nil, diags
 	}
@@ -436,14 +477,6 @@ func setGuardianAttr(g *GuardianConfig, name string, val cty.Value) {
 	switch name {
 	case "dry_run":
 		g.DryRun = val.True()
-	case "schedule_interval":
-		g.ScheduleInterval = val.AsString()
-	case "worker_count":
-		n, _ := val.AsBigFloat().Int64()
-		g.WorkerCount = int(n)
-	case "queue_size":
-		n, _ := val.AsBigFloat().Int64()
-		g.QueueSize = int(n)
 	case "log_level":
 		g.LogLevel = val.AsString()
 	case "skip_forks":
@@ -1149,18 +1182,6 @@ func mergeGuardianConfig(dst, src *GuardianConfig) {
 		dst.DryRun = true
 	}
 
-	if src.ScheduleInterval != "" {
-		dst.ScheduleInterval = src.ScheduleInterval
-	}
-
-	if src.WorkerCount != 0 {
-		dst.WorkerCount = src.WorkerCount
-	}
-
-	if src.QueueSize != 0 {
-		dst.QueueSize = src.QueueSize
-	}
-
 	if src.LogLevel != "" {
 		dst.LogLevel = src.LogLevel
 	}
@@ -1188,9 +1209,6 @@ func mergeGuardianConfig(dst, src *GuardianConfig) {
 
 func applyEnvOverrides(g *GuardianConfig) {
 	applyEnvBool("DRY_RUN", &g.DryRun)
-	applyEnvString("SCHEDULE_INTERVAL", &g.ScheduleInterval)
-	applyEnvInt("WORKER_COUNT", &g.WorkerCount)
-	applyEnvInt("QUEUE_SIZE", &g.QueueSize)
 	applyEnvString("LOG_LEVEL", &g.LogLevel)
 	applyEnvBool("SKIP_FORKS", &g.SkipForks)
 	applyEnvBool("SKIP_ARCHIVED", &g.SkipArchived)
@@ -1226,37 +1244,12 @@ func applyEnvString(key string, dst *string) {
 	}
 }
 
-func applyEnvInt(key string, dst *int) {
-	if v := os.Getenv(key); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			*dst = n
-		}
-	}
-}
-
 func applyEnvFloat(key string, dst *float64) {
 	if v := os.Getenv(key); v != "" {
 		if f, err := strconv.ParseFloat(v, 64); err == nil {
 			*dst = f
 		}
 	}
-}
-
-func parseScheduleInterval(g *GuardianConfig) error {
-	if g.ScheduleInterval == "" {
-		g.ParsedScheduleInterval = defaultScheduleInterval
-
-		return nil
-	}
-
-	d, err := time.ParseDuration(g.ScheduleInterval)
-	if err != nil {
-		return fmt.Errorf("parsing schedule_interval %q: %w", g.ScheduleInterval, err)
-	}
-
-	g.ParsedScheduleInterval = d
-
-	return nil
 }
 
 func formatHCLError(path string, err error) error {

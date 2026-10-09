@@ -323,9 +323,10 @@ Four things to know:
    name) and logs a warning at load. Nothing breaks, but distinct names
    keep the two versions' numbers comparable.
 2. **`guardian { worker_count, queue_size, schedule_interval }` are v1
-   knobs.** v2 still parses them and ignores them. Its equivalents are
-   the `WORKER_ACTIVITY_CONCURRENCY` and `CHECK_INTERVAL` environment
-   variables. Delete them from the file when you cut over.
+   knobs.** v2 refuses to load a policy that sets them, naming each
+   one's replacement: the `WORKER_ACTIVITY_CONCURRENCY` and
+   `CHECK_INTERVAL` environment variables. Delete them from the file
+   before you cut over.
 3. **A new rule costs one fleet pass on v1.** v1's policy version hashes
    the whole configuration, so any change makes every repository stale.
    The next stale sweep re-checks all of them. Cutover re-checks

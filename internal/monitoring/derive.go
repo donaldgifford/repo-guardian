@@ -23,7 +23,6 @@ var envInfluencers = []string{
 	"CUSTOM_PROPERTIES_MODE",
 	"DRY_RUN",
 	"ORPHAN_CLEANUP",
-	"SCHEDULE_INTERVAL",
 	"SKIP_ARCHIVED",
 	"SKIP_FORKS",
 }
@@ -60,10 +59,9 @@ func Derive(cfg *policy.PolicyConfig, opts Options) (*Model, error) {
 	strict := policy.IsStrictScope(cfg)
 
 	m := &Model{
-		Strict:        strict,
-		Orgs:          deriveOrgs(cfg, opts.ExtraOrgs),
-		Mechanisms:    make(Mechanisms),
-		SweepInterval: cfg.Guardian.ParsedScheduleInterval,
+		Strict:     strict,
+		Orgs:       deriveOrgs(cfg, opts.ExtraOrgs),
+		Mechanisms: make(Mechanisms),
 		Source: Source{
 			ConfigPath:   opts.ConfigPath,
 			EnvInfluence: presentEnvInfluencers(),

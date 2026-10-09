@@ -290,35 +290,62 @@ func handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-// removedEnvVars are configuration knobs deleted by IMPL-0024
-// (DESIGN-0023): the webhook IP-allowlist middleware was removed and
-// source-IP enforcement moved to the operator's edge layer. The binary
-// ignores these entirely; the warning below is a migration breadcrumb,
-// not behavior. Remove the check in a future major.
-var removedEnvVars = []string{
-	"WEBHOOK_IP_ALLOWLIST",
-	"WEBHOOK_IP_ALLOWLIST_FAIL_OPEN",
-	"TRUST_PROXY_HEADERS",
+// Runbooks a removed env var's warning points at.
+const (
+	runbookIngress = "docs/operations/ingress.md"
+	runbookV2      = "docs/operations/v2-migration.md#environment-variables"
+)
+
+// removedEnvVars are configuration knobs the binary no longer reads,
+// each with the runbook that says what replaced it. The IMPL-0024 trio
+// went with the webhook IP-allowlist middleware (source-IP enforcement
+// moved to the operator's edge, DESIGN-0023); the rest went with the v1
+// runtime (IMPL-0028 Phase 1), which Temporal replaced. The binary
+// ignores every one of them; the warning is a migration breadcrumb, not
+// behavior. Remove the check in a future major.
+var removedEnvVars = []struct{ name, runbook string }{
+	{"WEBHOOK_IP_ALLOWLIST", runbookIngress},
+	{"WEBHOOK_IP_ALLOWLIST_FAIL_OPEN", runbookIngress},
+	{"TRUST_PROXY_HEADERS", runbookIngress},
+	{"STORE_BACKEND", runbookV2},
+	{"QUEUE_BACKEND", runbookV2},
+	{"SCHEDULER_BACKEND", runbookV2},
+	{"QUEUE_VALKEY_DSN", runbookV2},
+	{"JOB_ACK_TIMEOUT", runbookV2},
+	{"REAPER_INTERVAL", runbookV2},
+	{"MAX_JOB_ATTEMPTS", runbookV2},
+	{"POD_NAME", runbookV2},
+	{"STALE_SWEEP_BATCH_SIZE", runbookV2},
+	{"POSTURE_EXPORT_INTERVAL", runbookV2},
+	{"WORKER_COUNT", runbookV2},
+	{"QUEUE_SIZE", runbookV2},
+	{"SCHEDULE_INTERVAL", runbookV2},
 }
 
-// warnRemovedEnvVars logs once at startup when a removed knob is still
-// set in the environment, so a stale Deployment patch is a logged fact
-// instead of a silent no-op. See docs/operations/ingress.md.
+// warnRemovedEnvVars logs once per runbook at startup when removed knobs
+// are still set in the environment, so a stale Deployment patch is a
+// logged fact instead of a silent no-op.
 func warnRemovedEnvVars(logger *slog.Logger) {
-	var stale []string
+	stale := map[string][]string{}
 
-	for _, name := range removedEnvVars {
-		if _, ok := os.LookupEnv(name); ok {
-			stale = append(stale, name)
+	var runbooks []string
+
+	for _, v := range removedEnvVars {
+		if _, ok := os.LookupEnv(v.name); !ok {
+			continue
 		}
+
+		if _, seen := stale[v.runbook]; !seen {
+			runbooks = append(runbooks, v.runbook)
+		}
+
+		stale[v.runbook] = append(stale[v.runbook], v.name)
 	}
 
-	if len(stale) == 0 {
-		return
+	for _, rb := range runbooks {
+		logger.Warn("removed configuration env vars are set and ignored",
+			"vars", stale[rb],
+			"migration", rb,
+		)
 	}
-
-	logger.Warn("removed configuration env vars are set and ignored",
-		"vars", stale,
-		"migration", "docs/operations/ingress.md",
-	)
 }

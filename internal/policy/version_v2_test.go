@@ -118,8 +118,6 @@ var versionV2Hashed = []string{
 // VersionV2: operational knobs, and values derived from hashed ones.
 var versionV2NotHashed = []string{
 	"PolicyConfig.Guardian", // container; its hashed fields are listed individually
-	"GuardianConfig.ScheduleInterval", "GuardianConfig.ParsedScheduleInterval",
-	"GuardianConfig.WorkerCount", "GuardianConfig.QueueSize",
 	"GuardianConfig.LogLevel", "GuardianConfig.RateLimitThreshold",
 	"PRConfig.CompiledTitle", "PRConfig.CompiledBody", // compiled from Title/Body
 }
@@ -188,9 +186,6 @@ func TestVersionV2_WhatChangesTheVersion(t *testing.T) {
 	}{
 		{"guardian.log_level", func(c *PolicyConfig, _ map[string]string) { c.Guardian.LogLevel = "debug" }, false},
 		{"guardian.rate_limit_threshold", func(c *PolicyConfig, _ map[string]string) { c.Guardian.RateLimitThreshold = 0.5 }, false},
-		{"guardian.schedule_interval", func(c *PolicyConfig, _ map[string]string) { c.Guardian.ScheduleInterval = "1h" }, false},
-		{"guardian.worker_count", func(c *PolicyConfig, _ map[string]string) { c.Guardian.WorkerCount = 99 }, false},
-		{"guardian.queue_size", func(c *PolicyConfig, _ map[string]string) { c.Guardian.QueueSize = 99 }, false},
 		{"guardian.dry_run", func(c *PolicyConfig, _ map[string]string) { c.Guardian.DryRun = true }, true},
 		{"rule paths", func(c *PolicyConfig, _ map[string]string) {
 			c.FileRules[0].Paths = append(c.FileRules[0].Paths, "docs/CODEOWNERS")

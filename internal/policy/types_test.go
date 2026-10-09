@@ -100,8 +100,8 @@ func TestFileRuleConfig_CheckMode(t *testing.T) {
 func TestPolicyConfig_ZeroValue(t *testing.T) {
 	var cfg PolicyConfig
 
-	if cfg.Guardian.WorkerCount != 0 {
-		t.Errorf("zero-value WorkerCount = %d, want 0", cfg.Guardian.WorkerCount)
+	if cfg.Guardian.RateLimitThreshold != 0 {
+		t.Errorf("zero-value RateLimitThreshold = %v, want 0", cfg.Guardian.RateLimitThreshold)
 	}
 
 	if cfg.Guardian.DryRun {

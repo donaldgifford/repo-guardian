@@ -365,13 +365,25 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   deferred until budget reset" and "check failed after retries";
   `TestLogLines_AreStillEmittedByTheBinary` passes against the remaining
   emitters. The full re-cut for control emitters is IMPL-0029.
-- [ ] 1.5 Config: add the 13 removed env vars to `removedEnvVars` so they
+- [x] 1.5 Config: add the 13 removed env vars to `removedEnvVars` so they
   warn and are ignored, with the runbook link (IMPL-0025 OQ17, closing
   IMPL-0025 16.5's gap noted in `docs/operations/v2-migration.md`);
   remove the three v1 HCL attributes from `guardianBodySchema`,
   `setGuardianAttr` and `mergeGuardianConfig` in lockstep so they fail
   load with a migration hint (regression test proven non-vacuous); fix
   the five `examples/` files and `examples_test.go` in the same commit.
+  **Done 2026-10-09.** `removedEnvVars` now carries the 13 v1 runtime
+  vars (`STORE_BACKEND`, `QUEUE_BACKEND`, `SCHEDULER_BACKEND`,
+  `QUEUE_VALKEY_DSN`, `JOB_ACK_TIMEOUT`, `REAPER_INTERVAL`,
+  `MAX_JOB_ATTEMPTS`, `POD_NAME`, `STALE_SWEEP_BATCH_SIZE`,
+  `POSTURE_EXPORT_INTERVAL`, `WORKER_COUNT`, `QUEUE_SIZE`,
+  `SCHEDULE_INTERVAL`) beside the IMPL-0024 trio, one warning per
+  runbook; `config.Load`/`Validate` and the backend validation went
+  with them. The three attributes fail load with "Removed argument"
+  naming the replacement (`TestLoad_RemovedGuardianAttrs`; neutralising
+  the hint fails it nine ways). Only three `examples/` files set them
+  (`guardian-{minimal,full,enterprise}.hcl`); `examples_test.go` needed
+  no change.
 - [ ] 1.6 Drop go-redis, redisotel and rediscmd; `go mod tidy`. Remove the
   `v1` compose profile and Valkey from `docker-compose.dev.yaml`. Remove
   the v1 `policy.Version`.

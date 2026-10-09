@@ -59,9 +59,6 @@ duplicate `type:name` pair fails validation.
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `dry_run` | bool | `false` | Log intended actions without creating PRs or writing to GitHub. |
-| `schedule_interval` | string (Go duration) | `"168h"` | Cadence of the scheduled stale sweep. |
-| `worker_count` | int | `5` | Concurrent repo-check workers. Must be > 0. |
-| `queue_size` | int | `1000` | Work queue buffer size. Must be > 0. |
 | `log_level` | string | `"info"` | One of `debug`, `info`, `warn`, `error`. |
 | `skip_forks` | bool | `true` | Skip forked repositories, and park them out of the stale sweep (see below). |
 | `skip_archived` | bool | `true` | Skip archived repositories, and park them out of the stale sweep (see below). |
@@ -624,9 +621,6 @@ overrides:
 | Env var | Overrides |
 |---------|-----------|
 | `DRY_RUN` | `guardian.dry_run` |
-| `SCHEDULE_INTERVAL` | `guardian.schedule_interval` |
-| `WORKER_COUNT` | `guardian.worker_count` |
-| `QUEUE_SIZE` | `guardian.queue_size` |
 | `LOG_LEVEL` | `guardian.log_level` |
 | `SKIP_FORKS` | `guardian.skip_forks` |
 | `SKIP_ARCHIVED` | `guardian.skip_archived` |
@@ -653,9 +647,12 @@ and [scaling guide](../operations/scaling.md).
 
 Startup fails (all errors reported together) when:
 
-- `guardian.worker_count` ≤ 0, `guardian.queue_size` ≤ 0,
-  `guardian.rate_limit_threshold` outside [0.0, 1.0], or
+- `guardian.rate_limit_threshold` outside [0.0, 1.0], or
   `guardian.log_level` not in `debug|info|warn|error`.
+- `guardian` sets `schedule_interval`, `worker_count` or `queue_size`.
+  These v1 knobs were removed in v2; the error names each one's
+  replacement (`CHECK_INTERVAL`, `WORKER_ACTIVITY_CONCURRENCY`) and
+  links [the migration runbook](../operations/v2-migration.md#hcl).
 - Any file rule: `check` not in `exists|contains|exact|absent`; empty
   `paths`; a non-`absent` rule missing `target` or `template`; assertions
   on a non-`contains` rule; any assertion violating the

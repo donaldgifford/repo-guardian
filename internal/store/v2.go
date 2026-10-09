@@ -6,8 +6,7 @@ import (
 )
 
 // Writer is the v2 write side (DESIGN-0025 § Store interface), used by
-// the worker and ingest roles. It sits beside v1's Store until the v1
-// runtime is deleted (IMPL-0025 OQ1).
+// the worker and ingest roles.
 //
 // Un-parking is exclusive to UpsertDiscovered, INV-0015's subset
 // invariant carried over unchanged.

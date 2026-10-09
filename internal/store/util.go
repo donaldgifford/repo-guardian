@@ -1,9 +1,9 @@
-// Package store utility helpers shared by callers writing into
-// the persistent state. Currently exposes a single Truncate helper
-// for clipping error strings before they enter the RepoState.LastError
-// field (Postgres TEXT is unbounded but the operator-facing
-// dashboards / log lines need predictable widths).
 package store
+
+// Utility helpers shared by callers writing into the persistent state.
+// Truncate clips error strings before they are stored (Postgres TEXT is
+// unbounded but the operator-facing dashboards and log lines need
+// predictable widths).
 
 import "github.com/donaldgifford/repo-guardian/internal/findings"
 

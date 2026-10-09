@@ -233,11 +233,12 @@ type Client interface {
 	DeleteLabel(ctx context.Context, owner, repo, name string) error
 
 	// RateLimitRemaining returns the current core rate-limit budget for
-	// the given installation. Used by the stale-sweep reserve gate
-	// (IMPL-0011 Phase 5e) and IMPL-0015 BudgetTracker.
+	// the given installation. Its one production caller, the v1 stale
+	// sweep, was deleted in IMPL-0028 Phase 1; check activities read
+	// the budget from response headers instead (ghclient.WithUsage).
 	//
 	// Returns (remaining, limit, resetAt, err); limit ≤ 0 means
-	// "unknown" and the reserve gate falls open. resetAt is the
+	// "unknown". resetAt is the
 	// GitHub-reported hourly window rollover; callers may compare it
 	// against time.Now() to trigger a refresh.
 	RateLimitRemaining(ctx context.Context, installationID int64) (remaining, limit int, resetAt time.Time, err error)

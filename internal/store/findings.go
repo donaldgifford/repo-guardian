@@ -6,9 +6,7 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/findings"
 )
 
-// This file holds the v2 domain types (DESIGN-0025). They sit beside
-// v1's RepoState/RuleState until the v1 runtime is deleted in
-// IMPL-0025 Phase 16.
+// This file holds the v2 domain types (DESIGN-0025).
 
 // Finding is the current verdict of one rule for one repository.
 type Finding struct {

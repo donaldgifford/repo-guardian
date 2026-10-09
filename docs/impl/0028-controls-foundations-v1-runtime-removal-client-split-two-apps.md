@@ -498,11 +498,13 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   never writes`. Both reverted. Globs use explicit `*.go` and `*/*.go`
   depths: `**/internal/policy/**/*.go` matched nothing in the directory
   itself.
-- [ ] 2.8 The existing `github.Client` interface keeps serving the rc's
+- [x] 2.8 The existing `github.Client` interface keeps serving the rc's
   checker and reconcilers unchanged (OQ1); the new surfaces sit beside
   it. `make mocks` regenerates mocks for `control.Reader`,
   `control.PRObserver` and `control.Writer` into
   `internal/control/mocks`.
+  Done: `.mockery.yaml` gains the `internal/control` package;
+  `github.Client` and its mock are untouched.
 - [ ] 2.9 Go doc comments on every new type and function; `make lint`
   and `make test` green.
 

@@ -281,7 +281,7 @@ fmt: ## Format code with gofmt and goimports
 	@goimports -w $(GOIMPORTS_LOCAL_ARG) .
 	@goimports -w $(GOIMPORTS_LOCAL_ARG)  cmd/ internal/
 
-mocks: ## Regenerate mockery mocks (Store, Queue, Scheduler, github.Client)
+mocks: ## Regenerate mockery mocks (store, github.Client, control clients)
 	@ $(MAKE) --no-print-directory log-$@
 	@mockery --config .mockery.yaml
 	@# mockery orders imports its own way; match the committed gci layout so a regeneration is diff-free.

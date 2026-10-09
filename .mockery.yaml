@@ -3,7 +3,9 @@
 #
 # Run: make mocks
 #
-# Covers the v2 store's Writer and Reader and github.Client. The v1
+# Covers the v2 store's Writer and Reader, github.Client, and the
+# controls client surface (control.Reader, PRObserver, Writer; IMPL-0028
+# task 2.8). The v1
 # Store, Queue and Scheduler went with the v1 runtime (IMPL-0028
 # Phase 1). The Client mock is not driven by expectations in any
 # test — the checker/reconciler packages keep hand-written
@@ -33,3 +35,10 @@ packages:
       dir: internal/github/mocks
     interfaces:
       Client: {}
+  github.com/donaldgifford/repo-guardian/internal/control:
+    config:
+      dir: internal/control/mocks
+    interfaces:
+      Reader: {}
+      PRObserver: {}
+      Writer: {}

@@ -13,12 +13,14 @@ const (
 	RoleAPI
 
 	// RoleEvaluator and RoleRemediator are the controls worker roles
-	// (IMPL-0028); each acts as one App. They join RoleAll with their
-	// subcommands (IMPL-0028 task 4.1).
+	// (IMPL-0028); each acts as one App and runs its own task queue.
 	RoleEvaluator
 	RoleRemediator
 
-	RoleAll = RoleIngest | RoleWorker | RoleAPI
+	// RoleAll runs every role. Until the controls switch-over, an all
+	// process runs a controls half only when its App is configured (see
+	// Config.AppConfigured), so the rc's single-App all keeps working.
+	RoleAll = RoleIngest | RoleWorker | RoleAPI | RoleEvaluator | RoleRemediator
 )
 
 // Has reports whether r includes every role in other.
@@ -51,15 +53,37 @@ func (c *Config) ValidateRole(role Role) error {
 		errs = append(errs, c.validateAPI(role)...)
 	}
 
-	if role.Has(RoleEvaluator) {
+	if c.RunsControls(role, RoleEvaluator) {
 		errs = append(errs, c.validateEvaluator()...)
 	}
 
-	if role.Has(RoleRemediator) {
+	if c.RunsControls(role, RoleRemediator) {
 		errs = append(errs, c.validateRemediator()...)
 	}
 
 	return errors.Join(errs...)
+}
+
+// RunsControls reports whether a process running role starts the
+// controls half half (RoleEvaluator or RoleRemediator). A process
+// running that role alone always does; a combined process (all) does
+// only when the half's App is configured, so an rc install with one App
+// runs unchanged (IMPL-0028 task 4.1).
+func (c *Config) RunsControls(role, half Role) bool {
+	if !role.Has(half) {
+		return false
+	}
+
+	if role == half {
+		return true
+	}
+
+	app := AppEval
+	if half == RoleRemediator {
+		app = AppRemediate
+	}
+
+	return c.AppConfigured(app)
 }
 
 // validateIngest checks the webhook secrets and, when ingest runs alone,

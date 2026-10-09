@@ -64,6 +64,10 @@ func dispatch(argv []string) error {
 		return runIngest(argv[2:])
 	case cmdWorker:
 		return runWorker(argv[2:])
+	case cmdEvaluator:
+		return runEvaluator(argv[2:])
+	case cmdRemediator:
+		return runRemediator(argv[2:])
 	case cmdAPI:
 		return runAPI(argv[2:])
 	case cmdAll:
@@ -102,7 +106,9 @@ func usage(w io.Writer) {
 Usage:
   repo-guardian [all] [flags]        run every role in one process (default)
   repo-guardian ingest [flags]       webhook ingest: HMAC, filter, start workflows
-  repo-guardian worker [flags]       Temporal worker: every workflow and activity
+  repo-guardian worker [flags]       Temporal worker: every rc workflow and activity
+  repo-guardian evaluator [flags]    controls evaluation worker (Evaluation App)
+  repo-guardian remediator [flags]   controls remediation worker (Remediation App)
   repo-guardian api                  read-only HTTP API
   repo-guardian report [flags]       write per-org compliance reports
   repo-guardian monitoring generate  emit dashboards and alerts from the policy
@@ -111,8 +117,9 @@ Usage:
                                      compare a v2 shadow run with v1
   repo-guardian help                 show this message
 
-Running with no subcommand runs every role. The ingest role holds
-neither the GitHub App key nor database credentials.
+Running with no subcommand runs every role; a controls half runs in all
+only when its App is configured. The ingest role holds neither a GitHub
+App key nor database credentials.
 `)
 }
 

@@ -85,6 +85,11 @@ func (c *Config) validateApp(a App, role string) []error {
 	return errs
 }
 
+// AppConfigured reports whether a's App id is set: the App is in use.
+func (c *Config) AppConfigured(a App) bool {
+	return c.Credentials(a).AppID != 0
+}
+
 // Credentials returns a's credential set.
 func (c *Config) Credentials(a App) AppCredentials {
 	if a == AppEval {

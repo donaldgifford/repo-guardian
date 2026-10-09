@@ -609,11 +609,15 @@ activity, so this phase deletes the v1 runtime only, never the checker.
 
 #### Tasks
 
-- [ ] 4.1 Roles: `RoleEvaluator` and `RoleRemediator` in
+- [x] 4.1 Roles: `RoleEvaluator` and `RoleRemediator` in
   `internal/config/role.go`; `RoleAll` includes both. `repo-guardian
   evaluator` and `repo-guardian remediator` subcommands in
   `cmd/repo-guardian/roles.go`. The rc's `worker` role stays until the
   switch-over.
+  Done. So the rc's single-App `all` keeps loading, a combined process
+  runs a controls half only when its App id is set
+  (`Config.RunsControls`, `AppConfigured`); `evaluator` or `remediator`
+  alone always requires its App's full set.
 - [ ] 4.2 Task queues `repo-guardian-eval` and `repo-guardian-remediate`
   as constants and config. `startV2Worker` becomes one function per
   role; `all` starts one worker per queue. Each worker registers only its

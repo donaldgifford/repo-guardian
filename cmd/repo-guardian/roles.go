@@ -31,11 +31,20 @@ const (
 	cmdWorker = "worker"
 	cmdAPI    = "api"
 	cmdAll    = "all"
+
+	cmdEvaluator  = "evaluator"
+	cmdRemediator = "remediator"
 )
 
 func runIngest(args []string) error { return runRoles(cmdIngest, args, config.RoleIngest) }
 
 func runWorker(args []string) error { return runRoles(cmdWorker, args, config.RoleWorker) }
+
+// runEvaluator is the controls evaluation worker (IMPL-0028 Phase 4).
+func runEvaluator(args []string) error { return runRoles(cmdEvaluator, args, config.RoleEvaluator) }
+
+// runRemediator is the controls remediation worker (IMPL-0028 Phase 4).
+func runRemediator(args []string) error { return runRoles(cmdRemediator, args, config.RoleRemediator) }
 
 // runAll runs every role in one process; the API gets its own listener.
 func runAll(args []string) error { return runRoles(cmdAll, args, config.RoleAll) }

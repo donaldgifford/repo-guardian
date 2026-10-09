@@ -287,3 +287,37 @@ func TestLoadRole_IngestAppRoutes(t *testing.T) {
 		}
 	})
 }
+
+// TestLoadRole_AllRunsControlsHalvesOnlyWhenConfigured is IMPL-0028
+// task 4.1: all includes both controls roles, yet the rc's single-App
+// all still loads, and a configured App's half is then validated.
+func TestLoadRole_AllRunsControlsHalvesOnlyWhenConfigured(t *testing.T) {
+	t.Run("rc single App", func(t *testing.T) {
+		setWorkerEnv(t)
+
+		cfg, err := LoadRole(RoleAll &^ RoleAPI)
+		if err != nil {
+			t.Fatalf("LoadRole(all without api) = %v, want the rc all to load", err)
+		}
+
+		if cfg.RunsControls(RoleAll, RoleEvaluator) || cfg.RunsControls(RoleAll, RoleRemediator) {
+			t.Error("all runs a controls half with no App configured")
+		}
+	})
+
+	t.Run("a configured App is validated", func(t *testing.T) {
+		setWorkerEnv(t)
+		t.Setenv("EVAL_GITHUB_APP_ID", "7")
+
+		if _, err := LoadRole(RoleAll &^ RoleAPI); err == nil || !strings.Contains(err.Error(), "EVAL_GITHUB_PRIVATE_KEY_PATH") {
+			t.Errorf("LoadRole(all) with half an Evaluation App = %v, want its key required", err)
+		}
+	})
+
+	t.Run("alone always runs", func(t *testing.T) {
+		cfg := &Config{}
+		if !cfg.RunsControls(RoleRemediator, RoleRemediator) {
+			t.Error("RunsControls(remediator, remediator) = false, want true")
+		}
+	})
+}

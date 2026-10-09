@@ -409,7 +409,7 @@ activity, so this phase deletes the v1 runtime only, never the checker.
 
 #### Tasks
 
-- [ ] 2.1 Create `internal/control` as a dependency leaf holding only the
+- [x] 2.1 Create `internal/control` as a dependency leaf holding only the
   client-facing interfaces and value types from DESIGN-0031: `Reader`,
   `PRObserver`, `Writer`, `RepositorySettings`, `Ruleset`, `Label`,
   `PullRequest` (number, head ref, head SHA, head repository id, author

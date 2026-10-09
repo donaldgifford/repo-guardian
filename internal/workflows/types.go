@@ -7,10 +7,18 @@ import "time"
 // (DESIGN-0026 § Workflows).
 
 // Priority is a Temporal task priority key. Lower runs first.
+//
+// Priority orders tasks within one task queue only (INV-0022 F5): the
+// evaluation and remediation queues are dispatched independently, so a
+// priority-1 remediation task never jumps an evaluation task, and the
+// two halves never compete for a slot.
 type Priority int
 
 // Priorities by trigger (DESIGN-0026 § Rate budget).
 const (
+	// PriorityHuman is a check or remediation a person asked for (the
+	// API's recheck, a UI action): ahead of every automatic trigger.
+	PriorityHuman    Priority = 1
 	PriorityWebhook  Priority = 2
 	PrioritySchedule Priority = 3
 	PriorityRollout  Priority = 4

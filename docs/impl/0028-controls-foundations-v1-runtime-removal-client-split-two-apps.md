@@ -645,7 +645,7 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   `ensureSchedules(ctx, role)` applies it. The rc worker keeps discovery
   and snapshot; the evaluator's and remediator's entries are empty until
   their workflows exist (IMPL-0029, IMPL-0030).
-- [ ] 4.5 Priorities: add `PriorityHuman = 1`; document in
+- [x] 4.5 Priorities: add `PriorityHuman = 1`; document in
   `internal/workflows/types.go` that priority orders tasks within one
   queue only (INV-0022 F5).
 - [ ] 4.6 Budget: the `InstallationWorkflow` id becomes

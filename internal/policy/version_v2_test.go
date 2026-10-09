@@ -62,18 +62,14 @@ func TestVersionV2_Golden(t *testing.T) {
 	}
 }
 
-func TestVersionV2_NeverEqualsV1(t *testing.T) {
+// TestVersionV2_IsPrefixed pins the "v2:" prefix: v1's policy versions
+// were bare hex, so the prefix is what keeps a v1 row from ever matching
+// a v2 version in the rc schema's backfilled rows.
+func TestVersionV2_IsPrefixed(t *testing.T) {
 	t.Parallel()
 
-	cfg := loadVersionFixture(t, "guardian.hcl")
-
-	v1, err := Version(cfg, versionV2Templates)
-	if err != nil {
-		t.Fatalf("Version: %v", err)
-	}
-
-	if v2 := mustVersionV2(t, cfg, versionV2Templates); v1 == v2 || !strings.HasPrefix(v2, VersionV2Prefix) {
-		t.Errorf("v1 %s, v2 %s: want distinct, v2-prefixed", v1, v2)
+	if v2 := mustVersionV2(t, loadVersionFixture(t, "guardian.hcl"), versionV2Templates); !strings.HasPrefix(v2, VersionV2Prefix) {
+		t.Errorf("VersionV2 = %s, want the %q prefix", v2, VersionV2Prefix)
 	}
 }
 

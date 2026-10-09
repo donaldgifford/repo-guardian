@@ -8,7 +8,7 @@ import (
 	"fmt"
 )
 
-// VersionV2Prefix marks a v2 policy version. A v1 Version is bare hex,
+// VersionV2Prefix marks a v2 policy version. v1 policy versions were bare hex,
 // so the two can never compare equal.
 const VersionV2Prefix = "v2:"
 

@@ -1,17 +1,16 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json
 #
 # Local dev backing services for repo-guardian: Postgres and a Temporal
-# dev server (IMPL-0025 Phase 9, OQ11). Valkey serves only the v1
-# runtime, so it sits behind the `v1` profile until Phase 16 deletes it.
+# dev server (IMPL-0025 Phase 9, OQ11). The v1 runtime's Valkey went
+# with it (IMPL-0028 Phase 1).
 #
 # Bring up:  make dev-services        (Postgres + Temporal)
-#            make run-local           (adds Valkey via --profile v1)
+#            make run-local           (also migrates, then runs every role)
 # Tear down: make dev-stop
 #
 # Endpoints:
 #   STORE_DSN=postgres://repoguardian:repoguardian@localhost:5432/repoguardian?sslmode=disable
 #   TEMPORAL_ADDRESS=localhost:7233   (plaintext; UI on http://localhost:8233)
-#   QUEUE_VALKEY_DSN=redis://localhost:6379/0   (v1 profile only)
 ---
 services:
   postgres:
@@ -47,14 +46,7 @@ services:
       timeout: 3s
       retries: 10
 
-  valkey:
-    profiles: ["v1"]
-    image: valkey/valkey:9.1-alpine
-    container_name: repo-guardian-dev-valkey
-    command: ["valkey-server", "--save", "60", "1", "--appendonly", "yes"]
-    ports:
-      - "6379:6379"
-    volumes:
+volumes:
       - valkey-data:/data
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
@@ -64,4 +56,3 @@ services:
 
 volumes:
   postgres-data:
-  valkey-data:

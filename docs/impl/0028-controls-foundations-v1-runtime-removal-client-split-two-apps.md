@@ -384,7 +384,7 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   the hint fails it nine ways). Only three `examples/` files set them
   (`guardian-{minimal,full,enterprise}.hcl`); `examples_test.go` needed
   no change.
-- [ ] 1.6 Drop go-redis, redisotel and rediscmd; `go mod tidy`. Remove the
+- [x] 1.6 Drop go-redis, redisotel and rediscmd; `go mod tidy`. Remove the
   `v1` compose profile and Valkey from `docker-compose.dev.yaml`. Remove
   the v1 `policy.Version`.
 - [ ] 1.7 Chart: delete `templates/queue-valkey.yaml` and

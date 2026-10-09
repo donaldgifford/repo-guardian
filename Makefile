@@ -302,14 +302,12 @@ run: ## Run CLI command
 	@ $(MAKE) --no-print-directory log-$@
 	./build/bin/repo-guardian
 
-run-local: build ## Run binary against local Postgres + Valkey (+ Temporal)
+run-local: build ## Migrate, then run every role against local Postgres + Temporal
 	@ $(MAKE) --no-print-directory log-$@
-	@docker compose -f docker-compose.dev.yaml --profile v1 up -d
-	@STORE_BACKEND=postgres \
-		STORE_DSN="postgres://repoguardian:repoguardian@localhost:5432/repoguardian?sslmode=disable" \
-		QUEUE_BACKEND=valkey \
-		QUEUE_VALKEY_DSN="redis://localhost:6379/0" \
-		SCHEDULER_BACKEND=valkey \
+	@docker compose -f docker-compose.dev.yaml up -d --wait
+	@STORE_DSN="postgres://repoguardian:repoguardian@localhost:5432/repoguardian?sslmode=disable" \
+		$(BIN_DIR)/$(PROJECT_NAME) migrate
+	@STORE_DSN="postgres://repoguardian:repoguardian@localhost:5432/repoguardian?sslmode=disable" \
 		TEMPORAL_ADDRESS=localhost:7233 \
 		$(BIN_DIR)/$(PROJECT_NAME)
 
@@ -317,9 +315,9 @@ dev-services: ## Start local Postgres + Temporal dev server (docker-compose.dev.
 	@ $(MAKE) --no-print-directory log-$@
 	@docker compose -f docker-compose.dev.yaml up -d
 
-dev-stop: ## Stop every local dev service, including the v1 profile
+dev-stop: ## Stop the local dev services
 	@ $(MAKE) --no-print-directory log-$@
-	@docker compose -f docker-compose.dev.yaml --profile v1 down
+	@docker compose -f docker-compose.dev.yaml down
 
 ## CI/CD
 

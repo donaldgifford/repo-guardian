@@ -37,7 +37,7 @@ func TestReplay_CapturedHistories(t *testing.T) {
 			t.Parallel()
 
 			replayer := worker.NewWorkflowReplayer()
-			Register(replayer)
+			RegisterUnion(replayer)
 
 			if err := replayer.ReplayWorkflowHistoryFromJSONFile(nil, file); err != nil {
 				t.Errorf("replay %s: %v", file, err)

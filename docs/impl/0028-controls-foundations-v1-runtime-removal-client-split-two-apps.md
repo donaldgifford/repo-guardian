@@ -618,11 +618,17 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   runs a controls half only when its App id is set
   (`Config.RunsControls`, `AppConfigured`); `evaluator` or `remediator`
   alone always requires its App's full set.
-- [ ] 4.2 Task queues `repo-guardian-eval` and `repo-guardian-remediate`
+- [x] 4.2 Task queues `repo-guardian-eval` and `repo-guardian-remediate`
   as constants and config. `startV2Worker` becomes one function per
   role; `all` starts one worker per queue. Each worker registers only its
   role's set (`workflows.RegisterEvaluator`, `RegisterRemediator`); the
   replay test registers the union.
+  Done: `temporal.TaskQueueEval`/`TaskQueueRemediate`
+  (`TEMPORAL_EVAL_TASK_QUEUE`/`TEMPORAL_REMEDIATE_TASK_QUEUE`);
+  `cmd/repo-guardian/controls.go` starts one worker per half
+  (`controlsHalves`), the rc worker unchanged beside them. Both sets hold
+  only `InstallationWorkflow` (each App's budget) until IMPL-0029/0030;
+  `RegisterUnion` dedupes for the replayer.
 - [ ] 4.3 Worker deployments (D28): `DeploymentName` becomes a function
   of the role, `repo-guardian-eval` or `repo-guardian-remediate`, with
   no version suffix. `PromoteBuild`, `RequireCurrentVersion`, the

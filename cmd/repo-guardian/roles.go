@@ -213,6 +213,20 @@ func bringUpRoles(
 		checks = append(checks, workerChecks...)
 	}
 
+	for _, half := range controlsHalves(cfg, roles, tcfg) {
+		stop, halfChecks, err := startControlsWorker(ctx, cfg, tc, tcfg, half, logger)
+		if err != nil {
+			if up.stopWorker != nil {
+				up.stopWorker()
+			}
+
+			return nil, err
+		}
+
+		up.stopWorker = chainStops(up.stopWorker, stop)
+		checks = append(checks, halfChecks...)
+	}
+
 	// A failure after the worker started stops it again.
 	fail := func(err error) (*rolesUp, error) {
 		if up.stopWorker != nil {
@@ -370,6 +384,18 @@ func workerChecks(pool *pgxpool.Pool, tc client.Client, buildID string, started 
 
 			return temporal.RequireCurrentVersion(ctx, tc, buildID)
 		}},
+	}
+}
+
+// chainStops returns a stop function that runs a, then b. a may be nil.
+func chainStops(a, b func()) func() {
+	if a == nil {
+		return b
+	}
+
+	return func() {
+		a()
+		b()
 	}
 }
 

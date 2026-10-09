@@ -12,6 +12,12 @@ const (
 	RoleWorker
 	RoleAPI
 
+	// RoleEvaluator and RoleRemediator are the controls worker roles
+	// (IMPL-0028); each acts as one App. They join RoleAll with their
+	// subcommands (IMPL-0028 task 4.1).
+	RoleEvaluator
+	RoleRemediator
+
 	RoleAll = RoleIngest | RoleWorker | RoleAPI
 )
 
@@ -29,7 +35,7 @@ func (c *Config) ValidateRole(role Role) error {
 	var errs []error
 
 	// The api role reads Temporal only for the optional status backlog.
-	if c.TemporalAddress == "" && (role.Has(RoleIngest) || role.Has(RoleWorker)) {
+	if c.TemporalAddress == "" && role&(RoleIngest|RoleWorker|RoleEvaluator|RoleRemediator) != 0 {
 		errs = append(errs, errors.New("TEMPORAL_ADDRESS is required"))
 	}
 
@@ -53,6 +59,14 @@ func (c *Config) ValidateRole(role Role) error {
 
 	if role.Has(RoleAPI) {
 		errs = append(errs, c.validateAPI(role)...)
+	}
+
+	if role.Has(RoleEvaluator) {
+		errs = append(errs, c.validateEvaluator()...)
+	}
+
+	if role.Has(RoleRemediator) {
+		errs = append(errs, c.validateRemediator()...)
 	}
 
 	return errors.Join(errs...)

@@ -526,7 +526,7 @@ activity, so this phase deletes the v1 runtime only, never the checker.
 
 #### Tasks
 
-- [ ] 3.1 Config: two credential sets, `EVAL_GITHUB_APP_ID` /
+- [x] 3.1 Config: two credential sets, `EVAL_GITHUB_APP_ID` /
   `EVAL_GITHUB_PRIVATE_KEY_PATH` / `EVAL_WEBHOOK_SECRET` and
   `REMEDIATE_GITHUB_APP_ID` / `REMEDIATE_GITHUB_PRIVATE_KEY_PATH` /
   `REMEDIATE_WEBHOOK_SECRET` (DESIGN-0032 § Config; adopted 2026-10-07,
@@ -534,6 +534,10 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   keep working for the rc roles until IMPL-0029's switch-over (OQ1).
   `ValidateRole` refuses an evaluator without the evaluation set and a
   remediator without the remediation set.
+  Done: `internal/config/apps.go` (`App`, `AppCredentials`,
+  `Config.Credentials`); keys are paths only. `RoleEvaluator` and
+  `RoleRemediator` are declared here for validation and join `RoleAll`
+  with their subcommands in task 4.1.
 - [ ] 3.2 Ingest: two routes, `/webhooks/github/eval` and
   `/webhooks/github/remediate` (D29). Each route validates with its own
   secret (`ValidatePayload` per route) and stamps the App on

@@ -25,6 +25,15 @@ type Config struct {
 	// GitHubWebhookSecret is the HMAC secret for validating webhook payloads.
 	GitHubWebhookSecret string
 
+	// EvalApp is the Evaluation App's credentials (EVAL_*), read by the
+	// evaluator role and the ingest route /webhooks/github/eval
+	// (IMPL-0028 Phase 3).
+	EvalApp AppCredentials
+
+	// RemediateApp is the Remediation App's credentials (REMEDIATE_*),
+	// read by the remediator role and /webhooks/github/remediate.
+	RemediateApp AppCredentials
+
 	// GitHubHost is the GitHub host every v2 repository and installation
 	// record is keyed under (DESIGN-0025 OQ7). Defaults to github.com.
 	GitHubHost string
@@ -178,6 +187,14 @@ func parse() (*Config, error) {
 	}
 
 	cfg.RateLimitThreshold = rateLimitThreshold
+
+	if cfg.EvalApp, err = parseAppCredentials(AppEval); err != nil {
+		return nil, err
+	}
+
+	if cfg.RemediateApp, err = parseAppCredentials(AppRemediate); err != nil {
+		return nil, err
+	}
 
 	cfg.GuardianConfigPath = os.Getenv("GUARDIAN_CONFIG")
 	cfg.TemporalAddress = os.Getenv("TEMPORAL_ADDRESS")

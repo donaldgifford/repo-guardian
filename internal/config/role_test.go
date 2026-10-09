@@ -176,3 +176,79 @@ func TestLoadRole_AllRunsTheAPIOnItsOwnListener(t *testing.T) {
 		t.Errorf("LoadRole(all) with the API on the main port = %v, want a conflict error", err)
 	}
 }
+
+func setAppEnv(t *testing.T, prefix string) {
+	t.Helper()
+
+	t.Setenv(prefix+"_GITHUB_APP_ID", "7")
+	t.Setenv(prefix+"_GITHUB_PRIVATE_KEY_PATH", "/keys/"+prefix+".pem")
+	t.Setenv(prefix+"_WEBHOOK_SECRET", "s-"+prefix)
+}
+
+// TestLoadRole_ControlsWorkers is IMPL-0028 task 3.1: each controls
+// worker role needs its own App's credential set, and the other App's
+// set does not stand in for it.
+func TestLoadRole_ControlsWorkers(t *testing.T) {
+	for _, tt := range []struct {
+		name          string
+		role          Role
+		prefix, other string
+	}{
+		{"evaluator", RoleEvaluator, envPrefixEval, envPrefixRemediate},
+		{"remediator", RoleRemediator, envPrefixRemediate, envPrefixEval},
+	} {
+		t.Run(tt.name+" complete", func(t *testing.T) {
+			setWorkerEnv(t)
+			setAppEnv(t, tt.prefix)
+
+			if _, err := LoadRole(tt.role); err != nil {
+				t.Fatalf("LoadRole(%s) = %v, want nil", tt.name, err)
+			}
+		})
+
+		for _, env := range []string{"_GITHUB_APP_ID", "_GITHUB_PRIVATE_KEY_PATH"} {
+			t.Run(tt.name+" requires "+tt.prefix+env, func(t *testing.T) {
+				setWorkerEnv(t)
+				setAppEnv(t, tt.prefix)
+				t.Setenv(tt.prefix+env, "")
+
+				if _, err := LoadRole(tt.role); err == nil || !strings.Contains(err.Error(), tt.prefix+env) {
+					t.Errorf("LoadRole(%s) without %s = %v, want an error naming it", tt.name, tt.prefix+env, err)
+				}
+			})
+		}
+
+		t.Run(tt.name+" refuses the other App's set", func(t *testing.T) {
+			setWorkerEnv(t)
+			setAppEnv(t, tt.other)
+
+			if _, err := LoadRole(tt.role); err == nil {
+				t.Errorf("LoadRole(%s) with only the %s set = nil, want a refusal", tt.name, tt.other)
+			}
+		})
+	}
+}
+
+func TestParse_AppCredentials(t *testing.T) {
+	setAppEnv(t, envPrefixEval)
+	t.Setenv("REMEDIATE_GITHUB_APP_ID", "8")
+
+	cfg, err := parse()
+	if err != nil {
+		t.Fatalf("parse = %v", err)
+	}
+
+	if got := cfg.Credentials(AppEval); got != (AppCredentials{AppID: 7, PrivateKeyPath: "/keys/EVAL.pem", WebhookSecret: "s-EVAL"}) {
+		t.Errorf("Credentials(eval) = %+v", got)
+	}
+
+	if got := cfg.Credentials(AppRemediate).AppID; got != 8 {
+		t.Errorf("Credentials(remediate).AppID = %d, want 8", got)
+	}
+
+	t.Setenv("EVAL_GITHUB_APP_ID", "nope")
+
+	if _, err := parse(); err == nil || !strings.Contains(err.Error(), "EVAL_GITHUB_APP_ID") {
+		t.Errorf("parse with a bad EVAL_GITHUB_APP_ID = %v, want an error naming it", err)
+	}
+}

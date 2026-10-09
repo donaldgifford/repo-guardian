@@ -349,7 +349,7 @@ func startV2Worker(
 	// Versioned workers get no tasks until their build is the
 	// deployment's current version; nothing else sets it.
 	go func() {
-		if err := temporal.PromoteBuild(ctx, tc, wc.BuildID, logger); err != nil && ctx.Err() == nil {
+		if err := temporal.PromoteBuild(ctx, tc, temporal.DeploymentRC, wc.BuildID, logger); err != nil && ctx.Err() == nil {
 			logger.Error("temporal: promoting build failed", "build_id", wc.BuildID, "error", err)
 		}
 	}()
@@ -361,7 +361,7 @@ func startV2Worker(
 		pool.Close()
 	}
 
-	return stop, workerChecks(pool, tc, wc.BuildID, time.Now()), nil
+	return stop, workerChecks(pool, tc, temporal.DeploymentRC, wc.BuildID, time.Now()), nil
 }
 
 // deploymentReadyGrace is how long a new worker may take to become the
@@ -372,7 +372,7 @@ const deploymentReadyGrace = 2 * time.Minute
 // schema, and, after deploymentReadyGrace, that this build is the
 // deployment's current version. Without the second, a pod reports
 // Ready while Temporal dispatches it nothing.
-func workerChecks(pool *pgxpool.Pool, tc client.Client, buildID string, started time.Time) []readinessCheck {
+func workerChecks(pool *pgxpool.Pool, tc client.Client, deployment, buildID string, started time.Time) []readinessCheck {
 	return []readinessCheck{
 		{name: "schema", fn: func(ctx context.Context) error {
 			return pgstore.RequireSchema(ctx, pool, pgstore.SchemaVersion)
@@ -382,7 +382,7 @@ func workerChecks(pool *pgxpool.Pool, tc client.Client, buildID string, started 
 				return nil
 			}
 
-			return temporal.RequireCurrentVersion(ctx, tc, buildID)
+			return temporal.RequireCurrentVersion(ctx, tc, deployment, buildID)
 		}},
 	}
 }

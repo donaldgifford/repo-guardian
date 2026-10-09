@@ -18,10 +18,9 @@ import (
 )
 
 // controlsHalf is what differs between the evaluator and remediator
-// workers (IMPL-0028 Phase 4): the role, its task queue, and what it
-// registers.
+// workers (IMPL-0028 Phase 4): the role name, which also names its
+// worker deployment, its task queue, and what it registers.
 type controlsHalf struct {
-	role      config.Role
 	name      string
 	taskQueue string
 	register  func(worker.WorkflowRegistry)
@@ -34,13 +33,13 @@ func controlsHalves(cfg *config.Config, roles config.Role, tcfg *temporal.Config
 
 	if cfg.RunsControls(roles, config.RoleEvaluator) {
 		halves = append(halves, controlsHalf{
-			role: config.RoleEvaluator, name: cmdEvaluator, taskQueue: tcfg.EvalTaskQueue, register: workflows.RegisterEvaluator,
+			name: cmdEvaluator, taskQueue: tcfg.EvalTaskQueue, register: workflows.RegisterEvaluator,
 		})
 	}
 
 	if cfg.RunsControls(roles, config.RoleRemediator) {
 		halves = append(halves, controlsHalf{
-			role: config.RoleRemediator, name: cmdRemediator, taskQueue: tcfg.RemediateTaskQueue, register: workflows.RegisterRemediator,
+			name: cmdRemediator, taskQueue: tcfg.RemediateTaskQueue, register: workflows.RegisterRemediator,
 		})
 	}
 
@@ -81,6 +80,7 @@ func startControlsWorker(
 	}
 
 	wc.TaskQueue = half.taskQueue
+	wc.Deployment = temporal.DeploymentName(half.name)
 
 	w := temporal.NewWorker(tc, &wc)
 	half.register(w)
@@ -93,10 +93,10 @@ func startControlsWorker(
 	}
 
 	logger.Info("temporal worker started",
-		"task_queue", wc.TaskQueue, "build_id", wc.BuildID, "activity_concurrency", wc.ActivityConcurrency)
+		"task_queue", wc.TaskQueue, "deployment", wc.Deployment, "build_id", wc.BuildID, "activity_concurrency", wc.ActivityConcurrency)
 
 	go func() {
-		if err := temporal.PromoteBuild(ctx, tc, wc.BuildID, logger); err != nil && ctx.Err() == nil {
+		if err := temporal.PromoteBuild(ctx, tc, wc.Deployment, wc.BuildID, logger); err != nil && ctx.Err() == nil {
 			logger.Error("temporal: promoting build failed", "build_id", wc.BuildID, "error", err)
 		}
 	}()
@@ -106,7 +106,7 @@ func startControlsWorker(
 		pool.Close()
 	}
 
-	checks := workerChecks(pool, tc, wc.BuildID, time.Now())
+	checks := workerChecks(pool, tc, wc.Deployment, wc.BuildID, time.Now())
 	for i := range checks {
 		checks[i].name = half.name + "-" + checks[i].name
 	}

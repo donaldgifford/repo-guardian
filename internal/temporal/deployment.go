@@ -78,16 +78,17 @@ func semverOf(id string) string {
 	return ""
 }
 
-// PromoteBuild makes buildID the current version of the repo-guardian
-// worker deployment, which is what lets Temporal dispatch it tasks. It
-// retries until the promotion lands, a newer build is found to be
+// PromoteBuild makes buildID the current version of the worker
+// deployment named deployment, which is what lets Temporal dispatch it
+// tasks. It retries until the promotion lands, a newer build is found to be
 // current, or ctx ends. Call it once the worker has started.
-func PromoteBuild(ctx context.Context, c client.Client, buildID string, logger *slog.Logger) error {
-	h := c.WorkerDeploymentClient().GetHandle(DeploymentName)
+func PromoteBuild(ctx context.Context, c client.Client, deployment, buildID string, logger *slog.Logger) error {
+	logger = logger.With("deployment", deployment)
+	h := c.WorkerDeploymentClient().GetHandle(deployment)
 	delay := promoteRetryInitial
 
 	for attempt := 1; ; attempt++ {
-		done, err := promoteOnce(ctx, h, buildID, logger)
+		done, err := promoteOnce(ctx, h, deployment, buildID, logger)
 		if done {
 			return nil
 		}
@@ -111,7 +112,7 @@ func PromoteBuild(ctx context.Context, c client.Client, buildID string, logger *
 
 // promoteOnce makes one promotion attempt. done reports whether there
 // is nothing left to do.
-func promoteOnce(ctx context.Context, h client.WorkerDeploymentHandle, buildID string, logger *slog.Logger) (done bool, err error) {
+func promoteOnce(ctx context.Context, h client.WorkerDeploymentHandle, deployment, buildID string, logger *slog.Logger) (done bool, err error) {
 	desc, err := h.Describe(ctx, client.WorkerDeploymentDescribeOptions{})
 	if err != nil {
 		// NotFound until this worker's first poll creates the deployment.
@@ -128,7 +129,7 @@ func promoteOnce(ctx context.Context, h client.WorkerDeploymentHandle, buildID s
 	case superseded:
 		logger.Warn("temporal: a newer build is the deployment's current version; this worker will not promote itself",
 			"build_id", buildID, "current_build_id", current.BuildID,
-			"promote_manually", "temporal worker deployment set-current-version --deployment-name "+DeploymentName+" --build-id "+buildID)
+			"promote_manually", "temporal worker deployment set-current-version --deployment-name "+deployment+" --build-id "+buildID)
 
 		return true, nil
 	case promoteNow:
@@ -153,10 +154,10 @@ func promoteOnce(ctx context.Context, h client.WorkerDeploymentHandle, buildID s
 	return true, nil
 }
 
-// RequireCurrentVersion returns ErrNotCurrent unless buildID is the
+// RequireCurrentVersion returns ErrNotCurrent unless buildID is
 // deployment's current version.
-func RequireCurrentVersion(ctx context.Context, c client.Client, buildID string) error {
-	desc, err := c.WorkerDeploymentClient().GetHandle(DeploymentName).Describe(ctx, client.WorkerDeploymentDescribeOptions{})
+func RequireCurrentVersion(ctx context.Context, c client.Client, deployment, buildID string) error {
+	desc, err := c.WorkerDeploymentClient().GetHandle(deployment).Describe(ctx, client.WorkerDeploymentDescribeOptions{})
 	if err != nil {
 		return fmt.Errorf("temporal: describe deployment: %w", err)
 	}

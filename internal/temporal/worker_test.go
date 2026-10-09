@@ -104,3 +104,26 @@ func TestWorkerOptions_ReportsHostResources(t *testing.T) {
 		t.Errorf("MemoryUsage = %v, want a fraction in (0, 1]", mem)
 	}
 }
+
+// TestDeploymentName is IMPL-0028 task 4.3: each controls role has its
+// own deployment with no version suffix; everything else is the rc's.
+func TestDeploymentName(t *testing.T) {
+	t.Parallel()
+
+	for role, want := range map[string]string{
+		"evaluator": DeploymentEval, "remediator": DeploymentRemediate, "worker": DeploymentRC, "": DeploymentRC,
+	} {
+		if got := DeploymentName(role); got != want {
+			t.Errorf("DeploymentName(%q) = %q, want %q", role, got, want)
+		}
+	}
+
+	wc := WorkerConfig{TaskQueue: TaskQueueEval, Deployment: DeploymentEval, BuildID: "b"}
+	if got := workerOptions(&wc).DeploymentOptions.Version.DeploymentName; got != DeploymentEval {
+		t.Errorf("worker deployment = %q, want %q", got, DeploymentEval)
+	}
+
+	if got := workerOptions(&WorkerConfig{BuildID: "b"}).DeploymentOptions.Version.DeploymentName; got != DeploymentRC {
+		t.Errorf("default worker deployment = %q, want %q", got, DeploymentRC)
+	}
+}

@@ -629,11 +629,14 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   (`controlsHalves`), the rc worker unchanged beside them. Both sets hold
   only `InstallationWorkflow` (each App's budget) until IMPL-0029/0030;
   `RegisterUnion` dedupes for the replayer.
-- [ ] 4.3 Worker deployments (D28): `DeploymentName` becomes a function
+- [x] 4.3 Worker deployments (D28): `DeploymentName` becomes a function
   of the role, `repo-guardian-eval` or `repo-guardian-remediate`, with
   no version suffix. `PromoteBuild`, `RequireCurrentVersion`, the
   promotion log hint and the `deployment` readiness check take the
   deployment name. The rc's `repo-guardian` deployment is untouched.
+  Done: `temporal.DeploymentName(role)`, `DeploymentRC/Eval/Remediate`,
+  `WorkerConfig.Deployment`; `PromoteBuild`/`RequireCurrentVersion` and
+  `workerChecks` take the name, and the promote-manually hint names it.
 - [ ] 4.4 Schedules: `serviceStarter.ensureSchedules` takes the role and
   ensures only that role's schedules (evaluation: controls discovery,
   snapshot; remediation: sweep, maintenance), so pods of one role never

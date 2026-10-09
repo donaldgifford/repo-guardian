@@ -50,20 +50,20 @@ func TestPromoteBuild_DevServer(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), 90*time.Second)
 		defer cancel()
 
-		if err := temporal.PromoteBuild(ctx, c, buildID, quiet); err != nil {
+		if err := temporal.PromoteBuild(ctx, c, temporal.DeploymentRC, buildID, quiet); err != nil {
 			t.Fatalf("PromoteBuild(%s): %v", buildID, err)
 		}
 	}
 
 	start("2.0.0-rc.2")
 
-	if err := temporal.RequireCurrentVersion(t.Context(), c, "2.0.0-rc.2"); err == nil {
+	if err := temporal.RequireCurrentVersion(t.Context(), c, temporal.DeploymentRC, "2.0.0-rc.2"); err == nil {
 		t.Fatal("RequireCurrentVersion before promotion = nil, want an error")
 	}
 
 	promote("2.0.0-rc.2")
 
-	if err := temporal.RequireCurrentVersion(t.Context(), c, "2.0.0-rc.2"); err != nil {
+	if err := temporal.RequireCurrentVersion(t.Context(), c, temporal.DeploymentRC, "2.0.0-rc.2"); err != nil {
 		t.Fatalf("RequireCurrentVersion after promotion: %v", err)
 	}
 
@@ -85,11 +85,11 @@ func TestPromoteBuild_DevServer(t *testing.T) {
 	start("2.0.0-rc.1")
 	promote("2.0.0-rc.1")
 
-	if err := temporal.RequireCurrentVersion(t.Context(), c, "2.0.0-rc.2"); err != nil {
+	if err := temporal.RequireCurrentVersion(t.Context(), c, temporal.DeploymentRC, "2.0.0-rc.2"); err != nil {
 		t.Errorf("older build displaced the current one: %v", err)
 	}
 
-	if err := temporal.RequireCurrentVersion(t.Context(), c, "2.0.0-rc.1"); !errors.Is(err, temporal.ErrNotCurrent) {
+	if err := temporal.RequireCurrentVersion(t.Context(), c, temporal.DeploymentRC, "2.0.0-rc.1"); !errors.Is(err, temporal.ErrNotCurrent) {
 		t.Errorf("RequireCurrentVersion(older) = %v, want ErrNotCurrent", err)
 	}
 
@@ -97,7 +97,7 @@ func TestPromoteBuild_DevServer(t *testing.T) {
 	start("2.0.0")
 	promote("2.0.0")
 
-	if err := temporal.RequireCurrentVersion(t.Context(), c, "2.0.0"); err != nil {
+	if err := temporal.RequireCurrentVersion(t.Context(), c, temporal.DeploymentRC, "2.0.0"); err != nil {
 		t.Errorf("newer build did not become current: %v", err)
 	}
 }

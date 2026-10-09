@@ -183,7 +183,7 @@ func (h *harness) startWorker(t *testing.T, eng activities.Engine, buildID strin
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
 
-	if err := temporal.PromoteBuild(ctx, h.temporal.Client, buildID, quiet); err != nil {
+	if err := temporal.PromoteBuild(ctx, h.temporal.Client, temporal.DeploymentRC, buildID, quiet); err != nil {
 		t.Fatalf("promote build: %v", err)
 	}
 

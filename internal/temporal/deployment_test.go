@@ -10,7 +10,7 @@ func TestDecide(t *testing.T) {
 	t.Parallel()
 
 	v := func(id string) *worker.WorkerDeploymentVersion {
-		return &worker.WorkerDeploymentVersion{DeploymentName: DeploymentName, BuildID: id}
+		return &worker.WorkerDeploymentVersion{DeploymentName: DeploymentRC, BuildID: id}
 	}
 
 	tests := []struct {

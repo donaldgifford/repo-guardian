@@ -265,8 +265,18 @@ The roles rendered for the current topology.
 {{- if eq .Values.topology "all" -}}
 all
 {{- else -}}
-ingest worker{{ if .Values.api.enabled }} api{{ end }}
+ingest worker{{ include "repo-guardian.controlsRoles" . }}{{ if .Values.api.enabled }} api{{ end }}
 {{- end -}}
+{{- end }}
+
+{{/*
+The controls roles split renders (IMPL-0028 task 4.10), each with a
+leading space: a role only when its App is configured, since the role
+refuses to start without its App's credentials.
+*/}}
+{{- define "repo-guardian.controlsRoles" -}}
+{{- if .Values.github.eval.appId }} evaluator{{ end -}}
+{{- if .Values.github.remediate.appId }} remediator{{ end -}}
 {{- end }}
 
 {{/*
@@ -301,10 +311,10 @@ every role that dials it, and nothing but the read-only DSN in api.
 {{- define "repo-guardian.roleHasEvalKey" -}}{{ if and .ctx.Values.github.eval.appId (has .role (list "evaluator" "all")) }}true{{ end }}{{- end }}
 {{- define "repo-guardian.roleHasRemediateKey" -}}{{ if and .ctx.Values.github.remediate.appId (has .role (list "remediator" "all")) }}true{{ end }}{{- end }}
 {{- define "repo-guardian.roleHasWebhookSecret" -}}{{ if has .role (list "ingest" "all") }}true{{ end }}{{- end }}
-{{- define "repo-guardian.roleDialsTemporal" -}}{{ if has .role (list "ingest" "worker" "all") }}true{{ end }}{{- end }}
-{{- define "repo-guardian.roleHasStore" -}}{{ if has .role (list "worker" "all") }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleDialsTemporal" -}}{{ if has .role (list "ingest" "worker" "evaluator" "remediator" "all") }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleHasStore" -}}{{ if has .role (list "worker" "evaluator" "remediator" "all") }}true{{ end }}{{- end }}
 {{- define "repo-guardian.roleServesAPI" -}}{{ if has .role (list "api" "all") }}true{{ end }}{{- end }}
-{{- define "repo-guardian.roleReadsPolicy" -}}{{ if has .role (list "ingest" "worker" "all") }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleReadsPolicy" -}}{{ if has .role (list "ingest" "worker" "evaluator" "remediator" "all") }}true{{ end }}{{- end }}
 
 {{/*
 Whether a policy file is mounted.

@@ -691,11 +691,18 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   default) carried on each `controlsHalf`; the pool is built with
   `pgxpool.NewWithConfig`. The old names still serve the rc worker; they
   join `removedEnvVars` with the switch-over (Phase 5).
-- [ ] 4.10 Chart: `evaluator` and `remediator` in `repo-guardian.roles`
+- [x] 4.10 Chart: `evaluator` and `remediator` in `repo-guardian.roles`
   with a Deployment each in split topology, `evaluator.*` and
   `remediator.*` values (replicas, concurrency, resources), the helpers
   `roleDialsTemporal`, `roleHasStore` and `roleReadsPolicy` extended, and
   the new env vars wired. helm-unittest per role.
+  Done: `repo-guardian.controlsRoles` adds each role to split only when
+  its App's `appId` is set (the role refuses to start without it);
+  `evaluator.*`/`remediator.*` add `dbPoolSize`. Each split controls role
+  gets a metrics Service and a ServiceMonitor entry; the rc-only env
+  (`WORKER_ACTIVITY_CONCURRENCY`, discovery, snapshot, intervals) stays
+  on worker/all. `tests/controls_roles_test.yaml` plus the split
+  secret-scoping assertions deferred from 3.5.
 - [ ] 4.11 Integration test on the dev server: an evaluator and a
   remediator start under their own deployments, each becomes current at
   first start, and a remediator at zero replicas does not block the

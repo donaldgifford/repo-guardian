@@ -19,7 +19,7 @@ spec:
     matchExpressions:
       - key: app.kubernetes.io/component
         operator: In
-        values: [ingest, worker, api, all]
+        values: [ingest, worker, evaluator, remediator, api, all]
   endpoints:
     - port: metrics
       interval: {{ .Values.serviceMonitor.interval }}

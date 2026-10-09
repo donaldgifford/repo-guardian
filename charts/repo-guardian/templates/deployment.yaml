@@ -140,12 +140,26 @@ spec:
             {{- end }}
             {{- end }}
             {{- if include "repo-guardian.roleHasStore" $r }}
-            - name: WORKER_ACTIVITY_CONCURRENCY
-              value: {{ $v.worker.concurrency | quote }}
-            {{- /* The worker promotes this build to the deployment's
+            {{- /* Every worker promotes this build to its deployment's
             current version; the Go fallback is "dev" in every image. */}}
             - name: TEMPORAL_BUILD_ID
               value: {{ $v.worker.buildId | default ($v.image.tag | default $.Chart.AppVersion) | quote }}
+            {{- /* Each controls worker is sized by its own role's values
+            (IMPL-0028 task 4.9), in all only when its App is set. */}}
+            {{- range $half := list (dict "role" "evaluator" "app" "Eval" "env" "EVALUATOR") (dict "role" "remediator" "app" "Remediate" "env" "REMEDIATOR") }}
+            {{- if include (printf "repo-guardian.roleHas%sKey" $half.app) $r }}
+            {{- $hv := index $v $half.role }}
+            - name: {{ $half.env }}_CONCURRENCY
+              value: {{ $hv.concurrency | quote }}
+            {{- if $hv.dbPoolSize }}
+            - name: {{ $half.env }}_DB_POOL_SIZE
+              value: {{ $hv.dbPoolSize | quote }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- if has $role (list "worker" "all") }}
+            - name: WORKER_ACTIVITY_CONCURRENCY
+              value: {{ $v.worker.concurrency | quote }}
             - name: CHECK_INTERVAL
               value: {{ $v.checkInterval | quote }}
             - name: POLICY_ROLLOUT_WINDOW
@@ -160,6 +174,7 @@ spec:
               value: {{ $v.posture.snapshotInterval | quote }}
             - name: STORE_POSTGRES_MAX_CONNS
               value: {{ $v.store.postgres.maxConns | quote }}
+            {{- end }}
             {{- include "repo-guardian.storeDSNEnv" $ | nindent 12 }}
             {{- end }}
             {{- if include "repo-guardian.roleServesAPI" $r }}

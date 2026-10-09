@@ -192,6 +192,35 @@ worker:
     # -- Backlog per replica before KEDA scales out.
     targetQueueSize: "50"
 
+# -- The evaluator role: the controls evaluation worker on the
+# `repo-guardian-eval` queue (IMPL-0028 Phase 4). Rendered in split when
+# `github.eval.appId` is set; in `all` it runs beside the rc worker.
+evaluator:
+  # -- Replica count (split only).
+  replicas: 1
+  # -- Concurrent activities per pod (EVALUATOR_CONCURRENCY).
+  concurrency: 10
+  # -- Postgres pool size per pod (EVALUATOR_DB_POOL_SIZE). 0 keeps
+  # pgxpool's default.
+  dbPoolSize: 0
+  # -- Resources; empty falls back to `resources`.
+  resources: {}
+
+# -- The remediator role: the controls remediation worker on the
+# `repo-guardian-remediate` queue. Rendered in split when
+# `github.remediate.appId` is set. Zero replicas never blocks the
+# evaluator's promotion: each role has its own worker deployment.
+remediator:
+  # -- Replica count (split only).
+  replicas: 1
+  # -- Concurrent activities per pod (REMEDIATOR_CONCURRENCY).
+  concurrency: 10
+  # -- Postgres pool size per pod (REMEDIATOR_DB_POOL_SIZE). 0 keeps
+  # pgxpool's default.
+  dbPoolSize: 0
+  # -- Resources; empty falls back to `resources`.
+  resources: {}
+
 # -- The api role: the read-only JSON API (DESIGN-0027). It holds only
 # a read-only database credential: no App key, no webhook secret.
 api:

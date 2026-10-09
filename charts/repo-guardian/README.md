@@ -588,6 +588,11 @@ incoming webhook.
 | discovery | object | `{"enabled":true,"interval":"1h"}` | Repository discovery. The discovery schedule enumerates every installation's repositories and starts a RepoWorkflow for each new one. Webhooks (`installation_repositories.added`, `repository.created`) are the primary on-ramp; this is the safety net for missed deliveries. |
 | discovery.enabled | bool | `true` | Toggle the discovery schedule. When false, webhooks still discover repositories; only the periodic enumeration stops. |
 | discovery.interval | string | `"1h"` | Cadence between discovery runs. Lower values spend more API budget on list_installation_repos; higher values delay discovery of repositories the webhook path missed. |
+| evaluator | object | `{"concurrency":10,"dbPoolSize":0,"replicas":1,"resources":{}}` | The evaluator role: the controls evaluation worker on the `repo-guardian-eval` queue (IMPL-0028 Phase 4). Rendered in split when `github.eval.appId` is set; in `all` it runs beside the rc worker. |
+| evaluator.concurrency | int | `10` | Concurrent activities per pod (EVALUATOR_CONCURRENCY). |
+| evaluator.dbPoolSize | int | `0` | Postgres pool size per pod (EVALUATOR_DB_POOL_SIZE). 0 keeps pgxpool's default. |
+| evaluator.replicas | int | `1` | Replica count (split only). |
+| evaluator.resources | object | `{}` | Resources; empty falls back to `resources`. |
 | extraEnv | list | `[]` | Additional environment variables |
 | extraVolumeMounts | list | `[]` | Additional volume mounts |
 | extraVolumes | list | `[]` | Additional volumes |
@@ -640,6 +645,11 @@ incoming webhook.
 | readinessProbe.httpGet.port | string | `"http"` |  |
 | readinessProbe.initialDelaySeconds | int | `5` |  |
 | readinessProbe.periodSeconds | int | `10` |  |
+| remediator | object | `{"concurrency":10,"dbPoolSize":0,"replicas":1,"resources":{}}` | The remediator role: the controls remediation worker on the `repo-guardian-remediate` queue. Rendered in split when `github.remediate.appId` is set. Zero replicas never blocks the evaluator's promotion: each role has its own worker deployment. |
+| remediator.concurrency | int | `10` | Concurrent activities per pod (REMEDIATOR_CONCURRENCY). |
+| remediator.dbPoolSize | int | `0` | Postgres pool size per pod (REMEDIATOR_DB_POOL_SIZE). 0 keeps pgxpool's default. |
+| remediator.replicas | int | `1` | Replica count (split only). |
+| remediator.resources | object | `{}` | Resources; empty falls back to `resources`. |
 | replicaCount | int | `1` | Number of replicas |
 | resources | object | `{"limits":{"cpu":"500m","memory":"256Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}` | Container resource requests and limits |
 | revisionHistoryLimit | int | `3` | Number of old ReplicaSets retained for rollback. Defaults to 3 to keep the kubectl `get rs` view tidy; bump if you need more rollback headroom. Kubernetes default is 10. |

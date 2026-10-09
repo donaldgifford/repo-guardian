@@ -246,4 +246,4 @@ tests:
           value:
             key: app.kubernetes.io/component
             operator: In
-            values: [ingest, worker, api, all]
+            values: [ingest, worker, evaluator, remediator, api, all]

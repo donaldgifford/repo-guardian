@@ -25,25 +25,27 @@ spec:
   selector:
     {{- include "repo-guardian.roleSelectorLabels" $f | nindent 4 }}
 {{- if eq .Values.topology "split" }}
-{{- $w := dict "ctx" . "role" "worker" }}
+{{- range $role := splitList " " (printf "worker%s" (include "repo-guardian.controlsRoles" .)) }}
+{{- $w := dict "ctx" $ "role" $role }}
 ---
-# The worker serves no traffic; this Service exists for its /metrics.
+# The workers serve no traffic; this Service exists for their /metrics.
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "repo-guardian.roleFullname" $w }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ $.Release.Namespace }}
   labels:
     {{- include "repo-guardian.roleLabels" $w | nindent 4 }}
 spec:
   type: ClusterIP
   ports:
-    - port: {{ .Values.service.metricsPort }}
+    - port: {{ $.Values.service.metricsPort }}
       targetPort: metrics
       protocol: TCP
       name: metrics
   selector:
     {{- include "repo-guardian.roleSelectorLabels" $w | nindent 4 }}
+{{- end }}
 {{- end }}
 {{- if .Values.api.enabled }}
 {{- $a := dict "ctx" . "role" "api" }}

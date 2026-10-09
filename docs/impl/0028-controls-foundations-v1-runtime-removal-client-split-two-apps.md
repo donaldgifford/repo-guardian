@@ -580,8 +580,13 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   `all`; the split evaluator/remediator pod assertions land with their
   Deployments in task 4.10. Probe: adding `ingest` to `roleHasEvalKey`
   fails the ingest case; reverted.
-- [ ] 3.6 `installation_info` gains an `app` label; `topology` moves to a
+- [x] 3.6 `installation_info` gains an `app` label; `topology` moves to a
   deployment-level info series (DESIGN-0029 D7 as amended).
+  Done: `installation_info{app, installation_id, org}` (the rc's
+  activities label `app="single"`); new
+  `repo_guardian_deployment_info{topology}`, set at startup (`all` when
+  one process runs every role). Dashboards join with `max by
+  (installation_id, org)`, so the generated tier is unchanged.
 - [ ] 3.7 Tests: a delivery on each path validates only with that path's
   secret; a payload signed with the other App's secret is 401; the
   app-id mismatch is rejected; config refusals per role.

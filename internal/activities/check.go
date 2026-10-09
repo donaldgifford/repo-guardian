@@ -46,7 +46,7 @@ func (a *Activities) CheckRepo(ctx context.Context, in *workflows.CheckRepoInput
 		"check_key", in.CheckKey,
 	)
 
-	metrics.SetInstallationInfo(repo.InstallationID, repo.Org)
+	metrics.SetInstallationInfo(metrics.AppSingle, repo.InstallationID, repo.Org)
 
 	client, err := a.github.CreateInstallationClient(ctx, repo.InstallationID)
 	if err != nil {

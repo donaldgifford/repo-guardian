@@ -16,6 +16,7 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/config"
 	"github.com/donaldgifford/repo-guardian/internal/control"
 	"github.com/donaldgifford/repo-guardian/internal/ingest"
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/observability"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	pgstore "github.com/donaldgifford/repo-guardian/internal/store/postgres"
@@ -191,6 +192,7 @@ func bringUpRoles(
 	mux := up.mux
 
 	logAppPermissions(logger, roles)
+	metrics.SetDeploymentInfo(topologyOf(roles))
 
 	if roles.Has(config.RoleWorker) {
 		stop, workerChecks, err := startV2Worker(ctx, cfg, tc, tcfg, strictTemplates, logger)
@@ -360,6 +362,16 @@ func workerChecks(pool *pgxpool.Pool, tc client.Client, buildID string, started 
 			return temporal.RequireCurrentVersion(ctx, tc, buildID)
 		}},
 	}
+}
+
+// topologyOf names the credential boundary roles run under: all when
+// one process runs every role, split otherwise.
+func topologyOf(roles config.Role) string {
+	if roles == config.RoleAll {
+		return metrics.TopologyAll
+	}
+
+	return metrics.TopologySplit
 }
 
 // logAppPermissions logs, once at startup, the App permission set each

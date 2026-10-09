@@ -73,16 +73,16 @@ func TestPRAgeBuckets_AllCovered(t *testing.T) {
 func TestSetInstallationInfo_DropsBlankOrg(t *testing.T) {
 	InstallationInfo.Reset()
 
-	SetInstallationInfo(42, "")
+	SetInstallationInfo(AppEval, 42, "")
 
 	if n := testutil.CollectAndCount(InstallationInfo); n != 0 {
 		t.Errorf("installation_info has %d series after a blank-org call, want 0", n)
 	}
 
-	SetInstallationInfo(42, "octo")
+	SetInstallationInfo(AppEval, 42, "octo")
 
-	if got := testutil.ToFloat64(InstallationInfo.WithLabelValues("42", "octo")); got != 1 {
-		t.Errorf(`installation_info{installation_id="42", org="octo"} = %v, want 1`, got)
+	if got := testutil.ToFloat64(InstallationInfo.WithLabelValues(AppEval, "42", "octo")); got != 1 {
+		t.Errorf(`installation_info{app="eval", installation_id="42", org="octo"} = %v, want 1`, got)
 	}
 }
 
@@ -109,6 +109,7 @@ func TestMetricNames_ExactSet(t *testing.T) {
 		"repo_guardian_checks_total",
 		"repo_guardian_custom_property_cleared_total",
 		"repo_guardian_custom_property_missing_schema_total",
+		"repo_guardian_deployment_info",
 		"repo_guardian_discovery_api_calls_total",
 		"repo_guardian_errors_total",
 		"repo_guardian_files_forbidden_present_total",
@@ -153,5 +154,17 @@ func TestMetricNames_ExactSet(t *testing.T) {
 
 	if !slices.Equal(got, want) {
 		t.Errorf("registered metric names = %v\nwant %v", got, want)
+	}
+}
+
+// AppEval is a test value for installation_info's app label.
+const AppEval = "eval"
+
+func TestSetDeploymentInfo(t *testing.T) {
+	DeploymentInfo.Reset()
+	SetDeploymentInfo(TopologySplit)
+
+	if got := testutil.ToFloat64(DeploymentInfo.WithLabelValues(TopologySplit)); got != 1 {
+		t.Errorf(`deployment_info{topology="split"} = %v, want 1`, got)
 	}
 }

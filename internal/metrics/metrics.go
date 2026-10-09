@@ -17,6 +17,7 @@ const (
 	labelOutcome        = "outcome"
 	labelInstallationID = "installation_id"
 	labelProperty       = "property"
+	labelApp            = "app"
 )
 
 // All repo-guardian Prometheus metrics.
@@ -295,10 +296,23 @@ var (
 	// differ by scrape target. Join against
 	// `max by (installation_id, org) (repo_guardian_installation_info)`,
 	// not the raw vector, or the group_left is many-to-many.
+	//
+	// app names the App the installation belongs to (IMPL-0028 task
+	// 3.6): eval, remediate, or AppSingle for the rc's one App. The
+	// recommended join's max by drops it.
 	InstallationInfo = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "repo_guardian_installation_info",
-		Help: "Constant 1, labeled with the org that owns each installation. Join label only.",
-	}, []string{labelInstallationID, labelOrg})
+		Help: "Constant 1, labeled with the org that owns each installation and its App. Join label only.",
+	}, []string{labelApp, labelInstallationID, labelOrg})
+
+	// DeploymentInfo is a constant-1 info gauge naming the credential
+	// boundary this process runs under: topology="split" when it runs
+	// one half, "all" when one process holds both Apps' keys (combined
+	// trust, DESIGN-0029 D7 as amended).
+	DeploymentInfo = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_deployment_info",
+		Help: "Constant 1, labeled with the deployment topology (split or all).",
+	}, []string{"topology"})
 
 	// PROpenWithEmptyActionableTotal counts reconcile passes where
 	// an open repo-guardian PR exists but the actionable rule set is
@@ -418,12 +432,27 @@ func PRAgeBucket(ageDays float64) string {
 // Callers pass the org they already have in hand; a blank org is
 // dropped rather than published, because a series labeled org="" joins
 // nothing and would only widen cardinality.
-func SetInstallationInfo(installationID int64, org string) {
+func SetInstallationInfo(app string, installationID int64, org string) {
 	if org == "" {
 		return
 	}
 
 	InstallationInfo.
-		WithLabelValues(strconv.FormatInt(installationID, 10), org).
+		WithLabelValues(app, strconv.FormatInt(installationID, 10), org).
 		Set(1)
+}
+
+// AppSingle is the installation_info app label of the rc's single App,
+// which both evaluates and remediates.
+const AppSingle = "single"
+
+// The deployment_info topology values.
+const (
+	TopologySplit = "split"
+	TopologyAll   = "all"
+)
+
+// SetDeploymentInfo publishes this process's topology.
+func SetDeploymentInfo(topology string) {
+	DeploymentInfo.WithLabelValues(topology).Set(1)
 }

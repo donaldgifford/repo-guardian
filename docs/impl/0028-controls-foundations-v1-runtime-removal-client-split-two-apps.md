@@ -505,7 +505,7 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   `internal/control/mocks`.
   Done: `.mockery.yaml` gains the `internal/control` package;
   `github.Client` and its mock are untouched.
-- [ ] 2.9 Go doc comments on every new type and function; `make lint`
+- [x] 2.9 Go doc comments on every new type and function; `make lint`
   and `make test` green.
 
 #### Success Criteria

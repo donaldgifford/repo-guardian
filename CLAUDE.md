@@ -39,7 +39,9 @@ internal/
   checker/    → core check-and-PR engine + setting rules + branch protection rules (runs inside the CheckRepo activity until IMPL-0029)
   config/     → configuration management (12-factor env vars, validated per role by LoadRole)
   findings/   → leaf package of finding status/reason/remediation types
-  github/     → GitHub API client wrapper (go-github v68 + ghinstallation v2)
+  control/    → controls client surface (IMPL-0028 P2): Reader / PRObserver / Writer interfaces, value types, the three Writer sentinels; imports nothing of ours
+  github/     → GitHub API client wrapper (go-github v68 + ghinstallation v2 + githubv4 on the same *http.Client); RepoReader (control.Reader, memoized per evaluation, missing GraphQL field = nil never false) and RepoObserver (control.PRObserver); rate-limit snapshots per x-ratelimit-resource, GraphQL RATE_LIMITED/secondary and REST 429 → *ThrottledError
+  github/write/ → control.Writer (createCommitOnBranch + expectedHeadOid, STALE_DATA via WithGraphQLErrorTypes; update-branch 422 classified from re-read state, never the message). depguard rules `writer` + `writer-evaluator-side` keep it out of everything but remediation activities and cmd/
   ingest/     → webhook ingest: HMAC, event filter, starts WebhookWorkflow
   metrics/    → Prometheus metrics; the exact name set is pinned by TestMetricNames_ExactSet (IMPL-0028 task 1.3 removed the v1 queue/scheduler/posture/write-back series and added checks_total{outcome})
   monitoring/ → dashboard+alert generation from the policy (IMPL-0023): model derivation, alert catalogue-as-data with mechanism gating, grafana-foundation-sdk panel library (E1-E4), emitters (json + grafana-operator CRs). Committed output in contrib/generated/, drift-gated by make lint-monitoring

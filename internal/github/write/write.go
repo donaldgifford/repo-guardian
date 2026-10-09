@@ -51,6 +51,7 @@ func New(client *ghclient.GitHubClient, owner, repo string) *Writer {
 	return &Writer{client: client, owner: owner, repo: repo}
 }
 
+// rest returns the go-github client on the shared transport chain.
 func (w *Writer) rest() *gh.Client { return w.client.RESTClient() }
 
 // Commit publishes changes as one commit on branch with expectedHeadOid
@@ -187,6 +188,8 @@ func (w *Writer) UpdateBranch(ctx context.Context, number int, expectedHeadSHA s
 	}
 }
 
+// classifyUpdateBranch turns a 422 from update-branch into an outcome
+// from the PR's current state; cause is carried, never matched.
 func (w *Writer) classifyUpdateBranch(ctx context.Context, number int, expectedHeadSHA string, cause error) error {
 	pr, _, err := w.rest().PullRequests.Get(ctx, w.owner, w.repo, number)
 	if err != nil {

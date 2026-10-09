@@ -135,6 +135,7 @@ func (r *RepoReader) ListDirectory(ctx context.Context, path string) ([]string, 
 	return slices.Clone(names), err
 }
 
+// contentOpts pins a contents read to the reader's ref.
 func (r *RepoReader) contentOpts() *gh.RepositoryContentGetOptions {
 	if r.ref == "" {
 		return nil
@@ -307,6 +308,8 @@ func (r *RepoReader) ListRulesets(ctx context.Context) ([]control.Ruleset, error
 	return slices.Clone(rulesets), err
 }
 
+// listRulesetIDs returns the id of every applicable ruleset, inherited
+// ones included, following every page.
 func (r *RepoReader) listRulesetIDs(ctx context.Context) ([]int64, error) {
 	var ids []int64
 
@@ -383,6 +386,7 @@ func (r *RepoReader) get(ctx context.Context, u string, v any) error {
 	return err
 }
 
+// getResp is get returning the response, for its pagination links.
 func (r *RepoReader) getResp(ctx context.Context, u string, v any) (*gh.Response, error) {
 	c := r.client.ghClient()
 

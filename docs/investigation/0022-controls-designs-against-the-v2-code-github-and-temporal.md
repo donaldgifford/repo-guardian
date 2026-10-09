@@ -309,7 +309,7 @@ First run 2026-10-09 by the maintainer as a test Evaluation App holding Metadata
 - `GET /properties/values` returned `[{"property_name": "Owner", "value": "donald"}]`: the earlier `[]` meant no value was set. Whether values are readable with Metadata alone is still unproven, because repository Custom properties read was granted throughout.
 - Still no org ruleset was visible.
 
-**Still to confirm (third run):** remove repository Custom properties read from the test Evaluation App and re-run, to show property values are a Metadata read; and create an org ruleset targeting the repository, if the org's plan offers one, to show inherited rulesets list with `source_type: Organization`.
+**Still to confirm (third run):** remove repository Custom properties read from the test Evaluation App and re-run, to show property values are a Metadata read; and create an org ruleset targeting the repository, if the org's plan offers one, to show inherited rulesets list with `source_type: Organization`. **The test org's plan does not offer org rulesets** (maintainer, 2026-10-09), so the inherited-ruleset read is untested here and stays an assumption until an org with org rulesets is available. The reader already handles it the safe way: `Source` comes from `source_type`, and a ruleset it cannot attribute is never treated as a writable repository ruleset.
 
 ### Spike 4: `installation_repositories` on an all-repositories install (IMPL-0028 0.9)
 

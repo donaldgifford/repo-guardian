@@ -781,13 +781,18 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
   with each queue non-empty, compare the default query's value with
   `temporal task-queue describe`; if they disagree, fix the default
   query and its helm-unittest and record why (IMPL-0026 6.1 to 6.3).
+  deferred - human required: homelab Prometheus query against the dev
+  cluster.
 - [ ] 5.7 Homelab (human-run): enable KEDA for the evaluator with the
   Prometheus trigger, generate a backlog with `rg-burst` or a policy
   change, and watch it scale out and back (IMPL-0026 6.9).
-- [ ] 5.8 Docs: the KEDA values change in
+  deferred - human required: homelab scale-out/in run.
+- [x] 5.8 Docs: the KEDA values change in
   `docs/operations/v2-onboarding.md` (per-role objects, default trigger
   `prometheus`, `serverAddress` required) (IMPL-0026 5.3's intent; the
   migration page is rewritten in IMPL-0030).
+  Done: `docs/operations/v2-onboarding.md` § Autoscaling with KEDA (the
+  anchor the `worker.keda` removal guard links to).
 
 #### Success Criteria
 

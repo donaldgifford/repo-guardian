@@ -101,16 +101,59 @@ Other Temporal values, and the combinations the chart refuses to render:
 | `temporal.auth.oidc.audience` | `audience` parameter, for IdPs that take one (Keycloak uses a client-scope mapper instead) |
 
 > KEDA's Temporal scaler cannot mint OIDC tokens, so the chart refuses
-> `worker.keda.enabled` together with `temporal.auth.oidc`.
+> `keda.trigger: temporal` together with `temporal.auth.oidc`. The
+> default `prometheus` trigger works with OIDC.
 
-Two worker values follow from Temporal:
+#### Autoscaling with KEDA
 
-- **`worker.keda.enabled`** renders a KEDA ScaledObject that scales the
-  worker Deployment on Temporal backlog (`targetQueueSize`, default 50 per
-  replica, between `minReplicas` and `maxReplicas`). It needs the KEDA
-  CRDs and `topology: split`, and replaces `worker.replicas`. Size
-  `maxReplicas` to the GitHub rate limit, not the backlog: checks are
-  rate-limit bound, so extra pods only wait.
+KEDA scales the evaluator and the remediator separately, one
+ScaledObject per role, each on its own queue's backlog. Each needs the
+KEDA CRDs, `topology: split`, and that role's App (`github.eval.appId`
+or `github.remediate.appId`). The rc's `worker.keda` block is gone; the
+chart refuses to render while it is still set.
+
+```yaml
+keda:
+  trigger: prometheus                    # default; or temporal
+  prometheus:
+    serverAddress: http://prometheus.monitoring:9090   # required with prometheus
+    authenticationRef: ""                # an operator-owned TriggerAuthentication
+evaluator:
+  keda:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 4
+    targetQueueSize: "50"
+    fallbackReplicas: null               # null holds evaluator.replicas
+    query: ""                            # empty builds the default below
+remediator:
+  keda:
+    enabled: true
+    minReplicas: 0                       # promotion does not need a running remediator
+```
+
+- **`prometheus` (default)** reads the Temporal server's
+  `approximate_backlog_count` from your Prometheus, so it needs
+  `keda.prometheus.serverAddress`. The default query per role is
+  `sum(max by (partition, task_type, task_priority, worker_build_id)
+  (approximate_backlog_count{namespace="repo_guardian",
+  taskqueue="repo_guardian_eval"}))` (`repo_guardian_remediate` for the
+  remediator). Temporal sanitises label values, so `-` becomes `_` in
+  both the namespace and the queue. Override it per role with
+  `<role>.keda.query` when your server's metrics carry a prefix.
+- **`temporal`** asks the frontend directly. With
+  `temporal.tls.existingSecret` the chart renders a TriggerAuthentication
+  from its `tls.crt`, `tls.key` and `ca.crt`. It is refused with OIDC.
+- **`fallback`**: when the trigger fails three polls in a row, KEDA holds
+  the role at `fallbackReplicas`, or at the role's `replicas` when that is
+  null, instead of going silent.
+
+KEDA replaces the role's `replicas`. Size `maxReplicas` to the GitHub
+rate limit, not the backlog: checks are rate-limit bound, so extra pods
+only wait.
+
+One worker value follows from Temporal:
+
 - **`worker.buildId`** is the worker's Temporal build ID. Leave it empty
   and it follows `image.tag`, then the chart's appVersion. Set it only
   for an image whose tag is not a version, and change it whenever the

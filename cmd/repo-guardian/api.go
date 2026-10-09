@@ -43,11 +43,7 @@ func startAPI(
 	}
 
 	if tc != nil {
-		statusCfg.Backlog = func(ctx context.Context) (api.Backlog, error) {
-			age, pollers, err := temporal.DescribeBacklog(ctx, tc, tcfg)
-
-			return api.Backlog{Age: age, Pollers: pollers}, err
-		}
+		statusCfg.Backlogs = backlogProbes(cfg, roles, tc, tcfg)
 	}
 
 	status := api.NewStatusPage(statusCfg)
@@ -91,4 +87,29 @@ func startAPI(
 	}
 
 	return h, checks, nil
+}
+
+// backlogProbes describes the rc's task queue and the queue of every
+// controls half this process runs: a half it does not run has no
+// workers here by design, and probing it would report the page down.
+func backlogProbes(cfg *config.Config, roles config.Role, tc client.Client, tcfg *temporal.Config) []api.QueueProbe {
+	probe := func(queue string) api.BacklogProbe {
+		return func(ctx context.Context) (api.Backlog, error) {
+			age, pollers, err := temporal.DescribeBacklog(ctx, tc, tcfg.Namespace, queue)
+
+			return api.Backlog{Age: age, Pollers: pollers}, err
+		}
+	}
+
+	probes := []api.QueueProbe{{Component: api.ComponentBacklog, Probe: probe(tcfg.TaskQueue)}}
+
+	if cfg.RunsControls(roles, config.RoleEvaluator) {
+		probes = append(probes, api.QueueProbe{Component: api.ComponentBacklogEvaluation, Probe: probe(tcfg.EvalTaskQueue)})
+	}
+
+	if cfg.RunsControls(roles, config.RoleRemediator) {
+		probes = append(probes, api.QueueProbe{Component: api.ComponentBacklogRemediation, Probe: probe(tcfg.RemediateTaskQueue)})
+	}
+
+	return probes
 }

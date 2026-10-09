@@ -163,21 +163,24 @@ func TestStatus_BacklogThresholds(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		backlog *backlogResult
+		backlog backlogResult
 		want    string
 	}{
-		{name: "probe failed", backlog: &backlogResult{err: errCursor}, want: stateUnknown},
-		{name: "no pollers", backlog: &backlogResult{Backlog: Backlog{Pollers: 0}}, want: stateDown},
-		{name: "old backlog", backlog: &backlogResult{Backlog: Backlog{Pollers: 2, Age: 16 * time.Minute}}, want: stateDegraded},
-		{name: "healthy", backlog: &backlogResult{Backlog: Backlog{Pollers: 2, Age: time.Minute}}, want: stateOperational},
+		{name: "probe failed", backlog: backlogResult{err: errCursor}, want: stateUnknown},
+		{name: "no pollers", backlog: backlogResult{Backlog: Backlog{Pollers: 0}}, want: stateDown},
+		{name: "old backlog", backlog: backlogResult{Backlog: Backlog{Pollers: 2, Age: 16 * time.Minute}}, want: stateDegraded},
+		{name: "healthy", backlog: backlogResult{Backlog: Backlog{Pollers: 2, Age: time.Minute}}, want: stateOperational},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := evaluateStatus(&store.StatusInputs{}, tt.backlog, &statusCfg, statusNow)
-			if got := component(t, &s, "backlog").State; got != tt.want {
+			b := tt.backlog
+			b.component = ComponentBacklog
+
+			s := evaluateStatus(&store.StatusInputs{}, []backlogResult{b}, &statusCfg, statusNow)
+			if got := component(t, &s, ComponentBacklog).State; got != tt.want {
 				t.Errorf("backlog = %s, want %s", got, tt.want)
 			}
 		})
@@ -185,6 +188,31 @@ func TestStatus_BacklogThresholds(t *testing.T) {
 
 	if s := evaluateStatus(&store.StatusInputs{}, nil, &statusCfg, statusNow); len(s.Components) != 5 {
 		t.Errorf("without a probe there are %d components, want 5 (no backlog)", len(s.Components))
+	}
+}
+
+// TestStatus_BacklogPerQueue shows each probed queue as its own
+// component, so a remediation queue with no pollers never hides behind
+// a healthy evaluation queue.
+func TestStatus_BacklogPerQueue(t *testing.T) {
+	t.Parallel()
+
+	backlogs := []backlogResult{
+		{Backlog: Backlog{Pollers: 2, Age: time.Minute}, component: ComponentBacklogEvaluation},
+		{Backlog: Backlog{Pollers: 0}, component: ComponentBacklogRemediation},
+	}
+
+	s := evaluateStatus(&store.StatusInputs{}, backlogs, &statusCfg, statusNow)
+	if got := component(t, &s, ComponentBacklogEvaluation).State; got != stateOperational {
+		t.Errorf("%s = %s, want %s", ComponentBacklogEvaluation, got, stateOperational)
+	}
+
+	if got := component(t, &s, ComponentBacklogRemediation).State; got != stateDown {
+		t.Errorf("%s = %s, want %s", ComponentBacklogRemediation, got, stateDown)
+	}
+
+	if len(s.Components) != 7 {
+		t.Errorf("with two probes there are %d components, want 7", len(s.Components))
 	}
 }
 

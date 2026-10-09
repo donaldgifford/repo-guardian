@@ -675,9 +675,13 @@ activity, so this phase deletes the v1 runtime only, never the checker.
   (`RemediationWorkflowName`, `RemediateSignal`, `RemediationInput` fixed
   in `internal/workflows` for IMPL-0030). Every entry is attempted and
   failures are joined.
-- [ ] 4.8 The api role's Temporal client calls `DescribeTaskQueue` on both
+- [x] 4.8 The api role's Temporal client calls `DescribeTaskQueue` on both
   queues; `internal/temporal/backlog.go` returns a backlog per queue and
   the status page shows both.
+  Done: `DescribeBacklog` takes the queue; `StatusConfig.Backlogs` is one
+  `QueueProbe` per queue, rendered as components `backlog` (rc),
+  `backlog_evaluation` and `backlog_remediation`. A half the process does
+  not run is not probed (its queue has no pollers here by design).
 - [ ] 4.9 Env vars: `EVALUATOR_CONCURRENCY`, `REMEDIATOR_CONCURRENCY`,
   `EVALUATOR_DB_POOL_SIZE`, `REMEDIATOR_DB_POOL_SIZE` replace
   `WORKER_ACTIVITY_CONCURRENCY` and `STORE_POSTGRES_MAX_CONNS` for the

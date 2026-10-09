@@ -714,7 +714,7 @@ components:
       required: [name, state, detail]
       properties:
         name:
-          description: "Open enum: checks, webhooks, discovery, snapshots, github_budget, backlog."
+          description: "Open enum: checks, webhooks, discovery, snapshots, github_budget, backlog, backlog_evaluation, backlog_remediation."
           type: string
         state:
           $ref: "#/components/schemas/ComponentState"

@@ -24,6 +24,9 @@ const cmdMigrate = "migrate"
 
 // migrateOptions are the parsed `repo-guardian migrate` flags.
 type migrateOptions struct {
+	// chain is the goose chain to apply: chainRC (default) or
+	// chainControls.
+	chain     string
 	dsn       string
 	freshness time.Duration
 	dryRun    bool
@@ -33,6 +36,14 @@ type migrateOptions struct {
 	// usage because an operator should scale v1 down instead.
 	forceRunning bool
 }
+
+// The migrate chains. chainControls is the controls line's fresh chain
+// for an empty database (IMPL-0028 Phase 6, DESIGN-0032 D27); no chart
+// default selects it until IMPL-0029's switch-over.
+const (
+	chainRC       = "v2"
+	chainControls = "controls"
+)
 
 // forceRunningFlag is parsed by hand so it never appears in -h output.
 const forceRunningFlag = "--force-running"
@@ -105,6 +116,7 @@ func parseMigrateFlags(args []string) (migrateOptions, error) {
 		defFreshness = d
 	}
 
+	fs.StringVar(&opts.chain, "chain", chainRC, "schema chain: v2 (the rc line) or controls (an empty database only)")
 	fs.StringVar(&opts.dsn, "dsn", os.Getenv("STORE_DSN"), "Postgres DSN with DDL rights (defaults to $STORE_DSN)")
 	fs.DurationVar(&opts.freshness, "freshness", defFreshness,
 		"v1 freshness used to seed next check times (defaults to $RECONCILE_FRESHNESS, else 24h)")
@@ -119,11 +131,19 @@ func parseMigrateFlags(args []string) (migrateOptions, error) {
 		return migrateOptions{}, errors.New("no database given; pass --dsn or set STORE_DSN")
 	}
 
+	if opts.chain != chainRC && opts.chain != chainControls {
+		return migrateOptions{}, fmt.Errorf("unknown --chain %q: want %s or %s", opts.chain, chainRC, chainControls)
+	}
+
 	return opts, nil
 }
 
 // migrate applies (or, with dryRun, lists) the pending v2 migrations.
 func migrate(ctx context.Context, opts migrateOptions) (_ *migrateResult, retErr error) {
+	if opts.chain == chainControls {
+		return migrateControls(ctx, opts)
+	}
+
 	db, err := pgstore.OpenDB(opts.dsn)
 	if err != nil {
 		return nil, err
@@ -156,6 +176,51 @@ func migrate(ctx context.Context, opts migrateOptions) (_ *migrateResult, retErr
 		results, err := provider.Up(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("applying migrations: %w", err)
+		}
+
+		for _, r := range results {
+			res.Applied = append(res.Applied, appliedMigration{
+				Version: r.Source.Version, Path: r.Source.Path, Duration: r.Duration,
+			})
+		}
+	}
+
+	if res.Version, err = provider.GetDBVersion(ctx); err != nil {
+		return nil, fmt.Errorf("reading schema version: %w", err)
+	}
+
+	return res, nil
+}
+
+// migrateControls applies (or, with dryRun, rehearses in a rolled-back
+// transaction) the controls chain. It has no v1 guard and no backfill:
+// the chain runs on an empty database.
+func migrateControls(ctx context.Context, opts migrateOptions) (_ *migrateResult, retErr error) {
+	db, err := pgstore.OpenDB(opts.dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	provider, err := pgstore.NewControlsMigrator(db)
+	if err != nil {
+		return nil, errors.Join(err, db.Close())
+	}
+
+	// Provider.Close closes db.
+	defer func() {
+		retErr = errors.Join(retErr, provider.Close())
+	}()
+
+	res := &migrateResult{DryRun: opts.dryRun}
+
+	if opts.dryRun {
+		if res.Pending, err = pgstore.ControlsDryRun(ctx, db); err != nil {
+			return nil, err
+		}
+	} else {
+		results, err := provider.Up(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("applying controls migrations: %w", err)
 		}
 
 		for _, r := range results {

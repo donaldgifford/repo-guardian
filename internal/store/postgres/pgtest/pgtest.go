@@ -109,25 +109,34 @@ func AppRole(tb testing.TB, dsn string) string {
 	return u.String()
 }
 
-// ControlsDSNs connects as each role the controls schema expects
-// (DESIGN-0032 D8, D31).
+// The controls roles (DESIGN-0032 D8, D31). Each logs in with its name
+// as its password; the chart's init script and the external-mode SQL in
+// docs/operations/v2-onboarding.md create the same roles.
+const (
+	// OwnerRole owns the schema and runs the controls chain. It holds no
+	// CREATEROLE: in baked mode the image's POSTGRES_USER is a superuser,
+	// so the migrate Job connects as this role instead (INV-0022 spike 6).
+	OwnerRole = "rg_owner"
+	// EvaluatorRole and RemediatorRole are the two application roles.
+	EvaluatorRole  = "rg_evaluator"
+	RemediatorRole = "rg_remediator"
+	// AllRole is the `all` topology's role: a member of both.
+	AllRole = "rg_all"
+)
+
+// ControlsDSNs connects as each controls role.
 type ControlsDSNs struct {
-	// Owner owns the schema and runs migrations; it holds no CREATEROLE.
-	Owner string
-	// Evaluator and Remediator are the two application roles.
+	Owner      string
 	Evaluator  string
 	Remediator string
-	// All is the `all` topology's role: a member of both.
-	All string
+	All        string
 }
 
 // ControlsRoles provisions the controls roles the way the chart and the
 // external-database docs do, then returns a DSN for each. Migrations
 // grant to the application roles and never create them, so this runs
-// before any migration, as the admin in dsn.
-//
-// NOTE: IMPL-0028 task 0.11 prototype. Phase 6 keeps the statements in
-// step with the chart's init script and the external-mode SQL.
+// before any migration, as the admin in dsn. Keep the statements in step
+// with the chart's store-postgres-roles init script.
 func ControlsRoles(tb testing.TB, dsn string) ControlsDSNs {
 	tb.Helper()
 
@@ -141,12 +150,12 @@ func ControlsRoles(tb testing.TB, dsn string) ControlsDSNs {
 	defer conn.Close(ctx) //nolint:errcheck // test cleanup; nothing to recover
 
 	for _, stmt := range []string{
-		"CREATE ROLE rg_owner LOGIN PASSWORD 'rg_owner' NOSUPERUSER NOCREATEROLE",
-		"GRANT ALL ON SCHEMA public TO rg_owner",
-		"CREATE ROLE rg_evaluator LOGIN PASSWORD 'rg_evaluator' NOSUPERUSER",
-		"CREATE ROLE rg_remediator LOGIN PASSWORD 'rg_remediator' NOSUPERUSER",
-		"CREATE ROLE rg_all LOGIN PASSWORD 'rg_all' NOSUPERUSER IN ROLE rg_evaluator, rg_remediator",
-		"GRANT USAGE ON SCHEMA public TO rg_evaluator, rg_remediator",
+		"CREATE ROLE " + OwnerRole + " LOGIN PASSWORD '" + OwnerRole + "' NOSUPERUSER NOCREATEROLE",
+		"GRANT ALL ON SCHEMA public TO " + OwnerRole,
+		"CREATE ROLE " + EvaluatorRole + " LOGIN PASSWORD '" + EvaluatorRole + "' NOSUPERUSER",
+		"CREATE ROLE " + RemediatorRole + " LOGIN PASSWORD '" + RemediatorRole + "' NOSUPERUSER",
+		"CREATE ROLE " + AllRole + " LOGIN PASSWORD '" + AllRole + "' NOSUPERUSER IN ROLE " + EvaluatorRole + ", " + RemediatorRole,
+		"GRANT USAGE ON SCHEMA public TO " + EvaluatorRole + ", " + RemediatorRole,
 	} {
 		if _, err := conn.Exec(ctx, stmt); err != nil {
 			tb.Fatalf("pgtest: %s: %v", stmt, err)
@@ -164,5 +173,33 @@ func ControlsRoles(tb testing.TB, dsn string) ControlsDSNs {
 		return u.String()
 	}
 
-	return ControlsDSNs{Owner: as("rg_owner"), Evaluator: as("rg_evaluator"), Remediator: as("rg_remediator"), All: as("rg_all")}
+	return ControlsDSNs{Owner: as(OwnerRole), Evaluator: as(EvaluatorRole), Remediator: as(RemediatorRole), All: as(AllRole)}
+}
+
+// ControlsDB starts a fresh database, provisions the controls roles and
+// applies the whole controls chain as the owner. Tests then connect as
+// an application role, never as the owner: an owner cannot fail on a
+// missing grant.
+func ControlsDB(tb testing.TB) ControlsDSNs {
+	tb.Helper()
+
+	dsns := ControlsRoles(tb, Start(tb))
+
+	db, err := postgres.OpenDB(dsns.Owner)
+	if err != nil {
+		tb.Fatalf("pgtest: %v", err)
+	}
+
+	provider, err := postgres.NewControlsMigrator(db)
+	if err != nil {
+		tb.Fatalf("pgtest: %v", err)
+	}
+
+	defer provider.Close() //nolint:errcheck // closes db; nothing to recover
+
+	if _, err := provider.Up(context.Background()); err != nil {
+		tb.Fatalf("pgtest: apply controls chain: %v", err)
+	}
+
+	return dsns
 }

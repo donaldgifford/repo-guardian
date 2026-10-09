@@ -20,19 +20,29 @@ var ErrSchemaTooOld = errors.New("database schema is older than this binary; run
 // later as applied. Roles call it for readiness (DESIGN-0025 OQ5):
 // migrations run once per release in a hook Job, never per pod.
 func RequireSchema(ctx context.Context, pool *pgxpool.Pool, minVersion int64) error {
+	return requireVersion(ctx, pool, VersionTable, minVersion)
+}
+
+// RequireControlsSchema is RequireSchema for the controls chain: it reads
+// goose_controls_version, so an rc database never satisfies it.
+func RequireControlsSchema(ctx context.Context, pool *pgxpool.Pool, minVersion int64) error {
+	return requireVersion(ctx, pool, ControlsVersionTable, minVersion)
+}
+
+func requireVersion(ctx context.Context, pool *pgxpool.Pool, table string, minVersion int64) error {
 	var exists bool
 	if err := pool.QueryRow(ctx,
-		`SELECT to_regclass('public.`+VersionTable+`') IS NOT NULL`).Scan(&exists); err != nil {
+		`SELECT to_regclass('public.`+table+`') IS NOT NULL`).Scan(&exists); err != nil {
 		return fmt.Errorf("postgres.RequireSchema: probe version table: %w", err)
 	}
 
 	if !exists {
-		return fmt.Errorf("postgres.RequireSchema: no %s table: %w", VersionTable, ErrSchemaTooOld)
+		return fmt.Errorf("postgres.RequireSchema: no %s table: %w", table, ErrSchemaTooOld)
 	}
 
 	var current int64
 	if err := pool.QueryRow(ctx,
-		`SELECT coalesce(max(version_id), 0) FROM `+VersionTable+` WHERE is_applied`).Scan(&current); err != nil {
+		`SELECT coalesce(max(version_id), 0) FROM `+table+` WHERE is_applied`).Scan(&current); err != nil {
 		return fmt.Errorf("postgres.RequireSchema: read version: %w", err)
 	}
 

@@ -807,12 +807,17 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
 
 #### Tasks
 
-- [ ] 6.1 Create the controls goose chain as its own directory,
+- [x] 6.1 Create the controls goose chain as its own directory,
   `internal/store/postgres/migrations_controls/` (OQ11), embedded and
   applied by a `migrate` mode that is not wired to any chart default
   until IMPL-0029 switches over. `SchemaVersion` for the chain is
   tracked separately from the rc's `SchemaVersion = 3`.
-- [ ] 6.2 `00001_core`: `repositories` without `last_check_outcome`,
+  Done: `internal/store/postgres/controls_migrate.go` embeds the chain;
+  `repo-guardian migrate --chain controls` applies it (default `v2`, the
+  rc chain). Version table `goose_controls_version` (an rc database then
+  fails on the first `CREATE TABLE`, `TestControlsChain_RefusesAnRCDatabase`);
+  `ControlsSchemaVersion = 1`, `RequireControlsSchema`.
+- [x] 6.2 `00001_core`: `repositories` without `last_check_outcome`,
   `policy_version`, `catalog_parse_ok` and `installation_id`;
   `repository_events` with the extended `kind` CHECK; `policy_versions`
   with `first_seen_at`, `activated_at` and `rollout_completed_at`
@@ -820,9 +825,19 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
   `service_runs` with its `kind` CHECK extended to `sweep`,
   `maintenance` and Remediation App discovery. `00002` to `00004` are
   reserved for IMPL-0029 and IMPL-0030.
-- [ ] 6.3 Grants in the chain grant to `rg_evaluator` and
+  Done: `migrations_controls/00001_core.sql`, identity keys. No table
+  references installations (`installation_id` is gone). The "extended"
+  `repository_events.kind` adds `suspended`/`unsuspended` (and
+  `park_reason` gains `suspended`), the only values the designs imply;
+  `bootstrap` is dropped from `checks.trigger` and `service_runs.kind`
+  (D27: no bootstrap). The Remediation App's discovery kind is
+  `remediation_discovery`.
+- [x] 6.3 Grants in the chain grant to `rg_evaluator` and
   `rg_remediator` and never create a role (D31). `00001_core`'s grants
   follow DESIGN-0032's grant matrix for its tables.
+  Done: grants name both roles, so a missing role fails the migration.
+  `service_runs` INSERT goes to both roles; the matrix fences its kinds
+  only in prose, so the SQL does not.
 - [ ] 6.4 Chart role provisioning, mirroring `repoguardian_ro`:
   `store-postgres-roles.yaml` creates both roles in baked mode (an init
   script for a new volume plus a hook that creates missing roles and
@@ -836,14 +851,22 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
   connects as it, since the image's `POSTGRES_USER` is a superuser
   (INV-0022 Phase-0 results, spike 6). `rg_all` for the `all` topology
   is `IN ROLE rg_evaluator, rg_remediator` (CNPG: `inRoles`).
-- [ ] 6.5 `pgtest`: `AppRole` becomes an owner role plus `EvaluatorRole`
+- [x] 6.5 `pgtest`: `AppRole` becomes an owner role plus `EvaluatorRole`
   and `RemediatorRole`, created the way the chart creates them, with
   per-role DSNs (Phase 0's `pgtest.ControlsRoles` is the starting point;
   surrogate keys are identity columns, and every row-level security
   write policy has its `FOR SELECT ... USING (true)` pair, DESIGN-0032). Tests for `00001_core`'s grants run as each role, never
   as the owner, and assert a prohibited cross-writer statement fails.
-- [ ] 6.6 `migrate --dry-run` for the controls chain applies the whole
+  Done: `pgtest.OwnerRole`/`EvaluatorRole`/`RemediatorRole`/`AllRole`,
+  `ControlsRoles` (now authoritative, not a prototype) and `ControlsDB`
+  (roles + whole chain as the owner). `AppRole` stays for the rc chain.
+  `TestControlsChain_GrantsHoldAsEachRole`: 21 statements as the three
+  roles. Probe: granting the remediator UPDATE on `repositories` fails it.
+- [x] 6.6 `migrate --dry-run` for the controls chain applies the whole
   chain to an empty database in one rolled-back transaction.
+  Done: `postgres.ControlsDryRun` replays every pending file's Up section
+  (no per-file wiring); `migrate --chain controls --dry-run` reports them
+  as pending. `TestControlsChain_DryRunRollsBack`.
 - [ ] 6.7 helm-unittest for the three provisioning modes and the per-role
   DSN mounts; `validateBackendSecrets` extended for the new Secret
   knobs.

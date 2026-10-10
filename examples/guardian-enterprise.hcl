@@ -33,13 +33,10 @@
 //   discovery-time scope gating if it becomes load-bearing.
 
 guardian {
-  log_level         = "info"
-  dry_run           = false
-  worker_count      = 5
-  queue_size        = 1000
-  schedule_interval = "168h"
-  skip_forks        = true
-  skip_archived     = true
+  log_level     = "info"
+  dry_run       = false
+  skip_forks    = true
+  skip_archived = true
 }
 
 // Top-level scope: ONLY the orgs we want repo-guardian to reconcile.

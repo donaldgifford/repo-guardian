@@ -62,18 +62,14 @@ func TestVersionV2_Golden(t *testing.T) {
 	}
 }
 
-func TestVersionV2_NeverEqualsV1(t *testing.T) {
+// TestVersionV2_IsPrefixed pins the "v2:" prefix: v1's policy versions
+// were bare hex, so the prefix is what keeps a v1 row from ever matching
+// a v2 version in the rc schema's backfilled rows.
+func TestVersionV2_IsPrefixed(t *testing.T) {
 	t.Parallel()
 
-	cfg := loadVersionFixture(t, "guardian.hcl")
-
-	v1, err := Version(cfg, versionV2Templates)
-	if err != nil {
-		t.Fatalf("Version: %v", err)
-	}
-
-	if v2 := mustVersionV2(t, cfg, versionV2Templates); v1 == v2 || !strings.HasPrefix(v2, VersionV2Prefix) {
-		t.Errorf("v1 %s, v2 %s: want distinct, v2-prefixed", v1, v2)
+	if v2 := mustVersionV2(t, loadVersionFixture(t, "guardian.hcl"), versionV2Templates); !strings.HasPrefix(v2, VersionV2Prefix) {
+		t.Errorf("VersionV2 = %s, want the %q prefix", v2, VersionV2Prefix)
 	}
 }
 
@@ -118,8 +114,6 @@ var versionV2Hashed = []string{
 // VersionV2: operational knobs, and values derived from hashed ones.
 var versionV2NotHashed = []string{
 	"PolicyConfig.Guardian", // container; its hashed fields are listed individually
-	"GuardianConfig.ScheduleInterval", "GuardianConfig.ParsedScheduleInterval",
-	"GuardianConfig.WorkerCount", "GuardianConfig.QueueSize",
 	"GuardianConfig.LogLevel", "GuardianConfig.RateLimitThreshold",
 	"PRConfig.CompiledTitle", "PRConfig.CompiledBody", // compiled from Title/Body
 }
@@ -188,9 +182,6 @@ func TestVersionV2_WhatChangesTheVersion(t *testing.T) {
 	}{
 		{"guardian.log_level", func(c *PolicyConfig, _ map[string]string) { c.Guardian.LogLevel = "debug" }, false},
 		{"guardian.rate_limit_threshold", func(c *PolicyConfig, _ map[string]string) { c.Guardian.RateLimitThreshold = 0.5 }, false},
-		{"guardian.schedule_interval", func(c *PolicyConfig, _ map[string]string) { c.Guardian.ScheduleInterval = "1h" }, false},
-		{"guardian.worker_count", func(c *PolicyConfig, _ map[string]string) { c.Guardian.WorkerCount = 99 }, false},
-		{"guardian.queue_size", func(c *PolicyConfig, _ map[string]string) { c.Guardian.QueueSize = 99 }, false},
 		{"guardian.dry_run", func(c *PolicyConfig, _ map[string]string) { c.Guardian.DryRun = true }, true},
 		{"rule paths", func(c *PolicyConfig, _ map[string]string) {
 			c.FileRules[0].Paths = append(c.FileRules[0].Paths, "docs/CODEOWNERS")

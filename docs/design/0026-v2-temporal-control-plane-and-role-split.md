@@ -472,7 +472,7 @@ enqueue failed, which lost events silently.
 | Event | v1 | v2 |
 | --- | --- | --- |
 | `repository.created` | seed + enqueue | discover + recheck (priority 2) |
-| `installation.created`, `installation_repositories.added` | seed + enqueue each | single-installation discovery |
+| `installation.created`, `installation_repositories.added` | seed + enqueue each | single-installation discovery; an all-repositories `added` naming at most 100 repositories is discovered from its payload like `repository.created` (amended 2026-10-10, INV-0022 Phase-0 OQ2) |
 | `push` to default branch, watched path added/modified/removed | pending + enqueue | recheck{push} (priority 2) |
 | `repository.renamed`, `transferred` | ignored (old row lingers) | update name/org/installation by `provider_repo_id`; workflow id unchanged |
 | `repository.deleted` | ignored | park `removed` |

@@ -19,11 +19,28 @@ import (
 // actionSuspend is the installation action that suspends the App.
 const actionSuspend = "suspend"
 
+// payloadDiscoveryMax is the most repositories an all-repositories
+// installation_repositories.added delivery may name and still be
+// discovered from its payload; above it (a selected → all switch) the
+// batched, retried DiscoveryWorkflow does the work. One listing page.
+const payloadDiscoveryMax = 100
+
+// selectionAll is the repository_selection of an installation on every
+// repository in its account.
+const selectionAll = "all"
+
+// The installation-level webhook events.
+const (
+	eventInstallation             = "installation"
+	eventInstallationRepositories = "installation_repositories"
+)
+
 // Router is the RouteWebhook activity (DESIGN-0026 § Ingest and webhook
 // routing). Ingest has already validated and filtered the delivery; the
 // router upserts rows as needed, resolves the repository and signals the
 // workflow that owns it.
 type Router struct {
+	access        AppAccessRecorder
 	store         Store
 	client        client.Client
 	taskQueue     string
@@ -35,7 +52,52 @@ type Router struct {
 // NewRouter returns the router. checkInterval seeds the RepoWorkflows it
 // starts and threshold (RATE_LIMIT_THRESHOLD) the InstallationWorkflows.
 func NewRouter(st Store, c client.Client, taskQueue string, checkInterval time.Duration, threshold float64, logger *slog.Logger) *Router {
-	return &Router{store: st, client: c, taskQueue: taskQueue, checkInterval: checkInterval, threshold: threshold, logger: logger}
+	return &Router{
+		access: noopAccessRecorder{logger: logger}, store: st, client: c, taskQueue: taskQueue,
+		checkInterval: checkInterval, threshold: threshold, logger: logger,
+	}
+}
+
+// AppAccess is one change to a controls App's access: an installation
+// created, deleted, suspended or unsuspended, or repositories added to
+// or removed from it.
+type AppAccess struct {
+	App            string
+	InstallationID int64
+	AccountLogin   string
+	Event          string
+	Action         string
+	Repositories   []workflows.WebhookRepo
+}
+
+// AppAccessRecorder records a controls App's access. The controls
+// tables own it once IMPL-0029 switches over; until then the router's
+// default recorder only logs.
+type AppAccessRecorder interface {
+	RecordAppAccess(ctx context.Context, a *AppAccess) error
+}
+
+// WithAccessRecorder replaces the router's no-op access recorder.
+func (r *Router) WithAccessRecorder(rec AppAccessRecorder) *Router {
+	r.access = rec
+
+	return r
+}
+
+// noopAccessRecorder is the recorder before the controls tables exist.
+type noopAccessRecorder struct{ logger *slog.Logger }
+
+// RecordAppAccess logs the change and records nothing.
+func (n noopAccessRecorder) RecordAppAccess(_ context.Context, a *AppAccess) error {
+	n.logger.Debug("app access change not recorded before the controls switch-over",
+		"app", a.App, "installation_id", a.InstallationID, "event", a.Event, "action", a.Action, "repositories", len(a.Repositories))
+
+	return nil
+}
+
+// isAccessEvent reports whether event is an installation-level change.
+func isAccessEvent(event string) bool {
+	return event == eventInstallation || event == eventInstallationRepositories
 }
 
 // Register registers RouteWebhook under its workflows package name.
@@ -47,20 +109,32 @@ func (r *Router) Register(reg Registry) {
 // is safe to retry: every step is an upsert, a park of an already-parked
 // row, or a signal that coalesces.
 func (r *Router) RouteWebhook(ctx context.Context, in *workflows.WebhookInput) error {
-	log := r.logger.With("delivery", in.DeliveryID, "event", in.Event, "action", in.Action, "installation_id", in.InstallationID)
+	log := r.logger.With("delivery", in.DeliveryID, "app", in.App, "event", in.Event, "action", in.Action, "installation_id", in.InstallationID)
+
+	// The Remediation App's installation events describe where it may
+	// write, not which repositories exist: they update its access and
+	// never drive discovery (IMPL-0028 task 3.3).
+	if in.App == workflows.AppRemediate && isAccessEvent(in.Event) {
+		return r.access.RecordAppAccess(ctx, &AppAccess{
+			App: in.App, InstallationID: in.InstallationID, AccountLogin: in.AccountLogin,
+			Event: in.Event, Action: in.Action, Repositories: in.Repositories,
+		})
+	}
 
 	switch in.Event + "." + in.Action {
 	case "push.":
 		return r.each(ctx, in, r.push)
 	case "repository.created":
-		return r.discover(ctx, in, workflows.TriggerWebhook, workflows.PriorityWebhook)
-	case "repository.unarchived", "installation.created", "installation_repositories.added":
+		return r.discover(ctx, in, workflows.TriggerWebhook)
+	case "installation_repositories.added":
+		return r.discoverAdded(ctx, in)
+	case "repository.unarchived", "installation.created":
 		return r.discoverInstallation(ctx, in)
 	case "repository.renamed", "repository.transferred":
 		// UpsertDiscovered matches by provider_repo_id and updates org,
 		// name and installation; the repositories.id, and so the
 		// workflow ID, is unchanged.
-		return r.discover(ctx, in, workflows.TriggerWebhook, workflows.PriorityWebhook)
+		return r.discover(ctx, in, workflows.TriggerWebhook)
 	case "repository.archived":
 		// The check's archived skip parks it, the same path as v1.
 		return r.each(ctx, in, r.recheckKnown)
@@ -95,6 +169,19 @@ func (*Router) each(
 	}
 
 	return errors.Join(errs...)
+}
+
+// discoverAdded routes installation_repositories.added. On an
+// all-repositories installation GitHub sends it for every new
+// repository, beside repository.created (INV-0022 Phase-0 OQ2): the
+// payload is the whole change, so listing the installation again would
+// only repeat it.
+func (r *Router) discoverAdded(ctx context.Context, in *workflows.WebhookInput) error {
+	if in.RepositorySelection == selectionAll && len(in.Repositories) <= payloadDiscoveryMax {
+		return r.discover(ctx, in, workflows.TriggerWebhook)
+	}
+
+	return r.discoverInstallation(ctx, in)
 }
 
 // discoverInstallation upserts the installation and starts its
@@ -132,7 +219,7 @@ func (r *Router) upsertInstallation(ctx context.Context, in *workflows.WebhookIn
 // discover upserts the installation and each repository in the payload
 // (un-parking a parked one: discovery is the only un-parker) and
 // rechecks it.
-func (r *Router) discover(ctx context.Context, in *workflows.WebhookInput, trigger string, p workflows.Priority) error {
+func (r *Router) discover(ctx context.Context, in *workflows.WebhookInput, trigger string) error {
 	if err := r.upsertInstallation(ctx, in); err != nil {
 		return err
 	}
@@ -146,7 +233,7 @@ func (r *Router) discover(ctx context.Context, in *workflows.WebhookInput, trigg
 			return err
 		}
 
-		return r.recheck(ctx, res.ID, in.InstallationID, trigger, p)
+		return r.recheck(ctx, res.ID, in.InstallationID, trigger, workflows.PriorityWebhook)
 	})
 }
 
@@ -159,7 +246,7 @@ func (r *Router) push(ctx context.Context, in *workflows.WebhookInput, repo work
 	case errors.Is(err, store.ErrNotFound):
 		one := &workflows.WebhookInput{InstallationID: in.InstallationID, Repositories: []workflows.WebhookRepo{repo}}
 
-		return r.discover(ctx, one, workflows.TriggerPush, workflows.PriorityWebhook)
+		return r.discover(ctx, one, workflows.TriggerPush)
 	case err != nil:
 		return err
 	case !found.Active:
@@ -232,10 +319,12 @@ func (r *Router) suspend(ctx context.Context, in *workflows.WebhookInput, suspen
 		return err
 	}
 
-	_, err := r.client.SignalWithStartWorkflow(ctx, workflows.InstallationWorkflowID(in.InstallationID),
+	// The rc's budget: until the controls switch-over, the router runs on
+	// the rc's queue for every App's repository events (task 3.3).
+	_, err := r.client.SignalWithStartWorkflow(ctx, workflows.InstallationWorkflowID("", in.InstallationID),
 		workflows.SuspendSignal, workflows.Suspend{Suspended: suspended},
 		client.StartWorkflowOptions{
-			ID:        workflows.InstallationWorkflowID(in.InstallationID),
+			ID:        workflows.InstallationWorkflowID("", in.InstallationID),
 			TaskQueue: r.taskQueue,
 			Priority:  workflows.TaskPriority(workflows.PriorityWebhook, in.InstallationID),
 		},

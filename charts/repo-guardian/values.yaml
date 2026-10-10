@@ -128,8 +128,8 @@ temporal:
     # -- Authenticate with a bearer token from an OAuth2
     # client-credentials grant (Keycloak and the like) instead of mTLS.
     # The token is cached and renewed a minute before it expires.
-    # KEDA's temporal trigger cannot mint these, so it is refused with
-    # `worker.keda.enabled`.
+    # KEDA's temporal trigger cannot mint these, so use
+    # `keda.trigger: prometheus` with OIDC.
     oidc:
       # -- The IdP's token endpoint, e.g.
       # `https://keycloak/realms/<realm>/protocol/openid-connect/token`.
@@ -167,7 +167,7 @@ ingest:
 
 # -- The worker role: runs workflows and activities (split only).
 worker:
-  # -- Replica count. Ignored when `worker.keda.enabled`.
+  # -- Replica count.
   replicas: 1
   # -- Concurrent activities per pod (WORKER_ACTIVITY_CONCURRENCY).
   concurrency: 10
@@ -179,9 +179,24 @@ worker:
   buildId: ""
   # -- Resources; empty falls back to `resources`.
   resources: {}
-  # -- KEDA autoscaling on Temporal backlog. Requires the KEDA CRDs.
+
+# -- The evaluator role: the controls evaluation worker on the
+# `repo-guardian-eval` queue (IMPL-0028 Phase 4). Rendered in split when
+# `github.eval.appId` is set; in `all` it runs beside the rc worker.
+evaluator:
+  # -- Replica count (split only). Ignored when `evaluator.keda.enabled`.
+  replicas: 1
+  # -- Concurrent activities per pod (EVALUATOR_CONCURRENCY).
+  concurrency: 10
+  # -- Postgres pool size per pod (EVALUATOR_DB_POOL_SIZE). 0 keeps
+  # pgxpool's default.
+  dbPoolSize: 0
+  # -- Resources; empty falls back to `resources`.
+  resources: {}
+  # -- KEDA autoscaling on this role's queue backlog (split only).
+  # Requires the KEDA CRDs. The trigger is the shared `keda.trigger`.
   keda:
-    # -- Render a ScaledObject with a `temporal` trigger.
+    # -- Render a ScaledObject. KEDA then owns the replica count.
     enabled: false
     # -- Floor.
     minReplicas: 1
@@ -189,8 +204,68 @@ worker:
     # are rate-limit bound, so pods past the budget only park more
     # timers (INV-0018 Obs 7).
     maxReplicas: 4
-    # -- Backlog per replica before KEDA scales out.
+    # -- Backlog per replica before KEDA scales out (either trigger).
     targetQueueSize: "50"
+    # -- Replicas KEDA holds when the trigger fails three polls in a
+    # row. null uses `evaluator.replicas`.
+    fallbackReplicas: null
+    # -- Prometheus query (trigger `prometheus`). Empty builds the
+    # default from `temporal.namespace` and this role's queue.
+    query: ""
+
+# -- The remediator role: the controls remediation worker on the
+# `repo-guardian-remediate` queue. Rendered in split when
+# `github.remediate.appId` is set. Zero replicas never blocks the
+# evaluator's promotion: each role has its own worker deployment.
+remediator:
+  # -- Replica count (split only). Ignored when `remediator.keda.enabled`.
+  replicas: 1
+  # -- Concurrent activities per pod (REMEDIATOR_CONCURRENCY).
+  concurrency: 10
+  # -- Postgres pool size per pod (REMEDIATOR_DB_POOL_SIZE). 0 keeps
+  # pgxpool's default.
+  dbPoolSize: 0
+  # -- Resources; empty falls back to `resources`.
+  resources: {}
+  # -- KEDA autoscaling on this role's queue backlog (split only).
+  # Requires the KEDA CRDs. The trigger is the shared `keda.trigger`.
+  keda:
+    # -- Render a ScaledObject. KEDA then owns the replica count.
+    enabled: false
+    # -- Floor. 0 is allowed: promotion does not depend on a
+    # running remediator (DESIGN-0032 D28).
+    minReplicas: 0
+    # -- Ceiling. Size it to the GitHub budget, not the backlog: checks
+    # are rate-limit bound, so pods past the budget only park more
+    # timers (INV-0018 Obs 7).
+    maxReplicas: 4
+    # -- Backlog per replica before KEDA scales out (either trigger).
+    targetQueueSize: "50"
+    # -- Replicas KEDA holds when the trigger fails three polls in a
+    # row. null uses `remediator.replicas`.
+    fallbackReplicas: null
+    # -- Prometheus query (trigger `prometheus`). Empty builds the
+    # default from `temporal.namespace` and this role's queue.
+    query: ""
+
+# -- Settings shared by the controls roles' ScaledObjects.
+keda:
+  # -- `prometheus` (default) scales on the Temporal server's
+  # `approximate_backlog_count` and works with `temporal.auth.oidc`;
+  # `temporal` asks the frontend directly and is refused with OIDC.
+  trigger: prometheus
+  prometheus:
+    # -- The Prometheus that scrapes the Temporal server. Required with
+    # `trigger: prometheus` once a role enables KEDA.
+    serverAddress: ""
+    # -- An operator-owned TriggerAuthentication for that Prometheus.
+    authenticationRef: ""
+    # -- The label holding the Temporal namespace on
+    # `approximate_backlog_count`. A ServiceMonitor scrape (prometheus-
+    # operator) renames Temporal's `namespace` to `exported_namespace`
+    # because `namespace` is the pod's; use `namespace` with
+    # `honorLabels: true` or a scrape that keeps the original.
+    namespaceLabel: exported_namespace
 
 # -- The api role: the read-only JSON API (DESIGN-0027). It holds only
 # a read-only database credential: no App key, no webhook secret.
@@ -313,6 +388,36 @@ secrets:
   privateKey: ""
   # -- Mount private key as file (true) or env var (false)
   privateKeyAsFile: true
+
+# -- The two controls GitHub Apps (IMPL-0028 Phase 3, DESIGN-0032 §
+# Two Apps). Each block is off until its appId is set. The private key
+# is always mounted as a file. Keys go only to the roles that act as
+# that App: the Evaluation App's to evaluator and `all` pods, the
+# Remediation App's to remediator and `all` pods. Each webhook secret
+# (and App id, for the app-mismatch check) goes to ingest and `all`.
+# The rc's single-App `config.appId` / `secrets` keep serving the rc
+# roles until the controls switch-over.
+github:
+  eval:
+    # -- The Evaluation App's numeric id. Empty disables the block.
+    appId: ""
+    # -- Existing Secret with keys `private-key` and `webhook-secret`.
+    # Empty: the chart creates `<release>-eval` from the two values below.
+    existingSecret: ""
+    # -- The Evaluation App's private key (PEM), when the chart creates the Secret.
+    privateKey: ""
+    # -- The Evaluation App's webhook secret, when the chart creates the Secret.
+    webhookSecret: ""
+  remediate:
+    # -- The Remediation App's numeric id. Empty disables the block.
+    appId: ""
+    # -- Existing Secret with keys `private-key` and `webhook-secret`.
+    # Empty: the chart creates `<release>-remediate` from the two values below.
+    existingSecret: ""
+    # -- The Remediation App's private key (PEM), when the chart creates the Secret.
+    privateKey: ""
+    # -- The Remediation App's webhook secret, when the chart creates the Secret.
+    webhookSecret: ""
 
 # -- File-template overrides for the binary's TemplateStore.
 #
@@ -516,6 +621,30 @@ store:
           labels:
             bgp.cilium.io/advertise-service: default
             bgp.cilium.io/ip-pool: default
+  # -- The controls line's database roles (IMPL-0028 Phase 6,
+  # DESIGN-0032 D31): rg_evaluator, rg_remediator and rg_all, and in
+  # baked mode a non-superuser owner, rg_owner, for the migrate Job.
+  controls:
+    # -- Provision the roles, mount STORE_DSN_EVALUATOR /
+    # STORE_DSN_REMEDIATOR into the controls roles' pods, and point the
+    # migrate Job at the controls chain as the owner. Off until
+    # IMPL-0029's switch-over; enable it only against an empty database.
+    enabled: false
+    evaluator:
+      # -- External mode: Secret holding rg_evaluator's DSN.
+      existingSecret: ""
+      # -- Key inside existingSecret.
+      existingSecretKey: STORE_DSN_EVALUATOR
+    remediator:
+      # -- External mode: Secret holding rg_remediator's DSN.
+      existingSecret: ""
+      # -- Key inside existingSecret.
+      existingSecretKey: STORE_DSN_REMEDIATOR
+    all:
+      # -- External mode, `topology: all`: Secret holding rg_all's DSN.
+      existingSecret: ""
+      # -- Key inside existingSecret.
+      existingSecretKey: STORE_DSN_ALL
 
 # -- Repository discovery. The discovery schedule enumerates every
 # installation's repositories and starts a RepoWorkflow for each new one.

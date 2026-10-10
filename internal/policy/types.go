@@ -4,8 +4,6 @@
 package policy
 
 import (
-	"time"
-
 	tmpl "github.com/donaldgifford/repo-guardian/internal/template"
 )
 
@@ -73,9 +71,6 @@ type DefaultsConfig struct {
 // GuardianConfig holds operational settings for the guardian application.
 type GuardianConfig struct {
 	DryRun             bool    `hcl:"dry_run,optional"`
-	ScheduleInterval   string  `hcl:"schedule_interval,optional"`
-	WorkerCount        int     `hcl:"worker_count,optional"`
-	QueueSize          int     `hcl:"queue_size,optional"`
 	LogLevel           string  `hcl:"log_level,optional"`
 	SkipForks          bool    `hcl:"skip_forks,optional"`
 	SkipArchived       bool    `hcl:"skip_archived,optional"`
@@ -101,10 +96,6 @@ type GuardianConfig struct {
 	// — so the default stays true, and turning it off costs only PR
 	// bodies that keep listing rules already satisfied on main.
 	OrphanCleanup *bool `hcl:"orphan_cleanup,optional"`
-
-	// ParsedScheduleInterval is the parsed duration from ScheduleInterval.
-	// It is not set from HCL directly but computed after loading.
-	ParsedScheduleInterval time.Duration `hcl:"-"`
 }
 
 // OrphanCleanupEnabled returns whether orphan cleanup is active.

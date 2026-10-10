@@ -57,22 +57,12 @@ func DryRun(ctx context.Context, db *sql.DB, seed string) (_ *BackfillReport, re
 	return BackfillV1(ctx, tx, seed)
 }
 
-// gooseVersion is the applied goose version, 0 on a database goose has
-// never touched.
+// gooseVersion is the applied rc goose version, 0 on a database goose
+// has never touched.
 func gooseVersion(ctx context.Context, tx *sql.Tx) (int64, error) {
-	var present bool
-	if err := tx.QueryRowContext(ctx, `SELECT to_regclass('public.`+VersionTable+`') IS NOT NULL`).Scan(&present); err != nil {
-		return 0, fmt.Errorf("dry run: probing %s: %w", VersionTable, err)
-	}
-
-	if !present {
-		return 0, nil
-	}
-
-	var v int64
-	if err := tx.QueryRowContext(ctx,
-		`SELECT coalesce(max(version_id), 0) FROM `+VersionTable+` WHERE is_applied`).Scan(&v); err != nil {
-		return 0, fmt.Errorf("dry run: reading %s: %w", VersionTable, err)
+	v, err := versionIn(ctx, tx, VersionTable)
+	if err != nil {
+		return 0, fmt.Errorf("dry run: %w", err)
 	}
 
 	return v, nil

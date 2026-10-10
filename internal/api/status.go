@@ -43,14 +43,29 @@ type Backlog struct {
 	Pollers int
 }
 
-// BacklogProbe describes the work backlog; it must be read-only.
+// BacklogProbe describes one task queue's backlog; it must be read-only.
 type BacklogProbe func(ctx context.Context) (Backlog, error)
+
+// The backlog component names, one per task queue: the rc's queue, and
+// the evaluation and remediation queues (IMPL-0028 task 4.8).
+const (
+	ComponentBacklog            = "backlog"
+	ComponentBacklogEvaluation  = "backlog_evaluation"
+	ComponentBacklogRemediation = "backlog_remediation"
+)
+
+// QueueProbe is a BacklogProbe and the status component it feeds.
+type QueueProbe struct {
+	Component string
+	Probe     BacklogProbe
+}
 
 // StatusConfig configures a StatusPage.
 type StatusConfig struct {
 	Reader StatusReader
-	// Backlog is optional; without it the backlog component is omitted.
-	Backlog BacklogProbe
+	// Backlogs adds one component per probed task queue, in order;
+	// without any the backlog components are omitted.
+	Backlogs []QueueProbe
 
 	CheckInterval     time.Duration
 	DiscoveryInterval time.Duration
@@ -129,13 +144,13 @@ func (p *StatusPage) Refresh(ctx context.Context) (err error) {
 		return err
 	}
 
-	var backlog *backlogResult
-	if p.cfg.Backlog != nil {
-		b, err := p.cfg.Backlog(ctx)
-		backlog = &backlogResult{Backlog: b, err: err}
+	backlogs := make([]backlogResult, 0, len(p.cfg.Backlogs))
+	for _, q := range p.cfg.Backlogs {
+		b, err := q.Probe(ctx)
+		backlogs = append(backlogs, backlogResult{Backlog: b, component: q.Component, err: err})
 	}
 
-	s := evaluateStatus(in, backlog, &p.cfg, now)
+	s := evaluateStatus(in, backlogs, &p.cfg, now)
 	p.current.Store(&s)
 
 	return nil
@@ -144,21 +159,23 @@ func (p *StatusPage) Refresh(ctx context.Context) (err error) {
 type backlogResult struct {
 	Backlog
 
-	err error
+	component string
+	err       error
 }
 
 // evaluateStatus applies DESIGN-0027's component rules to in.
-func evaluateStatus(in *store.StatusInputs, backlog *backlogResult, cfg *StatusConfig, now time.Time) gen.Status {
-	components := []gen.Component{
+func evaluateStatus(in *store.StatusInputs, backlogs []backlogResult, cfg *StatusConfig, now time.Time) gen.Status {
+	components := make([]gen.Component, 0, 5+len(backlogs))
+	components = append(components,
 		checksComponent(in, cfg, now),
 		webhooksComponent(in, now),
 		serviceComponent("discovery", in.LastServiceSuccess[store.ServiceRunDiscovery], 2*cfg.DiscoveryInterval, discoveryDownAfter, now),
 		serviceComponent("snapshots", in.LastServiceSuccess[store.ServiceRunSnapshot], 2*cfg.SnapshotInterval, 0, now),
 		budgetComponent(in.Rates, cfg.RateReserve, now),
-	}
+	)
 
-	if backlog != nil {
-		components = append(components, backlogComponent(backlog))
+	for i := range backlogs {
+		components = append(components, backlogComponent(&backlogs[i]))
 	}
 
 	return gen.Status{
@@ -314,7 +331,7 @@ func budgetComponent(rates []store.RateSnapshot, reserve float64, now time.Time)
 }
 
 func backlogComponent(b *backlogResult) gen.Component {
-	c := gen.Component{Name: "backlog"}
+	c := gen.Component{Name: b.component}
 
 	switch {
 	case b.err != nil:

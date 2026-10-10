@@ -244,7 +244,7 @@ func TestEmbeddedTemplates_RenovateWorkflow_PreservesGHAExpressions(t *testing.T
 }
 
 // TestTemplateStoreAsMap exercises the AsMap snapshot used to feed
-// policy.Version. Verifies (1) every loaded template body appears in
+// policy.VersionV2. Verifies (1) every loaded template body appears in
 // the map keyed by name (no .tmpl suffix), (2) the returned map is a
 // copy — mutating it does not affect subsequent reads from the store,
 // and (3) a directory override is reflected in the snapshot.

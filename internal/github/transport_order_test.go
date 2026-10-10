@@ -41,6 +41,33 @@ import (
 // requests are issued and both must be measured, even though only one
 // was sent.
 func TestTransportOrder_ThrottledRequestIsStillMeasured(t *testing.T) {
+	t.Run("rest", func(t *testing.T) {
+		assertBothRequestsMeasured(t, func(ctx context.Context, c *ghclient.GitHubClient) error {
+			_, err := c.GetRepository(ctx, "o", "r")
+			return err
+		})
+	})
+
+	// IMPL-0028 task 2.4: the GraphQL client shares the REST client's
+	// *http.Client, so a GraphQL call is measured and throttled by the
+	// same chain.
+	t.Run("graphql", func(t *testing.T) {
+		assertBothRequestsMeasured(t, func(ctx context.Context, c *ghclient.GitHubClient) error {
+			var q struct {
+				Repository struct{ Name string } `graphql:"repository(owner: \"o\", name: \"r\")"`
+			}
+
+			return c.GraphQLQuery(ctx, &q, nil)
+		})
+	})
+}
+
+// assertBothRequestsMeasured issues call twice against a server whose
+// first response leaves the budget under the reserve, and asserts the
+// second is refused yet both are measured.
+func assertBothRequestsMeasured(t *testing.T, call func(context.Context, *ghclient.GitHubClient) error) {
+	t.Helper()
+
 	reg := promclient.NewRegistry()
 
 	if _, err := observability.New(observability.Options{
@@ -57,13 +84,22 @@ func TestTransportOrder_ThrottledRequestIsStillMeasured(t *testing.T) {
 	// instead trip go-github's internal pre-check, which short-circuits
 	// above our transport and above otelhttp — a different path, and
 	// not the one this test is about.
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/v3/repos/o/r", func(w http.ResponseWriter, _ *http.Request) {
+	rate := func(w http.ResponseWriter, resource string) {
 		w.Header().Set("X-RateLimit-Remaining", "20")
 		w.Header().Set("X-RateLimit-Limit", "5000")
 		w.Header().Set("X-RateLimit-Reset", strconv.FormatInt(resetAt.Unix(), 10))
+		w.Header().Set("X-RateLimit-Resource", resource)
 		w.Header().Set("Content-Type", "application/json")
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v3/repos/o/r", func(w http.ResponseWriter, _ *http.Request) {
+		rate(w, "core")
 		_, _ = w.Write([]byte(`{"name":"r","default_branch":"main"}`))
+	})
+	mux.HandleFunc("POST /api/graphql", func(w http.ResponseWriter, _ *http.Request) {
+		rate(w, "graphql")
+		_, _ = w.Write([]byte(`{"data":{"repository":{"name":"r"}}}`))
 	})
 
 	srv := httptest.NewServer(mux)
@@ -78,18 +114,18 @@ func TestTransportOrder_ThrottledRequestIsStillMeasured(t *testing.T) {
 	ctx := context.Background()
 
 	// Request 1: sent, succeeds, primes the rate-limit cache.
-	if _, err := client.GetRepository(ctx, "o", "r"); err != nil {
-		t.Fatalf("first GetRepository() = %v, want nil", err)
+	if err := call(ctx, client); err != nil {
+		t.Fatalf("first call = %v, want nil", err)
 	}
 
 	// Request 2: refused by the rate-limit transport before it is sent.
-	_, err = client.GetRepository(ctx, "o", "r")
+	err = call(ctx, client)
 	if err == nil {
-		t.Fatal("second GetRepository() = nil error, want a throttle deferral; the fixture no longer trips the reserve")
+		t.Fatal("second call = nil error, want a throttle deferral; the fixture no longer trips the reserve")
 	}
 
 	if _, ok := ghclient.AsThrottled(err); !ok {
-		t.Fatalf("second GetRepository() error = %v, want a throttle signal", err)
+		t.Fatalf("second call error = %v, want a throttle signal", err)
 	}
 
 	body := scrapeRegistry(t, reg)

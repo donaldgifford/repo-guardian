@@ -504,9 +504,12 @@ evaluator's store.
     generation and writes `result_events`; `evaluated_sha`,
     `evaluated_at` and evidence refresh only for selected controls;
     recording is idempotent on the check key;
-  - `RecordPolicyVersion` upserts with `ON CONFLICT (version) DO UPDATE
-    SET activated_at = now()`, and the rollout reads the version with the
-    latest `activated_at`.
+  - activation runs in the migrate Job, never at worker startup
+    (INV-0022 Phase-0 OQ1 (a)): `repo-guardian migrate` loads the
+    policy root, computes the controls version and calls IMPL-0028's
+    `ActivatePolicyVersion`; workers read `CurrentActivation` and start
+    the rollout for it. The rc's per-pod `RecordPolicyVersion` start
+    path is deleted with the rc services.
 - [ ] 4.6 Park with the result rule: `archived`, `fork`, `removed` and
   `installation_removed` clear results (with `result_events`);
   `access_denied` and `unknown` keep them; Evaluation App suspension is
@@ -553,7 +556,9 @@ evaluator's store.
   (`evaluation/<repository id>`), `ControlsDiscoveryWorkflowID`
   (`controls-discovery/installation/<id>/<delivery>`), schedule ids
   `controls-discovery` and `controls-snapshot`,
-  `ControlsRolloutWorkflowID` (`controls-rollout/<version>`); signals
+  `ControlsRolloutWorkflowID`
+  (`controls-rollout/<version>/<activated_at unix seconds>`, so a revert
+  or rollback rolls out again); signals
   `Recheck{Paths []string, Unknown bool, Priority}` and
   `PolicyChanged`; `PriorityManual Priority = 1`.
 - [ ] 5.2 `EvaluationWorkflow` (`evaluation.go`), built from `repoLoop`:
@@ -583,15 +588,18 @@ evaluator's store.
   `UpsertRepositories`, which resolves inline between the upsert and the
   SignalWithStart of `evaluation/<id>`; parks missing repositories;
   records a `service_runs` row; sets `installation_info{app="eval"}`.
-- [ ] 5.6 Controls rollout: on a new or re-activated policy version,
-  `controls-rollout/<version>` re-resolves every repository, then
+- [ ] 5.6 Controls rollout: every worker reads `CurrentActivation` at
+  startup and starts `controls-rollout/<version>/<activated_at>` with
+  `REJECT_DUPLICATE` (one rollout per activation, however many pods
+  start), which re-resolves every repository, then
   signals `policy_changed` spread over `POLICY_ROLLOUT_WINDOW`, and marks
   the rollout complete. The evaluator's bootstrap ensures only the
   `controls-discovery` and `controls-snapshot` schedules.
 - [ ] 5.7 Webhook routing on `/webhooks/github/eval`: a default-branch
   push signals `recheck` at priority 2 with the changed paths filtered
   through `Snapshot.WatchedPaths()` (a push with no watched path signals
-  nothing; 2048 commits or `forced` is unknown); `repository` created,
+  nothing; 2048 commits, `forced`, or more than 256 filtered paths is
+  unknown, DESIGN-0032 § history growth); `repository` created,
   renamed, transferred, archived, unarchived and deleted run discovery,
   resolution or park; `installation` and `installation_repositories`
   from either App re-resolve the affected repositories, because a
@@ -625,6 +633,20 @@ evaluator's store.
   and make the push filter ignore `Reads()`; confirm the coalescing test
   and the `catalog-info.yaml` selects `custom_properties` test fail;
   restore.
+- [ ] 5.14 KEDA on the homelab (human-run, moved from IMPL-0028 5.6 and
+  5.7, because the evaluation queue first has work here). Prerequisites:
+  install KEDA 2.21 (check its Kubernetes compatibility table against
+  the Talos cluster), and set `keda.prometheus.serverAddress` to the
+  in-cluster Prometheus that scrapes Temporal, with
+  `keda.prometheus.namespaceLabel` left at `exported_namespace`
+  (IMPL-0028 5.6 found the ServiceMonitor rename). Then, on dev in
+  `topology: split`: (a) with `repo-guardian-eval` non-empty, compare
+  the default query's value with `temporal task-queue describe`, and if
+  they disagree fix the query and its helm-unittest and record why;
+  (b) enable `evaluator.keda`, generate a backlog with a policy change
+  or a discovery run, and watch the evaluator scale out and back. Record
+  both in INV-0022.
+  **Deferred - human required.**
 
 #### Success Criteria
 

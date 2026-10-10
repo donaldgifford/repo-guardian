@@ -2,15 +2,11 @@ package policy
 
 import (
 	"os"
-	"time"
 )
 
 const (
-	defaultScheduleInterval = 168 * time.Hour
-	defaultWorkerCount      = 5
-	defaultQueueSize        = 1000
-	defaultLogLevel         = "info"
-	defaultRateLimitThresh  = 0.10
+	defaultLogLevel        = "info"
+	defaultRateLimitThresh = 0.10
 )
 
 // Built-in file rule names. Operators reference these from HCL or via
@@ -97,15 +93,10 @@ func defaultCatalogInfoRule(mode string) FileRuleConfig {
 
 func defaultGuardianConfig() GuardianConfig {
 	return GuardianConfig{
-		DryRun:                 false,
-		ScheduleInterval:       "168h",
-		ParsedScheduleInterval: defaultScheduleInterval,
-		WorkerCount:            defaultWorkerCount,
-		QueueSize:              defaultQueueSize,
-		LogLevel:               defaultLogLevel,
-		SkipForks:              true,
-		SkipArchived:           true,
-		RateLimitThreshold:     defaultRateLimitThresh,
+		LogLevel:           defaultLogLevel,
+		SkipForks:          true,
+		SkipArchived:       true,
+		RateLimitThreshold: defaultRateLimitThresh,
 	}
 }
 

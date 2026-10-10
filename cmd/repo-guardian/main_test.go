@@ -417,12 +417,35 @@ func TestWarnRemovedEnvVars(t *testing.T) {
 	}
 }
 
+// TestWarnRemovedEnvVars_V1Runtime pins the IMPL-0028 Phase 1
+// breadcrumb: a v1 runtime knob left on the Deployment logs one warning
+// naming it and the v2 runbook, separate from the ingress warning.
+func TestWarnRemovedEnvVars_V1Runtime(t *testing.T) {
+	t.Setenv("QUEUE_VALKEY_DSN", "redis://valkey:6379")
+	t.Setenv("WORKER_COUNT", "5")
+
+	var buf bytes.Buffer
+
+	warnRemovedEnvVars(slog.New(slog.NewTextHandler(&buf, nil)))
+
+	out := buf.String()
+	if n := strings.Count(out, "removed configuration env vars"); n != 1 {
+		t.Errorf("warnRemovedEnvVars logged %d warnings, want 1:\n%s", n, out)
+	}
+
+	for _, want := range []string{"QUEUE_VALKEY_DSN", "WORKER_COUNT", "v2-migration.md"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("warnRemovedEnvVars output = %q, want it to contain %q", out, want)
+		}
+	}
+}
+
 // TestWarnRemovedEnvVars_SilentWhenUnset pins the negative: no stale
 // vars, no output.
 func TestWarnRemovedEnvVars_SilentWhenUnset(t *testing.T) {
-	for _, name := range removedEnvVars {
-		t.Setenv(name, "")
-		os.Unsetenv(name)
+	for _, v := range removedEnvVars {
+		t.Setenv(v.name, "")
+		os.Unsetenv(v.name)
 	}
 
 	var buf bytes.Buffer

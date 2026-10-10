@@ -33,6 +33,12 @@ const MinServerVersion = "1.31.0"
 const (
 	DefaultNamespace = "repo-guardian"
 	DefaultTaskQueue = "repo-guardian"
+
+	// TaskQueueEval and TaskQueueRemediate are the controls roles' task
+	// queues (IMPL-0028 task 4.2). Priority orders tasks within one
+	// queue only, so the two halves never compete for a slot.
+	TaskQueueEval      = "repo-guardian-eval"
+	TaskQueueRemediate = "repo-guardian-remediate"
 )
 
 // ErrServerTooOld is returned by CheckServerVersion when the server is
@@ -45,8 +51,17 @@ type Config struct {
 	Address string
 	// Namespace is TEMPORAL_NAMESPACE, default repo-guardian.
 	Namespace string
-	// TaskQueue is TEMPORAL_TASK_QUEUE, default repo-guardian.
+	// TaskQueue is TEMPORAL_TASK_QUEUE, default repo-guardian: the rc's
+	// queue.
 	TaskQueue string
+
+	// EvalTaskQueue is TEMPORAL_EVAL_TASK_QUEUE, default
+	// repo-guardian-eval.
+	EvalTaskQueue string
+
+	// RemediateTaskQueue is TEMPORAL_REMEDIATE_TASK_QUEUE, default
+	// repo-guardian-remediate.
+	RemediateTaskQueue string
 
 	// TLS files for mTLS (TEMPORAL_TLS_CERT_PATH, _KEY_PATH, _CA_PATH)
 	// and the name expected on the server certificate
@@ -74,14 +89,17 @@ type Config struct {
 // ConfigFromEnv reads Config from the TEMPORAL_* variables.
 func ConfigFromEnv() (Config, error) {
 	cfg := Config{
-		Address:       os.Getenv("TEMPORAL_ADDRESS"),
-		Namespace:     envOr("TEMPORAL_NAMESPACE", DefaultNamespace),
-		TaskQueue:     envOr("TEMPORAL_TASK_QUEUE", DefaultTaskQueue),
-		TLSCertPath:   os.Getenv("TEMPORAL_TLS_CERT_PATH"),
-		TLSKeyPath:    os.Getenv("TEMPORAL_TLS_KEY_PATH"),
-		TLSCAPath:     os.Getenv("TEMPORAL_TLS_CA_PATH"),
-		TLSServerName: os.Getenv("TEMPORAL_TLS_SERVER_NAME"),
-		OIDC:          oidcFromEnv(),
+		Address:   os.Getenv("TEMPORAL_ADDRESS"),
+		Namespace: envOr("TEMPORAL_NAMESPACE", DefaultNamespace),
+		TaskQueue: envOr("TEMPORAL_TASK_QUEUE", DefaultTaskQueue),
+
+		EvalTaskQueue:      envOr("TEMPORAL_EVAL_TASK_QUEUE", TaskQueueEval),
+		RemediateTaskQueue: envOr("TEMPORAL_REMEDIATE_TASK_QUEUE", TaskQueueRemediate),
+		TLSCertPath:        os.Getenv("TEMPORAL_TLS_CERT_PATH"),
+		TLSKeyPath:         os.Getenv("TEMPORAL_TLS_KEY_PATH"),
+		TLSCAPath:          os.Getenv("TEMPORAL_TLS_CA_PATH"),
+		TLSServerName:      os.Getenv("TEMPORAL_TLS_SERVER_NAME"),
+		OIDC:               oidcFromEnv(),
 	}
 
 	disabled, err := envBool("TEMPORAL_TLS_DISABLED")

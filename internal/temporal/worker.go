@@ -12,9 +12,28 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-// DeploymentName is the Temporal worker deployment every repo-guardian
-// worker belongs to.
-const DeploymentName = "repo-guardian"
+// The Temporal worker deployments (IMPL-0028 task 4.3, D28): the rc's,
+// and one per controls role with no version suffix, so each half
+// promotes and rolls back on its own and a remediator scaled to zero
+// never blocks the evaluator's promotion.
+const (
+	DeploymentRC        = "repo-guardian"
+	DeploymentEval      = "repo-guardian-eval"
+	DeploymentRemediate = "repo-guardian-remediate"
+)
+
+// DeploymentName returns the worker deployment of the role named role:
+// evaluator, remediator, or anything else for the rc's.
+func DeploymentName(role string) string {
+	switch role {
+	case "evaluator":
+		return DeploymentEval
+	case "remediator":
+		return DeploymentRemediate
+	default:
+		return DeploymentRC
+	}
+}
 
 // DefaultActivityConcurrency is WORKER_ACTIVITY_CONCURRENCY's default:
 // the activities one worker runs at once.
@@ -32,6 +51,10 @@ const develVersion = "(devel)"
 // WorkerConfig configures a Temporal worker.
 type WorkerConfig struct {
 	TaskQueue string
+
+	// Deployment is the worker deployment the worker joins; empty means
+	// DeploymentRC.
+	Deployment string
 
 	// ActivityConcurrency caps concurrent activity executions.
 	ActivityConcurrency int
@@ -64,6 +87,14 @@ func WorkerConfigFromEnv(cfg *Config) (WorkerConfig, error) {
 	return wc, nil
 }
 
+func (wc *WorkerConfig) deployment() string {
+	if wc.Deployment == "" {
+		return DeploymentRC
+	}
+
+	return wc.Deployment
+}
+
 // DevBuild reports whether the build ID fell through to "dev": no
 // TEMPORAL_BUILD_ID, no module version, no VCS revision. Two different
 // dev images then look like one version to Temporal.
@@ -83,7 +114,7 @@ func workerOptions(wc *WorkerConfig) worker.Options {
 		DeploymentOptions: worker.DeploymentOptions{
 			UseVersioning: true,
 			Version: worker.WorkerDeploymentVersion{
-				DeploymentName: DeploymentName,
+				DeploymentName: wc.deployment(),
 				BuildID:        wc.BuildID,
 			},
 			DefaultVersioningBehavior: workflow.VersioningBehaviorAutoUpgrade,

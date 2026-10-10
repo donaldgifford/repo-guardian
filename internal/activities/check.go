@@ -46,11 +46,12 @@ func (a *Activities) CheckRepo(ctx context.Context, in *workflows.CheckRepoInput
 		"check_key", in.CheckKey,
 	)
 
-	metrics.SetInstallationInfo(repo.InstallationID, repo.Org)
+	metrics.SetInstallationInfo(metrics.AppSingle, repo.InstallationID, repo.Org)
 
 	client, err := a.github.CreateInstallationClient(ctx, repo.InstallationID)
 	if err != nil {
 		metrics.ErrorsTotal.WithLabelValues("create_install_client", repo.Org).Inc()
+		metrics.ChecksTotal.WithLabelValues(metrics.CheckOutcomeError).Inc()
 
 		return nil, fmt.Errorf("create installation client for %d: %w", repo.InstallationID, err)
 	}
@@ -103,6 +104,7 @@ func (a *Activities) CheckRepo(ctx context.Context, in *workflows.CheckRepoInput
 		return nil, fmt.Errorf("stage check %s: %w", in.CheckKey, err)
 	}
 
+	metrics.ChecksTotal.WithLabelValues(metrics.CheckOutcomeChecked).Inc()
 	metrics.ReposCheckedTotal.WithLabelValues(in.Trigger, repo.Org).Inc()
 	metrics.CheckDurationSeconds.Observe(out.FinishedAt.Sub(out.StartedAt).Seconds())
 	log.Info("check completed", "duration", out.FinishedAt.Sub(out.StartedAt), "calls", out.Calls)
@@ -130,6 +132,7 @@ func classify(
 			"remaining", thr.Remaining,
 			"limit", thr.Limit,
 		)
+		metrics.ChecksTotal.WithLabelValues(metrics.CheckOutcomeDeferred).Inc()
 
 		return out, nil
 	}
@@ -138,6 +141,7 @@ func classify(
 		out.Kind = workflows.CheckParked
 		out.ParkReason = workflows.ParkAccessDenied
 		out.Cause = store.Truncate(err.Error(), causeMaxRunes)
+		metrics.ChecksTotal.WithLabelValues(metrics.CheckOutcomeParked).Inc()
 
 		return out, nil
 	}
@@ -146,12 +150,14 @@ func classify(
 		out.Kind = workflows.CheckParked
 		out.ParkReason = skip.Reason
 		out.ClearFindings = true
+		metrics.ChecksTotal.WithLabelValues(metrics.CheckOutcomeParked).Inc()
 
 		return out, nil
 	}
 
 	log.Error("check failed", "error", err)
 	metrics.ErrorsTotal.WithLabelValues("check_repo", org).Inc()
+	metrics.ChecksTotal.WithLabelValues(metrics.CheckOutcomeError).Inc()
 
 	return nil, fmt.Errorf("check %s/%s: %w", out.Org, out.Name, err)
 }

@@ -1,0 +1,106 @@
+{{- /* The controls database roles (IMPL-0028 task 6.4, DESIGN-0032 D31):
+rg_evaluator, rg_remediator and rg_all, plus in baked mode the
+non-superuser owner rg_owner the migrate Job connects as. Migrations
+grant to these roles and never create them. External mode creates them
+with the SQL in docs/operations/v2-onboarding.md. */ -}}
+{{- if include "repo-guardian.controlsProvisioned" . }}
+{{- $pg := include "repo-guardian.postgresFullname" . }}
+{{- $baked := eq .Values.store.postgres.mode "baked" }}
+{{- range $role := include "repo-guardian.controlsDBRoles" . | splitList " " }}
+{{- $name := printf "%s-%s" $pg ($role | replace "_" "-") }}
+{{- /* lookup keeps each password across upgrades. CNPG requires the
+basic-auth shape for a managed role's passwordSecret. */}}
+{{- $existing := lookup "v1" "Secret" $.Release.Namespace $name }}
+{{- $password := randAlphaNum 32 }}
+{{- if and $existing $existing.data $existing.data.password }}
+{{- $password = b64dec $existing.data.password }}
+{{- end }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: postgres
+    {{- if not $baked }}
+    cnpg.io/reload: "true"
+    {{- end }}
+type: kubernetes.io/basic-auth
+data:
+  username: {{ $role | b64enc | quote }}
+  password: {{ $password | b64enc | quote }}
+{{- end }}
+{{- if $baked }}
+---
+# Creates the controls roles when the baked Postgres initializes a new
+# volume. The entrypoint runs this once, on an empty data directory only;
+# the controls-roles hook Job below covers volumes that already exist.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $pg }}-controls-init
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+data:
+  20-controls-roles.sh: |
+    #!/bin/sh
+    set -eu
+    psql -v ON_ERROR_STOP=1 {{ include "repo-guardian.controlsPasswordVars" . }} --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<'SQL'
+    {{- include "repo-guardian.controlsRolesSQL" . | nindent 4 }}
+    SQL
+---
+# On a volume initialized before the controls roles existed the init
+# script never ran. This hook creates any missing role, resets every
+# password to its Secret's, and re-runs the grants. Weight -5 runs it
+# before the migrate hook, whose grants need the roles.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $pg }}-controls-roles
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+  annotations:
+    helm.sh/hook: post-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    helm.sh/hook-weight: "-5"
+spec:
+  backoffLimit: 6
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        {{- include "repo-guardian.labels" . | nindent 8 }}
+        app.kubernetes.io/component: postgres-controls-roles
+    spec:
+      restartPolicy: Never
+      {{- with .Values.store.postgres.baked.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: controls-roles
+          image: {{ .Values.store.postgres.baked.image | quote }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              psql -v ON_ERROR_STOP=1 {{ include "repo-guardian.controlsPasswordVars" . }} <<'SQL'
+              {{- include "repo-guardian.controlsRolesSQL" . | nindent 14 }}
+              SQL
+          env:
+            - name: PGHOST
+              value: {{ $pg }}.{{ .Release.Namespace }}.svc.cluster.local
+            - name: PGDATABASE
+              value: repoguardian
+            - name: PGUSER
+              value: repoguardian
+            {{- include "repo-guardian.bakedAdminPasswordEnv" . | nindent 12 }}
+            {{- include "repo-guardian.controlsPasswordEnv" . | nindent 12 }}
+{{- end }}
+{{- end }}

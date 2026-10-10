@@ -286,7 +286,7 @@
     {
       "type": "row",
       "collapsed": false,
-      "title": "Write-back and job loss",
+      "title": "Deferred and failed checks",
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -300,16 +300,16 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum(count_over_time({app=\"repo-guardian\"} |= \"store write-back failed\" [15m]))",
-          "legendFormat": "repo state"
+          "expr": "sum(count_over_time({app=\"repo-guardian\"} |= \"check deferred until budget reset\" [15m]))",
+          "legendFormat": "deferred"
         },
         {
-          "expr": "sum(count_over_time({app=\"repo-guardian\"} |= \"rule-state write-back failed\" [15m]))",
-          "legendFormat": "rule state"
+          "expr": "sum(count_over_time({app=\"repo-guardian\"} |= \"check failed after retries\" [15m]))",
+          "legendFormat": "failed"
         }
       ],
-      "title": "State write-back failures",
-      "description": "Write-back is best-effort by design — the queue is the source of truth for 'did we do the work' — so these never fail a job and never appear in errors_total. What they do is make every posture gauge on E1 and E2 stale, which is the one failure those gauges cannot report about themselves.",
+      "title": "Deferred and failed checks",
+      "description": "A deferral is not a failure: the check never ran, so there is deliberately no error counted and no outcome recorded. A failed check exhausted its activity retries and waits for the next interval.",
       "transparent": false,
       "datasource": {
         "type": "loki",
@@ -319,49 +319,6 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 39
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data",
-          "custom": {}
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "expr": "sum by (owner, repo) (\n  count_over_time({app=\"repo-guardian\"} |= \"job exceeded attempt cap\" | json [1h])\n)",
-          "legendFormat": "{{ owner }}/{{ repo }}"
-        }
-      ],
-      "title": "Jobs dropped at the attempt cap",
-      "description": "A job that hit MAX_JOB_ATTEMPTS and was acked away rather than retried forever. The repository is not lost — the stale sweep is its recovery path — but it will not converge until the sweep picks it up.",
-      "transparent": false,
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
         "y": 39
       },
       "repeatDirection": "h",
@@ -390,12 +347,12 @@
       "type": "logs",
       "targets": [
         {
-          "expr": "{app=\"repo-guardian\"} |~ \"rate limit throttled; deferring job|job exceeded attempt cap\" | json",
+          "expr": "{app=\"repo-guardian\"} |~ \"check deferred until budget reset|check failed after retries\" | json",
           "maxLines": 200
         }
       ],
-      "title": "Deferrals and drops",
-      "description": "The rate-limit path end to end. A deferral is not a failure: the check never ran, so there is deliberately no error counted and no write-back recorded. Repeated deferrals of the same repository are how a job walks to the attempt cap.",
+      "title": "Deferrals and failures",
+      "description": "The `check_key` field names the repository's workflow. Repeated failures of the same key are a repository that will not converge.",
       "transparent": false,
       "datasource": {
         "type": "loki",
@@ -404,8 +361,8 @@
       "gridPos": {
         "h": 9,
         "w": 12,
-        "x": 0,
-        "y": 48
+        "x": 12,
+        "y": 39
       },
       "repeatDirection": "h",
       "options": {
@@ -428,7 +385,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 57
+        "y": 48
       },
       "id": 0,
       "panels": []
@@ -452,7 +409,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 58
+        "y": 49
       },
       "repeatDirection": "h",
       "options": {
@@ -484,8 +441,8 @@
           "maxLines": 200
         }
       ],
-      "title": "Webhook rejections and enqueue failures",
-      "description": "An enqueue failure means GitHub was told 202 and the work was then dropped — the delivery will not be retried, so the stale sweep is the only path back.",
+      "title": "Webhook rejections and start failures",
+      "description": "A start failure answers GitHub with 503, so the delivery is recorded as failed and can be redelivered from the App's settings.",
       "transparent": false,
       "datasource": {
         "type": "loki",
@@ -495,97 +452,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 58
-      },
-      "repeatDirection": "h",
-      "options": {
-        "showLabels": false,
-        "showCommonLabels": false,
-        "showTime": true,
-        "showLogContextToggle": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": false,
-        "sortOrder": "Descending",
-        "dedupStrategy": ""
-      }
-    },
-    {
-      "type": "row",
-      "collapsed": false,
-      "title": "Sweeps",
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 67
-      },
-      "id": 0,
-      "panels": []
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "expr": "max_over_time({app=\"repo-guardian\"} |= \"stale-sweep complete\" | json | unwrap enqueued [$__interval])",
-          "legendFormat": "enqueued"
-        }
-      ],
-      "title": "Repositories enqueued per sweep",
-      "description": "Unwrapped from the sweep's summary line rather than taken from the histogram on E3, because this one carries the policy version alongside it: a sudden full-fleet batch is almost always a policy edit, and that is only visible here.",
-      "transparent": false,
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 68
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data",
-          "custom": {}
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "logs",
-      "targets": [
-        {
-          "expr": "{app=\"repo-guardian\"} |= \"stale-sweep complete\" | json",
-          "maxLines": 200
-        }
-      ],
-      "title": "Sweep summaries",
-      "description": "One line per sweep: how many rows were stale, how many were enqueued, and the policy version that decided. `stale` far exceeding `enqueued` means the batch cap is truncating and the fleet cannot converge in one interval.",
-      "transparent": false,
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 68
+        "y": 49
       },
       "repeatDirection": "h",
       "options": {

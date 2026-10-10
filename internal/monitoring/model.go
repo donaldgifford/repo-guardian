@@ -34,7 +34,6 @@ package monitoring
 
 import (
 	"slices"
-	"time"
 )
 
 // RuleKind is a rule's type, matching the rule_kind column written to
@@ -123,8 +122,8 @@ type Source struct {
 	// model. Non-empty output from a CI regeneration is a bug, not a
 	// diff to accept: policy.BuiltinDefaults reads CUSTOM_PROPERTIES_MODE
 	// and applyEnvOverrides runs last over DRY_RUN, SKIP_FORKS,
-	// SKIP_ARCHIVED, AUTO_CLOSE_PR, ORPHAN_CLEANUP and SCHEDULE_INTERVAL
-	// — every one of which is a mechanism or an alert-window input. A
+	// SKIP_ARCHIVED, AUTO_CLOSE_PR and ORPHAN_CLEANUP — every one of
+	// which is a mechanism or an alert-window input. A
 	// stray variable in a shell would otherwise produce a diff nobody
 	// can explain.
 	EnvInfluence []string
@@ -148,10 +147,6 @@ type Model struct {
 
 	// Mechanisms are the configured features that produce series.
 	Mechanisms Mechanisms
-
-	// SweepInterval is guardian.schedule_interval, the cadence alert
-	// windows have to clear.
-	SweepInterval time.Duration
 
 	Source Source
 }

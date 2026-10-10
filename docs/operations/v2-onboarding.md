@@ -101,16 +101,63 @@ Other Temporal values, and the combinations the chart refuses to render:
 | `temporal.auth.oidc.audience` | `audience` parameter, for IdPs that take one (Keycloak uses a client-scope mapper instead) |
 
 > KEDA's Temporal scaler cannot mint OIDC tokens, so the chart refuses
-> `worker.keda.enabled` together with `temporal.auth.oidc`.
+> `keda.trigger: temporal` together with `temporal.auth.oidc`. The
+> default `prometheus` trigger works with OIDC.
 
-Two worker values follow from Temporal:
+#### Autoscaling with KEDA
 
-- **`worker.keda.enabled`** renders a KEDA ScaledObject that scales the
-  worker Deployment on Temporal backlog (`targetQueueSize`, default 50 per
-  replica, between `minReplicas` and `maxReplicas`). It needs the KEDA
-  CRDs and `topology: split`, and replaces `worker.replicas`. Size
-  `maxReplicas` to the GitHub rate limit, not the backlog: checks are
-  rate-limit bound, so extra pods only wait.
+KEDA scales the evaluator and the remediator separately, one
+ScaledObject per role, each on its own queue's backlog. Each needs the
+KEDA CRDs, `topology: split`, and that role's App (`github.eval.appId`
+or `github.remediate.appId`). The rc's `worker.keda` block is gone; the
+chart refuses to render while it is still set.
+
+```yaml
+keda:
+  trigger: prometheus                    # default; or temporal
+  prometheus:
+    serverAddress: http://prometheus.monitoring:9090   # required with prometheus
+    authenticationRef: ""                # an operator-owned TriggerAuthentication
+evaluator:
+  keda:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 4
+    targetQueueSize: "50"
+    fallbackReplicas: null               # null holds evaluator.replicas
+    query: ""                            # empty builds the default below
+remediator:
+  keda:
+    enabled: true
+    minReplicas: 0                       # promotion does not need a running remediator
+```
+
+- **`prometheus` (default)** reads the Temporal server's
+  `approximate_backlog_count` from your Prometheus, so it needs
+  `keda.prometheus.serverAddress`. The default query per role is
+  `sum(max by (partition, task_type, task_priority, worker_build_id)
+  (approximate_backlog_count{exported_namespace="repo_guardian",
+  taskqueue="repo_guardian_eval"}))` (`repo_guardian_remediate` for the
+  remediator). Temporal sanitises label values, so `-` becomes `_` in
+  both the namespace and the queue. The Temporal namespace is read from
+  `exported_namespace` because a ServiceMonitor scrape renames
+  Temporal's `namespace` label (the pod's namespace takes it). If your
+  Prometheus keeps the original label (`honorLabels: true`, or a plain
+  scrape config), set `keda.prometheus.namespaceLabel: namespace`. Override it per role with
+  `<role>.keda.query` when your server's metrics carry a prefix.
+- **`temporal`** asks the frontend directly. With
+  `temporal.tls.existingSecret` the chart renders a TriggerAuthentication
+  from its `tls.crt`, `tls.key` and `ca.crt`. It is refused with OIDC.
+- **`fallback`**: when the trigger fails three polls in a row, KEDA holds
+  the role at `fallbackReplicas`, or at the role's `replicas` when that is
+  null, instead of going silent.
+
+KEDA replaces the role's `replicas`. Size `maxReplicas` to the GitHub
+rate limit, not the backlog: checks are rate-limit bound, so extra pods
+only wait.
+
+One worker value follows from Temporal:
+
 - **`worker.buildId`** is the worker's Temporal build ID. Leave it empty
   and it follows `image.tag`, then the chart's appVersion. Set it only
   for an image whose tag is not a version, and change it whenever the
@@ -133,6 +180,53 @@ generated password otherwise changes on every `helm template` render.
 
 Schema migrations run automatically as a Helm hook Job
 (`migrate.enabled`, on by default).
+
+#### Controls database roles
+
+The controls line (IMPL-0028 onward) splits the database writer in two:
+the evaluator connects as `rg_evaluator`, the remediator as
+`rg_remediator`, and `topology: all` as `rg_all`, a member of both.
+Column-level grants are the writer boundary, so a remediator that tries
+to save a whole result row fails at the database. Migrations grant to
+these roles and never create them; the owner that runs the migrations
+holds no `CREATEROLE`.
+
+`store.controls.enabled` turns this on. It is **not yet active**: leave
+it off until the controls switch-over (IMPL-0029), and turn it on only
+for an empty database, since the migrate Job then applies the controls
+chain instead of the rc's.
+
+- **`baked`**: the chart creates the roles, plus a non-superuser owner,
+  `rg_owner`, that the migrate Job connects as (the image's
+  `POSTGRES_USER` is a superuser, which would bypass every grant). An
+  init script covers a new volume; a hook Job creates missing roles and
+  resets passwords on an existing one. Each role's password is in its
+  own Secret, `<release>-repo-guardian-postgres-rg-<role>`.
+- **`cnpg`**: the roles are CNPG managed roles with the same Secrets; the
+  cluster's application owner runs the migrations.
+- **`external`**: create the roles yourself, as an administrator, before
+  the first migration, then put each role's DSN in a Secret
+  (`store.controls.evaluator.existingSecret`,
+  `store.controls.remediator.existingSecret`, and for `topology: all`
+  `store.controls.all.existingSecret`). `STORE_DSN` stays the owner's.
+
+```sql
+-- The owner: owns the schema and runs `repo-guardian migrate`. Skip it
+-- if your STORE_DSN user is already a non-superuser owner.
+CREATE ROLE rg_owner LOGIN PASSWORD '...' NOSUPERUSER NOCREATEROLE;
+GRANT ALL ON SCHEMA public TO rg_owner;
+
+-- The application roles.
+CREATE ROLE rg_evaluator  LOGIN PASSWORD '...' NOSUPERUSER;
+CREATE ROLE rg_remediator LOGIN PASSWORD '...' NOSUPERUSER;
+CREATE ROLE rg_all        LOGIN PASSWORD '...' NOSUPERUSER IN ROLE rg_evaluator, rg_remediator;
+GRANT USAGE ON SCHEMA public TO rg_evaluator, rg_remediator;
+```
+
+Each DSN is mounted only into the pods of the role that uses it:
+`STORE_DSN_EVALUATOR` into the evaluator, `STORE_DSN_REMEDIATOR` into
+the remediator. The migrate Job runs `repo-guardian migrate --chain
+controls`, which refuses a database that already holds the rc schema.
 
 ### 4. The GitHub App
 
@@ -168,6 +262,36 @@ Secret: `config.appId` is used only when the chart creates the Secret
 itself (`secrets.create: true` with `secrets.webhookSecret` and
 `secrets.privateKey`, for a quick trial).
 
+#### The controls Apps (optional, not yet active)
+
+> **Not yet active.** These values prepare the controls line
+> (IMPL-0028); the evaluator and remediator start and report ready, but
+> do no evaluation or remediation until IMPL-0029 and IMPL-0030. The
+> single App above keeps doing all the work until the switch-over, and
+> this page is rewritten then.
+
+The controls line splits the App in two: a read-only **Evaluation App**
+and a **Remediation App** that writes. Each has its own block, and its
+private key reaches only the role that acts as it:
+
+```yaml
+github:
+  eval:
+    appId: "123456"                  # empty disables the block
+    existingSecret: rg-eval-app      # keys: private-key, webhook-secret
+  remediate:
+    appId: "234567"
+    existingSecret: rg-remediate-app
+```
+
+Without `existingSecret` the chart creates `<release>-eval` /
+`<release>-remediate` from `privateKey` and `webhookSecret`. Setting an
+`appId` also renders that App's role in `topology: split` (`evaluator`
+or `remediator`), sized by `evaluator.*` / `remediator.*`. The keys are
+mounted as files; the binary reads `EVAL_GITHUB_PRIVATE_KEY_PATH` and
+`REMEDIATE_GITHUB_PRIVATE_KEY_PATH`, never a key value. Each role logs
+the permission set its App needs at startup.
+
 ### 5. A public route for webhooks
 
 GitHub must reach the ingest Service at `POST /webhooks/github`. The
@@ -176,6 +300,21 @@ chart deliberately ships no webhook Ingress: pick an option from
 Cloudflare Tunnel, ngrok). The webhook's HMAC signature is the only
 check the app itself makes. If you want to restrict source IPs to
 GitHub's hook ranges, do it at your edge.
+
+Each controls App has its own webhook URL on the same Service, mounted
+when that App's webhook secret is set:
+
+| App | Webhook URL |
+| --- | --- |
+| Evaluation App | `POST /webhooks/github/eval` |
+| Remediation App | `POST /webhooks/github/remediate` |
+
+Each route checks only its own App's secret and refuses an installation
+event naming the other App's id (401, counted as
+`webhook_rejected_total{reason="app_mismatch"}`). Like the blocks above,
+the routes are not yet fully active: the Evaluation App's deliveries
+route as the single App's do, and the Remediation App's installation
+events are dropped until IMPL-0029 records its access.
 
 The Service keeps the release's full name (`repo-guardian` for a
 release of that name) and listens on port 80 (`service.httpPort`),

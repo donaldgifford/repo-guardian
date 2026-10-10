@@ -108,7 +108,8 @@ Temporal authenticates one of two ways:
   `temporal.tls.caSecret` (`ca.crt` only) or the system roots.
   `temporal.tls.disabled: true` allows a plaintext frontend, but the
   token is then readable on the wire. KEDA's temporal trigger cannot use
-  OIDC, so `worker.keda.enabled` is refused alongside it.
+  OIDC, so `keda.trigger: temporal` is refused alongside it; the default
+  `prometheus` trigger works with it.
 
 The store is still Postgres, in one of three modes:
 

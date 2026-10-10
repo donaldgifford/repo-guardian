@@ -22,7 +22,7 @@ tests:
           value: rg
       - equal:
           path: metadata.annotations["helm.sh/hook"]
-          value: post-install,pre-upgrade
+          value: post-install,pre-upgrade,pre-rollback
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
           value: before-hook-creation,hook-succeeded

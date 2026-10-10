@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 
@@ -47,6 +48,7 @@ func run() error {
 	concurrency := flag.Int("concurrency", 50, "concurrent callers")
 	installation := flag.Int64("installation", time.Now().Unix(), "installation id (fresh by default)")
 	maxHandled := flag.Int("max-handled", 0, "ContinueAsNew bound under test (0 = default)")
+	app := flag.String("app", "", "controls App whose budget to load (eval or remediate; empty is the rc's)")
 	flag.Parse()
 
 	ctx := context.Background()
@@ -71,9 +73,9 @@ func run() error {
 	}
 	defer w.Stop()
 
-	budget := activities.NewBudget(c, taskQueue, 0.10)
+	budget := activities.NewBudget(c, *app, taskQueue, 0.10)
 	budget.MaxHandled = *maxHandled
-	id := workflows.InstallationWorkflowID(*installation)
+	id := workflows.InstallationWorkflowID(*app, *installation)
 
 	latencies := make([]time.Duration, *n)
 	jobs := make(chan int)
@@ -93,6 +95,7 @@ func run() error {
 				t0 := time.Now()
 
 				res, err := budget.AcquireBudget(ctx, &workflows.AcquireInput{
+					App:            *app,
 					InstallationID: *installation,
 					UpdateID:       "burst/" + strconv.Itoa(i),
 					Request:        workflows.AcquireRequest{Holder: "burst", Priority: workflows.PrioritySchedule},
@@ -126,12 +129,6 @@ func run() error {
 
 	elapsed := time.Since(start)
 
-	desc, err := c.DescribeWorkflowExecution(ctx, id, "")
-	if err != nil {
-		return err
-	}
-
-	info := desc.GetWorkflowExecutionInfo()
 	slices.Sort(latencies)
 
 	fmt.Printf("pairs=%d failed=%d elapsed=%s rate=%.0f/s\n", *n, failed, elapsed.Round(time.Millisecond), float64(*n)/elapsed.Seconds())
@@ -140,7 +137,25 @@ func run() error {
 	}
 
 	fmt.Printf("acquire p50=%s p99=%s max=%s\n", pct(latencies, 50), pct(latencies, 99), latencies[len(latencies)-1])
+
+	return finish(ctx, c, id)
+}
+
+// finish prints the current run's history size, then terminates the
+// budget workflow: it never ends on its own, and once this process and
+// its worker exit it would only time out workflow tasks on rg-burst.
+func finish(ctx context.Context, c client.Client, id string) error {
+	desc, err := c.DescribeWorkflowExecution(ctx, id, "")
+	if err != nil {
+		return err
+	}
+
+	info := desc.GetWorkflowExecutionInfo()
 	fmt.Printf("current run: history_length=%d history_size_bytes=%d\n", info.GetHistoryLength(), info.GetHistorySizeBytes())
+
+	if err := c.TerminateWorkflow(ctx, id, "", "rg-burst finished"); err != nil {
+		return fmt.Errorf("terminate %s: %w", id, err)
+	}
 
 	return nil
 }

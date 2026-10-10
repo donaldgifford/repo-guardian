@@ -1,0 +1,233 @@
+suite: KEDA per queue (IMPL-0028 Phase 5, DESIGN-0028 § KEDA)
+templates:
+  - templates/worker-scaledobject.yaml
+  - templates/worker-triggerauthentication.yaml
+  - templates/deployment.yaml
+release:
+  name: rg
+  namespace: rg-ns
+set:
+  config:
+    appId: "12345"
+  secrets:
+    webhookSecret: "x"
+    privateKey: "x"
+  temporal:
+    address: temporal:7233
+  policy:
+    config: "guardian {}"
+  github:
+    eval: {appId: "11", existingSecret: rg-eval}
+    remediate: {appId: "22", existingSecret: rg-remediate}
+  keda:
+    prometheus:
+      serverAddress: http://prometheus.monitoring:9090
+tests:
+  - it: renders nothing while no role enables KEDA
+    template: templates/worker-scaledobject.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: reads the Temporal namespace from keda.prometheus.namespaceLabel
+    template: templates/worker-scaledobject.yaml
+    set:
+      evaluator.keda.enabled: true
+      keda.prometheus.namespaceLabel: namespace
+    asserts:
+      - equal:
+          path: spec.triggers[0].metadata.query
+          value: sum(max by (partition, task_type, task_priority, worker_build_id) (approximate_backlog_count{namespace="repo_guardian", taskqueue="repo_guardian_eval"}))
+
+  - it: scales each role on its own queue with the default query
+    template: templates/worker-scaledobject.yaml
+    set:
+      evaluator.keda.enabled: true
+      remediator.keda.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: spec.scaleTargetRef.name
+          value: rg-repo-guardian-evaluator
+        documentIndex: 0
+      - equal:
+          path: spec.triggers[0].type
+          value: prometheus
+        documentIndex: 0
+      - equal:
+          path: spec.triggers[0].metadata.query
+          value: sum(max by (partition, task_type, task_priority, worker_build_id) (approximate_backlog_count{exported_namespace="repo_guardian", taskqueue="repo_guardian_eval"}))
+        documentIndex: 0
+      - equal:
+          path: spec.triggers[0].metadata.serverAddress
+          value: http://prometheus.monitoring:9090
+        documentIndex: 0
+      - equal:
+          path: spec.triggers[0].metadata.threshold
+          value: "50"
+        documentIndex: 0
+      - equal:
+          path: spec.scaleTargetRef.name
+          value: rg-repo-guardian-remediator
+        documentIndex: 1
+      - equal:
+          path: spec.triggers[0].metadata.query
+          value: sum(max by (partition, task_type, task_priority, worker_build_id) (approximate_backlog_count{exported_namespace="repo_guardian", taskqueue="repo_guardian_remediate"}))
+        documentIndex: 1
+      - equal:
+          path: spec.minReplicaCount
+          value: 0
+        documentIndex: 1
+      - notExists:
+          path: spec.triggers[0].authenticationRef
+        documentIndex: 0
+
+  - it: takes a custom query per queue and the namespace from temporal.namespace
+    template: templates/worker-scaledobject.yaml
+    set:
+      temporal.namespace: rg-prod
+      evaluator.keda: {enabled: true, query: "my_backlog"}
+      remediator.keda.enabled: true
+    asserts:
+      - equal:
+          path: spec.triggers[0].metadata.query
+          value: my_backlog
+        documentIndex: 0
+      - matchRegex:
+          path: spec.triggers[0].metadata.query
+          pattern: 'namespace="rg_prod", taskqueue="repo_guardian_remediate"'
+        documentIndex: 1
+
+  - it: references an operator-owned TriggerAuthentication for Prometheus
+    template: templates/worker-scaledobject.yaml
+    set:
+      evaluator.keda.enabled: true
+      keda.prometheus.authenticationRef: prom-auth
+    asserts:
+      - equal:
+          path: spec.triggers[0].authenticationRef.name
+          value: prom-auth
+
+  - it: falls back to the role's replicas, or fallbackReplicas
+    template: templates/worker-scaledobject.yaml
+    set:
+      evaluator: {replicas: 2, keda: {enabled: true}}
+      remediator.keda: {enabled: true, fallbackReplicas: 0}
+    asserts:
+      - equal:
+          path: spec.fallback
+          value: {failureThreshold: 3, replicas: 2}
+        documentIndex: 0
+      - equal:
+          path: spec.fallback
+          value: {failureThreshold: 3, replicas: 0}
+        documentIndex: 1
+
+  - it: never sets the composite running-workflows metric
+    template: templates/worker-scaledobject.yaml
+    set:
+      evaluator.keda.enabled: true
+      keda.trigger: temporal
+    asserts:
+      - notExists:
+          path: spec.triggers[0].metadata.workflowMetricType
+      - notExists:
+          path: spec.triggers[0].metadata.includeRunningWorkflows
+
+  - it: renders the temporal trigger on the role's queue
+    template: templates/worker-scaledobject.yaml
+    set:
+      remediator.keda.enabled: true
+      keda.trigger: temporal
+      temporal.tls.serverName: temporal.example
+    asserts:
+      - equal:
+          path: spec.triggers[0].type
+          value: temporal
+      - equal:
+          path: spec.triggers[0].metadata.taskQueue
+          value: repo-guardian-remediate
+      - equal:
+          path: spec.triggers[0].metadata.tlsServerName
+          value: temporal.example
+      - notExists:
+          path: spec.triggers[0].authenticationRef
+
+  - it: authenticates the temporal trigger with the client certificate
+    set:
+      evaluator.keda.enabled: true
+      keda.trigger: temporal
+      temporal.tls.existingSecret: temporal-mtls
+    asserts:
+      - equal:
+          path: spec.triggers[0].authenticationRef.name
+          value: rg-repo-guardian-temporal-keda
+        template: templates/worker-scaledobject.yaml
+      - equal:
+          path: spec.secretTargetRef
+          value:
+            - {parameter: cert, name: temporal-mtls, key: tls.crt}
+            - {parameter: key, name: temporal-mtls, key: tls.key}
+            - {parameter: ca, name: temporal-mtls, key: ca.crt}
+        template: templates/worker-triggerauthentication.yaml
+
+  - it: renders no TriggerAuthentication for the Prometheus trigger
+    template: templates/worker-triggerauthentication.yaml
+    set:
+      evaluator.keda.enabled: true
+      temporal.tls.existingSecret: temporal-mtls
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders no TriggerAuthentication without a client certificate
+    template: templates/worker-triggerauthentication.yaml
+    set:
+      evaluator.keda.enabled: true
+      keda.trigger: temporal
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders nothing in all
+    template: templates/worker-scaledobject.yaml
+    set:
+      topology: all
+      evaluator.keda.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: leaves the replica count to KEDA
+    template: templates/deployment.yaml
+    documentSelector: {path: metadata.name, value: rg-repo-guardian-evaluator}
+    set:
+      evaluator.keda.enabled: true
+    asserts:
+      - notExists:
+          path: spec.replicas
+
+  - it: refuses the Prometheus trigger without serverAddress
+    template: templates/deployment.yaml
+    set:
+      evaluator.keda.enabled: true
+      keda.prometheus.serverAddress: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "keda.trigger: prometheus needs keda.prometheus.serverAddress"
+
+  - it: refuses an unknown trigger
+    template: templates/deployment.yaml
+    set:
+      keda.trigger: cron
+    asserts:
+      - failedTemplate: {}
+
+  - it: refuses the removed worker.keda block
+    template: templates/deployment.yaml
+    set:
+      worker.keda.enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "worker.keda.\\* was removed in IMPL-0028"

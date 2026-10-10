@@ -12,7 +12,15 @@ const (
 	RoleWorker
 	RoleAPI
 
-	RoleAll = RoleIngest | RoleWorker | RoleAPI
+	// RoleEvaluator and RoleRemediator are the controls worker roles
+	// (IMPL-0028); each acts as one App and runs its own task queue.
+	RoleEvaluator
+	RoleRemediator
+
+	// RoleAll runs every role. Until the controls switch-over, an all
+	// process runs a controls half only when its App is configured (see
+	// Config.AppConfigured), so the rc's single-App all keeps working.
+	RoleAll = RoleIngest | RoleWorker | RoleAPI | RoleEvaluator | RoleRemediator
 )
 
 // Has reports whether r includes every role in other.
@@ -29,22 +37,12 @@ func (c *Config) ValidateRole(role Role) error {
 	var errs []error
 
 	// The api role reads Temporal only for the optional status backlog.
-	if c.TemporalAddress == "" && (role.Has(RoleIngest) || role.Has(RoleWorker)) {
+	if c.TemporalAddress == "" && role&(RoleIngest|RoleWorker|RoleEvaluator|RoleRemediator) != 0 {
 		errs = append(errs, errors.New("TEMPORAL_ADDRESS is required"))
 	}
 
-	if role.Has(RoleIngest) && c.GitHubWebhookSecret == "" {
-		errs = append(errs, errors.New("GITHUB_WEBHOOK_SECRET is required for the ingest role"))
-	}
-
-	if role == RoleIngest {
-		if c.GitHubPrivateKeyPath != "" || c.GitHubPrivateKey != "" {
-			errs = append(errs, errors.New("the ingest role must not hold the GitHub App key: unset GITHUB_PRIVATE_KEY_PATH and GITHUB_PRIVATE_KEY"))
-		}
-
-		if c.StoreDSN != "" {
-			errs = append(errs, errors.New("the ingest role must not hold database credentials: unset STORE_DSN"))
-		}
+	if role.Has(RoleIngest) {
+		errs = append(errs, c.validateIngest(role == RoleIngest)...)
 	}
 
 	if role.Has(RoleWorker) {
@@ -55,7 +53,68 @@ func (c *Config) ValidateRole(role Role) error {
 		errs = append(errs, c.validateAPI(role)...)
 	}
 
+	if c.RunsControls(role, RoleEvaluator) {
+		errs = append(errs, c.validateEvaluator()...)
+	}
+
+	if c.RunsControls(role, RoleRemediator) {
+		errs = append(errs, c.validateRemediator()...)
+	}
+
 	return errors.Join(errs...)
+}
+
+// RunsControls reports whether a process running role starts the
+// controls half half (RoleEvaluator or RoleRemediator). A process
+// running that role alone always does; a combined process (all) does
+// only when the half's App is configured, so an rc install with one App
+// runs unchanged (IMPL-0028 task 4.1).
+func (c *Config) RunsControls(role, half Role) bool {
+	if !role.Has(half) {
+		return false
+	}
+
+	if role == half {
+		return true
+	}
+
+	app := AppEval
+	if half == RoleRemediator {
+		app = AppRemediate
+	}
+
+	return c.AppConfigured(app)
+}
+
+// validateIngest checks the webhook secrets and, when ingest runs alone,
+// that the process holds no App key and no database credentials.
+func (c *Config) validateIngest(alone bool) []error {
+	var errs []error
+
+	if c.GitHubWebhookSecret == "" {
+		errs = append(errs, errors.New("GITHUB_WEBHOOK_SECRET is required for the ingest role"))
+	}
+
+	errs = append(errs, c.validateAppRoutes()...)
+
+	if !alone {
+		return errs
+	}
+
+	if c.EvalApp.PrivateKeyPath != "" || c.RemediateApp.PrivateKeyPath != "" {
+		errs = append(errs, errors.New(
+			"the ingest role must not hold an App key: unset EVAL_GITHUB_PRIVATE_KEY_PATH and REMEDIATE_GITHUB_PRIVATE_KEY_PATH"))
+	}
+
+	if c.GitHubPrivateKeyPath != "" || c.GitHubPrivateKey != "" {
+		errs = append(errs, errors.New("the ingest role must not hold the GitHub App key: unset GITHUB_PRIVATE_KEY_PATH and GITHUB_PRIVATE_KEY"))
+	}
+
+	if c.StoreDSN != "" {
+		errs = append(errs, errors.New("the ingest role must not hold database credentials: unset STORE_DSN"))
+	}
+
+	return errs
 }
 
 func (c *Config) validateWorker() []error {

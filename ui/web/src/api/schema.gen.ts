@@ -395,7 +395,7 @@ export interface components {
         };
         /** @description One status-page component. */
         Component: {
-            /** @description Open enum: checks, webhooks, discovery, snapshots, github_budget, backlog. */
+            /** @description Open enum: checks, webhooks, discovery, snapshots, github_budget, backlog, backlog_evaluation, backlog_remediation. */
             name: string;
             state: components["schemas"]["ComponentState"];
             /** @description A fixed template with a relative time, such as "last success 3m ago". Never error text. */

@@ -2,7 +2,6 @@ package policy
 
 import (
 	"testing"
-	"time"
 )
 
 // --- Backward Compatibility Tests ---
@@ -25,10 +24,6 @@ func TestBuiltinDefaults_GuardianConfig(t *testing.T) {
 		want any
 	}{
 		{"DryRun", g.DryRun, false},
-		{"ScheduleInterval", g.ScheduleInterval, "168h"},
-		{"ParsedScheduleInterval", g.ParsedScheduleInterval, 168 * time.Hour},
-		{"WorkerCount", g.WorkerCount, 5},
-		{"QueueSize", g.QueueSize, 1000},
 		{"LogLevel", g.LogLevel, "info"},
 		{"SkipForks", g.SkipForks, true},
 		{"SkipArchived", g.SkipArchived, true},

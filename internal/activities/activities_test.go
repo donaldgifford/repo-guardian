@@ -460,3 +460,15 @@ func TestAcquireResult_Label(t *testing.T) {
 		}
 	}
 }
+
+// TestAcquireBudget_RefusesAnotherAppsBudget: a budget worker serves its
+// own App only, before any Temporal call.
+func TestAcquireBudget_RefusesAnotherAppsBudget(t *testing.T) {
+	t.Parallel()
+
+	b := NewBudget(nil, workflows.AppEval, "repo-guardian-eval", 0.1)
+
+	if _, err := b.AcquireBudget(t.Context(), &workflows.AcquireInput{App: workflows.AppRemediate, InstallationID: 7}); err == nil {
+		t.Error("AcquireBudget for the Remediation App on the Evaluation App's worker = nil, want a refusal")
+	}
+}

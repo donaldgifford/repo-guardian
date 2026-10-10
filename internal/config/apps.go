@@ -1,0 +1,173 @@
+package config
+
+import (
+	"fmt"
+	"math"
+	"os"
+	"strconv"
+)
+
+// App names one of the two controls GitHub Apps (DESIGN-0032 § Two
+// Apps). The evaluation App reads; the remediation App writes.
+type App string
+
+// The two Apps, in the form every label, route and workflow id uses.
+const (
+	AppEval      App = "eval"
+	AppRemediate App = "remediate"
+)
+
+// AppCredentials is one App's credential set. The private key is a
+// path only: keys reach the process as mounted files, never as values.
+type AppCredentials struct {
+	// AppID is <PREFIX>_GITHUB_APP_ID.
+	AppID int64
+
+	// PrivateKeyPath is <PREFIX>_GITHUB_PRIVATE_KEY_PATH.
+	PrivateKeyPath string
+
+	// WebhookSecret is <PREFIX>_WEBHOOK_SECRET, the HMAC secret of this
+	// App's webhook route.
+	WebhookSecret string
+}
+
+// The variable prefixes of the two credential sets.
+const (
+	envPrefixEval      = "EVAL"
+	envPrefixRemediate = "REMEDIATE"
+)
+
+// envPrefix is the variable prefix of a's credential set.
+func (a App) envPrefix() string {
+	if a == AppEval {
+		return envPrefixEval
+	}
+
+	return envPrefixRemediate
+}
+
+// parseAppCredentials reads a's credential set.
+func parseAppCredentials(a App) (AppCredentials, error) {
+	p := a.envPrefix()
+
+	creds := AppCredentials{
+		PrivateKeyPath: os.Getenv(p + "_GITHUB_PRIVATE_KEY_PATH"),
+		WebhookSecret:  os.Getenv(p + "_WEBHOOK_SECRET"),
+	}
+
+	if s := os.Getenv(p + "_GITHUB_APP_ID"); s != "" {
+		id, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			return AppCredentials{}, fmt.Errorf("parsing %s_GITHUB_APP_ID %q: %w", p, s, err)
+		}
+
+		creds.AppID = id
+	}
+
+	return creds, nil
+}
+
+// validateApp reports what a role that acts as a lacks: the App id and
+// the key path. The webhook secret belongs to ingest and is checked
+// there.
+func (c *Config) validateApp(a App, role string) []error {
+	creds, p := c.Credentials(a), a.envPrefix()
+
+	var errs []error
+
+	if creds.AppID == 0 {
+		errs = append(errs, fmt.Errorf("%s_GITHUB_APP_ID is required for the %s role", p, role))
+	}
+
+	if creds.PrivateKeyPath == "" {
+		errs = append(errs, fmt.Errorf("%s_GITHUB_PRIVATE_KEY_PATH is required for the %s role", p, role))
+	}
+
+	return errs
+}
+
+// AppConfigured reports whether a's App id is set: the App is in use.
+func (c *Config) AppConfigured(a App) bool {
+	return c.Credentials(a).AppID != 0
+}
+
+// Credentials returns a's credential set.
+func (c *Config) Credentials(a App) AppCredentials {
+	if a == AppEval {
+		return c.EvalApp
+	}
+
+	return c.RemediateApp
+}
+
+// validateEvaluator checks what the evaluator role needs: the
+// evaluation App, Temporal, the store and the policy.
+func (c *Config) validateEvaluator() []error {
+	return append(c.validateApp(AppEval, "evaluator"), c.validateControlsWorker("evaluator")...)
+}
+
+// validateRemediator checks what the remediator role needs: the
+// remediation App, Temporal, the store and the policy.
+func (c *Config) validateRemediator() []error {
+	return append(c.validateApp(AppRemediate, "remediator"), c.validateControlsWorker("remediator")...)
+}
+
+// validateControlsWorker is what both controls worker roles share.
+func (c *Config) validateControlsWorker(role string) []error {
+	var errs []error
+
+	if c.StoreDSN == "" {
+		errs = append(errs, fmt.Errorf("STORE_DSN is required for the %s role", role))
+	}
+
+	if c.GuardianConfigPath == "" {
+		errs = append(errs, fmt.Errorf("GUARDIAN_CONFIG is required for the %s role", role))
+	}
+
+	return errs
+}
+
+// validateAppRoutes checks ingest's per-App routes: a route is mounted
+// when its webhook secret is set, and it then needs the App id to
+// refuse another App's installation payloads.
+func (c *Config) validateAppRoutes() []error {
+	var errs []error
+
+	for _, a := range []App{AppEval, AppRemediate} {
+		if creds := c.Credentials(a); creds.WebhookSecret != "" && creds.AppID == 0 {
+			errs = append(errs, fmt.Errorf("%s_GITHUB_APP_ID is required with %s_WEBHOOK_SECRET", a.envPrefix(), a.envPrefix()))
+		}
+	}
+
+	return errs
+}
+
+// WorkerSizing sizes one controls worker. Zero means the default: the
+// temporal package's activity concurrency, pgxpool's pool size.
+type WorkerSizing struct {
+	// Concurrency caps concurrent activity executions
+	// (<ROLE>_CONCURRENCY).
+	Concurrency int
+
+	// DBPoolSize caps the worker's Postgres pool (<ROLE>_DB_POOL_SIZE).
+	DBPoolSize int32
+}
+
+// parseWorkerSizing reads <prefix>_CONCURRENCY and <prefix>_DB_POOL_SIZE.
+func parseWorkerSizing(prefix string) (WorkerSizing, error) {
+	concurrency, err := envOrDefaultInt(prefix+"_CONCURRENCY", 0)
+	if err != nil {
+		return WorkerSizing{}, err
+	}
+
+	poolSize, err := envOrDefaultInt(prefix+"_DB_POOL_SIZE", 0)
+	if err != nil {
+		return WorkerSizing{}, err
+	}
+
+	if concurrency < 0 || poolSize < 0 || poolSize > math.MaxInt32 {
+		return WorkerSizing{}, fmt.Errorf("%s_CONCURRENCY and %s_DB_POOL_SIZE must be positive integers", prefix, prefix)
+	}
+
+	return WorkerSizing{Concurrency: concurrency, DBPoolSize: int32(poolSize)}, nil
+}

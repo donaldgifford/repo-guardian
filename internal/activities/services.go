@@ -88,7 +88,7 @@ func (s *Services) ListInstallations(ctx context.Context) ([]workflows.Installat
 	refs := make([]workflows.InstallationRef, 0, len(installs))
 
 	for _, in := range installs {
-		metrics.SetInstallationInfo(in.ID, in.Account)
+		metrics.SetInstallationInfo(metrics.AppSingle, in.ID, in.Account)
 
 		if err := s.cfg.Store.UpsertInstallation(ctx, store.Installation{InstallationID: in.ID, AccountLogin: in.Account}); err != nil {
 			return nil, err

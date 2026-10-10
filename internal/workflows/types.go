@@ -7,10 +7,18 @@ import "time"
 // (DESIGN-0026 § Workflows).
 
 // Priority is a Temporal task priority key. Lower runs first.
+//
+// Priority orders tasks within one task queue only (INV-0022 F5): the
+// evaluation and remediation queues are dispatched independently, so a
+// priority-1 remediation task never jumps an evaluation task, and the
+// two halves never compete for a slot.
 type Priority int
 
 // Priorities by trigger (DESIGN-0026 § Rate budget).
 const (
+	// PriorityHuman is a check or remediation a person asked for (the
+	// API's recheck, a UI action): ahead of every automatic trigger.
+	PriorityHuman    Priority = 1
 	PriorityWebhook  Priority = 2
 	PrioritySchedule Priority = 3
 	PriorityRollout  Priority = 4
@@ -177,10 +185,37 @@ type RepoWorkflowInput struct {
 // retried acquire return the first attempt's answer instead of taking a
 // second lease.
 type AcquireInput struct {
+	// App is the controls App whose budget to draw from; empty is the
+	// rc's single App.
+	App string `json:",omitempty"`
+
 	InstallationID int64
 	UpdateID       string
 	Request        AcquireRequest
 }
+
+// RemediationStart is one remediation an evaluation found due: the
+// repository, the control (its slug), the installation for the task's
+// fairness key, and the start priority.
+type RemediationStart struct {
+	RepositoryID   int64
+	Control        string
+	InstallationID int64
+	Priority       Priority
+}
+
+// RemediationInput is RemediationWorkflow's input. The run re-reads
+// everything else from the database (DESIGN-0032 § Remediation).
+type RemediationInput struct {
+	RepositoryID   int64
+	Control        string
+	InstallationID int64
+}
+
+// Remediate is RemediateSignal's payload. It carries nothing the run
+// trusts: the run re-reads the generation from the database, so the
+// signal only says "look again".
+type Remediate struct{}
 
 // WebhookRepo identifies one repository in a webhook. ID is GitHub's
 // repository id, which survives renames and transfers.
@@ -190,13 +225,29 @@ type WebhookRepo struct {
 	Name string
 }
 
+// The controls Apps as WebhookInput.App names them; they match
+// config.AppEval and config.AppRemediate.
+const (
+	AppEval      = "eval"
+	AppRemediate = "remediate"
+)
+
 // WebhookInput is WebhookWorkflow's input: the routing facts of one
 // delivery, never its payload.
 type WebhookInput struct {
+	// App is the controls App whose route received the delivery, eval or
+	// remediate, stamped by ingest from the route and never from a
+	// header; empty on the rc's single-App route (IMPL-0028 task 3.2).
+	App string `json:",omitempty"`
+
 	DeliveryID     string
 	Event          string
 	Action         string
 	InstallationID int64
 	AccountLogin   string
 	Repositories   []WebhookRepo
+
+	// RepositorySelection is an installation_repositories delivery's
+	// repository_selection, "all" or "selected"; empty for other events.
+	RepositorySelection string `json:",omitempty"`
 }

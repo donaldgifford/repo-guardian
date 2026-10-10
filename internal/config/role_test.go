@@ -176,3 +176,176 @@ func TestLoadRole_AllRunsTheAPIOnItsOwnListener(t *testing.T) {
 		t.Errorf("LoadRole(all) with the API on the main port = %v, want a conflict error", err)
 	}
 }
+
+func setAppEnv(t *testing.T, prefix string) {
+	t.Helper()
+
+	t.Setenv(prefix+"_GITHUB_APP_ID", "7")
+	t.Setenv(prefix+"_GITHUB_PRIVATE_KEY_PATH", "/keys/"+prefix+".pem")
+	t.Setenv(prefix+"_WEBHOOK_SECRET", "s-"+prefix)
+}
+
+// TestLoadRole_ControlsWorkers is IMPL-0028 task 3.1: each controls
+// worker role needs its own App's credential set, and the other App's
+// set does not stand in for it.
+func TestLoadRole_ControlsWorkers(t *testing.T) {
+	for _, tt := range []struct {
+		name          string
+		role          Role
+		prefix, other string
+	}{
+		{"evaluator", RoleEvaluator, envPrefixEval, envPrefixRemediate},
+		{"remediator", RoleRemediator, envPrefixRemediate, envPrefixEval},
+	} {
+		t.Run(tt.name+" complete", func(t *testing.T) {
+			setWorkerEnv(t)
+			setAppEnv(t, tt.prefix)
+
+			if _, err := LoadRole(tt.role); err != nil {
+				t.Fatalf("LoadRole(%s) = %v, want nil", tt.name, err)
+			}
+		})
+
+		for _, env := range []string{"_GITHUB_APP_ID", "_GITHUB_PRIVATE_KEY_PATH"} {
+			t.Run(tt.name+" requires "+tt.prefix+env, func(t *testing.T) {
+				setWorkerEnv(t)
+				setAppEnv(t, tt.prefix)
+				t.Setenv(tt.prefix+env, "")
+
+				if _, err := LoadRole(tt.role); err == nil || !strings.Contains(err.Error(), tt.prefix+env) {
+					t.Errorf("LoadRole(%s) without %s = %v, want an error naming it", tt.name, tt.prefix+env, err)
+				}
+			})
+		}
+
+		t.Run(tt.name+" refuses the other App's set", func(t *testing.T) {
+			setWorkerEnv(t)
+			setAppEnv(t, tt.other)
+
+			if _, err := LoadRole(tt.role); err == nil {
+				t.Errorf("LoadRole(%s) with only the %s set = nil, want a refusal", tt.name, tt.other)
+			}
+		})
+	}
+}
+
+func TestParse_AppCredentials(t *testing.T) {
+	setAppEnv(t, envPrefixEval)
+	t.Setenv("REMEDIATE_GITHUB_APP_ID", "8")
+
+	cfg, err := parse()
+	if err != nil {
+		t.Fatalf("parse = %v", err)
+	}
+
+	if got := cfg.Credentials(AppEval); got != (AppCredentials{AppID: 7, PrivateKeyPath: "/keys/EVAL.pem", WebhookSecret: "s-EVAL"}) {
+		t.Errorf("Credentials(eval) = %+v", got)
+	}
+
+	if got := cfg.Credentials(AppRemediate).AppID; got != 8 {
+		t.Errorf("Credentials(remediate).AppID = %d, want 8", got)
+	}
+
+	t.Setenv("EVAL_GITHUB_APP_ID", "nope")
+
+	if _, err := parse(); err == nil || !strings.Contains(err.Error(), "EVAL_GITHUB_APP_ID") {
+		t.Errorf("parse with a bad EVAL_GITHUB_APP_ID = %v, want an error naming it", err)
+	}
+}
+
+func TestLoadRole_IngestAppRoutes(t *testing.T) {
+	t.Run("a route secret needs its App id", func(t *testing.T) {
+		t.Setenv("TEMPORAL_ADDRESS", "temporal:7233")
+		t.Setenv("GITHUB_WEBHOOK_SECRET", "s")
+		t.Setenv("EVAL_WEBHOOK_SECRET", "e")
+
+		if _, err := LoadRole(RoleIngest); err == nil || !strings.Contains(err.Error(), "EVAL_GITHUB_APP_ID") {
+			t.Errorf("LoadRole(ingest) = %v, want EVAL_GITHUB_APP_ID required", err)
+		}
+	})
+
+	t.Run("refuses an App key", func(t *testing.T) {
+		t.Setenv("TEMPORAL_ADDRESS", "temporal:7233")
+		t.Setenv("GITHUB_WEBHOOK_SECRET", "s")
+		t.Setenv("REMEDIATE_GITHUB_PRIVATE_KEY_PATH", "/keys/r.pem")
+
+		if _, err := LoadRole(RoleIngest); err == nil || !strings.Contains(err.Error(), "App key") {
+			t.Errorf("LoadRole(ingest) with a remediation key = %v, want a refusal", err)
+		}
+	})
+
+	t.Run("both routes", func(t *testing.T) {
+		t.Setenv("TEMPORAL_ADDRESS", "temporal:7233")
+		t.Setenv("GITHUB_WEBHOOK_SECRET", "s")
+		t.Setenv("EVAL_GITHUB_APP_ID", "1")
+		t.Setenv("EVAL_WEBHOOK_SECRET", "e")
+		t.Setenv("REMEDIATE_GITHUB_APP_ID", "2")
+		t.Setenv("REMEDIATE_WEBHOOK_SECRET", "r")
+
+		if _, err := LoadRole(RoleIngest); err != nil {
+			t.Errorf("LoadRole(ingest) with both routes = %v, want nil", err)
+		}
+	})
+}
+
+// TestLoadRole_AllRunsControlsHalvesOnlyWhenConfigured is IMPL-0028
+// task 4.1: all includes both controls roles, yet the rc's single-App
+// all still loads, and a configured App's half is then validated.
+func TestLoadRole_AllRunsControlsHalvesOnlyWhenConfigured(t *testing.T) {
+	t.Run("rc single App", func(t *testing.T) {
+		setWorkerEnv(t)
+
+		cfg, err := LoadRole(RoleAll &^ RoleAPI)
+		if err != nil {
+			t.Fatalf("LoadRole(all without api) = %v, want the rc all to load", err)
+		}
+
+		if cfg.RunsControls(RoleAll, RoleEvaluator) || cfg.RunsControls(RoleAll, RoleRemediator) {
+			t.Error("all runs a controls half with no App configured")
+		}
+	})
+
+	t.Run("a configured App is validated", func(t *testing.T) {
+		setWorkerEnv(t)
+		t.Setenv("EVAL_GITHUB_APP_ID", "7")
+
+		if _, err := LoadRole(RoleAll &^ RoleAPI); err == nil || !strings.Contains(err.Error(), "EVAL_GITHUB_PRIVATE_KEY_PATH") {
+			t.Errorf("LoadRole(all) with half an Evaluation App = %v, want its key required", err)
+		}
+	})
+
+	t.Run("alone always runs", func(t *testing.T) {
+		cfg := &Config{}
+		if !cfg.RunsControls(RoleRemediator, RoleRemediator) {
+			t.Error("RunsControls(remediator, remediator) = false, want true")
+		}
+	})
+}
+
+// TestParse_WorkerSizing is IMPL-0028 task 4.9: each controls role is
+// sized by its own env vars, independent of the rc worker's.
+func TestParse_WorkerSizing(t *testing.T) {
+	t.Setenv("EVALUATOR_CONCURRENCY", "20")
+	t.Setenv("EVALUATOR_DB_POOL_SIZE", "12")
+	t.Setenv("REMEDIATOR_CONCURRENCY", "3")
+	t.Setenv("WORKER_ACTIVITY_CONCURRENCY", "99")
+
+	cfg, err := parse()
+	if err != nil {
+		t.Fatalf("parse = %v", err)
+	}
+
+	if want := (WorkerSizing{Concurrency: 20, DBPoolSize: 12}); cfg.Evaluator != want {
+		t.Errorf("Evaluator = %+v, want %+v", cfg.Evaluator, want)
+	}
+
+	if want := (WorkerSizing{Concurrency: 3}); cfg.Remediator != want {
+		t.Errorf("Remediator = %+v, want %+v", cfg.Remediator, want)
+	}
+
+	t.Setenv("REMEDIATOR_DB_POOL_SIZE", "-1")
+
+	if _, err := parse(); err == nil || !strings.Contains(err.Error(), "REMEDIATOR_DB_POOL_SIZE") {
+		t.Errorf("parse with a negative REMEDIATOR_DB_POOL_SIZE = %v, want an error naming it", err)
+	}
+}

@@ -32,14 +32,6 @@ func Validate(cfg *PolicyConfig) error {
 func validateGuardian(g *GuardianConfig) []error {
 	var errs []error
 
-	if g.WorkerCount <= 0 {
-		errs = append(errs, fmt.Errorf("guardian.worker_count must be > 0, got %d", g.WorkerCount))
-	}
-
-	if g.QueueSize <= 0 {
-		errs = append(errs, fmt.Errorf("guardian.queue_size must be > 0, got %d", g.QueueSize))
-	}
-
 	if g.RateLimitThreshold < 0 || g.RateLimitThreshold > 1.0 {
 		errs = append(errs, fmt.Errorf(
 			"guardian.rate_limit_threshold must be between 0.0 and 1.0, got %f",

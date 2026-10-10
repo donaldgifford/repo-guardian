@@ -20,7 +20,7 @@ metadata:
 spec:
   {{- if eq $role "all" }}
   replicas: {{ $v.replicaCount }}
-  {{- else if not (and (eq $role "worker") $v.worker.keda.enabled) }}
+  {{- else if not (dig "keda" "enabled" false $roleValues) }}
   replicas: {{ $roleValues.replicas }}
   {{- end }}
   revisionHistoryLimit: {{ $v.revisionHistoryLimit }}
@@ -114,6 +114,9 @@ spec:
                   key: private-key
             {{- end }}
             {{- end }}
+            {{- range $app := list "eval" "remediate" }}
+            {{- include "repo-guardian.appEnv" (dict "ctx" $ "role" $r.role "app" $app) | nindent 12 }}
+            {{- end }}
             {{- if include "repo-guardian.roleReadsPolicy" $r }}
             - name: DRY_RUN
               value: {{ $v.config.dryRun | quote }}
@@ -137,12 +140,26 @@ spec:
             {{- end }}
             {{- end }}
             {{- if include "repo-guardian.roleHasStore" $r }}
-            - name: WORKER_ACTIVITY_CONCURRENCY
-              value: {{ $v.worker.concurrency | quote }}
-            {{- /* The worker promotes this build to the deployment's
+            {{- /* Every worker promotes this build to its deployment's
             current version; the Go fallback is "dev" in every image. */}}
             - name: TEMPORAL_BUILD_ID
               value: {{ $v.worker.buildId | default ($v.image.tag | default $.Chart.AppVersion) | quote }}
+            {{- /* Each controls worker is sized by its own role's values
+            (IMPL-0028 task 4.9), in all only when its App is set. */}}
+            {{- range $half := list (dict "role" "evaluator" "app" "Eval" "env" "EVALUATOR") (dict "role" "remediator" "app" "Remediate" "env" "REMEDIATOR") }}
+            {{- if include (printf "repo-guardian.roleHas%sKey" $half.app) $r }}
+            {{- $hv := index $v $half.role }}
+            - name: {{ $half.env }}_CONCURRENCY
+              value: {{ $hv.concurrency | quote }}
+            {{- if $hv.dbPoolSize }}
+            - name: {{ $half.env }}_DB_POOL_SIZE
+              value: {{ $hv.dbPoolSize | quote }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- if has $role (list "worker" "all") }}
+            - name: WORKER_ACTIVITY_CONCURRENCY
+              value: {{ $v.worker.concurrency | quote }}
             - name: CHECK_INTERVAL
               value: {{ $v.checkInterval | quote }}
             - name: POLICY_ROLLOUT_WINDOW
@@ -157,7 +174,9 @@ spec:
               value: {{ $v.posture.snapshotInterval | quote }}
             - name: STORE_POSTGRES_MAX_CONNS
               value: {{ $v.store.postgres.maxConns | quote }}
+            {{- end }}
             {{- include "repo-guardian.storeDSNEnv" $ | nindent 12 }}
+            {{- include "repo-guardian.controlsDSNEnv" $r | nindent 12 }}
             {{- end }}
             {{- if include "repo-guardian.roleServesAPI" $r }}
             {{- include "repo-guardian.apiEnv" $r | nindent 12 }}
@@ -176,6 +195,13 @@ spec:
             - name: github-private-key
               mountPath: /etc/repo-guardian/private-key
               readOnly: true
+            {{- end }}
+            {{- range $app := list "eval" "remediate" }}
+            {{- if include (printf "repo-guardian.roleHas%sKey" (title $app)) (dict "ctx" $ "role" $r.role) }}
+            - name: {{ $app }}-app-key
+              mountPath: /etc/repo-guardian/{{ $app }}-key
+              readOnly: true
+            {{- end }}
             {{- end }}
             {{- if and (include "repo-guardian.roleDialsTemporal" $r) $v.temporal.tls.existingSecret }}
             - name: temporal-tls
@@ -234,6 +260,16 @@ spec:
             items:
               - key: private-key
                 path: private-key.pem
+        {{- end }}
+        {{- range $app := list "eval" "remediate" }}
+        {{- if include (printf "repo-guardian.roleHas%sKey" (title $app)) (dict "ctx" $ "role" $r.role) }}
+        - name: {{ $app }}-app-key
+          secret:
+            secretName: {{ include "repo-guardian.appSecretName" (dict "ctx" $ "app" $app) }}
+            items:
+              - key: private-key
+                path: private-key.pem
+        {{- end }}
         {{- end }}
         {{- if and (include "repo-guardian.roleDialsTemporal" $r) $v.temporal.tls.existingSecret }}
         - name: temporal-tls

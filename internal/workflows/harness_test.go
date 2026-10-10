@@ -119,7 +119,7 @@ func newEnv(t *testing.T, fakes *fakeActivities) *testsuite.TestWorkflowEnvironm
 	env.RegisterActivityWithOptions(fakes.RecordCheckError, activity.RegisterOptions{Name: RecordCheckErrorActivity})
 	env.RegisterActivityWithOptions(fakes.Park, activity.RegisterOptions{Name: ParkActivity})
 	env.RegisterActivityWithOptions(fakes.AcquireBudget, activity.RegisterOptions{Name: AcquireBudgetActivity})
-	env.OnSignalExternalWorkflow(mock.Anything, InstallationWorkflowID(7), "", ReportSignal, mock.Anything).
+	env.OnSignalExternalWorkflow(mock.Anything, InstallationWorkflowID("", 7), "", ReportSignal, mock.Anything).
 		Return(func(_, _, _, _ string, arg any) error {
 			fakes.mu.Lock()
 			defer fakes.mu.Unlock()

@@ -38,8 +38,8 @@ PR identity, so v2 picks up where v1 stopped. Designs:
   plus `temporal.tls.caSecret` if its certificate comes from a private
   CA.
 - **`guardian.hcl` reviewed.** `worker_count`, `queue_size` and
-  `schedule_interval` in `guardian {}` are v1 knobs. v2 parses and
-  ignores them, so remove them to avoid confusion. Everything else in
+  `schedule_interval` in `guardian {}` are v1 knobs. v2 refuses to load
+  a policy that sets them, so remove them. Everything else in
   the file is read unchanged.
 - **Values edited.** Every key in [Removed chart
   values](#removed-chart-values) is gone, and a policy is required
@@ -55,9 +55,10 @@ PR identity, so v2 picks up where v1 stopped. Designs:
 
 ### Environment variables
 
-These are ignored. Under the v2 roles nothing reads them, but nothing
-warns about them either yet (IMPL-0025 task 16.5), so remove them from
-the Deployment by hand rather than relying on the logs:
+These are ignored. Every role logs one warning at startup naming each
+one still set (`removed configuration env vars are set and ignored`,
+with `migration` pointing here), so a stale Deployment patch shows up
+in the logs. Remove them:
 
 | Removed | Replacement |
 | --- | --- |
@@ -68,6 +69,7 @@ the Deployment by hand rather than relying on the logs:
 | `POSTURE_EXPORT_INTERVAL` | none; the API reads compliance from Postgres |
 | `WORKER_COUNT`, `QUEUE_SIZE` | `WORKER_ACTIVITY_CONCURRENCY` |
 | `SCHEDULE_INTERVAL` | `CHECK_INTERVAL` |
+| `STORE_BACKEND` | none; Postgres is the only store |
 
 `RECONCILE_FRESHNESS` is read once, by `migrate`, to seed each
 repository's first due time. Otherwise it is ignored.
@@ -94,9 +96,10 @@ New values: `topology` (`split` or `all`), `temporal.*`,
 
 ### HCL
 
-`guardian { worker_count, queue_size, schedule_interval }` are parsed
-and ignored. Delete them: concurrency is `WORKER_ACTIVITY_CONCURRENCY`
-and cadence is `CHECK_INTERVAL`. No other part of the policy language
+`guardian { worker_count, queue_size, schedule_interval }` fail load
+with a "Removed argument" error naming each one's replacement. Delete
+them: concurrency is `WORKER_ACTIVITY_CONCURRENCY` and cadence is
+`CHECK_INTERVAL`. No other part of the policy language
 changes; see [v2 at a glance](v2-overview.md#writing-rules-before-you-migrate).
 
 ## The data migration

@@ -41,9 +41,9 @@ func TestLoad_ValidFile(t *testing.T) {
 
 	content := `
 guardian {
-  dry_run       = true
-  worker_count  = 10
-  log_level     = "debug"
+  dry_run              = true
+  rate_limit_threshold = 0.2
+  log_level            = "debug"
 }
 
 rule "file" "codeowners" {
@@ -66,8 +66,8 @@ rule "file" "codeowners" {
 		t.Error("Guardian.DryRun = false, want true")
 	}
 
-	if cfg.Guardian.WorkerCount != 10 {
-		t.Errorf("Guardian.WorkerCount = %d, want 10", cfg.Guardian.WorkerCount)
+	if cfg.Guardian.RateLimitThreshold != 0.2 {
+		t.Errorf("Guardian.RateLimitThreshold = %v, want 0.2", cfg.Guardian.RateLimitThreshold)
 	}
 
 	if cfg.Guardian.LogLevel != "debug" {
@@ -88,8 +88,8 @@ func TestLoad_DirectoryMultipleFiles(t *testing.T) {
 
 	file1 := `
 guardian {
-  dry_run      = true
-  worker_count = 10
+  dry_run              = true
+  rate_limit_threshold = 0.2
 }
 `
 
@@ -129,8 +129,8 @@ rule "file" "dependabot" {
 		t.Error("Guardian.DryRun = false, want true")
 	}
 
-	if cfg.Guardian.WorkerCount != 10 {
-		t.Errorf("Guardian.WorkerCount = %d, want 10", cfg.Guardian.WorkerCount)
+	if cfg.Guardian.RateLimitThreshold != 0.2 {
+		t.Errorf("Guardian.RateLimitThreshold = %v, want 0.2", cfg.Guardian.RateLimitThreshold)
 	}
 
 	if len(cfg.FileRules) != 2 {
@@ -157,8 +157,8 @@ func TestLoad_EnvVarOverrides(t *testing.T) {
 
 	content := `
 guardian {
-  worker_count = 10
-  log_level    = "debug"
+  rate_limit_threshold = 0.2
+  log_level            = "debug"
 }
 `
 
@@ -166,7 +166,7 @@ guardian {
 		t.Fatalf("writing test file: %v", err)
 	}
 
-	t.Setenv("WORKER_COUNT", "20")
+	t.Setenv("RATE_LIMIT_THRESHOLD", "0.3")
 	t.Setenv("LOG_LEVEL", "warn")
 
 	cfg, err := Load(hclFile)
@@ -174,8 +174,8 @@ guardian {
 		t.Fatalf("Load() error: %v", err)
 	}
 
-	if cfg.Guardian.WorkerCount != 20 {
-		t.Errorf("Guardian.WorkerCount = %d, want 20 (env override)", cfg.Guardian.WorkerCount)
+	if cfg.Guardian.RateLimitThreshold != 0.3 {
+		t.Errorf("Guardian.RateLimitThreshold = %v, want 0.3 (env override)", cfg.Guardian.RateLimitThreshold)
 	}
 
 	if cfg.Guardian.LogLevel != "warn" {
@@ -267,14 +267,6 @@ func TestLoad_GuardianDefaults_PreservedWithoutHCL(t *testing.T) {
 	if !cfg.Guardian.SkipArchived {
 		t.Error("SkipArchived should default to true")
 	}
-
-	if cfg.Guardian.WorkerCount != 5 {
-		t.Errorf("WorkerCount = %d, want 5", cfg.Guardian.WorkerCount)
-	}
-
-	if cfg.Guardian.QueueSize != 1000 {
-		t.Errorf("QueueSize = %d, want 1000", cfg.Guardian.QueueSize)
-	}
 }
 
 func TestLoad_FileWithReconciler(t *testing.T) {
@@ -328,30 +320,39 @@ rule "file" "catalog_info" {
 	}
 }
 
-func TestLoad_ScheduleIntervalParsed(t *testing.T) {
-	dir := t.TempDir()
-	hclFile := filepath.Join(dir, "guardian.hcl")
+// TestLoad_RemovedGuardianAttrs pins the v1 runtime knobs' migration
+// hint (IMPL-0028 task 1.5): each fails load naming itself, its
+// replacement and the runbook, not the strict schema's bare
+// "Unsupported argument".
+func TestLoad_RemovedGuardianAttrs(t *testing.T) {
+	for _, tt := range []struct{ attr, value, want string }{
+		{"schedule_interval", `"24h"`, "CHECK_INTERVAL"},
+		{"worker_count", "10", "WORKER_ACTIVITY_CONCURRENCY"},
+		{"queue_size", "1000", "unbounded"},
+	} {
+		t.Run(tt.attr, func(t *testing.T) {
+			hclFile := filepath.Join(t.TempDir(), "guardian.hcl")
 
-	content := `
-guardian {
-  schedule_interval = "24h"
-}
-`
+			content := "guardian {\n  " + tt.attr + " = " + tt.value + "\n}\n"
+			if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
+				t.Fatalf("writing test file: %v", err)
+			}
 
-	if err := os.WriteFile(hclFile, []byte(content), 0o644); err != nil {
-		t.Fatalf("writing test file: %v", err)
-	}
+			_, err := Load(hclFile)
+			if err == nil {
+				t.Fatalf("Load(guardian { %s }) = _, nil, want a removed-argument error", tt.attr)
+			}
 
-	cfg, err := Load(hclFile)
-	if err != nil {
-		t.Fatalf("Load() error: %v", err)
-	}
+			for _, want := range []string{"guardian." + tt.attr + " was removed in v2", tt.want, removedGuardianAttrsURL} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("Load(guardian { %s }) error = %v, want it to contain %q", tt.attr, err, want)
+				}
+			}
 
-	want := 24 * 60 * 60 * 1e9 // 24h in nanoseconds
-	got := float64(cfg.Guardian.ParsedScheduleInterval)
-
-	if got != want {
-		t.Errorf("ParsedScheduleInterval = %v, want 24h", cfg.Guardian.ParsedScheduleInterval)
+			if strings.Contains(err.Error(), "Unsupported argument") {
+				t.Errorf("Load(guardian { %s }) error = %v, want the removed-argument hint only", tt.attr, err)
+			}
+		})
 	}
 }
 

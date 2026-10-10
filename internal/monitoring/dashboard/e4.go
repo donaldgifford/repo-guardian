@@ -16,11 +16,8 @@ import (
 const (
 	logCatalogParseFailed = "catalog-info parse failed"
 	logRepositoryParked   = "parking repository until discovery sees it again"
-	logAttemptCapDropped  = "job exceeded attempt cap"
-	logStoreWriteback     = "store write-back failed"
-	logRuleStateWriteback = "rule-state write-back failed"
-	logDeferringJob       = "rate limit throttled; deferring job"
-	logSweepComplete      = "stale-sweep complete"
+	logCheckDeferred      = "check deferred until budget reset"
+	logCheckFailed        = "check failed after retries"
 )
 
 // Webhook rejection lines.
@@ -72,9 +69,8 @@ func e4Loki(_ *monitoring.Model, ds Datasources, id Identity) Dashboard {
 
 	b = withErrorSection(b, ds)
 	b = withRepositoryFaultSection(b, ds)
-	b = withWritebackSection(b, ds)
+	b = withCheckSection(b, ds)
 	b = withWebhookSection(b, ds)
-	b = withSweepLogSection(b, ds)
 
 	return id.dashboard(kindLogs, labelLogs, b)
 }
@@ -147,42 +143,34 @@ func withRepositoryFaultSection(b *Builder, ds Datasources) *Builder {
 			}))
 }
 
-// withWritebackSection charts the two failures that make posture lie.
-func withWritebackSection(b *Builder, ds Datasources) *Builder {
+// withCheckSection charts the two ways a repository check does not
+// finish: deferred to the installation's budget reset, or failed after
+// its activity retries. Both are RepoWorkflow log lines; the workflow
+// tries again either way, so neither is lost work, but a repository that
+// keeps appearing here is not converging.
+func withCheckSection(b *Builder, ds Datasources) *Builder {
 	stream := ds.Stream()
 
 	return b.
-		WithRow(Row("Write-back and job loss")).
-		WithPanel(LogTimeSeries(ds, "State write-back failures",
-			"Write-back is best-effort by design — the queue is the source of truth for 'did we "+
-				"do the work' — so these never fail a job and never appear in errors_total. What "+
-				"they do is make every posture gauge on E1 and E2 stale, which is the one failure "+
-				"those gauges cannot report about themselves.",
+		WithRow(Row("Deferred and failed checks")).
+		WithPanel(LogTimeSeries(ds, "Deferred and failed checks",
+			"A deferral is not a failure: the check never ran, so there is deliberately no error "+
+				"counted and no outcome recorded. A failed check exhausted its activity retries and "+
+				"waits for the next interval.",
 			unitShort,
 			LogQuery{
-				Expr:   `sum(count_over_time(` + stream + ` |= "` + logStoreWriteback + `" [15m]))`,
-				Legend: "repo state",
+				Expr:   `sum(count_over_time(` + stream + ` |= "` + logCheckDeferred + `" [15m]))`,
+				Legend: "deferred",
 			},
 			LogQuery{
-				Expr:   `sum(count_over_time(` + stream + ` |= "` + logRuleStateWriteback + `" [15m]))`,
-				Legend: "rule state",
+				Expr:   `sum(count_over_time(` + stream + ` |= "` + logCheckFailed + `" [15m]))`,
+				Legend: "failed",
 			})).
-		WithPanel(LogTimeSeries(ds, "Jobs dropped at the attempt cap",
-			"A job that hit MAX_JOB_ATTEMPTS and was acked away rather than retried forever. The "+
-				"repository is not lost — the stale sweep is its recovery path — but it will not "+
-				"converge until the sweep picks it up.",
-			unitShort, LogQuery{
-				Expr: `sum by (owner, repo) (
-  count_over_time(` + stream + ` |= "` + logAttemptCapDropped + `" | json [1h])
-)`,
-				Legend: "{{ owner }}/{{ repo }}",
-			})).
-		WithPanel(Logs(ds, "Deferrals and drops",
-			"The rate-limit path end to end. A deferral is not a failure: the check never ran, so "+
-				"there is deliberately no error counted and no write-back recorded. Repeated "+
-				"deferrals of the same repository are how a job walks to the attempt cap.",
+		WithPanel(Logs(ds, "Deferrals and failures",
+			"The `check_key` field names the repository's workflow. Repeated failures of the same "+
+				"key are a repository that will not converge.",
 			LogQuery{
-				Expr:     stream + ` |~ "` + logDeferringJob + `|` + logAttemptCapDropped + `" | json`,
+				Expr:     stream + ` |~ "` + logCheckDeferred + `|` + logCheckFailed + `" | json`,
 				MaxLines: maxLogLines,
 			}))
 }
@@ -203,35 +191,11 @@ func withWebhookSection(b *Builder, ds Datasources) *Builder {
 )`,
 				Legend: "{{ msg }}",
 			})).
-		WithPanel(Logs(ds, "Webhook rejections and enqueue failures",
-			"An enqueue failure means GitHub was told 202 and the work was then dropped — the "+
-				"delivery will not be retried, so the stale sweep is the only path back.",
+		WithPanel(Logs(ds, "Webhook rejections and start failures",
+			"A start failure answers GitHub with 503, so the delivery is recorded as failed and "+
+				"can be redelivered from the App's settings.",
 			LogQuery{
 				Expr:     stream + ` |~ "` + webhookIncidentsRe + `" | json`,
-				MaxLines: maxLogLines,
-			}))
-}
-
-// withSweepLogSection charts the sweep's own summary line.
-func withSweepLogSection(b *Builder, ds Datasources) *Builder {
-	stream := ds.Stream()
-
-	return b.
-		WithRow(Row("Sweeps")).
-		WithPanel(LogTimeSeries(ds, "Repositories enqueued per sweep",
-			"Unwrapped from the sweep's summary line rather than taken from the histogram on E3, "+
-				"because this one carries the policy version alongside it: a sudden full-fleet "+
-				"batch is almost always a policy edit, and that is only visible here.",
-			unitShort, LogQuery{
-				Expr:   `max_over_time(` + stream + ` |= "` + logSweepComplete + `" | json | unwrap enqueued [$__interval])`,
-				Legend: "enqueued",
-			})).
-		WithPanel(Logs(ds, "Sweep summaries",
-			"One line per sweep: how many rows were stale, how many were enqueued, and the policy "+
-				"version that decided. `stale` far exceeding `enqueued` means the batch cap is "+
-				"truncating and the fleet cannot converge in one interval.",
-			LogQuery{
-				Expr:     stream + ` |= "` + logSweepComplete + `" | json`,
 				MaxLines: maxLogLines,
 			}))
 }

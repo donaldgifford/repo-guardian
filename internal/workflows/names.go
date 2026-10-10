@@ -19,6 +19,12 @@ const (
 	SnapshotWorkflowName      = "SnapshotWorkflow"
 	PolicyRolloutWorkflowName = "PolicyRolloutWorkflow"
 	BootstrapWorkflowName     = "BootstrapWorkflow"
+
+	// RemediationWorkflowName is the per-(repository, control)
+	// remediation run on the remediation queue (DESIGN-0032). IMPL-0030
+	// implements it; the name is fixed now so StartRemediations can
+	// target it.
+	RemediationWorkflowName = "RemediationWorkflow"
 )
 
 // Activity names. The activities package registers under these names
@@ -41,7 +47,21 @@ const (
 	CompletePolicyRolloutActivity = "CompletePolicyRollout"
 	ClearBootstrapActivity        = "ClearBootstrapPending"
 	RecordServiceRunActivity      = "RecordServiceRun"
+
+	// StartRemediationsActivity signal-with-starts the due
+	// RemediationWorkflows, one activity per evaluation (INV-0022 F4).
+	StartRemediationsActivity = "StartRemediations"
 )
+
+// RemediateSignal asks a RemediationWorkflow to run, or to loop once
+// more when it already is (DESIGN-0032 D6).
+const RemediateSignal = "remediate"
+
+// RemediationWorkflowID is remediation/<repository id>/<control slug>:
+// at most one remediation runs per control per repository.
+func RemediationWorkflowID(repositoryID int64, control string) string {
+	return "remediation/" + strconv.FormatInt(repositoryID, 10) + "/" + control
+}
 
 // Schedule IDs. Temporal suffixes each scheduled run's workflow ID with
 // its schedule time.
@@ -76,9 +96,27 @@ func RepoWorkflowID(repositoryID int64) string {
 }
 
 // InstallationWorkflowID is the workflow ID for an installation's rate
-// budget.
-func InstallationWorkflowID(installationID int64) string {
-	return "installation/" + strconv.FormatInt(installationID, 10)
+// budget under app: installation/<app>/<id> for a controls App, whose
+// installations each keep their own budget (IMPL-0028 task 4.6), and
+// installation/<id> for the rc's single App (app ""), so running rc
+// executions keep their id.
+func InstallationWorkflowID(app string, installationID int64) string {
+	if app == "" {
+		return "installation/" + strconv.FormatInt(installationID, 10)
+	}
+
+	return "installation/" + app + "/" + strconv.FormatInt(installationID, 10)
+}
+
+// BudgetHolder is the AcquireRequest.Holder for workflowID acting as
+// app: <app>/<workflow id> for a controls App, the bare workflow id for
+// the rc's.
+func BudgetHolder(app, workflowID string) string {
+	if app == "" {
+		return workflowID
+	}
+
+	return app + "/" + workflowID
 }
 
 // WebhookWorkflowID is the workflow ID for a GitHub delivery. It makes

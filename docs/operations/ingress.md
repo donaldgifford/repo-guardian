@@ -32,7 +32,9 @@ the public status page at `/status`.
   own.
 - **It fails render unless `api.auth.enabled`.** The chart never
   publishes an unauthenticated API (INV-0009's hard gate).
-- **The webhook path stays yours.** `POST /webhooks/github` is served
+- **The webhook path stays yours.** `POST /webhooks/github` (and the
+  per-App `/webhooks/github/eval` and `/webhooks/github/remediate`, each
+  mounted when its App's webhook secret is set) is served
   by the `ingest` Service (`<release>-repo-guardian`, or `all` in
   topology `all`), and everything in this document still applies to
   it. Do not route the webhook through the UI host: the UI proxies
@@ -334,5 +336,9 @@ app side:
   HMAC validation: a burst means a wrong or rotated webhook secret,
   **not** an unwanted-source problem; that signal lives at your
   edge layer now.
+- `webhook_rejected_total{reason="app_mismatch"}` — a correctly signed
+  installation payload naming the other App on a per-App route
+  (`/webhooks/github/eval`, `/webhooks/github/remediate`): the two
+  Apps' webhook URLs are swapped.
 - The E4 evidence dashboard answers "which repository", never
   "which caller".

@@ -12,13 +12,10 @@
 #       <contents of this file>
 
 guardian {
-  log_level         = "info"
-  dry_run           = false
-  worker_count      = 5
-  queue_size        = 1000
-  schedule_interval = "168h"
-  skip_forks        = true
-  skip_archived     = true
+  log_level     = "info"
+  dry_run       = false
+  skip_forks    = true
+  skip_archived = true
 }
 
 rule "file" "codeowners" {

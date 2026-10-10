@@ -3,8 +3,6 @@ package main
 
 import (
 	"context"
-	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"log/slog"
@@ -17,28 +15,17 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/redis/go-redis/v9"
 
 	"github.com/donaldgifford/repo-guardian/internal/checker"
 	"github.com/donaldgifford/repo-guardian/internal/config"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
-	"github.com/donaldgifford/repo-guardian/internal/observability"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
-	"github.com/donaldgifford/repo-guardian/internal/queue"
-	valkeyqueue "github.com/donaldgifford/repo-guardian/internal/queue/valkey"
 	"github.com/donaldgifford/repo-guardian/internal/reconciler"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
-	"github.com/donaldgifford/repo-guardian/internal/scheduler"
-	valkeyscheduler "github.com/donaldgifford/repo-guardian/internal/scheduler/valkey"
-	"github.com/donaldgifford/repo-guardian/internal/store"
-	pgstore "github.com/donaldgifford/repo-guardian/internal/store/postgres"
-	"github.com/donaldgifford/repo-guardian/internal/webhook"
-	"github.com/donaldgifford/repo-guardian/internal/worker"
 )
 
 const (
-	shutdownTimeout   = 15 * time.Second
-	depthPollInterval = 15 * time.Second
+	shutdownTimeout = 15 * time.Second
 
 	// observabilityShutdownTimeout bounds the SDK flush. It is short
 	// because the Prometheus exporter is pull-based and has nothing to
@@ -77,15 +64,14 @@ func dispatch(argv []string) error {
 		return runIngest(argv[2:])
 	case cmdWorker:
 		return runWorker(argv[2:])
+	case cmdEvaluator:
+		return runEvaluator(argv[2:])
+	case cmdRemediator:
+		return runRemediator(argv[2:])
 	case cmdAPI:
 		return runAPI(argv[2:])
 	case cmdAll:
 		return runAll(argv[2:])
-	case cmdV1:
-		// run parses flags from os.Args through flag.CommandLine.
-		os.Args = append([]string{argv[0]}, argv[2:]...)
-
-		return run()
 	case cmdReport:
 		return runReport(argv[2:])
 	case cmdMonitoring:
@@ -106,10 +92,9 @@ func dispatch(argv []string) error {
 // usage lists the subcommands.
 //
 // `--help` and `-h` never reach dispatch's switch — they start with a
-// dash, so dispatch hands them to the server path, where the flag
-// package prints its own usage. run() therefore prepends this banner to
-// flag.CommandLine's output, so the one thing a user is most likely to
-// type still names the report subcommand.
+// dash, so dispatch hands them to the all role, whose FlagSet prints
+// this banner before its own defaults, so the one thing a user is most
+// likely to type still names every subcommand.
 //
 // The write is unchecked on purpose: this is usage text on its way to
 // stdout or stderr, there is no recovery path, and the flag package
@@ -121,7 +106,9 @@ func usage(w io.Writer) {
 Usage:
   repo-guardian [all] [flags]        run every role in one process (default)
   repo-guardian ingest [flags]       webhook ingest: HMAC, filter, start workflows
-  repo-guardian worker [flags]       Temporal worker: every workflow and activity
+  repo-guardian worker [flags]       Temporal worker: every rc workflow and activity
+  repo-guardian evaluator [flags]    controls evaluation worker (Evaluation App)
+  repo-guardian remediator [flags]   controls remediation worker (Remediation App)
   repo-guardian api                  read-only HTTP API
   repo-guardian report [flags]       write per-org compliance reports
   repo-guardian monitoring generate  emit dashboards and alerts from the policy
@@ -130,269 +117,10 @@ Usage:
                                      compare a v2 shadow run with v1
   repo-guardian help                 show this message
 
-Running with no subcommand runs every role. The ingest role holds
-neither the GitHub App key nor database credentials.
+Running with no subcommand runs every role; a controls half runs in all
+only when its App is configured. The ingest role holds neither a GitHub
+App key nor database credentials.
 `)
-}
-
-func run() error {
-	// CLI flag wins over env var (standard Go convention; supports CI
-	// one-off runs without touching the Deployment env).
-	strictTemplates := flag.Bool(
-		"strict-templates",
-		strictTemplatesFromEnv(),
-		"Validate every compiled PR template against a zero-value PRVars context at startup; exit non-zero on failure",
-	)
-
-	flag.CommandLine.Usage = func() {
-		usage(flag.CommandLine.Output())
-		flag.PrintDefaults()
-	}
-
-	flag.Parse()
-
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-
-	logger := initLogger(cfg.LogLevel)
-	slog.SetDefault(logger)
-
-	warnRemovedEnvVars(logger)
-
-	logger.Info("starting repo-guardian",
-		"listen_addr", cfg.ListenAddr,
-		"metrics_addr", cfg.MetricsAddr,
-	)
-
-	// Before every instrumented resource below it. otelhttp, redisotel
-	// and otelpgx each capture otel.GetMeterProvider() at construction
-	// time, so a provider installed after them would leave those call
-	// sites permanently attached to the no-op default — silently, with
-	// no error and no missing-series alert to notice it by.
-	obs, err := observability.New(observability.Options{Logger: logger})
-	if err != nil {
-		return fmt.Errorf("bootstrap observability: %w", err)
-	}
-
-	defer func() {
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), observabilityShutdownTimeout)
-		defer shutdownCancel()
-
-		if err := obs.Shutdown(shutdownCtx); err != nil {
-			logger.Warn("observability shutdown error", "error", err)
-		}
-	}()
-
-	client, err := newGitHubClient(cfg, logger)
-	if err != nil {
-		return fmt.Errorf("create github client: %w", err)
-	}
-
-	policyCfg, engine, templates := loadPolicyAndEngine(cfg, *strictTemplates, logger)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	rt, err := bringUp(ctx, cfg, policyCfg, engine, templates, client, logger)
-	if err != nil {
-		return err
-	}
-
-	mainServer := newMainServer(ctx, cfg.ListenAddr, rt.webhookHandler)
-	metricsServer := newMetricsServer(cfg.MetricsAddr)
-
-	startServer(logger, mainServer, "main", cfg.ListenAddr, cancel)
-	startServer(logger, metricsServer, "metrics", cfg.MetricsAddr, cancel)
-
-	awaitShutdown(ctx, logger)
-	cancel()
-
-	if err := rt.sched.Stop(); err != nil {
-		logger.Warn("scheduler stop error", "error", err)
-	}
-
-	gracefulShutdown(logger, rt.jobQueue, rt.stateStore, rt.qw.rclient, rt.workerPool, mainServer, metricsServer)
-
-	return nil
-}
-
-// closeAndLog runs the close func and logs at WARN if it returned a
-// non-nil error. Used by bringUp's failure paths to release partial
-// resources without producing errcheck noise.
-func closeAndLog(logger *slog.Logger, what string, fn func() error) {
-	if err := fn(); err != nil {
-		logger.Warn(what, "error", err)
-	}
-}
-
-// runtime bundles every long-lived resource constructed at startup
-// so the entrypoint can finish bring-up in a single call.
-type runtime struct {
-	stateStore     store.Store
-	qw             queueWiring
-	jobQueue       queue.Queue
-	sched          scheduler.Scheduler
-	workerPool     *worker.Pool
-	webhookHandler http.Handler
-}
-
-// bringUp constructs every long-lived resource and starts the
-// background goroutines (worker pool, valkey reaper, scheduler).
-// On failure it tears down anything already constructed before
-// returning the error so the caller can exit cleanly.
-func bringUp(
-	ctx context.Context,
-	cfg *config.Config,
-	policyCfg *policy.PolicyConfig,
-	engine *checker.Engine,
-	templates *rules.TemplateStore,
-	client ghclient.Client,
-	logger *slog.Logger,
-) (*runtime, error) {
-	stateStore, err := newStore(ctx, cfg, logger)
-	if err != nil {
-		return nil, fmt.Errorf("create store: %w", err)
-	}
-
-	qw, err := newQueue(ctx, cfg, logger)
-	if err != nil {
-		closeAndLog(logger, "store close after queue-init failure", stateStore.Close)
-
-		return nil, fmt.Errorf("create queue: %w", err)
-	}
-
-	sched, err := newScheduler(cfg, logger, qw.rclient)
-	if err != nil {
-		closeAndLog(logger, "store close after scheduler-init failure", stateStore.Close)
-
-		return nil, fmt.Errorf("create scheduler: %w", err)
-	}
-
-	policyVersion, vErr := policy.Version(policyCfg, templates.AsMap())
-	if vErr != nil {
-		logger.Warn("policy.Version failed; stale-sweep policy_version will be empty", "error", vErr)
-	}
-
-	if err := scheduleHandlers(ctx, cfg, policyCfg, stateStore, qw.queue, client, sched, policyVersion, logger); err != nil {
-		closeAndLog(logger, "scheduler stop after handler-schedule failure", sched.Stop)
-		closeAndLog(logger, "store close after handler-schedule failure", stateStore.Close)
-
-		return nil, err
-	}
-
-	workerPool := worker.New(qw.queue, engine, client, stateStore, policyVersion, cfg.MaxJobAttempts, policyCfg.Guardian.WorkerCount, logger)
-	workerPool.Start(ctx)
-
-	if qw.reaper != nil {
-		go func() {
-			if err := qw.reaper.Start(ctx); err != nil && !errors.Is(err, context.Canceled) {
-				logger.Error("valkey reaper exited", "error", err)
-			}
-		}()
-	}
-
-	if vq, ok := qw.queue.(*valkeyqueue.Queue); ok {
-		go vq.StartDepthPoller(ctx, depthPollInterval)
-	}
-
-	watchedPaths := policy.ExtractWatchedPaths(policyCfg)
-	webhookHandler := webhook.NewHandler(
-		cfg.GitHubWebhookSecret,
-		qw.queue,
-		logger,
-		watchedPaths,
-		stateStore,
-		policyVersion,
-		cfg.ReconcileFreshness,
-	)
-
-	return &runtime{
-		stateStore:     stateStore,
-		qw:             qw,
-		jobQueue:       qw.queue,
-		sched:          sched,
-		workerPool:     workerPool,
-		webhookHandler: webhookHandler,
-	}, nil
-}
-
-// scheduleHandlers wires both periodic schedulers onto the
-// scheduler.Scheduler. StaleSweeper always runs (IMPL-0011 Phase 5);
-// Discoverer runs only when cfg.DiscoveryEnabled (IMPL-0015 Phase 1).
-// Returns an error if either Schedule call fails — the caller is
-// responsible for tearing down the partially-built runtime.
-func scheduleHandlers(
-	ctx context.Context,
-	cfg *config.Config,
-	policyCfg *policy.PolicyConfig,
-	stateStore store.Store,
-	q queue.Queue,
-	client ghclient.Client,
-	sched scheduler.Scheduler,
-	policyVersion string,
-	logger *slog.Logger,
-) error {
-	staleSweeper := checker.NewStaleSweeper(checker.StaleSweeperOptions{
-		Store:         stateStore,
-		Queue:         q,
-		RateLimit:     client,
-		Logger:        logger,
-		Freshness:     cfg.ReconcileFreshness,
-		PolicyVersion: policyVersion,
-		BatchSize:     cfg.StaleSweepBatchSize,
-	})
-
-	if err := sched.Schedule(ctx, "stale-sweep", policyCfg.Guardian.ParsedScheduleInterval, staleSweeper.SweepStale); err != nil {
-		return fmt.Errorf("schedule stale-sweep: %w", err)
-	}
-
-	logger.Info("scheduled stale-sweep handler", "interval", policyCfg.Guardian.ParsedScheduleInterval)
-
-	postureExporter := checker.NewPostureExporter(checker.PostureExporterOptions{
-		Store:  stateStore,
-		Logger: logger,
-	})
-
-	if err := sched.Schedule(ctx, "posture-export", cfg.PostureExportInterval, postureExporter.Export); err != nil {
-		return fmt.Errorf("schedule posture-export: %w", err)
-	}
-
-	logger.Info("scheduled posture-export handler", "interval", cfg.PostureExportInterval)
-
-	snapshotTaker := checker.NewSnapshotTaker(checker.SnapshotTakerOptions{
-		Store:  stateStore,
-		Logger: logger,
-	})
-
-	if err := sched.Schedule(ctx, "compliance-snapshot", cfg.ComplianceSnapshotInterval, snapshotTaker.Take); err != nil {
-		return fmt.Errorf("schedule compliance-snapshot: %w", err)
-	}
-
-	logger.Info("scheduled compliance-snapshot handler", "interval", cfg.ComplianceSnapshotInterval)
-
-	if !cfg.DiscoveryEnabled {
-		logger.Info("discoverer disabled via DISCOVERY_ENABLED=false")
-		return nil
-	}
-
-	discoverer := scheduler.NewDiscoverer(scheduler.DiscovererOptions{
-		Client:       client,
-		Store:        stateStore,
-		Logger:       logger,
-		SkipForks:    policyCfg.Guardian.SkipForks,
-		SkipArchived: policyCfg.Guardian.SkipArchived,
-		Freshness:    cfg.ReconcileFreshness,
-	})
-
-	if err := sched.Schedule(ctx, "discovery", cfg.DiscoveryInterval, discoverer.Discover); err != nil {
-		return fmt.Errorf("schedule discovery: %w", err)
-	}
-
-	logger.Info("scheduled discovery handler", "interval", cfg.DiscoveryInterval)
-
-	return nil
 }
 
 // loadPolicyAndEngine loads the operator's HCL policy, runs strict
@@ -439,115 +167,6 @@ func loadPolicyAndEngine(
 	return policyCfg, engine, templates
 }
 
-// queueWiring bundles the constructed queue, optional Valkey reaper,
-// and the redis client (nil for memory backend). The client is exposed
-// so the scheduler can share the connection rather than open its own.
-type queueWiring struct {
-	queue   queue.Queue
-	reaper  *valkeyqueue.Reaper
-	rclient *redis.Client
-}
-
-// newQueue constructs the work queue from cfg. Valkey is the only
-// supported backend (IMPL-0016 dropped the in-memory shim). Returns
-// a Reaper that the caller should run on its own goroutine for the
-// duration of ctx.
-func newQueue(ctx context.Context, cfg *config.Config, logger *slog.Logger) (queueWiring, error) {
-	logger.Info("queue backend", "kind", "valkey")
-
-	parsed, err := redis.ParseURL(cfg.QueueValkeyDSN)
-	if err != nil {
-		return queueWiring{}, fmt.Errorf("parse QUEUE_VALKEY_DSN: %w", err)
-	}
-
-	client := redis.NewClient(parsed)
-
-	// Covers the scheduler too — newScheduler reuses this same client
-	// (IMPL-0011 Phase 4), so there is exactly one to instrument.
-	// Non-fatal: telemetry must never stop the queue coming up.
-	if err := observability.InstrumentValkey(client); err != nil {
-		logger.Warn("valkey metrics instrumentation failed; queue continues uninstrumented", "error", err)
-	}
-
-	if err := client.Ping(ctx).Err(); err != nil {
-		if closeErr := client.Close(); closeErr != nil {
-			logger.Warn("valkey client close failed during ping-fail cleanup", "error", closeErr)
-		}
-
-		return queueWiring{}, fmt.Errorf("valkey ping: %w", err)
-	}
-
-	q := valkeyqueue.New(client, valkeyqueue.Options{Logger: logger})
-	r := valkeyqueue.NewReaper(q, valkeyqueue.ReaperOptions{
-		PodID:         podID(cfg),
-		Interval:      cfg.ReaperInterval,
-		JobAckTimeout: cfg.JobAckTimeout,
-		Logger:        logger,
-	})
-
-	return queueWiring{queue: q, reaper: r, rclient: client}, nil
-}
-
-// newScheduler constructs the scheduler.Scheduler from cfg. Valkey
-// is the only supported backend (IMPL-0016 dropped the ticker
-// in-process shim); reuses the queue's redis client per IMPL-0011
-// Phase 4 Open Q resolution.
-func newScheduler(cfg *config.Config, logger *slog.Logger, rclient *redis.Client) (scheduler.Scheduler, error) {
-	if rclient == nil {
-		return nil, errors.New("scheduler requires a Valkey-backed queue (set QUEUE_BACKEND=valkey)")
-	}
-
-	logger.Info("scheduler backend", "kind", "valkey")
-
-	return valkeyscheduler.New(rclient, valkeyscheduler.Options{
-		PodID:  podID(cfg),
-		Logger: logger,
-	}), nil
-}
-
-// podID returns the configured pod identifier or a process-time
-// fallback. Used by leader-election locks to attribute holders.
-func podID(cfg *config.Config) string {
-	if cfg.PodID != "" {
-		return cfg.PodID
-	}
-
-	return fmt.Sprintf("repo-guardian-%d", os.Getpid())
-}
-
-// newStore constructs the persistent state store from cfg. Postgres
-// is the only supported backend (IMPL-0016 dropped the in-memory
-// shim). The binary applies migrations before opening the pool —
-// failure aborts startup so we never serve traffic against a stale
-// schema.
-func newStore(ctx context.Context, cfg *config.Config, logger *slog.Logger) (store.Store, error) {
-	logger.Info("store backend", "kind", "postgres")
-
-	if err := pgstore.Migrate(cfg.StoreDSN); err != nil {
-		return nil, err
-	}
-
-	return pgstore.New(ctx, cfg.StoreDSN, cfg.StorePostgresMaxConns, logger)
-}
-
-func newMainServer(runCtx context.Context, addr string, webhookHandler http.Handler) *http.Server {
-	mux := http.NewServeMux()
-
-	// Only the webhook route is instrumented. healthz/readyz share this
-	// server but are kubelet traffic — a few requests a second forever,
-	// answering no question anyone asks — and including them would bury
-	// the webhook signal they sit next to.
-	mux.Handle(webhookRoute, observability.Handler(webhookHandler, webhookRoute))
-	mux.HandleFunc("GET /healthz", handleHealthz)
-	mux.HandleFunc("GET /readyz", handleReadyz(runCtx))
-
-	return &http.Server{
-		Addr:              addr,
-		Handler:           mux,
-		ReadHeaderTimeout: 10 * time.Second,
-	}
-}
-
 func newMetricsServer(addr string) *http.Server {
 	mux := http.NewServeMux()
 	mux.Handle("GET /metrics", promhttp.Handler())
@@ -580,44 +199,6 @@ func awaitShutdown(ctx context.Context, logger *slog.Logger) {
 	case <-ctx.Done():
 		logger.Info("context canceled")
 	}
-}
-
-func gracefulShutdown(
-	logger *slog.Logger,
-	jobQueue interface{ Close() error },
-	stateStore interface{ Close() error },
-	rclient *redis.Client,
-	workerPool interface{ Stop() },
-	servers ...*http.Server,
-) {
-	logger.Info("shutting down")
-
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
-	defer shutdownCancel()
-
-	for _, srv := range servers {
-		if err := srv.Shutdown(shutdownCtx); err != nil {
-			logger.Error("server shutdown error", "addr", srv.Addr, "error", err)
-		}
-	}
-
-	workerPool.Stop()
-
-	if err := jobQueue.Close(); err != nil {
-		logger.Warn("job queue close error", "error", err)
-	}
-
-	if err := stateStore.Close(); err != nil {
-		logger.Warn("store close error", "error", err)
-	}
-
-	if rclient != nil {
-		if err := rclient.Close(); err != nil {
-			logger.Warn("redis client close error", "error", err)
-		}
-	}
-
-	logger.Info("repo-guardian stopped")
 }
 
 func newReconcilerRegistry(templates *rules.TemplateStore) *reconciler.Registry {
@@ -716,55 +297,62 @@ func handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-func handleReadyz(runCtx context.Context) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		if runCtx.Err() != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
+// Runbooks a removed env var's warning points at.
+const (
+	runbookIngress = "docs/operations/ingress.md"
+	runbookV2      = "docs/operations/v2-migration.md#environment-variables"
+)
 
-			if _, err := w.Write([]byte("not ready")); err != nil {
-				slog.Error("failed to write readyz response", "error", err)
-			}
-
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-
-		if _, err := w.Write([]byte("ok")); err != nil {
-			slog.Error("failed to write readyz response", "error", err)
-		}
-	}
+// removedEnvVars are configuration knobs the binary no longer reads,
+// each with the runbook that says what replaced it. The IMPL-0024 trio
+// went with the webhook IP-allowlist middleware (source-IP enforcement
+// moved to the operator's edge, DESIGN-0023); the rest went with the v1
+// runtime (IMPL-0028 Phase 1), which Temporal replaced. The binary
+// ignores every one of them; the warning is a migration breadcrumb, not
+// behavior. Remove the check in a future major.
+var removedEnvVars = []struct{ name, runbook string }{
+	{"WEBHOOK_IP_ALLOWLIST", runbookIngress},
+	{"WEBHOOK_IP_ALLOWLIST_FAIL_OPEN", runbookIngress},
+	{"TRUST_PROXY_HEADERS", runbookIngress},
+	{"STORE_BACKEND", runbookV2},
+	{"QUEUE_BACKEND", runbookV2},
+	{"SCHEDULER_BACKEND", runbookV2},
+	{"QUEUE_VALKEY_DSN", runbookV2},
+	{"JOB_ACK_TIMEOUT", runbookV2},
+	{"REAPER_INTERVAL", runbookV2},
+	{"MAX_JOB_ATTEMPTS", runbookV2},
+	{"POD_NAME", runbookV2},
+	{"STALE_SWEEP_BATCH_SIZE", runbookV2},
+	{"POSTURE_EXPORT_INTERVAL", runbookV2},
+	{"WORKER_COUNT", runbookV2},
+	{"QUEUE_SIZE", runbookV2},
+	{"SCHEDULE_INTERVAL", runbookV2},
 }
 
-// removedEnvVars are configuration knobs deleted by IMPL-0024
-// (DESIGN-0023): the webhook IP-allowlist middleware was removed and
-// source-IP enforcement moved to the operator's edge layer. The binary
-// ignores these entirely; the warning below is a migration breadcrumb,
-// not behavior. Remove the check in a future major.
-var removedEnvVars = []string{
-	"WEBHOOK_IP_ALLOWLIST",
-	"WEBHOOK_IP_ALLOWLIST_FAIL_OPEN",
-	"TRUST_PROXY_HEADERS",
-}
-
-// warnRemovedEnvVars logs once at startup when a removed knob is still
-// set in the environment, so a stale Deployment patch is a logged fact
-// instead of a silent no-op. See docs/operations/ingress.md.
+// warnRemovedEnvVars logs once per runbook at startup when removed knobs
+// are still set in the environment, so a stale Deployment patch is a
+// logged fact instead of a silent no-op.
 func warnRemovedEnvVars(logger *slog.Logger) {
-	var stale []string
+	stale := map[string][]string{}
 
-	for _, name := range removedEnvVars {
-		if _, ok := os.LookupEnv(name); ok {
-			stale = append(stale, name)
+	var runbooks []string
+
+	for _, v := range removedEnvVars {
+		if _, ok := os.LookupEnv(v.name); !ok {
+			continue
 		}
+
+		if _, seen := stale[v.runbook]; !seen {
+			runbooks = append(runbooks, v.runbook)
+		}
+
+		stale[v.runbook] = append(stale[v.runbook], v.name)
 	}
 
-	if len(stale) == 0 {
-		return
+	for _, rb := range runbooks {
+		logger.Warn("removed configuration env vars are set and ignored",
+			"vars", stale[rb],
+			"migration", rb,
+		)
 	}
-
-	logger.Warn("removed configuration env vars are set and ignored",
-		"vars", stale,
-		"migration", "docs/operations/ingress.md",
-	)
 }

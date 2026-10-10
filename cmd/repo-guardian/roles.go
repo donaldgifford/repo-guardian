@@ -10,12 +10,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/worker"
 
 	"github.com/donaldgifford/repo-guardian/internal/activities"
 	"github.com/donaldgifford/repo-guardian/internal/api"
 	"github.com/donaldgifford/repo-guardian/internal/config"
+	"github.com/donaldgifford/repo-guardian/internal/control"
 	"github.com/donaldgifford/repo-guardian/internal/ingest"
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/observability"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	pgstore "github.com/donaldgifford/repo-guardian/internal/store/postgres"
@@ -31,14 +32,19 @@ const (
 	cmdAPI    = "api"
 	cmdAll    = "all"
 
-	// cmdV1 runs the v1 server until the v1 runtime is deleted
-	// (IMPL-0025 Phase 16). Hidden from usage.
-	cmdV1 = "v1"
+	cmdEvaluator  = "evaluator"
+	cmdRemediator = "remediator"
 )
 
 func runIngest(args []string) error { return runRoles(cmdIngest, args, config.RoleIngest) }
 
 func runWorker(args []string) error { return runRoles(cmdWorker, args, config.RoleWorker) }
+
+// runEvaluator is the controls evaluation worker (IMPL-0028 Phase 4).
+func runEvaluator(args []string) error { return runRoles(cmdEvaluator, args, config.RoleEvaluator) }
+
+// runRemediator is the controls remediation worker (IMPL-0028 Phase 4).
+func runRemediator(args []string) error { return runRoles(cmdRemediator, args, config.RoleRemediator) }
 
 // runAll runs every role in one process; the API gets its own listener.
 func runAll(args []string) error { return runRoles(cmdAll, args, config.RoleAll) }
@@ -52,6 +58,11 @@ func runRoles(name string, args []string, roles config.Role) error {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	strictTemplates := fs.Bool("strict-templates", strictTemplatesFromEnv(),
 		"Validate every compiled PR template against a zero-value PRVars context at startup; exit non-zero on failure")
+
+	fs.Usage = func() {
+		usage(fs.Output())
+		fs.PrintDefaults()
+	}
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -81,12 +92,12 @@ func runRoles(name string, args []string, roles config.Role) error {
 		return err
 	}
 
-	if tc != nil {
-		defer tc.Close()
-	}
-
 	up, err := bringUpRoles(ctx, roles, cfg, tc, &tcfg, *strictTemplates, logger)
 	if err != nil {
+		if tc != nil {
+			tc.Close()
+		}
+
 		return err
 	}
 
@@ -94,7 +105,7 @@ func runRoles(name string, args []string, roles config.Role) error {
 
 	awaitShutdown(ctx, logger)
 	cancel()
-	stopRoles(logger, up.worker, servers...)
+	stopRoles(logger, up.stopWorker, tc, servers...)
 
 	return nil
 }
@@ -162,11 +173,12 @@ func listen(logger *slog.Logger, cfg *config.Config, roles config.Role, up *role
 	return servers
 }
 
-// rolesUp is what bringUpRoles started.
+// rolesUp is what bringUpRoles started. stopWorker is nil unless the
+// worker role runs.
 type rolesUp struct {
-	mux    *http.ServeMux
-	api    http.Handler
-	worker worker.Worker
+	mux        *http.ServeMux
+	api        http.Handler
+	stopWorker func()
 }
 
 // bringUpRoles starts the worker, builds the API and mounts ingest and
@@ -188,35 +200,57 @@ func bringUpRoles(
 	up := &rolesUp{mux: http.NewServeMux()}
 	mux := up.mux
 
-	var w worker.Worker
+	logAppPermissions(logger, roles)
+	metrics.SetDeploymentInfo(topologyOf(roles))
 
 	if roles.Has(config.RoleWorker) {
-		var (
-			workerChecks []readinessCheck
-			err          error
-		)
-
-		w, workerChecks, err = startV2Worker(ctx, cfg, tc, tcfg, strictTemplates, logger)
+		stop, workerChecks, err := startV2Worker(ctx, cfg, tc, tcfg, strictTemplates, logger)
 		if err != nil {
 			return nil, err
 		}
 
+		up.stopWorker = stop
 		checks = append(checks, workerChecks...)
 	}
 
-	if roles.Has(config.RoleIngest) {
-		h, err := newIngestHandler(cfg, tc, tcfg.TaskQueue, logger)
+	for _, half := range controlsHalves(cfg, roles, tcfg) {
+		stop, halfChecks, err := startControlsWorker(ctx, cfg, tc, tcfg, half, logger)
 		if err != nil {
+			if up.stopWorker != nil {
+				up.stopWorker()
+			}
+
 			return nil, err
 		}
 
-		mux.Handle(webhookRoute, observability.Handler(h, webhookRoute))
+		up.stopWorker = chainStops(up.stopWorker, stop)
+		checks = append(checks, halfChecks...)
+	}
+
+	// A failure after the worker started stops it again.
+	fail := func(err error) (*rolesUp, error) {
+		if up.stopWorker != nil {
+			up.stopWorker()
+		}
+
+		return nil, err
+	}
+
+	if roles.Has(config.RoleIngest) {
+		routes, err := newIngestRoutes(cfg, tc, tcfg.TaskQueue, logger)
+		if err != nil {
+			return fail(err)
+		}
+
+		for route, h := range routes {
+			mux.Handle(route, observability.Handler(h, route))
+		}
 	}
 
 	if roles.Has(config.RoleAPI) {
 		h, apiChecks, err := startAPI(ctx, cfg, roles, tc, tcfg, logger)
 		if err != nil {
-			return nil, err
+			return fail(err)
 		}
 
 		up.api = h
@@ -229,14 +263,13 @@ func bringUpRoles(
 	mux.HandleFunc("GET /healthz", handleHealthz)
 	mux.HandleFunc("GET /readyz", ready.handler(ctx))
 
-	up.worker = w
-
 	return up, nil
 }
 
 // startV2Worker loads the policy and engine, opens the store and starts
 // a Temporal worker running every workflow and activity, then promotes
-// its build in the background. It returns the worker role's readiness
+// its build in the background. It returns the function that stops the
+// worker and then closes the pool, and the worker role's readiness
 // checks.
 func startV2Worker(
 	ctx context.Context,
@@ -245,7 +278,7 @@ func startV2Worker(
 	tcfg *temporal.Config,
 	strictTemplates bool,
 	logger *slog.Logger,
-) (worker.Worker, []readinessCheck, error) {
+) (func(), []readinessCheck, error) {
 	policyCfg, engine, templates := loadPolicyAndEngine(cfg, strictTemplates, logger)
 
 	policyVersion, err := policy.VersionV2(policyCfg, templates.AsMap())
@@ -286,7 +319,7 @@ func startV2Worker(
 	w := temporal.NewWorker(tc, &wc)
 	workflows.Register(w)
 	activities.New(engine, st, gh, policyVersion, logger).Register(w)
-	activities.NewBudget(tc, wc.TaskQueue, cfg.RateLimitThreshold).Register(w)
+	activities.NewBudget(tc, "", wc.TaskQueue, cfg.RateLimitThreshold).Register(w)
 	activities.NewRouter(st, tc, wc.TaskQueue, cfg.CheckInterval, cfg.RateLimitThreshold, logger).Register(w)
 	activities.NewServices(&activities.ServicesConfig{
 		Store: st, GitHub: gh, Temporal: tc, TaskQueue: wc.TaskQueue,
@@ -316,20 +349,19 @@ func startV2Worker(
 	// Versioned workers get no tasks until their build is the
 	// deployment's current version; nothing else sets it.
 	go func() {
-		if err := temporal.PromoteBuild(ctx, tc, wc.BuildID, logger); err != nil && ctx.Err() == nil {
+		if err := temporal.PromoteBuild(ctx, tc, temporal.DeploymentRC, wc.BuildID, logger); err != nil && ctx.Err() == nil {
 			logger.Error("temporal: promoting build failed", "build_id", wc.BuildID, "error", err)
 		}
 	}()
 
-	// The pool lives as long as the process; the worker is stopped first
-	// on shutdown, so no activity is left holding a connection.
-	go func() {
-		<-ctx.Done()
+	// The pool lives as long as the worker; stopping the worker first
+	// means no activity is left holding a connection.
+	stop := func() {
 		w.Stop()
 		pool.Close()
-	}()
+	}
 
-	return w, workerChecks(pool, tc, wc.BuildID, time.Now()), nil
+	return stop, workerChecks(pool, tc, temporal.DeploymentRC, wc.BuildID, time.Now()), nil
 }
 
 // deploymentReadyGrace is how long a new worker may take to become the
@@ -340,7 +372,7 @@ const deploymentReadyGrace = 2 * time.Minute
 // schema, and, after deploymentReadyGrace, that this build is the
 // deployment's current version. Without the second, a pod reports
 // Ready while Temporal dispatches it nothing.
-func workerChecks(pool *pgxpool.Pool, tc client.Client, buildID string, started time.Time) []readinessCheck {
+func workerChecks(pool *pgxpool.Pool, tc client.Client, deployment, buildID string, started time.Time) []readinessCheck {
 	return []readinessCheck{
 		{name: "schema", fn: func(ctx context.Context) error {
 			return pgstore.RequireSchema(ctx, pool, pgstore.SchemaVersion)
@@ -350,26 +382,101 @@ func workerChecks(pool *pgxpool.Pool, tc client.Client, buildID string, started 
 				return nil
 			}
 
-			return temporal.RequireCurrentVersion(ctx, tc, buildID)
+			return temporal.RequireCurrentVersion(ctx, tc, deployment, buildID)
 		}},
 	}
 }
 
-// newIngestHandler builds the webhook handler. The policy is read only
-// for its watched paths, so a policy error fails startup rather than
-// silently dropping every push.
-func newIngestHandler(cfg *config.Config, tc client.Client, taskQueue string, logger *slog.Logger) (http.Handler, error) {
+// chainStops returns a stop function that runs a, then b. a may be nil.
+func chainStops(a, b func()) func() {
+	if a == nil {
+		return b
+	}
+
+	return func() {
+		a()
+		b()
+	}
+}
+
+// topologyOf names the credential boundary roles run under: all when
+// one process runs every role, split otherwise.
+func topologyOf(roles config.Role) string {
+	if roles == config.RoleAll {
+		return metrics.TopologyAll
+	}
+
+	return metrics.TopologySplit
+}
+
+// logAppPermissions logs, once at startup, the App permission set each
+// running role acts with (IMPL-0028 task 3.4), so an operator can check
+// the installation against it. The Remediation App's set is derived
+// from the registered control types; until IMPL-0029 registers any it is
+// the base set. The rc's worker acts as both.
+func logAppPermissions(logger *slog.Logger, roles config.Role) {
+	if roles&(config.RoleEvaluator|config.RoleWorker) != 0 {
+		logger.Info("Evaluation App permissions required", "app", config.AppEval,
+			"permissions", permissionStrings(control.EvaluationPermissions()))
+	}
+
+	if roles&(config.RoleRemediator|config.RoleWorker) != 0 {
+		logger.Info("Remediation App permissions required", "app", config.AppRemediate,
+			"permissions", permissionStrings(control.RemediationPermissions(nil, false)))
+	}
+}
+
+func permissionStrings(ps []control.Permission) []string {
+	out := make([]string, 0, len(ps))
+	for _, p := range ps {
+		out = append(out, p.String())
+	}
+
+	return out
+}
+
+// newIngestRoutes builds the webhook handlers by route: the rc's
+// single-App route, plus one route per controls App whose webhook
+// secret is set (IMPL-0028 task 3.2, D29). Each validates with its own
+// secret only. The policy is read only for its watched paths, so a
+// policy error fails startup rather than silently dropping every push.
+func newIngestRoutes(cfg *config.Config, tc client.Client, taskQueue string, logger *slog.Logger) (map[string]http.Handler, error) {
 	policyCfg, err := policy.Load(cfg.GuardianConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("load policy for watched paths: %w", err)
 	}
 
-	return ingest.New(cfg.GitHubWebhookSecret, tc, taskQueue, policy.ExtractWatchedPaths(policyCfg), logger), nil
+	watched := policy.ExtractWatchedPaths(policyCfg)
+
+	routes := map[string]http.Handler{
+		webhookRoute: ingest.New(cfg.GitHubWebhookSecret, tc, taskQueue, watched, logger),
+	}
+
+	for _, app := range []config.App{config.AppEval, config.AppRemediate} {
+		creds := cfg.Credentials(app)
+		if creds.WebhookSecret == "" {
+			continue
+		}
+
+		routes[webhookRoute+"/"+string(app)] = ingest.NewApp(string(app), creds.AppID, creds.WebhookSecret, tc, taskQueue, watched, logger)
+	}
+
+	return routes, nil
 }
 
-// stopRoles shuts the HTTP servers down. The worker stops with the run
-// context.
-func stopRoles(logger *slog.Logger, _ worker.Worker, servers ...*http.Server) {
+// stopRoles shuts a process down in dependency order: the worker drains
+// in-flight tasks (bounded by shutdownTimeout) and closes its pool, then
+// the Temporal client closes, then the HTTP servers shut down. Servers
+// go last so readiness and metrics stay answerable while work drains.
+func stopRoles(logger *slog.Logger, stopWorker func(), tc client.Client, servers ...*http.Server) {
+	if stopWorker != nil {
+		drainWorker(logger, stopWorker, shutdownTimeout)
+	}
+
+	if tc != nil {
+		tc.Close()
+	}
+
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer shutdownCancel()
 
@@ -380,6 +487,24 @@ func stopRoles(logger *slog.Logger, _ worker.Worker, servers ...*http.Server) {
 	}
 
 	logger.Info("repo-guardian stopped")
+}
+
+// drainWorker runs stop and waits up to timeout for it. A worker that
+// outlives the bound is abandoned: the process is exiting, and Temporal
+// retries whatever the abandoned activities had in flight.
+func drainWorker(logger *slog.Logger, stop func(), timeout time.Duration) {
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		stop()
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(timeout):
+		logger.Warn("worker did not drain before the shutdown timeout", "timeout", timeout)
+	}
 }
 
 func shutdownObservability(logger *slog.Logger, obs *observability.Provider) {

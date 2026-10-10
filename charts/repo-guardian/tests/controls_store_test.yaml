@@ -1,0 +1,264 @@
+suite: controls database roles (IMPL-0028 tasks 6.4, 6.7, 6.8)
+templates:
+  - templates/deployment.yaml
+  - templates/store-postgres.yaml
+  - templates/store-postgres-roles.yaml
+  - templates/store-cnpg-cluster.yaml
+  - templates/migrate-job.yaml
+release:
+  name: rg
+  namespace: rg-ns
+set:
+  config:
+    appId: "12345"
+  secrets:
+    webhookSecret: "x"
+    privateKey: "x"
+  temporal:
+    address: temporal:7233
+  policy:
+    config: "guardian {}"
+  github:
+    eval: {appId: "11", existingSecret: rg-eval}
+    remediate: {appId: "22", existingSecret: rg-remediate}
+  migrate:
+    enabled: true
+  store:
+    controls:
+      enabled: true
+tests:
+  - it: provisions nothing while store.controls is off
+    template: templates/store-postgres-roles.yaml
+    set:
+      store.controls.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: baked renders four role Secrets, the init script and the roles hook
+    template: templates/store-postgres-roles.yaml
+    asserts:
+      - hasDocuments:
+          count: 6
+      - equal:
+          path: metadata.name
+          value: rg-repo-guardian-postgres-rg-owner
+        documentIndex: 0
+      - equal:
+          path: type
+          value: kubernetes.io/basic-auth
+        documentIndex: 0
+      - equal:
+          path: data.username
+          value: cmdfYWxs
+        documentIndex: 3
+      - matchRegex:
+          path: data["20-controls-roles.sh"]
+          pattern: "ALTER ROLE rg_owner WITH LOGIN NOSUPERUSER NOCREATEROLE PASSWORD :'rg_owner_pw'"
+        documentIndex: 4
+      - matchRegex:
+          path: data["20-controls-roles.sh"]
+          pattern: "GRANT rg_evaluator, rg_remediator TO rg_all"
+        documentIndex: 4
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install,pre-upgrade
+        documentIndex: 5
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-5"
+        documentIndex: 5
+
+  - it: baked mounts the controls init script and every password into Postgres
+    template: templates/store-postgres.yaml
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes[0].projected.sources
+          content: {configMap: {name: rg-repo-guardian-postgres-controls-init}}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: RG_OWNER_PASSWORD, valueFrom: {secretKeyRef: {name: rg-repo-guardian-postgres-rg-owner, key: password}}}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: RG_ALL_PASSWORD}
+          any: true
+
+  - it: cnpg declares the application roles as managed roles, with no owner role
+    template: templates/store-cnpg-cluster.yaml
+    set:
+      store.postgres.mode: cnpg
+    asserts:
+      - equal:
+          path: spec.managed.roles
+          value:
+            - {name: rg_evaluator, ensure: present, login: true, passwordSecret: {name: rg-repo-guardian-postgres-rg-evaluator}}
+            - {name: rg_remediator, ensure: present, login: true, passwordSecret: {name: rg-repo-guardian-postgres-rg-remediator}}
+            - {name: rg_all, ensure: present, login: true, inRoles: [rg_evaluator, rg_remediator], passwordSecret: {name: rg-repo-guardian-postgres-rg-all}}
+
+  - it: cnpg renders three role Secrets and no init script or hook
+    template: templates/store-postgres-roles.yaml
+    set:
+      store.postgres.mode: cnpg
+    asserts:
+      - hasDocuments:
+          count: 3
+      - equal:
+          path: metadata.labels["cnpg.io/reload"]
+          value: "true"
+
+  - it: external provisions nothing in the chart
+    template: templates/store-postgres-roles.yaml
+    set:
+      store.postgres: {mode: external, existingSecret: dsn}
+      store.controls.evaluator.existingSecret: ev
+      store.controls.remediator.existingSecret: rm
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: mounts only the evaluator's DSN into the evaluator
+    template: templates/deployment.yaml
+    documentSelector: {path: metadata.name, value: rg-repo-guardian-evaluator}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STORE_DSN_EVALUATOR
+            value: postgres://rg_evaluator:$(RG_EVALUATOR_PASSWORD)@rg-repo-guardian-postgres.rg-ns.svc.cluster.local:5432/repoguardian?sslmode=disable
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: STORE_DSN_REMEDIATOR}
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: RG_REMEDIATOR_PASSWORD}
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: RG_OWNER_PASSWORD}
+          any: true
+
+  - it: mounts only the remediator's DSN into the remediator, over cnpg
+    template: templates/deployment.yaml
+    documentSelector: {path: metadata.name, value: rg-repo-guardian-remediator}
+    set:
+      store.postgres.mode: cnpg
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STORE_DSN_REMEDIATOR
+            value: postgres://rg_remediator:$(RG_REMEDIATOR_PASSWORD)@rg-repo-guardian-postgres-rw.rg-ns.svc.cluster.local:5432/repoguardian?sslmode=require
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: STORE_DSN_EVALUATOR}
+          any: true
+
+  - it: keeps controls DSNs off ingest and the rc worker
+    template: templates/deployment.yaml
+    documentSelector: {path: metadata.name, value: rg-repo-guardian-worker}
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: STORE_DSN_EVALUATOR}
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: STORE_DSN_REMEDIATOR}
+          any: true
+
+  - it: connects all as rg_all for both halves
+    template: templates/deployment.yaml
+    set:
+      topology: all
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STORE_DSN_EVALUATOR
+            value: postgres://rg_all:$(RG_ALL_PASSWORD)@rg-repo-guardian-postgres.rg-ns.svc.cluster.local:5432/repoguardian?sslmode=disable
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STORE_DSN_REMEDIATOR
+            value: postgres://rg_all:$(RG_ALL_PASSWORD)@rg-repo-guardian-postgres.rg-ns.svc.cluster.local:5432/repoguardian?sslmode=disable
+
+  - it: reads external DSNs from each role's Secret
+    template: templates/deployment.yaml
+    documentSelector: {path: metadata.name, value: rg-repo-guardian-evaluator}
+    set:
+      store.postgres: {mode: external, existingSecret: dsn}
+      store.controls.evaluator.existingSecret: ev
+      store.controls.remediator.existingSecret: rm
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: STORE_DSN_EVALUATOR, valueFrom: {secretKeyRef: {name: ev, key: STORE_DSN_EVALUATOR}}}
+
+  - it: requires the per-role Secrets on external
+    template: templates/deployment.yaml
+    set:
+      store.postgres: {mode: external, existingSecret: dsn}
+      store.controls.evaluator.existingSecret: ev
+    asserts:
+      - failedTemplate:
+          errorPattern: "store.controls.remediator.existingSecret is required"
+
+  - it: refuses a per-role Secret outside external mode
+    template: templates/deployment.yaml
+    set:
+      store.controls.evaluator.existingSecret: ev
+    asserts:
+      - failedTemplate:
+          errorPattern: "store.controls.evaluator.existingSecret is read only with store.controls.enabled and store.postgres.mode=external"
+
+  - it: migrates the controls chain as rg_owner on baked
+    template: templates/migrate-job.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value: [migrate, --chain, controls]
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STORE_DSN
+            value: postgres://rg_owner:$(RG_OWNER_PASSWORD)@rg-repo-guardian-postgres.rg-ns.svc.cluster.local:5432/repoguardian?sslmode=disable
+
+  - it: migrates the controls chain with STORE_DSN on cnpg
+    template: templates/migrate-job.yaml
+    set:
+      store.postgres.mode: cnpg
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: STORE_DSN, valueFrom: {secretKeyRef: {name: rg-repo-guardian-postgres-app, key: uri}}}
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: RG_OWNER_PASSWORD}
+          any: true
+
+  - it: keeps the rc chain while store.controls is off
+    template: templates/migrate-job.yaml
+    set:
+      store.controls.enabled: false
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value: [migrate]
+
+  - it: runs the migrate Job on rollback and mounts the policy
+    template: templates/migrate-job.yaml
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install,pre-upgrade,pre-rollback
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: GUARDIAN_CONFIG, value: /etc/repo-guardian/policy/guardian.hcl}
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content: {name: policy, mountPath: /etc/repo-guardian/policy, readOnly: true}
+      - contains:
+          path: spec.template.spec.volumes
+          content: {name: policy, configMap: {name: rg-repo-guardian-policy}}

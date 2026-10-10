@@ -13,7 +13,7 @@ SLSA Level 3 provenance attestations.
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 2.0.0-rc.4 \
+  --version 2.0.0-rc.5 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -28,7 +28,7 @@ aws ecr get-login-password --region <region> | \
 
 helm install repo-guardian \
   oci://<account>.dkr.ecr.<region>.amazonaws.com/repo-guardian-chart \
-  --version 2.0.0-rc.4 \
+  --version 2.0.0-rc.5 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -73,7 +73,7 @@ secrets:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 2.0.0-rc.4 \
+  --version 2.0.0-rc.5 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -108,7 +108,8 @@ Temporal authenticates one of two ways:
   `temporal.tls.caSecret` (`ca.crt` only) or the system roots.
   `temporal.tls.disabled: true` allows a plaintext frontend, but the
   token is then readable on the wire. KEDA's temporal trigger cannot use
-  OIDC, so `worker.keda.enabled` is refused alongside it.
+  OIDC, so `keda.trigger: temporal` is refused alongside it; the default
+  `prometheus` trigger works with it.
 
 The store is still Postgres, in one of three modes:
 
@@ -401,7 +402,7 @@ cosign verify \
     '^https://github.com/donaldgifford/repo-guardian/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:2.0.0-rc.4
+  ghcr.io/donaldgifford/charts/repo-guardian:2.0.0-rc.5
 ```
 
 ### SLSA provenance
@@ -412,7 +413,7 @@ cosign verify-attestation --type slsaprovenance \
     '^https://github.com/slsa-framework/slsa-github-generator/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:2.0.0-rc.4
+  ghcr.io/donaldgifford/charts/repo-guardian:2.0.0-rc.5
 ```
 
 The provenance attestation records the build workflow path, source
@@ -588,10 +589,31 @@ incoming webhook.
 | discovery | object | `{"enabled":true,"interval":"1h"}` | Repository discovery. The discovery schedule enumerates every installation's repositories and starts a RepoWorkflow for each new one. Webhooks (`installation_repositories.added`, `repository.created`) are the primary on-ramp; this is the safety net for missed deliveries. |
 | discovery.enabled | bool | `true` | Toggle the discovery schedule. When false, webhooks still discover repositories; only the periodic enumeration stops. |
 | discovery.interval | string | `"1h"` | Cadence between discovery runs. Lower values spend more API budget on list_installation_repos; higher values delay discovery of repositories the webhook path missed. |
+| evaluator | object | `{"concurrency":10,"dbPoolSize":0,"keda":{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":1,"query":"","targetQueueSize":"50"},"replicas":1,"resources":{}}` | The evaluator role: the controls evaluation worker on the `repo-guardian-eval` queue (IMPL-0028 Phase 4). Rendered in split when `github.eval.appId` is set; in `all` it runs beside the rc worker. |
+| evaluator.concurrency | int | `10` | Concurrent activities per pod (EVALUATOR_CONCURRENCY). |
+| evaluator.dbPoolSize | int | `0` | Postgres pool size per pod (EVALUATOR_DB_POOL_SIZE). 0 keeps pgxpool's default. |
+| evaluator.keda | object | `{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":1,"query":"","targetQueueSize":"50"}` | KEDA autoscaling on this role's queue backlog (split only). Requires the KEDA CRDs. The trigger is the shared `keda.trigger`. |
+| evaluator.keda.enabled | bool | `false` | Render a ScaledObject. KEDA then owns the replica count. |
+| evaluator.keda.fallbackReplicas | string | `nil` | Replicas KEDA holds when the trigger fails three polls in a row. null uses `evaluator.replicas`. |
+| evaluator.keda.maxReplicas | int | `4` | Ceiling. Size it to the GitHub budget, not the backlog: checks are rate-limit bound, so pods past the budget only park more timers (INV-0018 Obs 7). |
+| evaluator.keda.minReplicas | int | `1` | Floor. |
+| evaluator.keda.query | string | `""` | Prometheus query (trigger `prometheus`). Empty builds the default from `temporal.namespace` and this role's queue. |
+| evaluator.keda.targetQueueSize | string | `"50"` | Backlog per replica before KEDA scales out (either trigger). |
+| evaluator.replicas | int | `1` | Replica count (split only). Ignored when `evaluator.keda.enabled`. |
+| evaluator.resources | object | `{}` | Resources; empty falls back to `resources`. |
 | extraEnv | list | `[]` | Additional environment variables |
 | extraVolumeMounts | list | `[]` | Additional volume mounts |
 | extraVolumes | list | `[]` | Additional volumes |
 | fullnameOverride | string | `""` | Override the full release name |
+| github | object | `{"eval":{"appId":"","existingSecret":"","privateKey":"","webhookSecret":""},"remediate":{"appId":"","existingSecret":"","privateKey":"","webhookSecret":""}}` | The two controls GitHub Apps (IMPL-0028 Phase 3, DESIGN-0032 § Two Apps). Each block is off until its appId is set. The private key is always mounted as a file. Keys go only to the roles that act as that App: the Evaluation App's to evaluator and `all` pods, the Remediation App's to remediator and `all` pods. Each webhook secret (and App id, for the app-mismatch check) goes to ingest and `all`. The rc's single-App `config.appId` / `secrets` keep serving the rc roles until the controls switch-over. |
+| github.eval.appId | string | `""` | The Evaluation App's numeric id. Empty disables the block. |
+| github.eval.existingSecret | string | `""` | Existing Secret with keys `private-key` and `webhook-secret`. Empty: the chart creates `<release>-eval` from the two values below. |
+| github.eval.privateKey | string | `""` | The Evaluation App's private key (PEM), when the chart creates the Secret. |
+| github.eval.webhookSecret | string | `""` | The Evaluation App's webhook secret, when the chart creates the Secret. |
+| github.remediate.appId | string | `""` | The Remediation App's numeric id. Empty disables the block. |
+| github.remediate.existingSecret | string | `""` | Existing Secret with keys `private-key` and `webhook-secret`. Empty: the chart creates `<release>-remediate` from the two values below. |
+| github.remediate.privateKey | string | `""` | The Remediation App's private key (PEM), when the chart creates the Secret. |
+| github.remediate.webhookSecret | string | `""` | The Remediation App's webhook secret, when the chart creates the Secret. |
 | image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | image.repository | string | `"ghcr.io/donaldgifford/repo-guardian"` | Container image repository |
 | image.tag | string | `""` | Overrides the image tag (default: appVersion) |
@@ -601,6 +623,11 @@ incoming webhook.
 | ingest.pdb.minAvailable | int | `1` | Pods kept through voluntary disruptions. |
 | ingest.replicas | int | `2` | Replica count (split only). |
 | ingest.resources | object | `{}` | Resources; empty falls back to `resources`. |
+| keda | object | `{"prometheus":{"authenticationRef":"","namespaceLabel":"exported_namespace","serverAddress":""},"trigger":"prometheus"}` | Settings shared by the controls roles' ScaledObjects. |
+| keda.prometheus.authenticationRef | string | `""` | An operator-owned TriggerAuthentication for that Prometheus. |
+| keda.prometheus.namespaceLabel | string | `"exported_namespace"` | The label holding the Temporal namespace on `approximate_backlog_count`. A ServiceMonitor scrape (prometheus- operator) renames Temporal's `namespace` to `exported_namespace` because `namespace` is the pod's; use `namespace` with `honorLabels: true` or a scrape that keeps the original. |
+| keda.prometheus.serverAddress | string | `""` | The Prometheus that scrapes the Temporal server. Required with `trigger: prometheus` once a role enables KEDA. |
+| keda.trigger | string | `"prometheus"` | `prometheus` (default) scales on the Temporal server's `approximate_backlog_count` and works with `temporal.auth.oidc`; `temporal` asks the frontend directly and is refused with OIDC. |
 | livenessProbe.httpGet.path | string | `"/healthz"` |  |
 | livenessProbe.httpGet.port | string | `"http"` |  |
 | livenessProbe.initialDelaySeconds | int | `5` |  |
@@ -631,6 +658,18 @@ incoming webhook.
 | readinessProbe.httpGet.port | string | `"http"` |  |
 | readinessProbe.initialDelaySeconds | int | `5` |  |
 | readinessProbe.periodSeconds | int | `10` |  |
+| remediator | object | `{"concurrency":10,"dbPoolSize":0,"keda":{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":0,"query":"","targetQueueSize":"50"},"replicas":1,"resources":{}}` | The remediator role: the controls remediation worker on the `repo-guardian-remediate` queue. Rendered in split when `github.remediate.appId` is set. Zero replicas never blocks the evaluator's promotion: each role has its own worker deployment. |
+| remediator.concurrency | int | `10` | Concurrent activities per pod (REMEDIATOR_CONCURRENCY). |
+| remediator.dbPoolSize | int | `0` | Postgres pool size per pod (REMEDIATOR_DB_POOL_SIZE). 0 keeps pgxpool's default. |
+| remediator.keda | object | `{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":0,"query":"","targetQueueSize":"50"}` | KEDA autoscaling on this role's queue backlog (split only). Requires the KEDA CRDs. The trigger is the shared `keda.trigger`. |
+| remediator.keda.enabled | bool | `false` | Render a ScaledObject. KEDA then owns the replica count. |
+| remediator.keda.fallbackReplicas | string | `nil` | Replicas KEDA holds when the trigger fails three polls in a row. null uses `remediator.replicas`. |
+| remediator.keda.maxReplicas | int | `4` | Ceiling. Size it to the GitHub budget, not the backlog: checks are rate-limit bound, so pods past the budget only park more timers (INV-0018 Obs 7). |
+| remediator.keda.minReplicas | int | `0` | Floor. 0 is allowed: promotion does not depend on a running remediator (DESIGN-0032 D28). |
+| remediator.keda.query | string | `""` | Prometheus query (trigger `prometheus`). Empty builds the default from `temporal.namespace` and this role's queue. |
+| remediator.keda.targetQueueSize | string | `"50"` | Backlog per replica before KEDA scales out (either trigger). |
+| remediator.replicas | int | `1` | Replica count (split only). Ignored when `remediator.keda.enabled`. |
+| remediator.resources | object | `{}` | Resources; empty falls back to `resources`. |
 | replicaCount | int | `1` | Number of replicas |
 | resources | object | `{"limits":{"cpu":"500m","memory":"256Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}` | Container resource requests and limits |
 | revisionHistoryLimit | int | `3` | Number of old ReplicaSets retained for rollback. Defaults to 3 to keep the kubectl `get rs` view tidy; bump if you need more rollback headroom. Kubernetes default is 10. |
@@ -650,8 +689,16 @@ incoming webhook.
 | serviceMonitor.enabled | bool | `false` | Create Prometheus ServiceMonitor |
 | serviceMonitor.interval | string | `"30s"` | Scrape interval |
 | serviceMonitor.labels | object | `{}` | Additional labels for ServiceMonitor |
-| store | object | `{"backend":"postgres","postgres":{"baked":{"existingSecret":"","existingSecretKey":"POSTGRES_PASSWORD","existingSecretROKey":"RO_PASSWORD","image":"postgres:18.4","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:18.4","instances":1,"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}}` | Persistent state store (per-repo reconcile state). See DESIGN-0012 §Backend modes. The in-memory backend was removed in IMPL-0016 (chart 1.0); postgres is the only supported value. |
+| store | object | `{"backend":"postgres","controls":{"all":{"existingSecret":"","existingSecretKey":"STORE_DSN_ALL"},"enabled":false,"evaluator":{"existingSecret":"","existingSecretKey":"STORE_DSN_EVALUATOR"},"remediator":{"existingSecret":"","existingSecretKey":"STORE_DSN_REMEDIATOR"}},"postgres":{"baked":{"existingSecret":"","existingSecretKey":"POSTGRES_PASSWORD","existingSecretROKey":"RO_PASSWORD","image":"postgres:18.4","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:18.4","instances":1,"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}}` | Persistent state store (per-repo reconcile state). See DESIGN-0012 §Backend modes. The in-memory backend was removed in IMPL-0016 (chart 1.0); postgres is the only supported value. |
 | store.backend | string | `"postgres"` | Backend implementation. Only "postgres" is supported. |
+| store.controls | object | `{"all":{"existingSecret":"","existingSecretKey":"STORE_DSN_ALL"},"enabled":false,"evaluator":{"existingSecret":"","existingSecretKey":"STORE_DSN_EVALUATOR"},"remediator":{"existingSecret":"","existingSecretKey":"STORE_DSN_REMEDIATOR"}}` | The controls line's database roles (IMPL-0028 Phase 6, DESIGN-0032 D31): rg_evaluator, rg_remediator and rg_all, and in baked mode a non-superuser owner, rg_owner, for the migrate Job. |
+| store.controls.all.existingSecret | string | `""` | External mode, `topology: all`: Secret holding rg_all's DSN. |
+| store.controls.all.existingSecretKey | string | `"STORE_DSN_ALL"` | Key inside existingSecret. |
+| store.controls.enabled | bool | `false` | Provision the roles, mount STORE_DSN_EVALUATOR / STORE_DSN_REMEDIATOR into the controls roles' pods, and point the migrate Job at the controls chain as the owner. Off until IMPL-0029's switch-over; enable it only against an empty database. |
+| store.controls.evaluator.existingSecret | string | `""` | External mode: Secret holding rg_evaluator's DSN. |
+| store.controls.evaluator.existingSecretKey | string | `"STORE_DSN_EVALUATOR"` | Key inside existingSecret. |
+| store.controls.remediator.existingSecret | string | `""` | External mode: Secret holding rg_remediator's DSN. |
+| store.controls.remediator.existingSecretKey | string | `"STORE_DSN_REMEDIATOR"` | Key inside existingSecret. |
 | store.postgres | object | `{"baked":{"existingSecret":"","existingSecretKey":"POSTGRES_PASSWORD","existingSecretROKey":"RO_PASSWORD","image":"postgres:18.4","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:18.4","instances":1,"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}` | Postgres-specific configuration. Ignored when backend != postgres. |
 | store.postgres.baked | object | `{"existingSecret":"","existingSecretKey":"POSTGRES_PASSWORD","existingSecretROKey":"RO_PASSWORD","image":"postgres:18.4","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"}` | Baked Postgres-only configuration. |
 | store.postgres.baked.existingSecret | string | `""` | Operator-supplied Secret holding the Postgres password. When set, the chart does NOT generate its own password Secret; the baked StatefulSet reads the password from this Secret and the app assembles STORE_DSN at runtime via $(POSTGRES_PASSWORD). Use this for GitOps/ArgoCD: the chart's default `lookup`-based password preservation returns nothing under `helm template`, so the generated password rotates on every sync and drifts from the already-initialised data directory (auth failures). Password must be URL-safe (alphanumeric) — it is interpolated into the DSN URL. |
@@ -690,7 +737,7 @@ incoming webhook.
 | templating.vars | object | `{}` | Map of env-var key to value. Keys must not collide with chart-managed env vars; the chart fails template rendering on collisions. |
 | temporal | object | `{"address":"","auth":{"oidc":{"audience":"","clientId":"","existingSecret":"","scopes":[],"tokenUrl":""}},"namespace":"repo-guardian","taskQueue":"repo-guardian","tls":{"caSecret":"","disabled":false,"existingSecret":"","serverName":""}}` | Temporal connection. Every role that dials Temporal (ingest, worker, all) gets these; api never does. |
 | temporal.address | string | `""` | Frontend `host:port`. Required. |
-| temporal.auth.oidc | object | `{"audience":"","clientId":"","existingSecret":"","scopes":[],"tokenUrl":""}` | Authenticate with a bearer token from an OAuth2 client-credentials grant (Keycloak and the like) instead of mTLS. The token is cached and renewed a minute before it expires. KEDA's temporal trigger cannot mint these, so it is refused with `worker.keda.enabled`. |
+| temporal.auth.oidc | object | `{"audience":"","clientId":"","existingSecret":"","scopes":[],"tokenUrl":""}` | Authenticate with a bearer token from an OAuth2 client-credentials grant (Keycloak and the like) instead of mTLS. The token is cached and renewed a minute before it expires. KEDA's temporal trigger cannot mint these, so use `keda.trigger: prometheus` with OIDC. |
 | temporal.auth.oidc.audience | string | `""` | `audience` parameter, for IdPs that take one. Keycloak sets the audience with a client-scope mapper instead. |
 | temporal.auth.oidc.clientId | string | `""` | OAuth2 client ID. |
 | temporal.auth.oidc.existingSecret | string | `""` | Secret holding the client secret under `client-secret`. Mounted as a file, never an env var. |
@@ -724,14 +771,9 @@ incoming webhook.
 | ui.replicas | int | `2` | Replica count. |
 | ui.resources | object | `{"limits":{"memory":"256Mi"},"requests":{"cpu":"50m","memory":"96Mi"}}` | Resources for the ui container. |
 | ui.sessionTTL | string | `"8h"` | Absolute session length; token refresh never extends it. |
-| worker | object | `{"buildId":"","concurrency":10,"keda":{"enabled":false,"maxReplicas":4,"minReplicas":1,"targetQueueSize":"50"},"replicas":1,"resources":{}}` | The worker role: runs workflows and activities (split only). |
+| worker | object | `{"buildId":"","concurrency":10,"replicas":1,"resources":{}}` | The worker role: runs workflows and activities (split only). |
 | worker.buildId | string | `""` | Temporal worker build ID (TEMPORAL_BUILD_ID). Empty uses `image.tag`, then the chart's appVersion. Each worker promotes its build to the deployment's current version at startup, and the newest semver build wins, so it must change whenever the image does. Set it only for images whose tag is not a version. |
 | worker.concurrency | int | `10` | Concurrent activities per pod (WORKER_ACTIVITY_CONCURRENCY). |
-| worker.keda | object | `{"enabled":false,"maxReplicas":4,"minReplicas":1,"targetQueueSize":"50"}` | KEDA autoscaling on Temporal backlog. Requires the KEDA CRDs. |
-| worker.keda.enabled | bool | `false` | Render a ScaledObject with a `temporal` trigger. |
-| worker.keda.maxReplicas | int | `4` | Ceiling. Size it to the GitHub budget, not the backlog: checks are rate-limit bound, so pods past the budget only park more timers (INV-0018 Obs 7). |
-| worker.keda.minReplicas | int | `1` | Floor. |
-| worker.keda.targetQueueSize | string | `"50"` | Backlog per replica before KEDA scales out. |
-| worker.replicas | int | `1` | Replica count. Ignored when `worker.keda.enabled`. |
+| worker.replicas | int | `1` | Replica count. |
 | worker.resources | object | `{}` | Resources; empty falls back to `resources`. |
 

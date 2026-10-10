@@ -304,6 +304,15 @@ Run 2026-10-10 by the maintainer: `cmd/rg-burst` from a workstation over dev's e
 
 **Decision: the `InstallationWorkflow` ContinueAsNew bound stays at `DefaultMaxHandled = 2000`.** It ends runs before the server suggestion, which keeps the cadence deterministic, and every run stays far below the history limits. The same bound applies to `installation/<app>/<id>` in Phase 4.
 
+### Budget branch on the live build (IMPL-0028 0.5)
+
+Read 2026-10-10 by the maintainer on dev (`2.0.0-rc.4`, current since 2026-09-27):
+
+- **`budget-v1` is taken.** A running RepoWorkflow's only `Version` marker is change id `budget-v1` at version `1`.
+- **Zero `WorkflowTaskFailed`.** Every running execution's current run was scanned (1 InstallationWorkflow, 8 RepoWorkflows, plus the two rg-burst runs from 0.4 before they were terminated), with no failed workflow task. The worker's SDK metrics were not read because the distroless image has no shell tools for an in-pod scrape. The history scan is the stronger check anyway.
+- **Replay fixture.** `installation/160613249` (queue `repo-guardian`), its current run spanning 2026-10-08 14:05 to 2026-10-10 11:25 UTC: 3,520 events, 364 acquires, 365 reports, 48 lease-sweep timers, no failed tasks. Committed compact as `internal/workflows/testdata/histories/installation_dev_rc4.json` (1.7 MB). Payloads carry only repository and lease ids, counts, rate-limit values and timestamps. It replays clean on this branch's code, so the Phase 4 changes (App fields with `omitempty`) are replay-compatible with real rc.4 histories. A probe that added a timer at workflow start made the replay fail as nondeterministic, so the check is real.
+- **Side effect of 0.4.** rg-burst left its InstallationWorkflows running on a queue with no worker. Both were terminated, and rg-burst now terminates its workflow on exit.
+
 ### Spike 1: GraphQL commit (IMPL-0028 0.6)
 
 Run 2026-10-09 by the maintainer against `repo-guardian/test` as a test Remediation App (Contents, Pull requests, Issues, Administration, Custom properties and Workflows write), through `getInstallClient`, so every call crossed otelhttp, the rate-limit transport and ghinstallation. Raw observations: `build/spike/TestSpike_GraphQLCommit.json` (not committed).

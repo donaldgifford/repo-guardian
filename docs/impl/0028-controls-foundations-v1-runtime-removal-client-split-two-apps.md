@@ -224,11 +224,11 @@ write-up.
   them. The budget workflow is reused under `installation/<app>/<id>`,
   so the threshold carries into Phase 4.
   Done 2026-10-10 (maintainer run): 20,000 pairs at 61/s, p50 376 ms, p99 5.3 s, 5 handoff failures; a run ends at about 3,500 events / 670 KB; frontend peak about 0.6 core. The bound stays at 2,000. Results in INV-0022 § Phase-0 results.
-- [ ] 0.5 **Budget branch on the live build (IMPL-0025 11.8,
+- [x] 0.5 **Budget branch on the live build (IMPL-0025 11.8,
   human-run).** Confirm dev's running build takes the `budget-v1` branch
   with zero `WorkflowTaskFailed` over a day of checks, and capture a
   fresh `InstallationWorkflow` history for the replay suite.
-  **Deferred - human required.**
+  Done 2026-10-10 (maintainer run): `budget-v1` at version 1, zero `WorkflowTaskFailed` across every running execution, and `testdata/histories/installation_dev_rc4.json` (two days of dev traffic) replays clean on this branch. Results in INV-0022 § Phase-0 results.
 - [x] 0.6 **GraphQL commit (INV-0022 spike 1, human-run against a
   throwaway repository).** Through a client built on the real transport
   chain (otelhttp → rate-limit transport → ghinstallation): a

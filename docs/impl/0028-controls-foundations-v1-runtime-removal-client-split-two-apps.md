@@ -300,8 +300,9 @@ write-up.
   recorded value, and apply any design change a result forces to the
   affected design in the same PR, marked "Amended (INV-0022 Phase-0
   results)".
-  **Deferred - human required** for the remaining entries: they are the
-  results of the human-run tasks 0.1–0.5, 0.9 and 0.14.
+  **Deferred - human required** for the remaining entry: the result of
+  the human-run task 0.14, which needs the `2.0.0-rc.5` build on dev
+  (7.5, 7.6). Results for 0.1–0.5 and 0.9 were added 2026-10-10.
   In progress: the addendum holds results for 0.10 to 0.13, and the corrections they force are applied to DESIGN-0028, DESIGN-0030, DESIGN-0032 and IMPL-0029. Phase-0 OQ1 is resolved (a): the migrate Job activates (task 6.8 here, IMPL-0029 4.5 and 5.6). The human-run results are added as they arrive.
 
 #### Success Criteria

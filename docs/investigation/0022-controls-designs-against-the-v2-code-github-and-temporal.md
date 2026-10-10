@@ -287,6 +287,23 @@ Decided 2026-10-10 by the maintainer:
 
 Run 2026-10-10 by the maintainer from a workstation over dev's real client path: `temporal-grpc.fartlab.dev:443` with TLS, namespace `repo-guardian-dev`, and a bearer token minted by a client-credentials grant for `repo-guardian-temporal`, the same client and secret the chart mounts. `temporal workflow start` (type `rg-smoke`, queue `rg-smoke`, no worker) returned a run id, `describe` read `WORKFLOW_EXECUTION_STATUS_RUNNING`, and `terminate` succeeded. Transport and authorization work end to end for start, describe and terminate. The mTLS run as IMPL-0028 0.3 words it moves to the DESIGN-0028 cut-over (IMPL-0026), because dev has no client certificate until then.
 
+### Budget burst (IMPL-0028 0.4)
+
+Run 2026-10-10 by the maintainer: `cmd/rg-burst` from a workstation over dev's edge TLS + OIDC path, on its own unversioned worker (queue `rg-burst`, fresh installation id), concurrency 50. Frontend CPU from the Kubernetes pod dashboard (request 0.1 core, no limit).
+
+| Run | Pairs | Bound | Failed | Rate | Acquire p50 / p99 / max | Last run's history | Frontend CPU |
+| --- | ----- | ----- | ------ | ---- | ----------------------- | ------------------ | ------------ |
+| 1 | 20,000 | 2,000 (default) | 5 (0.025%) | 61/s | 376 ms / 5.30 s / 25.8 s | 3,464 events, 671,178 B | peak about 0.6 core |
+| 2 | 5,000 | 10,000 | 0 | 59/s | 375 ms / 4.64 s / 27.4 s | 2,095 events, 398,959 B | about 0.25 core |
+
+- **About 1.7 events and 195 bytes per handled Update or Signal.** A run that ends at the 2,000-handled bound holds about 3,500 events and 670 KB, under a tenth of Temporal's 10,240-event / 10 MB warning limits.
+- **The server's suggestion caps a run too.** Run 2 lifted the bound to 10,000 handled, but its last run held only 2,095 events. A single run would have needed about 17,000, so `GetContinueAsNewSuggested` ended runs at roughly the same size. Raising the bound buys nothing. Lowering it only adds handoffs, which are where the failures come from.
+- **Failures and SDK warnings come from the handoff.** The 5 failed acquires were Updates caught in a ContinueAsNew handoff ("unexpected workflow task failure"). The warnings ("history contains events past expected last event ID", "premature end of stream") are stale workflow tasks the SDK drops and retries. In production `AcquireBudget` is an activity and retries; rg-burst calls without retries and counts them. 0.5 must tell these apart from nondeterminism when it counts `WorkflowTaskFailed`.
+- **Latency.** p50 includes the workstation → edge → frontend round trip. The p99 and max tails line up with handoffs. One installation sustains about 60 grants a second against real demand of under one a second: a 5,000/h REST budget at about 12 calls per check is about 400 checks an hour.
+- **Frontend CPU.** It peaked at about six times dev's 0.1-core request, with no throttling because there is no limit. `contrib/temporal/values-base.yaml` requests 250m.
+
+**Decision: the `InstallationWorkflow` ContinueAsNew bound stays at `DefaultMaxHandled = 2000`.** It ends runs before the server suggestion, which keeps the cadence deterministic, and every run stays far below the history limits. The same bound applies to `installation/<app>/<id>` in Phase 4.
+
 ### Spike 1: GraphQL commit (IMPL-0028 0.6)
 
 Run 2026-10-09 by the maintainer against `repo-guardian/test` as a test Remediation App (Contents, Pull requests, Issues, Administration, Custom properties and Workflows write), through `getInstallClient`, so every call crossed otelhttp, the rate-limit transport and ghinstallation. Raw observations: `build/spike/TestSpike_GraphQLCommit.json` (not committed).

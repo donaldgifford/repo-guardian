@@ -19,7 +19,9 @@ const (
 
 	// DefaultMaxHandled is OQ14's ContinueAsNew bound: the SDK's
 	// suggestion or this many handled Updates and Signals, whichever
-	// comes first. The burst test (IMPL-0025 11.7) resizes it.
+	// comes first. Measured on dev by rg-burst (IMPL-0028 0.4): a run
+	// that ends at the bound holds about 3,500 events and 670 KB, below
+	// the server's own suggestion, so the bound decides when to continue.
 	DefaultMaxHandled = 2000
 
 	// idleSweep is how often the lease sweep runs with no lease due.

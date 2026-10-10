@@ -217,13 +217,13 @@ write-up.
   start and terminate a throwaway workflow on the dev frontend over the
   client certificate the chart mounts.
   Done 2026-10-10 (maintainer run) over the credential dev's chart actually mounts, an OIDC token on edge TLS: start, describe and terminate succeeded. The mTLS run moves to the DESIGN-0028 cut-over (IMPL-0026). Results in INV-0022 § Phase-0 results.
-- [ ] 0.4 **Budget burst (IMPL-0025 11.7, human-run).** Run `cmd/rg-burst`
+- [x] 0.4 **Budget burst (IMPL-0025 11.7, human-run).** Run `cmd/rg-burst`
   (`-tags burst`) with 20,000 acquire/report pairs against one
   installation on dev. Record p50/p99 latency, history size and frontend
   CPU, and set the `InstallationWorkflow` ContinueAsNew threshold from
   them. The budget workflow is reused under `installation/<app>/<id>`,
   so the threshold carries into Phase 4.
-  **Deferred - human required.**
+  Done 2026-10-10 (maintainer run): 20,000 pairs at 61/s, p50 376 ms, p99 5.3 s, 5 handoff failures; a run ends at about 3,500 events / 670 KB; frontend peak about 0.6 core. The bound stays at 2,000. Results in INV-0022 § Phase-0 results.
 - [ ] 0.5 **Budget branch on the live build (IMPL-0025 11.8,
   human-run).** Confirm dev's running build takes the `budget-v1` branch
   with zero `WorkflowTaskFailed` over a day of checks, and capture a

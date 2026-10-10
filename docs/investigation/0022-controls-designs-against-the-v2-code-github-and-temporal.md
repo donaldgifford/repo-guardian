@@ -280,8 +280,12 @@ The deviations (fairness off, edge TLS + OIDC in place of mTLS) are reconciled i
 
 Decided 2026-10-10 by the maintainer:
 
-- **Fairness: turn it on.** Add `matching.enableFairness: true` to dev's dynamic config, as `contrib/temporal/values-base.yaml` does. Until then the per-installation fairness keys are ignored on dev. *Pending: maintainer applies and confirms it appears in `temporal-dynamic-config`.*
+- **Fairness: turn it on.** Add `matching.enableFairness: true` to dev's dynamic config, as `contrib/temporal/values-base.yaml` does. Until then the per-installation fairness keys are ignored on dev. Applied 2026-10-10: `temporal-dynamic-config` carries `matching.enableFairness: [{value: true}]`.
 - **Edge TLS + OIDC: keep it for now, documented.** `contrib/temporal/README.md` § Alternative: edge TLS and OIDC now describes it as a supported shape. 0.3 runs first as an OIDC smoke over the chart's real path. Dev then moves to DESIGN-0028's target, mTLS from an OpenBao-issued client CA through a cert-manager Vault Issuer plus a JWT on every call (IMPL-0026), with the dev release on `temporal.tls.existingSecret`, and 0.3 is re-run as written.
+
+### OIDC smoke (IMPL-0028 0.3)
+
+Run 2026-10-10 by the maintainer from a workstation over dev's real client path: `temporal-grpc.fartlab.dev:443` with TLS, namespace `repo-guardian-dev`, and a bearer token minted by a client-credentials grant for `repo-guardian-temporal`, the same client and secret the chart mounts. `temporal workflow start` (type `rg-smoke`, queue `rg-smoke`, no worker) returned a run id, `describe` read `WORKFLOW_EXECUTION_STATUS_RUNNING`, and `terminate` succeeded. Transport and authorization work end to end for start, describe and terminate. The mTLS run as IMPL-0028 0.3 words it moves to the DESIGN-0028 cut-over (IMPL-0026), because dev has no client certificate until then.
 
 ### Spike 1: GraphQL commit (IMPL-0028 0.6)
 

@@ -210,14 +210,13 @@ write-up.
   queues it has polled (`temporal worker deployment describe
   --deployment-name repo-guardian`).
   Done 2026-10-10 (maintainer run): server 1.32.0, Postgres default and visibility stores, 512 shards, namespace `repo-guardian-dev` (7d); fairness off and edge TLS + OIDC in place of mTLS (0.2); `2.0.0-rc.4` current on queue `repo-guardian`. Results in INV-0022 § Phase-0 results.
-- [ ] 0.2 **Bring dev in line with `contrib/temporal/` (IMPL-0025 9.3,
+- [x] 0.2 **Bring dev in line with `contrib/temporal/` (IMPL-0025 9.3,
   human-run).** Apply the deviations 0.1 found or record why each stays.
-  **Deferred - human required.**
-  In progress 2026-10-10: edge TLS + OIDC stays for now and is documented in `contrib/temporal/README.md`, with DESIGN-0028's mTLS + JWT (OpenBao CA, IMPL-0026) as the follow-up; turning fairness on is pending the maintainer.
-- [ ] 0.3 **mTLS smoke (IMPL-0025 9.8, human-run).** From a dev machine,
+  Done 2026-10-10 (maintainer run): fairness turned on; edge TLS + OIDC kept and documented in `contrib/temporal/README.md`, with DESIGN-0028's mTLS + JWT (OpenBao CA, IMPL-0026) as the follow-up.
+- [x] 0.3 **mTLS smoke (IMPL-0025 9.8, human-run).** From a dev machine,
   start and terminate a throwaway workflow on the dev frontend over the
   client certificate the chart mounts.
-  **Deferred - human required.**
+  Done 2026-10-10 (maintainer run) over the credential dev's chart actually mounts, an OIDC token on edge TLS: start, describe and terminate succeeded. The mTLS run moves to the DESIGN-0028 cut-over (IMPL-0026). Results in INV-0022 § Phase-0 results.
 - [ ] 0.4 **Budget burst (IMPL-0025 11.7, human-run).** Run `cmd/rg-burst`
   (`-tags burst`) with 20,000 acquire/report pairs against one
   installation on dev. Record p50/p99 latency, history size and frontend

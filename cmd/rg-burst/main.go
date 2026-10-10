@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 
@@ -128,12 +129,6 @@ func run() error {
 
 	elapsed := time.Since(start)
 
-	desc, err := c.DescribeWorkflowExecution(ctx, id, "")
-	if err != nil {
-		return err
-	}
-
-	info := desc.GetWorkflowExecutionInfo()
 	slices.Sort(latencies)
 
 	fmt.Printf("pairs=%d failed=%d elapsed=%s rate=%.0f/s\n", *n, failed, elapsed.Round(time.Millisecond), float64(*n)/elapsed.Seconds())
@@ -142,7 +137,25 @@ func run() error {
 	}
 
 	fmt.Printf("acquire p50=%s p99=%s max=%s\n", pct(latencies, 50), pct(latencies, 99), latencies[len(latencies)-1])
+
+	return finish(ctx, c, id)
+}
+
+// finish prints the current run's history size, then terminates the
+// budget workflow: it never ends on its own, and once this process and
+// its worker exit it would only time out workflow tasks on rg-burst.
+func finish(ctx context.Context, c client.Client, id string) error {
+	desc, err := c.DescribeWorkflowExecution(ctx, id, "")
+	if err != nil {
+		return err
+	}
+
+	info := desc.GetWorkflowExecutionInfo()
 	fmt.Printf("current run: history_length=%d history_size_bytes=%d\n", info.GetHistoryLength(), info.GetHistorySizeBytes())
+
+	if err := c.TerminateWorkflow(ctx, id, "", "rg-burst finished"); err != nil {
+		return fmt.Errorf("terminate %s: %w", id, err)
+	}
 
 	return nil
 }

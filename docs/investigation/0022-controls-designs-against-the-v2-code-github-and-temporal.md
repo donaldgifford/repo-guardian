@@ -373,7 +373,18 @@ First run 2026-10-09 by the maintainer as a test Evaluation App holding Metadata
 
 ### Spike 4: `installation_repositories` on an all-repositories install (IMPL-0028 0.9)
 
-*Pending, maintainer-run.* No script: create a repository in an org where a test App is installed on all repositories and check the App's recent deliveries for `installation_repositories` and `repository`.
+Run 2026-10-10 by the maintainer in the `repo-guardian` test org, with both test Apps installed on **all repositories**. The Evaluation App subscribes to `push`, `pull_request` and `repository`; the Remediation App subscribes to nothing and has an active webhook pointing at a placeholder URL. Creating `repo-guardian/spike-allrepos-20261010` produced:
+
+| App | Deliveries (UTC-4) |
+| --- | ------------------ |
+| Evaluation | `repository.created` 08:53:12, `push` 08:53:12 (the initial commit), `installation_repositories.added` 08:53:13 |
+| Remediation | `installation_repositories.added` 08:53:13 |
+
+The Remediation App's payload carried `repository_selection: "all"` and `repositories_added: [{id: 1413185081, full_name: "repo-guardian/spike-allrepos-20261010", private: true}]`. GitHub's documentation describes the event only for selected-repository changes, but **it fires on an all-repositories installation too**, about a second after `repository.created`, and GitHub sends it to Apps that subscribe to nothing.
+
+- **Remediation App:** it learns of a new repository from its own lifecycle event, without waiting for its discovery. Discovery stays the backstop, because GitHub does not redeliver a failed delivery (each placeholder delivery here failed and was never retried). DESIGN-0032 is amended to say so.
+- **Evaluation App: one new repository runs two discoveries.** `RouteWebhook` sends `repository.created` to `discover` (the one repository, then `recheck`). It sends `installation_repositories.added` to `discoverInstallation`, which starts a single-installation `DiscoveryWorkflow` keyed by delivery id. That workflow lists every repository in the installation and upserts them all. Both paths are idempotent, so the result is correct. The cost is a full installation listing (one call per 100 repositories, plus an upsert batch per 100) for every repository created in an all-repositories org, on top of the single-repository path that already handled it. The same happens on the rc today. This is not fixed here; see Phase-0 OQ2.
+
 
 ### Spike 5: Temporal behaviours (IMPL-0028 0.10)
 
@@ -450,6 +461,15 @@ Label names are unique case-insensitively, every endpoint addresses them case-in
 - (a) ✅ recommended: **the migrate Job.** It already runs once per `helm install`/`upgrade` (add `pre-rollback` to its hook list so a `helm rollback` also activates), loads the same binary and policy ConfigMap, computes the version and upserts `activated_at` as the owner. Workers only read the newest activation and start `controls-rollout/<version>/<activated_at unix seconds>` with `REJECT_DUPLICATE`, so each activation rolls out exactly once and a pod restart activates nothing.
 - (b) Workers activate only when the version they load is not the current activation **and** their pod template hash is newer than the one recorded with it (a `deploy_generation` column fed from a chart-stamped env var). Keeps activation in the worker but adds a deploy-identity value to the chart and schema.
 - (c) Keep per-pod activation and accept the straggler window: a restarting old pod discards resolutions until a new pod restarts. Simplest; wrong in exactly the failure it exists to prevent.
+- other:
+
+#### OQ2: Should `installation_repositories.added` on an all-repositories installation still run a full installation discovery?
+
+Spike 4 showed the event fires for every new repository on an all-repositories installation, alongside `repository.created`, so the Evaluation App lists its whole installation once per new repository.
+
+- (a) recommended: **discover only the payload's `repositories_added` when `repository_selection` is `all`**, the same path as `repository.created`, and keep the full single-installation listing for `selected`, where the payload can name repositories the listing must confirm. The scheduled discovery stays the backstop for anything a payload misses.
+- (b) Drop the `installation_repositories.added` route on the Evaluation App entirely when the installation is `all`, relying on `repository.created`. That saves the duplicate signal, but a repository created while the Evaluation App was suspended, then delivered on unsuspend, would wait for scheduled discovery.
+- (c) Leave it: the listing is cheap (one call per 100 repositories) and idempotent.
 - other:
 
 ## References

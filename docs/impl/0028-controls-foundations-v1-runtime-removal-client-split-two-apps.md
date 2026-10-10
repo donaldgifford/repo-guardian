@@ -253,12 +253,12 @@ write-up.
   readable. Record any field that needs Administration read. Can change
   the DESIGN-0032 permission table and A23.
   Done 2026-10-09 (maintainer, three runs): merge-policy settings are read through GraphQL; Administration read covers vulnerability alerts and `security_and_analysis`; property values need no Custom properties permission; the org schema needs Organization Custom properties read (DESIGN-0032 amended). Inherited org rulesets are untestable on the test org's plan.
-- [ ] 0.9 **`installation_repositories` on an all-repositories install
+- [x] 0.9 **`installation_repositories` on an all-repositories install
   (spike 4, human-run).** Create a repository in an org where a test App
   is installed on all repositories; record whether the event fires. If
   not, record that the Remediation App learns of new repositories only
   through its own discovery.
-  **Deferred - human required.**
+  Done 2026-10-10 (maintainer run): it fires for both Apps (`repository_selection: "all"`), about a second after `repository.created`; DESIGN-0032 amended. Finding: on the Evaluation App it also starts a full installation discovery per new repository (INV-0022 Phase-0 OQ2). Results in INV-0022 § Phase-0 results.
 - [x] 0.10 **Temporal behaviours (spike 5).** On the dev server or
   `temporaltest`: (a) signal-with-start into a workflow that is
   completing, asserting no lost signal with `GetUnhandledSignalNames`;

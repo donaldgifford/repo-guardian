@@ -26,7 +26,7 @@ Run a single test: `go test -v -race -run TestName ./internal/package/...`
 
 ## Tool Versions
 
-Managed via `mise.toml`. Key tools: Go 1.26.5, golangci-lint v2.12.2, mockery v3, golines, yamlfmt, yamllint, yq, helm 4.2.2, helm-ct, helm-diff, helm-docs, helm-unittest.
+Managed via `mise.toml`. Key tools: Go 1.26.9, golangci-lint v2.12.2, mockery v3, golines, yamlfmt, yamllint, yq, helm 4.2.2, helm-ct, helm-diff, helm-docs, helm-unittest.
 
 ## Architecture
 

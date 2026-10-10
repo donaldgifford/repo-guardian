@@ -19,6 +19,16 @@ import (
 // actionSuspend is the installation action that suspends the App.
 const actionSuspend = "suspend"
 
+// payloadDiscoveryMax is the most repositories an all-repositories
+// installation_repositories.added delivery may name and still be
+// discovered from its payload; above it (a selected → all switch) the
+// batched, retried DiscoveryWorkflow does the work. One listing page.
+const payloadDiscoveryMax = 100
+
+// selectionAll is the repository_selection of an installation on every
+// repository in its account.
+const selectionAll = "all"
+
 // The installation-level webhook events.
 const (
 	eventInstallation             = "installation"
@@ -115,14 +125,16 @@ func (r *Router) RouteWebhook(ctx context.Context, in *workflows.WebhookInput) e
 	case "push.":
 		return r.each(ctx, in, r.push)
 	case "repository.created":
-		return r.discover(ctx, in, workflows.TriggerWebhook, workflows.PriorityWebhook)
-	case "repository.unarchived", "installation.created", "installation_repositories.added":
+		return r.discover(ctx, in, workflows.TriggerWebhook)
+	case "installation_repositories.added":
+		return r.discoverAdded(ctx, in)
+	case "repository.unarchived", "installation.created":
 		return r.discoverInstallation(ctx, in)
 	case "repository.renamed", "repository.transferred":
 		// UpsertDiscovered matches by provider_repo_id and updates org,
 		// name and installation; the repositories.id, and so the
 		// workflow ID, is unchanged.
-		return r.discover(ctx, in, workflows.TriggerWebhook, workflows.PriorityWebhook)
+		return r.discover(ctx, in, workflows.TriggerWebhook)
 	case "repository.archived":
 		// The check's archived skip parks it, the same path as v1.
 		return r.each(ctx, in, r.recheckKnown)
@@ -157,6 +169,19 @@ func (*Router) each(
 	}
 
 	return errors.Join(errs...)
+}
+
+// discoverAdded routes installation_repositories.added. On an
+// all-repositories installation GitHub sends it for every new
+// repository, beside repository.created (INV-0022 Phase-0 OQ2): the
+// payload is the whole change, so listing the installation again would
+// only repeat it.
+func (r *Router) discoverAdded(ctx context.Context, in *workflows.WebhookInput) error {
+	if in.RepositorySelection == selectionAll && len(in.Repositories) <= payloadDiscoveryMax {
+		return r.discover(ctx, in, workflows.TriggerWebhook)
+	}
+
+	return r.discoverInstallation(ctx, in)
 }
 
 // discoverInstallation upserts the installation and starts its
@@ -194,7 +219,7 @@ func (r *Router) upsertInstallation(ctx context.Context, in *workflows.WebhookIn
 // discover upserts the installation and each repository in the payload
 // (un-parking a parked one: discovery is the only un-parker) and
 // rechecks it.
-func (r *Router) discover(ctx context.Context, in *workflows.WebhookInput, trigger string, p workflows.Priority) error {
+func (r *Router) discover(ctx context.Context, in *workflows.WebhookInput, trigger string) error {
 	if err := r.upsertInstallation(ctx, in); err != nil {
 		return err
 	}
@@ -208,7 +233,7 @@ func (r *Router) discover(ctx context.Context, in *workflows.WebhookInput, trigg
 			return err
 		}
 
-		return r.recheck(ctx, res.ID, in.InstallationID, trigger, p)
+		return r.recheck(ctx, res.ID, in.InstallationID, trigger, workflows.PriorityWebhook)
 	})
 }
 
@@ -221,7 +246,7 @@ func (r *Router) push(ctx context.Context, in *workflows.WebhookInput, repo work
 	case errors.Is(err, store.ErrNotFound):
 		one := &workflows.WebhookInput{InstallationID: in.InstallationID, Repositories: []workflows.WebhookRepo{repo}}
 
-		return r.discover(ctx, one, workflows.TriggerPush, workflows.PriorityWebhook)
+		return r.discover(ctx, one, workflows.TriggerPush)
 	case err != nil:
 		return err
 	case !found.Active:

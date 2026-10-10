@@ -246,4 +246,8 @@ type WebhookInput struct {
 	InstallationID int64
 	AccountLogin   string
 	Repositories   []WebhookRepo
+
+	// RepositorySelection is an installation_repositories delivery's
+	// repository_selection, "all" or "selected"; empty for other events.
+	RepositorySelection string `json:",omitempty"`
 }

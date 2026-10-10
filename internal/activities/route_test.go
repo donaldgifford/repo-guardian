@@ -2,6 +2,7 @@ package activities
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"sync"
@@ -212,6 +213,55 @@ func TestRouteWebhook_InstallationDiscoveryEvents(t *testing.T) {
 			if in, ok := tc.signals[0].arg.(*workflows.DiscoveryInput); !ok || in.InstallationID != 7 {
 				t.Errorf("discovery input = %+v", tc.signals[0].arg)
 			}
+		})
+	}
+}
+
+// On an all-repositories installation, installation_repositories.added
+// is discovered from its payload like repository.created; a selected
+// installation, or a payload past one listing page, is listed.
+func TestRouteWebhook_InstallationRepositoriesAdded(t *testing.T) {
+	many := make([]workflows.WebhookRepo, payloadDiscoveryMax+1)
+	for i := range many {
+		many[i] = workflows.WebhookRepo{ID: int64(100 + i), Org: "acme", Name: fmt.Sprintf("r%d", i)}
+	}
+
+	tests := []struct {
+		name      string
+		selection string
+		repos     []workflows.WebhookRepo
+		listing   bool
+	}{
+		{name: "all", selection: "all", repos: []workflows.WebhookRepo{widgets}},
+		{name: "selected", selection: "selected", repos: []workflows.WebhookRepo{widgets}, listing: true},
+		{name: "all past one page", selection: "all", repos: many, listing: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, st, tc := newRouter(t)
+			st.MockWriter.EXPECT().UpsertInstallation(mock.Anything, store.Installation{InstallationID: 7, AccountLogin: "acme"}).Return(nil)
+
+			if !tt.listing {
+				st.MockWriter.EXPECT().UpsertDiscovered(mock.Anything, mock.MatchedBy(func(d *store.DiscoveredRepo) bool {
+					return d.Name == "widgets" && d.InstallationID == 7
+				})).Return(store.UpsertResult{ID: 42}, nil)
+			}
+
+			in := webhook("installation_repositories", "added", tt.repos...)
+			in.RepositorySelection = tt.selection
+
+			if err := r.RouteWebhook(t.Context(), in); err != nil {
+				t.Fatal(err)
+			}
+
+			if tt.listing {
+				wantSignals(t, tc, signal{workflowID: "discovery/installation/7/d1", name: workflows.DiscoveryWorkflowName, started: true})
+
+				return
+			}
+
+			wantSignals(t, tc, signal{workflowID: "repo/42", name: workflows.RecheckSignal, started: true})
 		})
 	}
 }

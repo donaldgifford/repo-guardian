@@ -383,7 +383,7 @@ Run 2026-10-10 by the maintainer in the `repo-guardian` test org, with both test
 The Remediation App's payload carried `repository_selection: "all"` and `repositories_added: [{id: 1413185081, full_name: "repo-guardian/spike-allrepos-20261010", private: true}]`. GitHub's documentation describes the event only for selected-repository changes, but **it fires on an all-repositories installation too**, about a second after `repository.created`, and GitHub sends it to Apps that subscribe to nothing.
 
 - **Remediation App:** it learns of a new repository from its own lifecycle event, without waiting for its discovery. Discovery stays the backstop, because GitHub does not redeliver a failed delivery (each placeholder delivery here failed and was never retried). DESIGN-0032 is amended to say so.
-- **Evaluation App: one new repository runs two discoveries.** `RouteWebhook` sends `repository.created` to `discover` (the one repository, then `recheck`). It sends `installation_repositories.added` to `discoverInstallation`, which starts a single-installation `DiscoveryWorkflow` keyed by delivery id. That workflow lists every repository in the installation and upserts them all. Both paths are idempotent, so the result is correct. The cost is a full installation listing (one call per 100 repositories, plus an upsert batch per 100) for every repository created in an all-repositories org, on top of the single-repository path that already handled it. The same happens on the rc today. This is not fixed here; see Phase-0 OQ2.
+- **Evaluation App: one new repository runs two discoveries.** `RouteWebhook` sends `repository.created` to `discover` (the one repository, then `recheck`). It sends `installation_repositories.added` to `discoverInstallation`, which starts a single-installation `DiscoveryWorkflow` keyed by delivery id. That workflow lists every repository in the installation and upserts them all. Both paths are idempotent, so the result is correct. The cost is a full installation listing (one call per 100 repositories, plus an upsert batch per 100) for every repository created in an all-repositories org, on top of the single-repository path that already handled it. The same happens on the rc today. Fixed in IMPL-0028 per Phase-0 OQ2.
 
 
 ### Spike 5: Temporal behaviours (IMPL-0028 0.10)
@@ -464,6 +464,8 @@ Label names are unique case-insensitively, every endpoint addresses them case-in
 - other:
 
 #### OQ2: Should `installation_repositories.added` on an all-repositories installation still run a full installation discovery?
+
+**Resolved 2026-10-10: (a)**, with a bound. `WebhookInput` carries `RepositorySelection`. `RouteWebhook` discovers an all-repositories `added` from its payload when it names at most 100 repositories (one listing page). A larger payload, such as a selected → all switch, still goes to the batched, retried `DiscoveryWorkflow`, so one activity never upserts and signals thousands of repositories.
 
 Spike 4 showed the event fires for every new repository on an all-repositories installation, alongside `repository.created`, so the Evaluation App lists its whole installation once per new repository.
 

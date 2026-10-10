@@ -100,7 +100,7 @@ const (
 	repoRenamed = `{"action":"renamed","repository":{"id":9,"name":"gadgets","full_name":"acme/gadgets","owner":{"login":"acme"}},
 		"installation":{"id":7}}`
 	repoEdited   = `{"action":"edited","repository":{"id":9,"name":"widgets","owner":{"login":"acme"}},"installation":{"id":7}}`
-	instReposAdd = `{"action":"added","installation":{"id":7,"account":{"login":"acme"}},
+	instReposAdd = `{"action":"added","installation":{"id":7,"account":{"login":"acme"}},"repository_selection":"all",
 		"repositories_added":[{"id":9,"name":"widgets","full_name":"acme/widgets"},{"id":10,"name":"gadgets","full_name":"acme/gadgets"}]}`
 	instSuspend = `{"action":"suspend","installation":{"id":7,"account":{"login":"acme"}}}`
 )
@@ -158,7 +158,7 @@ func TestServeHTTP_StartOptionsAndInput(t *testing.T) {
 	}
 
 	if in.DeliveryID != "d-42" || in.AccountLogin != "acme" || len(in.Repositories) != 2 || in.Repositories[1].Org != "acme" ||
-		in.Repositories[1].ID != 10 {
+		in.Repositories[1].ID != 10 || in.RepositorySelection != "all" {
 		t.Errorf("input = %+v", in)
 	}
 }

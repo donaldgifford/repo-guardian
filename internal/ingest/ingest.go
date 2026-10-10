@@ -217,6 +217,8 @@ func (h *Handler) route(eventType string, event any) (*workflows.WebhookInput, b
 			InstallationID: e.GetInstallation().GetID(),
 			AccountLogin:   e.GetInstallation().GetAccount().GetLogin(),
 			Repositories:   reposOf(repos),
+
+			RepositorySelection: e.GetRepositorySelection(),
 		}, true
 	default:
 		h.logger.Debug("ignoring unhandled event type", "type", eventType)

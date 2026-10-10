@@ -440,7 +440,7 @@ Run 2026-10-07: `internal/store/postgres/policy_revert_spike_integration_test.go
 
 ### Spike 9: Per-role deployment rehearsal (IMPL-0028 0.14)
 
-*Pending, maintainer-run on dev.*
+Not run as a separate rehearsal (maintainer decision, 2026-10-10): no phase waited on it. The behaviour is covered by `TestControlsDeployments_DevServer` on the Temporal dev server: the eval deployment promotes at first start, the rc deployment keeps its build, and a remediate deployment with no pollers does not block the evaluator. Dev's history shows the same promotion for every rc build so far (rc.1 to rc.4, 0.1). Seeing it on the cluster is part of IMPL-0028 7.6, when rc.5 is deployed to dev.
 
 ### Spike 10: Label case (IMPL-0028 0.15)
 

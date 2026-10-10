@@ -284,25 +284,23 @@ write-up.
   `ON CONFLICT DO NOTHING` revert bug with a test, then prototype the
   `activated_at` upsert DESIGN-0030 D14 specifies.
   Done 2026-10-07; results in INV-0022 § Phase-0 results.
-- [ ] 0.14 **Per-role deployment rehearsal (spike 9, human-run).** On
+- [x] 0.14 **Per-role deployment rehearsal (spike 9, human-run).** On
   dev: start a build that polls `repo-guardian-eval` under deployment
   `repo-guardian-eval` while the rc's `repo-guardian` deployment keeps
   its backlog; confirm the new build becomes current at first start;
   stop it and confirm the rc resumes with no `set-current-version`.
   Confirm a `repo-guardian-remediate` deployment at zero replicas does
   not block the evaluator's promotion.
-  **Deferred - human required.**
+  Done 2026-10-10 by substitution (maintainer decision): no phase waits on it. `TestControlsDeployments_DevServer` (task 4.11) runs this scenario on the Temporal dev server, and dev's history (0.1) shows rc.1 to rc.4 each becoming current at first start. Seeing it on the cluster is part of 7.6, when rc.5 reaches dev. Results in INV-0022 § Phase-0 results.
 - [x] 0.15 **Label case (spike 10, human-run).** Create and update a
   label whose name differs from an existing one only in case; record
   GitHub's behaviour for DESIGN-0031's `labels` control.
   Done 2026-10-09 (maintainer run); results in INV-0022 § Phase-0 results.
-- [ ] 0.16 Write the "Phase-0 results" addendum to INV-0022 with every
+- [x] 0.16 Write the "Phase-0 results" addendum to INV-0022 with every
   recorded value, and apply any design change a result forces to the
   affected design in the same PR, marked "Amended (INV-0022 Phase-0
   results)".
-  **Deferred - human required** for the remaining entry: the result of
-  the human-run task 0.14, which needs the `2.0.0-rc.5` build on dev
-  (7.5, 7.6). Results for 0.1–0.5 and 0.9 were added 2026-10-10.
+  Results for 0.1–0.5, 0.9 and 0.14 were added 2026-10-10.
   In progress: the addendum holds results for 0.10 to 0.13, and the corrections they force are applied to DESIGN-0028, DESIGN-0030, DESIGN-0032 and IMPL-0029. Phase-0 OQ1 is resolved (a): the migrate Job activates (task 6.8 here, IMPL-0029 4.5 and 5.6). The human-run results are added as they arrive.
 
 #### Success Criteria
@@ -952,7 +950,9 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
   image and chart publish.
 - [ ] 7.6 Deploy the rc to dev (human-run): the rc roles keep running;
   an evaluator and a remediator start on their deployments with both
-  Apps' credentials and report ready.
+  Apps' credentials and report ready. In the Temporal UI, check that
+  `repo-guardian-eval` reaches Current on its first start while
+  `repo-guardian` keeps rc.4 or rc.5 (this absorbs 0.14).
   **Deferred - human required.**
 
 #### Success Criteria

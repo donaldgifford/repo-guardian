@@ -633,6 +633,20 @@ evaluator's store.
   and make the push filter ignore `Reads()`; confirm the coalescing test
   and the `catalog-info.yaml` selects `custom_properties` test fail;
   restore.
+- [ ] 5.14 KEDA on the homelab (human-run, moved from IMPL-0028 5.6 and
+  5.7, because the evaluation queue first has work here). Prerequisites:
+  install KEDA 2.21 (check its Kubernetes compatibility table against
+  the Talos cluster), and set `keda.prometheus.serverAddress` to the
+  in-cluster Prometheus that scrapes Temporal, with
+  `keda.prometheus.namespaceLabel` left at `exported_namespace`
+  (IMPL-0028 5.6 found the ServiceMonitor rename). Then, on dev in
+  `topology: split`: (a) with `repo-guardian-eval` non-empty, compare
+  the default query's value with `temporal task-queue describe`, and if
+  they disagree fix the query and its helm-unittest and record why;
+  (b) enable `evaluator.keda`, generate a backlog with a policy change
+  or a discovery run, and watch the evaluator scale out and back. Record
+  both in INV-0022.
+  **Deferred - human required.**
 
 #### Success Criteria
 

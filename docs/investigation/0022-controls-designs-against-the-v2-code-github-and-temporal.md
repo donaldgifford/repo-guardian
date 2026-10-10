@@ -321,7 +321,7 @@ Read 2026-10-10 by the maintainer from the homelab Prometheus, which scrapes the
 - **Build labels match the spike.** Versioned series carry `worker_build_id` (`2_0_0_rc_4`), `worker_deployment_name` (`repo_guardian`) and `worker_version` (`repo_guardian_2_0_0_rc_4`). Each queue also has an `__unversioned__` series with no `worker_build_id`, which the existing `max by (..., worker_build_id)` keeps as its own group. Drained builds (`rc.1` to `rc.3`, `dev`) still report zero-valued series. Label values are sanitised (`-` and `.` become `_`), as the spike found.
 - Series are split by `task_type` (`Workflow`, `Activity`) and `task_priority`, and carry `pod`/`instance`, which the inner `max` drops.
 
-Still open in 5.6: comparing the query's value with `temporal task-queue describe` while each controls queue is non-empty. Those queues have pollers only once rc.5 runs on dev, and they have work only once IMPL-0029 gives the evaluator something to do.
+Moved to IMPL-0029 5.14: comparing the query's value with `temporal task-queue describe` while each controls queue is non-empty, and the scale-out run (IMPL-0028 5.7). Those queues have work only once IMPL-0029 gives the evaluator something to do, and KEDA is not yet installed on the homelab.
 
 ### Spike 1: GraphQL commit (IMPL-0028 0.6)
 

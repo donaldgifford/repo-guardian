@@ -776,7 +776,7 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
   Done: `tests/keda_test.yaml` (16 cases); the old worker-KEDA cases in
   `topology_test.yaml`/`temporal_auth_test.yaml` were replaced.
   `make lint-alerts-chart`: 16 rules, SUCCESS.
-- [ ] 5.6 Homelab (human-run, on dev): list the series and labels of
+- [x] 5.6 Homelab (human-run, on dev): list the series and labels of
   `approximate_backlog_count{namespace="repo_guardian"}` for both queues
   (label values are sanitised, `-` to `_`: INV-0022 Phase-0 results);
   with each queue non-empty, compare the default query's value with
@@ -784,11 +784,12 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
   query and its helm-unittest and record why (IMPL-0026 6.1 to 6.3).
   deferred - human required: homelab Prometheus query against the dev
   cluster.
-  In progress 2026-10-10 (maintainer run): the series exist, but the Temporal namespace sits under `exported_namespace` behind a ServiceMonitor, so the default query matched nothing. Fixed with `keda.prometheus.namespaceLabel` (default `exported_namespace`) and a helm-unittest case. The value comparison waits until the controls queues have work. Results in INV-0022 § Phase-0 results.
-- [ ] 5.7 Homelab (human-run): enable KEDA for the evaluator with the
+  In progress 2026-10-10 (maintainer run): the series exist, but the Temporal namespace sits under `exported_namespace` behind a ServiceMonitor, so the default query matched nothing. Fixed with `keda.prometheus.namespaceLabel` (default `exported_namespace`) and a helm-unittest case. The value comparison moved to IMPL-0029 5.14 (maintainer decision): the controls queues have no work before IMPL-0029. Results in INV-0022 § Phase-0 results.
+- [x] 5.7 Homelab (human-run): enable KEDA for the evaluator with the
   Prometheus trigger, generate a backlog with `rg-burst` or a policy
   change, and watch it scale out and back (IMPL-0026 6.9).
   deferred - human required: homelab scale-out/in run.
+  Moved to IMPL-0029 5.14 (maintainer decision, 2026-10-10): the evaluator has no work to create a backlog before IMPL-0029, and KEDA is not yet installed on the homelab. Installing it is that task's prerequisite.
 - [x] 5.8 Docs: the KEDA values change in
   `docs/operations/v2-onboarding.md` (per-role objects, default trigger
   `prometheus`, `serverAddress` required) (IMPL-0026 5.3's intent; the

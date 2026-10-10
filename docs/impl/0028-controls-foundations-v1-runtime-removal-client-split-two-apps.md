@@ -202,14 +202,14 @@ write-up.
 
 #### Tasks
 
-- [ ] 0.1 **Dev Temporal baseline (IMPL-0025 9.1, human-run).** On the
+- [x] 0.1 **Dev Temporal baseline (IMPL-0025 9.1, human-run).** On the
   dev install, record the server version (must be at least 1.31),
   persistence and visibility stores, `matching.enableFairness`, frontend
   TLS, and whether the `repo-guardian` namespace exists. Also record the
   current version of worker deployment `repo-guardian` and the task
   queues it has polled (`temporal worker deployment describe
   --deployment-name repo-guardian`).
-  **Deferred - human required.**
+  Done 2026-10-10 (maintainer run): server 1.32.0, Postgres default and visibility stores, 512 shards, namespace `repo-guardian-dev` (7d); fairness off and edge TLS + OIDC in place of mTLS (0.2); `2.0.0-rc.4` current on queue `repo-guardian`. Results in INV-0022 § Phase-0 results.
 - [ ] 0.2 **Bring dev in line with `contrib/temporal/` (IMPL-0025 9.3,
   human-run).** Apply the deviations 0.1 found or record why each stays.
   **Deferred - human required.**

@@ -257,6 +257,25 @@ The corrections in F3 to F6, F8 to F10, F12 and F18 apply without a decision.
 
 Recorded by IMPL-0028 Phase 0 (OQ2: results live here, one subsection per spike). Spikes marked *pending* are maintainer-run; their tests are in the tree and write raw observations to `build/spike/<test>.json`.
 
+### Dev Temporal baseline (IMPL-0028 0.1)
+
+Read 2026-10-10 by the maintainer from the `temporal` namespace's ConfigMaps, the `repo-guardian-dev` Deployment env and the Temporal UI. Dev runs chart and image `2.0.0-rc.4` in Kubernetes namespace `repo-guardian-dev`, against Temporal namespace `repo-guardian-dev`: on dev the two names match by convention. A second install in Kubernetes namespace `repo-guardian` runs v1 and does not use Temporal.
+
+| Item | Dev | `contrib/temporal/` |
+| ---- | --- | ------------------- |
+| Server | 1.32.0 (admin-tools 1.32.0, UI 2.54.1) | 1.32.0, floor 1.31 |
+| Default store | `postgres12_pgx` | Postgres (CNPG) |
+| Visibility store | `postgres12_pgx` (SQL visibility) | `visibility-postgres.yaml` |
+| History shards | 512 | 512 |
+| `matching.enableFairness` | **unset (off)**: no key in `temporal-dynamic-config` | `true` |
+| Frontend transport | **TLS at the edge**: `temporal-grpc.fartlab.dev:443`, verified as that server name; no `tls:` block in `temporal-config` and no frontend/internode/admin TLS Secrets | in-cluster frontend and internode mTLS |
+| Client identity | **OIDC bearer**: Keycloak client-credentials client `repo-guardian-temporal`, secret mounted as a file (`TEMPORAL_OIDC_*`); server `authorization` uses the `default` authorizer and claim mapper, audience `temporal`, claim `permissions`, JWKS from the realm's `certs` endpoint, refreshed every 5m | client certificate |
+| Namespace | `repo-guardian-dev`: 7-day retention, not global, history and visibility archival disabled | `repo-guardian`, 7-day retention |
+
+Worker deployment `repo-guardian`: current version `2.0.0-rc.4` (deployed 2026-09-27 22:50 EDT); `2.0.0-rc.3`, `rc.2` and `rc.1` drained; an early `dev` build inactive. Each release became current on its own start, with no manual `set-current-version`. Task queue `repo-guardian` has one poller (`repo-guardian-dev-all`, build `2.0.0-rc.4`, current) with workflow and activity handlers and no Nexus handler; it is the only queue that build polls.
+
+The deviations (fairness off, edge TLS + OIDC in place of mTLS) are reconciled in 0.2. Under OIDC, KEDA's `temporal` trigger is refused (INV-0020), so dev autoscaling uses the default `prometheus` trigger.
+
 ### Spike 1: GraphQL commit (IMPL-0028 0.6)
 
 Run 2026-10-09 by the maintainer against `repo-guardian/test` as a test Remediation App (Contents, Pull requests, Issues, Administration, Custom properties and Workflows write), through `getInstallClient`, so every call crossed otelhttp, the rate-limit transport and ghinstallation. Raw observations: `build/spike/TestSpike_GraphQLCommit.json` (not committed).

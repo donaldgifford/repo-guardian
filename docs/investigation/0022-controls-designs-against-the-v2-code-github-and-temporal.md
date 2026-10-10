@@ -276,6 +276,13 @@ Worker deployment `repo-guardian`: current version `2.0.0-rc.4` (deployed 2026-0
 
 The deviations (fairness off, edge TLS + OIDC in place of mTLS) are reconciled in 0.2. Under OIDC, KEDA's `temporal` trigger is refused (INV-0020), so dev autoscaling uses the default `prometheus` trigger.
 
+### Bringing dev in line (IMPL-0028 0.2)
+
+Decided 2026-10-10 by the maintainer:
+
+- **Fairness: turn it on.** Add `matching.enableFairness: true` to dev's dynamic config, as `contrib/temporal/values-base.yaml` does. Until then the per-installation fairness keys are ignored on dev. *Pending: maintainer applies and confirms it appears in `temporal-dynamic-config`.*
+- **Edge TLS + OIDC: keep it for now, documented.** `contrib/temporal/README.md` § Alternative: edge TLS and OIDC now describes it as a supported shape. 0.3 runs first as an OIDC smoke over the chart's real path. Dev then moves to DESIGN-0028's target, mTLS from an OpenBao-issued client CA through a cert-manager Vault Issuer plus a JWT on every call (IMPL-0026), with the dev release on `temporal.tls.existingSecret`, and 0.3 is re-run as written.
+
 ### Spike 1: GraphQL commit (IMPL-0028 0.6)
 
 Run 2026-10-09 by the maintainer against `repo-guardian/test` as a test Remediation App (Contents, Pull requests, Issues, Administration, Custom properties and Workflows write), through `getInstallClient`, so every call crossed otelhttp, the rate-limit transport and ghinstallation. Raw observations: `build/spike/TestSpike_GraphQLCommit.json` (not committed).

@@ -213,6 +213,7 @@ write-up.
 - [ ] 0.2 **Bring dev in line with `contrib/temporal/` (IMPL-0025 9.3,
   human-run).** Apply the deviations 0.1 found or record why each stays.
   **Deferred - human required.**
+  In progress 2026-10-10: edge TLS + OIDC stays for now and is documented in `contrib/temporal/README.md`, with DESIGN-0028's mTLS + JWT (OpenBao CA, IMPL-0026) as the follow-up; turning fairness on is pending the maintainer.
 - [ ] 0.3 **mTLS smoke (IMPL-0025 9.8, human-run).** From a dev machine,
   start and terminate a throwaway workflow on the dev frontend over the
   client certificate the chart mounts.

@@ -71,6 +71,47 @@ Then create `temporal-opensearch` (key `password`) and
 `temporal-opensearch-ca` (key `ca.crt`) and use
 `visibility-opensearch-baked.yaml`.
 
+## Alternative: edge TLS and OIDC
+
+The homelab dev cluster runs a different client-auth shape, and the
+repo-guardian chart supports it (`temporal.auth.oidc.*`). TLS ends at a gRPC
+ingress (for example `temporal-grpc.example.com:443`), and every call
+carries a bearer token that Temporal's JWT authorizer checks. There are
+no frontend, internode or admin certificates. Layer it on with
+`server.config.authorization` in place of the `tls` block in
+`values-base.yaml`:
+
+```yaml
+server:
+  config:
+    authorization:
+      jwtKeyProvider:
+        keySourceURIs:
+          - https://<idp>/realms/<realm>/protocol/openid-connect/certs
+        refreshInterval: 5m
+      audience: temporal
+      permissionsClaimName: permissions
+      authorizer: default
+      claimMapper: default
+```
+
+- **The token.** The client-credentials client repo-guardian uses (the
+  chart's `temporal.auth.oidc.clientId`, its secret mounted as a file) must
+  issue tokens with audience `temporal`, carrying a `permissions` claim
+  that the default claim mapper reads as `<namespace>:<role>`, for
+  example `repo-guardian:writer`.
+- **Internal traffic.** Keep the chart's internal-frontend enabled.
+  Temporal's own services and admin-tools reach the server through it
+  without a token.
+- **KEDA.** Under OIDC the chart refuses `keda.trigger: temporal`
+  (INV-0020), so autoscaling uses the default `prometheus` trigger.
+- **Reachability.** The authorizer is now the boundary, so the ingress
+  may sit outside the cluster. `networkpolicy.yaml` still applies to
+  in-cluster callers.
+
+This is the interim shape. The target is DESIGN-0028: mTLS from an
+OpenBao-issued client CA *and* a JWT on every call.
+
 ## Checking a change
 
 ```bash

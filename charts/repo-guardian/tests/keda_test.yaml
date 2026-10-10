@@ -29,6 +29,16 @@ tests:
       - hasDocuments:
           count: 0
 
+  - it: reads the Temporal namespace from keda.prometheus.namespaceLabel
+    template: templates/worker-scaledobject.yaml
+    set:
+      evaluator.keda.enabled: true
+      keda.prometheus.namespaceLabel: namespace
+    asserts:
+      - equal:
+          path: spec.triggers[0].metadata.query
+          value: sum(max by (partition, task_type, task_priority, worker_build_id) (approximate_backlog_count{namespace="repo_guardian", taskqueue="repo_guardian_eval"}))
+
   - it: scales each role on its own queue with the default query
     template: templates/worker-scaledobject.yaml
     set:
@@ -47,7 +57,7 @@ tests:
         documentIndex: 0
       - equal:
           path: spec.triggers[0].metadata.query
-          value: sum(max by (partition, task_type, task_priority, worker_build_id) (approximate_backlog_count{namespace="repo_guardian", taskqueue="repo_guardian_eval"}))
+          value: sum(max by (partition, task_type, task_priority, worker_build_id) (approximate_backlog_count{exported_namespace="repo_guardian", taskqueue="repo_guardian_eval"}))
         documentIndex: 0
       - equal:
           path: spec.triggers[0].metadata.serverAddress
@@ -63,7 +73,7 @@ tests:
         documentIndex: 1
       - equal:
           path: spec.triggers[0].metadata.query
-          value: sum(max by (partition, task_type, task_priority, worker_build_id) (approximate_backlog_count{namespace="repo_guardian", taskqueue="repo_guardian_remediate"}))
+          value: sum(max by (partition, task_type, task_priority, worker_build_id) (approximate_backlog_count{exported_namespace="repo_guardian", taskqueue="repo_guardian_remediate"}))
         documentIndex: 1
       - equal:
           path: spec.minReplicaCount

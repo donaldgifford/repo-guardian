@@ -623,8 +623,9 @@ incoming webhook.
 | ingest.pdb.minAvailable | int | `1` | Pods kept through voluntary disruptions. |
 | ingest.replicas | int | `2` | Replica count (split only). |
 | ingest.resources | object | `{}` | Resources; empty falls back to `resources`. |
-| keda | object | `{"prometheus":{"authenticationRef":"","serverAddress":""},"trigger":"prometheus"}` | Settings shared by the controls roles' ScaledObjects. |
+| keda | object | `{"prometheus":{"authenticationRef":"","namespaceLabel":"exported_namespace","serverAddress":""},"trigger":"prometheus"}` | Settings shared by the controls roles' ScaledObjects. |
 | keda.prometheus.authenticationRef | string | `""` | An operator-owned TriggerAuthentication for that Prometheus. |
+| keda.prometheus.namespaceLabel | string | `"exported_namespace"` | The label holding the Temporal namespace on `approximate_backlog_count`. A ServiceMonitor scrape (prometheus- operator) renames Temporal's `namespace` to `exported_namespace` because `namespace` is the pod's; use `namespace` with `honorLabels: true` or a scrape that keeps the original. |
 | keda.prometheus.serverAddress | string | `""` | The Prometheus that scrapes the Temporal server. Required with `trigger: prometheus` once a role enables KEDA. |
 | keda.trigger | string | `"prometheus"` | `prometheus` (default) scales on the Temporal server's `approximate_backlog_count` and works with `temporal.auth.oidc`; `temporal` asks the frontend directly and is refused with OIDC. |
 | livenessProbe.httpGet.path | string | `"/healthz"` |  |

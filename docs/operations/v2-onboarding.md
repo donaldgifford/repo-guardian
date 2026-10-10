@@ -136,10 +136,14 @@ remediator:
   `approximate_backlog_count` from your Prometheus, so it needs
   `keda.prometheus.serverAddress`. The default query per role is
   `sum(max by (partition, task_type, task_priority, worker_build_id)
-  (approximate_backlog_count{namespace="repo_guardian",
+  (approximate_backlog_count{exported_namespace="repo_guardian",
   taskqueue="repo_guardian_eval"}))` (`repo_guardian_remediate` for the
   remediator). Temporal sanitises label values, so `-` becomes `_` in
-  both the namespace and the queue. Override it per role with
+  both the namespace and the queue. The Temporal namespace is read from
+  `exported_namespace` because a ServiceMonitor scrape renames
+  Temporal's `namespace` label (the pod's namespace takes it). If your
+  Prometheus keeps the original label (`honorLabels: true`, or a plain
+  scrape config), set `keda.prometheus.namespaceLabel: namespace`. Override it per role with
   `<role>.keda.query` when your server's metrics carry a prefix.
 - **`temporal`** asks the frontend directly. With
   `temporal.tls.existingSecret` the chart renders a TriggerAuthentication

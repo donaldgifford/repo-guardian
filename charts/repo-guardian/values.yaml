@@ -260,6 +260,12 @@ keda:
     serverAddress: ""
     # -- An operator-owned TriggerAuthentication for that Prometheus.
     authenticationRef: ""
+    # -- The label holding the Temporal namespace on
+    # `approximate_backlog_count`. A ServiceMonitor scrape (prometheus-
+    # operator) renames Temporal's `namespace` to `exported_namespace`
+    # because `namespace` is the pod's; use `namespace` with
+    # `honorLabels: true` or a scrape that keeps the original.
+    namespaceLabel: exported_namespace
 
 # -- The api role: the read-only JSON API (DESIGN-0027). It holds only
 # a read-only database credential: no App key, no webhook secret.

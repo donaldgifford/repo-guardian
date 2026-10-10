@@ -305,14 +305,16 @@ A controls role's task queue: the binary's defaults
 {{/*
 A controls role's default KEDA query (DESIGN-0028 § Prometheus trigger).
 Temporal sanitises label values, `-` becoming `_` (INV-0022 Phase-0
-results); the inner max stops a partition counting twice while it
-moves, and groups on task_priority and worker_build_id because there is
-no aggregate series across them.
+results); the Temporal namespace sits under keda.prometheus.namespaceLabel,
+exported_namespace behind a ServiceMonitor (IMPL-0028 5.6). The inner max
+stops a partition counting twice while it moves, and groups on
+task_priority and worker_build_id because there is no aggregate series
+across them; unversioned series lack worker_build_id and group apart.
 */}}
 {{- define "repo-guardian.kedaQuery" -}}
 {{- $ns := .ctx.Values.temporal.namespace | replace "-" "_" -}}
 {{- $q := include "repo-guardian.roleTaskQueue" . | replace "-" "_" -}}
-sum(max by (partition, task_type, task_priority, worker_build_id) (approximate_backlog_count{namespace="{{ $ns }}", taskqueue="{{ $q }}"}))
+sum(max by (partition, task_type, task_priority, worker_build_id) (approximate_backlog_count{ {{- .ctx.Values.keda.prometheus.namespaceLabel | default "exported_namespace" }}="{{ $ns }}", taskqueue="{{ $q }}"}))
 {{- end }}
 
 {{/*

@@ -313,6 +313,16 @@ Read 2026-10-10 by the maintainer on dev (`2.0.0-rc.4`, current since 2026-09-27
 - **Replay fixture.** `installation/160613249` (queue `repo-guardian`), its current run spanning 2026-10-08 14:05 to 2026-10-10 11:25 UTC: 3,520 events, 364 acquires, 365 reports, 48 lease-sweep timers, no failed tasks. Committed compact as `internal/workflows/testdata/histories/installation_dev_rc4.json` (1.7 MB). Payloads carry only repository and lease ids, counts, rate-limit values and timestamps. It replays clean on this branch's code, so the Phase 4 changes (App fields with `omitempty`) are replay-compatible with real rc.4 histories. A probe that added a timer at workflow start made the replay fail as nondeterministic, so the check is real.
 - **Side effect of 0.4.** rg-burst left its InstallationWorkflows running on a queue with no worker. Both were terminated, and rg-burst now terminates its workflow on exit.
 
+### Backlog metric on the homelab Prometheus (IMPL-0028 5.6)
+
+Read 2026-10-10 by the maintainer from the homelab Prometheus, which scrapes the Temporal 1.32.0 matching service through a ServiceMonitor. This checks Spike 5(b)'s dev-server labels against the production reporter:
+
+- **The Temporal namespace is `exported_namespace`, not `namespace`.** prometheus-operator stamps the target's Kubernetes namespace (`temporal`) into `namespace` and renames Temporal's own label to `exported_namespace="repo_guardian_dev"`. The default KEDA query selected `namespace=` and would have read nothing, so KEDA would never scale. Fixed: the query reads `keda.prometheus.namespaceLabel`, default `exported_namespace`, and setups that keep the original label set `namespace`. The generated Temporal alerts and the chart's PrometheusRule already avoided `namespace` for this reason.
+- **Build labels match the spike.** Versioned series carry `worker_build_id` (`2_0_0_rc_4`), `worker_deployment_name` (`repo_guardian`) and `worker_version` (`repo_guardian_2_0_0_rc_4`). Each queue also has an `__unversioned__` series with no `worker_build_id`, which the existing `max by (..., worker_build_id)` keeps as its own group. Drained builds (`rc.1` to `rc.3`, `dev`) still report zero-valued series. Label values are sanitised (`-` and `.` become `_`), as the spike found.
+- Series are split by `task_type` (`Workflow`, `Activity`) and `task_priority`, and carry `pod`/`instance`, which the inner `max` drops.
+
+Still open in 5.6: comparing the query's value with `temporal task-queue describe` while each controls queue is non-empty. Those queues have pollers only once rc.5 runs on dev, and they have work only once IMPL-0029 gives the evaluator something to do.
+
 ### Spike 1: GraphQL commit (IMPL-0028 0.6)
 
 Run 2026-10-09 by the maintainer against `repo-guardian/test` as a test Remediation App (Contents, Pull requests, Issues, Administration, Custom properties and Workflows write), through `getInstallClient`, so every call crossed otelhttp, the rate-limit transport and ghinstallation. Raw observations: `build/spike/TestSpike_GraphQLCommit.json` (not committed).

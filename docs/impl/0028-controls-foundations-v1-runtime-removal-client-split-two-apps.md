@@ -784,6 +784,7 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
   query and its helm-unittest and record why (IMPL-0026 6.1 to 6.3).
   deferred - human required: homelab Prometheus query against the dev
   cluster.
+  In progress 2026-10-10 (maintainer run): the series exist, but the Temporal namespace sits under `exported_namespace` behind a ServiceMonitor, so the default query matched nothing. Fixed with `keda.prometheus.namespaceLabel` (default `exported_namespace`) and a helm-unittest case. The value comparison waits until the controls queues have work. Results in INV-0022 § Phase-0 results.
 - [ ] 5.7 Homelab (human-run): enable KEDA for the evaluator with the
   Prometheus trigger, generate a backlog with `rg-burst` or a policy
   change, and watch it scale out and back (IMPL-0026 6.9).

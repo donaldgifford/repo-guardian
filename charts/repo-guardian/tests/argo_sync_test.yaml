@@ -161,3 +161,16 @@ tests:
           of: Cluster
       - notExists:
           path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+
+  - it: waits for Postgres in both psql Jobs before running SQL (IMPL-0028 8.3)
+    templates:
+      - templates/store-postgres-roles.yaml
+      - templates/store-postgres-ro.yaml
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: (?s)until pg_isready -q; do.*exit 1.*done\npsql -v ON_ERROR_STOP=1
+        documentSelector:
+          path: kind
+          value: Job
+          matchMany: true

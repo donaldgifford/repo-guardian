@@ -91,6 +91,7 @@ spec:
           args:
             - |
               set -eu
+              {{- include "repo-guardian.pgWaitScript" . | nindent 14 }}
               psql -v ON_ERROR_STOP=1 {{ include "repo-guardian.controlsPasswordVars" . }} <<'SQL'
               {{- include "repo-guardian.controlsRolesSQL" . | nindent 14 }}
               SQL

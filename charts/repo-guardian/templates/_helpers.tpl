@@ -896,3 +896,23 @@ mid-wait instead of failing with the last connection error.
 {{- fail (printf "migrate.waitSeconds (%d) must be less than migrate.activeDeadlineSeconds (%d)" (int .Values.migrate.waitSeconds) (int $d)) -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Shell lines for the baked psql hook Jobs: wait for Postgres to accept
+connections (IMPL-0028 8.3). Under Argo CD a Job can start before the
+StatefulSet's Postgres is up; this waits up to 240s, inside the Jobs'
+300s deadline, instead of spending backoffLimit on refused connections.
+pg_isready reads the Job's PGHOST/PGUSER/PGDATABASE.
+*/}}
+{{- define "repo-guardian.pgWaitScript" -}}
+i=0
+until pg_isready -q; do
+  i=$((i + 1))
+  if [ "$i" -ge 60 ]; then
+    echo "postgres not accepting connections after 240s" >&2
+    exit 1
+  fi
+  echo "waiting for postgres (attempt $i)"
+  sleep 4
+done
+{{- end }}

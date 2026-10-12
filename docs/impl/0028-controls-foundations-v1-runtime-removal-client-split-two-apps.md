@@ -1038,9 +1038,13 @@ Argo's annotations mean nothing to Helm.
   refusal, then a proxy to pgtest Postgres), and three helm-unittest
   cases. Probe: dropping the refusal case fails the wait and
   classification tests; restored.
-- [ ] 8.3 The two psql Jobs wait the same way, with an
+- [x] 8.3 The two psql Jobs wait the same way, with an
   `until pg_isready …` loop bounded inside their `activeDeadlineSeconds`,
   in place of relying on `backoffLimit`.
+  Done: `repo-guardian.pgWaitScript` (up to 240s, 60 × 4s, inside the
+  300s deadline) runs before psql in the controls-roles and read-only role
+  Jobs. A helm-unittest case covers both Jobs; dropping it from the
+  read-only Job fails the case.
 - [ ] 8.4 `ActivatePolicyVersion` is a no-op when `version` is already the
   current activation (OQ13): the upsert updates `activated_at` only when
   the newest activation is a different version, and `firstSeen` keeps its

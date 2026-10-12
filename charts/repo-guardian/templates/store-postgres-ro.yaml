@@ -88,6 +88,7 @@ spec:
           args:
             - |
               set -eu
+              {{- include "repo-guardian.pgWaitScript" . | nindent 14 }}
               psql -v ON_ERROR_STOP=1 -v pw="$RO_PASSWORD" <<'SQL'
               SELECT NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'repoguardian_ro') AS missing \gset
               \if :missing

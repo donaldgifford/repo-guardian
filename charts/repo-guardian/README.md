@@ -633,10 +633,11 @@ incoming webhook.
 | livenessProbe.initialDelaySeconds | int | `5` |  |
 | livenessProbe.periodSeconds | int | `15` |  |
 | migrate.activeDeadlineSeconds | int | `600` | Upper bound on the Job's run time, in seconds. The v1 backfill is one transaction; raise this for very large fleets. |
-| migrate.backoffLimit | int | `6` | Job retries before the release fails. On a first install the Job may start before Postgres accepts connections; retries cover it. |
+| migrate.backoffLimit | int | `6` | Job retries before the release fails. |
 | migrate.enabled | bool | `true` | Run `repo-guardian migrate` as a hook Job (v2 schema migrations and the one-time v1 backfill): post-install, so a baked Postgres exists to connect to, and pre-upgrade, so the schema lands before new pods roll. |
 | migrate.freshness | string | `"24h"` | The v1 backfill's freshness: a v1 repo checked within this window keeps its due-time; older ones are due immediately after cutover. |
 | migrate.resources | object | `{"limits":{"cpu":"500m","memory":"256Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}` | Resources for the migrate container. |
+| migrate.waitSeconds | int | `300` | How long `repo-guardian migrate` waits for the database to accept connections, in seconds (MIGRATE_WAIT). Under Argo CD the Job can start before Postgres does, even after the CNPG Cluster reports healthy. Must stay under `activeDeadlineSeconds`, so a database that never comes up fails with its last error rather than a killed pod. |
 | nameOverride | string | `""` | Override the chart name |
 | nodeSelector | object | `{}` | Node selector |
 | podAnnotations | object | `{}` | Pod annotations |

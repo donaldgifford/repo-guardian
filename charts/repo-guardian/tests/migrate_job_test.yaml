@@ -75,3 +75,29 @@ tests:
           content:
             name: RECONCILE_FRESHNESS
             value: "48h"
+
+  - it: waits for the database for migrate.waitSeconds (IMPL-0028 8.2)
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: MIGRATE_WAIT
+            value: 300s
+
+  - it: passes a custom wait
+    set:
+      migrate.waitSeconds: 120
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: MIGRATE_WAIT
+            value: 120s
+
+  - it: refuses a wait that would outlast the Job deadline
+    set:
+      migrate.waitSeconds: 600
+      migrate.activeDeadlineSeconds: 600
+    asserts:
+      - failedTemplate:
+          errorMessage: migrate.waitSeconds (600) must be less than migrate.activeDeadlineSeconds (600)

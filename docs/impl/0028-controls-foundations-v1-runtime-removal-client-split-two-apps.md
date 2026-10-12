@@ -1018,7 +1018,7 @@ Argo's annotations mean nothing to Helm.
   `repo-guardian.argoWorkloadWave` in `_helpers.tpl`, whose comment holds
   the ladder; the three hook Jobs, the role and UI Deployments, both PDB
   templates and the ScaledObjects use them. The UI Service stays in wave 0.
-- [ ] 8.2 `repo-guardian migrate` waits for the database. It retries the
+- [x] 8.2 `repo-guardian migrate` waits for the database. It retries the
   connection with capped exponential backoff (1 s doubling to 30 s) until
   `--wait` (env `MIGRATE_WAIT`, default 5m) runs out, then fails naming
   the last error. Only connection refusals and DNS failures are retried;
@@ -1026,6 +1026,18 @@ Argo's annotations mean nothing to Helm.
   `migrate.wait`, with a guard that it stays under
   `migrate.activeDeadlineSeconds`. Unit test against a listener that
   accepts only after a delay; a refused-then-ready integration case.
+  Done: `postgres.WaitReady` (`internal/store/postgres/wait.go`) retries
+  refused or timed-out dials, DNS misses and SQLSTATE 57P03 ("starting
+  up"); any other error, a bad password included, fails at once. Both
+  migrate chains call it through `openReady`; progress goes to stderr.
+  `--wait` / `MIGRATE_WAIT` (default 5m). The chart value is
+  `migrate.waitSeconds` (300), not `migrate.wait`, so `validateMigrate`
+  can compare it with `activeDeadlineSeconds` (Helm has no duration
+  parser). Tests: `TestWaitReady`, `TestNotReady`,
+  `TestParseMigrateFlags_Wait`, `TestWaitReady_RefusedThenReady` (a real
+  refusal, then a proxy to pgtest Postgres), and three helm-unittest
+  cases. Probe: dropping the refusal case fails the wait and
+  classification tests; restored.
 - [ ] 8.3 The two psql Jobs wait the same way, with an
   `until pg_isready …` loop bounded inside their `activeDeadlineSeconds`,
   in place of relying on `backoffLimit`.

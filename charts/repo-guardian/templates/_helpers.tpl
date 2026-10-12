@@ -884,3 +884,15 @@ argocd.argoproj.io/sync-wave: {{ . | quote }}
 {{- define "repo-guardian.argoWorkloadWave" -}}
 argocd.argoproj.io/sync-wave: "4"
 {{- end }}
+
+{{/*
+The migrate Job waits for the database inside its own deadline
+(IMPL-0028 8.2): a wait as long as the deadline would have the pod killed
+mid-wait instead of failing with the last connection error.
+*/}}
+{{- define "repo-guardian.validateMigrate" -}}
+{{- $d := .Values.migrate.activeDeadlineSeconds -}}
+{{- if and $d (ge (int .Values.migrate.waitSeconds) (int $d)) -}}
+{{- fail (printf "migrate.waitSeconds (%d) must be less than migrate.activeDeadlineSeconds (%d)" (int .Values.migrate.waitSeconds) (int $d)) -}}
+{{- end -}}
+{{- end }}

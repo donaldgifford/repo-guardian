@@ -1072,9 +1072,12 @@ Argo's annotations mean nothing to Helm.
   table, the per-sync re-run and the kept Job), linked from the install
   step, plus `migrate.waitSeconds` in § Postgres; CLAUDE.md § Chart hooks
   under Argo CD.
-- [ ] 8.7 `Chart.yaml` `version` and `appVersion` → `2.0.0-rc.6`;
+- [x] 8.7 `Chart.yaml` `version` and `appVersion` → `2.0.0-rc.6`;
   helm-docs regenerated; `make ci`, `make helm-test` and
   `make test-integration` green; PR to `v2` with `dont-release`.
+  Done 2026-10-12: chart and appVersion `2.0.0-rc.6`, README regenerated;
+  `make ci` green, `make helm-test` 250/250, `make test-integration` 28
+  packages ok.
 - [ ] 8.8 Release and prove it (human-run): merge, tag `v2.0.0-rc.6`,
   dispatch `ghcr.yml`. Then delete the dev Application, clear the
   `repo-guardian-dev` Temporal namespace, and reinstall rc.6 through Argo

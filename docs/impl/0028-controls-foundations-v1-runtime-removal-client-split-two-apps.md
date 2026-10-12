@@ -1063,11 +1063,15 @@ Argo's annotations mean nothing to Helm.
   Done: `tests/argo_sync_test.yaml`, 9 cases (246 chart tests pass).
   Probe: dropping the migrate Job's `argoHook` and the Deployment wave
   failed both cases; restored.
-- [ ] 8.6 Docs: `docs/operations/v2-onboarding.md` § Installing with Argo
+- [x] 8.6 Docs: `docs/operations/v2-onboarding.md` § Installing with Argo
   CD (the waves, why `helm.sh/hook` alone breaks a first install, and that
   dev's two-commit workaround is no longer needed); a CLAUDE.md line in
   the chart notes: every new hook Job needs both annotation sets and a
   wave.
+  Done: v2-onboarding § Installing with Argo CD (the cause, the wave
+  table, the per-sync re-run and the kept Job), linked from the install
+  step, plus `migrate.waitSeconds` in § Postgres; CLAUDE.md § Chart hooks
+  under Argo CD.
 - [ ] 8.7 `Chart.yaml` `version` and `appVersion` → `2.0.0-rc.6`;
   helm-docs regenerated; `make ci`, `make helm-test` and
   `make test-integration` green; PR to `v2` with `dont-release`.

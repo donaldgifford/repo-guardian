@@ -1,0 +1,163 @@
+suite: argo cd sync order (IMPL-0028 Phase 8)
+# Argo maps a bare helm.sh/hook by phase, so a pre-upgrade migrate Job
+# ran before the release existed and a first install never came up. Every
+# hook Job carries an Argo Sync hook and a wave; the workloads sit after
+# them; everything else stays in Argo's default wave 0.
+templates:
+  - templates/migrate-job.yaml
+  - templates/store-postgres-roles.yaml
+  - templates/store-postgres-ro.yaml
+  - templates/deployment.yaml
+  - templates/pdb.yaml
+  - templates/worker-scaledobject.yaml
+  - templates/ui.yaml
+  - templates/service.yaml
+  - templates/serviceaccount.yaml
+  - templates/store-postgres.yaml
+  - templates/store-cnpg-cluster.yaml
+release:
+  name: rg
+  namespace: rg-ns
+set:
+  config:
+    appId: "12345"
+  secrets:
+    webhookSecret: "x"
+    privateKey: "x"
+  temporal:
+    address: temporal:7233
+  policy:
+    config: "guardian {}"
+  github:
+    eval: {appId: "11", existingSecret: rg-eval}
+    remediate: {appId: "22", existingSecret: rg-remediate}
+  migrate:
+    enabled: true
+  store:
+    controls:
+      enabled: true
+  api:
+    enabled: true
+    auth:
+      issuer: https://idp.example.com
+  evaluator:
+    keda:
+      enabled: true
+  keda:
+    prometheus:
+      serverAddress: http://prometheus.monitoring:9090
+  ui:
+    enabled: true
+    existingSecret: ui-secret
+    ingress:
+      host: guardian.example.com
+tests:
+  - it: makes the migrate Job an Argo Sync hook in wave 2 and keeps its Helm hook
+    template: templates/migrate-job.yaml
+    asserts:
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/hook"]
+          value: Sync
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/hook-delete-policy"]
+          value: BeforeHookCreation
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "2"
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install,pre-upgrade,pre-rollback
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "0"
+
+  - it: runs the baked controls-roles Job in wave 1, before migrate
+    template: templates/store-postgres-roles.yaml
+    documentIndex: 5
+    asserts:
+      - isKind:
+          of: Job
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/hook"]
+          value: Sync
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "1"
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install,pre-upgrade
+
+  - it: runs the baked read-only role Job in wave 3, after migrate
+    template: templates/store-postgres-ro.yaml
+    documentIndex: 2
+    asserts:
+      - isKind:
+          of: Job
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/hook"]
+          value: Sync
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "3"
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install,post-upgrade
+
+  - it: puts every role Deployment in wave 4
+    template: templates/deployment.yaml
+    asserts:
+      - isKind:
+          of: Deployment
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "4"
+
+  - it: puts every PodDisruptionBudget in wave 4
+    template: templates/pdb.yaml
+    asserts:
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "4"
+
+  - it: puts the ScaledObjects in wave 4 with what they scale
+    template: templates/worker-scaledobject.yaml
+    asserts:
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "4"
+
+  - it: puts the UI Deployment and PDB in wave 4 and leaves its Service in wave 0
+    template: templates/ui.yaml
+    asserts:
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "4"
+        documentIndex: 0
+      - notExists:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "4"
+        documentIndex: 2
+
+  - it: leaves the Services, ServiceAccount and baked store in wave 0
+    templates:
+      - templates/service.yaml
+      - templates/serviceaccount.yaml
+      - templates/store-postgres.yaml
+    asserts:
+      - notExists:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+      - notExists:
+          path: metadata.annotations["argocd.argoproj.io/hook"]
+
+  - it: leaves the CNPG Cluster in wave 0
+    template: templates/store-cnpg-cluster.yaml
+    set:
+      store.postgres.mode: cnpg
+    asserts:
+      - isKind:
+          of: Cluster
+      - notExists:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]

@@ -26,6 +26,7 @@ metadata:
     helm.sh/hook: post-install,pre-upgrade,pre-rollback
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
     helm.sh/hook-weight: "0"
+    {{- include "repo-guardian.argoHook" "2" | nindent 4 }}
 spec:
   backoffLimit: {{ .Values.migrate.backoffLimit }}
   {{- with .Values.migrate.activeDeadlineSeconds }}

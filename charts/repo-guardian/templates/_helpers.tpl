@@ -857,3 +857,30 @@ mode, where the controls roles need them.
 {{- end -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Argo CD sync order (IMPL-0028 Phase 8). Argo cannot tell install from
+upgrade: it maps a bare helm.sh/hook by phase (pre-* to PreSync, post-* to
+PostSync), so a pre-upgrade Job ran before the release's ServiceAccount
+and store existed and a first install never came up. Every hook Job
+therefore carries an Argo Sync hook beside its Helm annotations (Argo then
+ignores helm.sh/hook for it), on this ladder:
+  0  everything else, unannotated (ServiceAccount, RBAC, ConfigMaps,
+     Secrets, the store, Services)
+  1  the controls-roles Job      (Helm weight -5)
+  2  the migrate Job             (Helm weight 0)
+  3  the read-only role Job      (Helm weight 10, post-upgrade)
+  4  the Deployments, their PDBs and ScaledObjects
+so upgrades still migrate before new pods roll. Helm ignores these.
+Takes the wave as a string.
+*/}}
+{{- define "repo-guardian.argoHook" -}}
+argocd.argoproj.io/hook: Sync
+argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+argocd.argoproj.io/sync-wave: {{ . | quote }}
+{{- end }}
+
+{{/* The workload wave of the ladder above. */}}
+{{- define "repo-guardian.argoWorkloadWave" -}}
+argocd.argoproj.io/sync-wave: "4"
+{{- end }}

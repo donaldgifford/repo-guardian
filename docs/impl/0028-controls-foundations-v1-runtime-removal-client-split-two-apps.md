@@ -1001,7 +1001,7 @@ Argo's annotations mean nothing to Helm.
 
 #### Tasks
 
-- [ ] 8.1 Argo hook annotations on every chart hook Job, beside the Helm
+- [x] 8.1 Argo hook annotations on every chart hook Job, beside the Helm
   ones: `argocd.argoproj.io/hook: Sync` and
   `argocd.argoproj.io/hook-delete-policy: BeforeHookCreation`. With
   `argocd.argoproj.io/hook` set, Argo ignores `helm.sh/hook*` for that
@@ -1014,6 +1014,10 @@ Argo's annotations mean nothing to Helm.
   - wave 3: the read-only role Job (baked, split with api);
   - wave 4: the role Deployments and what scales them (ScaledObjects,
     PDBs), so upgrades still migrate before new pods roll out.
+  Done: `repo-guardian.argoHook` (takes the wave) and
+  `repo-guardian.argoWorkloadWave` in `_helpers.tpl`, whose comment holds
+  the ladder; the three hook Jobs, the role and UI Deployments, both PDB
+  templates and the ScaledObjects use them. The UI Service stays in wave 0.
 - [ ] 8.2 `repo-guardian migrate` waits for the database. It retries the
   connection with capped exponential backoff (1 s doubling to 30 s) until
   `--wait` (env `MIGRATE_WAIT`, default 5m) runs out, then fails naming
@@ -1030,11 +1034,14 @@ Argo's annotations mean nothing to Helm.
   the newest activation is a different version, and `firstSeen` keeps its
   meaning. Integration tests: A, A again (no change to `activated_at`),
   B, then A (re-activated).
-- [ ] 8.5 helm-unittest: every hook Job carries both annotation sets and
+- [x] 8.5 helm-unittest: every hook Job carries both annotation sets and
   its wave; the Deployments carry wave 4; resources at wave 0 carry no
   wave annotation; `helm.sh/hook*` unchanged (Helm installs and upgrades
   keep today's order). Non-vacuous check: drop the migrate Job's
   `argocd.argoproj.io/hook` and confirm the suite fails.
+  Done: `tests/argo_sync_test.yaml`, 9 cases (246 chart tests pass).
+  Probe: dropping the migrate Job's `argoHook` and the Deployment wave
+  failed both cases; restored.
 - [ ] 8.6 Docs: `docs/operations/v2-onboarding.md` § Installing with Argo
   CD (the waves, why `helm.sh/hook` alone breaks a first install, and that
   dev's two-commit workaround is no longer needed); a CLAUDE.md line in
@@ -1254,7 +1261,9 @@ Argo's annotations mean nothing to Helm.
 
 ### OQ12: Which sync-wave ladder?
 
-- (a) recommended: **the five-step ladder in 8.1** (0 base, 1
+**Resolved 2026-10-12: (a).**
+
+- (a) ✅ recommended: **the five-step ladder in 8.1** (0 base, 1
   controls-roles, 2 migrate, 3 read-only role, 4 Deployments). It is the
   brief's "base → migrate → Deployments" with the two psql Jobs slotted in
   where their Helm weights put them today (-5 before migrate, 10 after),
@@ -1267,7 +1276,9 @@ Argo's annotations mean nothing to Helm.
 
 ### OQ13: Does re-activating the current policy version change anything?
 
-- (a) recommended: **no, it is a no-op** (8.4). Argo re-runs the migrate
+**Resolved 2026-10-12: (a).**
+
+- (a) ✅ recommended: **no, it is a no-op** (8.4). Argo re-runs the migrate
   Job on every sync, so activation must be idempotent for an unchanged
   policy, or every sync becomes a fleet rollout once IMPL-0029 keys
   rollouts on `activated_at`. A revert is still honoured, because the

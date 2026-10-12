@@ -17,6 +17,8 @@ metadata:
   namespace: {{ $.Release.Namespace }}
   labels:
     {{- include "repo-guardian.roleLabels" $r | nindent 4 }}
+  annotations:
+    {{- include "repo-guardian.argoWorkloadWave" $ | nindent 4 }}
 spec:
   {{- if eq $role "all" }}
   replicas: {{ $v.replicaCount }}

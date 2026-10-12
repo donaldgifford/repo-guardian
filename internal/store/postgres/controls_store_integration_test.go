@@ -70,3 +70,56 @@ func TestControlsStore_ActivationHonoursARevert(t *testing.T) {
 		t.Errorf("first_seen_at(a) = %v, not before first_seen_at(b) = %v: reactivation rewrote history", firstA, firstB)
 	}
 }
+
+// TestControlsStore_ReactivatingTheCurrentVersionIsANoOp is IMPL-0028
+// task 8.4: Argo CD re-runs the migrate Job on every sync, so activating
+// the version that is already current must leave activated_at alone, or
+// every sync would start a rollout. A revert (A, B, then A) still lands.
+func TestControlsStore_ReactivatingTheCurrentVersionIsANoOp(t *testing.T) {
+	dsns := pgtest.ControlsDB(t)
+	ctx := t.Context()
+
+	pool, err := pgxpool.New(ctx, dsns.Owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+
+	s := postgres.NewControlsStore(pool)
+
+	activate := func(version string) (bool, time.Time) {
+		t.Helper()
+
+		// activated_at is now(); keep the calls apart.
+		time.Sleep(10 * time.Millisecond)
+
+		firstSeen, err := s.ActivatePolicyVersion(ctx, version, nil)
+		if err != nil {
+			t.Fatalf("ActivatePolicyVersion(%q): %v", version, err)
+		}
+
+		v, at, err := s.CurrentActivation(ctx)
+		if err != nil || v != version {
+			t.Fatalf("CurrentActivation after %q = %q, %v", version, v, err)
+		}
+
+		return firstSeen, at
+	}
+
+	if firstSeen, _ := activate("c:a"); !firstSeen {
+		t.Fatal("first activation of c:a not reported as first seen")
+	}
+
+	_, atA := activate("c:a")
+
+	firstSeen, atAgain := activate("c:a")
+	if firstSeen || !atAgain.Equal(atA) {
+		t.Errorf("re-activating current c:a = first seen %v, activated_at %v → %v; want false and unchanged", firstSeen, atA, atAgain)
+	}
+
+	activate("c:b")
+
+	if _, atRevert := activate("c:a"); !atRevert.After(atA) {
+		t.Errorf("revert to c:a kept activated_at %v, want a new activation after %v", atRevert, atA)
+	}
+}

@@ -499,12 +499,17 @@ migrate:
   # -- The v1 backfill's freshness: a v1 repo checked within this window
   # keeps its due-time; older ones are due immediately after cutover.
   freshness: "24h"
-  # -- Job retries before the release fails. On a first install the
-  # Job may start before Postgres accepts connections; retries cover it.
+  # -- Job retries before the release fails.
   backoffLimit: 6
   # -- Upper bound on the Job's run time, in seconds. The v1 backfill is
   # one transaction; raise this for very large fleets.
   activeDeadlineSeconds: 600
+  # -- How long `repo-guardian migrate` waits for the database to accept
+  # connections, in seconds (MIGRATE_WAIT). Under Argo CD the Job can
+  # start before Postgres does, even after the CNPG Cluster reports
+  # healthy. Must stay under `activeDeadlineSeconds`, so a database that
+  # never comes up fails with its last error rather than a killed pod.
+  waitSeconds: 300
   # -- Resources for the migrate container.
   resources:
     requests:

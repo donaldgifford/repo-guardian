@@ -66,6 +66,7 @@ metadata:
     helm.sh/hook: post-install,post-upgrade
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
     helm.sh/hook-weight: "10"
+    {{- include "repo-guardian.argoHook" "3" | nindent 4 }}
 spec:
   backoffLimit: 6
   activeDeadlineSeconds: 300
@@ -87,6 +88,7 @@ spec:
           args:
             - |
               set -eu
+              {{- include "repo-guardian.pgWaitScript" . | nindent 14 }}
               psql -v ON_ERROR_STOP=1 -v pw="$RO_PASSWORD" <<'SQL'
               SELECT NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'repoguardian_ro') AS missing \gset
               \if :missing

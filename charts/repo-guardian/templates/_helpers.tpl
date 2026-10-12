@@ -857,3 +857,62 @@ mode, where the controls roles need them.
 {{- end -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Argo CD sync order (IMPL-0028 Phase 8). Argo cannot tell install from
+upgrade: it maps a bare helm.sh/hook by phase (pre-* to PreSync, post-* to
+PostSync), so a pre-upgrade Job ran before the release's ServiceAccount
+and store existed and a first install never came up. Every hook Job
+therefore carries an Argo Sync hook beside its Helm annotations (Argo then
+ignores helm.sh/hook for it), on this ladder:
+  0  everything else, unannotated (ServiceAccount, RBAC, ConfigMaps,
+     Secrets, the store, Services)
+  1  the controls-roles Job      (Helm weight -5)
+  2  the migrate Job             (Helm weight 0)
+  3  the read-only role Job      (Helm weight 10, post-upgrade)
+  4  the Deployments, their PDBs and ScaledObjects
+so upgrades still migrate before new pods roll. Helm ignores these.
+Takes the wave as a string.
+*/}}
+{{- define "repo-guardian.argoHook" -}}
+argocd.argoproj.io/hook: Sync
+argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+argocd.argoproj.io/sync-wave: {{ . | quote }}
+{{- end }}
+
+{{/* The workload wave of the ladder above. */}}
+{{- define "repo-guardian.argoWorkloadWave" -}}
+argocd.argoproj.io/sync-wave: "4"
+{{- end }}
+
+{{/*
+The migrate Job waits for the database inside its own deadline
+(IMPL-0028 8.2): a wait as long as the deadline would have the pod killed
+mid-wait instead of failing with the last connection error.
+*/}}
+{{- define "repo-guardian.validateMigrate" -}}
+{{- $d := .Values.migrate.activeDeadlineSeconds -}}
+{{- if and $d (ge (int .Values.migrate.waitSeconds) (int $d)) -}}
+{{- fail (printf "migrate.waitSeconds (%d) must be less than migrate.activeDeadlineSeconds (%d)" (int .Values.migrate.waitSeconds) (int $d)) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Shell lines for the baked psql hook Jobs: wait for Postgres to accept
+connections (IMPL-0028 8.3). Under Argo CD a Job can start before the
+StatefulSet's Postgres is up; this waits up to 240s, inside the Jobs'
+300s deadline, instead of spending backoffLimit on refused connections.
+pg_isready reads the Job's PGHOST/PGUSER/PGDATABASE.
+*/}}
+{{- define "repo-guardian.pgWaitScript" -}}
+i=0
+until pg_isready -q; do
+  i=$((i + 1))
+  if [ "$i" -ge 60 ]; then
+    echo "postgres not accepting connections after 240s" >&2
+    exit 1
+  fi
+  echo "waiting for postgres (attempt $i)"
+  sleep 4
+done
+{{- end }}

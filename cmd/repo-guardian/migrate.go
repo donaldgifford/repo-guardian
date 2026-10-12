@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"maps"
 	"os"
 	"slices"
@@ -32,6 +33,10 @@ type migrateOptions struct {
 	dryRun    bool
 	json      bool
 
+	// wait is how long to wait for the database to accept connections
+	// before migrating (IMPL-0028 8.2); zero tries once.
+	wait time.Duration
+
 	// forceRunning skips the running-v1 guard. Test-only; hidden from
 	// usage because an operator should scale v1 down instead.
 	forceRunning bool
@@ -44,6 +49,11 @@ const (
 	chainRC       = "v2"
 	chainControls = "controls"
 )
+
+// defaultMigrateWait is how long migrate waits for the database. It sits
+// under the chart's 600s Job deadline so a database that never comes up
+// fails with its last error, not a killed pod.
+const defaultMigrateWait = 5 * time.Minute
 
 // forceRunningFlag is parsed by hand so it never appears in -h output.
 const forceRunningFlag = "--force-running"
@@ -116,12 +126,24 @@ func parseMigrateFlags(args []string) (migrateOptions, error) {
 		defFreshness = d
 	}
 
+	defWait := defaultMigrateWait
+	if v := os.Getenv("MIGRATE_WAIT"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return migrateOptions{}, fmt.Errorf("invalid MIGRATE_WAIT %q: %w", v, err)
+		}
+
+		defWait = d
+	}
+
 	fs.StringVar(&opts.chain, "chain", chainRC, "schema chain: v2 (the rc line) or controls (an empty database only)")
 	fs.StringVar(&opts.dsn, "dsn", os.Getenv("STORE_DSN"), "Postgres DSN with DDL rights (defaults to $STORE_DSN)")
 	fs.DurationVar(&opts.freshness, "freshness", defFreshness,
 		"v1 freshness used to seed next check times (defaults to $RECONCILE_FRESHNESS, else 24h)")
 	fs.BoolVar(&opts.dryRun, "dry-run", false, "report what would be applied without changing the database")
 	fs.BoolVar(&opts.json, "json", false, "print the result as JSON")
+	fs.DurationVar(&opts.wait, "wait", defWait,
+		"how long to wait for the database to accept connections (defaults to $MIGRATE_WAIT, else 5m; 0 tries once)")
 
 	if err := fs.Parse(args); err != nil {
 		return migrateOptions{}, err
@@ -144,7 +166,7 @@ func migrate(ctx context.Context, opts migrateOptions) (_ *migrateResult, retErr
 		return migrateControls(ctx, opts)
 	}
 
-	db, err := pgstore.OpenDB(opts.dsn)
+	db, err := openReady(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +218,7 @@ func migrate(ctx context.Context, opts migrateOptions) (_ *migrateResult, retErr
 // transaction) the controls chain. It has no v1 guard and no backfill:
 // the chain runs on an empty database.
 func migrateControls(ctx context.Context, opts migrateOptions) (_ *migrateResult, retErr error) {
-	db, err := pgstore.OpenDB(opts.dsn)
+	db, err := openReady(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -235,6 +257,23 @@ func migrateControls(ctx context.Context, opts migrateOptions) (_ *migrateResult
 	}
 
 	return res, nil
+}
+
+// openReady opens the database and waits for it to accept connections:
+// under Argo CD the migrate Job can start before Postgres does. Progress
+// goes to stderr, keeping stdout for the result.
+func openReady(ctx context.Context, opts migrateOptions) (*sql.DB, error) {
+	db, err := pgstore.OpenDB(opts.dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil)).With("command", cmdMigrate)
+	if err := pgstore.WaitReady(ctx, db, opts.wait, logger); err != nil {
+		return nil, errors.Join(err, db.Close())
+	}
+
+	return db, nil
 }
 
 // rehearse lists the pending migrations and runs them, with the v1

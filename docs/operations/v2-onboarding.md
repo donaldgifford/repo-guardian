@@ -179,7 +179,9 @@ For GitOps with `baked`, set `store.postgres.baked.existingSecret`. The
 generated password otherwise changes on every `helm template` render.
 
 Schema migrations run automatically as a Helm hook Job
-(`migrate.enabled`, on by default).
+(`migrate.enabled`, on by default). The Job waits up to
+`migrate.waitSeconds` (300) for Postgres to accept connections before it
+migrates, so it can start before the database is up.
 
 #### Controls database roles
 
@@ -451,7 +453,8 @@ under the key `guardian.hcl`, the path the pods read.
      --version <chart version> -n repo-guardian -f values.yaml
    ```
 
-   The migrate Job creates the schema. The worker then creates the
+   With Argo CD, see [Installing with Argo CD](#installing-with-argo-cd)
+   first. The migrate Job creates the schema. The worker then creates the
    `discovery` and `snapshot` schedules, records the policy version, and
    promotes its own build to Temporal's current worker version.
 
@@ -494,6 +497,46 @@ under the key `guardian.hcl`, the path the pods read.
    branch-protection rules write only where `remediate = true`.
 
 8. **Generate the dashboards and alerts** (prerequisite 7).
+
+## Installing with Argo CD
+
+Argo CD renders the chart with `helm template` and orders the result
+itself. It does not tell an install from an upgrade, and it maps a
+`helm.sh/hook` with no Argo annotation by phase: `pre-*` becomes PreSync
+and `post-*` PostSync. Before chart 2.0.0-rc.6 the migrate Job's
+`pre-upgrade` made it a PreSync hook. On a first install it ran before
+the ServiceAccount, the store and its Secret existed, hit its deadline,
+and the application never came up. The workaround was two commits:
+`migrate.enabled: false`, then `true`.
+
+From 2.0.0-rc.6 every hook Job also carries
+`argocd.argoproj.io/hook: Sync`, so Argo ignores its `helm.sh/hook`, and
+the chart sets sync waves:
+
+| Wave | Resources |
+| --- | --- |
+| 0 | everything not listed below: ServiceAccount, RBAC, ConfigMaps, Secrets, the store (baked StatefulSet or CNPG Cluster and Pooler), Services |
+| 1 | the controls-roles Job (baked, `store.controls.enabled`) |
+| 2 | the migrate Job |
+| 3 | the read-only role Job (baked, split with the API) |
+| 4 | the role Deployments, their PodDisruptionBudgets and ScaledObjects |
+
+Argo waits for each wave to be healthy, and for its hook Jobs to finish,
+before the next. Upgrades therefore still migrate before new pods roll
+out. Argo can report a CNPG Cluster healthy before Postgres accepts
+connections, so the migrate Job and the psql Jobs wait for the database
+themselves.
+
+Two consequences:
+
+- **The migrate Job runs on every sync**, not just on a chart change:
+  Argo re-runs Sync hooks each time. Migrating an up-to-date schema is a
+  no-op, and so is activating the policy version that is already current.
+- **The finished Job is kept** until the next sync replaces it
+  (`BeforeHookCreation`), so its logs stay readable.
+
+Helm itself ignores the Argo annotations; `helm install` and
+`helm upgrade` behave as before.
 
 ## Onboarding organisations and repositories
 

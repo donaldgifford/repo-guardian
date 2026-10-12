@@ -1045,11 +1045,16 @@ Argo's annotations mean nothing to Helm.
   300s deadline) runs before psql in the controls-roles and read-only role
   Jobs. A helm-unittest case covers both Jobs; dropping it from the
   read-only Job fails the case.
-- [ ] 8.4 `ActivatePolicyVersion` is a no-op when `version` is already the
+- [x] 8.4 `ActivatePolicyVersion` is a no-op when `version` is already the
   current activation (OQ13): the upsert updates `activated_at` only when
   the newest activation is a different version, and `firstSeen` keeps its
   meaning. Integration tests: A, A again (no change to `activated_at`),
   B, then A (re-activated).
+  Done: the conflict update carries `WHERE policy_versions.version IS
+  DISTINCT FROM` the newest activation; a skipped update returns no row,
+  read as `(false, nil)`. `TestControlsStore_ReactivatingTheCurrentVersionIsANoOp`
+  covers it beside the existing revert test. Probe: dropping the `WHERE`
+  moves `activated_at` on the re-activation and fails the test; restored.
 - [x] 8.5 helm-unittest: every hook Job carries both annotation sets and
   its wave; the Deployments carry wave 4; resources at wave 0 carry no
   wave annotation; `helm.sh/hook*` unchanged (Helm installs and upgrades

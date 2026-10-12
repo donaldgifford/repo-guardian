@@ -1077,7 +1077,7 @@ Argo's annotations mean nothing to Helm.
   `make test-integration` green; PR to `v2` with `dont-release`.
   Done 2026-10-12: chart and appVersion `2.0.0-rc.6`, README regenerated;
   `make ci` green, `make helm-test` 250/250, `make test-integration` 28
-  packages ok.
+  packages ok. PR #206.
 - [ ] 8.8 Release and prove it (human-run): merge, tag `v2.0.0-rc.6`,
   dispatch `ghcr.yml`. Then delete the dev Application, clear the
   `repo-guardian-dev` Temporal namespace, and reinstall rc.6 through Argo

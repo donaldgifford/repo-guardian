@@ -944,12 +944,15 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
 - [x] 7.4 `Chart.yaml` `version` and `appVersion` bumped by hand to the
   next rc (OQ8); helm-docs regenerated from `README.md.gotmpl`.
   Done: chart `2.0.0-rc.5` / appVersion `2.0.0-rc.5`; README regenerated.
-- [ ] 7.5 PR to `v2` with `dont-release` (Rule 6). After merge the
+- [x] 7.5 PR to `v2` with `dont-release` (Rule 6). After merge the
   maintainer tags the rc and confirms the image and chart publish
   (human-run).
   PR opened: #205 into `v2`, labelled `dont-release`.
-  **Deferred - human required:** merge, tag `v2.0.0-rc.5`, and confirm the
-  image and chart publish.
+  Done 2026-10-10: #205 merged as `24a59e2`; the maintainer tagged
+  `v2.0.0-rc.5` and dispatched `ghcr.yml`. Image `2.0.0-rc.5`
+  (`sha256:ff9119c7…`) and UI image (`sha256:2e48959e…`) are cosign-signed
+  and pass `slsa-verifier` (generator v2.1.0, commit `24a59e2`); chart
+  `2.0.0-rc.5` pulls. Image tags drop the `v`.
 - [ ] 7.6 Deploy the rc to dev (human-run): the rc roles keep running;
   an evaluator and a remediator start on their deployments with both
   Apps' credentials and report ready. In the Temporal UI, check that
@@ -962,6 +965,99 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
 - The rc is tagged and published, and dev runs it with the rc roles
   unchanged and the new roles ready.
 - CLAUDE.md states every new contract this plan introduced.
+
+### Phase 8: First install through Argo CD (chart 2.0.0-rc.6)
+
+Found 2026-10-11 by the dev teardown and reinstall (homelab INV-0013,
+OQ-2 (a)): **a fresh install of the v2 chart through Argo CD has never
+worked.** Argo CD does not tell install from upgrade. It maps a Helm hook
+it has no Argo annotation for by phase: `pre-*` → PreSync, `post-*` →
+PostSync. So the migrate Job's `pre-upgrade` makes it a PreSync hook, and
+it runs before anything else in the release exists. The ServiceAccount
+is missing (the pod is forbidden). Once that exists, so are the CNPG
+Cluster and its `-app` Secret. The Job reaches its 600 s deadline, Argo
+retries five times, and the application stays down. Upgrades only worked
+because everything already existed. Dev came back with a two-commit
+workaround: `migrate.enabled: false`, then `true`.
+
+The same mapping catches the baked controls-roles Job
+(`post-install,pre-upgrade`, so PreSync before the baked StatefulSet
+exists). The read-only role Job (`post-install,post-upgrade`) lands in
+PostSync, after the api Deployment it grants for. Both psql Jobs, and
+`repo-guardian migrate`, fail on the first refused connection and rely on
+`backoffLimit` for a database that is not up yet. Argo can report a CNPG
+Cluster healthy before Postgres accepts connections.
+
+A second problem follows from the fix. Argo re-runs a Sync hook on every
+sync. `ActivatePolicyVersion` sets `activated_at = now()` on every call,
+so once IMPL-0029 activates from the migrate Job and keys rollouts on
+`activated_at`, every Argo sync, self-heal included, would start a fleet
+rollout. Re-activating the version that is already current must be a
+no-op. A revert (A → B → A) is still honoured, because A is not current
+when it comes back.
+
+Helm users see no change: every `helm.sh/hook*` annotation stays, and
+Argo's annotations mean nothing to Helm.
+
+#### Tasks
+
+- [ ] 8.1 Argo hook annotations on every chart hook Job, beside the Helm
+  ones: `argocd.argoproj.io/hook: Sync` and
+  `argocd.argoproj.io/hook-delete-policy: BeforeHookCreation`. With
+  `argocd.argoproj.io/hook` set, Argo ignores `helm.sh/hook*` for that
+  resource. Sync waves (OQ12):
+  - wave 0 (Argo's default, left unannotated): ServiceAccount, RBAC,
+    ConfigMaps, Secrets, the store (baked StatefulSet, CNPG Cluster and
+    Pooler), Services;
+  - wave 1: the controls-roles Job (baked, `store.controls.enabled`);
+  - wave 2: the migrate Job;
+  - wave 3: the read-only role Job (baked, split with api);
+  - wave 4: the role Deployments and what scales them (ScaledObjects,
+    PDBs), so upgrades still migrate before new pods roll out.
+- [ ] 8.2 `repo-guardian migrate` waits for the database. It retries the
+  connection with capped exponential backoff (1 s doubling to 30 s) until
+  `--wait` (env `MIGRATE_WAIT`, default 5m) runs out, then fails naming
+  the last error. Only connection refusals and DNS failures are retried;
+  an authentication or schema error fails at once. Chart value
+  `migrate.wait`, with a guard that it stays under
+  `migrate.activeDeadlineSeconds`. Unit test against a listener that
+  accepts only after a delay; a refused-then-ready integration case.
+- [ ] 8.3 The two psql Jobs wait the same way, with an
+  `until pg_isready …` loop bounded inside their `activeDeadlineSeconds`,
+  in place of relying on `backoffLimit`.
+- [ ] 8.4 `ActivatePolicyVersion` is a no-op when `version` is already the
+  current activation (OQ13): the upsert updates `activated_at` only when
+  the newest activation is a different version, and `firstSeen` keeps its
+  meaning. Integration tests: A, A again (no change to `activated_at`),
+  B, then A (re-activated).
+- [ ] 8.5 helm-unittest: every hook Job carries both annotation sets and
+  its wave; the Deployments carry wave 4; resources at wave 0 carry no
+  wave annotation; `helm.sh/hook*` unchanged (Helm installs and upgrades
+  keep today's order). Non-vacuous check: drop the migrate Job's
+  `argocd.argoproj.io/hook` and confirm the suite fails.
+- [ ] 8.6 Docs: `docs/operations/v2-onboarding.md` § Installing with Argo
+  CD (the waves, why `helm.sh/hook` alone breaks a first install, and that
+  dev's two-commit workaround is no longer needed); a CLAUDE.md line in
+  the chart notes: every new hook Job needs both annotation sets and a
+  wave.
+- [ ] 8.7 `Chart.yaml` `version` and `appVersion` → `2.0.0-rc.6`;
+  helm-docs regenerated; `make ci`, `make helm-test` and
+  `make test-integration` green; PR to `v2` with `dont-release`.
+- [ ] 8.8 Release and prove it (human-run): merge, tag `v2.0.0-rc.6`,
+  dispatch `ghcr.yml`. Then delete the dev Application, clear the
+  `repo-guardian-dev` Temporal namespace, and reinstall rc.6 through Argo
+  from nothing. Record in INV-0022: the Sync-phase order Argo ran, that
+  it ignored `helm.sh/hook`, the migrate Job's wait lines, and the app
+  healthy with no workaround. This also covers 7.6 (the evaluator's
+  deployment reaching Current).
+  **Deferred - human required.**
+
+#### Success Criteria
+
+- A first install through Argo CD comes up healthy with no workaround.
+  Upgrades still migrate before new pods roll.
+- Helm install and upgrade behaviour is unchanged.
+- An Argo sync with an unchanged policy activates nothing.
 
 ## File Changes
 
@@ -1154,6 +1250,32 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
 - (b) Replace `migrations_v2/` in place in IMPL-0029 and write no chain
   in Foundations. Fewer directories, but Phase 6's role grants cannot be
   tested until then.
+- other:
+
+### OQ12: Which sync-wave ladder?
+
+- (a) recommended: **the five-step ladder in 8.1** (0 base, 1
+  controls-roles, 2 migrate, 3 read-only role, 4 Deployments). It is the
+  brief's "base → migrate → Deployments" with the two psql Jobs slotted in
+  where their Helm weights put them today (-5 before migrate, 10 after),
+  so Argo and Helm run the Jobs in the same order.
+- (b) The brief's three waves exactly (0, migrate 1, Deployments 2), with
+  the controls-roles Job in wave 1 beside migrate and the read-only Job
+  left in PostSync. Fewer numbers, but two Jobs in one wave run in
+  parallel, and the controls grants race the migration that needs them.
+- other:
+
+### OQ13: Does re-activating the current policy version change anything?
+
+- (a) recommended: **no, it is a no-op** (8.4). Argo re-runs the migrate
+  Job on every sync, so activation must be idempotent for an unchanged
+  policy, or every sync becomes a fleet rollout once IMPL-0029 keys
+  rollouts on `activated_at`. A revert is still honoured, because the
+  reverted-to version is not current.
+- (b) Leave the store method alone and make IMPL-0029's rollout skip an
+  activation whose version equals the previous one. Same effect, but the
+  meaningless `activated_at` writes stay, and the rule lives in two
+  places.
 - other:
 
 ## References

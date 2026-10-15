@@ -462,6 +462,17 @@ Run 2026-10-09 by the maintainer; raw observations in `build/spike/TestSpike_Lab
 
 Label names are unique case-insensitively, every endpoint addresses them case-insensitively, and a case change is an update. DESIGN-0031's `labels` control compares lower-cased names (as written) and remediates a case-only difference with `PATCH new_name`, never a create; a create returning `already_exists` means the read is stale and the run re-reads.
 
+### rc.6 through Argo CD on the homelab (IMPL-0028 8.8)
+
+Run 2026-10-15 by the maintainer. rc.6 was tagged at `2e929df` and published by ghcr.yml run 38281655385; both images verified with cosign and slsa-verifier, and the chart pulled at `2.0.0-rc.6`. The dev install and the 1.x install were removed and rc.6 installed through Argo (Application `argocd/repo-guardian`, `topology: all`, CNPG store, Temporal namespace `repo-guardian`).
+
+- **Not an empty database.** The CNPG Cluster `repo-guardian-postgres` and its PVC (35 days old) survived the teardown, so migrate adopted the v1 tables: `v2_meta` holds `adopted_v1_at` (11:40:05 UTC) and `backfilled_v1_at`, and `bootstrap_pending` is already cleared by `bootstrap/v1`. Repository workflows started with the backfilled `v1:` policy version and their v1 due-times. This run proves the v1 → v2 upgrade path through Argo; the empty-database first install is still to run.
+- **Sync order.** Argo applied every unannotated resource (Namespace, ServiceAccount, ConfigMaps, Services, CNPG Cluster) first, then `repo-guardian-migrate` as a `Sync` hook, then the Deployments in wave 4. The Deployments were created two seconds after the adoption stamp. No roles Jobs render here (`all`, controls store off), so waves 1 and 3 were empty.
+- **Re-runs are harmless.** Auto-sync re-ran migrate four times in four minutes and a manual sync once more (10:06:01 → 10:06:03 EDT); every run completed. `policy_versions` holds one row and Temporal one `policy-rollout/v2:9fbf63c2…` before and after the extra sync. This is the rc's first-seen rollout; the controls activation (8.4) is not exercised until `store.controls.enabled`.
+- **The finished hook Job is deleted.** Argo honours the chart's `helm.sh/hook-delete-policy: …,hook-succeeded` alongside `BeforeHookCreation`, so a successful Job disappears; v2-onboarding said it was kept and is corrected. Its events stay for about an hour.
+- **A repository check ran on the new build.** `repo/26` ran on deployment `repo-guardian`, build `2.0.0-rc.6`, AutoUpgrade: `AcquireBudget` granted, `CheckRepo` checked, `report` signalled `installation/109240335`, `RecordCheck` wrote one transition, and the timer re-armed for a day. Two `policy_changed` signals (the bootstrap's `v1:` and the rollout's `v2:`) arrived before the first check and coalesced into one.
+- **7.6 not observable.** Dev has no Evaluation App and runs `all`, so there is no `repo-guardian-eval` deployment.
+
 ### Phase-0 open questions
 
 #### OQ1: What activates a policy version?

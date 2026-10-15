@@ -1086,6 +1086,12 @@ Argo's annotations mean nothing to Helm.
   healthy with no workaround. This also covers 7.6 (the evaluator's
   deployment reaching Current).
   **Deferred - human required.**
+  2026-10-15: release done (rc.6 tagged at `2e929df`, images signed with
+  SLSA provenance, chart published). The reinstall reused the surviving
+  CNPG Cluster, so migrate adopted v1: the upgrade path through Argo is
+  proven (hook order, re-runs, one rollout; INV-0022 § rc.6 through Argo
+  CD). Still open: a sync onto an empty database, and 7.6, which needs
+  dev to run the Evaluation App.
 
 #### Success Criteria
 

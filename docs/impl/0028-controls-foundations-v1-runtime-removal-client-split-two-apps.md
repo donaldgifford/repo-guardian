@@ -1090,8 +1090,11 @@ Argo's annotations mean nothing to Helm.
   SLSA provenance, chart published). The reinstall reused the surviving
   CNPG Cluster, so migrate adopted v1: the upgrade path through Argo is
   proven (hook order, re-runs, one rollout; INV-0022 § rc.6 through Argo
-  CD). Still open: a sync onto an empty database, and 7.6, which needs
-  dev to run the Evaluation App.
+  CD). A sync onto an empty database is deferred (maintainer decision,
+  2026-10-15): the empty-database ordering is covered by the chart tests
+  (`tests/argo_sync_test.yaml`) and migrate's wait by
+  `TestWaitReady_RefusedThenReady`. 7.6 stays open; it needs dev to run
+  both Apps.
 
 #### Success Criteria
 

@@ -642,7 +642,7 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
   asserting each panel is now present and reads the seeded numbers. —
   *deferred (2026-10-16): e2e work resumes after the rc is cut and
   looked at; each 7.x task still lands its `apitest` and store cases.*
-- [ ] 7.7 `docs/usage/api.md`: the five additions; `api/openapi.yaml`
+- [x] 7.7 `docs/usage/api.md`: the five additions; `api/openapi.yaml`
   `info.version` bumped per the file's existing convention.
 
 #### Success Criteria

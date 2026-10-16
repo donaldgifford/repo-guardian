@@ -6,7 +6,7 @@ export interface Delta {
   // value is the change against the comparison point, already rounded.
   value: number;
   // goodUp says which direction is good: up for compliance, down for
-  // failing findings.
+  // failing counts.
   goodUp: boolean;
   unit?: string;
 }

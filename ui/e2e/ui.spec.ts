@@ -208,7 +208,8 @@ test("every view renders against the seeded API without a problem", async ({ pag
   await page.goto("/policy");
   await expect(page.getByText("Every repository names its owners.")).toBeVisible();
   await page.goto("/history");
-  await expect(page.getByRole("heading", { level: 2, name: "acme" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "acme" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "acme compliance % over 90d" })).toBeVisible();
 });
 
 // The fleet trend's history query was keyed on a timestamp recomputed
@@ -341,7 +342,15 @@ test("the orgs grid expands acme to its rules, hides the parked column and expor
   await signIn(page, "/orgs");
   const grid = page.getByRole("table", { name: "Orgs" });
   await expect(grid).toBeVisible();
-  await expect(grid.locator("tr[data-row=__total]")).toContainText("Total");
+  // The totals row sums the seed as /orgs reports it.
+  const orgs = (await (await page.request.get("/api/v1/orgs")).json()) as { items: { tracked: number; parked: number; counts: { non_compliant: number } }[] };
+  const sum = (f: (o: (typeof orgs.items)[number]) => number) => orgs.items.reduce((n, o) => n + f(o), 0);
+  const totals = grid.locator("tr[data-row=__total]");
+  await expect(totals).toContainText("Total");
+  await expect(totals.locator("td").nth(1)).toHaveText(String(sum((o) => o.tracked)));
+  await expect(totals.locator("td").nth(3)).toContainText(String(sum((o) => o.counts.non_compliant)));
+  await expect(totals.locator("td").nth(4)).toHaveText(String(sum((o) => o.parked)));
+  await expect(page.getByLabel("Totals")).toContainText(`Parked ${sum((o) => o.parked)}`);
 
   // Expanding fetches /orgs/acme and lists its rules as child rows
   // linking to the rule page scoped to the org; the URL carries ?open=.

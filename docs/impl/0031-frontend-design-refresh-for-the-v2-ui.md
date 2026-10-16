@@ -470,7 +470,7 @@ controls rework reuses.
   org, rule `<select>` → `Tabs`-styled select, `?range=`) and
   `views/policy.tsx` (`Kpi`s Version / First seen / Rollout / Rules
   and the rules table) restyled on the primitives; no behaviour change.
-- [ ] 4.11 Playwright: drawer opens from a row and from a pasted
+- [x] 4.11 Playwright: drawer opens from a row and from a pasted
   `?open=`; Escape returns focus to the row; the scrim closes it below
   1600px (`viewport` 1400) and the Age column hides above it
   (`viewport` 1700); the HTML-in-evidence test re-pointed at the

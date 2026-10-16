@@ -244,7 +244,7 @@ calls `Type.Build`.
   Done: `Canonical` and `MustCanonical` (for keys fixed in code); `.` is
   rejected as naming the root. `FuzzCanonicalFile` ran 15.8M inputs in
   20s with no failure.
-- [ ] 1.4 `validate.go`: `Validate(c, ev)` (one result per declared rule;
+- [x] 1.4 `validate.go`: `Validate(c, ev)` (one result per declared rule;
   a missing result becomes `error{reason=missing_result}`; a result for
   an undeclared id or a duplicate fails as a bug; closed status enum;
   evidence is scalars and arrays only, at most 16 KiB per rule, with
@@ -252,6 +252,11 @@ calls `Type.Build`.
   the table's order. Tests: every row of the status table, `unknown`
   included; each `Validate` failure mode, including nested and oversized
   evidence.
+  Done: `Validate` returns results in declared rule order and wraps every
+  bug in `ErrInvalidEvaluation`; "flat" evidence is scalars and arrays of
+  scalars. `StatusOf` with no results is `unknown`, so an empty
+  evaluation never reads as compliant. `FrameworkEvidence` writes the
+  framework's own `missing_result`.
 - [ ] 1.5 `revision.go` and `fingerprint.go`: `Revision(t, def, env)` as
   sha256 over a canonical JSON encoding of id, version, type name,
   `Semantics()`, rules with parameters, `apply`, the template bytes and

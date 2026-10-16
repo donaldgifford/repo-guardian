@@ -459,7 +459,7 @@ controls rework reuses.
   `created_at`, capped at 20 with a "full timeline" link. Table tests:
   ordering, the still-open synthesis, the cap, a check before
   `status_since` excluded.
-- [ ] 4.9 `views/repository.tsx`: header `org/name` + `active|parked`
+- [x] 4.9 `views/repository.tsx`: header `org/name` + `active|parked`
   badge, subtitle `checked <relative> · installation <id>`, "Open on
   GitHub"; two-thirds Findings `DataTable` (Rule, Status, Reason /
   evidence, Remediation) and Recent checks (Time, Trigger, Outcome,

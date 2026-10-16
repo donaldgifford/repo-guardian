@@ -1,19 +1,24 @@
 import { getRouteApi } from "@tanstack/react-router";
 
 import type { Schemas } from "../api/client";
-import { useRepository, useRepositoryChecks, useRepositoryEvents, useUIConfig } from "../api/queries";
-import { StateBadge, StatusBadge } from "../components/badges";
-import { Empty, Evidence, ExternalLink, Loading, Remediation, Section } from "../components/common";
+import { useRepository, useRepositoryChecks, useUIConfig } from "../api/queries";
+import { KindBadge, StateBadge, StatusBadge } from "../components/badges";
+import { Evidence, ExternalLink, Loading, Remediation } from "../components/common";
 import { PageHeader } from "../components/page";
+import { Time } from "../components/time";
+import { Timeline } from "../components/timeline";
 import { Badge } from "../components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
-import { humanize, relativeTime } from "../lib/format";
+import { Card } from "../components/ui/card";
+import { type Column, DataTable } from "../components/ui/data-table";
+import { DetailKV } from "../components/ui/detail-drawer";
+import { humanize } from "../lib/format";
 import { repoLink } from "../lib/pr";
 
 const route = getRouteApi("/app/repos/$id");
 
-// RepositoryView (DESIGN-0027 sketch): findings with evidence and PR
-// links, park state, timeline and recent checks.
+// RepositoryView (DESIGN-0036 §Repository): header with the park state,
+// two-thirds findings and recent checks, one-third repository facts and
+// the shared timeline over every event.
 export function RepositoryView() {
   const { id } = route.useParams();
   const repoId = Number(id);
@@ -22,7 +27,7 @@ export function RepositoryView() {
   if (!detail.data) {
     return <Loading />;
   }
-  const { repository: r, findings, last_check } = detail.data;
+  const { repository: r, installation, findings, last_check } = detail.data;
   const href = config.data ? repoLink(config.data.github_host, r.org, r.name) : undefined;
   return (
     <>
@@ -31,106 +36,90 @@ export function RepositoryView() {
         badge={<StateBadge state={r.active ? "active" : "parked"} />}
         subtitle={
           <>
-          {r.active ? "active" : `parked (${humanize(r.park_reason ?? "unknown")}) ${relativeTime(r.parked_at)}`} · checked {relativeTime(r.last_checked_at)}
-          {last_check ? ` · ${last_check.outcome}` : ""}
+            checked <Time iso={r.last_checked_at} style="relative" />
+            {last_check ? ` · ${last_check.outcome}` : ""} · installation <code>{r.installation_id}</code> ({installation.account})
+            {r.active ? null : (
+              <>
+                {" · parked "}
+                {humanize(r.park_reason ?? "unknown")} <Time iso={r.parked_at} style="relative" />
+              </>
+            )}
           </>
         }
-        controls={href ? <ExternalLink href={href}>on GitHub</ExternalLink> : null}
+        controls={href ? <ExternalLink href={href}>Open on GitHub</ExternalLink> : null}
       />
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Rule</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Reason / evidence</TableHead>
-            <TableHead>Remediation</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {findings.map((f) => (
-            <TableRow key={`${f.rule_kind}/${f.rule_name}`}>
-              <TableCell>
-                <div className="font-medium">{f.rule_name}</div>
-                <div className="text-xs text-muted-foreground">{humanize(f.rule_kind)}</div>
-              </TableCell>
-              <TableCell>
-                <StatusBadge status={f.status} />
-              </TableCell>
-              <TableCell>
-                <Evidence finding={f} />
-              </TableCell>
-              <TableCell>
-                <Remediation finding={f} />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-      <div className="grid gap-6 md:grid-cols-2">
-        <Timeline id={repoId} />
-        <Checks id={repoId} />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
+          <Card title="Findings" subtitle="One row per rule, with the evidence behind its status." bodyClassName="p-0">
+            <DataTable columns={findingColumns} rows={findings} rowKey={(f) => `${f.rule_kind}/${f.rule_name}`} empty="No rules apply to this repository." aria-label="Findings" />
+          </Card>
+          <Checks id={repoId} />
+        </div>
+        <div className="space-y-4">
+          <Card title="Repository" subtitle="What repo-guardian knows about it.">
+            <Facts repository={r} installation={installation} />
+          </Card>
+          <Card title="Timeline" subtitle="Every finding change, repository event and check.">
+            <Timeline repositoryId={repoId} />
+          </Card>
+        </div>
       </div>
     </>
   );
 }
 
-// describeEvent renders one timeline entry as text.
-export function describeEvent(e: Schemas["Event"]): string {
-  if (e.source === "finding") {
-    const reason = e.to_reason ? ` (${e.to_reason})` : "";
-    const from = e.from_status ? `${e.from_status} → ` : "";
-    return `${e.rule_name ?? "rule"} ${from}${e.to_status ?? "?"}${reason}`;
-  }
-  return humanize(e.kind ?? e.source);
+const findingColumns: Column<Schemas["Finding"]>[] = [
+  {
+    key: "rule",
+    header: "Rule",
+    cell: (f) => (
+      <span className="inline-flex items-center gap-2">
+        <span className="font-mono font-medium">{f.rule_name}</span>
+        <KindBadge kind={f.rule_kind} />
+      </span>
+    ),
+  },
+  { key: "status", header: "Status", cell: (f) => <StatusBadge status={f.status} /> },
+  { key: "evidence", header: "Reason / evidence", cell: (f) => <Evidence finding={f} /> },
+  { key: "remediation", header: "Remediation", cell: (f) => <Remediation finding={f} /> },
+];
+
+// Facts is the repository's key/value block. The API carries no default
+// branch or catalog parse state yet (IMPL-0031 Phase 7 follow-ups), so
+// the block lists what /repositories/{id} returns.
+function Facts({ repository: r, installation }: { repository: Schemas["Repository"]; installation: Schemas["Installation"] }) {
+  const rows = [
+    { key: "state", value: <StateBadge state={r.active ? "active" : "parked"} /> },
+    ...(r.active ? [] : [{ key: "park reason", value: <Badge tone="warn">{humanize(r.park_reason ?? "unknown")}</Badge> }]),
+    { key: "installation", value: <span className="font-mono">{installation.account}</span> },
+    { key: "discovered", value: <Time iso={r.discovered_at} style="date" /> },
+    { key: "last check", value: <span className="inline-flex items-center gap-2"><Time iso={r.last_checked_at} style="relative" /><Badge tone={outcomeTone(r.last_check_outcome)}>{r.last_check_outcome}</Badge></span> },
+    { key: "next due", value: <Time iso={r.next_due_at} style="relative" /> },
+    { key: "policy", value: <span className="font-mono text-xs break-all">{r.policy_version}</span> },
+    ...(r.provider_repo_id === undefined ? [] : [{ key: "provider id", value: <span className="font-mono">{r.provider_repo_id}</span> }]),
+  ];
+  return <DetailKV rows={rows} />;
 }
 
-function Timeline({ id }: { id: number }) {
-  const events = useRepositoryEvents(id);
-  return (
-    <Section title="Timeline">
-      {!events.data ? (
-        <Loading />
-      ) : events.data.items.length === 0 ? (
-        <Empty>No events.</Empty>
-      ) : (
-        <ul className="space-y-1 text-sm">
-          {events.data.items.map((e) => (
-            <li key={`${e.source}/${e.id}`} className="flex gap-3">
-              <span className="w-24 shrink-0 text-muted-foreground tabular-nums">{e.occurred_at.slice(0, 10)}</span>
-              <span>{describeEvent(e)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Section>
-  );
+function outcomeTone(outcome: string): "ok" | "bad" | "mute" {
+  if (outcome === "error") return "bad";
+  if (outcome === "success") return "ok";
+  return "mute";
 }
+
+const checkColumns: Column<Schemas["Check"]>[] = [
+  { key: "time", header: "Time", cell: (c) => <Time iso={c.started_at} style="relative" />, className: "whitespace-nowrap" },
+  { key: "trigger", header: "Trigger", cell: (c) => humanize(c.trigger) },
+  { key: "outcome", header: "Outcome", cell: (c) => <Badge tone={outcomeTone(c.outcome)}>{c.outcome}</Badge> },
+  { key: "duration", header: "Duration", cell: (c) => (c.duration_seconds === undefined ? "" : `${c.duration_seconds.toFixed(1)}s`), numeric: true },
+  { key: "error", header: "Error", cell: (c) => (c.error ? <span className="font-mono text-xs break-all">{c.error}</span> : <span className="text-muted-foreground">—</span>), hideBelow: "md" },
+];
 
 function Checks({ id }: { id: number }) {
   const checks = useRepositoryChecks(id);
   return (
-    <Section title="Recent checks">
-      {!checks.data ? (
-        <Loading />
-      ) : checks.data.items.length === 0 ? (
-        <Empty>No checks yet.</Empty>
-      ) : (
-        <Table>
-          <TableBody>
-            {checks.data.items.map((c) => (
-              <TableRow key={c.id}>
-                <TableCell className="whitespace-nowrap">{relativeTime(c.started_at)}</TableCell>
-                <TableCell>{humanize(c.trigger)}</TableCell>
-                <TableCell>
-                  <Badge tone={c.outcome === "error" ? "bad" : c.outcome === "success" ? "ok" : "mute"}>{c.outcome}</Badge>
-                  {c.error ? <div className="mt-1 font-mono text-xs break-all">{c.error}</div> : null}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">{c.duration_seconds === undefined ? "" : `${c.duration_seconds.toFixed(1)}s`}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-    </Section>
+    <Card title="Recent checks" subtitle="The last 20 checks, newest first." bodyClassName="p-0">
+      {!checks.data ? <Loading /> : <DataTable columns={checkColumns} rows={checks.data.items} rowKey={(c) => String(c.id)} empty="No checks yet." aria-label="Recent checks" />}
+    </Card>
   );
 }

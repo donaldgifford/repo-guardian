@@ -289,7 +289,7 @@ selector migration.
   labelled `⌘K`, `TimeZoneToggle`, `Avatar` opening a `DropdownMenu`
   with name, subject (mono), Documentation when configured, and Sign
   out as the existing POST form to `/auth/logout`.
-- [ ] 2.4 `components/shell/CommandPalette.tsx`: `⌘K` / `Ctrl-K` and
+- [x] 2.4 `components/shell/CommandPalette.tsx`: `⌘K` / `Ctrl-K` and
   the Search button open it; input debounced 150ms; repositories from
   `GET /repositories?q=&org=` (new `useRepositorySearch` hook, limit
   20), rules and orgs filtered from the cached `/rules` and `/orgs`

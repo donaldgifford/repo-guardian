@@ -129,6 +129,17 @@ export function useHistory(filters: HistoryFilters) {
   });
 }
 
+// RepositoryQuery is the palette's search: a name prefix, scoped by org,
+// at most 20 rows, and nothing at all for an empty query.
+export function useRepositorySearch(q: string, org: string | undefined) {
+  return useQuery({
+    queryKey: ["repository-search", q, org ?? ""],
+    queryFn: () => unwrap(api.GET("/repositories", { params: { query: { q, ...(org ? { org } : {}), limit: 20 } } })),
+    enabled: q.trim() !== "",
+    placeholderData: keepPreviousData,
+  });
+}
+
 export function usePolicy() {
   return useQuery({ queryKey: ["policy"], queryFn: () => unwrap(api.GET("/policy")) });
 }

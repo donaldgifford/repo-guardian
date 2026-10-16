@@ -7,18 +7,18 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/store"
 )
 
-// orgTotal is one org's repositories and summed result counts.
+// orgTotal is one org's repositories and summed posture.
 type orgTotal struct {
 	org     string
 	tracked int
 	parked  int
-	counts  store.StatusCounts
+	posture store.ControlPosture
 }
 
 // orgTotals joins repository counts and compliance rows per org,
 // ordered case-insensitively by org. Percentages are computed from the
-// summed counts with store.CompliantPercent, the floor the compliance
-// query runs per row.
+// summed counts with store.FloorPercent (ControlPosture.Plus), the floor
+// the compliance query runs per row.
 func orgTotals(repos []store.OrgRepositoryCount, compliance []store.ControlPosture) []orgTotal {
 	byOrg := map[string]*orgTotal{}
 
@@ -48,7 +48,7 @@ func orgTotals(repos []store.OrgRepositoryCount, compliance []store.ControlPostu
 
 	for i := range compliance {
 		t := total(compliance[i].Org)
-		t.counts = t.counts.Add(compliance[i].Counts())
+		t.posture = t.posture.Plus(&compliance[i])
 	}
 
 	slices.Sort(order)

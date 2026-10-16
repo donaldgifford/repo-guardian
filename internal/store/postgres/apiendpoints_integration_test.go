@@ -110,7 +110,7 @@ func TestEndpoints_ValidateAgainstTheSpec(t *testing.T) {
 
 	for _, path := range []string{
 		"/me", "/orgs", "/repositories", e.repoPath("acme-web/b", ""),
-		e.repoPath("acme-web/b", "/events"), e.repoPath("acme-web/b", "/checks"),
+		e.repoPath("acme-web/b", "/events"), e.repoPath("acme-web/b", "/evaluations"),
 	} {
 		t.Run(path, func(t *testing.T) {
 			if r := e.get(t, path, "platform"); r.Status != http.StatusOK {
@@ -134,7 +134,7 @@ func TestEndpoints_TwoOrgAuthz(t *testing.T) {
 
 	for _, path := range []string{
 		e.repoPath("acme-pay/c", ""), e.repoPath("acme-pay/c", "/events"),
-		e.repoPath("acme-pay/c", "/checks"), "/repositories/999999",
+		e.repoPath("acme-pay/c", "/evaluations"), "/repositories/999999",
 	} {
 		if r := e.get(t, path, "team-web"); r.Status != http.StatusNotFound {
 			t.Errorf("team-web GET %s = %d, want 404", path, r.Status)

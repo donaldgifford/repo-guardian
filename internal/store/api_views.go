@@ -18,12 +18,17 @@ type Page[T any] struct {
 // across the compliance query's rows, so a total agrees with the per-row
 // values the query computes in SQL.
 func CompliantPercent(c StatusCounts) *float64 {
-	measured := c.Compliant + c.NonCompliant
-	if measured == 0 {
+	return FloorPercent(c.Compliant, c.Compliant+c.NonCompliant)
+}
+
+// FloorPercent is the floor_percent SQL function: num / den floored to
+// one decimal, nil when den is zero.
+func FloorPercent(num, den int) *float64 {
+	if den == 0 {
 		return nil
 	}
 
-	p := float64(c.Compliant*1000/measured) / 10
+	p := float64(num*1000/den) / 10
 
 	return &p
 }
@@ -34,6 +39,31 @@ func (c StatusCounts) Add(o StatusCounts) StatusCounts {
 		Compliant: c.Compliant + o.Compliant, NonCompliant: c.NonCompliant + o.NonCompliant,
 		NotApplicable: c.NotApplicable + o.NotApplicable, Unknown: c.Unknown + o.Unknown,
 	}
+}
+
+// Plus sums two posture rows and recomputes Percent and Coverage from
+// the sums with FloorPercent, as the compliance query does per row. Org
+// and ControlID are kept from p; Decision is cleared when they differ.
+func (p *ControlPosture) Plus(o *ControlPosture) ControlPosture {
+	out := ControlPosture{
+		Org: p.Org, ControlID: p.ControlID, Decision: p.Decision,
+		Compliant: p.Compliant + o.Compliant, NonCompliant: p.NonCompliant + o.NonCompliant,
+		Pending: p.Pending + o.Pending, Stale: p.Stale + o.Stale,
+		UnmeasurableAccessDenied: p.UnmeasurableAccessDenied + o.UnmeasurableAccessDenied,
+		UnmeasurableSuspended:    p.UnmeasurableSuspended + o.UnmeasurableSuspended,
+		UnmeasurableConflict:     p.UnmeasurableConflict + o.UnmeasurableConflict,
+		NotApplicable:            p.NotApplicable + o.NotApplicable, Unknown: p.Unknown + o.Unknown,
+		Excluded: p.Excluded + o.Excluded, Assigned: p.Assigned + o.Assigned,
+	}
+
+	if p.Decision != o.Decision {
+		out.Decision = ""
+	}
+
+	out.Percent = FloorPercent(out.Compliant, out.Compliant+out.NonCompliant)
+	out.Coverage = FloorPercent(out.Compliant+out.NonCompliant+out.NotApplicable, out.Assigned)
+
+	return out
 }
 
 // Counts is the posture row's result buckets as StatusCounts.

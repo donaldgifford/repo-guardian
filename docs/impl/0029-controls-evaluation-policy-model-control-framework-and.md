@@ -1779,7 +1779,7 @@ half-switched binary.
 
 #### Tasks
 
-- [ ] 8.1 Spec: add `/controls`, `/controls/{id}`, `/policies`,
+- [x] 8.1 Spec: add `/controls`, `/controls/{id}`, `/policies`,
   `/orgs`, `/orgs/{org}` (baseline versus org with coverage, worst
   controls, exclusions), `/repositories` (with `policy_state`,
   `policy_reason`, `evaluable`, `remediable`), `/repositories/{id}`,
@@ -1791,6 +1791,7 @@ half-switched binary.
   percent; evidence is a `oneOf` discriminated by `evidence_kind`
   (`<type>/<kind>`) and `evidence_version`; per-org breakdowns carry
   `version` and `revision`.
+  Done: `api/openapi.yaml` 2.0.0 adds `/summary`, `/controls`, `/controls/{id}`, `/policies`, `/orgs/{org}`, `/repositories/{id}/controls`, `/repositories/{id}/evaluations` (was `/checks`), `/compliance/history` (keyed by control) and `POST /repositories/{id}/evaluate` (202, 404, `409` with problem `type` `workflow_missing`/`parked`, `501`). `Repository` gains `policy_state`, `policy_reason`, `evaluable`, `remediable` and `last_evaluated_at`. Every compliance object is one `Posture` schema: the ten buckets, `assigned`, and nullable `percent` and `coverage`. `ControlOrg` carries `versions[] {version, revision, repositories}`. `Evidence` is a `oneOf` of `FrameworkEvidence` (`evidence_kind` const `framework`) and `ControlEvidence`. `evidence_kind` uses the shape the control types actually write, `<type>.<kind>` with a dot, not the slash in this task's text. There is no assignment-event table, so the timeline gains `rule_id` and shows a withdrawal as a result event with no `to_status`. `/remediations` and the remediation fields are left to IMPL-0030. `StatusCounts` is gone (`store.ControlPosture.Plus` sums posture rows with the new `store.FloorPercent`). New handlers answer 501 until 8.3. `make lint-api` and `make lint-ui` are green.
 - [ ] 8.2 Queries in `queries_controls/api_*.sql`, each with the scope
   predicate; `TestAPIQueries_AreScoped` scans the new directory.
 - [ ] 8.3 Handlers in `internal/api` (`controls.go`, `policies.go`, and

@@ -1,6 +1,6 @@
 import type { Schemas } from "../api/client";
 
-type Counts = Schemas["StatusCounts"];
+type Counts = Schemas["Posture"];
 
 // compliantPercent is the API's compliance math (store.CompliantPercent):
 // compliant / (compliant + non_compliant), floored to one decimal in

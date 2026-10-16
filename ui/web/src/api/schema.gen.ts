@@ -24,6 +24,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fleet totals over the visible orgs. */
+        get: operations["getSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/controls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every assigned control with its compliance over the visible orgs.
+         * @description Totals sum over the control across versions, which is what the version-free result key intends.
+         */
+        get: operations["listControls"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/controls/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One control's compliance with its per-org breakdown. */
+        get: operations["getControl"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The active policy, scoped to the visible orgs.
+         * @description Org policies and exclusions for the visible orgs only. The
+         *     enterprise-wide fields (`enterprise`) appear only for a caller
+         *     who sees every org.
+         */
+        get: operations["getPolicies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/orgs": {
         parameters: {
             query?: never;
@@ -33,6 +109,23 @@ export interface paths {
         };
         /** Compliance by org over the visible orgs. */
         get: operations["listOrgs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orgs/{org}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One org's baseline-versus-org compliance, worst controls and exclusions. */
+        get: operations["getOrg"];
         put?: never;
         post?: never;
         delete?: never;
@@ -65,8 +158,25 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** One repository with its last check. */
+        /** One repository with its last evaluation. */
         get: operations["getRepository"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/repositories/{id}/controls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The repository's assignments with their results, rule results and evidence. */
+        get: operations["listRepositoryControls"];
         put?: never;
         post?: never;
         delete?: never;
@@ -82,7 +192,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The repository's timeline, result and repository events merged, newest first. */
+        /**
+         * The repository's timeline, result and repository events merged, newest first.
+         * @description Remediation events join the timeline with IMPL-0030.
+         */
         get: operations["listRepositoryEvents"];
         put?: never;
         post?: never;
@@ -92,15 +205,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/repositories/{id}/checks": {
+    "/repositories/{id}/evaluations": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** The repository's recent checks, newest first. */
-        get: operations["listRepositoryChecks"];
+        /** The repository's evaluation log, newest first. */
+        get: operations["listRepositoryEvaluations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/repositories/{id}/evaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for the repository to be evaluated now.
+         * @description Sends `recheck` at the highest priority to the repository's
+         *     evaluation workflow. Visibility is checked first, as for the GET
+         *     on the same repository. At most one signal per repository per
+         *     minute per api replica: a later request within the minute
+         *     answers 202 without signalling.
+         */
+        post: operations["evaluateRepository"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/compliance/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Compliance snapshots by org and control, oldest first. */
+        get: operations["getComplianceHistory"];
         put?: never;
         post?: never;
         delete?: never;
@@ -173,6 +327,13 @@ export interface components {
          */
         ParkReason: string;
         /**
+         * @description Open enum: managed, excluded, unmanaged, parked.
+         * @example managed
+         */
+        PolicyState: string;
+        /** @description A control's slug, the version-free part of its id. */
+        ControlSlug: string;
+        /**
          * @description Open enum: operational, degraded, down, unknown.
          * @example operational
          */
@@ -189,13 +350,6 @@ export interface components {
             all_orgs: boolean;
             /** @description The orgs the caller may see; empty when all_orgs is set. */
             orgs: string[];
-        };
-        /** @description Result counts by status. */
-        StatusCounts: {
-            compliant: number;
-            non_compliant: number;
-            not_applicable: number;
-            unknown: number;
         };
         /** @description One status-page component. */
         Component: {
@@ -245,14 +399,12 @@ export interface components {
             compliance: components["schemas"]["Compliance"];
             operations: components["schemas"]["StatusOperations"];
         };
-        /** @description One org's repositories and compliance. */
+        /** @description One org's repositories and compliance over every control. */
         OrgSummary: {
             org: string;
             tracked: number;
             parked: number;
-            counts: components["schemas"]["StatusCounts"];
-            /** Format: double */
-            compliant_percent: number | null;
+            compliance: components["schemas"]["Posture"];
             /** @description Open repo-guardian pull requests on the org's active repositories. */
             open_prs: number;
         };
@@ -277,18 +429,25 @@ export interface components {
             /** Format: date-time */
             next_due_at?: string;
             /** Format: date-time */
-            last_checked_at?: string;
+            last_evaluated_at?: string;
+            policy_state?: components["schemas"]["PolicyState"];
+            /** @description Why the policy resolved the repository to its state, such as the exclude_repos reason. */
+            policy_reason?: string;
+            /** @description The Evaluation App has access to the repository. */
+            evaluable: boolean;
+            /** @description The Remediation App has access to the repository and is not suspended. */
+            remediable: boolean;
         };
         /** @description A page of repositories. */
         RepositoryPage: {
             items: components["schemas"]["Repository"][];
             next_cursor?: components["schemas"]["Cursor"];
         };
-        /** @description One check of a repository. */
-        Check: {
+        /** @description One evaluation of a repository. */
+        Evaluation: {
             /** Format: int64 */
             id: number;
-            /** @description Open enum: schedule, webhook, push, discovery, policy_rollout, bootstrap. */
+            /** @description Open enum: schedule, webhook, push, discovery, policy_rollout, pr_event, manual. */
             trigger: string;
             /** @description Open enum: pending, success, error, skipped. */
             outcome: string;
@@ -301,20 +460,22 @@ export interface components {
             duration_seconds?: number;
             error?: string;
         };
-        /** @description A page of checks. */
-        CheckPage: {
-            items: components["schemas"]["Check"][];
+        /** @description A page of evaluations. */
+        EvaluationPage: {
+            items: components["schemas"]["Evaluation"][];
             next_cursor?: components["schemas"]["Cursor"];
         };
-        /** @description A repository with its last check. */
+        /** @description A repository with its last evaluation. */
         RepositoryDetail: {
             repository: components["schemas"]["Repository"];
-            last_check?: components["schemas"]["Check"];
+            last_evaluation?: components["schemas"]["Evaluation"];
         };
         /**
-         * @description One timeline entry. A result event carries the control and its status
-         *     transition (to_status is absent when the result was withdrawn); a
-         *     repository event carries kind and detail.
+         * @description One timeline entry. A result event carries the control, the rule
+         *     for a rule-result transition, and the status transition (to_status
+         *     is absent when the result was withdrawn, which is how an
+         *     assignment's withdrawal shows); a repository event carries kind
+         *     and detail.
          */
         Event: {
             /** @description Open enum: result, repository. */
@@ -324,6 +485,8 @@ export interface components {
             /** Format: date-time */
             occurred_at: string;
             control_id?: string;
+            /** @description Set on a rule-result transition; absent on a control-status one. */
+            rule_id?: string;
             /** @description Open enum: compliant, non_compliant, unknown, not_applicable. */
             from_status?: string;
             /** @description Open enum: compliant, non_compliant, unknown, not_applicable. */
@@ -337,6 +500,273 @@ export interface components {
         EventPage: {
             items: components["schemas"]["Event"][];
             next_cursor?: components["schemas"]["Cursor"];
+        };
+        /**
+         * @description Compliance over a set of assignments, by posture bucket. Every
+         *     assignment lands in exactly one bucket. `assigned` counts every
+         *     bucket but excluded and conflict; `percent` is compliant over
+         *     compliant plus non-compliant and `coverage` measured (compliant,
+         *     non-compliant, not applicable) over assigned, both floored to one
+         *     decimal and null on an empty denominator.
+         */
+        Posture: {
+            compliant: number;
+            non_compliant: number;
+            /** @description Assigned with no result yet. */
+            pending: number;
+            /** @description A result from an older assignment epoch or revision. */
+            stale: number;
+            unmeasurable_access_denied: number;
+            unmeasurable_suspended: number;
+            unmeasurable_conflict: number;
+            not_applicable: number;
+            unknown: number;
+            /** @description Excluded assignments, reported beside and never in a denominator. */
+            excluded: number;
+            assigned: number;
+            /** Format: double */
+            percent: number | null;
+            /** Format: double */
+            coverage: number | null;
+        };
+        /** @description Fleet totals over the visible orgs. */
+        Summary: {
+            /** @description Active repositories. */
+            tracked: number;
+            parked: number;
+            compliance: components["schemas"]["Posture"];
+            open_prs: number;
+            /** @description Repositories evaluated in the last 24 hours. */
+            evaluated_24h: number;
+            /** Format: date-time */
+            last_evaluated_at?: string;
+            /** @description The active policy version; absent before one is activated. */
+            policy_version?: string;
+        };
+        /** @description One control's fleet compliance. */
+        ControlSummary: {
+            id: components["schemas"]["ControlSlug"];
+            title?: string;
+            /** @description Open enum: the control type, such as file, codeowners or branch_ruleset. */
+            type: string;
+            compliance: components["schemas"]["Posture"];
+        };
+        /** @description Every control assigned in the visible orgs. */
+        ControlList: {
+            items: components["schemas"]["ControlSummary"][];
+        };
+        /** @description One version and revision of a control assigned in an org, with how many repositories carry it. */
+        ControlVersion: {
+            version: number;
+            revision: string;
+            repositories: number;
+        };
+        /**
+         * @description A control's compliance in one org and baseline lineage. An org on
+         *     `codeowners@2` through `replace` sits beside one on `@1`.
+         */
+        ControlOrg: {
+            org: string;
+            decision: components["schemas"]["Decision"];
+            versions: components["schemas"]["ControlVersion"][];
+            compliance: components["schemas"]["Posture"];
+        };
+        /** @description One control with its fleet compliance and per-org breakdown. */
+        ControlDetail: {
+            id: components["schemas"]["ControlSlug"];
+            title?: string;
+            type: string;
+            compliance: components["schemas"]["Posture"];
+            orgs: components["schemas"]["ControlOrg"][];
+        };
+        /**
+         * @description Open enum: baseline, replaced, org_added.
+         * @example baseline
+         */
+        Decision: string;
+        /** @description One control's compliance in an org. */
+        OrgControl: {
+            control_id: components["schemas"]["ControlSlug"];
+            decision: components["schemas"]["Decision"];
+            compliance: components["schemas"]["Posture"];
+        };
+        /** @description An excluded or conflicted assignment (control_id set) or an excluded repository. */
+        Exclusion: {
+            repository: string;
+            control_id?: components["schemas"]["ControlSlug"];
+            /** @description Open enum: excluded, conflict. */
+            state: string;
+            reason: string;
+            excluded_by?: string;
+        };
+        /** @description One org's baseline-versus-org compliance. */
+        OrgDetail: {
+            org: string;
+            tracked: number;
+            parked: number;
+            /** @description The baseline lineage, whichever layer fulfils it. */
+            baseline: components["schemas"]["Posture"];
+            /** @description The controls the org adds. */
+            org_added: components["schemas"]["Posture"];
+            controls: components["schemas"]["OrgControl"][];
+            /** @description Up to five measured controls with the lowest percent, lowest first. */
+            worst_controls: components["schemas"]["OrgControl"][];
+            exclusions: components["schemas"]["Exclusion"][];
+        };
+        /** @description One rule's result. */
+        RuleResult: {
+            rule_id: string;
+            /** @description Open enum: pass, fail, error, unknown, not_applicable. */
+            status: string;
+            remediate: boolean;
+            evidence: components["schemas"]["Evidence"];
+        };
+        /**
+         * @description A rule's evidence: flat, every value a scalar or an array of
+         *     scalars. Discriminated by `evidence_kind` and `evidence_version`;
+         *     render only kinds and versions you know, and treat the rest as
+         *     opaque.
+         */
+        Evidence: components["schemas"]["FrameworkEvidence"] | components["schemas"]["ControlEvidence"];
+        /** @description Evidence the framework wrote for a result it had to supply. */
+        FrameworkEvidence: {
+            /** @constant */
+            evidence_kind: "framework";
+            evidence_version: number;
+            reason: string;
+        };
+        /** @description Evidence a control type wrote; its other fields depend on the kind and version. */
+        ControlEvidence: {
+            /** @description `<control type>.<rule kind>`, such as file.exists. */
+            evidence_kind: string;
+            evidence_version: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * @description One assignment with provenance, requested and effective mode, and
+         *     its result. The latest remediation joins with IMPL-0030.
+         */
+        RepositoryControl: {
+            control_id: components["schemas"]["ControlSlug"];
+            version: number;
+            revision: string;
+            /** @description Open enum: active, excluded, conflict. */
+            state: string;
+            /** @description Open enum: baseline, replaced, org_added, excluded. */
+            decision: string;
+            /** @description The baseline control this assignment fulfils; absent for an org addition. */
+            baseline_control?: string;
+            /** @description The policy file that assigned it. */
+            source: string;
+            /** @description The repos block label within the source, when one assigned it. */
+            source_block?: string;
+            /** @description The control this one replaced. */
+            replaced?: string;
+            excluded_by?: string;
+            reason?: string;
+            /** @description Why the assignment is in conflict. */
+            error?: string;
+            /** @description Open enum: evaluate, remediate. */
+            requested_mode: string;
+            /** @description Open enum: evaluate, remediate. */
+            effective_mode: string;
+            mode_source: string;
+            /** @description Open enum: remediation_app_no_access, remediation_app_suspended. */
+            mode_reason?: string;
+            /** Format: int64 */
+            epoch: number;
+            /** @description Open enum, the posture bucket: compliant, non_compliant, pending, stale, unmeasurable_access_denied, unmeasurable_suspended, unmeasurable_conflict, not_applicable, unknown, excluded. */
+            bucket: string;
+            /** @description Open enum, the recorded status: compliant, non_compliant, unknown, not_applicable. Absent before the first result. */
+            status?: string;
+            evaluated_sha?: string;
+            /** Format: date-time */
+            evaluated_at?: string;
+            /** Format: date-time */
+            last_changed_at?: string;
+            /** @description Open enum: pr_cap, foreign_branch, stale_branch, conflict, permission. */
+            hold?: string;
+            /** Format: date-time */
+            hold_since?: string;
+            rules: components["schemas"]["RuleResult"][];
+        };
+        /** @description A repository's assignments. */
+        RepositoryControlList: {
+            items: components["schemas"]["RepositoryControl"][];
+        };
+        /** @description One compliance snapshot row. */
+        HistoryPoint: {
+            org: string;
+            control_id: components["schemas"]["ControlSlug"];
+            decision: components["schemas"]["Decision"];
+            /** Format: date-time */
+            snapshot_at: string;
+            compliance: components["schemas"]["Posture"];
+        };
+        /** @description Compliance snapshots, oldest first. */
+        ComplianceHistory: {
+            items: components["schemas"]["HistoryPoint"][];
+        };
+        /** @description One catalogue definition. */
+        PolicyControl: {
+            /** @description The control id, `<slug>@<version>`. */
+            id: string;
+            title?: string;
+            type: string;
+            revision: string;
+        };
+        /** @description The baseline, shown only to a caller who sees every org. */
+        PolicyEnterprise: {
+            orgs: string[];
+            /** @description Open enum: evaluate, remediate. */
+            mode: string;
+            controls: string[];
+        };
+        /** @description An org's added, replaced or excluded control. */
+        PolicyChange: {
+            control: string;
+            /** @description The replacement, for a replace. */
+            with?: string;
+            reason?: string;
+            /** @description The repos block label, when the change is scoped to one. */
+            block?: string;
+        };
+        /** @description A repos block. */
+        PolicyRepos: {
+            label: string;
+            match: string[];
+            mode?: string;
+        };
+        /** @description An exclude_repos block. */
+        PolicyExcludedRepos: {
+            match: string[];
+            reason: string;
+        };
+        /** @description One visible org's policy. */
+        PolicyOrg: {
+            org: string;
+            /** @description The org's mode; absent when it inherits the baseline's. */
+            mode?: string;
+            added: components["schemas"]["PolicyChange"][];
+            replaced: components["schemas"]["PolicyChange"][];
+            excluded: components["schemas"]["PolicyChange"][];
+            excluded_repos: components["schemas"]["PolicyExcludedRepos"][];
+            repos: components["schemas"]["PolicyRepos"][];
+        };
+        /** @description The active policy version, scoped to the visible orgs. */
+        Policies: {
+            version: string;
+            /** Format: date-time */
+            first_seen_at: string;
+            /** Format: date-time */
+            activated_at: string;
+            /** Format: date-time */
+            rollout_completed_at?: string;
+            enterprise?: components["schemas"]["PolicyEnterprise"];
+            orgs: components["schemas"]["PolicyOrg"][];
+            /** @description The catalogue definitions the visible policy refers to; every definition for a caller who sees every org. */
+            controls: components["schemas"]["PolicyControl"][];
         };
     };
     responses: {
@@ -393,6 +823,8 @@ export interface components {
         Cursor: components["schemas"]["Cursor"];
         /** @description Page size. */
         Limit: number;
+        /** @description A control slug. */
+        ControlID: components["schemas"]["ControlSlug"];
         /** @description A repository id. */
         RepositoryID: number;
     };
@@ -424,6 +856,107 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    getSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The totals. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Summary"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listControls: {
+        parameters: {
+            query?: {
+                /** @description Only this org, case-insensitive. */
+                org?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The controls. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getControl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A control slug. */
+                id: components["parameters"]["ControlID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The control. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlDetail"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getPolicies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The policy; 404 before any version is activated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Policies"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Error"];
+        };
+    };
     listOrgs: {
         parameters: {
             query?: never;
@@ -447,6 +980,33 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    getOrg: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description An org login, case-insensitive. */
+                org: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The org. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Error"];
+        };
+    };
     listRepositories: {
         parameters: {
             query?: {
@@ -456,6 +1016,8 @@ export interface operations {
                 active?: boolean;
                 /** @description Only repositories parked for this reason. */
                 park_reason?: components["schemas"]["ParkReason"];
+                /** @description Only repositories the policy resolved to this state. */
+                policy_state?: components["schemas"]["PolicyState"];
                 /** @description A repository-name prefix, case-insensitive. */
                 q?: string;
                 /** @description The next_cursor of the previous page. */
@@ -512,6 +1074,34 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    listRepositoryControls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A repository id. */
+                id: components["parameters"]["RepositoryID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every assignment, in remediation priority order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepositoryControlList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Error"];
+        };
+    };
     listRepositoryEvents: {
         parameters: {
             query?: {
@@ -545,7 +1135,7 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    listRepositoryChecks: {
+    listRepositoryEvaluations: {
         parameters: {
             query?: {
                 /** @description The next_cursor of the previous page. */
@@ -562,19 +1152,98 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description A page of checks. */
+            /** @description A page of evaluations. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CheckPage"];
+                    "application/json": components["schemas"]["EvaluationPage"];
                 };
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            default: components["responses"]["Error"];
+        };
+    };
+    evaluateRepository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A repository id. */
+                id: components["parameters"]["RepositoryID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted; the evaluation runs asynchronously. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /**
+             * @description The repository cannot be evaluated now. The problem `type` is
+             *     `workflow_missing` (no evaluation workflow is running for it)
+             *     or `parked`.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description This api replica has no Temporal client; the UI hides the action. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getComplianceHistory: {
+        parameters: {
+            query?: {
+                /** @description Only this control slug. */
+                control?: components["schemas"]["ControlSlug"];
+                /** @description Only this org, case-insensitive. */
+                org?: string;
+                /** @description How far back, in days. */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The snapshots. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceHistory"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             default: components["responses"]["Error"];
         };
     };

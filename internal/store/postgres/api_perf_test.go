@@ -84,7 +84,7 @@ func TestAPIPerf(t *testing.T) {
 
 	for _, path := range []string{
 		"/orgs", "/repositories?limit=50", "/repositories?org=org-3&limit=50", "/repositories/5000/events?limit=50",
-		"/repositories/5000/checks?limit=50",
+		"/repositories/5000/evaluations?limit=50",
 	} {
 		var d []time.Duration
 

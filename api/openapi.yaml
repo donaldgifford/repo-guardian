@@ -1,12 +1,19 @@
 openapi: 3.1.0
 info:
   title: repo-guardian API
-  version: 1.1.0
-  summary: Read-only compliance API for repo-guardian v2.
+  version: 2.0.0
+  summary: Compliance API for repo-guardian's controls.
   description: |
-    The read-only API behind the repo-guardian UI and status page
-    (DESIGN-0027). Every endpoint is a GET. Responses are JSON, times
-    are RFC 3339 UTC, and errors are RFC 9457 problem details.
+    The API behind the repo-guardian UI and status page (DESIGN-0027,
+    DESIGN-0032 § API). Every endpoint but one is a GET; the exception,
+    `POST /repositories/{id}/evaluate`, asks for a re-evaluation and
+    writes nothing. Responses are JSON, times are RFC 3339 UTC, and
+    errors are RFC 9457 problem details.
+
+    Compliance is per control. Every compliance object carries the
+    posture buckets, `coverage` (measured over assigned) and `percent`
+    (compliant over compliant plus non-compliant), both floored to one
+    decimal and null when their denominator is empty, never 100.
 
     Results are scoped to the orgs the caller may see. An org the
     caller cannot see answers 404, the same as an unknown one; a caller
@@ -26,6 +33,8 @@ tags:
     description: Who the caller is.
   - name: fleet
     description: Aggregates over the visible orgs.
+  - name: controls
+    description: Controls, their compliance and the policy that assigns them.
   - name: repositories
     description: Repositories and their history.
   - name: meta
@@ -48,6 +57,97 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         default:
           $ref: "#/components/responses/Error"
+  /summary:
+    get:
+      operationId: getSummary
+      summary: Fleet totals over the visible orgs.
+      tags: [fleet]
+      responses:
+        "200":
+          description: The totals.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Summary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/Error"
+  /controls:
+    get:
+      operationId: listControls
+      summary: Every assigned control with its compliance over the visible orgs.
+      description: Totals sum over the control across versions, which is what the version-free result key intends.
+      tags: [controls]
+      parameters:
+        - name: org
+          in: query
+          description: Only this org, case-insensitive.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The controls.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControlList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/Error"
+  /controls/{id}:
+    get:
+      operationId: getControl
+      summary: One control's compliance with its per-org breakdown.
+      tags: [controls]
+      parameters:
+        - $ref: "#/components/parameters/ControlID"
+      responses:
+        "200":
+          description: The control.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControlDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/Error"
+  /policies:
+    get:
+      operationId: getPolicies
+      summary: The active policy, scoped to the visible orgs.
+      description: |
+        Org policies and exclusions for the visible orgs only. The
+        enterprise-wide fields (`enterprise`) appear only for a caller
+        who sees every org.
+      tags: [controls]
+      responses:
+        "200":
+          description: The policy; 404 before any version is activated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policies"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/Error"
   /orgs:
     get:
       operationId: listOrgs
@@ -64,6 +164,35 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/Error"
+  /orgs/{org}:
+    get:
+      operationId: getOrg
+      summary: One org's baseline-versus-org compliance, worst controls and exclusions.
+      tags: [fleet]
+      parameters:
+        - name: org
+          in: path
+          required: true
+          description: An org login, case-insensitive.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+      responses:
+        "200":
+          description: The org.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         default:
           $ref: "#/components/responses/Error"
   /repositories:
@@ -87,6 +216,11 @@ paths:
           description: Only repositories parked for this reason.
           schema:
             $ref: "#/components/schemas/ParkReason"
+        - name: policy_state
+          in: query
+          description: Only repositories the policy resolved to this state.
+          schema:
+            $ref: "#/components/schemas/PolicyState"
         - name: q
           in: query
           description: A repository-name prefix, case-insensitive.
@@ -113,7 +247,7 @@ paths:
   /repositories/{id}:
     get:
       operationId: getRepository
-      summary: One repository with its last check.
+      summary: One repository with its last evaluation.
       tags: [repositories]
       parameters:
         - $ref: "#/components/parameters/RepositoryID"
@@ -134,10 +268,35 @@ paths:
           $ref: "#/components/responses/NotFound"
         default:
           $ref: "#/components/responses/Error"
+  /repositories/{id}/controls:
+    get:
+      operationId: listRepositoryControls
+      summary: The repository's assignments with their results, rule results and evidence.
+      tags: [repositories]
+      parameters:
+        - $ref: "#/components/parameters/RepositoryID"
+      responses:
+        "200":
+          description: Every assignment, in remediation priority order.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepositoryControlList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/Error"
   /repositories/{id}/events:
     get:
       operationId: listRepositoryEvents
       summary: The repository's timeline, result and repository events merged, newest first.
+      description: Remediation events join the timeline with IMPL-0030.
       tags: [repositories]
       parameters:
         - $ref: "#/components/parameters/RepositoryID"
@@ -160,10 +319,10 @@ paths:
           $ref: "#/components/responses/NotFound"
         default:
           $ref: "#/components/responses/Error"
-  /repositories/{id}/checks:
+  /repositories/{id}/evaluations:
     get:
-      operationId: listRepositoryChecks
-      summary: The repository's recent checks, newest first.
+      operationId: listRepositoryEvaluations
+      summary: The repository's evaluation log, newest first.
       tags: [repositories]
       parameters:
         - $ref: "#/components/parameters/RepositoryID"
@@ -171,11 +330,11 @@ paths:
         - $ref: "#/components/parameters/Limit"
       responses:
         "200":
-          description: A page of checks.
+          description: A page of evaluations.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CheckPage"
+                $ref: "#/components/schemas/EvaluationPage"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -184,6 +343,86 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/Error"
+  /repositories/{id}/evaluate:
+    post:
+      operationId: evaluateRepository
+      summary: Ask for the repository to be evaluated now.
+      description: |
+        Sends `recheck` at the highest priority to the repository's
+        evaluation workflow. Visibility is checked first, as for the GET
+        on the same repository. At most one signal per repository per
+        minute per api replica: a later request within the minute
+        answers 202 without signalling.
+      tags: [repositories]
+      parameters:
+        - $ref: "#/components/parameters/RepositoryID"
+      responses:
+        "202":
+          description: Accepted; the evaluation runs asynchronously.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: |
+            The repository cannot be evaluated now. The problem `type` is
+            `workflow_missing` (no evaluation workflow is running for it)
+            or `parked`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "501":
+          description: This api replica has no Temporal client; the UI hides the action.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        default:
+          $ref: "#/components/responses/Error"
+  /compliance/history:
+    get:
+      operationId: getComplianceHistory
+      summary: Compliance snapshots by org and control, oldest first.
+      tags: [controls]
+      parameters:
+        - name: control
+          in: query
+          description: Only this control slug.
+          schema:
+            $ref: "#/components/schemas/ControlSlug"
+        - name: org
+          in: query
+          description: Only this org, case-insensitive.
+          schema:
+            type: string
+        - name: days
+          in: query
+          description: How far back, in days.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
+      responses:
+        "200":
+          description: The snapshots.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceHistory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         default:
           $ref: "#/components/responses/Error"
   /status:
@@ -240,6 +479,13 @@ components:
         minimum: 1
         maximum: 200
         default: 50
+    ControlID:
+      name: id
+      in: path
+      description: A control slug.
+      required: true
+      schema:
+        $ref: "#/components/schemas/ControlSlug"
     RepositoryID:
       name: id
       in: path
@@ -316,6 +562,15 @@ components:
       description: "Open enum: access_denied, archived, fork, removed, installation_removed, unknown."
       type: string
       examples: [archived]
+    PolicyState:
+      description: "Open enum: managed, excluded, unmanaged, parked."
+      type: string
+      examples: [managed]
+    ControlSlug:
+      description: A control's slug, the version-free part of its id.
+      type: string
+      pattern: "^[a-z][a-z0-9]*([_-][a-z0-9]+)*$"
+      maxLength: 100
     ComponentState:
       description: "Open enum: operational, degraded, down, unknown."
       type: string
@@ -342,23 +597,6 @@ components:
           description: The orgs the caller may see; empty when all_orgs is set.
           items:
             type: string
-    StatusCounts:
-      description: Result counts by status.
-      type: object
-      required: [compliant, non_compliant, not_applicable, unknown]
-      properties:
-        compliant:
-          type: integer
-          minimum: 0
-        non_compliant:
-          type: integer
-          minimum: 0
-        not_applicable:
-          type: integer
-          minimum: 0
-        unknown:
-          type: integer
-          minimum: 0
     Component:
       description: One status-page component.
       type: object
@@ -438,9 +676,9 @@ components:
         operations:
           $ref: "#/components/schemas/StatusOperations"
     OrgSummary:
-      description: One org's repositories and compliance.
+      description: One org's repositories and compliance over every control.
       type: object
-      required: [org, tracked, parked, counts, compliant_percent, open_prs]
+      required: [org, tracked, parked, compliance, open_prs]
       properties:
         org:
           type: string
@@ -450,11 +688,8 @@ components:
         parked:
           type: integer
           minimum: 0
-        counts:
-          $ref: "#/components/schemas/StatusCounts"
-        compliant_percent:
-          type: [number, "null"]
-          format: double
+        compliance:
+          $ref: "#/components/schemas/Posture"
         open_prs:
           description: Open repo-guardian pull requests on the org's active repositories.
           type: integer
@@ -471,7 +706,7 @@ components:
     Repository:
       description: One repository.
       type: object
-      required: [id, org, name, active, discovered_at]
+      required: [id, org, name, active, discovered_at, evaluable, remediable]
       properties:
         id:
           type: integer
@@ -496,9 +731,20 @@ components:
         next_due_at:
           type: string
           format: date-time
-        last_checked_at:
+        last_evaluated_at:
           type: string
           format: date-time
+        policy_state:
+          $ref: "#/components/schemas/PolicyState"
+        policy_reason:
+          description: Why the policy resolved the repository to its state, such as the exclude_repos reason.
+          type: string
+        evaluable:
+          description: The Evaluation App has access to the repository.
+          type: boolean
+        remediable:
+          description: The Remediation App has access to the repository and is not suspended.
+          type: boolean
     RepositoryPage:
       description: A page of repositories.
       type: object
@@ -510,8 +756,8 @@ components:
             $ref: "#/components/schemas/Repository"
         next_cursor:
           $ref: "#/components/schemas/Cursor"
-    Check:
-      description: One check of a repository.
+    Evaluation:
+      description: One evaluation of a repository.
       type: object
       required: [id, trigger, outcome, policy_version, started_at]
       properties:
@@ -519,7 +765,7 @@ components:
           type: integer
           format: int64
         trigger:
-          description: "Open enum: schedule, webhook, push, discovery, policy_rollout, bootstrap."
+          description: "Open enum: schedule, webhook, push, discovery, policy_rollout, pr_event, manual."
           type: string
         outcome:
           description: "Open enum: pending, success, error, skipped."
@@ -537,31 +783,33 @@ components:
           format: double
         error:
           type: string
-    CheckPage:
-      description: A page of checks.
+    EvaluationPage:
+      description: A page of evaluations.
       type: object
       required: [items]
       properties:
         items:
           type: array
           items:
-            $ref: "#/components/schemas/Check"
+            $ref: "#/components/schemas/Evaluation"
         next_cursor:
           $ref: "#/components/schemas/Cursor"
     RepositoryDetail:
-      description: A repository with its last check.
+      description: A repository with its last evaluation.
       type: object
       required: [repository]
       properties:
         repository:
           $ref: "#/components/schemas/Repository"
-        last_check:
-          $ref: "#/components/schemas/Check"
+        last_evaluation:
+          $ref: "#/components/schemas/Evaluation"
     Event:
       description: |
-        One timeline entry. A result event carries the control and its status
-        transition (to_status is absent when the result was withdrawn); a
-        repository event carries kind and detail.
+        One timeline entry. A result event carries the control, the rule
+        for a rule-result transition, and the status transition (to_status
+        is absent when the result was withdrawn, which is how an
+        assignment's withdrawal shows); a repository event carries kind
+        and detail.
       type: object
       required: [source, id, occurred_at]
       properties:
@@ -575,6 +823,9 @@ components:
           type: string
           format: date-time
         control_id:
+          type: string
+        rule_id:
+          description: Set on a rule-result transition; absent on a control-status one.
           type: string
         from_status:
           description: "Open enum: compliant, non_compliant, unknown, not_applicable."
@@ -599,3 +850,504 @@ components:
             $ref: "#/components/schemas/Event"
         next_cursor:
           $ref: "#/components/schemas/Cursor"
+    Posture:
+      description: |
+        Compliance over a set of assignments, by posture bucket. Every
+        assignment lands in exactly one bucket. `assigned` counts every
+        bucket but excluded and conflict; `percent` is compliant over
+        compliant plus non-compliant and `coverage` measured (compliant,
+        non-compliant, not applicable) over assigned, both floored to one
+        decimal and null on an empty denominator.
+      type: object
+      required: [compliant, non_compliant, pending, stale, unmeasurable_access_denied, unmeasurable_suspended,
+        unmeasurable_conflict, not_applicable, unknown, excluded, assigned, percent, coverage]
+      properties:
+        compliant:
+          type: integer
+          minimum: 0
+        non_compliant:
+          type: integer
+          minimum: 0
+        pending:
+          description: Assigned with no result yet.
+          type: integer
+          minimum: 0
+        stale:
+          description: A result from an older assignment epoch or revision.
+          type: integer
+          minimum: 0
+        unmeasurable_access_denied:
+          type: integer
+          minimum: 0
+        unmeasurable_suspended:
+          type: integer
+          minimum: 0
+        unmeasurable_conflict:
+          type: integer
+          minimum: 0
+        not_applicable:
+          type: integer
+          minimum: 0
+        unknown:
+          type: integer
+          minimum: 0
+        excluded:
+          description: Excluded assignments, reported beside and never in a denominator.
+          type: integer
+          minimum: 0
+        assigned:
+          type: integer
+          minimum: 0
+        percent:
+          type: [number, "null"]
+          format: double
+        coverage:
+          type: [number, "null"]
+          format: double
+    Summary:
+      description: Fleet totals over the visible orgs.
+      type: object
+      required: [tracked, parked, compliance, open_prs, evaluated_24h]
+      properties:
+        tracked:
+          description: Active repositories.
+          type: integer
+          minimum: 0
+        parked:
+          type: integer
+          minimum: 0
+        compliance:
+          $ref: "#/components/schemas/Posture"
+        open_prs:
+          type: integer
+          minimum: 0
+        evaluated_24h:
+          description: Repositories evaluated in the last 24 hours.
+          type: integer
+          minimum: 0
+        last_evaluated_at:
+          type: string
+          format: date-time
+        policy_version:
+          description: The active policy version; absent before one is activated.
+          type: string
+    ControlSummary:
+      description: One control's fleet compliance.
+      type: object
+      required: [id, type, compliance]
+      properties:
+        id:
+          $ref: "#/components/schemas/ControlSlug"
+        title:
+          type: string
+        type:
+          description: "Open enum: the control type, such as file, codeowners or branch_ruleset."
+          type: string
+        compliance:
+          $ref: "#/components/schemas/Posture"
+    ControlList:
+      description: Every control assigned in the visible orgs.
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ControlSummary"
+    ControlVersion:
+      description: One version and revision of a control assigned in an org, with how many repositories carry it.
+      type: object
+      required: [version, revision, repositories]
+      properties:
+        version:
+          type: integer
+          minimum: 1
+        revision:
+          type: string
+        repositories:
+          type: integer
+          minimum: 0
+    ControlOrg:
+      description: |
+        A control's compliance in one org and baseline lineage. An org on
+        `codeowners@2` through `replace` sits beside one on `@1`.
+      type: object
+      required: [org, decision, versions, compliance]
+      properties:
+        org:
+          type: string
+        decision:
+          $ref: "#/components/schemas/Decision"
+        versions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ControlVersion"
+        compliance:
+          $ref: "#/components/schemas/Posture"
+    ControlDetail:
+      description: One control with its fleet compliance and per-org breakdown.
+      type: object
+      required: [id, type, compliance, orgs]
+      properties:
+        id:
+          $ref: "#/components/schemas/ControlSlug"
+        title:
+          type: string
+        type:
+          type: string
+        compliance:
+          $ref: "#/components/schemas/Posture"
+        orgs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ControlOrg"
+    Decision:
+      description: "Open enum: baseline, replaced, org_added."
+      type: string
+      examples: [baseline]
+    OrgControl:
+      description: One control's compliance in an org.
+      type: object
+      required: [control_id, decision, compliance]
+      properties:
+        control_id:
+          $ref: "#/components/schemas/ControlSlug"
+        decision:
+          $ref: "#/components/schemas/Decision"
+        compliance:
+          $ref: "#/components/schemas/Posture"
+    Exclusion:
+      description: An excluded or conflicted assignment (control_id set) or an excluded repository.
+      type: object
+      required: [repository, state, reason]
+      properties:
+        repository:
+          type: string
+        control_id:
+          $ref: "#/components/schemas/ControlSlug"
+        state:
+          description: "Open enum: excluded, conflict."
+          type: string
+        reason:
+          type: string
+        excluded_by:
+          type: string
+    OrgDetail:
+      description: One org's baseline-versus-org compliance.
+      type: object
+      required: [org, tracked, parked, baseline, org_added, controls, worst_controls, exclusions]
+      properties:
+        org:
+          type: string
+        tracked:
+          type: integer
+          minimum: 0
+        parked:
+          type: integer
+          minimum: 0
+        baseline:
+          $ref: "#/components/schemas/Posture"
+          description: The baseline lineage, whichever layer fulfils it.
+        org_added:
+          $ref: "#/components/schemas/Posture"
+          description: The controls the org adds.
+        controls:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrgControl"
+        worst_controls:
+          description: Up to five measured controls with the lowest percent, lowest first.
+          type: array
+          items:
+            $ref: "#/components/schemas/OrgControl"
+        exclusions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Exclusion"
+    RuleResult:
+      description: One rule's result.
+      type: object
+      required: [rule_id, status, remediate, evidence]
+      properties:
+        rule_id:
+          type: string
+        status:
+          description: "Open enum: pass, fail, error, unknown, not_applicable."
+          type: string
+        remediate:
+          type: boolean
+        evidence:
+          $ref: "#/components/schemas/Evidence"
+    Evidence:
+      description: |
+        A rule's evidence: flat, every value a scalar or an array of
+        scalars. Discriminated by `evidence_kind` and `evidence_version`;
+        render only kinds and versions you know, and treat the rest as
+        opaque.
+      oneOf:
+        - $ref: "#/components/schemas/FrameworkEvidence"
+        - $ref: "#/components/schemas/ControlEvidence"
+    FrameworkEvidence:
+      description: Evidence the framework wrote for a result it had to supply.
+      type: object
+      required: [evidence_kind, evidence_version, reason]
+      properties:
+        evidence_kind:
+          type: string
+          const: framework
+        evidence_version:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+    ControlEvidence:
+      description: Evidence a control type wrote; its other fields depend on the kind and version.
+      type: object
+      required: [evidence_kind, evidence_version]
+      properties:
+        evidence_kind:
+          description: "`<control type>.<rule kind>`, such as file.exists."
+          type: string
+          pattern: "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+        evidence_version:
+          type: integer
+          minimum: 1
+      additionalProperties: true
+    RepositoryControl:
+      description: |
+        One assignment with provenance, requested and effective mode, and
+        its result. The latest remediation joins with IMPL-0030.
+      type: object
+      required: [control_id, version, revision, state, decision, source, requested_mode, effective_mode, mode_source,
+        epoch, bucket, rules]
+      properties:
+        control_id:
+          $ref: "#/components/schemas/ControlSlug"
+        version:
+          type: integer
+          minimum: 1
+        revision:
+          type: string
+        state:
+          description: "Open enum: active, excluded, conflict."
+          type: string
+        decision:
+          description: "Open enum: baseline, replaced, org_added, excluded."
+          type: string
+        baseline_control:
+          description: The baseline control this assignment fulfils; absent for an org addition.
+          type: string
+        source:
+          description: The policy file that assigned it.
+          type: string
+        source_block:
+          description: The repos block label within the source, when one assigned it.
+          type: string
+        replaced:
+          description: The control this one replaced.
+          type: string
+        excluded_by:
+          type: string
+        reason:
+          type: string
+        error:
+          description: Why the assignment is in conflict.
+          type: string
+        requested_mode:
+          description: "Open enum: evaluate, remediate."
+          type: string
+        effective_mode:
+          description: "Open enum: evaluate, remediate."
+          type: string
+        mode_source:
+          type: string
+        mode_reason:
+          description: "Open enum: remediation_app_no_access, remediation_app_suspended."
+          type: string
+        epoch:
+          type: integer
+          format: int64
+        bucket:
+          description: "Open enum, the posture bucket: compliant, non_compliant, pending, stale, unmeasurable_access_denied, unmeasurable_suspended, unmeasurable_conflict, not_applicable, unknown, excluded."
+          type: string
+        status:
+          description: "Open enum, the recorded status: compliant, non_compliant, unknown, not_applicable. Absent before the first result."
+          type: string
+        evaluated_sha:
+          type: string
+        evaluated_at:
+          type: string
+          format: date-time
+        last_changed_at:
+          type: string
+          format: date-time
+        hold:
+          description: "Open enum: pr_cap, foreign_branch, stale_branch, conflict, permission."
+          type: string
+        hold_since:
+          type: string
+          format: date-time
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuleResult"
+    RepositoryControlList:
+      description: A repository's assignments.
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RepositoryControl"
+    HistoryPoint:
+      description: One compliance snapshot row.
+      type: object
+      required: [org, control_id, decision, snapshot_at, compliance]
+      properties:
+        org:
+          type: string
+        control_id:
+          $ref: "#/components/schemas/ControlSlug"
+        decision:
+          $ref: "#/components/schemas/Decision"
+        snapshot_at:
+          type: string
+          format: date-time
+        compliance:
+          $ref: "#/components/schemas/Posture"
+    ComplianceHistory:
+      description: Compliance snapshots, oldest first.
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoryPoint"
+    PolicyControl:
+      description: One catalogue definition.
+      type: object
+      required: [id, type, revision]
+      properties:
+        id:
+          description: The control id, `<slug>@<version>`.
+          type: string
+        title:
+          type: string
+        type:
+          type: string
+        revision:
+          type: string
+    PolicyEnterprise:
+      description: The baseline, shown only to a caller who sees every org.
+      type: object
+      required: [orgs, mode, controls]
+      properties:
+        orgs:
+          type: array
+          items:
+            type: string
+        mode:
+          description: "Open enum: evaluate, remediate."
+          type: string
+        controls:
+          type: array
+          items:
+            type: string
+    PolicyChange:
+      description: An org's added, replaced or excluded control.
+      type: object
+      required: [control]
+      properties:
+        control:
+          type: string
+        with:
+          description: The replacement, for a replace.
+          type: string
+        reason:
+          type: string
+        block:
+          description: The repos block label, when the change is scoped to one.
+          type: string
+    PolicyRepos:
+      description: A repos block.
+      type: object
+      required: [label, match]
+      properties:
+        label:
+          type: string
+        match:
+          type: array
+          items:
+            type: string
+        mode:
+          type: string
+    PolicyExcludedRepos:
+      description: An exclude_repos block.
+      type: object
+      required: [match, reason]
+      properties:
+        match:
+          type: array
+          items:
+            type: string
+        reason:
+          type: string
+    PolicyOrg:
+      description: One visible org's policy.
+      type: object
+      required: [org, added, replaced, excluded, excluded_repos, repos]
+      properties:
+        org:
+          type: string
+        mode:
+          description: The org's mode; absent when it inherits the baseline's.
+          type: string
+        added:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyChange"
+        replaced:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyChange"
+        excluded:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyChange"
+        excluded_repos:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyExcludedRepos"
+        repos:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyRepos"
+    Policies:
+      description: The active policy version, scoped to the visible orgs.
+      type: object
+      required: [version, first_seen_at, activated_at, orgs, controls]
+      properties:
+        version:
+          type: string
+        first_seen_at:
+          type: string
+          format: date-time
+        activated_at:
+          type: string
+          format: date-time
+        rollout_completed_at:
+          type: string
+          format: date-time
+        enterprise:
+          $ref: "#/components/schemas/PolicyEnterprise"
+        orgs:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyOrg"
+        controls:
+          description: The catalogue definitions the visible policy refers to; every definition for a caller who sees every org.
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyControl"

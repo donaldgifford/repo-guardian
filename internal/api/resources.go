@@ -82,7 +82,7 @@ func (s *server) ListOrgs(ctx context.Context, _ gen.ListOrgsRequestObject) (gen
 	for i := range totals {
 		t := &totals[i]
 		out.Items = append(out.Items, gen.OrgSummary{
-			Org: t.org, Tracked: t.tracked, Parked: t.parked, Counts: counts(t.counts), CompliantPercent: store.CompliantPercent(t.counts),
+			Org: t.org, Tracked: t.tracked, Parked: t.parked, Compliance: postureOut(&t.posture),
 			OpenPrs: view.OpenPRs[strings.ToLower(t.org)],
 		})
 	}
@@ -166,8 +166,8 @@ func (s *server) GetRepository(ctx context.Context, req gen.GetRepositoryRequest
 	out := gen.GetRepository200JSONResponse{Repository: repositoryOut(&d.Repository)}
 
 	if d.LastCheck != nil {
-		c := checkOut(d.LastCheck)
-		out.LastCheck = &c
+		c := evaluationOut(d.LastCheck)
+		out.LastEvaluation = &c
 	}
 
 	return out, nil
@@ -178,10 +178,10 @@ type repositoryScoped struct {
 	RepositoryID int64 `json:"repository_id"`
 }
 
-// ListRepositoryChecks returns one page of a repository's checks.
-func (s *server) ListRepositoryChecks(
-	ctx context.Context, req gen.ListRepositoryChecksRequestObject,
-) (gen.ListRepositoryChecksResponseObject, error) {
+// ListRepositoryEvaluations returns one page of a repository's evaluation log.
+func (s *server) ListRepositoryEvaluations(
+	ctx context.Context, req gen.ListRepositoryEvaluationsRequestObject,
+) (gen.ListRepositoryEvaluationsResponseObject, error) {
 	p, err := principal(ctx)
 	if err != nil {
 		return nil, err
@@ -204,9 +204,9 @@ func (s *server) ListRepositoryChecks(
 		return nil, readErr(err)
 	}
 
-	out := gen.ListRepositoryChecks200JSONResponse{Items: make([]gen.Check, 0, len(page.Items))}
+	out := gen.ListRepositoryEvaluations200JSONResponse{Items: make([]gen.Evaluation, 0, len(page.Items))}
 	for i := range page.Items {
-		out.Items = append(out.Items, checkOut(&page.Items[i]))
+		out.Items = append(out.Items, evaluationOut(&page.Items[i]))
 	}
 
 	out.NextCursor, err = nextCursor(page, func(it *store.Check) any { return idKey{ID: it.ID} }, filters)

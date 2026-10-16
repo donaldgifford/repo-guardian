@@ -828,9 +828,14 @@ evaluator's store.
   refusals (acknowledging a head as the evaluator, writing evaluator
   columns as the remediator, rewriting either append-only table).
   `ControlsSchemaVersion` is 3.
-- [ ] 4.3 `00004_compliance.sql`: `compliance_snapshots` keyed `(org,
+- [x] 4.3 `00004_compliance.sql`: `compliance_snapshots` keyed `(org,
   control_id, decision, snapshot_at)` with the posture buckets, the
   excluded count and `coverage`.
+  Done: unmeasurable is split by reason into three columns, and
+  `assigned`, `percent` and `coverage` are stored beside the buckets
+  (`NUMERIC(4,1)`, NULL on an empty denominator). The README and the
+  `ControlsSchemaVersion` comment now say 00004 is IMPL-0029's (the IMPL
+  moved it here from IMPL-0030). `ControlsSchemaVersion` is 4.
 - [ ] 4.4 sqlc: a second block in `sqlc.yaml` reading the controls chain
   and `internal/store/postgres/queries_controls/` into package
   `controlsdb`; `make generate-sql` and `make lint-sql` cover both blocks.

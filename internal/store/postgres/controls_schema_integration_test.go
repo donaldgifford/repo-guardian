@@ -119,6 +119,16 @@ func TestControlsChain_GrantsHoldAsEachRole(t *testing.T) {
 		{"both read the scheduling views", dsns.Remediator,
 			`SELECT * FROM remediation_due; SELECT * FROM remediation_maintenance`, false},
 
+		// 00004: snapshots are the evaluator's.
+		{"evaluator snapshots compliance", dsns.Evaluator,
+			`INSERT INTO compliance_snapshots (org, control_id, decision, snapshot_at, compliant, non_compliant, pending, stale,
+			   unmeasurable_access_denied, unmeasurable_suspended, unmeasurable_conflict, not_applicable, unknown, excluded, assigned)
+			 VALUES ('acme', 'codeowners', 'baseline', now(), 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1)`, false},
+		{"remediator cannot snapshot", dsns.Remediator,
+			`INSERT INTO compliance_snapshots (org, control_id, decision, snapshot_at, compliant, non_compliant, pending, stale,
+			   unmeasurable_access_denied, unmeasurable_suspended, unmeasurable_conflict, not_applicable, unknown, excluded, assigned)
+			 VALUES ('acme', 'codeowners', 'baseline', now(), 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1)`, true},
+
 		// all holds both sets through membership.
 		{"all discovers and sweeps", dsns.All,
 			`INSERT INTO repositories (org, name) VALUES ('acme', 'web');

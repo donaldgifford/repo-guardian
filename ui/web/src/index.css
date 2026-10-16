@@ -26,6 +26,9 @@
   --color-not-applicable: #9aa1ab;
   --color-unknown: #d9a020;
 
+  /* The sidebar collapses behind a top-bar button below this. */
+  --breakpoint-nav: 56.25rem;
+
   --radius-lg: 3px;
   --radius-md: 3px;
   --radius-sm: 3px;

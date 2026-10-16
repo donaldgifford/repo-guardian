@@ -15,6 +15,7 @@ type AppInstallation struct {
 	App                 string
 	InstallationID      int64
 	AccountLogin        string
+	AccountType         string
 	SuspendedAt         *time.Time
 	RepositorySelection string
 	SeenAt              time.Time

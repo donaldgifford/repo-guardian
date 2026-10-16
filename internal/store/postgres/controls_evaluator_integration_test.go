@@ -61,7 +61,7 @@ func evaluatorStore(t *testing.T) (*postgres.ControlsStore, pgtest.ControlsDSNs)
 func discover(t *testing.T, s *postgres.ControlsStore, r store.Resolver) store.ResolvedRepository {
 	t.Helper()
 
-	if err := s.UpsertInstallation(t.Context(), store.AppInstallation{
+	if err := s.UpsertInstallation(t.Context(), &store.AppInstallation{
 		App: store.AppEval, InstallationID: 1, AccountLogin: "acme", RepositorySelection: "all",
 	}); err != nil {
 		t.Fatal(err)
@@ -316,4 +316,39 @@ func TestControlsStore_ParkResultRule(t *testing.T) {
 			t.Error("Park(suspended) = nil, want an error: suspension is access state")
 		}
 	})
+}
+
+// TestControlsStore_EvaluationTarget is IMPL-0029 5.3's read, run as
+// rg_evaluator: identity, policy state, the Evaluation App's
+// installation with its account type, and the assignments at their
+// epoch.
+func TestControlsStore_EvaluationTarget(t *testing.T) {
+	s, _ := evaluatorStore(t)
+
+	repo := discover(t, s, &fakeResolver{assignments: []policy.Assignment{codeowners("r1")}})
+
+	// A personal account, refreshed after discovery wrote the installation.
+	if err := s.UpsertInstallation(t.Context(), &store.AppInstallation{
+		App: store.AppEval, InstallationID: 1, AccountLogin: "acme", AccountType: control.AccountUser, RepositorySelection: "all",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := s.EvaluationTarget(t.Context(), repo.ID)
+	if err != nil {
+		t.Fatalf("EvaluationTarget: %v", err)
+	}
+
+	if got.Org != "acme" || got.Name != "api" || !got.Active || got.PolicyState != policy.StateManaged ||
+		got.PolicyVersion != testPolicyVersion || got.InstallationID != 1 || got.AccountType != control.AccountUser {
+		t.Errorf("EvaluationTarget = %+v, want acme/api, active, managed under %s, installation 1 on a user account", got, testPolicyVersion)
+	}
+
+	if len(got.Assignments) != 1 {
+		t.Fatalf("assignments = %+v, want codeowners", got.Assignments)
+	}
+
+	if a := got.Assignments[0]; a.ControlID != "codeowners" || a.Revision != "r1" || a.Epoch == 0 || a.State != policy.AssignmentActive {
+		t.Errorf("assignment = %+v, want active codeowners at r1 with its epoch", a)
+	}
 }

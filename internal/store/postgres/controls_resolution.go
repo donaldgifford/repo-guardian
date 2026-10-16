@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/donaldgifford/repo-guardian/internal/control"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres/controlsdb"
@@ -28,10 +30,10 @@ const (
 // UpsertInstallation refreshes one App installation's facts. As
 // rg_evaluator only an 'eval' row is written; the policy fences the
 // other App's rows.
-func (s *ControlsStore) UpsertInstallation(ctx context.Context, in store.AppInstallation) error {
+func (s *ControlsStore) UpsertInstallation(ctx context.Context, in *store.AppInstallation) error {
 	err := s.q.UpsertAppInstallation(ctx, controlsdb.UpsertAppInstallationParams{
 		App: in.App, InstallationID: in.InstallationID, AccountLogin: in.AccountLogin,
-		SuspendedAt: in.SuspendedAt, RepositorySelection: in.RepositorySelection,
+		AccountType: cmp.Or(in.AccountType, control.AccountOrganization), SuspendedAt: in.SuspendedAt, RepositorySelection: in.RepositorySelection,
 	})
 	if err != nil {
 		return fmt.Errorf("upsert %s installation %d: %w", in.App, in.InstallationID, err)

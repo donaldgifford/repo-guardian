@@ -53,6 +53,47 @@ func (q *Queries) DeleteRuleResultsNotIn(ctx context.Context, arg DeleteRuleResu
 	return err
 }
 
+const evaluationTarget = `-- name: EvaluationTarget :one
+SELECT r.org, r.name, r.active, r.park_reason,
+       ps.state AS policy_state, ps.policy_version,
+       a.installation_id, i.account_type
+FROM repositories r
+LEFT JOIN repository_policy_state ps ON ps.repository_id = r.id
+LEFT JOIN app_repository_access a ON a.repository_id = r.id AND a.app = 'eval'
+LEFT JOIN app_installations i ON i.app = 'eval' AND i.installation_id = a.installation_id
+WHERE r.id = $1
+`
+
+type EvaluationTargetRow struct {
+	Org            string
+	Name           string
+	Active         bool
+	ParkReason     *string
+	PolicyState    *string
+	PolicyVersion  *string
+	InstallationID *int64
+	AccountType    *string
+}
+
+// One repository as the evaluator sees it: identity, policy state and
+// the Evaluation App's installation. The LEFT JOINs leave a repository
+// with no resolution or no access row readable.
+func (q *Queries) EvaluationTarget(ctx context.Context, id int64) (EvaluationTargetRow, error) {
+	row := q.db.QueryRow(ctx, evaluationTarget, id)
+	var i EvaluationTargetRow
+	err := row.Scan(
+		&i.Org,
+		&i.Name,
+		&i.Active,
+		&i.ParkReason,
+		&i.PolicyState,
+		&i.PolicyVersion,
+		&i.InstallationID,
+		&i.AccountType,
+	)
+	return i, err
+}
+
 const finishCheck = `-- name: FinishCheck :exec
 UPDATE checks SET outcome = $1, error = $2, pending_result = NULL, finished_at = now() WHERE id = $3
 `

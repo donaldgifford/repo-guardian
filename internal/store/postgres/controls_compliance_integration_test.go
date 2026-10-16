@@ -48,7 +48,7 @@ func TestControlsStore_ComplianceBuckets(t *testing.T) {
 		"stale": {codeowners("r1")}, "denied": {codeowners("r1")}, "excluded": {excluded}, "conflict": {conflict},
 	}
 
-	if err := s.UpsertInstallation(ctx, store.AppInstallation{App: store.AppEval, InstallationID: 1, AccountLogin: "acme", RepositorySelection: "all"}); err != nil {
+	if err := s.UpsertInstallation(ctx, &store.AppInstallation{App: store.AppEval, InstallationID: 1, AccountLogin: "acme", RepositorySelection: "all"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -314,7 +314,7 @@ func TestControlsStore_PostureOfAMostlyPendingFleet(t *testing.T) {
 	ctx := t.Context()
 	r := &fakeResolver{assignments: []policy.Assignment{codeowners("r1")}}
 
-	if err := s.UpsertInstallation(ctx, store.AppInstallation{App: store.AppEval, InstallationID: 1, AccountLogin: "acme", RepositorySelection: "all"}); err != nil {
+	if err := s.UpsertInstallation(ctx, &store.AppInstallation{App: store.AppEval, InstallationID: 1, AccountLogin: "acme", RepositorySelection: "all"}); err != nil {
 		t.Fatal(err)
 	}
 

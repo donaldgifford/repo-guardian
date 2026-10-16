@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
+	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres/controlsdb"
 )
@@ -269,4 +270,48 @@ func intentRevision(c *store.ControlEvaluation, generation int64, effectiveMode 
 	h := sha256.Sum256(fmt.Appendf(nil, "%d\x00%d\x00%s\x00%s\x00%t\x00%s", c.Epoch, generation, c.Apply, effectiveMode, c.Remediable, c.Revision))
 
 	return hex.EncodeToString(h[:])
+}
+
+// EvaluationTarget reads one repository, its policy state, the
+// Evaluation App's installation and its assignments in one transaction,
+// so the assignments match the state they were resolved under.
+func (s *ControlsStore) EvaluationTarget(ctx context.Context, repoID int64) (*store.EvaluationTarget, error) {
+	var out *store.EvaluationTarget
+
+	err := s.inTx(ctx, func(q *controlsdb.Queries) error {
+		row, err := q.EvaluationTarget(ctx, repoID)
+		if err != nil {
+			return fmt.Errorf("read repository: %w", err)
+		}
+
+		assigned, err := q.ListAssignments(ctx, repoID)
+		if err != nil {
+			return fmt.Errorf("read assignments: %w", err)
+		}
+
+		out = &store.EvaluationTarget{
+			RepositoryID: repoID, Org: row.Org, Name: row.Name, Active: row.Active, ParkReason: textOf(row.ParkReason),
+			PolicyState: policy.State(textOf(row.PolicyState)), PolicyVersion: textOf(row.PolicyVersion),
+			AccountType: textOf(row.AccountType), Assignments: make([]store.AssignedControl, 0, len(assigned)),
+		}
+
+		if row.InstallationID != nil {
+			out.InstallationID = *row.InstallationID
+		}
+
+		for i := range assigned {
+			a := &assigned[i]
+			out.Assignments = append(out.Assignments, store.AssignedControl{
+				ControlID: a.ControlID, ControlVersion: int(a.ControlVersion), Revision: a.Revision, Epoch: a.Epoch,
+				State: policy.AssignmentState(a.State), RequestedMode: a.RequestedMode, EffectiveMode: a.EffectiveMode,
+			})
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("evaluation target %d: %w", repoID, err)
+	}
+
+	return out, nil
 }

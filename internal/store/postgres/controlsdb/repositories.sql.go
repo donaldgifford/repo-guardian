@@ -221,10 +221,11 @@ func (q *Queries) UpdateRepositoryIdentity(ctx context.Context, arg UpdateReposi
 }
 
 const upsertAppInstallation = `-- name: UpsertAppInstallation :exec
-INSERT INTO app_installations (app, installation_id, account_login, suspended_at, repository_selection, seen_at)
-VALUES ($1, $2, $3, $4, $5, now())
+INSERT INTO app_installations (app, installation_id, account_login, account_type, suspended_at, repository_selection, seen_at)
+VALUES ($1, $2, $3, $4, $5, $6, now())
 ON CONFLICT (app, installation_id) DO UPDATE SET
     account_login = EXCLUDED.account_login,
+    account_type = EXCLUDED.account_type,
     suspended_at = EXCLUDED.suspended_at,
     repository_selection = EXCLUDED.repository_selection,
     seen_at = EXCLUDED.seen_at
@@ -234,6 +235,7 @@ type UpsertAppInstallationParams struct {
 	App                 string
 	InstallationID      int64
 	AccountLogin        string
+	AccountType         string
 	SuspendedAt         *time.Time
 	RepositorySelection string
 }
@@ -243,6 +245,7 @@ func (q *Queries) UpsertAppInstallation(ctx context.Context, arg UpsertAppInstal
 		arg.App,
 		arg.InstallationID,
 		arg.AccountLogin,
+		arg.AccountType,
 		arg.SuspendedAt,
 		arg.RepositorySelection,
 	)

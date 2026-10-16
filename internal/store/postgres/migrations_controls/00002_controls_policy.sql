@@ -71,6 +71,9 @@ CREATE TABLE app_installations (
     app                  TEXT NOT NULL CHECK (app IN ('eval', 'remediate')),
     installation_id      BIGINT NOT NULL,
     account_login        TEXT NOT NULL,
+    -- 'user' is a personal account: no teams, no custom property schema
+    -- (DESIGN-0031 D10).
+    account_type         TEXT NOT NULL DEFAULT 'organization' CHECK (account_type IN ('organization', 'user')),
     suspended_at         TIMESTAMPTZ,
     repository_selection TEXT NOT NULL CHECK (repository_selection IN ('all', 'selected')),
     seen_at              TIMESTAMPTZ NOT NULL,

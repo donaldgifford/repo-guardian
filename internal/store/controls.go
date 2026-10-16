@@ -19,7 +19,7 @@ const (
 // runs as rg_evaluator.
 type Controls interface {
 	// UpsertInstallation refreshes one App installation's facts.
-	UpsertInstallation(ctx context.Context, in AppInstallation) error
+	UpsertInstallation(ctx context.Context, in *AppInstallation) error
 	// UpsertRepositories writes each repository row and its
 	// app = 'eval' access row in one transaction, then resolves it with
 	// r. It is the only un-parker.
@@ -40,6 +40,9 @@ type Controls interface {
 	// and installation_removed clear its results; access_denied and
 	// unknown keep them, because access loss must never improve posture.
 	Park(ctx context.Context, repoID int64, reason string) error
+	// EvaluationTarget reads one repository as the evaluator sees it,
+	// with its assignments in policy order.
+	EvaluationTarget(ctx context.Context, repoID int64) (*EvaluationTarget, error)
 	// CurrentActivation is the most recently activated policy version.
 	CurrentActivation(ctx context.Context) (version string, activatedAt time.Time, err error)
 }
@@ -53,9 +56,12 @@ type Resolver interface {
 
 // AppInstallation is one App installation's facts.
 type AppInstallation struct {
-	App                 string
-	InstallationID      int64
-	AccountLogin        string
+	App            string
+	InstallationID int64
+	AccountLogin   string
+	// AccountType is control.AccountOrganization or control.AccountUser;
+	// empty is an organization.
+	AccountType         string
 	SuspendedAt         *time.Time
 	RepositorySelection string // "all" or "selected"
 }
@@ -88,6 +94,33 @@ type ResolutionChange struct {
 	Changed []string
 	// Withdrawn holds every control whose result was cleared.
 	Withdrawn []string
+}
+
+// EvaluationTarget is what the Evaluate activity reads before touching
+// GitHub. InstallationID is 0 when the Evaluation App has no access row;
+// PolicyState is empty before the first resolution.
+type EvaluationTarget struct {
+	RepositoryID   int64
+	Org            string
+	Name           string
+	Active         bool
+	ParkReason     string
+	PolicyState    policy.State
+	PolicyVersion  string
+	InstallationID int64
+	AccountType    string
+	Assignments    []AssignedControl
+}
+
+// AssignedControl is one stored assignment, as evaluation needs it.
+type AssignedControl struct {
+	ControlID      string
+	ControlVersion int
+	Revision       string
+	Epoch          int64
+	State          policy.AssignmentState
+	RequestedMode  string
+	EffectiveMode  string
 }
 
 // EvaluationStage is one evaluation's staged payload: only the controls

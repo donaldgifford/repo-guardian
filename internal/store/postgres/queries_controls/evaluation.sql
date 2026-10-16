@@ -64,3 +64,16 @@ ON CONFLICT (repository_id, control_id, rule_id) DO UPDATE SET
 -- name: DeleteRuleResultsNotIn :exec
 DELETE FROM rule_results
 WHERE repository_id = @repository_id AND control_id = @control_id AND NOT (rule_id = ANY (@keep::text[]));
+
+-- name: EvaluationTarget :one
+-- One repository as the evaluator sees it: identity, policy state and
+-- the Evaluation App's installation. The LEFT JOINs leave a repository
+-- with no resolution or no access row readable.
+SELECT r.org, r.name, r.active, r.park_reason,
+       ps.state AS policy_state, ps.policy_version,
+       a.installation_id, i.account_type
+FROM repositories r
+LEFT JOIN repository_policy_state ps ON ps.repository_id = r.id
+LEFT JOIN app_repository_access a ON a.repository_id = r.id AND a.app = 'eval'
+LEFT JOIN app_installations i ON i.app = 'eval' AND i.installation_id = a.installation_id
+WHERE r.id = @id;

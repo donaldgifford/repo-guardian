@@ -999,7 +999,7 @@ evaluator's store.
   the lease is on `installation/eval/<id>`. Tests in `evaluation_test.go`
   (schedule/record/park, deferral, in-flight signal coalescing, ContinueAsNew
   at 100, `coalesce` table). Not registered on a worker yet.
-- [ ] 5.3 `Evaluate` activity (`internal/activities/evaluate.go`): read
+- [x] 5.3 `Evaluate` activity (`internal/activities/evaluate.go`): read
   policy state and active assignments, skip unless `managed`; skip
   `conflict` assignments (reported `unmeasurable{reason=conflict}`);
   classify throttle first, then repository access loss; pin the default
@@ -1009,6 +1009,21 @@ evaluator's store.
   run each through one `NewEvalReader`, then `Validate`, `StatusOf` and
   `Fingerprint`; stage the payload. A control-local 403 is
   `unknown{reason=permission}` and parks nothing.
+  Done: `internal/activities/evaluate.go` (`Evaluator`, `EvalStore`,
+  `EvalPolicy`, `EvalRepo`, `EvalClients`) and `evalclients.go`
+  (`GitHubEvalClients`). The pin reads the default branch over REST so a
+  lost repository is a 403/404 `IsAccessDenied` sees (the settings read is
+  GraphQL first); throttles inside a control's reads are caught by
+  `throttleWatch` under the shared `EvalReader`, because types fold read
+  errors into results. Each control's fingerprint takes only the reads of
+  its own `Owns() ∪ Reads()` (plus a failed `*` listing of a kind it
+  reads), so another control's file never moves it. An assignment whose
+  revision differs from the loaded policy waits for re-resolution.
+  Deviations: `ControlsStore.EvaluationTarget` + query added for the
+  read; `app_installations.account_type` added to 00002 (unreleased) to
+  fill `RepoContext.AccountType`, and `UpsertInstallation` now takes a
+  pointer. Tests: `evaluate_test.go`,
+  `TestControlsStore_EvaluationTarget`.
 - [ ] 5.4 Record and park activities: `RecordEvaluation` (4.5) and
   `ParkRepository` (4.6), with the `checks.trigger` values `pr_event`
   and `manual` accepted.

@@ -28,10 +28,11 @@ WHERE id = @id AND (active OR park_reason IS DISTINCT FROM @park_reason);
 INSERT INTO repository_events (repository_id, kind, detail) VALUES (@repository_id, @kind, @detail);
 
 -- name: UpsertAppInstallation :exec
-INSERT INTO app_installations (app, installation_id, account_login, suspended_at, repository_selection, seen_at)
-VALUES (@app, @installation_id, @account_login, @suspended_at, @repository_selection, now())
+INSERT INTO app_installations (app, installation_id, account_login, account_type, suspended_at, repository_selection, seen_at)
+VALUES (@app, @installation_id, @account_login, @account_type, @suspended_at, @repository_selection, now())
 ON CONFLICT (app, installation_id) DO UPDATE SET
     account_login = EXCLUDED.account_login,
+    account_type = EXCLUDED.account_type,
     suspended_at = EXCLUDED.suspended_at,
     repository_selection = EXCLUDED.repository_selection,
     seen_at = EXCLUDED.seen_at;

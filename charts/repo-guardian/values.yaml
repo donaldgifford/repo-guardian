@@ -267,6 +267,12 @@ api:
   port: 8081
   # -- Resources; empty falls back to `resources`.
   resources: {}
+  # -- Give the api role (split) the `temporal.*` connection, so `POST
+  # /repositories/{id}/evaluate` can signal a re-evaluation and `/status`
+  # can probe both queues. Off, the POST answers 501 and the UI hides the
+  # button. The client only signals and describes queues; give it its
+  # own mTLS identity so its calls are attributable. `all` always dials.
+  temporal: false
   pdb:
     # -- Render a PodDisruptionBudget.
     enabled: true

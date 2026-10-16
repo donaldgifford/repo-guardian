@@ -44,6 +44,18 @@ type orgReader struct {
 	policy *store.ActivePolicy
 }
 
+// Repository answers one repository within scope, ErrNotFound otherwise,
+// as the SQL predicate does.
+func (r *orgReader) Repository(_ context.Context, scope store.APIScope, id int64) (*store.RepositoryDetail, error) {
+	for i := range r.repos {
+		if r.repos[i].ID == id && (scope.All() || slices.Contains(scope.Orgs(), r.repos[i].Org)) {
+			return &store.RepositoryDetail{Repository: r.repos[i]}, nil
+		}
+	}
+
+	return nil, store.ErrNotFound
+}
+
 func (r *orgReader) ActivePolicy(context.Context) (*store.ActivePolicy, error) {
 	if r.policy == nil {
 		return nil, store.ErrNotFound
@@ -95,7 +107,7 @@ type harness struct {
 	client *apitest.Client
 }
 
-func newHarness(t *testing.T) *harness {
+func newHarness(t *testing.T, opts ...func(*api.Options)) *harness {
 	t.Helper()
 
 	iss := oidctest.Start(t, audience)
@@ -116,11 +128,16 @@ func newHarness(t *testing.T) *harness {
 	authn.Start(t.Context())
 
 	reader := twoOrgs()
-
-	return &harness{issuer: iss, reader: reader, client: apitest.New(t, &api.Options{
+	o := &api.Options{
 		Reader: reader, Authn: authn, Authz: authz, Logger: quiet,
 		Now: func() time.Time { return now },
-	})}
+	}
+
+	for _, opt := range opts {
+		opt(o)
+	}
+
+	return &harness{issuer: iss, reader: reader, client: apitest.New(t, o)}
 }
 
 func decode[T any](t *testing.T, r *apitest.Response) T {

@@ -1804,12 +1804,13 @@ half-switched binary.
   `TestPoliciesSummary_IsScoped` asserts a single-org principal sees no
   other org.
   Done: `internal/api/controls.go` serves `/summary`, `/controls` (grouped by slug, totals summed with `ControlPosture.Plus`, title and type from the newest catalogue version), `/controls/{id}` (per-org rows by lineage, each with its `versions`), `/orgs/{org}` (baseline is baseline plus replaced, `org_added` the rest; up to five measured controls with the lowest percent; exclusions), `/compliance/history` (1–365 days, slug validated) and `/repositories/{id}/controls` (stored evidence unmarshals into the `Evidence` union). `policies.go` filters the stored `Summarize()` output in Go: the visible orgs, the catalogue entries their layers refer to, and `enterprise` only for an all-orgs scope. `resources.go` gains the `policy_state` filter (bound to the cursor) and `compliance.go` sums posture. `TestPoliciesSummary_IsScoped` asserts a team-web principal sees only acme-web, no enterprise block, only `labels@1`, and no byte of acme-pay's policy. `/policies` answers 404 before activation.
-- [ ] 8.4 `POST /repositories/{id}/evaluate`: visibility through
+- [x] 8.4 `POST /repositories/{id}/evaluate`: visibility through
   `APIScope` first; `recheck` at priority 1 to `evaluation/<id>`; `202`
   with no body; `409 workflow_missing`, `409 parked`; `501` without
   `TEMPORAL_ADDRESS`; dedupe per OQ12. The UI BFF proxies this one
   `POST` with the Origin check it applies to logout
   (`ui/server/proxy.ts`).
+  Done: `internal/api/evaluate.go`. Visibility comes first through `Reader.Repository` (404). Then: `501` without an `Options.Rechecker`; `409` problem type `parked` for an inactive repository; and a per-replica one-minute dedupe (OQ12 (a)) whose suppressed requests answer `202` without signalling. A failed signal releases its claim, so a retry is not swallowed; `ErrWorkflowMissing` becomes `409 workflow_missing`. Problems gained a `type` (`typedError`). In cmd, `evaluationRechecker` signals `recheck` `{manual, PriorityHuman, Unknown: true}` to `evaluation/<id>` through a one-method `signaler` and maps `serviceerror.NotFound` to `ErrWorkflowMissing`. The api role dials Temporal only when `TEMPORAL_ADDRESS` is set, and then without a `temporal` readiness check, so an outage never takes the read API out of rotation. The chart gains `api.temporal` (default off; `roleDialsTemporal` includes api only with it). The BFF proxies exactly `POST /api/v1/repositories/<n>/evaluate` under the logout's Origin check (403 cross-origin or no Origin); every other non-GET stays 405. Tests: `TestEvaluate_*` (501 after 404, once per minute, both 409s, claim release, 500), `TestEvaluationRechecker_*`, two proxy tests, and a secret-scoping chart test.
 - [ ] 8.5 `/status`: both queues' backlog through `DescribeTaskQueue`,
   each App's installations from `app_installations`, `topology`,
   evaluation freshness and coverage.

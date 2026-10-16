@@ -373,7 +373,9 @@ every role that dials it, and nothing but the read-only DSN in api.
 {{- define "repo-guardian.roleHasEvalKey" -}}{{ if and .ctx.Values.github.eval.appId (has .role (list "evaluator" "all")) }}true{{ end }}{{- end }}
 {{- define "repo-guardian.roleHasRemediateKey" -}}{{ if and .ctx.Values.github.remediate.appId (has .role (list "remediator" "all")) }}true{{ end }}{{- end }}
 {{- define "repo-guardian.roleHasWebhookSecret" -}}{{ if has .role (list "ingest" "all") }}true{{ end }}{{- end }}
-{{- define "repo-guardian.roleDialsTemporal" -}}{{ if has .role (list "ingest" "evaluator" "remediator" "all") }}true{{ end }}{{- end }}
+{{- /* The api role dials only with api.temporal: its client sends the
+re-evaluate POST's signal and probes the queues (DESIGN-0032 § API). */ -}}
+{{- define "repo-guardian.roleDialsTemporal" -}}{{ if or (has .role (list "ingest" "evaluator" "remediator" "all")) (and (eq .role "api") .ctx.Values.api.temporal) }}true{{ end }}{{- end }}
 {{- define "repo-guardian.roleHasStore" -}}{{ if has .role (list "evaluator" "remediator" "all") }}true{{ end }}{{- end }}
 {{- define "repo-guardian.roleServesAPI" -}}{{ if has .role (list "api" "all") }}true{{ end }}{{- end }}
 {{- define "repo-guardian.roleReadsPolicy" -}}{{ if has .role (list "ingest" "evaluator" "remediator" "all") }}true{{ end }}{{- end }}

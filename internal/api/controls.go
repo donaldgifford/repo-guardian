@@ -312,8 +312,3 @@ func (s *server) ListRepositoryControls(
 
 	return out, nil
 }
-
-// EvaluateRepository asks for a repository to be evaluated now.
-func (*server) EvaluateRepository(context.Context, gen.EvaluateRepositoryRequestObject) (gen.EvaluateRepositoryResponseObject, error) {
-	return nil, statusError(http.StatusNotImplemented, "")
-}

@@ -49,6 +49,10 @@ type Options struct {
 	Authn *Authenticator
 	Authz *AuthzConfig
 
+	// Rechecker sends POST /repositories/{id}/evaluate's re-check. Nil
+	// answers 501: the api role has no Temporal client.
+	Rechecker Rechecker
+
 	// Status serves /status from its cache; nil answers unknown.
 	Status *StatusPage
 	// StatusRequiresAuth is STATUS_PUBLIC=false: /status then needs a
@@ -84,7 +88,7 @@ func New(opts *Options) (http.Handler, error) {
 		return nil, err
 	}
 
-	strict := gen.NewStrictHandlerWithOptions(&server{opts: o}, []gen.StrictMiddlewareFunc{requireVisibleOrgs},
+	strict := gen.NewStrictHandlerWithOptions(&server{opts: o, rechecks: newRecheckDedupe()}, []gen.StrictMiddlewareFunc{requireVisibleOrgs},
 		gen.StrictHTTPServerOptions{
 			RequestErrorHandlerFunc:  badRequest,
 			ResponseErrorHandlerFunc: responseError(o.Logger),
@@ -187,12 +191,20 @@ func requireVisibleOrgs(f gen.StrictHandlerFunc, operationID string) gen.StrictH
 // httpError is a handler failure with a status the client should see.
 type httpError struct {
 	status int
+	// typ is the problem type; empty is about:blank.
+	typ    string
 	detail string
 }
 
 func (e *httpError) Error() string { return e.detail }
 
 func statusError(status int, detail string) error { return &httpError{status: status, detail: detail} }
+
+// typedError is a problem whose type names the condition, such as 409
+// workflow_missing, so a client can tell one 409 from another.
+func typedError(status int, typ, detail string) error {
+	return &httpError{status: status, typ: typ, detail: detail}
+}
 
 func badRequest(w http.ResponseWriter, r *http.Request, err error) {
 	writeProblem(w, r, http.StatusBadRequest, err.Error())
@@ -204,7 +216,7 @@ func responseError(logger *slog.Logger) func(http.ResponseWriter, *http.Request,
 	return func(w http.ResponseWriter, r *http.Request, err error) {
 		var he *httpError
 		if errors.As(err, &he) {
-			writeProblem(w, r, he.status, he.detail)
+			writeTypedProblem(w, r, he.status, he.typ, he.detail)
 
 			return
 		}

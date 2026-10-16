@@ -558,7 +558,7 @@ The rule engine and the single-App worker are gone (IMPL-0029).
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` | Affinity rules |
-| api | object | `{"auth":{"audience":"repo-guardian-api","enabled":true,"groupsClaim":"groups","issuer":"","nameClaim":"preferred_username"},"authz":{"clients":{},"defaultOrgs":[],"groups":{}},"enabled":false,"pdb":{"enabled":true,"minAvailable":1},"port":8081,"replicas":2,"resources":{},"roDsn":{"existingSecret":"","existingSecretKey":"STORE_RO_DSN"},"status":{"public":true}}` | The api role: the read-only JSON API (DESIGN-0027). It holds only a read-only database credential: no App key, no webhook secret. |
+| api | object | `{"auth":{"audience":"repo-guardian-api","enabled":true,"groupsClaim":"groups","issuer":"","nameClaim":"preferred_username"},"authz":{"clients":{},"defaultOrgs":[],"groups":{}},"enabled":false,"pdb":{"enabled":true,"minAvailable":1},"port":8081,"replicas":2,"resources":{},"roDsn":{"existingSecret":"","existingSecretKey":"STORE_RO_DSN"},"status":{"public":true},"temporal":false}` | The api role: the read-only JSON API (DESIGN-0027). It holds only a read-only database credential: no App key, no webhook secret. |
 | api.auth.audience | string | `"repo-guardian-api"` | Expected token audience. |
 | api.auth.enabled | bool | `true` | Require an OIDC bearer token on every data endpoint. |
 | api.auth.groupsClaim | string | `"groups"` | Claim listing the caller's groups. |
@@ -576,6 +576,7 @@ The rule engine and the single-App worker are gone (IMPL-0029).
 | api.roDsn.existingSecret | string | `""` | Secret holding STORE_RO_DSN. Required for `store.postgres.mode: external`; baked and cnpg derive it from the chart-managed `repoguardian_ro` role when empty. |
 | api.roDsn.existingSecretKey | string | `"STORE_RO_DSN"` | Key inside existingSecret. |
 | api.status.public | bool | `true` | Serve /status without a token. |
+| api.temporal | bool | `false` | Give the api role (split) the `temporal.*` connection, so `POST /repositories/{id}/evaluate` can signal a re-evaluation and `/status` can probe both queues. Off, the POST answers 501 and the UI hides the button. The client only signals and describes queues; give it its own mTLS identity so its calls are attributable. `all` always dials. |
 | checksRetention | string | `"2160h"` | How long check history is kept before SnapshotWorkflow prunes it. |
 | config | object | `{"logLevel":"info","metricsPort":9090,"port":8080}` | repo-guardian application configuration (env vars) |
 | config.logLevel | string | `"info"` | Log level (debug, info, warn, error) |

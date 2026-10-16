@@ -11,7 +11,8 @@ import (
 
 // server implements the generated strict interface.
 type server struct {
-	opts Options
+	opts     Options
+	rechecks *recheckDedupe
 }
 
 var _ gen.StrictServerInterface = (*server)(nil)

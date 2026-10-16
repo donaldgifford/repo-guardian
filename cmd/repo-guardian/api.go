@@ -7,12 +7,14 @@ import (
 	"log/slog"
 	"net/http"
 
+	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
 
 	"github.com/donaldgifford/repo-guardian/internal/api"
 	"github.com/donaldgifford/repo-guardian/internal/config"
 	pgstore "github.com/donaldgifford/repo-guardian/internal/store/postgres"
 	"github.com/donaldgifford/repo-guardian/internal/temporal"
+	"github.com/donaldgifford/repo-guardian/internal/workflows"
 )
 
 // startAPI builds the read-only API (DESIGN-0027): the read-only pool,
@@ -51,6 +53,10 @@ func startAPI(
 
 	opts := &api.Options{
 		Reader: reader, Status: status, StatusRequiresAuth: !cfg.API.StatusPublic, Logger: logger,
+	}
+
+	if tc != nil {
+		opts.Rechecker = evaluationRechecker{signaler: tc}
 	}
 	checks := []readinessCheck{
 		{name: "api_store", fn: pool.Ping},
@@ -114,4 +120,34 @@ func backlogProbes(cfg *config.Config, roles config.Role, tc client.Client, tcfg
 	}
 
 	return probes
+}
+
+// signaler is the one Temporal call the re-check needs. The api role's
+// client is used for this and DescribeTaskQueue alone: it never starts a
+// workflow (DESIGN-0032 AR-0032-12).
+type signaler interface {
+	SignalWorkflow(ctx context.Context, workflowID, runID, signalName string, arg any) error
+}
+
+// evaluationRechecker sends POST /repositories/{id}/evaluate's re-check:
+// recheck at the human priority to evaluation/<id>, evaluating every
+// control (Unknown), since a person asked for all of it.
+type evaluationRechecker struct {
+	signaler signaler
+}
+
+func (r evaluationRechecker) Recheck(ctx context.Context, repositoryID int64) error {
+	err := r.signaler.SignalWorkflow(ctx, workflows.EvaluationWorkflowID(repositoryID), "", workflows.RecheckSignal,
+		workflows.Recheck{Trigger: workflows.TriggerManual, Priority: workflows.PriorityHuman, Unknown: true})
+
+	var missing *serviceerror.NotFound
+	if errors.As(err, &missing) {
+		return api.ErrWorkflowMissing
+	}
+
+	if err != nil {
+		return fmt.Errorf("signal %s: %w", workflows.EvaluationWorkflowID(repositoryID), err)
+	}
+
+	return nil
 }

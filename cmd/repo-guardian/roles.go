@@ -110,9 +110,10 @@ func dialTemporal(
 	ctx context.Context, roles config.Role, obs *observability.Provider, logger *slog.Logger,
 ) (temporal.Config, client.Client, error) {
 	tcfg, err := temporal.ConfigFromEnv()
-	if roles == config.RoleAPI {
-		// The api role never dials, so an unset or incomplete Temporal
-		// env is not an error for it: the chart gives it none.
+	if roles == config.RoleAPI && tcfg.Address == "" {
+		// The api role's Temporal client is optional (DESIGN-0032 § API):
+		// without TEMPORAL_ADDRESS it does not dial, and POST
+		// /repositories/{id}/evaluate answers 501.
 		return tcfg, nil, nil
 	}
 
@@ -186,7 +187,9 @@ func bringUpRoles(
 	logger *slog.Logger,
 ) (*rolesUp, error) {
 	var checks []readinessCheck
-	if tc != nil {
+	// The api role's client serves only the re-check POST, so a Temporal
+	// outage must not take the read API out of rotation.
+	if tc != nil && roles != config.RoleAPI {
 		checks = append(checks, readinessCheck{name: "temporal", fn: func(ctx context.Context) error { return temporal.Ping(ctx, tc) }})
 	}
 

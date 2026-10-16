@@ -405,6 +405,10 @@
         "port": {
           "type": "integer"
         },
+        "temporal": {
+          "type": "boolean",
+          "description": "Give the api role (split) a Temporal client for the re-evaluate POST and the queue probes."
+        },
         "auth": {
           "type": "object",
           "properties": {

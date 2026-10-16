@@ -3,7 +3,4 @@
 export const flags = {
   // PR activity heat tab on Orgs (7.5).
   prActivity: false,
-  // compliance.history and the operations numbers on /status (7.4):
-  // the status page's sparkline and operations strip.
-  statusExtras: false,
 } as const;

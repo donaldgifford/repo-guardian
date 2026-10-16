@@ -302,4 +302,28 @@ type StatusInputs struct {
 	Rates []RateSnapshot
 	// Compliance is the fleet's finding counts, from the shared query.
 	Compliance StatusCounts
+	// History is fleet compliance at each UTC day's last snapshot over
+	// the last 30 days, oldest first.
+	History []CompliancePoint
+	// CheckedLastDay counts repositories with a finished check in the
+	// last 24h.
+	CheckedLastDay int
+	// Rollout is the newest policy version's rollout; nil before any
+	// version is recorded.
+	Rollout *Rollout
+	// LastSnapshot is nil before the first compliance snapshot.
+	LastSnapshot *time.Time
+}
+
+// CompliancePoint is fleet compliance at one snapshot; Percent is nil
+// when nothing was measured.
+type CompliancePoint struct {
+	At      time.Time
+	Percent *float64
+}
+
+// Rollout is a policy version's rollout; CompletedAt is nil while it is
+// in progress.
+type Rollout struct {
+	CompletedAt *time.Time
 }

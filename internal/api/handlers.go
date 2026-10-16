@@ -135,9 +135,7 @@ func (s *server) staleAfter(param *string) (time.Duration, error) {
 // GetStatus serves the status page from its cache; it never queries.
 func (s *server) GetStatus(context.Context, gen.GetStatusRequestObject) (gen.GetStatusResponseObject, error) {
 	if s.opts.Status == nil {
-		return gen.GetStatus200JSONResponse{
-			State: stateUnknown, UpdatedAt: s.opts.Now().UTC(), Components: []gen.Component{},
-		}, nil
+		return gen.GetStatus200JSONResponse(unknownStatus(s.opts.Now())), nil
 	}
 
 	return gen.GetStatus200JSONResponse(s.opts.Status.Current()), nil

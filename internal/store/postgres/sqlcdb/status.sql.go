@@ -8,6 +8,8 @@ package sqlcdb
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const statusChecks = `-- name: StatusChecks :one
@@ -39,6 +41,81 @@ func (q *Queries) StatusChecks(ctx context.Context, since time.Time) (StatusChec
 		&i.Errors,
 		&i.Finished,
 		&i.ActiveRepositories,
+	)
+	return i, err
+}
+
+const statusComplianceHistory = `-- name: StatusComplianceHistory :many
+WITH daily AS (
+    SELECT DISTINCT ON (date_trunc('day', cs.snapshot_at AT TIME ZONE 'UTC')) cs.snapshot_at
+    FROM compliance_snapshots cs
+    WHERE cs.snapshot_at >= $1::timestamptz
+    ORDER BY date_trunc('day', cs.snapshot_at AT TIME ZONE 'UTC'), cs.snapshot_at DESC
+)
+SELECT s.snapshot_at,
+       CASE WHEN sum(s.compliant) + sum(s.non_compliant) = 0 THEN NULL
+            ELSE (floor(sum(s.compliant) * 1000.0 / (sum(s.compliant) + sum(s.non_compliant))) / 10)::numeric
+       END AS compliant_percent
+FROM compliance_snapshots s
+JOIN daily d ON d.snapshot_at = s.snapshot_at
+GROUP BY s.snapshot_at
+ORDER BY s.snapshot_at
+`
+
+type StatusComplianceHistoryRow struct {
+	SnapshotAt       time.Time
+	CompliantPercent pgtype.Numeric
+}
+
+// Fleet compliance at each UTC day's last snapshot since the given time,
+// summed over every org and rule, floored to one decimal like the shared
+// compliance query.
+func (q *Queries) StatusComplianceHistory(ctx context.Context, since time.Time) ([]StatusComplianceHistoryRow, error) {
+	rows, err := q.db.Query(ctx, statusComplianceHistory, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StatusComplianceHistoryRow
+	for rows.Next() {
+		var i StatusComplianceHistoryRow
+		if err := rows.Scan(&i.SnapshotAt, &i.CompliantPercent); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const statusOperations = `-- name: StatusOperations :one
+SELECT (SELECT count(DISTINCT c.repository_id) FROM checks c
+        WHERE c.finished_at >= $1::timestamptz AND c.outcome IN ('success', 'skipped'))::int AS checked,
+       (SELECT count(*) FROM policy_versions)::int AS policy_versions,
+       (SELECT p.rollout_completed_at FROM policy_versions p
+        ORDER BY p.first_seen_at DESC, p.version DESC LIMIT 1) AS rollout_completed_at,
+       (SELECT max(cs.snapshot_at) FROM compliance_snapshots cs) AS last_snapshot
+`
+
+type StatusOperationsRow struct {
+	Checked            int32
+	PolicyVersions     int32
+	RolloutCompletedAt *time.Time
+	LastSnapshot       interface{}
+}
+
+// Repositories checked since the given time, the newest policy version's
+// rollout and the last snapshot.
+func (q *Queries) StatusOperations(ctx context.Context, since time.Time) (StatusOperationsRow, error) {
+	row := q.db.QueryRow(ctx, statusOperations, since)
+	var i StatusOperationsRow
+	err := row.Scan(
+		&i.Checked,
+		&i.PolicyVersions,
+		&i.RolloutCompletedAt,
+		&i.LastSnapshot,
 	)
 	return i, err
 }

@@ -767,17 +767,54 @@ components:
     Compliance:
       description: Fleet-wide compliance for the status page.
       type: object
-      required: [percent, measured]
+      required: [percent, measured, history]
       properties:
         percent:
           type: [number, "null"]
           format: double
         measured:
           type: boolean
+        history:
+          description: Fleet compliance at each UTC day's last snapshot over the last 30 days, oldest first.
+          type: array
+          items:
+            $ref: "#/components/schemas/CompliancePoint"
+    CompliancePoint:
+      description: Fleet compliance at one snapshot; percent is null when nothing was measured.
+      type: object
+      required: [at, percent]
+      properties:
+        at:
+          type: string
+          format: date-time
+        percent:
+          type: [number, "null"]
+          format: double
+    StatusOperations:
+      description: The status page's operations strip. Counts and times only.
+      type: object
+      required: [checked_24h, tracked, rollout_state]
+      properties:
+        checked_24h:
+          description: Repositories with a finished check in the last 24 hours.
+          type: integer
+        tracked:
+          description: Active repositories.
+          type: integer
+        rollout_state:
+          description: The newest policy version's rollout; none before any version is recorded.
+          type: string
+          enum: [none, in_progress, complete]
+        rollout_completed_at:
+          type: string
+          format: date-time
+        last_snapshot_at:
+          type: string
+          format: date-time
     Status:
       description: The public service status.
       type: object
-      required: [state, updated_at, components, compliance]
+      required: [state, updated_at, components, compliance, operations]
       properties:
         state:
           $ref: "#/components/schemas/ComponentState"
@@ -790,6 +827,8 @@ components:
             $ref: "#/components/schemas/Component"
         compliance:
           $ref: "#/components/schemas/Compliance"
+        operations:
+          $ref: "#/components/schemas/StatusOperations"
     RuleKind:
       description: "Open enum: file, setting, branch_protection."
       type: string

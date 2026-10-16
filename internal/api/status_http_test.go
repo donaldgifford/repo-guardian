@@ -110,6 +110,9 @@ func TestStatus_PublicUnlessConfigured(t *testing.T) {
 var statusStrings = []string{
 	"Status.state", "Status.updated_at(date-time)", "Status.components[].name", "Status.components[].state",
 	"Status.components[].detail",
+	// IMPL-0031 7.4: typed fields only, a date-time or a closed enum.
+	"Status.compliance.history[].at(date-time)", "Status.operations.rollout_state",
+	"Status.operations.rollout_completed_at(date-time)", "Status.operations.last_snapshot_at(date-time)",
 }
 
 // TestStatus_PrivacyGuard fails if the Status schema gains a field that

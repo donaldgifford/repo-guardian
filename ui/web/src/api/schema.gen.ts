@@ -417,6 +417,31 @@ export interface components {
             /** Format: double */
             percent: number | null;
             measured: boolean;
+            /** @description Fleet compliance at each UTC day's last snapshot over the last 30 days, oldest first. */
+            history: components["schemas"]["CompliancePoint"][];
+        };
+        /** @description Fleet compliance at one snapshot; percent is null when nothing was measured. */
+        CompliancePoint: {
+            /** Format: date-time */
+            at: string;
+            /** Format: double */
+            percent: number | null;
+        };
+        /** @description The status page's operations strip. Counts and times only. */
+        StatusOperations: {
+            /** @description Repositories with a finished check in the last 24 hours. */
+            checked_24h: number;
+            /** @description Active repositories. */
+            tracked: number;
+            /**
+             * @description The newest policy version's rollout; none before any version is recorded.
+             * @enum {string}
+             */
+            rollout_state: "none" | "in_progress" | "complete";
+            /** Format: date-time */
+            rollout_completed_at?: string;
+            /** Format: date-time */
+            last_snapshot_at?: string;
         };
         /** @description The public service status. */
         Status: {
@@ -425,6 +450,7 @@ export interface components {
             updated_at: string;
             components: components["schemas"]["Component"][];
             compliance: components["schemas"]["Compliance"];
+            operations: components["schemas"]["StatusOperations"];
         };
         /**
          * @description Open enum: file, setting, branch_protection.

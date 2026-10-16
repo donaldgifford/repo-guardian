@@ -516,11 +516,11 @@ func historyAggregate(a *gen.ListComplianceHistoryParamsAggregate) (store.Histor
 	}
 
 	switch *a {
-	case gen.None:
+	case gen.ListComplianceHistoryParamsAggregateNone:
 		return store.AggregateNone, nil
-	case gen.Fleet:
+	case gen.ListComplianceHistoryParamsAggregateFleet:
 		return store.AggregateFleet, nil
-	case gen.Org:
+	case gen.ListComplianceHistoryParamsAggregateOrg:
 		return store.AggregateOrg, nil
 	default:
 		return "", statusError(http.StatusBadRequest, "aggregate must be none, fleet or org")

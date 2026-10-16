@@ -1,11 +1,13 @@
+import type { ReactNode } from "react";
+
 import type { Schemas } from "../api/client";
 import { useStatus, useUIConfig } from "../api/queries";
 import { StateBadge } from "../components/badges";
+import { Sparkline } from "../components/charts";
 import { Icon } from "../components/icons";
 import { Time } from "../components/time";
 import { Card } from "../components/ui/card";
 import { Meter } from "../components/ui/meter";
-import { flags } from "../lib/flags";
 import { formatPercent } from "../lib/format";
 import { cn } from "../lib/utils";
 
@@ -47,7 +49,7 @@ const dotClass: Record<StatusTone, string> = {
 export function StatusView() {
   const status = useStatus();
   const config = useUIConfig();
-  const s: Schemas["Status"] = status.data ?? { state: "unknown", updated_at: "", components: [], compliance: { percent: null, measured: false } };
+  const s: Schemas["Status"] = status.data ?? { state: "unknown", updated_at: "", components: [], compliance: { percent: null, measured: false, history: [] }, operations: { checked_24h: 0, tracked: 0, rollout_state: "none" } };
   const { headline, tone } = statusHeadline(s.state);
   return (
     <main className="mx-auto max-w-[760px] space-y-5 px-4 py-10">
@@ -95,11 +97,11 @@ export function StatusView() {
           <p className="mt-2 font-mono text-[11px] text-muted-foreground">
             measured: {String(s.compliance.measured)} · compliant ÷ (compliant + non_compliant)
           </p>
-          {flags.statusExtras ? <Sparkline /> : null}
+          <ComplianceTrend history={s.compliance.history} />
         </Card>
       </div>
 
-      {flags.statusExtras ? <OperationsStrip /> : null}
+      <OperationsStrip ops={s.operations} />
 
       <footer className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
         <code className="font-mono">GET /api/v1/status · served from an in-process cache</code>
@@ -130,23 +132,63 @@ function ComponentRow({ component: c }: { component: Schemas["Component"] }) {
   );
 }
 
-// Sparkline and OperationsStrip are built behind flags.statusExtras:
-// the 30-day series and the three operations numbers need fields the
-// public schema does not carry yet (IMPL-0031 7.4, DESIGN-0036 OQ10).
-function Sparkline() {
-  return <p className="mt-3 text-xs text-muted-foreground">30-day trend: awaiting compliance.history on the public schema.</p>;
+// ComplianceTrend is the 30-day fleet line from compliance.history, one
+// point per day's last snapshot. The sparkline is aria-hidden; the
+// sentence beside it carries the first and last values.
+function ComplianceTrend({ history }: { history: Schemas["CompliancePoint"][] }) {
+  const values = history.map((p) => p.percent ?? null);
+  const measured = values.filter((v): v is number => v !== null);
+  const first = measured[0];
+  const last = measured[measured.length - 1];
+  return (
+    <div className="mt-3 flex items-center justify-between gap-3" data-testid="status-trend">
+      <span className="text-xs text-muted-foreground">
+        last 30 days
+        {first !== undefined && last !== undefined && measured.length > 1 ? (
+          <span className="sr-only">
+            {`: from ${formatPercent(first)} to ${formatPercent(last)}`}
+          </span>
+        ) : null}
+      </span>
+      <Sparkline values={values} width={180} height={28} color="var(--color-ok)" />
+    </div>
+  );
 }
 
-function OperationsStrip() {
-  const cells = ["Repositories checked in the last 24h", "Last policy rollout", "Last snapshot"];
+// rolloutLabel maps the closed rollout_state enum onto fixed text.
+export function rolloutLabel(ops: Schemas["StatusOperations"]): { text: string; at?: string } {
+  switch (ops.rollout_state) {
+    case "complete":
+      return ops.rollout_completed_at ? { text: "complete", at: ops.rollout_completed_at } : { text: "complete" };
+    case "in_progress":
+      return { text: "in progress" };
+    default:
+      return { text: "—" };
+  }
+}
+
+// OperationsStrip is three aggregate numbers: repositories checked in
+// the last 24h of those tracked, the newest policy's rollout and the
+// last compliance snapshot.
+function OperationsStrip({ ops }: { ops: Schemas["StatusOperations"] }) {
+  const rollout = rolloutLabel(ops);
   return (
     <Card className="grid grid-cols-1 divide-y divide-border md:grid-cols-3 md:divide-x md:divide-y-0" aria-label="Operations">
-      {cells.map((label) => (
-        <div key={label} className="px-3.5 py-2.5">
-          <div className="text-xs text-muted-foreground">{label}</div>
-          <div className="text-[22px] font-semibold tabular-nums">—</div>
-        </div>
-      ))}
+      <OperationsCell label="Repositories checked in the last 24h">
+        {ops.checked_24h.toLocaleString()}
+        <span className="text-sm font-normal text-muted-foreground"> / {ops.tracked.toLocaleString()}</span>
+      </OperationsCell>
+      <OperationsCell label="Last policy rollout">{rollout.at ? <Time iso={rollout.at} style="relative" /> : rollout.text}</OperationsCell>
+      <OperationsCell label="Last snapshot">{ops.last_snapshot_at ? <Time iso={ops.last_snapshot_at} style="relative" /> : "—"}</OperationsCell>
     </Card>
+  );
+}
+
+function OperationsCell({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="px-3.5 py-2.5">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="text-[22px] font-semibold tabular-nums">{children}</div>
+    </div>
   );
 }

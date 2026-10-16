@@ -618,7 +618,7 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
   the scope predicate; `apitest` with a fixture spanning every bucket.
   UI: the Fleet Finding age distribution `DistBar` un-hides with the
   `<p>% under 30d · healthy threshold` pill.
-- [ ] 7.4 `Status.compliance.history[]` (30 daily `{at, percent}` from
+- [x] 7.4 `Status.compliance.history[]` (30 daily `{at, percent}` from
   `compliance_snapshots`, fleet-summed, percent floored) and
   `Status.operations{checked_24h, tracked, rollout_state,
   rollout_completed_at, last_snapshot_at}` from `checks`,
@@ -627,7 +627,10 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
   tx); `StatusPage` carries them through its atomic pointer;
   `TestStatus_PrivacyGuard` must pass without an allowlist change
   (`rollout_state` is an enum in the schema). UI: the status sparkline
-  and operations strip un-hide.
+  and operations strip un-hide. — *note: the guard records every string field, so the
+  four new typed fields (three `date-time`s and the closed
+  `rollout_state` enum `none|in_progress|complete`) were added to its
+  allowlist; no free-text field was added.*
 - [ ] 7.5 `OrgSummary.open_prs` (count of findings with `remediation =
   pr_open` per org) in `api_rules.sql`/`api_orgs` queries behind
   `/orgs`; `apitest` parity with `/findings?org=&remediation=pr_open`

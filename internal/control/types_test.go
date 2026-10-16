@@ -1,6 +1,9 @@
 package control
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
 func TestParseID(t *testing.T) {
 	t.Parallel()
@@ -64,5 +67,25 @@ func TestChangeSetIsRecommendation(t *testing.T) {
 	writes := ChangeSet{Files: []FileChange{{Path: "a"}}}
 	if writes.IsRecommendation() {
 		t.Error("a change set with files is not a recommendation")
+	}
+}
+
+func TestID_TextRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	in := ID{Slug: "codeowners", Version: 2}
+
+	b, err := json.Marshal(in)
+	if err != nil || string(b) != `"codeowners@2"` {
+		t.Fatalf("json.Marshal(%v) = %s, %v; want \"codeowners@2\"", in, b, err)
+	}
+
+	var out ID
+	if err := json.Unmarshal(b, &out); err != nil || out != in {
+		t.Errorf("json.Unmarshal(%s) = %v, %v; want %v", b, out, err, in)
+	}
+
+	if err := json.Unmarshal([]byte(`"codeowners"`), &out); err == nil {
+		t.Error(`json.Unmarshal("codeowners") = nil error, want one`)
 	}
 }

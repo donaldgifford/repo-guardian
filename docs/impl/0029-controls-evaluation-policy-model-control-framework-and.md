@@ -503,7 +503,7 @@ calls `Type.Build`.
   nothing declares a mode. Excluded rows carry their would-be modes. A
   conflict error names every claimant (`a and b`, `a, b and c`). Org
   names and `match` globs compare case-insensitively.
-- [ ] 2.8 Resolution goldens: `internal/policy/testdata/resolution/<case>/`
+- [x] 2.8 Resolution goldens: `internal/policy/testdata/resolution/<case>/`
   each holding a policy directory, a `repo.json` input and an
   `expected.json`, run by one table test with `-update`. Cases at least:
   baseline only; org addition; `replace` to `@2`; `exclude` with reason;
@@ -511,6 +511,14 @@ calls `Type.Build`.
   specificity (enterprise, org, `control` block, `repos` block);
   Remediation App absent and suspended; an ownership conflict; archived,
   fork and parked repositories; an org outside `enterprise.orgs`.
+  Done: 23 cases under `testdata/resolution/`, the harness adding the
+  shared test catalogue to each `policy/` directory; `repo.json` is
+  `{repository, access}`. Beyond the list: both orders of the worked
+  example, a cross-slug replace, exclude-then-re-add of an older version,
+  a specific early block beating a later general one, and org-over-
+  enterprise remediation settings. `control.ID` gained `MarshalText`/
+  `UnmarshalText` so goldens read `"codeowners@2"`. `reopen_after` is in
+  nanoseconds (`time.Duration`).
 - [ ] 2.9 `snapshot.go`: `Snapshot` with `Version()` (a hash over every
   loaded file, the template bytes and the embedded fallbacks actually
   used, so a template edit is a policy change), `Control(id)`,

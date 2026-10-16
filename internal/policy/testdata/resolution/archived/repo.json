@@ -1,0 +1,12 @@
+{
+  "repository": {
+    "org": "acme",
+    "name": "api",
+    "active": false,
+    "archived": true
+  },
+  "access": {
+    "evaluable": true,
+    "remediable": true
+  }
+}

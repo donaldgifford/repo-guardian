@@ -108,6 +108,22 @@ func (id ID) String() string {
 	return id.Slug + "@" + strconv.Itoa(id.Version)
 }
 
+// MarshalText renders the ID as slug@version, so JSON and log output
+// read like the policy that names it.
+func (id ID) MarshalText() ([]byte, error) { return []byte(id.String()), nil }
+
+// UnmarshalText parses slug@version.
+func (id *ID) UnmarshalText(b []byte) error {
+	parsed, err := ParseID(string(b))
+	if err != nil {
+		return err
+	}
+
+	*id = parsed
+
+	return nil
+}
+
 // ParseID parses "slug@N": a slug in the ValidSlug grammar and a positive
 // integer version.
 func ParseID(s string) (ID, error) {

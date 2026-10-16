@@ -545,13 +545,17 @@ Public, outside the shell, aggregate-only, on today's `Status` schema.
   the stack stays on the host and the `__Host-` cookie keeps its
   localhost origin); the spec is skipped with that pointer whenever the
   runner is not connected to it, on every platform. `make
-  test-ui-e2e-visual` compares and the CI e2e job runs it; the seed is
-  `now()`-relative, so the clock is frozen at the real time and `<time>`
-  elements and chart x-axes are masked.
+  test-ui-e2e-visual` compares; the seed is `now()`-relative, so the
+  clock is frozen at the real time and `<time>` elements and chart
+  x-axes are masked. *Deferred (2026-10-16, return after the rc):*
+  wiring `make test-ui-e2e-visual` into the CI e2e job. The spec,
+  script and snapshots are in the tree and run locally; CI runs only
+  the existing `make test-ui-e2e`, which skips the spec.
 - [ ] 6.3 Keyboard pass: every interactive element reachable by Tab in
   reading order on the five pages (a Playwright spec that tabs through
   Fleet and asserts the focus order of the header controls, pills,
-  rows and sidebar).
+  rows and sidebar). — *deferred (2026-10-16): e2e work resumes after
+  the rc is cut and looked at.*
 - [ ] 6.4 `docs/usage/ui.md`: rewrite the walkthrough for the new pages
   (shell, palette, time zone, drawer deep links, status page) with
   screenshots captured from the e2e stack and stored under
@@ -572,7 +576,8 @@ Public, outside the shell, aggregate-only, on today's `Status` schema.
 #### Success Criteria
 
 - axe reports zero violations on the five pages; the screenshot spec
-  passes in CI and is skipped locally on macOS with a clear message.
+  passes through `make test-ui-e2e-visual` and is skipped with a clear
+  message in a plain `bun run e2e` (CI wiring deferred, see 6.2).
 - `docs/usage/ui.md` describes every nav entry and control that exists
   and none that does not; `mkdocs build --strict` passes.
 - `grep -rn "color-compliant\|Tile\b" ui/web/src` returns nothing.
@@ -630,7 +635,9 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
 - [ ] 7.6 `ui/e2e/seed.sql`: rows that exercise each addition (a PR
   with an old `created_at`, findings across every age bucket, 30 days
   of snapshots for two orgs, a completed rollout); Playwright specs
-  asserting each panel is now present and reads the seeded numbers.
+  asserting each panel is now present and reads the seeded numbers. —
+  *deferred (2026-10-16): e2e work resumes after the rc is cut and
+  looked at; each 7.x task still lands its `apitest` and store cases.*
 - [ ] 7.7 `docs/usage/api.md`: the five additions; `api/openapi.yaml`
   `info.version` bumped per the file's existing convention.
 

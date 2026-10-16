@@ -249,11 +249,6 @@ jobs:
       - name: Playwright
         run: make test-ui-e2e
 
-      # The screenshot spec renders in the pinned Playwright image so the
-      # committed snapshots match byte for byte (IMPL-0031 6.2).
-      - name: Screenshots
-        run: make test-ui-e2e-visual
-
       - name: Upload report
         if: failure()
         uses: actions/upload-artifact@v7

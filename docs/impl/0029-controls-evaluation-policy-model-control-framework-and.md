@@ -654,11 +654,24 @@ revision and a `Semantics()` constant of 1.
   than a zero `FakeRepo`, so API types are proven against real
   settings. v1's `vulnerability_alerts_enabled` is
   `vulnerability_alerts` here.
-- [ ] 3.6 `internal/controls/branch_ruleset`: owns `ruleset:<name>`;
+- [x] 3.6 `internal/controls/branch_ruleset`: owns `ruleset:<name>`;
   rule kinds `exists` and `matches` (YAML-semantic comparison of rules);
   a same-named ruleset whose `Source` is the organization or enterprise
   makes both rules `unknown{reason=inherited}` with a note and is never
   written.
+  Done: one definition declares one ruleset by `name` plus
+  `ruleset = { enforcement, target, conditions, rules, bypass_actors }`
+  in the REST shape (enforcement defaults to `active`, target to
+  `branch`; `rules` required; unknown fields refused). The declaration is
+  a definition parameter, not a template: the registry's template check
+  applies files only, so an API type cannot prove a template there.
+  `matches` compares by value after a JSON round trip (HCL ints vs API
+  floats): declared object keys must match, extra API defaults are
+  ignored, lists match element by element, and `rules` are sorted by
+  `type` on both sides first. One upsert by id fixes both rules; an
+  inherited org or enterprise ruleset blocks both with a note, even
+  beside a repository one of the same name. A remediable `exists` with a
+  non-active enforcement fails Build. Golden `4daeb7c1…`.
 - [ ] 3.7 `internal/controls/labels`: owns `label:<name>` for managed and
   retired labels, compared lower-cased; rule kinds `present` and
   `absent`; case handling on create and update as the IMPL-0028 label

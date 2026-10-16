@@ -76,6 +76,8 @@ func dispatch(argv []string) error {
 		return runReport(argv[2:])
 	case cmdMonitoring:
 		return runMonitoring(argv[2:])
+	case cmdControls:
+		return runControls(argv[2:])
 	case cmdMigrate:
 		return runMigrate(argv[2:])
 	case cmdHelp:
@@ -112,6 +114,7 @@ Usage:
   repo-guardian api                  read-only HTTP API
   repo-guardian report [flags]       write per-org compliance reports
   repo-guardian monitoring generate  emit dashboards and alerts from the policy
+  repo-guardian controls docs        render the control-type reference
   repo-guardian migrate [flags]      apply v2 schema migrations (Helm hook Job)
   repo-guardian migrate verify-shadow --v1-dsn --v2-dsn
                                      compare a v2 shadow run with v1

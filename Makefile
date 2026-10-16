@@ -43,7 +43,7 @@ COVERAGE_OUT := coverage.out
 .PHONY: build
 .PHONY: test test-all test-coverage
 .PHONY: lint lint-fix lint-alerts lint-alerts-generated lint-alerts-chart fmt clean
-.PHONY: monitoring-generate lint-monitoring generate-sql lint-sql generate-api lint-api lint-temporal-contrib
+.PHONY: controls-docs lint-controls-docs monitoring-generate lint-monitoring generate-sql lint-sql generate-api lint-api lint-temporal-contrib
 .PHONY: run run-local test-api ci check dev-services dev-stop
 .PHONY: ui-install generate-ui-api test-ui test-ui-e2e test-ui-e2e-visual test-ui-e2e-update-snapshots lint-ui
 .PHONY: release-check release-local
@@ -86,7 +86,7 @@ test-integration: ## Run integration tests (requires Docker for testcontainers)
 
 ## Code Quality
 
-lint: ## Run golangci-lint
+lint: lint-controls-docs ## Run golangci-lint and the controls reference drift gate
 	@ $(MAKE) --no-print-directory log-$@
 	@golangci-lint run ./...
 
@@ -175,6 +175,27 @@ lint-monitoring: ## Fail if the committed static monitoring tier is stale
 		exit 1; \
 	fi
 	@echo "✓ committed monitoring tier is current"
+
+## The control-type reference (IMPL-0029 3.11), rendered from every
+## registered type's RuleKinds() and diffed the same way as the
+## monitoring tier.
+CONTROLS_REFERENCE = docs/usage/controls-reference.md
+
+controls-docs: ## Regenerate docs/usage/controls-reference.md
+	@ $(MAKE) --no-print-directory log-$@
+	@$(GO) run ./cmd/$(PROJECT_NAME) controls docs --out $(CONTROLS_REFERENCE)
+
+lint-controls-docs: ## Fail if docs/usage/controls-reference.md is stale
+	@ $(MAKE) --no-print-directory log-$@
+	@mkdir -p $(BUILD_DIR)
+	@$(GO) run ./cmd/$(PROJECT_NAME) controls docs --out $(BUILD_DIR)/controls-reference.md
+	@# diff, not git diff: a reference never committed must fail too.
+	@if ! diff -u $(CONTROLS_REFERENCE) $(BUILD_DIR)/controls-reference.md; then \
+		echo "error: $(CONTROLS_REFERENCE) is stale" >&2; \
+		echo "       run 'make controls-docs' and commit the result" >&2; \
+		exit 1; \
+	fi
+	@echo "✓ controls reference is current"
 
 ## Temporal reference configuration (IMPL-0025 Phase 9). The upstream
 ## chart is pinned here and in contrib/temporal/README.md; bump both.

@@ -759,11 +759,17 @@ revision and a `Semantics()` constant of 1.
   cap, `unknown{file_too_large}` one byte over). The `file` type's YAML
   exact compare and v1 `catalog.Parse` keep the quadratic decode; the
   former carries a FIX note, the latter goes in Phase 7.
-- [ ] 3.11 Control-type reference generator: `repo-guardian controls
+- [x] 3.11 Control-type reference generator: `repo-guardian controls
   docs` renders every registered type's `RuleKinds()` and parameters to
   `docs/usage/controls-reference.md`; `make controls-docs` writes it and
   `make lint-controls-docs` diffs it, wired into `make lint` like
   `lint-monitoring`.
+  Done: `builtin.WriteReference` renders each type's semantics, how it
+  remediates (API with its `apply` values, or pull request) and a rule
+  kind table; `repo-guardian controls docs [--out FILE]` calls it. `make
+  lint` now depends on `lint-controls-docs`, which renders into `build/`
+  and `diff`s, so CI's lint job runs it; appending a line to the
+  committed reference fails the gate. The page is in the mkdocs nav.
 - [ ] 3.12 Non-vacuous check: in each type, remove one `Fix` branch or
   one location; confirm the conformance suite or fixture table fails;
   restore. Record one line per type.

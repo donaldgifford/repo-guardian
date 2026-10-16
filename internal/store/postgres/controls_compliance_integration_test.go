@@ -4,12 +4,16 @@ package postgres_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/store"
+	"github.com/donaldgifford/repo-guardian/internal/store/postgres"
 )
 
 // perRepoResolver resolves each repository by name.
@@ -180,4 +184,164 @@ func show(p *float64) any {
 	}
 
 	return *p
+}
+
+// versionedResolver is fakeResolver under a chosen policy version.
+type versionedResolver struct {
+	fakeResolver
+	version string
+}
+
+func (v *versionedResolver) Version() string { return v.version }
+
+// TestControlsStore_EpochFencingAcrossRecreate is IMPL-0029 4.9: a
+// result staged before its assignment was deleted and recreated is
+// discarded on the record retry, and the recreated assignment's first
+// result starts again at generation 1.
+func TestControlsStore_EpochFencingAcrossRecreate(t *testing.T) {
+	s, dsns := evaluatorStore(t)
+	ctx := t.Context()
+	r := &fakeResolver{assignments: []policy.Assignment{codeowners("r1")}}
+	repo := discover(t, s, r)
+	old := epochOf(t, dsns.Owner, repo.ID)
+
+	for i, fp := range []string{"f1", "f2"} {
+		key := "k" + fp
+		stage(t, s, repo.ID, key, old, fp, []string{"compliant", "non_compliant"}[i])
+
+		if _, err := s.RecordEvaluation(ctx, key); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	stage(t, s, repo.ID, "retry", old, "f3", "compliant")
+
+	r.assignments = nil
+	if _, err := s.Resolve(ctx, repo.ID, r); err != nil {
+		t.Fatal(err)
+	}
+
+	r.assignments = []policy.Assignment{codeowners("r1")}
+	if _, err := s.Resolve(ctx, repo.ID, r); err != nil {
+		t.Fatal(err)
+	}
+
+	if out, err := s.RecordEvaluation(ctx, "retry"); err != nil || len(out.Discarded) != 1 {
+		t.Fatalf("record retry across recreate = %+v, %v; want the result discarded", out, err)
+	}
+
+	stage(t, s, repo.ID, "fresh", epochOf(t, dsns.Owner, repo.ID), "f4", "compliant")
+
+	if _, err := s.RecordEvaluation(ctx, "fresh"); err != nil {
+		t.Fatal(err)
+	}
+
+	var generation int64
+	queryArgs(t, dsns.Owner, `SELECT eval_generation FROM control_results WHERE repository_id = $1`, &generation, repo.ID)
+
+	if generation != 1 {
+		t.Errorf("recreated assignment generation = %d, want 1", generation)
+	}
+}
+
+// TestControlsStore_PolicyRevertResolvesAgain is IMPL-0029 4.9 (D14):
+// activating A, B, then A again makes A current, and resolving under it
+// returns the repository to A's assignments.
+func TestControlsStore_PolicyRevertResolvesAgain(t *testing.T) {
+	_, dsns := evaluatorStore(t)
+	ctx := t.Context()
+
+	ownerPool, err := pgxpool.New(ctx, dsns.Owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(ownerPool.Close)
+
+	owner := postgres.NewControlsStore(ownerPool)
+
+	evalPool, err := pgxpool.New(ctx, dsns.Evaluator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(evalPool.Close)
+
+	s := postgres.NewControlsStore(evalPool)
+	under := map[string]*versionedResolver{
+		"c:A": {fakeResolver{assignments: []policy.Assignment{codeowners("rA")}}, "c:A"},
+		"c:B": {fakeResolver{assignments: []policy.Assignment{codeowners("rB")}}, "c:B"},
+	}
+
+	var repoID int64
+
+	for i, v := range []string{"c:A", "c:B", "c:A"} {
+		time.Sleep(10 * time.Millisecond) // activated_at is now(); keep the deploys apart
+
+		if _, err := owner.ActivatePolicyVersion(ctx, v, nil); err != nil {
+			t.Fatal(err)
+		}
+
+		current, _, err := s.CurrentActivation(ctx)
+		if err != nil || current != v {
+			t.Fatalf("deploy %d: CurrentActivation = %q, %v; want %q", i, current, err, v)
+		}
+
+		if i == 0 {
+			repoID = discover(t, s, under[current]).ID
+
+			continue
+		}
+
+		if _, err := s.Resolve(ctx, repoID, under[current]); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var version, revision string
+	queryArgs(t, dsns.Owner, `SELECT policy_version FROM repository_policy_state WHERE repository_id = $1`, &version, repoID)
+	queryArgs(t, dsns.Owner, `SELECT revision FROM control_assignments WHERE repository_id = $1`, &revision, repoID)
+
+	if version != "c:A" || revision != "rA" {
+		t.Errorf("after A → B → A: policy %q revision %q, want c:A and rA", version, revision)
+	}
+}
+
+// TestControlsStore_PostureOfAMostlyPendingFleet is IMPL-0029 4.9: 100
+// assigned and one result reads 99 pending, coverage 1% and a percentage
+// from that one row, so one measurement is never read as a measured
+// fleet.
+func TestControlsStore_PostureOfAMostlyPendingFleet(t *testing.T) {
+	s, dsns := evaluatorStore(t)
+	ctx := t.Context()
+	r := &fakeResolver{assignments: []policy.Assignment{codeowners("r1")}}
+
+	if err := s.UpsertInstallation(ctx, store.AppInstallation{App: store.AppEval, InstallationID: 1, AccountLogin: "acme", RepositorySelection: "all"}); err != nil {
+		t.Fatal(err)
+	}
+
+	repos := make([]store.DiscoveredRepository, 0, 100)
+	for i := range 100 {
+		repos = append(repos, store.DiscoveredRepository{Org: "acme", Name: fmt.Sprintf("r%03d", i), ProviderRepoID: int64(i + 1), InstallationID: 1})
+	}
+
+	got, err := s.UpsertRepositories(ctx, repos, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stage(t, s, got[0].ID, "one", epochOf(t, dsns.Owner, got[0].ID), "f", "non_compliant")
+
+	if _, err := s.RecordEvaluation(ctx, "one"); err != nil {
+		t.Fatal(err)
+	}
+
+	rows, err := s.ControlCompliance(ctx, nil, store.LineageAll)
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("ControlCompliance = %+v, %v", rows, err)
+	}
+
+	p := rows[0]
+	if p.Assigned != 100 || p.Pending != 99 || p.NonCompliant != 1 || show(p.Coverage) != 1.0 || show(p.Percent) != 0.0 {
+		t.Errorf("posture = assigned %d pending %d non-compliant %d coverage %v percent %v; want 100, 99, 1, 1, 0",
+			p.Assigned, p.Pending, p.NonCompliant, show(p.Coverage), show(p.Percent))
+	}
 }

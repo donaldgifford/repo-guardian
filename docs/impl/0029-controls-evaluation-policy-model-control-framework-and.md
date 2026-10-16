@@ -929,11 +929,21 @@ evaluator's store.
   `result_events` are refused as evaluator, remediator and `rg_all`. The
   4.5–4.7 transactions run as `rg_evaluator` in the `TestControlsStore_*`
   tests.
-- [ ] 4.9 Integration tests: epoch fencing (an assignment deleted and
+- [x] 4.9 Integration tests: epoch fencing (an assignment deleted and
   recreated during a record retry ends at generation 1); a policy revert
   A → B → A resolves under A again; the posture case (100 assigned, one
   result: 99 `pending`, coverage 1%, percent from one row); an empty
   fleet reads NULL, never 100%.
+  Done (`controls_compliance_integration_test.go`, as `rg_evaluator`):
+  - `TestControlsStore_EpochFencingAcrossRecreate`: a result staged before
+    a withdraw-and-re-add is discarded on the retry, and the recreated
+    assignment starts at generation 1.
+  - `TestControlsStore_PolicyRevertResolvesAgain`: A → B → A activation
+    leaves A current, and re-resolving returns A's revision.
+  - `TestControlsStore_PostureOfAMostlyPendingFleet`: 100 assigned, 99
+    pending, coverage 1, percent from the single result.
+  - The empty fleet reads no rows, and an all-pending fleet reads NULL
+    (`TestControlsStore_EmptyFleetIsNoData`, from 4.7).
 - [ ] 4.10 `migrate --dry-run` applies `00001`–`00004` to an empty
   database in one rolled-back transaction; `SchemaVersion` is 4.
 - [ ] 4.11 Non-vacuous check: drop the epoch predicate from the record

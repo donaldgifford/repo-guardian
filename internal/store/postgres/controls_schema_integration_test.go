@@ -247,3 +247,59 @@ func TestControlsChain_AccessRowsAreFencedByApp(t *testing.T) {
 		t.Errorf("evaluator deleted %d Remediation App access rows, want 0 (fenced)", gone)
 	}
 }
+
+// TestControlsChain_RecordIsNarrow is IMPL-0029 4.8 (DESIGN-0032 § Two
+// application roles), run as the roles, never the owner: the remediator
+// may write none of the evaluator's columns on control_results,
+// control_assignments or repository_policy_state (bar
+// last_remediation_at), and no role may rewrite result_events. The
+// evaluator's own transactions are exercised as rg_evaluator by the
+// ControlsStore integration tests.
+func TestControlsChain_RecordIsNarrow(t *testing.T) {
+	dsns := pgtest.ControlsDB(t)
+
+	evaluatorOwned := map[string][]string{
+		"control_results": {"status", "fingerprint", "intent_revision", "eval_generation", "control_version", "revision",
+			"assignment_epoch", "evaluated_sha", "evaluated_at", "last_changed_at"},
+		"control_assignments": {"control_version", "revision", "state", "decision", "baseline_control", "source",
+			"source_block", "ordinal", "replaced", "excluded_by", "reason", "error", "requested_mode", "effective_mode",
+			"mode_source", "mode_reason", "epoch", "policy_version", "resolved_at"},
+		"repository_policy_state": {"state", "reason", "max_open_prs", "reopen_after", "policy_version", "resolved_at"},
+	}
+
+	for table, cols := range evaluatorOwned {
+		for _, col := range cols {
+			if err := exec(t, dsns.Remediator, `UPDATE `+table+` SET `+col+` = `+col); err == nil {
+				t.Errorf("remediator updated %s.%s, want permission denied", table, col)
+			}
+
+			if err := exec(t, dsns.Evaluator, `UPDATE `+table+` SET `+col+` = `+col); err != nil {
+				t.Errorf("evaluator cannot update %s.%s: %v", table, col, err)
+			}
+		}
+
+		if err := exec(t, dsns.Remediator, `DELETE FROM `+table); err == nil {
+			t.Errorf("remediator deleted from %s, want permission denied", table)
+		}
+	}
+
+	// The remediator's own columns, so the refusals above are not vacuous.
+	for _, sql := range []string{
+		`UPDATE repository_policy_state SET last_remediation_at = now()`,
+		`UPDATE control_results SET remediated_generation = remediated_generation, hold = hold, hold_since = hold_since`,
+	} {
+		if err := exec(t, dsns.Remediator, sql); err != nil {
+			t.Errorf("remediator: %s: %v", sql, err)
+		}
+	}
+
+	for _, dsn := range []string{dsns.Evaluator, dsns.Remediator, dsns.All} {
+		for _, sql := range []string{
+			`UPDATE result_events SET to_status = NULL`, `DELETE FROM result_events`, `TRUNCATE result_events`,
+		} {
+			if err := exec(t, dsn, sql); err == nil {
+				t.Errorf("%s: allowed, want result_events append-only", sql)
+			}
+		}
+	}
+}

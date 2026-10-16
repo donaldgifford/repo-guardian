@@ -915,12 +915,20 @@ evaluator's store.
   unmeasurable access loss, alongside `access_denied` (D6's fail-safe).
   `TestControlsStore_ComplianceBuckets` covers every bucket in one fleet,
   and `TestControlsStore_EmptyFleetIsNoData` covers no rows / NULL.
-- [ ] 4.8 Grant tests (`pgtest`, as the roles, never the owner): every
+- [x] 4.8 Grant tests (`pgtest`, as the roles, never the owner): every
   transaction in 4.5–4.7 succeeds as `rg_evaluator`; as `rg_remediator`,
   writing any evaluator-owned column of `control_results`,
   `control_assignments` or `repository_policy_state` (except
   `last_remediation_at`) fails; nobody can UPDATE or DELETE
   `result_events`.
+  Done: `TestControlsChain_RecordIsNarrow` walks every evaluator-owned
+  column of the three tables. As `rg_remediator` each one is refused, and
+  as `rg_evaluator` it is allowed. The remediator's own columns
+  (`last_remediation_at`, `remediated_generation`, `hold`, `hold_since`)
+  succeed, so the refusals are not vacuous. UPDATE, DELETE and TRUNCATE on
+  `result_events` are refused as evaluator, remediator and `rg_all`. The
+  4.5–4.7 transactions run as `rg_evaluator` in the `TestControlsStore_*`
+  tests.
 - [ ] 4.9 Integration tests: epoch fencing (an assignment deleted and
   recreated during a record retry ends at generation 1); a policy revert
   A → B → A resolves under A again; the posture case (100 assigned, one

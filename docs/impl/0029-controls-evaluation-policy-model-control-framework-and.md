@@ -1373,10 +1373,18 @@ evaluator's store.
   (`RequireControlsSchema`), and drops `--with-pr-links`. The rc store's
   integration tests compare against the shared-query rows instead of the
   report. `docs/operations/compliance-reports.md` rewritten.
-- [ ] 6.10 Non-vacuous check: reverse `max by`/`sum` nesting in one E1
+- [x] 6.10 Non-vacuous check: reverse `max by`/`sum` nesting in one E1
   panel, reset before read in the exporter, and remove the report's NULL
   guard; confirm the dedupe test, the exporter test and the no-data
   golden fail; restore.
+  Done: (a) E1 "Repositories failing each control" rewritten as
+  `max by (control) (sum by (org, control) (…))` → `TestSuite_PostureQueriesDedupeAcrossReplicas`
+  failed ("outside a max-by dedupe (0 of 1 occurrences wrapped)"); (b) reset
+  moved before the read in `PostureExporter.Export` →
+  `TestPostureExporter_ReadsBeforeReset` and `…_ReadErrorKeepsPreviousValues`
+  failed; (c) `renderPercent`'s nil guard removed → `TestRenderPercent` and
+  the `no_data` golden failed ("0.0%" for "no data"). All restored; the
+  packages pass.
 
 #### Success Criteria
 

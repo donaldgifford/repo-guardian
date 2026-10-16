@@ -1309,13 +1309,32 @@ evaluator's store.
   `TestLogLines_AreStillEmittedByTheBinary` now walks only those two trees,
   and `TestSuite_PostureQueriesDedupeAcrossReplicas` requires every posture
   gauge occurrence to sit directly inside a `max by`.
-- [ ] 6.6 Alert catalogue (IMPL-0025 17.2, adapted): apply IMPL-0025's
+- [x] 6.6 Alert catalogue (IMPL-0025 17.2, adapted): apply IMPL-0025's
   audit lists, drop alerts on metrics the switch-over deletes, add
   evaluation alerts (errors by control, stale-epoch discards, freshness).
   Before committing, confirm every Temporal metric name against the
   homelab's real `/metrics` output and record the check here. Update
   `TestCatalogue_RareEventAlertsCatchTheFirstIncrement`. — *deferred:
   human required (the metric-name check)*
+  Done (code): IMPL-0025's lists applied to the controls line. Deleted the
+  17 audit alerts plus HighErrorRate/AllChecksFailing (→
+  `RepoGuardianEvaluationErrorRate`) and SlowChecks (its
+  `check_duration_seconds` goes with the switch-over); StoreQueryErrors →
+  `RepoGuardianStoreErrors`; NoWebhooks, WebhookRejectionsHigh and
+  RateLimitNearExhaustion stay. New evaluation alerts:
+  `ControlEvaluationErrors` (per org/control, `firstOrIncrease`),
+  `EvaluationFreshness` (p95 > 48h) and `StaleEpochDiscards`. Temporal adds
+  `WorkflowTaskFailures`, `NoWorkerPollers` and `TemporalUnreachable` beside
+  the existing four. Nothing is mechanism-gated until IMPL-0030
+  (`TestGenerate_NothingIsGatedYet`; gating stays covered by
+  `skip_test.go`). The rare-event test now pins ControlEvaluationErrors and
+  rejects the guard on the two threshold alerts. Found and fixed on the way
+  (6e9be7b): nothing on the controls path fed `rate_limit_remaining`.
+  Temporal names checked against the pinned SDK's
+  `internal/common/metrics/constants.go` (v1.49.0): `workflow_task_execution_failed`,
+  `num_pollers`, `long_request(_failure)`, `worker_task_slots_available`,
+  `sticky_cache_total_forced_eviction`, both schedule-to-start latencies.
+  **Live `/metrics` check against the homelab: deferred - human required.**
 - [ ] 6.7 Chart mirror (IMPL-0025 17.9): `prometheusrule.yaml` carries
   the catalogue; `make lint-alerts-chart` stays green; helm-unittest
   locks the selectors, not just the names.

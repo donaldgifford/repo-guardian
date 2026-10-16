@@ -62,7 +62,7 @@ func newEndpoints(t *testing.T) *endpoints {
 	}, quiet)
 	authn.Start(ctx)
 
-	pool, err := postgres.NewReadOnlyPool(ctx, f.dsns.Evaluator)
+	pool, err := postgres.NewReadOnlyPool(ctx, f.dsns.ReadOnly)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestEndpoints_ValidateAgainstTheSpec(t *testing.T) {
 	}
 
 	b := decodeAs[gen.RepositoryDetail](t, e.get(t, e.repoPath("acme-web/b", ""), "platform"))
-	if b.Repository.Name != "b" || b.LastCheck == nil {
+	if b.Repository.Name != "b" || b.LastEvaluation == nil {
 		t.Errorf("repository b = %+v", b)
 	}
 }

@@ -24,7 +24,7 @@ import (
 func apiClient(t *testing.T, f *apiFixture) (*apitest.Client, *postgres.APIReader) {
 	t.Helper()
 
-	pool, err := postgres.NewReadOnlyPool(t.Context(), f.dsns.Evaluator)
+	pool, err := postgres.NewReadOnlyPool(t.Context(), f.dsns.ReadOnly)
 	if err != nil {
 		t.Fatal(err)
 	}

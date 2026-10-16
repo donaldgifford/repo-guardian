@@ -188,9 +188,11 @@ SELECT m.* FROM (
 WHERE m.action IS NOT NULL;
 
 -- Remediator expiry deletes only a reservation; every other row is kept.
+-- The read policy names no role (PUBLIC), as on the access tables: the
+-- api's read-only role must count open pull requests (IMPL-0029 8.2).
 ALTER TABLE remediations ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY remediations_read ON remediations FOR SELECT TO rg_evaluator, rg_remediator USING (true);
+CREATE POLICY remediations_read ON remediations FOR SELECT USING (true);
 CREATE POLICY remediations_observe ON remediations FOR UPDATE TO rg_evaluator USING (true) WITH CHECK (true);
 CREATE POLICY remediations_insert ON remediations FOR INSERT TO rg_remediator WITH CHECK (true);
 CREATE POLICY remediations_update ON remediations FOR UPDATE TO rg_remediator USING (true) WITH CHECK (true);

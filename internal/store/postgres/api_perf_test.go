@@ -67,7 +67,7 @@ func TestAPIPerf(t *testing.T) {
 
 	t.Logf("seeded in %s", time.Since(start).Round(time.Second))
 
-	pool, err := postgres.NewReadOnlyPool(t.Context(), f.dsns.Evaluator)
+	pool, err := postgres.NewReadOnlyPool(t.Context(), f.dsns.ReadOnly)
 	if err != nil {
 		t.Fatal(err)
 	}

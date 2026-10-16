@@ -42,7 +42,8 @@ func repositoryOut(r *store.Repository) gen.Repository {
 	return gen.Repository{
 		Id: r.ID, Org: r.Org, Name: r.Name, ProviderRepoId: r.ProviderRepoID,
 		Active: r.Active, ParkReason: strPtr(r.ParkReason), ParkedAt: r.ParkedAt, DiscoveredAt: r.DiscoveredAt,
-		NextDueAt: r.NextDueAt, LastEvaluatedAt: r.LastCheckedAt,
+		NextDueAt: r.NextDueAt, LastEvaluatedAt: r.LastEvaluatedAt,
+		PolicyState: optStr(r.PolicyState), PolicyReason: optStr(r.PolicyReason), Evaluable: r.Evaluable, Remediable: r.Remediable,
 	}
 }
 

@@ -28,8 +28,16 @@ type Reader interface {
 	Orgs(ctx context.Context, scope store.APIScope) (*store.OrgsView, error)
 	Repositories(ctx context.Context, scope store.APIScope, f *store.RepositoryFilter) (store.Page[store.Repository], error)
 	Repository(ctx context.Context, scope store.APIScope, id int64) (*store.RepositoryDetail, error)
-	RepositoryChecks(ctx context.Context, scope store.APIScope, id, afterID int64, limit int) (store.Page[store.Check], error)
+	RepositoryEvaluations(ctx context.Context, scope store.APIScope, id, afterID int64, limit int) (store.Page[store.Check], error)
 	RepositoryEvents(ctx context.Context, scope store.APIScope, id int64, after *store.EventKey, limit int) (store.Page[store.Event], error)
+	RepositoryControls(ctx context.Context, scope store.APIScope, id int64) ([]store.RepositoryControl, error)
+	Summary(ctx context.Context, scope store.APIScope, now time.Time) (*store.SummaryView, error)
+	Controls(ctx context.Context, scope store.APIScope, controlID string) (*store.ControlsView, error)
+	Org(ctx context.Context, scope store.APIScope, org string) (*store.OrgView, error)
+	ComplianceHistory(ctx context.Context, scope store.APIScope, f *store.HistoryFilter) ([]store.ComplianceSnapshot, error)
+	// ActivePolicy is unscoped; the handler filters the summary to the
+	// caller's orgs (TestPoliciesSummary_IsScoped).
+	ActivePolicy(ctx context.Context) (*store.ActivePolicy, error)
 }
 
 // Options configures the API handler.

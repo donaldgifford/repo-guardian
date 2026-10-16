@@ -92,18 +92,23 @@ CREATE TABLE app_repository_access (
 -- Each App writes only its own rows, and both read every row: a policy
 -- declared without a command is FOR ALL and would filter reads too,
 -- hiding the Remediation App's access from resolution, so every write
--- policy is paired with a FOR SELECT USING (true). A write the policy
--- fences affects zero rows without an error. The owner bypasses RLS.
+-- policy is paired with a FOR SELECT USING (true). The read policies
+-- name no role (PUBLIC): table grants decide who reads, and the API's
+-- read-only role (pg_read_all_data, which does not bypass RLS) must see
+-- every row too, or evaluable/remediable, the suspension bucket and the
+-- status page's Apps would all read as empty (IMPL-0029 8.2). A write
+-- the policy fences affects zero rows without an error. The owner
+-- bypasses RLS.
 ALTER TABLE app_installations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_repository_access ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY app_installations_read ON app_installations FOR SELECT TO rg_evaluator, rg_remediator USING (true);
+CREATE POLICY app_installations_read ON app_installations FOR SELECT USING (true);
 CREATE POLICY app_installations_eval ON app_installations TO rg_evaluator
     USING (app = 'eval') WITH CHECK (app = 'eval');
 CREATE POLICY app_installations_remediate ON app_installations TO rg_remediator
     USING (app = 'remediate') WITH CHECK (app = 'remediate');
 
-CREATE POLICY app_repository_access_read ON app_repository_access FOR SELECT TO rg_evaluator, rg_remediator USING (true);
+CREATE POLICY app_repository_access_read ON app_repository_access FOR SELECT USING (true);
 CREATE POLICY app_repository_access_eval ON app_repository_access TO rg_evaluator
     USING (app = 'eval') WITH CHECK (app = 'eval');
 CREATE POLICY app_repository_access_remediate ON app_repository_access TO rg_remediator

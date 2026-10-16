@@ -114,8 +114,9 @@ func (r *APIReader) Repositories(
 
 	params := controlsdb.APIRepositoriesParams{
 		ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(),
-		Org: optString(f.Org), Active: f.Active, ParkReason: optString(f.ParkReason), NamePrefix: optString(f.NamePrefix),
-		HasAfter: f.AfterID != 0, AfterID: f.AfterID, PageLimit: pageLimit(f.Limit),
+		Org: optString(f.Org), Active: f.Active, ParkReason: optString(f.ParkReason), PolicyState: optString(f.PolicyState),
+		NamePrefix: optString(f.NamePrefix),
+		HasAfter:   f.AfterID != 0, AfterID: f.AfterID, PageLimit: pageLimit(f.Limit),
 	}
 
 	var items []store.Repository
@@ -144,8 +145,19 @@ func apiRepository(row *controlsdb.APIRepositoriesRow) store.Repository {
 	return store.Repository{
 		ID: row.ID, Org: row.Org, Name: row.Name, ProviderRepoID: row.ProviderRepoID,
 		Active: row.Active, ParkReason: typedPtr[store.ParkReason](row.ParkReason), ParkedAt: row.ParkedAt,
-		DiscoveredAt: row.DiscoveredAt, NextDueAt: row.NextDueAt, LastCheckedAt: row.LastCheckedAt,
+		DiscoveredAt: row.DiscoveredAt, NextDueAt: row.NextDueAt, LastEvaluatedAt: unlessEpoch(row.LastEvaluatedAt),
+		PolicyState: derefOr(row.PolicyState), PolicyReason: derefOr(row.PolicyReason),
+		Evaluable: row.Evaluable, Remediable: row.Remediable,
 	}
+}
+
+// unlessEpoch reads the queries' "never" (the Unix epoch) as nil.
+func unlessEpoch(t time.Time) *time.Time {
+	if t.Unix() == 0 {
+		return nil
+	}
+
+	return &t
 }
 
 // visibleRepository reads one repository in scope, ErrNotFound when it
@@ -163,7 +175,7 @@ func visibleRepository(ctx context.Context, q *controlsdb.Queries, scope store.A
 	return &row, nil
 }
 
-// Repository returns one repository in scope with its last check.
+// Repository returns one repository in scope with its last evaluation.
 // ErrNotFound when it is unknown or invisible.
 func (r *APIReader) Repository(ctx context.Context, scope store.APIScope, id int64) (d *store.RepositoryDetail, err error) {
 	defer func(start time.Time) { observeQuery("api_repository", start, err) }(time.Now())
@@ -178,11 +190,11 @@ func (r *APIReader) Repository(ctx context.Context, scope store.APIScope, id int
 
 		d.Repository = apiRepository((*controlsdb.APIRepositoriesRow)(row))
 
-		checks, err := q.APIRepositoryChecks(ctx, controlsdb.APIRepositoryChecksParams{
+		checks, err := q.APIRepositoryEvaluations(ctx, controlsdb.APIRepositoryEvaluationsParams{
 			RepositoryID: id, ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(), PageLimit: 1,
 		})
 		if err != nil {
-			return fmt.Errorf("last check: %w", err)
+			return fmt.Errorf("last evaluation: %w", err)
 		}
 
 		if len(checks) > 0 {
@@ -199,20 +211,20 @@ func (r *APIReader) Repository(ctx context.Context, scope store.APIScope, id int
 	return d, nil
 }
 
-func apiCheck(row *controlsdb.APIRepositoryChecksRow) store.Check {
+func apiCheck(row *controlsdb.APIRepositoryEvaluationsRow) store.Check {
 	return store.Check{
 		ID: row.ID, Trigger: row.Trigger, Outcome: row.Outcome, PolicyVersion: row.PolicyVersion,
 		StartedAt: row.StartedAt, FinishedAt: row.FinishedAt, Error: derefOr(row.Error),
 	}
 }
 
-// RepositoryChecks returns one page of a repository's checks, newest
-// first. afterID zero starts at the newest. ErrNotFound when the
-// repository is unknown or invisible.
-func (r *APIReader) RepositoryChecks(
+// RepositoryEvaluations returns one page of a repository's evaluation
+// log, newest first. afterID zero starts at the newest. ErrNotFound when
+// the repository is unknown or invisible.
+func (r *APIReader) RepositoryEvaluations(
 	ctx context.Context, scope store.APIScope, id, afterID int64, limit int,
 ) (p store.Page[store.Check], err error) {
-	defer func(start time.Time) { observeQuery("api_repository_checks", start, err) }(time.Now())
+	defer func(start time.Time) { observeQuery("api_repository_evaluations", start, err) }(time.Now())
 
 	var items []store.Check
 
@@ -221,12 +233,12 @@ func (r *APIReader) RepositoryChecks(
 			return err
 		}
 
-		rows, err := q.APIRepositoryChecks(ctx, controlsdb.APIRepositoryChecksParams{
+		rows, err := q.APIRepositoryEvaluations(ctx, controlsdb.APIRepositoryEvaluationsParams{
 			RepositoryID: id, ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(),
 			HasAfter: afterID != 0, AfterID: afterID, PageLimit: pageLimit(limit),
 		})
 		if err != nil {
-			return fmt.Errorf("checks: %w", err)
+			return fmt.Errorf("evaluations: %w", err)
 		}
 
 		items = make([]store.Check, 0, len(rows))
@@ -237,7 +249,7 @@ func (r *APIReader) RepositoryChecks(
 		return nil
 	})
 	if err != nil {
-		return p, fmt.Errorf("postgres.APIReader.RepositoryChecks: %w", err)
+		return p, fmt.Errorf("postgres.APIReader.RepositoryEvaluations: %w", err)
 	}
 
 	return page(items, limit), nil
@@ -288,7 +300,7 @@ func (r *APIReader) RepositoryEvents(
 func apiEvent(row *controlsdb.APIRepositoryEventsRow) store.Event {
 	return store.Event{
 		Source: row.Source, ID: row.ID, OccurredAt: row.OccurredAt,
-		ControlID: row.ControlID, FromStatus: row.FromStatus, ToStatus: row.ToStatus,
+		ControlID: row.ControlID, RuleID: row.RuleID, FromStatus: row.FromStatus, ToStatus: row.ToStatus,
 		RepositoryKind: derefOr(row.Kind), Detail: row.Detail,
 	}
 }

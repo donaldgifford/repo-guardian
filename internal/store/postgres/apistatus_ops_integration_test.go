@@ -29,7 +29,7 @@ func TestStatusInputs_HistoryAndOperations(t *testing.T) {
 	run(t, f.dsns.Owner, `UPDATE checks SET started_at = now() - interval '2 days', finished_at = now() - interval '2 days'
 		WHERE check_key = 'old'`)
 
-	pool, err := postgres.NewReadOnlyPool(ctx, f.dsns.Evaluator)
+	pool, err := postgres.NewReadOnlyPool(ctx, f.dsns.ReadOnly)
 	if err != nil {
 		t.Fatal(err)
 	}

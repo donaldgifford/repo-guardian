@@ -3,6 +3,8 @@ package store
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/donaldgifford/repo-guardian/internal/policy"
 )
 
 // Page is one keyset page of an API list. More reports that a further
@@ -86,7 +88,7 @@ const (
 	ParkUnknown             ParkReason = "unknown"
 )
 
-// Repository is one row of the repositories table.
+// Repository is one repository with its policy state and App access.
 type Repository struct {
 	ID             int64
 	Org            string
@@ -97,7 +99,15 @@ type Repository struct {
 	ParkedAt       *time.Time
 	DiscoveredAt   time.Time
 	NextDueAt      *time.Time
-	LastCheckedAt  *time.Time
+	// LastEvaluatedAt is the newest successful evaluation; nil before one.
+	LastEvaluatedAt *time.Time
+	// PolicyState is empty before the first resolution.
+	PolicyState  string
+	PolicyReason string
+	// Evaluable: the Evaluation App can reach the repository. Remediable:
+	// the Remediation App can and is not suspended.
+	Evaluable  bool
+	Remediable bool
 }
 
 // RepositoryFilter selects repositories. Zero fields do not filter.
@@ -105,6 +115,8 @@ type RepositoryFilter struct {
 	Org        string
 	Active     *bool
 	ParkReason ParkReason
+	// PolicyState is a repository_policy_state.state.
+	PolicyState string
 	// NamePrefix matches the start of the name, case-insensitively.
 	NamePrefix string
 	// AfterID pages past this id; zero starts at the beginning.
@@ -128,6 +140,112 @@ type OrgsView struct {
 	// OpenPRs counts open repo-guardian pull requests per org, keyed by
 	// the lower-cased org.
 	OpenPRs map[string]int
+}
+
+// SummaryView is the fleet totals over the visible orgs.
+type SummaryView struct {
+	Repositories []OrgRepositoryCount
+	// Compliance holds the controls compliance rows, every lineage.
+	Compliance []ControlPosture
+	OpenPRs    int
+	// Evaluated counts repositories evaluated in the last 24 hours.
+	Evaluated int
+	// LastEvaluatedAt is nil before the first evaluation.
+	LastEvaluatedAt *time.Time
+	// PolicyVersion is empty before a version is activated.
+	PolicyVersion string
+}
+
+// ControlVersion is one version and revision of a control assigned in
+// an org and lineage, with the managed repositories carrying it.
+type ControlVersion struct {
+	Org          string
+	ControlID    string
+	Decision     string
+	Version      int
+	Revision     string
+	Repositories int
+}
+
+// ControlsView is the controls compliance rows (every lineage) and the
+// assigned versions behind /controls and /controls/{id}.
+type ControlsView struct {
+	Compliance []ControlPosture
+	Versions   []ControlVersion
+	// Catalogue is the active policy's definitions; nil before one is
+	// activated.
+	Catalogue []policy.ControlSummary
+}
+
+// OrgView is one org's repositories, compliance (every lineage) and
+// exclusions.
+type OrgView struct {
+	Repositories []OrgRepositoryCount
+	Compliance   []ControlPosture
+	Exclusions   []Exclusion
+}
+
+// RuleResult is one stored rule result.
+type RuleResult struct {
+	RuleID    string
+	Status    string
+	Remediate bool
+	// Evidence is the stored JSON object, evidence_kind and
+	// evidence_version included.
+	Evidence json.RawMessage
+}
+
+// RepositoryControl is one assignment of a repository with its result.
+// The result fields are zero before the first evaluation.
+type RepositoryControl struct {
+	ControlID       string
+	Version         int
+	Revision        string
+	State           string
+	Decision        string
+	BaselineControl string
+	Source          string
+	SourceBlock     string
+	Replaced        string
+	ExcludedBy      string
+	Reason          string
+	Error           string
+	RequestedMode   string
+	EffectiveMode   string
+	ModeSource      string
+	ModeReason      string
+	Epoch           int64
+	// Bucket is the posture bucket, as ControlCompliance counts it.
+	Bucket        string
+	Status        string
+	EvaluatedSHA  string
+	EvaluatedAt   *time.Time
+	LastChangedAt *time.Time
+	Hold          string
+	HoldSince     *time.Time
+	Rules         []RuleResult
+}
+
+// HistoryFilter selects compliance snapshots. Empty fields do not filter.
+type HistoryFilter struct {
+	ControlID string
+	Org       string
+	Since     time.Time
+}
+
+// ComplianceSnapshot is one compliance_snapshots row.
+type ComplianceSnapshot struct {
+	ControlPosture
+	SnapshotAt time.Time
+}
+
+// ActivePolicy is the active policy version and its summary.
+type ActivePolicy struct {
+	Version            string
+	FirstSeenAt        time.Time
+	ActivatedAt        time.Time
+	RolloutCompletedAt *time.Time
+	Summary            policy.Summary
 }
 
 // Check is one evaluation of a repository (a checks row).
@@ -160,9 +278,11 @@ type Event struct {
 	ID         int64
 	OccurredAt time.Time
 
-	// Result events: the control and its status transition. ToStatus is
-	// nil when the result was withdrawn.
+	// Result events: the control, the rule for a rule-result
+	// transition, and the status transition. ToStatus is nil when the
+	// result was withdrawn.
 	ControlID  string
+	RuleID     string
 	FromStatus *string
 	ToStatus   *string
 

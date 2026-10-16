@@ -73,6 +73,10 @@ const (
 	RemediatorRole = "rg_remediator"
 	// AllRole is the `all` topology's role: a member of both.
 	AllRole = "rg_all"
+	// ReadOnlyRole is the api role's: SELECT on every table and nothing
+	// else, the chart's repoguardian_ro. It does not bypass row-level
+	// security, so API tests read as it.
+	ReadOnlyRole = "rg_api_ro"
 )
 
 // ControlsDSNs connects as each controls role.
@@ -81,6 +85,7 @@ type ControlsDSNs struct {
 	Evaluator  string
 	Remediator string
 	All        string
+	ReadOnly   string
 }
 
 // ControlsRoles provisions the controls roles the way the chart and the
@@ -107,6 +112,8 @@ func ControlsRoles(tb testing.TB, dsn string) ControlsDSNs {
 		"CREATE ROLE " + RemediatorRole + " LOGIN PASSWORD '" + RemediatorRole + "' NOSUPERUSER",
 		"CREATE ROLE " + AllRole + " LOGIN PASSWORD '" + AllRole + "' NOSUPERUSER IN ROLE " + EvaluatorRole + ", " + RemediatorRole,
 		"GRANT USAGE ON SCHEMA public TO " + EvaluatorRole + ", " + RemediatorRole,
+		"CREATE ROLE " + ReadOnlyRole + " LOGIN PASSWORD '" + ReadOnlyRole + "' NOSUPERUSER",
+		"GRANT USAGE ON SCHEMA public TO " + ReadOnlyRole,
 	} {
 		if _, err := conn.Exec(ctx, stmt); err != nil {
 			tb.Fatalf("pgtest: %s: %v", stmt, err)
@@ -124,7 +131,9 @@ func ControlsRoles(tb testing.TB, dsn string) ControlsDSNs {
 		return u.String()
 	}
 
-	return ControlsDSNs{Owner: as(OwnerRole), Evaluator: as(EvaluatorRole), Remediator: as(RemediatorRole), All: as(AllRole)}
+	return ControlsDSNs{
+		Owner: as(OwnerRole), Evaluator: as(EvaluatorRole), Remediator: as(RemediatorRole), All: as(AllRole), ReadOnly: as(ReadOnlyRole),
+	}
 }
 
 // ControlsDB starts a fresh database, provisions the controls roles and
@@ -150,6 +159,11 @@ func ControlsDB(tb testing.TB) ControlsDSNs {
 
 	if _, err := provider.Up(context.Background()); err != nil {
 		tb.Fatalf("pgtest: apply controls chain: %v", err)
+	}
+
+	// The chart's read-only-role hook re-grants after every migration.
+	if _, err := db.ExecContext(context.Background(), "GRANT SELECT ON ALL TABLES IN SCHEMA public TO "+ReadOnlyRole); err != nil {
+		tb.Fatalf("pgtest: grant read-only role: %v", err)
 	}
 
 	return dsns

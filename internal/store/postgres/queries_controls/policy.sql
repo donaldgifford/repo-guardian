@@ -18,3 +18,11 @@ LIMIT 1;
 -- Set on every completion, so a re-activated version's rollout restamps
 -- it.
 UPDATE policy_versions SET rollout_completed_at = now() WHERE version = @version;
+
+-- name: ActivePolicy :one
+-- The active policy version with its stored Summarize() output. Global:
+-- the api filters the summary to the caller's orgs in Go
+-- (TestPoliciesSummary_IsScoped).
+SELECT version, first_seen_at, activated_at, rollout_completed_at, summary FROM policy_versions
+ORDER BY activated_at DESC, version DESC
+LIMIT 1;

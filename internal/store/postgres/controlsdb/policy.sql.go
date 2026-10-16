@@ -35,6 +35,28 @@ func (q *Queries) ActivatePolicyVersion(ctx context.Context, arg ActivatePolicyV
 	return first_seen, err
 }
 
+const activePolicy = `-- name: ActivePolicy :one
+SELECT version, first_seen_at, activated_at, rollout_completed_at, summary FROM policy_versions
+ORDER BY activated_at DESC, version DESC
+LIMIT 1
+`
+
+// The active policy version with its stored Summarize() output. Global:
+// the api filters the summary to the caller's orgs in Go
+// (TestPoliciesSummary_IsScoped).
+func (q *Queries) ActivePolicy(ctx context.Context) (PolicyVersion, error) {
+	row := q.db.QueryRow(ctx, activePolicy)
+	var i PolicyVersion
+	err := row.Scan(
+		&i.Version,
+		&i.FirstSeenAt,
+		&i.ActivatedAt,
+		&i.RolloutCompletedAt,
+		&i.Summary,
+	)
+	return i, err
+}
+
 const completePolicyRollout = `-- name: CompletePolicyRollout :exec
 UPDATE policy_versions SET rollout_completed_at = now() WHERE version = $1
 `

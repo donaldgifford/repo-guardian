@@ -101,49 +101,70 @@ func (q *Queries) APIOrgRepositories(ctx context.Context, arg APIOrgRepositories
 const aPIRepositories = `-- name: APIRepositories :many
 
 SELECT r.id, r.org, r.name, r.provider_repo_id, r.active, r.park_reason, r.parked_at,
-       r.discovered_at, r.next_due_at, r.last_checked_at
+       r.discovered_at, r.next_due_at,
+       coalesce((SELECT max(c.finished_at) FROM checks c WHERE c.repository_id = r.id AND c.outcome = 'success'),
+                'epoch'::timestamptz)::timestamptz
+         AS last_evaluated_at,
+       ps.state AS policy_state, ps.reason AS policy_reason,
+       EXISTS (SELECT 1 FROM app_repository_access a WHERE a.repository_id = r.id AND a.app = 'eval') AS evaluable,
+       EXISTS (SELECT 1 FROM app_repository_access a
+               JOIN app_installations i ON (i.app, i.installation_id) = (a.app, a.installation_id)
+               WHERE a.repository_id = r.id AND a.app = 'remediate' AND i.suspended_at IS NULL) AS remediable
 FROM repositories r
+LEFT JOIN repository_policy_state ps ON ps.repository_id = r.id
 WHERE ($1::bool OR lower(r.org) = ANY ($2::text[]))
   AND ($3::text IS NULL OR lower(r.org) = lower($3::text))
   AND ($4::bool IS NULL OR r.active = $4::bool)
   AND ($5::text IS NULL OR r.park_reason = $5::text)
-  AND ($6::text IS NULL
-       OR left(lower(r.name), length($6::text)) = lower($6::text))
-  AND (NOT $7::bool OR r.id > $8::bigint)
+  AND ($6::text IS NULL OR ps.state = $6::text)
+  AND ($7::text IS NULL
+       OR left(lower(r.name), length($7::text)) = lower($7::text))
+  AND (NOT $8::bool OR r.id > $9::bigint)
 ORDER BY r.id
-LIMIT $9
+LIMIT $10
 `
 
 type APIRepositoriesParams struct {
-	ScopeAll   bool
-	ScopeOrgs  []string
-	Org        *string
-	Active     *bool
-	ParkReason *string
-	NamePrefix *string
-	HasAfter   bool
-	AfterID    int64
-	PageLimit  int32
+	ScopeAll    bool
+	ScopeOrgs   []string
+	Org         *string
+	Active      *bool
+	ParkReason  *string
+	PolicyState *string
+	NamePrefix  *string
+	HasAfter    bool
+	AfterID     int64
+	PageLimit   int32
 }
 
 type APIRepositoriesRow struct {
-	ID             int64
-	Org            string
-	Name           string
-	ProviderRepoID *int64
-	Active         bool
-	ParkReason     *string
-	ParkedAt       *time.Time
-	DiscoveredAt   time.Time
-	NextDueAt      *time.Time
-	LastCheckedAt  *time.Time
+	ID              int64
+	Org             string
+	Name            string
+	ProviderRepoID  *int64
+	Active          bool
+	ParkReason      *string
+	ParkedAt        *time.Time
+	DiscoveredAt    time.Time
+	NextDueAt       *time.Time
+	LastEvaluatedAt time.Time
+	PolicyState     *string
+	PolicyReason    *string
+	Evaluable       bool
+	Remediable      bool
 }
 
-// API repositories, checks and timeline over the controls schema
-// (DESIGN-0027; re-cut in IMPL-0029 7.4, rebuilt with the D32 fields in
-// Phase 8). Every query carries the scope predicate on lower(r.org);
-// TestAPIQueries_AreScoped enforces it. Pages are keyset, fetched at
-// limit + 1 by the reader.
+// API repositories, evaluations and timeline over the controls schema
+// (DESIGN-0027, DESIGN-0032 § API). Every query carries the scope
+// predicate on lower(r.org); TestAPIQueries_AreScoped enforces it.
+// Pages are keyset, fetched at limit + 1 by the reader.
+//
+// evaluable: the Evaluation App can reach the repository; remediable:
+// the Remediation App can and its installation is not suspended. Both
+// read app_repository_access, whose read policy is PUBLIC so the api's
+// read-only role sees every row. last_evaluated_at is the newest
+// successful evaluation (repositories.last_checked_at is rc-only and
+// never written on the controls line); the epoch stands for "never".
 func (q *Queries) APIRepositories(ctx context.Context, arg APIRepositoriesParams) ([]APIRepositoriesRow, error) {
 	rows, err := q.db.Query(ctx, aPIRepositories,
 		arg.ScopeAll,
@@ -151,6 +172,7 @@ func (q *Queries) APIRepositories(ctx context.Context, arg APIRepositoriesParams
 		arg.Org,
 		arg.Active,
 		arg.ParkReason,
+		arg.PolicyState,
 		arg.NamePrefix,
 		arg.HasAfter,
 		arg.AfterID,
@@ -173,7 +195,11 @@ func (q *Queries) APIRepositories(ctx context.Context, arg APIRepositoriesParams
 			&i.ParkedAt,
 			&i.DiscoveredAt,
 			&i.NextDueAt,
-			&i.LastCheckedAt,
+			&i.LastEvaluatedAt,
+			&i.PolicyState,
+			&i.PolicyReason,
+			&i.Evaluable,
+			&i.Remediable,
 		); err != nil {
 			return nil, err
 		}
@@ -187,8 +213,17 @@ func (q *Queries) APIRepositories(ctx context.Context, arg APIRepositoriesParams
 
 const aPIRepository = `-- name: APIRepository :one
 SELECT r.id, r.org, r.name, r.provider_repo_id, r.active, r.park_reason, r.parked_at,
-       r.discovered_at, r.next_due_at, r.last_checked_at
+       r.discovered_at, r.next_due_at,
+       coalesce((SELECT max(c.finished_at) FROM checks c WHERE c.repository_id = r.id AND c.outcome = 'success'),
+                'epoch'::timestamptz)::timestamptz
+         AS last_evaluated_at,
+       ps.state AS policy_state, ps.reason AS policy_reason,
+       EXISTS (SELECT 1 FROM app_repository_access a WHERE a.repository_id = r.id AND a.app = 'eval') AS evaluable,
+       EXISTS (SELECT 1 FROM app_repository_access a
+               JOIN app_installations i ON (i.app, i.installation_id) = (a.app, a.installation_id)
+               WHERE a.repository_id = r.id AND a.app = 'remediate' AND i.suspended_at IS NULL) AS remediable
 FROM repositories r
+LEFT JOIN repository_policy_state ps ON ps.repository_id = r.id
 WHERE r.id = $1
   AND ($2::bool OR lower(r.org) = ANY ($3::text[]))
 `
@@ -200,16 +235,20 @@ type APIRepositoryParams struct {
 }
 
 type APIRepositoryRow struct {
-	ID             int64
-	Org            string
-	Name           string
-	ProviderRepoID *int64
-	Active         bool
-	ParkReason     *string
-	ParkedAt       *time.Time
-	DiscoveredAt   time.Time
-	NextDueAt      *time.Time
-	LastCheckedAt  *time.Time
+	ID              int64
+	Org             string
+	Name            string
+	ProviderRepoID  *int64
+	Active          bool
+	ParkReason      *string
+	ParkedAt        *time.Time
+	DiscoveredAt    time.Time
+	NextDueAt       *time.Time
+	LastEvaluatedAt time.Time
+	PolicyState     *string
+	PolicyReason    *string
+	Evaluable       bool
+	Remediable      bool
 }
 
 func (q *Queries) APIRepository(ctx context.Context, arg APIRepositoryParams) (APIRepositoryRow, error) {
@@ -225,12 +264,16 @@ func (q *Queries) APIRepository(ctx context.Context, arg APIRepositoryParams) (A
 		&i.ParkedAt,
 		&i.DiscoveredAt,
 		&i.NextDueAt,
-		&i.LastCheckedAt,
+		&i.LastEvaluatedAt,
+		&i.PolicyState,
+		&i.PolicyReason,
+		&i.Evaluable,
+		&i.Remediable,
 	)
 	return i, err
 }
 
-const aPIRepositoryChecks = `-- name: APIRepositoryChecks :many
+const aPIRepositoryEvaluations = `-- name: APIRepositoryEvaluations :many
 SELECT c.id, c.trigger, c.outcome, c.policy_version, c.started_at, c.finished_at, c.error
 FROM checks c
 JOIN repositories r ON r.id = c.repository_id
@@ -241,7 +284,7 @@ ORDER BY c.id DESC
 LIMIT $6
 `
 
-type APIRepositoryChecksParams struct {
+type APIRepositoryEvaluationsParams struct {
 	RepositoryID int64
 	ScopeAll     bool
 	ScopeOrgs    []string
@@ -250,7 +293,7 @@ type APIRepositoryChecksParams struct {
 	PageLimit    int32
 }
 
-type APIRepositoryChecksRow struct {
+type APIRepositoryEvaluationsRow struct {
 	ID            int64
 	Trigger       string
 	Outcome       string
@@ -260,9 +303,9 @@ type APIRepositoryChecksRow struct {
 	Error         *string
 }
 
-// Newest first.
-func (q *Queries) APIRepositoryChecks(ctx context.Context, arg APIRepositoryChecksParams) ([]APIRepositoryChecksRow, error) {
-	rows, err := q.db.Query(ctx, aPIRepositoryChecks,
+// The evaluation log, newest first.
+func (q *Queries) APIRepositoryEvaluations(ctx context.Context, arg APIRepositoryEvaluationsParams) ([]APIRepositoryEvaluationsRow, error) {
+	rows, err := q.db.Query(ctx, aPIRepositoryEvaluations,
 		arg.RepositoryID,
 		arg.ScopeAll,
 		arg.ScopeOrgs,
@@ -274,9 +317,9 @@ func (q *Queries) APIRepositoryChecks(ctx context.Context, arg APIRepositoryChec
 		return nil, err
 	}
 	defer rows.Close()
-	var items []APIRepositoryChecksRow
+	var items []APIRepositoryEvaluationsRow
 	for rows.Next() {
-		var i APIRepositoryChecksRow
+		var i APIRepositoryEvaluationsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Trigger,
@@ -297,15 +340,15 @@ func (q *Queries) APIRepositoryChecks(ctx context.Context, arg APIRepositoryChec
 }
 
 const aPIRepositoryEvents = `-- name: APIRepositoryEvents :many
-SELECT e.source, e.id, e.occurred_at, coalesce(e.control_id, '')::text AS control_id, e.from_status, e.to_status,
-       e.kind, e.detail
+SELECT e.source, e.id, e.occurred_at, coalesce(e.control_id, '')::text AS control_id,
+       coalesce(e.rule_id, '')::text AS rule_id, e.from_status, e.to_status, e.kind, e.detail
 FROM (
-    SELECT 'result'::text AS source, ev.id, ev.occurred_at, ev.control_id, ev.from_status, ev.to_status,
+    SELECT 'result'::text AS source, ev.id, ev.occurred_at, ev.control_id, ev.rule_id, ev.from_status, ev.to_status,
            NULL::text AS kind, NULL::jsonb AS detail
     FROM result_events ev
-    WHERE ev.repository_id = $1 AND ev.rule_id IS NULL
+    WHERE ev.repository_id = $1
     UNION ALL
-    SELECT 'repository'::text, re.id, re.occurred_at, NULL::text, NULL::text, NULL::text, re.kind, re.detail
+    SELECT 'repository'::text, re.id, re.occurred_at, NULL::text, NULL::text, NULL::text, NULL::text, re.kind, re.detail
     FROM repository_events re
     WHERE re.repository_id = $1
 ) e
@@ -333,14 +376,16 @@ type APIRepositoryEventsRow struct {
 	ID         int64
 	OccurredAt time.Time
 	ControlID  string
+	RuleID     string
 	FromStatus *string
 	ToStatus   *string
 	Kind       *string
 	Detail     json.RawMessage
 }
 
-// Control-status transitions (rule_id IS NULL) and repository events
+// Control-status and rule-result transitions and repository events
 // merged with UNION ALL, newest first, keyed by (occurred_at, source, id).
+// Remediation events join with IMPL-0030.
 func (q *Queries) APIRepositoryEvents(ctx context.Context, arg APIRepositoryEventsParams) ([]APIRepositoryEventsRow, error) {
 	rows, err := q.db.Query(ctx, aPIRepositoryEvents,
 		arg.RepositoryID,
@@ -364,6 +409,7 @@ func (q *Queries) APIRepositoryEvents(ctx context.Context, arg APIRepositoryEven
 			&i.ID,
 			&i.OccurredAt,
 			&i.ControlID,
+			&i.RuleID,
 			&i.FromStatus,
 			&i.ToStatus,
 			&i.Kind,

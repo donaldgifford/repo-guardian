@@ -199,7 +199,7 @@ func (s *server) ListRepositoryEvaluations(
 		return nil, err
 	}
 
-	page, err := s.opts.Reader.RepositoryChecks(ctx, p.Visible, req.Id, key.ID, limit)
+	page, err := s.opts.Reader.RepositoryEvaluations(ctx, p.Visible, req.Id, key.ID, limit)
 	if err != nil {
 		return nil, readErr(err)
 	}

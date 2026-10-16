@@ -24,7 +24,7 @@ func TestAPIReader_OrgsValidateAndAreScopedInSQL(t *testing.T) {
 	f := newAPIFixture(t)
 	seedTwoOrgs(t, f)
 
-	pool, err := postgres.NewReadOnlyPool(t.Context(), f.dsns.Evaluator)
+	pool, err := postgres.NewReadOnlyPool(t.Context(), f.dsns.ReadOnly)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,11 +52,11 @@ func TestAPIReader_OrgsValidateAndAreScopedInSQL(t *testing.T) {
 
 	pay, web := all.Items[1], all.Items[2]
 	// d is archived: parked, and out of compliance with its results cleared.
-	if pay.Tracked != 1 || pay.Parked != 1 || pay.Counts.Compliant != 1 || pay.Counts.NonCompliant != 0 {
+	if pay.Tracked != 1 || pay.Parked != 1 || pay.Compliance.Compliant != 1 || pay.Compliance.NonCompliant != 0 {
 		t.Errorf("acme-pay = %+v, want one tracked, one parked (case-folded), one compliant", pay)
 	}
 
-	if web.Tracked != 1 || web.Counts.NonCompliant != 1 || web.OpenPrs != 1 || web.CompliantPercent == nil || *web.CompliantPercent != 0 {
+	if web.Tracked != 1 || web.Compliance.NonCompliant != 1 || web.OpenPrs != 1 || web.Compliance.Percent == nil || *web.Compliance.Percent != 0 {
 		t.Errorf("acme-web = %+v, want one tracked, failing with an open PR, 0%%", web)
 	}
 
@@ -91,7 +91,7 @@ func TestReadOnlyPool_RefusesWrites(t *testing.T) {
 
 	f := newAPIFixture(t)
 
-	pool, err := postgres.NewReadOnlyPool(t.Context(), f.dsns.Evaluator)
+	pool, err := postgres.NewReadOnlyPool(t.Context(), f.dsns.ReadOnly)
 	if err != nil {
 		t.Fatal(err)
 	}

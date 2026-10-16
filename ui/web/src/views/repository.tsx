@@ -3,7 +3,7 @@ import { getRouteApi } from "@tanstack/react-router";
 import type { Schemas } from "../api/client";
 import { useRepository, useRepositoryChecks, useUIConfig } from "../api/queries";
 import { KindBadge, StateBadge, StatusBadge } from "../components/badges";
-import { Evidence, ExternalLink, Loading, Remediation } from "../components/common";
+import { Evidence, ExternalLink, Loading } from "../components/common";
 import { PageHeader } from "../components/page";
 import { Time } from "../components/time";
 import { Timeline } from "../components/timeline";
@@ -12,9 +12,24 @@ import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { DetailKV } from "../components/ui/detail-drawer";
 import { humanize } from "../lib/format";
-import { repoLink } from "../lib/pr";
+import { prLabel, prLink, repoLink } from "../lib/pr";
 
 const route = getRouteApi("/app/repos/$id");
+
+// Remediation shows the remediation and a link to its PR, built from
+// the host, org, name and number.
+function Remediation({ finding }: { finding: Schemas["Finding"] }) {
+  const config = useUIConfig();
+  const label = prLabel(finding);
+  const href = finding.pr && config.data ? prLink(config.data.github_host, finding.org, finding.repository, finding.pr.number) : undefined;
+  return (
+    <div className="space-y-0.5">
+      {finding.remediation !== "none" ? <div className="text-muted-foreground">{humanize(finding.remediation)}</div> : null}
+      {label ? href ? <ExternalLink href={href}>{label}</ExternalLink> : <span>{label}</span> : null}
+      {finding.pr_stale ? <Badge tone="warn">stale</Badge> : null}
+    </div>
+  );
+}
 
 // RepositoryView (DESIGN-0036 §Repository): header with the park state,
 // two-thirds findings and recent checks, one-third repository facts and

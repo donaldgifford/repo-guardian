@@ -12,7 +12,7 @@ export interface Delta {
 }
 
 // Kpi is a label, a 22px value and a subline, optionally led by a delta
-// arrow (DESIGN-0036 §Component inventory; replaces Tile).
+// arrow (DESIGN-0036 §Component inventory).
 export function Kpi({ label, value, subline, delta, className }: { label: ReactNode; value: ReactNode; subline?: ReactNode; delta?: Delta | null; className?: string }) {
   return (
     <div className={cn("rounded-lg border border-border bg-panel px-3.5 py-2.5", className)}>

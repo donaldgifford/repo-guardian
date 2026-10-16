@@ -20,7 +20,7 @@ export function TableBody(props: ComponentProps<"tbody">) {
 }
 
 export function TableRow({ className, ...props }: ComponentProps<"tr">) {
-  return <tr className={cn("border-b border-border hover:bg-muted/50", className)} {...props} />;
+  return <tr className={cn("border-b border-border hover:bg-panel-2", className)} {...props} />;
 }
 
 export function TableHead({ className, ...props }: ComponentProps<"th">) {

@@ -16,16 +16,6 @@
   --color-info: #7aa7ff;
   --color-avatar: #3a4c6d;
 
-  /* Aliases for views not yet converted; removed with the last consumer
-     (IMPL-0031 task 6.6). */
-  --color-muted: #262a30;
-  --color-primary: #5fa8f5;
-  --color-primary-foreground: #17191d;
-  --color-compliant: #3fb950;
-  --color-non-compliant: #f2554d;
-  --color-not-applicable: #9aa1ab;
-  --color-unknown: #d9a020;
-
   /* The sidebar collapses behind a top-bar button below this. */
   --breakpoint-nav: 56.25rem;
 

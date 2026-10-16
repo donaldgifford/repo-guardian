@@ -566,7 +566,7 @@ Public, outside the shell, aggregate-only, on today's `Status` schema.
   changed during Phases 2 to 5 is applied to
   `ui/design/repo-guardian-mockup.html`; DESIGN-0036 moves to
   `Accepted` with a note naming this IMPL. *As built:* the docz design type has no `Accepted`, so the status is `Approved`; the mockup took the 18%/65% badge recipe for every tone and the "Hide parked" label.
-- [ ] 6.6 Cleanup: remove the four legacy colour aliases from
+- [x] 6.6 Cleanup: remove the four legacy colour aliases from
   `index.css` and `statusTone` from `lib/format.ts`; shrink
   `components/common.tsx` to `ExternalLink`, `Evidence`, `Loading`,
   `Empty`, `Section`; delete `Tile` and the old `TrendChart`; delete

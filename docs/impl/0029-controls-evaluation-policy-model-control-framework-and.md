@@ -951,10 +951,13 @@ evaluator's store.
   `TestMigrateControls_DryRun` runs `migrate --chain controls --dry-run`
   and asserts pending `[1 2 3 4]`, no activation and version 0. The chain
   is SQL only, so a new file is rehearsed simply by being in the directory.
-- [ ] 4.11 Non-vacuous check: drop the epoch predicate from the record
+- [x] 4.11 Non-vacuous check: drop the epoch predicate from the record
   step, make withdrawal skip the delete, and remove the NULL guard from
   the percent; confirm 4.6, 4.9 and the agreement test fail; restore.
-
+  Done (each restored with `git checkout`):
+  - Epoch predicate dropped from `fenced` → `TestControlsStore_EpochFencingAcrossRecreate` (4.9) and `TestControlsStore_EvaluationLifecycle` fail.
+  - `withdraw` skips the delete → `TestControlsStore_ParkResultRule` (4.6) fails in every clearing row.
+  - NULL guard removed from `floor_percent` → `TestCompliantPercent_SQLAgreesWithGo` fails (division by zero on the 0/0 golden).
 #### Success Criteria
 
 - The controls chain applies to an empty database and `make lint-sql`

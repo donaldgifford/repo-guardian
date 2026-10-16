@@ -272,7 +272,7 @@ calls `Type.Build`.
   and excluded with the definition title and `pr {}`; type-level
   `Params` are included. A type whose definitions reference other store
   files implements `FileReferencer`, and those bytes are hashed too.
-- [ ] 1.6 `changeset.go`: `ValidateChangeSet(c, ev, cs)`: unique
+- [x] 1.6 `changeset.go`: `ValidateChangeSet(c, ev, cs)`: unique
   canonical paths; every file and API resource within `c.Owns()`; at most
   100 files and 1 MiB per file (or the limits the IMPL-0028 spike
   measured, as named constants citing it); regular files only, so a path
@@ -280,6 +280,13 @@ calls `Type.Build`.
   every failing rule of `ev` in exactly one of `Fixed`, `Manual`,
   `Blocked`; every `Manual` and `Blocked` rule explained by a note.
   Table tests for each rejection.
+  Done: `MaxChangeSetFiles` = 100 and `MaxFileBytes` = 1 MiB, citing
+  spike 1. A symlink or submodule reaches the change set through the new
+  `ErrNotRegularFile` sentinel, which the evaluation reader records as a
+  read error with `Err = NotRegularFile`; writing that path is refused.
+  Also refused: a rule named in two lists or undeclared, and a `Fixed`
+  rule that is not failing. "Explained by a note" is at least one note per
+  `Manual` and `Blocked` rule.
 - [ ] 1.7 `reader.go`: `NewEvalReader(base Reader, now func() time.Time)`
   wraps the per-repository adapter (already pinned to one commit by
   IMPL-0028's constructor), caches every read for the evaluation, and

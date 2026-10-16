@@ -1,11 +1,12 @@
 # Generating dashboards and alerts
 
 `repo-guardian monitoring generate` derives Grafana dashboards and
-Prometheus alerting rules from the same `guardian.hcl` the server loads.
+Prometheus alerting rules from the same controls policy root
+(`enterprise.hcl`, `catalogue/`, `orgs/`) the server loads.
 
-The point is that a panel cannot outlive the rule it charts. A
-hand-maintained dashboard drifts the moment a rule is renamed or a
-reconciler is removed, and it drifts *silently* — an empty panel and a
+The point is that a panel cannot outlive the control it charts. A
+hand-maintained dashboard drifts the moment a control is renamed or
+withdrawn, and it drifts *silently* — an empty panel and a
 compliant fleet look identical. So does an alert whose metric has no
 producer: it never fires, and a never-firing alert looks exactly like a
 healthy system. That is not hypothetical; it is
@@ -15,7 +16,7 @@ finding A, which survived for months.
 ## Quick start
 
 ```bash
-repo-guardian monitoring generate --config guardian.hcl --out ./monitoring
+repo-guardian monitoring generate --config ./policy --out ./monitoring
 ```
 
 Writes plain files:
@@ -30,7 +31,7 @@ For Kubernetes:
 
 ```bash
 repo-guardian monitoring generate \
-  --config guardian.hcl \
+  --config ./policy \
   --format k8s \
   --namespace monitoring \
   --instance-selector dashboards=grafana \
@@ -45,7 +46,7 @@ ready for `kubectl apply` or an ArgoCD source.
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--config` | `$GUARDIAN_CONFIG` | Policy to derive from. Empty means the built-in defaults. A path that does not exist is an error, not a fallback. |
+| `--config` | `$GUARDIAN_CONFIG` | Controls policy root to derive from, loaded with the built-in control types. Empty means the unconfigured static tier (no orgs, no controls, no mechanisms). A path that does not exist is an error, not a fallback. |
 | `--out` | `./monitoring` | Output directory. Created if absent. |
 | `--format` | `json` | `json` for plain files, `k8s` for custom resources. |
 | `--org` | — | Repeatable. Adds an org to the per-org rows. See *Silent orgs* below. |
@@ -84,25 +85,18 @@ with no data. If your cluster names its datasources differently, pass
 
 Artifacts are scoped to the **mechanisms your policy configures**. A
 mechanism is a configured feature that is the sole producer of a metric
-series; if it is off, the series never appears.
+series; if it is off, the series never appears. Mechanisms come from the
+controls the policy actually **assigns**: a catalogue entry nothing
+assigns turns nothing on. A `custom_properties` control with
+`remediation { apply = "workflow" }` is the GitHub Actions mechanism;
+`repo_settings` and `branch_ruleset` are the setting and ruleset
+mechanisms (plus remediation when a rule remediates); the file-shaped
+types are the file-rules mechanism.
 
-Concretely, with no `custom_properties` reconciler you get no
-`RepoGuardianPropertySchemaMissing` alert, because nothing increments
-`repo_guardian_custom_property_missing_schema_total`. With
-`auto_close_pr = false` you get no `RepoGuardianPRDrift`, because an
-open PR whose rules are all satisfied is then the *designed* behaviour
-and the alert would fire permanently. With `dry_run = true` you get none
-of the PR-shaped alerts, because dry run suppresses
-`repo_guardian_prs_created_total` and every one of them would be empty
-by construction.
-
-A few things are deliberately unconditional.
-`RepoGuardianRepoAccessDenied` ships regardless of configuration,
-because an installation can lose read access to a repository at any
-time. Note its `{reason="access_denied"}` selector is load-bearing:
-`repo_guardian_repos_parked_total` also counts routine archived and fork
-parks, so the same expression without the selector would page on every
-normal onboarding sweep.
+On the controls line no alert is mechanism-gated yet: every alert reads
+a series the evaluator, ingest, the store or the Temporal SDK always
+produces. Gated alerts return with remediation (IMPL-0030), and the
+generator still reports every skipped alert and why.
 
 ### The four dashboards
 
@@ -112,13 +106,13 @@ the picture looks wrong there is no way to tell which half is lying.
 
 | Dashboard | Answers | Reads |
 | --- | --- | --- |
-| `repo-guardian-kpi` | Is the fleet compliant, and which rule is failing? | Prometheus |
+| `repo-guardian-kpi` | Is the fleet compliant, and which control is failing? | Prometheus |
 | `repo-guardian-detail` | Which organisation? | Prometheus |
 | `repo-guardian-system` | Is the service itself healthy? | Prometheus |
 | `repo-guardian-logs` | Which repository, and why? | Loki |
 
 The last one is not garnish. repo-guardian's metrics carry no
-repository label on purpose — a 20,000-repo fleet times a dozen rules
+repository label on purpose — a 20,000-repo fleet times a dozen controls
 is a cardinality bomb — so "which repository" is a question only the
 logs can answer.
 
@@ -131,7 +125,7 @@ The `app="repo-guardian"` default is a promtail/alloy convention, not
 something the binary controls.
 
 ```bash
-repo-guardian monitoring generate --config guardian.hcl \
+repo-guardian monitoring generate --config ./policy \
   --loki-selector 'job="platform/repo-guardian"'
 ```
 
@@ -154,7 +148,7 @@ and fails the build if any of them stops being emitted.
 
 ### Several installs in one Prometheus
 
-Out of the box the queries are unscoped: `repo_guardian_repos_tracked`
+Out of the box the queries are unscoped: `repo_guardian_controls_status`
 means every series of that name in the datasource. That is right for a
 Prometheus holding one repo-guardian and nothing else, and wrong as soon
 as it holds two (prod and dev, v1 and v2), or anything else exporting
@@ -166,7 +160,7 @@ each install's own.
 Give each install its own selector and its own name:
 
 ```bash
-repo-guardian monitoring generate --config guardian.hcl --format k8s \
+repo-guardian monitoring generate --config ./policy --format k8s \
   --namespace monitoring --instance-selector dashboards=grafana \
   --name repo-guardian-dev \
   --prometheus-selector 'namespace="repo-guardian-dev"'
@@ -185,48 +179,43 @@ configured row that renders empty is a *signal* — that org has stopped
 reporting. Rows discovered from the series instead just disappear, which
 is the failure this design exists to avoid.
 
-The generator can only declare rows when the policy has a top-level
-`scope { orgs = [...] }` block with literal names. It warns when it
-cannot:
-
-- **No top-level scope block** (legacy mode): the policy carries no org
-  list anywhere, so there is nothing to enumerate. Pass `--org` for the
-  orgs that must always render, or add a scope block.
-- **Glob patterns in scope** (`orgs = ["acme-*"]`): a pattern is not an
-  org, so those rows are discovered rather than declared. Name them
-  literally, or pass `--org`.
+The generator declares a row for every org the policy root names:
+`enterprise { orgs = [...] }`, every `orgs/<org>.hcl` file, and every
+`--org`. It warns when it has none — an empty `--config`, which is how
+the shipped tier is generated — and then the rows are discovered from
+`controls_coverage`. A name containing a glob character (`acme-*`) is
+not an org, so it never becomes a declared row; name orgs literally.
 
 ## Generation is also config validation
 
 `monitoring generate` loads the policy through exactly the code path the
 server uses, so **a config that fails to load fails generation**. Adding
-it to CI is a free syntax-and-semantics check on `guardian.hcl` — the
-same trick `--strict-templates` plays at startup.
+it to CI is a free syntax-and-semantics check on the policy root — the
+same check the server runs at startup.
 
 ```yaml
-- name: Validate the guardian policy
-  run: repo-guardian monitoring generate --config guardian.hcl --out "$(mktemp -d)"
+- name: Validate the controls policy
+  run: repo-guardian monitoring generate --config ./policy --out "$(mktemp -d)"
 ```
 
-This catches HCL parse errors, unknown `guardian {}` attributes, invalid
-`annotation_properties` maps, strict-scope violations (every rule must
-declare its own `scope {}` once a top-level one exists), and PR-template
-compile errors — before a deploy does.
+This catches HCL parse errors, unknown attributes, unknown control types
+and parameters, unresolvable `replace`/`exclude` references and template
+compile errors — everything `policy.Load` validates — before a deploy
+does.
 
 One caveat, and it is the reason `--config` is strict about missing
-files: `policy.Load` treats an absent file as "use the built-in
-defaults" and returns no error, which is right for the server and wrong
-here. Without the guard, `--config guardain.hcl` would emit the *default*
-artifacts with exit 0, and the validation you thought you were running
-would have skipped the file entirely. The generator refuses a `--config`
-path that does not exist.
+paths: without the guard, `--config ./polcy` could emit the
+unconfigured artifacts with exit 0, and the validation you thought you
+were running would have skipped the policy entirely. The generator
+refuses a `--config` path that does not exist.
 
-An empty `--config` remains legal and still means built-in defaults —
-that is how the shipped static tier is generated.
+An empty `--config` remains legal and means the unconfigured static tier
+— that is how the shipped tier is generated.
 
 ## The shipped static tier
 
-`contrib/generated/` holds the artifacts for the built-in policy. They
+`contrib/generated/` holds the unconfigured artifacts: no orgs (rows
+are discovered from series), no controls, every unconditional alert. They
 are regenerated and diff-checked in CI:
 
 ```bash
@@ -237,16 +226,16 @@ make lint-monitoring       # fail if it is stale (what CI runs)
 Hand-editing a generated file turns CI red. If you need a change, change
 the generator.
 
-Import them directly only if you run close to the default policy.
-Otherwise generate your own tier from your own `guardian.hcl` — a tier
+Import them directly only if you do not need declared org rows.
+Otherwise generate your own tier from your own policy root — a tier
 generated from a different policy is missing the alerts for the
 mechanisms you enabled, which is exactly the silence this tool exists to
 remove.
 
 ## Troubleshooting
 
-**The generator warns about undeclarable orgs on every run.** Expected
-for the built-in policy, which has no scope block. See *Silent orgs*.
+**The generator warns that no orgs are declared.** Expected with an
+empty `--config`. See *Silent orgs*.
 
 **`--format k8s` fails with "needs an instance selector".** Pass
 `--instance-selector key=value` matching a label on your `Grafana` CR.

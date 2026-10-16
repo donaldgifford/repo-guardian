@@ -325,7 +325,7 @@ calls `Type.Build`.
   every rule `Blocked`. A `*ParseError` puts its line in the evidence. A
   `Fix` that leaves the bytes unchanged fixes nothing (the rules go to
   `Manual`).
-- [ ] 1.9 `registry.go`: `Registry` with `Register`, `Type(name)` and
+- [x] 1.9 `registry.go`: `Registry` with `Register`, `Type(name)` and
   `Build(def, env)`. `Build` fails on an unknown type, an unknown rule
   kind, a parameter not in `RuleKindSpec` or of the wrong type, a missing
   required parameter, a definition with no rules, `remediate = true` on a
@@ -334,6 +334,14 @@ calls `Type.Build`.
   the sample variables (org `example-org`, repository `example`) fails
   one of the control's remediable rules. Each error carries the
   definition's `slug@N` and rule id.
+  Done: `NewRegistry`, `Register` (a duplicate name is an error), `Type`,
+  `Build`. `Build` also refuses a rule id outside the slug grammar or
+  declared twice, and an `apply` other than recommend/direct/workflow;
+  an empty `Kind` defaults to the rule id. Parameter types accept what an
+  HCL decode can produce (`[]any`/`[]string`, `map[string]any`/
+  `map[string]string`, any numeric kind). The template check remediates
+  an in-memory empty repository with `SampleVars`, applies the files and
+  re-evaluates; it runs only when the definition names a template.
 - [ ] 1.10 `controltest`: `Run(t, typ, fixtures)` runs DESIGN-0031
   properties 2–6 (remediation property, idempotence, minimal edits,
   template passes its rules, two rules failing together) against a

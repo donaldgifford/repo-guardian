@@ -342,13 +342,24 @@ calls `Type.Build`.
   `map[string]string`, any numeric kind). The template check remediates
   an in-memory empty repository with `SampleVars`, applies the files and
   re-evaluates; it runs only when the definition names a template.
-- [ ] 1.10 `controltest`: `Run(t, typ, fixtures)` runs DESIGN-0031
+- [x] 1.10 `controltest`: `Run(t, typ, fixtures)` runs DESIGN-0031
   properties 2–6 (remediation property, idempotence, minimal edits,
   template passes its rules, two rules failing together) against a
   `FakeRepo` that implements `Reader` from a map of files and API values,
   and an `Apply(repo, cs)` helper that applies file changes and an API
   overlay. A notes-only change set passes the property and is asserted
   to be a recommendation.
+  Done: `Fixture{Name, Def, Env, Repo, Vars, Want, WantFiles}`; `Run`
+  builds through a `Registry`, so every fixture also passes `Build`'s
+  checks. Property 4 is `WantFiles` byte-exact plus "no write that leaves
+  a file unchanged"; property 6 fails the run when a type with two or more
+  remediable kinds has no fixture failing two remediable rules at once.
+  Idempotence means no writes and nothing in `Fixed` (a `Manual` rule
+  keeps its note). `FakeRepo` serves `NotRegular` paths and per-read
+  `Errors`; `Apply` overlays settings (by JSON name), properties, labels
+  and rulesets. `control.OpSet`/`OpDelete` were added for `APIChange.Op`.
+  Probe: a `Fix` that appends where it should prepend fails properties 2,
+  3 and 4.
 - [ ] 1.11 `internal/controls/codeowners`: the type as DESIGN-0031's
   table (three locations, `exists` only, write the template to
   `.github/CODEOWNERS` when no location has a file, never edit an

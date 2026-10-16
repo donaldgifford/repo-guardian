@@ -282,10 +282,16 @@ type RemediationInput struct {
 	Evaluation Evaluation
 }
 
+// The APIChange operations.
+const (
+	OpSet    = "set"
+	OpDelete = "delete"
+)
+
 // APIChange is one direct change to a non-file resource.
 type APIChange struct {
 	Resource Resource
-	// Op is "set" or "delete".
+	// Op is OpSet or OpDelete.
 	Op string
 	// Value is the resource kind's value type; nil clears.
 	Value any

@@ -27,7 +27,7 @@ type definition struct {
 const attrTitle = "title"
 
 var catalogueSchema = &hcl.BodySchema{
-	Blocks: []hcl.BlockHeaderSchema{{Type: "control", LabelNames: []string{"slug"}}},
+	Blocks: []hcl.BlockHeaderSchema{{Type: blockControl, LabelNames: []string{"slug"}}},
 }
 
 var controlSchema = &hcl.BodySchema{

@@ -445,7 +445,7 @@ calls `Type.Build`.
   `rules.TemplateStore` entry, and the embedded names used are kept for
   2.9's version hash. `pr {}` titles and bodies are compiled at load.
   Registry errors are prefixed with the control block's `file:line`.
-- [ ] 2.4 `enterprise.go` and `org.go`: decode `enterprise.hcl` (`orgs`,
+- [x] 2.4 `enterprise.go` and `org.go`: decode `enterprise.hcl` (`orgs`,
   `mode`, `controls`, `remediation { max_open_prs, reopen_after }`, and a
   load error naming the block if an exclusion appears) and each
   `orgs/<org>.hcl` (`mode`, `controls`, `replace "x@1" { with, reason }`,
@@ -453,6 +453,15 @@ calls `Type.Build`.
   `exclude_repos { match, reason }`, labelled `repos` blocks,
   `remediation`). An org file for an org not in `enterprise.orgs` fails
   load.
+  Done: org names compare case-insensitively (GitHub logins), so `ACME`
+  and `acme` are one org: a second policy for it fails, naming the first.
+  An org file may hold more than one `org` block. `controls`, `replace`
+  and `exclude` are kept as one operation list per layer, sorted by
+  source position so 2.7 can apply them in file order (a `controls` list
+  keeps its own order). Values (`mode`, `max_open_prs`, `reopen_after`,
+  reasons) are decoded raw and checked in 2.5. The enterprise policy
+  names each forbidden block (`exclude`, `replace`, `exclude_repos`,
+  `repos`, `control`) in its error.
 - [ ] 2.5 `validate.go`: every error and warning in DESIGN-0030's
   validation list, one table-test row each, asserting the message and the
   source location. Warnings go to the logger once at load.

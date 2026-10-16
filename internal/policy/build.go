@@ -18,7 +18,20 @@ func (l *loader) build(layout rootLayout, bodies map[string]hcl.Body) (*Snapshot
 		return nil, err
 	}
 
-	return &Snapshot{files: l.files, defs: defs, embeddedUsed: l.templates.usedEmbedded()}, nil
+	ent, err := l.decodeEnterprise(bodies[enterpriseFile])
+	if err != nil {
+		return nil, err
+	}
+
+	orgs, err := l.decodeOrgs(layout.orgs, bodies, ent)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Snapshot{
+		files: l.files, defs: defs, embeddedUsed: l.templates.usedEmbedded(),
+		enterprise: ent, orgs: orgs,
+	}, nil
 }
 
 // checkExpressions evaluates every attribute in body, recursively,

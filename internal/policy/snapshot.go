@@ -18,6 +18,8 @@ type Snapshot struct {
 	defs     map[control.ID]*definition
 	// embeddedUsed are the embedded templates the catalogue resolved to.
 	embeddedUsed []string
+	enterprise   *enterprisePolicy
+	orgs         []*orgPolicy
 }
 
 // Warning is a load-time warning with its source location.

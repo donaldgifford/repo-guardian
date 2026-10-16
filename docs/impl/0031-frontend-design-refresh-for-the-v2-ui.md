@@ -606,7 +606,7 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
   `aggregate=fleet|org`, the `truncated` notice path stays for `none`;
   the rule sparklines un-hide using one `aggregate=fleet&kind&rule`
   query per rule (OQ6).
-- [ ] 7.2 `GET /findings?sort=default|pr_age`: `pr_age` orders by
+- [x] 7.2 `GET /findings?sort=default|pr_age`: `pr_age` orders by
   `evidence->'pr'->>'created_at'` ascending with nulls last, then the
   default key; the cursor (`cursor.go`) binds the sort into the filter
   hash so a cursor from one sort is rejected under another; `apitest`

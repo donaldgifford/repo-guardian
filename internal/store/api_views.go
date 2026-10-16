@@ -101,12 +101,45 @@ type APIFinding struct {
 	Evidence json.RawMessage
 }
 
+// PRCreatedAt reads the PR's created_at from the evidence: the value
+// FindingSortPRAge orders by. nil when the evidence names no PR or no
+// time.
+func (f *APIFinding) PRCreatedAt() *time.Time {
+	var ev struct {
+		PR *struct {
+			CreatedAt *time.Time `json:"created_at"`
+		} `json:"pr"`
+	}
+
+	if json.Unmarshal(f.Evidence, &ev) != nil || ev.PR == nil {
+		return nil
+	}
+
+	return ev.PR.CreatedAt
+}
+
 // FindingKey orders findings for paging.
 type FindingKey struct {
 	RepositoryID int64
 	Kind         findings.RuleKind
 	RuleName     string
+
+	// PRCreatedAt is the PR's creation time under FindingSortPRAge; nil
+	// is a finding with no PR, which sorts last.
+	PRCreatedAt *time.Time
 }
+
+// FindingSort orders a findings page (IMPL-0031 7.2).
+type FindingSort string
+
+// The findings sorts. The zero value is FindingSortDefault.
+const (
+	// FindingSortDefault orders by (repository id, kind, rule).
+	FindingSortDefault FindingSort = ""
+	// FindingSortPRAge orders by the PR's created_at ascending, findings
+	// without a PR last, then by the default key.
+	FindingSortPRAge FindingSort = "pr_age"
+)
 
 // FindingFilter selects findings. Zero fields do not filter.
 type FindingFilter struct {
@@ -123,6 +156,7 @@ type FindingFilter struct {
 	StaleBefore time.Time
 	After       *FindingKey
 	Limit       int
+	Sort        FindingSort
 }
 
 // RepositoryFilter selects repositories. Zero fields do not filter.

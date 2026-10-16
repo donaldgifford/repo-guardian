@@ -23,6 +23,11 @@ test("parseFindingsSearch keeps every documented filter and open, and types pr_s
   expect(parseFindingsSearch({ pr_stale: false, open: "" })).toEqual({ pr_stale: false });
 });
 
+test("parseFindingsSearch keeps sort=pr_age and drops any other sort", () => {
+  expect(parseFindingsSearch({ sort: "pr_age" })).toEqual({ sort: "pr_age" });
+  expect(parseFindingsSearch({ sort: "default" })).toEqual({});
+});
+
 test.each([
   [3, "non_compliant", 12, false, "3 of 12 findings"],
   [3, "non_compliant", undefined, false, "3 findings"],

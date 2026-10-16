@@ -1041,6 +1041,8 @@ export interface operations {
                 pr_stale?: boolean;
                 /** @description Only findings whose status has held since before this time. */
                 since_before?: string;
+                /** @description `default` orders by repository, kind and rule. `pr_age` orders by the PR's `created_at`, oldest first, findings without a PR last, then by the default key. A cursor is bound to its sort. */
+                sort?: "default" | "pr_age";
                 /** @description Age after which an open repo-guardian PR counts as stale, 1h to 8760h. Defaults to the server's PR_STALE_AFTER. */
                 stale_after?: components["parameters"]["StaleAfter"];
                 /** @description The next_cursor of the previous page. */

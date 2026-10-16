@@ -24,9 +24,21 @@ WHERE r.active
        OR coalesce(f.remediation = 'pr_open'
                    AND (f.evidence -> 'pr' ->> 'created_at')::timestamptz < @stale_before::timestamptz, false)
           = sqlc.narg(pr_stale)::bool)
+  -- Keyset: the default key, or under sort=pr_age (IMPL-0031 7.2) the PR's
+  -- created_at ascending with no-PR findings last, then the default key.
   AND (NOT @has_after::bool
-       OR (f.repository_id, f.rule_kind, f.rule_name) > (@after_repository_id::bigint, @after_rule_kind::text, @after_rule_name::text))
-ORDER BY f.repository_id, f.rule_kind, f.rule_name
+       OR (NOT @sort_pr_age::bool
+           AND (f.repository_id, f.rule_kind, f.rule_name) > (@after_repository_id::bigint, @after_rule_kind::text, @after_rule_name::text))
+       OR (@sort_pr_age::bool AND @after_pr_null::bool
+           AND (f.evidence -> 'pr' ->> 'created_at') IS NULL
+           AND (f.repository_id, f.rule_kind, f.rule_name) > (@after_repository_id::bigint, @after_rule_kind::text, @after_rule_name::text))
+       OR (@sort_pr_age::bool AND NOT @after_pr_null::bool
+           AND ((f.evidence -> 'pr' ->> 'created_at') IS NULL
+                OR ((f.evidence -> 'pr' ->> 'created_at')::timestamptz, f.repository_id, f.rule_kind, f.rule_name)
+                   > (@after_pr_at::timestamptz, @after_repository_id::bigint, @after_rule_kind::text, @after_rule_name::text))))
+ORDER BY CASE WHEN @sort_pr_age::bool THEN (f.evidence -> 'pr' ->> 'created_at') IS NULL END,
+         CASE WHEN @sort_pr_age::bool THEN (f.evidence -> 'pr' ->> 'created_at')::timestamptz END,
+         f.repository_id, f.rule_kind, f.rule_name
 LIMIT @page_limit;
 
 -- name: APIOldestFailures :many

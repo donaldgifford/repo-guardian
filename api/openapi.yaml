@@ -205,6 +205,16 @@ paths:
           schema:
             type: string
             format: date-time
+        - name: sort
+          in: query
+          description: >-
+            `default` orders by repository, kind and rule. `pr_age` orders by
+            the PR's `created_at`, oldest first, findings without a PR last,
+            then by the default key. A cursor is bound to its sort.
+          schema:
+            type: string
+            enum: [default, pr_age]
+            default: default
         - $ref: "#/components/parameters/StaleAfter"
         - $ref: "#/components/parameters/Cursor"
         - $ref: "#/components/parameters/Limit"

@@ -203,12 +203,31 @@ type findingFilters struct {
 	PRStale     *bool      `json:"pr_stale,omitempty"`
 	SinceBefore *time.Time `json:"since_before,omitempty"`
 	StaleAfter  string     `json:"stale_after"`
+	Sort        string     `json:"sort,omitempty"`
 }
 
 type findingKey struct {
-	RepositoryID int64  `json:"r"`
-	Kind         string `json:"k"`
-	RuleName     string `json:"n"`
+	RepositoryID int64      `json:"r"`
+	Kind         string     `json:"k"`
+	RuleName     string     `json:"n"`
+	PRCreatedAt  *time.Time `json:"p,omitempty"`
+}
+
+// findingSort maps the query parameter onto the store's sort; an absent
+// parameter is the default.
+func findingSort(s *gen.ListFindingsParamsSort) (store.FindingSort, error) {
+	if s == nil {
+		return store.FindingSortDefault, nil
+	}
+
+	switch *s {
+	case gen.Default:
+		return store.FindingSortDefault, nil
+	case gen.PrAge:
+		return store.FindingSortPRAge, nil
+	default:
+		return "", statusError(http.StatusBadRequest, "sort must be default or pr_age")
+	}
 }
 
 func deref(s *string) string {
@@ -235,27 +254,38 @@ func (s *server) ListFindings(ctx context.Context, req gen.ListFindingsRequestOb
 		return nil, err
 	}
 
+	sort, err := findingSort(q.Sort)
+	if err != nil {
+		return nil, err
+	}
+
 	limit, err := pageSize(q.Limit)
 	if err != nil {
 		return nil, err
 	}
 
+	// The sort is part of the cursor's filter hash: a cursor from one sort
+	// is rejected under another.
 	filters := findingFilters{
 		Status: deref(q.Status), Reason: deref(q.Reason), Remediation: deref(q.Remediation), Org: deref(q.Org),
 		Kind: deref(q.Kind), Rule: deref(q.Rule), PRStale: q.PrStale, SinceBefore: q.SinceBefore, StaleAfter: staleAfter.String(),
+		Sort: string(sort),
 	}
 
 	f := store.FindingFilter{
 		Status: findings.Status(filters.Status), Reason: findings.Reason(filters.Reason),
 		Remediation: findings.Remediation(filters.Remediation), Org: filters.Org, Kind: findings.RuleKind(filters.Kind),
 		RuleName: filters.Rule, PRStale: q.PrStale, SinceBefore: q.SinceBefore, StaleBefore: s.staleBefore(staleAfter), Limit: limit,
+		Sort: sort,
 	}
 
 	var key findingKey
 	if ok, err := cursorIn(q.Cursor, &key, filters); err != nil {
 		return nil, err
 	} else if ok {
-		f.After = &store.FindingKey{RepositoryID: key.RepositoryID, Kind: findings.RuleKind(key.Kind), RuleName: key.RuleName}
+		f.After = &store.FindingKey{
+			RepositoryID: key.RepositoryID, Kind: findings.RuleKind(key.Kind), RuleName: key.RuleName, PRCreatedAt: key.PRCreatedAt,
+		}
 	}
 
 	page, err := s.opts.Reader.Findings(ctx, p.Visible, &f)
@@ -269,7 +299,12 @@ func (s *server) ListFindings(ctx context.Context, req gen.ListFindingsRequestOb
 	}
 
 	out.NextCursor, err = nextCursor(page, func(it *store.APIFinding) any {
-		return findingKey{RepositoryID: it.RepositoryID, Kind: string(it.Kind), RuleName: it.RuleName}
+		k := findingKey{RepositoryID: it.RepositoryID, Kind: string(it.Kind), RuleName: it.RuleName}
+		if sort == store.FindingSortPRAge {
+			k.PRCreatedAt = it.PRCreatedAt()
+		}
+
+		return k
 	}, filters)
 
 	return out, err

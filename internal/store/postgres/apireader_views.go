@@ -284,9 +284,16 @@ func (r *APIReader) Findings(ctx context.Context, scope store.APIScope, f *store
 		SinceBefore: f.SinceBefore, PrStale: f.PRStale, PageLimit: pageLimit(f.Limit),
 	}
 
+	params.SortPrAge = f.Sort == store.FindingSortPRAge
+
 	if f.After != nil {
 		params.HasAfter = true
 		params.AfterRepositoryID, params.AfterRuleKind, params.AfterRuleName = f.After.RepositoryID, string(f.After.Kind), f.After.RuleName
+		params.AfterPrNull = f.After.PRCreatedAt == nil
+
+		if f.After.PRCreatedAt != nil {
+			params.AfterPrAt = *f.After.PRCreatedAt
+		}
 	}
 
 	var items []store.APIFinding

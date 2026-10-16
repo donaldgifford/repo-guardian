@@ -11,6 +11,7 @@ import { OrgScope, PageHeader } from "../components/page";
 import { Time } from "../components/time";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
+import { Chip } from "../components/ui/chip";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { downloadCsv, findingsCsv } from "../lib/csv";
 import { ageDays } from "../lib/format";
@@ -29,6 +30,8 @@ export interface FindingsSearch {
   kind?: string;
   rule?: string;
   pr_stale?: boolean;
+  // sort=pr_age orders by PR age, oldest first (IMPL-0031 7.2).
+  sort?: "pr_age";
   open?: string;
 }
 
@@ -44,6 +47,7 @@ export function parseFindingsSearch(s: Record<string, unknown>): FindingsSearch 
   }
   if (s.pr_stale === true || s.pr_stale === "true") out.pr_stale = true;
   if (s.pr_stale === false || s.pr_stale === "false") out.pr_stale = false;
+  if (s.sort === "pr_age") out.sort = "pr_age";
   return out;
 }
 
@@ -152,7 +156,16 @@ export function FindingsView() {
         }
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <FilterChips values={filters} onChange={(patch) => void navigate({ to: ".", search: (prev) => patchSearch(prev, patch) })} rules={ruleNames} orgs={orgNames} />
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterChips values={filters} onChange={(patch) => void navigate({ to: ".", search: (prev) => patchSearch(prev, patch) })} rules={ruleNames} orgs={orgNames} />
+          <Chip
+            name="sort"
+            value="pr_age"
+            aria-pressed={search.sort === "pr_age"}
+            className={cn(search.sort !== "pr_age" && "opacity-60")}
+            onClick={() => void navigate({ to: ".", search: (prev) => patchSearch(prev, { sort: search.sort === "pr_age" ? undefined : "pr_age" }) })}
+          />
+        </div>
         {findings.data ? <span className="text-xs text-muted-foreground tabular-nums">{resultCount(items.length, search.status, summary.data?.findings.non_compliant, findings.hasNextPage)}</span> : null}
       </div>
       <div className={cn("grid gap-4", inline && "grid-cols-[minmax(0,1fr)_470px]")} data-layout={inline ? "side-by-side" : "stacked"}>

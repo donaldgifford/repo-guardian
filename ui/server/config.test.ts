@@ -59,6 +59,13 @@ describe("loadConfig", () => {
     expect(problems({ ...validEnv, OIDC_SCOPES: "profile email" })).toHaveLength(1);
     expect(problems({ ...validEnv, GITHUB_HOST: "evil.example/path" })).toHaveLength(1);
   });
+
+  test("UI_DOCS_URL is optional and must be https when set", () => {
+    expect(loadConfig({ ...validEnv, UI_DOCS_URL: "" }).docsUrl).toBeUndefined();
+    expect(loadConfig({ ...validEnv, UI_DOCS_URL: "https://docs.example.com/" }).docsUrl?.href).toBe("https://docs.example.com/");
+    expect(problems({ ...validEnv, UI_DOCS_URL: "http://docs.example.com/" })).toEqual(['UI_DOCS_URL must be an https URL, got "http://docs.example.com/"']);
+    expect(problems({ ...validEnv, UI_DOCS_URL: "docs.example.com" })).toEqual(['UI_DOCS_URL must be an absolute https URL, got "docs.example.com"']);
+  });
 });
 
 describe("parseDuration", () => {
@@ -82,5 +89,10 @@ describe("publicConfig", () => {
     for (const secret of ["client-secret", key, "repo-guardian-api", "repo-guardian-ui"]) {
       expect(out).not.toContain(secret);
     }
+  });
+
+  test("carries docs_url only when UI_DOCS_URL is set", () => {
+    expect(publicConfig(loadConfig(validEnv))).not.toHaveProperty("docs_url");
+    expect(publicConfig(loadConfig({ ...validEnv, UI_DOCS_URL: "https://docs.example.com/repo-guardian/" })).docs_url).toBe("https://docs.example.com/repo-guardian/");
   });
 });

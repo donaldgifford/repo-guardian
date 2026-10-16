@@ -19,6 +19,9 @@ export interface Config {
   // githubHost is where PR and repository links point (the API's
   // GITHUB_HOST); links are built from it, never from evidence URLs.
   githubHost: string;
+  // docsUrl is the operator's documentation link in the sidebar; unset
+  // hides the Docs group.
+  docsUrl?: URL;
 }
 
 // ConfigError lists every invalid variable at once, so a misconfigured
@@ -58,6 +61,26 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
       return new URL(raw);
     } catch {
       problems.push(`${name} must be an absolute URL, got ${JSON.stringify(raw)}`);
+      return undefined;
+    }
+  };
+
+  // optionalHTTPS reads a variable that may be absent; when set it must
+  // be an https URL, since the browser follows it from the sidebar.
+  const optionalHTTPS = (name: string): URL | undefined => {
+    const raw = env[name]?.trim();
+    if (!raw) {
+      return undefined;
+    }
+    try {
+      const u = new URL(raw);
+      if (u.protocol !== "https:") {
+        problems.push(`${name} must be an https URL, got ${JSON.stringify(raw)}`);
+        return undefined;
+      }
+      return u;
+    } catch {
+      problems.push(`${name} must be an absolute https URL, got ${JSON.stringify(raw)}`);
       return undefined;
     }
   };
@@ -113,6 +136,8 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     problems.push(`GITHUB_HOST must be a host name like github.com, got ${JSON.stringify(env.GITHUB_HOST)}`);
   }
 
+  const docsUrl = optionalHTTPS("UI_DOCS_URL");
+
   if (problems.length > 0 || !issuer || !apiUpstream || !publicUrl) {
     throw new ConfigError(problems);
   }
@@ -125,6 +150,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     sessionTtlSeconds: ttl ?? 0,
     publicUrl,
     githubHost,
+    ...(docsUrl ? { docsUrl } : {}),
   };
 }
 
@@ -165,6 +191,7 @@ export interface PublicConfig {
   public_url: string;
   session_ttl_seconds: number;
   github_host: string;
+  docs_url?: string;
 }
 
 export function publicConfig(cfg: Config): PublicConfig {
@@ -173,5 +200,6 @@ export function publicConfig(cfg: Config): PublicConfig {
     public_url: cfg.publicUrl.origin,
     session_ttl_seconds: cfg.sessionTtlSeconds,
     github_host: cfg.githubHost,
+    ...(cfg.docsUrl ? { docs_url: cfg.docsUrl.href } : {}),
   };
 }

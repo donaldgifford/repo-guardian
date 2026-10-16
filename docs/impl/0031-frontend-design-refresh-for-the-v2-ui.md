@@ -309,7 +309,7 @@ selector migration.
   select and the inline sign-out; keep `parseOrgSearch`,
   `retainSearchParams`, `AccessView` and `ProblemView` behaviour
   unchanged.
-- [ ] 2.7 BFF: `UI_DOCS_URL` (optional, must parse as an `https:` URL
+- [x] 2.7 BFF: `UI_DOCS_URL` (optional, must parse as an `https:` URL
   when set) in `ui/server/config.ts`, surfaced as `docs_url` in
   `publicConfig`; `config.test.ts` covers unset, valid and invalid.
   Chart: `ui.docsUrl` value → `UI_DOCS_URL` env in

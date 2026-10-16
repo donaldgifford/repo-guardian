@@ -76,6 +76,10 @@ spec:
               value: {{ include "repo-guardian.uiPublicUrl" . | quote }}
             - name: GITHUB_HOST
               value: {{ $ui.githubHost | quote }}
+            {{- with $ui.docsUrl }}
+            - name: UI_DOCS_URL
+              value: {{ . | quote }}
+            {{- end }}
           securityContext:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false

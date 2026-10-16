@@ -39,6 +39,8 @@ API that TypeScript 7's native compiler does not ship.
 | `PUBLIC_URL` | required | the browser-facing origin, used for the redirect URI |
 | `UI_SESSION_KEYS` | required | comma-separated, at least 32 bytes each; the first seals, all open |
 | `UI_SESSION_TTL` | `8h` | the absolute session length; refresh never extends it |
+| `GITHUB_HOST` | `github.com` | where PR and repository links point |
+| `UI_DOCS_URL` | unset | https URL of the operator's documentation; sets the sidebar Docs group |
 | `PORT` | `3000` | |
 
 The process fails at startup, listing every problem, when any of these

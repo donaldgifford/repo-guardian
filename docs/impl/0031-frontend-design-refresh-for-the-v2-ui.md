@@ -531,13 +531,23 @@ Public, outside the shell, aggregate-only, on today's `Status` schema.
   running axe on Fleet, Orgs, Findings with the drawer open, Repository
   and Status with zero violations at `wcag2aa`; contrast of every
   badge tone verified by the run, not by hand.
-- [ ] 6.2 Screenshot tests `visual.spec.ts` (OQ5): `toHaveScreenshot`
+- [x] 6.2 Screenshot tests `visual.spec.ts` (OQ5): `toHaveScreenshot`
   for the same five pages at 1600×1000, Chromium, `maxDiffPixelRatio:
   0.002`, `page.clock.setFixedTime` so relative times are stable;
   snapshots committed under `ui/e2e/__screenshots__/` for linux only,
   the spec skipped on other platforms, regenerated through the
   `mcr.microsoft.com/playwright` image via a new `make
-  test-ui-e2e-update-snapshots` target.
+  test-ui-e2e-update-snapshots` target. *As built:* the one rendering
+  environment is the image's Chromium itself, not "linux" (a native
+  Linux Chromium has other fonts), so `ui/scripts/visual.ts` runs
+  `playwright run-server` in the image and connects the host runner to
+  it (`PW_TEST_CONNECT_WS_ENDPOINT` + `EXPOSE_NETWORK=<loopback>`, so
+  the stack stays on the host and the `__Host-` cookie keeps its
+  localhost origin); the spec is skipped with that pointer whenever the
+  runner is not connected to it, on every platform. `make
+  test-ui-e2e-visual` compares and the CI e2e job runs it; the seed is
+  `now()`-relative, so the clock is frozen at the real time and `<time>`
+  elements and chart x-axes are masked.
 - [ ] 6.3 Keyboard pass: every interactive element reachable by Tab in
   reading order on the five pages (a Playwright spec that tabs through
   Fleet and asserts the focus order of the header controls, pills,

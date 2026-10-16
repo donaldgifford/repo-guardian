@@ -10,6 +10,10 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
+  // Screenshots (e2e/visual.spec.ts) have one rendering environment, the
+  // pinned Playwright image, so the path carries no platform suffix.
+  snapshotPathTemplate: "e2e/__screenshots__/{arg}{ext}",
+  expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.002 } },
   use: {
     baseURL: "http://localhost:3100",
     trace: "retain-on-failure",

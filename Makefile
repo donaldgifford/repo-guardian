@@ -271,9 +271,9 @@ test-ui-e2e: ## Run the UI's Playwright suite (needs Docker and Go)
 	@ $(MAKE) --no-print-directory log-$@
 	@cd ui && bunx playwright install chromium && bun run e2e
 
-lint-ui: ## Typecheck and ESLint the UI, and fail if its generated API types are stale
+lint-ui: ## Typecheck and ESLint the UI; fail if its generated API types are stale or its build breaks the CSP
 	@ $(MAKE) --no-print-directory log-$@
-	@cd ui && bun run typecheck && bun run lint && bun run check:api
+	@cd ui && bun run typecheck && bun run lint && bun run check:api && bun run check:dist
 
 fmt: ## Format code with gofmt and goimports
 	@ $(MAKE) --no-print-directory log-$@

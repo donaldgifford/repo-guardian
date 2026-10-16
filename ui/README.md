@@ -18,7 +18,7 @@ ui/
 | --- | --- |
 | `make ui-install` | `bun install --frozen-lockfile` |
 | `make generate-ui-api` | regenerate `web/src/api/schema.gen.ts` from `api/openapi.yaml` |
-| `make lint-ui` | typecheck, and fail if the generated types are stale |
+| `make lint-ui` | typecheck, lint, and fail if the generated types are stale or the build inlines a data: URL or a Google Fonts URL (`check:dist`) |
 | `make test-ui` | `bun test` |
 | `make docker-build-ui` | build `ghcr.io/donaldgifford/repo-guardian-ui:dev` |
 

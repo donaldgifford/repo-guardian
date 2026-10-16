@@ -175,7 +175,7 @@ existing views keep rendering on the new tokens through the aliases in
   `build.assetsInlineLimit: 0` to `ui/web/vite.config.ts`. Copy both
   SIL OFL licences into `ui/THIRD_PARTY_NOTICES.md` (create it if the
   repo has no UI notices file; otherwise append).
-- [ ] 1.3 Build guard `ui/scripts/check-dist.ts` (+ `.test.ts`): after
+- [x] 1.3 Build guard `ui/scripts/check-dist.ts` (+ `.test.ts`): after
   `bun run build`, fail if any file under `ui/dist/` contains `data:`
   URLs in CSS/JS or the string `fonts.googleapis.com`; wire it as
   `bun run check:dist` and append it to the `lint-ui` make target

@@ -798,7 +798,7 @@ evaluator's store.
 
 #### Tasks
 
-- [ ] 4.1 `00002_controls_policy.sql`: `repository_policy_state` and
+- [x] 4.1 `00002_controls_policy.sql`: `repository_policy_state` and
   `control_assignments` with the DESIGN-0030 and DESIGN-0032 columns
   (`epoch`, `revision`, `requested_mode`, `effective_mode`,
   `mode_reason`, `ordinal`, `state` including `conflict`, `error`,
@@ -807,6 +807,13 @@ evaluator's store.
   `repository_events.kind`, and `app_installations` and
   `app_repository_access` with their row-level security policies (unless
   IMPL-0028 already created them, in which case this task records that).
+  Done: IMPL-0028 had created neither access table, so 00002 does. Epochs
+  come from `assignment_epoch_seq` (USAGE to `rg_evaluator`). Each access
+  table pairs a `FOR SELECT ... USING (true)` policy with one write policy
+  per App; `TestControlsChain_AccessRowsAreFencedByApp` pins that both
+  roles see both Apps' rows and a cross-App delete affects zero rows, and
+  the role test gained resolution, slot and refusal cases.
+  `ControlsSchemaVersion` is 2 and the dry-run test derives `1..N` from it.
 - [ ] 4.2 `00003_controls_results.sql` (OQ7): `control_results`,
   `rule_results`, `result_events`, `remediations`, `remediation_steps`,
   `remediation_events`, the `remediation_due` and

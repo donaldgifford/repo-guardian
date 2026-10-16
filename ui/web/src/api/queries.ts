@@ -91,10 +91,11 @@ export function useFindings(filters: FindingFilters) {
   });
 }
 
-export function useRepository(id: number) {
+export function useRepository(id: number, enabled = true) {
   return useQuery({
     queryKey: ["repository", id],
     queryFn: () => unwrap(api.GET("/repositories/{id}", { params: { path: { id } } })),
+    enabled,
   });
 }
 

@@ -90,15 +90,57 @@ test("filters live in the URL", async ({ page }) => {
   await expect(page).not.toHaveURL(/reason=/);
 });
 
-test("HTML in evidence renders as text, and PR links are built, not copied", async ({ page }) => {
-  await signIn(page, "/repos/1");
-  await expect(page.getByText('<img src=x onerror="window.__xss=1">extends must include config:base')).toBeVisible();
+test("HTML in evidence renders as text in the drawer inset, and PR links are built, not copied", async ({ page }) => {
+  // A pasted ?open= opens the drawer straight from the URL; the modal
+  // then hides the top bar from the accessibility tree, so wait on the
+  // dialog rather than on signIn's account-menu check.
+  await page.goto("/findings?open=1/file/renovate");
+  const drawer = page.getByRole("dialog", { name: "Finding" });
+  const inset = drawer.getByLabel("Evidence");
+  await expect(inset.getByText('<img src=x onerror="window.__xss=1">extends must include config:base')).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
-  expect(await page.locator("main img").count()).toBe(0);
+  expect(await page.locator("img").count()).toBe(0);
 
-  const pr = page.getByRole("link", { name: /PR #412/ });
+  const pr = drawer.getByRole("link", { name: "#412" });
   await expect(pr).toHaveAttribute("href", "https://github.com/acme/web/pull/412");
   await expect(pr).toHaveAttribute("rel", "noopener noreferrer");
+  await expect(drawer.getByRole("list", { name: "Timeline" }).getByText(/PR #412 still open \(9d\)/)).toBeVisible();
+  // Under the modal the breadcrumb is aria-hidden; read it by CSS.
+  await expect(page.locator("nav[aria-label=Breadcrumb]")).toContainText("acme/web");
+});
+
+test("the drawer opens from a row, closes on Escape back to the row, and overlays with a scrim below 1600px", async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await signIn(page, "/findings?status=non_compliant");
+  const row = page.getByRole("row").filter({ hasText: "renovate" }).first();
+  await row.click();
+  await expect(page).toHaveURL(/open=1%2Ffile%2Frenovate|open=1\/file\/renovate/);
+  const drawer = page.getByRole("dialog", { name: "Finding" });
+  await expect(drawer).toBeVisible();
+  await expect(drawer).toHaveAttribute("data-drawer", "overlay");
+  await expect(page.locator("main [data-layout]")).toHaveAttribute("data-layout", "stacked");
+  // The modal hides the page from the accessibility tree; the column is
+  // still rendered (not compact) underneath the scrim.
+  await expect(page.locator("main th", { hasText: "Age" })).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(drawer).toHaveCount(0);
+  await expect(page).not.toHaveURL(/open=/);
+  await expect(row).toBeFocused();
+});
+
+test("from 1600px the drawer sits beside the table and the Age column hides", async ({ page }) => {
+  await page.setViewportSize({ width: 1700, height: 900 });
+  await signIn(page, "/findings?open=2/file/codeowners");
+  const drawer = page.getByRole("dialog", { name: "Finding" });
+  await expect(drawer).toBeVisible();
+  await expect(drawer).toHaveAttribute("data-drawer", "inline");
+  await expect(page.locator("main [data-layout]")).toHaveAttribute("data-layout", "side-by-side");
+  await expect(page.getByRole("columnheader", { name: "Age" })).toHaveCount(0);
+  await expect(page.getByRole("row", { selected: true })).toContainText("codeowners");
+  await drawer.getByRole("button", { name: "Close" }).click();
+  await expect(drawer).toHaveCount(0);
+  await expect(page.getByRole("columnheader", { name: "Age" })).toBeVisible();
 });
 
 test("migrated findings say they were last checked by v1", async ({ page }) => {

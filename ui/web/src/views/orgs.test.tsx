@@ -1,7 +1,14 @@
+// The view imports radix primitives, which decide at module load
+// whether a document exists; register the DOM first so this file does
+// not poison the portal detection of every later file in the run.
+import { withDOM } from "../../testing/dom";
+
 import { expect, test } from "bun:test";
 
 import type { Schemas } from "../api/client";
 import { gridCsv, joinOpen, openList, orgRow, type OrgsSearch, parseOrgsSearch, ruleRow } from "./orgs";
+
+withDOM();
 
 const acme: Schemas["OrgSummary"] = {
   org: "acme",

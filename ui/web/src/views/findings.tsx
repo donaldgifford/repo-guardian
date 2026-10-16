@@ -1,4 +1,5 @@
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
+import { useRef } from "react";
 
 import type { Schemas } from "../api/client";
 import type { FindingFilters } from "../api/queries";
@@ -15,6 +16,9 @@ import { downloadCsv, findingsCsv } from "../lib/csv";
 import { ageDays } from "../lib/format";
 import { prLink } from "../lib/pr";
 import { patchSearch } from "../lib/search";
+import { SIDE_BY_SIDE, useMediaQuery } from "../lib/use-media-query";
+import { cn } from "../lib/utils";
+import { FindingDrawer } from "./findings/drawer";
 
 // FindingsSearch is the findings filter, kept in the URL, plus `open`,
 // the drawer's finding as <repository_id>/<kind>/<name>.
@@ -127,6 +131,11 @@ export function FindingsView() {
   const orgNames = (orgs.data?.items ?? []).map((o) => o.org);
   const columns = findingColumns(config.data?.github_host);
   const openFinding = (key: string | undefined) => void navigate({ to: ".", search: (prev) => patchSearch(prev, { open: key }) });
+  const sideBySide = useMediaQuery(SIDE_BY_SIDE);
+  const tableRef = useRef<HTMLDivElement>(null);
+  const drawerOpen = open !== undefined && items.length > 0;
+  const inline = sideBySide && drawerOpen;
+  const rowFor = (key: string | undefined) => (key === undefined ? null : tableRef.current?.querySelector<HTMLElement>(`tr[data-key="${CSS.escape(key)}"]`));
 
   return (
     <>
@@ -146,26 +155,32 @@ export function FindingsView() {
         <FilterChips values={filters} onChange={(patch) => void navigate({ to: ".", search: (prev) => patchSearch(prev, patch) })} rules={ruleNames} orgs={orgNames} />
         {findings.data ? <span className="text-xs text-muted-foreground tabular-nums">{resultCount(items.length, search.status, summary.data?.findings.non_compliant, findings.hasNextPage)}</span> : null}
       </div>
-      {!findings.data ? (
-        <Loading />
-      ) : items.length === 0 ? (
-        <Empty>No findings match.</Empty>
-      ) : (
-        <DataTable
-          columns={columns}
-          rows={items}
-          rowKey={findingKey}
-          {...(open === undefined ? {} : { selectedKey: open })}
-          onActivate={(f) => openFinding(findingKey(f))}
-          aria-label="Findings"
-          className="rounded-lg border border-border bg-panel"
-        />
-      )}
-      {findings.hasNextPage ? (
-        <Button variant="outline" onClick={() => void findings.fetchNextPage()} disabled={findings.isFetchingNextPage}>
-          {findings.isFetchingNextPage ? "Loading…" : "Load more"}
-        </Button>
-      ) : null}
+      <div className={cn("grid gap-4", inline && "grid-cols-[minmax(0,1fr)_470px]")} data-layout={inline ? "side-by-side" : "stacked"}>
+        <div ref={tableRef} className="min-w-0 space-y-4">
+          {!findings.data ? (
+            <Loading />
+          ) : items.length === 0 ? (
+            <Empty>No findings match.</Empty>
+          ) : (
+            <DataTable
+              columns={columns}
+              rows={items}
+              rowKey={findingKey}
+              {...(open === undefined ? {} : { selectedKey: open })}
+              onActivate={(f) => openFinding(findingKey(f))}
+              compact={inline}
+              aria-label="Findings"
+              className="rounded-lg border border-border bg-panel"
+            />
+          )}
+          {findings.hasNextPage ? (
+            <Button variant="outline" onClick={() => void findings.fetchNextPage()} disabled={findings.isFetchingNextPage}>
+              {findings.isFetchingNextPage ? "Loading…" : "Load more"}
+            </Button>
+          ) : null}
+        </div>
+        {open !== undefined && findings.data ? <FindingDrawer open={open} items={items} inline={inline} onClose={() => openFinding(undefined)} returnFocusTo={() => rowFor(open)} /> : null}
+      </div>
     </>
   );
 }

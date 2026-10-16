@@ -440,7 +440,7 @@ controls rework reuses.
   `non_compliant`; Load-more and `useFindings` unchanged; Export CSV in
   the page header. Age and Since carry `hideBelow` so they hide when
   the drawer is open side-by-side.
-- [ ] 4.7 `components/ui/detail-drawer.tsx` and the finding drawer body
+- [x] 4.7 `components/ui/detail-drawer.tsx` and the finding drawer body
   (`views/findings/drawer.tsx`): `?open=<repository_id>/<kind>/<name>`
   owns the state; side-by-side at ≥1600px, overlay with scrim below;
   a row not in the loaded pages is fetched through

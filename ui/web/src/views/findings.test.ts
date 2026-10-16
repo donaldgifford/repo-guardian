@@ -1,6 +1,13 @@
+// The view imports radix primitives, which decide at module load
+// whether a document exists; register the DOM first so this file does
+// not poison the portal detection of every later file in the run.
+import { withDOM } from "../../testing/dom";
+
 import { expect, test } from "bun:test";
 
 import { findingKey, parseFindingsSearch, resultCount } from "./findings";
+
+withDOM();
 
 test("findingKey is repository/kind/name, the same shape ?open= carries", () => {
   expect(findingKey({ repository_id: 1, rule_kind: "file", rule_name: "renovate" })).toBe("1/file/renovate");

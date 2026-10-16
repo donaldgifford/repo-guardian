@@ -1,6 +1,6 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { type InfiniteData, type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { Link, useMatches } from "@tanstack/react-router";
-import { Fragment } from "react";
+import { Fragment, useRef, useSyncExternalStore } from "react";
 
 import type { Schemas } from "../../api/client";
 
@@ -51,6 +51,7 @@ export function crumbsFor(match: MatchLike | undefined, repositoryName?: string)
       const open = match.search.open;
       if (typeof open === "string" && open !== "") {
         const [, kind, ...name] = open.split("/");
+        if (repositoryName !== undefined) out.push({ label: repositoryName });
         if (name.length > 0) out.push({ label: `rule ${name.join("/")} (${kind ?? ""})` });
       }
       break;
@@ -67,10 +68,46 @@ export function Breadcrumbs() {
   const matches = useMatches();
   const queryClient = useQueryClient();
   const last = matches[matches.length - 1] as MatchLike | undefined;
-  const repoId = last?.routeId === "/app/repos/$id" ? Number(last.params.id) : undefined;
-  const repo = repoId !== undefined ? queryClient.getQueryData<Schemas["RepositoryDetail"]>(["repository", repoId]) : undefined;
-  const crumbs = crumbsFor(last, repo ? `${repo.repository.org}/${repo.repository.name}` : undefined);
+  useQueryCacheVersion(queryClient);
+  const crumbs = crumbsFor(last, repositoryNameFor(last, queryClient));
   return <BreadcrumbList crumbs={crumbs} />;
+}
+
+// useQueryCacheVersion re-renders the caller when any query settles, so
+// a crumb read from the cache appears once the data it names arrives.
+function useQueryCacheVersion(queryClient: QueryClient): number {
+  const version = useRef(0);
+  return useSyncExternalStore(
+    (notify) =>
+      queryClient.getQueryCache().subscribe((event) => {
+        if (event.type === "updated" || event.type === "added" || event.type === "removed") {
+          version.current += 1;
+          notify();
+        }
+      }),
+    () => version.current,
+    () => version.current,
+  );
+}
+
+// repositoryNameFor finds `org/name` for the repository page or the
+// open finding from what the query cache already holds: the repository
+// detail, or any loaded findings page naming the repository. No fetch.
+function repositoryNameFor(match: MatchLike | undefined, queryClient: QueryClient): string | undefined {
+  let repoId: number | undefined;
+  if (match?.routeId === "/app/repos/$id") {
+    repoId = Number(match.params.id);
+  } else if (match?.routeId === "/app/findings" && typeof match.search.open === "string") {
+    repoId = Number(match.search.open.split("/")[0]);
+  }
+  if (repoId === undefined || !Number.isSafeInteger(repoId)) return undefined;
+  const repo = queryClient.getQueryData<Schemas["RepositoryDetail"]>(["repository", repoId]);
+  if (repo) return `${repo.repository.org}/${repo.repository.name}`;
+  for (const [, data] of queryClient.getQueriesData<InfiniteData<Schemas["FindingPage"]>>({ queryKey: ["findings"] })) {
+    const hit = data?.pages.flatMap((p) => p.items).find((f) => f.repository_id === repoId);
+    if (hit) return `${hit.org}/${hit.repository}`;
+  }
+  return undefined;
 }
 
 export function BreadcrumbList({ crumbs }: { crumbs: Crumb[] }) {

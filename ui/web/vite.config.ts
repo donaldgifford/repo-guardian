@@ -11,6 +11,10 @@ export default defineConfig({
     outDir: "../dist",
     emptyOutDir: true,
     assetsDir: "assets",
+    // Never inline an asset as a data: URI: the CSP has no data: source,
+    // so an inlined font or icon would be blocked (DESIGN-0036). The
+    // check:dist script fails the build if one slips through.
+    assetsInlineLimit: 0,
   },
   server: {
     proxy: {

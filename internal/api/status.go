@@ -104,7 +104,16 @@ func (p *StatusPage) Current() gen.Status {
 		return *s
 	}
 
-	return gen.Status{State: stateUnknown, UpdatedAt: p.cfg.Now().UTC(), Components: []gen.Component{}}
+	return unknownStatus(p.cfg.Now())
+}
+
+// unknownStatus is the page before anything is measured.
+func unknownStatus(now time.Time) gen.Status {
+	return gen.Status{
+		State: stateUnknown, UpdatedAt: now.UTC(), Components: []gen.Component{},
+		Compliance: gen.Compliance{History: []gen.CompliancePoint{}},
+		Operations: gen.StatusOperations{RolloutState: gen.StatusOperationsRolloutStateNone},
+	}
 }
 
 // Run refreshes the page now and every 30s until ctx ends. A failed
@@ -182,8 +191,43 @@ func evaluateStatus(in *store.StatusInputs, backlogs []backlogResult, cfg *Statu
 		State:      overallState(components),
 		UpdatedAt:  now.UTC(),
 		Components: components,
-		Compliance: gen.Compliance{Percent: store.CompliantPercent(in.Compliance), Measured: store.CompliantPercent(in.Compliance) != nil},
+		Compliance: complianceOut(in),
+		Operations: operationsOut(in),
 	}
+}
+
+// complianceOut is the fleet percentage and its daily history.
+func complianceOut(in *store.StatusInputs) gen.Compliance {
+	pct := store.CompliantPercent(in.Compliance)
+	c := gen.Compliance{Percent: pct, Measured: pct != nil, History: make([]gen.CompliancePoint, 0, len(in.History))}
+
+	for _, h := range in.History {
+		c.History = append(c.History, gen.CompliancePoint{At: h.At.UTC(), Percent: h.Percent})
+	}
+
+	return c
+}
+
+// operationsOut is the operations strip: counts, times and a rollout
+// state from a closed enum, never text.
+func operationsOut(in *store.StatusInputs) gen.StatusOperations {
+	ops := gen.StatusOperations{Checked24h: in.CheckedLastDay, Tracked: in.ActiveRepositories, RolloutState: gen.StatusOperationsRolloutStateNone}
+
+	if in.LastSnapshot != nil {
+		t := in.LastSnapshot.UTC()
+		ops.LastSnapshotAt = &t
+	}
+
+	switch {
+	case in.Rollout == nil:
+	case in.Rollout.CompletedAt == nil:
+		ops.RolloutState = gen.StatusOperationsRolloutStateInProgress
+	default:
+		t := in.Rollout.CompletedAt.UTC()
+		ops.RolloutState, ops.RolloutCompletedAt = gen.StatusOperationsRolloutStateComplete, &t
+	}
+
+	return ops
 }
 
 // informational components never move the overall state: quiet orgs

@@ -89,6 +89,26 @@ tests:
           path: spec.template.spec.containers[0].env
           content: {name: PUBLIC_URL, value: "https://ui.internal.example.com"}
 
+  - it: passes docsUrl as UI_DOCS_URL
+    template: templates/ui.yaml
+    set:
+      ui:
+        docsUrl: https://docs.example.com/repo-guardian/
+    documentSelector: {path: kind, value: Deployment}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: UI_DOCS_URL, value: "https://docs.example.com/repo-guardian/"}
+
+  - it: sets no UI_DOCS_URL by default
+    template: templates/ui.yaml
+    documentSelector: {path: kind, value: Deployment}
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: UI_DOCS_URL}
+          any: true
+
   - it: holds only its own OIDC client secret and session keys
     template: templates/ui.yaml
     documentSelector: {path: kind, value: Deployment}

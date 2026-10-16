@@ -11,7 +11,23 @@ export function csvCell(v: string | number | boolean | undefined | null): string
   return /[",\r\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
 }
 
+// tableCsv renders any head + rows through csvCell, for grids whose
+// visible columns the page chooses.
+export function tableCsv(head: readonly string[], rows: readonly (readonly (string | number | boolean | undefined | null)[])[]): string {
+  return [head.map(csvCell).join(","), ...rows.map((r) => r.map(csvCell).join(","))].join("\r\n") + "\r\n";
+}
+
 const columns = ["org", "repository", "rule_kind", "rule_name", "status", "reason", "remediation", "status_since", "pr_number", "pr_stale"] as const;
+
+// downloadCsv saves text as a CSV file, client-side.
+export function downloadCsv(name: string, text: string): void {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 // findingsCsv renders the fetched findings as CSV, client-side.
 export function findingsCsv(findings: Schemas["Finding"][]): string {

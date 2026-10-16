@@ -128,13 +128,13 @@ All live under `/api/v1`. The OpenAPI document has the full schemas.
 | --- | --- |
 | `/status` | public service status (below) |
 | `/me` | the caller, and the orgs it may see |
-| `/summary` | tracked and parked repositories, compliance, findings by status, open PRs by age, stale PRs |
+| `/summary` | tracked and parked repositories, compliance, findings by status, open PRs by age, stale PRs, and `finding_age`: failing findings bucketed by how long they have failed (`<1d`, `1-7d`, `7-30d`, `30-90d`, `90-180d`, `180d+`, every bucket listed) |
 | `/rules`, `/rules/{kind}/{name}` | compliance per rule with trend; one rule by org, with top reasons and oldest failures |
-| `/orgs`, `/orgs/{org}` | compliance per org; one org by rule, and why rules did not apply |
-| `/findings` | findings filtered by `status`, `reason`, `remediation`, `org`, `kind`, `rule`, `pr_stale`, `since_before` |
+| `/orgs`, `/orgs/{org}` | compliance and `open_prs` per org (findings with an open repo-guardian PR, equal to the `/findings?org=&remediation=pr_open` total); one org by rule, and why rules did not apply |
+| `/findings` | findings filtered by `status`, `reason`, `remediation`, `org`, `kind`, `rule`, `pr_stale`, `since_before`; `sort=pr_age` lists the oldest open PR first and findings without a PR last |
 | `/repositories`, `/repositories/{id}` | repositories filtered by `org`, `active`, `park_reason`, `q`; one repository with its findings |
 | `/repositories/{id}/events`, `/repositories/{id}/checks` | a repository's timeline and recent checks |
-| `/compliance/history` | snapshot series by `org`, `kind`, `rule`, `from`, `to` |
+| `/compliance/history` | snapshot series by `org`, `kind`, `rule`, `from`, `to`; `aggregate=fleet` sums each snapshot into one point and `aggregate=org` into one point per org, with the percentage computed from the sums |
 | `/policy` | the current policy version, its rollout and its rules |
 | `/installations` | installations and their last rate-limit snapshot |
 | `/openapi.yaml` | the contract (public) |
@@ -164,7 +164,11 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 default). It reports an overall state, one state per component
 (checks, webhooks, discovery, snapshots, GitHub budget) with a
 fixed-template detail such as "last success 3m ago", and fleet-wide
-compliance. It names no org, repository, rule or installation and
+compliance with `compliance.history`: one point per UTC day over the
+last 30 days, taken from that day's last snapshot. `operations` adds
+repositories checked in the last 24 hours, tracked repositories, the
+newest policy version's `rollout_state` (`none`, `in_progress` or
+`complete`, with `rollout_completed_at`) and `last_snapshot_at`. It names no org, repository, rule or installation and
 carries no error text. The API computes it every 30 seconds in memory,
 so a request never reaches the database.
 
@@ -208,6 +212,11 @@ Errors are RFC 9457 `application/problem+json`:
   trigger, component) may gain values, so treat an unknown value as
   opaque rather than failing;
 - nothing is removed or renamed, and no field changes type.
+
+The contract's `info.version` follows semver: an addition bumps the
+minor version. 1.1.0 added `Summary.finding_age`, `OrgSummary.open_prs`,
+`sort=pr_age` on `/findings`, `aggregate` on `/compliance/history`, and
+the status page's `compliance.history` and `operations`.
 
 Anything else would be `/api/v2`, served beside v1 for a deprecation
 window. The UI and the API are released together from one tag, so the

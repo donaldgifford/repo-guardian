@@ -3,20 +3,29 @@ import type { ComponentProps } from "react";
 
 import { cn } from "../../lib/utils";
 
-const badgeVariants = cva("inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap", {
+// The badge recipe (DESIGN-0036 §Badges): mono 12px, 5px 7px padding,
+// no radius, an 18% tint of the tone behind text pulled 65% toward
+// white (65%, not the mockup's 75%: the bad tone on a selected row
+// fell under AA at 75%). Every tone only sets --tone; the recipe is
+// written once.
+const tinted = "[background:color-mix(in_srgb,var(--tone)_18%,transparent)] [color:color-mix(in_srgb,var(--tone)_65%,white)]";
+
+const badgeVariants = cva("inline-flex items-center px-[7px] py-[5px] font-mono text-xs leading-none whitespace-nowrap", {
   variants: {
     tone: {
-      neutral: "border-border bg-muted text-foreground",
-      compliant: "border-transparent bg-compliant/15 text-compliant",
-      non_compliant: "border-transparent bg-non-compliant/15 text-non-compliant",
-      not_applicable: "border-transparent bg-not-applicable/20 text-muted-foreground",
-      unknown: "border-transparent bg-unknown/20 text-foreground",
+      ok: `[--tone:var(--color-ok)] ${tinted}`,
+      warn: `[--tone:var(--color-warn)] ${tinted}`,
+      bad: `[--tone:var(--color-bad)] ${tinted}`,
+      info: `[--tone:var(--color-info)] ${tinted}`,
+      mute: `[--tone:var(--color-muted-foreground)] ${tinted}`,
+      outline: "border border-border text-muted-foreground",
     },
   },
-  defaultVariants: { tone: "neutral" },
+  defaultVariants: { tone: "mute" },
 });
 
-// Badge is shadcn/ui's badge with a tone per finding status.
-export function Badge({ className, tone, ...props }: ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
+export type BadgeProps = ComponentProps<"span"> & VariantProps<typeof badgeVariants>;
+
+export function Badge({ className, tone, ...props }: BadgeProps) {
   return <span className={cn(badgeVariants({ tone }), className)} {...props} />;
 }

@@ -58,16 +58,41 @@ export function humanize(v: string): string {
   return v.replaceAll("_", " ");
 }
 
-// statusTone maps a finding status onto a badge tone; an unknown status
-// (the enum is open) is neutral.
-export function statusTone(status: string): "compliant" | "non_compliant" | "not_applicable" | "unknown" | "neutral" {
-  switch (status) {
-    case "compliant":
-    case "non_compliant":
-    case "not_applicable":
-    case "unknown":
-      return status;
+// humanizeDuration shortens a Go duration from the API ("720h") to days
+// when it is whole days, else hours; anything it cannot read is returned
+// as-is.
+export function humanizeDuration(d: string): string {
+  const m = /^(\d+)h(?:0m)?(?:0s)?$/.exec(d.trim());
+  if (!m) return d;
+  const hours = Number(m[1]);
+  return hours % 24 === 0 && hours > 0 ? `${hours / 24}d` : `${hours}h`;
+}
+// Tone is a badge colour by meaning, never by rank (DESIGN-0036 §Badges).
+export type Tone = "ok" | "warn" | "bad" | "info" | "mute" | "outline";
+
+// ToneField names a column of the DESIGN-0036 tone table. For `reason`
+// the value is the finding's *status*: a reason is warn under
+// non_compliant and mute otherwise.
+export type ToneField = "status" | "remediation" | "reason" | "state" | "kind";
+
+const tones: Record<Exclude<ToneField, "reason" | "kind">, Record<string, Tone>> = {
+  status: { compliant: "ok", non_compliant: "bad", not_applicable: "mute", unknown: "warn" },
+  remediation: { pr_open: "info", applied: "ok", foreign_pr: "warn", disabled: "mute", dry_run: "mute", none: "mute" },
+  state: { operational: "ok", degraded: "warn" },
+};
+
+// toneFor is the one tone table. Both API enums are open, so any value
+// the table does not know is mute; a component state it does not know
+// is bad, because an unknown state of a service is not good news.
+export function toneFor(field: ToneField, value: string): Tone {
+  switch (field) {
+    case "kind":
+      return "outline";
+    case "reason":
+      return value === "non_compliant" ? "warn" : "mute";
+    case "state":
+      return tones.state[value] ?? "bad";
     default:
-      return "neutral";
+      return tones[field][value] ?? "mute";
   }
 }

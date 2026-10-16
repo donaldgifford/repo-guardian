@@ -8,6 +8,7 @@ itself.
 
 <!--toc:start-->
 - [Enabling it](#enabling-it)
+- [The shell](#the-shell)
 - [Views](#views)
 - [Sessions](#sessions)
 - [Rotating session keys](#rotating-session-keys)
@@ -29,6 +30,7 @@ api:
 ui:
   enabled: true
   existingSecret: repo-guardian-ui
+  docsUrl: https://docs.example.com/repo-guardian   # optional: the sidebar Docs link
   ingress:
     enabled: true
     className: nginx
@@ -56,21 +58,65 @@ The Ingress is the only one the chart renders, and it sends the whole
 host to the UI. The webhook route stays yours; see
 [webhook ingress](../operations/ingress.md#the-ui-host-chart-20).
 
-## Views
+## The shell
 
-The org selector in the header filters every view. It lives in the URL,
-so a filtered view can be shared as a link.
+Every signed-in page shares one frame (DESIGN-0036):
+
+- **Sidebar.** *Business* holds Fleet, Rules, Orgs and Findings; the
+  Findings entry shows the failing-finding count from `/summary`.
+  *Public* holds the status page. A *Docs* group with one
+  Documentation link appears only when `ui.docsUrl` is set. Below
+  900px the sidebar collapses behind a menu button in the top bar. Its
+  footer names the enforced policy version and its rollout state.
+- **Search (⌘K or Ctrl+K).** One box over repositories, rules and
+  orgs. Enter opens the result and keeps the current org scope.
+- **Time zone.** The *Local* / *UTC* toggle in the top bar sets how
+  every timestamp prints. The choice is kept in the browser
+  (`localStorage` key `rg.tz`), never sent to the server.
+- **Account menu.** The avatar names you and holds **Sign out**.
+- **Breadcrumbs** above every page title, ending at the open finding
+  when the drawer is open.
+- **Org scope.** The page-header button lists *All orgs (N)* and each
+  org you can see. It writes `?org=`, which every page reads, so a
+  scoped view is a shareable link. Pages with a trend add **range
+  tabs** (1d, 7d, 30d, 90d, default 90d) that write `?range=`. Both
+  survive navigation between pages.
+
+## Views
 
 | View | Path | Shows |
 | --- | --- | --- |
-| Fleet | `/` | tracked, compliant, failing and parked counts; the 90-day compliance trend; open PRs by age; the worst rules; parked repositories by reason |
-| Rules | `/rules`, `/rules/<kind>/<name>` | compliance per rule with its change since the last snapshot; one rule by org, its top reasons, its longest failures |
-| Orgs | `/orgs`, `/orgs/<org>` | compliance per org; one org's rules and why rules did not apply |
-| Findings | `/findings` | every finding, filtered by status, reason, remediation, kind, rule and stale PR, with CSV export of the loaded rows |
-| Repository | `/repos/<id>` | each rule's status with its evidence and PR, the timeline, and recent checks |
-| History | `/history` | compliance over time per org, for all rules or one |
+| Fleet | `/` | the compliance trend with tracked, compliant, failing, parked and snapshot counts and their change over the range; series pills to switch the plotted measure; open PRs by age; the worst rules; parked repositories by reason; findings by status; compliance by rule and by org |
+| Rules | `/rules`, `/rules/<kind>/<name>` | compliance per rule, filtered by kind tab; one rule by org with its top reasons and longest failures, and a button to its findings |
+| Orgs | `/orgs`, `/orgs/<org>` | an expandable grid of orgs (expand one to list its rules), heat shading by compliance, parked or open-PR share, a hide-parked toggle, expand/collapse all and CSV export; one org's KPIs, trend, rule meters and why rules did not apply |
+| Findings | `/findings` | every finding, filtered by chips, with CSV export of the loaded rows and a detail drawer |
+| Repository | `/repos/<id>` | each rule's status with its evidence, the recent checks, the repository's facts and its timeline |
+| History | `/history` | compliance over time, one chart per org, for all rules or one |
 | Policy | `/policy` | the enforced policy version, its rollout and its rules |
 | Status | `/status` | public service status: no login, no names |
+
+![Fleet](img/ui/fleet.png)
+
+![Orgs, with acme expanded](img/ui/orgs.png)
+
+### Findings and the drawer
+
+Filters are chips above the table. **+ filter** adds one (status,
+reason, remediation, kind, rule, org or stale PR); clicking a chip
+changes or clears it. Every chip is a query parameter, so a filtered
+table is a link.
+
+Clicking a row opens the finding's drawer: status, reason, remediation
+with its PR, evidence, and a timeline merging the finding's changes,
+the repository's events, recent checks and the open PR. The drawer is
+a deep link, `?open=<repository id>/<kind>/<rule>`, so it can be
+shared or bookmarked. From 1600px wide the drawer sits beside the
+table and the table drops its Age and Since columns; below that it
+overlays the page. Escape closes it and returns focus to the row.
+
+![Findings with the drawer open](img/ui/findings-drawer.png)
+
+![Repository](img/ui/repository.png)
 
 Compliance shows **unmeasured** when there is nothing to measure, never
 100%. A finding carried over from v1 reads "last checked by v1; details
@@ -78,6 +124,19 @@ on next check" until its repository's next check.
 
 A signed-in user whose groups map to no org sees an "ask for access"
 page with their name and subject, to quote to an administrator.
+
+### The status page
+
+`/status` is public: no sign-in, no cookie, and no org, repository or
+rule name. It shows a headline for the overall state, each component
+(checks, webhooks, discovery, snapshots, GitHub budget) with its
+state, fleet compliance as one number with its 30-day line, and an
+operations strip: repositories checked in the last 24 hours of those
+tracked, the newest policy's rollout and the last snapshot. `webhooks`
+is informational and never moves the overall state. It refreshes
+every 30 seconds.
+
+![Status](img/ui/status.png)
 
 ## Sessions
 

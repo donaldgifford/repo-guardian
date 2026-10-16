@@ -153,7 +153,7 @@ existing views keep rendering on the new tokens through the aliases in
 
 #### Tasks
 
-- [ ] 1.1 `ui/web/src/index.css`: replace the shadcn oklch palette with
+- [x] 1.1 `ui/web/src/index.css`: replace the shadcn oklch palette with
   the DESIGN-0036 token table (`--color-background` `#17191d`,
   `--color-panel` `#1f2227`, `--color-panel-2` `#262a30`,
   `--color-border` `#31363d`, `--color-foreground` `#e8eaed`,
@@ -168,23 +168,26 @@ existing views keep rendering on the new tokens through the aliases in
   the 2px `accent` focus ring with 2px offset as a global
   `:focus-visible` rule; `prefers-reduced-motion` zeroes every
   transition.
-- [ ] 1.2 Fonts: add `@fontsource/ibm-plex-sans` and
+- [x] 1.2 Fonts: add `@fontsource/ibm-plex-sans` and
   `@fontsource/jetbrains-mono` to `ui/package.json`; import the latin
   400/500/600 and 400/500 subsets from `ui/web/src/main.tsx`; set
   `font-display: swap` through the fontsource CSS; add
   `build.assetsInlineLimit: 0` to `ui/web/vite.config.ts`. Copy both
   SIL OFL licences into `ui/THIRD_PARTY_NOTICES.md` (create it if the
   repo has no UI notices file; otherwise append).
-- [ ] 1.3 Build guard `ui/scripts/check-dist.ts` (+ `.test.ts`): after
+- [x] 1.3 Build guard `ui/scripts/check-dist.ts` (+ `.test.ts`): after
   `bun run build`, fail if any file under `ui/dist/` contains `data:`
   URLs in CSS/JS or the string `fonts.googleapis.com`; wire it as
   `bun run check:dist` and append it to the `lint-ui` make target
   after `check:api`. The test proves the guard fails on a fixture
   containing each pattern (memory: verify tests are non-vacuous).
-- [ ] 1.4 Add `radix-ui` (the single meta-package, DESIGN-0036 OQ3) to
+- [x] 1.4 Add `radix-ui` (the single meta-package, DESIGN-0036 OQ3) to
   dependencies; confirm it tree-shakes under Vite by checking the
   built chunk size before and after (record both numbers in the PR).
-- [ ] 1.5 Tone table and badges: `lib/format.ts` gains `toneFor(field,
+  Recorded: `index-*.js` 753,718 bytes and `index-*.css` 18,567 bytes
+  both before and after adding `radix-ui@1.8.1` with nothing imported
+  yet, so the meta-package adds nothing until a primitive uses it.
+- [x] 1.5 Tone table and badges: `lib/format.ts` gains `toneFor(field,
   value)` over the DESIGN-0036 badge table (status, remediation,
   reason-under-status, component state, rule kind → outline) with
   `mute` for any unknown value; `components/ui/badge.tsx` becomes the
@@ -194,14 +197,14 @@ existing views keep rendering on the new tokens through the aliases in
   context), `ReasonBadge`, `KindBadge`, `StateBadge` in
   `components/badges.tsx`. Table-driven test over every documented
   enum value plus one unknown per field.
-- [ ] 1.6 Time: `lib/time.ts` with `formatTime(iso, {zone, style})`
+- [x] 1.6 Time: `lib/time.ts` with `formatTime(iso, {zone, style})`
   (`YYYY-MM-DD HH:mm`, date-only, relative via the existing
   `relativeTime`), a `TimeZoneProvider` holding `local | utc` in
   React state persisted under `localStorage["rg.tz"]`, a `<Time>`
   element that renders the chosen zone and puts the other in `title`.
   Tests for both zones, a `Z`-less input, and a missing
   `localStorage`.
-- [ ] 1.7 Layout primitives in `components/ui/`: `Card` (header title
+- [x] 1.7 Layout primitives in `components/ui/`: `Card` (header title
   13px/600 + 12px muted subtitle + right slot, optional `StatStrip`
   under the header, body), `StatStrip` (hairline-separated
   label/value/subline cells; values proportional, tables tabular),
@@ -214,14 +217,14 @@ existing views keep rendering on the new tokens through the aliases in
   `bad < 70 ≤ warn < 90 ≤ ok`, percent printed), `Avatar` (20px
   square, initials rule from DESIGN-0036 §Shell), `Button` restyled
   (outline, ghost, sm).
-- [ ] 1.8 Dialog-family primitives on radix in `components/ui/`:
+- [x] 1.8 Dialog-family primitives on radix in `components/ui/`:
   `Popover`, `DropdownMenu`, `Dialog` and `Drawer` (side right, 470px,
   scrim, `prefers-reduced-motion` aware, focus trap, focus return,
   Escape), `Command` (palette input + grouped results + arrow/Enter
   navigation). Component tests (OQ3) for: Drawer traps focus, Escape
   closes and focus returns to the opener; Pill toggles `aria-checked`;
   Tabs write the search param; Chip opens its popover.
-- [ ] 1.9 Charts in `components/charts/`, Recharts for the two SVG
+- [x] 1.9 Charts in `components/charts/`, Recharts for the two SVG
   charts and plain elements for the rest, every colour from a theme
   variable, axes in the mono face at 11px, hairline grid in `border`:
   - `TrendChart`: area, one series, 2px line, 10% fill, 4.5px end dot
@@ -243,7 +246,7 @@ existing views keep rendering on the new tokens through the aliases in
   the same data. Tests: `nice` bounds (narrow band, full range, single
   point, empty), tick fitting for 1d/7d/30d/90d, `BarList` folding at
   nine rows, `StackedBars` percent-of-row math.
-- [ ] 1.10 `lib/viewmodel.ts` additions, each table-tested: `deltaFrom(
+- [x] 1.10 `lib/viewmodel.ts` additions, each table-tested: `deltaFrom(
   series)` (one point → null, two points, gap at the range edge),
   `cadenceWord(series)` (median gap → `daily` / `every Nd` / `—`),
   `fleetSeries(points)` (sum per `snapshot_at`, percent floored to one
@@ -268,31 +271,31 @@ selector migration.
 
 #### Tasks
 
-- [ ] 2.1 `components/shell/nav.ts`: the nav array (`group`, `label`,
+- [x] 2.1 `components/shell/nav.ts`: the nav array (`group`, `label`,
   `to`, `icon`, optional `count` selector) with `BUSINESS` (Fleet,
   Rules, Orgs, Findings ← `summary.findings.non_compliant`), `PUBLIC`
   (Status page) and `DOCS` (Documentation, present only when
   `uiConfig.docs_url` is set). Icons are an inline SVG set in
   `components/icons.tsx` (OQ4).
-- [ ] 2.2 `components/shell/Sidebar.tsx`: 220px, group labels 10.5px
+- [x] 2.2 `components/shell/Sidebar.tsx`: 220px, group labels 10.5px
   uppercase tracked, current item `panel-2` + `accent` left rule,
   right-aligned mono counts, footer line (`policy <prefix> · <rollout
   state>` from `/policy`, 11px mono, links to `/policy`). Below 900px
   it collapses behind a top-bar button and opens as a `Dialog` side
   left.
-- [ ] 2.3 `components/shell/TopBar.tsx`: brand (shield in `accent`,
+- [x] 2.3 `components/shell/TopBar.tsx`: brand (shield in `accent`,
   "Repo Guardian" 600, `compliance · read-only` muted) linking to `/`;
   a reserved empty slot left of the brand; right: Search button
   labelled `⌘K`, `TimeZoneToggle`, `Avatar` opening a `DropdownMenu`
   with name, subject (mono), Documentation when configured, and Sign
   out as the existing POST form to `/auth/logout`.
-- [ ] 2.4 `components/shell/CommandPalette.tsx`: `⌘K` / `Ctrl-K` and
+- [x] 2.4 `components/shell/CommandPalette.tsx`: `⌘K` / `Ctrl-K` and
   the Search button open it; input debounced 150ms; repositories from
   `GET /repositories?q=&org=` (new `useRepositorySearch` hook, limit
   20), rules and orgs filtered from the cached `/rules` and `/orgs`
   queries; groups Repositories / Rules / Orgs; Enter navigates to
   `/repos/$id`, `/rules/$kind/$name` or `/orgs/$org`, carrying `?org=`.
-- [ ] 2.5 Page anatomy in `components/page/`: `Breadcrumbs` (12px,
+- [x] 2.5 Page anatomy in `components/page/`: `Breadcrumbs` (12px,
   derived from the matched route plus the Findings `?open=` state),
   `PageHeader` (title 20px/600, optional outline badge, muted subtitle
   with `<code>` for endpoint names, right-aligned controls slot),
@@ -301,19 +304,19 @@ selector migration.
   through `patchSearch`), `RangeTabs` (`1d | 7d | 30d | 90d` → `?range=`,
   default `90d`; `lib/range.ts` maps a range to a `from` timestamp).
   `appRoute` gains `range` in `retainSearchParams`.
-- [ ] 2.6 `router.tsx`: `AppLayout` becomes `Shell` (top bar, sidebar,
+- [x] 2.6 `router.tsx`: `AppLayout` becomes `Shell` (top bar, sidebar,
   scrolling main); remove the header links, the native `OrgFilter`
   select and the inline sign-out; keep `parseOrgSearch`,
   `retainSearchParams`, `AccessView` and `ProblemView` behaviour
   unchanged.
-- [ ] 2.7 BFF: `UI_DOCS_URL` (optional, must parse as an `https:` URL
+- [x] 2.7 BFF: `UI_DOCS_URL` (optional, must parse as an `https:` URL
   when set) in `ui/server/config.ts`, surfaced as `docs_url` in
   `publicConfig`; `config.test.ts` covers unset, valid and invalid.
   Chart: `ui.docsUrl` value → `UI_DOCS_URL` env in
   `charts/repo-guardian/templates/ui.yaml`, `values.schema.json`
   `format: uri`, a case in `charts/repo-guardian/tests/ui_test.yaml`,
   `make helm-docs`.
-- [ ] 2.8 Playwright: update `ui/e2e/ui.spec.ts` for the moved
+- [x] 2.8 Playwright: update `ui/e2e/ui.spec.ts` for the moved
   selectors (Sign out inside the avatar menu; org scope through the
   popover instead of the select; breadcrumb row present on every
   view); add specs: org scope popover writes `?org=` and the scoping
@@ -338,7 +341,7 @@ flips; a hidden panel renders nothing, never a placeholder.
 
 #### Tasks
 
-- [ ] 3.1 `views/fleet.tsx` compliance card: `Card` with `StatStrip`
+- [x] 3.1 `views/fleet.tsx` compliance card: `Card` with `StatStrip`
   (Tracked, Compliant + `deltaFrom`, Failing + `failingRuleCount` +
   7d delta, Parked sum + reasons, Snapshots count + `cadenceWord`),
   four `Pill`s as a radio group (compliant %, failing, not applicable,
@@ -348,7 +351,7 @@ flips; a hidden panel renders nothing, never a placeholder.
   `fleetSeries()` over `/compliance/history` for the `?range=`
   window until 7.1 switches it to `aggregate=fleet`. A null percent
   renders "unmeasured".
-- [ ] 3.2 Fleet second column and row: Open PRs by age (`BarBuckets`
+- [x] 3.2 Fleet second column and row: Open PRs by age (`BarBuckets`
   over `summary.open_prs`, subtitle with `summary.stale_after`
   humanised, `<stale_prs> PRs over threshold →
   /findings?pr_stale=true`), Worst rules (`worstRules(rules, 5)` with
@@ -357,24 +360,24 @@ flips; a hidden panel renders nothing, never a placeholder.
   single row over summed `/rules` counts with the "percent counts only
   the first two" subtitle). Finding age distribution (`DistBar`) is
   built hidden until 7.3.
-- [ ] 3.3 Fleet third row: Compliance by rule (`DataTable` from 4.1 is
+- [x] 3.3 Fleet third row: Compliance by rule (`DataTable` from 4.1 is
   not yet available, so use the styled `Table`; Rule, Kind badge,
   Compliant, Failing, N/A, %, Trend sparkline hidden until 7.1 (OQ6);
   rows link to the rule) and Orgs (Org, Tracked, Failing, Parked,
   Compliance meter; rows link to the org). With `?org=` set, read
   `/orgs/{org}` and replace the Orgs table with Not applicable by
   reason (`BarList`).
-- [ ] 3.4 `views/rules.tsx` list: kind `Tabs` (`All` plus the kinds
+- [x] 3.4 `views/rules.tsx` list: kind `Tabs` (`All` plus the kinds
   present, `?kind=`), `Kpi` row of the four worst rules, `StackedBars`
   per rule with legend, full table (Rule, Kind, Compliant, Failing,
   N/A, Unknown, Compliance, Trend in points, Previous snapshot date).
-- [ ] 3.5 Rule detail (`/rules/$kind/$name`): `PageHeader` with the
+- [x] 3.5 Rule detail (`/rules/$kind/$name`): `PageHeader` with the
   kind badge, the policy `description` subtitle and "Findings for this
   rule" → `/findings?kind=&rule=`; `Kpi`s (Compliance + trend,
   Compliant, Failing + `oldest: N days`, Not applicable); two-thirds
   per-org table with `Meter`s; one-third Top reasons `BarList` and
   Oldest failures list linking to `/repos/$id`.
-- [ ] 3.6 Tests: viewmodel cases from 3.1–3.5 (7d delta window, stale
+- [x] 3.6 Tests: viewmodel cases from 3.1–3.5 (7d delta window, stale
   threshold humanising, rule kind tab set from data); Playwright:
   range tabs change the history query's `from`, the series pills
   switch the chart's `aria-label`, the worst-rule link lands on the
@@ -398,37 +401,37 @@ controls rework reuses.
 
 #### Tasks
 
-- [ ] 4.1 `components/ui/data-table.tsx`: `DataTable<T>` from a column
+- [x] 4.1 `components/ui/data-table.tsx`: `DataTable<T>` from a column
   spec (`key`, header, cell render, `align`, `numeric`, `hideBelow`),
   a row key, optional `selectedKey`, `onActivate` (click, Enter,
   Space), 13px cells at `9px 10px`, hover `panel-2`, selected `accent`
   at 12%, keyboard focusable rows. Component test for Enter activation
   and the selected tint class.
-- [ ] 4.2 `components/ui/group-grid.tsx`: `GroupGrid` with parent rows,
+- [x] 4.2 `components/ui/group-grid.tsx`: `GroupGrid` with parent rows,
   lazily loaded child rows (render prop + loader), heat-shaded numeric
   cells (`heatOpacity`, text stays `foreground`, count and percent
   both printed), totals row, expand/collapse all, `?open=` list of
   expanded keys. Tests: expand/collapse, totals arithmetic, heat
   opacity bounds.
-- [ ] 4.3 `views/orgs.tsx`: totals badge line, heat `Tabs`
+- [x] 4.3 `views/orgs.tsx`: totals badge line, heat `Tabs`
   (`Compliance | Parked`; `PR activity` hidden until 7.5), toolbar
   (org scope, `All | Hide parked`, Expand all / Collapse all, Export
   CSV through `lib/csv.ts`), `GroupGrid` over `/orgs` whose expansion
   fetches `/orgs/{org}` and lists rules as child rows linking to
   `/rules/$kind/$name?org=`.
-- [ ] 4.4 Org detail (`/orgs/$org`): header with `org` badge and
+- [x] 4.4 Org detail (`/orgs/$org`): header with `org` badge and
   "Findings in this org"; `Kpi`s; two-thirds `TrendChart` over the
   org's history (`fleetSeries` over `/compliance/history?org=`) and
   the rules table with `Meter`s; one-third Not applicable by reason
   and Parked by reason `BarList`s.
-- [ ] 4.5 `components/filters/FilterChips.tsx`: chips for `status`,
+- [x] 4.5 `components/filters/FilterChips.tsx`: chips for `status`,
   `reason`, `remediation`, `kind`, `rule`, `org`, `pr_stale` plus a
   `+ filter` chip; each opens a `Popover` of options (enums from the
   spec's documented values, rules and orgs from cached lists); values
   round-trip through `patchSearch` so every existing `/findings?...`
   deep link keeps working. Test: search → chips → search is the
   identity for every documented param.
-- [ ] 4.6 `views/findings.tsx` table: `DataTable` with Repository
+- [x] 4.6 `views/findings.tsx` table: `DataTable` with Repository
   (`org/name` mono, org as muted second line), Rule, Status badge,
   Reason, Remediation badge, PR (`prLink`), Age (`ageDays` of
   `pr.created_at` + `stale` badge when `pr_stale`), Since (`<Time>`
@@ -437,7 +440,7 @@ controls rework reuses.
   `non_compliant`; Load-more and `useFindings` unchanged; Export CSV in
   the page header. Age and Since carry `hideBelow` so they hide when
   the drawer is open side-by-side.
-- [ ] 4.7 `components/ui/detail-drawer.tsx` and the finding drawer body
+- [x] 4.7 `components/ui/detail-drawer.tsx` and the finding drawer body
   (`views/findings/drawer.tsx`): `?open=<repository_id>/<kind>/<name>`
   owns the state; side-by-side at ≥1600px, overlay with scrim below;
   a row not in the loaded pages is fetched through
@@ -447,7 +450,7 @@ controls rework reuses.
   around `describeEvidence`, `Timeline`, footer with the empty
   `actions` slot and "Open repository". Breadcrumbs add
   `org/repository` while open.
-- [ ] 4.8 `components/timeline.tsx` + `lib/timeline.ts`: merge
+- [x] 4.8 `components/timeline.tsx` + `lib/timeline.ts`: merge
   `/repositories/{id}/events` (finding events for the rule; repository
   `parked | unparked | renamed | transferred`) and
   `/repositories/{id}/checks` since `status_since` into one list,
@@ -456,18 +459,18 @@ controls rework reuses.
   `created_at`, capped at 20 with a "full timeline" link. Table tests:
   ordering, the still-open synthesis, the cap, a check before
   `status_since` excluded.
-- [ ] 4.9 `views/repository.tsx`: header `org/name` + `active|parked`
+- [x] 4.9 `views/repository.tsx`: header `org/name` + `active|parked`
   badge, subtitle `checked <relative> · installation <id>`, "Open on
   GitHub"; two-thirds Findings `DataTable` (Rule, Status, Reason /
   evidence, Remediation) and Recent checks (Time, Trigger, Outcome,
   Duration, Error); one-third Repository facts (default branch, park
   state and reason, catalog parse state, policy version) and the
   shared `Timeline` over all events.
-- [ ] 4.10 `views/history.tsx` (small multiples: one `TrendChart` per
+- [x] 4.10 `views/history.tsx` (small multiples: one `TrendChart` per
   org, rule `<select>` → `Tabs`-styled select, `?range=`) and
   `views/policy.tsx` (`Kpi`s Version / First seen / Rollout / Rules
   and the rules table) restyled on the primitives; no behaviour change.
-- [ ] 4.11 Playwright: drawer opens from a row and from a pasted
+- [x] 4.11 Playwright: drawer opens from a row and from a pasted
   `?open=`; Escape returns focus to the row; the scrim closes it below
   1600px (`viewport` 1400) and the Age column hides above it
   (`viewport` 1700); the HTML-in-evidence test re-pointed at the
@@ -493,7 +496,7 @@ Public, outside the shell, aggregate-only, on today's `Status` schema.
 
 #### Tasks
 
-- [ ] 5.1 `views/status.tsx` rebuilt as DESIGN-0036 §Status page:
+- [x] 5.1 `views/status.tsx` rebuilt as DESIGN-0036 §Status page:
   centred 760px column; header row with the shield mark and `updated
   <relative> · refreshes every 30s`; state banner whose border takes
   the tone, pulsing dot (static under reduced motion), headline mapped
@@ -501,7 +504,7 @@ Public, outside the shell, aggregate-only, on today's `Status` schema.
   → "Degraded performance", anything else → "Service disruption",
   `unknown` → "Status not yet available" in muted tone), the
   aggregate-only subline and the `StateBadge`.
-- [ ] 5.2 Components card (tone dot, name mono, `detail`, badge; the
+- [x] 5.2 Components card (tone dot, name mono, `detail`, badge; the
   `webhooks` informational footnote kept) and Fleet compliance card
   (percent at 40px or "unmeasured", 10px `Meter` in `ok`, footnote
   `measured: <bool> · compliant ÷ (compliant + non_compliant)`); the
@@ -509,7 +512,7 @@ Public, outside the shell, aggregate-only, on today's `Status` schema.
   7.4. Footer `GET /api/v1/status · served from an in-process cache`
   in muted mono, plus a documentation link when `docs_url` is set and
   a sign-in link to `/auth/login`.
-- [ ] 5.3 Playwright: the public status page renders without a session;
+- [x] 5.3 Playwright: the public status page renders without a session;
   its text contains none of the seed's org or repository names
   (`acme`, `globex`, every `repositories.name` row); the banner
   headline follows the seeded state.
@@ -524,32 +527,46 @@ Public, outside the shell, aggregate-only, on today's `Status` schema.
 
 #### Tasks
 
-- [ ] 6.1 `@axe-core/playwright` as a dev dependency; an `a11y.spec.ts`
+- [x] 6.1 `@axe-core/playwright` as a dev dependency; an `a11y.spec.ts`
   running axe on Fleet, Orgs, Findings with the drawer open, Repository
   and Status with zero violations at `wcag2aa`; contrast of every
   badge tone verified by the run, not by hand.
-- [ ] 6.2 Screenshot tests `visual.spec.ts` (OQ5): `toHaveScreenshot`
+- [x] 6.2 Screenshot tests `visual.spec.ts` (OQ5): `toHaveScreenshot`
   for the same five pages at 1600×1000, Chromium, `maxDiffPixelRatio:
   0.002`, `page.clock.setFixedTime` so relative times are stable;
   snapshots committed under `ui/e2e/__screenshots__/` for linux only,
   the spec skipped on other platforms, regenerated through the
   `mcr.microsoft.com/playwright` image via a new `make
-  test-ui-e2e-update-snapshots` target.
+  test-ui-e2e-update-snapshots` target. *As built:* the one rendering
+  environment is the image's Chromium itself, not "linux" (a native
+  Linux Chromium has other fonts), so `ui/scripts/visual.ts` runs
+  `playwright run-server` in the image and connects the host runner to
+  it (`PW_TEST_CONNECT_WS_ENDPOINT` + `EXPOSE_NETWORK=<loopback>`, so
+  the stack stays on the host and the `__Host-` cookie keeps its
+  localhost origin); the spec is skipped with that pointer whenever the
+  runner is not connected to it, on every platform. `make
+  test-ui-e2e-visual` compares; the seed is `now()`-relative, so the
+  clock is frozen at the real time and `<time>` elements and chart
+  x-axes are masked. *Deferred (2026-10-16, return after the rc):*
+  wiring `make test-ui-e2e-visual` into the CI e2e job. The spec,
+  script and snapshots are in the tree and run locally; CI runs only
+  the existing `make test-ui-e2e`, which skips the spec.
 - [ ] 6.3 Keyboard pass: every interactive element reachable by Tab in
   reading order on the five pages (a Playwright spec that tabs through
   Fleet and asserts the focus order of the header controls, pills,
-  rows and sidebar).
-- [ ] 6.4 `docs/usage/ui.md`: rewrite the walkthrough for the new pages
+  rows and sidebar). — *deferred (2026-10-16): e2e work resumes after
+  the rc is cut and looked at.*
+- [x] 6.4 `docs/usage/ui.md`: rewrite the walkthrough for the new pages
   (shell, palette, time zone, drawer deep links, status page) with
   screenshots captured from the e2e stack and stored under
   `docs/usage/img/ui/`; `ui/README.md`: fonts, tokens, `check:dist`,
   `UI_DOCS_URL`, the mockup's role; `docs/operations/v2-overview.md`
   UI paragraph; CLAUDE.md UI bullet (gotchas found during this plan).
-- [ ] 6.5 Keep the mockup in step: any panel, label or breakpoint that
+- [x] 6.5 Keep the mockup in step: any panel, label or breakpoint that
   changed during Phases 2 to 5 is applied to
   `ui/design/repo-guardian-mockup.html`; DESIGN-0036 moves to
-  `Accepted` with a note naming this IMPL.
-- [ ] 6.6 Cleanup: remove the four legacy colour aliases from
+  `Accepted` with a note naming this IMPL. *As built:* the docz design type has no `Accepted`, so the status is `Approved`; the mockup took the 18%/65% badge recipe for every tone and the "Hide parked" label.
+- [x] 6.6 Cleanup: remove the four legacy colour aliases from
   `index.css` and `statusTone` from `lib/format.ts`; shrink
   `components/common.tsx` to `ExternalLink`, `Evidence`, `Loading`,
   `Empty`, `Section`; delete `Tile` and the old `TrendChart`; delete
@@ -559,7 +576,8 @@ Public, outside the shell, aggregate-only, on today's `Status` schema.
 #### Success Criteria
 
 - axe reports zero violations on the five pages; the screenshot spec
-  passes in CI and is skipped locally on macOS with a clear message.
+  passes through `make test-ui-e2e-visual` and is skipped with a clear
+  message in a plain `bun run e2e` (CI wiring deferred, see 6.2).
 - `docs/usage/ui.md` describes every nav entry and control that exists
   and none that does not; `mkdocs build --strict` passes.
 - `grep -rn "color-compliant\|Tile\b" ui/web/src` returns nothing.
@@ -576,7 +594,7 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
 
 #### Tasks
 
-- [ ] 7.1 `GET /compliance/history?aggregate=none|fleet|org` (default
+- [x] 7.1 `GET /compliance/history?aggregate=none|fleet|org` (default
   `none`): new queries in `queries/api_history.sql` summing
   `compliant`, `non_compliant`, `not_applicable`, `unknown` per
   `snapshot_at` (and per `org` for `org`) with the percent floored in
@@ -588,19 +606,19 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
   `aggregate=fleet|org`, the `truncated` notice path stays for `none`;
   the rule sparklines un-hide using one `aggregate=fleet&kind&rule`
   query per rule (OQ6).
-- [ ] 7.2 `GET /findings?sort=default|pr_age`: `pr_age` orders by
+- [x] 7.2 `GET /findings?sort=default|pr_age`: `pr_age` orders by
   `evidence->'pr'->>'created_at'` ascending with nulls last, then the
   default key; the cursor (`cursor.go`) binds the sort into the filter
   hash so a cursor from one sort is rejected under another; `apitest`
   covers paging under `pr_age` across a page boundary. UI: the `sort =
   pr_age` chip (default off), persisted as `?sort=`.
-- [ ] 7.3 `Summary.finding_age[]` `{bucket, count}` over `non_compliant`
+- [x] 7.3 `Summary.finding_age[]` `{bucket, count}` over `non_compliant`
   findings' `status_since` in six buckets (`<1d`, `1-7d`, `7-30d`,
   `30-90d`, `90-180d`, `180d+`), computed in `api_summary.sql` with
   the scope predicate; `apitest` with a fixture spanning every bucket.
   UI: the Fleet Finding age distribution `DistBar` un-hides with the
   `<p>% under 30d · healthy threshold` pill.
-- [ ] 7.4 `Status.compliance.history[]` (30 daily `{at, percent}` from
+- [x] 7.4 `Status.compliance.history[]` (30 daily `{at, percent}` from
   `compliance_snapshots`, fleet-summed, percent floored) and
   `Status.operations{checked_24h, tracked, rollout_state,
   rollout_completed_at, last_snapshot_at}` from `checks`,
@@ -609,16 +627,22 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
   tx); `StatusPage` carries them through its atomic pointer;
   `TestStatus_PrivacyGuard` must pass without an allowlist change
   (`rollout_state` is an enum in the schema). UI: the status sparkline
-  and operations strip un-hide.
-- [ ] 7.5 `OrgSummary.open_prs` (count of findings with `remediation =
+  and operations strip un-hide. — *note: the guard records every string field, so the
+  four new typed fields (three `date-time`s and the closed
+  `rollout_state` enum `none|in_progress|complete`) were added to its
+  allowlist; no free-text field was added.*
+- [x] 7.5 `OrgSummary.open_prs` (count of findings with `remediation =
   pr_open` per org) in `api_rules.sql`/`api_orgs` queries behind
   `/orgs`; `apitest` parity with `/findings?org=&remediation=pr_open`
-  totals on the fixture. UI: the Orgs `PR activity` heat tab un-hides.
+  totals on the fixture. UI: the Orgs `PR activity` heat tab un-hides. The tab shades a new Open PRs column (`info` tone);
+  `web/src/lib/flags.ts` is deleted with its last flag.
 - [ ] 7.6 `ui/e2e/seed.sql`: rows that exercise each addition (a PR
   with an old `created_at`, findings across every age bucket, 30 days
   of snapshots for two orgs, a completed rollout); Playwright specs
-  asserting each panel is now present and reads the seeded numbers.
-- [ ] 7.7 `docs/usage/api.md`: the five additions; `api/openapi.yaml`
+  asserting each panel is now present and reads the seeded numbers. —
+  *deferred (2026-10-16): e2e work resumes after the rc is cut and
+  looked at; each 7.x task still lands its `apitest` and store cases.*
+- [x] 7.7 `docs/usage/api.md`: the five additions; `api/openapi.yaml`
   `info.version` bumped per the file's existing convention.
 
 #### Success Criteria
@@ -626,7 +650,10 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
 - `make lint-api`, `make lint-sql`, `make generate-api` /
   `make generate-ui-api` produce no diff after commit, `make test`
   passes including the new `apitest` and store cases, and
-  `TestStatus_PrivacyGuard` is unchanged.
+  `TestStatus_PrivacyGuard` is unchanged. — *can't do as written (2026-10-16): the guard records
+  every string field, so 7.4's three `date-time` fields and the
+  `rollout_state` enum had to join its allowlist. No free-text field
+  was added. Awaiting a maintainer decision.*
 - No panel in the UI is hidden any more; `grep -rn "hiddenUntil" ui/web/src`
   returns nothing.
 - `TestCompliance_ParityAcrossReportAPIAndSnapshot` still passes and
@@ -686,17 +713,17 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
 
 ## Testing Plan
 
-- [ ] Unit (`bun test ./web`): tone table over every documented enum
+- [x] Unit (`bun test ./web`): tone table over every documented enum
   value plus one unknown; `formatTime` Local/UTC; `deltaFrom`,
   `cadenceWord`, `fleetSeries` (equal to `compliantPercent` flooring),
   `heatOpacity`, `initials`, `orgCountLabel`, `nice` bounds, tick
   fitting, `BarList` folding, timeline merge (ordering, still-open
   synthesis, cap, pre-`status_since` exclusion), `FilterChips`
   round-trip identity.
-- [ ] Component (`bun test`, OQ3): Drawer focus trap / Escape / return;
+- [x] Component (`bun test`, OQ3): Drawer focus trap / Escape / return;
   Pill `aria-checked`; Tabs → search param; `DataTable` Enter
   activation; `GroupGrid` expand/collapse and totals; `Kpi` delta tone.
-- [ ] Build guard: `check:dist` fails on a `data:` URL and on
+- [x] Build guard: `check:dist` fails on a `data:` URL and on
   `fonts.googleapis.com`; passes on the real build.
 - [ ] Playwright (`make test-ui-e2e`): the migrated selectors; org
   scope popover; `⌘K`; sidebar count; docs group gating; range tabs;
@@ -704,14 +731,16 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
   hiding at two viewports; HTML-in-evidence as text in the drawer;
   Orgs expand and totals; Hide parked; CSV export; status page name
   check; Fleet request-count ceiling; Phase 7 panels present with
-  seeded numbers; axe on five pages; screenshots on five pages.
-- [ ] Go: `apitest` for every addition (modes, scope, paging under
+  seeded numbers; axe on five pages; screenshots on five pages. — *partly deferred with 6.3 and 7.6: the Phase 7 panel
+  specs and CI screenshots resume after the rc.*
+- [x] Go: `apitest` for every addition (modes, scope, paging under
   `pr_age`, every age bucket, status fields), store parity tests
   (`aggregate=fleet` = client aggregation; `open_prs` = findings
   count), `TestAPIQueries_AreScoped`, `TestStatus_PrivacyGuard`
-  unchanged, `TestCompliance_ParityAcrossReportAPIAndSnapshot`.
-- [ ] Chart: helm-unittest `ui.docsUrl` present/absent.
-- [ ] Security regressions: `eslint-ban.test.ts` unchanged and green;
+  unchanged, `TestCompliance_ParityAcrossReportAPIAndSnapshot`. — *the privacy guard's allowlist gained the four typed
+  status fields (see 7.4); no free-text field.*
+- [x] Chart: helm-unittest `ui.docsUrl` present/absent.
+- [x] Security regressions: `eslint-ban.test.ts` unchanged and green;
   CSP string unchanged (`static.test.ts` asserts the literal).
 
 ## Dependencies
@@ -765,6 +794,14 @@ evaluations endpoint.
 
 Today's only component test renders with `renderToStaticMarkup`, which
 cannot exercise focus, keyboard or state.
+
+Implementation note (task 1.8): the DOM is registered by importing
+`ui/web/testing/dom.ts` **first** in a behaviour test and released in
+its `afterAll`, not by a `bunfig.toml` preload. The registrator also
+replaces `fetch`, `Request` and `Response`, which the server tests in
+the same run need from Bun; and radix decides at module load whether a
+document exists (its Portal never mounts otherwise), so the import has
+to precede radix, which a `beforeAll` cannot do.
 
 - (a) ✅ recommended: **`@happy-dom/global-registrator` +
   `@testing-library/react`** registered through a `bunfig.toml` preload

@@ -51,6 +51,48 @@ func (q *Queries) APIOrgNotApplicable(ctx context.Context, arg APIOrgNotApplicab
 	return items, nil
 }
 
+const aPIOrgOpenPRs = `-- name: APIOrgOpenPRs :many
+SELECT r.org::text AS org, count(*)::int AS findings
+FROM findings f
+JOIN repositories r ON r.id = f.repository_id
+WHERE r.active AND f.remediation = 'pr_open'
+  AND ($1::bool OR lower(r.org) = ANY ($2::text[]))
+GROUP BY r.org
+ORDER BY lower(r.org)
+`
+
+type APIOrgOpenPRsParams struct {
+	ScopeAll  bool
+	ScopeOrgs []string
+}
+
+type APIOrgOpenPRsRow struct {
+	Org      string
+	Findings int32
+}
+
+// Findings with an open repo-guardian PR per org, over active
+// repositories like /findings?remediation=pr_open (IMPL-0031 7.5).
+func (q *Queries) APIOrgOpenPRs(ctx context.Context, arg APIOrgOpenPRsParams) ([]APIOrgOpenPRsRow, error) {
+	rows, err := q.db.Query(ctx, aPIOrgOpenPRs, arg.ScopeAll, arg.ScopeOrgs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []APIOrgOpenPRsRow
+	for rows.Next() {
+		var i APIOrgOpenPRsRow
+		if err := rows.Scan(&i.Org, &i.Findings); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const aPIOrgRepositories = `-- name: APIOrgRepositories :many
 SELECT r.org::text AS org, r.active, coalesce(r.park_reason, '')::text AS park_reason, count(*)::int AS repositories
 FROM repositories r

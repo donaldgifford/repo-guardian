@@ -12,6 +12,58 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const aPISummaryFindingAge = `-- name: APISummaryFindingAge :many
+SELECT (CASE
+          WHEN a.age < interval '1 day' THEN '<1d'
+          WHEN a.age < interval '7 days' THEN '1-7d'
+          WHEN a.age < interval '30 days' THEN '7-30d'
+          WHEN a.age < interval '90 days' THEN '30-90d'
+          WHEN a.age < interval '180 days' THEN '90-180d'
+          ELSE '180d+'
+        END)::text AS bucket,
+       count(*)::int AS findings
+FROM findings f
+JOIN repositories r ON r.id = f.repository_id
+CROSS JOIN LATERAL (SELECT $1::timestamptz - f.status_since AS age) a
+WHERE r.active AND f.status = 'non_compliant'
+  AND ($2::bool OR lower(r.org) = ANY ($3::text[]))
+GROUP BY 1
+`
+
+type APISummaryFindingAgeParams struct {
+	Now       time.Time
+	ScopeAll  bool
+	ScopeOrgs []string
+}
+
+type APISummaryFindingAgeRow struct {
+	Bucket   string
+	Findings int32
+}
+
+// Non-compliant findings on active repositories in scope by how long
+// they have failed (IMPL-0031 7.3): status_since against now, in six
+// buckets. Buckets with no findings are absent; the caller fills them.
+func (q *Queries) APISummaryFindingAge(ctx context.Context, arg APISummaryFindingAgeParams) ([]APISummaryFindingAgeRow, error) {
+	rows, err := q.db.Query(ctx, aPISummaryFindingAge, arg.Now, arg.ScopeAll, arg.ScopeOrgs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []APISummaryFindingAgeRow
+	for rows.Next() {
+		var i APISummaryFindingAgeRow
+		if err := rows.Scan(&i.Bucket, &i.Findings); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const aPISummaryFindings = `-- name: APISummaryFindings :one
 SELECT count(*) FILTER (WHERE f.status = 'compliant')::int AS compliant,
        count(*) FILTER (WHERE f.status = 'non_compliant')::int AS non_compliant,

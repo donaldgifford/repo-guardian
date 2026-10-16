@@ -1,37 +1,30 @@
-import {
-  createRootRoute,
-  createRoute,
-  createRouter,
-  Link,
-  Outlet,
-  retainSearchParams,
-  useNavigate,
-  useSearch,
-} from "@tanstack/react-router";
+import { createRootRoute, createRoute, createRouter, Outlet, retainSearchParams } from "@tanstack/react-router";
 
-import { useMe, useOrgs } from "./api/queries";
-import { Loading } from "./components/common";
 import { ProblemView } from "./components/problem";
-import { patchSearch } from "./lib/search";
-import { hasNoAccess, visibleOrgs } from "./lib/viewmodel";
-import { AccessView } from "./views/access";
+import { Shell } from "./components/shell/Shell";
 import { FindingsView, parseFindingsSearch } from "./views/findings";
-import { FleetView } from "./views/fleet";
+import { FleetView, parseFleetSearch } from "./views/fleet";
 import { HistoryView, parseHistorySearch } from "./views/history";
-import { OrgView, OrgsView } from "./views/orgs";
+import { OrgView, OrgsView, parseOrgsSearch } from "./views/orgs";
 import { PolicyView } from "./views/policy";
 import { RepositoryView } from "./views/repository";
-import { RuleView, RulesView } from "./views/rules";
+import { parseRulesSearch, RuleView, RulesView } from "./views/rules";
 import { StatusView } from "./views/status";
+import { isRange, type Range } from "./lib/range";
 
-// OrgSearch is the org filter every authenticated view shares. It lives
-// in the URL, so a filtered view is a link that can be shared.
+// OrgSearch is the org scope and time range every authenticated view
+// shares. Both live in the URL, so a scoped view is a link that can be
+// shared, and both are retained across navigation.
 export interface OrgSearch {
   org?: string;
+  range?: Range;
 }
 
 export function parseOrgSearch(s: Record<string, unknown>): OrgSearch {
-  return typeof s.org === "string" && s.org !== "" ? { org: s.org } : {};
+  return {
+    ...(typeof s.org === "string" && s.org !== "" ? { org: s.org } : {}),
+    ...(isRange(s.range) ? { range: s.range } : {}),
+  };
 }
 
 const rootRoute = createRootRoute({
@@ -46,93 +39,15 @@ const appRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: "app",
   validateSearch: parseOrgSearch,
-  search: { middlewares: [retainSearchParams(["org"])] },
-  component: AppLayout,
+  search: { middlewares: [retainSearchParams(["org", "range"])] },
+  component: Shell,
   errorComponent: ProblemView,
 });
 
-const nav = [
-  { to: "/", label: "Fleet" },
-  { to: "/rules", label: "Rules" },
-  { to: "/orgs", label: "Orgs" },
-  { to: "/findings", label: "Findings" },
-  { to: "/history", label: "History" },
-  { to: "/policy", label: "Policy" },
-] as const;
-
-function AppLayout() {
-  const me = useMe();
-  if (!me.data) {
-    return <Loading />;
-  }
-  if (hasNoAccess(me.data)) {
-    return <AccessView me={me.data} />;
-  }
-  return (
-    <div className="min-h-screen">
-      <header className="border-b border-border">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3">
-          <span className="font-semibold">repo-guardian</span>
-          <nav className="flex flex-wrap gap-3 text-sm">
-            {nav.map((n) => (
-              <Link key={n.to} to={n.to} className="text-muted-foreground hover:text-foreground" activeProps={{ className: "text-foreground font-medium" }} activeOptions={{ exact: n.to === "/" }}>
-                {n.label}
-              </Link>
-            ))}
-          </nav>
-          <div className="ml-auto flex items-center gap-3 text-sm">
-            <OrgFilter />
-            <span className="text-muted-foreground">{me.data.name || me.data.subject}</span>
-            <form method="post" action="/auth/logout">
-              <button type="submit" className="underline underline-offset-2">
-                Sign out
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6">
-        <Outlet />
-      </main>
-    </div>
-  );
-}
-
-function OrgFilter() {
-  const me = useMe();
-  const orgs = useOrgs();
-  const { org } = useSearch({ from: appRoute.id });
-  const navigate = useNavigate();
-  if (!me.data) {
-    return null;
-  }
-  const options = visibleOrgs(me.data, orgs.data?.items);
-  return (
-    <label className="flex items-center gap-2">
-      <span className="text-muted-foreground">Org</span>
-      <select
-        className="h-8 rounded-md border border-border bg-background px-2"
-        value={org ?? ""}
-        onChange={(e) => {
-          const next = e.target.value;
-          void navigate({ to: ".", search: (prev) => patchSearch(prev, { org: next }) });
-        }}
-      >
-        <option value="">All orgs</option>
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-const fleetRoute = createRoute({ getParentRoute: () => appRoute, path: "/", component: FleetView });
-const rulesRoute = createRoute({ getParentRoute: () => appRoute, path: "/rules", component: RulesView });
+const fleetRoute = createRoute({ getParentRoute: () => appRoute, path: "/", validateSearch: parseFleetSearch, component: FleetView });
+const rulesRoute = createRoute({ getParentRoute: () => appRoute, path: "/rules", validateSearch: parseRulesSearch, component: RulesView });
 export const ruleRoute = createRoute({ getParentRoute: () => appRoute, path: "/rules/$kind/$name", component: RuleView });
-const orgsRoute = createRoute({ getParentRoute: () => appRoute, path: "/orgs", component: OrgsView });
+const orgsRoute = createRoute({ getParentRoute: () => appRoute, path: "/orgs", validateSearch: parseOrgsSearch, component: OrgsView });
 export const orgRoute = createRoute({ getParentRoute: () => appRoute, path: "/orgs/$org", component: OrgView });
 export const findingsRoute = createRoute({
   getParentRoute: () => appRoute,

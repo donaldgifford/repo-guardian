@@ -8,6 +8,8 @@ package sqlcdb
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const aPIComplianceHistory = `-- name: APIComplianceHistory :many
@@ -78,6 +80,181 @@ func (q *Queries) APIComplianceHistory(ctx context.Context, arg APIComplianceHis
 			&i.NonCompliant,
 			&i.NotApplicable,
 			&i.Unknown,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const aPIComplianceHistoryByOrg = `-- name: APIComplianceHistoryByOrg :many
+SELECT s.snapshot_at, s.org,
+       sum(s.compliant)::int AS compliant,
+       sum(s.non_compliant)::int AS non_compliant,
+       sum(s.not_applicable)::int AS not_applicable,
+       sum(s.unknown)::int AS unknown,
+       CASE WHEN sum(s.compliant) + sum(s.non_compliant) = 0 THEN NULL
+            ELSE (floor(sum(s.compliant) * 1000.0 / (sum(s.compliant) + sum(s.non_compliant))) / 10)::numeric
+       END AS compliant_percent
+FROM compliance_snapshots s
+WHERE ($1::bool OR lower(s.org) = ANY ($2::text[]))
+  AND ($3::text IS NULL OR lower(s.org) = lower($3::text))
+  AND ($4::text IS NULL OR s.rule_kind = $4::text)
+  AND ($5::text IS NULL OR s.rule_name = $5::text)
+  AND ($6::timestamptz IS NULL OR s.snapshot_at >= $6::timestamptz)
+  AND ($7::timestamptz IS NULL OR s.snapshot_at < $7::timestamptz)
+  AND (NOT $8::bool
+       OR (s.snapshot_at, s.org) > ($9::timestamptz, $10::text))
+GROUP BY s.snapshot_at, s.org
+ORDER BY s.snapshot_at, s.org
+LIMIT $11
+`
+
+type APIComplianceHistoryByOrgParams struct {
+	ScopeAll        bool
+	ScopeOrgs       []string
+	Org             *string
+	RuleKind        *string
+	RuleName        *string
+	FromAt          *time.Time
+	ToAt            *time.Time
+	HasAfter        bool
+	AfterSnapshotAt time.Time
+	AfterOrg        string
+	PageLimit       int32
+}
+
+type APIComplianceHistoryByOrgRow struct {
+	SnapshotAt       time.Time
+	Org              string
+	Compliant        int32
+	NonCompliant     int32
+	NotApplicable    int32
+	Unknown          int32
+	CompliantPercent pgtype.Numeric
+}
+
+func (q *Queries) APIComplianceHistoryByOrg(ctx context.Context, arg APIComplianceHistoryByOrgParams) ([]APIComplianceHistoryByOrgRow, error) {
+	rows, err := q.db.Query(ctx, aPIComplianceHistoryByOrg,
+		arg.ScopeAll,
+		arg.ScopeOrgs,
+		arg.Org,
+		arg.RuleKind,
+		arg.RuleName,
+		arg.FromAt,
+		arg.ToAt,
+		arg.HasAfter,
+		arg.AfterSnapshotAt,
+		arg.AfterOrg,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []APIComplianceHistoryByOrgRow
+	for rows.Next() {
+		var i APIComplianceHistoryByOrgRow
+		if err := rows.Scan(
+			&i.SnapshotAt,
+			&i.Org,
+			&i.Compliant,
+			&i.NonCompliant,
+			&i.NotApplicable,
+			&i.Unknown,
+			&i.CompliantPercent,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const aPIComplianceHistoryFleet = `-- name: APIComplianceHistoryFleet :many
+
+SELECT s.snapshot_at,
+       sum(s.compliant)::int AS compliant,
+       sum(s.non_compliant)::int AS non_compliant,
+       sum(s.not_applicable)::int AS not_applicable,
+       sum(s.unknown)::int AS unknown,
+       CASE WHEN sum(s.compliant) + sum(s.non_compliant) = 0 THEN NULL
+            ELSE (floor(sum(s.compliant) * 1000.0 / (sum(s.compliant) + sum(s.non_compliant))) / 10)::numeric
+       END AS compliant_percent
+FROM compliance_snapshots s
+WHERE ($1::bool OR lower(s.org) = ANY ($2::text[]))
+  AND ($3::text IS NULL OR lower(s.org) = lower($3::text))
+  AND ($4::text IS NULL OR s.rule_kind = $4::text)
+  AND ($5::text IS NULL OR s.rule_name = $5::text)
+  AND ($6::timestamptz IS NULL OR s.snapshot_at >= $6::timestamptz)
+  AND ($7::timestamptz IS NULL OR s.snapshot_at < $7::timestamptz)
+  AND (NOT $8::bool OR s.snapshot_at > $9::timestamptz)
+GROUP BY s.snapshot_at
+ORDER BY s.snapshot_at
+LIMIT $10
+`
+
+type APIComplianceHistoryFleetParams struct {
+	ScopeAll        bool
+	ScopeOrgs       []string
+	Org             *string
+	RuleKind        *string
+	RuleName        *string
+	FromAt          *time.Time
+	ToAt            *time.Time
+	HasAfter        bool
+	AfterSnapshotAt time.Time
+	PageLimit       int32
+}
+
+type APIComplianceHistoryFleetRow struct {
+	SnapshotAt       time.Time
+	Compliant        int32
+	NonCompliant     int32
+	NotApplicable    int32
+	Unknown          int32
+	CompliantPercent pgtype.Numeric
+}
+
+// Aggregates (IMPL-0031 7.1): the same rows summed per snapshot_at
+// (fleet) or per (snapshot_at, org) (org), with the percent floored to
+// one decimal in SQL exactly as ComplianceByRule floors it, so the API
+// never recomputes a percentage in Go. The kind/rule filters still
+// apply, which gives one rule's fleet series.
+func (q *Queries) APIComplianceHistoryFleet(ctx context.Context, arg APIComplianceHistoryFleetParams) ([]APIComplianceHistoryFleetRow, error) {
+	rows, err := q.db.Query(ctx, aPIComplianceHistoryFleet,
+		arg.ScopeAll,
+		arg.ScopeOrgs,
+		arg.Org,
+		arg.RuleKind,
+		arg.RuleName,
+		arg.FromAt,
+		arg.ToAt,
+		arg.HasAfter,
+		arg.AfterSnapshotAt,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []APIComplianceHistoryFleetRow
+	for rows.Next() {
+		var i APIComplianceHistoryFleetRow
+		if err := rows.Scan(
+			&i.SnapshotAt,
+			&i.Compliant,
+			&i.NonCompliant,
+			&i.NotApplicable,
+			&i.Unknown,
+			&i.CompliantPercent,
 		); err != nil {
 			return nil, err
 		}

@@ -8,3 +8,9 @@ test("patchSearch sets values and drops emptied keys", () => {
   expect(patchSearch<Record<string, unknown>>({ org: "acme" }, { org: undefined })).toEqual({});
   expect(patchSearch({}, { pr_stale: false })).toEqual({ pr_stale: false });
 });
+
+test("a cleared key stays present as undefined so retainSearchParams does not restore it", () => {
+  const next = patchSearch<Record<string, unknown>>({ org: "acme" }, { org: undefined });
+  expect("org" in next).toBe(true);
+  expect(next.org).toBeUndefined();
+});

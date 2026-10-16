@@ -26,7 +26,7 @@ const BaseURL = "/api/v1"
 // are indistinguishable by design.
 type Reader interface {
 	Ping(ctx context.Context) error
-	Summary(ctx context.Context, scope store.APIScope) (*store.Summary, error)
+	Summary(ctx context.Context, scope store.APIScope, now time.Time) (*store.Summary, error)
 	Rules(ctx context.Context, scope store.APIScope) (*store.ComplianceReport, error)
 	Rule(ctx context.Context, scope store.APIScope, kind findings.RuleKind, name string, staleBefore time.Time) (*store.RuleView, error)
 	Orgs(ctx context.Context, scope store.APIScope) (*store.OrgsView, error)

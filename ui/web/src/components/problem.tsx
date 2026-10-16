@@ -1,7 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
 import { type Problem, ProblemError } from "../api/client";
-import { Card, CardContent, CardHeader } from "./ui/card";
+import { Card, CardBody } from "./ui/card";
 
 // ProblemView renders an RFC 9457 problem, or any other error as one.
 // Every field is text: a problem's detail can echo request input.
@@ -13,15 +13,13 @@ export function ProblemView({ error }: { error: unknown }) {
 
   return (
     <Card className="mx-auto mt-8 max-w-xl" role="alert">
-      <CardHeader>
-        <h2 className="text-lg font-semibold">
-          {p.status} · {p.title}
-        </h2>
-      </CardHeader>
-      <CardContent className="space-y-2 text-sm">
+      <h2 className="px-3.5 pt-3 text-lg font-semibold">
+        {p.status} · {p.title}
+      </h2>
+      <CardBody className="space-y-2 text-sm">
         {p.detail ? <p>{p.detail}</p> : null}
         {p.request_id ? <p className="text-muted-foreground">Request ID: {p.request_id}</p> : null}
-      </CardContent>
+      </CardBody>
     </Card>
   );
 }

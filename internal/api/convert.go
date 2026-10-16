@@ -171,13 +171,24 @@ func eventOut(e *store.Event) (gen.Event, error) {
 	return out, nil
 }
 
-func historyOut(s *store.ComplianceSnapshot) gen.HistoryPoint {
+// historyOut converts one snapshot point. An aggregated point carries the
+// percent SQL floored; an unaggregated one derives it from its counts
+// with the same floor.
+func historyOut(s *store.ComplianceSnapshot, agg store.HistoryAggregate) gen.HistoryPoint {
 	c := s.Counts()
+	out := gen.HistoryPoint{SnapshotAt: s.SnapshotAt, Counts: counts(c), Org: optStr(s.Org)}
 
-	return gen.HistoryPoint{
-		Org: s.Org, Kind: string(s.Kind), Rule: s.RuleName, SnapshotAt: s.SnapshotAt,
-		Counts: counts(c), CompliantPercent: store.CompliantPercent(c),
+	if agg == store.AggregateNone {
+		kind := string(s.Kind)
+		out.Kind, out.Rule = &kind, optStr(s.RuleName)
+		out.CompliantPercent = store.CompliantPercent(c)
+
+		return out
 	}
+
+	out.CompliantPercent = s.Percent
+
+	return out
 }
 
 func policyRuleOut(r *store.PolicyRule) gen.PolicyRule {

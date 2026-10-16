@@ -195,8 +195,8 @@ func TestEndpoints_TwoOrgAuthz(t *testing.T) {
 
 	history := decodeAs[gen.HistoryPage](t, e.get(t, "/compliance/history", "team-web"))
 	for _, h := range history.Items {
-		if h.Org != "acme-web" {
-			t.Errorf("team-web history includes %s", h.Org)
+		if h.Org == nil || *h.Org != "acme-web" {
+			t.Errorf("team-web history includes %v", h.Org)
 		}
 	}
 

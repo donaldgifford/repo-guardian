@@ -254,3 +254,42 @@ func TestStatus_ComplianceIsUnmeasuredWithoutFindings(t *testing.T) {
 		t.Errorf("compliance = %+v, want 66.6", s.Compliance)
 	}
 }
+
+// The operations strip maps the newest version's rollout onto a closed
+// enum and carries counts and times through unchanged (IMPL-0031 7.4).
+func TestStatus_Operations(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		rollout   *store.Rollout
+		want      gen.StatusOperationsRolloutState
+		completed bool
+	}{
+		{name: "no version", want: gen.StatusOperationsRolloutStateNone},
+		{name: "in progress", rollout: &store.Rollout{}, want: gen.StatusOperationsRolloutStateInProgress},
+		{name: "complete", rollout: &store.Rollout{CompletedAt: ptrTime(time.Hour)}, want: gen.StatusOperationsRolloutStateComplete, completed: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			in := &store.StatusInputs{
+				ActiveRepositories: 4, CheckedLastDay: 3, Rollout: tt.rollout, LastSnapshot: ptrTime(2 * time.Hour),
+				History: []store.CompliancePoint{{At: statusNow.Add(-24 * time.Hour)}},
+			}
+
+			s := evaluateStatus(in, nil, &statusCfg, statusNow)
+			ops := s.Operations
+
+			if ops.RolloutState != tt.want || (ops.RolloutCompletedAt != nil) != tt.completed {
+				t.Errorf("rollout = %s completed at %v, want %s (completed %t)", ops.RolloutState, ops.RolloutCompletedAt, tt.want, tt.completed)
+			}
+
+			if ops.Checked24h != 3 || ops.Tracked != 4 || ops.LastSnapshotAt == nil || len(s.Compliance.History) != 1 {
+				t.Errorf("operations = %+v, history = %+v", ops, s.Compliance.History)
+			}
+		})
+	}
+}

@@ -9,6 +9,7 @@ import (
 	"github.com/donaldgifford/repo-guardian/api"
 	"github.com/donaldgifford/repo-guardian/internal/api/gen"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
+	"github.com/donaldgifford/repo-guardian/internal/store"
 )
 
 // server implements the generated strict interface.
@@ -63,7 +64,9 @@ func (s *server) GetSummary(ctx context.Context, req gen.GetSummaryRequestObject
 		return nil, err
 	}
 
-	sum, err := s.opts.Reader.Summary(ctx, p.Visible)
+	now := s.opts.Now()
+
+	sum, err := s.opts.Reader.Summary(ctx, p.Visible, now)
 	if err != nil {
 		return nil, err
 	}
@@ -78,6 +81,11 @@ func (s *server) GetSummary(ctx context.Context, req gen.GetSummaryRequestObject
 		},
 		OpenPrs:    make([]gen.PRAgeBucket, len(prAgeBuckets)),
 		StaleAfter: staleAfter.String(),
+		FindingAge: make([]gen.FindingAgeBucket, len(store.FindingAgeBuckets)),
+	}
+
+	for i, b := range store.FindingAgeBuckets {
+		out.FindingAge[i] = gen.FindingAgeBucket{Bucket: b, Count: sum.FindingAge[b]}
 	}
 
 	for _, pc := range sum.Parked {
@@ -85,7 +93,6 @@ func (s *server) GetSummary(ctx context.Context, req gen.GetSummaryRequestObject
 	}
 
 	counts := map[string]int{}
-	now := s.opts.Now()
 
 	for _, created := range sum.OpenPRs {
 		age := now.Sub(created)
@@ -128,9 +135,7 @@ func (s *server) staleAfter(param *string) (time.Duration, error) {
 // GetStatus serves the status page from its cache; it never queries.
 func (s *server) GetStatus(context.Context, gen.GetStatusRequestObject) (gen.GetStatusResponseObject, error) {
 	if s.opts.Status == nil {
-		return gen.GetStatus200JSONResponse{
-			State: stateUnknown, UpdatedAt: s.opts.Now().UTC(), Components: []gen.Component{},
-		}, nil
+		return gen.GetStatus200JSONResponse(unknownStatus(s.opts.Now())), nil
 	}
 
 	return gen.GetStatus200JSONResponse(s.opts.Status.Current()), nil

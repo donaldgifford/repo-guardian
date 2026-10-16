@@ -372,6 +372,15 @@ export interface components {
             bucket: string;
             count: number;
         };
+        /** @description Non-compliant findings that have failed for one age range. */
+        FindingAgeBucket: {
+            /**
+             * @description Open enum: <1d, 1-7d, 7-30d, 30-90d, 90-180d, 180d+.
+             * @example 7-30d
+             */
+            bucket: string;
+            count: number;
+        };
         /** @description The fleet summary over the visible orgs. */
         Summary: {
             /** @description Active repositories in the visible orgs. */
@@ -392,6 +401,8 @@ export interface components {
             stale_prs: number;
             /** @description The threshold applied, as a Go duration. */
             stale_after: string;
+            /** @description Non-compliant findings on active repositories by how long they have failed (status_since), every bucket in order, zeros included. */
+            finding_age: components["schemas"]["FindingAgeBucket"][];
         };
         /** @description One status-page component. */
         Component: {
@@ -406,6 +417,31 @@ export interface components {
             /** Format: double */
             percent: number | null;
             measured: boolean;
+            /** @description Fleet compliance at each UTC day's last snapshot over the last 30 days, oldest first. */
+            history: components["schemas"]["CompliancePoint"][];
+        };
+        /** @description Fleet compliance at one snapshot; percent is null when nothing was measured. */
+        CompliancePoint: {
+            /** Format: date-time */
+            at: string;
+            /** Format: double */
+            percent: number | null;
+        };
+        /** @description The status page's operations strip. Counts and times only. */
+        StatusOperations: {
+            /** @description Repositories with a finished check in the last 24 hours. */
+            checked_24h: number;
+            /** @description Active repositories. */
+            tracked: number;
+            /**
+             * @description The newest policy version's rollout; none before any version is recorded.
+             * @enum {string}
+             */
+            rollout_state: "none" | "in_progress" | "complete";
+            /** Format: date-time */
+            rollout_completed_at?: string;
+            /** Format: date-time */
+            last_snapshot_at?: string;
         };
         /** @description The public service status. */
         Status: {
@@ -414,6 +450,7 @@ export interface components {
             updated_at: string;
             components: components["schemas"]["Component"][];
             compliance: components["schemas"]["Compliance"];
+            operations: components["schemas"]["StatusOperations"];
         };
         /**
          * @description Open enum: file, setting, branch_protection.
@@ -474,6 +511,8 @@ export interface components {
             counts: components["schemas"]["StatusCounts"];
             /** Format: double */
             compliant_percent: number | null;
+            /** @description Findings with an open repo-guardian PR on the org's active repositories; equals the total of /findings?org=&remediation=pr_open. */
+            open_prs: number;
         };
         /** @description Every visible org. */
         OrgList: {
@@ -763,11 +802,13 @@ export interface components {
             items: components["schemas"]["Event"][];
             next_cursor?: components["schemas"]["Cursor"];
         };
-        /** @description One (org, rule) snapshot. */
+        /** @description One snapshot point. Unaggregated, it is one (org, rule) and carries `org`, `kind` and `rule`. With `aggregate=org` it carries `org` only; with `aggregate=fleet` it carries none of the three. */
         HistoryPoint: {
-            org: string;
-            kind: components["schemas"]["RuleKind"];
-            rule: string;
+            /** @description Absent when aggregated to the fleet. */
+            org?: string;
+            kind?: components["schemas"]["RuleKind"];
+            /** @description Absent when aggregated. */
+            rule?: string;
             /** Format: date-time */
             snapshot_at: string;
             counts: components["schemas"]["StatusCounts"];
@@ -1039,6 +1080,8 @@ export interface operations {
                 pr_stale?: boolean;
                 /** @description Only findings whose status has held since before this time. */
                 since_before?: string;
+                /** @description `default` orders by repository, kind and rule. `pr_age` orders by the PR's `created_at`, oldest first, findings without a PR last, then by the default key. A cursor is bound to its sort. */
+                sort?: "default" | "pr_age";
                 /** @description Age after which an open repo-guardian PR counts as stale, 1h to 8760h. Defaults to the server's PR_STALE_AFTER. */
                 stale_after?: components["parameters"]["StaleAfter"];
                 /** @description The next_cursor of the previous page. */
@@ -1214,6 +1257,8 @@ export interface operations {
                 from?: string;
                 /** @description Only snapshots before this time. */
                 to?: string;
+                /** @description How to sum the selected snapshots. `none` (the default) returns one point per (snapshot, org, rule). `fleet` sums every org and rule per snapshot; `org` sums every rule per (snapshot, org). The other filters apply before summing, so `aggregate=fleet` with `kind` and `rule` is one rule's fleet series. Aggregated percentages are floored in SQL exactly as `/rules` floors them. */
+                aggregate?: "none" | "fleet" | "org";
                 /** @description The next_cursor of the previous page. */
                 cursor?: components["parameters"]["Cursor"];
                 /** @description Page size. */

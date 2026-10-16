@@ -350,6 +350,9 @@ ui:
   publicUrl: ""
   # -- GitHub host PR and repository links point at.
   githubHost: github.com
+  # -- https URL of the operator's documentation. When set the sidebar
+  # shows a Docs group linking to it; unset hides the group.
+  docsUrl: ""
   # -- Resources for the ui container.
   resources:
     requests:

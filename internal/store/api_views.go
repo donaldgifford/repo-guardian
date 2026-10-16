@@ -72,6 +72,9 @@ type RuleView struct {
 type OrgsView struct {
 	Current      []ComplianceCount
 	Repositories []OrgRepositoryCount
+	// OpenPRs counts findings with an open repo-guardian PR per org,
+	// keyed by the lower-cased org.
+	OpenPRs map[string]int
 }
 
 // OrgView is one org's repositories, rules and not-applicable reasons.
@@ -101,12 +104,45 @@ type APIFinding struct {
 	Evidence json.RawMessage
 }
 
+// PRCreatedAt reads the PR's created_at from the evidence: the value
+// FindingSortPRAge orders by. nil when the evidence names no PR or no
+// time.
+func (f *APIFinding) PRCreatedAt() *time.Time {
+	var ev struct {
+		PR *struct {
+			CreatedAt *time.Time `json:"created_at"`
+		} `json:"pr"`
+	}
+
+	if json.Unmarshal(f.Evidence, &ev) != nil || ev.PR == nil {
+		return nil
+	}
+
+	return ev.PR.CreatedAt
+}
+
 // FindingKey orders findings for paging.
 type FindingKey struct {
 	RepositoryID int64
 	Kind         findings.RuleKind
 	RuleName     string
+
+	// PRCreatedAt is the PR's creation time under FindingSortPRAge; nil
+	// is a finding with no PR, which sorts last.
+	PRCreatedAt *time.Time
 }
+
+// FindingSort orders a findings page (IMPL-0031 7.2).
+type FindingSort string
+
+// The findings sorts. The zero value is FindingSortDefault.
+const (
+	// FindingSortDefault orders by (repository id, kind, rule).
+	FindingSortDefault FindingSort = ""
+	// FindingSortPRAge orders by the PR's created_at ascending, findings
+	// without a PR last, then by the default key.
+	FindingSortPRAge FindingSort = "pr_age"
+)
 
 // FindingFilter selects findings. Zero fields do not filter.
 type FindingFilter struct {
@@ -123,6 +159,7 @@ type FindingFilter struct {
 	StaleBefore time.Time
 	After       *FindingKey
 	Limit       int
+	Sort        FindingSort
 }
 
 // RepositoryFilter selects repositories. Zero fields do not filter.
@@ -212,6 +249,21 @@ type HistoryKey struct {
 	RuleName   string
 }
 
+// HistoryAggregate selects how snapshots are summed (IMPL-0031 7.1).
+type HistoryAggregate string
+
+// The history aggregates. The zero value is AggregateNone.
+const (
+	// AggregateNone returns one point per (snapshot, org, kind, rule).
+	AggregateNone HistoryAggregate = ""
+	// AggregateFleet sums every org and rule per snapshot; the points
+	// carry no org, kind or rule.
+	AggregateFleet HistoryAggregate = "fleet"
+	// AggregateOrg sums every rule per (snapshot, org); the points carry
+	// no kind or rule.
+	AggregateOrg HistoryAggregate = "org"
+)
+
 // HistoryFilter selects stored snapshots. Zero fields do not filter.
 type HistoryFilter struct {
 	Org      string
@@ -221,6 +273,11 @@ type HistoryFilter struct {
 	To       *time.Time
 	After    *HistoryKey
 	Limit    int
+
+	// Aggregate sums the selected rows. An aggregated snapshot's Percent
+	// is floored in SQL; an unaggregated one leaves Percent nil and the
+	// caller derives it from the counts.
+	Aggregate HistoryAggregate
 }
 
 // CurrentPolicy is the newest policy version and its rollout.
@@ -248,4 +305,28 @@ type StatusInputs struct {
 	Rates []RateSnapshot
 	// Compliance is the fleet's finding counts, from the shared query.
 	Compliance StatusCounts
+	// History is fleet compliance at each UTC day's last snapshot over
+	// the last 30 days, oldest first.
+	History []CompliancePoint
+	// CheckedLastDay counts repositories with a finished check in the
+	// last 24h.
+	CheckedLastDay int
+	// Rollout is the newest policy version's rollout; nil before any
+	// version is recorded.
+	Rollout *Rollout
+	// LastSnapshot is nil before the first compliance snapshot.
+	LastSnapshot *time.Time
+}
+
+// CompliancePoint is fleet compliance at one snapshot; Percent is nil
+// when nothing was measured.
+type CompliancePoint struct {
+	At      time.Time
+	Percent *float64
+}
+
+// Rollout is a policy version's rollout; CompletedAt is nil while it is
+// in progress.
+type Rollout struct {
+	CompletedAt *time.Time
 }

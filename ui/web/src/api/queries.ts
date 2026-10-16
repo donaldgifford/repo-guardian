@@ -33,6 +33,9 @@ export interface UIConfig {
   public_url: string;
   session_ttl_seconds: number;
   github_host: string;
+  // docs_url is set when the operator configured UI_DOCS_URL; it adds
+  // the Docs group and the avatar menu entry.
+  docs_url?: string;
 }
 
 export function useUIConfig() {
@@ -88,10 +91,11 @@ export function useFindings(filters: FindingFilters) {
   });
 }
 
-export function useRepository(id: number) {
+export function useRepository(id: number, enabled = true) {
   return useQuery({
     queryKey: ["repository", id],
     queryFn: () => unwrap(api.GET("/repositories/{id}", { params: { path: { id } } })),
+    enabled,
   });
 }
 
@@ -109,11 +113,14 @@ export function useRepositoryChecks(id: number) {
   });
 }
 
+// HistoryFilters are /compliance/history's query. aggregate sums on the
+// server (IMPL-0031 7.1): fleet for one series, org for one per org.
 export interface HistoryFilters {
   org?: string;
   kind?: string;
   rule?: string;
   from?: string;
+  aggregate?: "none" | "fleet" | "org";
 }
 
 export function useHistory(filters: HistoryFilters) {
@@ -123,6 +130,17 @@ export function useHistory(filters: HistoryFilters) {
       fetchAll((cursor) =>
         unwrap(api.GET("/compliance/history", { params: { query: { ...filters, ...(cursor ? { cursor } : {}), limit: 200 } } })),
       ),
+  });
+}
+
+// RepositoryQuery is the palette's search: a name prefix, scoped by org,
+// at most 20 rows, and nothing at all for an empty query.
+export function useRepositorySearch(q: string, org: string | undefined) {
+  return useQuery({
+    queryKey: ["repository-search", q, org ?? ""],
+    queryFn: () => unwrap(api.GET("/repositories", { params: { query: { q, ...(org ? { org } : {}), limit: 20 } } })),
+    enabled: q.trim() !== "",
+    placeholderData: keepPreviousData,
   });
 }
 

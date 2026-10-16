@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import golden from "../../../../api/testdata/compliant_percent.json";
-import { ageDays, compliantPercent, formatPercent, relativeTime, statusTone, trend } from "./format";
+import { ageDays, compliantPercent, formatPercent, humanizeDuration, relativeTime, toneFor, trend } from "./format";
 
 describe("compliantPercent", () => {
   // The same table drives internal/store's TestCompliantPercent_Golden,
@@ -47,7 +47,49 @@ test("ageDays counts whole days", () => {
   expect(ageDays("2026-09-16T13:00:00Z", new Date("2026-09-25T12:00:00Z"))).toBe(8);
 });
 
-test("statusTone treats an unknown status as neutral", () => {
-  expect(statusTone("non_compliant")).toBe("non_compliant");
-  expect(statusTone("quarantined")).toBe("neutral");
+describe("toneFor", () => {
+  // Every documented value of each open enum, plus one the table has
+  // never heard of (DESIGN-0036 §Badges).
+  test.each([
+    ["status", "compliant", "ok"],
+    ["status", "non_compliant", "bad"],
+    ["status", "not_applicable", "mute"],
+    ["status", "unknown", "warn"],
+    ["status", "quarantined", "mute"],
+    ["remediation", "pr_open", "info"],
+    ["remediation", "applied", "ok"],
+    ["remediation", "foreign_pr", "warn"],
+    ["remediation", "disabled", "mute"],
+    ["remediation", "dry_run", "mute"],
+    ["remediation", "none", "mute"],
+    ["remediation", "teleported", "mute"],
+    ["reason", "non_compliant", "warn"],
+    ["reason", "compliant", "mute"],
+    ["reason", "not_applicable", "mute"],
+    ["reason", "unknown", "mute"],
+    ["reason", "quarantined", "mute"],
+    ["state", "operational", "ok"],
+    ["state", "degraded", "warn"],
+    ["state", "down", "bad"],
+    ["state", "unknown", "bad"],
+    ["state", "on_fire", "bad"],
+    ["kind", "file", "outline"],
+    ["kind", "setting", "outline"],
+    ["kind", "branch_protection", "outline"],
+    ["kind", "webhook", "outline"],
+  ] as const)("%s %s → %s", (field, value, want) => {
+    expect(toneFor(field, value)).toBe(want);
+  });
+});
+
+test.each([
+  ["720h", "30d"],
+  ["720h0m0s", "30d"],
+  ["24h", "1d"],
+  ["36h", "36h"],
+  ["0h", "0h"],
+  ["90m", "90m"],
+  ["", ""],
+])("humanizeDuration(%p) → %p", (input, want) => {
+  expect(humanizeDuration(input)).toBe(want);
 });

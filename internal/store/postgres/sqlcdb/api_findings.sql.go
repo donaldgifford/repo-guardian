@@ -32,10 +32,22 @@ WHERE r.active
        OR coalesce(f.remediation = 'pr_open'
                    AND (f.evidence -> 'pr' ->> 'created_at')::timestamptz < $1::timestamptz, false)
           = $11::bool)
+  -- Keyset: the default key, or under sort=pr_age (IMPL-0031 7.2) the PR's
+  -- created_at ascending with no-PR findings last, then the default key.
   AND (NOT $12::bool
-       OR (f.repository_id, f.rule_kind, f.rule_name) > ($13::bigint, $14::text, $15::text))
-ORDER BY f.repository_id, f.rule_kind, f.rule_name
-LIMIT $16
+       OR (NOT $13::bool
+           AND (f.repository_id, f.rule_kind, f.rule_name) > ($14::bigint, $15::text, $16::text))
+       OR ($13::bool AND $17::bool
+           AND (f.evidence -> 'pr' ->> 'created_at') IS NULL
+           AND (f.repository_id, f.rule_kind, f.rule_name) > ($14::bigint, $15::text, $16::text))
+       OR ($13::bool AND NOT $17::bool
+           AND ((f.evidence -> 'pr' ->> 'created_at') IS NULL
+                OR ((f.evidence -> 'pr' ->> 'created_at')::timestamptz, f.repository_id, f.rule_kind, f.rule_name)
+                   > ($18::timestamptz, $14::bigint, $15::text, $16::text))))
+ORDER BY CASE WHEN $13::bool THEN (f.evidence -> 'pr' ->> 'created_at') IS NULL END,
+         CASE WHEN $13::bool THEN (f.evidence -> 'pr' ->> 'created_at')::timestamptz END,
+         f.repository_id, f.rule_kind, f.rule_name
+LIMIT $19
 `
 
 type APIFindingsParams struct {
@@ -51,9 +63,12 @@ type APIFindingsParams struct {
 	SinceBefore       *time.Time
 	PrStale           *bool
 	HasAfter          bool
+	SortPrAge         bool
 	AfterRepositoryID int64
 	AfterRuleKind     string
 	AfterRuleName     string
+	AfterPrNull       bool
+	AfterPrAt         time.Time
 	PageLimit         int32
 }
 
@@ -91,9 +106,12 @@ func (q *Queries) APIFindings(ctx context.Context, arg APIFindingsParams) ([]API
 		arg.SinceBefore,
 		arg.PrStale,
 		arg.HasAfter,
+		arg.SortPrAge,
 		arg.AfterRepositoryID,
 		arg.AfterRuleKind,
 		arg.AfterRuleName,
+		arg.AfterPrNull,
+		arg.AfterPrAt,
 		arg.PageLimit,
 	)
 	if err != nil {

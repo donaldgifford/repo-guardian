@@ -45,7 +45,7 @@ COVERAGE_OUT := coverage.out
 .PHONY: lint lint-fix lint-alerts lint-alerts-generated lint-alerts-chart fmt clean
 .PHONY: monitoring-generate lint-monitoring generate-sql lint-sql generate-api lint-api lint-temporal-contrib
 .PHONY: run run-local test-api ci check dev-services dev-stop
-.PHONY: ui-install generate-ui-api test-ui test-ui-e2e lint-ui
+.PHONY: ui-install generate-ui-api test-ui test-ui-e2e test-ui-e2e-visual test-ui-e2e-update-snapshots lint-ui
 .PHONY: release-check release-local
 
 ## Build Targets
@@ -271,9 +271,17 @@ test-ui-e2e: ## Run the UI's Playwright suite (needs Docker and Go)
 	@ $(MAKE) --no-print-directory log-$@
 	@cd ui && bunx playwright install chromium && bun run e2e
 
-lint-ui: ## Typecheck and ESLint the UI, and fail if its generated API types are stale
+test-ui-e2e-visual: ## Compare the UI's screenshots against ui/e2e/__screenshots__ using the pinned Playwright image's Chromium (needs Docker and Go)
 	@ $(MAKE) --no-print-directory log-$@
-	@cd ui && bun run typecheck && bun run lint && bun run check:api
+	@cd ui && bun scripts/visual.ts
+
+test-ui-e2e-update-snapshots: ## Regenerate ui/e2e/__screenshots__ through the pinned Playwright image (needs Docker and Go)
+	@ $(MAKE) --no-print-directory log-$@
+	@cd ui && bun scripts/visual.ts --update-snapshots
+
+lint-ui: ## Typecheck and ESLint the UI; fail if its generated API types are stale or its build breaks the CSP
+	@ $(MAKE) --no-print-directory log-$@
+	@cd ui && bun run typecheck && bun run lint && bun run check:api && bun run check:dist
 
 fmt: ## Format code with gofmt and goimports
 	@ $(MAKE) --no-print-directory log-$@

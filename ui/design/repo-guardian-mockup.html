@@ -125,11 +125,11 @@ code,.mono{font-family:var(--mono)}
 .pill b{color:var(--fg);font-weight:500}
 .pill[aria-pressed="true"]{background:var(--panel2);color:var(--fg);border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
 .badge{display:inline-block;font:500 12px/1 var(--mono);padding:5px 7px;white-space:nowrap;vertical-align:middle}
-.b-ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:color-mix(in srgb,var(--ok) 75%,white)}
-.b-bad{background:color-mix(in srgb,var(--bad) 18%,transparent);color:color-mix(in srgb,var(--bad) 75%,white)}
-.b-warn{background:color-mix(in srgb,var(--warn) 20%,transparent);color:color-mix(in srgb,var(--warn) 72%,white)}
-.b-info{background:color-mix(in srgb,var(--info) 18%,transparent);color:color-mix(in srgb,var(--info) 80%,white)}
-.b-mute{background:color-mix(in srgb,var(--muted) 16%,transparent);color:color-mix(in srgb,var(--muted) 60%,white)}
+.b-ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:color-mix(in srgb,var(--ok) 65%,white)}
+.b-bad{background:color-mix(in srgb,var(--bad) 18%,transparent);color:color-mix(in srgb,var(--bad) 65%,white)}
+.b-warn{background:color-mix(in srgb,var(--warn) 18%,transparent);color:color-mix(in srgb,var(--warn) 65%,white)}
+.b-info{background:color-mix(in srgb,var(--info) 18%,transparent);color:color-mix(in srgb,var(--info) 65%,white)}
+.b-mute{background:color-mix(in srgb,var(--muted) 18%,transparent);color:color-mix(in srgb,var(--muted) 65%,white)}
 .b-outline{background:transparent;border:1px solid var(--line);color:var(--muted);padding:4px 6px}
 
 /* tables */
@@ -627,7 +627,7 @@ V.orgs=()=>{const {q}=route();const scope=q.org||'';const tab=q.tab||'compliance
     const kids=open?d.rules.map((r,i)=>{const t=r.counts.compliant+r.counts.non_compliant;return `<tr class="child link" data-go="rules/${r.kind}/${r.name}?org=${o.org}"><td><span class="rk">${esc(r.kind)}</span><span class="m">${esc(r.name)}</span></td><td class="num muted">${fmtN(o.tracked)}</td><td class="num heat" ${tab==='compliance'?heat(r.counts.compliant,t,'ok'):''}>${fmtN(r.counts.compliant)}<small>${t?Math.round(100*r.counts.compliant/t)+'%':'—'}</small></td><td class="num heat" ${tab==='compliance'?heat(r.counts.non_compliant,t,'bad'):''}>${fmtN(r.counts.non_compliant)}<small>${t?Math.round(100*r.counts.non_compliant/t)+'%':'—'}</small></td><td class="num muted">${fmtN(r.counts.not_applicable)}</td><td class="num muted">—</td></tr>`}).join(''):'';
     return grp+kids}).join('');
   const total=`<tr class="total"><td>${orgs.length} orgs</td><td class="num">${fmtN(T.tracked)}</td><td class="num">${fmtN(T.c)} / ${T.c+T.nc?Math.round(100*T.c/(T.c+T.nc)):'—'}%</td><td class="num">${fmtN(T.nc)} / ${T.c+T.nc?Math.round(100*T.nc/(T.c+T.nc)):'—'}%</td><td class="num">${fmtN(T.na)}</td><td class="num">${fmtN(T.p)}</td></tr>`;
-  const toolbar=`<div class="filters" style="padding:0 0 10px"><span class="muted" style="font-size:12px">Tracked</span>${badge(fmtN(T.tracked),'mute')}<span class="muted" style="font-size:12px">Failing</span>${badge(fmtN(T.nc),'bad')}<span class="muted" style="font-size:12px">Parked</span>${badge(fmtN(T.p),'warn')}<span class="sp" style="flex:1"></span><div class="seg" role="tablist">${[['compliance','Compliance'],['parked','Parked']].map(([k,l])=>`<button role="tab" class="${tab===k?'cur':''}" data-act="tab" data-tab="${k}">${l}</button>`).join('')}</div><div class="seg"><button class="${!hide?'cur':''}" data-act="parked" data-parked="">All</button><button class="${hide?'cur':''}" data-act="parked" data-parked="hide">Hide fully parked</button></div><button class="btn sm" data-act="ggall">${Object.values(state.gg).some(v=>v===false)?'Expand all':'Collapse all'}</button></div>`;
+  const toolbar=`<div class="filters" style="padding:0 0 10px"><span class="muted" style="font-size:12px">Tracked</span>${badge(fmtN(T.tracked),'mute')}<span class="muted" style="font-size:12px">Failing</span>${badge(fmtN(T.nc),'bad')}<span class="muted" style="font-size:12px">Parked</span>${badge(fmtN(T.p),'warn')}<span class="sp" style="flex:1"></span><div class="seg" role="tablist">${[['compliance','Compliance'],['parked','Parked']].map(([k,l])=>`<button role="tab" class="${tab===k?'cur':''}" data-act="tab" data-tab="${k}">${l}</button>`).join('')}</div><div class="seg"><button class="${!hide?'cur':''}" data-act="parked" data-parked="">All</button><button class="${hide?'cur':''}" data-act="parked" data-parked="hide">Hide parked</button></div><button class="btn sm" data-act="ggall">${Object.values(state.gg).some(v=>v===false)?'Expand all':'Collapse all'}</button></div>`;
   return pageHeader('Orgs','Tracked, compliance and parked per org, expandable to the rules in that org. Cells shade by share of measured.',{actions:`<button class="btn" data-act="toast">Export CSV</button>`})
     +card(null,null,toolbar+`<table class="gg"><thead>${cols}</thead><tbody>${rows}${total}</tbody></table>`).replace('<div class="card-h"><div><b>null</b></div><div class="right"></div></div>','')
     +deferred(['PR activity tab (OrgSummary.open_prs, OQ14)','repository rows under an org (per-repository counts, OQ13)']);

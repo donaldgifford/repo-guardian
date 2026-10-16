@@ -102,7 +102,7 @@ func TestAPIReader_SummaryValidatesAndIsScopedInSQL(t *testing.T) {
 	}
 
 	// Scoping is SQL's job: the reader alone must honor it.
-	pay, err := reader.Summary(t.Context(), store.ScopeOrgs("ACME-PAY"))
+	pay, err := reader.Summary(t.Context(), store.ScopeOrgs("ACME-PAY"), t0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func TestAPIReader_SummaryValidatesAndIsScopedInSQL(t *testing.T) {
 		t.Errorf("acme-pay summary = %+v, want one tracked, one parked, no PRs", pay)
 	}
 
-	none, err := reader.Summary(t.Context(), store.ScopeOrgs())
+	none, err := reader.Summary(t.Context(), store.ScopeOrgs(), t0)
 	if err != nil {
 		t.Fatal(err)
 	}

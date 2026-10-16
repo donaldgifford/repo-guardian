@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: repo-guardian API
-  version: 1.0.0
+  version: 1.1.0
   summary: Read-only compliance API for repo-guardian v2.
   description: |
     The read-only API behind the repo-guardian UI and status page
@@ -205,6 +205,16 @@ paths:
           schema:
             type: string
             format: date-time
+        - name: sort
+          in: query
+          description: >-
+            `default` orders by repository, kind and rule. `pr_age` orders by
+            the PR's `created_at`, oldest first, findings without a PR last,
+            then by the default key. A cursor is bound to its sort.
+          schema:
+            type: string
+            enum: [default, pr_age]
+            default: default
         - $ref: "#/components/parameters/StaleAfter"
         - $ref: "#/components/parameters/Cursor"
         - $ref: "#/components/parameters/Limit"
@@ -377,6 +387,19 @@ paths:
           schema:
             type: string
             format: date-time
+        - name: aggregate
+          in: query
+          description: >-
+            How to sum the selected snapshots. `none` (the default) returns
+            one point per (snapshot, org, rule). `fleet` sums every org and
+            rule per snapshot; `org` sums every rule per (snapshot, org).
+            The other filters apply before summing, so `aggregate=fleet`
+            with `kind` and `rule` is one rule's fleet series. Aggregated
+            percentages are floored in SQL exactly as `/rules` floors them.
+          schema:
+            type: string
+            enum: [none, fleet, org]
+            default: none
         - $ref: "#/components/parameters/Cursor"
         - $ref: "#/components/parameters/Limit"
       responses:
@@ -673,10 +696,22 @@ components:
         count:
           type: integer
           minimum: 0
+    FindingAgeBucket:
+      description: Non-compliant findings that have failed for one age range.
+      type: object
+      required: [bucket, count]
+      properties:
+        bucket:
+          description: "Open enum: <1d, 1-7d, 7-30d, 30-90d, 90-180d, 180d+."
+          type: string
+          examples: ["7-30d"]
+        count:
+          type: integer
+          minimum: 0
     Summary:
       description: The fleet summary over the visible orgs.
       type: object
-      required: [tracked, parked, compliant_percent, findings, open_prs, stale_prs, stale_after]
+      required: [tracked, parked, compliant_percent, findings, open_prs, stale_prs, stale_after, finding_age]
       properties:
         tracked:
           type: integer
@@ -708,6 +743,14 @@ components:
         stale_after:
           type: string
           description: The threshold applied, as a Go duration.
+        finding_age:
+          type: array
+          description: >-
+            Non-compliant findings on active repositories by how long they
+            have failed (status_since), every bucket in order, zeros
+            included.
+          items:
+            $ref: "#/components/schemas/FindingAgeBucket"
     Component:
       description: One status-page component.
       type: object
@@ -724,17 +767,54 @@ components:
     Compliance:
       description: Fleet-wide compliance for the status page.
       type: object
-      required: [percent, measured]
+      required: [percent, measured, history]
       properties:
         percent:
           type: [number, "null"]
           format: double
         measured:
           type: boolean
+        history:
+          description: Fleet compliance at each UTC day's last snapshot over the last 30 days, oldest first.
+          type: array
+          items:
+            $ref: "#/components/schemas/CompliancePoint"
+    CompliancePoint:
+      description: Fleet compliance at one snapshot; percent is null when nothing was measured.
+      type: object
+      required: [at, percent]
+      properties:
+        at:
+          type: string
+          format: date-time
+        percent:
+          type: [number, "null"]
+          format: double
+    StatusOperations:
+      description: The status page's operations strip. Counts and times only.
+      type: object
+      required: [checked_24h, tracked, rollout_state]
+      properties:
+        checked_24h:
+          description: Repositories with a finished check in the last 24 hours.
+          type: integer
+        tracked:
+          description: Active repositories.
+          type: integer
+        rollout_state:
+          description: The newest policy version's rollout; none before any version is recorded.
+          type: string
+          enum: [none, in_progress, complete]
+        rollout_completed_at:
+          type: string
+          format: date-time
+        last_snapshot_at:
+          type: string
+          format: date-time
     Status:
       description: The public service status.
       type: object
-      required: [state, updated_at, components, compliance]
+      required: [state, updated_at, components, compliance, operations]
       properties:
         state:
           $ref: "#/components/schemas/ComponentState"
@@ -747,6 +827,8 @@ components:
             $ref: "#/components/schemas/Component"
         compliance:
           $ref: "#/components/schemas/Compliance"
+        operations:
+          $ref: "#/components/schemas/StatusOperations"
     RuleKind:
       description: "Open enum: file, setting, branch_protection."
       type: string
@@ -837,7 +919,7 @@ components:
     OrgSummary:
       description: One org's repositories and compliance.
       type: object
-      required: [org, tracked, parked, counts, compliant_percent]
+      required: [org, tracked, parked, counts, compliant_percent, open_prs]
       properties:
         org:
           type: string
@@ -852,6 +934,10 @@ components:
         compliant_percent:
           type: [number, "null"]
           format: double
+        open_prs:
+          description: Findings with an open repo-guardian PR on the org's active repositories; equals the total of /findings?org=&remediation=pr_open.
+          type: integer
+          minimum: 0
     OrgList:
       description: Every visible org.
       type: object
@@ -1326,15 +1412,20 @@ components:
         next_cursor:
           $ref: "#/components/schemas/Cursor"
     HistoryPoint:
-      description: One (org, rule) snapshot.
+      description: >-
+        One snapshot point. Unaggregated, it is one (org, rule) and carries
+        `org`, `kind` and `rule`. With `aggregate=org` it carries `org`
+        only; with `aggregate=fleet` it carries none of the three.
       type: object
-      required: [org, kind, rule, snapshot_at, counts, compliant_percent]
+      required: [snapshot_at, counts, compliant_percent]
       properties:
         org:
+          description: Absent when aggregated to the fleet.
           type: string
         kind:
           $ref: "#/components/schemas/RuleKind"
         rule:
+          description: Absent when aggregated.
           type: string
         snapshot_at:
           type: string

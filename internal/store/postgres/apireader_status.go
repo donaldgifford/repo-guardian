@@ -52,7 +52,7 @@ func (r *APIReader) StatusInputs(ctx context.Context, now time.Time) (in *store.
 			in.Compliance = in.Compliance.Add(rows[i].Counts())
 		}
 
-		return nil
+		return statusOperations(ctx, q, now, in)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("postgres.APIReader.StatusInputs: %w", err)
@@ -70,4 +70,42 @@ func anyTime(v any) *time.Time {
 	}
 
 	return &t
+}
+
+// statusHistoryDays is how far back the status page's compliance
+// history reaches.
+const statusHistoryDays = 30
+
+// statusOperations reads the status page's history and operations strip
+// into in (IMPL-0031 7.4).
+func statusOperations(ctx context.Context, q *sqlcdb.Queries, now time.Time, in *store.StatusInputs) error {
+	day := 24 * time.Hour
+
+	history, err := q.StatusComplianceHistory(ctx, now.Add(-statusHistoryDays*day))
+	if err != nil {
+		return fmt.Errorf("history: %w", err)
+	}
+
+	in.History = make([]store.CompliancePoint, 0, len(history))
+
+	for _, h := range history {
+		pct, err := numericPtr(h.CompliantPercent)
+		if err != nil {
+			return fmt.Errorf("history percent: %w", err)
+		}
+
+		in.History = append(in.History, store.CompliancePoint{At: h.SnapshotAt, Percent: pct})
+	}
+
+	ops, err := q.StatusOperations(ctx, now.Add(-day))
+	if err != nil {
+		return fmt.Errorf("operations: %w", err)
+	}
+
+	in.CheckedLastDay, in.LastSnapshot = int(ops.Checked), anyTime(ops.LastSnapshot)
+	if ops.PolicyVersions > 0 {
+		in.Rollout = &store.Rollout{CompletedAt: ops.RolloutCompletedAt}
+	}
+
+	return nil
 }

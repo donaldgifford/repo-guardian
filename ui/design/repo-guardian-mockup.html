@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Repo Guardian · UI mockup (DESIGN-0036)</title>
+<!--
+  Single-file mockup of the v2 business UI as DESIGN-0036 proposes it.
+
+  Every panel is fed from an in-page `api` object whose shapes mirror
+  api/openapi.yaml (Summary, RuleCompliance, RuleDetail, OrgSummary,
+  OrgDetail, Finding, FindingPR, Evidence, Repository, RepositoryDetail,
+  Event, Check, HistoryPoint, Policy, Status, Me). Nothing is drawn that
+  today's API cannot back; the "Deferred" footnotes name what is missing.
+
+  The real app bundles IBM Plex Sans and JetBrains Mono (the CSP forbids
+  remote fonts). This mockup loads them from Google Fonts for convenience.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#17191d; --panel:#1f2227; --panel2:#262a30; --line:#31363d;
+  --fg:#e8eaed; --muted:#9aa1ab; --accent:#5fa8f5;
+  --ok:#3fb950; --warn:#d9a020; --bad:#f2554d; --info:#7aa7ff; --avatar:#3a4c6d;
+  --r:3px;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+code,.mono{font-family:var(--mono)}
+.muted{color:var(--muted)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* shell */
+.shell{display:grid;grid-template-rows:40px 1fr;height:100vh}
+.topbar{display:flex;align-items:center;gap:12px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--line);font-size:13px}
+.brand{display:flex;align-items:center;gap:8px;font-weight:600;color:var(--fg)}
+.brand svg{width:16px;height:16px;color:var(--accent)}
+.brand small{font-weight:400;color:var(--muted)}
+.topbar .sp{flex:1}
+.tb-btn{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 8px;border:1px solid var(--line);border-radius:var(--r);color:var(--muted);font-size:12px}
+.tb-btn:hover{background:var(--panel2);color:var(--fg)}
+.tb-btn kbd{font:11px var(--mono);background:var(--panel2);padding:1px 4px;border-radius:2px}
+.avatar{width:20px;height:20px;border-radius:var(--r);background:var(--avatar);color:#fff;font:600 10px/20px var(--sans);text-align:center}
+.body{display:grid;grid-template-columns:220px 1fr;min-height:0}
+.side{display:flex;flex-direction:column;background:var(--panel);border-right:1px solid var(--line);padding:10px 8px;font-size:13px;overflow:auto}
+.side .g{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:12px 10px 4px}
+.side a.nav{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--r);color:var(--muted);border-left:2px solid transparent}
+.side a.nav svg{width:15px;height:15px;flex:none}
+.side a.nav em{font:11px var(--mono);margin-left:auto;color:var(--muted)}
+.side a.nav:hover{background:var(--panel2);color:var(--fg);text-decoration:none}
+.side a.nav.cur{background:var(--panel2);color:var(--fg);border-left-color:var(--accent)}
+.side .foot{margin-top:auto;padding:12px 10px 6px;font:11px var(--mono);color:var(--muted);border-top:1px solid var(--line)}
+.side .foot a{color:var(--muted)}
+.main{overflow:auto;padding:14px 24px 40px;min-width:0}
+
+/* page anatomy */
+.crumbs{font-size:12px;color:var(--muted);margin-bottom:8px}
+.crumbs b{color:var(--fg);font-weight:500}
+.crumbs span{margin:0 6px;opacity:.6}
+.page-h{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:14px;flex-wrap:wrap}
+.page-h h1{margin:0;font-size:20px;font-weight:600;display:flex;align-items:center;gap:10px}
+.page-h p{margin:3px 0 0;color:var(--muted);font-size:13px}
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;font-size:12px}
+.seg button{padding:5px 10px;color:var(--muted)}
+.seg button:hover{color:var(--fg)}
+.seg button.cur{background:var(--panel2);color:var(--fg)}
+.btn{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:1px solid var(--line);border-radius:var(--r);font-size:12px;color:var(--fg);background:var(--panel)}
+.btn:hover{background:var(--panel2)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.btn.ghost:hover{color:var(--fg);background:var(--panel2)}
+.btn.sm{height:22px;padding:0 7px;font-size:11px}
+.scope{min-width:150px;justify-content:space-between}
+
+/* grid + cards */
+.grid{display:grid;gap:12px}
+.cols-2{grid-template-columns:1fr 1fr}
+.cols-3{grid-template-columns:2fr 1fr}
+.cols-3b{grid-template-columns:1fr 1fr 1fr}
+.cols-4{grid-template-columns:repeat(4,1fr)}
+.span-2{grid-column:span 2}
+.mt{margin-top:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);min-width:0;position:relative}
+.card-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 14px 0}
+.card-h b{display:block;font-size:13px;font-weight:600}
+.card-h span.s{display:block;font-size:12px;color:var(--muted);margin-top:1px}
+.card-h .right{flex:none;display:flex;gap:6px;align-items:center}
+.card-b{padding:8px 14px 12px}
+.strip{display:flex;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-top:10px}
+.strip .cell{flex:1;padding:8px 14px;border-right:1px solid var(--line);min-width:0}
+.strip .cell:last-child{border-right:0}
+.strip .l{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.strip .v{font-size:18px;font-weight:600;margin-top:2px;white-space:nowrap}
+.strip .v small{font-size:12px;font-weight:400;color:var(--muted)}
+.strip .s{font-size:12px;color:var(--muted);margin-top:1px;line-height:1.35}
+.card-b{overflow-x:auto}
+@media (min-width:1600px){.layout.open .col-since,.layout.open .col-age{display:none}}
+.tbl-wrap{overflow-x:auto;max-width:100%}
+.layout.open .tbl td,.layout.open .tbl th{padding-left:8px;padding-right:8px}
+.sb{display:grid;gap:9px;margin-top:4px}
+.sb .r{display:grid;grid-template-columns:var(--lc,150px) 1fr 64px;gap:10px;align-items:center;font-size:12.5px}
+.sb .r .lb{font-family:var(--mono);font-size:12.5px;text-align:right;overflow:hidden;text-overflow:ellipsis}
+.sb .bar{display:flex;gap:2px;height:10px}
+.sb .bar i{display:block;height:100%;min-width:0;transition:opacity .1s}
+.sb .bar i:hover{opacity:.75}
+.sb .r .tot{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.sb.single .r{grid-template-columns:1fr 64px}
+.kpi{padding:10px 14px}
+.kpi .l{font-size:12px;color:var(--muted)}
+.kpi .v{font-size:22px;font-weight:600;line-height:1.2;margin-top:2px}
+.kpi .s{font-size:12px;color:var(--muted);margin-top:2px}
+.up{color:color-mix(in srgb,var(--ok) 75%,white)}.down{color:color-mix(in srgb,var(--bad) 75%,white)}
+.pills{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 2px}
+.pill{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:var(--r);padding:4px 9px;font-size:12px;color:var(--muted)}
+.pill i{width:8px;height:8px;border-radius:2px;background:var(--line);display:inline-block}
+.pill b{color:var(--fg);font-weight:500}
+.pill[aria-pressed="true"]{background:var(--panel2);color:var(--fg);border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
+.badge{display:inline-block;font:500 12px/1 var(--mono);padding:5px 7px;white-space:nowrap;vertical-align:middle}
+.b-ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:color-mix(in srgb,var(--ok) 75%,white)}
+.b-bad{background:color-mix(in srgb,var(--bad) 18%,transparent);color:color-mix(in srgb,var(--bad) 75%,white)}
+.b-warn{background:color-mix(in srgb,var(--warn) 20%,transparent);color:color-mix(in srgb,var(--warn) 72%,white)}
+.b-info{background:color-mix(in srgb,var(--info) 18%,transparent);color:color-mix(in srgb,var(--info) 80%,white)}
+.b-mute{background:color-mix(in srgb,var(--muted) 16%,transparent);color:color-mix(in srgb,var(--muted) 60%,white)}
+.b-outline{background:transparent;border:1px solid var(--line);color:var(--muted);padding:4px 6px}
+
+/* tables */
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;font-weight:500;color:var(--muted);padding:7px 10px;border-bottom:1px solid var(--line);font-size:11.5px;white-space:nowrap}
+.tbl td{padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums;vertical-align:middle}
+.tbl tr:last-child td{border-bottom:0}
+.tbl .num{text-align:right}
+.tbl td.m,.tbl .m{font-family:var(--mono);font-size:12.5px}
+.tbl tr.link{cursor:pointer}
+.tbl tr.link:hover td{background:var(--panel2)}
+.tbl tr.sel td{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.tbl .sub{display:block;font-size:11px;color:var(--muted);font-family:var(--sans)}
+.tbl.dense td{padding:5px 8px}
+.meter{height:5px;background:color-mix(in srgb,var(--m,var(--accent)) 20%,transparent);border-radius:2px;overflow:hidden;min-width:80px}
+.meter i{display:block;height:100%;width:var(--w);background:var(--m,var(--accent));border-radius:2px}
+.row-meter{display:flex;align-items:center;gap:10px}
+.row-meter .meter{flex:1}
+.row-meter b{font-weight:500;width:52px;text-align:right;font-variant-numeric:tabular-nums}
+.trend{font-size:11px}
+
+/* bar list */
+.bl{display:grid;gap:8px;margin-top:4px}
+.bl .r{display:grid;grid-template-columns:1fr auto;gap:4px 10px;font-size:12.5px;align-items:center}
+.bl .r .t{display:flex;justify-content:space-between;align-items:baseline;grid-column:1/-1}
+.bl .r .t em{font-style:normal;color:var(--muted);font-size:11px;margin-left:6px}
+.bl .r .t b{font-weight:500;font-variant-numeric:tabular-nums}
+.bl .bar{grid-column:1/-1;height:8px;background:transparent}
+.bl .bar i{display:block;height:100%;width:var(--w);background:var(--accent);border-radius:0 4px 4px 0;min-width:2px}
+
+/* chips + filters */
+.filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 14px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:var(--r);padding:4px 8px;font:11.5px var(--mono);color:var(--muted)}
+.chip b{color:var(--fg);font-weight:500}
+.chip:hover{background:var(--panel2)}
+.chip.add{border-style:dashed}
+.filters .count{margin-left:auto;font-size:12px;color:var(--muted)}
+
+/* drawer */
+.layout{display:grid;grid-template-columns:1fr;gap:12px;align-items:start}
+.layout.open{grid-template-columns:minmax(0,1fr) 470px}
+.drawer{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;position:sticky;top:0;max-height:100vh;overflow-y:auto}
+.drawer-scrim{display:none}
+@media (max-width:1599px){.layout.open{grid-template-columns:minmax(0,1fr)}.drawer-scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:25}.drawer{position:fixed;top:0;right:0;bottom:0;width:470px;max-width:92vw;border-radius:0;border-width:0 0 0 1px;z-index:30;box-shadow:-12px 0 32px rgba(0,0,0,.45)}}
+.drawer h3{margin:0;font-size:15px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.drawer .sub{font:12px var(--mono);color:var(--muted);margin:3px 0 14px}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:9px 10px;font-size:13px;align-items:center;margin-bottom:14px}
+.kv span{color:var(--muted);font-size:12px}
+.ev{font:12px/1.55 var(--mono);background:var(--bg);border:1px solid var(--line);padding:10px 12px;margin-bottom:14px;white-space:pre-wrap;word-break:break-word}
+.ev .bad{color:color-mix(in srgb,var(--bad) 75%,white)}
+.ev .k{color:var(--muted)}
+.hist{border-left:2px solid var(--line);margin:4px 0 0 6px;padding-left:16px;display:grid;gap:2px}
+.hist div{position:relative;padding:5px 0;font-size:12.5px}
+.hist div::before{content:"";position:absolute;left:-23px;top:11px;width:8px;height:8px;background:var(--muted)}
+.hist div.now::before{background:var(--accent)}
+.hist .d{font:11.5px var(--mono);color:var(--muted);display:block}
+.drawer .actions{display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:12px;border-top:1px solid var(--line);font-size:12px}
+
+/* group grid */
+.gg{width:100%;border-collapse:collapse;font-size:13px}
+.gg th{text-align:left;font-weight:500;color:var(--muted);padding:7px 10px;border-bottom:1px solid var(--line);font-size:11.5px}
+.gg td{padding:7px 10px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;white-space:nowrap}
+.gg .num{text-align:right}
+.gg tr.grp td{font-weight:600;cursor:pointer}
+.gg tr.grp:hover td{background:var(--panel2)}
+.gg tr.grp td .meta{font-weight:400;color:var(--muted);font-size:12px;margin-left:8px}
+.gg tr.child td:first-child{padding-left:38px;font-weight:400}
+.gg .tog{display:inline-grid;place-items:center;width:18px;height:18px;border:1px solid var(--line);border-radius:var(--r);font:11px var(--mono);color:var(--muted);margin-right:8px}
+.gg .heat{position:relative}
+.gg .heat small{color:var(--muted);margin-left:8px;font-size:11px}
+.gg tr.total td{border-top:2px solid var(--line);font-weight:600;color:var(--muted)}
+.gg td .rk{font:11px var(--mono);color:var(--muted);margin-right:8px;border:1px solid var(--line);padding:1px 4px;border-radius:2px}
+
+/* charts */
+.chart-wrap{position:relative}
+.chart{display:block;width:100%;height:auto}
+.chart text{font:11px var(--mono);fill:var(--muted)}
+.chart .grid line{stroke:var(--line);stroke-width:1}
+.chart .ax{stroke:var(--line)}
+.chart .ln{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.chart .xh{stroke:var(--muted);stroke-width:1;opacity:0}
+.chart .dot{stroke:var(--panel);stroke-width:2}
+.chart .hit{fill:transparent}
+.chart rect.bar{transition:opacity .1s}
+.chart rect.bar:hover,.chart .seg:hover{opacity:.8}
+.chart .lbl{fill:var(--fg)}
+.tip{position:fixed;z-index:50;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:6px 9px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.4);display:none;min-width:120px}
+.tip .t{font:11px var(--mono);color:var(--muted);margin-bottom:3px}
+.tip .r{display:flex;justify-content:space-between;gap:14px}
+.tip .r i{display:inline-block;width:10px;height:2px;vertical-align:middle;margin-right:6px}
+.tip .r b{font-weight:600}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.tv{display:none}
+.card.table-view .chart-wrap,.card.table-view .legend,.card.table-view .pills{display:none}
+.card.table-view .tv{display:block}
+.defer{margin-top:16px;font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+.defer code{font-size:11.5px}
+
+/* popovers, palette */
+.scrim{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.35)}
+.pop{position:fixed;z-index:45;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 12px 36px rgba(0,0,0,.45);min-width:200px;padding:6px;font-size:13px}
+.pop .it{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 8px;border-radius:var(--r);color:var(--fg);width:100%;text-align:left}
+.pop .it:hover,.pop .it.cur{background:var(--panel2)}
+.pop .it small{color:var(--muted);font-family:var(--mono);font-size:11px}
+.pop .hd{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:8px 8px 4px}
+.pop hr{border:0;border-top:1px solid var(--line);margin:4px 0}
+.pal{position:fixed;z-index:46;left:50%;top:14vh;transform:translateX(-50%);width:560px;max-width:92vw;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 24px 60px rgba(0,0,0,.5)}
+.pal input{width:100%;background:transparent;border:0;border-bottom:1px solid var(--line);color:var(--fg);font:14px var(--sans);padding:12px 14px;outline:0}
+.pal .res{max-height:50vh;overflow:auto;padding:6px}
+.pal .empty{padding:14px;color:var(--muted);font-size:13px}
+
+/* status page */
+.status-page{max-width:760px;margin:40px auto;padding:0 16px}
+.status-page .hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.banner{display:flex;align-items:center;gap:14px;padding:14px 16px}
+.banner .dot{width:10px;height:10px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 50%,transparent);animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 45%,transparent)}70%{box-shadow:0 0 0 8px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@media (prefers-reduced-motion:reduce){.banner .dot{animation:none}}
+.banner b{display:block;font-size:15px}
+.banner span{color:var(--muted);font-size:13px}
+.comp{display:grid;gap:0}
+.comp .row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+.comp .row:last-child{border-bottom:0}
+.comp .row i{width:8px;height:8px;border-radius:50%;flex:none}
+.comp .row .n{font-family:var(--mono);font-size:12.5px;width:118px;flex:none}
+.comp .row .d{color:var(--muted);flex:1;font-size:12.5px}
+.hero{font-size:44px;font-weight:600;line-height:1.1}
+.status-page .ft{text-align:center;font:11px var(--mono);color:var(--muted);margin-top:18px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="tip" id="tip" role="tooltip"></div>
+<script>
+(function(){
+'use strict';
+
+/* ------------------------------------------------------------------ */
+/* tokens, formatting                                                  */
+/* ------------------------------------------------------------------ */
+const C={accent:'#5fa8f5',info:'#7aa7ff',ok:'#3fb950',warn:'#d9a020',bad:'#f2554d',muted:'#9aa1ab',panel:'#1f2227',bg:'#17191d',line:'#31363d'};
+const NOW=new Date('2026-10-15T14:20:00Z');
+const DAY=864e5;
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtN=n=>n==null?'—':Number(n).toLocaleString('en-US');
+const pct=(c)=>{const d=c.compliant+c.non_compliant;return d===0?null:Math.floor(c.compliant*1000/d)/10};
+const fmtP=p=>p==null?'unmeasured':p.toFixed(1)+'%';
+const daysAgo=d=>new Date(NOW-d*DAY);
+const iso=d=>new Date(d).toISOString().replace(/\.\d{3}Z$/,'Z');
+const tz=()=>localStorage.getItem('rg.tz')||'local';
+function fmtTime(d,opts){d=new Date(d);const utc=tz()==='utc';const p=n=>String(n).padStart(2,'0');const Y=utc?d.getUTCFullYear():d.getFullYear(),M=utc?d.getUTCMonth():d.getMonth(),D=utc?d.getUTCDate():d.getDate(),h=utc?d.getUTCHours():d.getHours(),m=utc?d.getUTCMinutes():d.getMinutes();const dateOnly=opts&&opts.hour===undefined&&'hour' in opts;return `${Y}-${p(M+1)}-${p(D)}`+(dateOnly?'':` ${p(h)}:${p(m)}`)+(utc&&!dateOnly?' UTC':'')}
+const until=d=>{const s=(new Date(d)-NOW)/1000;if(s<=0)return 'now';if(s<3600)return 'in '+Math.round(s/60)+'m';if(s<86400)return 'in '+Math.round(s/3600)+'h';return 'in '+Math.round(s/86400)+'d'};
+const goDur=s=>{const m=/^(\d+)h/.exec(s||'');if(!m)return s;const h=+m[1];return h%24===0?(h/24)+'d':h+'h'};
+function fmtDate(d){const o={month:'short',day:'numeric'};if(tz()==='utc')o.timeZone='UTC';return new Date(d).toLocaleDateString('en-US',o)}
+function rel(d){const s=(NOW-new Date(d))/1000;if(s<60)return Math.round(s)+'s ago';if(s<3600)return Math.round(s/60)+'m ago';if(s<86400)return Math.round(s/3600)+'h ago';return Math.round(s/86400)+'d ago'}
+const ageDays=d=>Math.floor((NOW-new Date(d))/DAY);
+const timeAttr=d=>`<time datetime="${iso(d)}" title="${esc(fmtTime(d,{timeZone:tz()==='utc'?undefined:'UTC'}))}${tz()==='utc'?' (local)':' UTC'}">`;
+
+/* ------------------------------------------------------------------ */
+/* data: shapes mirror api/openapi.yaml                                */
+/* ------------------------------------------------------------------ */
+let seed=20261015;const rnd=()=>{seed=(seed*1664525+1013904223)%4294967296;return seed/4294967296};
+const noise=a=>(rnd()*2-1)*a;
+
+const ORGS=[
+  {org:'acme-payments',tracked:612,parked:{archived:9,fork:4,access_denied:1},off:3.5},
+  {org:'acme-web',tracked:1240,parked:{archived:44,fork:14,access_denied:3},off:-2.6},
+  {org:'acme-docs',tracked:188,parked:{archived:7,fork:2},off:8.5},
+  {org:'acme-platform',tracked:940,parked:{archived:28,fork:9,access_denied:3},off:2.1},
+  {org:'acme-data',tracked:1102,parked:{archived:38,fork:11,access_denied:3},off:-4.4},
+  {org:'acme-mobile',tracked:730,parked:{archived:24,fork:8,access_denied:3},off:-1.2},
+];
+const RULES=[
+  {kind:'file',name:'codeowners',description:'Every repository names its owners in CODEOWNERS.',check_mode:'exists',base:78.1,na:.002,unk:.001,drift:4.0,reasons:[['file_missing',.85],['assertion_failed',.10],['foreign_pr_open',.05]]},
+  {kind:'file',name:'renovate',description:'Dependencies are kept current by Renovate, extending the org preset.',check_mode:'contains',base:61.0,na:.002,unk:.001,drift:12.0,reasons:[['assertion_failed',.72],['file_missing',.24],['foreign_pr_open',.03],['branch_missing',.01]]},
+  {kind:'file',name:'catalog-info',description:'A Backstage catalog-info.yaml describes the component and its owner.',check_mode:'exists',base:84.2,na:.002,unk:.002,drift:9.0,reasons:[['file_missing',.70],['assertion_failed',.30]]},
+  {kind:'file',name:'dependabot',description:'Dependabot config is present unless the renovate rule is satisfied (when-gate).',check_mode:'exists',base:89.2,na:.25,unk:.001,drift:1.0,reasons:[['file_missing',1]]},
+  {kind:'setting',name:'vulnerability_alerts',description:'Dependabot vulnerability alerts are enabled.',check_mode:'setting',base:93.1,na:.002,unk:0,drift:.5,reasons:[['setting_mismatch',1]]},
+  {kind:'setting',name:'secret_scanning',description:'Secret scanning and push protection are enabled.',check_mode:'setting',base:96.0,na:.002,unk:0,drift:.2,reasons:[['setting_mismatch',1]]},
+  {kind:'branch_protection',name:'main',description:'main requires a pull request, one approval and the ci/test status check.',check_mode:'ruleset',base:91.7,na:.003,unk:0,drift:2.0,reasons:[['ruleset_mismatch',.6],['ruleset_missing',.35],['branch_missing',.05]]},
+];
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* matrix: one cell per (org, rule) with current counts and 90 daily history points */
+const CELLS=[];
+for(const o of ORGS)for(const r of RULES){
+  const na=Math.round(o.tracked*r.na*(r.name==='dependabot'?(1+noise(.3)):1));
+  const unknown=Math.round(o.tracked*r.unk);
+  const measured=o.tracked-na-unknown;
+  const p=clamp(r.base+o.off+noise(2.2),30,99.6);
+  const compliant=Math.round(measured*p/100);
+  const counts={compliant,non_compliant:measured-compliant,not_applicable:na,unknown};
+  const hist=[];
+  for(let i=0;i<90;i++){
+    const back=1-i/89;
+    const pi=i===89?p:clamp(p-r.drift*Math.pow(back,1.15)+noise(.45),20,99.8);
+    const c=Math.round(measured*pi/100);
+    hist.push({org:o.org,kind:r.kind,rule:r.name,snapshot_at:new Date(Date.UTC(2026,9,15,3,0,0)-(89-i)*DAY),counts:{compliant:c,non_compliant:measured-c,not_applicable:na,unknown}});
+  }
+  CELLS.push({org:o.org,kind:r.kind,rule:r.name,counts,hist,open_prs:r.kind==='file'?Math.round((measured-compliant)*0.28):0});
+}
+const sumCounts=cs=>cs.reduce((a,c)=>({compliant:a.compliant+c.compliant,non_compliant:a.non_compliant+c.non_compliant,not_applicable:a.not_applicable+c.not_applicable,unknown:a.unknown+c.unknown}),{compliant:0,non_compliant:0,not_applicable:0,unknown:0});
+const inScope=(org,scope)=>!scope||org===scope;
+
+/* repositories + findings pool: small, curated, every reason represented */
+const REPOS=[];let rid=1000;
+const addRepo=(org,name,extra)=>{const r=Object.assign({id:++rid,org,name,provider_repo_id:500000+rid,installation_id:41000+ORGS.findIndex(o=>o.org===org),active:true,park_reason:null,parked_at:null,discovered_at:daysAgo(120+Math.round(rnd()*200)),next_due_at:new Date(NOW.getTime()+(4+rnd()*18)*36e5),last_checked_at:new Date(NOW.getTime()-rnd()*20*36e5),last_check_outcome:'success',policy_version:'v2:9f3a1c7e'},extra||{});REPOS.push(r);return r};
+const repoNames={
+  'acme-payments':['widgets','ledger','payments-api','fraud-scorer','settlement','card-vault'],
+  'acme-web':['storefront','cms','design-system','legacy-api','checkout','media-cdn'],
+  'acme-docs':['handbook','api-reference','runbooks'],
+  'acme-platform':['infra-live','terraform-modules','k8s','boilermate','argo-apps'],
+  'acme-data':['warehouse-etl','feature-store','pipelines','etl-archive'],
+  'acme-mobile':['ios-app','android-app','push-gateway'],
+};
+for(const [org,names] of Object.entries(repoNames))names.forEach(n=>addRepo(org,n));
+const repoByName=(org,name)=>REPOS.find(r=>r.org===org&&r.name===name);
+repoByName('acme-data','etl-archive').active=false;repoByName('acme-data','etl-archive').park_reason='archived';repoByName('acme-data','etl-archive').parked_at=daysAgo(41);
+repoByName('acme-web','media-cdn').active=false;repoByName('acme-web','media-cdn').park_reason='access_denied';repoByName('acme-web','media-cdn').parked_at=daysAgo(3);
+
+const PR_BRANCH='repo-guardian/add-missing-files';
+function finding(org,name,kind,rule,status,reason,remediation,o){
+  o=o||{};const r=repoByName(org,name);
+  const since=daysAgo(o.since==null?30:o.since);
+  const f={repository_id:r.id,org,repository:name,rule_kind:kind,rule_name:rule,status,reason:reason||undefined,remediation,status_since:since,last_evaluated_at:new Date(NOW.getTime()-(1+rnd()*18)*36e5),pr_stale:false};
+  if(o.pr){const created=daysAgo(o.pr.age);f.pr={number:o.pr.number,url:`https://github.com/${org}/${name}/pull/${o.pr.number}`,created_at:o.pr.foreign?undefined:created,head:o.pr.foreign?undefined:PR_BRANCH,matched_term:o.pr.foreign?o.pr.foreign:undefined};f.pr_stale=!o.pr.foreign&&o.pr.age>=30}
+  if(o.evidence)f.evidence=Object.assign({reason},o.evidence);
+  return f;
+}
+const FINDINGS=[
+  finding('acme-payments','widgets','file','renovate','non_compliant','assertion_failed','pr_open',{since:30,pr:{number:412,age:30},evidence:{path:'renovate.json',message:'must extend the org preset: expected "github>acme/renovate-config", found "config:base"'}}),
+  finding('acme-web','storefront','file','codeowners','non_compliant','file_missing','pr_open',{since:55,pr:{number:88,age:55},evidence:{paths_checked:['CODEOWNERS','.github/CODEOWNERS','docs/CODEOWNERS']}}),
+  finding('acme-data','warehouse-etl','file','catalog-info','non_compliant','assertion_failed','pr_open',{since:3,pr:{number:31,age:3},evidence:{path:'catalog-info.yaml',message:'spec.owner must name a group: found "user:default/jsmith"'}}),
+  finding('acme-platform','infra-live','branch_protection','main','non_compliant','ruleset_mismatch','applied',{since:1,evidence:{branch:'main',ruleset_id:2201,mismatches:['required_approving_review_count: expected 1, found 0','required_status_checks: missing ci/test']}}),
+  finding('acme-mobile','ios-app','setting','vulnerability_alerts','non_compliant','setting_mismatch','disabled',{since:12,evidence:{property:'vulnerability_alerts',expected:'enabled',actual:'disabled'}}),
+  finding('acme-web','legacy-api','file','dependabot','non_compliant','foreign_pr_open','foreign_pr',{since:19,pr:{number:17,age:19,foreign:'dependabot'},evidence:{}}),
+  finding('acme-docs','handbook','file','codeowners','not_applicable','ignored_rule','none',{since:140,evidence:{pattern:'acme-docs/hand*'}}),
+  finding('acme-payments','ledger','file','renovate','non_compliant','file_missing','pr_open',{since:9,pr:{number:203,age:9},evidence:{paths_checked:['renovate.json','.github/renovate.json','.renovaterc.json']}}),
+  finding('acme-payments','fraud-scorer','file','catalog-info','non_compliant','file_missing','pr_open',{since:44,pr:{number:77,age:44},evidence:{paths_checked:['catalog-info.yaml']}}),
+  finding('acme-web','cms','file','renovate','non_compliant','assertion_failed','pr_open',{since:62,pr:{number:301,age:62},evidence:{path:'renovate.json',message:'must extend the org preset: expected "github>acme/renovate-config", found "config:recommended"'}}),
+  finding('acme-web','cms','branch_protection','main','non_compliant','ruleset_missing','disabled',{since:62,evidence:{branch:'main'}}),
+  finding('acme-platform','terraform-modules','setting','secret_scanning','non_compliant','setting_mismatch','applied',{since:2,evidence:{property:'secret_scanning_push_protection',expected:'enabled',actual:'disabled'}}),
+  finding('acme-platform','argo-apps','file','codeowners','unknown','migrated_from_v1','none',{since:21,evidence:{v1_actionable_since:daysAgo(90)}}),
+  finding('acme-data','feature-store','file','renovate','non_compliant','assertion_failed','pr_open',{since:14,pr:{number:57,age:14},evidence:{path:'renovate.json',message:'must extend the org preset: expected "github>acme/renovate-config", found none'}}),
+  finding('acme-data','pipelines','file','catalog-info','non_compliant','content_differs','pr_open',{since:6,pr:{number:140,age:6},evidence:{path:'catalog-info.yaml',comparison:'yaml'}}),
+  finding('acme-mobile','android-app','file','dependabot','not_applicable','gate_closed','none',{since:70,evidence:{referee:'renovate'}}),
+  finding('acme-mobile','push-gateway','branch_protection','main','non_compliant','branch_missing','none',{since:8,evidence:{branch:'main'}}),
+  finding('acme-docs','runbooks','file','renovate','non_compliant','gate_error','none',{since:1,evidence:{referee:'dependabot',error:'GET contents: 502 after 3 attempts'}}),
+  finding('acme-payments','card-vault','file','codeowners','compliant','','none',{since:200}),
+  finding('acme-payments','settlement','setting','secret_scanning','compliant','','none',{since:160}),
+  finding('acme-web','checkout','file','catalog-info','non_compliant','forbidden_present','pr_open',{since:4,pr:{number:9,age:4},evidence:{path:'.backstage/catalog-info.yml'}}),
+  finding('acme-docs','api-reference','file','catalog-info','compliant','','none',{since:120}),
+  finding('acme-platform','k8s','file','codeowners','non_compliant','assertion_failed','pr_open',{since:36,pr:{number:66,age:36},evidence:{path:'.github/CODEOWNERS',message:'default owner must be a team: found "@octocat"'}}),
+  finding('acme-platform','boilermate','file','renovate','non_compliant','file_missing','dry_run',{since:27,evidence:{paths_checked:['renovate.json']}}),
+];
+/* open PR age buckets: derived from the matrix's open-PR estimate, split by age */
+function prBuckets(scope){const total=CELLS.filter(c=>inScope(c.org,scope)).reduce((a,c)=>a+c.open_prs,0);const split=[.20,.46,.26,.08];const b=['<1d','1-7d','7-30d','30d+'].map((k,i)=>({bucket:k,count:Math.round(total*split[i])}));return b}
+
+/* events + checks per repository */
+function eventsFor(repo){
+  const ev=[];let id=9000+repo.id*10;
+  ev.push({source:'repository',id:++id,occurred_at:repo.discovered_at,kind:'discovered',detail:{installation_id:repo.installation_id}});
+  if(repo.name==='widgets')ev.push({source:'repository',id:++id,occurred_at:daysAgo(96),kind:'renamed',detail:{from:'widget-service',to:'widgets'}});
+  for(const f of FINDINGS.filter(f=>f.repository_id===repo.id)){
+    if(f.status==='non_compliant')ev.push({source:'finding',id:++id,occurred_at:f.status_since,rule_kind:f.rule_kind,rule_name:f.rule_name,from_status:'compliant',to_status:'non_compliant',from_reason:undefined,to_reason:f.reason,from_remediation:'none',to_remediation:f.remediation});
+    if(f.status==='not_applicable')ev.push({source:'finding',id:++id,occurred_at:f.status_since,rule_kind:f.rule_kind,rule_name:f.rule_name,from_status:'compliant',to_status:'not_applicable',to_reason:f.reason,from_remediation:'none',to_remediation:'none'});
+  }
+  if(repo.park_reason)ev.push({source:'repository',id:++id,occurred_at:repo.parked_at,kind:'parked',detail:{reason:repo.park_reason}});
+  return ev.sort((a,b)=>b.occurred_at-a.occurred_at);
+}
+function checksFor(repo){
+  const out=[];const trig=['schedule','schedule','webhook','schedule','push','schedule','schedule','schedule'];
+  for(let i=0;i<8;i++){const started=new Date(repo.last_checked_at.getTime()-i*DAY+noise(2)*36e5);const err=(i===3&&repo.name==='widgets');const dur=err?30:1.2+rnd()*1.6;
+    out.push({id:70000+repo.id*10+i,trigger:trig[i],outcome:err?'error':'success',policy_version:'v2:9f3a1c7e',started_at:started,finished_at:new Date(started.getTime()+dur*1000),duration_seconds:+dur.toFixed(1),error:err?'github: GET /repos/acme-payments/widgets/contents/renovate.json: 502 after 3 attempts':undefined})}
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
+/* api: the endpoints the real SPA calls                               */
+/* ------------------------------------------------------------------ */
+const api={
+  me:()=>({subject:'donald@example.com',name:'Donald Gifford',client:'repo-guardian-ui',all_orgs:true,orgs:[]}),
+  uiConfig:()=>({issuer:'https://sso.example.com',public_url:'https://guardian.example.com',session_ttl_seconds:28800,github_host:'github.com',docs_url:'https://donaldgifford.github.io/repo-guardian/'}),
+  summary(scope){const cells=CELLS.filter(c=>inScope(c.org,scope));const orgs=ORGS.filter(o=>inScope(o.org,scope));
+    const parkedMap={};orgs.forEach(o=>Object.entries(o.parked).forEach(([k,v])=>parkedMap[k]=(parkedMap[k]||0)+v));
+    const counts=sumCounts(cells.map(c=>c.counts));const buckets=prBuckets(scope);
+    return {tracked:orgs.reduce((a,o)=>a+o.tracked,0),parked:Object.entries(parkedMap).map(([reason,count])=>({reason,count})).sort((a,b)=>b.count-a.count),compliant_percent:pct(counts),findings:counts,open_prs:buckets,stale_prs:buckets[3].count,stale_after:'720h0m0s'}},
+  rules(scope){return {items:RULES.map(r=>{const cells=CELLS.filter(c=>c.rule===r.name&&c.kind===r.kind&&inScope(c.org,scope));const counts=sumCounts(cells.map(c=>c.counts));const prev=sumCounts(cells.map(c=>c.hist[88].counts));return {kind:r.kind,name:r.name,counts,compliant_percent:pct(counts),previous_percent:pct(prev),previous_at:cells[0].hist[88].snapshot_at}})}},
+  rule(kind,name,scope){const r=RULES.find(x=>x.kind===kind&&x.name===name);if(!r)return null;const cells=CELLS.filter(c=>c.rule===name&&c.kind===kind&&inScope(c.org,scope));const counts=sumCounts(cells.map(c=>c.counts));
+    const top_reasons=r.reasons.map(([reason,share])=>({reason,count:Math.round(counts.non_compliant*share)})).sort((a,b)=>b.count-a.count);
+    const oldest=FINDINGS.filter(f=>f.rule_name===name&&f.rule_kind===kind&&f.status==='non_compliant'&&inScope(f.org,scope)).sort((a,b)=>a.status_since-b.status_since).slice(0,10);
+    return {kind,name,description:r.description,counts,compliant_percent:pct(counts),orgs:cells.map(c=>({org:c.org,counts:c.counts,compliant_percent:pct(c.counts)})),top_reasons,oldest_failures:oldest}},
+  orgs(scope){return {items:ORGS.filter(o=>inScope(o.org,scope)).map(o=>{const counts=sumCounts(CELLS.filter(c=>c.org===o.org).map(c=>c.counts));return {org:o.org,tracked:o.tracked,parked:Object.values(o.parked).reduce((a,b)=>a+b,0),counts,compliant_percent:pct(counts)}})}},
+  org(org){const o=ORGS.find(x=>x.org===org);if(!o)return null;const cells=CELLS.filter(c=>c.org===org);const na=cells.find(c=>c.rule==='dependabot').counts.not_applicable;const other=cells.filter(c=>c.rule!=='dependabot').reduce((a,c)=>a+c.counts.not_applicable,0);
+    return {org,tracked:o.tracked,parked:Object.entries(o.parked).map(([reason,count])=>({reason,count})),rules:cells.map(c=>{const prev=sumCounts([c.hist[88].counts]);return {kind:c.kind,name:c.rule,counts:c.counts,compliant_percent:pct(c.counts),previous_percent:pct(prev),previous_at:c.hist[88].snapshot_at}}),not_applicable:[{reason:'gate_closed',count:na},{reason:'ignored_rule',count:Math.round(other*.6)},{reason:'out_of_scope_rule',count:other-Math.round(other*.6)}].filter(x=>x.count>0)}},
+  findings(q){let items=FINDINGS.slice();const eq=(k,f)=>{if(q[k])items=items.filter(f)};
+    eq('status',f=>f.status===q.status);eq('reason',f=>f.reason===q.reason);eq('remediation',f=>f.remediation===q.remediation);eq('kind',f=>f.rule_kind===q.kind);eq('rule',f=>f.rule_name===q.rule);eq('org',f=>f.org===q.org);if(q.pr_stale==='true')items=items.filter(f=>f.pr_stale);
+    items.sort((a,b)=>a.repository_id-b.repository_id||a.rule_kind.localeCompare(b.rule_kind)||a.rule_name.localeCompare(b.rule_name));return {items,next_cursor:null}},
+  repositories(q){let items=REPOS.slice();if(q.q)items=items.filter(r=>r.name.startsWith(q.q)||(r.org+'/'+r.name).startsWith(q.q));if(q.org)items=items.filter(r=>r.org===q.org);if(q.park_reason)items=items.filter(r=>r.park_reason===q.park_reason);return {items,next_cursor:null}},
+  repository(id){const r=REPOS.find(x=>x.id===+id);if(!r)return null;const mine=FINDINGS.filter(f=>f.repository_id===r.id);
+    const findings=RULES.map(ru=>mine.find(f=>f.rule_kind===ru.kind&&f.rule_name===ru.name)||{repository_id:r.id,org:r.org,repository:r.name,rule_kind:ru.kind,rule_name:ru.name,status:'compliant',remediation:'none',status_since:daysAgo(90+Math.round(rnd()*120)),last_evaluated_at:r.last_checked_at,pr_stale:false});
+    const checks=checksFor(r);return {repository:r,installation:{id:r.installation_id,account:r.org,rate_limit:5000,rate_remaining:3120,rate_reset_at:new Date(NOW.getTime()+41*6e4),rate_observed_at:new Date(NOW.getTime()-3*6e4),rate_snapshot_age_seconds:180},last_check:checks[0],findings}},
+  events(id){const r=REPOS.find(x=>x.id===+id);return {items:r?eventsFor(r):[],next_cursor:null}},
+  checks(id){const r=REPOS.find(x=>x.id===+id);return {items:r?checksFor(r):[],next_cursor:null}},
+  history(q){let pts=[];for(const c of CELLS){if(!inScope(c.org,q.org))continue;if(q.kind&&c.kind!==q.kind)continue;if(q.rule&&c.rule!==q.rule)continue;for(const p of c.hist)if(!q.from||p.snapshot_at>=q.from)pts.push(p)}return {items:pts,next_cursor:null,truncated:pts.length>4000}},
+  policy:()=>({version:'v2:9f3a1c7e2b4d',first_seen_at:daysAgo(18),rollout_completed_at:daysAgo(17),rollout_state:'complete',rules:RULES.map(r=>({kind:r.kind,name:r.name,description:r.description,check_mode:r.check_mode,scope:['*'],ignore:r.name==='codeowners'?['acme-docs/hand*']:[]}))}),
+  status(){const s=api.summary();return {state:'degraded',updated_at:new Date(NOW.getTime()-40e3),components:[{name:'checks',state:'operational',detail:'last success 3m ago'},{name:'webhooks',state:'operational',detail:'last received 7m ago'},{name:'github_budget',state:'degraded',detail:'1 installation below reserve, resets in 12m'},{name:'backlog',state:'operational',detail:'oldest task 40s · 6 pollers'}],compliance:{percent:s.compliant_percent,measured:s.compliant_percent!=null}}},
+};
+
+/* client-side aggregation, as lib/viewmodel.ts does today */
+function complianceSeries(points){const by=new Map();for(const p of points){const k=+p.snapshot_at;const a=by.get(k)||{t:new Date(p.snapshot_at),compliant:0,non_compliant:0,not_applicable:0,unknown:0};a.compliant+=p.counts.compliant;a.non_compliant+=p.counts.non_compliant;a.not_applicable+=p.counts.not_applicable;a.unknown+=p.counts.unknown;by.set(k,a)}return [...by.values()].sort((a,b)=>a.t-b.t).map(a=>Object.assign(a,{percent:pct(a)}))}
+const rangeDays={'1d':1,'7d':7,'30d':30,'90d':90};
+
+/* ------------------------------------------------------------------ */
+/* small components                                                    */
+/* ------------------------------------------------------------------ */
+const TONE={status:{compliant:'ok',non_compliant:'bad',not_applicable:'mute',unknown:'warn'},remediation:{pr_open:'info',applied:'ok',foreign_pr:'warn',disabled:'mute',dry_run:'mute',none:'mute'},component:{operational:'ok',degraded:'warn',down:'bad',unknown:'mute'}};
+const badge=(v,tone)=>`<span class="badge b-${tone||'mute'}">${esc(v)}</span>`;
+const statusBadge=s=>badge(s,TONE.status[s]||'mute');
+const remBadge=r=>r==='none'||!r?'<span class="muted">—</span>':badge(r,TONE.remediation[r]||'mute');
+const reasonBadge=(r,status)=>badge(r,status==='non_compliant'?'warn':'mute');
+const kindBadge=k=>`<span class="badge b-outline">${esc(k)}</span>`;
+const stateBadge=s=>badge(s,TONE.component[s]||'mute');
+const delta=(cur,prev,unit,goodUp)=>{if(cur==null||prev==null)return '<span class="muted">no previous snapshot</span>';const d=+(cur-prev).toFixed(1);if(d===0)return '<span class="muted">• 0'+unit+'</span>';const up=d>0;const good=goodUp?up:!up;return `<span class="${good?'up':'down'}">${up?'▲':'▼'} ${Math.abs(d)}${unit}</span>`};
+const card=(title,sub,body,o)=>{o=o||{};return `<div class="card ${o.cls||''}" ${o.id?`id="${o.id}"`:''}><div class="card-h"><div><b>${title}</b>${sub?`<span class="s">${sub}</span>`:''}</div><div class="right">${o.right||''}</div></div>${o.strip||''}<div class="card-b">${body}</div></div>`};
+const tableBtn=id=>`<button class="btn ghost sm" data-act="table" data-target="${id}" aria-pressed="false" title="Toggle table view">table</button>`;
+const kpi=(l,v,s)=>`<div class="card kpi"><div class="l">${l}</div><div class="v">${v}</div>${s?`<div class="s">${s}</div>`:''}</div>`;
+const meter=(p,tone)=>{const t=p==null?'muted':p<70?'bad':p<90?'warn':'ok';return `<div class="row-meter"><div class="meter" style="--m:var(--${tone||t});--w:${p==null?0:p}%"><i></i></div><b>${fmtP(p)}</b></div>`};
+const trend=(cur,prev)=>`<span class="trend">${delta(cur,prev,'',true)}</span>`;
+function barList(items,o){o=o||{};const max=Math.max(1,...items.map(i=>i.value));return `<div class="bl">${items.map(i=>`<div class="r"><div class="t"><span>${o.link?`<a href="${o.link(i)}">${esc(i.label)}</a>`:esc(i.label)}${i.sub?`<em>${esc(i.sub)}</em>`:''}</span><b>${fmtN(i.value)}${o.pct?` <span class="muted">· ${(100*i.value/items.reduce((a,b)=>a+b.value,0)).toFixed(0)}%</span>`:''}</b></div><div class="bar"><i style="--w:${100*i.value/max}%"></i></div></div>`).join('')}</div>`}
+const ICON={grid:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',boxes:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M12 12 3 7m9 5 9-5m-9 5v10"/></svg>',activity:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>',check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12l5 5L20 7"/></svg>',book:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h12a3 3 0 0 1 3 3v13H7a3 3 0 0 0-3 3z"/><path d="M4 4v16a3 3 0 0 1 3-3h12"/></svg>',shield:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>',search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',ext:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="12" height="12" style="vertical-align:-1px"><path d="M14 4h6v6M20 4l-9 9M19 14v6H4V5h6"/></svg>'};
+
+/* ------------------------------------------------------------------ */
+/* charts (inline SVG; registry drives hover)                          */
+/* ------------------------------------------------------------------ */
+const CH={};let chartSeq=0;
+const nice=(v,down)=>{const s=10;return down?Math.floor(v/s)*s:Math.ceil(v/s)*s};
+function areaChart(series,o){
+  o=Object.assign({h:230,unit:'%',color:C.accent,label:'compliance %',id:'ch'+(++chartSeq),fill:true},o||{});
+  const W=o.w||720,H=o.h,L=44,R=14,T=12,B=26;const vals=series.map(p=>p.v).filter(v=>v!=null);
+  let min=o.min!=null?o.min:nice(Math.min(...vals)-2,true),max=o.max!=null?o.max:nice(Math.max(...vals)+2);if(o.unit==='%'){max=Math.min(100,max);min=Math.max(0,min)}if(max===min)max=min+10;
+  const n=series.length;const x=i=>L+(n===1?0:i*(W-L-R)/(n-1));const y=v=>T+(max-v)*(H-T-B)/(max-min);
+  let d='',area='';series.forEach((p,i)=>{if(p.v==null)return;d+=(d?'L':'M')+x(i).toFixed(1)+' '+y(p.v).toFixed(1)+' '});
+  if(d)area=d+'L'+x(n-1).toFixed(1)+' '+y(min)+' L'+x(0)+' '+y(min)+' Z';
+  const ticks=[];const step=(max-min)/4;for(let g=0;g<=4;g++)ticks.push(+(min+g*step).toFixed(1));
+  const grid=ticks.map(g=>`<line x1="${L}" x2="${W-R}" y1="${y(g)}" y2="${y(g)}"/><text x="${L-8}" y="${y(g)+4}" text-anchor="end">${o.unit==='%'?g+'%':fmtN(g)}</text>`).join('');
+  const xt=[];const want=Math.min(o.xticks||7,n);for(let k=0;k<want;k++){const i=Math.round(k*(n-1)/Math.max(1,want-1));xt.push(`<text x="${x(i)}" y="${H-7}" text-anchor="${i===0?'start':i===n-1?'end':'middle'}">${fmtDate(series[i].t)}</text>`)}
+  const last=series[n-1];
+  CH[o.id]={type:'area',series,x:Array.from({length:n},(_,i)=>x(i)),y,W,unit:o.unit,label:o.label,color:o.color};
+  const svg=`<div class="chart-wrap"><svg class="chart" viewBox="0 0 ${W} ${H}" data-chart="${o.id}" role="img" aria-label="${esc(o.aria||o.label)}"><g class="grid">${grid}</g>${xt.join('')}${o.fill?`<path d="${area}" fill="${o.color}" opacity=".10"/>`:''}<path class="ln" d="${d}" stroke="${o.color}"/><line class="xh" x1="0" x2="0" y1="${T}" y2="${H-B}"/><circle class="dot" cx="${x(n-1)}" cy="${last.v==null?-99:y(last.v)}" r="4.5" fill="${o.color}"/><text class="lbl" x="${x(n-1)-10}" y="${(last.v==null?0:y(last.v))-10}" text-anchor="end" font-weight="600">${last.v==null?'':(o.unit==='%'?last.v.toFixed(1)+'%':fmtN(last.v))}</text><circle class="dot hv" r="4.5" fill="${o.color}" style="opacity:0"/><rect class="hit" x="${L}" y="0" width="${W-L-R}" height="${H}"/></svg></div>`;
+  const tv=`<div class="tv"><table class="tbl dense"><thead><tr><th>Snapshot</th><th class="num">${esc(o.label)}</th></tr></thead><tbody>${series.slice().reverse().slice(0,30).map(p=>`<tr><td class="m">${fmtDate(p.t)}</td><td class="num">${p.v==null?'—':(o.unit==='%'?p.v.toFixed(1)+'%':fmtN(p.v))}</td></tr>`).join('')}</tbody></table>${n>30?`<div class="muted" style="font-size:12px;padding:6px 8px">latest 30 of ${n} snapshots</div>`:''}</div>`;
+  return svg+tv;
+}
+function barChart(cats,vals,o){
+  o=Object.assign({h:200,color:C.accent,id:'ch'+(++chartSeq),label:'count'},o||{});
+  const W=360,H=o.h,L=34,R=10,T=18,B=26;const max=nice(Math.max(1,...vals)*1.1);const n=cats.length;const slot=(W-L-R)/n;const bw=Math.min(24,slot*.6);
+  const y=v=>T+(max-v)*(H-T-B)/max;const ticks=[0,.25,.5,.75,1].map(f=>Math.round(max*f));
+  const grid=ticks.map(g=>`<line x1="${L}" x2="${W-R}" y1="${y(g)}" y2="${y(g)}"/><text x="${L-8}" y="${y(g)+4}" text-anchor="end">${fmtN(g)}</text>`).join('');
+  const bars=cats.map((c,i)=>{const cx=L+slot*i+slot/2;const top=y(vals[i]);const h=Math.max(0,y(0)-top);const r=Math.min(4,h);
+    const p=`M${cx-bw/2} ${y(0)} V${top+r} a${r} ${r} 0 0 1 ${r} -${r} H${cx+bw/2-r} a${r} ${r} 0 0 1 ${r} ${r} V${y(0)} Z`;
+    return `<g class="bar" data-i="${i}"><path d="${p}" fill="${o.color}"/><text class="lbl" x="${cx}" y="${top-6}" text-anchor="middle">${fmtN(vals[i])}</text><text x="${cx}" y="${H-7}" text-anchor="middle">${esc(c)}</text><rect class="hit" x="${cx-slot/2}" y="0" width="${slot}" height="${H}"/></g>`}).join('');
+  CH[o.id]={type:'bar',cats,vals,label:o.label,color:o.color};
+  return `<div class="chart-wrap"><svg class="chart" viewBox="0 0 ${W} ${H}" data-chart="${o.id}" role="img" aria-label="${esc(o.aria||o.label)}"><g class="grid">${grid}</g>${bars}</svg></div><div class="tv"><table class="tbl dense"><thead><tr><th>Bucket</th><th class="num">${esc(o.label)}</th></tr></thead><tbody>${cats.map((c,i)=>`<tr><td class="m">${esc(c)}</td><td class="num">${fmtN(vals[i])}</td></tr>`).join('')}</tbody></table></div>`;
+}
+function stackedBars(rows,segs,o){
+  /* horizontal HTML bars, one row per category; segs: [{key,label,color}]; 2px surface gaps, 10px tall */
+  o=Object.assign({id:'ch'+(++chartSeq)},o||{});const single=rows.length===1&&!o.labels;
+  const max=Math.max(1,...rows.map(r=>segs.reduce((a,s)=>a+(r.counts[s.key]||0),0)));
+  CH[o.id]={type:'stack',rows,segs};
+  const body=rows.map((r,ri)=>{const tot=segs.reduce((a,s)=>a+(r.counts[s.key]||0),0);
+    const parts=segs.map((s,si)=>{const v=r.counts[s.key]||0;if(!v)return '';return `<i data-r="${ri}" data-s="${si}" style="flex:${v} ${v} 0;background:${s.color}" aria-label="${esc(s.label)} ${fmtN(v)}"></i>`}).join('');
+    return `<div class="r">${single?'':`<span class="lb">${esc(r.label)}</span>`}<div class="bar" style="width:${100*tot/max}%">${parts}</div><span class="tot">${fmtN(tot)}</span></div>`}).join('');
+  const legend=`<div class="legend">${segs.map(s=>`<span><i style="background:${s.color}"></i>${esc(s.label)}</span>`).join('')}</div>`;
+  const tv=`<div class="tv"><table class="tbl dense"><thead><tr>${single?'':'<th>Rule</th>'}${segs.map(s=>`<th class="num">${esc(s.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${single?'':`<td class="m">${esc(r.label)}</td>`}${segs.map(s=>`<td class="num">${fmtN(r.counts[s.key]||0)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  return `<div class="chart-wrap"><div class="sb ${single?'single':''}" data-chart="${o.id}" role="img" aria-label="${esc(o.aria||'status counts per rule')}">${body}</div></div>${legend}${tv}`;
+}
+function sparkline(vals,o){o=Object.assign({w:84,h:22,color:C.accent},o||{});const v=vals.filter(x=>x!=null);if(v.length<2)return '<span class="muted">—</span>';const min=Math.min(...v),max=Math.max(...v);const n=vals.length;const x=i=>2+i*(o.w-4)/(n-1);const y=val=>max===min?o.h/2:2+(max-val)*(o.h-4)/(max-min);let d='';vals.forEach((val,i)=>{if(val==null)return;d+=(d?'L':'M')+x(i).toFixed(1)+' '+y(val).toFixed(1)+' '});const last=vals[n-1];return `<svg width="${o.w}" height="${o.h}" viewBox="0 0 ${o.w} ${o.h}" aria-hidden="true"><path d="${d}" fill="none" stroke="${o.color}" stroke-width="1.5"/><circle cx="${x(n-1)}" cy="${y(last)}" r="2.5" fill="${o.color}"/></svg>`}
+
+/* hover layer */
+const tip=document.getElementById('tip');
+function showTip(x,y,title,rows){tip.replaceChildren();const t=document.createElement('div');t.className='t';t.textContent=title;tip.appendChild(t);for(const r of rows){const d=document.createElement('div');d.className='r';const l=document.createElement('span');if(r.color){const i=document.createElement('i');i.style.background=r.color;l.appendChild(i)}l.appendChild(document.createTextNode(r.label));const b=document.createElement('b');b.textContent=r.value;d.append(l,b);tip.appendChild(d)}tip.style.display='block';const w=tip.offsetWidth,h=tip.offsetHeight;tip.style.left=Math.min(window.innerWidth-w-8,x+14)+'px';tip.style.top=Math.max(8,y-h-12)+'px'}
+const hideTip=()=>{tip.style.display='none'};
+function wireCharts(root){
+  root.querySelectorAll('[data-chart]').forEach(svg=>{const ch=CH[svg.dataset.chart];if(!ch)return;
+    if(ch.type==='area'){const xh=svg.querySelector('.xh'),hv=svg.querySelector('.dot.hv');
+      svg.addEventListener('pointermove',e=>{const r=svg.getBoundingClientRect();const px=(e.clientX-r.left)*ch.W/r.width;let best=0,bd=1e9;ch.x.forEach((x,i)=>{const d=Math.abs(x-px);if(d<bd){bd=d;best=i}});const p=ch.series[best];const cx=ch.x[best];xh.setAttribute('x1',cx);xh.setAttribute('x2',cx);xh.style.opacity=1;if(p.v!=null){hv.setAttribute('cx',cx);hv.setAttribute('cy',ch.y(p.v));hv.style.opacity=1}else hv.style.opacity=0;
+        const rows=[{label:ch.label,value:p.v==null?'unmeasured':(ch.unit==='%'?p.v.toFixed(1)+'%':fmtN(p.v)),color:ch.color}];if(p.extra)rows.push(...p.extra);showTip(e.clientX,e.clientY,fmtTime(p.t,{hour:undefined,minute:undefined}),rows)});
+      svg.addEventListener('pointerleave',()=>{xh.style.opacity=0;hv.style.opacity=0;hideTip()});}
+    if(ch.type==='bar'){svg.querySelectorAll('g.bar').forEach(g=>{const i=+g.dataset.i;g.addEventListener('pointermove',e=>showTip(e.clientX,e.clientY,ch.cats[i],[{label:ch.label,value:fmtN(ch.vals[i]),color:ch.color}]));g.addEventListener('pointerleave',hideTip)})}
+    if(ch.type==='stack'){svg.querySelectorAll('i[data-r]').forEach(el=>{const r=ch.rows[+el.dataset.r];el.addEventListener('pointermove',e=>showTip(e.clientX,e.clientY,r.label,ch.segs.map(s=>({label:s.label,value:fmtN(r.counts[s.key]||0),color:s.color}))));el.addEventListener('pointerleave',hideTip)})}
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* router + state                                                      */
+/* ------------------------------------------------------------------ */
+const state={gg:{},pop:null,pal:false};
+function route(){const h=location.hash.replace(/^#\/?/,'');const [path,qs]=h.split('?');const q=Object.fromEntries(new URLSearchParams(qs||''));return {parts:path?path.split('/'):[],q}}
+function go(path,q,keep){const cur=route().q;const next=Object.assign({},keep===false?{}:{org:cur.org,range:cur.range},q||{});Object.keys(next).forEach(k=>(next[k]==null||next[k]==='')&&delete next[k]);const qs=new URLSearchParams(next).toString();location.hash='#/'+path+(qs?'?'+qs:'')}
+window.addEventListener('hashchange',render);
+
+/* ------------------------------------------------------------------ */
+/* shell                                                               */
+/* ------------------------------------------------------------------ */
+const NAV=[
+  {g:'Business'},{to:'',label:'Fleet',icon:'grid'},{to:'rules',label:'Rules',icon:'list'},{to:'orgs',label:'Orgs',icon:'boxes'},{to:'findings',label:'Findings',icon:'activity',count:()=>fmtN(api.summary(route().q.org).findings.non_compliant)},
+  {g:'Public'},{to:'status',label:'Status page',icon:'check'},
+  {g:'Docs'},{to:null,href:api.uiConfig().docs_url,label:'Documentation',icon:'book'},
+];
+function shell(crumb,main){
+  const {parts,q}=route();const me=api.me();const initials=me.name.split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();const pol=api.policy();
+  const cur=parts[0]||'';
+  return `<div class="shell">
+  <div class="topbar">
+    <a class="brand" href="#/">${ICON.shield}<span>Repo Guardian</span><small>compliance · read-only</small></a>
+    <span class="sp"></span>
+    <button class="tb-btn" data-act="palette">${ICON.search}<span>Search</span><kbd>⌘K</kbd></button>
+    <button class="tb-btn" data-act="tz" title="Time zone for every timestamp">${ICON.clock}<span>${tz()==='utc'?'UTC':'Local'}</span></button>
+    <button class="avatar" data-act="pop" data-pop="user" aria-label="Account menu">${esc(initials)}</button>
+  </div>
+  <div class="body">
+    <nav class="side" aria-label="Primary">
+      ${NAV.map(n=>n.g?`<div class="g">${n.g}</div>`:n.to==null?`<a class="nav" href="${n.href}" target="_blank" rel="noopener noreferrer">${ICON[n.icon]}<span>${n.label}</span></a>`:`<a class="nav ${cur===n.to?'cur':''}" href="#/${n.to}${q.org||q.range?'?'+new URLSearchParams({org:q.org||'',range:q.range||''}).toString().replace(/(^|&)[a-z]+=(?=&|$)/g,'').replace(/^&/,''):''}">${ICON[n.icon]}<span>${n.label}</span>${n.count?`<em>${n.count()}</em>`:''}</a>`).join('')}
+      <div class="foot"><a href="#/policy">policy ${esc(pol.version.slice(0,11))} · rollout ${esc(pol.rollout_state)}</a></div>
+    </nav>
+    <main class="main">
+      <div class="crumbs">${crumb.map((c,i)=>i===crumb.length-1?`<b>${esc(c.l||c)}</b>`:`${c.p!=null?`<a href="#/${c.p}">${esc(c.l)}</a>`:`<span style="margin:0">${esc(c.l||c)}</span>`}<span>/</span>`).join('')}</div>
+      ${main}
+    </main>
+  </div></div>`;
+}
+function pageHeader(title,sub,o){o=o||{};const {q}=route();const n=api.orgs().items.length;
+  const scope=o.scope===false?'':`<button class="btn scope" data-act="pop" data-pop="org">${esc(q.org||`All orgs (${n})`)}<span class="muted">▾</span></button>`;
+  const range=o.range?`<div class="seg" role="tablist">${['1d','7d','30d','90d'].map(r=>`<button role="tab" class="${(q.range||'90d')===r?'cur':''}" data-act="range" data-range="${r}">${r}</button>`).join('')}</div>`:'';
+  return `<div class="page-h"><div><h1>${title}</h1>${sub?`<p>${sub}</p>`:''}</div><div class="controls">${scope}${range}${o.actions||''}</div></div>`}
+const deferred=items=>`<div class="defer"><b>Deferred (needs an API addition, DESIGN-0036):</b> ${items.map(i=>esc(i)).join(' · ')}</div>`;
+
+/* ------------------------------------------------------------------ */
+/* views                                                               */
+/* ------------------------------------------------------------------ */
+const V={};
+V.fleet=()=>{const {q}=route();const org=q.org||'';const range=q.range||'90d';const from=daysAgo(rangeDays[range]);
+  const s=api.summary(org);const rules=api.rules(org).items;const orgs=api.orgs(org).items;
+  const hist=api.history({org,from});const series=complianceSeries(hist.items);const sel=q.series||'percent';
+  const SER={percent:{label:'compliance %',unit:'%',v:p=>p.percent,color:C.accent},non_compliant:{label:'failing findings',unit:'',v:p=>p.non_compliant,color:C.bad},not_applicable:{label:'not applicable',unit:'',v:p=>p.not_applicable,color:C.muted},unknown:{label:'unknown',unit:'',v:p=>p.unknown,color:C.warn}};
+  const cur=series[series.length-1],prev=series[series.length-2];const weekAgo=series.find(p=>p.t>=daysAgo(7))||series[0];
+  const failingRules=rules.filter(r=>r.counts.non_compliant>0).length;
+  const pts=series.map(p=>({t:p.t,v:SER[sel].v(p)}));
+  const cadence=series.length>1?Math.round((series[series.length-1].t-series[0].t)/DAY/(series.length-1))===1?'daily':'every '+Math.round((series[series.length-1].t-series[0].t)/DAY/(series.length-1))+'d':'—';
+  const strip=`<div class="strip">
+    <div class="cell"><div class="l">Tracked</div><div class="v">${fmtN(s.tracked)}</div><div class="s">active repositories</div></div>
+    <div class="cell"><div class="l">Compliant</div><div class="v">${fmtP(s.compliant_percent)}</div><div class="s">${delta(cur&&cur.percent,prev&&prev.percent,' pts',true)} vs previous</div></div>
+    <div class="cell"><div class="l">Failing</div><div class="v">${fmtN(s.findings.non_compliant)}</div><div class="s">${delta(cur&&cur.non_compliant,weekAgo&&weekAgo.non_compliant,'',false)} vs 7d · ${failingRules} rules</div></div>
+    <div class="cell"><div class="l">Parked</div><div class="v">${fmtN(s.parked.reduce((a,p)=>a+p.count,0))}</div><div class="s">${s.parked.map(p=>`${p.reason} ${p.count}`).join(' · ')}</div></div>
+    <div class="cell"><div class="l">Snapshots</div><div class="v">${series.length}</div><div class="s">${cadence} · ${range}</div></div></div>`;
+  const pills=`<div class="pills" role="radiogroup" aria-label="Series">${Object.entries(SER).map(([k,d])=>`<button class="pill" role="radio" aria-pressed="${sel===k}" aria-checked="${sel===k}" data-act="series" data-series="${k}"><i style="background:${d.color}"></i>${d.label}: <b>${k==='percent'?fmtP(s.compliant_percent):fmtN(s.findings[k])}</b></button>`).join('')}</div>`;
+  const compliance=card(`Compliance (${range})`,`Fleet compliance % from <code>/compliance/history</code>; compliant ÷ (compliant + non_compliant) over active repositories.`,pills+areaChart(pts,{label:SER[sel].label,unit:SER[sel].unit,color:SER[sel].color,min:sel==='percent'?undefined:0,aria:`${SER[sel].label} over the last ${range}`})+(hist.truncated?`<div class="muted" style="font-size:12px;margin-top:6px">series truncated at 4,000 points; aggregate=fleet would fix this (OQ6)</div>`:''),{strip,right:`<a class="btn ghost sm" href="#/history">full history</a>${tableBtn('c-comp')}`,id:'c-comp'});
+  const prs=card('Open PRs by age',`Remediation PRs opened by repo-guardian[bot]. ${esc(goDur(s.stale_after))}+ counts as stale.`,barChart(s.open_prs.map(b=>b.bucket),s.open_prs.map(b=>b.count),{label:'open PRs',aria:'open remediation PRs by age bucket'})+`<div class="muted" style="font-size:12.5px;margin-top:8px">${fmtN(s.stale_prs)} PRs over threshold → <a href="#/findings?pr_stale=true&status=non_compliant${org?'&org='+org:''}">findings?pr_stale=true</a></div>`,{right:tableBtn('c-prs'),id:'c-prs'});
+  const worst=card('Worst rules','Lowest compliance first. Click a rule to open it.',`<div class="bl">${rules.slice().sort((a,b)=>(a.compliant_percent==null?101:a.compliant_percent)-(b.compliant_percent==null?101:b.compliant_percent)).slice(0,5).map(r=>`<div class="r"><div class="t"><span><a href="#/rules/${r.kind}/${r.name}">${esc(r.name)}</a><em>${esc(r.kind)}</em></span><b>${fmtP(r.compliant_percent)} ${trend(r.compliant_percent,r.previous_percent)}</b></div>${meter(r.compliant_percent).replace('<b>'+fmtP(r.compliant_percent)+'</b>','')}</div>`).join('')}</div>`);
+  const parked=card('Parked by reason','Repositories excluded from measurement.',barList(s.parked.map(p=>({label:p.reason,value:p.count})),{pct:true}));
+  const byRule=card('Compliance by rule','From <code>/rules</code>. Trend is vs. the previous snapshot; sparkline is the last 20 snapshots.',`<table class="tbl"><thead><tr><th>Rule</th><th>Kind</th><th class="num">Compliant</th><th class="num">Failing</th><th class="num">N/A</th><th class="num">%</th><th>Trend</th><th></th></tr></thead><tbody>${rules.map(r=>{const sp=complianceSeries(api.history({org,kind:r.kind,rule:r.name,from:daysAgo(20)}).items).map(p=>p.percent);return `<tr class="link" data-go="rules/${r.kind}/${r.name}"><td class="m">${esc(r.name)}</td><td>${kindBadge(r.kind)}</td><td class="num">${fmtN(r.counts.compliant)}</td><td class="num">${fmtN(r.counts.non_compliant)}</td><td class="num muted">${fmtN(r.counts.not_applicable)}</td><td class="num" style="font-weight:500">${fmtP(r.compliant_percent)}</td><td>${trend(r.compliant_percent,r.previous_percent)}</td><td>${sparkline(sp)}</td></tr>`}).join('')}</tbody></table>`);
+  const byOrg=org?card('Not applicable by reason','Why rules were skipped in this org (scope, ignore, gate).',barList(api.org(org).not_applicable.map(n=>({label:n.reason,value:n.count})),{pct:true}))
+    :card('Orgs','From <code>/orgs</code>: tracked, failing and parked per org you can see.',`<table class="tbl"><thead><tr><th>Org</th><th class="num">Tracked</th><th class="num">Failing</th><th class="num">Parked</th><th style="width:38%">Compliance</th></tr></thead><tbody>${orgs.slice().sort((a,b)=>b.tracked-a.tracked).map(o=>`<tr class="link" data-go="orgs/${o.org}"><td style="font-weight:500">${esc(o.org)}</td><td class="num">${fmtN(o.tracked)}</td><td class="num">${fmtN(o.counts.non_compliant)}</td><td class="num muted">${fmtN(o.parked)}</td><td>${meter(o.compliant_percent,'accent')}</td></tr>`).join('')}</tbody></table>`);
+  return pageHeader('Fleet','Compliance across every org you can see. Read-only; policy changes go through git.',{range:true})
+    +`<div class="grid cols-3">${compliance}${prs}</div>`
+    +`<div class="grid cols-3b mt">${worst}${parked}${card('Findings by status','Every rule\'s findings across the scope, now. The percent counts only the first two.',stackedBars([{label:'all rules',counts:s.findings}],[{key:'compliant',label:'compliant',color:C.ok},{key:'non_compliant',label:'non_compliant',color:C.bad},{key:'not_applicable',label:'not_applicable',color:C.muted},{key:'unknown',label:'unknown',color:C.warn}],{aria:'finding status counts across all rules'}))}</div>`
+    +`<div class="grid cols-2 mt">${byRule}${byOrg}</div>`
+    +deferred(['Finding age distribution (Summary.finding_age, OQ8)','PR throughput opened vs closed (finding_events aggregate, OQ15)','"+N discovered this week" on Tracked (OQ7)']);
+};
+
+V.rules=()=>{const {q}=route();const org=q.org||'';const kind=q.kind||'';let rules=api.rules(org).items;const kinds=[...new Set(rules.map(r=>r.kind))];if(kind)rules=rules.filter(r=>r.kind===kind);
+  const worst=rules.slice().sort((a,b)=>(a.compliant_percent==null?101:a.compliant_percent)-(b.compliant_percent==null?101:b.compliant_percent)).slice(0,4);
+  const tabs=`<div class="seg" role="tablist">${['',...kinds].map(k=>`<button role="tab" class="${kind===k?'cur':''}" data-act="kind" data-kind="${k}">${k||'All'}</button>`).join('')}</div>`;
+  return pageHeader('Rules','Compliance per rule <code>(kind, name)</code>, with counts by status and the trend vs. the previous snapshot.',{actions:tabs})
+    +`<div class="grid cols-4">${worst.map(r=>kpi(`<a href="#/rules/${r.kind}/${r.name}">${esc(r.name)}</a> <span class="muted">${esc(r.kind)}</span>`,fmtP(r.compliant_percent),`${fmtN(r.counts.non_compliant)} failing · ${fmtN(r.counts.not_applicable)} n/a · ${trend(r.compliant_percent,r.previous_percent)}`)).join('')}</div>`
+    +`<div class="mt">${card('Status counts by rule','Compliant, non_compliant and not_applicable findings per rule, now.',stackedBars(rules.map(r=>({label:r.name,counts:r.counts})),[{key:'compliant',label:'compliant',color:C.ok},{key:'non_compliant',label:'non_compliant',color:C.bad},{key:'not_applicable',label:'not_applicable',color:C.muted},{key:'unknown',label:'unknown',color:C.warn}]),{right:tableBtn('c-rs'),id:'c-rs'})}</div>`
+    +`<div class="mt">${card('All rules','Click a row for the per-org breakdown, top reasons, oldest failures and the policy description.',`<table class="tbl"><thead><tr><th>Rule</th><th>Kind</th><th class="num">Compliant</th><th class="num">Failing</th><th class="num">N/A</th><th class="num">Unknown</th><th class="num">Compliance</th><th>Trend</th><th>Previous</th></tr></thead><tbody>${rules.map(r=>`<tr class="link" data-go="rules/${r.kind}/${r.name}"><td class="m">${esc(r.name)}</td><td>${kindBadge(r.kind)}</td><td class="num">${fmtN(r.counts.compliant)}</td><td class="num">${fmtN(r.counts.non_compliant)}</td><td class="num muted">${fmtN(r.counts.not_applicable)}</td><td class="num muted">${fmtN(r.counts.unknown)}</td><td class="num" style="font-weight:500">${fmtP(r.compliant_percent)}</td><td>${trend(r.compliant_percent,r.previous_percent)} pts</td><td class="muted">${timeAttr(r.previous_at)}${fmtDate(r.previous_at)}</time></td></tr>`).join('')}</tbody></table>`)}</div>`;
+};
+
+V.rule=(kind,name)=>{const {q}=route();const org=q.org||'';const r=api.rule(kind,name,org);if(!r)return notFound();const pol=api.policy().rules.find(x=>x.kind===kind&&x.name===name);const list=api.rules(org).items.find(x=>x.kind===kind&&x.name===name);
+  const oldest=r.oldest_failures[0];const hist=complianceSeries(api.history({org,kind,rule:name,from:daysAgo(rangeDays[q.range||'90d'])}).items);
+  return `<div class="crumbs" style="display:none"></div>`+pageHeader(`${esc(name)} ${kindBadge(kind)}`,esc(r.description)+(pol?` · check <code>${esc(pol.check_mode)}</code>${pol.ignore.length?` · ignores <code>${esc(pol.ignore.join(', '))}</code>`:''}`:''),{range:true,actions:`<a class="btn" href="#/findings?kind=${kind}&rule=${name}&status=non_compliant${org?'&org='+org:''}">Findings for this rule</a>`})
+    +`<div class="grid cols-4">${kpi('Compliance',fmtP(r.compliant_percent),`${trend(r.compliant_percent,list.previous_percent)} pts vs previous snapshot`)}${kpi('Compliant',fmtN(r.counts.compliant),'active repositories')}${kpi('Failing',fmtN(r.counts.non_compliant),oldest?`oldest: ${ageDays(oldest.status_since)} days`:'')}${kpi('Not applicable',fmtN(r.counts.not_applicable),'scope / ignore / gate')}</div>`
+    +`<div class="grid cols-3 mt"><div>${card(`Compliance (${q.range||'90d'})`,'This rule over the scoped orgs.',areaChart(hist.map(p=>({t:p.t,v:p.percent})),{h:180,label:'compliance %',aria:`${name} compliance over time`}),{right:tableBtn('c-rh'),id:'c-rh'})}<div class="mt">${card('Per-org breakdown',null,`<table class="tbl"><thead><tr><th>Org</th><th class="num">Compliant</th><th class="num">Failing</th><th class="num">N/A</th><th style="width:40%">Compliance</th></tr></thead><tbody>${r.orgs.map(o=>`<tr class="link" data-go="orgs/${o.org}"><td style="font-weight:500">${esc(o.org)}</td><td class="num">${fmtN(o.counts.compliant)}</td><td class="num">${fmtN(o.counts.non_compliant)}</td><td class="num muted">${fmtN(o.counts.not_applicable)}</td><td>${meter(o.compliant_percent,'accent')}</td></tr>`).join('')}</tbody></table>`)}</div></div>
+      <div class="grid" style="align-content:start">${card('Top reasons','Share of failing findings by reason.',barList(r.top_reasons.map(t=>({label:t.reason,value:t.count})),{pct:true,link:t=>`#/findings?kind=${kind}&rule=${name}&reason=${t.label}&status=non_compliant`}))}${card('Oldest failures','Longest non-compliant first.',r.oldest_failures.length?`<table class="tbl dense"><tbody>${r.oldest_failures.map(f=>`<tr class="link" data-go="repos/${f.repository_id}"><td class="m">${esc(f.org)}/${esc(f.repository)}</td><td class="num muted">${ageDays(f.status_since)}d</td><td>${remBadge(f.remediation)}</td></tr>`).join('')}</tbody></table>`:'<div class="muted" style="font-size:13px">No failing repositories in scope.</div>')}</div></div>`;
+};
+
+V.orgs=()=>{const {q}=route();const scope=q.org||'';const tab=q.tab||'compliance';const hide=q.parked==='hide';
+  const orgs=api.orgs(scope).items.filter(o=>!hide||o.parked<o.tracked);const T=orgs.reduce((a,o)=>({tracked:a.tracked+o.tracked,c:a.c+o.counts.compliant,nc:a.nc+o.counts.non_compliant,na:a.na+o.counts.not_applicable,p:a.p+o.parked}),{tracked:0,c:0,nc:0,na:0,p:0});
+  const heat=(v,tot,tone)=>{const share=tot?v/tot:0;return `style="background:color-mix(in srgb,var(--${tone}) ${Math.round(8+42*share)}%,transparent)"`};
+  const cols=`<tr><th>Org / rule</th><th class="num">Tracked</th><th class="num">Compliant</th><th class="num">Failing</th><th class="num">N/A</th><th class="num">Parked</th></tr>`;
+  const rows=orgs.map(o=>{const open=state.gg[o.org]!==false;const tot=o.counts.compliant+o.counts.non_compliant;const d=api.org(o.org);
+    const grp=`<tr class="grp" data-act="gg" data-org="${esc(o.org)}"><td><span class="tog">${open?'−':'+'}</span>${esc(o.org)}<span class="meta">${fmtP(o.compliant_percent)} compliant · ${fmtN(o.parked)} parked · ${d.rules.length} rules</span></td><td class="num">${fmtN(o.tracked)}</td><td class="num heat" ${tab==='compliance'?heat(o.counts.compliant,tot,'ok'):''}>${fmtN(o.counts.compliant)}<small>${tot?Math.round(100*o.counts.compliant/tot)+'%':'—'}</small></td><td class="num heat" ${tab==='compliance'?heat(o.counts.non_compliant,tot,'bad'):''}>${fmtN(o.counts.non_compliant)}<small>${tot?Math.round(100*o.counts.non_compliant/tot)+'%':'—'}</small></td><td class="num muted">${fmtN(o.counts.not_applicable)}</td><td class="num heat" ${tab==='parked'?heat(o.parked,o.tracked,'warn'):''}>${fmtN(o.parked)}</td></tr>`;
+    const kids=open?d.rules.map((r,i)=>{const t=r.counts.compliant+r.counts.non_compliant;return `<tr class="child link" data-go="rules/${r.kind}/${r.name}?org=${o.org}"><td><span class="rk">${esc(r.kind)}</span><span class="m">${esc(r.name)}</span></td><td class="num muted">${fmtN(o.tracked)}</td><td class="num heat" ${tab==='compliance'?heat(r.counts.compliant,t,'ok'):''}>${fmtN(r.counts.compliant)}<small>${t?Math.round(100*r.counts.compliant/t)+'%':'—'}</small></td><td class="num heat" ${tab==='compliance'?heat(r.counts.non_compliant,t,'bad'):''}>${fmtN(r.counts.non_compliant)}<small>${t?Math.round(100*r.counts.non_compliant/t)+'%':'—'}</small></td><td class="num muted">${fmtN(r.counts.not_applicable)}</td><td class="num muted">—</td></tr>`}).join(''):'';
+    return grp+kids}).join('');
+  const total=`<tr class="total"><td>${orgs.length} orgs</td><td class="num">${fmtN(T.tracked)}</td><td class="num">${fmtN(T.c)} / ${T.c+T.nc?Math.round(100*T.c/(T.c+T.nc)):'—'}%</td><td class="num">${fmtN(T.nc)} / ${T.c+T.nc?Math.round(100*T.nc/(T.c+T.nc)):'—'}%</td><td class="num">${fmtN(T.na)}</td><td class="num">${fmtN(T.p)}</td></tr>`;
+  const toolbar=`<div class="filters" style="padding:0 0 10px"><span class="muted" style="font-size:12px">Tracked</span>${badge(fmtN(T.tracked),'mute')}<span class="muted" style="font-size:12px">Failing</span>${badge(fmtN(T.nc),'bad')}<span class="muted" style="font-size:12px">Parked</span>${badge(fmtN(T.p),'warn')}<span class="sp" style="flex:1"></span><div class="seg" role="tablist">${[['compliance','Compliance'],['parked','Parked']].map(([k,l])=>`<button role="tab" class="${tab===k?'cur':''}" data-act="tab" data-tab="${k}">${l}</button>`).join('')}</div><div class="seg"><button class="${!hide?'cur':''}" data-act="parked" data-parked="">All</button><button class="${hide?'cur':''}" data-act="parked" data-parked="hide">Hide fully parked</button></div><button class="btn sm" data-act="ggall">${Object.values(state.gg).some(v=>v===false)?'Expand all':'Collapse all'}</button></div>`;
+  return pageHeader('Orgs','Tracked, compliance and parked per org, expandable to the rules in that org. Cells shade by share of measured.',{actions:`<button class="btn" data-act="toast">Export CSV</button>`})
+    +card(null,null,toolbar+`<table class="gg"><thead>${cols}</thead><tbody>${rows}${total}</tbody></table>`).replace('<div class="card-h"><div><b>null</b></div><div class="right"></div></div>','')
+    +deferred(['PR activity tab (OrgSummary.open_prs, OQ14)','repository rows under an org (per-repository counts, OQ13)']);
+};
+
+V.org=(org)=>{const {q}=route();const d=api.org(org);if(!d)return notFound();const s=api.orgs(org).items[0];const hist=complianceSeries(api.history({org,from:daysAgo(rangeDays[q.range||'90d'])}).items);
+  return pageHeader(`${esc(org)} ${kindBadge('org')}`,'Per-rule table for one org, plus why rules were skipped (scope / ignore / gate) and why repositories are parked.',{scope:false,range:true,actions:`<a class="btn" href="#/findings?org=${org}&status=non_compliant">Findings in this org</a>`})
+    +`<div class="grid cols-4">${kpi('Tracked',fmtN(d.tracked))}${kpi('Compliance',fmtP(s.compliant_percent))}${kpi('Failing',fmtN(s.counts.non_compliant),'findings')}${kpi('Parked',fmtN(s.parked),d.parked.map(p=>`${p.reason} ${p.count}`).join(' · '))}</div>`
+    +`<div class="grid cols-3 mt"><div>${card(`Compliance (${q.range||'90d'})`,'All rules in this org.',areaChart(hist.map(p=>({t:p.t,v:p.percent})),{h:180,label:'compliance %',aria:`${org} compliance over time`}),{right:tableBtn('c-oh'),id:'c-oh'})}<div class="mt">${card('Rules in this org',null,`<table class="tbl"><thead><tr><th>Rule</th><th>Kind</th><th class="num">Compliant</th><th class="num">Failing</th><th class="num">N/A</th><th class="num">%</th><th>Trend</th></tr></thead><tbody>${d.rules.map(r=>`<tr class="link" data-go="rules/${r.kind}/${r.name}?org=${org}"><td class="m">${esc(r.name)}</td><td>${kindBadge(r.kind)}</td><td class="num">${fmtN(r.counts.compliant)}</td><td class="num">${fmtN(r.counts.non_compliant)}</td><td class="num muted">${fmtN(r.counts.not_applicable)}</td><td class="num" style="font-weight:500">${fmtP(r.compliant_percent)}</td><td>${trend(r.compliant_percent,r.previous_percent)}</td></tr>`).join('')}</tbody></table>`)}</div></div>
+      <div class="grid" style="align-content:start">${card('Not applicable by reason',null,barList(d.not_applicable.map(n=>({label:n.reason,value:n.count})),{pct:true}))}${card('Parked by reason',null,barList(d.parked.map(p=>({label:p.reason,value:p.count})),{pct:true}))}</div></div>`;
+};
+
+const FILTERS=[['status',['compliant','non_compliant','not_applicable','unknown']],['reason',['file_missing','assertion_failed','content_differs','forbidden_present','setting_mismatch','ruleset_missing','ruleset_mismatch','out_of_scope_policy','out_of_scope_rule','ignored_global','ignored_rule','gate_closed','branch_missing','empty_repository','gate_error','foreign_pr_open','migrated_from_v1']],['remediation',['none','pr_open','foreign_pr','applied','dry_run','disabled']],['kind',['file','setting','branch_protection']],['rule',RULES.map(r=>r.name)],['org',ORGS.map(o=>o.org)],['pr_stale',['true']]];
+function evidenceText(f){const e=f.evidence||{};const k=s=>`<span class="k">${esc(s)}</span>`;const bad=s=>`<span class="bad">✗</span> ${esc(s)}`;
+  switch(f.reason){
+    case 'file_missing':return `${k('none of the checked paths exist')}\n${(e.paths_checked||[]).map(p=>'  '+esc(p)).join('\n')}`;
+    case 'assertion_failed':return `${esc(e.path)}\n${bad(e.message)}`;
+    case 'content_differs':return `${esc(e.path)}\n${bad('differs from the template')} ${k('('+esc(e.comparison)+' comparison)')}`;
+    case 'forbidden_present':return `${esc(e.path)}\n${bad('exists and is forbidden')}`;
+    case 'setting_mismatch':return `${esc(e.property)}\n${k('expected')} ${esc(e.expected)}\n${k('found')}    ${esc(e.actual)}`;
+    case 'ruleset_missing':return `${k('no ruleset protects')} ${esc(e.branch)}`;
+    case 'ruleset_mismatch':return `${esc(e.branch)} ${k('· ruleset '+e.ruleset_id)}\n${(e.mismatches||[]).map(m=>bad(m)).join('\n')}`;
+    case 'out_of_scope_policy':case 'out_of_scope_rule':return k('rule not in scope for this org');
+    case 'ignored_global':case 'ignored_rule':return `${k('ignored by pattern')} ${esc(e.pattern)}`;
+    case 'gate_closed':return `${k('gate closed:')} ${esc(e.referee)} ${k('is not satisfied')}`;
+    case 'branch_missing':return `${k('branch')} ${esc(e.branch)} ${k('does not exist')}`;
+    case 'gate_error':return `${k('gate')} ${esc(e.referee)}\n${bad(e.error)}`;
+    case 'foreign_pr_open':return `${k('another open PR touches')} ${esc(f.pr&&f.pr.matched_term)}`;
+    case 'migrated_from_v1':return `${k('migrated from v1 · actionable since')} ${esc(fmtTime(e.v1_actionable_since))}`;
+    default:return f.reason?esc(f.reason):k('compliant');
+  }}
+const prLink=f=>f.pr?`<a href="${esc(f.pr.url)}" target="_blank" rel="noopener noreferrer" class="m">#${f.pr.number}</a>`:'<span class="muted">—</span>';
+function describeEvent(ev){if(ev.source==='repository'){const d=ev.detail||{};switch(ev.kind){case 'discovered':return 'discovered via installation';case 'renamed':return `renamed ${d.from} → ${d.to}`;case 'transferred':return `transferred from ${d.from}`;case 'parked':return `parked · ${d.reason}`;case 'unparked':return 'un-parked by discovery';case 'removed':return 'removed';default:return ev.kind}}return `became <b>${esc(ev.to_status)}</b>${ev.to_reason?' · '+esc(ev.to_reason):''}${ev.to_remediation&&ev.to_remediation!=='none'?' · '+esc(ev.to_remediation):''}`}
+function timeline(repoId,f){const ev=api.events(repoId).items.filter(e=>e.source==='repository'?['parked','unparked','renamed','transferred'].includes(e.kind):(!f||(e.rule_kind===f.rule_kind&&e.rule_name===f.rule_name)));
+  let checks=api.checks(repoId).items.filter(c=>!f||c.started_at>=f.status_since);
+  if(f){const latest=checks.slice(0,2);checks=checks.filter(c=>c.outcome!=='success'||latest.includes(c))}
+  const newest=checks[0];
+  const items=[...ev.map(e=>({t:e.occurred_at,html:describeEvent(e)})),...checks.map(c=>({t:c.started_at,html:`re-checked · ${c.outcome==='success'?(f&&f.status==='non_compliant'?'still '+esc(f.status):'ok'):esc(c.outcome)}${c===newest&&f&&f.pr&&f.pr.created_at&&c.started_at>f.pr.created_at&&f.remediation==='pr_open'?` · PR #${f.pr.number} still open (${Math.floor((c.started_at-f.pr.created_at)/DAY)}d)`:''}${c.error?` · <span class="muted">${esc(c.error)}</span>`:''}`}))];
+  if(f&&f.pr&&f.pr.created_at)items.push({t:f.pr.created_at,html:`PR #${f.pr.number} opened · <span class="m">${esc(f.pr.head)}</span>`});
+  items.sort((a,b)=>a.t-b.t);const show=items.slice(-20);
+  return `<div class="hist">${show.map((i,k)=>`<div class="${k===show.length-1?'now':''}"><span class="d">${timeAttr(i.t)}${fmtTime(i.t)}</time></span>${i.html}</div>`).join('')}</div>`}
+
+V.findings=()=>{const {q}=route();const f=Object.assign({},q);delete f.range;if(!('status' in q)&&!q.reason&&!q.remediation&&!q.pr_stale)f.status='non_compliant';
+  const res=api.findings(f);const s=api.summary(q.org||'');const open=q.open?q.open.split('/'):null;const sel=open?res.items.find(x=>String(x.repository_id)===open[0]&&x.rule_kind===open[1]&&x.rule_name===open[2])||FINDINGS.find(x=>String(x.repository_id)===open[0]&&x.rule_kind===open[1]&&x.rule_name===open[2]):null;
+  const active=FILTERS.filter(([k])=>f[k]);const chips=active.map(([k])=>`<button class="chip" data-act="pop" data-pop="filter:${k}">${k} = <b>${esc(f[k])}</b></button>`).join('')+`<button class="chip add" data-act="pop" data-pop="filter:">+ filter</button>`;
+  const table=`<table class="tbl"><thead><tr><th>Repository</th><th>Rule</th><th>Status</th><th>Reason</th><th>Remediation</th><th>PR</th><th class="num col-age">Age</th><th class="col-since">Since</th></tr></thead><tbody>${res.items.map(x=>{const isSel=sel&&sel.repository_id===x.repository_id&&sel.rule_kind===x.rule_kind&&sel.rule_name===x.rule_name;return `<tr class="link ${isSel?'sel':''}" data-act="open" data-open="${x.repository_id}/${x.rule_kind}/${x.rule_name}" tabindex="0"><td class="m" style="color:var(--fg)">${esc(x.org)}/${esc(x.repository)}</td><td class="m">${esc(x.rule_name)}</td><td>${statusBadge(x.status)}</td><td class="m muted">${x.reason?esc(x.reason):'—'}</td><td>${remBadge(x.remediation)}</td><td>${prLink(x)}</td><td class="num m col-age">${x.pr&&x.pr.created_at?ageDays(x.pr.created_at)+'d'+(x.pr_stale?' <span class="badge b-warn" style="padding:3px 5px;font-size:10.5px">stale</span>':''):'—'}</td><td class="muted col-since">${timeAttr(x.status_since)}${rel(x.status_since)}</time></td></tr>`}).join('')||`<tr><td colspan="8" class="muted" style="text-align:center;padding:28px">No findings match.</td></tr>`}</tbody></table>`;
+  const drawer=sel?`<div class="drawer-scrim" data-act="open" data-open="" aria-hidden="true"></div><aside class="drawer" role="dialog" aria-label="Finding detail">
+    <h3><a href="https://github.com/${esc(sel.org)}/${esc(sel.repository)}" target="_blank" rel="noopener noreferrer">${esc(sel.org)}/${esc(sel.repository)} ${ICON.ext}</a><button class="btn ghost sm" data-act="open" data-open="" aria-label="Close">✕</button></h3>
+    <div class="sub">rule ${esc(sel.rule_name)} (${esc(sel.rule_kind)}) · since ${esc(fmtTime(sel.status_since,{hour:undefined,minute:undefined}))}</div>
+    <div class="kv"><span>Status</span><div>${statusBadge(sel.status)}</div><span>Reason</span><div>${sel.reason?reasonBadge(sel.reason,sel.status):'<span class="muted">—</span>'}</div><span>Remediation</span><div>${remBadge(sel.remediation)} ${sel.pr?`${prLink(sel)}${sel.pr.head?` <span class="m muted" style="font-size:12px">· ${esc(sel.pr.head)}</span>`:''}${sel.pr.matched_term?` <span class="m muted" style="font-size:12px">· matched ${esc(sel.pr.matched_term)}</span>`:''}`:''}</div><span>Last evaluated</span><div class="muted" style="font-size:12.5px">${timeAttr(sel.last_evaluated_at)}${fmtTime(sel.last_evaluated_at)}</time></div></div>
+    <div class="ev">${evidenceText(sel)}</div>
+    ${timeline(sel.repository_id,sel)}
+    <div class="actions"><span class="muted">actions slot (IMPL-0029 re-evaluate)</span><a href="#/repos/${sel.repository_id}">Open repository →</a></div></aside>`:'';
+  return pageHeader('Findings','Every rule outcome, with its reason and what was done about it. Filters map 1:1 to <code>/findings</code> query parameters.',{actions:`<button class="btn" data-act="toast">Export CSV</button>`})
+    +`<div class="layout ${sel?'open':''}"><div>${card(null,null,'').replace(/<div class="card-h">[\s\S]*?<\/div><\/div>/,'').replace('<div class="card-b"></div>',`<div class="filters">${chips}<span class="count">${res.items.length} loaded${f.status==='non_compliant'&&!f.reason&&!f.rule&&!f.kind&&!f.remediation&&!f.pr_stale?` of ${fmtN(s.findings.non_compliant)} non-compliant`:''}</span></div>`)}<div class="card mt"><div class="tbl-wrap">${table}</div></div>${res.items.length>=50?'<div style="text-align:center;margin-top:10px"><button class="btn">Load more</button></div>':''}</div>${drawer}</div>`
+    +deferred(['sort = pr_age chip (GET /findings?sort=, OQ5)']);
+};
+
+V.repo=(id)=>{const d=api.repository(id);if(!d)return notFound();const r=d.repository;const ev=api.events(id).items;const checks=api.checks(id).items;
+  return pageHeader(`${esc(r.org)}/${esc(r.name)} ${r.active?badge('active','ok'):badge('parked · '+r.park_reason,'warn')}`,`checked ${rel(r.last_checked_at)} · installation ${esc(d.installation.account)} (#${d.installation.id}) · next check ${until(r.next_due_at)}`,{scope:false,actions:`<a class="btn" href="https://github.com/${esc(r.org)}/${esc(r.name)}" target="_blank" rel="noopener noreferrer">Open on GitHub ${ICON.ext}</a>`})
+    +`<div class="grid cols-3"><div class="grid" style="align-content:start">
+      ${card('Findings','Each rule\'s status, reason and evidence. Evidence is rendered as text only.',`<table class="tbl"><thead><tr><th>Rule</th><th>Status</th><th>Reason / evidence</th><th>Remediation</th><th>Since</th></tr></thead><tbody>${d.findings.map(f=>`<tr class="link" data-go="findings?open=${f.repository_id}/${f.rule_kind}/${f.rule_name}&status="><td class="m">${esc(f.rule_name)} <span class="sub">${esc(f.rule_kind)}</span></td><td>${statusBadge(f.status)}</td><td style="white-space:normal;max-width:360px">${f.reason?`<span class="m muted">${esc(f.reason)}</span><div class="m" style="font-size:12px;margin-top:2px;color:var(--muted)">${evidenceText(f).split('\n')[1]||evidenceText(f).split('\n')[0]}</div>`:'<span class="muted">—</span>'}</td><td>${remBadge(f.remediation)} ${f.pr?prLink(f):''}</td><td class="muted">${rel(f.status_since)}</td></tr>`).join('')}</tbody></table>`)}
+      ${card('Recent checks','Trigger, outcome, duration, error.',`<table class="tbl"><thead><tr><th>Started</th><th>Trigger</th><th>Outcome</th><th class="num">Duration</th><th>Error</th></tr></thead><tbody>${checks.map(c=>`<tr><td class="m muted">${timeAttr(c.started_at)}${fmtTime(c.started_at)}</time></td><td>${kindBadge(c.trigger)}</td><td>${badge(c.outcome,c.outcome==='success'?'ok':c.outcome==='error'?'bad':'mute')}</td><td class="num">${c.duration_seconds}s</td><td class="muted" style="white-space:normal;max-width:320px;font-size:12px">${c.error?esc(c.error):'—'}</td></tr>`).join('')}</tbody></table>`)}
+    </div><div class="grid" style="align-content:start">
+      ${card('Repository',null,`<div class="kv" style="margin:0"><span>Provider id</span><div class="m">${r.provider_repo_id}</div><span>Discovered</span><div>${timeAttr(r.discovered_at)}${fmtTime(r.discovered_at,{hour:undefined,minute:undefined})}</time></div><span>Park state</span><div>${r.park_reason?badge(r.park_reason,'warn')+` <span class="muted">${rel(r.parked_at)}</span>`:'<span class="muted">—</span>'}</div><span>Last outcome</span><div>${badge(r.last_check_outcome,r.last_check_outcome==='success'?'ok':'bad')}</div><span>Policy version</span><div class="m">${esc(r.policy_version)}</div><span>API budget</span><div>${meter(100*d.installation.rate_remaining/d.installation.rate_limit,'accent').replace(fmtP(100*d.installation.rate_remaining/d.installation.rate_limit),fmtN(d.installation.rate_remaining)+' left')}</div></div>`)}
+      ${card('Timeline','Merged <code>finding_events</code>, <code>repository_events</code> and checks.',timeline(id,null))}
+    </div></div>`;
+};
+
+V.history=()=>{const {q}=route();const rule=q.rule||'';const range=q.range||'90d';const from=daysAgo(rangeDays[range]);const rules=api.rules().items;const r=rules.find(x=>x.name===rule);
+  const tabs=`<select class="btn" data-act="rule-pick">${['',...rules.map(x=>x.name)].map(n=>`<option value="${n}" ${rule===n?'selected':''}>${n||'All rules'}</option>`).join('')}</select>`;
+  return pageHeader('History','Compliance series per org from <code>/compliance/history</code>; one small chart per org so every series keeps its own axis.',{range:true,actions:tabs})
+    +`<div class="grid cols-3b">${api.orgs(q.org||'').items.map(o=>{const ser=complianceSeries(api.history({org:o.org,kind:r&&r.kind,rule,from}).items);return card(esc(o.org),rule?`rule ${esc(rule)}`:'all rules',areaChart(ser.map(p=>({t:p.t,v:p.percent})),{w:420,h:170,xticks:4,label:'compliance %',aria:`${o.org} compliance`}),{right:tableBtn('c-h-'+o.org),id:'c-h-'+o.org})}).join('')}</div>`;
+};
+
+V.policy=()=>{const p=api.policy();return pageHeader('Policy','The active policy version and its rules, read-only. Changes go through git.',{scope:false})
+  +`<div class="grid cols-4">${kpi('Version',`<span class="m" style="font-size:16px">${esc(p.version)}</span>`)}${kpi('First seen',fmtTime(p.first_seen_at,{hour:undefined,minute:undefined}),rel(p.first_seen_at))}${kpi('Rollout',badge(p.rollout_state,p.rollout_state==='complete'?'ok':'info'),p.rollout_completed_at?'completed '+rel(p.rollout_completed_at):'in progress')}${kpi('Rules',p.rules.length,[...new Set(p.rules.map(r=>r.kind))].join(' · '))}</div>`
+  +`<div class="mt">${card('Rules',null,`<table class="tbl"><thead><tr><th>Rule</th><th>Kind</th><th>Check</th><th>Description</th><th>Scope</th><th>Ignore</th></tr></thead><tbody>${p.rules.map(r=>`<tr class="link" data-go="rules/${r.kind}/${r.name}"><td class="m">${esc(r.name)}</td><td>${kindBadge(r.kind)}</td><td class="m muted">${esc(r.check_mode)}</td><td style="white-space:normal">${esc(r.description)}</td><td class="m muted">${esc(r.scope.join(', '))}</td><td class="m muted">${r.ignore.length?esc(r.ignore.join(', ')):'—'}</td></tr>`).join('')}</tbody></table>`)}</div>`};
+
+V.status=()=>{const s=api.status();const head={operational:'All systems operational',degraded:'Degraded performance',down:'Service disruption',unknown:'Status not yet available'}[s.state]||s.state;const tone=TONE.component[s.state]||'mute';
+  return `<div class="status-page">
+    <div class="hd"><div class="brand" style="font-size:15px">${ICON.shield}<span>Repo Guardian status</span></div><span class="muted" style="font-size:12px">updated ${rel(s.updated_at)} · refreshes every 30s</span></div>
+    <div class="card banner" style="border-color:color-mix(in srgb,var(--${tone}) 50%,var(--line))"><span class="dot" style="background:var(--${tone})"></span><div style="flex:1"><b>${head}</b><span>Public, aggregate-only. No org, repository or rule names appear on this page.</span></div>${stateBadge(s.state)}</div>
+    <div class="grid mt" style="grid-template-columns:3fr 2fr">
+      ${card('Components',null,`<div class="comp">${s.components.map(c=>`<div class="row"><i style="background:var(--${TONE.component[c.state]||'mute'})"></i><span class="n">${esc(c.name)}</span><span class="d">${esc(c.detail||'')}</span>${stateBadge(c.state)}</div>`).join('')}</div>`)}
+      ${card('Fleet compliance','Measured across all tracked repositories.',`<div class="hero">${s.compliance.measured?fmtP(s.compliance.percent):'unmeasured'}</div><div class="meter" style="--m:var(--ok);--w:${s.compliance.percent||0}%;height:10px;margin-top:12px"><i></i></div><div class="muted" style="font-size:12px;margin-top:8px">measured: ${s.compliance.measured} · compliant ÷ (compliant + non_compliant)</div>`)}
+    </div>
+    ${deferred(['30-day sparkline and operations strip (Status.compliance.history, Status.operations, OQ10)'])}
+    <div class="ft">GET /api/v1/status · served from an in-process cache, never from Prometheus · <a href="#/">sign in</a></div>
+  </div>`};
+
+const notFound=()=>`<div class="card" style="padding:40px;text-align:center" role="alert"><b>Not found</b><div class="muted">That page or object is outside your scope or does not exist.</div></div>`;
+
+/* ------------------------------------------------------------------ */
+/* render + interactions                                               */
+/* ------------------------------------------------------------------ */
+const app=document.getElementById('app');
+function render(){const {parts,q}=route();let html,crumb;
+  if(parts[0]==='status'){app.innerHTML=V.status();return}
+  if(!parts[0]){html=V.fleet();crumb=[{l:'Repo Guardian',p:''},'Fleet']}
+  else if(parts[0]==='rules'&&parts[1]){html=V.rule(parts[1],parts[2]);crumb=[{l:'Repo Guardian',p:''},{l:'Rules',p:'rules'},parts[2]]}
+  else if(parts[0]==='rules'){html=V.rules();crumb=[{l:'Repo Guardian',p:''},'Rules']}
+  else if(parts[0]==='orgs'&&parts[1]){html=V.org(parts[1]);crumb=[{l:'Repo Guardian',p:''},{l:'Orgs',p:'orgs'},parts[1]]}
+  else if(parts[0]==='orgs'){html=V.orgs();crumb=[{l:'Repo Guardian',p:''},'Orgs']}
+  else if(parts[0]==='findings'){html=V.findings();const o=q.open?q.open.split('/'):null;const r=o&&REPOS.find(x=>String(x.id)===o[0]);crumb=r?[{l:'Repo Guardian',p:''},{l:'Findings',p:'findings'},r.org+'/'+r.name]:[{l:'Repo Guardian',p:''},'Findings']}
+  else if(parts[0]==='repos'&&parts[1]){html=V.repo(parts[1]);const r=REPOS.find(x=>String(x.id)===parts[1]);crumb=[{l:'Repo Guardian',p:''},'Repository',r?r.org+'/'+r.name:parts[1]]}
+  else if(parts[0]==='history'){html=V.history();crumb=[{l:'Repo Guardian',p:''},'History']}
+  else if(parts[0]==='policy'){html=V.policy();crumb=[{l:'Repo Guardian',p:''},'Policy']}
+  else{html=notFound();crumb=[{l:'Repo Guardian',p:''},'Not found']}
+  app.innerHTML=shell(crumb,html);wireCharts(app);closePop();
+}
+function toast(msg){const t=document.createElement('div');t.className='pop';t.style.cssText='left:50%;bottom:24px;transform:translateX(-50%);padding:8px 12px';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),1800)}
+function closePop(){document.querySelectorAll('.scrim,.pop.live,.pal').forEach(e=>e.remove());state.pop=null}
+function openPop(anchor,kind){closePop();const scrim=document.createElement('div');scrim.className='scrim';scrim.style.background='transparent';scrim.addEventListener('click',closePop);document.body.appendChild(scrim);
+  const pop=document.createElement('div');pop.className='pop live';const {q}=route();
+  if(kind==='org'){const n=api.orgs().items;pop.innerHTML=`<div class="hd">Scope</div><button class="it ${!q.org?'cur':''}" data-org="">All orgs <small>${n.length}</small></button>${n.map(o=>`<button class="it ${q.org===o.org?'cur':''}" data-org="${esc(o.org)}">${esc(o.org)} <small>${fmtN(o.tracked)}</small></button>`).join('')}`;pop.addEventListener('click',e=>{const b=e.target.closest('[data-org]');if(!b)return;const {parts,q}=route();const nq=Object.assign({},q,{org:b.dataset.org});if(parts[0]==='orgs'&&parts[1])go('orgs',nq);else go(parts.join('/'),nq)})}
+  else if(kind==='user'){const me=api.me();pop.innerHTML=`<div class="it" style="flex-direction:column;align-items:flex-start;gap:2px"><span>${esc(me.name)}</span><small>${esc(me.subject)}</small></div><hr><a class="it" href="${api.uiConfig().docs_url}" target="_blank" rel="noopener noreferrer">Documentation</a><form method="post" action="/auth/logout"><button class="it" type="button" data-act="toast">Sign out</button></form>`}
+  else if(kind.startsWith('filter:')){const key=kind.slice(7);if(!key){pop.innerHTML=`<div class="hd">Add filter</div>${FILTERS.map(([k])=>`<button class="it" data-filter="${k}">${k}</button>`).join('')}`;pop.addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(b)openPop(anchor,'filter:'+b.dataset.filter)})}
+    else{const [,vals]=FILTERS.find(([k])=>k===key);pop.innerHTML=`<div class="hd">${esc(key)}</div><button class="it" data-val="">any</button>${vals.map(v=>`<button class="it ${q[key]===v?'cur':''}" data-val="${esc(v)}">${esc(v)}</button>`).join('')}`;pop.addEventListener('click',e=>{const b=e.target.closest('[data-val]');if(!b)return;const nq=Object.assign({},route().q);if(b.dataset.val)nq[key]=b.dataset.val;else{delete nq[key];if(key==='status')nq.status=''}delete nq.open;go('findings',nq)})}}
+  document.body.appendChild(pop);const r=anchor.getBoundingClientRect();pop.style.top=(r.bottom+6)+'px';pop.style.left=Math.min(window.innerWidth-pop.offsetWidth-8,r.left)+'px';state.pop=kind;
+}
+function openPalette(){closePop();const scrim=document.createElement('div');scrim.className='scrim';scrim.addEventListener('click',closePop);document.body.appendChild(scrim);
+  const pal=document.createElement('div');pal.className='pal';pal.setAttribute('role','dialog');pal.innerHTML=`<input placeholder="Search repositories, rules, orgs…" aria-label="Search"><div class="res"></div>`;document.body.appendChild(pal);const inp=pal.querySelector('input'),res=pal.querySelector('.res');let cur=0,items=[];
+  const draw=()=>{const qv=inp.value.trim().toLowerCase();items=[];const {q}=route();
+    const repos=api.repositories({q:qv,org:q.org}).items.slice(0,8).map(r=>({g:'Repositories',l:r.org+'/'+r.name,s:r.active?'active':'parked · '+r.park_reason,p:'repos/'+r.id}));
+    const rules=qv?api.rules().items.filter(r=>r.name.includes(qv)).map(r=>({g:'Rules',l:r.name,s:r.kind,p:`rules/${r.kind}/${r.name}`})):[];
+    const orgs=qv?api.orgs().items.filter(o=>o.org.includes(qv)).map(o=>({g:'Orgs',l:o.org,s:fmtN(o.tracked)+' tracked',p:'orgs/'+o.org})):[];
+    items=[...repos,...rules,...orgs];cur=0;let g='';res.innerHTML=items.length?items.map((it,i)=>`${it.g!==g?`<div class="hd">${(g=it.g)}</div>`:''}<button class="it ${i===cur?'cur':''}" data-i="${i}"><span>${esc(it.l)}</span><small>${esc(it.s)}</small></button>`).join(''):`<div class="empty">No matches.</div>`};
+  inp.addEventListener('input',draw);inp.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){cur=Math.min(items.length-1,cur+1)}else if(e.key==='ArrowUp'){cur=Math.max(0,cur-1)}else if(e.key==='Enter'){if(items[cur]){go(items[cur].p);closePop()}return}else if(e.key==='Escape'){closePop();return}else return;res.querySelectorAll('.it').forEach((b,i)=>b.classList.toggle('cur',i===cur));e.preventDefault()});
+  res.addEventListener('click',e=>{const b=e.target.closest('[data-i]');if(b){go(items[+b.dataset.i].p);closePop()}});draw();inp.focus();
+}
+document.addEventListener('click',e=>{
+  const row=e.target.closest('[data-go]');if(row&&!e.target.closest('a,button')){const [p,qs]=row.dataset.go.split('?');go(p,Object.fromEntries(new URLSearchParams(qs||'')));return}
+  const b=e.target.closest('[data-act]');if(!b)return;const act=b.dataset.act;const {parts,q}=route();
+  if(act==='range')go(parts.join('/'),Object.assign({},q,{range:b.dataset.range}));
+  else if(act==='series')go(parts.join('/'),Object.assign({},q,{series:b.dataset.series}));
+  else if(act==='kind')go('rules',Object.assign({},q,{kind:b.dataset.kind}));
+  else if(act==='tab')go('orgs',Object.assign({},q,{tab:b.dataset.tab}));
+  else if(act==='parked')go('orgs',Object.assign({},q,{parked:b.dataset.parked}));
+  else if(act==='gg'){state.gg[b.dataset.org]=state.gg[b.dataset.org]===false;render()}
+  else if(act==='ggall'){const collapse=!Object.values(state.gg).some(v=>v===false);ORGS.forEach(o=>state.gg[o.org]=!collapse);render()}
+  else if(act==='open')go('findings',Object.assign({},q,{open:b.dataset.open}));
+  else if(act==='table'){const c=document.getElementById(b.dataset.target);c.classList.toggle('table-view');b.setAttribute('aria-pressed',c.classList.contains('table-view'))}
+  else if(act==='pop')openPop(b,b.dataset.pop);
+  else if(act==='palette')openPalette();
+  else if(act==='tz'){localStorage.setItem('rg.tz',tz()==='utc'?'local':'utc');render()}
+  else if(act==='toast')toast('Mockup: this action is not wired.');
+});
+document.addEventListener('change',e=>{const s=e.target.closest('[data-act="rule-pick"]');if(s){const {q}=route();go('history',Object.assign({},q,{rule:s.value}))}});
+document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openPalette()}else if(e.key==='Escape'){if(state.pop||document.querySelector('.pal'))closePop();else if(route().q.open)go('findings',Object.assign({},route().q,{open:''}))}else if(e.key==='Enter'&&e.target.matches('tr[data-act="open"]'))e.target.click()});
+render();
+})();
+</script>
+</body>
+</html>

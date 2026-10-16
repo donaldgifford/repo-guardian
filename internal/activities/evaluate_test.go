@@ -67,6 +67,14 @@ func (*apiControl) Owns() []control.Resource {
 }
 func (*apiControl) Reads() []control.Resource { return nil }
 
+// propertiesControl is custom_properties' shape: it owns API properties
+// and reads catalog-info.yaml, so only its Reads() tie it to a push.
+type propertiesControl struct{ fileControl }
+
+func (*propertiesControl) Owns() []control.Resource {
+	return []control.Resource{{Kind: control.KindProperty, Key: "Owner"}}
+}
+
 // fakePolicy serves controls at revision "rev-<name>".
 type fakePolicy map[string]control.Control
 
@@ -246,6 +254,20 @@ func TestEvaluate_PushSelectsByChangedPath(t *testing.T) {
 
 	if got := fmt.Sprint(stagedIDs(f.st.staged)); got != "[renovate]" {
 		t.Errorf("staged = %s, want only the control owning the changed path", got)
+	}
+}
+
+func TestEvaluate_PushSelectsByReads(t *testing.T) {
+	t.Parallel()
+
+	f := newEvalFixture(t)
+	f.e.policy.(fakePolicy)["custom_properties@1"] = &propertiesControl{*newFileControl("custom_properties", "catalog-info.yaml")}
+	f.st.target.Assignments = append(f.st.target.Assignments, assignment("custom_properties", policy.AssignmentActive))
+
+	f.evaluate(t, &workflows.EvaluateInput{Trigger: workflows.TriggerPush, Paths: []string{"catalog-info.yaml"}})
+
+	if got := fmt.Sprint(stagedIDs(f.st.staged)); got != "[custom_properties]" {
+		t.Errorf("staged = %s, want the control that reads catalog-info.yaml", got)
 	}
 }
 

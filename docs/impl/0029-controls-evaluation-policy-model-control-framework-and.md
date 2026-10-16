@@ -1194,11 +1194,19 @@ evaluator's store.
   skipped; the unit fixtures had used `name@1`. The evaluator now builds the
   id from slug + version, `EvaluateResolved` passes the slug, `evaluate`
   prints `slug@version`, and the fixtures match the store.
-- [ ] 5.13 Non-vacuous check: make coalescing keep only the last signal
+- [x] 5.13 Non-vacuous check: make coalescing keep only the last signal
   and make the push filter ignore `Reads()`; confirm the coalescing test
   and the `catalog-info.yaml` selects `custom_properties` test fail;
   restore.
-- [ ] 5.14 KEDA on the homelab (human-run, moved from IMPL-0028 5.6 and
+  Done: the evaluator tests run fake controls, so the new
+  `TestEvaluate_PushSelectsByReads` uses `custom_properties`' shape (owns
+  API properties, reads `catalog-info.yaml`, `custom_properties.go`
+  `Reads`): it is the only control a push of that path selects. Neutralized (`coalesce` drops `pending`; `selects`
+  ranges over `Owns()` only): `TestCoalesce`,
+  `TestEvaluationWorkflow_SignalsDuringAnEvaluationCoalesce`,
+  `TestEvaluationWorkflow_HistoryBoundedUnderMaxSignals` and
+  `TestEvaluate_PushSelectsByReads` failed; restored, all pass.
+- [x] 5.14 KEDA on the homelab (human-run, moved from IMPL-0028 5.6 and
   5.7, because the evaluation queue first has work here). Prerequisites:
   install KEDA 2.21 (check its Kubernetes compatibility table against
   the Talos cluster), and set `keda.prometheus.serverAddress` to the

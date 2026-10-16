@@ -1761,10 +1761,10 @@ half-switched binary.
 - [x] 7.10 Delete `examples/guardian-*.hcl` and the `guardian-multi-org/`
   directory; `examples/values-*.yaml` move to the policy map.
   Done: the nine `guardian-*.hcl` files and `guardian-multi-org/` are gone. `values-with-policy.yaml` and `values-multi-org.yaml` are chart values on `github.eval` with a nested `policy.files` map mirroring `examples/policy/full` and `multi-org` byte for byte, pinned by `TestValuesExamples_MatchPolicyRoots` (verified non-vacuous: a one-character edit fails it). `examples/README.md` lost its v1 sections; live references in README.md, docs/index.md and the multi-org root now point at `examples/policy/`. Both values files render.
-- [ ] 7.11 Non-vacuous check: re-register `RepoWorkflow` and confirm the
+- [x] 7.11 Non-vacuous check: re-register `RepoWorkflow` and confirm the
   replay and registration tests notice; set a removed chart key and
   confirm render fails; restore.
-
+  Done: registering an `EvaluationWorkflow` under the name `RepoWorkflow` in `evaluatorSet` fails `TestRegister_EachRoleRegistersOnlyItsSet`; restoring the rc `check_then_park.json` history fails `TestReplay_CapturedHistories` ("unable to find workflow type: RepoWorkflow"). `--set config.dryRun=true` fails render at the schema (`const` naming `v2-migration.md#controls-chart-values`) and, with `--skip-schema-validation`, at `validateRemovedValues`. All restored; the workflows package and a plain render pass.
 #### Success Criteria
 
 - `make ci`, `make helm-test` and `make lint-ui` are green with no

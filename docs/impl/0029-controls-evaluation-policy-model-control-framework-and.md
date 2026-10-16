@@ -672,10 +672,19 @@ revision and a `Semantics()` constant of 1.
   inherited org or enterprise ruleset blocks both with a note, even
   beside a repository one of the same name. A remediable `exists` with a
   non-active enforcement fails Build. Golden `4daeb7c1…`.
-- [ ] 3.7 `internal/controls/labels`: owns `label:<name>` for managed and
+- [x] 3.7 `internal/controls/labels`: owns `label:<name>` for managed and
   retired labels, compared lower-cased; rule kinds `present` and
   `absent`; case handling on create and update as the IMPL-0028 label
   spike found.
+  Done: one rule per label: `present{name, color, description}` and
+  `absent{name}`, each owning `label:<lower-cased name>`; the same name
+  in any case twice fails Build, and colours must be six hex digits
+  (compared case-insensitively, written lower-cased). A case-only
+  difference fails `present` and is fixed by a set carrying the declared
+  name, which `write.UpsertLabel` turns into a PATCH (spike 10), never a
+  create; a retired label is `APIChange{delete}`. An omitted description
+  is not checked and an update keeps the label's own. Golden
+  `885023bb…`.
 - [ ] 3.8 `internal/controls/custom_properties`: properties with
   `source`, `normalize`, scope, rendered key and value pattern; the
   built-in `Owner` and `Component`; reads the two catalog-info paths;

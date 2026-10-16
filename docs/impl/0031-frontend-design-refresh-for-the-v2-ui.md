@@ -197,7 +197,7 @@ existing views keep rendering on the new tokens through the aliases in
   context), `ReasonBadge`, `KindBadge`, `StateBadge` in
   `components/badges.tsx`. Table-driven test over every documented
   enum value plus one unknown per field.
-- [ ] 1.6 Time: `lib/time.ts` with `formatTime(iso, {zone, style})`
+- [x] 1.6 Time: `lib/time.ts` with `formatTime(iso, {zone, style})`
   (`YYYY-MM-DD HH:mm`, date-only, relative via the existing
   `relativeTime`), a `TimeZoneProvider` holding `local | utc` in
   React state persisted under `localStorage["rg.tz"]`, a `<Time>`

@@ -1,9 +1,10 @@
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 
 import type { FindingFilters } from "../api/queries";
-import { useFindings } from "../api/queries";
+import { useFindings, useOrgs, useRules } from "../api/queries";
 import { StatusBadge } from "../components/badges";
 import { Empty, Evidence, Loading, Remediation } from "../components/common";
+import { FilterChips } from "../components/filters";
 import { OrgScope, PageHeader } from "../components/page";
 import { Button } from "../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
@@ -39,91 +40,33 @@ export function parseFindingsSearch(s: Record<string, unknown>): FindingsSearch 
 const route = getRouteApi("/app/findings");
 const app = getRouteApi("/app");
 
-const options: Record<(typeof textFilters)[number], string[]> = {
-  status: ["compliant", "non_compliant", "not_applicable", "unknown"],
-  reason: [
-    "file_missing",
-    "assertion_failed",
-    "content_differs",
-    "forbidden_present",
-    "setting_mismatch",
-    "ruleset_missing",
-    "ruleset_mismatch",
-    "out_of_scope_policy",
-    "out_of_scope_rule",
-    "ignored_global",
-    "ignored_rule",
-    "gate_closed",
-    "branch_missing",
-    "empty_repository",
-    "gate_error",
-    "foreign_pr_open",
-    "migrated_from_v1",
-  ],
-  remediation: ["none", "pr_open", "foreign_pr", "applied", "dry_run", "disabled"],
-  kind: ["file", "setting", "branch_protection"],
-  rule: [],
-};
-
 export function FindingsView() {
   const search = route.useSearch();
   const { org } = app.useSearch();
   const navigate = useNavigate();
+  const rules = useRules();
+  const orgs = useOrgs();
   const filters: FindingFilters = { ...search, ...(org ? { org } : {}) };
   const findings = useFindings(filters);
   const items = findings.data?.pages.flatMap((p) => p.items) ?? [];
-
-  const set = (key: keyof FindingsSearch, value: string) => {
-    void navigate({ to: ".", search: (prev) => patchSearch(prev, { [key]: key === "pr_stale" && value !== "" ? value === "true" : value }) });
-  };
+  const ruleNames = [...new Set((rules.data?.items ?? []).map((r) => r.name))].sort();
+  const orgNames = (orgs.data?.items ?? []).map((o) => o.org);
 
   return (
     <>
-      <PageHeader title="Findings" subtitle={<>One row per rule per repository from <code>/findings</code>.</>} controls={<OrgScope />} />
-      <div className="flex flex-wrap items-end gap-3 text-sm">
-        {textFilters.map((k) =>
-          k === "rule" ? (
-            <label key={k} className="flex flex-col gap-1">
-              <span className="text-muted-foreground">rule</span>
-              <input
-                className="h-8 rounded-md border border-border px-2"
-                defaultValue={search.rule ?? ""}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") set("rule", e.currentTarget.value);
-                }}
-                onBlur={(e) => set("rule", e.currentTarget.value)}
-              />
-            </label>
-          ) : (
-            <label key={k} className="flex flex-col gap-1">
-              <span className="text-muted-foreground">{k}</span>
-              <select className="h-8 rounded-md border border-border bg-background px-2" value={search[k] ?? ""} onChange={(e) => set(k, e.target.value)}>
-                <option value="">any</option>
-                {options[k].map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ),
-        )}
-        <label className="flex flex-col gap-1">
-          <span className="text-muted-foreground">stale PR</span>
-          <select
-            className="h-8 rounded-md border border-border bg-background px-2"
-            value={search.pr_stale === undefined ? "" : String(search.pr_stale)}
-            onChange={(e) => set("pr_stale", e.target.value)}
-          >
-            <option value="">any</option>
-            <option value="true">stale</option>
-            <option value="false">not stale</option>
-          </select>
-        </label>
-        <Button variant="outline" size="sm" className="ml-auto" disabled={items.length === 0} onClick={() => downloadCsv("findings.csv", findingsCsv(items))}>
-          Export CSV ({items.length})
-        </Button>
-      </div>
+      <PageHeader
+        title="Findings"
+        subtitle={<>One row per rule per repository from <code>/findings</code>.</>}
+        controls={
+          <>
+            <OrgScope />
+            <Button variant="outline" size="sm" disabled={items.length === 0} onClick={() => downloadCsv("findings.csv", findingsCsv(items))}>
+              Export CSV ({items.length})
+            </Button>
+          </>
+        }
+      />
+      <FilterChips values={filters} onChange={(patch) => void navigate({ to: ".", search: (prev) => patchSearch(prev, patch) })} rules={ruleNames} orgs={orgNames} />
       {!findings.data ? (
         <Loading />
       ) : items.length === 0 ? (

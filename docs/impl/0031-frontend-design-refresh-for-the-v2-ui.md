@@ -424,7 +424,7 @@ controls rework reuses.
   org's history (`fleetSeries` over `/compliance/history?org=`) and
   the rules table with `Meter`s; one-third Not applicable by reason
   and Parked by reason `BarList`s.
-- [ ] 4.5 `components/filters/FilterChips.tsx`: chips for `status`,
+- [x] 4.5 `components/filters/FilterChips.tsx`: chips for `status`,
   `reason`, `remediation`, `kind`, `rule`, `org`, `pr_stale` plus a
   `+ filter` chip; each opens a `Popover` of options (enums from the
   spec's documented values, rules and orgs from cached lists); values

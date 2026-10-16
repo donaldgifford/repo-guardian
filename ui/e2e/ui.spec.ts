@@ -65,8 +65,11 @@ test("scoping: a user in acme-devs never sees globex", async ({ page }) => {
 
 test("filters live in the URL", async ({ page }) => {
   await signIn(page, "/findings");
-  await page.getByLabel("status").selectOption("non_compliant");
+  await page.getByRole("button", { name: "Add filter" }).click();
+  await page.getByRole("dialog", { name: "Add filter" }).getByRole("button", { name: "status" }).click();
+  await page.getByRole("button", { name: "non_compliant" }).click();
   await expect(page).toHaveURL(/status=non_compliant/);
+  await expect(page.getByRole("button", { name: "status filter: non_compliant" })).toBeVisible();
   // acme/api has three findings and one failing: the count converges
   // once the filtered page replaces the previous one.
   await expect(page.getByRole("link", { name: "acme/api" })).toHaveCount(1);
@@ -78,9 +81,13 @@ test("filters live in the URL", async ({ page }) => {
   await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Rules" }).click();
   await expect(page).toHaveURL(/\/rules\?org=acme/);
 
+  // A pasted deep link renders as chips: the URL stays the state.
   await page.goto("/findings?reason=gate_closed");
-  await expect(page.getByLabel("reason")).toHaveValue("gate_closed");
+  await expect(page.getByRole("button", { name: "reason filter: gate_closed" })).toBeVisible();
   await expect(page.getByRole("link", { name: "acme/web" })).toHaveCount(1);
+  await page.getByRole("button", { name: "reason filter: gate_closed" }).click();
+  await page.getByRole("button", { name: "Clear filter" }).click();
+  await expect(page).not.toHaveURL(/reason=/);
 });
 
 test("HTML in evidence renders as text, and PR links are built, not copied", async ({ page }) => {

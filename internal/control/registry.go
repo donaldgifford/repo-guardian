@@ -183,15 +183,15 @@ func paramHasType(v any, typ string) bool {
 	}
 
 	switch typ {
-	case "string":
+	case ParamString:
 		return rv.Kind() == reflect.String
-	case "bool":
+	case ParamBool:
 		return rv.Kind() == reflect.Bool
-	case "number":
+	case ParamNumber:
 		return rv.CanInt() || rv.CanUint() || rv.CanFloat()
-	case "list(string)":
+	case ParamStringList:
 		return isStringList(rv)
-	case "map(string)":
+	case ParamStringMap:
 		return isStringMap(rv)
 	default:
 		return false

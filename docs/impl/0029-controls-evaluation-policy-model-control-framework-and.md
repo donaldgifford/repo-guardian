@@ -598,12 +598,24 @@ revision and a `Semantics()` constant of 1.
   types may import `internal/catalog` (a new `catalog-leaf` rule keeps it
   importing nothing of ours). That edge is beyond DESIGN-0031 D17's
   diagram, which this task implies.
-- [ ] 3.3 `internal/controls/catalog_info`: two locations; rule kinds
+- [x] 3.3 `internal/controls/catalog_info`: two locations; rule kinds
   `exists` and `kind` (remediable) and `field_set` with `contains`,
   `annotation_set` and `no_placeholders` (`remediate = false`); an absent
   file gets the template with field rules in `Manual`; a present file is
   never edited (every failing rule `Manual`, `kind` included); an
   unparseable file puts every rule in `Blocked`.
+  Done: `field_set{field, contains?}` checks a dotted path to a
+  non-empty scalar; `annotation_set{annotation}` reads
+  `metadata.annotations` (its keys hold dots); `no_placeholders{fields?,
+  placeholders?}` checks the named fields, else every scalar. A value is
+  a placeholder when it equals a token or starts with one followed by
+  `:` or a space (default tokens TODO, TBD, FIXME, CHANGEME, CHANGE_ME,
+  REPLACE_ME, XXX), or is wrapped in `<…>`. So the shipped fallback
+  template passes `exists`, `kind` and `field_set` but fails
+  `no_placeholders`, which is the point. Evidence lists offenders as
+  parallel `placeholder_fields`/`placeholder_lines` arrays (evidence is
+  scalars or arrays of scalars). `control` gained the `Param*` type
+  constants.
 - [ ] 3.4 `internal/controls/dependency_updates`: `tool` and
   `renovate.extends`; the Dependabot and Renovate locations owned and
   read; `package.json` read only; rule kinds `configured`, `extends` and

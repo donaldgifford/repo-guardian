@@ -238,3 +238,7 @@ func lineStarts(src []byte) []int {
 
 	return starts
 }
+
+// Root returns the document's root mapping node, for a caller that walks
+// the tree. It must not be modified.
+func (d *Document) Root() *yaml.Node { return d.root }

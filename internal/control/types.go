@@ -190,11 +190,19 @@ type RuleKindSpec struct {
 // ParamSpec is one parameter of a rule kind.
 type ParamSpec struct {
 	Name string
-	// Type is "string", "bool", "number", "list(string)" or
-	// "map(string)".
+	// Type is one of the Param* types.
 	Type     string
 	Required bool
 }
+
+// The parameter types a ParamSpec may name.
+const (
+	ParamString     = "string"
+	ParamBool       = "bool"
+	ParamNumber     = "number"
+	ParamStringList = "list(string)"
+	ParamStringMap  = "map(string)"
+)
 
 // Rule is one declared requirement of a control.
 type Rule struct {

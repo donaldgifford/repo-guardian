@@ -118,7 +118,7 @@ Usage:
   repo-guardian evaluate --repo O/N  evaluate one repository against the controls policy, no store
   repo-guardian monitoring generate  emit dashboards and alerts from the policy
   repo-guardian controls docs        render the control-type reference
-  repo-guardian migrate [flags]      apply v2 schema migrations (Helm hook Job)
+  repo-guardian migrate [flags]      apply the controls schema and activate the policy (Helm hook Job)
   repo-guardian help                 show this message
 
 Running with no subcommand runs every role; a controls half runs in all

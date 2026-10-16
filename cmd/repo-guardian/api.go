@@ -54,7 +54,9 @@ func startAPI(
 	}
 	checks := []readinessCheck{
 		{name: "api_store", fn: pool.Ping},
-		{name: "api_schema", fn: func(ctx context.Context) error { return pgstore.RequireSchema(ctx, pool, pgstore.SchemaVersion) }},
+		{name: "api_schema", fn: func(ctx context.Context) error {
+			return pgstore.RequireControlsSchema(ctx, pool, pgstore.ControlsSchemaVersion)
+		}},
 	}
 
 	if cfg.API.AuthEnabled {

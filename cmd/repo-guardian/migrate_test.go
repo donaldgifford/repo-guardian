@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// TestParseMigrateFlags_Chain is IMPL-0028 task 6.1: the controls chain
-// is opt-in by flag, and an unknown chain is refused.
+// TestParseMigrateFlags_Chain: the controls chain is the default and the
+// only chain (IMPL-0029 7.5); the rc chain and unknown chains are refused.
 func TestParseMigrateFlags_Chain(t *testing.T) {
 	t.Parallel()
 
@@ -16,8 +16,9 @@ func TestParseMigrateFlags_Chain(t *testing.T) {
 		want    string
 		wantErr string
 	}{
-		{args: []string{"--dsn", "postgres://x"}, want: chainRC},
+		{args: []string{"--dsn", "postgres://x"}, want: chainControls},
 		{args: []string{"--dsn", "postgres://x", "--chain", "controls"}, want: chainControls},
+		{args: []string{"--dsn", "postgres://x", "--chain", "v2"}, wantErr: "the rc chain was removed"},
 		{args: []string{"--dsn", "postgres://x", "--chain", "v1"}, wantErr: `unknown --chain "v1"`},
 	}
 

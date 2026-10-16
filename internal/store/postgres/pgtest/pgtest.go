@@ -60,55 +60,6 @@ func Start(tb testing.TB) string {
 	return dsn
 }
 
-// SeedV1 brings dsn to v1's final schema (golang-migrate version 3)
-// using v1's own embedded migrations, exactly as a v1 pod would at
-// startup. It is the starting point for every adoption and backfill
-// test.
-func SeedV1(tb testing.TB, dsn string) {
-	tb.Helper()
-
-	if err := postgres.Migrate(dsn); err != nil {
-		tb.Fatalf("pgtest: seed v1 schema: %v", err)
-	}
-}
-
-// AppRole creates a non-superuser login role that owns the public schema
-// and returns dsn rewritten to connect as it. Superusers bypass grants,
-// so tests that assert a grant (finding_events is append-only) must
-// migrate and write as this role, the way the application does.
-func AppRole(tb testing.TB, dsn string) string {
-	tb.Helper()
-
-	const role, password = "rg_app", "rg_app"
-
-	ctx := context.Background()
-
-	conn, err := pgx.Connect(ctx, dsn)
-	if err != nil {
-		tb.Fatalf("pgtest: connect: %v", err)
-	}
-
-	defer conn.Close(ctx) //nolint:errcheck // test cleanup; nothing to recover
-
-	for _, stmt := range []string{
-		"CREATE ROLE " + role + " LOGIN PASSWORD '" + password + "' NOSUPERUSER",
-		"GRANT ALL ON SCHEMA public TO " + role,
-	} {
-		if _, err := conn.Exec(ctx, stmt); err != nil {
-			tb.Fatalf("pgtest: %s: %v", stmt, err)
-		}
-	}
-
-	u, err := url.Parse(dsn)
-	if err != nil {
-		tb.Fatalf("pgtest: parse dsn: %v", err)
-	}
-
-	u.User = url.UserPassword(role, password)
-
-	return u.String()
-}
-
 // The controls roles (DESIGN-0032 D8, D31). Each logs in with its name
 // as its password; the chart's init script and the external-mode SQL in
 // docs/operations/v2-onboarding.md create the same roles.

@@ -1614,11 +1614,29 @@ half-switched binary.
     FILTER. With `posture AS MATERIALIZED` it is p50 198ms / p99 319ms,
     still over the 100ms target. Phase 8's `/orgs` rebuild (8.1–8.3)
     owns closing that gap.
-- [ ] 7.5 Remove the rc schema code: `migrations_v2/`, the rc goose
+- [x] 7.5 Remove the rc schema code: `migrations_v2/`, the rc goose
   wiring, `adopt_v1.go`, `backfill_v1.go`, `dry_run.go`, `CheckV1Idle`,
   `pgtest/v1sql`, `migrations/` (golang-migrate), `queries/` and
   `sqlcdb/`, and the rc block of `sqlc.yaml`. `repo-guardian migrate`
   applies only the controls chain.
+  Done: deleted `migrations_v2/`, `migrations/` (golang-migrate, now
+  gone from go.mod), `queries/`, `sqlcdb/`, `pgtest/v1sql`, `goose.go`,
+  `adopt_v1.go` (with `CheckV1Idle`), `backfill_v1.go`, `dry_run.go`,
+  `migrate.go`, `migrate_context.go`, `export_test.go`, the rc
+  `SchemaVersion`/`RequireSchema`, `pgtest.SeedV1`/`AppRole` and the
+  adoption, backfill, rollback and goose tests. Also gone: the rc block
+  of `sqlc.yaml` and the `sqlcdb` half of `make lint-sql`.
+  - **What survived the move.** `OpenDB` lives in `controls_migrate.go`.
+    `schema.go` holds only `RequireControlsSchema`, which the api role's
+    readiness now uses too.
+  - **`repo-guardian migrate`** applies only the controls chain. `--chain`
+    defaults to `controls` and refuses `v2` with a message naming the
+    removal; the flag stays because the chart still passes
+    `--chain controls`. `--freshness`, `--force-running` and the backfill
+    report are gone.
+  - **Left for 7.8/7.9.** The chart's `args: ["migrate"]` branch (without
+    `store.controls.enabled`) now also applies the controls chain, and
+    `RECONCILE_FRESHNESS` on the Job is ignored.
 - [x] 7.6 API: remove `/rules`, `/rules/{kind}/{name}`, `/findings`,
   `/policy`, `/installations`, `/orgs/{org}`, `/compliance/history`,
   `/summary` and the `Repository` fields `installation_id`,

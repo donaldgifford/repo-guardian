@@ -1,21 +1,60 @@
 @import "tailwindcss";
 
-/* shadcn/ui's neutral palette, as CSS variables the components use. */
+/* One dark theme, declared once (DESIGN-0036 § Design language). Every
+   component reads these; none carries its own colour. */
 @theme {
-  --color-background: oklch(1 0 0);
-  --color-foreground: oklch(0.145 0 0);
-  --color-muted: oklch(0.97 0 0);
-  --color-muted-foreground: oklch(0.556 0 0);
-  --color-border: oklch(0.922 0 0);
-  --color-primary: oklch(0.205 0 0);
-  --color-primary-foreground: oklch(0.985 0 0);
-  --color-compliant: oklch(0.6 0.13 150);
-  --color-non-compliant: oklch(0.58 0.2 27);
-  --color-not-applicable: oklch(0.7 0 0);
-  --color-unknown: oklch(0.75 0.15 80);
-  --radius-lg: 0.5rem;
+  --color-background: #17191d;
+  --color-panel: #1f2227;
+  --color-panel-2: #262a30;
+  --color-border: #31363d;
+  --color-foreground: #e8eaed;
+  --color-muted-foreground: #9aa1ab;
+  --color-accent: #5fa8f5;
+  --color-ok: #3fb950;
+  --color-warn: #d9a020;
+  --color-bad: #f2554d;
+  --color-info: #7aa7ff;
+  --color-avatar: #3a4c6d;
+
+  /* Aliases for views not yet converted; removed with the last consumer
+     (IMPL-0031 task 6.6). */
+  --color-muted: #262a30;
+  --color-primary: #5fa8f5;
+  --color-primary-foreground: #17191d;
+  --color-compliant: #3fb950;
+  --color-non-compliant: #f2554d;
+  --color-not-applicable: #9aa1ab;
+  --color-unknown: #d9a020;
+
+  --radius-lg: 3px;
+  --radius-md: 3px;
+  --radius-sm: 3px;
+
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root {
+  color-scheme: dark;
 }
 
 body {
-  @apply bg-background text-foreground antialiased;
+  @apply bg-background text-foreground font-sans text-sm antialiased;
+}
+
+/* One focus ring everywhere, including rows and legend pills. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

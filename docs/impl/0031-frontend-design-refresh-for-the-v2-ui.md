@@ -153,7 +153,7 @@ existing views keep rendering on the new tokens through the aliases in
 
 #### Tasks
 
-- [ ] 1.1 `ui/web/src/index.css`: replace the shadcn oklch palette with
+- [x] 1.1 `ui/web/src/index.css`: replace the shadcn oklch palette with
   the DESIGN-0036 token table (`--color-background` `#17191d`,
   `--color-panel` `#1f2227`, `--color-panel-2` `#262a30`,
   `--color-border` `#31363d`, `--color-foreground` `#e8eaed`,

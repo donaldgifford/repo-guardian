@@ -572,10 +572,19 @@ revision and a `Semantics()` constant of 1.
 
 #### Tasks
 
-- [ ] 3.1 `internal/controls/file`: parameters `path`, `template`,
+- [x] 3.1 `internal/controls/file`: parameters `path`, `template`,
   `mode` (`exists` or `exact`, never both); `exact` compares YAML
   semantically for `.yml`/`.yaml` and bytes otherwise; owns and reads
   `file:<path>`.
+  Done: a definition holds exactly one rule, whose kind is the mode; a
+  `mode` parameter, when set, must match it. `exact` always needs the
+  template (it is the comparison), remediable or not. The type implements
+  `control.Control` directly rather than through `NewFileControl`,
+  because `exact` renders per repository and `FileType.Check` has no
+  `Vars`. A present file that is not YAML fails `exact` and is rewritten;
+  a template that renders to invalid YAML is `error`. controltest gained
+  `OneRule`: a type with one rule per definition is exempt from property
+  6, and every fixture must declare one rule.
 - [ ] 3.2 `internal/catalog`: keep the YAML node tree and source spans
   beside the parsed `Properties`, with a size cap, so a type can edit
   minimally; the existing `Parse` callers keep working until Phase 7.

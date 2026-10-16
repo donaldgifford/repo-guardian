@@ -10,6 +10,13 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/template"
 )
 
+// OneRule is implemented by a control type whose definitions declare
+// exactly one rule, such as the generic file type (exists or exact,
+// never both). Property 6 cannot apply to it.
+type OneRule interface {
+	OneRulePerDefinition() bool
+}
+
 // Fixture is one repository state a control type is run against.
 type Fixture struct {
 	Name string
@@ -46,7 +53,9 @@ type Fixture struct {
 //     the fixture's variables passes every remediable rule;
 //  6. two rules failing together: a type with two or more remediable
 //     rule kinds needs a fixture where two remediable rules fail at once,
-//     which property 2 then checks pass together.
+//     which property 2 then checks pass together. A type whose
+//     definitions hold exactly one rule says so with OneRule, and every
+//     fixture must then declare one rule instead.
 func Run(t *testing.T, typ control.Type, fixtures []Fixture) {
 	t.Helper()
 
@@ -65,6 +74,16 @@ func Run(t *testing.T, typ control.Type, fixtures []Fixture) {
 				twoFailing = true
 			}
 		})
+	}
+
+	if one, ok := typ.(OneRule); ok && one.OneRulePerDefinition() {
+		for i := range fixtures {
+			if n := len(fixtures[i].Def.Rules); n != 1 {
+				t.Errorf("%s: fixture %q declares %d rules, but the type holds one rule per definition", typ.Name(), fixtures[i].Name, n)
+			}
+		}
+
+		return
 	}
 
 	if remediableKinds(typ) >= 2 && !twoFailing {

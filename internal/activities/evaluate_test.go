@@ -327,3 +327,59 @@ func TestEvaluate_Skips(t *testing.T) {
 		})
 	}
 }
+
+// recordingStore records Park and answers RecordEvaluation.
+type recordingStore struct {
+	fakeEvalStore
+
+	parked []string
+}
+
+func (*recordingStore) RecordEvaluation(context.Context, string) (store.RecordOutcome, error) {
+	return store.RecordOutcome{Recorded: []string{"a", "b"}, Changed: []string{"a"}, Discarded: []string{"c"}}, nil
+}
+
+func (s *recordingStore) Park(_ context.Context, repoID int64, reason string) error {
+	s.parked = append(s.parked, fmt.Sprintf("%d:%s", repoID, reason))
+
+	return nil
+}
+
+func TestRecordEvaluation_CountsTheOutcome(t *testing.T) {
+	t.Parallel()
+
+	e := NewEvaluator(&recordingStore{}, fakePolicy{}, nil, slog.New(slog.DiscardHandler))
+
+	got, err := e.RecordEvaluation(t.Context(), &workflows.RecordEvaluationInput{CheckKey: testKey})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got.Recorded != 2 || got.Changed != 1 || got.Discarded != 1 || got.AlreadyFinal {
+		t.Errorf("RecordEvaluation() = %+v, want 2 recorded, 1 changed, 1 discarded", got)
+	}
+}
+
+func TestParkRepository_ParksWithTheReason(t *testing.T) {
+	t.Parallel()
+
+	st := &recordingStore{}
+	rec := &logRecorder{}
+	e := NewEvaluator(st, fakePolicy{}, nil, slog.New(rec))
+
+	err := e.ParkRepository(t.Context(), &workflows.ParkRepositoryInput{
+		RepositoryID: testRepoID, CheckKey: testKey, Reason: workflows.ParkAccessDenied, Cause: "404",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if fmt.Sprint(st.parked) != "[42:access_denied]" {
+		t.Errorf("parked = %v, want [42:access_denied]", st.parked)
+	}
+
+	if len(rec.records) != 1 || rec.records[0].Message != "parking repository until discovery sees it again" ||
+		rec.records[0].Level != slog.LevelError {
+		t.Errorf("log records = %+v, want CheckRepo's park line at error level", rec.records)
+	}
+}

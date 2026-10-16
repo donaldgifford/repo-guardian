@@ -1024,9 +1024,16 @@ evaluator's store.
   fill `RepoContext.AccountType`, and `UpsertInstallation` now takes a
   pointer. Tests: `evaluate_test.go`,
   `TestControlsStore_EvaluationTarget`.
-- [ ] 5.4 Record and park activities: `RecordEvaluation` (4.5) and
+- [x] 5.4 Record and park activities: `RecordEvaluation` (4.5) and
   `ParkRepository` (4.6), with the `checks.trigger` values `pr_event`
   and `manual` accepted.
+  Done: `Evaluator.RecordEvaluation` (counts recorded / changed / discarded,
+  `AlreadyFinal` on a recorded key) and `Evaluator.ParkRepository` (store
+  `Park`, which keeps results on access_denied; logs `CheckRepo`'s park
+  line at the same levels and keys). `Evaluator.Register` names the three
+  activities; nothing calls it yet. `pr_event`/`manual` were already in
+  00001's trigger check: `TestControlsStore_StageAcceptsControlsTriggers`
+  pins them.
 - [ ] 5.5 `ControlsDiscoveryWorkflow`: lists the Evaluation App's
   installations and repositories, refreshes `app = 'eval'` rows of
   `app_installations` and `app_repository_access`, and calls

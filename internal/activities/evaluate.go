@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"go.temporal.io/sdk/activity"
+
 	"github.com/donaldgifford/repo-guardian/internal/control"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
@@ -467,4 +469,44 @@ func (w *throttleWatch) GetVulnerabilityAlerts(ctx context.Context) (bool, error
 	v, err := w.base.GetVulnerabilityAlerts(ctx)
 
 	return watched(w, v, err)
+}
+
+// RecordEvaluation commits a staged evaluation, fenced per control on
+// its assignment epoch. A recorded check key is AlreadyFinal.
+func (e *Evaluator) RecordEvaluation(ctx context.Context, in *workflows.RecordEvaluationInput) (*workflows.RecordEvaluationResult, error) {
+	out, err := e.store.RecordEvaluation(ctx, in.CheckKey)
+	if err != nil {
+		return nil, fmt.Errorf("record evaluation %s: %w", in.CheckKey, err)
+	}
+
+	return &workflows.RecordEvaluationResult{
+		AlreadyFinal: out.AlreadyFinal, Recorded: len(out.Recorded), Discarded: len(out.Discarded), Changed: len(out.Changed),
+	}, nil
+}
+
+// ParkRepository parks a repository the evaluator lost (DESIGN-0030):
+// access_denied keeps its results, because access loss must never
+// improve posture. It logs the line CheckRepo's Park does, so one Loki
+// matcher covers both lines.
+func (e *Evaluator) ParkRepository(ctx context.Context, in *workflows.ParkRepositoryInput) error {
+	if err := e.store.Park(ctx, in.RepositoryID, in.Reason); err != nil {
+		return fmt.Errorf("park repository %d: %w", in.RepositoryID, err)
+	}
+
+	log := e.logger.With("repository_id", in.RepositoryID, "check_key", in.CheckKey)
+	if in.Cause != "" {
+		log.ErrorContext(ctx, "parking repository until discovery sees it again", "reason", in.Reason, "error", in.Cause)
+	} else {
+		log.InfoContext(ctx, "parking repository until discovery sees it again", "reason", in.Reason)
+	}
+
+	return nil
+}
+
+// Register registers the evaluator activities under their workflows
+// package names, on the evaluation worker only.
+func (e *Evaluator) Register(r Registry) {
+	r.RegisterActivityWithOptions(e.Evaluate, activity.RegisterOptions{Name: workflows.EvaluateActivity})
+	r.RegisterActivityWithOptions(e.RecordEvaluation, activity.RegisterOptions{Name: workflows.RecordEvaluationActivity})
+	r.RegisterActivityWithOptions(e.ParkRepository, activity.RegisterOptions{Name: workflows.ParkRepositoryActivity})
 }

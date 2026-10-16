@@ -352,3 +352,18 @@ func TestControlsStore_EvaluationTarget(t *testing.T) {
 		t.Errorf("assignment = %+v, want active codeowners at r1 with its epoch", a)
 	}
 }
+
+// TestControlsStore_StageAcceptsControlsTriggers is IMPL-0029 5.4: the
+// controls triggers pr_event and manual stage like the rc's.
+func TestControlsStore_StageAcceptsControlsTriggers(t *testing.T) {
+	s, _ := evaluatorStore(t)
+	repo := discover(t, s, &fakeResolver{assignments: []policy.Assignment{codeowners("r1")}})
+
+	for _, trigger := range []string{"pr_event", "manual"} {
+		if err := s.StageEvaluation(t.Context(), &store.EvaluationStage{
+			CheckKey: "trigger/" + trigger, RepositoryID: repo.ID, Trigger: trigger, PolicyVersion: testPolicyVersion, StartedAt: time.Now(),
+		}); err != nil {
+			t.Errorf("StageEvaluation(trigger=%s) = %v, want accepted", trigger, err)
+		}
+	}
+}

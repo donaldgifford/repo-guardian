@@ -5,3 +5,5 @@ Dockerfile
 **/*.test.ts
 server/testing
 server/testenv.ts
+**/*.test.tsx
+web/testing

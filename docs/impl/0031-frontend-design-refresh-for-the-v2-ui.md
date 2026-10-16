@@ -217,7 +217,7 @@ existing views keep rendering on the new tokens through the aliases in
   `bad < 70 ≤ warn < 90 ≤ ok`, percent printed), `Avatar` (20px
   square, initials rule from DESIGN-0036 §Shell), `Button` restyled
   (outline, ghost, sm).
-- [ ] 1.8 Dialog-family primitives on radix in `components/ui/`:
+- [x] 1.8 Dialog-family primitives on radix in `components/ui/`:
   `Popover`, `DropdownMenu`, `Dialog` and `Drawer` (side right, 470px,
   scrim, `prefers-reduced-motion` aware, focus trap, focus return,
   Escape), `Command` (palette input + grouped results + arrow/Enter
@@ -768,6 +768,14 @@ evaluations endpoint.
 
 Today's only component test renders with `renderToStaticMarkup`, which
 cannot exercise focus, keyboard or state.
+
+Implementation note (task 1.8): the DOM is registered by importing
+`ui/web/testing/dom.ts` **first** in a behaviour test and released in
+its `afterAll`, not by a `bunfig.toml` preload. The registrator also
+replaces `fetch`, `Request` and `Response`, which the server tests in
+the same run need from Bun; and radix decides at module load whether a
+document exists (its Portal never mounts otherwise), so the import has
+to precede radix, which a `beforeAll` cannot do.
 
 - (a) ✅ recommended: **`@happy-dom/global-registrator` +
   `@testing-library/react`** registered through a `bunfig.toml` preload

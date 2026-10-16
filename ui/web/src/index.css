@@ -58,3 +58,39 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Overlay motion (DESIGN-0036 §Motion): 200ms, switched off above
+   under prefers-reduced-motion. */
+@keyframes rg-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes rg-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes rg-drawer-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes rg-drawer-left {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+@utility animate-in {
+  animation: rg-fade-in 200ms ease-out;
+}
+@utility animate-out {
+  animation: rg-fade-out 200ms ease-in forwards;
+}
+@utility animate-drawer-right {
+  animation: rg-drawer-right 200ms ease-out;
+}
+@utility animate-drawer-left {
+  animation: rg-drawer-left 200ms ease-out;
+}

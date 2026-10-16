@@ -466,7 +466,7 @@ controls rework reuses.
   Duration, Error); one-third Repository facts (default branch, park
   state and reason, catalog parse state, policy version) and the
   shared `Timeline` over all events.
-- [ ] 4.10 `views/history.tsx` (small multiples: one `TrendChart` per
+- [x] 4.10 `views/history.tsx` (small multiples: one `TrendChart` per
   org, rule `<select>` → `Tabs`-styled select, `?range=`) and
   `views/policy.tsx` (`Kpi`s Version / First seen / Rollout / Rules
   and the rules table) restyled on the primitives; no behaviour change.

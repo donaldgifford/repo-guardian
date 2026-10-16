@@ -1335,9 +1335,19 @@ evaluator's store.
   `num_pollers`, `long_request(_failure)`, `worker_task_slots_available`,
   `sticky_cache_total_forced_eviction`, both schedule-to-start latencies.
   **Live `/metrics` check against the homelab: deferred - human required.**
-- [ ] 6.7 Chart mirror (IMPL-0025 17.9): `prometheusrule.yaml` carries
+- [x] 6.7 Chart mirror (IMPL-0025 17.9): `prometheusrule.yaml` carries
   the catalogue; `make lint-alerts-chart` stays green; helm-unittest
   locks the selectors, not just the names.
+  Done: `prometheusrule.yaml` carries the 15-alert catalogue — group
+  `repo-guardian.rules` (the eight controls/service alerts) and
+  `repo-guardian.temporal` (seven), each tunable and disableable under
+  `prometheusRule.alerts.<name>`. `make lint-alerts-chart`: 15 rules,
+  promtool SUCCESS. `tests/prometheusrule_test.yaml` locks the exact
+  expressions of EvaluationErrorRate, ControlEvaluationErrors (both
+  first-increment disjuncts), StaleEpochDiscards (`reason="stale_epoch"`),
+  EvaluationFreshness, StoreErrors, NoWorkerPollers and TemporalUnreachable,
+  plus a regex refusing any rc-era series; that assertion was confirmed to
+  fail when pointed at a live series. 243/243 helm-unittest.
 - [ ] 6.8 `make monitoring-generate`; commit `contrib/generated/`;
   `make lint-monitoring` green.
 - [ ] 6.9 `internal/report` over control results: per-org sections keyed

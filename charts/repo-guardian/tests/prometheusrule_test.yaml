@@ -18,7 +18,24 @@ tests:
           path: kind
           value: PrometheusRule
 
-  - it: should include the IMPL-0013 StaleOpenPRs alert
+  # The chart mirrors the generated catalogue (IMPL-0029 6.6) by hand.
+  # These lock the expressions, not just the names: an alert whose
+  # selector drifts renders, passes promtool, and never fires.
+  - it: renders the eight controls alerts in the first group
+    set:
+      prometheusRule:
+        enabled: true
+    asserts:
+      - equal:
+          path: spec.groups[0].name
+          value: repo-guardian.rules
+      - lengthEqual:
+          path: spec.groups[0].rules
+          count: 8
+
+  # The `> 0` on the denominator leaves an idle evaluator with no result
+  # rather than a division by zero.
+  - it: should render EvaluationErrorRate over the error outcome
     set:
       prometheusRule:
         enabled: true
@@ -26,56 +43,20 @@ tests:
       - contains:
           path: spec.groups[0].rules
           content:
-            alert: RepoGuardianStaleOpenPRs
-          any: true
-
-  - it: should include the IMPL-0013 PRDrift alert
-    set:
-      prometheusRule:
-        enabled: true
-    asserts:
-      - contains:
-          path: spec.groups[0].rules
-          content:
-            alert: RepoGuardianPRDrift
-          any: true
-
-  - it: should allow StaleOpenPRs to be disabled
-    set:
-      prometheusRule:
-        enabled: true
-        alerts:
-          StaleOpenPRs:
-            enabled: false
-    asserts:
-      - notContains:
-          path: spec.groups[0].rules
-          content:
-            alert: RepoGuardianStaleOpenPRs
-
-  - it: should allow PRDrift override of for and severity
-    set:
-      prometheusRule:
-        enabled: true
-        alerts:
-          PRDrift:
-            for: 15m
-            severity: critical
-    asserts:
-      - contains:
-          path: spec.groups[0].rules
-          content:
-            alert: RepoGuardianPRDrift
-            for: 15m
+            alert: RepoGuardianEvaluationErrorRate
+            expr: (sum(rate(repo_guardian_evaluations_total{outcome="error"}[15m])) / (sum(rate(repo_guardian_evaluations_total[15m])) > 0)) > 0.1
+            for: 10m
             labels:
-              severity: critical
+              severity: warning
           any: true
 
-  # The window must outlive `for` or an isolated schema mismatch can
-  # never drive the alert to firing (INV-0011 A7): the mismatch is
-  # observed once per repo per sweep, so rate(...[15m]) fell back to
-  # zero well before a 30m pending period elapsed.
-  - it: should render the PropertySchemaMissing alert with a window longer than for
+  # increase() cannot see a counter's first increment — the series does
+  # not exist until it is incremented, so its first sample is 1 with
+  # nothing earlier to subtract. A control that errors from the moment it
+  # is assigned is exactly that case. Locking the string, because a
+  # "tidy-up" that drops the second disjunct looks correct and never
+  # fires.
+  - it: should render ControlEvaluationErrors with the first-increment guard
     set:
       prometheusRule:
         enabled: true
@@ -83,52 +64,20 @@ tests:
       - contains:
           path: spec.groups[0].rules
           content:
-            alert: RepoGuardianPropertySchemaMissing
+            alert: RepoGuardianControlEvaluationErrors
             expr: |
-              increase(repo_guardian_custom_property_missing_schema_total[1h]) > 0
+              increase(repo_guardian_evaluation_errors_total[1h]) > 0
               or
-              (repo_guardian_custom_property_missing_schema_total
-                unless repo_guardian_custom_property_missing_schema_total offset 1h) > 0
-            for: 5m
+              (repo_guardian_evaluation_errors_total
+                unless repo_guardian_evaluation_errors_total offset 1h) > 0
+            for: 15m
             labels:
               severity: warning
           any: true
 
-  - it: should allow PropertySchemaMissing to be disabled
-    set:
-      prometheusRule:
-        enabled: true
-        alerts:
-          PropertySchemaMissing:
-            enabled: false
-    asserts:
-      - notContains:
-          path: spec.groups[0].rules
-          content:
-            alert: RepoGuardianPropertySchemaMissing
-
-  - it: should allow PropertySchemaMissing override of for and severity
-    set:
-      prometheusRule:
-        enabled: true
-        alerts:
-          PropertySchemaMissing:
-            for: 1h
-            severity: critical
-    asserts:
-      - contains:
-          path: spec.groups[0].rules
-          content:
-            alert: RepoGuardianPropertySchemaMissing
-            for: 1h
-            labels:
-              severity: critical
-          any: true
-
-  # IMPL-0022 Phase 5: the backpressure alert reads a gauge published
-  # by every pod's reaper tick, so there is no rate() window to
-  # outlive `for` — the expression must stay a plain gauge threshold.
-  - it: should render the QueueBackpressure gauge-threshold expression
+  # The reason selector is load-bearing: results_discarded_total is
+  # keyed by reason, and only a moved assignment epoch is this alert.
+  - it: should render StaleEpochDiscards filtered to reason=stale_epoch
     set:
       prometheusRule:
         enabled: true
@@ -136,178 +85,88 @@ tests:
       - contains:
           path: spec.groups[0].rules
           content:
-            alert: RepoGuardianQueueBackpressure
-            expr: max(repo_guardian_queue_delayed_depth) > 100
-            for: 30m
+            alert: RepoGuardianStaleEpochDiscards
+            expr: sum(increase(repo_guardian_results_discarded_total{reason="stale_epoch"}[2h])) > 100
+            for: 1h
             labels:
               severity: warning
           any: true
 
-  - it: should apply the QueueBackpressure threshold override
+  - it: should render EvaluationFreshness at twice the default interval
+    set:
+      prometheusRule:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianEvaluationFreshness
+            expr: histogram_quantile(0.95, sum by (le) (rate(repo_guardian_evaluation_freshness_seconds_bucket[6h]))) > 172800
+            for: 1h
+            labels:
+              severity: warning
+          any: true
+
+  - it: should render StoreErrors over the error outcome
+    set:
+      prometheusRule:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianStoreErrors
+            expr: sum(rate(repo_guardian_store_query_seconds_count{outcome="error"}[10m])) / (sum(rate(repo_guardian_store_query_seconds_count[10m])) > 0) > 0.1
+          any: true
+
+  - it: tunes a controls alert's threshold, for and severity
     set:
       prometheusRule:
         enabled: true
         alerts:
-          QueueBackpressure:
+          StaleEpochDiscards:
             threshold: 500
+            for: 2h
+            severity: critical
     asserts:
       - contains:
           path: spec.groups[0].rules
           content:
-            alert: RepoGuardianQueueBackpressure
-            expr: max(repo_guardian_queue_delayed_depth) > 500
-          any: true
-
-  - it: should allow QueueBackpressure to be disabled
-    set:
-      prometheusRule:
-        enabled: true
-        alerts:
-          QueueBackpressure:
-            enabled: false
-    asserts:
-      - notContains:
-          path: spec.groups[0].rules
-          content:
-            alert: RepoGuardianQueueBackpressure
-
-  # IMPL-0022 Phase 5: JobsExhausted must keep both legs — increase()
-  # cannot see a brand-new counter series' first increment (INV-0012
-  # finding E), so the `unless offset` leg covers the sub-1h window a
-  # freshly-born exhausted counter is otherwise invisible in. This
-  # locks the exact rendered expression, not just the alert name.
-  - it: should render the JobsExhausted two-legged expression
-    set:
-      prometheusRule:
-        enabled: true
-    asserts:
-      - contains:
-          path: spec.groups[0].rules
-          content:
-            alert: RepoGuardianJobsExhausted
-            expr: |
-              sum(increase(repo_guardian_queue_attempts_exhausted_total[1h])) > 0
-                or sum(repo_guardian_queue_attempts_exhausted_total
-                  unless repo_guardian_queue_attempts_exhausted_total offset 1h) > 0
-            for: 5m
-            labels:
-              severity: warning
-          any: true
-
-  - it: should allow JobsExhausted to be disabled
-    set:
-      prometheusRule:
-        enabled: true
-        alerts:
-          JobsExhausted:
-            enabled: false
-    asserts:
-      - notContains:
-          path: spec.groups[0].rules
-          content:
-            alert: RepoGuardianJobsExhausted
-
-  # INV-0015: parking has three reasons (access_denied, archived, fork) but
-  # only one is a problem. Archived and fork parks are routine bookkeeping and
-  # would page on every normal onboarding sweep, so the reason selector is
-  # load-bearing — this locks the expression, not just the alert name.
-  - it: should render RepoAccessDenied filtered to reason=access_denied
-    set:
-      prometheusRule:
-        enabled: true
-    asserts:
-      - contains:
-          path: spec.groups[0].rules
-          content:
-            alert: RepoGuardianRepoAccessDenied
-            expr: |
-              increase(repo_guardian_repos_parked_total{reason="access_denied"}[1h]) > 0
-              or
-              (repo_guardian_repos_parked_total{reason="access_denied"}
-                unless repo_guardian_repos_parked_total{reason="access_denied"} offset 1h) > 0
-            for: 15m
-            labels:
-              severity: warning
-          any: true
-
-  # IMPL-0023 Phase 7. increase() cannot see a counter's first
-  # increment — the series does not exist until it is incremented, so
-  # its first sample is 1 with nothing earlier to subtract. On a fleet
-  # where one repository ever loses access, that is the only occurrence
-  # there will be, and without the second disjunct the alert cannot
-  # fire for it. Locking the string, not just the alert name, because
-  # a "tidy-up" that drops the disjunct leaves an alert that looks
-  # correct and never fires.
-  - it: should render the NoSchedulerLeader alert against the surviving schedule
-    set:
-      prometheusRule:
-        enabled: true
-    asserts:
-      - contains:
-          path: spec.groups[0].rules
-          content:
-            alert: RepoGuardianNoSchedulerLeader
-            expr: max(repo_guardian_scheduler_is_leader{name="stale-sweep"}) == 0
-            for: 5m
+            alert: RepoGuardianStaleEpochDiscards
+            expr: sum(increase(repo_guardian_results_discarded_total{reason="stale_epoch"}[2h])) > 500
+            for: 2h
             labels:
               severity: critical
           any: true
 
-  # The legacy full-enumeration `sweep` schedule was deleted in
-  # IMPL-0015 Phase 0. An alert watching it compares an empty vector
-  # against 0, which is itself empty — so it did not fire wrongly, it
-  # could not fire at all.
-  - it: should not reference the removed sweep schedule
+  - it: disables a controls alert
+    set:
+      prometheusRule:
+        enabled: true
+        alerts:
+          ControlEvaluationErrors:
+            enabled: false
+    asserts:
+      - lengthEqual:
+          path: spec.groups[0].rules
+          count: 7
+      - notContains:
+          path: spec.groups[0].rules
+          content:
+            alert: RepoGuardianControlEvaluationErrors
+          any: true
+
+  # No alert over a series the switch-over deletes may survive.
+  - it: carries no rc-era alert
     set:
       prometheusRule:
         enabled: true
     asserts:
       - notMatchRegex:
-          path: spec.groups[0].rules[?(@.alert=="RepoGuardianNoSchedulerLeader")].expr
-          pattern: 'name="sweep"'
+          path: spec.groups[0].rules[*].expr
+          pattern: 'repos_checked_total|queue_|scheduler_is_leader|posture_export|open_prs_by_rule|custom_property_missing_schema'
 
-  - it: should render the PostureExportStalled alert
-    set:
-      prometheusRule:
-        enabled: true
-    asserts:
-      - contains:
-          path: spec.groups[0].rules
-          content:
-            alert: RepoGuardianPostureExportStalled
-            expr: sum(increase(repo_guardian_posture_export_total{outcome="ok"}[1h])) == 0
-            for: 15m
-            labels:
-              severity: warning
-          any: true
-
-  - it: should allow PostureExportStalled to be disabled
-    set:
-      prometheusRule:
-        enabled: true
-        alerts:
-          PostureExportStalled:
-            enabled: false
-    asserts:
-      - notContains:
-          path: spec.groups[0].rules
-          content:
-            alert: RepoGuardianPostureExportStalled
-
-  - it: should allow RepoAccessDenied to be disabled
-    set:
-      prometheusRule:
-        enabled: true
-        alerts:
-          RepoAccessDenied:
-            enabled: false
-    asserts:
-      - notContains:
-          path: spec.groups[0].rules
-          content:
-            alert: RepoGuardianRepoAccessDenied
-
-  - it: renders the four Temporal worker-health alerts in their own group
+  - it: renders the seven Temporal worker-health alerts in their own group
     set:
       prometheusRule:
         enabled: true
@@ -317,13 +176,28 @@ tests:
           value: repo-guardian.temporal
       - lengthEqual:
           path: spec.groups[1].rules
-          count: 4
+          count: 7
       - equal:
           path: spec.groups[1].rules[3].alert
           value: RepoGuardianTemporalWorkflowTaskLatency
       - matchRegex:
           path: spec.groups[1].rules[3].expr
           pattern: 'temporal_workflow_task_schedule_to_start_latency_seconds_bucket\[15m\]\)\)\) > 0\.2$'
+      - contains:
+          path: spec.groups[1].rules
+          content:
+            alert: RepoGuardianTemporalNoWorkerPollers
+            expr: max by (task_queue, poller_type) (temporal_num_pollers{poller_type=~"workflow_task|activity_task"}) == 0
+            for: 10m
+            labels:
+              severity: critical
+          any: true
+      - contains:
+          path: spec.groups[1].rules
+          content:
+            alert: RepoGuardianTemporalUnreachable
+            expr: sum(rate(temporal_long_request_failure[10m])) / (sum(rate(temporal_long_request[10m])) > 0) > 0.5
+          any: true
 
   - it: tunes and disables a Temporal alert like any other
     set:
@@ -337,7 +211,7 @@ tests:
     asserts:
       - lengthEqual:
           path: spec.groups[1].rules
-          count: 3
+          count: 6
       - matchRegex:
           path: spec.groups[1].rules[0].expr
           pattern: '> 120$'

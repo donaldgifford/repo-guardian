@@ -257,7 +257,7 @@ calls `Type.Build`.
   scalars. `StatusOf` with no results is `unknown`, so an empty
   evaluation never reads as compliant. `FrameworkEvidence` writes the
   framework's own `missing_result`.
-- [ ] 1.5 `revision.go` and `fingerprint.go`: `Revision(t, def, env)` as
+- [x] 1.5 `revision.go` and `fingerprint.go`: `Revision(t, def, env)` as
   sha256 over a canonical JSON encoding of id, version, type name,
   `Semantics()`, rules with parameters, `apply`, the template bytes and
   every referenced file's bytes, excluding title, description and
@@ -268,6 +268,10 @@ calls `Type.Build`.
   wrong values moves the fingerprint with statuses unchanged; an absent
   property and a present null differ; evidence wording and `ObservedAt`
   do not move it.
+  Done, both in `revision.go`. Rule numbers and titles are display-only
+  and excluded with the definition title and `pr {}`; type-level
+  `Params` are included. A type whose definitions reference other store
+  files implements `FileReferencer`, and those bytes are hashed too.
 - [ ] 1.6 `changeset.go`: `ValidateChangeSet(c, ev, cs)`: unique
   canonical paths; every file and API resource within `c.Owns()`; at most
   100 files and 1 MiB per file (or the limits the IMPL-0028 spike

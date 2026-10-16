@@ -40,3 +40,30 @@ func ev() map[string]any {
 func result(id RuleID, s RuleStatus) RuleResult {
 	return RuleResult{RuleID: id, Status: s, Evidence: ev()}
 }
+
+// stubType is a Type for framework tests.
+type stubType struct {
+	name      string
+	semantics int
+	kinds     []RuleKindSpec
+	files     []string
+}
+
+func (t *stubType) Name() string              { return t.name }
+func (t *stubType) Semantics() int            { return t.semantics }
+func (t *stubType) RuleKinds() []RuleKindSpec { return t.kinds }
+
+func (*stubType) Build(def Definition, _ BuildEnv) (Control, error) { //nolint:gocritic // Type.Build signature
+	return &stubControl{id: def.ID, rules: def.Rules}, nil
+}
+
+func (t *stubType) ReferencedFiles(Definition) []string { return t.files }
+
+// templates is a TemplateSource over a map.
+type templates map[string]string
+
+func (m templates) Lookup(name string) (string, bool) {
+	b, ok := m[name]
+
+	return b, ok
+}

@@ -187,7 +187,7 @@ existing views keep rendering on the new tokens through the aliases in
   Recorded: `index-*.js` 753,718 bytes and `index-*.css` 18,567 bytes
   both before and after adding `radix-ui@1.8.1` with nothing imported
   yet, so the meta-package adds nothing until a primitive uses it.
-- [ ] 1.5 Tone table and badges: `lib/format.ts` gains `toneFor(field,
+- [x] 1.5 Tone table and badges: `lib/format.ts` gains `toneFor(field,
   value)` over the DESIGN-0036 badge table (status, remediation,
   reason-under-status, component state, rule kind → outline) with
   `mute` for any unknown value; `components/ui/badge.tsx` becomes the

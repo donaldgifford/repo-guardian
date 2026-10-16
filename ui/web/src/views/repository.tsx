@@ -2,7 +2,8 @@ import { getRouteApi } from "@tanstack/react-router";
 
 import type { Schemas } from "../api/client";
 import { useRepository, useRepositoryChecks, useRepositoryEvents, useUIConfig } from "../api/queries";
-import { Empty, Evidence, ExternalLink, Loading, Remediation, Section, StatusBadge } from "../components/common";
+import { StatusBadge } from "../components/badges";
+import { Empty, Evidence, ExternalLink, Loading, Remediation, Section } from "../components/common";
 import { Badge } from "../components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { humanize, relativeTime } from "../lib/format";
@@ -119,7 +120,7 @@ function Checks({ id }: { id: number }) {
                 <TableCell className="whitespace-nowrap">{relativeTime(c.started_at)}</TableCell>
                 <TableCell>{humanize(c.trigger)}</TableCell>
                 <TableCell>
-                  <Badge tone={c.outcome === "error" ? "non_compliant" : c.outcome === "success" ? "compliant" : "neutral"}>{c.outcome}</Badge>
+                  <Badge tone={c.outcome === "error" ? "bad" : c.outcome === "success" ? "ok" : "mute"}>{c.outcome}</Badge>
                   {c.error ? <div className="mt-1 font-mono text-xs break-all">{c.error}</div> : null}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">{c.duration_seconds === undefined ? "" : `${c.duration_seconds.toFixed(1)}s`}</TableCell>

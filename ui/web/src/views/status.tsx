@@ -1,22 +1,8 @@
 import { useStatus } from "../api/queries";
+import { StateBadge } from "../components/badges";
 import { Loading } from "../components/common";
-import { Badge } from "../components/ui/badge";
 import { Card, CardContent } from "../components/ui/card";
 import { formatPercent, humanize, relativeTime } from "../lib/format";
-
-// stateTone maps a component state onto a badge tone.
-export function stateTone(state: string): "compliant" | "unknown" | "non_compliant" | "neutral" {
-  switch (state) {
-    case "operational":
-      return "compliant";
-    case "degraded":
-      return "unknown";
-    case "down":
-      return "non_compliant";
-    default:
-      return "neutral";
-  }
-}
 
 // StatusView is the public status page: no login, no names.
 export function StatusView() {
@@ -40,7 +26,7 @@ export function StatusView() {
                 <div key={c.name} className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
                   <span className="font-medium">{humanize(c.name)}</span>
                   <span className="text-muted-foreground">{c.detail}</span>
-                  <Badge tone={stateTone(c.state)}>{c.state}</Badge>
+                  <StateBadge state={c.state} />
                 </div>
               ))}
             </CardContent>

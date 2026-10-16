@@ -1,7 +1,8 @@
 import { getRouteApi, Link } from "@tanstack/react-router";
 
 import { useRule, useRules } from "../api/queries";
-import { Empty, Evidence, Loading, Section, StatusBadge, Tile } from "../components/common";
+import { StatusBadge } from "../components/badges";
+import { Empty, Evidence, Loading, Section, Tile } from "../components/common";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { formatPercent, humanize, relativeTime, trend } from "../lib/format";
 

@@ -57,17 +57,32 @@ export function ageDays(iso: string, now: Date = new Date()): number {
 export function humanize(v: string): string {
   return v.replaceAll("_", " ");
 }
+// Tone is a badge colour by meaning, never by rank (DESIGN-0036 §Badges).
+export type Tone = "ok" | "warn" | "bad" | "info" | "mute" | "outline";
 
-// statusTone maps a finding status onto a badge tone; an unknown status
-// (the enum is open) is neutral.
-export function statusTone(status: string): "compliant" | "non_compliant" | "not_applicable" | "unknown" | "neutral" {
-  switch (status) {
-    case "compliant":
-    case "non_compliant":
-    case "not_applicable":
-    case "unknown":
-      return status;
+// ToneField names a column of the DESIGN-0036 tone table. For `reason`
+// the value is the finding's *status*: a reason is warn under
+// non_compliant and mute otherwise.
+export type ToneField = "status" | "remediation" | "reason" | "state" | "kind";
+
+const tones: Record<Exclude<ToneField, "reason" | "kind">, Record<string, Tone>> = {
+  status: { compliant: "ok", non_compliant: "bad", not_applicable: "mute", unknown: "warn" },
+  remediation: { pr_open: "info", applied: "ok", foreign_pr: "warn", disabled: "mute", dry_run: "mute", none: "mute" },
+  state: { operational: "ok", degraded: "warn" },
+};
+
+// toneFor is the one tone table. Both API enums are open, so any value
+// the table does not know is mute; a component state it does not know
+// is bad, because an unknown state of a service is not good news.
+export function toneFor(field: ToneField, value: string): Tone {
+  switch (field) {
+    case "kind":
+      return "outline";
+    case "reason":
+      return value === "non_compliant" ? "warn" : "mute";
+    case "state":
+      return tones.state[value] ?? "bad";
     default:
-      return "neutral";
+      return tones[field][value] ?? "mute";
   }
 }

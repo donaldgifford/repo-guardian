@@ -2,7 +2,8 @@ import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 
 import type { FindingFilters } from "../api/queries";
 import { useFindings } from "../api/queries";
-import { Empty, Evidence, Loading, Remediation, StatusBadge } from "../components/common";
+import { StatusBadge } from "../components/badges";
+import { Empty, Evidence, Loading, Remediation } from "../components/common";
 import { Button } from "../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { findingsCsv } from "../lib/csv";

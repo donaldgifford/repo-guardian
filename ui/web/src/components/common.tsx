@@ -4,15 +4,11 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import type { Schemas } from "../api/client";
 import { useUIConfig } from "../api/queries";
 import { describeEvidence } from "../lib/evidence";
-import { humanize, statusTone } from "../lib/format";
+import { humanize } from "../lib/format";
 import { prLabel, prLink } from "../lib/pr";
 import type { SeriesPoint } from "../lib/viewmodel";
 import { Badge } from "./ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-
-export function StatusBadge({ status }: { status: string }) {
-  return <Badge tone={statusTone(status)}>{status === "not_applicable" ? "n/a" : humanize(status)}</Badge>;
-}
 
 // ExternalLink opens off-site without handing the opener or referrer
 // over. href must come from a builder in lib/pr.ts, never from evidence.
@@ -57,7 +53,7 @@ export function Remediation({ finding }: { finding: Schemas["Finding"] }) {
     <div className="space-y-0.5">
       {finding.remediation !== "none" ? <div className="text-muted-foreground">{humanize(finding.remediation)}</div> : null}
       {label ? href ? <ExternalLink href={href}>{label}</ExternalLink> : <span>{label}</span> : null}
-      {finding.pr_stale ? <Badge tone="unknown">stale</Badge> : null}
+      {finding.pr_stale ? <Badge tone="warn">stale</Badge> : null}
     </div>
   );
 }

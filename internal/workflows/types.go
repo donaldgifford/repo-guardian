@@ -236,6 +236,11 @@ type WebhookRepo struct {
 	ID   int64
 	Org  string
 	Name string
+
+	// Archived and Fork are the payload's flags where it carries them
+	// (repository events); the controls routing parks on them.
+	Archived bool `json:",omitempty"`
+	Fork     bool `json:",omitempty"`
 }
 
 // The controls Apps as WebhookInput.App names them; they match
@@ -260,7 +265,19 @@ type WebhookInput struct {
 	AccountLogin   string
 	Repositories   []WebhookRepo
 
-	// RepositorySelection is an installation_repositories delivery's
-	// repository_selection, "all" or "selected"; empty for other events.
+	// RepositorySelection is an installation or installation_repositories
+	// delivery's repository_selection, "all" or "selected"; empty for
+	// other events.
 	RepositorySelection string `json:",omitempty"`
+
+	// AccountType is an installation-level delivery's account type on a
+	// controls App's route: control.AccountUser for a personal account,
+	// else control.AccountOrganization.
+	AccountType string `json:",omitempty"`
+
+	// Paths and Unknown are an Evaluation App push's change set: the
+	// watched paths it touched, or Unknown when the payload cannot say
+	// (2048 commits, a forced push, or more than 256 watched paths).
+	Paths   []string `json:",omitempty"`
+	Unknown bool     `json:",omitempty"`
 }

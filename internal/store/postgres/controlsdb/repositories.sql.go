@@ -74,6 +74,40 @@ func (q *Queries) FindRepositoryByProviderID(ctx context.Context, arg FindReposi
 	return i, err
 }
 
+const findRepositoryRef = `-- name: FindRepositoryRef :one
+SELECT r.id, r.active, a.installation_id, ps.state AS policy_state
+FROM repositories r
+LEFT JOIN app_repository_access a ON a.repository_id = r.id AND a.app = 'eval'
+LEFT JOIN repository_policy_state ps ON ps.repository_id = r.id
+WHERE r.provider = 'github' AND r.host = $1 AND r.provider_repo_id = $2
+`
+
+type FindRepositoryRefParams struct {
+	Host           string
+	ProviderRepoID *int64
+}
+
+type FindRepositoryRefRow struct {
+	ID             int64
+	Active         bool
+	InstallationID *int64
+	PolicyState    *string
+}
+
+// A known repository by provider id, without touching it: a push must
+// leave a parked repository parked.
+func (q *Queries) FindRepositoryRef(ctx context.Context, arg FindRepositoryRefParams) (FindRepositoryRefRow, error) {
+	row := q.db.QueryRow(ctx, findRepositoryRef, arg.Host, arg.ProviderRepoID)
+	var i FindRepositoryRefRow
+	err := row.Scan(
+		&i.ID,
+		&i.Active,
+		&i.InstallationID,
+		&i.PolicyState,
+	)
+	return i, err
+}
+
 const getRepository = `-- name: GetRepository :one
 SELECT id, org, name, active, park_reason FROM repositories WHERE id = $1
 `
@@ -95,6 +129,33 @@ func (q *Queries) GetRepository(ctx context.Context, id int64) (GetRepositoryRow
 		&i.Name,
 		&i.Active,
 		&i.ParkReason,
+	)
+	return i, err
+}
+
+const getRepositoryRef = `-- name: GetRepositoryRef :one
+SELECT r.id, r.active, a.installation_id, ps.state AS policy_state
+FROM repositories r
+LEFT JOIN app_repository_access a ON a.repository_id = r.id AND a.app = 'eval'
+LEFT JOIN repository_policy_state ps ON ps.repository_id = r.id
+WHERE r.id = $1
+`
+
+type GetRepositoryRefRow struct {
+	ID             int64
+	Active         bool
+	InstallationID *int64
+	PolicyState    *string
+}
+
+func (q *Queries) GetRepositoryRef(ctx context.Context, id int64) (GetRepositoryRefRow, error) {
+	row := q.db.QueryRow(ctx, getRepositoryRef, id)
+	var i GetRepositoryRefRow
+	err := row.Scan(
+		&i.ID,
+		&i.Active,
+		&i.InstallationID,
+		&i.PolicyState,
 	)
 	return i, err
 }
@@ -222,6 +283,37 @@ type ListMissingEvalRepositoriesParams struct {
 // The installation's active repositories a complete listing did not see.
 func (q *Queries) ListMissingEvalRepositories(ctx context.Context, arg ListMissingEvalRepositoriesParams) ([]int64, error) {
 	rows, err := q.db.Query(ctx, listMissingEvalRepositories, arg.InstallationID, arg.Seen)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOrgRepositories = `-- name: ListOrgRepositories :many
+SELECT id FROM repositories
+WHERE provider = 'github' AND host = $1 AND lower(org) = lower($2) AND active
+ORDER BY id
+`
+
+type ListOrgRepositoriesParams struct {
+	Host string
+	Org  string
+}
+
+func (q *Queries) ListOrgRepositories(ctx context.Context, arg ListOrgRepositoriesParams) ([]int64, error) {
+	rows, err := q.db.Query(ctx, listOrgRepositories, arg.Host, arg.Org)
 	if err != nil {
 		return nil, err
 	}

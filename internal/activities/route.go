@@ -41,6 +41,7 @@ const (
 // workflow that owns it.
 type Router struct {
 	access        AppAccessRecorder
+	controls      ControlsRouting
 	store         Store
 	client        client.Client
 	taskQueue     string
@@ -53,7 +54,7 @@ type Router struct {
 // starts and threshold (RATE_LIMIT_THRESHOLD) the InstallationWorkflows.
 func NewRouter(st Store, c client.Client, taskQueue string, checkInterval time.Duration, threshold float64, logger *slog.Logger) *Router {
 	return &Router{
-		access: noopAccessRecorder{logger: logger}, store: st, client: c, taskQueue: taskQueue,
+		access: noopAccessRecorder{logger: logger}, controls: unwiredControls{logger: logger}, store: st, client: c, taskQueue: taskQueue,
 		checkInterval: checkInterval, threshold: threshold, logger: logger,
 	}
 }
@@ -82,6 +83,33 @@ func (r *Router) WithAccessRecorder(rec AppAccessRecorder) *Router {
 	r.access = rec
 
 	return r
+}
+
+// ControlsRouting routes the Evaluation App's deliveries.
+// *ControlsRouter satisfies it.
+type ControlsRouting interface {
+	RouteWebhook(ctx context.Context, in *workflows.WebhookInput) error
+}
+
+// WithControls hands the Evaluation App's deliveries to c.
+func (r *Router) WithControls(c ControlsRouting) *Router {
+	r.controls = c
+
+	return r
+}
+
+// unwiredControls is the controls routing of a process that has none:
+// the rc worker holds no token for the Evaluation App's installation,
+// so routing a delivery through the rc paths would start discovery it
+// cannot run and race repository.created into a repository workflow
+// keyed to the wrong installation (IMPL-0028 task 9.1).
+type unwiredControls struct{ logger *slog.Logger }
+
+func (u unwiredControls) RouteWebhook(_ context.Context, in *workflows.WebhookInput) error {
+	u.logger.Info("dropping Evaluation App delivery: no controls routing in this process",
+		"delivery", in.DeliveryID, "event", in.Event, "action", in.Action)
+
+	return nil
 }
 
 // noopAccessRecorder is the recorder before the controls tables exist.
@@ -121,16 +149,10 @@ func (r *Router) RouteWebhook(ctx context.Context, in *workflows.WebhookInput) e
 		})
 	}
 
-	// The rc's single App does the work until the controls switch-over,
-	// and it cannot act for the Evaluation App's installation: routing
-	// these would start discovery for an installation the worker holds
-	// no token for, and race repository.created into a repository
-	// workflow keyed to the wrong installation. IMPL-0029 task 5.7
-	// replaces this drop with the controls routing (IMPL-0028 task 9.1).
+	// The Evaluation App's deliveries take the controls routing
+	// (IMPL-0029 task 5.7).
 	if in.App == workflows.AppEval {
-		log.Info("dropping Evaluation App delivery until the controls switch-over")
-
-		return nil
+		return r.controls.RouteWebhook(ctx, in)
 	}
 
 	switch in.Event + "." + in.Action {

@@ -1078,7 +1078,7 @@ evaluator's store.
   `controls-snapshot` (snapshot takes `SnapshotInput`). The evaluator role
   calls neither until 7.1, per the phase's "nothing registered" criterion.
   The task names no straggler pass, so the rc's is not carried over.
-- [ ] 5.7 Webhook routing on `/webhooks/github/eval`: a default-branch
+- [x] 5.7 Webhook routing on `/webhooks/github/eval`: a default-branch
   push signals `recheck` at priority 2 with the changed paths filtered
   through `Snapshot.WatchedPaths()` (a push with no watched path signals
   nothing; 2048 commits, `forced`, or more than 256 filtered paths is
@@ -1089,6 +1089,24 @@ evaluator's store.
   Remediation App change moves the effective mode. This replaces the
   rc's drop of every Evaluation App delivery (IMPL-0028 task 9.1);
   delete `TestRouteWebhook_EvaluationAppDropped` with it.
+  Done: `activities.ControlsRouter` (controls_route.go) takes every
+  Evaluation App delivery through `Router.WithControls`; until 7.1 wires it
+  the default `unwiredControls` logs and drops, so the rc binary is
+  unchanged. Ingest puts the push change set on `WebhookInput.Paths`
+  (watched, sorted) or `Unknown` (≥2048 commits, forced, >256 paths); a
+  push touching no watched path is 204. Push rechecks a known active
+  managed repository at priority 2, discovers an unknown one and never
+  un-parks; repository events upsert with the payload's archived/fork
+  flags (so discovery parks, not churns) and recheck in full, deleted and
+  removed park `removed`, `installation.deleted` parks
+  `installation_removed`. `RecordAppAccess` (Remediation App) re-resolves
+  the named repositories, or the account's org, and signals
+  `policy_changed` on a change. Known gap: the Remediation App's access
+  rows are the remediator's to write (IMPL-0030), so re-resolution reads
+  the access recorded so far. The watched set is still the rc's until
+  7.1/7.8 pass `Snapshot.WatchedPaths()`. `TestRouteWebhook_EvaluationAppDropped`
+  deleted; tests in controls_route_test.go, ingest_test.go and
+  `TestControlsStore_RoutingReads`.
 - [ ] 5.8 Controls snapshot: `controls-snapshot` writes
   `compliance_snapshots` rows from 4.7's query.
 - [ ] 5.9 `repo-guardian evaluate --repo <org>/<name> [--format json]`:

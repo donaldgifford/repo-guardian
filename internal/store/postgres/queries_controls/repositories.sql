@@ -72,3 +72,24 @@ LEFT JOIN repository_policy_state ps ON ps.repository_id = r.id
 WHERE r.active AND r.id > @after_id
 ORDER BY r.id
 LIMIT @page_size;
+
+-- name: FindRepositoryRef :one
+-- A known repository by provider id, without touching it: a push must
+-- leave a parked repository parked.
+SELECT r.id, r.active, a.installation_id, ps.state AS policy_state
+FROM repositories r
+LEFT JOIN app_repository_access a ON a.repository_id = r.id AND a.app = 'eval'
+LEFT JOIN repository_policy_state ps ON ps.repository_id = r.id
+WHERE r.provider = 'github' AND r.host = @host AND r.provider_repo_id = @provider_repo_id;
+
+-- name: ListOrgRepositories :many
+SELECT id FROM repositories
+WHERE provider = 'github' AND host = @host AND lower(org) = lower(@org) AND active
+ORDER BY id;
+
+-- name: GetRepositoryRef :one
+SELECT r.id, r.active, a.installation_id, ps.state AS policy_state
+FROM repositories r
+LEFT JOIN app_repository_access a ON a.repository_id = r.id AND a.app = 'eval'
+LEFT JOIN repository_policy_state ps ON ps.repository_id = r.id
+WHERE r.id = @id;

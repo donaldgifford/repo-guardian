@@ -45,6 +45,16 @@ type Controls interface {
 	// gave the Evaluation App that a complete listing did not see, and
 	// reports how many.
 	ParkMissing(ctx context.Context, installationID int64, seen []int64) (int, error)
+	// FindRepository reads a known repository by provider id without
+	// writing anything; nil when unknown.
+	FindRepository(ctx context.Context, providerRepoID int64) (*RepositoryRef, error)
+	// RepositoryRef reads a stored repository by id.
+	RepositoryRef(ctx context.Context, repoID int64) (*RepositoryRef, error)
+	// OrgRepositories lists the active repositories of org.
+	OrgRepositories(ctx context.Context, org string) ([]int64, error)
+	// ParkInstallation parks every active repository the installation
+	// gave the Evaluation App, with reason, and reports how many.
+	ParkInstallation(ctx context.Context, installationID int64, reason string) (int, error)
 	// ActiveRepositories is one keyset page of active repositories after
 	// afterID, for the rollout's passes.
 	ActiveRepositories(ctx context.Context, afterID int64, limit int) ([]RepositoryRef, error)
@@ -113,6 +123,7 @@ type ResolutionChange struct {
 // PolicyState is empty before the first resolution.
 type RepositoryRef struct {
 	ID             int64
+	Active         bool
 	InstallationID int64
 	PolicyState    policy.State
 }

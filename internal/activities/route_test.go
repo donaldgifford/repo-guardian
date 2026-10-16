@@ -431,28 +431,37 @@ func TestRouteWebhook_RemediationAppAccess(t *testing.T) {
 	}
 }
 
-// TestRouteWebhook_EvaluationAppDropped is IMPL-0028 task 9.1: until the
-// controls switch-over the rc's single App does the work and holds no
-// token for the Evaluation App's installation, so its deliveries touch
-// neither the store nor Temporal. The strict mocks fail on any call.
-func TestRouteWebhook_EvaluationAppDropped(t *testing.T) {
+// recordingControls records the deliveries handed to the controls
+// routing.
+type recordingControls struct {
+	got []*workflows.WebhookInput
+}
+
+func (c *recordingControls) RouteWebhook(_ context.Context, in *workflows.WebhookInput) error {
+	c.got = append(c.got, in)
+
+	return nil
+}
+
+// TestRouteWebhook_EvaluationAppTakesTheControlsRouting is IMPL-0029
+// task 5.7, replacing IMPL-0028 task 9.1's drop: every Evaluation App
+// delivery goes to the controls routing and none touches the rc store
+// or starts an rc workflow. The strict mocks fail on any call.
+func TestRouteWebhook_EvaluationAppTakesTheControlsRouting(t *testing.T) {
 	for _, ev := range [][2]string{
 		{"installation", "created"},
-		{"installation", "unsuspend"},
 		{"installation_repositories", "added"},
 		{"repository", "created"},
-		{"repository", "renamed"},
 		{"repository", "deleted"},
 		{"push", ""},
 	} {
 		t.Run(ev[0]+"."+ev[1], func(t *testing.T) {
 			r, _, tc := newRouter(t)
-			rec := &recordingAccess{}
-			r.WithAccessRecorder(rec)
+			ctl := &recordingControls{}
+			r.WithControls(ctl)
 
 			in := webhook(ev[0], ev[1], widgets)
 			in.App = workflows.AppEval
-			in.RepositorySelection = selectionAll
 
 			if err := r.RouteWebhook(t.Context(), in); err != nil {
 				t.Fatal(err)
@@ -460,8 +469,8 @@ func TestRouteWebhook_EvaluationAppDropped(t *testing.T) {
 
 			wantSignals(t, tc)
 
-			if len(rec.got) != 0 {
-				t.Errorf("recorded = %+v, want nothing for the Evaluation App", rec.got)
+			if len(ctl.got) != 1 || ctl.got[0] != in {
+				t.Errorf("controls routing got %d deliveries, want this one", len(ctl.got))
 			}
 		})
 	}

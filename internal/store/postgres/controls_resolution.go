@@ -507,20 +507,74 @@ func park(ctx context.Context, q *controlsdb.Queries, repoID int64, reason strin
 // access is through installationID and that seen does not name. Only a
 // complete listing may call it: a partial one would park what it missed.
 func (s *ControlsStore) ParkMissing(ctx context.Context, installationID int64, seen []int64) (int, error) {
+	return s.parkUnseen(ctx, installationID, seen, string(store.ParkRemoved))
+}
+
+// ParkInstallation parks every active repository of the installation
+// with reason: installation_removed when the Evaluation App is
+// uninstalled.
+func (s *ControlsStore) ParkInstallation(ctx context.Context, installationID int64, reason string) (int, error) {
+	return s.parkUnseen(ctx, installationID, nil, reason)
+}
+
+func (s *ControlsStore) parkUnseen(ctx context.Context, installationID int64, seen []int64, reason string) (int, error) {
 	missing, err := s.q.ListMissingEvalRepositories(ctx, controlsdb.ListMissingEvalRepositoriesParams{
 		InstallationID: installationID, Seen: seen,
 	})
 	if err != nil {
-		return 0, fmt.Errorf("list missing repositories of installation %d: %w", installationID, err)
+		return 0, fmt.Errorf("list repositories of installation %d: %w", installationID, err)
 	}
 
 	for _, id := range missing {
-		if err := s.Park(ctx, id, string(store.ParkRemoved)); err != nil {
+		if err := s.Park(ctx, id, reason); err != nil {
 			return 0, err
 		}
 	}
 
 	return len(missing), nil
+}
+
+// FindRepository reads a repository by provider id; nil when unknown.
+func (s *ControlsStore) FindRepository(ctx context.Context, providerRepoID int64) (*store.RepositoryRef, error) {
+	row, err := s.q.FindRepositoryRef(ctx, controlsdb.FindRepositoryRefParams{Host: s.host, ProviderRepoID: &providerRepoID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil //nolint:nilnil // an unknown repository is not an error
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("find repository %d: %w", providerRepoID, err)
+	}
+
+	return repositoryRef(row.ID, row.Active, row.InstallationID, row.PolicyState), nil
+}
+
+// RepositoryRef reads a stored repository by id.
+func (s *ControlsStore) RepositoryRef(ctx context.Context, repoID int64) (*store.RepositoryRef, error) {
+	row, err := s.q.GetRepositoryRef(ctx, repoID)
+	if err != nil {
+		return nil, fmt.Errorf("read repository %d: %w", repoID, err)
+	}
+
+	return repositoryRef(row.ID, row.Active, row.InstallationID, row.PolicyState), nil
+}
+
+func repositoryRef(id int64, active bool, installationID *int64, state *string) *store.RepositoryRef {
+	ref := &store.RepositoryRef{ID: id, Active: active, PolicyState: policy.State(textOf(state))}
+	if installationID != nil {
+		ref.InstallationID = *installationID
+	}
+
+	return ref
+}
+
+// OrgRepositories lists the active repositories of org.
+func (s *ControlsStore) OrgRepositories(ctx context.Context, org string) ([]int64, error) {
+	ids, err := s.q.ListOrgRepositories(ctx, controlsdb.ListOrgRepositoriesParams{Host: s.host, Org: org})
+	if err != nil {
+		return nil, fmt.Errorf("list repositories of %s: %w", org, err)
+	}
+
+	return ids, nil
 }
 
 // ActiveRepositories reads one keyset page of active repositories.
@@ -534,7 +588,7 @@ func (s *ControlsStore) ActiveRepositories(ctx context.Context, afterID int64, l
 
 	out := make([]store.RepositoryRef, 0, len(rows))
 	for _, r := range rows {
-		ref := store.RepositoryRef{ID: r.ID, PolicyState: policy.State(textOf(r.PolicyState))}
+		ref := store.RepositoryRef{ID: r.ID, Active: true, PolicyState: policy.State(textOf(r.PolicyState))}
 		if r.InstallationID != nil {
 			ref.InstallationID = *r.InstallationID
 		}

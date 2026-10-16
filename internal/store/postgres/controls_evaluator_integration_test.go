@@ -499,3 +499,40 @@ func TestControlsStore_DiscoveryParksArchivedAndForks(t *testing.T) {
 		t.Errorf("plain listing = %+v, want un-parked and managed", got)
 	}
 }
+
+// TestControlsStore_RoutingReads is IMPL-0029 task 5.7: the reads and the
+// installation park behind the controls webhook routing, as rg_evaluator.
+func TestControlsStore_RoutingReads(t *testing.T) {
+	s, _ := evaluatorStore(t)
+	ctx := t.Context()
+	repo := discover(t, s, &fakeResolver{assignments: []policy.Assignment{codeowners("r1")}})
+
+	if got, err := s.FindRepository(ctx, 999); err != nil || got != nil {
+		t.Errorf("FindRepository(unknown) = %+v, %v; want nil, nil", got, err)
+	}
+
+	found, err := s.FindRepository(ctx, 101)
+	if err != nil || found == nil || found.ID != repo.ID || !found.Active || found.InstallationID != 1 || found.PolicyState != policy.StateManaged {
+		t.Fatalf("FindRepository(101) = %+v, %v; want the active managed repository on installation 1", found, err)
+	}
+
+	if ref, err := s.RepositoryRef(ctx, repo.ID); err != nil || *ref != *found {
+		t.Errorf("RepositoryRef = %+v, %v; want %+v", ref, err, found)
+	}
+
+	if ids, err := s.OrgRepositories(ctx, "ACME"); err != nil || len(ids) != 1 || ids[0] != repo.ID {
+		t.Errorf("OrgRepositories(ACME) = %v, %v; want the repository, case-insensitively", ids, err)
+	}
+
+	if n, err := s.ParkInstallation(ctx, 1, string(store.ParkInstallationRemoved)); err != nil || n != 1 {
+		t.Fatalf("ParkInstallation = %d, %v; want 1 parked", n, err)
+	}
+
+	if ref, err := s.RepositoryRef(ctx, repo.ID); err != nil || ref.Active {
+		t.Errorf("RepositoryRef after ParkInstallation = %+v, %v; want parked", ref, err)
+	}
+
+	if ids, err := s.OrgRepositories(ctx, "acme"); err != nil || len(ids) != 0 {
+		t.Errorf("OrgRepositories after park = %v, %v; want only active repositories", ids, err)
+	}
+}

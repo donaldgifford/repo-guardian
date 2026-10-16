@@ -985,7 +985,7 @@ evaluator's store.
   `PolicyChanged` is reused as is; `PriorityManual = 1`;
   `TriggerPREvent`/`TriggerManual`. `TestControlsWorkflowIDs` pins the ids
   and that a re-activation gets a new rollout id.
-- [ ] 5.2 `EvaluationWorkflow` (`evaluation.go`), built from `repoLoop`:
+- [x] 5.2 `EvaluationWorkflow` (`evaluation.go`), built from `repoLoop`:
   a jittered `EVAL_INTERVAL` timer, `recheck` and `policy_changed`
   signals, coalescing that unions changed paths with unknown dominating,
   the budget lease on `installation/eval/<installation id>`, deferral on
@@ -993,6 +993,12 @@ evaluator's store.
   ContinueAsNew every 100 iterations carrying the coalesced set, and a
   drain of unread signals before ContinueAsNew. `repoLoop` stays for
   `RepoWorkflow` until Phase 7.
+  Done: `internal/workflows/evaluation.go` (`EvaluationWorkflow`, `evalLoop`,
+  `coalesce`) and `evaluation_types.go`. Deferrals reuse the check key and
+  record nothing; a parked result runs `ParkRepository` and ends the run;
+  the lease is on `installation/eval/<id>`. Tests in `evaluation_test.go`
+  (schedule/record/park, deferral, in-flight signal coalescing, ContinueAsNew
+  at 100, `coalesce` table). Not registered on a worker yet.
 - [ ] 5.3 `Evaluate` activity (`internal/activities/evaluate.go`): read
   policy state and active assignments, skip unless `managed`; skip
   `conflict` assignments (reported `unmeasurable{reason=conflict}`);

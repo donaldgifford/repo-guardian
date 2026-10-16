@@ -246,7 +246,7 @@ existing views keep rendering on the new tokens through the aliases in
   the same data. Tests: `nice` bounds (narrow band, full range, single
   point, empty), tick fitting for 1d/7d/30d/90d, `BarList` folding at
   nine rows, `StackedBars` percent-of-row math.
-- [ ] 1.10 `lib/viewmodel.ts` additions, each table-tested: `deltaFrom(
+- [x] 1.10 `lib/viewmodel.ts` additions, each table-tested: `deltaFrom(
   series)` (one point → null, two points, gap at the range edge),
   `cadenceWord(series)` (median gap → `daily` / `every Nd` / `—`),
   `fleetSeries(points)` (sum per `snapshot_at`, percent floored to one

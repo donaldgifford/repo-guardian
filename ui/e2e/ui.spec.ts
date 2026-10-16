@@ -73,8 +73,8 @@ test("filters live in the URL", async ({ page }) => {
   // acme/api has three findings and one failing: the count converges
   // once the filtered page replaces the previous one.
   await expect(page.getByRole("link", { name: "acme/api" })).toHaveCount(1);
-  await expect(page.getByRole("cell", { name: "codeowners", exact: true })).toBeVisible();
-  await expect(page.getByRole("cell", { name: "dependabot", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("cell", { name: /^codeowners/ })).toBeVisible();
+  await expect(page.getByRole("cell", { name: /^dependabot/ })).toHaveCount(0);
 
   await scopeTo(page, /acme/);
   await expect(page).toHaveURL(/org=acme/);
@@ -108,7 +108,7 @@ test("migrated findings say they were last checked by v1", async ({ page }) => {
 });
 
 test("file_missing evidence lists every path checked", async ({ page }) => {
-  await signIn(page, "/findings?reason=file_missing");
+  await signIn(page, "/repos/2");
   await expect(page.getByText("checked CODEOWNERS", { exact: true })).toBeVisible();
   await expect(page.getByText("checked .github/CODEOWNERS")).toBeVisible();
 });

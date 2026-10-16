@@ -431,7 +431,7 @@ controls rework reuses.
   round-trip through `patchSearch` so every existing `/findings?...`
   deep link keeps working. Test: search → chips → search is the
   identity for every documented param.
-- [ ] 4.6 `views/findings.tsx` table: `DataTable` with Repository
+- [x] 4.6 `views/findings.tsx` table: `DataTable` with Repository
   (`org/name` mono, org as muted second line), Rule, Status badge,
   Reason, Remediation badge, PR (`prLink`), Age (`ageDays` of
   `pr.created_at` + `stale` badge when `pr_stale`), Since (`<Time>`

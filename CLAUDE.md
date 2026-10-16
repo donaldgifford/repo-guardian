@@ -39,7 +39,8 @@ internal/
   checker/    → core check-and-PR engine + setting rules + branch protection rules (runs inside the CheckRepo activity until IMPL-0029)
   config/     → configuration management (12-factor env vars, validated per role by LoadRole)
   findings/   → leaf package of finding status/reason/remediation types
-  control/    → controls client surface (IMPL-0028 P2): Reader / PRObserver / Writer interfaces, value types, the three Writer sentinels; imports nothing of ours
+  control/    → controls framework leaf (IMPL-0028 P2, IMPL-0029 P1): Reader / PRObserver / Writer interfaces, value types, Writer sentinels + ErrPermission/ErrNotRegularFile; Canonical, Validate/StatusOf, ValidateChangeSet, Revision/Fingerprint, EvalReader (per-evaluation cache + ResourceRead recording), LocateFile + NewFileControl (file-control adapter), Registry; controltest/ = conformance suite + FakeRepo/Apply. Imports internal/template only
+  controls/   → built-in control types (IMPL-0029): codeowners so far. Import internal/control and internal/template only; only activities and cmd/repo-guardian may import them (depguard `controls-types`, `controls-consumers`)
   github/     → GitHub API client wrapper (go-github v68 + ghinstallation v2 + githubv4 on the same *http.Client); RepoReader (control.Reader, memoized per evaluation, missing GraphQL field = nil never false) and RepoObserver (control.PRObserver); rate-limit snapshots per x-ratelimit-resource, GraphQL RATE_LIMITED/secondary and REST 429 → *ThrottledError
   github/write/ → control.Writer (createCommitOnBranch + expectedHeadOid, STALE_DATA via WithGraphQLErrorTypes; update-branch 422 classified from re-read state, never the message). depguard rules `writer` + `writer-evaluator-side` keep it out of everything but remediation activities and cmd/
   ingest/     → webhook ingest: HMAC, event filter, starts WebhookWorkflow
@@ -53,7 +54,7 @@ internal/
   shadow/     → migrate verify-shadow: v1 rule_state vs v2 findings comparison
   store/      → v2 store interfaces (Writer, Reader, API views) + postgres/ (pgx/v5 + pgxpool, goose migrations_v2, sqlc). The v1 Store is gone; the v1 golang-migrate chain and pgtest/v1sql remain as test fixtures until IMPL-0029
   temporal/   → Temporal client, worker, schedules, deployment versioning
-  template/   → unified text/template renderer (Renderer/Compiled, FileVars/PRVars contexts, curated helpers, ValidateZero strict-mode validator)
+  template/   → unified text/template renderer (Renderer/Compiled, FileVars/PRVars/Vars contexts, PRConfig/PRTemplate, curated helpers, ValidateZero strict-mode validator); the dependency leaf, imports nothing of ours
   workflows/  → deterministic workflow code (RepoWorkflow, InstallationWorkflow, WebhookWorkflow, service workflows)
 charts/
   repo-guardian/ → Helm chart (only supported deployment method)

@@ -377,10 +377,19 @@ calls `Type.Build`.
   Parser cap 3 MiB (GitHub ignores a larger CODEOWNERS). Fixtures: no
   file, each location, comment-only, two files with the first
   comment-only (fails: GitHub uses the first), two files both valid.
-- [ ] 1.12 Non-vacuous check: swap the `fail`/`unknown` order in
+- [x] 1.12 Non-vacuous check: swap the `fail`/`unknown` order in
   `StatusOf`, drop the `Owns()` check from `ValidateChangeSet`, and make
   the reader skip its cache; confirm the matching tests fail; restore.
   Record the failing test names here.
+  Done: `fail`/`unknown` swapped → `TestStatusOf/any_fail`,
+  `TestStatusOf/fail_outranks_unknown`; `Owns()` check dropped →
+  `TestValidateChangeSet/file_not_owned`; reader cache skipped →
+  `TestEvalReader_SharedFileIsOneCall`,
+  `TestEvalReader_AbsentAndErrorReadsAreRecorded`. All restored. Phase 1
+  close-out: `internal/control` coverage 89.6%, `controltest` 72.4%,
+  `codeowners` 86.2%; `go list` shows `internal/control`, `controltest`
+  and `codeowners` import only `internal/control` and `internal/template`
+  of this module.
 
 #### Success Criteria
 

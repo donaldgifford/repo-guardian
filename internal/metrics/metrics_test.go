@@ -170,9 +170,9 @@ const AppEval = "eval"
 
 func TestSetDeploymentInfo(t *testing.T) {
 	DeploymentInfo.Reset()
-	SetDeploymentInfo(TopologySplit)
+	SetDeploymentInfo(TopologySplit, "v2.0.0-rc.9")
 
-	if got := testutil.ToFloat64(DeploymentInfo.WithLabelValues(TopologySplit)); got != 1 {
-		t.Errorf(`deployment_info{topology="split"} = %v, want 1`, got)
+	if got := testutil.ToFloat64(DeploymentInfo.WithLabelValues(TopologySplit, "v2.0.0-rc.9")); got != 1 {
+		t.Errorf(`deployment_info{topology="split",version="v2.0.0-rc.9"} = %v, want 1`, got)
 	}
 }

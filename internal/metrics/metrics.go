@@ -379,11 +379,11 @@ var (
 	// DeploymentInfo is a constant-1 info gauge naming the credential
 	// boundary this process runs under: topology="split" when it runs
 	// one half, "all" when one process holds both Apps' keys (combined
-	// trust, DESIGN-0029 D7 as amended).
+	// trust, DESIGN-0029 D7 as amended), and the binary's version.
 	DeploymentInfo = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "repo_guardian_deployment_info",
-		Help: "Constant 1, labeled with the deployment topology (split or all).",
-	}, []string{"topology"})
+		Help: "Constant 1, labeled with the deployment topology (split or all) and the binary version.",
+	}, []string{"topology", "version"})
 
 	// PROpenWithEmptyActionableTotal counts reconcile passes where
 	// an open repo-guardian PR exists but the actionable rule set is
@@ -523,7 +523,8 @@ const (
 	TopologyAll   = "all"
 )
 
-// SetDeploymentInfo publishes this process's topology.
-func SetDeploymentInfo(topology string) {
-	DeploymentInfo.WithLabelValues(topology).Set(1)
+// SetDeploymentInfo publishes this process's topology and version, once
+// at startup.
+func SetDeploymentInfo(topology, version string) {
+	DeploymentInfo.WithLabelValues(topology, version).Set(1)
 }

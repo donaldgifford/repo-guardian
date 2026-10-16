@@ -1254,8 +1254,11 @@ evaluator's store.
   controls workers' pools. `controls_status`/`controls_coverage` are
   published by 6.3's exporter; `installation_info` already carries `app`
   (IMPL-0028 3.6).
-- [ ] 6.2 `repo_guardian_deployment_info{topology, version}`, constant 1,
+- [x] 6.2 `repo_guardian_deployment_info{topology, version}`, constant 1,
   set once at startup from the role configuration.
+  Done: `deployment_info` gains `version`; `SetDeploymentInfo(topology,
+  version)` runs once in `bringUp` with `temporal.BuildID()` (the module
+  version of a tagged build, else the VCS revision, else `dev`).
 - [ ] 6.3 Posture exporter (OQ8) over 4.7's query: read before reset; on
   a read error keep the previous values; publish nothing when not
   configured to export. Tests for each, and for a vanished org dropping

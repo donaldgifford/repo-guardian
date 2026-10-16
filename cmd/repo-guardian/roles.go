@@ -201,7 +201,7 @@ func bringUpRoles(
 	mux := up.mux
 
 	logAppPermissions(logger, roles)
-	metrics.SetDeploymentInfo(topologyOf(roles))
+	metrics.SetDeploymentInfo(topologyOf(roles), temporal.BuildID())
 
 	if roles.Has(config.RoleWorker) {
 		stop, workerChecks, err := startV2Worker(ctx, cfg, tc, tcfg, strictTemplates, logger)

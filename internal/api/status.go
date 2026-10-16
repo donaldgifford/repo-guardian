@@ -112,7 +112,7 @@ func unknownStatus(now time.Time) gen.Status {
 	return gen.Status{
 		State: stateUnknown, UpdatedAt: now.UTC(), Components: []gen.Component{},
 		Compliance: gen.Compliance{History: []gen.CompliancePoint{}},
-		Operations: gen.StatusOperations{RolloutState: gen.StatusOperationsRolloutStateNone},
+		Operations: gen.StatusOperations{RolloutState: gen.None},
 	}
 }
 
@@ -211,7 +211,7 @@ func complianceOut(in *store.StatusInputs) gen.Compliance {
 // operationsOut is the operations strip: counts, times and a rollout
 // state from a closed enum, never text.
 func operationsOut(in *store.StatusInputs) gen.StatusOperations {
-	ops := gen.StatusOperations{Checked24h: in.CheckedLastDay, Tracked: in.ActiveRepositories, RolloutState: gen.StatusOperationsRolloutStateNone}
+	ops := gen.StatusOperations{Checked24h: in.CheckedLastDay, Tracked: in.ActiveRepositories, RolloutState: gen.None}
 
 	if in.LastSnapshot != nil {
 		t := in.LastSnapshot.UTC()
@@ -221,10 +221,10 @@ func operationsOut(in *store.StatusInputs) gen.StatusOperations {
 	switch {
 	case in.Rollout == nil:
 	case in.Rollout.CompletedAt == nil:
-		ops.RolloutState = gen.StatusOperationsRolloutStateInProgress
+		ops.RolloutState = gen.InProgress
 	default:
 		t := in.Rollout.CompletedAt.UTC()
-		ops.RolloutState, ops.RolloutCompletedAt = gen.StatusOperationsRolloutStateComplete, &t
+		ops.RolloutState, ops.RolloutCompletedAt = gen.Complete, &t
 	}
 
 	return ops

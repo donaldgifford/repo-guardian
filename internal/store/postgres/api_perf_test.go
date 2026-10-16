@@ -70,7 +70,7 @@ func TestAPIPerf(t *testing.T) {
 	t.Cleanup(pool.Close)
 
 	h, err := api.New(&api.Options{
-		Reader: postgres.NewAPIReader(pool), StaleAfter: 30 * 24 * time.Hour, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Reader: postgres.NewAPIReader(pool), Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -79,7 +79,7 @@ func TestAPIPerf(t *testing.T) {
 	const requests = 200
 
 	for _, path := range []string{
-		"/summary", "/rules", "/orgs", "/findings?status=non_compliant&org=org-3&limit=50", "/findings?pr_stale=true&limit=50",
+		"/orgs",
 	} {
 		var d []time.Duration
 

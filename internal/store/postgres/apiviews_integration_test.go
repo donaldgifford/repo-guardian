@@ -15,7 +15,6 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/api"
 	"github.com/donaldgifford/repo-guardian/internal/api/apitest"
 	"github.com/donaldgifford/repo-guardian/internal/api/gen"
-	"github.com/donaldgifford/repo-guardian/internal/findings"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres"
 )
@@ -34,7 +33,7 @@ func apiClient(t *testing.T, f *v2Fixture) (*apitest.Client, *postgres.APIReader
 	reader := postgres.NewAPIReader(pool)
 
 	return apitest.New(t, &api.Options{
-		Reader: reader, StaleAfter: 30 * 24 * time.Hour, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Reader: reader, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Now: func() time.Time { return t0 },
 	}), reader
 }
@@ -140,37 +139,6 @@ func TestAPI_TimelineMergesBothSourcesAndPagesStably(t *testing.T) {
 		if paged[i] != (eventID{e.Source, e.Id}) {
 			t.Errorf("event %d: paged %v, whole page %v", i, paged[i], eventID{e.Source, e.Id})
 		}
-	}
-}
-
-func TestAPI_PolicyShowsVersionRolloutAndRules(t *testing.T) {
-	t.Parallel()
-
-	f := newV2Fixture(t)
-	c, _ := apiClient(t, f)
-
-	if resp := c.Get("/policy", ""); resp.Status != http.StatusNotFound {
-		t.Fatalf("policy before any version = %d, want 404", resp.Status)
-	}
-
-	summary := store.PolicySummary{Rules: []store.PolicyRule{
-		{Kind: findings.RuleKindFile, Name: "codeowners", Description: "CODEOWNERS exists", CheckMode: "exists"},
-	}}
-	if _, err := f.store.RecordPolicyVersion(t.Context(), "v2:abc", summary); err != nil {
-		t.Fatal(err)
-	}
-
-	pol := getJSON[gen.Policy](t, c, "/policy")
-	if pol.Version != "v2:abc" || pol.RolloutState != "in_progress" || len(pol.Rules) != 1 || pol.Rules[0].Name != "codeowners" {
-		t.Errorf("policy = %+v", pol)
-	}
-
-	if err := f.store.CompletePolicyRollout(t.Context(), "v2:abc"); err != nil {
-		t.Fatal(err)
-	}
-
-	if pol := getJSON[gen.Policy](t, c, "/policy"); pol.RolloutState != "complete" || pol.RolloutCompletedAt == nil {
-		t.Errorf("policy after rollout = %+v", pol)
 	}
 }
 

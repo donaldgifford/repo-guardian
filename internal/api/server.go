@@ -11,7 +11,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/donaldgifford/repo-guardian/internal/api/gen"
-	"github.com/donaldgifford/repo-guardian/internal/findings"
 	"github.com/donaldgifford/repo-guardian/internal/observability"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 )
@@ -26,19 +25,11 @@ const BaseURL = "/api/v1"
 // are indistinguishable by design.
 type Reader interface {
 	Ping(ctx context.Context) error
-	Summary(ctx context.Context, scope store.APIScope, now time.Time) (*store.Summary, error)
-	Rules(ctx context.Context, scope store.APIScope) (*store.ComplianceReport, error)
-	Rule(ctx context.Context, scope store.APIScope, kind findings.RuleKind, name string, staleBefore time.Time) (*store.RuleView, error)
 	Orgs(ctx context.Context, scope store.APIScope) (*store.OrgsView, error)
-	Org(ctx context.Context, scope store.APIScope, org string) (*store.OrgView, error)
-	Findings(ctx context.Context, scope store.APIScope, f *store.FindingFilter) (store.Page[store.APIFinding], error)
 	Repositories(ctx context.Context, scope store.APIScope, f *store.RepositoryFilter) (store.Page[store.Repository], error)
-	Repository(ctx context.Context, scope store.APIScope, id int64, staleBefore time.Time) (*store.RepositoryDetail, error)
+	Repository(ctx context.Context, scope store.APIScope, id int64) (*store.RepositoryDetail, error)
 	RepositoryChecks(ctx context.Context, scope store.APIScope, id, afterID int64, limit int) (store.Page[store.Check], error)
 	RepositoryEvents(ctx context.Context, scope store.APIScope, id int64, after *store.EventKey, limit int) (store.Page[store.Event], error)
-	ComplianceHistory(ctx context.Context, scope store.APIScope, f *store.HistoryFilter) (store.Page[store.ComplianceSnapshot], error)
-	Installations(ctx context.Context, scope store.APIScope, afterID int64, limit int) (store.Page[store.InstallationStatus], error)
-	Policy(ctx context.Context) (*store.CurrentPolicy, error)
 }
 
 // Options configures the API handler.
@@ -49,9 +40,6 @@ type Options struct {
 	// is an anonymous principal who sees every org (API_AUTH_ENABLED=false).
 	Authn *Authenticator
 	Authz *AuthzConfig
-
-	// StaleAfter is PR_STALE_AFTER.
-	StaleAfter time.Duration
 
 	// Status serves /status from its cache; nil answers unknown.
 	Status *StatusPage

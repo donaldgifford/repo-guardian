@@ -3,12 +3,10 @@ package postgres
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres/sqlcdb"
 )
 
@@ -45,68 +43,4 @@ func (r *APIReader) readOnly(ctx context.Context, fn func(q *sqlcdb.Queries) err
 	}
 
 	return tx.Commit(ctx)
-}
-
-// Summary returns the fleet summary over scope.
-// now ages the findings for FindingAge.
-func (r *APIReader) Summary(ctx context.Context, scope store.APIScope, now time.Time) (sum *store.Summary, err error) {
-	defer func(start time.Time) { observeQuery("api_summary", start, err) }(time.Now())
-
-	all, orgs := scope.All(), scope.Orgs()
-	sum = &store.Summary{Parked: []store.ParkedCount{}, OpenPRs: []time.Time{}, FindingAge: map[string]int{}}
-
-	err = r.readOnly(ctx, func(q *sqlcdb.Queries) error {
-		repos, err := q.APISummaryRepositories(ctx, sqlcdb.APISummaryRepositoriesParams{ScopeAll: all, ScopeOrgs: orgs})
-		if err != nil {
-			return fmt.Errorf("repositories: %w", err)
-		}
-
-		for _, row := range repos {
-			if row.Active {
-				sum.Tracked += int(row.Repositories)
-
-				continue
-			}
-
-			sum.Parked = append(sum.Parked, store.ParkedCount{Reason: store.ParkReason(row.ParkReason), Count: int(row.Repositories)})
-		}
-
-		f, err := q.APISummaryFindings(ctx, sqlcdb.APISummaryFindingsParams{ScopeAll: all, ScopeOrgs: orgs})
-		if err != nil {
-			return fmt.Errorf("findings: %w", err)
-		}
-
-		sum.Findings = store.StatusCounts{
-			Compliant: int(f.Compliant), NonCompliant: int(f.NonCompliant), NotApplicable: int(f.NotApplicable), Unknown: int(f.Unknown),
-		}
-
-		if sum.CompliantPercent, err = numericPtr(f.CompliantPercent); err != nil {
-			return err
-		}
-
-		prs, err := q.APISummaryOpenPRs(ctx, sqlcdb.APISummaryOpenPRsParams{ScopeAll: all, ScopeOrgs: orgs})
-		if err != nil {
-			return fmt.Errorf("open PRs: %w", err)
-		}
-
-		for _, pr := range prs {
-			sum.OpenPRs = append(sum.OpenPRs, pr.CreatedAt)
-		}
-
-		ages, err := q.APISummaryFindingAge(ctx, sqlcdb.APISummaryFindingAgeParams{Now: now, ScopeAll: all, ScopeOrgs: orgs})
-		if err != nil {
-			return fmt.Errorf("finding age: %w", err)
-		}
-
-		for _, a := range ages {
-			sum.FindingAge[a.Bucket] = int(a.Findings)
-		}
-
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("postgres.APIReader.Summary: %w", err)
-	}
-
-	return sum, nil
 }

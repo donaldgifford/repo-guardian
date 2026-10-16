@@ -1585,12 +1585,31 @@ half-switched binary.
   `pgtest/v1sql`, `migrations/` (golang-migrate), `queries/` and
   `sqlcdb/`, and the rc block of `sqlc.yaml`. `repo-guardian migrate`
   applies only the controls chain.
-- [ ] 7.6 API: remove `/rules`, `/rules/{kind}/{name}`, `/findings`,
+- [x] 7.6 API: remove `/rules`, `/rules/{kind}/{name}`, `/findings`,
   `/policy`, `/installations`, `/orgs/{org}`, `/compliance/history`,
   `/summary` and the `Repository` fields `installation_id`,
   `last_check_outcome` and `policy_version` from `api/openapi.yaml`, with
   their handlers and queries; `/me`, `/status` and `/openapi.yaml` stay.
   `make generate-api`. Phase 8 adds the D32 replacements.
+  Done (ahead of 7.4 and 7.5, which cannot compile while handlers for
+  the removed endpoints still read the findings tables): the eight paths
+  are gone from `api/openapi.yaml`, along with the three `Repository`
+  fields and every component they alone referenced (Summary, the rule,
+  finding and evidence schemas, Installation, History, Policy, the
+  RuleKind/RuleName/StaleAfter parameters). `RepositoryDetail` is now
+  `repository` plus `last_check`: its `installation` and `findings` read
+  tables that 7.4 deletes, and 8.1 rebuilds the view with `/controls`.
+  `make generate-api` regenerated `internal/api/gen`; with fewer schemas
+  the rollout enum constants lost their prefix (`gen.None`/`InProgress`/`Complete`).
+  Removed the handlers, the `Reader` methods, `Options.StaleAfter`, the
+  reader methods in `postgres.APIReader`, and the queries `api_findings`,
+  `api_history`, `api_installations`, `api_rules` and `api_summary`. The
+  two org queries that `/orgs` still uses moved to `queries/api_orgs.sql`
+  until 7.4 re-cuts `/orgs` onto controls compliance. `PR_STALE_AFTER`
+  stays in config with no reader until IMPL-0030's PR views. The unit
+  scoping tests now drive `/repositories`, and the integration tests for
+  the removed endpoints are deleted. The generated UI types go stale here;
+  7.7 removes those views.
 - [ ] 7.7 UI: remove the Findings, Rules, Orgs, History, Policy and
   Repository views and the code only they use; the Status view and the
   shell stay; `make generate-ui-api`, `make lint-ui`, `make test-ui` and

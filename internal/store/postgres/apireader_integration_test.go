@@ -64,7 +64,7 @@ func seedTwoOrgs(t *testing.T, f *v2Fixture) {
 	}
 }
 
-func TestAPIReader_SummaryValidatesAndIsScopedInSQL(t *testing.T) {
+func TestAPIReader_OrgsValidateAndAreScopedInSQL(t *testing.T) {
 	t.Parallel()
 
 	f := newV2Fixture(t)
@@ -78,46 +78,56 @@ func TestAPIReader_SummaryValidatesAndIsScopedInSQL(t *testing.T) {
 
 	reader := postgres.NewAPIReader(pool)
 	c := apitest.New(t, &api.Options{
-		Reader: reader, StaleAfter: 30 * 24 * time.Hour, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Reader: reader, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Now: func() time.Time { return t0 },
 	})
 
-	resp := c.Get("/summary", "")
+	resp := c.Get("/orgs", "")
 	if resp.Status != http.StatusOK {
-		t.Fatalf("summary = %d: %s", resp.Status, resp.Body)
+		t.Fatalf("orgs = %d: %s", resp.Status, resp.Body)
 	}
 
-	var all gen.Summary
+	var all gen.OrgList
 	if err := json.Unmarshal(resp.Body, &all); err != nil {
 		t.Fatal(err)
 	}
 
-	if all.Tracked != 3 || all.Findings.Compliant != 2 || all.Findings.NonCompliant != 1 || all.StalePrs != 1 ||
-		len(all.Parked) != 1 || all.Parked[0].Reason != "archived" {
-		t.Errorf("all-orgs summary = %+v", all)
+	if len(all.Items) != 3 {
+		t.Fatalf("all-orgs list = %+v, want acme, acme-pay and acme-web", all.Items)
 	}
 
-	if all.CompliantPercent == nil || *all.CompliantPercent != 66.6 {
-		t.Errorf("compliant_percent = %v, want 66.6", all.CompliantPercent)
+	pay, web := all.Items[1], all.Items[2]
+	if pay.Tracked != 1 || pay.Parked != 1 || pay.Counts.Compliant != 1 {
+		t.Errorf("acme-pay = %+v, want one tracked, one parked (case-folded), one compliant", pay)
+	}
+
+	if web.Tracked != 1 || web.Counts.NonCompliant != 1 || web.OpenPrs != 1 || web.CompliantPercent == nil || *web.CompliantPercent != 0 {
+		t.Errorf("acme-web = %+v, want one tracked, failing with an open PR, 0%%", web)
 	}
 
 	// Scoping is SQL's job: the reader alone must honor it.
-	pay, err := reader.Summary(t.Context(), store.ScopeOrgs("ACME-PAY"), t0)
+	scoped, err := reader.Orgs(t.Context(), store.ScopeOrgs("ACME-PAY"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if pay.Tracked != 1 || pay.Findings.NonCompliant != 0 || len(pay.OpenPRs) != 0 || len(pay.Parked) != 1 {
-		t.Errorf("acme-pay summary = %+v, want one tracked, one parked, no PRs", pay)
+	for _, r := range scoped.Repositories {
+		if !strings.EqualFold(r.Org, "acme-pay") {
+			t.Errorf("acme-pay scope read %+v", r)
+		}
 	}
 
-	none, err := reader.Summary(t.Context(), store.ScopeOrgs(), t0)
+	if len(scoped.OpenPRs) != 0 {
+		t.Errorf("acme-pay scope open PRs = %v, want none", scoped.OpenPRs)
+	}
+
+	none, err := reader.Orgs(t.Context(), store.ScopeOrgs())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if none.Tracked != 0 || len(none.Parked) != 0 || none.CompliantPercent != nil {
-		t.Errorf("empty-scope summary = %+v, want nothing", none)
+	if len(none.Repositories) != 0 || len(none.Current) != 0 {
+		t.Errorf("empty-scope orgs = %+v, want nothing", none)
 	}
 }
 

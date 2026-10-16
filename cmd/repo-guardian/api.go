@@ -50,7 +50,7 @@ func startAPI(
 	go status.Run(ctx)
 
 	opts := &api.Options{
-		Reader: reader, StaleAfter: cfg.API.PRStaleAfter, Status: status, StatusRequiresAuth: !cfg.API.StatusPublic, Logger: logger,
+		Reader: reader, Status: status, StatusRequiresAuth: !cfg.API.StatusPublic, Logger: logger,
 	}
 	checks := []readinessCheck{
 		{name: "api_store", fn: pool.Ping},

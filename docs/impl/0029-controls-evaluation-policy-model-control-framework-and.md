@@ -1662,10 +1662,31 @@ half-switched binary.
   scoping tests now drive `/repositories`, and the integration tests for
   the removed endpoints are deleted. The generated UI types go stale here;
   7.7 removes those views.
-- [ ] 7.7 UI: remove the Findings, Rules, Orgs, History, Policy and
+- [x] 7.7 UI: remove the Findings, Rules, Orgs, History, Policy and
   Repository views and the code only they use; the Status view and the
   shell stay; `make generate-ui-api`, `make lint-ui`, `make test-ui` and
   the e2e suite (reduced to status and auth) green.
+  Done: the Findings, Rules, Orgs, History, Policy and Repository views
+  went, and so did Fleet, which read `/summary`, `/rules` and history.
+  Also removed: the ⌘K palette (it searched rules, orgs and repositories,
+  and navigated to the deleted routes), the sidebar's Findings count and
+  policy footer, and the code only those views used (`filters/`,
+  `OrgScope`, `RangeTabs`, `timeline`, and `lib/{csv,pr,range,timeline,evidence}`
+  with their tests). `queries.ts` keeps `useUIConfig`, `useMe` and
+  `useStatus`; `viewmodel.ts` keeps `initials`, `hasNoAccess` and
+  `heatOpacity`. The domain-free `components/ui/` primitives (and
+  `lib/search`, which `tabs` uses) stay for the controls views.
+  `/` inside the shell renders the Status view (nav: Overview, Status page).
+  e2e: `seed.sql` was rewritten for the controls schema, and
+  `e2e/roles.sql` creates `rg_evaluator`/`rg_remediator` before
+  `migrate --policy=`, because the controls chain grants to them and never
+  creates them. The suite is down to sign-in, session, public status,
+  sign-out, no-Docs and axe (status, signed-in overview). The four removed
+  reference screenshots were deleted. Results: `make lint-ui` green,
+  `make test-ui` 239 pass, `make test-ui-e2e` 7 pass and 1 skipped.
+  `status.png` was not re-rendered: the visual spec runs only in the
+  pinned image (`make test-ui-e2e-update-snapshots`) and the seed changed,
+  so it needs a refresh there.
 - [ ] 7.8 Configuration: `GUARDIAN_CONFIG` names the policy directory;
   `EVAL_INTERVAL` replaces `CHECK_INTERVAL`; audit every env var in
   `_helpers.tpl`'s list that only the rule engine read (at least

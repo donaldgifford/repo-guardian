@@ -13,20 +13,18 @@ withDOM();
 const user = () => userEvent.setup({ pointerEventsCheck: 0, document });
 
 describe("SidebarNav", () => {
-  test("lists the groups, the Findings count and the policy footer", async () => {
+  test("lists the groups and marks the current entry", async () => {
     const { findByRole, getByRole, queryByText, getByText } = render(
-      <AppHarness initial="/findings">
+      <AppHarness initial="/status">
         <SidebarNav />
       </AppHarness>,
     );
-    const findings = await findByRole("link", { name: /Findings/ });
-    expect(findings.textContent).toContain("37");
-    expect(findings.getAttribute("aria-current")).toBe("page");
-    expect(getByRole("link", { name: /Fleet/ }).getAttribute("aria-current")).toBeNull();
+    const status = await findByRole("link", { name: /Status page/ });
+    expect(status.getAttribute("aria-current")).toBe("page");
+    expect(getByRole("link", { name: /Overview/ }).getAttribute("aria-current")).toBeNull();
     expect(getByText("Business")).toBeTruthy();
     expect(getByText("Public")).toBeTruthy();
     expect(queryByText("Docs")).toBeNull();
-    expect(getByRole("link", { name: /policy v2:abcdef01 · rollout complete/ }).getAttribute("href")).toBe("/policy");
   });
 
   test("shows the Docs group only with a docs_url", async () => {
@@ -48,7 +46,7 @@ describe("TopBar", () => {
     let submitted = 0;
     const { findByRole, getByRole, queryByRole, container } = render(
       <AppHarness seed={{ config: { ...testConfig, docs_url: "https://docs.example.com/" } }}>
-        <TopBar me={testMe} onSearch={() => {}} onMenu={() => {}} />
+        <TopBar me={testMe} onMenu={() => {}} />
       </AppHarness>,
     );
     const avatar = await findByRole("button", { name: "Account menu" });
@@ -71,17 +69,4 @@ describe("TopBar", () => {
     await waitFor(() => expect(submitted).toBe(1));
   });
 
-  test("the search button calls back and names its shortcut", async () => {
-    const u = user();
-    let opened = 0;
-    const { findByRole } = render(
-      <AppHarness>
-        <TopBar me={testMe} onSearch={() => opened++} onMenu={() => {}} />
-      </AppHarness>,
-    );
-    const search = await findByRole("button", { name: /Search/ });
-    expect(search.getAttribute("aria-keyshortcuts")).toBe("Meta+K Control+K");
-    await u.click(search);
-    expect(opened).toBe(1);
-  });
 });

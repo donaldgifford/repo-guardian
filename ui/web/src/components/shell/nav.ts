@@ -1,14 +1,13 @@
-import type { Schemas } from "../../api/client";
 import type { IconName } from "../icons";
 
-// The sidebar is one array (DESIGN-0036 §Shell), so IMPL-0029 renames or
-// adds an entry by editing data, not markup.
+// The sidebar is one array (DESIGN-0036 §Shell), so the controls views
+// add an entry by editing data, not markup.
 
 export type NavGroup = "BUSINESS" | "PUBLIC" | "DOCS";
 
 // AppPath is every in-app destination the nav may point at; the router
 // types its links against these.
-export type AppPath = "/" | "/rules" | "/orgs" | "/findings" | "/status";
+export type AppPath = "/" | "/status";
 
 export interface NavItem {
   group: NavGroup;
@@ -17,15 +16,10 @@ export interface NavItem {
   // to is an in-app route; href an external link (opens a new tab).
   to?: AppPath;
   href?: string;
-  // count reads the right-aligned mono count from /summary.
-  count?: (summary: Schemas["Summary"]) => number;
 }
 
 export const NAV: readonly NavItem[] = [
-  { group: "BUSINESS", label: "Fleet", to: "/", icon: "grid" },
-  { group: "BUSINESS", label: "Rules", to: "/rules", icon: "list" },
-  { group: "BUSINESS", label: "Orgs", to: "/orgs", icon: "boxes" },
-  { group: "BUSINESS", label: "Findings", to: "/findings", icon: "activity", count: (s) => s.findings.non_compliant },
+  { group: "BUSINESS", label: "Overview", to: "/", icon: "grid" },
   { group: "PUBLIC", label: "Status page", to: "/status", icon: "check" },
 ];
 

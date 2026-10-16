@@ -24,57 +24,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Fleet summary over the caller's visible orgs. */
-        get: operations["getSummary"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/rules": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Compliance by rule over the visible orgs, with the trend against the previous snapshot. */
-        get: operations["listRules"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/rules/{kind}/{name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** One rule across the visible orgs. */
-        get: operations["getRule"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/orgs": {
         parameters: {
             query?: never;
@@ -84,40 +33,6 @@ export interface paths {
         };
         /** Compliance by org over the visible orgs. */
         get: operations["listOrgs"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/orgs/{org}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** One org's rules and why rules did not apply. */
-        get: operations["getOrg"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/findings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Findings in the visible orgs, filtered. */
-        get: operations["listFindings"];
         put?: never;
         post?: never;
         delete?: never;
@@ -150,7 +65,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** One repository with its installation, last check and every finding. */
+        /** One repository with its last check. */
         get: operations["getRepository"];
         put?: never;
         post?: never;
@@ -167,7 +82,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The repository's timeline, finding and repository events merged, newest first. */
+        /** The repository's timeline, result and repository events merged, newest first. */
         get: operations["listRepositoryEvents"];
         put?: never;
         post?: never;
@@ -186,57 +101,6 @@ export interface paths {
         };
         /** The repository's recent checks, newest first. */
         get: operations["listRepositoryChecks"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/compliance/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Compliance snapshots over time, oldest first. */
-        get: operations["listComplianceHistory"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/policy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** The current policy version, its rollout state and rule summaries. */
-        get: operations["getPolicy"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/installations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Installations in the visible orgs with their rate-limit snapshot. */
-        get: operations["listInstallations"];
         put?: never;
         post?: never;
         delete?: never;
@@ -304,31 +168,6 @@ export interface components {
          */
         Cursor: string;
         /**
-         * @description Open enum: compliant, non_compliant, not_applicable, unknown.
-         * @example compliant
-         * @example non_compliant
-         * @example not_applicable
-         * @example unknown
-         */
-        FindingStatus: string;
-        /**
-         * @description Open enum. Why a finding has its status: file_missing,
-         *     assertion_failed, content_differs, forbidden_present,
-         *     setting_mismatch, ruleset_missing, ruleset_mismatch,
-         *     out_of_scope_policy, out_of_scope_rule, ignored_global,
-         *     ignored_rule, gate_closed, branch_missing, empty_repository,
-         *     gate_error, foreign_pr_open, migrated_from_v1. Empty when
-         *     compliant.
-         * @example file_missing
-         * @example gate_closed
-         */
-        Reason: string;
-        /**
-         * @description Open enum: none, pr_open, foreign_pr, applied, dry_run, disabled.
-         * @example pr_open
-         */
-        Remediation: string;
-        /**
          * @description Open enum: access_denied, archived, fork, removed, installation_removed, unknown.
          * @example archived
          */
@@ -351,58 +190,12 @@ export interface components {
             /** @description The orgs the caller may see; empty when all_orgs is set. */
             orgs: string[];
         };
-        /** @description Finding counts by status. */
+        /** @description Result counts by status. */
         StatusCounts: {
             compliant: number;
             non_compliant: number;
             not_applicable: number;
             unknown: number;
-        };
-        /** @description Inactive repositories with one park reason. */
-        ParkedCount: {
-            reason: components["schemas"]["ParkReason"];
-            count: number;
-        };
-        /** @description Open repo-guardian PRs in one age bucket. */
-        PRAgeBucket: {
-            /**
-             * @description Open enum: <1d, 1-7d, 7-30d, 30d+.
-             * @example 1-7d
-             */
-            bucket: string;
-            count: number;
-        };
-        /** @description Non-compliant findings that have failed for one age range. */
-        FindingAgeBucket: {
-            /**
-             * @description Open enum: <1d, 1-7d, 7-30d, 30-90d, 90-180d, 180d+.
-             * @example 7-30d
-             */
-            bucket: string;
-            count: number;
-        };
-        /** @description The fleet summary over the visible orgs. */
-        Summary: {
-            /** @description Active repositories in the visible orgs. */
-            tracked: number;
-            /** @description Inactive repositories by park reason. */
-            parked: components["schemas"]["ParkedCount"][];
-            /**
-             * Format: double
-             * @description compliant / (compliant + non_compliant) over active
-             *     repositories, floored to one decimal. Null when nothing is
-             *     measured, never 100.
-             */
-            compliant_percent: number | null;
-            findings: components["schemas"]["StatusCounts"];
-            /** @description Open repo-guardian PRs by age. */
-            open_prs: components["schemas"]["PRAgeBucket"][];
-            /** @description Open repo-guardian PRs older than stale_after. */
-            stale_prs: number;
-            /** @description The threshold applied, as a Go duration. */
-            stale_after: string;
-            /** @description Non-compliant findings on active repositories by how long they have failed (status_since), every bucket in order, zeros included. */
-            finding_age: components["schemas"]["FindingAgeBucket"][];
         };
         /** @description One status-page component. */
         Component: {
@@ -452,57 +245,6 @@ export interface components {
             compliance: components["schemas"]["Compliance"];
             operations: components["schemas"]["StatusOperations"];
         };
-        /**
-         * @description Open enum: file, setting, branch_protection.
-         * @example file
-         */
-        RuleKind: string;
-        /** @description One rule's compliance, with the previous snapshot's percentage for the trend. */
-        RuleCompliance: {
-            kind: components["schemas"]["RuleKind"];
-            name: string;
-            counts: components["schemas"]["StatusCounts"];
-            /** Format: double */
-            compliant_percent: number | null;
-            /**
-             * Format: double
-             * @description The same rule's percentage in the latest snapshot; absent when there is none.
-             */
-            previous_percent?: number | null;
-            /** Format: date-time */
-            previous_at?: string;
-        };
-        /** @description Compliance for every rule. */
-        RuleList: {
-            items: components["schemas"]["RuleCompliance"][];
-        };
-        /** @description One org's compliance with one rule. */
-        OrgCompliance: {
-            org: string;
-            counts: components["schemas"]["StatusCounts"];
-            /** Format: double */
-            compliant_percent: number | null;
-        };
-        /** @description Findings with one reason. */
-        ReasonCount: {
-            reason: components["schemas"]["Reason"];
-            count: number;
-        };
-        /** @description One rule across the visible orgs. */
-        RuleDetail: {
-            kind: components["schemas"]["RuleKind"];
-            name: string;
-            /** @description The policy's description of the rule; absent when it has none. */
-            description?: string;
-            counts: components["schemas"]["StatusCounts"];
-            /** Format: double */
-            compliant_percent: number | null;
-            orgs: components["schemas"]["OrgCompliance"][];
-            /** @description Reasons for non-compliant and not-applicable findings, most common first. */
-            top_reasons: components["schemas"]["ReasonCount"][];
-            /** @description The ten longest-failing findings. */
-            oldest_failures: components["schemas"]["Finding"][];
-        };
         /** @description One org's repositories and compliance. */
         OrgSummary: {
             org: string;
@@ -511,186 +253,12 @@ export interface components {
             counts: components["schemas"]["StatusCounts"];
             /** Format: double */
             compliant_percent: number | null;
-            /** @description Findings with an open repo-guardian PR on the org's active repositories; equals the total of /findings?org=&remediation=pr_open. */
+            /** @description Open repo-guardian pull requests on the org's active repositories. */
             open_prs: number;
         };
         /** @description Every visible org. */
         OrgList: {
             items: components["schemas"]["OrgSummary"][];
-        };
-        /** @description One org's rules, and why rules did not apply. */
-        OrgDetail: {
-            org: string;
-            tracked: number;
-            parked: components["schemas"]["ParkedCount"][];
-            rules: components["schemas"]["RuleCompliance"][];
-            /** @description Not-applicable findings by reason (scope, ignore, gates). */
-            not_applicable: components["schemas"]["ReasonCount"][];
-        };
-        /** @description The PR a finding's remediation points at. created_at is set for repo-guardian's PR; head and matched_term for a human PR the rule yields to. */
-        FindingPR: {
-            number: number;
-            url: string;
-            /** Format: date-time */
-            created_at?: string;
-            head?: string;
-            matched_term?: string;
-        };
-        /** @description One rule's verdict on one repository. */
-        Finding: {
-            /** Format: int64 */
-            repository_id: number;
-            org: string;
-            repository: string;
-            rule_kind: components["schemas"]["RuleKind"];
-            rule_name: string;
-            status: components["schemas"]["FindingStatus"];
-            reason?: components["schemas"]["Reason"];
-            remediation: components["schemas"]["Remediation"];
-            /** Format: date-time */
-            status_since: string;
-            /** Format: date-time */
-            last_evaluated_at: string;
-            /** @description The finding's repo-guardian PR is open and older than stale_after. */
-            pr_stale: boolean;
-            pr?: components["schemas"]["FindingPR"];
-            evidence?: components["schemas"]["Evidence"];
-        };
-        /**
-         * @description Why the finding has its status, keyed by reason. Values that came
-         *     from a repository are data: render them as text, never as markup.
-         */
-        Evidence: components["schemas"]["FileMissingEvidence"] | components["schemas"]["AssertionFailedEvidence"] | components["schemas"]["ContentDiffersEvidence"] | components["schemas"]["ForbiddenPresentEvidence"] | components["schemas"]["SettingMismatchEvidence"] | components["schemas"]["RulesetMissingEvidence"] | components["schemas"]["RulesetMismatchEvidence"] | components["schemas"]["ScopeEvidence"] | components["schemas"]["IgnoredEvidence"] | components["schemas"]["GateClosedEvidence"] | components["schemas"]["BranchMissingEvidence"] | components["schemas"]["GateErrorEvidence"] | components["schemas"]["MigratedFromV1Evidence"];
-        /** @description No checked path existed. */
-        FileMissingEvidence: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            reason: "file_missing";
-            paths_checked: string[];
-        };
-        /** @description A content assertion failed. */
-        AssertionFailedEvidence: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            reason: "assertion_failed";
-            path: string;
-            message: string;
-        };
-        /** @description The file differs from the expected content. */
-        ContentDiffersEvidence: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            reason: "content_differs";
-            path: string;
-            /** @description Open enum: bytes, yaml. */
-            comparison: string;
-        };
-        /** @description A forbidden file exists. */
-        ForbiddenPresentEvidence: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            reason: "forbidden_present";
-            path: string;
-        };
-        /** @description A repository setting differs from the policy. */
-        SettingMismatchEvidence: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            reason: "setting_mismatch";
-            property: string;
-            expected: string;
-            actual: string;
-        };
-        /** @description No ruleset covers the branch. */
-        RulesetMissingEvidence: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            reason: "ruleset_missing";
-            branch: string;
-        };
-        /** @description A ruleset differs from the policy. */
-        RulesetMismatchEvidence: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            reason: "ruleset_mismatch";
-            branch: string;
-            /** Format: int64 */
-            ruleset_id: number;
-            mismatches: string[];
-        };
-        /** @description A reason that carries no detail. A foreign PR is under the finding's pr. */
-        ScopeEvidence: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            reason: "out_of_scope_policy" | "out_of_scope_rule" | "empty_repository" | "foreign_pr_open";
-        };
-        /** @description An ignore pattern matched. */
-        IgnoredEvidence: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            reason: "ignored_global" | "ignored_rule";
-            pattern: string;
-        };
-        /** @description The when-gate's referee rule is not satisfied. */
-        GateClosedEvidence: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            reason: "gate_closed";
-            referee: string;
-        };
-        /** @description The branch-protection target branch does not exist. */
-        BranchMissingEvidence: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            reason: "branch_missing";
-            branch: string;
-        };
-        /** @description The referee could not be evaluated, so the gate stayed closed. */
-        GateErrorEvidence: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            reason: "gate_error";
-            referee: string;
-            error: string;
-        };
-        /** @description Carried over from v1, which recorded no reason. */
-        MigratedFromV1Evidence: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            reason: "migrated_from_v1";
-            /** Format: date-time */
-            v1_actionable_since: string;
-        };
-        /** @description A page of findings. */
-        FindingPage: {
-            items: components["schemas"]["Finding"][];
-            next_cursor?: components["schemas"]["Cursor"];
         };
         /** @description One repository. */
         Repository: {
@@ -700,8 +268,6 @@ export interface components {
             name: string;
             /** Format: int64 */
             provider_repo_id?: number;
-            /** Format: int64 */
-            installation_id: number;
             active: boolean;
             park_reason?: components["schemas"]["ParkReason"];
             /** Format: date-time */
@@ -712,36 +278,10 @@ export interface components {
             next_due_at?: string;
             /** Format: date-time */
             last_checked_at?: string;
-            /** @description Open enum: pending, success, error, skipped. */
-            last_check_outcome: string;
-            policy_version: string;
         };
         /** @description A page of repositories. */
         RepositoryPage: {
             items: components["schemas"]["Repository"][];
-            next_cursor?: components["schemas"]["Cursor"];
-        };
-        /** @description One GitHub App installation and its last rate-limit snapshot. */
-        Installation: {
-            /** Format: int64 */
-            id: number;
-            account: string;
-            /** Format: date-time */
-            suspended_at?: string;
-            /** Format: date-time */
-            removed_at?: string;
-            rate_limit?: number;
-            rate_remaining?: number;
-            /** Format: date-time */
-            rate_reset_at?: string;
-            /** Format: date-time */
-            rate_observed_at?: string;
-            /** @description Seconds since rate_observed_at. */
-            rate_snapshot_age_seconds?: number;
-        };
-        /** @description A page of installations. */
-        InstallationPage: {
-            items: components["schemas"]["Installation"][];
             next_cursor?: components["schemas"]["Cursor"];
         };
         /** @description One check of a repository. */
@@ -766,33 +306,29 @@ export interface components {
             items: components["schemas"]["Check"][];
             next_cursor?: components["schemas"]["Cursor"];
         };
-        /** @description A repository with its installation, last check and findings. */
+        /** @description A repository with its last check. */
         RepositoryDetail: {
             repository: components["schemas"]["Repository"];
-            installation: components["schemas"]["Installation"];
             last_check?: components["schemas"]["Check"];
-            findings: components["schemas"]["Finding"][];
         };
         /**
-         * @description One timeline entry. A finding event carries the rule and its
-         *     from/to fields; a repository event carries kind and detail.
+         * @description One timeline entry. A result event carries the control and its status
+         *     transition (to_status is absent when the result was withdrawn); a
+         *     repository event carries kind and detail.
          */
         Event: {
-            /** @description Open enum: finding, repository. */
+            /** @description Open enum: result, repository. */
             source: string;
             /** Format: int64 */
             id: number;
             /** Format: date-time */
             occurred_at: string;
-            rule_kind?: components["schemas"]["RuleKind"];
-            rule_name?: string;
-            from_status?: components["schemas"]["FindingStatus"];
-            to_status?: components["schemas"]["FindingStatus"];
-            from_reason?: components["schemas"]["Reason"];
-            to_reason?: components["schemas"]["Reason"];
-            from_remediation?: components["schemas"]["Remediation"];
-            to_remediation?: components["schemas"]["Remediation"];
-            /** @description Open enum, repository events: discovered, renamed, transferred, parked, unparked, removed. */
+            control_id?: string;
+            /** @description Open enum: compliant, non_compliant, unknown, not_applicable. */
+            from_status?: string;
+            /** @description Open enum: compliant, non_compliant, unknown, not_applicable. */
+            to_status?: string;
+            /** @description Open enum, repository events: discovered, renamed, transferred, parked, unparked, removed, suspended, unsuspended. */
             kind?: string;
             /** @description A repository event's detail, such as the names around a rename. */
             detail?: Record<string, never>;
@@ -801,44 +337,6 @@ export interface components {
         EventPage: {
             items: components["schemas"]["Event"][];
             next_cursor?: components["schemas"]["Cursor"];
-        };
-        /** @description One snapshot point. Unaggregated, it is one (org, rule) and carries `org`, `kind` and `rule`. With `aggregate=org` it carries `org` only; with `aggregate=fleet` it carries none of the three. */
-        HistoryPoint: {
-            /** @description Absent when aggregated to the fleet. */
-            org?: string;
-            kind?: components["schemas"]["RuleKind"];
-            /** @description Absent when aggregated. */
-            rule?: string;
-            /** Format: date-time */
-            snapshot_at: string;
-            counts: components["schemas"]["StatusCounts"];
-            /** Format: double */
-            compliant_percent: number | null;
-        };
-        /** @description A page of snapshot points. */
-        HistoryPage: {
-            items: components["schemas"]["HistoryPoint"][];
-            next_cursor?: components["schemas"]["Cursor"];
-        };
-        /** @description One enforced rule, as the policy summarizes it. */
-        PolicyRule: {
-            kind: components["schemas"]["RuleKind"];
-            name: string;
-            description?: string;
-            scope?: string[];
-            ignore?: string[];
-            check_mode?: string;
-        };
-        /** @description The newest policy version and its rollout. */
-        Policy: {
-            version: string;
-            /** Format: date-time */
-            first_seen_at: string;
-            /** Format: date-time */
-            rollout_completed_at?: string;
-            /** @description Open enum: in_progress, complete. */
-            rollout_state: string;
-            rules: components["schemas"]["PolicyRule"][];
         };
     };
     responses: {
@@ -895,14 +393,8 @@ export interface components {
         Cursor: components["schemas"]["Cursor"];
         /** @description Page size. */
         Limit: number;
-        /** @description Age after which an open repo-guardian PR counts as stale, 1h to 8760h. Defaults to the server's PR_STALE_AFTER. */
-        StaleAfter: string;
         /** @description A repository id. */
         RepositoryID: number;
-        /** @description A rule kind. */
-        RuleKind: components["schemas"]["RuleKind"];
-        /** @description A rule name. */
-        RuleName: string;
     };
     requestBodies: never;
     headers: never;
@@ -932,85 +424,6 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    getSummary: {
-        parameters: {
-            query?: {
-                /** @description Age after which an open repo-guardian PR counts as stale, 1h to 8760h. Defaults to the server's PR_STALE_AFTER. */
-                stale_after?: components["parameters"]["StaleAfter"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The summary. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Summary"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listRules: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Every rule with findings in the visible orgs. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RuleList"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getRule: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description A rule kind. */
-                kind: components["parameters"]["RuleKind"];
-                /** @description A rule name. */
-                name: components["parameters"]["RuleName"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The rule. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RuleDetail"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            default: components["responses"]["Error"];
-        };
-    };
     listOrgs: {
         parameters: {
             query?: never;
@@ -1029,82 +442,6 @@ export interface operations {
                     "application/json": components["schemas"]["OrgList"];
                 };
             };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getOrg: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description An org login, case-insensitive. */
-                org: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The org. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OrgDetail"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listFindings: {
-        parameters: {
-            query?: {
-                /** @description Only findings with this status. */
-                status?: components["schemas"]["FindingStatus"];
-                /** @description Only findings with this reason. */
-                reason?: components["schemas"]["Reason"];
-                /** @description Only findings with this remediation. */
-                remediation?: components["schemas"]["Remediation"];
-                /** @description An org login, case-insensitive. */
-                org?: string;
-                /** @description A rule kind. */
-                kind?: components["schemas"]["RuleKind"];
-                /** @description A rule name. */
-                rule?: string;
-                /** @description Only findings whose open repo-guardian PR is (true) or is not (false) older than stale_after. */
-                pr_stale?: boolean;
-                /** @description Only findings whose status has held since before this time. */
-                since_before?: string;
-                /** @description `default` orders by repository, kind and rule. `pr_age` orders by the PR's `created_at`, oldest first, findings without a PR last, then by the default key. A cursor is bound to its sort. */
-                sort?: "default" | "pr_age";
-                /** @description Age after which an open repo-guardian PR counts as stale, 1h to 8760h. Defaults to the server's PR_STALE_AFTER. */
-                stale_after?: components["parameters"]["StaleAfter"];
-                /** @description The next_cursor of the previous page. */
-                cursor?: components["parameters"]["Cursor"];
-                /** @description Page size. */
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description A page of findings. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FindingPage"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             default: components["responses"]["Error"];
@@ -1149,10 +486,7 @@ export interface operations {
     };
     getRepository: {
         parameters: {
-            query?: {
-                /** @description Age after which an open repo-guardian PR counts as stale, 1h to 8760h. Defaults to the server's PR_STALE_AFTER. */
-                stale_after?: components["parameters"]["StaleAfter"];
-            };
+            query?: never;
             header?: never;
             path: {
                 /** @description A repository id. */
@@ -1241,100 +575,6 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listComplianceHistory: {
-        parameters: {
-            query?: {
-                /** @description An org login, case-insensitive. */
-                org?: string;
-                /** @description A rule kind. */
-                kind?: components["schemas"]["RuleKind"];
-                /** @description A rule name. */
-                rule?: string;
-                /** @description Only snapshots at or after this time. */
-                from?: string;
-                /** @description Only snapshots before this time. */
-                to?: string;
-                /** @description How to sum the selected snapshots. `none` (the default) returns one point per (snapshot, org, rule). `fleet` sums every org and rule per snapshot; `org` sums every rule per (snapshot, org). The other filters apply before summing, so `aggregate=fleet` with `kind` and `rule` is one rule's fleet series. Aggregated percentages are floored in SQL exactly as `/rules` floors them. */
-                aggregate?: "none" | "fleet" | "org";
-                /** @description The next_cursor of the previous page. */
-                cursor?: components["parameters"]["Cursor"];
-                /** @description Page size. */
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description A page of snapshot points. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HistoryPage"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getPolicy: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The policy. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Policy"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listInstallations: {
-        parameters: {
-            query?: {
-                /** @description The next_cursor of the previous page. */
-                cursor?: components["parameters"]["Cursor"];
-                /** @description Page size. */
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description A page of installations. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InstallationPage"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
             default: components["responses"]["Error"];
         };
     };

@@ -1,6 +1,6 @@
 // The Playwright stack (IMPL-0025 22.4), run by Bun from
 // playwright.config.ts's webServer: a Postgres container migrated with
-// `repo-guardian migrate` and seeded, the mock issuer, the Go `api`
+// `repo-guardian migrate` (after e2e/roles.sql) and seeded, the mock issuer, the Go `api`
 // role verifying the issuer's JWT access tokens, and the BFF serving
 // the built SPA on http://localhost:3100. Ctrl-C (or Playwright's
 // SIGTERM) tears it all down.
@@ -69,7 +69,8 @@ try {
     async () => (await $`docker exec ${container} pg_isready -h 127.0.0.1 -U repoguardian -d repoguardian`.nothrow().quiet()).exitCode === 0,
   );
 
-  await $`${bin} migrate --dsn ${dsn}`.quiet();
+  await $`docker exec -i ${container} psql -q -U repoguardian -d repoguardian -v ON_ERROR_STOP=1 < ${join(uiRoot, "e2e/roles.sql")}`.quiet();
+  await $`${bin} migrate --dsn ${dsn} --policy=`.quiet();
   await $`docker exec -i ${container} psql -q -U repoguardian -d repoguardian -v ON_ERROR_STOP=1 < ${join(uiRoot, "e2e/seed.sql")}`.quiet();
 
   // One user in one group that sees acme only: globex must never show.

@@ -14,43 +14,17 @@ export const testMe: Schemas["Me"] = { subject: "user-1", name: "Ada Lovelace", 
 
 export const testConfig: UIConfig = { issuer: "https://idp.example.com", public_url: "http://localhost", session_ttl_seconds: 3600, github_host: "github.com" };
 
-export const testSummary: Schemas["Summary"] = {
-  tracked: 412,
-  parked: [{ reason: "archived", count: 7 }],
-  compliant_percent: 87.2,
-  findings: { compliant: 900, non_compliant: 37, not_applicable: 12, unknown: 3 },
-  open_prs: [],
-  stale_prs: 0,
-  stale_after: "720h",
-  finding_age: [],
-};
-
-export const testPolicy: Schemas["Policy"] = {
-  version: "v2:abcdef0123456789",
-  first_seen_at: "2026-10-01T00:00:00Z",
-  rollout_state: "complete",
-  rules: [],
-};
-
 export interface SeededCache {
   config?: UIConfig;
-  summary?: Schemas["Summary"];
-  policy?: Schemas["Policy"];
-  rules?: Schemas["RuleList"];
-  orgs?: Schemas["OrgList"];
 }
 
 export function seededClient(seed: SeededCache = {}): QueryClient {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   client.setQueryData(["ui-config"], seed.config ?? testConfig);
-  client.setQueryData(["summary"], seed.summary ?? testSummary);
-  client.setQueryData(["policy"], seed.policy ?? testPolicy);
-  if (seed.rules) client.setQueryData(["rules"], seed.rules);
-  if (seed.orgs) client.setQueryData(["orgs"], seed.orgs);
   return client;
 }
 
-const APP_PATHS = ["/", "/rules", "/rules/$kind/$name", "/orgs", "/orgs/$org", "/findings", "/repos/$id", "/history", "/policy", "/status"] as const;
+const APP_PATHS = ["/", "/status"] as const;
 
 // testRouter renders `element` at every app path, with the Outlet-less
 // layout the shell pieces expect, starting at `initial`.

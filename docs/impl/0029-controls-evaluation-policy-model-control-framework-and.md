@@ -539,9 +539,22 @@ calls `Type.Build`.
   `examples/examples_test.go` to load each and compare `Summarize()`
   against a committed golden. The v1 `guardian-*.hcl` files stay until
   Phase 7, because rule-engine tests still read them.
-- [ ] 2.11 Non-vacuous check: reverse the specificity order and drop the
+  Deferred to after 3.9: the five v1 examples cover dependency updates,
+  settings, rulesets, labels and custom properties, whose types land in
+  Phase 3, and only `codeowners` exists until then. Done right after
+  Phase 3's types, before 3.10.
+- [x] 2.11 Non-vacuous check: reverse the specificity order and drop the
   `EvalSymlinks` containment check; confirm the goldens and the
   symlink-escape test fail; restore.
+  Done: preferring org-level modes over repos blocks failed
+  `mode-org-control` and `mode-repos-block`; dropping the containment
+  check failed `TestLoad_SymlinkEscapeIsRefused`; both restored. Probing
+  each step found two unpinned behaviours, now covered by goldens:
+  exclude-beats-add within one layer (`exclude-beats-add-in-layer`) and
+  a baseline slug re-added after a cross-slug replace
+  (`baseline-readd-after-cross-slug-replace`). Each remaining step
+  probe (no baseline set: 26 goldens; no replace lineage: 2; ignoring
+  access: 2; no conflict marking: 1) fails at least one golden.
 
 #### Success Criteria
 

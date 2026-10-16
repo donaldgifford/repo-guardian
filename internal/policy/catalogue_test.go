@@ -70,8 +70,8 @@ func TestCatalogue_Decode(t *testing.T) {
 		t.Errorf("revision = %q, owns = %v", d.revision, d.ctl.Owns())
 	}
 
-	if want := []string{"codeowners"}; len(snap.embeddedUsed) != 1 || snap.embeddedUsed[0] != want[0] {
-		t.Errorf("embeddedUsed = %v, want %v (no root template, so the embedded fallback)", snap.embeddedUsed, want)
+	if _, ok := snap.embeddedUsed["codeowners"]; len(snap.embeddedUsed) != 1 || !ok {
+		t.Errorf("embeddedUsed = %v, want codeowners (no root template, so the embedded fallback)", snap.embeddedUsed)
 	}
 }
 

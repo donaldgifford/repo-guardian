@@ -2,7 +2,6 @@ package policy
 
 import (
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 
@@ -358,7 +357,12 @@ func (t *templateSource) Lookup(name string) (string, bool) {
 	return body, ok
 }
 
-// usedEmbedded returns the embedded templates Lookup served, sorted.
-func (t *templateSource) usedEmbedded() []string {
-	return slices.Sorted(maps.Keys(t.used))
+// usedEmbedded returns the embedded templates Lookup served, by name.
+func (t *templateSource) usedEmbedded() map[string]string {
+	out := make(map[string]string, len(t.used))
+	for name := range t.used {
+		out[name] = t.embedded[name]
+	}
+
+	return out
 }

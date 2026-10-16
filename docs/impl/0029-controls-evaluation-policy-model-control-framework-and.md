@@ -519,13 +519,21 @@ calls `Type.Build`.
   enterprise remediation settings. `control.ID` gained `MarshalText`/
   `UnmarshalText` so goldens read `"codeowners@2"`. `reopen_after` is in
   nanoseconds (`time.Duration`).
-- [ ] 2.9 `snapshot.go`: `Snapshot` with `Version()` (a hash over every
+- [x] 2.9 `snapshot.go`: `Snapshot` with `Version()` (a hash over every
   loaded file, the template bytes and the embedded fallbacks actually
   used, so a template edit is a policy change), `Control(id)`,
   `Definition(id)`, `Controls()`, `WatchedPaths()` (the union of every
   definition's `file:` keys in `Owns() ∪ Reads()`, which ingest uses as
   its push filter), and `Summarize()` for `/policies` and
   `policy_versions`.
+  Done: `Version()` is `controls:` + sha256 over the files, the embedded
+  templates used and every definition's revision (so a type `Semantics`
+  bump is also a policy change). `Definition(id)` returns `(def, ok)`,
+  and `Revision(id)` was added for the store. `Summarize()` returns a
+  policy-package `Summary` (enterprise, per-org adds/replaces/excludes
+  with reasons and block labels, `exclude_repos`, repos blocks, catalogue
+  IDs/titles/types/revisions), with no template bodies, PR text or
+  params. Phase 8's `/policies` filters it.
 - [ ] 2.10 Example policies: write `examples/policy/{minimal,full,multi-org,renovate,enterprise}/`
   as directories covering what the five v1 examples covered, and rewrite
   `examples/examples_test.go` to load each and compare `Summarize()`

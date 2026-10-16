@@ -68,6 +68,12 @@ func (c *countingReader) OrgPropertySchema(context.Context) ([]string, error) {
 	return nil, errNotSeeded
 }
 
+func (c *countingReader) GetVulnerabilityAlerts(context.Context) (bool, error) {
+	c.calls.Add(1)
+
+	return false, errNotSeeded
+}
+
 func (c *countingReader) ListLabels(context.Context) ([]Label, error) {
 	c.calls.Add(1)
 

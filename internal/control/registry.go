@@ -193,6 +193,8 @@ func paramHasType(v any, typ string) bool {
 		return isStringList(rv)
 	case ParamStringMap:
 		return isStringMap(rv)
+	case ParamAny:
+		return true
 	default:
 		return false
 	}
@@ -347,5 +349,7 @@ func (*sampleRepo) GetCustomProperties(context.Context) (map[string]*string, err
 }
 
 func (*sampleRepo) OrgPropertySchema(context.Context) ([]string, error) { return nil, nil }
+
+func (*sampleRepo) GetVulnerabilityAlerts(context.Context) (bool, error) { return false, nil }
 
 func (*sampleRepo) ListLabels(context.Context) ([]Label, error) { return nil, nil }

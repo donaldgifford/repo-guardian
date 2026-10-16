@@ -43,6 +43,11 @@ type Reader interface {
 
 	// ListLabels returns every repository label.
 	ListLabels(ctx context.Context) ([]Label, error)
+
+	// GetVulnerabilityAlerts reports whether Dependabot alerts are
+	// enabled. It is its own endpoint with its own permission, so a 403
+	// on it is ErrPermission for this setting alone.
+	GetVulnerabilityAlerts(ctx context.Context) (enabled bool, err error)
 }
 
 // PRObserver is what the workflows read about pull requests and
@@ -120,6 +125,9 @@ type Writer interface {
 
 	// DeleteLabel deletes the label name.
 	DeleteLabel(ctx context.Context, name string) error
+
+	// SetVulnerabilityAlerts enables or disables Dependabot alerts.
+	SetVulnerabilityAlerts(ctx context.Context, enabled bool) error
 }
 
 // ErrPermission is a Reader error for one endpoint the App lacks the

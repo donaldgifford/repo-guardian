@@ -25,6 +25,8 @@ const (
 	ErrKeyProperties = "properties"
 	ErrKeySchema     = "schema"
 	ErrKeyLabels     = "labels"
+	// ErrKeyVulnerabilityAlerts fails GetVulnerabilityAlerts.
+	ErrKeyVulnerabilityAlerts = control.SettingVulnerabilityAlerts
 )
 
 // FakeRepo is a control.Reader over a map of files and API values. The
@@ -41,6 +43,8 @@ type FakeRepo struct {
 	Properties map[string]*string
 	Schema     []string
 	Labels     []control.Label
+	// VulnerabilityAlerts is the Dependabot alerts flag.
+	VulnerabilityAlerts bool
 
 	// Errors fails a read: "file:<path>", "tree:<path>" or one of the
 	// ErrKey constants.
@@ -48,6 +52,33 @@ type FakeRepo struct {
 }
 
 var _ control.Reader = (*FakeRepo)(nil)
+
+// EmptyRepository is a repository as GitHub creates it: no files, no
+// labels, rulesets or properties, and GitHub's default settings. It is
+// property 5's starting point, so an API type's remediation is proven
+// against settings a real repository returns rather than absent ones.
+func EmptyRepository() *FakeRepo {
+	on, off := true, false
+	str := func(s string) *string { return &s }
+
+	return &FakeRepo{Settings: control.RepositorySettings{
+		DefaultBranch:            str("main"),
+		HasWiki:                  &on,
+		HasIssues:                &on,
+		HasProjects:              &on,
+		AllowMergeCommit:         &on,
+		AllowSquashMerge:         &on,
+		AllowRebaseMerge:         &on,
+		AllowAutoMerge:           &off,
+		AllowUpdateBranch:        &off,
+		DeleteBranchOnMerge:      &off,
+		WebCommitSignoffRequired: &off,
+		SquashMergeCommitTitle:   str("COMMIT_OR_PR_TITLE"),
+		SquashMergeCommitMessage: str("COMMIT_MESSAGES"),
+		MergeCommitTitle:         str("MERGE_MESSAGE"),
+		MergeCommitMessage:       str("PR_TITLE"),
+	}}
+}
 
 // BlobSHA is the blob SHA FakeRepo reports for content: a digest of it,
 // so a changed file changes its read.
@@ -147,6 +178,15 @@ func (f *FakeRepo) ListLabels(context.Context) ([]control.Label, error) {
 	return slices.Clone(f.Labels), nil
 }
 
+// GetVulnerabilityAlerts returns VulnerabilityAlerts.
+func (f *FakeRepo) GetVulnerabilityAlerts(context.Context) (bool, error) {
+	if err := f.Errors[ErrKeyVulnerabilityAlerts]; err != nil {
+		return false, err
+	}
+
+	return f.VulnerabilityAlerts, nil
+}
+
 // Clone returns a deep enough copy of f that Apply never mutates f.
 func (f *FakeRepo) Clone() *FakeRepo {
 	out := *f
@@ -238,6 +278,17 @@ func applyAPI(f *FakeRepo, ch *control.APIChange) error {
 // applySetting sets one field of Settings by its JSON name, through a
 // JSON round trip so the overlay needs no per-field code.
 func applySetting(f *FakeRepo, ch *control.APIChange) error {
+	if ch.Resource.Key == control.SettingVulnerabilityAlerts {
+		enabled, ok := ch.Value.(bool)
+		if !ok && ch.Op != control.OpDelete {
+			return fmt.Errorf("vulnerability_alerts value is %T, want bool", ch.Value)
+		}
+
+		f.VulnerabilityAlerts = enabled
+
+		return nil
+	}
+
 	b, err := json.Marshal(f.Settings)
 	if err != nil {
 		return err

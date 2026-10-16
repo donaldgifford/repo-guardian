@@ -202,6 +202,8 @@ const (
 	ParamNumber     = "number"
 	ParamStringList = "list(string)"
 	ParamStringMap  = "map(string)"
+	// ParamAny accepts any value; the type checks it in Build.
+	ParamAny = "any"
 )
 
 // Rule is one declared requirement of a control.

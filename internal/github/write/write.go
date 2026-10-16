@@ -405,3 +405,12 @@ func (w *Writer) UpsertLabel(ctx context.Context, l control.Label) error {
 func (w *Writer) DeleteLabel(ctx context.Context, name string) error {
 	return w.client.DeleteLabel(ctx, w.owner, w.repo, name)
 }
+
+// SetVulnerabilityAlerts enables or disables Dependabot alerts.
+func (w *Writer) SetVulnerabilityAlerts(ctx context.Context, enabled bool) error {
+	if enabled {
+		return w.client.EnableVulnerabilityAlerts(ctx, w.owner, w.repo)
+	}
+
+	return w.client.DisableVulnerabilityAlerts(ctx, w.owner, w.repo)
+}

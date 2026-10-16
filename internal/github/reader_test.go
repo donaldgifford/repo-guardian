@@ -269,3 +269,37 @@ func TestRepoReader_SymlinkIsNotRegularFile(t *testing.T) {
 		t.Errorf("GetContents(symlink) err = %v, want control.ErrNotRegularFile", err)
 	}
 }
+
+func TestRepoReader_VulnerabilityAlerts(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		status  int
+		want    bool
+		wantErr error
+	}{
+		{"enabled", http.StatusNoContent, true, nil},
+		{"disabled", http.StatusNotFound, false, nil},
+		{"forbidden is permission", http.StatusForbidden, false, control.ErrPermission},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mux := http.NewServeMux()
+			mux.HandleFunc("GET /api/v3/repos/o/r/vulnerability-alerts", func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tt.status)
+			})
+
+			c, srv := newTestClient(t, mux)
+			defer srv.Close()
+
+			got, err := c.RepoReader("o", "r", "abc123").GetVulnerabilityAlerts(t.Context())
+			if got != tt.want || !errors.Is(err, tt.wantErr) {
+				t.Errorf("GetVulnerabilityAlerts() = %v, %v; want %v, %v", got, err, tt.want, tt.wantErr)
+			}
+		})
+	}
+}

@@ -452,6 +452,63 @@ func (_c *MockWriter_SetCustomProperties_Call) RunAndReturn(run func(ctx context
 	return _c
 }
 
+// SetVulnerabilityAlerts provides a mock function for the type MockWriter
+func (_mock *MockWriter) SetVulnerabilityAlerts(ctx context.Context, enabled bool) error {
+	ret := _mock.Called(ctx, enabled)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetVulnerabilityAlerts")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, bool) error); ok {
+		r0 = returnFunc(ctx, enabled)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockWriter_SetVulnerabilityAlerts_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetVulnerabilityAlerts'
+type MockWriter_SetVulnerabilityAlerts_Call struct {
+	*mock.Call
+}
+
+// SetVulnerabilityAlerts is a helper method to define mock.On call
+//   - ctx context.Context
+//   - enabled bool
+func (_e *MockWriter_Expecter) SetVulnerabilityAlerts(ctx any, enabled any) *MockWriter_SetVulnerabilityAlerts_Call {
+	return &MockWriter_SetVulnerabilityAlerts_Call{Call: _e.mock.On("SetVulnerabilityAlerts", ctx, enabled)}
+}
+
+func (_c *MockWriter_SetVulnerabilityAlerts_Call) Run(run func(ctx context.Context, enabled bool)) *MockWriter_SetVulnerabilityAlerts_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 bool
+		if args[1] != nil {
+			arg1 = args[1].(bool)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWriter_SetVulnerabilityAlerts_Call) Return(err error) *MockWriter_SetVulnerabilityAlerts_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockWriter_SetVulnerabilityAlerts_Call) RunAndReturn(run func(ctx context.Context, enabled bool) error) *MockWriter_SetVulnerabilityAlerts_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateBranch provides a mock function for the type MockWriter
 func (_mock *MockWriter) UpdateBranch(ctx context.Context, number int, expectedHeadSHA string) error {
 	ret := _mock.Called(ctx, number, expectedHeadSHA)

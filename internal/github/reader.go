@@ -382,6 +382,14 @@ func (r *RepoReader) OrgPropertySchema(ctx context.Context) ([]string, error) {
 	return slices.Clone(names), err
 }
 
+// GetVulnerabilityAlerts reports whether Dependabot alerts are enabled;
+// a 403 is control.ErrPermission through memo's classification.
+func (r *RepoReader) GetVulnerabilityAlerts(ctx context.Context) (bool, error) {
+	return memo(r, "vulnerability_alerts", func() (bool, error) {
+		return r.client.GetVulnerabilityAlertsEnabled(ctx, r.owner, r.repo)
+	})
+}
+
 // ListLabels returns every repository label.
 func (r *RepoReader) ListLabels(ctx context.Context) ([]control.Label, error) {
 	labels, err := memo(r, "labels", func() ([]control.Label, error) {

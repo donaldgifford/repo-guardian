@@ -49,7 +49,7 @@ type Fixture struct {
 //     fixes nothing;
 //  4. minimal edits: WantFiles byte-exact, and no write that leaves a
 //     file unchanged;
-//  5. the template passes its rules: an empty repository remediated with
+//  5. the template passes its rules: EmptyRepository remediated with
 //     the fixture's variables passes every remediable rule;
 //  6. two rules failing together: a type with two or more remediable
 //     rule kinds needs a fixture where two remediable rules fail at once,
@@ -236,7 +236,7 @@ func checkMinimalEdits(t *testing.T, repo *FakeRepo, cs control.ChangeSet, want 
 func checkTemplate(t *testing.T, c control.Control, vars *template.Vars) {
 	t.Helper()
 
-	empty := &FakeRepo{}
+	empty := EmptyRepository()
 
 	_, cs := evaluateAndRemediate(t, c, empty, vars)
 

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -312,5 +313,31 @@ func TestUpdateRepository_WritesOnlySetFields(t *testing.T) {
 
 	if want := `{"allow_merge_commit":false,"security_and_analysis":{"secret_scanning":{"status":"enabled"}}}`; string(got) != want {
 		t.Errorf("PATCH body = %s, want %s", got, want)
+	}
+}
+
+func TestSetVulnerabilityAlerts(t *testing.T) {
+	t.Parallel()
+
+	var calls []string
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v3/repos/o/r/vulnerability-alerts", func(w http.ResponseWriter, r *http.Request) {
+		calls = append(calls, r.Method)
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	w := newWriter(t, mux)
+
+	if err := w.SetVulnerabilityAlerts(t.Context(), true); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := w.SetVulnerabilityAlerts(t.Context(), false); err != nil {
+		t.Fatal(err)
+	}
+
+	if want := []string{http.MethodPut, http.MethodDelete}; !slices.Equal(calls, want) {
+		t.Errorf("calls = %v, want %v", calls, want)
 	}
 }

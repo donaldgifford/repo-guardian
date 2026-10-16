@@ -636,10 +636,24 @@ revision and a `Semantics()` constant of 1.
   the key before the first one; `extends` that is not a list is Manual.
   Unknown/error rules go to Blocked. `TestPartialRemediation` pins the
   D14 example.
-- [ ] 3.5 `internal/controls/repo_settings`: `setting:<property>` owned
+- [x] 3.5 `internal/controls/repo_settings`: `setting:<property>` owned
   per declared property; rule kind `equals`; fix is
   `APIChange{setting:<property>, set, value}`. A 403 on the
   vulnerability-alerts read is `unknown{reason=permission}`.
+  Done: properties are the scalar fields of `control.RepositorySettings`
+  by JSON name plus `vulnerability_alerts`. `equals{property, value}`
+  checks the value's kind against the property at Build (`ParamAny` is
+  new); a property is pinned once per definition, and `default_branch`
+  may be checked but not remediated. Vulnerability alerts are their own
+  endpoint, so `control.Reader` gained `GetVulnerabilityAlerts` (recorded
+  as `setting:vulnerability_alerts`; implemented by `RepoReader`, a 404 is
+  false and a 403 is `ErrPermission`) and `control.Writer` gained
+  `SetVulnerabilityAlerts` (PUT/DELETE). A field the response lacks is
+  `unknown{not_returned}`. controltest property 5 now starts from
+  `EmptyRepository()` (GitHub's defaults for a new repository) rather
+  than a zero `FakeRepo`, so API types are proven against real
+  settings. v1's `vulnerability_alerts_enabled` is
+  `vulnerability_alerts` here.
 - [ ] 3.6 `internal/controls/branch_ruleset`: owns `ruleset:<name>`;
   rule kinds `exists` and `matches` (YAML-semantic comparison of rules);
   a same-named ruleset whose `Source` is the organization or enterprise

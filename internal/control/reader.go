@@ -302,6 +302,22 @@ func (r *EvalReader) GetCustomProperties(ctx context.Context) (map[string]*strin
 	return maps.Clone(props), nil
 }
 
+// SettingVulnerabilityAlerts is the setting key of Dependabot alerts,
+// which RepositorySettings does not carry because it is read from its
+// own endpoint.
+const SettingVulnerabilityAlerts = "vulnerability_alerts"
+
+// GetVulnerabilityAlerts reads the alerts flag once per evaluation and
+// records it as setting:vulnerability_alerts.
+func (r *EvalReader) GetVulnerabilityAlerts(ctx context.Context) (bool, error) {
+	return cached(r, SettingVulnerabilityAlerts, func() (bool, error) {
+		enabled, err := r.base.GetVulnerabilityAlerts(ctx)
+		r.recordAPI(Resource{Kind: KindSetting, Key: SettingVulnerabilityAlerts}, enabled, err)
+
+		return enabled, err
+	})
+}
+
 // OrgPropertySchema reads the org schema once per evaluation. It is an
 // org-level read, not a repository resource, so it is not recorded.
 func (r *EvalReader) OrgPropertySchema(ctx context.Context) ([]string, error) {

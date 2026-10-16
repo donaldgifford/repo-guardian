@@ -4,11 +4,10 @@ import (
 	"embed"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"text/template"
 	"time"
-
-	"github.com/donaldgifford/repo-guardian/internal/store"
 )
 
 //go:embed report.md.tmpl
@@ -46,10 +45,7 @@ func New(opts Options) (*Renderer, error) {
 		Funcs(template.FuncMap{
 			"mdcell":  mdcell,
 			"pct":     renderPercent,
-			"since":   renderSince,
-			"trend":   renderTrend,
-			"pr":      renderPR,
-			"compact": strings.TrimSpace,
+			"control": renderControl,
 		}).
 		Option("missingkey=error").
 		ParseFS(templateFS, "report.md.tmpl")
@@ -62,87 +58,59 @@ func New(opts Options) (*Renderer, error) {
 
 // Build projects one store read onto the per-org view model.
 //
-// Pure: no I/O, no clock beyond the injected one, and no re-sorting.
-// The SQL already orders rules by (org, kind, rule) and findings by
-// (org, rule, repo) precisely so an unchanged database regenerates a
-// byte-identical report.
-func (r *Renderer) Build(data *store.ComplianceReport) []Org {
+// Pure: no I/O and no clock beyond the injected one. Rows keep the
+// SQL's order (control, then decision; repository, then control), and
+// orgs are sorted by name, so an unchanged database regenerates a
+// byte-identical report. An org with exclusions but no assigned control
+// still gets a report: that it measures nothing is the finding.
+func (r *Renderer) Build(data *Data) []Org {
 	generatedAt := r.now()
-	previous := indexSnapshots(data.Previous)
+	index := make(map[string]*Org)
 
-	orgs := make([]Org, 0)
-	index := make(map[string]int)
-
-	// Current defines the org and rule set: it is what was actually
-	// evaluated. A rule present only in history has stopped being
-	// evaluated, so reporting a percentage for it would describe a
-	// measurement nobody took today.
-	for i := range data.Current {
-		c := &data.Current[i]
-
-		o, ok := index[c.Org]
+	org := func(name string) *Org {
+		o, ok := index[name]
 		if !ok {
-			o = len(orgs)
-			index[c.Org] = o
-			orgs = append(orgs, Org{Name: c.Org, GeneratedAt: generatedAt})
+			o = &Org{Name: name, GeneratedAt: generatedAt}
+			index[name] = o
 		}
 
-		line := RuleLine{
-			Name:          c.RuleName,
-			Kind:          string(c.Kind),
-			Compliant:     c.Compliant,
-			NonCompliant:  c.NonCompliant,
-			NotApplicable: c.NotApplicable,
-			Unknown:       c.Unknown,
-			Percent:       c.Percent,
-		}
-
-		if prev, ok := previous[ruleKey{org: c.Org, kind: string(c.Kind), rule: c.RuleName}]; ok {
-			line.Delta = c.NonCompliant - prev.NonCompliant
-			line.ComparedAt = prev.SnapshotAt
-			line.Trend = classifyTrend(line.Delta)
-			orgs[o].HasHistory = true
-		}
-
-		orgs[o].Rules = append(orgs[o].Rules, line)
+		return o
 	}
 
-	for i := range data.Findings {
-		f := &data.Findings[i]
-
-		o, ok := index[f.Org]
-		if !ok {
-			continue
+	for i := range data.Posture {
+		p := &data.Posture[i]
+		line := ControlLine{
+			Control: p.ControlID, Decision: p.Decision,
+			Compliant: p.Compliant, NonCompliant: p.NonCompliant, Pending: p.Pending, Stale: p.Stale,
+			Unmeasurable:  p.UnmeasurableAccessDenied + p.UnmeasurableSuspended + p.UnmeasurableConflict,
+			NotApplicable: p.NotApplicable, Unknown: p.Unknown, Excluded: p.Excluded, Assigned: p.Assigned,
+			Percent: p.Percent, Coverage: p.Coverage,
 		}
 
-		since := f.Since
+		o := org(p.Org)
+		if p.Decision == DecisionOrgAdded {
+			o.OrgAdded = append(o.OrgAdded, line)
+		} else {
+			o.Baseline = append(o.Baseline, line)
+		}
+	}
 
-		orgs[o].Findings = append(orgs[o].Findings, Finding{
-			Repo:        f.Repo,
-			RuleName:    f.RuleName,
-			RuleKind:    string(f.Kind),
-			Reason:      f.Reason,
-			Remediation: f.Remediation,
-			Since:       &since,
-			PRURL:       f.PRURL,
+	for i := range data.Exclusions {
+		e := &data.Exclusions[i]
+		o := org(e.Org)
+		o.Exclusions = append(o.Exclusions, Exclusion{
+			Repository: e.Repository, Control: e.ControlID, State: e.State, Reason: e.Reason, ExcludedBy: e.ExcludedBy,
 		})
 	}
 
-	return orgs
-}
-
-// classifyTrend maps a delta in failing repositories to a direction.
-// Fewer failures is an improvement, so the sign is inverted relative to
-// the raw count.
-func classifyTrend(delta int) TrendState {
-	switch {
-	case delta < 0:
-		return TrendImproved
-	case delta > 0:
-		return TrendWorsened
-	default:
-		return TrendFlat
+	orgs := make([]Org, 0, len(index))
+	for _, o := range index {
+		orgs = append(orgs, *o)
 	}
+
+	slices.SortFunc(orgs, func(a, b Org) int { return strings.Compare(a.Name, b.Name) })
+
+	return orgs
 }
 
 // Render renders one org to markdown. Pure and deterministic.

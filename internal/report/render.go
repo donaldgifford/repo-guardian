@@ -3,15 +3,12 @@ package report
 import (
 	"fmt"
 	"strings"
-	"time"
-
-	"github.com/donaldgifford/repo-guardian/internal/findings"
 )
 
 // mdcell makes a string safe to place in a markdown table cell.
 //
-// Rule names come from operator-authored HCL and repository names come
-// from the API, so neither is guaranteed free of the characters that
+// Control slugs and exclusion reasons come from operator-authored HCL
+// and repository names come from the API, so neither is guaranteed free of the characters that
 // break a table: a pipe splits a cell, a backtick opens a code span
 // that can swallow the rest of the row. A stray pipe silently shifts every column to its
 // right, which turns a compliance report into a misleading one rather
@@ -29,76 +26,29 @@ func mdcell(s string) string {
 	return strings.TrimSpace(s)
 }
 
-// renderPercent formats a rule's compliance for display.
-//
-// "n/a" rather than a number when nothing was tracked: a rule evaluated
-// against no repository is unmeasured, and printing 100% for it would
-// be the most misleading cell in the document.
-func renderPercent(r RuleLine) string { //nolint:gocritic // value receiver: text/template cannot address a range variable
-	value, ok := r.CompliantPercent()
-	if !ok {
-		return "n/a"
+// noData is what an empty denominator renders as. Never 100% and never
+// 0%: a control that measures nothing is unmeasured, and printing a
+// number for it would be the most misleading cell in the document.
+const noData = "no data"
+
+// renderPercent formats a percentage computed by the store.
+func renderPercent(p *float64) string {
+	if p == nil {
+		return noData
 	}
 
-	return fmt.Sprintf("%.1f%%", value)
+	return fmt.Sprintf("%.1f%%", *p)
 }
 
-// renderSince formats the date a repository started failing.
-func renderSince(t *time.Time) string {
-	if t == nil {
-		return "—"
+// allControls is the control cell of an exclusion that removes the whole
+// repository from the policy.
+const allControls = "all controls"
+
+// renderControl formats an exclusion's control cell.
+func renderControl(e Exclusion) string { //nolint:gocritic // value receiver: text/template cannot address a range variable
+	if e.Control == "" {
+		return allControls
 	}
 
-	return t.UTC().Format("2006-01-02")
-}
-
-// trendNewLabel is what a rule with no snapshot to compare against
-// renders as. Never "0" or "no change" — those claim a measurement
-// that was never taken.
-const trendNewLabel = "new"
-
-// renderTrend formats a rule's movement against its own last snapshot.
-//
-// Each cell carries the date it was compared against, because different
-// rules can be compared against different runs: a rule that was
-// disabled when the last snapshot was taken is compared against the
-// last run that actually measured it. A delta with an unstated baseline
-// invites the reader to assume they are all from yesterday.
-func renderTrend(r RuleLine) string { //nolint:gocritic // value receiver: text/template cannot address a range variable
-	if r.Trend == TrendUnknown {
-		return trendNewLabel
-	}
-
-	when := r.ComparedAt.UTC().Format("2006-01-02")
-
-	switch r.Trend {
-	case TrendFlat:
-		return fmt.Sprintf("no change since %s", when)
-	case TrendImproved:
-		return fmt.Sprintf("%d fewer since %s", -r.Delta, when)
-	case TrendWorsened:
-		return fmt.Sprintf("%d more since %s", r.Delta, when)
-	case TrendUnknown:
-		return trendNewLabel
-	default:
-		return trendNewLabel
-	}
-}
-
-// renderPR renders a finding's PR cell from its remediation and the PR
-// recorded in its evidence. Repository-supplied text (the URL) goes
-// through mdcell like every other cell.
-func renderPR(f Finding) string { //nolint:gocritic // value receiver: text/template cannot address a range variable
-	switch {
-	case f.Remediation == findings.RemediationPROpen && f.PRURL != "":
-		return "[open](" + mdcell(f.PRURL) + ")"
-	case f.Remediation == findings.RemediationForeignPR && f.PRURL != "":
-		return "[human PR](" + mdcell(f.PRURL) + ")"
-	case f.Remediation == findings.RemediationDryRun:
-		return "dry run"
-	case f.Remediation == findings.RemediationDisabled:
-		return "remediation off"
-	default:
-		return "—"
-	}
+	return mdcell(e.Control)
 }

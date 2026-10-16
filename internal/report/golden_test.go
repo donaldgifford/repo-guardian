@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/donaldgifford/repo-guardian/internal/findings"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 )
 
@@ -24,9 +23,6 @@ var updateGolden = flag.Bool("update", false, "rewrite golden report fixtures")
 // make every run a failure.
 var fixedNow = time.Date(2026, 8, 10, 14, 30, 0, 0, time.UTC)
 
-// lastWeek dates the previous snapshot in the trend fixtures.
-var lastWeek = time.Date(2026, 8, 3, 2, 0, 0, 0, time.UTC)
-
 // newRenderer builds a Renderer with the clock pinned.
 func newRenderer(t *testing.T) *Renderer {
 	t.Helper()
@@ -42,45 +38,30 @@ func newRenderer(t *testing.T) *Renderer {
 	return r
 }
 
-// percentOf is the test oracle for the shared query's percentage:
-// integer division floors, so 1999 of 2000 is 999 tenths, never 1000.
-func percentOf(compliant, nonCompliant int) *float64 {
-	if compliant+nonCompliant == 0 {
-		return nil
-	}
-
-	v := float64(compliant*1000/(compliant+nonCompliant)) / 10
-
-	return &v
+// buckets is one compliance row's counts, in the order the table prints
+// them.
+type buckets struct {
+	compliant, nonCompliant, pending, stale, unmeasurable, na, unknown, excluded int
 }
 
-// count builds one shared-query row with its percentage filled in the
-// way the SQL fills it.
-func count(org, kind, rule string, compliant, nonCompliant, na, unknown int) store.ComplianceCount {
-	return store.ComplianceCount{
-		Org: org, Kind: findings.RuleKind(kind), RuleName: rule,
-		Compliant: compliant, NonCompliant: nonCompliant, NotApplicable: na, Unknown: unknown,
-		Percent: percentOf(compliant, nonCompliant),
+// row builds one compliance row with its assigned count, percentage and
+// coverage filled the way the SQL fills them: excluded and conflicted
+// assignments are not assigned, and both percentages floor.
+func row(org, control, decision string, b buckets) store.ControlPosture {
+	return store.ControlPosture{
+		Org: org, ControlID: control, Decision: decision,
+		Compliant: b.compliant, NonCompliant: b.nonCompliant, Pending: b.pending, Stale: b.stale,
+		UnmeasurableAccessDenied: b.unmeasurable, NotApplicable: b.na, Unknown: b.unknown, Excluded: b.excluded,
+		Assigned: assigned(b),
+		Percent:  floorPercent(b.compliant, b.compliant+b.nonCompliant),
+		Coverage: floorPercent(b.compliant+b.nonCompliant+b.na, assigned(b)),
 	}
 }
 
-// snap builds one stored acme file-rule snapshot row.
-func snap(rule string, compliant, nonCompliant int, at time.Time) store.ComplianceSnapshot {
-	c := count("acme", "file", rule, compliant, nonCompliant, 0, 0)
-	c.Percent = nil
-
-	return store.ComplianceSnapshot{ComplianceCount: c, SnapshotAt: at}
+func assigned(b buckets) int {
+	return b.compliant + b.nonCompliant + b.pending + b.stale + b.unmeasurable + b.na + b.unknown
 }
 
-// failing builds one non-compliant finding.
-func failing(org, repo, rule string, reason findings.Reason, since time.Time) store.FailingFinding {
-	return store.FailingFinding{
-		InstallationID: 11, Org: org, Repo: repo, Kind: findings.RuleKindFile, RuleName: rule,
-		Reason: reason, Remediation: findings.RemediationNone, Since: since,
-	}
-}
-
-// assertGolden compares rendered markdown against testdata.
 func assertGolden(t *testing.T, name, got string) {
 	t.Helper()
 
@@ -108,147 +89,109 @@ func assertGolden(t *testing.T, name, got string) {
 	}
 }
 
-// fullData is the everything-at-once fixture: an improving rule, a flat
-// rule, a rule with no history, a setting rule sharing nothing with the
-// file rules, and — critically — a rule present only in the history,
-// which must NOT appear in the output.
-func fullData() *store.ComplianceReport {
-	return &store.ComplianceReport{
-		Findings: []store.FailingFinding{
-			failing("acme", "api", "codeowners", findings.ReasonFileMissing, time.Date(2026, 7, 1, 9, 0, 0, 0, time.UTC)),
-			// Backfilled from v1: the reason says so and the date is v1's.
-			failing("acme", "web", "codeowners", findings.ReasonMigratedFromV1, time.Date(2026, 5, 14, 0, 0, 0, 0, time.UTC)),
-			failing("acme", "web", "renovate", findings.ReasonAssertionFailed, time.Date(2026, 8, 9, 22, 0, 0, 0, time.UTC)),
+// fullData is acme with every lineage and an exclusion of each kind.
+func fullData() *Data {
+	return &Data{
+		Posture: []store.ControlPosture{
+			row("acme", "codeowners", DecisionBaseline, buckets{compliant: 40, nonCompliant: 8, pending: 2}),
+			row("acme", "labels", DecisionOrgAdded, buckets{compliant: 12, na: 3}),
+			row("acme", "renovate", DecisionReplaced, buckets{compliant: 30, nonCompliant: 10, excluded: 2}),
 		},
-		Current: []store.ComplianceCount{
-			count("acme", "file", "codeowners", 8, 2, 0, 0),
-			count("acme", "file", "dependabot", 10, 0, 0, 0),
-			count("acme", "file", "renovate", 3, 1, 6, 0),
-			count("acme", "setting", "vuln_alerts", 9, 0, 0, 1),
-		},
-		Previous: []store.ComplianceSnapshot{
-			snap("codeowners", 5, 5, lastWeek),
-			snap("dependabot", 9, 0, lastWeek),
-			snap("retired-rule", 7, 3, lastWeek),
+		Exclusions: []store.Exclusion{
+			{Org: "acme", Repository: "legacy", ControlID: "renovate", State: "excluded", Reason: "frozen until Q4", ExcludedBy: "orgs/acme.hcl"},
+			{Org: "acme", Repository: "sandbox", State: "excluded", Reason: "throwaway experiments"},
 		},
 	}
 }
 
-// withPRs is fullData with every PR-cell shape: our open PR, a human PR
-// the rule yields to, a dry run, and nothing.
-func withPRs() *store.ComplianceReport {
-	d := fullData()
-	d.Findings[0].Remediation = findings.RemediationPROpen
-	d.Findings[0].PRURL = "https://github.example/acme/api/pull/7"
-	d.Findings[1].Remediation = findings.RemediationForeignPR
-	d.Findings[1].PRURL = "https://github.example/acme/web/pull/3"
-	d.Findings[2].Remediation = findings.RemediationDryRun
-
-	return d
-}
-
-// TestRender_Golden pins the rendered markdown for the shapes an
-// operator will actually receive.
+// TestRender_Golden renders each fixture and compares it byte for byte.
 func TestRender_Golden(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name string
-		data func() *store.ComplianceReport
+		data *Data
+		org  string
 	}{
 		{
-			name: "full_with_history",
-			data: fullData,
+			name: "full",
+			data: fullData(),
+			org:  "acme",
 		},
 		{
-			// The first run a deployment ever makes. No trend column at
-			// all, plus the note explaining why, rather than a column of
-			// zeroes claiming stability nobody measured.
-			name: "no_history",
-			data: func() *store.ComplianceReport {
-				d := fullData()
-				d.Previous = nil
-
-				return d
-			},
+			// The case the whole percent definition exists for: assigned
+			// everywhere, measured nowhere. "no data", never 100%.
+			name: "no_data",
+			data: &Data{Posture: []store.ControlPosture{
+				row("acme", "codeowners", DecisionBaseline, buckets{pending: 25}),
+			}},
+			org: "acme",
 		},
 		{
-			// The happy fleet. Rules evaluated, nothing failing.
-			name: "all_passing",
-			data: func() *store.ComplianceReport {
-				return &store.ComplianceReport{
-					Current:  []store.ComplianceCount{count("acme", "file", "codeowners", 12, 0, 0, 0)},
-					Previous: []store.ComplianceSnapshot{snap("codeowners", 8, 4, lastWeek)},
-				}
-			},
+			// One measurement out of a hundred assignments reads 100% of
+			// one measurement beside 1% coverage, never as a measured
+			// fleet (DESIGN-0030 posture tests).
+			name: "pending_heavy",
+			data: &Data{Posture: []store.ControlPosture{
+				row("acme", "codeowners", DecisionBaseline, buckets{compliant: 1, pending: 99}),
+			}},
+			org: "acme",
 		},
 		{
-			// A configured rule that applies nowhere. Must read "n/a",
-			// never 100% — an unmeasured rule scoring perfectly is the
-			// most misleading cell this format could produce.
-			name: "unmeasured_rule",
-			data: func() *store.ComplianceReport {
-				return &store.ComplianceReport{
-					Current: []store.ComplianceCount{count("acme", "branch_protection", "main", 0, 0, 5, 0)},
-				}
-			},
+			name: "stale",
+			data: &Data{Posture: []store.ControlPosture{
+				row("acme", "codeowners", DecisionBaseline, buckets{compliant: 5, nonCompliant: 1, stale: 14}),
+			}},
+			org: "acme",
 		},
 		{
-			// 1999 of 2000 is 99.95%: it must read 99.9%, not the 100.0%
-			// a rounding rule would print. 2000 rather than 1000 because
-			// 999-of-1000 floors and rounds to the same 99.9%.
-			name: "floored_percent",
-			data: func() *store.ComplianceReport {
-				return &store.ComplianceReport{
-					Findings: []store.FailingFinding{
-						failing("acme", "straggler", "codeowners", findings.ReasonFileMissing, lastWeek),
-					},
-					Current: []store.ComplianceCount{count("acme", "file", "codeowners", 1999, 1, 0, 0)},
-				}
-			},
+			// Access loss keeps the last results but measures nothing new:
+			// the assignments are unmeasurable and out of the percentage.
+			name: "unmeasurable",
+			data: &Data{Posture: []store.ControlPosture{
+				row("acme", "codeowners", DecisionBaseline, buckets{compliant: 6, nonCompliant: 2, unmeasurable: 4, unknown: 1}),
+			}},
+			org: "acme",
 		},
 		{
-			// Two orgs in one read must render as two independent
-			// documents; nothing from acme may leak into globex.
-			name: "second_org",
-			data: func() *store.ComplianceReport {
-				d := fullData()
-				d.Findings = append(d.Findings,
-					failing("globex", "tools", "dependabot", findings.ReasonFileMissing, lastWeek))
-				d.Current = append(d.Current, count("globex", "file", "dependabot", 2, 1, 0, 0))
-
-				return d
-			},
+			name: "replaced_version",
+			data: &Data{Posture: []store.ControlPosture{
+				row("acme", "codeowners", DecisionBaseline, buckets{compliant: 9}),
+				row("acme", "renovate", DecisionReplaced, buckets{compliant: 3, nonCompliant: 3}),
+			}},
+			org: "acme",
 		},
 		{
-			// A pipe would silently shift every column to its right; a
-			// backtick would open a code span swallowing the row.
+			// An org that excluded everything still gets a report; that it
+			// measures nothing is the finding.
+			name: "exclusions_only",
+			data: &Data{Exclusions: []store.Exclusion{
+				{Org: "acme", Repository: "archive-mirror", State: "excluded", Reason: "mirror of an upstream"},
+				{Org: "acme", Repository: "widgets", ControlID: "codeowners", State: "conflict", Reason: "two controls own CODEOWNERS"},
+			}},
+			org: "acme",
+		},
+		{
+			name: "second_org_acme",
+			data: twoOrgs(),
+			org:  "acme",
+		},
+		{
+			name: "second_org_globex",
+			data: twoOrgs(),
+			org:  "globex",
+		},
+		{
+			// Operator-authored reasons and API-supplied names reach table
+			// cells; a pipe would shift every column to its right.
 			name: "escaped_cells",
-			data: func() *store.ComplianceReport {
-				return &store.ComplianceReport{
-					Findings: []store.FailingFinding{
-						failing("acme", "a|b", "pipe|rule", findings.ReasonFileMissing, lastWeek),
-						failing("acme", "tick`repo", "pipe|rule", findings.ReasonFileMissing, lastWeek),
-					},
-					Current: []store.ComplianceCount{count("acme", "file", "pipe|rule", 0, 2, 0, 0)},
-				}
+			data: &Data{
+				Posture: []store.ControlPosture{row("ac|me", "code`owners", DecisionBaseline, buckets{compliant: 1})},
+				Exclusions: []store.Exclusion{
+					{Org: "ac|me", Repository: "pipe|repo", ControlID: "code`owners", State: "excluded", Reason: "line one\nline | two"},
+				},
 			},
-		},
-		{
-			// PR links come from evidence, never from a live lookup.
-			name: "with_pr_links",
-			data: withPRs,
-		},
-		{
-			// A rule yielding to a human PR is non-compliant with a link
-			// to that PR, not to ours.
-			name: "foreign_pr",
-			data: func() *store.ComplianceReport {
-				d := withPRs()
-				d.Findings = d.Findings[1:2]
-
-				return d
-			},
+			org: "ac|me",
 		},
 	}
 
@@ -258,44 +201,37 @@ func TestRender_Golden(t *testing.T) {
 
 			r := newRenderer(t)
 
-			orgs := r.Build(tt.data())
-			if len(orgs) == 0 {
-				t.Fatalf("Build() returned no orgs; the fixture renders nothing")
-			}
+			for _, o := range r.Build(tt.data) {
+				if o.Name != tt.org {
+					continue
+				}
 
-			for _, o := range orgs {
-				body, err := r.Render(o)
+				got, err := r.Render(o)
 				if err != nil {
 					t.Fatalf("Render(%s) = %v, want nil", o.Name, err)
 				}
 
-				name := tt.name
-				if len(orgs) > 1 {
-					name = tt.name + "_" + o.Name
-				}
+				assertGolden(t, tt.name, got)
 
-				assertGolden(t, name, body)
+				return
 			}
+
+			t.Fatalf("Build() produced no org %q", tt.org)
 		})
 	}
 }
 
-// TestRender_NoRulesEvaluated covers the defensive branch Build cannot
-// reach.
-//
-// Build derives orgs from the Current tallies, so an org with zero
-// rules never comes out of it. The template still handles the case, and
-// this pins what it says — an empty document with no explanation would
-// look like a bug in the tool rather than an absence of data.
-func TestRender_NoRulesEvaluated(t *testing.T) {
-	t.Parallel()
-
-	r := newRenderer(t)
-
-	body, err := r.Render(Org{Name: "acme", GeneratedAt: fixedNow})
-	if err != nil {
-		t.Fatalf("Render() = %v, want nil", err)
+// twoOrgs is two orgs sharing a control, so neither report may carry the
+// other's rows.
+func twoOrgs() *Data {
+	return &Data{
+		Posture: []store.ControlPosture{
+			row("acme", "codeowners", DecisionBaseline, buckets{compliant: 10, nonCompliant: 2}),
+			row("globex", "codeowners", DecisionBaseline, buckets{compliant: 1, nonCompliant: 7}),
+			row("globex", "labels", DecisionOrgAdded, buckets{pending: 4}),
+		},
+		Exclusions: []store.Exclusion{
+			{Org: "globex", Repository: "infra", ControlID: "codeowners", State: "excluded", Reason: "owned by the platform team"},
+		},
 	}
-
-	assertGolden(t, "no_rules_evaluated", body)
 }

@@ -1,21 +1,17 @@
 # Compliance reports
 
 `repo-guardian report` writes one markdown compliance report per
-organisation: what percentage of repositories satisfy each rule, how
-that moved since the last snapshot, and — the part no metric can give
-you — **which** repositories are failing **which** rules, **since
-when**.
+organisation from the controls compliance query: for each assigned
+control, how many assignments pass, fail, wait for a first evaluation,
+are stale or cannot be measured; how much of the org is actually
+measured; and which repositories and controls are excluded, and why.
 
-A gauge knows how many. It never knows which. This is the command for
-the second question.
-
-See DESIGN-0022 §Compliance snapshots and the per-org report, and
-IMPL-0023 Phase 4.
+See DESIGN-0030 § Compliance queries (D5, D16) and IMPL-0029 task 6.9.
 
 ## Quick start
 
 ```bash
-export STORE_DSN='postgres://repo-guardian:...@postgres:5432/repo_guardian?sslmode=require'
+export STORE_DSN='postgres://rg_owner:...@postgres:5432/repo_guardian?sslmode=require'
 repo-guardian report --out ./reports
 ```
 
@@ -34,125 +30,84 @@ repo-guardian report --out ./reports | xargs -I{} cp {} /srv/compliance/
 | `--out` | `./reports` | Directory to write into. Created if absent (mode `0750`). |
 | `--dsn` | `$STORE_DSN` | Postgres DSN. The command fails immediately if neither is set. |
 | `--orgs` | every org | Comma-separated orgs to report on (case-insensitive). |
-| `--with-pr-links` | off | **Deprecated no-op** (v2): warns and does nothing. Removed in the next release. |
 
-PR links come from each finding's recorded evidence, so the report makes
-no GitHub API calls and needs no App credentials. The PR column shows
-`open` for repo-guardian's own PR, `human PR` for a PR the rule yields
-to (`foreign_pr`), `dry run` or `remediation off` when no PR will be
-opened, and an em dash otherwise.
+The rc's `--with-pr-links` no-op is gone: it now fails as an unknown
+flag. The report makes no GitHub API calls and needs no App
+credentials.
 
 ## What the command does not do
 
 **It does not run migrations.** The report is read-only and the DSN you
-hand it may have no DDL rights. It checks the schema version instead and
-refuses a database `repo-guardian migrate` has not brought up to date. More importantly, an operator running a
+hand it may have no DDL rights. It checks the controls schema version
+instead and refuses a database `repo-guardian migrate --chain controls`
+has not brought up to date. More importantly, an operator running a
 newer binary from a laptop would otherwise migrate the schema forward
 underneath a running older server. Schema changes belong to the
 deployment, not to a reporting CLI. See
 [Postgres schema operations](migrations.md).
 
 **It does not load the server configuration.** No webhook secret, no
-Temporal address, no App credentials. A
-read-only report has no use for any of it, and being told to set a
-webhook secret for a command that never serves a webhook would be
-absurd.
+Temporal address, no App credentials, no policy root.
 
 **It does not need the server to be stopped**, or a leader, or a lock.
-It is one consistent read.
 
 ## Reading the report
 
 ### The headline
 
 ```
-21 of 24 rule evaluations pass across 3 rule(s).
+Compliance: 82.0% (82 of 100 measured assignments pass).
+Coverage: 98.0% of 105 assignments (2 pending, 0 stale, 0 unmeasurable, 0 unknown); 2 excluded.
 ```
 
-Evaluations, not repositories. A repository failing two rules
-contributes two failing evaluations. **"How many repositories fail at
-least one rule" is deliberately not reported** — it is not derivable
-from per-rule counts, because the overlap between rules is unknown:
-summing over-counts and taking the maximum under-counts. The findings
-table below the headline is where you count repositories.
+Assignments, not repositories. A repository with three controls is
+three assignments. **Compliance** is Passing / (Passing + Failing) over
+every control in the org; **coverage** is measured (Passing + Failing +
+N/A) over assigned. The two are always printed together: a fleet with
+one evaluated repository and ninety-nine pending ones reads as "100.0%
+(1 of 1)" beside "Coverage: 1.0%", never as a measured fleet.
 
-### Compliance by rule
+### The control tables
 
-The numbers come from one shared query (`queries/compliance.sql`) that
-the compliance snapshots and the API also read, so the three always
-agree. Each rule counts its findings on active repositories by status:
-**Failing** (non-compliant), **Passing** (compliant), **N/A** (the rule
-does not apply: out of scope, ignored, gate closed, branch missing) and
-**Unknown** (it could not be evaluated). Compliant is
-Passing / (Passing + Failing); N/A and Unknown sit beside it, never in
-it. The denominator is **per rule**, not per org.
+Two tables, one per lineage:
 
-This differs from v1, which had no N/A or Unknown and counted some of
-those cases as passing. A v1 → v2 upgrade therefore moves some
-percentages on day one without any repository changing; the
-[divergence table](v2-migration.md#reporting-divergences) lists each
-case and which way it moves.
+- **Baseline controls** — the enterprise baseline, including an org's
+  **replaced** version of a baseline control (the decision column says
+  `replaced`).
+- **Org-added controls** — controls the org assigned on its own.
 
-This matters for scoped rules. A rule that applies to 10 of 100
-repositories and fails on 5 reads as **50%** here. Against an org-wide
-denominator the same rule would read as 5%, which describes the
-organisation rather than the rule and makes real non-compliance look
-like rounding error.
+Each row is one (control, decision) pair with every bucket:
 
-Percentages are **floored, never rounded**. 1999 of 2000 reads as
-99.9%, not 100.0%. A report calling a fleet fully compliant while one
-repository is not has told a lie somebody will act on.
+| Column | Meaning |
+|---|---|
+| Failing / Passing | The last result, at the current assignment epoch and revision. |
+| Pending | Assigned, not evaluated yet. |
+| Stale | Evaluated under an older assignment epoch or control revision. |
+| Unmeasurable | Access lost (`access_denied` / `unknown` park), the Evaluation App's installation suspended, or an ownership conflict. The last results are kept but nothing new was learned, so they count here, never as passing. |
+| N/A / Unknown | The control does not apply / could not decide. |
+| Excluded | Excluded by policy; listed in the exclusions table. |
 
-A rule with **`n/a`** in the compliance column passed or failed on no
-repository — typically every finding is N/A. It is unmeasured, not
-perfect.
+The numbers come from the same SQL the API, the snapshots and the
+`controls_status` gauges read, and the percentage is computed there —
+floored, never rounded (1999 of 2000 reads 99.9%), and **`no data`**
+when nothing is measured. A control assigned everywhere and evaluated
+nowhere reads `no data`, never 100%.
 
-### Trend
+### Exclusions
 
-Each trend cell carries the date it was compared against:
+Every excluded assignment and excluded repository with its reason and
+where it was excluded, plus conflicted assignments with their error.
+Exclusions are never on either side of the percentage (D5): "92%
+compliant, 14 exclusions" is honest, folding them in is not. An org
+whose every repository is excluded still gets a report, saying so.
 
-```
-| codeowners | file | 2 | 8 | 0 | 0 | 80.0% | 3 fewer since 2026-08-03 |
-```
+### What is not in it
 
-The baseline is **per rule**, not per report. A rule that was disabled
-when the last snapshot ran is compared against the last run that
-actually measured it, which can be an older date than its neighbours'.
-That is why the date is in every cell rather than in the header.
-
-A rule reads **`new`** when no snapshot exists for it — never `0` and
-never "no change", both of which would claim a measurement nobody took.
-
-The trend column is absent entirely until at least two snapshots exist.
-The report says so in place of the column.
-
-A rule that appears in the history but is no longer evaluated is
-**omitted**, not shown at its stale value. It stopped being measured;
-reporting a percentage for it would describe a measurement nobody took
-today.
-
-### Findings
-
-One row per (repository, rule) currently failing, with its reason code
-(`file_missing`, `assertion_failed`, `setting_mismatch`, …) and the date
-the failure started. The date survives repeated checks: "missing since
-2026-06-14" does not reset to today every time a check confirms it is
-still missing. It **is** cleared when the repository complies, so a
-later regression starts a fresh clock rather than reporting a
-months-old date for a failure that was fixed in between.
-
-A reason of **`migrated_from_v1`** means repo-guardian v1 recorded the
-failure and v2 has not re-checked the repository since the upgrade; the
-date is v1's original one. The first v2 check replaces it with a real
-reason.
-
-### What is excluded
-
-Parked repositories — archived, forked, or unreadable by the App
-(INV-0015) — are excluded from every number in the report, which says
-so in its footer. A repository nobody can measure is neither compliant
-nor failing, and counting it either way would be a guess. Use the
-`repos_parked_total{org, reason}` metric to watch that population.
+Repositories parked `archived`, `fork`, `removed` or
+`installation_removed` have left the fleet; their results were cleared
+and they appear nowhere. There is no per-repository failing list and no
+trend column on the controls line yet: the API and the UI
+answer "which repository", and `compliance_snapshots` holds the history.
 
 ## Distribution
 
@@ -210,42 +165,10 @@ Give the CronJob a **read-only database role**. It never writes, and a
 role that cannot write is the cheapest possible guarantee that a
 reporting job can never damage the state the server depends on.
 
-## Snapshot cadence
-
-The trend column reads from `compliance_snapshots`, written by
-`SnapshotWorkflow` on the `snapshot` Temporal Schedule. It is independent
-of the report command, which only reads what the workflow already
-stored. The same workflow prunes `checks` rows older than
-`CHECKS_RETENTION`.
-
-| Knob | Chart value | Default | Notes |
-|---|---|---|---|
-| `COMPLIANCE_SNAPSHOT_INTERVAL` | `posture.snapshotInterval` | `24h` | Cadence between snapshots. |
-| `CHECKS_RETENTION` | `checksRetention` | `2160h` | Check history kept; snapshots are not pruned. |
-
-Daily is the floor that makes quarter-over-quarter comparison possible
-without making the table large. Going faster does not make the report
-more accurate — the live numbers in the report are computed fresh on
-every run, from the same query the snapshot uses. Only the **trend
-baseline** comes from history, and a baseline finer than daily is a
-baseline nobody asked a question about.
-
-### One run per interval is load-bearing here
-
-A Temporal Schedule starts exactly one workflow per interval, however
-many worker replicas run. That matters more here than anywhere: two
-snapshot runs would each insert rows at their own timestamp, so a
-quarter-over-quarter query would count the same state twice or once,
-depending on whether the clocks happened to agree. v1 got the same
-guarantee from Valkey leader election.
-
-A failed snapshot is retried by the workflow's activity retry policy
-and, failing that, left as a visible, harmless gap in a daily series.
-
 ## Retention
 
-**None ships for snapshots, on purpose.** Volume is orgs × rules rows
-per day — roughly 120/day at target scale, about 44,000 rows a year. At
+**None ships for snapshots, on purpose.** Volume is orgs × controls ×
+decisions rows per day — roughly 120/day at target scale, about 44,000 rows a year. At
 that size retention machinery costs more to operate and reason about
 than the storage it would reclaim, and deleting compliance history is
 exactly the wrong default for a table whose entire purpose is answering
@@ -263,34 +186,36 @@ DELETE FROM compliance_snapshots WHERE snapshot_at < now() - interval '3 years';
 Take a backup first. There is no other copy of this data — the whole
 point is that it outlives the metrics store.
 
+## Snapshot cadence
+
+`compliance_snapshots` is written by the controls snapshot workflow,
+one row per `ControlCompliance` row (org, control, decision) in the same
+transaction as the read, so a snapshot never disagrees with the live
+view. The report reads live state only.
+
 ## Troubleshooting
 
 **"no database given; pass --dsn or set STORE_DSN"** — neither was set.
 The command refuses rather than guessing at a local Postgres.
 
-**Every rule reads `new`, no trend column** — the server has not taken
-two snapshots yet. Check the `snapshot` Schedule in the Temporal UI
-(`temporal schedule describe --schedule-id snapshot`) and that
-`COMPLIANCE_SNAPSHOT_INTERVAL` has elapsed twice since the upgrade.
-Snapshots migrated from v1 count.
+**A report is empty / no files written** — nothing is assigned yet.
+Assignments are written when the evaluator resolves the policy for each
+discovered repository; confirm with
+`SELECT count(*) FROM control_assignments;`.
 
-**A report is empty / no files written** — nothing has been evaluated
-yet. `findings` is written by each check, so a fresh deployment has no
-rows until the first checks complete. Confirm with
-`SELECT count(*) FROM findings;`.
+**Everything reads `no data`** — assignments exist and nothing has been
+evaluated: the Pending column says how many. First evaluations are
+spread across `EVAL_INTERVAL` after discovery or a policy rollout.
 
-**An org you expect is missing** — orgs come from what was actually
-evaluated, not from the policy's `scope` block. An org with no
-evaluated rules produces no file rather than an empty one. Check
-whether its repositories are all parked
-(`repos_parked_total{org="..."}`) or out of scope.
+**An org you expect is missing** — orgs come from assignments and
+exclusions, not from `enterprise.orgs`. An org with neither produces no
+file rather than an empty one.
 
-**"database schema is older than this binary"** — the database has not been
-migrated to this binary's schema. Run `repo-guardian migrate` (or let
-the chart's migrate Job run) first.
+**"database schema is older than this binary"** — run
+`repo-guardian migrate --chain controls` (or let the chart's migrate Job
+run) first.
 
 ## See also
 
-- [Migrating from v1 to v2](v2-migration.md) — the reporting divergences a v1 → v2 upgrade introduces
 - [Postgres schema operations](migrations.md) — migrations and backups
 - [Scaling repo-guardian](scaling.md) — metric catalog

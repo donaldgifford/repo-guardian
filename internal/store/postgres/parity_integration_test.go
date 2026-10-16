@@ -7,10 +7,8 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/donaldgifford/repo-guardian/internal/api/gen"
-	"github.com/donaldgifford/repo-guardian/internal/report"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 )
 
@@ -67,16 +65,10 @@ func TestCompliance_ParityAcrossReportAPIAndSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r, err := report.New(report.Options{Now: func() time.Time { return t0 }})
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	// The report renders the shared query's percentage as computed.
 	fromReport := map[string]string{}
-	for _, o := range r.Build(rep) {
-		for _, line := range o.Rules {
-			fromReport[o.Name+"/"+line.Name] = pct(line.Percent)
-		}
+	for _, row := range rep.Current {
+		fromReport[row.Org+"/"+row.RuleName] = pct(row.Percent)
 	}
 
 	c, _ := apiClient(t, f)

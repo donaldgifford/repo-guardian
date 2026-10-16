@@ -18,7 +18,7 @@ func TestWriteAll_OneFilePerOrg(t *testing.T) {
 	t.Parallel()
 
 	data := fullData()
-	data.Current = append(data.Current, count("globex", "file", "dependabot", 2, 1, 0, 0))
+	data.Posture = append(data.Posture, row("globex", "dependabot", DecisionBaseline, buckets{compliant: 2, nonCompliant: 1}))
 
 	r := newRenderer(t)
 

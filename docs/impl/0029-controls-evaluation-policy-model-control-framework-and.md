@@ -1353,12 +1353,26 @@ evaluator's store.
   Done: `make monitoring-generate` rewrote the static tier (unconfigured:
   nil snapshot, discovered org rows, 15 alert rules); `make lint-monitoring`
   ✓ current; `make lint-alerts` green (15 chart rules, promtool SUCCESS).
-- [ ] 6.9 `internal/report` over control results: per-org sections keyed
+- [x] 6.9 `internal/report` over control results: per-org sections keyed
   by control with buckets, coverage, baseline versus org-added, and
   exclusions; the shared percent definition with "no data"; goldens
   rewritten (no data, pending-heavy, stale, unmeasurable, a replaced
   version, exclusions, two orgs, escaped cells), and the findings
   remediation enums and the `foreign_pr` golden removed.
+  Done: `report.Build(*Data)` over `ControlCompliance` (every lineage) and
+  `ControlExclusions`: per org, a Baseline table (baseline and replaced) and
+  an Org-added table keyed by control, each row carrying every bucket,
+  compliance and coverage as the SQL computed them; an exclusions table
+  (repository, control or "all controls", state, reason, excluded by); a
+  headline from `Org.Totals()` (compliance via `store.CompliantPercent`,
+  coverage via the floor mirror). An empty denominator renders "no data".
+  Goldens rewritten: full, no_data, pending_heavy, stale, unmeasurable,
+  replaced_version, exclusions_only, two orgs, escaped_cells; the findings
+  reasons/remediation enums, trends, PR column and `foreign_pr` golden are
+  gone. `repo-guardian report` reads the controls store
+  (`RequireControlsSchema`), and drops `--with-pr-links`. The rc store's
+  integration tests compare against the shared-query rows instead of the
+  report. `docs/operations/compliance-reports.md` rewritten.
 - [ ] 6.10 Non-vacuous check: reverse `max by`/`sum` nesting in one E1
   panel, reset before read in the exporter, and remove the report's NULL
   guard; confirm the dedupe test, the exporter test and the no-data

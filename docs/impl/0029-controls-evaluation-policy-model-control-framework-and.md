@@ -409,13 +409,22 @@ calls `Type.Build`.
   Done: the package keeps its name `policy`, so importers carry an
   explicit `policy` alias (goimports adds it); comments and docs that
   name `internal/policy` are left alone.
-- [ ] 2.2 `internal/policy/load.go`: `Load(root string, reg
+- [x] 2.2 `internal/policy/load.go`: `Load(root string, reg
   *control.Registry, logger *slog.Logger) (*Snapshot, error)` over the
   DESIGN-0030 layout (`catalogue/*.hcl`, `templates/`, exactly one
   `enterprise.hcl`, `orgs/*.hcl`), using `hclparse.NewParser()`. Only
   literals and `file()` are allowed in expressions; every referenced file
   is resolved with `filepath.EvalSymlinks` and must stay under the root;
   each file is capped at 1 MiB. Errors carry `file:line`. No hot reload.
+  Done: every file under the root is read once (walking `..data` when it
+  exists and skipping `..*` names, per spike 7) and every one is
+  containment-checked, so an escaping symlink fails load even when
+  unreferenced. `file()` reads from that same in-memory set, so its bytes
+  are hashed with the rest. "Literals and `file()` only" is enforced
+  uniformly: every attribute of every HCL file is evaluated against an
+  `EvalContext` holding `file` and no variables, before any decoder runs.
+  Any HCL file outside `enterprise.hcl`, `catalogue/*.hcl` and
+  `orgs/*.hcl` fails load.
 - [ ] 2.3 `catalogue.go`: decode each `control "<slug>"` block into a
   `control.Definition` (version, type, title, description, rules with
   `kind` defaulting to the id only when the id names a kind the type

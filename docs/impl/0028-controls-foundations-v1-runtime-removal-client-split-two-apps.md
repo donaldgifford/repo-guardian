@@ -1142,16 +1142,51 @@ checkbox from the failure.
   with `dont-release`.
   Done 2026-10-15: chart and appVersion `2.0.0-rc.7`, README regenerated;
   `make ci` green, `make helm-test` 250/250. PR #208.
-- [ ] 9.4 Release (human-run): merge, tag `v2.0.0-rc.7`, dispatch
+- [x] 9.4 Release (human-run): merge, tag `v2.0.0-rc.7`, dispatch
   `ghcr.yml`, sync dev. With the Evaluation App's webhook still inactive
   nothing changes on dev; a redelivery from the App's Advanced tab, if
   tried, logs the drop and starts nothing.
-  **Deferred - human required.**
+  Done 2026-10-16: tagged `v2.0.0-rc.7` at `2cd5df5`, ghcr.yml run
+  38849173424 green; both images verified with cosign and slsa-verifier,
+  chart pulled at `2.0.0-rc.7`; dev deployed rc.7 healthy (maintainer).
 
 #### Success Criteria
 
 - An Evaluation App delivery changes no store row and starts or signals
   no workflow while the rc's single App does the work.
+
+### Phase 10: Fleet history refetch loop (chart 2.0.0-rc.8)
+
+Issue #207, found on dev after the v2 cutover: the UI's fleet home page
+(and its org view) called `GET /api/v1/compliance/history` about 400
+times a minute while open. The view passed `from` as a millisecond
+timestamp computed on every render, and `useHistory` keys its query on
+its filters, so each render was a new query that fetched and
+re-rendered. The history view is unaffected (its filters come from the
+URL).
+
+#### Tasks
+
+- [x] 10.1 `trendFrom(days, now)` in `ui/web/src/lib/viewmodel.ts` starts
+  the window at midnight UTC, so the key is stable all day and the cache
+  can hit; both fleet views use it. Unit tests: midnight UTC, and the
+  same value at the first and last millisecond of a day.
+- [x] 10.2 Playwright: the fleet and org views each fetch history at most
+  twice in the three seconds after they render. Probe: the old
+  per-render timestamp makes 1,738 fetches and fails the test; restored.
+- [x] 10.3 `Chart.yaml` `version` and `appVersion` → `2.0.0-rc.8`;
+  helm-docs regenerated; `make lint-ui`, `make test-ui`,
+  `make test-ui-e2e`, `make ci` and `make helm-test` green; PR to `v2`
+  with `dont-release`, closing #207.
+- [ ] 10.4 Release (human-run): merge, tag `v2.0.0-rc.8`, dispatch
+  `ghcr.yml`, deploy to dev; the browser's network tab shows one history
+  request on the home page.
+  **Deferred - human required.**
+
+#### Success Criteria
+
+- The fleet home page fetches compliance history once per day's window,
+  not once per render.
 
 ## File Changes
 

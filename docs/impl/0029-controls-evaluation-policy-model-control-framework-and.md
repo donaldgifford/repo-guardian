@@ -370,7 +370,8 @@ calls `Type.Build`.
   Done: the type looks its template up by name through
   `BuildEnv.Templates`, which Phase 2 builds as the policy root's
   `templates/` over the embedded `rules.TemplateStore` (spike 7); the
-  catalogue definition names `codeowners.tmpl`. The test reads the shipped
+  catalogue definition names `codeowners` (the embedded store's name; 2.3's
+  template source also accepts `codeowners.tmpl`). The test reads the shipped
   `internal/rules/templates/codeowners.tmpl` from disk (depguard keeps
   `rules` out of a control type), so the conformance suite and the golden
   cover the real fallback: editing it moves the golden, as D20 intends.
@@ -425,7 +426,7 @@ calls `Type.Build`.
   `EvalContext` holding `file` and no variables, before any decoder runs.
   Any HCL file outside `enterprise.hcl`, `catalogue/*.hcl` and
   `orgs/*.hcl` fails load.
-- [ ] 2.3 `catalogue.go`: decode each `control "<slug>"` block into a
+- [x] 2.3 `catalogue.go`: decode each `control "<slug>"` block into a
   `control.Definition` (version, type, title, description, rules with
   `kind` defaulting to the id only when the id names a kind the type
   declares, template, `apply`, `pr {}`, type parameters), build it
@@ -433,6 +434,17 @@ calls `Type.Build`.
   policy root's `templates/` plus the embedded fallbacks, and store its
   revision. Duplicate `slug@version` and slug or rule-id grammar
   violations fail load.
+  Done: a `control` block's known attributes are `version`, `type`,
+  `title`, `description`, `template`; any other attribute is a type
+  parameter (`Definition.Params`), and in a `rule` block any attribute
+  beyond `number`/`title`/`kind`/`remediate` is a rule parameter; unknown
+  blocks fail. Values convert to the shapes `ParamSpec` checks (int64,
+  float64, `[]any`, `map[string]any`). `control.Definition` gained a
+  display-only `Description`. A template name resolves to
+  `templates/<name>.tmpl`, then `templates/<name>`, then the embedded
+  `rules.TemplateStore` entry, and the embedded names used are kept for
+  2.9's version hash. `pr {}` titles and bodies are compiled at load.
+  Registry errors are prefixed with the control block's `file:line`.
 - [ ] 2.4 `enterprise.go` and `org.go`: decode `enterprise.hcl` (`orgs`,
   `mode`, `controls`, `remediation { max_open_prs, reopen_after }`, and a
   load error naming the block if an exclusion appears) and each

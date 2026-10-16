@@ -6,6 +6,8 @@ package policy
 
 import (
 	"fmt"
+
+	"github.com/donaldgifford/repo-guardian/internal/control"
 )
 
 // Snapshot is one loaded policy root. It is immutable and safe for
@@ -13,6 +15,9 @@ import (
 type Snapshot struct {
 	files    map[string][]byte
 	warnings []Warning
+	defs     map[control.ID]*definition
+	// embeddedUsed are the embedded templates the catalogue resolved to.
+	embeddedUsed []string
 }
 
 // Warning is a load-time warning with its source location.

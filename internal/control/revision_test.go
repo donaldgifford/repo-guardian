@@ -44,6 +44,7 @@ func TestRevision(t *testing.T) {
 
 	same := map[string]func(*Definition){
 		"definition title": func(d *Definition) { d.Title = "Something else" },
+		"description":      func(d *Definition) { d.Description = "Other words" },
 		"rule title":       func(d *Definition) { d.Rules[0].Title = "Other" },
 		"rule number":      func(d *Definition) { d.Rules[0].Number = "9.9" },
 		"pr block":         func(d *Definition) { body := "body"; d.PR.Body = &body; d.PR.Labels = []string{"x"} },

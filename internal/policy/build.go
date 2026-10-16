@@ -13,7 +13,12 @@ func (l *loader) build(layout rootLayout, bodies map[string]hcl.Body) (*Snapshot
 		}
 	}
 
-	return &Snapshot{files: l.files}, nil
+	defs, err := l.decodeCatalogue(layout.catalogue, bodies)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Snapshot{files: l.files, defs: defs, embeddedUsed: l.templates.usedEmbedded()}, nil
 }
 
 // checkExpressions evaluates every attribute in body, recursively,

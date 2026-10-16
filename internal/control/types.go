@@ -63,6 +63,8 @@ type Control interface {
 type Definition struct {
 	ID    ID
 	Title string
+	// Description is display only, like Title; outside the revision.
+	Description string
 	// Type is the Type.Name() that builds it.
 	Type string
 	// Rules are validated by Type.Build; at least one.

@@ -17,6 +17,7 @@ import (
 	"github.com/zclconf/go-cty/cty/function"
 
 	"github.com/donaldgifford/repo-guardian/internal/control"
+	"github.com/donaldgifford/repo-guardian/internal/template"
 )
 
 // MaxFileBytes caps every file under the policy root (DESIGN-0030; the
@@ -49,7 +50,12 @@ func Load(root string, reg *control.Registry, logger *slog.Logger) (*Snapshot, e
 		return nil, err
 	}
 
-	l := &loader{files: files, reg: reg, parser: hclparse.NewParser()}
+	templates, err := newTemplateSource(files)
+	if err != nil {
+		return nil, err
+	}
+
+	l := &loader{files: files, reg: reg, parser: hclparse.NewParser(), templates: templates, renderer: template.NewRenderer()}
 	l.ctx = &hcl.EvalContext{Functions: map[string]function.Function{"file": l.fileFunc()}}
 
 	snap, err := l.load()
@@ -66,10 +72,12 @@ func Load(root string, reg *control.Registry, logger *slog.Logger) (*Snapshot, e
 
 // loader is one Load in progress.
 type loader struct {
-	files  map[string][]byte
-	reg    *control.Registry
-	parser *hclparse.Parser
-	ctx    *hcl.EvalContext
+	files     map[string][]byte
+	reg       *control.Registry
+	parser    *hclparse.Parser
+	ctx       *hcl.EvalContext
+	templates *templateSource
+	renderer  *template.Renderer
 }
 
 // load parses the layout and hands each part to its decoder.

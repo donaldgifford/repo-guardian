@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres/controlsdb"
@@ -81,4 +82,40 @@ func lowerAll(orgs []string) []string {
 	}
 
 	return out
+}
+
+// InsertComplianceSnapshot writes one compliance_snapshots row per
+// ControlCompliance row (every lineage, every org) stamped at, reading
+// and writing in one transaction, and returns how many it wrote.
+func (s *ControlsStore) InsertComplianceSnapshot(ctx context.Context, at time.Time) (int, error) {
+	var n int
+
+	err := s.inTx(ctx, func(q *controlsdb.Queries) error {
+		rows, err := q.ControlCompliance(ctx, controlsdb.ControlComplianceParams{Orgs: []string{}, Lineage: store.LineageAll})
+		if err != nil {
+			return err
+		}
+
+		for i := range rows {
+			r := &rows[i]
+			if err := q.InsertComplianceSnapshot(ctx, controlsdb.InsertComplianceSnapshotParams{
+				Org: r.Org, ControlID: r.ControlID, Decision: r.Decision, SnapshotAt: at,
+				Compliant: r.Compliant, NonCompliant: r.NonCompliant, Pending: r.Pending, Stale: r.Stale,
+				UnmeasurableAccessDenied: r.UnmeasurableAccessDenied, UnmeasurableSuspended: r.UnmeasurableSuspended,
+				UnmeasurableConflict: r.UnmeasurableConflict, NotApplicable: r.NotApplicable, Unknown: r.Unknown,
+				Excluded: r.Excluded, Assigned: r.Assigned, Percent: r.Percent, Coverage: r.Coverage,
+			}); err != nil {
+				return err
+			}
+		}
+
+		n = len(rows)
+
+		return nil
+	})
+	if err != nil {
+		return 0, fmt.Errorf("compliance snapshot: %w", err)
+	}
+
+	return n, nil
 }

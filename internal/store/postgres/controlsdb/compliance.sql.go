@@ -7,6 +7,7 @@ package controlsdb
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -210,4 +211,59 @@ func (q *Queries) FloorPercent(ctx context.Context, arg FloorPercentParams) (pgt
 	var percent pgtype.Numeric
 	err := row.Scan(&percent)
 	return percent, err
+}
+
+const insertComplianceSnapshot = `-- name: InsertComplianceSnapshot :exec
+INSERT INTO compliance_snapshots (
+    org, control_id, decision, snapshot_at, compliant, non_compliant, pending, stale, unmeasurable_access_denied,
+    unmeasurable_suspended, unmeasurable_conflict, not_applicable, unknown, excluded, assigned, percent, coverage
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9,
+    $10, $11, $12, $13, $14, $15, $16, $17
+)
+`
+
+type InsertComplianceSnapshotParams struct {
+	Org                      string
+	ControlID                string
+	Decision                 string
+	SnapshotAt               time.Time
+	Compliant                int32
+	NonCompliant             int32
+	Pending                  int32
+	Stale                    int32
+	UnmeasurableAccessDenied int32
+	UnmeasurableSuspended    int32
+	UnmeasurableConflict     int32
+	NotApplicable            int32
+	Unknown                  int32
+	Excluded                 int32
+	Assigned                 int32
+	Percent                  pgtype.Numeric
+	Coverage                 pgtype.Numeric
+}
+
+// One controls compliance snapshot row, copied from ControlCompliance in
+// the same transaction so a snapshot never disagrees with the live view.
+func (q *Queries) InsertComplianceSnapshot(ctx context.Context, arg InsertComplianceSnapshotParams) error {
+	_, err := q.db.Exec(ctx, insertComplianceSnapshot,
+		arg.Org,
+		arg.ControlID,
+		arg.Decision,
+		arg.SnapshotAt,
+		arg.Compliant,
+		arg.NonCompliant,
+		arg.Pending,
+		arg.Stale,
+		arg.UnmeasurableAccessDenied,
+		arg.UnmeasurableSuspended,
+		arg.UnmeasurableConflict,
+		arg.NotApplicable,
+		arg.Unknown,
+		arg.Excluded,
+		arg.Assigned,
+		arg.Percent,
+		arg.Coverage,
+	)
+	return err
 }

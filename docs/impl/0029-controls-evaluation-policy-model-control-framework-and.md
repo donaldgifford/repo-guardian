@@ -1107,8 +1107,18 @@ evaluator's store.
   7.1/7.8 pass `Snapshot.WatchedPaths()`. `TestRouteWebhook_EvaluationAppDropped`
   deleted; tests in controls_route_test.go, ingest_test.go and
   `TestControlsStore_RoutingReads`.
-- [ ] 5.8 Controls snapshot: `controls-snapshot` writes
+- [x] 5.8 Controls snapshot: `controls-snapshot` writes
   `compliance_snapshots` rows from 4.7's query.
+  Done: `ControlsSnapshotWorkflow` runs the `ControlsSnapshot` activity
+  (`ControlsServices.Snapshot`) stamped at the workflow's start, then
+  records a `snapshot` service run with the row count. The controls line
+  has no checks table, so `SnapshotInput.Retention` prunes nothing.
+  `ControlsStore.InsertComplianceSnapshot` reads `ControlCompliance` (all
+  lineages, every org) and inserts its rows in one transaction, so a
+  snapshot never disagrees with the live query and a NULL percentage stays
+  NULL. Tests: `TestControlsSnapshotWorkflow_WritesAndRecords`,
+  `TestControlsServices_SnapshotStampsTheRun`, and
+  `TestControlsStore_ComplianceSnapshot` (as rg_evaluator).
 - [ ] 5.9 `repo-guardian evaluate --repo <org>/<name> [--format json]`:
   loads the policy directory, authenticates as the Evaluation App,
   checks access, resolves, evaluates with no store, and prints a table

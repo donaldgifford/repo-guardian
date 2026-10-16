@@ -86,3 +86,14 @@ ORDER BY 1, 2, 3;
 -- name: FloorPercent :one
 -- The percentage function on its own, for the Go mirror's agreement test.
 SELECT floor_percent(@num::bigint, @den::bigint)::numeric AS percent;
+
+-- name: InsertComplianceSnapshot :exec
+-- One controls compliance snapshot row, copied from ControlCompliance in
+-- the same transaction so a snapshot never disagrees with the live view.
+INSERT INTO compliance_snapshots (
+    org, control_id, decision, snapshot_at, compliant, non_compliant, pending, stale, unmeasurable_access_denied,
+    unmeasurable_suspended, unmeasurable_conflict, not_applicable, unknown, excluded, assigned, percent, coverage
+) VALUES (
+    @org, @control_id, @decision, @snapshot_at, @compliant, @non_compliant, @pending, @stale, @unmeasurable_access_denied,
+    @unmeasurable_suspended, @unmeasurable_conflict, @not_applicable, @unknown, @excluded, @assigned, @percent, @coverage
+);

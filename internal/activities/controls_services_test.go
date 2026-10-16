@@ -29,11 +29,12 @@ func (l *installLister) ListInstallations(context.Context) ([]*ghclient.Installa
 // fakeControlsStore records installations and batches and answers
 // UpsertRepositories from resolved.
 type fakeControlsStore struct {
-	installs []store.AppInstallation
-	batches  [][]store.DiscoveredRepository
-	resolved []store.ResolvedRepository
-	active   []store.RepositoryRef
-	resolves []int64
+	installs  []store.AppInstallation
+	batches   [][]store.DiscoveredRepository
+	resolved  []store.ResolvedRepository
+	active    []store.RepositoryRef
+	resolves  []int64
+	snapshots []time.Time
 }
 
 func (s *fakeControlsStore) UpsertInstallation(_ context.Context, in *store.AppInstallation) error {
@@ -73,6 +74,12 @@ func (s *fakeControlsStore) ActiveRepositories(_ context.Context, afterID int64,
 }
 
 func (*fakeControlsStore) CompletePolicyRollout(context.Context, string) error { return nil }
+
+func (s *fakeControlsStore) InsertComplianceSnapshot(_ context.Context, at time.Time) (int, error) {
+	s.snapshots = append(s.snapshots, at)
+
+	return 3, nil
+}
 
 // versionResolver is a store.Resolver that only names its version.
 type versionResolver struct{}
@@ -202,5 +209,17 @@ func TestControlsServices_RolloutPasses(t *testing.T) {
 	if len(tc.signals) != 1 || tc.signals[0].workflowID != "evaluation/1" || !pc.By.Equal(by) ||
 		tc.signals[0].priority != int(workflows.PriorityRollout) {
 		t.Errorf("signals = %+v, want only the managed, reachable repository at rollout priority by the deadline", tc.signals)
+	}
+}
+
+func TestControlsServices_SnapshotStampsTheRun(t *testing.T) {
+	t.Parallel()
+
+	st := &fakeControlsStore{}
+	s, _ := newControlsServices(t, st, &fakeLister{})
+	at := time.Unix(1_790_000_000, 0)
+
+	if n, err := s.Snapshot(t.Context(), at); err != nil || n != 3 || len(st.snapshots) != 1 || !st.snapshots[0].Equal(at) {
+		t.Errorf("Snapshot() = %d, %v (stamps %v); want 3 rows stamped at the workflow's start", n, err, st.snapshots)
 	}
 }

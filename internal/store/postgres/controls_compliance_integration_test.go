@@ -345,3 +345,38 @@ func TestControlsStore_PostureOfAMostlyPendingFleet(t *testing.T) {
 			p.Assigned, p.Pending, p.NonCompliant, show(p.Coverage), show(p.Percent))
 	}
 }
+
+// TestControlsStore_ComplianceSnapshot is IMPL-0029 task 5.8: as
+// rg_evaluator, a snapshot copies the live compliance rows, NULL
+// percentage included, stamped with the run's time.
+func TestControlsStore_ComplianceSnapshot(t *testing.T) {
+	s, dsns := evaluatorStore(t)
+	ctx := t.Context()
+
+	if n, err := s.InsertComplianceSnapshot(ctx, time.Now()); err != nil || n != 0 {
+		t.Fatalf("empty snapshot = %d, %v; want 0 rows", n, err)
+	}
+
+	discover(t, s, &fakeResolver{assignments: []policy.Assignment{codeowners("r1")}})
+
+	at := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
+
+	n, err := s.InsertComplianceSnapshot(ctx, at)
+	if err != nil || n != 1 {
+		t.Fatalf("InsertComplianceSnapshot = %d, %v; want 1 row", n, err)
+	}
+
+	var (
+		pending  int
+		nullPct  bool
+		snapshot time.Time
+	)
+
+	queryArgs(t, dsns.Owner, `SELECT pending FROM compliance_snapshots WHERE org = $1`, &pending, "acme")
+	queryArgs(t, dsns.Owner, `SELECT percent IS NULL FROM compliance_snapshots WHERE org = $1`, &nullPct, "acme")
+	queryArgs(t, dsns.Owner, `SELECT snapshot_at FROM compliance_snapshots WHERE org = $1`, &snapshot, "acme")
+
+	if pending != 1 || !nullPct || !snapshot.Equal(at) {
+		t.Errorf("snapshot row = pending %d, NULL percent %v, at %v; want 1, true, %v", pending, nullPct, snapshot, at)
+	}
+}

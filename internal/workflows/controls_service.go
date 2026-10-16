@@ -123,6 +123,21 @@ func ControlsRolloutWorkflow(ctx workflow.Context, in *ControlsRolloutInput) err
 		map[string]any{"version": in.Version, "resolved": resolved, detailSignalled: signalled})
 }
 
+// ControlsSnapshotWorkflow writes the controls compliance snapshot from
+// the live compliance query and records the run (IMPL-0029 task 5.8).
+// The controls line keeps no checks table, so in.Retention prunes
+// nothing; the input is the rc's so both Schedules share one shape.
+func ControlsSnapshotWorkflow(ctx workflow.Context, _ *SnapshotInput) error {
+	started := workflow.Now(ctx)
+
+	var rows int
+	if err := workflow.ExecuteActivity(serviceOptions(ctx, PrioritySchedule), ControlsSnapshotActivity, started).Get(ctx, &rows); err != nil {
+		return err
+	}
+
+	return recordRunWith(ctx, ControlsRecordServiceRunActivity, ServiceSnapshot, true, started, map[string]any{"rows": rows})
+}
+
 // controlsPages runs a paged activity to its last page and sums the
 // counts.
 func controlsPages(ctx workflow.Context, activity string, in ControlsPageInput) (int, error) {

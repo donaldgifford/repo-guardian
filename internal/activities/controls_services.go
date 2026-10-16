@@ -27,6 +27,7 @@ type ControlsServiceStore interface {
 	Resolve(ctx context.Context, repoID int64, r store.Resolver) (store.ResolutionChange, error)
 	ActiveRepositories(ctx context.Context, afterID int64, limit int) ([]store.RepositoryRef, error)
 	CompletePolicyRollout(ctx context.Context, version string) error
+	InsertComplianceSnapshot(ctx context.Context, at time.Time) (int, error)
 }
 
 // ControlsServicesConfig configures the evaluator's service activities.
@@ -69,6 +70,7 @@ func (s *ControlsServices) Register(r Registry) {
 		workflows.ControlsResolveAllActivity:        s.ResolveAll,
 		workflows.ControlsSignalAllActivity:         s.SignalAll,
 		workflows.ControlsCompleteRolloutActivity:   s.CompleteRollout,
+		workflows.ControlsSnapshotActivity:          s.Snapshot,
 	} {
 		r.RegisterActivityWithOptions(fn, activity.RegisterOptions{Name: name})
 	}
@@ -273,4 +275,15 @@ func (s *ControlsServices) CompleteRollout(ctx context.Context, version string) 
 	}
 
 	return nil
+}
+
+// Snapshot writes the controls compliance snapshot stamped at and
+// returns how many rows it wrote.
+func (s *ControlsServices) Snapshot(ctx context.Context, at time.Time) (int, error) {
+	n, err := s.cfg.Store.InsertComplianceSnapshot(ctx, at)
+	if err != nil {
+		return 0, fmt.Errorf("snapshot: %w", err)
+	}
+
+	return n, nil
 }

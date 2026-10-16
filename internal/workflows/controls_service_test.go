@@ -192,3 +192,37 @@ func TestControlsRolloutWorkflow_ResolvesSignalsThenCompletes(t *testing.T) {
 		t.Errorf("runs = %+v, want one policy_rollout run that signalled 20", f.runs)
 	}
 }
+
+func TestControlsSnapshotWorkflow_WritesAndRecords(t *testing.T) {
+	t.Parallel()
+
+	f := &serviceFakes{}
+
+	var s testsuite.WorkflowTestSuite
+
+	env := s.NewTestWorkflowEnvironment()
+	start := env.Now()
+
+	var stampedAt time.Time
+
+	env.RegisterActivityWithOptions(func(_ context.Context, at time.Time) (int, error) {
+		stampedAt = at
+
+		return 4, nil
+	}, activity.RegisterOptions{Name: ControlsSnapshotActivity})
+	env.RegisterActivityWithOptions(f.RecordServiceRun, activity.RegisterOptions{Name: ControlsRecordServiceRunActivity})
+
+	env.ExecuteWorkflow(ControlsSnapshotWorkflow, &SnapshotInput{Retention: time.Hour})
+
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
+
+	if !stampedAt.Equal(start) {
+		t.Errorf("snapshot stamped %v, want the workflow's start %v", stampedAt, start)
+	}
+
+	if len(f.runs) != 1 || f.runs[0].Kind != ServiceSnapshot || f.runs[0].Detail["rows"] != float64(4) {
+		t.Errorf("runs = %+v, want one snapshot run of 4 rows", f.runs)
+	}
+}

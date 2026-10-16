@@ -3,11 +3,9 @@
 #
 # Run: make mocks
 #
-# Covers the v2 store's Writer and Reader, github.Client, and the
-# controls client surface (control.Reader, PRObserver, Writer; IMPL-0028
-# task 2.8). The v1
-# Store, Queue and Scheduler went with the v1 runtime (IMPL-0028
-# Phase 1). The Client mock is embedded by hand-written stateful fakes
+# Covers github.Client and the controls client surface (control.Reader,
+# PRObserver, Writer; IMPL-0028 task 2.8). The store mocks went with the
+# rc findings store (IMPL-0029 7.4). The Client mock is embedded by hand-written stateful fakes
 # so that adding a method to github.Client stops breaking their test
 # files at once (IMPL-0021 Phase 7).
 #
@@ -22,12 +20,6 @@ template: testify
 template-data:
   unroll-variadic: true
 packages:
-  github.com/donaldgifford/repo-guardian/internal/store:
-    config:
-      dir: internal/store/mocks
-    interfaces:
-      Writer: {}
-      Reader: {}
   github.com/donaldgifford/repo-guardian/internal/github:
     config:
       dir: internal/github/mocks

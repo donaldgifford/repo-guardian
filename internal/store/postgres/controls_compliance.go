@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
+
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres/controlsdb"
 )
@@ -13,7 +15,13 @@ import (
 // ControlCompliance runs the controls compliance query for orgs (empty:
 // every org) under lineage (store.Lineage*).
 func (s *ControlsStore) ControlCompliance(ctx context.Context, orgs []string, lineage string) ([]store.ControlPosture, error) {
-	rows, err := s.q.ControlCompliance(ctx, controlsdb.ControlComplianceParams{Orgs: lowerAll(orgs), Lineage: lineage})
+	return controlCompliance(ctx, s.q, orgs, lineage)
+}
+
+// controlCompliance runs the compliance query on q, so the API reader's
+// read-only transactions share the store's conversion.
+func controlCompliance(ctx context.Context, q *controlsdb.Queries, orgs []string, lineage string) ([]store.ControlPosture, error) {
+	rows, err := q.ControlCompliance(ctx, controlsdb.ControlComplianceParams{Orgs: lowerAll(orgs), Lineage: lineage})
 	if err != nil {
 		return nil, fmt.Errorf("control compliance: %w", err)
 	}
@@ -118,4 +126,18 @@ func (s *ControlsStore) InsertComplianceSnapshot(ctx context.Context, at time.Ti
 	}
 
 	return n, nil
+}
+
+// numericPtr converts a nullable NUMERIC percentage: NULL is nil.
+func numericPtr(n pgtype.Numeric) (*float64, error) {
+	if !n.Valid {
+		return nil, nil //nolint:nilnil // NULL percent: unmeasured
+	}
+
+	f, err := n.Float64Value()
+	if err != nil {
+		return nil, fmt.Errorf("compliance percent: %w", err)
+	}
+
+	return &f.Float64, nil
 }

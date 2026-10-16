@@ -3,7 +3,6 @@
 package postgres_test
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -19,18 +18,16 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/api/apitest"
 	"github.com/donaldgifford/repo-guardian/internal/api/gen"
 	"github.com/donaldgifford/repo-guardian/internal/api/oidctest"
-	"github.com/donaldgifford/repo-guardian/internal/findings"
-	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres"
 )
 
 const endpointsAudience = "repo-guardian-api"
 
 // endpoints is the API with OIDC auth over a seeded database: acme
-// (widgets, compliant), acme-web (b, failing with a 40-day-old PR) and
-// acme-pay (c compliant, d parked), plus a snapshot and a policy.
+// (widgets, compliant), acme-web (b, failing with an open PR) and
+// acme-pay (c compliant, d archived), plus a snapshot.
 type endpoints struct {
-	f      *v2Fixture
+	f      *apiFixture
 	c      *apitest.Client
 	issuer *oidctest.Issuer
 	ids    map[string]int64
@@ -39,17 +36,11 @@ type endpoints struct {
 func newEndpoints(t *testing.T) *endpoints {
 	t.Helper()
 
-	f := newV2Fixture(t)
-	seedTwoOrgs(t, f)
+	f := newAPIFixture(t)
+	ids := seedTwoOrgs(t, f)
 
 	ctx := t.Context()
 	if _, err := f.store.InsertComplianceSnapshot(ctx, t0.Add(-24*time.Hour)); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := f.store.RecordPolicyVersion(ctx, "v2:test", store.PolicySummary{Rules: []store.PolicyRule{
-		{Kind: findings.RuleKindFile, Name: "codeowners", Description: "CODEOWNERS exists"},
-	}}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -71,27 +62,16 @@ func newEndpoints(t *testing.T) *endpoints {
 	}, quiet)
 	authn.Start(ctx)
 
-	pool, err := postgres.NewReadOnlyPool(ctx, f.dsn)
+	pool, err := postgres.NewReadOnlyPool(ctx, f.dsns.Evaluator)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
 
-	e := &endpoints{f: f, issuer: iss, ids: map[string]int64{}, c: apitest.New(t, &api.Options{
+	e := &endpoints{f: f, issuer: iss, ids: ids, c: apitest.New(t, &api.Options{
 		Reader: postgres.NewAPIReader(pool), Authn: authn, Authz: authz, Logger: quiet,
 		Now: func() time.Time { return t0 },
 	})}
-
-	for _, name := range []string{"acme/widgets", "acme-web/b", "acme-pay/c", "acme-pay/d"} {
-		org, repo := name[:len(name)-len(filepath.Base(name))-1], filepath.Base(name)
-
-		r, err := f.store.FindRepository(ctx, org, repo, nil)
-		if err != nil {
-			t.Fatalf("find %s: %v", name, err)
-		}
-
-		e.ids[name] = r.ID
-	}
 
 	return e
 }
@@ -228,7 +208,6 @@ func TestEndpoints_PaginationIsStableUnderWrites(t *testing.T) {
 	t.Parallel()
 
 	e := newEndpoints(t)
-	ctx := context.Background()
 
 	want := map[int64]bool{}
 	for _, id := range e.ids {
@@ -251,11 +230,7 @@ func TestEndpoints_PaginationIsStableUnderWrites(t *testing.T) {
 		}
 
 		// A write between pages: a new repository.
-		if _, err := e.f.store.UpsertDiscovered(ctx, &store.DiscoveredRepo{
-			Org: "acme", Name: "new-" + strconv.Itoa(i), InstallationID: testInstallation,
-		}); err != nil {
-			t.Fatal(err)
-		}
+		e.f.discover(t, "acme", "new-"+strconv.Itoa(i))
 
 		next = ""
 		if page.NextCursor != nil && i < 20 {

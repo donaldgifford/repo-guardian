@@ -107,69 +107,28 @@ type ComponentState = string
 // fetch the next page; a cursor from different filters is refused.
 type Cursor = string
 
-// Event One timeline entry. A finding event carries the rule and its
-// from/to fields; a repository event carries kind and detail.
+// Event One timeline entry. A result event carries the control and its status
+// transition (to_status is absent when the result was withdrawn); a
+// repository event carries kind and detail.
 type Event struct {
+	ControlId *string `json:"control_id,omitempty"`
+
 	// Detail A repository event's detail, such as the names around a rename.
 	Detail *map[string]interface{} `json:"detail,omitempty"`
 
-	// FromReason Open enum. Why a finding has its status: file_missing,
-	// assertion_failed, content_differs, forbidden_present,
-	// setting_mismatch, ruleset_missing, ruleset_mismatch,
-	// out_of_scope_policy, out_of_scope_rule, ignored_global,
-	// ignored_rule, gate_closed, branch_missing, empty_repository,
-	// gate_error, foreign_pr_open, migrated_from_v1. Empty when
-	// compliant.
-	//
-	//
-	// Examples: file_missing, gate_closed
-	FromReason *Reason `json:"from_reason,omitempty"`
+	// FromStatus Open enum: compliant, non_compliant, unknown, not_applicable.
+	FromStatus *string `json:"from_status,omitempty"`
+	Id         int64   `json:"id"`
 
-	// FromRemediation Open enum: none, pr_open, foreign_pr, applied, dry_run, disabled.
-	//
-	// Examples: pr_open
-	FromRemediation *Remediation `json:"from_remediation,omitempty"`
-
-	// FromStatus Open enum: compliant, non_compliant, not_applicable, unknown.
-	//
-	// Examples: compliant, non_compliant, not_applicable, unknown
-	FromStatus *FindingStatus `json:"from_status,omitempty"`
-	Id         int64          `json:"id"`
-
-	// Kind Open enum, repository events: discovered, renamed, transferred, parked, unparked, removed.
+	// Kind Open enum, repository events: discovered, renamed, transferred, parked, unparked, removed, suspended, unsuspended.
 	Kind       *string   `json:"kind,omitempty"`
 	OccurredAt time.Time `json:"occurred_at"`
 
-	// RuleKind Open enum: file, setting, branch_protection.
-	//
-	// Examples: file
-	RuleKind *RuleKind `json:"rule_kind,omitempty"`
-	RuleName *string   `json:"rule_name,omitempty"`
-
-	// Source Open enum: finding, repository.
+	// Source Open enum: result, repository.
 	Source string `json:"source"`
 
-	// ToReason Open enum. Why a finding has its status: file_missing,
-	// assertion_failed, content_differs, forbidden_present,
-	// setting_mismatch, ruleset_missing, ruleset_mismatch,
-	// out_of_scope_policy, out_of_scope_rule, ignored_global,
-	// ignored_rule, gate_closed, branch_missing, empty_repository,
-	// gate_error, foreign_pr_open, migrated_from_v1. Empty when
-	// compliant.
-	//
-	//
-	// Examples: file_missing, gate_closed
-	ToReason *Reason `json:"to_reason,omitempty"`
-
-	// ToRemediation Open enum: none, pr_open, foreign_pr, applied, dry_run, disabled.
-	//
-	// Examples: pr_open
-	ToRemediation *Remediation `json:"to_remediation,omitempty"`
-
-	// ToStatus Open enum: compliant, non_compliant, not_applicable, unknown.
-	//
-	// Examples: compliant, non_compliant, not_applicable, unknown
-	ToStatus *FindingStatus `json:"to_status,omitempty"`
+	// ToStatus Open enum: compliant, non_compliant, unknown, not_applicable.
+	ToStatus *string `json:"to_status,omitempty"`
 }
 
 // EventPage A page of timeline events.
@@ -180,11 +139,6 @@ type EventPage struct {
 	// fetch the next page; a cursor from different filters is refused.
 	NextCursor *Cursor `json:"next_cursor,omitempty"`
 }
-
-// FindingStatus Open enum: compliant, non_compliant, not_applicable, unknown.
-//
-// Examples: compliant, non_compliant, not_applicable, unknown
-type FindingStatus = string
 
 // Me The caller and the orgs it may see.
 type Me struct {
@@ -213,10 +167,10 @@ type OrgList struct {
 type OrgSummary struct {
 	CompliantPercent *float64 `json:"compliant_percent"`
 
-	// Counts Finding counts by status.
+	// Counts Result counts by status.
 	Counts StatusCounts `json:"counts"`
 
-	// OpenPrs Findings with an open repo-guardian PR on the org's active repositories; equals the total of /findings?org=&remediation=pr_open.
+	// OpenPrs Open repo-guardian pull requests on the org's active repositories.
 	OpenPrs int    `json:"open_prs"`
 	Org     string `json:"org"`
 	Parked  int    `json:"parked"`
@@ -241,22 +195,6 @@ type Problem struct {
 	// Type A URI reference identifying the problem type; "about:blank" when only the status applies.
 	Type string `json:"type"`
 }
-
-// Reason Open enum. Why a finding has its status: file_missing,
-// assertion_failed, content_differs, forbidden_present,
-// setting_mismatch, ruleset_missing, ruleset_mismatch,
-// out_of_scope_policy, out_of_scope_rule, ignored_global,
-// ignored_rule, gate_closed, branch_missing, empty_repository,
-// gate_error, foreign_pr_open, migrated_from_v1. Empty when
-// compliant.
-//
-// Examples: file_missing, gate_closed
-type Reason = string
-
-// Remediation Open enum: none, pr_open, foreign_pr, applied, dry_run, disabled.
-//
-// Examples: pr_open
-type Remediation = string
 
 // Repository One repository.
 type Repository struct {
@@ -294,11 +232,6 @@ type RepositoryPage struct {
 	NextCursor *Cursor `json:"next_cursor,omitempty"`
 }
 
-// RuleKind Open enum: file, setting, branch_protection.
-//
-// Examples: file
-type RuleKind = string
-
 // Status The public service status.
 type Status struct {
 	// Compliance Fleet-wide compliance for the status page.
@@ -315,7 +248,7 @@ type Status struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 }
 
-// StatusCounts Finding counts by status.
+// StatusCounts Result counts by status.
 type StatusCounts struct {
 	Compliant     int `json:"compliant"`
 	NonCompliant  int `json:"non_compliant"`
@@ -414,13 +347,13 @@ type ServerInterface interface {
 	// ListRepositories Repositories in the visible orgs, filtered.
 	// (GET /repositories)
 	ListRepositories(w http.ResponseWriter, r *http.Request, params ListRepositoriesParams)
-	// GetRepository One repository with its installation, last check and every finding.
+	// GetRepository One repository with its last check.
 	// (GET /repositories/{id})
 	GetRepository(w http.ResponseWriter, r *http.Request, id RepositoryID)
 	// ListRepositoryChecks The repository's recent checks, newest first.
 	// (GET /repositories/{id}/checks)
 	ListRepositoryChecks(w http.ResponseWriter, r *http.Request, id RepositoryID, params ListRepositoryChecksParams)
-	// ListRepositoryEvents The repository's timeline, finding and repository events merged, newest first.
+	// ListRepositoryEvents The repository's timeline, result and repository events merged, newest first.
 	// (GET /repositories/{id}/events)
 	ListRepositoryEvents(w http.ResponseWriter, r *http.Request, id RepositoryID, params ListRepositoryEventsParams)
 	// GetStatus Public service status.
@@ -1512,13 +1445,13 @@ type StrictServerInterface interface {
 	// ListRepositories Repositories in the visible orgs, filtered.
 	// (GET /repositories)
 	ListRepositories(ctx context.Context, request ListRepositoriesRequestObject) (ListRepositoriesResponseObject, error)
-	// GetRepository One repository with its installation, last check and every finding.
+	// GetRepository One repository with its last check.
 	// (GET /repositories/{id})
 	GetRepository(ctx context.Context, request GetRepositoryRequestObject) (GetRepositoryResponseObject, error)
 	// ListRepositoryChecks The repository's recent checks, newest first.
 	// (GET /repositories/{id}/checks)
 	ListRepositoryChecks(ctx context.Context, request ListRepositoryChecksRequestObject) (ListRepositoryChecksResponseObject, error)
-	// ListRepositoryEvents The repository's timeline, finding and repository events merged, newest first.
+	// ListRepositoryEvents The repository's timeline, result and repository events merged, newest first.
 	// (GET /repositories/{id}/events)
 	ListRepositoryEvents(ctx context.Context, request ListRepositoryEventsRequestObject) (ListRepositoryEventsResponseObject, error)
 	// GetStatus Public service status.
@@ -1772,71 +1705,66 @@ func (sh *strictHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"8L8BAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

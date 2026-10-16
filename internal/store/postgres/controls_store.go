@@ -15,6 +15,13 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres/controlsdb"
 )
 
+// Check outcomes and the host a repository record names by default.
+const (
+	outcomeSuccess = "success"
+	outcomeError   = "error"
+	defaultHost    = "github.com"
+)
+
 // ControlsStore reads and writes the controls chain's tables: policy
 // activation (IMPL-0028, as the owner) and the evaluator's store.Controls
 // (IMPL-0029, as rg_evaluator).

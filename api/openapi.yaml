@@ -26,8 +26,6 @@ tags:
     description: Who the caller is.
   - name: fleet
     description: Aggregates over the visible orgs.
-  - name: findings
-    description: Rule verdicts per repository.
   - name: repositories
     description: Repositories and their history.
   - name: meta
@@ -115,7 +113,7 @@ paths:
   /repositories/{id}:
     get:
       operationId: getRepository
-      summary: One repository with its installation, last check and every finding.
+      summary: One repository with its last check.
       tags: [repositories]
       parameters:
         - $ref: "#/components/parameters/RepositoryID"
@@ -139,7 +137,7 @@ paths:
   /repositories/{id}/events:
     get:
       operationId: listRepositoryEvents
-      summary: The repository's timeline, finding and repository events merged, newest first.
+      summary: The repository's timeline, result and repository events merged, newest first.
       tags: [repositories]
       parameters:
         - $ref: "#/components/parameters/RepositoryID"
@@ -314,25 +312,6 @@ components:
         An opaque keyset cursor. Pass it back unchanged as `?cursor=` to
         fetch the next page; a cursor from different filters is refused.
       type: string
-    FindingStatus:
-      description: "Open enum: compliant, non_compliant, not_applicable, unknown."
-      type: string
-      examples: [compliant, non_compliant, not_applicable, unknown]
-    Reason:
-      description: |
-        Open enum. Why a finding has its status: file_missing,
-        assertion_failed, content_differs, forbidden_present,
-        setting_mismatch, ruleset_missing, ruleset_mismatch,
-        out_of_scope_policy, out_of_scope_rule, ignored_global,
-        ignored_rule, gate_closed, branch_missing, empty_repository,
-        gate_error, foreign_pr_open, migrated_from_v1. Empty when
-        compliant.
-      type: string
-      examples: [file_missing, gate_closed]
-    Remediation:
-      description: "Open enum: none, pr_open, foreign_pr, applied, dry_run, disabled."
-      type: string
-      examples: [pr_open]
     ParkReason:
       description: "Open enum: access_denied, archived, fork, removed, installation_removed, unknown."
       type: string
@@ -364,7 +343,7 @@ components:
           items:
             type: string
     StatusCounts:
-      description: Finding counts by status.
+      description: Result counts by status.
       type: object
       required: [compliant, non_compliant, not_applicable, unknown]
       properties:
@@ -458,10 +437,6 @@ components:
           $ref: "#/components/schemas/Compliance"
         operations:
           $ref: "#/components/schemas/StatusOperations"
-    RuleKind:
-      description: "Open enum: file, setting, branch_protection."
-      type: string
-      examples: [file]
     OrgSummary:
       description: One org's repositories and compliance.
       type: object
@@ -481,7 +456,7 @@ components:
           type: [number, "null"]
           format: double
         open_prs:
-          description: Findings with an open repo-guardian PR on the org's active repositories; equals the total of /findings?org=&remediation=pr_open.
+          description: Open repo-guardian pull requests on the org's active repositories.
           type: integer
           minimum: 0
     OrgList:
@@ -584,13 +559,14 @@ components:
           $ref: "#/components/schemas/Check"
     Event:
       description: |
-        One timeline entry. A finding event carries the rule and its
-        from/to fields; a repository event carries kind and detail.
+        One timeline entry. A result event carries the control and its status
+        transition (to_status is absent when the result was withdrawn); a
+        repository event carries kind and detail.
       type: object
       required: [source, id, occurred_at]
       properties:
         source:
-          description: "Open enum: finding, repository."
+          description: "Open enum: result, repository."
           type: string
         id:
           type: integer
@@ -598,24 +574,16 @@ components:
         occurred_at:
           type: string
           format: date-time
-        rule_kind:
-          $ref: "#/components/schemas/RuleKind"
-        rule_name:
+        control_id:
           type: string
         from_status:
-          $ref: "#/components/schemas/FindingStatus"
+          description: "Open enum: compliant, non_compliant, unknown, not_applicable."
+          type: string
         to_status:
-          $ref: "#/components/schemas/FindingStatus"
-        from_reason:
-          $ref: "#/components/schemas/Reason"
-        to_reason:
-          $ref: "#/components/schemas/Reason"
-        from_remediation:
-          $ref: "#/components/schemas/Remediation"
-        to_remediation:
-          $ref: "#/components/schemas/Remediation"
+          description: "Open enum: compliant, non_compliant, unknown, not_applicable."
+          type: string
         kind:
-          description: "Open enum, repository events: discovered, renamed, transferred, parked, unparked, removed."
+          description: "Open enum, repository events: discovered, renamed, transferred, parked, unparked, removed, suspended, unsuspended."
           type: string
         detail:
           type: object

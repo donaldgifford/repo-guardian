@@ -3,8 +3,6 @@ package store
 import (
 	"encoding/json"
 	"time"
-
-	"github.com/donaldgifford/repo-guardian/internal/findings"
 )
 
 // Page is one keyset page of an API list. More reports that a further
@@ -14,11 +12,11 @@ type Page[T any] struct {
 	More  bool
 }
 
-// CompliantPercent is the shared compliance math (see compliance.sql):
-// Compliant / (Compliant + NonCompliant), floored to one decimal, nil
-// when nothing is measured. It exists for totals summed across the
-// shared query's rows, so a fleet total agrees with the per-row values
-// the query computes in SQL.
+// CompliantPercent is the shared compliance math (the floor_percent SQL
+// function): Compliant / (Compliant + NonCompliant), floored to one
+// decimal, nil when nothing is measured. It exists for totals summed
+// across the compliance query's rows, so a total agrees with the per-row
+// values the query computes in SQL.
 func CompliantPercent(c StatusCounts) *float64 {
 	measured := c.Compliant + c.NonCompliant
 	if measured == 0 {
@@ -33,133 +31,43 @@ func CompliantPercent(c StatusCounts) *float64 {
 // Add returns the sum of two counts.
 func (c StatusCounts) Add(o StatusCounts) StatusCounts {
 	return StatusCounts{
-		Compliant:     c.Compliant + o.Compliant,
-		NonCompliant:  c.NonCompliant + o.NonCompliant,
-		NotApplicable: c.NotApplicable + o.NotApplicable,
-		Unknown:       c.Unknown + o.Unknown,
+		Compliant: c.Compliant + o.Compliant, NonCompliant: c.NonCompliant + o.NonCompliant,
+		NotApplicable: c.NotApplicable + o.NotApplicable, Unknown: c.Unknown + o.Unknown,
 	}
 }
 
-// Counts returns the row's status counts.
-func (c *ComplianceCount) Counts() StatusCounts {
-	return StatusCounts{Compliant: c.Compliant, NonCompliant: c.NonCompliant, NotApplicable: c.NotApplicable, Unknown: c.Unknown}
+// Counts is the posture row's result buckets as StatusCounts.
+func (p *ControlPosture) Counts() StatusCounts {
+	return StatusCounts{Compliant: p.Compliant, NonCompliant: p.NonCompliant, NotApplicable: p.NotApplicable, Unknown: p.Unknown}
 }
 
-// FindingReasonCount is the number of findings with one reason.
-type FindingReasonCount struct {
-	Reason findings.Reason
-	Count  int
-}
+// ParkReason says why a repository was parked. It matches the
+// repositories.park_reason CHECK constraint.
+type ParkReason string
 
-// OrgRepositoryCount counts one org's repositories in one state.
-type OrgRepositoryCount struct {
-	Org        string
-	Active     bool
-	ParkReason ParkReason
-	Count      int
-}
-
-// RuleView is one rule across the visible orgs.
-type RuleView struct {
-	// Current holds the rule's shared-query rows, one per org.
-	Current  []ComplianceCount
-	Reasons  []FindingReasonCount
-	Oldest   []APIFinding
-	Previous []ComplianceSnapshot
-}
-
-// OrgsView is every visible org's repositories and compliance.
-type OrgsView struct {
-	Current      []ComplianceCount
-	Repositories []OrgRepositoryCount
-	// OpenPRs counts findings with an open repo-guardian PR per org,
-	// keyed by the lower-cased org.
-	OpenPRs map[string]int
-}
-
-// OrgView is one org's repositories, rules and not-applicable reasons.
-type OrgView struct {
-	Org           string
-	Current       []ComplianceCount
-	Previous      []ComplianceSnapshot
-	Repositories  []OrgRepositoryCount
-	NotApplicable []FindingReasonCount
-}
-
-// APIFinding is a finding as the API lists it.
-type APIFinding struct {
-	RepositoryID    int64
-	Org             string
-	Repository      string
-	Kind            findings.RuleKind
-	RuleName        string
-	Status          findings.Status
-	Reason          findings.Reason
-	Remediation     findings.Remediation
-	StatusSince     time.Time
-	LastEvaluatedAt time.Time
-	// PRStale is computed in SQL against FindingFilter.StaleBefore.
-	PRStale bool
-	// Evidence is the stored object, with any PR under "pr".
-	Evidence json.RawMessage
-}
-
-// PRCreatedAt reads the PR's created_at from the evidence: the value
-// FindingSortPRAge orders by. nil when the evidence names no PR or no
-// time.
-func (f *APIFinding) PRCreatedAt() *time.Time {
-	var ev struct {
-		PR *struct {
-			CreatedAt *time.Time `json:"created_at"`
-		} `json:"pr"`
-	}
-
-	if json.Unmarshal(f.Evidence, &ev) != nil || ev.PR == nil {
-		return nil
-	}
-
-	return ev.PR.CreatedAt
-}
-
-// FindingKey orders findings for paging.
-type FindingKey struct {
-	RepositoryID int64
-	Kind         findings.RuleKind
-	RuleName     string
-
-	// PRCreatedAt is the PR's creation time under FindingSortPRAge; nil
-	// is a finding with no PR, which sorts last.
-	PRCreatedAt *time.Time
-}
-
-// FindingSort orders a findings page (IMPL-0031 7.2).
-type FindingSort string
-
-// The findings sorts. The zero value is FindingSortDefault.
+// ParkReason values.
 const (
-	// FindingSortDefault orders by (repository id, kind, rule).
-	FindingSortDefault FindingSort = ""
-	// FindingSortPRAge orders by the PR's created_at ascending, findings
-	// without a PR last, then by the default key.
-	FindingSortPRAge FindingSort = "pr_age"
+	ParkAccessDenied        ParkReason = "access_denied"
+	ParkArchived            ParkReason = "archived"
+	ParkFork                ParkReason = "fork"
+	ParkRemoved             ParkReason = "removed"
+	ParkInstallationRemoved ParkReason = "installation_removed"
+	ParkSuspended           ParkReason = "suspended"
+	ParkUnknown             ParkReason = "unknown"
 )
 
-// FindingFilter selects findings. Zero fields do not filter.
-type FindingFilter struct {
-	Status      findings.Status
-	Reason      findings.Reason
-	Remediation findings.Remediation
-	Org         string
-	Kind        findings.RuleKind
-	RuleName    string
-	PRStale     *bool
-	SinceBefore *time.Time
-	// StaleBefore is now minus stale_after: an open PR created before it
-	// is stale.
-	StaleBefore time.Time
-	After       *FindingKey
-	Limit       int
-	Sort        FindingSort
+// Repository is one row of the repositories table.
+type Repository struct {
+	ID             int64
+	Org            string
+	Name           string
+	ProviderRepoID *int64
+	Active         bool
+	ParkReason     *ParkReason
+	ParkedAt       *time.Time
+	DiscoveredAt   time.Time
+	NextDueAt      *time.Time
+	LastCheckedAt  *time.Time
 }
 
 // RepositoryFilter selects repositories. Zero fields do not filter.
@@ -174,22 +82,28 @@ type RepositoryFilter struct {
 	Limit   int
 }
 
-// InstallationStatus is an installation and its last rate snapshot.
-type InstallationStatus struct {
-	InstallationID int64
-	Account        string
-	SuspendedAt    *time.Time
-	RemovedAt      *time.Time
-	RateLimit      *int
-	RateRemaining  *int
-	RateResetAt    *time.Time
-	RateObservedAt *time.Time
+// OrgRepositoryCount counts one org's repositories in one state.
+type OrgRepositoryCount struct {
+	Org        string
+	Active     bool
+	ParkReason ParkReason
+	Count      int
 }
 
-// Check is one check of a repository.
+// OrgsView is every visible org's repositories and compliance.
+type OrgsView struct {
+	Repositories []OrgRepositoryCount
+	// Compliance holds the controls compliance rows, every lineage.
+	Compliance []ControlPosture
+	// OpenPRs counts open repo-guardian pull requests per org, keyed by
+	// the lower-cased org.
+	OpenPRs map[string]int
+}
+
+// Check is one evaluation of a repository (a checks row).
 type Check struct {
 	ID            int64
-	Trigger       Trigger
+	Trigger       string
 	Outcome       string
 	PolicyVersion string
 	StartedAt     time.Time
@@ -197,37 +111,30 @@ type Check struct {
 	Error         string
 }
 
-// RepositoryDetail is a repository with its installation, last check and
-// findings.
+// RepositoryDetail is a repository with its last check.
 type RepositoryDetail struct {
-	Repository   Repository
-	Installation InstallationStatus
-	LastCheck    *Check
-	Findings     []APIFinding
+	Repository Repository
+	LastCheck  *Check
 }
 
 // Event sources in the merged timeline.
 const (
-	EventSourceFinding    = "finding"
+	EventSourceResult     = "result"
 	EventSourceRepository = "repository"
 )
 
-// Event is one timeline entry: a finding transition or a repository
-// event, by Source.
+// Event is one timeline entry: a control result transition or a
+// repository event, by Source.
 type Event struct {
 	Source     string
 	ID         int64
 	OccurredAt time.Time
 
-	// Finding events.
-	Kind            findings.RuleKind
-	RuleName        string
-	FromStatus      *findings.Status
-	ToStatus        *findings.Status
-	FromReason      *findings.Reason
-	ToReason        *findings.Reason
-	FromRemediation *findings.Remediation
-	ToRemediation   *findings.Remediation
+	// Result events: the control and its status transition. ToStatus is
+	// nil when the result was withdrawn.
+	ControlID  string
+	FromStatus *string
+	ToStatus   *string
 
 	// Repository events.
 	RepositoryKind string
@@ -241,51 +148,35 @@ type EventKey struct {
 	ID         int64
 }
 
-// HistoryKey orders snapshots for paging.
-type HistoryKey struct {
-	SnapshotAt time.Time
-	Org        string
-	Kind       findings.RuleKind
-	RuleName   string
-}
+// ServiceRunKind names a service run. It matches the service_runs.kind
+// CHECK constraint.
+type ServiceRunKind string
 
-// HistoryAggregate selects how snapshots are summed (IMPL-0031 7.1).
-type HistoryAggregate string
-
-// The history aggregates. The zero value is AggregateNone.
+// ServiceRunKind values.
 const (
-	// AggregateNone returns one point per (snapshot, org, kind, rule).
-	AggregateNone HistoryAggregate = ""
-	// AggregateFleet sums every org and rule per snapshot; the points
-	// carry no org, kind or rule.
-	AggregateFleet HistoryAggregate = "fleet"
-	// AggregateOrg sums every rule per (snapshot, org); the points carry
-	// no kind or rule.
-	AggregateOrg HistoryAggregate = "org"
+	ServiceRunDiscovery            ServiceRunKind = "discovery"
+	ServiceRunSnapshot             ServiceRunKind = "snapshot"
+	ServiceRunPolicyRollout        ServiceRunKind = "policy_rollout"
+	ServiceRunSweep                ServiceRunKind = "sweep"
+	ServiceRunMaintenance          ServiceRunKind = "maintenance"
+	ServiceRunRemediationDiscovery ServiceRunKind = "remediation_discovery"
 )
 
-// HistoryFilter selects stored snapshots. Zero fields do not filter.
-type HistoryFilter struct {
-	Org      string
-	Kind     findings.RuleKind
-	RuleName string
-	From     *time.Time
-	To       *time.Time
-	After    *HistoryKey
-	Limit    int
-
-	// Aggregate sums the selected rows. An aggregated snapshot's Percent
-	// is floored in SQL; an unaggregated one leaves Percent nil and the
-	// caller derives it from the counts.
-	Aggregate HistoryAggregate
+// ServiceRun is one service workflow run.
+type ServiceRun struct {
+	Kind       ServiceRunKind
+	Success    bool
+	StartedAt  time.Time
+	FinishedAt time.Time
+	Detail     map[string]any
 }
 
-// CurrentPolicy is the newest policy version and its rollout.
-type CurrentPolicy struct {
-	Version            string
-	FirstSeenAt        time.Time
-	RolloutCompletedAt *time.Time
-	Summary            PolicySummary
+// RateSnapshot is an installation's last observed X-RateLimit-* values.
+type RateSnapshot struct {
+	Limit      int
+	Remaining  int
+	ResetAt    time.Time
+	ObservedAt time.Time
 }
 
 // StatusInputs is everything the status page is computed from, read in
@@ -301,9 +192,10 @@ type StatusInputs struct {
 	ActiveRepositories int
 	// LastServiceSuccess holds each service's last successful run.
 	LastServiceSuccess map[ServiceRunKind]time.Time
-	// Rates holds live installations' rate snapshots.
+	// Rates holds live installations' rate snapshots. The controls
+	// schema stores none; IMPL-0029 8.5 rebuilds the budget component.
 	Rates []RateSnapshot
-	// Compliance is the fleet's finding counts, from the shared query.
+	// Compliance is the fleet's result counts, from the compliance query.
 	Compliance StatusCounts
 	// History is fleet compliance at each UTC day's last snapshot over
 	// the last 30 days, oldest first.
@@ -311,8 +203,8 @@ type StatusInputs struct {
 	// CheckedLastDay counts repositories with a finished check in the
 	// last 24h.
 	CheckedLastDay int
-	// Rollout is the newest policy version's rollout; nil before any
-	// version is recorded.
+	// Rollout is the current policy version's rollout; nil before any
+	// version is activated.
 	Rollout *Rollout
 	// LastSnapshot is nil before the first compliance snapshot.
 	LastSnapshot *time.Time

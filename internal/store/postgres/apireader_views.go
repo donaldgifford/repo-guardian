@@ -9,33 +9,29 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/donaldgifford/repo-guardian/internal/findings"
 	"github.com/donaldgifford/repo-guardian/internal/store"
-	"github.com/donaldgifford/repo-guardian/internal/store/postgres/sqlcdb"
+	"github.com/donaldgifford/repo-guardian/internal/store/postgres/controlsdb"
 )
 
-// complianceScope maps a non-empty APIScope onto the shared compliance
-// query's Scope, where no orgs means every org. Callers must handle an
-// empty APIScope first: passing it through would read the whole fleet.
-func complianceScope(scope store.APIScope) store.Scope {
-	if scope.All() {
-		return store.Scope{}
-	}
-
-	return store.Scope{Orgs: scope.Orgs()}
-}
-
-// Orgs returns every visible org's repositories and compliance rows.
+// Orgs returns every visible org's repositories, compliance rows and
+// open pull requests.
 func (r *APIReader) Orgs(ctx context.Context, scope store.APIScope) (view *store.OrgsView, err error) {
 	defer func(start time.Time) { observeQuery("api_orgs", start, err) }(time.Now())
 
 	view = &store.OrgsView{}
+	// The compliance query reads every org for an empty org list, so an
+	// empty APIScope must stop here.
 	if scope.Empty() {
 		return view, nil
 	}
 
-	err = r.readOnly(ctx, func(q *sqlcdb.Queries) error {
-		if view.Repositories, err = orgRepositories(ctx, q, scope, nil); err != nil {
+	var orgs []string
+	if !scope.All() {
+		orgs = scope.Orgs()
+	}
+
+	err = r.readOnly(ctx, func(q *controlsdb.Queries) error {
+		if view.Repositories, err = orgRepositories(ctx, q, scope); err != nil {
 			return err
 		}
 
@@ -43,7 +39,7 @@ func (r *APIReader) Orgs(ctx context.Context, scope store.APIScope) (view *store
 			return err
 		}
 
-		view.Current, err = compliance(ctx, q, complianceScope(scope))
+		view.Compliance, err = controlCompliance(ctx, q, orgs, store.LineageAll)
 
 		return err
 	})
@@ -54,24 +50,24 @@ func (r *APIReader) Orgs(ctx context.Context, scope store.APIScope) (view *store
 	return view, nil
 }
 
-// orgOpenPRs counts findings with an open PR per org, keyed by the
-// lower-cased org.
-func orgOpenPRs(ctx context.Context, q *sqlcdb.Queries, scope store.APIScope) (map[string]int, error) {
-	rows, err := q.APIOrgOpenPRs(ctx, sqlcdb.APIOrgOpenPRsParams{ScopeAll: scope.All(), ScopeOrgs: scope.Orgs()})
+// orgOpenPRs counts open pull requests per org, keyed by the lower-cased
+// org.
+func orgOpenPRs(ctx context.Context, q *controlsdb.Queries, scope store.APIScope) (map[string]int, error) {
+	rows, err := q.APIOrgOpenPRs(ctx, controlsdb.APIOrgOpenPRsParams{ScopeAll: scope.All(), ScopeOrgs: scope.Orgs()})
 	if err != nil {
 		return nil, fmt.Errorf("open prs: %w", err)
 	}
 
 	out := make(map[string]int, len(rows))
 	for _, r := range rows {
-		out[strings.ToLower(r.Org)] += int(r.Findings)
+		out[strings.ToLower(r.Org)] += int(r.PullRequests)
 	}
 
 	return out, nil
 }
 
-func orgRepositories(ctx context.Context, q *sqlcdb.Queries, scope store.APIScope, org *string) ([]store.OrgRepositoryCount, error) {
-	rows, err := q.APIOrgRepositories(ctx, sqlcdb.APIOrgRepositoriesParams{ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(), Org: org})
+func orgRepositories(ctx context.Context, q *controlsdb.Queries, scope store.APIScope) ([]store.OrgRepositoryCount, error) {
+	rows, err := q.APIOrgRepositories(ctx, controlsdb.APIOrgRepositoriesParams{ScopeAll: scope.All(), ScopeOrgs: scope.Orgs()})
 	if err != nil {
 		return nil, fmt.Errorf("repositories: %w", err)
 	}
@@ -116,7 +112,7 @@ func (r *APIReader) Repositories(
 ) (p store.Page[store.Repository], err error) {
 	defer func(start time.Time) { observeQuery("api_repositories", start, err) }(time.Now())
 
-	params := sqlcdb.APIRepositoriesParams{
+	params := controlsdb.APIRepositoriesParams{
 		ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(),
 		Org: optString(f.Org), Active: f.Active, ParkReason: optString(f.ParkReason), NamePrefix: optString(f.NamePrefix),
 		HasAfter: f.AfterID != 0, AfterID: f.AfterID, PageLimit: pageLimit(f.Limit),
@@ -124,7 +120,7 @@ func (r *APIReader) Repositories(
 
 	var items []store.Repository
 
-	err = r.readOnly(ctx, func(q *sqlcdb.Queries) error {
+	err = r.readOnly(ctx, func(q *controlsdb.Queries) error {
 		rows, err := q.APIRepositories(ctx, params)
 		if err != nil {
 			return err
@@ -144,19 +140,18 @@ func (r *APIReader) Repositories(
 	return page(items, f.Limit), nil
 }
 
-func apiRepository(row *sqlcdb.APIRepositoriesRow) store.Repository {
+func apiRepository(row *controlsdb.APIRepositoriesRow) store.Repository {
 	return store.Repository{
-		ID: row.ID, Org: row.Org, Name: row.Name, ProviderRepoID: row.ProviderRepoID, InstallationID: row.InstallationID,
+		ID: row.ID, Org: row.Org, Name: row.Name, ProviderRepoID: row.ProviderRepoID,
 		Active: row.Active, ParkReason: typedPtr[store.ParkReason](row.ParkReason), ParkedAt: row.ParkedAt,
 		DiscoveredAt: row.DiscoveredAt, NextDueAt: row.NextDueAt, LastCheckedAt: row.LastCheckedAt,
-		LastCheckOutcome: row.LastCheckOutcome, PolicyVersion: row.PolicyVersion,
 	}
 }
 
 // visibleRepository reads one repository in scope, ErrNotFound when it
 // is unknown or invisible.
-func visibleRepository(ctx context.Context, q *sqlcdb.Queries, scope store.APIScope, id int64) (*sqlcdb.APIRepositoryRow, error) {
-	row, err := q.APIRepository(ctx, sqlcdb.APIRepositoryParams{ID: id, ScopeAll: scope.All(), ScopeOrgs: scope.Orgs()})
+func visibleRepository(ctx context.Context, q *controlsdb.Queries, scope store.APIScope, id int64) (*controlsdb.APIRepositoryRow, error) {
+	row, err := q.APIRepository(ctx, controlsdb.APIRepositoryParams{ID: id, ScopeAll: scope.All(), ScopeOrgs: scope.Orgs()})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, store.ErrNotFound
 	}
@@ -175,19 +170,15 @@ func (r *APIReader) Repository(ctx context.Context, scope store.APIScope, id int
 
 	d = &store.RepositoryDetail{}
 
-	err = r.readOnly(ctx, func(q *sqlcdb.Queries) error {
+	err = r.readOnly(ctx, func(q *controlsdb.Queries) error {
 		row, err := visibleRepository(ctx, q, scope, id)
 		if err != nil {
 			return err
 		}
 
-		d.Repository = apiRepository(&sqlcdb.APIRepositoriesRow{
-			ID: row.ID, Org: row.Org, Name: row.Name, ProviderRepoID: row.ProviderRepoID, InstallationID: row.InstallationID,
-			Active: row.Active, ParkReason: row.ParkReason, ParkedAt: row.ParkedAt, DiscoveredAt: row.DiscoveredAt,
-			NextDueAt: row.NextDueAt, LastCheckedAt: row.LastCheckedAt, LastCheckOutcome: row.LastCheckOutcome,
-			PolicyVersion: row.PolicyVersion,
-		})
-		checks, err := q.APIRepositoryChecks(ctx, sqlcdb.APIRepositoryChecksParams{
+		d.Repository = apiRepository((*controlsdb.APIRepositoriesRow)(row))
+
+		checks, err := q.APIRepositoryChecks(ctx, controlsdb.APIRepositoryChecksParams{
 			RepositoryID: id, ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(), PageLimit: 1,
 		})
 		if err != nil {
@@ -208,9 +199,9 @@ func (r *APIReader) Repository(ctx context.Context, scope store.APIScope, id int
 	return d, nil
 }
 
-func apiCheck(row *sqlcdb.APIRepositoryChecksRow) store.Check {
+func apiCheck(row *controlsdb.APIRepositoryChecksRow) store.Check {
 	return store.Check{
-		ID: row.ID, Trigger: store.Trigger(row.Trigger), Outcome: row.Outcome, PolicyVersion: row.PolicyVersion,
+		ID: row.ID, Trigger: row.Trigger, Outcome: row.Outcome, PolicyVersion: row.PolicyVersion,
 		StartedAt: row.StartedAt, FinishedAt: row.FinishedAt, Error: derefOr(row.Error),
 	}
 }
@@ -225,12 +216,12 @@ func (r *APIReader) RepositoryChecks(
 
 	var items []store.Check
 
-	err = r.readOnly(ctx, func(q *sqlcdb.Queries) error {
+	err = r.readOnly(ctx, func(q *controlsdb.Queries) error {
 		if _, err := visibleRepository(ctx, q, scope, id); err != nil {
 			return err
 		}
 
-		rows, err := q.APIRepositoryChecks(ctx, sqlcdb.APIRepositoryChecksParams{
+		rows, err := q.APIRepositoryChecks(ctx, controlsdb.APIRepositoryChecksParams{
 			RepositoryID: id, ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(),
 			HasAfter: afterID != 0, AfterID: afterID, PageLimit: pageLimit(limit),
 		})
@@ -259,7 +250,7 @@ func (r *APIReader) RepositoryEvents(
 ) (p store.Page[store.Event], err error) {
 	defer func(start time.Time) { observeQuery("api_repository_events", start, err) }(time.Now())
 
-	params := sqlcdb.APIRepositoryEventsParams{
+	params := controlsdb.APIRepositoryEventsParams{
 		RepositoryID: id, ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(), PageLimit: pageLimit(limit),
 	}
 
@@ -270,7 +261,7 @@ func (r *APIReader) RepositoryEvents(
 
 	var items []store.Event
 
-	err = r.readOnly(ctx, func(q *sqlcdb.Queries) error {
+	err = r.readOnly(ctx, func(q *controlsdb.Queries) error {
 		if _, err := visibleRepository(ctx, q, scope, id); err != nil {
 			return err
 		}
@@ -294,14 +285,30 @@ func (r *APIReader) RepositoryEvents(
 	return page(items, limit), nil
 }
 
-func apiEvent(row *sqlcdb.APIRepositoryEventsRow) store.Event {
+func apiEvent(row *controlsdb.APIRepositoryEventsRow) store.Event {
 	return store.Event{
 		Source: row.Source, ID: row.ID, OccurredAt: row.OccurredAt,
-		Kind: findings.RuleKind(row.RuleKind), RuleName: row.RuleName,
-		FromStatus: typedPtr[findings.Status](row.FromStatus), ToStatus: typedPtr[findings.Status](row.ToStatus),
-		FromReason: typedPtr[findings.Reason](row.FromReason), ToReason: typedPtr[findings.Reason](row.ToReason),
-		FromRemediation: typedPtr[findings.Remediation](row.FromRemediation),
-		ToRemediation:   typedPtr[findings.Remediation](row.ToRemediation),
-		RepositoryKind:  derefOr(row.Kind), Detail: row.Detail,
+		ControlID: row.ControlID, FromStatus: row.FromStatus, ToStatus: row.ToStatus,
+		RepositoryKind: derefOr(row.Kind), Detail: row.Detail,
 	}
+}
+
+// typedPtr converts a nullable text column to a nullable string type.
+func typedPtr[T ~string](v *string) *T {
+	if v == nil {
+		return nil
+	}
+
+	t := T(*v)
+
+	return &t
+}
+
+// derefOr returns *v, or "" for nil.
+func derefOr(v *string) string {
+	if v == nil {
+		return ""
+	}
+
+	return *v
 }

@@ -76,19 +76,13 @@ func (s *server) ListOrgs(ctx context.Context, _ gen.ListOrgsRequestObject) (gen
 		return nil, err
 	}
 
-	totals := orgTotals(view.Repositories, view.Current)
+	totals := orgTotals(view.Repositories, view.Compliance)
 	out := gen.ListOrgs200JSONResponse{Items: make([]gen.OrgSummary, 0, len(totals))}
 
 	for i := range totals {
 		t := &totals[i]
-		parked := 0
-
-		for _, pc := range t.parked {
-			parked += pc.Count
-		}
-
 		out.Items = append(out.Items, gen.OrgSummary{
-			Org: t.org, Tracked: t.tracked, Parked: parked, Counts: counts(t.counts), CompliantPercent: store.CompliantPercent(t.counts),
+			Org: t.org, Tracked: t.tracked, Parked: t.parked, Counts: counts(t.counts), CompliantPercent: store.CompliantPercent(t.counts),
 			OpenPrs: view.OpenPRs[strings.ToLower(t.org)],
 		})
 	}

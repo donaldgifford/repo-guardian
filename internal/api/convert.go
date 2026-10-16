@@ -43,7 +43,7 @@ func repositoryOut(r *store.Repository) gen.Repository {
 
 func checkOut(c *store.Check) gen.Check {
 	out := gen.Check{
-		Id: c.ID, Trigger: string(c.Trigger), Outcome: c.Outcome, PolicyVersion: c.PolicyVersion,
+		Id: c.ID, Trigger: c.Trigger, Outcome: c.Outcome, PolicyVersion: c.PolicyVersion,
 		StartedAt: c.StartedAt, FinishedAt: c.FinishedAt, Error: optStr(c.Error),
 	}
 
@@ -73,10 +73,7 @@ func eventOut(e *store.Event) (gen.Event, error) {
 		return out, nil
 	}
 
-	out.RuleKind, out.RuleName = optStr(e.Kind), optStr(e.RuleName)
-	out.FromStatus, out.ToStatus = strPtr(e.FromStatus), strPtr(e.ToStatus)
-	out.FromReason, out.ToReason = strPtr(e.FromReason), strPtr(e.ToReason)
-	out.FromRemediation, out.ToRemediation = strPtr(e.FromRemediation), strPtr(e.ToRemediation)
+	out.ControlId, out.FromStatus, out.ToStatus = optStr(e.ControlID), e.FromStatus, e.ToStatus
 
 	return out, nil
 }

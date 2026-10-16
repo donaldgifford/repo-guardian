@@ -7,7 +7,6 @@ const (
 	ServiceDiscovery     = "discovery"
 	ServiceSnapshot      = "snapshot"
 	ServicePolicyRollout = "policy_rollout"
-	ServiceBootstrap     = "bootstrap"
 )
 
 // DiscoveryInput is ControlsDiscoveryWorkflow's input. A zero InstallationID

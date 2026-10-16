@@ -12,9 +12,15 @@
 -- the lineage it would have had. lineage filters: 'all', 'baseline'
 -- (baseline_control set, whichever layer fulfils it, D17) or 'org_added'.
 -- orgs scopes the result; lower-case the names, empty means every org.
+--
+-- PERF: posture is MATERIALIZED so each row's bucket (and its suspension
+-- subquery) is computed once. Inlined, every FILTER below re-evaluated
+-- the CASE, and the inflated cost estimate tipped the query into JIT:
+-- 1.1s at 20k repositories and 200k assignments, 200ms materialized
+-- (IMPL-0029 7.4, TestAPIPerf).
 
 -- name: ControlCompliance :many
-WITH posture AS (
+WITH posture AS MATERIALIZED (
     SELECT r.org, ca.control_id,
            CASE WHEN ca.decision <> 'excluded' THEN ca.decision
                 WHEN ca.baseline_control IS NULL THEN 'org_added'

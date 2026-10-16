@@ -3,7 +3,6 @@
 package postgres_test
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -15,62 +14,17 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/api"
 	"github.com/donaldgifford/repo-guardian/internal/api/apitest"
 	"github.com/donaldgifford/repo-guardian/internal/api/gen"
-	"github.com/donaldgifford/repo-guardian/internal/findings"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres"
 )
 
-// seedTwoOrgs adds acme-web (two repositories, one failing, one with an
-// open PR) and acme-pay (one compliant, one parked) to f.
-func seedTwoOrgs(t *testing.T, f *v2Fixture) {
-	t.Helper()
-
-	ctx := context.Background()
-	prAt := t0.Add(-40 * 24 * time.Hour)
-
-	repo := func(org, name string) int64 {
-		t.Helper()
-
-		res, err := f.store.UpsertDiscovered(ctx, &store.DiscoveredRepo{Org: org, Name: name, InstallationID: testInstallation})
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		return res.ID
-	}
-
-	record := func(id int64, key string, outcomes ...store.Outcome) {
-		t.Helper()
-
-		if _, err := f.store.RecordCheck(ctx, &store.CheckRecord{
-			Key: key, RepositoryID: id, InstallationID: testInstallation, Trigger: store.TriggerSchedule,
-			PolicyVersion: "v2:test", StartedAt: t0, FinishedAt: t0, Outcomes: outcomes,
-		}); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	withPR := missing("codeowners", "CODEOWNERS")
-	withPR.Remediation = findings.RemediationPROpen
-	withPR.PR = &findings.PREvidence{Number: 7, URL: "https://github.com/acme-web/b/pull/7", CreatedAt: prAt}
-
-	record(f.repoID, "w1", compliant("codeowners"))
-	record(repo("acme-web", "b"), "w2", withPR)
-	record(repo("acme-pay", "c"), "p1", compliant("codeowners"))
-
-	parked := repo("Acme-Pay", "d")
-	if err := f.store.Park(ctx, parked, store.ParkArchived, true); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestAPIReader_OrgsValidateAndAreScopedInSQL(t *testing.T) {
 	t.Parallel()
 
-	f := newV2Fixture(t)
+	f := newAPIFixture(t)
 	seedTwoOrgs(t, f)
 
-	pool, err := postgres.NewReadOnlyPool(t.Context(), f.dsn)
+	pool, err := postgres.NewReadOnlyPool(t.Context(), f.dsns.Evaluator)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +51,8 @@ func TestAPIReader_OrgsValidateAndAreScopedInSQL(t *testing.T) {
 	}
 
 	pay, web := all.Items[1], all.Items[2]
-	if pay.Tracked != 1 || pay.Parked != 1 || pay.Counts.Compliant != 1 {
+	// d is archived: parked, and out of compliance with its results cleared.
+	if pay.Tracked != 1 || pay.Parked != 1 || pay.Counts.Compliant != 1 || pay.Counts.NonCompliant != 0 {
 		t.Errorf("acme-pay = %+v, want one tracked, one parked (case-folded), one compliant", pay)
 	}
 
@@ -126,7 +81,7 @@ func TestAPIReader_OrgsValidateAndAreScopedInSQL(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(none.Repositories) != 0 || len(none.Current) != 0 {
+	if len(none.Repositories) != 0 || len(none.Compliance) != 0 {
 		t.Errorf("empty-scope orgs = %+v, want nothing", none)
 	}
 }
@@ -134,15 +89,15 @@ func TestAPIReader_OrgsValidateAndAreScopedInSQL(t *testing.T) {
 func TestReadOnlyPool_RefusesWrites(t *testing.T) {
 	t.Parallel()
 
-	f := newV2Fixture(t)
+	f := newAPIFixture(t)
 
-	pool, err := postgres.NewReadOnlyPool(t.Context(), f.dsn)
+	pool, err := postgres.NewReadOnlyPool(t.Context(), f.dsns.Evaluator)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
 
-	_, err = pool.Exec(t.Context(), `INSERT INTO installations (installation_id, account_login) VALUES (99, 'x')`)
+	_, err = pool.Exec(t.Context(), `INSERT INTO repositories (org, name) VALUES ('x', 'y')`)
 	if err == nil || !strings.Contains(err.Error(), "read-only") {
 		t.Errorf("INSERT through the read-only pool = %v, want a read-only transaction error", err)
 	}

@@ -1576,10 +1576,44 @@ half-switched binary.
   checker/reconciler entries. `internal/findings` goes in 7.4 with its
   importers (the store, the store's postgres package and the API), so the
   tree compiles at every commit.
-- [ ] 7.4 Re-cut the findings importers: `internal/store` (`findings.go`,
+- [x] 7.4 Re-cut the findings importers: `internal/store` (`findings.go`,
   `api_views.go`, `util.go`, `v2.go`), `internal/store/postgres`
   (`v2store*.go`, `apireader*.go`, `report.go`), `internal/activities`
   and `internal/report` onto `store.Controls`.
+  Done (after 7.6, see there):
+  - **Deleted.** `internal/findings`; `internal/store` `findings.go` and
+    `v2.go` (the Writer/Reader interfaces and their generated mocks, plus
+    the `.mockery.yaml` entry); `internal/store/postgres` `v2store*.go`,
+    `identity.go` and their tests, `report_v2_integration_test.go`, the
+    rc revert spike (its fix is tested on the controls chain), and the rc
+    API queries (`queries/api_*.sql`, `status.sql`).
+  - **`internal/store` now** holds only what the controls line reads: the
+    API views and status inputs, `ParkReason` (now with `suspended`), the
+    controls `ServiceRunKind`s, and a self-contained `Truncate`.
+    `RepositoryDetail` is repository plus last check. `Event` carries
+    control result transitions (`result_events` with `rule_id IS NULL`)
+    beside repository events, so the spec's `Event` swapped its finding
+    fields for `control_id` and string statuses, and the
+    `RuleKind`/`FindingStatus`/`Reason`/`Remediation` schemas went.
+  - **`APIReader`** reads `controlsdb` over new
+    `queries_controls/api_repositories.sql` and `status.sql`.
+    `TestAPIQueries_AreScoped` scans `queries_controls/`. `/orgs` sums the
+    controls compliance query (`controlCompliance`, shared with
+    `ControlsStore.ControlCompliance`). Its `open_prs` counts open
+    pull-request remediations. Status rollout follows `activated_at`
+    (D14), and rate snapshots are empty until 8.5.
+  - **Already on `store.Controls`:** `internal/activities` and
+    `internal/report`; neither needed changes.
+  - **Tests.** The API integration tests run on a new controls fixture
+    (`api_fixture_integration_test.go`: rg_evaluator,
+    `seedTwoOrgs`/`evaluate`/`park`/`openPR`), and the perf seed was
+    rewritten for the controls schema.
+  - **Perf.** `TestAPIPerf` at 20k repositories and 200k assignments:
+    every repository read is p99 < 2ms. `/orgs` measured p99 1.1s, mostly
+    JIT, caused by the inlined posture CTE re-evaluating its bucket per
+    FILTER. With `posture AS MATERIALIZED` it is p50 198ms / p99 319ms,
+    still over the 100ms target. Phase 8's `/orgs` rebuild (8.1–8.3)
+    owns closing that gap.
 - [ ] 7.5 Remove the rc schema code: `migrations_v2/`, the rc goose
   wiring, `adopt_v1.go`, `backfill_v1.go`, `dry_run.go`, `CheckV1Idle`,
   `pgtest/v1sql`, `migrations/` (golang-migrate), `queries/` and

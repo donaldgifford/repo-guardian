@@ -3,7 +3,7 @@
 //   sqlc v1.31.1
 // source: status.sql
 
-package sqlcdb
+package controlsdb
 
 import (
 	"context"
@@ -29,9 +29,9 @@ type StatusChecksRow struct {
 	ActiveRepositories int32
 }
 
-// Status page inputs (DESIGN-0027 § Status page). Global and unscoped:
-// the page is aggregate-only and never names an org. Read by the
-// refresher every 30s, never per request.
+// Status page inputs (DESIGN-0027 § Status page) over the controls
+// schema. Global and unscoped: the page is aggregate-only and never
+// names an org. Read by the refresher every 30s, never per request.
 func (q *Queries) StatusChecks(ctx context.Context, since time.Time) (StatusChecksRow, error) {
 	row := q.db.QueryRow(ctx, statusChecks, since)
 	var i StatusChecksRow
@@ -52,10 +52,7 @@ WITH daily AS (
     WHERE cs.snapshot_at >= $1::timestamptz
     ORDER BY date_trunc('day', cs.snapshot_at AT TIME ZONE 'UTC'), cs.snapshot_at DESC
 )
-SELECT s.snapshot_at,
-       CASE WHEN sum(s.compliant) + sum(s.non_compliant) = 0 THEN NULL
-            ELSE (floor(sum(s.compliant) * 1000.0 / (sum(s.compliant) + sum(s.non_compliant))) / 10)::numeric
-       END AS compliant_percent
+SELECT s.snapshot_at, floor_percent(sum(s.compliant), sum(s.compliant) + sum(s.non_compliant))::numeric AS compliant_percent
 FROM compliance_snapshots s
 JOIN daily d ON d.snapshot_at = s.snapshot_at
 GROUP BY s.snapshot_at
@@ -68,8 +65,7 @@ type StatusComplianceHistoryRow struct {
 }
 
 // Fleet compliance at each UTC day's last snapshot since the given time,
-// summed over every org and rule, floored to one decimal like the shared
-// compliance query.
+// summed over every org, control and lineage.
 func (q *Queries) StatusComplianceHistory(ctx context.Context, since time.Time) ([]StatusComplianceHistoryRow, error) {
 	rows, err := q.db.Query(ctx, statusComplianceHistory, since)
 	if err != nil {
@@ -95,7 +91,7 @@ SELECT (SELECT count(DISTINCT c.repository_id) FROM checks c
         WHERE c.finished_at >= $1::timestamptz AND c.outcome IN ('success', 'skipped'))::int AS checked,
        (SELECT count(*) FROM policy_versions)::int AS policy_versions,
        (SELECT p.rollout_completed_at FROM policy_versions p
-        ORDER BY p.first_seen_at DESC, p.version DESC LIMIT 1) AS rollout_completed_at,
+        ORDER BY p.activated_at DESC, p.version DESC LIMIT 1) AS rollout_completed_at,
        (SELECT max(cs.snapshot_at) FROM compliance_snapshots cs) AS last_snapshot
 `
 
@@ -106,8 +102,9 @@ type StatusOperationsRow struct {
 	LastSnapshot       interface{}
 }
 
-// Repositories checked since the given time, the newest policy version's
-// rollout and the last snapshot.
+// Repositories checked since the given time, the current (most recently
+// activated, DESIGN-0030 D14) policy version's rollout and the last
+// snapshot.
 func (q *Queries) StatusOperations(ctx context.Context, since time.Time) (StatusOperationsRow, error) {
 	row := q.db.QueryRow(ctx, statusOperations, since)
 	var i StatusOperationsRow
@@ -118,40 +115,6 @@ func (q *Queries) StatusOperations(ctx context.Context, since time.Time) (Status
 		&i.LastSnapshot,
 	)
 	return i, err
-}
-
-const statusRates = `-- name: StatusRates :many
-SELECT rate_limit::int AS rate_limit, rate_remaining::int AS rate_remaining, rate_reset_at::timestamptz AS rate_reset_at
-FROM installations
-WHERE removed_at IS NULL AND suspended_at IS NULL
-  AND rate_observed_at IS NOT NULL AND rate_limit IS NOT NULL AND rate_remaining IS NOT NULL AND rate_reset_at IS NOT NULL
-`
-
-type StatusRatesRow struct {
-	RateLimit     int32
-	RateRemaining int32
-	RateResetAt   time.Time
-}
-
-// Rate snapshots of live installations.
-func (q *Queries) StatusRates(ctx context.Context) ([]StatusRatesRow, error) {
-	rows, err := q.db.Query(ctx, statusRates)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []StatusRatesRow
-	for rows.Next() {
-		var i StatusRatesRow
-		if err := rows.Scan(&i.RateLimit, &i.RateRemaining, &i.RateResetAt); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const statusServiceRuns = `-- name: StatusServiceRuns :many

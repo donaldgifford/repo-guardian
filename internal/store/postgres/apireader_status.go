@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/donaldgifford/repo-guardian/internal/store"
-	"github.com/donaldgifford/repo-guardian/internal/store/postgres/sqlcdb"
+	"github.com/donaldgifford/repo-guardian/internal/store/postgres/controlsdb"
 )
 
 // StatusInputs reads the status page's inputs as of now. It is global
@@ -16,7 +16,7 @@ func (r *APIReader) StatusInputs(ctx context.Context, now time.Time) (in *store.
 
 	in = &store.StatusInputs{LastServiceSuccess: map[store.ServiceRunKind]time.Time{}}
 
-	err = r.readOnly(ctx, func(q *sqlcdb.Queries) error {
+	err = r.readOnly(ctx, func(q *controlsdb.Queries) error {
 		c, err := q.StatusChecks(ctx, now.Add(-time.Hour))
 		if err != nil {
 			return fmt.Errorf("checks: %w", err)
@@ -34,16 +34,7 @@ func (r *APIReader) StatusInputs(ctx context.Context, now time.Time) (in *store.
 			in.LastServiceSuccess[store.ServiceRunKind(run.Kind)] = run.LastSuccess
 		}
 
-		rates, err := q.StatusRates(ctx)
-		if err != nil {
-			return fmt.Errorf("rates: %w", err)
-		}
-
-		for _, rate := range rates {
-			in.Rates = append(in.Rates, store.RateSnapshot{Limit: int(rate.RateLimit), Remaining: int(rate.RateRemaining), ResetAt: rate.RateResetAt})
-		}
-
-		rows, err := compliance(ctx, q, store.Scope{})
+		rows, err := controlCompliance(ctx, q, nil, store.LineageAll)
 		if err != nil {
 			return err
 		}
@@ -78,7 +69,7 @@ const statusHistoryDays = 30
 
 // statusOperations reads the status page's history and operations strip
 // into in (IMPL-0031 7.4).
-func statusOperations(ctx context.Context, q *sqlcdb.Queries, now time.Time, in *store.StatusInputs) error {
+func statusOperations(ctx context.Context, q *controlsdb.Queries, now time.Time, in *store.StatusInputs) error {
 	day := 24 * time.Hour
 
 	history, err := q.StatusComplianceHistory(ctx, now.Add(-statusHistoryDays*day))

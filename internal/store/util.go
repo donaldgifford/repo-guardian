@@ -1,12 +1,5 @@
 package store
 
-// Utility helpers shared by callers writing into the persistent state.
-// Truncate clips error strings before they are stored (Postgres TEXT is
-// unbounded but the operator-facing dashboards and log lines need
-// predictable widths).
-
-import "github.com/donaldgifford/repo-guardian/internal/findings"
-
 // Truncate returns s clipped to at most maxRunes runes. When s is
 // longer it is shortened to maxRunes-1 runes with a single '…'
 // (Unicode HORIZONTAL ELLIPSIS) appended so callers can tell at a
@@ -14,9 +7,17 @@ import "github.com/donaldgifford/repo-guardian/internal/findings"
 //
 // Operates on runes, not bytes, so multibyte UTF-8 sequences (e.g.
 // non-ASCII paths in error messages) are never split mid-codepoint.
-//
-// It wraps findings.Clip and is removed with the v1 runtime in
-// IMPL-0025 Phase 16.
+// Postgres TEXT is unbounded, but the operator-facing dashboards and
+// log lines need predictable widths.
 func Truncate(s string, maxRunes int) string {
-	return findings.Clip(s, maxRunes)
+	if maxRunes <= 0 {
+		return ""
+	}
+
+	rs := []rune(s)
+	if len(rs) <= maxRunes {
+		return s
+	}
+
+	return string(rs[:maxRunes-1]) + "…"
 }

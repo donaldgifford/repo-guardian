@@ -28,19 +28,15 @@ const (
 	PriorityManual Priority = 1
 )
 
-// Trigger values, matching store.Trigger and the checks.trigger CHECK
-// constraint.
+// Trigger values, matching the checks.trigger CHECK constraint.
 const (
 	TriggerSchedule      = "schedule"
 	TriggerWebhook       = "webhook"
 	TriggerPush          = "push"
 	TriggerDiscovery     = "discovery"
 	TriggerPolicyRollout = "policy_rollout"
-	TriggerBootstrap     = "bootstrap"
-
-	// The controls checks.trigger values the rc line did not have.
-	TriggerPREvent = "pr_event"
-	TriggerManual  = "manual"
+	TriggerPREvent       = "pr_event"
+	TriggerManual        = "manual"
 )
 
 // Park reasons, matching store.ParkReason.

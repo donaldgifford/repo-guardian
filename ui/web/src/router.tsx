@@ -23,15 +23,21 @@ import { PolicyView } from "./views/policy";
 import { RepositoryView } from "./views/repository";
 import { RuleView, RulesView } from "./views/rules";
 import { StatusView } from "./views/status";
+import { isRange, type Range } from "./lib/range";
 
-// OrgSearch is the org filter every authenticated view shares. It lives
-// in the URL, so a filtered view is a link that can be shared.
+// OrgSearch is the org scope and time range every authenticated view
+// shares. Both live in the URL, so a scoped view is a link that can be
+// shared, and both are retained across navigation.
 export interface OrgSearch {
   org?: string;
+  range?: Range;
 }
 
 export function parseOrgSearch(s: Record<string, unknown>): OrgSearch {
-  return typeof s.org === "string" && s.org !== "" ? { org: s.org } : {};
+  return {
+    ...(typeof s.org === "string" && s.org !== "" ? { org: s.org } : {}),
+    ...(isRange(s.range) ? { range: s.range } : {}),
+  };
 }
 
 const rootRoute = createRootRoute({
@@ -46,7 +52,7 @@ const appRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: "app",
   validateSearch: parseOrgSearch,
-  search: { middlewares: [retainSearchParams(["org"])] },
+  search: { middlewares: [retainSearchParams(["org", "range"])] },
   component: AppLayout,
   errorComponent: ProblemView,
 });

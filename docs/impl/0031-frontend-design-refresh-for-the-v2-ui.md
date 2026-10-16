@@ -295,7 +295,7 @@ selector migration.
   20), rules and orgs filtered from the cached `/rules` and `/orgs`
   queries; groups Repositories / Rules / Orgs; Enter navigates to
   `/repos/$id`, `/rules/$kind/$name` or `/orgs/$org`, carrying `?org=`.
-- [ ] 2.5 Page anatomy in `components/page/`: `Breadcrumbs` (12px,
+- [x] 2.5 Page anatomy in `components/page/`: `Breadcrumbs` (12px,
   derived from the matched route plus the Findings `?open=` state),
   `PageHeader` (title 20px/600, optional outline badge, muted subtitle
   with `<code>` for endpoint names, right-aligned controls slot),

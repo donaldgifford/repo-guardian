@@ -33,7 +33,7 @@ const ControlsVersionTable = "goose_controls_version"
 // ControlsSchemaVersion is the controls chain version this binary was
 // built for, tracked apart from the rc's SchemaVersion. IMPL-0029 and
 // IMPL-0030 raise it as they add 00002 to 00004.
-const ControlsSchemaVersion = 2
+const ControlsSchemaVersion = 3
 
 // NewControlsMigrator returns a goose provider over the controls chain,
 // serialized by a session advisory lock like NewMigrator.

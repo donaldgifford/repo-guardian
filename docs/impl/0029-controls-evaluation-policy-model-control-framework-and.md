@@ -814,12 +814,20 @@ evaluator's store.
   roles see both Apps' rows and a cross-App delete affects zero rows, and
   the role test gained resolution, slot and refusal cases.
   `ControlsSchemaVersion` is 2 and the dry-run test derives `1..N` from it.
-- [ ] 4.2 `00003_controls_results.sql` (OQ7): `control_results`,
+- [x] 4.2 `00003_controls_results.sql` (OQ7): `control_results`,
   `rule_results`, `result_events`, `remediations`, `remediation_steps`,
   `remediation_events`, the `remediation_due` and
   `remediation_maintenance` views, the append-only revokes, and the full
   DESIGN-0032 grant matrix to `rg_evaluator` and `rg_remediator`,
   verbatim from the design.
+  Done: identity keys instead of the sketch's BIGSERIAL (no sequence
+  grants). `remediations` carries RLS so the remediator's DELETE reaches
+  only `reserved` rows, each write policy paired with the shared SELECT
+  policy. The revokes are explicit though nothing granted them. The role
+  test covers a result record, a reservation, PR observation and the
+  refusals (acknowledging a head as the evaluator, writing evaluator
+  columns as the remediator, rewriting either append-only table).
+  `ControlsSchemaVersion` is 3.
 - [ ] 4.3 `00004_compliance.sql`: `compliance_snapshots` keyed `(org,
   control_id, decision, snapshot_at)` with the posture buckets, the
   excluded count and `coverage`.

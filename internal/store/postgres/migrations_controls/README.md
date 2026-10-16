@@ -9,7 +9,7 @@ holds the rc line's `migrations_v2` chain: the two share table names.
 | --- | --- | --- |
 | `00001_core.sql` | IMPL-0028 | repositories, repository_events, policy_versions (with `activated_at`), checks, service_runs, and their grants |
 | `00002_controls_policy.sql` | IMPL-0029 | repository_policy_state, control_assignments, the epoch sequence, `assignment_changed`, app_installations and app_repository_access (RLS: each App writes its own rows, both read all) |
-| `00003_controls_results.sql` | IMPL-0029 | reserved |
+| `00003_controls_results.sql` | IMPL-0029 | control_results, rule_results, result_events, remediations (RLS: remediator deletes only reservations), remediation_steps, remediation_events, the remediation_due and remediation_maintenance views, and the full grant matrix |
 | `00004_compliance.sql` | IMPL-0030 | reserved |
 
 Run it as the schema owner (no `CREATEROLE`). `rg_evaluator` and

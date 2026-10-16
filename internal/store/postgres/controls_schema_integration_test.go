@@ -90,6 +90,35 @@ func TestControlsChain_GrantsHoldAsEachRole(t *testing.T) {
 		{"remediator cannot resolve", dsns.Remediator, `UPDATE control_assignments SET effective_mode = 'evaluate'`, true},
 		{"remediator cannot rewrite policy state", dsns.Remediator, `UPDATE repository_policy_state SET state = 'excluded'`, true},
 
+		// 00003: results are the evaluator's, the journal the remediator's.
+		{"evaluator records a result", dsns.Evaluator,
+			`INSERT INTO control_results (repository_id, control_id, control_version, revision, assignment_epoch, status,
+			   fingerprint, intent_revision, eval_generation, evaluated_sha, evaluated_at, last_changed_at)
+			 SELECT id, 'codeowners', 1, 'r1', 1, 'non_compliant', 'f1', 'i1', 1, 'sha', now(), now() FROM repositories;
+			 INSERT INTO rule_results (repository_id, control_id, rule_id, status, remediate, evidence, evidence_kind, evidence_version)
+			 SELECT id, 'codeowners', 'exists', 'fail', true, '{}', 'k', 1 FROM repositories;
+			 INSERT INTO result_events (repository_id, control_id, control_version, revision, assignment_epoch, to_status,
+			   eval_generation, occurred_at)
+			 SELECT id, 'codeowners', 1, 'r1', 1, 'non_compliant', 1, now() FROM repositories`, false},
+		{"remediator reserves a slot", dsns.Remediator,
+			`UPDATE control_results SET remediated_generation = 1, hold = NULL;
+			 INSERT INTO remediations (repository_id, control_id, assignment_epoch, operation_key, kind, state, intent_revision,
+			   reserved_until, remediated_generation, created_at, last_run_at)
+			 SELECT id, 'codeowners', 1, 'op1', 'pull_request', 'reserved', 'i1', now(), 1, now(), now() FROM repositories;
+			 INSERT INTO remediation_steps (remediation_id, operation_key, seq, kind, status, occurred_at)
+			 SELECT id, 'op1', 1, 'branch_created', 'done', now() FROM remediations`, false},
+		{"evaluator observes a PR", dsns.Evaluator,
+			`UPDATE remediations SET observed_head_sha = 'h', observed_at = now()`, false},
+		{"evaluator cannot acknowledge a head", dsns.Evaluator,
+			`UPDATE remediations SET acknowledged_head_sha = 'h'`, true},
+		{"remediator cannot write the evaluator's columns", dsns.Remediator,
+			`UPDATE control_results SET eval_generation = 9`, true},
+		{"remediator cannot write observations", dsns.Remediator, `UPDATE remediations SET observed_at = now()`, true},
+		{"nobody rewrites result history", dsns.Evaluator, `DELETE FROM result_events`, true},
+		{"nobody rewrites the journal", dsns.Remediator, `UPDATE remediation_steps SET status = 'failed'`, true},
+		{"both read the scheduling views", dsns.Remediator,
+			`SELECT * FROM remediation_due; SELECT * FROM remediation_maintenance`, false},
+
 		// all holds both sets through membership.
 		{"all discovers and sweeps", dsns.All,
 			`INSERT INTO repositories (org, name) VALUES ('acme', 'web');

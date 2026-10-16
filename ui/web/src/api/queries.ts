@@ -33,6 +33,9 @@ export interface UIConfig {
   public_url: string;
   session_ttl_seconds: number;
   github_host: string;
+  // docs_url is set when the operator configured UI_DOCS_URL; it adds
+  // the Docs group and the avatar menu entry.
+  docs_url?: string;
 }
 
 export function useUIConfig() {

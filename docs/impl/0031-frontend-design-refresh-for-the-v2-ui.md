@@ -277,13 +277,13 @@ selector migration.
   (Status page) and `DOCS` (Documentation, present only when
   `uiConfig.docs_url` is set). Icons are an inline SVG set in
   `components/icons.tsx` (OQ4).
-- [ ] 2.2 `components/shell/Sidebar.tsx`: 220px, group labels 10.5px
+- [x] 2.2 `components/shell/Sidebar.tsx`: 220px, group labels 10.5px
   uppercase tracked, current item `panel-2` + `accent` left rule,
   right-aligned mono counts, footer line (`policy <prefix> · <rollout
   state>` from `/policy`, 11px mono, links to `/policy`). Below 900px
   it collapses behind a top-bar button and opens as a `Dialog` side
   left.
-- [ ] 2.3 `components/shell/TopBar.tsx`: brand (shield in `accent`,
+- [x] 2.3 `components/shell/TopBar.tsx`: brand (shield in `accent`,
   "Repo Guardian" 600, `compliance · read-only` muted) linking to `/`;
   a reserved empty slot left of the brand; right: Search button
   labelled `⌘K`, `TimeZoneToggle`, `Avatar` opening a `DropdownMenu`

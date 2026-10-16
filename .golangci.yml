@@ -136,9 +136,19 @@ linters:
           allow:
             - github.com/donaldgifford/repo-guardian/internal/control
             - github.com/donaldgifford/repo-guardian/internal/template
+            - github.com/donaldgifford/repo-guardian/internal/catalog
           deny:
             - pkg: github.com/donaldgifford/repo-guardian/internal
-              desc: a control type imports internal/control and internal/template only
+              desc: a control type imports internal/control, internal/template and the catalog-info parser only
+        catalog-leaf:
+          list-mode: lax
+          files:
+            - "**/internal/catalog/*.go"
+          allow:
+            - github.com/donaldgifford/repo-guardian/internal/catalog
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal
+              desc: internal/catalog is a parser leaf the control types share; it imports nothing of ours
         policy-leaf:
           list-mode: lax
           files:

@@ -585,9 +585,19 @@ revision and a `Semantics()` constant of 1.
   a template that renders to invalid YAML is `error`. controltest gained
   `OneRule`: a type with one rule per definition is exempt from property
   6, and every fixture must declare one rule.
-- [ ] 3.2 `internal/catalog`: keep the YAML node tree and source spans
+- [x] 3.2 `internal/catalog`: keep the YAML node tree and source spans
   beside the parsed `Properties`, with a size cap, so a type can edit
   minimally; the existing `Parse` callers keep working until Phase 7.
+  Done: `ParseDocument` (cap `MaxBytes` 1 MiB → `ErrTooLarge`; YAML
+  errors and a non-mapping root → `*ParseError` with the line) returns a
+  `Document` holding the source, the yaml.v3 node tree and the decoded
+  `Entity`. `Lookup(path...)` returns a scalar with its `Span` (line,
+  rune column, byte range, `Editable` for single-line plain and quoted
+  scalars only), and `Replace(span, text)` edits the bytes in place.
+  `Parse` is unchanged and shares `properties()`. depguard: control
+  types may import `internal/catalog` (a new `catalog-leaf` rule keeps it
+  importing nothing of ours). That edge is beyond DESIGN-0031 D17's
+  diagram, which this task implies.
 - [ ] 3.3 `internal/controls/catalog_info`: two locations; rule kinds
   `exists` and `kind` (remediable) and `field_set` with `contains`,
   `annotation_set` and `no_placeholders` (`remediate = false`); an absent

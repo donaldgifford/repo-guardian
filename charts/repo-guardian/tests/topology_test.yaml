@@ -9,15 +9,11 @@ release:
   name: rg
   namespace: rg-ns
 set:
-  config:
-    appId: "12345"
-  secrets:
-    webhookSecret: "x"
-    privateKey: "x"
   temporal:
     address: temporal:7233
   policy:
-    config: "guardian {}"
+    files:
+      enterprise.hcl: "enterprise {}"
   github:
     eval: {appId: "11", existingSecret: rg-eval}
 tests:
@@ -107,8 +103,6 @@ tests:
     asserts:
       - exists:
           path: spec.template.metadata.annotations["checksum/policy"]
-      - exists:
-          path: spec.template.metadata.annotations["checksum/templates"]
 
   - it: per-role resources override the shared default
     template: templates/deployment.yaml

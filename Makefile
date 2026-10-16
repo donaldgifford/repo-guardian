@@ -113,11 +113,8 @@ lint-alerts-chart: ## Validate the alert rules the Helm chart renders
 	@ $(MAKE) --no-print-directory log-$@
 	@mkdir -p $(BUILD_DIR)
 	@helm template $(PROJECT_NAME) $(CHART_DIR) \
-		--set config.appId=12345 \
-		--set secrets.webhookSecret=placeholder \
-		--set secrets.privateKey=placeholder \
 		--set temporal.address=temporal:7233 \
-		--set policy.config='guardian {}' \
+		--set-string 'policy.files.enterprise\.hcl=enterprise {}' \
 		--set prometheusRule.enabled=true \
 		| yq 'select(.kind == "PrometheusRule") | {"groups": .spec.groups}' \
 		> $(RENDERED_ALERTS)
@@ -444,11 +441,8 @@ helm-lint: ## Lint Helm chart
 helm-template: ## Render Helm templates with default values
 	@ $(MAKE) --no-print-directory log-$@
 	@helm template $(PROJECT_NAME) $(CHART_DIR) \
-		--set config.appId=12345 \
-		--set secrets.webhookSecret=placeholder \
-		--set secrets.privateKey=placeholder \
 		--set temporal.address=temporal:7233 \
-		--set policy.config='guardian {}'
+		--set-string 'policy.files.enterprise\.hcl=enterprise {}'
 
 helm-template-ci: ## Render Helm templates with CI values
 	@ $(MAKE) --no-print-directory log-$@

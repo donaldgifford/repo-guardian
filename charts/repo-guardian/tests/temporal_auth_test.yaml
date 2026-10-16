@@ -5,15 +5,11 @@ release:
   name: rg
   namespace: rg-ns
 set:
-  config:
-    appId: "12345"
-  secrets:
-    webhookSecret: "x"
-    privateKey: "x"
   temporal:
     address: temporal:7233
   policy:
-    config: "guardian {}"
+    files:
+      enterprise.hcl: "enterprise {}"
 tests:
   - it: sets no auth or TLS-mode env by default
     set:

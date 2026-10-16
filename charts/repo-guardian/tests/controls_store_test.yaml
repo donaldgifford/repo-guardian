@@ -9,15 +9,11 @@ release:
   name: rg
   namespace: rg-ns
 set:
-  config:
-    appId: "12345"
-  secrets:
-    webhookSecret: "x"
-    privateKey: "x"
   temporal:
     address: temporal:7233
   policy:
-    config: "guardian {}"
+    files:
+      enterprise.hcl: "enterprise {}"
   github:
     eval: {appId: "11", existingSecret: rg-eval}
     remediate: {appId: "22", existingSecret: rg-remediate}
@@ -255,10 +251,10 @@ tests:
           value: post-install,pre-upgrade,pre-rollback
       - contains:
           path: spec.template.spec.containers[0].env
-          content: {name: GUARDIAN_CONFIG, value: /etc/repo-guardian/policy/guardian.hcl}
+          content: {name: GUARDIAN_CONFIG, value: /etc/repo-guardian/policy}
       - contains:
           path: spec.template.spec.containers[0].volumeMounts
           content: {name: policy, mountPath: /etc/repo-guardian/policy, readOnly: true}
       - contains:
           path: spec.template.spec.volumes
-          content: {name: policy, configMap: {name: rg-repo-guardian-policy}}
+          content: {name: policy, configMap: {name: rg-repo-guardian-policy, items: [{key: enterprise.hcl, path: enterprise.hcl}]}}

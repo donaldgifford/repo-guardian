@@ -7,13 +7,12 @@ set:
   topology: all
   temporal:
     address: temporal:7233
-  config:
-    appId: "12345"
-  secrets:
-    webhookSecret: "test-secret"
-    privateKey: "test-key"
   policy:
-    config: "guardian {}"
+    files:
+      enterprise.hcl: "enterprise {}"
+  # The schedule env rides on the evaluator, in all only with its App.
+  github:
+    eval: {appId: "11", existingSecret: eval-app}
 
 tests:
   - it: emits templating.vars entries onto the container env list
@@ -38,91 +37,10 @@ tests:
     set:
       templating:
         vars:
-          GITHUB_APP_ID: "anything"
+          EVAL_INTERVAL: "anything"
     asserts:
       - failedTemplate:
-          errorMessage: "templating.vars keys collide with chart-managed env vars: GITHUB_APP_ID"
-
-  - it: emits STRICT_TEMPLATES=true when templating.strict is enabled
-    set:
-      templating:
-        strict: true
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: STRICT_TEMPLATES
-            value: "true"
-
-  - it: omits STRICT_TEMPLATES env when templating.strict is unset
-    asserts:
-      - notContains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: STRICT_TEMPLATES
-            value: "true"
-
-  - it: mounts the chart-rendered templates ConfigMap by default
-    asserts:
-      - contains:
-          path: spec.template.spec.volumes
-          content:
-            name: templates
-            configMap:
-              name: RELEASE-NAME-repo-guardian-templates
-
-  - it: mounts templates.existingConfigMap when set
-    set:
-      templates:
-        existingConfigMap: my-shared-templates
-    asserts:
-      - contains:
-          path: spec.template.spec.volumes
-          content:
-            name: templates
-            configMap:
-              name: my-shared-templates
-
-  - it: emits ORPHAN_CLEANUP=true by default (INV-0014)
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: ORPHAN_CLEANUP
-            value: "true"
-
-  # The false case is asserted explicitly: a bool rendered through sprig
-  # `default` collapses false to the default, and this kill switch is
-  # worthless if setting it to false silently renders "true".
-  - it: respects policy.orphanCleanup=false override (INV-0014 kill switch)
-    set:
-      policy:
-        orphanCleanup: false
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: ORPHAN_CLEANUP
-            value: "false"
-
-  - it: emits AUTO_CLOSE_PR=true by default (IMPL-0013 Phase 5)
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: AUTO_CLOSE_PR
-            value: "true"
-
-  - it: respects policy.autoClosePR=false override
-    set:
-      policy:
-        autoClosePR: false
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: AUTO_CLOSE_PR
-            value: "false"
+          errorMessage: "templating.vars keys collide with chart-managed env vars: EVAL_INTERVAL"
 
   - it: emits IMPL-0015 Phase 1 discovery env vars with defaults
     asserts:

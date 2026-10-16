@@ -1715,13 +1715,47 @@ half-switched binary.
   `TestLoadRole_IgnoresRemovedVars` sets each removed var to an
   unparseable value. The chart still emits several of these until 7.9, so
   they only warn.
-- [ ] 7.9 Chart (OQ11): `policy.files` renders the policy directory into
+- [x] 7.9 Chart (OQ11): `policy.files` renders the policy directory into
   one ConfigMap mounted at `GUARDIAN_CONFIG` on the ingest and evaluator
   roles (ingest needs `WatchedPaths()`); `policy.existingConfigMap` stays;
   `templates.*`, `policy.config` and the rule-engine knobs are rejected
   by name through `values.schema.json` and `validateRemovedValues` with
   the migration URL; helm-unittest for rendering, mounts and each removed
   key; namespace check passes.
+  Done:
+  - **Policy ConfigMap.** `policy.files` (path → content) renders one
+    ConfigMap (`policy-configmap.yaml`). The `/` in a path folds to `_`
+    for the key, and the `repo-guardian.policyVolume` items put each file
+    back at its path, so `catalogue/` and `orgs/` survive the kubelet
+    `..data` mount. `validatePolicyFiles` refuses absolute paths, `..`,
+    two paths that fold to one key, and `files` beside
+    `existingConfigMap`.
+  - **Mounts.** `GUARDIAN_CONFIG=/etc/repo-guardian/policy` is set on
+    ingest, the evaluator, the migrate Job, and also the remediator,
+    because `config.validateControlsWorker` requires `GUARDIAN_CONFIG` for
+    both workers. `existingConfigMap` stays and is mounted whole.
+  - **Removed.** `templates.*` (its ConfigMap went), `secrets.*` (the rc
+    Secret and every `GITHUB_*` env went), `policy.config`,
+    `policy.autoClosePR`, `policy.orphanCleanup`, `config.appId`,
+    `config.dryRun`, `config.skipForks`, `config.skipArchived`,
+    `templating.strict`, `worker.replicas`, `worker.concurrency`,
+    `worker.resources`, `checkInterval` (now `evalInterval`),
+    `store.postgres.maxConns`, `migrate.freshness` and `api.prStaleAfter`.
+    Each is rejected by a schema `const` and by `validateRemovedValues`,
+    with `v2-migration.md#controls-chart-values`.
+  - **Schedule env bug fixed.** The schedule env (`EVAL_INTERVAL`,
+    discovery, retention, snapshot) was gated on the deleted `worker` role,
+    so a split evaluator got none of it. It now rides on
+    `roleHasEvalKey`.
+  - **Other chart edits.** `reservedEnvVars` was rebuilt. `NOTES.txt`
+    names the two webhook routes. The Makefile helm targets and
+    `ci-values.yaml` use `policy.files`. The README template was updated
+    (Quick Start, shapes, editing the policy, upgrade notes).
+  - **Tests.** The `secret` and `configmap` suites went. The `policy`
+    suite was rewritten (11 tests). `values_guard` gained one test per
+    removed key. helm-unittest: 241 pass; `helm lint` and
+    `make lint-alerts-chart` (15 rules) green. The namespace check passes
+    for every kind.
 - [ ] 7.10 Delete `examples/guardian-*.hcl` and the `guardian-multi-org/`
   directory; `examples/values-*.yaml` move to the policy map.
 - [ ] 7.11 Non-vacuous check: re-register `RepoWorkflow` and confirm the

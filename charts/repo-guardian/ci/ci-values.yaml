@@ -3,28 +3,20 @@ image:
   repository: busybox
   tag: latest
 
-# The role arg (ingest, worker, ...) follows the command; `sh -c` takes
+# The role arg (ingest, evaluator, ...) follows the command; `sh -c` takes
 # it as $0 so busybox sleep sees only its duration.
 command:
   - sh
   - -c
   - sleep 900
 
-config:
-  appId: "12345"
-  dryRun: true
-
 temporal:
   address: temporal-frontend.temporal.svc.cluster.local:7233
 
 policy:
-  config: |
-    guardian {}
-
-secrets:
-  webhookSecret: "test-secret"
-  privateKey: "test-key"
-  privateKeyAsFile: false
+  files:
+    enterprise.hcl: |
+      enterprise {}
 
 livenessProbe: null
 readinessProbe: null

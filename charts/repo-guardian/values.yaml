@@ -79,25 +79,18 @@ readinessProbe:
 
 # -- repo-guardian application configuration (env vars)
 config:
-  # -- GitHub App ID
-  appId: ""
   # -- Webhook listen port
   port: 8080
   # -- Metrics listen port
   metricsPort: 9090
   # -- Log level (debug, info, warn, error)
   logLevel: "info"
-  # -- Dry run mode
-  dryRun: false
-  # -- Skip forked repositories
-  skipForks: true
-  # -- Skip archived repositories
-  skipArchived: true
 
 # -- Deployment shape (DESIGN-0026 § Chart 2.0.0). `split` renders one
-# Deployment per role: `ingest` (webhooks), `worker` (Temporal worker)
-# and, when `api.enabled`, `api`. `all` renders a single Deployment
-# running every role, for small installs and the homelab.
+# Deployment per role: `ingest` (webhooks), `evaluator` and `remediator`
+# (each when its App is set) and, when `api.enabled`, `api`. `all`
+# renders a single Deployment running every role, for small installs
+# and the homelab.
 topology: split
 
 # -- Temporal connection. Every role that dials Temporal (ingest,
@@ -145,8 +138,8 @@ temporal:
       # the audience with a client-scope mapper instead.
       audience: ""
 
-# -- Each repository's check cadence (Go duration).
-checkInterval: "24h"
+# -- Each repository's evaluation cadence (EVAL_INTERVAL, Go duration).
+evalInterval: "24h"
 # -- Span a policy change is spread across: every repository is
 # re-checked at a random point inside it, not all at once.
 policyRolloutWindow: "24h"
@@ -165,24 +158,18 @@ ingest:
     # -- Pods kept through voluntary disruptions.
     minAvailable: 1
 
-# -- The worker role: runs workflows and activities (split only).
+# -- The controls workers' shared Temporal settings.
 worker:
-  # -- Replica count.
-  replicas: 1
-  # -- Concurrent activities per pod (WORKER_ACTIVITY_CONCURRENCY).
-  concurrency: 10
   # -- Temporal worker build ID (TEMPORAL_BUILD_ID). Empty uses
   # `image.tag`, then the chart's appVersion. Each worker promotes its
   # build to the deployment's current version at startup, and the newest
   # semver build wins, so it must change whenever the image does. Set it
   # only for images whose tag is not a version.
   buildId: ""
-  # -- Resources; empty falls back to `resources`.
-  resources: {}
 
 # -- The evaluator role: the controls evaluation worker on the
 # `repo-guardian-eval` queue (IMPL-0028 Phase 4). Rendered in split when
-# `github.eval.appId` is set; in `all` it runs beside the rc worker.
+# `github.eval.appId` is set; in `all` only when it is set.
 evaluator:
   # -- Replica count (split only). Ignored when `evaluator.keda.enabled`.
   replicas: 1
@@ -312,8 +299,6 @@ api:
     # -- Machine clients (by `azp`) → groups above, for IdPs that put no
     # groups on client-credentials tokens.
     clients: {}
-  # -- Open repo-guardian PRs older than this count as stale.
-  prStaleAfter: "720h"
   status:
     # -- Serve /status without a token.
     public: true
@@ -379,27 +364,12 @@ ui:
     # -- TLS blocks, as in networking.k8s.io/v1 IngressTLS.
     tls: []
 
-# -- GitHub App secrets
-secrets:
-  # -- Create secret resource (false = use existing secret)
-  create: true
-  # -- Name of existing secret (when create=false)
-  existingSecret: ""
-  # -- GitHub webhook secret
-  webhookSecret: ""
-  # -- GitHub App private key (PEM format)
-  privateKey: ""
-  # -- Mount private key as file (true) or env var (false)
-  privateKeyAsFile: true
-
 # -- The two controls GitHub Apps (IMPL-0028 Phase 3, DESIGN-0032 §
 # Two Apps). Each block is off until its appId is set. The private key
 # is always mounted as a file. Keys go only to the roles that act as
 # that App: the Evaluation App's to evaluator and `all` pods, the
 # Remediation App's to remediator and `all` pods. Each webhook secret
 # (and App id, for the app-mismatch check) goes to ingest and `all`.
-# The rc's single-App `config.appId` / `secrets` keep serving the rc
-# roles until the controls switch-over.
 github:
   eval:
     # -- The Evaluation App's numeric id. Empty disables the block.
@@ -422,56 +392,13 @@ github:
     # -- The Remediation App's webhook secret, when the chart creates the Secret.
     webhookSecret: ""
 
-# -- File-template overrides for the binary's TemplateStore.
-#
-# Breaking change in chart 0.4.0: the legacy `templates.codeowners`,
-# `templates.dependabot`, and `templates.renovate` slots have been
-# removed. Move existing values into `templates.files` keyed by
-# filename (with `.tmpl` suffix), e.g.:
-#
-#   templates:
-#     files:
-#       codeowners.tmpl: |
-#         * @platform-team
-#       dependabot.tmpl: |
-#         version: 2
-#         updates: ...
-#
-# When `templates.existingConfigMap` is non-empty the chart skips
-# rendering its own ConfigMap and the Deployment mounts the named
-# ConfigMap at TEMPLATE_DIR. This is the escape hatch for operators
-# who manage templates out-of-band (GitOps, Argo ApplicationSet, etc).
-templates:
-  # -- Map of filename to template content. Each entry becomes a
-  # key in the rendered ConfigMap and is loaded by the binary at
-  # startup. Filenames must end in `.tmpl`.
-  files: {}
-  # -- Name of an existing ConfigMap to mount at TEMPLATE_DIR
-  # instead of rendering one from `templates.files`.
-  existingConfigMap: ""
-
-# -- Templating configuration: env-var injection and strict-mode
-# validation.
-#
-# `templating.vars` exposes arbitrary environment variables to the
-# binary's `env "VAR"` template helper. Values flow through to the
-# Deployment's container env list; they are NOT secrets — use
-# `secrets.*` or `extraEnv` (with valueFrom: secretKeyRef) for
-# secret material. The chart rejects keys that collide with
-# chart-managed env vars (GITHUB_APP_ID, WEBHOOK_SECRET, etc).
-#
-# `templating.strict` toggles `STRICT_TEMPLATES=true` on the
-# Deployment. When enabled the binary validates every compiled PR
-# template against a zero-value PRVars context at startup and
-# fails fast on missing-field references.
+# -- Environment for the policy templates' `env "VAR"` helper, set on
+# every role that loads the policy. Values are NOT secrets: use
+# `extraEnv` with valueFrom for secret material. The chart rejects keys
+# that collide with chart-managed env vars.
 templating:
-  # -- Map of env-var key to value. Keys must not collide with
-  # chart-managed env vars; the chart fails template rendering on
-  # collisions.
+  # -- Map of env-var key to value.
   vars: {}
-  # -- Enable startup-time strict validation of compiled PR
-  # templates (sets STRICT_TEMPLATES=true on the Deployment).
-  strict: false
 
 serviceMonitor:
   # -- Create Prometheus ServiceMonitor
@@ -499,9 +426,6 @@ migrate:
   # exists to connect to, and pre-upgrade, so the schema lands before
   # new pods roll.
   enabled: true
-  # -- The v1 backfill's freshness: a v1 repo checked within this window
-  # keeps its due-time; older ones are due immediately after cutover.
-  freshness: "24h"
   # -- Job retries before the release fails.
   backoffLimit: 6
   # -- Upper bound on the Job's run time, in seconds. The v1 backfill is
@@ -540,8 +464,6 @@ store:
     existingSecret: ""
     # -- Key inside existingSecret holding the DSN. Default: STORE_DSN.
     existingSecretKey: STORE_DSN
-    # -- Connection cap for the pgx pool.
-    maxConns: 16
     # -- Baked Postgres-only configuration.
     baked:
       # -- Pinned image. Bump intentionally.
@@ -681,30 +603,19 @@ posture:
   # requested.
   snapshotInterval: "24h"
 
-# -- HCL policy configuration
+# -- The controls policy directory (DESIGN-0030, IMPL-0029 7.9), mounted
+# at GUARDIAN_CONFIG on ingest (push routing reads its watched paths),
+# the controls workers and the migrate Job (which activates its version).
 policy:
-  # -- Inline HCL policy config (creates a ConfigMap)
-  config: ""
-  # -- Use an existing ConfigMap for policy config
+  # -- Map of path (relative to the policy root) to file content, e.g.
+  # `enterprise.hcl`, `catalogue/files.hcl`, `orgs/acme.hcl`,
+  # `templates/CODEOWNERS.tmpl`. Rendered into one ConfigMap; the volume
+  # puts each file back at its path.
+  files: {}
+  # -- An existing ConfigMap holding the policy root, mounted whole in
+  # place of `files` (flat keys only, unless the operator mounts it with
+  # its own items through extraVolumes).
   existingConfigMap: ""
-  # -- Auto-close repo-guardian PRs when every file rule is
-  # satisfied on the default branch (IMPL-0013 Phase 3). When
-  # `true` (default), the PR is closed with a sticky comment and
-  # the reconcile branch is deleted. When `false`, the PR stays
-  # open until a human closes it.
-  autoClosePR: true
-  # -- Remove files from repo-guardian's own reconcile branch once the
-  # rule that added them is satisfied on the default branch (IMPL-0013
-  # Phase 3). When `true` (default), a PR stops proposing files that are
-  # no longer needed. When `false`, no file is ever deleted from the
-  # reconcile branch and PR bodies may list rules already satisfied on
-  # the default branch.
-  #
-  # This is a kill switch, not a tuning knob: orphan cleanup is the only
-  # path that deletes files, and INV-0014 is a fixed defect in it that
-  # produced PRs proposing to remove files repositories legitimately
-  # owned. Leave it enabled unless you have reason not to.
-  orphanCleanup: true
 
 # -- Additional environment variables
 extraEnv: []

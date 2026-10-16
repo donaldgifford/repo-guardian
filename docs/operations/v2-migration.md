@@ -127,6 +127,28 @@ a `guardian.hcl` file. `RATE_LIMIT_THRESHOLD`, `DISCOVERY_*`,
 `COMPLIANCE_SNAPSHOT_INTERVAL`, `POLICY_ROLLOUT_WINDOW` and
 `CHECKS_RETENTION` keep their meaning.
 
+### Controls chart values
+
+The chart fails the render on each of these, naming the key and this
+section (the schema first, the `validateRemovedValues` helper behind
+it):
+
+| Removed | Replacement |
+| --- | --- |
+| `policy.config` | `policy.files`: the policy directory, one key per path (`enterprise.hcl`, `catalogue/*.hcl`, `orgs/*.hcl`, `templates/...`) |
+| `templates.*` | the policy directory's `templates/`, in `policy.files` |
+| `secrets.*`, `config.appId` | `github.eval.*` and `github.remediate.*` |
+| `checkInterval` | `evalInterval` |
+| `worker.replicas`, `worker.concurrency`, `worker.resources` | `evaluator.*` and `remediator.*` (`worker.buildId` stays) |
+| `store.postgres.maxConns` | `evaluator.dbPoolSize`, `remediator.dbPoolSize` |
+| `config.dryRun`, `config.skipForks`, `config.skipArchived`, `policy.autoClosePR`, `policy.orphanCleanup`, `templating.strict` | none |
+| `migrate.freshness`, `api.prStaleAfter` | none |
+
+`policy.existingConfigMap` stays: an operator ConfigMap is mounted
+whole at `GUARDIAN_CONFIG`, so it holds flat keys unless you mount it
+with your own `items` through `extraVolumes`. `templating.vars` stays
+for the templates' `env` helper.
+
 ## The data migration
 
 `repo-guardian migrate` runs as the chart's hook Job. On a v1 database

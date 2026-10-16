@@ -8,15 +8,11 @@ suite: cross-mode existingSecret render guard (INV-0010)
 templates:
   - templates/deployment.yaml
 set:
-  config:
-    appId: "12345"
-  secrets:
-    webhookSecret: "x"
-    privateKey: "x"
   temporal:
     address: temporal:7233
   policy:
-    config: "guardian {}"
+    files:
+      enterprise.hcl: "enterprise {}"
 
 tests:
   - it: fails when store.postgres.existingSecret is set in baked mode
@@ -194,10 +190,10 @@ tests:
 
   - it: fails without a policy
     set:
-      policy.config: ""
+      policy.files: null
     asserts:
       - failedTemplate:
-          errorPattern: "policy.config or policy.existingConfigMap is required"
+          errorPattern: "policy.files or policy.existingConfigMap is required"
 
   - it: fails when api auth is enabled without an issuer
     set:
@@ -240,3 +236,126 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "templating.vars keys collide with chart-managed env vars: TEMPORAL_ADDRESS"
+
+  # IMPL-0029 7.9: the controls switch-over removed the rule engine's
+  # values, its templates and the single-App credentials. As above, the
+  # schema rejects each by name with the migration URL; the
+  # validateRemovedValues helper is the belt.
+  - it: fails when templates is still set, naming the controls migration
+    set:
+      templates: {files: {}}
+    asserts:
+      - failedTemplate:
+          errorPattern: "templates.*v2-migration.md#controls-chart-values"
+
+  - it: fails when secrets is still set, naming the controls migration
+    set:
+      secrets: {create: true}
+    asserts:
+      - failedTemplate:
+          errorPattern: "secrets.*v2-migration.md#controls-chart-values"
+
+  - it: fails when checkInterval is still set, naming the controls migration
+    set:
+      checkInterval: 24h
+    asserts:
+      - failedTemplate:
+          errorPattern: "checkInterval.*v2-migration.md#controls-chart-values"
+
+  - it: fails when policy.config is still set, naming the controls migration
+    set:
+      policy.config: "guardian {}"
+    asserts:
+      - failedTemplate:
+          errorPattern: "policy/config.*v2-migration.md#controls-chart-values"
+
+  - it: fails when policy.autoClosePR is still set, naming the controls migration
+    set:
+      policy.autoClosePR: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "policy/autoClosePR.*v2-migration.md#controls-chart-values"
+
+  - it: fails when policy.orphanCleanup is still set, naming the controls migration
+    set:
+      policy.orphanCleanup: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "policy/orphanCleanup.*v2-migration.md#controls-chart-values"
+
+  - it: fails when config.appId is still set, naming the controls migration
+    set:
+      config.appId: "12345"
+    asserts:
+      - failedTemplate:
+          errorPattern: "config/appId.*v2-migration.md#controls-chart-values"
+
+  - it: fails when config.dryRun is still set, naming the controls migration
+    set:
+      config.dryRun: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "config/dryRun.*v2-migration.md#controls-chart-values"
+
+  - it: fails when config.skipForks is still set, naming the controls migration
+    set:
+      config.skipForks: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "config/skipForks.*v2-migration.md#controls-chart-values"
+
+  - it: fails when config.skipArchived is still set, naming the controls migration
+    set:
+      config.skipArchived: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "config/skipArchived.*v2-migration.md#controls-chart-values"
+
+  - it: fails when worker.replicas is still set, naming the controls migration
+    set:
+      worker.replicas: 1
+    asserts:
+      - failedTemplate:
+          errorPattern: "worker/replicas.*v2-migration.md#controls-chart-values"
+
+  - it: fails when worker.concurrency is still set, naming the controls migration
+    set:
+      worker.concurrency: 10
+    asserts:
+      - failedTemplate:
+          errorPattern: "worker/concurrency.*v2-migration.md#controls-chart-values"
+
+  - it: fails when worker.resources is still set, naming the controls migration
+    set:
+      worker.resources: {}
+    asserts:
+      - failedTemplate:
+          errorPattern: "worker/resources.*v2-migration.md#controls-chart-values"
+
+  - it: fails when templating.strict is still set, naming the controls migration
+    set:
+      templating.strict: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "templating/strict.*v2-migration.md#controls-chart-values"
+
+  - it: fails when store.postgres.maxConns is still set, naming the controls migration
+    set:
+      store.postgres.maxConns: 16
+    asserts:
+      - failedTemplate:
+          errorPattern: "maxConns.*v2-migration.md#controls-chart-values"
+
+  - it: fails when migrate.freshness is still set, naming the controls migration
+    set:
+      migrate.freshness: 24h
+    asserts:
+      - failedTemplate:
+          errorPattern: "migrate/freshness.*v2-migration.md#controls-chart-values"
+
+  - it: fails when api.prStaleAfter is still set, naming the controls migration
+    set:
+      api.prStaleAfter: 720h
+    asserts:
+      - failedTemplate:
+          errorPattern: "prStaleAfter.*v2-migration.md#controls-chart-values"

@@ -63,17 +63,6 @@ Create the name of the service account to use.
 {{- end }}
 
 {{/*
-Create the name of the secret to use.
-*/}}
-{{- define "repo-guardian.secretName" -}}
-{{- if .Values.secrets.create }}
-{{- include "repo-guardian.fullname" . }}
-{{- else }}
-{{- required "secrets.existingSecret is required when secrets.create is false" .Values.secrets.existingSecret }}
-{{- end }}
-{{- end }}
-
-{{/*
 Reserved env-var names — keys that the chart already manages on the
 Deployment container env list. `templating.vars` may not redeclare any
 of these because the chart-emitted entry would shadow the operator's
@@ -82,7 +71,7 @@ attempt and produce confusing behavior at runtime.
 Returns a space-separated string for has-element style checks.
 */}}
 {{- define "repo-guardian.reservedEnvVars" -}}
-GITHUB_APP_ID GITHUB_WEBHOOK_SECRET GITHUB_PRIVATE_KEY GITHUB_PRIVATE_KEY_PATH LISTEN_ADDR METRICS_ADDR LOG_LEVEL DRY_RUN SKIP_FORKS SKIP_ARCHIVED AUTO_CLOSE_PR ORPHAN_CLEANUP TEMPLATE_DIR GUARDIAN_CONFIG STRICT_TEMPLATES TEMPORAL_ADDRESS TEMPORAL_NAMESPACE TEMPORAL_TASK_QUEUE TEMPORAL_TLS_CERT_PATH TEMPORAL_TLS_KEY_PATH TEMPORAL_TLS_CA_PATH TEMPORAL_TLS_SERVER_NAME TEMPORAL_TLS_DISABLED TEMPORAL_OIDC_TOKEN_URL TEMPORAL_OIDC_CLIENT_ID TEMPORAL_OIDC_CLIENT_SECRET_PATH TEMPORAL_OIDC_SCOPES TEMPORAL_OIDC_AUDIENCE TEMPORAL_BUILD_ID WORKER_ACTIVITY_CONCURRENCY CHECK_INTERVAL POLICY_ROLLOUT_WINDOW CHECKS_RETENTION DISCOVERY_ENABLED DISCOVERY_INTERVAL COMPLIANCE_SNAPSHOT_INTERVAL STORE_DSN STORE_POSTGRES_MAX_CONNS POSTGRES_PASSWORD STORE_RO_DSN RO_PASSWORD RECONCILE_FRESHNESS API_LISTEN_ADDR API_AUTH_ENABLED OIDC_ISSUER OIDC_AUDIENCE OIDC_NAME_CLAIM OIDC_GROUPS_CLAIM API_AUTHZ_CONFIG PR_STALE_AFTER STATUS_PUBLIC
+LISTEN_ADDR METRICS_ADDR LOG_LEVEL GUARDIAN_CONFIG EVAL_GITHUB_APP_ID EVAL_GITHUB_PRIVATE_KEY_PATH EVAL_WEBHOOK_SECRET REMEDIATE_GITHUB_APP_ID REMEDIATE_GITHUB_PRIVATE_KEY_PATH REMEDIATE_WEBHOOK_SECRET TEMPORAL_ADDRESS TEMPORAL_NAMESPACE TEMPORAL_TASK_QUEUE TEMPORAL_EVAL_TASK_QUEUE TEMPORAL_REMEDIATE_TASK_QUEUE TEMPORAL_TLS_CERT_PATH TEMPORAL_TLS_KEY_PATH TEMPORAL_TLS_CA_PATH TEMPORAL_TLS_SERVER_NAME TEMPORAL_TLS_DISABLED TEMPORAL_OIDC_TOKEN_URL TEMPORAL_OIDC_CLIENT_ID TEMPORAL_OIDC_CLIENT_SECRET_PATH TEMPORAL_OIDC_SCOPES TEMPORAL_OIDC_AUDIENCE TEMPORAL_BUILD_ID EVALUATOR_CONCURRENCY EVALUATOR_DB_POOL_SIZE REMEDIATOR_CONCURRENCY REMEDIATOR_DB_POOL_SIZE EVAL_INTERVAL POLICY_ROLLOUT_WINDOW CHECKS_RETENTION DISCOVERY_ENABLED DISCOVERY_INTERVAL COMPLIANCE_SNAPSHOT_INTERVAL STORE_DSN STORE_DSN_EVALUATOR STORE_DSN_REMEDIATOR POSTGRES_PASSWORD STORE_RO_DSN RO_PASSWORD MIGRATE_WAIT API_LISTEN_ADDR API_AUTH_ENABLED OIDC_ISSUER OIDC_AUDIENCE OIDC_NAME_CLAIM OIDC_GROUPS_CLAIM API_AUTHZ_CONFIG STATUS_PUBLIC
 {{- end }}
 
 {{/*
@@ -208,7 +197,7 @@ the entry once operators have had a release or two to notice.
 {{- end -}}
 {{- range $k := list "workerCount" "queueSize" "scheduleInterval" "maxJobAttempts" -}}
 {{- if hasKey $.Values.config $k -}}
-{{- fail (printf "config.%s was removed in chart 2.0.0 (use worker.concurrency and checkInterval). Delete the value. See docs/operations/v2-migration.md#removed-chart-values" $k) -}}
+{{- fail (printf "config.%s was removed in chart 2.0.0 (use evaluator.concurrency and evalInterval). Delete the value. See docs/operations/v2-migration.md#removed-chart-values" $k) -}}
 {{- end -}}
 {{- end -}}
 {{- if hasKey (.Values.posture | default dict) "exportInterval" -}}
@@ -222,6 +211,41 @@ the entry once operators have had a release or two to notice.
 {{- end -}}
 {{- if hasKey .Values "webhookIPAllowlist" -}}
 {{- fail "webhookIPAllowlist.* was removed in IMPL-0024: the in-app IP allowlist was spoofable behind every documented proxy and was deleted — source-IP enforcement now lives at the operator's edge layer. Delete the block. See docs/operations/ingress.md#migrating-from-the-baked-sidecar" -}}
+{{- end -}}
+{{- /* The controls switch-over (IMPL-0029 7.9): the rule engine, its
+templates and the single-App credentials are gone. */ -}}
+{{- $controls := "See docs/operations/v2-migration.md#controls-chart-values" -}}
+{{- range $k := list "templates" "secrets" "checkInterval" -}}
+{{- if hasKey $.Values $k -}}
+{{- fail (printf "%s was removed in the controls switch-over (IMPL-0029). Delete it. %s" $k $controls) -}}
+{{- end -}}
+{{- end -}}
+{{- range $k := list "config" "autoClosePR" "orphanCleanup" -}}
+{{- if hasKey $.Values.policy $k -}}
+{{- fail (printf "policy.%s was removed in the controls switch-over (IMPL-0029): the policy is a directory in policy.files. %s" $k $controls) -}}
+{{- end -}}
+{{- end -}}
+{{- range $k := list "appId" "dryRun" "skipForks" "skipArchived" -}}
+{{- if hasKey $.Values.config $k -}}
+{{- fail (printf "config.%s was removed in the controls switch-over (IMPL-0029). Delete it. %s" $k $controls) -}}
+{{- end -}}
+{{- end -}}
+{{- range $k := list "replicas" "concurrency" "resources" -}}
+{{- if hasKey $.Values.worker $k -}}
+{{- fail (printf "worker.%s was removed in the controls switch-over (IMPL-0029): the rc worker is gone; size evaluator.* and remediator.*. %s" $k $controls) -}}
+{{- end -}}
+{{- end -}}
+{{- if hasKey ($.Values.templating | default dict) "strict" -}}
+{{- fail (printf "templating.strict was removed in the controls switch-over (IMPL-0029): policy load validates every template. %s" $controls) -}}
+{{- end -}}
+{{- if hasKey $.Values.store.postgres "maxConns" -}}
+{{- fail (printf "store.postgres.maxConns was removed in the controls switch-over (IMPL-0029): use evaluator.dbPoolSize and remediator.dbPoolSize. %s" $controls) -}}
+{{- end -}}
+{{- if hasKey $.Values.api "prStaleAfter" -}}
+{{- fail (printf "api.prStaleAfter was removed in the controls switch-over (IMPL-0029): the findings endpoints that used it are gone. %s" $controls) -}}
+{{- end -}}
+{{- if hasKey $.Values.migrate "freshness" -}}
+{{- fail (printf "migrate.freshness was removed in the controls switch-over (IMPL-0029): the rc backfill that read it is gone. %s" $controls) -}}
 {{- end -}}
 {{- end }}
 
@@ -345,7 +369,6 @@ What each role holds. Secret scoping (DESIGN-0026): the rc App key only
 in all, the webhook secret only in ingest and all, Temporal in
 every role that dials it, and nothing but the read-only DSN in api.
 */}}
-{{- define "repo-guardian.roleHasAppKey" -}}{{ if has .role (list "all") }}true{{ end }}{{- end }}
 {{- /* Per-App keys (IMPL-0028 task 3.5): each App's key reaches only the roles that act as it, and only when its block is enabled. */ -}}
 {{- define "repo-guardian.roleHasEvalKey" -}}{{ if and .ctx.Values.github.eval.appId (has .role (list "evaluator" "all")) }}true{{ end }}{{- end }}
 {{- define "repo-guardian.roleHasRemediateKey" -}}{{ if and .ctx.Values.github.remediate.appId (has .role (list "remediator" "all")) }}true{{ end }}{{- end }}
@@ -356,10 +379,65 @@ every role that dials it, and nothing but the read-only DSN in api.
 {{- define "repo-guardian.roleReadsPolicy" -}}{{ if has .role (list "ingest" "evaluator" "remediator" "all") }}true{{ end }}{{- end }}
 
 {{/*
-Whether a policy file is mounted.
+Whether a policy directory is mounted.
 */}}
 {{- define "repo-guardian.hasPolicy" -}}
-{{- if or .Values.policy.config .Values.policy.existingConfigMap }}true{{ end -}}
+{{- if or .Values.policy.files .Values.policy.existingConfigMap }}true{{ end -}}
+{{- end }}
+
+{{/*
+The policy root's mount path: GUARDIAN_CONFIG on every role that loads
+the policy and on the migrate Job.
+*/}}
+{{- define "repo-guardian.policyRoot" -}}/etc/repo-guardian/policy{{- end }}
+
+{{/*
+The ConfigMap key for a policy.files path (IMPL-0029 7.9). A key may
+not hold "/", so each other character goes to "_"; the volume's items
+put the file back at its path, so catalogue/ and orgs/ survive the
+mount (kubelet's ..data layout, which policy.Load follows).
+*/}}
+{{- define "repo-guardian.policyKey" -}}
+{{- regexReplaceAll "[^-._a-zA-Z0-9]" . "_" -}}
+{{- end }}
+
+{{/*
+The policy volume, shared by the Deployment and the migrate Job. An
+operator ConfigMap is mounted whole; policy.files is mounted through
+items, one per path.
+*/}}
+{{- define "repo-guardian.policyVolume" -}}
+- name: policy
+  configMap:
+    name: {{ .Values.policy.existingConfigMap | default (printf "%s-policy" (include "repo-guardian.fullname" .)) }}
+    {{- if not .Values.policy.existingConfigMap }}
+    items:
+      {{- range $path, $_ := .Values.policy.files }}
+      - key: {{ include "repo-guardian.policyKey" $path }}
+        path: {{ $path }}
+      {{- end }}
+    {{- end }}
+{{- end }}
+
+{{/*
+Render-time guard for policy.files: relative paths that stay inside the
+root, distinct ConfigMap keys, and not beside an existingConfigMap.
+*/}}
+{{- define "repo-guardian.validatePolicyFiles" -}}
+{{- if and .Values.policy.files .Values.policy.existingConfigMap -}}
+{{- fail "policy.files and policy.existingConfigMap are mutually exclusive: set one" -}}
+{{- end -}}
+{{- $keys := dict -}}
+{{- range $path, $_ := .Values.policy.files -}}
+{{- if or (hasPrefix "/" $path) (has ".." (splitList "/" $path)) (eq $path "") -}}
+{{- fail (printf "policy.files path %q must be relative to the policy root and must not contain .." $path) -}}
+{{- end -}}
+{{- $k := include "repo-guardian.policyKey" $path -}}
+{{- if hasKey $keys $k -}}
+{{- fail (printf "policy.files paths %q and %q map to the same ConfigMap key %q: rename one" (get $keys $k) $path $k) -}}
+{{- end -}}
+{{- $_ := set $keys $k $path -}}
+{{- end -}}
 {{- end }}
 
 {{/*
@@ -484,8 +562,6 @@ The api role's env: listener, read-only DSN, auth and status.
 - name: API_AUTH_ENABLED
   value: "false"
 {{- end }}
-- name: PR_STALE_AFTER
-  value: {{ $v.api.prStaleAfter | quote }}
 - name: STATUS_PUBLIC
   value: {{ $v.api.status.public | quote }}
 {{- end }}
@@ -552,7 +628,7 @@ success; failure aborts the render with the fix.
 {{- fail "temporal.address is required: ingest and the controls workers dial Temporal. See docs/operations/v2-migration.md" -}}
 {{- end -}}
 {{- if not (include "repo-guardian.hasPolicy" .) -}}
-{{- fail "policy.config or policy.existingConfigMap is required: the evaluator will not start without GUARDIAN_CONFIG" -}}
+{{- fail "policy.files or policy.existingConfigMap is required: ingest and the controls workers will not start without GUARDIAN_CONFIG" -}}
 {{- end -}}
 {{- if and .Values.api.enabled .Values.api.auth.enabled (not .Values.api.auth.issuer) -}}
 {{- fail "api.auth.issuer is required when api.auth.enabled (or set api.auth.enabled=false for a pod-network-only API)" -}}

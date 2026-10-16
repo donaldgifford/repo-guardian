@@ -7,15 +7,11 @@ release:
 chart:
   appVersion: 9.9.9-test
 set:
-  config:
-    appId: "12345"
-  secrets:
-    webhookSecret: "x"
-    privateKey: "x"
   temporal:
     address: temporal:7233
   policy:
-    config: "guardian {}"
+    files:
+      enterprise.hcl: "enterprise {}"
 tests:
   - it: defaults to the chart appVersion
     set:

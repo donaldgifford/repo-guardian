@@ -46,26 +46,24 @@ helm install repo-guardian \
 
 ## Quick Start
 
-1. Create a values file with your GitHub App credentials:
+1. Create a values file with the Evaluation App and a policy directory:
 
 ```yaml
-config:
-  appId: "YOUR_APP_ID"
-  dryRun: true  # Start in dry-run mode
-
 temporal:
   address: temporal-frontend.temporal.svc.cluster.local:7233
 
-policy:
-  config: |
-    guardian {}
+github:
+  eval:
+    appId: "YOUR_EVALUATION_APP_ID"
+    # Secret with keys `private-key` and `webhook-secret`.
+    existingSecret: repo-guardian-eval
 
-secrets:
-  webhookSecret: "YOUR_WEBHOOK_SECRET"
-  privateKey: |
-    -----BEGIN RSA PRIVATE KEY-----
-    YOUR_PRIVATE_KEY
-    -----END RSA PRIVATE KEY-----
+policy:
+  files:
+    enterprise.hcl: |
+      enterprise {}
+    orgs/acme.hcl: |
+      org "acme" {}
 ```
 
 2. Install the chart:
@@ -79,7 +77,8 @@ helm install repo-guardian \
   -f values.yaml
 ```
 
-3. Once verified, set `config.dryRun: false` to enable live mode.
+3. The evaluator only reads. Set `github.remediate.*` to run the
+   remediator when you want repo-guardian to open pull requests.
 
 ## Choosing a deployment shape
 
@@ -88,11 +87,12 @@ Chart 2.0.0 runs repo-guardian as roles on Temporal (DESIGN-0026).
 
 | Topology | Renders | Use when |
 |----------|---------|----------|
-| `split` (default) | `ingest` (webhooks, 2 replicas + PDB), `worker` (workflows and activities, optional KEDA), and with `api.enabled` an `api` Deployment (ClusterIP + PDB) | Production: each role scales and fails on its own, and each holds only its own credentials. |
+| `split` (default) | `ingest` (webhooks, 2 replicas + PDB), `evaluator` and `remediator` (each when its App's `appId` is set, optional KEDA per queue), and with `api.enabled` an `api` Deployment (ClusterIP + PDB) | Production: each role scales and fails on its own, and each holds only its own credentials. |
 | `all` | One Deployment running every role; the API listens on `api.port` | Homelab and small installs. |
 
-Each role holds only what it needs: the GitHub App key goes to
-`worker` and `all`, the webhook secret to `ingest` and `all`, the
+Each role holds only what it needs: the Evaluation App's key goes to
+`evaluator` and `all`, the Remediation App's to `remediator` and `all`,
+both webhook secrets to `ingest` and `all`, the
 Temporal credentials to every role that dials Temporal, and `api`
 gets a read-only database login and nothing else.
 
@@ -489,8 +489,8 @@ etc.) into PR titles and bodies.
 
 **The `env` helper is unrestricted by design.** Any env var
 visible to the binary's process — including chart-managed values
-like `GITHUB_APP_ID`, secret material like `GITHUB_PRIVATE_KEY` and
-`WEBHOOK_SECRET`, and anything attached via `extraEnv` — is
+like `EVAL_GITHUB_APP_ID`, secret material like
+`EVAL_WEBHOOK_SECRET`, and anything attached via `extraEnv` — is
 readable from policy templates. The threat model assumes the
 operator who writes the policy HCL is the same operator who
 provisions runtime secrets, so reading those secrets back from
@@ -498,59 +498,57 @@ templates is not privilege escalation. **However**, rendered PR
 text is visible to anyone with read access to the target
 repository. Never reference secret env vars from PR templates:
 
-```hcl
-# DON'T:
-defaults {
-  pr {
-    body = "deployed with key {{`{{ env \"GITHUB_PRIVATE_KEY\" }}`}}"
-  }
-}
+```gotemplate
+{{`{{/* DON'T: */}}`}}
+deployed with {{`{{ env "EVAL_WEBHOOK_SECRET" }}`}}
 
-# DO: keep secrets out of PR text entirely.
-defaults {
-  pr {
-    body = "Project: {{`{{ env \"JIRA_PROJECT\" }}`}}"   # non-secret
-  }
-}
+{{`{{/* DO: keep secrets out of rendered text entirely. */}}`}}
+Project: {{`{{ env "JIRA_PROJECT" }}`}}
 ```
 
 The chart's reserved-name list (`_helpers.tpl`) blocks
 `templating.vars` from re-declaring chart-managed env keys
-(`GITHUB_APP_ID`, `WEBHOOK_SECRET`, `STRICT_TEMPLATES`, etc.) at
+(`EVAL_GITHUB_APP_ID`, `EVAL_INTERVAL`, `GUARDIAN_CONFIG`, etc.) at
 helm-render time, but the `env` helper itself can read whatever
 the OS gives it.
 
 ### Repository discovery and scheduling
 
-Each repository has its own `RepoWorkflow` in Temporal: it checks the
-repository, schedules its next check `checkInterval` later (jittered),
-and waits on a durable timer. Webhooks signal it to re-check at once.
+Each repository has its own `EvaluationWorkflow` in Temporal: it
+evaluates the repository's assigned controls, schedules its next
+evaluation `evalInterval` later (jittered), and waits on a durable
+timer. Webhooks signal it to re-check at once.
 A per-installation `InstallationWorkflow` hands out the GitHub rate
 budget; a check that finds the budget exhausted waits on a timer until
 the reset rather than holding a worker. Discovery
 (`discovery.interval`) enumerates installations and starts workflows
 for repositories the webhooks missed.
 
-### Editing a policy or template
+### Editing the policy
 
-The policy version hashes the HCL policy and the loaded template
-bodies. Editing `policy.config` or `templates.files` changes the pod
-checksums, so the roles roll; the new worker then signals every
-repository to re-check at a random point inside
-`policyRolloutWindow` (default `24h`) rather than all at once. A
-ConfigMap you manage yourself (`policy.existingConfigMap`,
-`templates.existingConfigMap`) is not hashed: roll the pods after
-editing it.
+`policy.files` is the controls policy directory (DESIGN-0030): each key
+is a path relative to the policy root (`enterprise.hcl`,
+`catalogue/*.hcl`, `orgs/*.hcl`, `templates/...`). The chart renders
+one ConfigMap and mounts it at `GUARDIAN_CONFIG` on ingest, the
+controls workers and the migrate Job, with each file back at its path.
+The policy version hashes the files and the templates they use. Editing
+`policy.files` changes the pod checksum, so the roles roll, the
+migrate Job activates the new version, and the evaluator re-evaluates
+every repository at a random point inside `policyRolloutWindow`
+(default `24h`). A ConfigMap you manage yourself
+(`policy.existingConfigMap`) is mounted whole and is not hashed: roll
+the pods after editing it.
 
-### `STRICT_TEMPLATES` recommendation
+### Upgrade notes (controls switch-over) — breaking
 
-Enable `templating.strict: true` (or set `STRICT_TEMPLATES=true`
-on the Deployment env) in CI and production to validate compiled
-PR templates against a zero-value `PRVars` context at startup.
-This catches `.Catalog.X` references that work in the file-content
-template path but fail in the PR-text path, surface as
-location-prefixed errors at boot rather than at the first
-incoming webhook.
+The rule engine and the single-App worker are gone (IMPL-0029).
+`policy.config`, `templates.*`, `secrets.*`, `config.appId`,
+`config.dryRun`, `config.skipForks`, `config.skipArchived`,
+`policy.autoClosePR`, `policy.orphanCleanup`, `templating.strict`,
+`worker.replicas`/`concurrency`/`resources`, `checkInterval` (now
+`evalInterval`), `store.postgres.maxConns`, `migrate.freshness` and
+`api.prStaleAfter` fail the render, naming
+`docs/operations/v2-migration.md#controls-chart-values`.
 
 {{ template "chart.valuesSection" . }}
 

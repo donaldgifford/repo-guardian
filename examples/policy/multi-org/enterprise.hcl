@@ -1,4 +1,4 @@
-# multi-org: what v1's guardian-multi-org.hcl (strict scope mode) did.
+# multi-org: what v1's strict scope mode did.
 # The enterprise list is the onboarding list; the baseline applies to
 # both orgs, and each org adds its own default-branch ruleset: two
 # approvals in production, one in staging, which is only evaluated.

@@ -147,7 +147,7 @@ rule "file" "renovate_config" {
 
 Both Renovate rules are disabled by default. See [`docs/ADDING_RULES.md`](docs/ADDING_RULES.md#renovate-file-rules) for details on templates, check modes, and prerequisites.
 
-**Multi-org configurations:** A top-level `scope { orgs = [...] }` block engages strict mode where every rule must declare its own `scope { }` sub-block. Use the literal `["*"]` to apply to every in-scope org, or a subset to target specific orgs. Single-org users do not need this — leaving `scope { }` out preserves the legacy "every rule applies to every repo" behavior. See [`examples/guardian-multi-org.hcl`](examples/guardian-multi-org.hcl) and the [Multi-org Configuration](docs/ADDING_RULES.md#multi-org-configuration) section of `ADDING_RULES.md`.
+**Multi-org configurations:** A top-level `scope { orgs = [...] }` block engages strict mode where every rule must declare its own `scope { }` sub-block. Use the literal `["*"]` to apply to every in-scope org, or a subset to target specific orgs. Single-org users do not need this — leaving `scope { }` out preserves the legacy "every rule applies to every repo" behavior. See [`examples/policy/multi-org/`](examples/policy/multi-org/) and the [Multi-org Configuration](docs/ADDING_RULES.md#multi-org-configuration) section of `ADDING_RULES.md`.
 
 **Helm chart:** Use `policy.config` for inline HCL or `policy.existingConfigMap` to reference an external ConfigMap. See the [chart values](charts/repo-guardian/values.yaml).
 

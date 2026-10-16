@@ -1758,8 +1758,9 @@ half-switched binary.
     removed key. helm-unittest: 241 pass; `helm lint` and
     `make lint-alerts-chart` (15 rules) green. The namespace check passes
     for every kind.
-- [ ] 7.10 Delete `examples/guardian-*.hcl` and the `guardian-multi-org/`
+- [x] 7.10 Delete `examples/guardian-*.hcl` and the `guardian-multi-org/`
   directory; `examples/values-*.yaml` move to the policy map.
+  Done: the nine `guardian-*.hcl` files and `guardian-multi-org/` are gone. `values-with-policy.yaml` and `values-multi-org.yaml` are chart values on `github.eval` with a nested `policy.files` map mirroring `examples/policy/full` and `multi-org` byte for byte, pinned by `TestValuesExamples_MatchPolicyRoots` (verified non-vacuous: a one-character edit fails it). `examples/README.md` lost its v1 sections; live references in README.md, docs/index.md and the multi-org root now point at `examples/policy/`. Both values files render.
 - [ ] 7.11 Non-vacuous check: re-register `RepoWorkflow` and confirm the
   replay and registration tests notice; set a removed chart key and
   confirm render fails; restore.

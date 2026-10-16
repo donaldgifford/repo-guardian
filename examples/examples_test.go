@@ -4,11 +4,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
+	"io/fs"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/donaldgifford/repo-guardian/internal/controls/builtin"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
@@ -73,5 +78,87 @@ func TestPolicyExamples_Summary(t *testing.T) {
 				t.Errorf("Summarize(%s) differs from %s; rerun with -update if the change is intended\ngot:\n%s", name, golden, got)
 			}
 		})
+	}
+}
+
+// valuesExamples maps each example values file to the policy root its
+// policy.files map mirrors.
+var valuesExamples = map[string]string{
+	"values-with-policy.yaml": "full",
+	"values-multi-org.yaml":   "multi-org",
+}
+
+// TestValuesExamples_MatchPolicyRoots pins that each values file's
+// nested policy.files map is the example policy root byte for byte: a
+// string is a file, a map is a directory (IMPL-0029 7.9, OQ11).
+func TestValuesExamples_MatchPolicyRoots(t *testing.T) {
+	for file, root := range valuesExamples {
+		t.Run(file, func(t *testing.T) {
+			raw, err := os.ReadFile(filepath.Join(examplesDir(), file))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var values struct {
+				Policy struct {
+					Files map[string]any `yaml:"files"`
+				} `yaml:"policy"`
+			}
+
+			if err := yaml.Unmarshal(raw, &values); err != nil {
+				t.Fatalf("parse %s: %v", file, err)
+			}
+
+			got := make(map[string]string)
+			flattenPolicyFiles(t, "", values.Policy.Files, got)
+
+			want := make(map[string]string)
+			dir := filepath.Join(examplesDir(), "policy", root)
+
+			err = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+				if err != nil || d.IsDir() {
+					return err
+				}
+
+				content, err := os.ReadFile(path)
+				if err != nil {
+					return err
+				}
+
+				rel, err := filepath.Rel(dir, path)
+				if err != nil {
+					return err
+				}
+
+				want[filepath.ToSlash(rel)] = string(content)
+
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if !maps.Equal(got, want) {
+				t.Errorf("%s policy.files differs from examples/policy/%s:\n got paths %v\nwant paths %v",
+					file, root, slices.Sorted(maps.Keys(got)), slices.Sorted(maps.Keys(want)))
+			}
+		})
+	}
+}
+
+func flattenPolicyFiles(t *testing.T, prefix string, node map[string]any, out map[string]string) {
+	t.Helper()
+
+	for name, v := range node {
+		path := prefix + name
+
+		switch v := v.(type) {
+		case string:
+			out[path] = v
+		case map[string]any:
+			flattenPolicyFiles(t, path+"/", v, out)
+		default:
+			t.Fatalf("policy.files %s is %T, want a string or a map", path, v)
+		}
 	}
 }

@@ -5,7 +5,10 @@
 // activities package, which workflows reach by the names below.
 package workflows
 
-import "strconv"
+import (
+	"strconv"
+	"time"
+)
 
 // Workflow type names. They are part of every running execution's
 // identity, so renaming one strands the executions already started
@@ -25,6 +28,13 @@ const (
 	// implements it; the name is fixed now so StartRemediations can
 	// target it.
 	RemediationWorkflowName = "RemediationWorkflow"
+
+	// The controls evaluation workflows (IMPL-0029 Phase 5), on the
+	// evaluation queue.
+	EvaluationWorkflowName        = "EvaluationWorkflow"
+	ControlsDiscoveryWorkflowName = "ControlsDiscoveryWorkflow"
+	ControlsRolloutWorkflowName   = "ControlsRolloutWorkflow"
+	ControlsSnapshotWorkflowName  = "ControlsSnapshotWorkflow"
 )
 
 // Activity names. The activities package registers under these names
@@ -51,6 +61,19 @@ const (
 	// StartRemediationsActivity signal-with-starts the due
 	// RemediationWorkflows, one activity per evaluation (INV-0022 F4).
 	StartRemediationsActivity = "StartRemediations"
+
+	// The controls evaluation activities (IMPL-0029 Phase 5).
+	EvaluateActivity                  = "Evaluate"
+	RecordEvaluationActivity          = "RecordEvaluation"
+	ParkRepositoryActivity            = "ParkRepository"
+	ControlsListInstallationsActivity = "ControlsListInstallations"
+	ControlsListRepositoriesActivity  = "ControlsListRepositories"
+	ControlsUpsertActivity            = "ControlsUpsertRepositories"
+	ControlsParkMissingActivity       = "ControlsParkMissing"
+	ControlsResolveAllActivity        = "ControlsResolveAll"
+	ControlsSignalAllActivity         = "ControlsSignalAll"
+	ControlsSnapshotActivity          = "ControlsSnapshot"
+	ControlsCompleteRolloutActivity   = "ControlsCompleteRollout"
 )
 
 // RemediateSignal asks a RemediationWorkflow to run, or to loop once
@@ -68,6 +91,11 @@ func RemediationWorkflowID(repositoryID int64, control string) string {
 const (
 	DiscoveryScheduleID = "discovery"
 	SnapshotScheduleID  = "snapshot"
+
+	// The evaluator's schedules (IMPL-0029 5.6): the only two its
+	// bootstrap ensures.
+	ControlsDiscoveryScheduleID = "controls-discovery"
+	ControlsSnapshotScheduleID  = "controls-snapshot"
 )
 
 // BootstrapWorkflowID is the one BootstrapWorkflow a cutover runs.
@@ -129,6 +157,25 @@ func WebhookWorkflowID(deliveryID string) string {
 // discovery started by a webhook delivery.
 func DiscoveryWorkflowID(installationID int64, deliveryID string) string {
 	return "discovery/installation/" + strconv.FormatInt(installationID, 10) + "/" + deliveryID
+}
+
+// EvaluationWorkflowID is evaluation/<repository id>: one evaluation
+// loop per repository, kept across renames and transfers.
+func EvaluationWorkflowID(repositoryID int64) string {
+	return "evaluation/" + strconv.FormatInt(repositoryID, 10)
+}
+
+// ControlsDiscoveryWorkflowID is the workflow ID for single-installation
+// controls discovery started by a webhook delivery.
+func ControlsDiscoveryWorkflowID(installationID int64, deliveryID string) string {
+	return "controls-discovery/installation/" + strconv.FormatInt(installationID, 10) + "/" + deliveryID
+}
+
+// ControlsRolloutWorkflowID is controls-rollout/<version>/<activated_at
+// unix seconds>: one rollout per activation, so a revert or rollback to
+// a version seen before rolls out again (DESIGN-0030 D14).
+func ControlsRolloutWorkflowID(version string, activatedAt time.Time) string {
+	return "controls-rollout/" + version + "/" + strconv.FormatInt(activatedAt.Unix(), 10)
 }
 
 // PolicyRolloutWorkflowID is the workflow ID for a policy version's

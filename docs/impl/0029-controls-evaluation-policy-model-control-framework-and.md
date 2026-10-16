@@ -969,7 +969,7 @@ evaluator's store.
 
 #### Tasks
 
-- [ ] 5.1 Names and types in `internal/workflows`: `EvaluationWorkflowID`
+- [x] 5.1 Names and types in `internal/workflows`: `EvaluationWorkflowID`
   (`evaluation/<repository id>`), `ControlsDiscoveryWorkflowID`
   (`controls-discovery/installation/<id>/<delivery>`), schedule ids
   `controls-discovery` and `controls-snapshot`,
@@ -978,6 +978,13 @@ evaluator's store.
   or rollback rolls out again); signals
   `Recheck{Paths []string, Unknown bool, Priority}` and
   `PolicyChanged`; `PriorityManual Priority = 1`.
+  Done: names in `names.go` (workflow and activity names, the two schedule
+  ids, `EvaluationWorkflowID`, `ControlsDiscoveryWorkflowID`,
+  `ControlsRolloutWorkflowID`); `Recheck` gained `Paths` and `Unknown`
+  (omitempty, so the captured rc histories replay unchanged);
+  `PolicyChanged` is reused as is; `PriorityManual = 1`;
+  `TriggerPREvent`/`TriggerManual`. `TestControlsWorkflowIDs` pins the ids
+  and that a re-activation gets a new rollout id.
 - [ ] 5.2 `EvaluationWorkflow` (`evaluation.go`), built from `repoLoop`:
   a jittered `EVAL_INTERVAL` timer, `recheck` and `policy_changed`
   signals, coalescing that unions changed paths with unknown dominating,

@@ -22,6 +22,10 @@ const (
 	PriorityWebhook  Priority = 2
 	PrioritySchedule Priority = 3
 	PriorityRollout  Priority = 4
+
+	// PriorityManual is a person-requested evaluation (the evaluate
+	// command, an API recheck): the same key as PriorityHuman.
+	PriorityManual Priority = 1
 )
 
 // Trigger values, matching store.Trigger and the checks.trigger CHECK
@@ -33,6 +37,10 @@ const (
 	TriggerDiscovery     = "discovery"
 	TriggerPolicyRollout = "policy_rollout"
 	TriggerBootstrap     = "bootstrap"
+
+	// The controls checks.trigger values the rc line did not have.
+	TriggerPREvent = "pr_event"
+	TriggerManual  = "manual"
 )
 
 // Park reasons, matching store.ParkReason.
@@ -138,10 +146,15 @@ type ParkInput struct {
 	Cause          string
 }
 
-// Recheck is the recheck signal payload.
+// Recheck is the recheck signal payload. The controls evaluation loop
+// also reads the changed paths: Paths selects the controls that own or
+// read them, and Unknown (a forced push, a truncated commit list, too
+// many paths) selects every control and dominates when coalescing.
 type Recheck struct {
 	Trigger  string
 	Priority Priority
+	Paths    []string `json:",omitempty"`
+	Unknown  bool     `json:",omitempty"`
 }
 
 // PolicyChanged is the policy_changed signal payload: re-check by By,

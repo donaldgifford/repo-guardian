@@ -1835,9 +1835,9 @@ half-switched binary.
   in `/controls`, `/orgs` and `/policies`, a machine client can read
   `/controls`, and `/status` works anonymously. — *deferred: human
   required*
-- [ ] 8.10 Non-vacuous check: drop the scope predicate from one query and
+- [x] 8.10 Non-vacuous check: drop the scope predicate from one query and
   the Go filter from `/policies`; confirm both scope tests fail; restore.
-
+  Done: neutralising `APIRepositories`' scope predicate (`OR true`, keeping the params so it still builds) fails `TestAPIQueries_AreScoped` ("query APIRepositories is not scoped") and `TestEndpoints_TwoOrgAuthz` (team-web listed every org's repositories); short-circuiting the org filter in `policiesOut` fails `TestPoliciesSummary_IsScoped`. Restored; `lint-sql` current and all three pass again.
 #### Success Criteria
 
 - Every D32 row is implemented or explicitly left to IMPL-0030

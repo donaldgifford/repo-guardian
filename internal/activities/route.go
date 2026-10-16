@@ -121,6 +121,18 @@ func (r *Router) RouteWebhook(ctx context.Context, in *workflows.WebhookInput) e
 		})
 	}
 
+	// The rc's single App does the work until the controls switch-over,
+	// and it cannot act for the Evaluation App's installation: routing
+	// these would start discovery for an installation the worker holds
+	// no token for, and race repository.created into a repository
+	// workflow keyed to the wrong installation. IMPL-0029 task 5.7
+	// replaces this drop with the controls routing (IMPL-0028 task 9.1).
+	if in.App == workflows.AppEval {
+		log.Info("dropping Evaluation App delivery until the controls switch-over")
+
+		return nil
+	}
+
 	switch in.Event + "." + in.Action {
 	case "push.":
 		return r.each(ctx, in, r.push)

@@ -953,12 +953,17 @@ Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
   (`sha256:ff9119c7…`) and UI image (`sha256:2e48959e…`) are cosign-signed
   and pass `slsa-verifier` (generator v2.1.0, commit `24a59e2`); chart
   `2.0.0-rc.5` pulls. Image tags drop the `v`.
-- [ ] 7.6 Deploy the rc to dev (human-run): the rc roles keep running;
+- [x] 7.6 Deploy the rc to dev (human-run): the rc roles keep running;
   an evaluator and a remediator start on their deployments with both
   Apps' credentials and report ready. In the Temporal UI, check that
   `repo-guardian-eval` reaches Current on its first start while
   `repo-guardian` keeps rc.4 or rc.5 (this absorbs 0.14).
-  **Deferred - human required.**
+  Done 2026-10-15 on rc.6 (maintainer): new Evaluation App (5332276) and
+  Remediation App (5332308) with their Secrets; `repo-guardian-all` ran
+  both halves beside the rc worker, each printing its App's permission
+  set; `repo-guardian-eval` and `repo-guardian-remediate` became current
+  on `2.0.0-rc.6` while `repo-guardian` stayed current. INV-0022 § rc.6
+  through Argo CD. Found the misrouting fixed in Phase 9.
 
 #### Success Criteria
 
@@ -1078,7 +1083,7 @@ Argo's annotations mean nothing to Helm.
   Done 2026-10-12: chart and appVersion `2.0.0-rc.6`, README regenerated;
   `make ci` green, `make helm-test` 250/250, `make test-integration` 28
   packages ok. PR #206.
-- [ ] 8.8 Release and prove it (human-run): merge, tag `v2.0.0-rc.6`,
+- [x] 8.8 Release and prove it (human-run): merge, tag `v2.0.0-rc.6`,
   dispatch `ghcr.yml`. Then delete the dev Application, clear the
   `repo-guardian-dev` Temporal namespace, and reinstall rc.6 through Argo
   from nothing. Record in INV-0022: the Sync-phase order Argo ran, that
@@ -1086,6 +1091,14 @@ Argo's annotations mean nothing to Helm.
   healthy with no workaround. This also covers 7.6 (the evaluator's
   deployment reaching Current).
   **Deferred - human required.**
+  2026-10-15: release done (rc.6 tagged at `2e929df`, images signed with
+  SLSA provenance, chart published). The reinstall reused the surviving
+  CNPG Cluster, so migrate adopted v1: the upgrade path through Argo is
+  proven (hook order, re-runs, one rollout; INV-0022 § rc.6 through Argo
+  CD). A sync onto an empty database is deferred (maintainer decision,
+  2026-10-15): the empty-database ordering is covered by the chart tests
+  (`tests/argo_sync_test.yaml`) and migrate's wait by
+  `TestWaitReady_RefusedThenReady`. 7.6 done 2026-10-15.
 
 #### Success Criteria
 
@@ -1093,6 +1106,52 @@ Argo's annotations mean nothing to Helm.
   Upgrades still migrate before new pods roll.
 - Helm install and upgrade behaviour is unchanged.
 - An Argo sync with an unchanged policy activates nothing.
+
+### Phase 9: Drop Evaluation App deliveries until the switch-over (chart 2.0.0-rc.7)
+
+Found 2026-10-15 while closing 7.6 (INV-0022 § rc.6 through Argo CD).
+Ingest stamps each delivery with the App whose route validated it, but
+`RouteWebhook` handled the Evaluation App's events exactly as the single
+App's, carrying the Evaluation App's installation id into a worker that
+holds only the single App's key. Installing or unsuspending the
+Evaluation App started a `DiscoveryWorkflow` that could not mint a token
+and failed every attempt. Worse, both Apps send `repository.created` and
+`installation_repositories.added` for a new repository; when the
+Evaluation App's delivery won, `repo/<id>` started with its installation
+id and every check of that repository failed until IMPL-0029. Renames
+and transfers could likewise overwrite the stored installation id. Dev
+is safe only because the Evaluation App's webhook is inactive, one
+checkbox from the failure.
+
+#### Tasks
+
+- [x] 9.1 `RouteWebhook` drops every Evaluation App delivery (an Info log,
+  no store or Temporal call) until IMPL-0029 task 5.7 replaces it with the
+  controls routing. Test: the strict store and Temporal mocks see nothing
+  for installation, installation_repositories, repository and push
+  events. Probe: disabling the guard fails every case; restored.
+  Done: the guard sits after the Remediation App's access branch;
+  `TestRouteWebhook_EvaluationAppDropped` replaces the 3.3 subtest that
+  pinned the old routing.
+- [x] 9.2 Docs: v2-onboarding § A public route for webhooks says the
+  Evaluation App's deliveries are dropped and its webhook can stay
+  inactive; CLAUDE.md's Phase 3 paragraph; IMPL-0029 5.7 deletes the
+  drop and its test.
+- [x] 9.3 `Chart.yaml` `version` and `appVersion` → `2.0.0-rc.7`;
+  helm-docs regenerated; `make ci` and `make helm-test` green; PR to `v2`
+  with `dont-release`.
+  Done 2026-10-15: chart and appVersion `2.0.0-rc.7`, README regenerated;
+  `make ci` green, `make helm-test` 250/250. PR #208.
+- [ ] 9.4 Release (human-run): merge, tag `v2.0.0-rc.7`, dispatch
+  `ghcr.yml`, sync dev. With the Evaluation App's webhook still inactive
+  nothing changes on dev; a redelivery from the App's Advanced tab, if
+  tried, logs the drop and starts nothing.
+  **Deferred - human required.**
+
+#### Success Criteria
+
+- An Evaluation App delivery changes no store row and starts or signals
+  no workflow while the rc's single App does the work.
 
 ## File Changes
 

@@ -315,8 +315,12 @@ Each route checks only its own App's secret and refuses an installation
 event naming the other App's id (401, counted as
 `webhook_rejected_total{reason="app_mismatch"}`). Like the blocks above,
 the routes are not yet fully active: the Evaluation App's deliveries
-route as the single App's do, and the Remediation App's installation
-events are dropped until IMPL-0029 records its access.
+are validated and then dropped (logged, nothing else happens), and the
+Remediation App's installation events are dropped until IMPL-0029
+records its access. The single App keeps doing the work and cannot act
+for the Evaluation App's installation, so routing its deliveries would
+misroute new repositories. Leaving the Evaluation App's webhook
+inactive until the switch-over saves the deliveries.
 
 The Service keeps the release's full name (`repo-guardian` for a
 release of that name) and listens on port 80 (`service.httpPort`),
@@ -532,8 +536,11 @@ Two consequences:
 - **The migrate Job runs on every sync**, not just on a chart change:
   Argo re-runs Sync hooks each time. Migrating an up-to-date schema is a
   no-op, and so is activating the policy version that is already current.
-- **The finished Job is kept** until the next sync replaces it
-  (`BeforeHookCreation`), so its logs stay readable.
+- **A finished Job is deleted when it succeeds.** Argo honours the
+  chart's `helm.sh/hook-delete-policy: hook-succeeded` as well as its own
+  `BeforeHookCreation`, so read migrate's logs while it runs, from your
+  log store, or from the Job's events (`kubectl get events`) for about an
+  hour. A failed Job is kept until the next sync replaces it.
 
 Helm itself ignores the Argo annotations; `helm install` and
 `helm upgrade` behave as before.

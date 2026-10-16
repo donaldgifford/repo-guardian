@@ -401,7 +401,7 @@ func (r *recordingAccess) RecordAppAccess(_ context.Context, a *AppAccess) error
 
 // TestRouteWebhook_RemediationAppAccess is IMPL-0028 task 3.3: the
 // Remediation App's installation events update its access and never
-// drive discovery; the Evaluation App's route the same event as the rc.
+// drive discovery.
 func TestRouteWebhook_RemediationAppAccess(t *testing.T) {
 	for _, ev := range [][2]string{
 		{"installation", "created"},
@@ -429,24 +429,40 @@ func TestRouteWebhook_RemediationAppAccess(t *testing.T) {
 			}
 		})
 	}
+}
 
-	t.Run("evaluation App discovers", func(t *testing.T) {
-		r, st, tc := newRouter(t)
-		rec := &recordingAccess{}
-		r.WithAccessRecorder(rec)
-		st.MockWriter.EXPECT().UpsertInstallation(mock.Anything, store.Installation{InstallationID: 7, AccountLogin: "acme"}).Return(nil)
+// TestRouteWebhook_EvaluationAppDropped is IMPL-0028 task 9.1: until the
+// controls switch-over the rc's single App does the work and holds no
+// token for the Evaluation App's installation, so its deliveries touch
+// neither the store nor Temporal. The strict mocks fail on any call.
+func TestRouteWebhook_EvaluationAppDropped(t *testing.T) {
+	for _, ev := range [][2]string{
+		{"installation", "created"},
+		{"installation", "unsuspend"},
+		{"installation_repositories", "added"},
+		{"repository", "created"},
+		{"repository", "renamed"},
+		{"repository", "deleted"},
+		{"push", ""},
+	} {
+		t.Run(ev[0]+"."+ev[1], func(t *testing.T) {
+			r, _, tc := newRouter(t)
+			rec := &recordingAccess{}
+			r.WithAccessRecorder(rec)
 
-		in := webhook("installation", "created", widgets)
-		in.App = workflows.AppEval
+			in := webhook(ev[0], ev[1], widgets)
+			in.App = workflows.AppEval
+			in.RepositorySelection = selectionAll
 
-		if err := r.RouteWebhook(t.Context(), in); err != nil {
-			t.Fatal(err)
-		}
+			if err := r.RouteWebhook(t.Context(), in); err != nil {
+				t.Fatal(err)
+			}
 
-		wantSignals(t, tc, signal{workflowID: "discovery/installation/7/d1", name: workflows.DiscoveryWorkflowName, started: true})
+			wantSignals(t, tc)
 
-		if len(rec.got) != 0 {
-			t.Errorf("recorded = %+v, want nothing for the Evaluation App", rec.got)
-		}
-	})
+			if len(rec.got) != 0 {
+				t.Errorf("recorded = %+v, want nothing for the Evaluation App", rec.got)
+			}
+		})
+	}
 }

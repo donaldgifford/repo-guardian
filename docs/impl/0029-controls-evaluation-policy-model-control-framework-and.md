@@ -603,7 +603,9 @@ evaluator's store.
   renamed, transferred, archived, unarchived and deleted run discovery,
   resolution or park; `installation` and `installation_repositories`
   from either App re-resolve the affected repositories, because a
-  Remediation App change moves the effective mode.
+  Remediation App change moves the effective mode. This replaces the
+  rc's drop of every Evaluation App delivery (IMPL-0028 task 9.1);
+  delete `TestRouteWebhook_EvaluationAppDropped` with it.
 - [ ] 5.8 Controls snapshot: `controls-snapshot` writes
   `compliance_snapshots` rows from 4.7's query.
 - [ ] 5.9 `repo-guardian evaluate --repo <org>/<name> [--format json]`:

@@ -1259,10 +1259,19 @@ evaluator's store.
   Done: `deployment_info` gains `version`; `SetDeploymentInfo(topology,
   version)` runs once in `bringUp` with `temporal.BuildID()` (the module
   version of a tagged build, else the VCS revision, else `dev`).
-- [ ] 6.3 Posture exporter (OQ8) over 4.7's query: read before reset; on
+- [x] 6.3 Posture exporter (OQ8) over 4.7's query: read before reset; on
   a read error keep the previous values; publish nothing when not
   configured to export. Tests for each, and for a vanished org dropping
   its series.
+  Done: `api.PostureExporter` (`internal/api/posture.go`), per OQ8 the api
+  role's job. `Export` reads `ControlCompliance(nil, LineageAll)`, sums the
+  decisions per (org, control), then resets and republishes
+  `controls_status{bucket}` (unmeasurable = access_denied + suspended +
+  conflict) and `controls_coverage` (assigned). A read error returns and
+  keeps the previous values; the reset drops a vanished org's series; a
+  nil reader (not configured) publishes nothing and `Run` returns. Tests
+  for each. Wiring it into the api role over the controls read-only store
+  lands with the switch-over (Phase 7), when the api role gets that DSN.
 - [ ] 6.4 `monitoring.Derive(snap *policy.Snapshot, opts Options)`,
   keyed on control id; mechanisms derived from the snapshot (for
   example `custom_properties` with `apply = "workflow"`).

@@ -351,7 +351,7 @@ flips; a hidden panel renders nothing, never a placeholder.
   `fleetSeries()` over `/compliance/history` for the `?range=`
   window until 7.1 switches it to `aggregate=fleet`. A null percent
   renders "unmeasured".
-- [ ] 3.2 Fleet second column and row: Open PRs by age (`BarBuckets`
+- [x] 3.2 Fleet second column and row: Open PRs by age (`BarBuckets`
   over `summary.open_prs`, subtitle with `summary.stale_after`
   humanised, `<stale_prs> PRs over threshold →
   /findings?pr_stale=true`), Worst rules (`worstRules(rules, 5)` with

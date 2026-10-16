@@ -181,9 +181,12 @@ existing views keep rendering on the new tokens through the aliases in
   `bun run check:dist` and append it to the `lint-ui` make target
   after `check:api`. The test proves the guard fails on a fixture
   containing each pattern (memory: verify tests are non-vacuous).
-- [ ] 1.4 Add `radix-ui` (the single meta-package, DESIGN-0036 OQ3) to
+- [x] 1.4 Add `radix-ui` (the single meta-package, DESIGN-0036 OQ3) to
   dependencies; confirm it tree-shakes under Vite by checking the
   built chunk size before and after (record both numbers in the PR).
+  Recorded: `index-*.js` 753,718 bytes and `index-*.css` 18,567 bytes
+  both before and after adding `radix-ui@1.8.1` with nothing imported
+  yet, so the meta-package adds nothing until a primitive uses it.
 - [ ] 1.5 Tone table and badges: `lib/format.ts` gains `toneFor(field,
   value)` over the DESIGN-0036 badge table (status, remediation,
   reason-under-status, component state, rule kind → outline) with

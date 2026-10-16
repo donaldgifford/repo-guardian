@@ -27,6 +27,7 @@
     "jose": "^6.2.12",
     "openapi-fetch": "^0.17.0",
     "openid-client": "^6.8.8",
+    "radix-ui": "^1.8.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "recharts": "^3.10.1",

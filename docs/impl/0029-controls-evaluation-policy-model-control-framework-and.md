@@ -895,7 +895,7 @@ evaluator's store.
   state, which `accessOf` reads from `app_installations.suspended_at`.
   `TestControlsStore_ParkResultRule` has one row per reason, plus the
   suspension refusal.
-- [ ] 4.7 Compliance queries in `queries_controls/compliance.sql`,
+- [x] 4.7 Compliance queries in `queries_controls/compliance.sql`,
   starting from active assignments with a LEFT JOIN to results at the
   matching epoch and revision: buckets `compliant`, `non_compliant`,
   `pending`, `stale`, `unmeasurable` (by reason), `not_applicable`,
@@ -904,6 +904,17 @@ evaluator's store.
   assigned; baseline, org-added and exclusions variants.
   `store.CompliantPercent` keeps the Go mirror, and a test feeds the same
   counts to both and asserts they agree.
+  Done: `queries_controls/compliance.sql` has `ControlCompliance` (one
+  bucket per assignment, grouped by `(org, control_id, decision)`; lineage
+  filter `all`/`baseline`/`org_added`; an excluded assignment counts under
+  the lineage it would have had) and `ControlExclusions`. The percentage
+  is one SQL function, `floor_percent`, added to 00004 and used for both
+  percent and coverage. `TestCompliantPercent_SQLAgreesWithGo` feeds
+  `api/testdata/compliant_percent.json` to it and to
+  `store.CompliantPercent`. Repositories parked `unknown` count as
+  unmeasurable access loss, alongside `access_denied` (D6's fail-safe).
+  `TestControlsStore_ComplianceBuckets` covers every bucket in one fleet,
+  and `TestControlsStore_EmptyFleetIsNoData` covers no rows / NULL.
 - [ ] 4.8 Grant tests (`pgtest`, as the roles, never the owner): every
   transaction in 4.5–4.7 succeeds as `rg_evaluator`; as `rg_remediator`,
   writing any evaluator-owned column of `control_results`,

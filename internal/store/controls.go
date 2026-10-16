@@ -139,3 +139,44 @@ type RecordOutcome struct {
 	// Changed holds the recorded controls whose generation was bumped.
 	Changed []string
 }
+
+// The compliance lineage filters (DESIGN-0030 § Compliance queries).
+const (
+	LineageAll      = "all"
+	LineageBaseline = "baseline"
+	LineageOrgAdded = "org_added"
+)
+
+// ControlPosture is one (org, control, decision) row of the controls
+// compliance query: every posture bucket, with the percentage and
+// coverage computed in SQL. Percent and Coverage are nil, "no data", on
+// an empty denominator, never 100.
+type ControlPosture struct {
+	Org                      string
+	ControlID                string
+	Decision                 string
+	Compliant                int
+	NonCompliant             int
+	Pending                  int
+	Stale                    int
+	UnmeasurableAccessDenied int
+	UnmeasurableSuspended    int
+	UnmeasurableConflict     int
+	NotApplicable            int
+	Unknown                  int
+	Excluded                 int
+	Assigned                 int
+	Percent                  *float64
+	Coverage                 *float64
+}
+
+// Exclusion is one row of the exclusions report: an excluded or
+// conflicted assignment (ControlID set) or an excluded repository.
+type Exclusion struct {
+	Org        string
+	Repository string
+	ControlID  string
+	State      string
+	Reason     string
+	ExcludedBy string
+}

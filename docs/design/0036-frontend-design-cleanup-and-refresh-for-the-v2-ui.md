@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0036
 title: "Frontend design cleanup and refresh for the v2 UI"
-status: Draft
+status: Approved
 author: Donald Gifford
 created: 2026-10-15
 ---
@@ -9,6 +9,10 @@ created: 2026-10-15
 <!-- markdownlint-disable-file MD025 MD041 -->
 
 # DESIGN-0036: Frontend design cleanup and refresh for the v2 UI
+
+> **Approved 2026-10-16.** Implemented by
+> [IMPL-0031](../impl/0031-frontend-design-refresh-for-the-v2-ui.md); the
+> mockup `ui/design/repo-guardian-mockup.html` is kept in step with it.
 
 <!--toc:start-->
 - [Overview](#overview)
@@ -246,7 +250,7 @@ values, query names in subtitles) are mono; prose is sans.
 
 **Badges** (the reel's `.badge`): mono 12px, `5px 7px`, no radius,
 background `color-mix(in srgb, <tone> 18%, transparent)`, text
-`color-mix(in srgb, <tone> 75%, white)`. One tone table in
+`color-mix(in srgb, <tone> 65%, white)` (75% in the first draft; IMPL-0031 6.1's axe run put the bad tone on a selected row under AA). One tone table in
 `lib/format.ts` covers every documented value, with `mute` for anything
 unknown (both enums are open):
 
@@ -708,7 +712,7 @@ The rules the mockup follows, which the implementation keeps:
 ### Accessibility
 
 - Contrast against the actual hex values: `muted-foreground` on `panel`
-  6.1:1, `foreground` on `background` 14.6:1, every badge tone at 75%
+  6.1:1, `foreground` on `background` 14.6:1, every badge tone at 65%
   toward white on an 18% tint clears 5:1. Heat-shaded cells keep their
   text in `foreground` and never rely on the shade alone (the number
   and the percent are printed). `@axe-core/playwright` runs on Fleet,

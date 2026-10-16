@@ -65,5 +65,5 @@ docz create design "Your Design Title"
 | DESIGN-0032 | Evaluation and remediation workflows: change-driven remediation with per-control PRs | Draft | 2026-10-02 | Donald Gifford | [0032-evaluation-and-remediation-workflows-change-driven-remediation.md](0032-evaluation-and-remediation-workflows-change-driven-remediation.md) |
 | DESIGN-0033 | fwsync as inspiration: shared HCL concepts and whether to reuse it | Draft | 2026-10-02 | Donald Gifford | [0033-fwsync-as-inspiration-shared-hcl-concepts-and-whether-to-reuse.md](0033-fwsync-as-inspiration-shared-hcl-concepts-and-whether-to-reuse.md) |
 | DESIGN-0034 | CODEOWNERS ownership control | Draft | 2026-10-04 | Donald Gifford | [0034-codeowners-ownership-control.md](0034-codeowners-ownership-control.md) |
-| DESIGN-0036 | Frontend design cleanup and refresh for the v2 UI | Draft | 2026-10-15 | Donald Gifford | [0036-frontend-design-cleanup-and-refresh-for-the-v2-ui.md](0036-frontend-design-cleanup-and-refresh-for-the-v2-ui.md) |
+| DESIGN-0036 | Frontend design cleanup and refresh for the v2 UI | Approved | 2026-10-15 | Donald Gifford | [0036-frontend-design-cleanup-and-refresh-for-the-v2-ui.md](0036-frontend-design-cleanup-and-refresh-for-the-v2-ui.md) |
 <!-- END DOCZ AUTO-GENERATED -->

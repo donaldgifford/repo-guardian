@@ -196,13 +196,26 @@ calls `Type.Build`.
 
 #### Tasks
 
-- [ ] 1.1 Starting check: confirm the IMPL-0028 skeleton is on `v2`
+- [x] 1.1 Starting check: confirm the IMPL-0028 skeleton is on `v2`
   (`internal/control` compiles with the `Reader`, `PRObserver` and
   `Writer` interfaces and their value types; the `Writer` implementation
   sits in its own package; `PRConfig` and `PRTemplate` live in
   `internal/template`; the depguard edges of DESIGN-0031 D17 are in
   `.golangci.yml`). List anything missing in this task and finish it here
   before 1.2.
+  Done 2026-10-16. Present: `Reader`/`PRObserver`/`Writer` and their
+  value types in `internal/control` (`client.go`), the `Writer` in
+  `internal/github/write`, the `writer` and `writer-evaluator-side`
+  depguard rules. Missing and finished here: `PRConfig` and `PRTemplate`
+  moved to `internal/template/pr.go` (aliases stay in the old
+  `internal/policy` until Phase 7 deletes it); depguard rules
+  `template-leaf`, `control-leaf`, `controls-types` and
+  `controls-consumers` (lax mode, so the package's own allow wins over the
+  module-wide deny), and `control`, `controls`, `policy` added to the
+  `workflows` rule. Probe: an import of `store` in `control` and in a
+  `controls/*` type, of `findings` in `template`, of a control type in
+  `report`, and of `control` in `workflows` each failed lint; removed.
+  (A blank-import probe does not trip depguard: use a named import.)
 - [ ] 1.2 Value types in `internal/control/types.go`, exactly as
   DESIGN-0031 § Supporting types: `Definition`, `BuildEnv`,
   `TemplateSource`, `ID` (with `String()` giving `slug@N` and `ParseID`),

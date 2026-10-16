@@ -135,7 +135,12 @@ func TestVersionV2_EveryFieldClassified(t *testing.T) {
 	}
 
 	seen := make(map[string]bool)
-	pkg := reflect.TypeFor[PolicyConfig]().PkgPath()
+	// PRConfig lives in internal/template (DESIGN-0031 D17) but is still
+	// part of the policy, so its fields stay classified.
+	pkgs := map[string]bool{
+		reflect.TypeFor[PolicyConfig]().PkgPath(): true,
+		reflect.TypeFor[PRConfig]().PkgPath():     true,
+	}
 
 	var walk func(reflect.Type)
 
@@ -144,7 +149,7 @@ func TestVersionV2_EveryFieldClassified(t *testing.T) {
 			typ = typ.Elem()
 		}
 
-		if typ.Kind() != reflect.Struct || typ.PkgPath() != pkg || seen[typ.Name()] {
+		if typ.Kind() != reflect.Struct || !pkgs[typ.PkgPath()] || seen[typ.Name()] {
 			return
 		}
 

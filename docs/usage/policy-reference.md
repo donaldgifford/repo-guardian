@@ -1,739 +1,444 @@
-# Policy Reference (guardian.hcl)
+# Policy reference (policy directory)
 
-The complete specification of repo-guardian's HCL policy surface: every
-block, attribute, type, default, and validation rule. For a guided
-introduction, start with [Getting Started](getting-started.md).
+The specification of repo-guardian's controls policy: the files in the
+policy directory, the blocks and attributes each one holds, how a
+repository's controls are resolved, and what fails load. The attributes
+of each control type live in the generated
+[Control-type reference](controls-reference.md); this page does not
+repeat them.
 
-Source of truth: `internal/policy/` (`types.go`, `defaults.go`, `loader.go`,
-`validate.go`). This document tracks the code; when in doubt, the loader wins.
+Source of truth: `internal/policy/` (`load.go`, `enterprise.go`,
+`org.go`, `catalogue.go`, `layers.go`, `resolve.go`, `validate.go`,
+`ownership.go`). When this page and the loader disagree, the loader wins.
 
-## Loading and precedence
+The worked examples are the policy roots under `examples/policy/`. Every
+one of them is loaded by the test suite, so the snippets quoted below
+parse as written.
 
-- **Location** — set `GUARDIAN_CONFIG` to a single `.hcl` file **or a
-  directory** of `.hcl` files (all files are parsed and merged; the
-  multi-file layout in `examples/guardian-multi-org/` is the canonical
-  split).
-- **Merge order** — `built-in defaults → HCL file → environment variable
-  overrides`. Env vars are applied last and always win (see
-  [Environment overrides](#environment-variable-overrides)).
-- **Rules are replace, not merge** — if your HCL declares *any* rule, the
-  built-in file rules are replaced entirely. Declare everything you want.
-  With no HCL config at all, the built-in defaults apply (see
-  [Built-in defaults](#built-in-defaults)).
-- **Strict-mode exception** — when a top-level `scope {}` block is present
-  and you declare no rules, the loader does **not** fall back to built-in
-  rules (the "every rule declares its scope" contract couldn't hold).
-- **Validation is fail-fast** — all violations are collected and reported
-  together at startup; the process exits non-zero on any error.
+| Example | What it shows |
+| ------- | ------------- |
+| `examples/policy/minimal` | one org, two baseline controls |
+| `examples/policy/full` | every built-in control type once, `exclude_repos` and a `repos` block |
+| `examples/policy/multi-org` | two orgs adding different controls, one of them evaluate-only |
+| `examples/policy/enterprise` | several orgs using `replace`, `exclude`, modes and remediation settings |
+| `examples/policy/renovate` | Renovate in place of Dependabot |
 
-## Grammar overview
+## The policy directory
+
+`GUARDIAN_CONFIG` names the policy root, a directory. Ingest, both
+controls workers and the migrate Job read it. The layout is fixed:
+
+```text
+<root>/
+  enterprise.hcl        # required: exactly one enterprise block
+  catalogue/*.hcl       # control definitions
+  orgs/*.hcl            # one org block per managed org that varies the baseline
+  templates/            # optional: file and PR templates the catalogue names
+```
+
+- **`enterprise.hcl`** must exist at the root.
+- **`catalogue/` and `orgs/`** hold `.hcl` files one level deep. File
+  names are free; the blocks inside decide what they mean.
+- **Any other `.hcl` file** anywhere under the root fails load.
+- **Files that are not `.hcl`** are not parsed. They can still be read
+  with `file()` or as templates.
+- **Size limit:** every file is capped at 1 MiB, and the whole root has
+  to fit one ConfigMap.
+
+The root is read once at startup. There is no hot reload: a change takes
+effect when the process restarts.
+
+### Expressions: literals and `file()`
+
+Attribute values are literals: strings, numbers, booleans, lists and
+objects. The one function is `file("<path>")`, which returns the content
+of a file under the root.
+
+- The path is relative to the root and must stay inside it. An absolute
+  path or a `..` that leaves the root fails load.
+- `file()` reads from the same pass as everything else, so the file is
+  part of the policy version.
+
+There are no variables, no locals and no other functions.
+
+### Symlinks and the kubelet `..data` layout
+
+The root may be a ConfigMap projection.
+
+- **Symlinks:** every file is resolved with `EvalSymlinks` and must land
+  inside the resolved root. A link that escapes the root fails load.
+- **`..data`:** when the root holds kubelet's `..data` link, the loader
+  walks that one consistent snapshot.
+- **Names starting with `..`:** skipped either way.
+
+With the Helm chart, `policy.files` is the root as a nested map: a
+string is a file, a map is a directory. Each file is mounted back at its
+path. `policy.existingConfigMap` mounts an existing ConfigMap instead.
+
+```yaml
+policy:
+  files:
+    enterprise.hcl: |
+      enterprise { ... }
+    catalogue:
+      codeowners.hcl: |
+        control "codeowners" { ... }
+    orgs:
+      myorg.hcl: |
+        org "myorg" { ... }
+```
+
+### Templates
+
+A control's `template = "<name>"` resolves in this order:
+
+1. `templates/<name>.tmpl` under the policy root.
+2. `templates/<name>` under the policy root.
+3. The embedded template of that name.
+
+The root's templates override the embedded ones per policy. The embedded
+templates a policy uses are hashed into its version, so upgrading the
+binary with a changed embedded template counts as a policy change.
+`examples/policy/enterprise/templates/codeowners-team.tmpl` is a root
+template that `codeowners@2` names.
+
+### The policy version
+
+The loaded policy has a version: `controls:` followed by a sha256 over
+these inputs:
+
+- every file under the root;
+- the embedded templates used;
+- every definition's revision.
+
+The migrate Job activates the version, and a new version starts a
+rollout that re-evaluates the fleet. Editing a comment is a new version.
+
+## `enterprise.hcl`
 
 ```hcl
-guardian    { ... }                    # operational settings (0 or 1)
-ignore      { repos = [...] }          # global ignore list (0 or 1)
-scope       { orgs = [...] }           # org universe; presence = strict mode (0 or 1)
-defaults    { pr { ... } }             # process-wide PR template defaults (0 or 1)
+enterprise {
+  orgs     = ["myorg-prod", "myorg-staging"]
+  mode     = "remediate"
+  controls = ["codeowners@1", "dependabot@1"]
+}
+```
 
-rule "file" "<name>" {                 # file compliance rule (0+)
-  ...
-  assertion { ... }                    # content assertions (0+, contains mode only)
-  pr        { ... }                    # PR template + search terms (0 or 1)
-  ignore    { repos = [...] }          # per-rule ignore (0 or 1)
-  scope     { orgs = [...] }           # per-rule scope (required in strict mode)
-  reconcile "<type>" {                 # post-check reconcilers (0+)
-    ...
-    pr { ... }                         # per-reconciler PR template (0 or 1)
+| Attribute / block | Type | Required | Meaning |
+| ----------------- | ---- | -------- | ------- |
+| `orgs` | list(string) | yes | The orgs repo-guardian manages. This list is onboarding: an org not listed is unmanaged, whatever else the policy says. |
+| `mode` | string | no | `evaluate` or `remediate`. The fallback mode for every assignment. Unset means `evaluate`. |
+| `controls` | list(string) | no | The baseline: `slug@version` references into the catalogue. Every listed org gets them, with or without a file under `orgs/`. |
+| `remediation {}` | block | no | `max_open_prs` (number, at least 1) and `reopen_after` (duration string, at least `1h`). |
+
+The enterprise policy is the baseline and has no variations: `exclude`,
+`replace`, `exclude_repos`, `repos` and `control` blocks are refused here
+with an error that says so.
+
+Remediation settings resolve org, then enterprise, then the default:
+`max_open_prs = 3`, `reopen_after = "336h"`.
+
+## `catalogue/*.hcl`
+
+A catalogue file holds `control` blocks. Each one defines one version of
+one control.
+
+```hcl
+control "codeowners" {
+  version     = 1
+  type        = "codeowners"
+  title       = "CODEOWNERS"
+  description = "A CODEOWNERS file exists in one of GitHub's locations"
+  template    = "codeowners"
+
+  rule "exists" {
+    number    = "1.1"
+    title     = "A CODEOWNERS file exists"
+    remediate = true
   }
-}
 
-rule "setting" "<name>" { ... }            # repo setting rule (0+)
-rule "branch_protection" "<name>" { ... }  # branch protection rule (0+)
-```
-
-Rule blocks are routed on their first label: `"file"`, `"setting"`, or
-`"branch_protection"`. The second label is the rule's unique name — a
-duplicate `type:name` pair fails validation.
-
-## `guardian {}` — operational settings
-
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `dry_run` | bool | `false` | Log intended actions without creating PRs or writing to GitHub. |
-| `log_level` | string | `"info"` | One of `debug`, `info`, `warn`, `error`. |
-| `skip_forks` | bool | `true` | Skip forked repositories, and park them out of the stale sweep (see below). |
-| `skip_archived` | bool | `true` | Skip archived repositories, and park them out of the stale sweep (see below). |
-| `rate_limit_threshold` | float | `0.10` | Fraction of remaining rate-limit budget at which pre-emptive throttling begins. Must be in [0.0, 1.0]. |
-| `auto_close_pr` | bool | `true` | Auto-close a guardian PR (and delete its branch) when every rule it addresses is satisfied on the default branch. Set `false` to keep PRs open for manual close-out. The `AUTO_CLOSE_PR` env var overrides the HCL value. |
-| `orphan_cleanup` | bool | `true` | Remove a file from repo-guardian's own reconcile branch once the rule that added it is satisfied on the default branch, so the PR stops proposing files that are no longer needed. Set `false` to disable all deletion from the reconcile branch. The `ORPHAN_CLEANUP` env var overrides the HCL value. |
-
-Unknown attributes in `guardian {}` fail load with an "Unsupported
-argument" error naming the file and line — typos are caught at startup,
-not silently ignored.
-
-### `skip_forks` / `skip_archived` park, they don't just skip
-
-Both flags do two things. The engine declines to check a matching
-repository, and — because neither condition can change without somebody
-changing the repository — the worker also *parks* it: `repo_state.active`
-goes false and the stale sweep stops offering it.
-
-Parking is what keeps sweep cost proportional to the repositories you
-actually manage. A skipped-but-unparked repository still cost an enqueue,
-an installation client, and a `GetRepository` every freshness cycle,
-forever.
-
-The row is kept, not deleted, and **only discovery can un-park it**.
-Un-archiving a repository therefore needs no operator action: discovery
-stops filtering it, upserts it, and the row goes live again within one
-`DISCOVERY_INTERVAL` (default 1h).
-
-Turning a flag off un-parks nothing by itself — discovery does that on
-its next pass, for the same reason. Both the engine and discovery read
-these same two flags, so they never disagree: with a flag off, neither
-skips and nothing is parked.
-
-See [Scaling § Repository parking](../operations/scaling.md#repository-parking-inv-0015)
-for the metric, the operator query, and why *empty* repositories are
-deliberately skipped without being parked.
-
-## `ignore {}` — ignore lists
-
-```hcl
-ignore {
-  repos = ["myorg/terraform-*", "myorg/.github", "myorg/archive-*"]
-}
-```
-
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `repos` | list(string) | Glob patterns matched against `owner/name` (Go `path.Match` semantics, input lowercased). |
-
-Appears in two places:
-
-- **Top level** — matching repos are skipped for **all** rules.
-- **Inside any rule** — matching repos are skipped for **that rule only**.
-
-Precedence relative to scope: scope is evaluated first, ignore second. The
-`out_of_scope_total` and `ignored_total` metrics never both increment for
-the same rule on the same repo.
-
-## `scope {}` — org scoping (multi-org)
-
-```hcl
-# Top level: declares the org universe AND engages strict mode.
-scope {
-  orgs = ["prod-org", "staging-org"]
-}
-
-rule "file" "codeowners" {
-  # In strict mode every rule MUST declare its own scope.
-  scope { orgs = ["*"] }   # "*" = every org in the top-level universe
-  ...
-}
-```
-
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `orgs` | list(string) | Org glob patterns (`path.Match`, lowercased). At rule level, the literal `"*"` means "every in-scope org." |
-
-Two modes:
-
-- **Legacy mode** (no top-level `scope {}`) — every rule applies to every
-  repo the App installation can see. A per-rule `scope` without a top-level
-  `scope` is allowed but logs a warning at load time.
-- **Strict mode** (top-level `scope {}` present) — repos outside the
-  universe are skipped entirely, and **every rule must declare its own
-  `scope {}`** (validated at load). No built-in rule fallback applies in
-  strict mode.
-
-Out-of-scope skips are observable via
-`repo_guardian_out_of_scope_total{level="policy"|"rule"}`.
-
-## `defaults {}` — process-wide PR defaults
-
-```hcl
-defaults {
   pr {
-    title  = "chore: guardian baseline for {{ .Repo }}"
-    body   = "..."
-    labels = ["automated", "guardian"]
+    title = "chore({{ .Repo }}): adopt CODEOWNERS"
   }
 }
 ```
 
-Contains a single optional `pr {}` block (schema [below](#pr-pull-request-templates)).
-Every rule-level and reconciler-level `pr {}` inherits from it
-field-by-field unless it opts out.
+The slug is the block label. It matches `^[a-z][a-z0-9]*([_-][a-z0-9]+)*$`.
+A control is referenced everywhere else as `slug@version`, for example
+`codeowners@1`. One slug may have several versions in the catalogue
+(`examples/policy/enterprise/catalogue/codeowners.hcl` defines `@1` and
+`@2`). The same `slug@version` defined twice fails load.
 
-## `rule "file" "<name>" {}` — file rules
+| Attribute / block | Required | Meaning |
+| ----------------- | -------- | ------- |
+| `version` | yes | A positive integer. |
+| `type` | yes | A built-in control type (see the [Control-type reference](controls-reference.md)). An unknown type fails load. |
+| `title`, `description` | no | Display text. |
+| `template` | no | The template the type renders for remediation (see [Templates](#templates)). |
+| `rule "<id>" {}` | per type | One typed check. |
+| `remediation { apply = "…" }` | no | How an API type writes: `recommend`, `direct` or, where the type supports it, `workflow`. |
+| `pr {}` | no | Pull request text: `title`, `body` (templates, compiled at load) and `labels`. |
+| any other attribute | per type | A control-level parameter of the type, e.g. `path` on `file`, `tool` and `renovate` on `dependency_updates`, `name` and `ruleset` on `branch_ruleset`, `annotation_properties` and `properties` on `custom_properties`. The type validates them when it builds the definition. |
 
-```hcl
-rule "file" "codeowners" {
-  enabled  = true                                  # optional, default true
-  check    = "exists"                              # exists | contains | exact | absent
-  paths    = ["CODEOWNERS", ".github/CODEOWNERS"]  # required
-  target   = ".github/CODEOWNERS"                  # required (not for absent)
-  template = "codeowners"                          # required (not for absent)
-}
-```
-
-| Attribute | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `enabled` | bool | no | `true` | Disabled rules are skipped entirely. |
-| `check` | string | no | `"exists"` | One of `exists`, `contains`, `exact`, `absent`. |
-| `paths` | list(string) | **yes** | — | Candidate locations checked in order. For add modes the rule is satisfied by the first hit; for `absent` the rule is actionable if **any** path exists. Must be non-empty. |
-| `target` | string | conditional | — | Path where the PR creates the file when missing. **Required** for `exists`/`contains`/`exact`; **forbidden** for `absent`. |
-| `template` | string | conditional | — | Template name (TemplateStore key, no `.tmpl` suffix). **Required** for `exists`/`contains`/`exact`; **forbidden** for `absent`. |
-
-Nested blocks: `assertion` (0+), `pr` (0 or 1), `ignore` (0 or 1), `scope`
-(0 or 1), `reconcile` (0+), `when` (0 or 1). Absent rules forbid `assertion`
-and `reconcile` blocks (see below).
-
-### Check modes
-
-| Mode | File present? | Content checked? | Actionable when | Remediation |
-|------|--------------|------------------|-----------------|-------------|
-| `exists` | required | no | No candidate path exists. | Add the file. |
-| `contains` | required | assertions must pass | File missing, or any assertion fails. | Add/fix the file. |
-| `exact` | required | must equal rendered template | File missing or differs from the template. YAML files (`.yml`/`.yaml`) compare semantically (key order and formatting don't matter); everything else compares bytes. | Add/fix the file. |
-| `absent` | must be **gone** | no | **Any** candidate path exists on the default branch. | **Delete** every present path via a deletion PR on the reconcile branch. |
-
-Declaring `assertion` blocks on a rule whose mode is not `contains` is a
-validation error. An `absent` rule additionally forbids `target`,
-`template`, `assertion`, and `reconcile` — its only job is to ensure the
-paths are gone, so there is nothing to render or reconcile.
-
-### `absent` mode — removing forbidden files
-
-`check = "absent"` inverts the usual polarity: the rule is satisfied when
-**none** of its `paths` exist, and actionable when any do. Remediation is a
-file-deletion commit on the same `repo-guardian/add-missing-files`
-reconcile branch, described under a **Removed Files** section in the PR
-body. Deletion is idempotent — a path already gone from the branch is
-skipped — and it is the engine's only destructive remediation, so:
-
-- **Dry-run first.** With `dry_run = true` the engine logs the planned
-  deletions per rule and mutates nothing.
-- **`search_terms` no longer collide with the add-era PR.** Since
-  v1.10.1 the search only scans *third-party* pull requests;
-  repo-guardian's own `repo-guardian/add-missing-files` PR is excluded
-  and handled by the converge path instead. An `absent` rule forbidding
-  `dependabot.yml` can safely reuse `search_terms = ["dependabot"]`
-  without its removal PR being mistaken for the old *add* PR. A distinct
-  phrase such as `["remove dependabot"]` is still clearer to humans
-  reading the policy, just no longer load-bearing.
-
-### `when {}` — conditional gating
-
-Any file rule (any check mode) may be gated on a **sibling file rule** being
-satisfied on the default branch:
+### Rules
 
 ```hcl
-rule "file" "no_dependabot" {
-  check = "absent"
-  paths = [".github/dependabot.yml", ".github/dependabot.yaml"]
-
-  when {
-    rule_satisfied = "renovate_config"  # gate on this sibling file rule
-  }
-}
-```
-
-| Attribute | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `rule_satisfied` | string | **yes** | HCL name of a sibling **file** rule. The gated rule fires only when that rule is satisfied on the default branch. |
-
-Gate semantics:
-
-- **Default-branch-only.** The gate reads the default branch, never the
-  reconcile branch — repo-guardian never acts on a not-yet-merged state.
-- **Content-only.** The referee's own `scope`/`ignore` never affect the
-  gate; only its paths/assertions/content decide satisfaction.
-- **Fail-closed.** If evaluating the referee errors (API glitch), the gate
-  is treated as **closed** and the rule is skipped this sweep. A
-  destructive gated action never proceeds from an unknown state.
-
-Validated at load: the referee must exist as an enabled **file** rule
-(setting/branch-protection names are rejected), must not be the rule itself,
-and gates must not form a cycle of any length. Merging the referee's add PR
-(or re-adding a removed file) triggers the gated rule's re-check on the push
-path, not just the next sweep.
-
-### `assertion {}` — content assertions
-
-Two families, chosen per block: **regex** over the raw file, or
-**YAML-path** structural checks.
-
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `pattern` | string | Regex (Go RE2) that must match somewhere in the file. |
-| `not_pattern` | string | Regex that must **not** match anywhere in the file. |
-| `yaml_path` | string | Dotted path into the parsed YAML document (e.g. `spec.owner`). |
-| `contains` | string | With `yaml_path`: the resolved value must contain this substring. |
-| `equals` | string | With `yaml_path`: the resolved value must equal this string. |
-| `non_empty` | bool | With `yaml_path`: the path must exist and resolve to a non-empty value. |
-| `message` | string (**required**) | Human-readable failure text; appears in logs and PR bodies. |
-
-Validation rules (enforced at load):
-
-- `message` is required.
-- `pattern`/`not_pattern` and `yaml_path` are **mutually exclusive** per
-  block (use multiple `assertion` blocks to combine families).
-- `yaml_path` requires exactly one of `contains`, `equals`, or `non_empty`.
-- Every block must set at least one of `pattern`, `not_pattern`, `yaml_path`.
-
-```hcl
-assertion {
-  pattern = "github>myorg/renovate-config"
-  message = "renovate.json must extend the org preset"
-}
-
-assertion {
-  yaml_path = "spec.owner"
-  contains  = "team"
-  message   = "spec.owner must reference a team"
-}
-
-assertion {
-  not_pattern = "TODO"
-  message     = "no TODO placeholders"
-}
-```
-
-## `rule "setting" "<name>" {}` — repository setting rules
-
-```hcl
-rule "setting" "enable_vuln_alerts" {
-  property  = "vulnerability_alerts_enabled"
-  expected  = true
+rule "no-wiki" {
+  kind      = "equals"
+  property  = "has_wiki"
+  value     = false
   remediate = true
 }
 ```
 
-| Attribute | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `enabled` | bool | no | `true` | Disabled rules are skipped. |
-| `property` | string | **yes** | — | One of the supported properties below. |
-| `expected` | bool or string | **yes** | — | Desired value. Type must match the property (validated at load). |
-| `remediate` | bool | no | `false` | `true`: write the expected value via the API. `false`: report only. |
+- **The id** is the block label. It follows the slug pattern and is
+  unique within the control.
+- **`kind`** is one of the type's rule kinds. A rule without `kind`
+  takes its id as its kind, which works only when the id is a kind of
+  that type (`rule "exists"`, `rule "matches"`).
+- **`remediate = true`** asks for the rule to be fixed in remediate mode.
+  It is allowed only on a remediable kind.
+- **`number` and `title`** are display text.
+- **Any other attribute** is a parameter of the rule kind. Unknown
+  parameters, missing required ones and wrong types fail load. The
+  per-kind parameter tables are in the
+  [Control-type reference](controls-reference.md).
 
-Nested blocks: `ignore`, `scope`.
+### `apply` is for API types only
 
-Supported properties and their `expected` types:
+Pull request types (`file`, `codeowners`, `catalog_info`,
+`dependency_updates`) remediate by pull request and refuse an `apply`
+value. API types (`repo_settings`, `branch_ruleset`, `labels`,
+`custom_properties`) take one.
 
-| Property | Type |
-|----------|------|
-| `vulnerability_alerts_enabled` | bool |
-| `default_branch` | string |
-| `has_issues` | bool |
-| `has_wiki` | bool |
-| `delete_branch_on_merge` | bool |
-| `allow_merge_commit` | bool |
-| `allow_squash_merge` | bool |
-| `allow_rebase_merge` | bool |
+- `recommend` reports the change without making it.
+- `direct` writes it through the Remediation App.
+- `workflow` is accepted only by a type that supports it (today
+  `custom_properties`).
 
-Setting remediation is a **direct API write** — settings are not files, so
-there is no PR to review. Use `remediate = false` first to survey the fleet
-via logs/metrics before enabling writes.
+### A definition must pass its own template
 
-## `rule "branch_protection" "<name>" {}` — branch protection rules
+At load, each definition goes through a dry run:
 
-```hcl
-rule "branch_protection" "main_protection" {
-  branch                 = "main"
-  require_pr             = true
-  required_approvals     = 1
-  dismiss_stale_reviews  = true
-  require_status_checks  = ["ci/test"]
-  require_linear_history = true
-  enforce_admins         = false
-  remediate              = true
-}
-```
+1. Evaluate an empty repository.
+2. Remediate it.
+3. Apply the rendered files.
+4. Evaluate again.
 
-| Attribute | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `enabled` | bool | no | `true` | Disabled rules are skipped. |
-| `branch` | string | **yes** | — | Branch name the ruleset targets. |
-| `require_pr` | bool | no | `false` | Require a pull request before merging. |
-| `required_approvals` | int | no | `0` | Required approving review count. Must be ≥ 0. |
-| `dismiss_stale_reviews` | bool | no | `false` | Dismiss approvals when new commits land. |
-| `require_status_checks` | list(string) | no | `[]` | Status check contexts that must pass. |
-| `enforce_admins` | bool | no | `false` | Apply the rules to administrators too. |
-| `require_linear_history` | bool | no | `false` | Forbid merge commits on the branch. |
-| `remediate` | bool | no | `false` | `true`: create/update the ruleset via the rulesets API. `false`: report only. |
+A remediable rule that the rendered template leaves non-compliant fails
+load. A template that cannot fix what it is meant to fix never reaches a
+repository.
 
-Nested blocks: `ignore`, `scope`. Repos where the target branch doesn't
-exist are handled gracefully (skipped, not errored).
+## `orgs/*.hcl`
 
-## `reconcile "<type>" {}` — reconcilers
+An org file holds `org "<name>"` blocks. A missing org file is fine:
+every org in `enterprise.orgs` gets the baseline as it is.
 
-Reconcilers attach to **file rules** and run after the rule's checks pass.
-The block label selects one of four built-in types.
-
-| Attribute | Type | Default | Applies to | Description |
-|-----------|------|---------|------------|-------------|
-| `watch` | bool | `false` | all | Register the rule's paths as watched: a push to the default branch touching them triggers an immediate re-check. |
-| `mode` | string | — | `custom_properties` | `"api"` or `"github-action"` (required for this type). |
-| `annotation_properties` | map(string) | `{}` | `custom_properties` | Maps a `catalog-info.yaml` annotation key to the GitHub custom property name it populates. See below. |
-| `delete_extra` | bool | `false` | `label_sync` | Delete repo labels not present in the YAML source. |
-| `pr {}` | block | — | all | Per-reconciler PR template (merges with `defaults.pr` **only** — deliberately skips the rule's `pr`). |
-
-### `custom_properties`
-
-Parses the repo's Backstage `catalog-info.yaml` and syncs GitHub repository
-custom properties from it (DESIGN-0019).
-
-- `mode = "api"` — write properties directly via the API.
-- `mode = "github-action"` — open a PR adding a workflow that sets the
-  properties from within the repo (for orgs that want the change reviewed,
-  or Apps without org-level property permissions).
-
-**The managed set** is `{Owner, Component}` plus every property name in
-`annotation_properties`. `Owner` always comes from `spec.owner` and
-`Component` always comes from `metadata.name` — these two are
-contract-guaranteed by every Backstage `Component` entity and are not
-configurable or remappable. Everything else is opt-in:
+- **Org names** compare case-insensitively, as GitHub logins do.
+- **An org not in `enterprise.orgs`** fails load. Onboarding is the
+  enterprise list.
+- **Each org has at most one block**, across all files.
 
 ```hcl
-reconcile "custom_properties" {
-  mode = "api"
-  annotation_properties = {
-    "jira/project-key" = "JiraProject"
-    "jira/label"        = "JiraLabel"
+org "myorg" {
+  exclude_repos {
+    match  = [".github", "terraform-*", "archive-*"]
+    reason = "org config, infrastructure and archives are managed elsewhere"
   }
-}
-```
 
-With the map above, a `catalog-info.yaml` carrying
-`metadata.annotations["jira/project-key"]: BILL` sets the GitHub custom
-property `JiraProject` to `BILL`. Properties on GitHub outside the managed
-set (e.g. a `CostCenter` a human set by hand) are never read, diffed, or
-touched — repo-guardian only manages what it's told to.
+  repos "legacy" {
+    match = ["legacy-*"]
 
-**Full state sync, including clears.** If a mapped annotation later
-disappears from `catalog-info.yaml` (removed, or the file itself removed),
-the corresponding GitHub property is cleared (set to `null`) on the next
-reconcile — not left stale. This applies to every property in the managed
-set except `Owner`/`Component`, which always carry a value: they fall back
-to `Unclassified` rather than clearing.
-
-The file-removal half of that contract needs the reconciler to run even
-though there is no file to read. `custom_properties` is invoked on absence
-because clearing is part of its contract; reconcilers whose behavior is
-purely a function of file *content* (`label_sync`, `branch_protection`,
-`workflow_sync`) are not, since a missing config file is not a statement
-that the repo should have no labels, no rulesets, or no workflow. When the
-file rule that owns those paths is `exists`-mode, it opens its own PR to
-restore the missing file; the reconciler only clears the properties and
-never opens a competing PR for the same path.
-
-**Malformed catalog-info is skipped, never cleared.** A clear only ever
-comes from a *valid* `catalog-info.yaml` that no longer names the
-annotation. If the file is present but does not parse as YAML, or parses
-as a non-`Component` entity, repo-guardian skips the reconcile entirely —
-it makes no property writes and retries on the next sweep, so a
-temporarily broken commit can never wipe every mapped property. Parse
-failures are logged (`"catalog-info parse failed; skipping reconcile to
-avoid clearing properties"`) and counted via
-`repo_guardian_catalog_parse_failed_total{org}`; a valid non-`Component`
-file is logged at info and does not move the counter. The
-"unclassified" defaults (`Owner`/`Component` = `Unclassified`) apply only
-when the repo has **no** catalog-info file at all — that is a positive
-"this repo is unclassified" state, distinct from a parse error.
-
-**Generated-workflow values are passed literally (github-action mode).**
-In `github-action` mode the property values are baked into the generated
-`.github/workflows/set-custom-properties.yml`. Those values reach the
-workflow's shell only through its `env:` block and are referenced as
-quoted `"$RG_PROP_*"` variables, so a value containing quotes, `$`, or
-`$(...)` is passed to `gh api` as an inert literal and never evaluated by
-the shell. A property value containing a literal GitHub Actions
-expression opener (`${{`) is rejected at render time rather than written
-into the workflow.
-
-**Schema preflight (values-only, least-privilege).** Before writing,
-repo-guardian checks the org's actual custom-property *schema* (the set of
-property names an org admin has defined) and drops any managed property
-the schema doesn't define — the rest of the payload still syncs in the
-same PATCH. This requires the App to have the org-level **"Custom
-properties: read"** permission; without it (or on any schema-endpoint
-error), repo-guardian fails open and sends the full, unfiltered payload —
-exactly its pre-preflight behavior. A dropped property is logged
-(`"custom properties missing from org schema"`, with `org` and
-`missing_properties` fields — see
-[docs/operations/scaling.md](../operations/scaling.md#custom-property-schema-preflight-impl-0017-phase-3)
-for the Loki matching contract) and counted via
-`repo_guardian_custom_property_missing_schema_total{org, property}`. The
-App **never creates or mutates** schema definitions itself — an operator
-who wants a mapped property must define it in the org's custom-property
-schema through GitHub's own settings UI/API.
-
-`annotation_properties` validation (fails policy load, all errors reported
-together):
-
-- Annotation keys and property names must be non-empty.
-- Property names must match GitHub's charset/length constraint
-  (`^[a-zA-Z0-9_$#-]{1,75}$`) — alphanumerics plus `-`, `_`, `$` and `#`.
-  A period is **not** allowed. Releases before appVersion 1.10.1 used a
-  pattern that had this backwards; see
-  [property-name charset](../operations/property-name-charset.md) if a
-  policy that used to load now fails.
-- Property names may not be (case-insensitively) `Owner` or `Component` —
-  those are the built-in, non-remappable names.
-- Two annotations may not target the same property name.
-
-### `label_sync`
-
-Manages the repo's labels from the YAML file the rule targets:
-
-```yaml
-labels:
-  - name: bug
-    color: d73a4a
-    description: Something isn't working
-  - name: feature            # renames "enhancement" if it exists
-    color: a2eeef
-    renamed_from: enhancement
-```
-
-Creates missing labels, updates color/description drift, applies renames
-via `renamed_from`, and — only when `delete_extra = true` — removes labels
-not listed.
-
-### `branch_protection`
-
-Manages branch protection rulesets from the YAML file the rule targets
-(per-repo, data-driven variant of `rule "branch_protection"`):
-
-```yaml
-rules:
-  - branch: main
-    require_pr: true
-    required_approvals: 2
-    dismiss_stale_reviews: true
-    require_status_checks: ["ci/test"]
-    require_linear_history: true
-```
-
-### `workflow_sync`
-
-Lightweight observability for watched workflow files — logs and counts
-drift events for the rule's paths. Pair with `watch = true` and
-`check = "exact"` for immediate detection when someone edits the
-org-standard workflow.
-
-## `pr {}` — pull request templates
-
-Valid at three scopes: `defaults { pr {} }`, `rule "file" { pr {} }`, and
-`reconcile "<type>" { pr {} }`.
-
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `search_terms` | list(string) | Substrings matched case-insensitively against the title and head branch of **third-party** open PRs; a match skips the rule so repo-guardian yields to whoever is already doing the work. repo-guardian's own reconcile PR is never matched. Blank entries are rejected at load (they would match every PR). Rule scope only in practice. |
-| `title` | string (template) | PR title template. Parse errors fail policy load with a location-prefixed message. |
-| `body` | string (template) | PR body template. Bodies over 65,000 characters are truncated with an HTML-comment marker appended. |
-| `labels` | list(string) | Labels applied to the PR. `labels = []` is an explicit "no labels" override, distinct from omitting the attribute. |
-| `inherits` | bool | Default `true`. When `true`, fields you leave unset inherit from the parent scope. `false` stops inheritance entirely — unset fields fall through to engine built-ins. |
-
-Resolution rules:
-
-- **Field-by-field merge, child wins.** A rule that sets only `title` gets
-  `body` and `labels` from `defaults.pr`.
-- **Reconciler PRs merge `reconcile.pr → defaults.pr` only** — the enclosing
-  rule's `pr` is deliberately skipped.
-- **Multi-rule bundles** (several file rules landing in one PR): each rule's
-  title is rendered; on conflict the bundle falls back to `defaults.pr.title`
-  (or the built-in title) and logs the ignored titles. Bundle bodies always
-  use `defaults.pr.body` — per-rule bodies are implicitly single-rule.
-
-## Template reference
-
-Policy `pr.title`/`pr.body` strings and all file templates are Go
-`text/template`, compiled at policy-load time.
-
-### Variables — PR templates (`PRVars`)
-
-| Variable | Type | Description |
-|----------|------|-------------|
-| `.Owner` | string | Org or user login owning the repo. |
-| `.Repo` | string | Repository name (no owner prefix). |
-| `.DefaultBranch` | string | The repo's default branch. |
-| `.Date` | string | RFC3339 timestamp at render time. |
-| `.Rule.Name` / `.Rule.Target` | string | The firing rule's name and target path (single-rule PRs). |
-| `.Rules` | list | Every firing rule in a bundled PR (`{Name, Target}` each); nil for single-rule PRs. |
-| `.Files` | list(string) | Every file path included in the PR. |
-| `.Reconciler` | string | Reconciler name when the PR was opened by a reconciler; empty otherwise. |
-
-### Variables — file templates (`FileVars`)
-
-`.Owner`, `.Repo`, `.DefaultBranch`, `.Date`, and `.Rule` as above, plus:
-
-| Variable | Type | Description |
-|----------|------|-------------|
-| `.Org` | string | Convenience alias for the owner login. |
-| `.Catalog` | object or nil | Parsed catalog-info fields for catalog-aware templates: `.Owner`, `.Component`, and `.Properties` (a `map[string]string` keyed by the GitHub property name — every `annotation_properties` target is present, with an empty string meaning "absent, will clear"; access via `{{ index .Catalog.Properties "JiraProject" }}`). **Guard with `{{ if .Catalog }}`** — it is nil for most rules. |
-
-### Helpers
-
-| Helper | Usage | Result |
-|--------|-------|--------|
-| `env` | `{{ env "JIRA_PROJECT" }}` | Value of the process env var, `""` if unset. Never reference secrets — rendered output is public PR text. |
-| `default` | `{{ .Field \| default "fallback" }}` | `fallback` when the value is empty. |
-| `join` | `{{ .Files \| join ", " }}` | Slice joined with the separator. |
-| `lower` / `upper` | `{{ lower .Repo }}` | Case conversion. |
-| `title` | `{{ title "hello world" }}` | Uppercases each word's first ASCII letter (`Hello World`); leaves the rest untouched. |
-
-### Escaping literal `{{ }}` (GitHub Actions templates)
-
-Templates that must emit literal `${{ ... }}` (GHA expressions) wrap them in
-a raw-string action — a bare `${{` anywhere in a template (even a comment)
-is a parse error:
-
-```text
-{{`${{ secrets.GITHUB_TOKEN }}`}}
-```
-
-### Strict validation
-
-`STRICT_TEMPLATES=true` (or `--strict-templates`) validates every compiled
-PR template against a zero-value context at startup — typo'd field names
-fail the boot instead of a render at 2am. File-content templates are not
-strict-validated (legitimate catalog references would false-positive).
-
-## Built-in defaults
-
-With no `GUARDIAN_CONFIG` set, this policy applies:
-
-| Rule | Mode | Enabled | Paths → Target | Notes |
-|------|------|---------|----------------|-------|
-| `codeowners` | exists | ✅ | `CODEOWNERS`, `.github/CODEOWNERS`, `docs/CODEOWNERS` → `.github/CODEOWNERS` | |
-| `dependabot` | exists | ✅ | `.github/dependabot.yml`, `.github/dependabot.yaml` → `.github/dependabot.yml` | |
-| `renovate_config` | contains | ❌ | `renovate.json`, `renovate.json5`, `.renovaterc`, `.renovaterc.json`, `.github/renovate.json`, `.github/renovate.json5` → `renovate.json` | Assertion: must match `github>.*renovate-config`. |
-| `renovate_workflow` | exact | ❌ | `.github/workflows/renovate.yml` | `workflow_sync` reconciler with `watch = true`. |
-| `catalog_info` | exists | only when `CUSTOM_PROPERTIES_MODE` is set | `catalog-info.yaml`, `catalog-info.yml` → `catalog-info.yaml` | `custom_properties` reconciler in the env var's mode (backward compat). |
-
-## Environment variable overrides
-
-Env vars are applied **after** HCL and win. The `guardian {}`-scope
-overrides:
-
-| Env var | Overrides |
-|---------|-----------|
-| `DRY_RUN` | `guardian.dry_run` |
-| `LOG_LEVEL` | `guardian.log_level` |
-| `SKIP_FORKS` | `guardian.skip_forks` |
-| `SKIP_ARCHIVED` | `guardian.skip_archived` |
-| `RATE_LIMIT_THRESHOLD` | `guardian.rate_limit_threshold` |
-| `AUTO_CLOSE_PR` | `guardian.auto_close_pr` |
-| `ORPHAN_CLEANUP` | `guardian.orphan_cleanup` |
-
-Related policy/template env vars (not `guardian {}` attributes):
-
-| Env var | Effect |
-|---------|--------|
-| `GUARDIAN_CONFIG` | Path to the policy file or directory. |
-| `TEMPLATE_DIR` | Directory of template overrides (default `/etc/repo-guardian/templates`). |
-| `STRICT_TEMPLATES` | Enable strict PR-template validation at startup. |
-| `CUSTOM_PROPERTIES_MODE` | Backward-compat: injects the `catalog_info` built-in rule when no HCL config is present. Ignored when HCL defines file rules. |
-
-Deployment-level configuration (GitHub App credentials, listen addresses,
-store/queue backends, sweep freshness, discovery tuning) is env-var-only
-and documented in the
-[Helm chart README](https://github.com/donaldgifford/repo-guardian/tree/main/charts/repo-guardian)
-and [scaling guide](../operations/scaling.md).
-
-## Validation reference
-
-Startup fails (all errors reported together) when:
-
-- `guardian.rate_limit_threshold` outside [0.0, 1.0], or
-  `guardian.log_level` not in `debug|info|warn|error`.
-- `guardian` sets `schedule_interval`, `worker_count` or `queue_size`.
-  These v1 knobs were removed in v2; the error names each one's
-  replacement (`CHECK_INTERVAL`, `WORKER_ACTIVITY_CONCURRENCY`) and
-  links [the migration runbook](../operations/v2-migration.md#hcl).
-- Any file rule: `check` not in `exists|contains|exact|absent`; empty
-  `paths`; a non-`absent` rule missing `target` or `template`; assertions
-  on a non-`contains` rule; any assertion violating the
-  [assertion rules](#assertion-content-assertions).
-- Any `absent` rule that declares `target`, `template`, an `assertion`
-  block, or a `reconcile` block.
-- Any `when {}` gate: empty block; `rule_satisfied` naming a rule that
-  doesn't exist, is disabled, is a setting/branch-protection rule, or is
-  the gated rule itself; or a gate cycle of any length
-  (`a → b → a`, `a → b → c → a`, …).
-- Any setting rule: empty name, unsupported `property`, missing `expected`,
-  or `expected` type not matching the property.
-- Any branch-protection rule: empty name or `branch`,
-  `required_approvals` < 0.
-- Duplicate rule names within a rule type.
-- Any `pr.title`/`pr.body` template that fails to parse.
-- Strict mode: a rule without its own `scope {}` block.
-- A `reconcile "custom_properties"` block whose `mode` is not `api` or
-  `github-action` (fails at engine construction).
-- Any `annotation_properties` entry: empty annotation key or property name,
-  a property name outside GitHub's charset/length constraint, a property
-  name of `Owner`/`Component` (case-insensitive), or two annotations
-  targeting the same property name.
-
-## Cookbook
-
-Minimal starting points — full runnable versions in
-[`examples/`](https://github.com/donaldgifford/repo-guardian/tree/main/examples).
-
-**1. Baseline files only** (mirror the built-ins, PRs only, no writes):
-`guardian-minimal.hcl`.
-
-**2. Enforce the org Renovate preset:**
-
-```hcl
-rule "file" "renovate_config" {
-  check    = "contains"
-  paths    = ["renovate.json", ".github/renovate.json"]
-  target   = "renovate.json"
-  template = "renovate"
-  assertion {
-    pattern = "github>myorg/renovate-config"
-    message = "must extend the org preset"
-  }
-}
-```
-
-**3. Catalog-driven ownership → GitHub custom properties:**
-
-```hcl
-rule "file" "catalog_info" {
-  check    = "contains"
-  paths    = ["catalog-info.yaml", "catalog-info.yml"]
-  target   = "catalog-info.yaml"
-  template = "catalog-info"
-  assertion {
-    yaml_path = "spec.owner"
-    non_empty = true
-    message   = "spec.owner must be set"
-  }
-  reconcile "custom_properties" {
-    mode  = "api"
-    watch = true
-    annotation_properties = {
-      "jira/project-key" = "JiraProject"
-      "jira/label"        = "JiraLabel"
+    exclude "protect_main@1" {
+      reason = "legacy repositories predate the review policy"
     }
   }
 }
 ```
 
-**4. Settings hardening, survey first:**
+| Attribute / block | In `org` | In `repos` | Meaning |
+| ----------------- | -------- | ---------- | ------- |
+| `mode` | yes | yes | `evaluate` or `remediate` for this layer. |
+| `controls` | yes | yes | Controls this layer adds, as `slug@version`. |
+| `replace "<slug@N>" { with, reason }` | yes | yes | Swap an assigned control for another. `with` is required. |
+| `exclude "<slug@N>" { reason }` | yes | yes | Turn an assigned control off. |
+| `control "<slug@N>" { mode }` | yes | yes | Set the mode of one control. `mode` is required. |
+| `exclude_repos { match, reason }` | yes | no | Take matching repositories out of management entirely. `match` is required. |
+| `repos "<label>" { match, … }` | yes | no | A group of repositories with its own layer. `match` is required. |
+| `remediation {}` | yes | no | Overrides the enterprise's `max_open_prs` / `reopen_after`. |
 
-```hcl
-rule "setting" "vuln_alerts"  { property = "vulnerability_alerts_enabled" expected = true  remediate = false }
-rule "setting" "no_wiki"      { property = "has_wiki"                     expected = false remediate = false }
-rule "setting" "tidy_merges"  { property = "delete_branch_on_merge"       expected = true  remediate = false }
-# Watch repo_guardian metrics + logs, then flip remediate = true.
-```
+`replace`, `exclude` and `exclude_repos` must carry a non-empty `reason`.
+The reason is recorded on the assignment and shown in the report, the API
+and the UI.
 
-**5. Multi-org strict mode** — shared rules on `["*"]`, org-specific rules
-on subsets: `guardian-multi-org.hcl` (single file) or `guardian-multi-org/`
-(directory layout), and `guardian-enterprise.hcl` for the one-App-many-orgs
-enterprise topology.
+`match` is a list of globs (Go `path.Match` syntax) against the
+repository name without its org, compared case-insensitively.
+`examples/policy/enterprise/orgs/` shows `replace` (`payments.hcl`),
+`exclude` with `exclude_repos` (`sandbox.hcl`) and a `repos` block
+narrowing the mode (`platform.hcl`).
+
+## Resolution
+
+Each repository is resolved from its stored row and the two Apps' access
+to it. Resolution makes no API calls. `Snapshot.Resolve` implements steps
+1–6 below; step 7, the assignment epochs, belongs to the store. The
+results are pinned by the goldens in `internal/policy/testdata/resolution`.
+
+Before the steps:
+
+- **Unmanaged:** a repository whose org is not in `enterprise.orgs` has
+  no assignments.
+- **Excluded:** a repository matching an `exclude_repos` block of its org
+  is excluded, with that block's reason, and has no assignments. The
+  first matching block wins.
+- **Parked:** an inactive repository (archived, fork, removed, access
+  lost) still resolves, so its assignments are known, but its state is
+  `parked`.
+
+Everything else is `managed`. The steps:
+
+1. **Baseline.** Every control in `enterprise.controls` is assigned with
+   decision `baseline`, in list order.
+2. **Layers.** The org layer applies, then each `repos` block whose
+   `match` covers the repository, in file order. Within one layer the
+   operations apply in the order they appear in the file:
+   - `controls` adds a control. An `exclude` of the same control in the
+     same layer beats the addition.
+   - `replace` swaps an active control for `with`. The replacement keeps
+     the source's place and lineage, with decision `replaced`.
+   - `exclude` marks an active control excluded, with decision
+     `excluded` and its reason. The assignment row stays, so the
+     exclusion is visible.
+3. **One row per slug.** Each slug has at most one assignment.
+   - Adding another version of a slug that is already assigned replaces
+     that row in place.
+   - A slug the enterprise names stays `baseline`, whichever version is
+     assigned.
+   - A slug only an org or block adds is `org_added`.
+4. **Requested mode.** The first of these that is set wins:
+   1. a `control {}` override in a matching `repos` block;
+   2. that block's `mode`;
+   3. an org-level `control {}` override;
+   4. the org `mode`;
+   5. the enterprise `mode`;
+   6. `evaluate`.
+
+   Among matching `repos` blocks the later one in the file wins. The
+   assignment records which layer decided (`mode_source`).
+5. **Effective mode.** Usually the requested mode. A `remediate` request
+   drops to `evaluate` when the Remediation App cannot reach the
+   repository:
+   - no access gives `mode_reason = "remediation_app_no_access"`;
+   - a suspended installation gives `remediation_app_suspended`.
+
+   Evaluation never depends on the Remediation App.
+6. **Conflicts.** Two active assignments that own the same resource, for
+   example two controls writing one file or one ruleset, both become
+   `conflict`. Each carries an error naming the resource and the
+   claimants. A conflicting assignment is not evaluated; compliance reports
+   it as unmeasurable.
+
+In `examples/policy/multi-org`:
+
+- Repositories in `myorg-prod` get `codeowners@1` and `dependabot@1` as
+  `baseline`, plus `protect_main_strict@1` and `catalog_info@1` as
+  `org_added`. All four are in `remediate`, from the enterprise.
+- In `myorg-staging` the org's `mode = "evaluate"` covers both its
+  baseline and `protect_main@1`.
+
+## Validation
+
+Load collects every error, joins them and fails. Each error carries
+`file:line`. Warnings are logged once at load and do not stop it.
+
+**Fails load:**
+
+- A layout problem:
+  - no `enterprise.hcl`;
+  - an `.hcl` file outside the three places;
+  - a file over 1 MiB, not a regular file, or resolving outside the
+    root;
+  - a `file()` path outside the root or missing.
+- HCL that does not parse, an unknown block or attribute where the
+  schema is closed, or an expression other than a literal or `file()`.
+- More than one `enterprise` block, or a variation block inside it.
+- An org block for an org not in `enterprise.orgs`, or a second block
+  for the same org.
+- A catalogue problem:
+  - an invalid slug or rule id;
+  - `version` below 1;
+  - an unknown `type`;
+  - a `slug@version` defined twice;
+  - an unknown rule kind;
+  - a rule without `kind` whose id is not a kind;
+  - `remediate = true` on a kind that is not remediable;
+  - an unknown, missing or mistyped parameter;
+  - a bad `apply`;
+  - a PR template that does not parse;
+  - a template that fails its own remediable rules.
+- A reference to a control or version the catalogue lacks. The error
+  lists the versions that exist.
+- A `mode` other than `evaluate` or `remediate`.
+- `max_open_prs` below 1, or a `reopen_after` that is not a duration of
+  at least `1h`.
+- `replace`, `exclude` or `exclude_repos` without a reason.
+- Two `repos` blocks with one label in an org, or a glob that does not
+  parse.
+- A `replace` whose source is not assigned at that layer. For a `repos`
+  block, "at that layer" means the org result plus whatever earlier
+  blocks add.
+- A `replace` whose two controls own no resource in common.
+- A `control {}` override naming a control no layer of the org assigns.
+
+**Warns only:**
+
+- An `exclude` of a control not assigned at that layer, since it does
+  nothing.
+- One control's mode declared twice in one scope with different values.
+  The later declaration wins.
+- Two `repos` blocks whose globs may overlap and that declare different
+  modes, block-wide or for one control. The later block wins.
+- A `repos` block that re-adds a control an earlier overlapping block
+  excluded. Block order decides.
+- **Ownership overlaps.** For every org the loader resolves:
+  - the org layer alone;
+  - the org layer with each `repos` block;
+  - the org layer with each pair of `repos` blocks.
+
+  It warns when two active controls would own the same resource. These
+  are warnings because which blocks a repository meets is unknown until
+  discovery. Resolution step 6 is the authority, and a real overlap
+  shows up there as a `conflict` assignment.
+- After discovery: a `repos` block that matches no known repository.
+
+To load a policy without starting a worker, run
+`repo-guardian monitoring generate --config <root> --out <dir>`. It runs
+the same `policy.Load` and fails with the same errors.
+
+## From `guardian.hcl`
+
+There is no automatic translation (DESIGN-0029 D1). v1 rules described
+paths and regexes; controls are typed checks, and a mechanical
+translation would produce generic `file` controls and lose what the
+types know. Rewrite a v1 policy by hand with this table. The
+`examples/policy/` roots are the v1 examples rewritten: `minimal`,
+`full`, `multi-org` and `renovate` each name the v1 file they replace in
+their `enterprise.hcl` comment.
+
+| v1 | Controls |
+| -- | -------- |
+| `rule "file"` with `check = "exists"` | a `file` control, `rule "exists"`: one `path`, one `template`. Prefer a dedicated type where one exists (`codeowners` knows every location GitHub reads it from). |
+| `rule "file"` with `check = "exact"` | a `file` control, `rule "exact"` (`examples/policy/full/catalogue/renovate_workflow.hcl`). |
+| `rule "file"` with `check = "contains"` and `assertion {}` blocks | the dedicated type that owns the file, whose rules are the typed checks: `codeowners`, `catalog_info` (`field_set`, `annotation_set`, `no_placeholders`), `dependency_updates` (`configured`, `extends`). |
+| `check = "absent"` and `when { rule_satisfied }` | absorbed by the type that owns the opinion. "No Dependabot config once Renovate is configured" is `dependency_updates`' `exclusive` rule (`examples/policy/renovate`). |
+| `rule "setting"` | `repo_settings`, one `equals` rule per property, remediated through the API. |
+| `rule "branch_protection"` and the `branch_protection` reconciler | one `branch_ruleset` control (`exists`, `matches`) with the ruleset declared inline. |
+| `reconcile "custom_properties"` | a `custom_properties` control reading `catalog-info.yaml`; `annotation_properties` keeps its v1 meaning. `mode = "github-action"` becomes `remediation { apply = "workflow" }`. |
+| `reconcile "label_sync"` | a `labels` control, one `present` or `absent` rule per label. |
+| `reconcile "workflow_sync"` | nothing. Its only job was feeding the push-watched path set; every control now declares what it owns and reads, and a push re-evaluates only the controls it touched. |
+| top-level `scope {}` and rule `scope {}` | `enterprise.orgs` for the org universe, and org files that add, replace or exclude controls per org (`examples/policy/multi-org`). |
+| global and rule `ignore {}` | `exclude_repos` for whole repositories, or `exclude` in a `repos` block for one control (`examples/policy/full/orgs/myorg.hcl`). Every exclusion now needs a `reason`. |
+| `pr {}` at `defaults` / rule / reconcile scope | a `pr {}` block on the control definition. PRs are per control, on branch `repo-guardian/<slug>`, so there is no multi-rule bundle. |
+| `dry_run` / `DRY_RUN` | `mode = "evaluate"`, at enterprise, org, `repos` block or single-control scope. |
+| `guardian { skip_forks, skip_archived }` | not policy. Archived repositories and forks are parked by the runtime. |
+| `templates.files` in the chart | `templates/` under the policy root. |

@@ -1866,11 +1866,12 @@ half-switched binary.
   `enterprise.orgs` and `exclude`, workflow and schedule names
   (`evaluation/<id>`, `controls-*`), the API endpoint replacements,
   `EVAL_INTERVAL`. Keep IMPL-0028's sections where they already landed.
-- [ ] 9.3 Policy reference: `docs/usage/policy-reference.md` rewritten
+- [x] 9.3 Policy reference: `docs/usage/policy-reference.md` rewritten
   for the directory layout, resolution and validation, with a "From
   `guardian.hcl`" section mapping each v1 rule kind to its control type
   (DESIGN-0029 D1); link the generated `controls-reference.md`;
   `mkdocs.yml` nav.
+  Done: `docs/usage/policy-reference.md` rewritten for the policy directory: layout, literals and `file()`, symlinks and the kubelet `..data` layout, templates, the policy version; `enterprise.hcl`, `catalogue/*.hcl` (rules, `apply` for API types only, a definition must pass its own template) and `orgs/*.hcl` with attributes taken from the loader's schemas and snippets copied from `examples/policy/{full,multi-org}`; resolution steps 1–6 with the effective-mode downgrade; validation split into load failures and warnings (ownership overlaps); and a "From `guardian.hcl`" table mapping every v1 rule kind, mode, gate, reconciler, scope/ignore, `pr` and `dry_run` to its control type or replacement. Per-type parameters link to the generated `controls-reference.md`. `mkdocs.yml` nav renamed to "Policy reference (policy directory)" beside the control-type reference.
 - [x] 9.4 CLAUDE.md (`v2` branch): the framework invariants (`Validate`
   before `StatusOf`, `Owns` versus `Reads`, revision goldens and
   `Semantics`), the epoch fence, the park-reason result rule, the

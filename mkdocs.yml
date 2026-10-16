@@ -2,7 +2,7 @@ nav:
     - Home: index.md
     - Usage:
         - Getting Started with repo-guardian: usage/getting-started.md
-        - Policy Reference (guardian.hcl): usage/policy-reference.md
+        - Policy reference (policy directory): usage/policy-reference.md
         - Control-type reference: usage/controls-reference.md
         - The business UI: usage/ui.md
         - The read-only API: usage/api.md

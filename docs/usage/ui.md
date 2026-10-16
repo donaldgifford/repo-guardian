@@ -62,65 +62,38 @@ host to the UI. The webhook route stays yours; see
 
 Every signed-in page shares one frame (DESIGN-0036):
 
-- **Sidebar.** *Business* holds Fleet, Rules, Orgs and Findings; the
-  Findings entry shows the failing-finding count from `/summary`.
-  *Public* holds the status page. A *Docs* group with one
-  Documentation link appears only when `ui.docsUrl` is set. Below
-  900px the sidebar collapses behind a menu button in the top bar. Its
-  footer names the enforced policy version and its rollout state.
-- **Search (⌘K or Ctrl+K).** One box over repositories, rules and
-  orgs. Enter opens the result and keeps the current org scope.
+- **Sidebar.** *Business* holds Fleet, Controls, Orgs, Repositories,
+  History and Policy. *Public* holds the status page. A *Docs* group
+  with one Documentation link appears only when `ui.docsUrl` is set.
+  Below 900px the sidebar collapses behind a menu button in the top
+  bar.
 - **Time zone.** The *Local* / *UTC* toggle in the top bar sets how
   every timestamp prints. The choice is kept in the browser
   (`localStorage` key `rg.tz`), never sent to the server.
 - **Account menu.** The avatar names you and holds **Sign out**.
-- **Breadcrumbs** above every page title, ending at the open finding
-  when the drawer is open.
-- **Org scope.** The page-header button lists *All orgs (N)* and each
-  org you can see. It writes `?org=`, which every page reads, so a
-  scoped view is a shareable link. Pages with a trend add **range
-  tabs** (1d, 7d, 30d, 90d, default 90d) that write `?range=`. Both
-  survive navigation between pages.
+- **Breadcrumbs** above every page title, ending at the control, org or
+  repository you are on.
 
 ## Views
 
 | View | Path | Shows |
 | --- | --- | --- |
-| Fleet | `/` | the compliance trend with tracked, compliant, failing, parked and snapshot counts and their change over the range; series pills to switch the plotted measure; open PRs by age; the worst rules; parked repositories by reason; findings by status; compliance by rule and by org |
-| Rules | `/rules`, `/rules/<kind>/<name>` | compliance per rule, filtered by kind tab; one rule by org with its top reasons and longest failures, and a button to its findings |
-| Orgs | `/orgs`, `/orgs/<org>` | an expandable grid of orgs (expand one to list its rules), heat shading by compliance, parked or open-PR share, a hide-parked toggle, expand/collapse all and CSV export; one org's KPIs, trend, rule meters and why rules did not apply |
-| Findings | `/findings` | every finding, filtered by chips, with CSV export of the loaded rows and a detail drawer |
-| Repository | `/repos/<id>` | each rule's status with its evidence, the recent checks, the repository's facts and its timeline |
-| History | `/history` | compliance over time, one chart per org, for all rules or one |
-| Policy | `/policy` | the enforced policy version, its rollout and its rules |
+| Fleet | `/` | compliance and coverage over every assignment you can see, repositories and open PRs, evaluations in the last 24 hours, the assignments by bucket, and every control and org linking to its page |
+| Controls | `/controls`, `/controls/<id>` | each assigned control's compliance and coverage; one control's posture by org and lineage, with the versions and revisions each org carries |
+| Orgs | `/orgs`, `/orgs/<org>` | each org's repositories, open PRs and posture; one org's baseline against what it added, its controls, its five worst and its exclusions with their reasons |
+| Repositories | `/repositories`, `/repositories/<id>` | repositories filtered by name and policy state (`?org=`, `?q=`, `?policy_state=`); one repository's controls, each with its bucket, mode and rule results with evidence, its evaluation log and its events, and **Re-evaluate** |
+| History | `/history` | compliance over time from the daily snapshots, for every control or one (`?control=`), over 7, 30 or 90 days (`?days=`) |
+| Policy | `/policy` | the active policy version and rollout, each of your orgs' layers (added, replaced, excluded, excluded repositories, repository groups) and the catalogue entries they reference; the enterprise layer only for users who see every org |
 | Status | `/status` | public service status: no login, no names |
 
-![Fleet](img/ui/fleet.png)
+Compliance and coverage show **no data** when there is nothing to
+measure, never 100%. Evidence is text: its kind, then its fields as
+`key: value` lines.
 
-![Orgs, with acme expanded](img/ui/orgs.png)
-
-### Findings and the drawer
-
-Filters are chips above the table. **+ filter** adds one (status,
-reason, remediation, kind, rule, org or stale PR); clicking a chip
-changes or clears it. Every chip is a query parameter, so a filtered
-table is a link.
-
-Clicking a row opens the finding's drawer: status, reason, remediation
-with its PR, evidence, and a timeline merging the finding's changes,
-the repository's events, recent checks and the open PR. The drawer is
-a deep link, `?open=<repository id>/<kind>/<rule>`, so it can be
-shared or bookmarked. From 1600px wide the drawer sits beside the
-table and the table drops its Age and Since columns; below that it
-overlays the page. Escape closes it and returns focus to the row.
-
-![Findings with the drawer open](img/ui/findings-drawer.png)
-
-![Repository](img/ui/repository.png)
-
-Compliance shows **unmeasured** when there is nothing to measure, never
-100%. A finding carried over from v1 reads "last checked by v1; details
-on next check" until its repository's next check.
+**Re-evaluate** asks for the repository to be evaluated now. It is
+hidden for a parked repository, and disappears for the session once the
+API answers `501`, which an API without a Temporal client does (chart
+value `api.temporal`).
 
 A signed-in user whose groups map to no org sees an "ask for access"
 page with their name and subject, to quote to an administrator.
@@ -128,13 +101,14 @@ page with their name and subject, to quote to an administrator.
 ### The status page
 
 `/status` is public: no sign-in, no cookie, and no org, repository or
-rule name. It shows a headline for the overall state, each component
-(checks, webhooks, discovery, snapshots, GitHub budget) with its
-state, fleet compliance as one number with its 30-day line, and an
-operations strip: repositories checked in the last 24 hours of those
-tracked, the newest policy's rollout and the last snapshot. `webhooks`
-is informational and never moves the overall state. It refreshes
-every 30 seconds.
+control name. It shows a headline for the overall state, each component
+(checks, webhooks, discovery, snapshots and each queue's backlog) with
+its state, fleet compliance as one number with its coverage and 30-day
+line, an operations strip (repositories evaluated in the last 24 hours
+of those tracked, overdue evaluations, the newest policy's rollout and
+the last snapshot), and the deployment: its topology and each App's
+installation and repository counts. `webhooks` is informational and
+never moves the overall state. It refreshes every 30 seconds.
 
 ![Status](img/ui/status.png)
 
@@ -179,7 +153,7 @@ kubectl -n repo-guardian rollout restart deploy/repo-guardian-ui
 
 ## Security properties
 
-- Text from repositories (assertion messages, paths, PR titles) is
+- Text from repositories (paths, file contents, setting values) is
   rendered as text only. There is no markdown rendering of evidence,
   and a lint rule bans every HTML sink in the UI's code.
 - PR and repository links are built from the host (`ui.githubHost`),
@@ -188,8 +162,9 @@ kubectl -n repo-guardian rollout restart deploy/repo-guardian-ui
 - Every response carries `Content-Security-Policy: default-src 'self';
   connect-src 'self'; frame-ancestors 'none'; script-src 'self'`, plus
   `nosniff` and `Referrer-Policy: same-origin`.
-- `/api/*` on the UI host forwards only `GET` and `HEAD`, only to the
-  `api` Service. It drops your cookies before forwarding and sends
+- `/api/*` on the UI host forwards only `GET` and `HEAD`, plus the one
+  `POST /repositories/<id>/evaluate` with a same-origin `Origin`, only
+  to the `api` Service. It drops your cookies before forwarding and sends
   exactly one token: yours if you sent a Bearer, otherwise the
   session's.
 - The UI pod holds no GitHub, Temporal or database credential.

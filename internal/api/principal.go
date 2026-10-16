@@ -1,18 +1,27 @@
-// Package api is the read-only API role (DESIGN-0027): an oapi-codegen
-// strict server behind OIDC authentication and org-scoped
-// authorization. It holds no GitHub client and never writes; every read
-// is scoped in SQL by the caller's visible orgs, and an org or
-// repository outside them answers 404, exactly like an unknown one.
+// Package api is the API role (DESIGN-0027, DESIGN-0032 § API): an
+// oapi-codegen strict server behind OIDC authentication and org-scoped
+// authorization over the controls schema. It holds no GitHub client and
+// writes nothing to the store; every read is scoped in SQL by the
+// caller's visible orgs, and an org or repository outside them answers
+// 404, exactly like an unknown one. /policies is the one view filtered
+// in Go (policiesOut), because the policy summary is stored whole.
+//
+// Every compliance object is a Posture. Totals summed across compliance
+// rows go through store.ControlPosture.Plus, which recomputes percent
+// and coverage from the summed counts with store.FloorPercent, the
+// floor_percent SQL function.
+//
+// The one write is POST /repositories/{id}/evaluate: a Rechecker signals
+// the evaluation workflow, deduplicated per repository per minute in
+// each replica. Without a Rechecker (no Temporal client) it answers 501.
 //
 // Lists page by keyset: the cursor is base64url JSON of the last row's
 // sort key plus a hash of the request's filters, so a cursor replayed
-// under different filters is refused 400. Compliance totals summed
-// across the shared query's rows use store.CompliantPercent, the same
-// floor math the query runs per row.
+// under different filters is refused 400.
 //
 // The status page (StatusPage) is computed every 30s by a refresher into
 // an in-process cache; a request never queries. Its schema carries only
-// enums and fixed detail templates, never names or error text.
+// enums, counts and fixed detail templates, never names or error text.
 package api
 
 import (

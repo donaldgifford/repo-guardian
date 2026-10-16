@@ -360,7 +360,7 @@ flips; a hidden panel renders nothing, never a placeholder.
   single row over summed `/rules` counts with the "percent counts only
   the first two" subtitle). Finding age distribution (`DistBar`) is
   built hidden until 7.3.
-- [ ] 3.3 Fleet third row: Compliance by rule (`DataTable` from 4.1 is
+- [x] 3.3 Fleet third row: Compliance by rule (`DataTable` from 4.1 is
   not yet available, so use the styled `Table`; Rule, Kind badge,
   Compliant, Failing, N/A, %, Trend sparkline hidden until 7.1 (OQ6);
   rows link to the rule) and Orgs (Org, Tracked, Failing, Parked,

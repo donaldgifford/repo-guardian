@@ -79,6 +79,7 @@ export function FleetView() {
 function WholeFleet({ range, series }: { range: Range; series: FleetSeriesKey }) {
   const summary = useSummary();
   const rules = useRules();
+  const orgs = useOrgs();
   const history = useHistory({ from: rangeFrom(range) });
   if (!summary.data) {
     return <Loading />;
@@ -121,6 +122,10 @@ function WholeFleet({ range, series }: { range: Range; series: FleetSeriesKey })
         <WorstRulesCard rules={rules.data?.items} />
         <ParkedCard parked={s.parked} />
         <FindingsByStatusCard counts={s.findings} />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <RulesTable rules={rules.data?.items} />
+        <OrgsTable orgs={orgs.data?.items} />
       </div>
     </>
   );
@@ -171,6 +176,10 @@ function OrgFleet({ org, range, series }: { org: string; range: Range; series: F
       <div className="grid gap-4 lg:grid-cols-2">
         <WorstRulesCard rules={d.rules} />
         <ParkedCard parked={d.parked} />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <RulesTable rules={d.rules} />
+        <NotApplicableCard reasons={d.not_applicable} />
       </div>
     </>
   );
@@ -385,6 +394,130 @@ function ParkedCard({ parked }: { parked: Schemas["ParkedCount"][] }) {
   return (
     <ChartCard title="Parked by reason" subtitle="Repositories set aside by the checker; parking is a repository state, not a finding." table={barListTable(items, "Reason")}>
       {items.length === 0 ? <Empty>Nothing parked.</Empty> : <BarList items={items} aria-label="parked repositories by reason" color="var(--color-muted-foreground)" />}
+    </ChartCard>
+  );
+}
+
+const th = "h-8 px-3 text-left text-[11px] font-semibold tracking-[0.04em] text-muted-foreground uppercase";
+const td = "px-3 py-[9px] text-[13px] align-middle";
+const num = "text-right tabular-nums";
+
+// RulesTable is Compliance by rule: every rule's counts and percent,
+// rows linking to the rule. The trend sparkline needs the fleet
+// aggregate (7.1) and stays behind flags.ruleTrend.
+function RulesTable({ rules }: { rules: Schemas["RuleCompliance"][] | undefined }) {
+  return (
+    <Card
+      title="Compliance by rule"
+      subtitle={
+        <>
+          From <code>/rules</code>; percent is compliant ÷ (compliant + non_compliant).
+        </>
+      }
+      bodyClassName="p-0"
+    >
+      {rules === undefined ? (
+        <p className="px-3.5 py-2.5 text-sm text-muted-foreground">Loading…</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border">
+                <th className={th}>Rule</th>
+                <th className={th}>Kind</th>
+                <th className={`${th} ${num}`}>Compliant</th>
+                <th className={`${th} ${num}`}>Failing</th>
+                <th className={`${th} ${num}`}>N/A</th>
+                <th className={`${th} ${num}`}>%</th>
+                {flags.ruleTrend ? <th className={`${th} ${num}`}>Trend</th> : null}
+              </tr>
+            </thead>
+            <tbody>
+              {rules.map((r) => (
+                <tr key={`${r.kind}/${r.name}`} className="border-b border-border last:border-0 hover:bg-panel-2">
+                  <td className={td}>
+                    <Link to="/rules/$kind/$name" params={{ kind: r.kind, name: r.name }} className="font-medium hover:underline">
+                      {r.name}
+                    </Link>
+                  </td>
+                  <td className={td}>
+                    <KindBadge kind={r.kind} />
+                  </td>
+                  <td className={`${td} ${num}`}>{r.counts.compliant.toLocaleString()}</td>
+                  <td className={`${td} ${num}`}>{r.counts.non_compliant.toLocaleString()}</td>
+                  <td className={`${td} ${num}`}>{r.counts.not_applicable.toLocaleString()}</td>
+                  <td className={`${td} ${num}`}>{formatPercent(r.compliant_percent)}</td>
+                  {flags.ruleTrend ? <td className={`${td} ${num}`}>—</td> : null}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// OrgsTable is every visible org with a compliance meter; rows link to
+// the org.
+function OrgsTable({ orgs }: { orgs: Schemas["OrgSummary"][] | undefined }) {
+  return (
+    <Card
+      title="Orgs"
+      subtitle={
+        <>
+          From <code>/orgs</code>; tracked excludes parked repositories.
+        </>
+      }
+      bodyClassName="p-0"
+    >
+      {orgs === undefined ? (
+        <p className="px-3.5 py-2.5 text-sm text-muted-foreground">Loading…</p>
+      ) : orgs.length === 0 ? (
+        <p className="px-3.5 py-2.5 text-sm text-muted-foreground">No orgs visible.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border">
+                <th className={th}>Org</th>
+                <th className={`${th} ${num}`}>Tracked</th>
+                <th className={`${th} ${num}`}>Failing</th>
+                <th className={`${th} ${num}`}>Parked</th>
+                <th className={`${th} w-[200px]`}>Compliance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orgs.map((o) => (
+                <tr key={o.org} className="border-b border-border last:border-0 hover:bg-panel-2">
+                  <td className={td}>
+                    <Link to="/orgs/$org" params={{ org: o.org }} className="font-mono font-medium hover:underline">
+                      {o.org}
+                    </Link>
+                  </td>
+                  <td className={`${td} ${num}`}>{o.tracked.toLocaleString()}</td>
+                  <td className={`${td} ${num}`}>{o.counts.non_compliant.toLocaleString()}</td>
+                  <td className={`${td} ${num}`}>{o.parked.toLocaleString()}</td>
+                  <td className={td}>
+                    <Meter percent={o.compliant_percent} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// NotApplicableCard replaces the Orgs table under ?org=: why rules did
+// not apply to this org's repositories.
+function NotApplicableCard({ reasons }: { reasons: Schemas["ReasonCount"][] }) {
+  const items = reasons.map((r) => ({ label: r.reason, value: r.count }));
+  return (
+    <ChartCard title="Not applicable by reason" subtitle="Findings outside the compliance percent, by the reason the rule did not apply." table={barListTable(items, "Reason")}>
+      {items.length === 0 ? <Empty>Every rule applied.</Empty> : <BarList items={items} aria-label="not applicable findings by reason" color="var(--color-muted-foreground)" />}
     </ChartCard>
   );
 }

@@ -42,7 +42,7 @@ test("the session and its tokens never reach page script", async ({ page, contex
 test("Fleet → Rule → Repository navigation", async ({ page }) => {
   await signIn(page);
   await expect(page.getByRole("heading", { name: "Fleet" })).toBeVisible();
-  await expect(page.getByText("Tracked")).toBeVisible();
+  await expect(page.getByRole("term").filter({ hasText: "Tracked" })).toBeVisible();
 
   await page.getByRole("link", { name: /renovate/ }).first().click();
   await expect(page.getByRole("heading", { name: "renovate" })).toBeVisible();

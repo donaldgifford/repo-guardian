@@ -139,6 +139,18 @@ linters:
           deny:
             - pkg: github.com/donaldgifford/repo-guardian/internal
               desc: a control type imports internal/control and internal/template only
+        policy-leaf:
+          list-mode: lax
+          files:
+            - "**/internal/policy/*.go"
+          allow:
+            - github.com/donaldgifford/repo-guardian/internal/policy
+            - github.com/donaldgifford/repo-guardian/internal/control
+            - github.com/donaldgifford/repo-guardian/internal/template
+            - github.com/donaldgifford/repo-guardian/internal/rules
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal
+              desc: resolution is pure (DESIGN-0030), so internal/policy imports control, template and the embedded templates only, never github or the store
         controls-consumers:
           files:
             - "$all"

@@ -7,7 +7,7 @@ import { Empty, Evidence, Loading, Remediation } from "../components/common";
 import { OrgScope, PageHeader } from "../components/page";
 import { Button } from "../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
-import { findingsCsv } from "../lib/csv";
+import { downloadCsv, findingsCsv } from "../lib/csv";
 import { relativeTime } from "../lib/format";
 import { patchSearch } from "../lib/search";
 
@@ -65,16 +65,6 @@ const options: Record<(typeof textFilters)[number], string[]> = {
   rule: [],
 };
 
-// download saves text as a file, client-side.
-function download(name: string, text: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 export function FindingsView() {
   const search = route.useSearch();
   const { org } = app.useSearch();
@@ -130,7 +120,7 @@ export function FindingsView() {
             <option value="false">not stale</option>
           </select>
         </label>
-        <Button variant="outline" size="sm" className="ml-auto" disabled={items.length === 0} onClick={() => download("findings.csv", findingsCsv(items))}>
+        <Button variant="outline" size="sm" className="ml-auto" disabled={items.length === 0} onClick={() => downloadCsv("findings.csv", findingsCsv(items))}>
           Export CSV ({items.length})
         </Button>
       </div>

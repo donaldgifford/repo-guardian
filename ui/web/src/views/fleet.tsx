@@ -389,7 +389,7 @@ function WorstRulesCard({ rules }: { rules: Schemas["RuleCompliance"][] | undefi
 
 // ParkedCard is the bar list over summary.parked[]. Parking is a
 // repository state, not a finding, so rows are static (OQ11).
-function ParkedCard({ parked }: { parked: Schemas["ParkedCount"][] }) {
+export function ParkedCard({ parked }: { parked: Schemas["ParkedCount"][] }) {
   const items = parked.map((p) => ({ label: p.reason, value: p.count }));
   return (
     <ChartCard title="Parked by reason" subtitle="Repositories set aside by the checker; parking is a repository state, not a finding." table={barListTable(items, "Reason")}>
@@ -513,7 +513,7 @@ function OrgsTable({ orgs }: { orgs: Schemas["OrgSummary"][] | undefined }) {
 
 // NotApplicableCard replaces the Orgs table under ?org=: why rules did
 // not apply to this org's repositories.
-function NotApplicableCard({ reasons }: { reasons: Schemas["ReasonCount"][] }) {
+export function NotApplicableCard({ reasons }: { reasons: Schemas["ReasonCount"][] }) {
   const items = reasons.map((r) => ({ label: r.reason, value: r.count }));
   return (
     <ChartCard title="Not applicable by reason" subtitle="Findings outside the compliance percent, by the reason the rule did not apply." table={barListTable(items, "Reason")}>

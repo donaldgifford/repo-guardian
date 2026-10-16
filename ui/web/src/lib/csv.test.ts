@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 
 import type { Schemas } from "../api/client";
-import { csvCell, findingsCsv } from "./csv";
+import { csvCell, findingsCsv, tableCsv } from "./csv";
 
 test.each([
   ["plain", "plain"],
@@ -17,6 +17,10 @@ test.each([
   [false, "false"],
 ])("csvCell(%p)", (v, want) => {
   expect(csvCell(v)).toBe(want);
+});
+
+test("tableCsv defuses every cell and ends each line with CRLF", () => {
+  expect(tableCsv(["org", "n"], [["=acme", 1], ["a,b", undefined]])).toBe("org,n\r\n'=acme,1\r\n\"a,b\",\r\n");
 });
 
 test("findingsCsv writes a header and one row per finding", () => {

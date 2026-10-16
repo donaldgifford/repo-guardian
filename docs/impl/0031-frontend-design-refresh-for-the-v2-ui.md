@@ -401,25 +401,25 @@ controls rework reuses.
 
 #### Tasks
 
-- [ ] 4.1 `components/ui/data-table.tsx`: `DataTable<T>` from a column
+- [x] 4.1 `components/ui/data-table.tsx`: `DataTable<T>` from a column
   spec (`key`, header, cell render, `align`, `numeric`, `hideBelow`),
   a row key, optional `selectedKey`, `onActivate` (click, Enter,
   Space), 13px cells at `9px 10px`, hover `panel-2`, selected `accent`
   at 12%, keyboard focusable rows. Component test for Enter activation
   and the selected tint class.
-- [ ] 4.2 `components/ui/group-grid.tsx`: `GroupGrid` with parent rows,
+- [x] 4.2 `components/ui/group-grid.tsx`: `GroupGrid` with parent rows,
   lazily loaded child rows (render prop + loader), heat-shaded numeric
   cells (`heatOpacity`, text stays `foreground`, count and percent
   both printed), totals row, expand/collapse all, `?open=` list of
   expanded keys. Tests: expand/collapse, totals arithmetic, heat
   opacity bounds.
-- [ ] 4.3 `views/orgs.tsx`: totals badge line, heat `Tabs`
+- [x] 4.3 `views/orgs.tsx`: totals badge line, heat `Tabs`
   (`Compliance | Parked`; `PR activity` hidden until 7.5), toolbar
   (org scope, `All | Hide parked`, Expand all / Collapse all, Export
   CSV through `lib/csv.ts`), `GroupGrid` over `/orgs` whose expansion
   fetches `/orgs/{org}` and lists rules as child rows linking to
   `/rules/$kind/$name?org=`.
-- [ ] 4.4 Org detail (`/orgs/$org`): header with `org` badge and
+- [x] 4.4 Org detail (`/orgs/$org`): header with `org` badge and
   "Findings in this org"; `Kpi`s; two-thirds `TrendChart` over the
   org's history (`fleetSeries` over `/compliance/history?org=`) and
   the rules table with `Meter`s; one-third Not applicable by reason

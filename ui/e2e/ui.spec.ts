@@ -288,6 +288,53 @@ test("the rules page filters by kind tab", async ({ page }) => {
   await expect(page).toHaveURL(/\/rules$/);
 });
 
+test("the orgs grid expands acme to its rules, hides the parked column and exports CSV", async ({ page }) => {
+  await signIn(page, "/orgs");
+  const grid = page.getByRole("table", { name: "Orgs" });
+  await expect(grid).toBeVisible();
+  await expect(grid.locator("tr[data-row=__total]")).toContainText("Total");
+
+  // Expanding fetches /orgs/acme and lists its rules as child rows
+  // linking to the rule page scoped to the org; the URL carries ?open=.
+  const toggle = grid.getByRole("button", { name: /acme/ });
+  await toggle.click();
+  await expect(page).toHaveURL(/\/orgs\?open=acme$/);
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  const child = grid.locator("tr[data-children=acme]").getByRole("link").first();
+  await expect(child).toHaveAttribute("href", /\/rules\/file\/[a-z]+\?org=acme$/);
+  await page.getByRole("button", { name: "Collapse all" }).click();
+  await expect(page).toHaveURL(/\/orgs$/);
+  await expect(grid.locator("tr[data-children]")).toHaveCount(0);
+
+  await page.getByRole("tab", { name: "Hide parked" }).click();
+  await expect(page).toHaveURL(/\/orgs\?parked=hide$/);
+  await expect(grid.getByRole("columnheader", { name: "Parked" })).toHaveCount(0);
+  await page.getByRole("tab", { name: "All" }).click();
+  await expect(grid.getByRole("columnheader", { name: "Parked" })).toBeVisible();
+
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export CSV" }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe("orgs.csv");
+  const text = (await (await file.createReadStream()).toArray()).join("");
+  expect(text.split("\r\n")[0]).toBe("org,tracked,compliant,failing,parked");
+  expect(text).toMatch(/\r\nacme,\d+,\d+,\d+,\d+\r\n/);
+  expect(text).toMatch(/\r\ntotal,\d+,\d+,\d+,\d+\r\n$/);
+});
+
+test("the org detail shows KPIs, the trend and rule meters, and links to the org's findings", async ({ page }) => {
+  await signIn(page, "/orgs/acme");
+  await expect(page.getByRole("heading", { level: 1, name: /acme/ })).toBeVisible();
+  await expect(page.getByRole("img", { name: "compliance % over 90d" })).toBeVisible();
+  const rules = page.getByRole("table", { name: "Compliance by rule" });
+  await expect(rules.getByRole("meter").first()).toBeVisible();
+  await expect(rules.getByRole("link", { name: /^[a-z]+$/ }).first()).toHaveAttribute("href", /\/rules\/file\/[a-z]+\?org=acme$/);
+  await expect(page.getByRole("link", { name: "Findings in this org" })).toHaveAttribute("href", /\/findings\?org=acme$/);
+  await page.getByRole("tab", { name: "7d" }).click();
+  await expect(page).toHaveURL(/\/orgs\/acme\?range=7d$/);
+  await expect(page.getByRole("img", { name: "compliance % over 7d" })).toBeVisible();
+});
+
 test("without UI_DOCS_URL the sidebar has no Docs group", async ({ page }) => {
   await signIn(page);
   const nav = page.getByRole("navigation", { name: "Primary" });

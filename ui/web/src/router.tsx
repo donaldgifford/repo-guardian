@@ -5,7 +5,7 @@ import { Shell } from "./components/shell/Shell";
 import { FindingsView, parseFindingsSearch } from "./views/findings";
 import { FleetView, parseFleetSearch } from "./views/fleet";
 import { HistoryView, parseHistorySearch } from "./views/history";
-import { OrgView, OrgsView } from "./views/orgs";
+import { OrgView, OrgsView, parseOrgsSearch } from "./views/orgs";
 import { PolicyView } from "./views/policy";
 import { RepositoryView } from "./views/repository";
 import { parseRulesSearch, RuleView, RulesView } from "./views/rules";
@@ -47,7 +47,7 @@ const appRoute = createRoute({
 const fleetRoute = createRoute({ getParentRoute: () => appRoute, path: "/", validateSearch: parseFleetSearch, component: FleetView });
 const rulesRoute = createRoute({ getParentRoute: () => appRoute, path: "/rules", validateSearch: parseRulesSearch, component: RulesView });
 export const ruleRoute = createRoute({ getParentRoute: () => appRoute, path: "/rules/$kind/$name", component: RuleView });
-const orgsRoute = createRoute({ getParentRoute: () => appRoute, path: "/orgs", component: OrgsView });
+const orgsRoute = createRoute({ getParentRoute: () => appRoute, path: "/orgs", validateSearch: parseOrgsSearch, component: OrgsView });
 export const orgRoute = createRoute({ getParentRoute: () => appRoute, path: "/orgs/$org", component: OrgView });
 export const findingsRoute = createRoute({
   getParentRoute: () => appRoute,

@@ -137,9 +137,10 @@ linters:
             - github.com/donaldgifford/repo-guardian/internal/control
             - github.com/donaldgifford/repo-guardian/internal/template
             - github.com/donaldgifford/repo-guardian/internal/catalog
+            - github.com/donaldgifford/repo-guardian/internal/metrics
           deny:
             - pkg: github.com/donaldgifford/repo-guardian/internal
-              desc: a control type imports internal/control, internal/template and the catalog-info parser only
+              desc: a control type imports internal/control, internal/template, the catalog-info parser and the metrics leaf only
         catalog-leaf:
           list-mode: lax
           files:

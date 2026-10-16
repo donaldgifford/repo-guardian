@@ -685,7 +685,7 @@ revision and a `Semantics()` constant of 1.
   create; a retired label is `APIChange{delete}`. An omitted description
   is not checked and an update keeps the label's own. Golden
   `885023bb…`.
-- [ ] 3.8 `internal/controls/custom_properties`: properties with
+- [x] 3.8 `internal/controls/custom_properties`: properties with
   `source`, `normalize`, scope, rendered key and value pattern; the
   built-in `Owner` and `Component`; reads the two catalog-info paths;
   rule kinds `matches`, `value_pattern` and `defined`; the four source
@@ -696,6 +696,29 @@ revision and a `Semantics()` constant of 1.
   `.github/workflows/repo-guardian-custom_properties.yml` through the
   IMPL-0020 A2 env-indirection helpers (`yamlq`, `propenv`), with the
   injection regression test carried over from `internal/rules`.
+  Done: definition params `properties = { <name> = { source, normalize,
+  scope, key, pattern } }` (declares a property or overrides a built-in's
+  facts; `scope` is an org list, `key` the rendered GitHub name defaulting
+  to `<name>`, `normalize` one of `none`/`entity_ref`/`lower`) and v1's
+  `annotation_properties` shorthand (source `annotation:<key>`). Built-in
+  `Owner` is `spec.owner` with `entity_ref` (so `group:default/platform`
+  and `platform` agree) and `Component` is `metadata.name`. A sourceless
+  property never enters the managed set; duplicate rendered keys (case-
+  insensitive), an annotation onto a built-in, a bad key, pattern or
+  normalize fail Build. Rules may narrow to one key with `property`. An
+  empty derived value clears. `matches` evidence carries `properties`,
+  `sources`, `differs`, `withheld` and `withheld_gates` (`value` |
+  `schema`); a withheld property blocks the rule while its siblings are
+  still written. A schema read error closes the schema gate (v1 failed
+  open; the controls model never lets unknown open a write). Deviations:
+  `control.RepoContext` gained `AccountType` (`AccountUser` makes every
+  rule `not_applicable{account_type=user}`, D10) for the activity layer
+  to fill, and depguard `controls-types` now allows the `internal/metrics`
+  leaf so `CatalogParseFailedTotal{org}` increments in Evaluate (not
+  Remediate, so once per evaluation). The workflow template lives with
+  the type (`workflow.yml.tmpl`), runs on a push to the repository's
+  default branch whatever its name, and clears with `-F ...=null`.
+  Golden `ed80fe4e…`.
 - [ ] 3.9 `apply` on the four API types: `recommend` (default),
   `direct`, and `workflow` only on `custom_properties`; the registry
   rejects the rest (covered by 1.9's error table, extended here).

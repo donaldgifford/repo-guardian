@@ -292,9 +292,19 @@ type RepoContext struct {
 	Name          string
 	DefaultBranch string
 	// SHA is the pinned commit.
-	SHA  string
-	Vars template.Vars
+	SHA string
+	// AccountType is the installation account's type: AccountUser for a
+	// personal account, which has no teams and no custom property
+	// schema (D10); empty or AccountOrganization otherwise.
+	AccountType string
+	Vars        template.Vars
 }
+
+// The installation account types.
+const (
+	AccountOrganization = "organization"
+	AccountUser         = "user"
+)
 
 // EvalInput is everything Evaluate may use.
 type EvalInput struct {

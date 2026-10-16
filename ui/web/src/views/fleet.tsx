@@ -5,14 +5,12 @@ import { useHistory, useOrg, useOrgs, useRules, useSummary } from "../api/querie
 import { Loading, Section, Tile, TrendChart } from "../components/common";
 import { Card, CardContent } from "../components/ui/card";
 import { formatPercent, humanize } from "../lib/format";
-import { complianceSeries, parkedTotal, worstRules } from "../lib/viewmodel";
+import { complianceSeries, parkedTotal, trendFrom, worstRules } from "../lib/viewmodel";
 
 const app = getRouteApi("/app");
 
-// ninetyDaysAgo anchors the fleet trend; computed once per render.
-function ninetyDaysAgo(): string {
-  return new Date(Date.now() - 90 * 86_400_000).toISOString();
-}
+// trendDays is the fleet trend's window.
+const trendDays = 90;
 
 // FleetView is the landing page (DESIGN-0027 sketch): tiles, trend, PR
 // ages, worst rules and parked repositories. With an org filter it
@@ -24,7 +22,7 @@ export function FleetView() {
 
 function WholeFleet() {
   const summary = useSummary();
-  const history = useHistory({ from: ninetyDaysAgo() });
+  const history = useHistory({ from: trendFrom(trendDays) });
   if (!summary.data) {
     return <Loading />;
   }
@@ -70,7 +68,7 @@ function WholeFleet() {
 function OrgFleet({ org }: { org: string }) {
   const detail = useOrg(org);
   const orgs = useOrgs();
-  const history = useHistory({ org, from: ninetyDaysAgo() });
+  const history = useHistory({ org, from: trendFrom(trendDays) });
   if (!detail.data) {
     return <Loading />;
   }

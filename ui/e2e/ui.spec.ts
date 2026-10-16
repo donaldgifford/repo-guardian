@@ -151,6 +151,28 @@ test("every view renders against the seeded API without a problem", async ({ pag
   await expect(page.getByRole("heading", { level: 2, name: "acme" })).toBeVisible();
 });
 
+// The fleet trend's history query was keyed on a timestamp recomputed
+// every render, so the home page refetched it in a loop (#207). Each
+// view settles on one fetch (a page or two of history at most).
+test("the fleet views fetch compliance history once", async ({ page }) => {
+  await signIn(page);
+  for (const path of ["/", "/?org=acme"]) {
+    let fetches = 0;
+    const count = (req: { url(): string }) => {
+      if (new URL(req.url()).pathname === "/api/v1/compliance/history") {
+        fetches++;
+      }
+    };
+    page.on("request", count);
+    await page.goto(path);
+    await expect(page.getByText("Compliance (90d)")).toBeVisible();
+    await page.waitForTimeout(3000);
+    page.off("request", count);
+    expect(fetches, path).toBeGreaterThan(0);
+    expect(fetches, path).toBeLessThanOrEqual(2);
+  }
+});
+
 test("a repository outside the caller's orgs is a problem page, not data", async ({ page }) => {
   await signIn(page, "/repos/4");
   await expect(page.getByRole("alert")).toContainText("404");

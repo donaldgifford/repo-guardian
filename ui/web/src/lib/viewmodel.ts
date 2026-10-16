@@ -24,6 +24,17 @@ export interface SeriesPoint {
 // complianceSeries folds (org, rule) snapshot points into one series:
 // counts are summed per snapshot time and the percentage recomputed
 // with the API's floor, never averaged, so a small org cannot skew it.
+// trendFrom is the start of a trend window of days ending now, at
+// midnight UTC. It must not change between renders: the history query is
+// keyed on it, and a fresh millisecond timestamp per render made every
+// render a new query that fetched and re-rendered, a loop of about 400
+// requests a minute (#207). Rounding to the day also lets the cache hit.
+export function trendFrom(days: number, now: number = Date.now()): string {
+  const d = new Date(now - days * 86_400_000);
+  d.setUTCHours(0, 0, 0, 0);
+  return d.toISOString();
+}
+
 export function complianceSeries(points: Schemas["HistoryPoint"][]): SeriesPoint[] {
   const byTime = new Map<string, { compliant: number; non_compliant: number }>();
   for (const p of points) {

@@ -944,8 +944,13 @@ evaluator's store.
     pending, coverage 1, percent from the single result.
   - The empty fleet reads no rows, and an all-pending fleet reads NULL
     (`TestControlsStore_EmptyFleetIsNoData`, from 4.7).
-- [ ] 4.10 `migrate --dry-run` applies `00001`–`00004` to an empty
+- [x] 4.10 `migrate --dry-run` applies `00001`–`00004` to an empty
   database in one rolled-back transaction; `SchemaVersion` is 4.
+  Done: `ControlsSchemaVersion` is 4. `TestControlsChain_DryRunRollsBack`
+  derives `1..4` from it and checks that no table is left behind.
+  `TestMigrateControls_DryRun` runs `migrate --chain controls --dry-run`
+  and asserts pending `[1 2 3 4]`, no activation and version 0. The chain
+  is SQL only, so a new file is rehearsed simply by being in the directory.
 - [ ] 4.11 Non-vacuous check: drop the epoch predicate from the record
   step, make withdrawal skip the delete, and remove the NULL guard from
   the percent; confirm 4.6, 4.9 and the agreement test fail; restore.

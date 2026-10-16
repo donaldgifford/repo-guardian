@@ -27,6 +27,7 @@ export function Meter({
   showValue = true,
   thick = false,
   className,
+  "aria-label": label = "Compliance",
 }: {
   percent: number | null | undefined;
   tone?: MeterTone;
@@ -34,6 +35,8 @@ export function Meter({
   // thick is the status page's 10px bar; the default is the 5px table meter.
   thick?: boolean;
   className?: string;
+  // A meter needs a name; the table meters all measure compliance.
+  "aria-label"?: string;
 }) {
   const t = tone ?? meterTone(percent);
   const width = percent === null || percent === undefined ? 0 : Math.max(0, Math.min(100, percent));
@@ -41,6 +44,7 @@ export function Meter({
     <div className={cn("flex items-center gap-2", className)}>
       <div
         role="meter"
+        aria-label={label}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={width}

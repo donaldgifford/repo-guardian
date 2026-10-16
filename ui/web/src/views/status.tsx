@@ -91,7 +91,7 @@ export function StatusView() {
           <div className="text-[40px] leading-none font-semibold tabular-nums" data-measured={s.compliance.measured}>
             {s.compliance.measured ? formatPercent(s.compliance.percent) : "unmeasured"}
           </div>
-          <Meter percent={s.compliance.measured ? s.compliance.percent : null} tone="ok" showValue={false} thick className="mt-3" />
+          <Meter percent={s.compliance.measured ? s.compliance.percent : null} tone="ok" showValue={false} thick aria-label="Fleet compliance" className="mt-3" />
           <p className="mt-2 font-mono text-[11px] text-muted-foreground">
             measured: {String(s.compliance.measured)} · compliant ÷ (compliant + non_compliant)
           </p>

@@ -27,7 +27,7 @@ export function OrgScope() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button aria-label="Org scope" aria-haspopup="dialog" className="min-w-[150px] justify-between">
+        <Button aria-label={`Org scope: ${search.org ?? all}`} aria-haspopup="dialog" className="min-w-[150px] justify-between">
           <span className={search.org ? "font-mono" : undefined}>{search.org ?? all}</span>
           <span className="text-muted-foreground">▾</span>
         </Button>

@@ -54,7 +54,8 @@ function Cell({ row, col, heat }: { row: GridRow; col: GridColumn; heat: boolean
   return (
     <td className="px-[10px] py-[9px] text-right tabular-nums" style={heat ? heatStyle(n, row.total, col.tone) : undefined} data-heat={heat ? col.key : undefined} data-shade={shade > 0 ? shade : undefined}>
       {n.toLocaleString()}
-      {pct !== null ? <span className="ml-1.5 text-xs text-muted-foreground">{pct}%</span> : null}
+      {/* The share keeps full foreground on a shaded cell: muted ink on the tint fails AA. */}
+      {pct !== null ? <span className={cn("ml-1.5 text-xs", shade > 0 ? "text-foreground" : "text-muted-foreground")}>{pct}%</span> : null}
     </td>
   );
 }
@@ -105,10 +106,20 @@ export function GroupGrid({
             return [
               <tr key={row.key} className="border-b border-border hover:bg-panel-2" data-row={row.key}>
                 <td className="px-[10px] py-[9px]">
-                  <button type="button" aria-expanded={expanded} aria-controls={`grid-children-${row.key}`} onClick={() => onToggle(row.key)} className="flex w-full items-center gap-2 text-left">
-                    <span aria-hidden="true" className={cn("inline-block w-3 text-muted-foreground transition-transform", expanded && "rotate-90")}>
-                      ▸
-                    </span>
+                  {/* The toggle is the chevron alone: the label may be a
+                      link, and a control inside a control is unreachable
+                      to assistive tech (axe nested-interactive). */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      aria-expanded={expanded}
+                      aria-controls={`grid-children-${row.key}`}
+                      aria-label={`${expanded ? "Collapse" : "Expand"} ${row.key}`}
+                      onClick={() => onToggle(row.key)}
+                      className={cn("inline-block w-3 flex-none text-muted-foreground transition-transform hover:text-foreground", expanded && "rotate-90")}
+                    >
+                      <span aria-hidden="true">▸</span>
+                    </button>
                     <span className="min-w-0">
                       <span className="flex items-center gap-2 font-mono font-medium">
                         {row.label}
@@ -116,7 +127,7 @@ export function GroupGrid({
                       </span>
                       {row.sub !== undefined ? <span className="block text-xs text-muted-foreground">{row.sub}</span> : null}
                     </span>
-                  </button>
+                  </div>
                 </td>
                 {columns.map((c) => (
                   <Cell key={c.key} row={row} col={c} heat={heat.includes(c.key)} />

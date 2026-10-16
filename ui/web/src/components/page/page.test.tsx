@@ -95,7 +95,7 @@ function mountScope(initial: string, me: Schemas["Me"] = testMe) {
 test("OrgScope lists All orgs (N) with the visible orgs and writes ?org=", async () => {
   const u = user();
   const { router, findByRole, getByRole, findByText } = mountScope("/findings?status=non_compliant");
-  const trigger = await findByRole("button", { name: "Org scope" });
+  const trigger = await findByRole("button", { name: /^Org scope/ });
   expect(trigger.textContent).toContain("All orgs (1)");
 
   await u.click(trigger);
@@ -103,16 +103,16 @@ test("OrgScope lists All orgs (N) with the visible orgs and writes ?org=", async
   expect(getByRole("button", { name: /acme/ })).toBeTruthy();
   await u.click(getByRole("button", { name: /acme/ }));
   await waitFor(() => expect(router.state.location.search).toEqual({ status: "non_compliant", org: "acme" }));
-  await waitFor(() => expect(getByRole("button", { name: "Org scope" }).textContent).toContain("acme"));
+  await waitFor(() => expect(getByRole("button", { name: /^Org scope/ }).textContent).toContain("acme"));
 
-  await u.click(getByRole("button", { name: "Org scope" }));
+  await u.click(getByRole("button", { name: /^Org scope/ }));
   await u.click(await findByRole("button", { name: /All orgs/ }));
   await waitFor(() => expect(router.state.location.search).toEqual({ status: "non_compliant" }));
 });
 
 test("an all_orgs caller counts every org the API returned", async () => {
   const { findByRole } = mountScope("/", { ...testMe, all_orgs: true, orgs: [] });
-  const trigger = await findByRole("button", { name: "Org scope" });
+  const trigger = await findByRole("button", { name: /^Org scope/ });
   expect(trigger.textContent).toContain("All orgs (2)");
 });
 

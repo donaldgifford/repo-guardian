@@ -527,7 +527,7 @@ Public, outside the shell, aggregate-only, on today's `Status` schema.
 
 #### Tasks
 
-- [ ] 6.1 `@axe-core/playwright` as a dev dependency; an `a11y.spec.ts`
+- [x] 6.1 `@axe-core/playwright` as a dev dependency; an `a11y.spec.ts`
   running axe on Fleet, Orgs, Findings with the drawer open, Repository
   and Status with zero violations at `wcag2aa`; contrast of every
   badge tone verified by the run, not by hand.

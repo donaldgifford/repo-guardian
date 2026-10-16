@@ -28,6 +28,18 @@ function register(): void {
 
 register();
 
+// Load radix while this first registration is live. Radix decides at
+// module load whether a document EXISTS (useLayoutEffect becomes a
+// no-op without one, and every Portal then stays unmounted); it does
+// not keep the document itself, so a later re-registration is fine.
+// Without this, a DOM test file that imports no radix (a view with only
+// cards and badges, say) unregisters in its afterAll and the next file
+// loads radix into a process with no document, taking every popover and
+// drawer test after it down. Found by IMPL-0031 Phase 5's status test.
+// Do NOT add react-dom or testing-library here: those bind to the
+// window present at load, and a second registration strands them.
+await import("radix-ui");
+
 // withDOM wires the file's hooks. It registers again in beforeAll because
 // this module is evaluated once per process: a second DOM test file
 // finds the import-time registration already undone by the first's

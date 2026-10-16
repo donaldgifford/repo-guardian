@@ -14,9 +14,9 @@ export function compliantPercent(c: Pick<Counts, "compliant" | "non_compliant">)
 }
 
 // formatPercent renders a percentage the API computed; null is
-// "unmeasured", never 0% or 100%.
+// "no data", never 0% or 100%.
 export function formatPercent(p: number | null | undefined): string {
-  return p === null || p === undefined ? "unmeasured" : `${p.toFixed(1)}%`;
+  return p === null || p === undefined ? "no data" : `${p.toFixed(1)}%`;
 }
 
 // trend is the change against the previous snapshot, when both exist.

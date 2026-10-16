@@ -11,6 +11,6 @@ test("the Docs group exists only with a docs_url", () => {
 });
 
 test("every in-app entry has a route and the business group leads", () => {
-  expect(NAV.map((n) => n.to)).toEqual(["/", "/status"]);
+  expect(NAV.map((n) => n.to)).toEqual(["/", "/controls", "/orgs", "/repositories", "/history", "/policy", "/status"]);
   expect(NAV[0]?.group).toBe("BUSINESS");
 });

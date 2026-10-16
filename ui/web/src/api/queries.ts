@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { api, unwrap } from "./client";
+import { api, ProblemError, toProblem, unwrap } from "./client";
 
 export interface UIConfig {
   issuer: string;
@@ -26,4 +26,104 @@ export function useMe() {
 
 export function useStatus() {
   return useQuery({ queryKey: ["status"], queryFn: () => unwrap(api.GET("/status")), refetchInterval: 30_000 });
+}
+
+export function useSummary() {
+  return useQuery({ queryKey: ["summary"], queryFn: () => unwrap(api.GET("/summary")) });
+}
+
+export function useControls(org?: string) {
+  return useQuery({ queryKey: ["controls", org ?? ""], queryFn: () => unwrap(api.GET("/controls", { params: { query: org ? { org } : {} } })) });
+}
+
+export function useControl(id: string) {
+  return useQuery({ queryKey: ["control", id], queryFn: () => unwrap(api.GET("/controls/{id}", { params: { path: { id } } })) });
+}
+
+export function useOrgs() {
+  return useQuery({ queryKey: ["orgs"], queryFn: () => unwrap(api.GET("/orgs")) });
+}
+
+export function useOrg(org: string) {
+  return useQuery({ queryKey: ["org", org], queryFn: () => unwrap(api.GET("/orgs/{org}", { params: { path: { org } } })) });
+}
+
+export interface RepositoryFilter {
+  org?: string;
+  q?: string;
+  policy_state?: string;
+}
+
+export function useRepositories(f: RepositoryFilter) {
+  return useQuery({
+    queryKey: ["repositories", f],
+    queryFn: () => unwrap(api.GET("/repositories", { params: { query: { ...f, limit: 100 } } })),
+  });
+}
+
+export function useRepository(id: number) {
+  return useQuery({ queryKey: ["repository", id], queryFn: () => unwrap(api.GET("/repositories/{id}", { params: { path: { id } } })) });
+}
+
+export function useRepositoryControls(id: number) {
+  return useQuery({
+    queryKey: ["repository-controls", id],
+    queryFn: () => unwrap(api.GET("/repositories/{id}/controls", { params: { path: { id } } })),
+  });
+}
+
+export function useRepositoryEvaluations(id: number) {
+  return useQuery({
+    queryKey: ["repository-evaluations", id],
+    queryFn: () => unwrap(api.GET("/repositories/{id}/evaluations", { params: { path: { id }, query: { limit: 20 } } })),
+  });
+}
+
+export function useRepositoryEvents(id: number) {
+  return useQuery({
+    queryKey: ["repository-events", id],
+    queryFn: () => unwrap(api.GET("/repositories/{id}/events", { params: { path: { id }, query: { limit: 50 } } })),
+  });
+}
+
+export interface HistoryFilter {
+  days: number;
+  control?: string;
+  org?: string;
+}
+
+export function useComplianceHistory(f: HistoryFilter) {
+  return useQuery({ queryKey: ["history", f], queryFn: () => unwrap(api.GET("/compliance/history", { params: { query: f } })) });
+}
+
+export function usePolicies() {
+  return useQuery({ queryKey: ["policies"], queryFn: () => unwrap(api.GET("/policies")) });
+}
+
+// evaluateUnsupportedKey records that this API answered 501 to the
+// re-evaluate POST (no Temporal client): the button stays hidden.
+export const evaluateUnsupportedKey = ["evaluate-unsupported"] as const;
+
+export function useEvaluateUnsupported(): boolean {
+  const q = useQuery({ queryKey: evaluateUnsupportedKey, queryFn: () => false, staleTime: Infinity, initialData: false });
+  return q.data;
+}
+
+// useEvaluate POSTs a re-evaluation. A 202 is success; 501 hides the
+// button for the session; anything else surfaces as a problem.
+export function useEvaluate(id: number) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { error, response } = await api.POST("/repositories/{id}/evaluate", { params: { path: { id } } });
+      if (response.status === 501) {
+        client.setQueryData(evaluateUnsupportedKey, true);
+        return "unsupported" as const;
+      }
+      if (!response.ok) {
+        throw new ProblemError(toProblem(error, response.status, response.statusText));
+      }
+      return "accepted" as const;
+    },
+  });
 }

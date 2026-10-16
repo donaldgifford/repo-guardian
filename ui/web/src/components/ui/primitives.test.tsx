@@ -115,7 +115,7 @@ describe("Meter", () => {
     expect(html).toContain('aria-valuenow="87.5"');
     expect(html).toContain("width:87.5%");
     expect(html).toContain(">87.5%</b>");
-    expect(renderToStaticMarkup(<Meter percent={null} />)).toContain('aria-valuetext="unmeasured"');
+    expect(renderToStaticMarkup(<Meter percent={null} />)).toContain('aria-valuetext="no data"');
   });
 });
 

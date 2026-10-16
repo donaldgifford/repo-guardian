@@ -7,7 +7,7 @@ export type NavGroup = "BUSINESS" | "PUBLIC" | "DOCS";
 
 // AppPath is every in-app destination the nav may point at; the router
 // types its links against these.
-export type AppPath = "/" | "/status";
+export type AppPath = "/" | "/controls" | "/orgs" | "/repositories" | "/history" | "/policy" | "/status";
 
 export interface NavItem {
   group: NavGroup;
@@ -19,7 +19,12 @@ export interface NavItem {
 }
 
 export const NAV: readonly NavItem[] = [
-  { group: "BUSINESS", label: "Overview", to: "/", icon: "grid" },
+  { group: "BUSINESS", label: "Fleet", to: "/", icon: "grid" },
+  { group: "BUSINESS", label: "Controls", to: "/controls", icon: "shield" },
+  { group: "BUSINESS", label: "Orgs", to: "/orgs", icon: "boxes" },
+  { group: "BUSINESS", label: "Repositories", to: "/repositories", icon: "list" },
+  { group: "BUSINESS", label: "History", to: "/history", icon: "activity" },
+  { group: "BUSINESS", label: "Policy", to: "/policy", icon: "clock" },
   { group: "PUBLIC", label: "Status page", to: "/status", icon: "check" },
 ];
 

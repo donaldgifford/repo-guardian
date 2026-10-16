@@ -21,7 +21,7 @@ describe("SidebarNav", () => {
     );
     const status = await findByRole("link", { name: /Status page/ });
     expect(status.getAttribute("aria-current")).toBe("page");
-    expect(getByRole("link", { name: /Overview/ }).getAttribute("aria-current")).toBeNull();
+    expect(getByRole("link", { name: /Fleet/ }).getAttribute("aria-current")).toBeNull();
     expect(getByText("Business")).toBeTruthy();
     expect(getByText("Public")).toBeTruthy();
     expect(queryByText("Docs")).toBeNull();

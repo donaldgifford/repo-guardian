@@ -15,7 +15,10 @@ withDOM();
 
 describe("crumbsFor", () => {
   test.each([
-    ["overview", { routeId: "/app/" }, ["Repo Guardian", "Overview"]],
+    ["fleet", { routeId: "/app/" }, ["Repo Guardian", "Fleet"]],
+    ["section", { routeId: "/app/controls" }, ["Repo Guardian", "Controls"]],
+    ["item", { routeId: "/app/orgs/$org", params: { org: "acme" } }, ["Repo Guardian", "Orgs", "acme"]],
+    ["item without its param", { routeId: "/app/controls/$id", params: {} }, ["Repo Guardian", "Controls"]],
     ["unknown route", { routeId: "/nope" }, ["Repo Guardian"]],
     ["no match", undefined, ["Repo Guardian"]],
   ])("%s", (_name, match, want) => {

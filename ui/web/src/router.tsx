@@ -2,12 +2,13 @@ import { createRootRoute, createRoute, createRouter, Outlet } from "@tanstack/re
 
 import { ProblemView } from "./components/problem";
 import { Shell } from "./components/shell/Shell";
+import { ControlsView, ControlView } from "./views/controls";
+import { FleetView } from "./views/fleet";
+import { HistoryView, parseHistorySearch } from "./views/history";
+import { OrgsView, OrgView } from "./views/orgs";
+import { PolicyView } from "./views/policy";
+import { parseRepositoriesSearch, parseRepositorySearch, RepositoriesView, RepositoryView } from "./views/repositories";
 import { StatusView } from "./views/status";
-
-// The findings-era views (Fleet, Rules, Orgs, Findings, Repository,
-// History, Policy) went with their endpoints in IMPL-0029 7.6/7.7; the
-// controls views arrive with the controls API. Until then the
-// authenticated frame opens on the status page.
 
 const rootRoute = createRootRoute({
   component: Outlet,
@@ -24,11 +25,32 @@ const appRoute = createRoute({
   errorComponent: ProblemView,
 });
 
-const homeRoute = createRoute({ getParentRoute: () => appRoute, path: "/", component: StatusView });
+const fleetRoute = createRoute({ getParentRoute: () => appRoute, path: "/", component: FleetView });
+const controlsRoute = createRoute({ getParentRoute: () => appRoute, path: "/controls", component: ControlsView });
+const controlRoute = createRoute({ getParentRoute: () => appRoute, path: "/controls/$id", component: ControlView });
+const orgsRoute = createRoute({ getParentRoute: () => appRoute, path: "/orgs", component: OrgsView });
+const orgRoute = createRoute({ getParentRoute: () => appRoute, path: "/orgs/$org", component: OrgView });
+const repositoriesRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/repositories",
+  validateSearch: parseRepositoriesSearch,
+  component: RepositoriesView,
+});
+const repositoryRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/repositories/$id",
+  validateSearch: parseRepositorySearch,
+  component: RepositoryView,
+});
+const historyRoute = createRoute({ getParentRoute: () => appRoute, path: "/history", validateSearch: parseHistorySearch, component: HistoryView });
+const policyRoute = createRoute({ getParentRoute: () => appRoute, path: "/policy", component: PolicyView });
 
 export { appRoute };
 
-const routeTree = rootRoute.addChildren([statusRoute, appRoute.addChildren([homeRoute])]);
+const routeTree = rootRoute.addChildren([
+  statusRoute,
+  appRoute.addChildren([fleetRoute, controlsRoute, controlRoute, orgsRoute, orgRoute, repositoriesRoute, repositoryRoute, historyRoute, policyRoute]),
+]);
 
 export const router = createRouter({ routeTree, defaultErrorComponent: ProblemView });
 

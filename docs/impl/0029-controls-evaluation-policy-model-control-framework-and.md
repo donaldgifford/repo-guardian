@@ -1818,13 +1818,14 @@ half-switched binary.
 - [x] 8.6 `apitest` with kin-openapi response validation for every
   endpoint; `make generate-api` and `make lint-api` green.
   Done: `TestEndpoints_ValidateAgainstTheSpec` now drives every operation (16, including `POST /evaluate` → the spec's 501 without a Temporal client, `/status`, `/openapi.yaml`) against Postgres through `apitest`'s kin-openapi validation, and fails when the spec gains an operation with no case. It caught a fixture writing evidence without `evidence_kind`/`evidence_version` (which `control.Validate` requires of real evidence); fixed. `make generate-api` and `make lint-api` green.
-- [ ] 8.7 UI views: Controls, Control (per-org breakdown with versions),
+- [x] 8.7 UI views: Controls, Control (per-org breakdown with versions),
   Orgs and Org (baseline versus org, coverage), Fleet linking to
   controls, Repository with the controls tab, evidence and the
   evaluation log, History by control, Policy on `/policies`, Status with
   queues, Apps and topology; the re-evaluate button hidden on `501`; a
   null percent renders "no data". `make generate-ui-api`, `make lint-ui`,
   `make test-ui`.
+  Done: routes `/` (Fleet: summary KPIs, assignment distribution, controls and orgs linking through), `/controls` + `/controls/$id` (per-org/lineage breakdown with versions and revisions), `/orgs` + `/orgs/$org` (baseline vs org-added percent and coverage, controls, worst five, exclusions), `/repositories` (org/name/policy-state filter in the URL) + `/repositories/$id` (tabs: controls with rule results and text-only evidence, evaluation log, events; facts card), `/history` (fleet or one control, 7/30/90d, snapshots summed per day with the SQL floor math), `/policy` (version, enterprise for all-org callers, each org layer, catalogue). Status gains the Deployment card (topology + each App's counts), coverage and overdue; the queues are its `backlog_*` components. Re-evaluate hides once the POST answers 501 (cached for the session). A null percent renders "no data" everywhere (`formatPercent`, meters). `lib/posture.ts` and `lib/evidence.ts` with tests; nav, breadcrumbs (item crumbs) and the test harness paths updated. `make generate-ui-api`, `lint-ui`, `test-ui` (254 pass) green.
 - [ ] 8.8 E2E: `ui/e2e/seed.sql` rewritten for the controls schema; a
   Playwright spec per view; `make test-ui-e2e` green.
 - [ ] 8.9 Homelab Keycloak (IMPL-0025 19.2): register the UI client and

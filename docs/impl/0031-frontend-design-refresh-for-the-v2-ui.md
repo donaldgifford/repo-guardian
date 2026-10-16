@@ -450,7 +450,7 @@ controls rework reuses.
   around `describeEvidence`, `Timeline`, footer with the empty
   `actions` slot and "Open repository". Breadcrumbs add
   `org/repository` while open.
-- [ ] 4.8 `components/timeline.tsx` + `lib/timeline.ts`: merge
+- [x] 4.8 `components/timeline.tsx` + `lib/timeline.ts`: merge
   `/repositories/{id}/events` (finding events for the rule; repository
   `parked | unparked | renamed | transferred`) and
   `/repositories/{id}/checks` since `status_since` into one list,

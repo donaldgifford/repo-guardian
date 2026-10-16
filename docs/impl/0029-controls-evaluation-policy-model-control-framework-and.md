@@ -1849,12 +1849,13 @@ half-switched binary.
 
 #### Tasks
 
-- [ ] 9.1 Rewrite `docs/operations/v2-overview.md`: policy compatibility
+- [x] 9.1 Rewrite `docs/operations/v2-overview.md`: policy compatibility
   claims, one PR per control (`repo-guardian/<slug>`, `max_open_prs`),
   `search_terms` and foreign-PR detection dropped, check modes replaced
   by typed controls, `setting` → `repo_settings`, `branch_protection` →
   `branch_ruleset`, reconcilers → controls, the status model, workflow
   names, `CHECK_INTERVAL` → `EVAL_INTERVAL`, roles.
+  Done: v2-overview.md rewritten for the controls line: policy directory instead of guardian.hcl (no converter), the eight built-in types, mode and apply, one PR per control on `repo-guardian/<slug>` with `max_open_prs`/`reopen_after` (IMPL-0030), a v1 → controls mapping table (check modes, gates, setting, branch_protection, reconcilers, scope/ignore, dry_run), `search_terms`/foreign-PR detection and the reconcile-log comment dropped, a renamed-names table (EVAL_INTERVAL, roles, workflow and schedule names, endpoints), the ten-bucket status model with percent and coverage, and the improvements restated for two Apps and revisions.
 - [ ] 9.2 Rewrite `docs/operations/v2-onboarding.md`: the Evaluation and
   Remediation Apps (permissions and events tables), `worker` →
   `evaluator`/`remediator`, `guardian.hcl` → the policy directory and the

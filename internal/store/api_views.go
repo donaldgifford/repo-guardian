@@ -212,6 +212,21 @@ type HistoryKey struct {
 	RuleName   string
 }
 
+// HistoryAggregate selects how snapshots are summed (IMPL-0031 7.1).
+type HistoryAggregate string
+
+// The history aggregates. The zero value is AggregateNone.
+const (
+	// AggregateNone returns one point per (snapshot, org, kind, rule).
+	AggregateNone HistoryAggregate = ""
+	// AggregateFleet sums every org and rule per snapshot; the points
+	// carry no org, kind or rule.
+	AggregateFleet HistoryAggregate = "fleet"
+	// AggregateOrg sums every rule per (snapshot, org); the points carry
+	// no kind or rule.
+	AggregateOrg HistoryAggregate = "org"
+)
+
 // HistoryFilter selects stored snapshots. Zero fields do not filter.
 type HistoryFilter struct {
 	Org      string
@@ -221,6 +236,11 @@ type HistoryFilter struct {
 	To       *time.Time
 	After    *HistoryKey
 	Limit    int
+
+	// Aggregate sums the selected rows. An aggregated snapshot's Percent
+	// is floored in SQL; an unaggregated one leaves Percent nil and the
+	// caller derives it from the counts.
+	Aggregate HistoryAggregate
 }
 
 // CurrentPolicy is the newest policy version and its rollout.

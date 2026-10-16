@@ -217,7 +217,7 @@ export function OrgView() {
   const range = parseRange(rawRange);
   const detail = useOrg(org);
   const orgs = useOrgs();
-  const history = useHistory({ org, from: rangeFrom(range) });
+  const history = useHistory({ org, aggregate: "org", from: rangeFrom(range) });
   if (!detail.data) {
     return <Loading />;
   }

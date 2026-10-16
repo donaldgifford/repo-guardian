@@ -458,11 +458,12 @@ func (s *server) ListRepositoryEvents(
 
 // historyFilters is what a history cursor is bound to.
 type historyFilters struct {
-	Org  string     `json:"org,omitempty"`
-	Kind string     `json:"kind,omitempty"`
-	Rule string     `json:"rule,omitempty"`
-	From *time.Time `json:"from,omitempty"`
-	To   *time.Time `json:"to,omitempty"`
+	Org       string     `json:"org,omitempty"`
+	Kind      string     `json:"kind,omitempty"`
+	Rule      string     `json:"rule,omitempty"`
+	From      *time.Time `json:"from,omitempty"`
+	To        *time.Time `json:"to,omitempty"`
+	Aggregate string     `json:"aggregate,omitempty"`
 }
 
 type historyKey struct {
@@ -470,6 +471,25 @@ type historyKey struct {
 	Org        string    `json:"o"`
 	Kind       string    `json:"k"`
 	RuleName   string    `json:"n"`
+}
+
+// historyAggregate maps the query parameter onto the store's mode; an
+// absent parameter is none.
+func historyAggregate(a *gen.ListComplianceHistoryParamsAggregate) (store.HistoryAggregate, error) {
+	if a == nil {
+		return store.AggregateNone, nil
+	}
+
+	switch *a {
+	case gen.None:
+		return store.AggregateNone, nil
+	case gen.Fleet:
+		return store.AggregateFleet, nil
+	case gen.Org:
+		return store.AggregateOrg, nil
+	default:
+		return "", statusError(http.StatusBadRequest, "aggregate must be none, fleet or org")
+	}
 }
 
 // ListComplianceHistory returns one page of stored snapshots.
@@ -488,9 +508,17 @@ func (s *server) ListComplianceHistory(
 		return nil, err
 	}
 
-	filters := historyFilters{Org: deref(q.Org), Kind: deref(q.Kind), Rule: deref(q.Rule), From: q.From, To: q.To}
+	agg, err := historyAggregate(q.Aggregate)
+	if err != nil {
+		return nil, err
+	}
+
+	// The aggregate is part of the cursor's filter hash: a cursor from one
+	// mode is rejected under another.
+	filters := historyFilters{Org: deref(q.Org), Kind: deref(q.Kind), Rule: deref(q.Rule), From: q.From, To: q.To, Aggregate: string(agg)}
 	f := store.HistoryFilter{
 		Org: filters.Org, Kind: findings.RuleKind(filters.Kind), RuleName: filters.Rule, From: q.From, To: q.To, Limit: limit,
+		Aggregate: agg,
 	}
 
 	var key historyKey
@@ -507,7 +535,7 @@ func (s *server) ListComplianceHistory(
 
 	out := gen.ListComplianceHistory200JSONResponse{Items: make([]gen.HistoryPoint, 0, len(page.Items))}
 	for i := range page.Items {
-		out.Items = append(out.Items, historyOut(&page.Items[i]))
+		out.Items = append(out.Items, historyOut(&page.Items[i], agg))
 	}
 
 	out.NextCursor, err = nextCursor(page, func(it *store.ComplianceSnapshot) any {

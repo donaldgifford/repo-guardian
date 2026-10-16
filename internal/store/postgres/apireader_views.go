@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/donaldgifford/repo-guardian/internal/findings"
 	"github.com/donaldgifford/repo-guardian/internal/store"
@@ -553,6 +554,26 @@ func (r *APIReader) ComplianceHistory(
 ) (p store.Page[store.ComplianceSnapshot], err error) {
 	defer func(start time.Time) { observeQuery("api_compliance_history", start, err) }(time.Now())
 
+	var items []store.ComplianceSnapshot
+
+	switch f.Aggregate {
+	case store.AggregateFleet:
+		items, err = r.historyFleet(ctx, scope, f)
+	case store.AggregateOrg:
+		items, err = r.historyByOrg(ctx, scope, f)
+	default:
+		items, err = r.historyRows(ctx, scope, f)
+	}
+
+	if err != nil {
+		return p, fmt.Errorf("postgres.APIReader.ComplianceHistory: %w", err)
+	}
+
+	return page(items, f.Limit), nil
+}
+
+// historyRows reads unaggregated snapshot rows.
+func (r *APIReader) historyRows(ctx context.Context, scope store.APIScope, f *store.HistoryFilter) ([]store.ComplianceSnapshot, error) {
 	params := sqlcdb.APIComplianceHistoryParams{
 		ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(),
 		Org: optString(f.Org), RuleKind: optString(f.Kind), RuleName: optString(f.RuleName),
@@ -567,7 +588,7 @@ func (r *APIReader) ComplianceHistory(
 
 	var items []store.ComplianceSnapshot
 
-	err = r.readOnly(ctx, func(q *sqlcdb.Queries) error {
+	err := r.readOnly(ctx, func(q *sqlcdb.Queries) error {
 		rows, err := q.APIComplianceHistory(ctx, params)
 		if err != nil {
 			return err
@@ -587,11 +608,98 @@ func (r *APIReader) ComplianceHistory(
 
 		return nil
 	})
-	if err != nil {
-		return p, fmt.Errorf("postgres.APIReader.ComplianceHistory: %w", err)
+
+	return items, err
+}
+
+// historyFleet sums snapshot rows per snapshot_at.
+func (r *APIReader) historyFleet(ctx context.Context, scope store.APIScope, f *store.HistoryFilter) ([]store.ComplianceSnapshot, error) {
+	params := sqlcdb.APIComplianceHistoryFleetParams{
+		ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(),
+		Org: optString(f.Org), RuleKind: optString(f.Kind), RuleName: optString(f.RuleName),
+		FromAt: f.From, ToAt: f.To, PageLimit: pageLimit(f.Limit),
 	}
 
-	return page(items, f.Limit), nil
+	if f.After != nil {
+		params.HasAfter, params.AfterSnapshotAt = true, f.After.SnapshotAt
+	}
+
+	var items []store.ComplianceSnapshot
+
+	err := r.readOnly(ctx, func(q *sqlcdb.Queries) error {
+		rows, err := q.APIComplianceHistoryFleet(ctx, params)
+		if err != nil {
+			return err
+		}
+
+		items = make([]store.ComplianceSnapshot, 0, len(rows))
+		for _, sn := range rows {
+			it, err := aggregatedSnapshot(sn.SnapshotAt, "", sn.Compliant, sn.NonCompliant, sn.NotApplicable, sn.Unknown, sn.CompliantPercent)
+			if err != nil {
+				return err
+			}
+
+			items = append(items, it)
+		}
+
+		return nil
+	})
+
+	return items, err
+}
+
+// historyByOrg sums snapshot rows per (snapshot_at, org).
+func (r *APIReader) historyByOrg(ctx context.Context, scope store.APIScope, f *store.HistoryFilter) ([]store.ComplianceSnapshot, error) {
+	params := sqlcdb.APIComplianceHistoryByOrgParams{
+		ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(),
+		Org: optString(f.Org), RuleKind: optString(f.Kind), RuleName: optString(f.RuleName),
+		FromAt: f.From, ToAt: f.To, PageLimit: pageLimit(f.Limit),
+	}
+
+	if f.After != nil {
+		params.HasAfter, params.AfterSnapshotAt, params.AfterOrg = true, f.After.SnapshotAt, f.After.Org
+	}
+
+	var items []store.ComplianceSnapshot
+
+	err := r.readOnly(ctx, func(q *sqlcdb.Queries) error {
+		rows, err := q.APIComplianceHistoryByOrg(ctx, params)
+		if err != nil {
+			return err
+		}
+
+		items = make([]store.ComplianceSnapshot, 0, len(rows))
+		for _, sn := range rows {
+			it, err := aggregatedSnapshot(sn.SnapshotAt, sn.Org, sn.Compliant, sn.NonCompliant, sn.NotApplicable, sn.Unknown, sn.CompliantPercent)
+			if err != nil {
+				return err
+			}
+
+			items = append(items, it)
+		}
+
+		return nil
+	})
+
+	return items, err
+}
+
+// aggregatedSnapshot builds one summed point, carrying the SQL percent.
+func aggregatedSnapshot(
+	at time.Time, org string, compliant, nonCompliant, notApplicable, unknown int32, percent pgtype.Numeric,
+) (store.ComplianceSnapshot, error) {
+	pct, err := numericPtr(percent)
+	if err != nil {
+		return store.ComplianceSnapshot{}, err
+	}
+
+	return store.ComplianceSnapshot{
+		ComplianceCount: store.ComplianceCount{
+			Org: org, Compliant: int(compliant), NonCompliant: int(nonCompliant),
+			NotApplicable: int(notApplicable), Unknown: int(unknown), Percent: pct,
+		},
+		SnapshotAt: at,
+	}, nil
 }
 
 // Installations returns one page of installations in scope.

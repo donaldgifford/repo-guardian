@@ -377,6 +377,19 @@ paths:
           schema:
             type: string
             format: date-time
+        - name: aggregate
+          in: query
+          description: >-
+            How to sum the selected snapshots. `none` (the default) returns
+            one point per (snapshot, org, rule). `fleet` sums every org and
+            rule per snapshot; `org` sums every rule per (snapshot, org).
+            The other filters apply before summing, so `aggregate=fleet`
+            with `kind` and `rule` is one rule's fleet series. Aggregated
+            percentages are floored in SQL exactly as `/rules` floors them.
+          schema:
+            type: string
+            enum: [none, fleet, org]
+            default: none
         - $ref: "#/components/parameters/Cursor"
         - $ref: "#/components/parameters/Limit"
       responses:
@@ -1326,15 +1339,20 @@ components:
         next_cursor:
           $ref: "#/components/schemas/Cursor"
     HistoryPoint:
-      description: One (org, rule) snapshot.
+      description: >-
+        One snapshot point. Unaggregated, it is one (org, rule) and carries
+        `org`, `kind` and `rule`. With `aggregate=org` it carries `org`
+        only; with `aggregate=fleet` it carries none of the three.
       type: object
-      required: [org, kind, rule, snapshot_at, counts, compliant_percent]
+      required: [snapshot_at, counts, compliant_percent]
       properties:
         org:
+          description: Absent when aggregated to the fleet.
           type: string
         kind:
           $ref: "#/components/schemas/RuleKind"
         rule:
+          description: Absent when aggregated.
           type: string
         snapshot_at:
           type: string

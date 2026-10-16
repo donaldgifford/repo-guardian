@@ -594,7 +594,7 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
 
 #### Tasks
 
-- [ ] 7.1 `GET /compliance/history?aggregate=none|fleet|org` (default
+- [x] 7.1 `GET /compliance/history?aggregate=none|fleet|org` (default
   `none`): new queries in `queries/api_history.sql` summing
   `compliant`, `non_compliant`, `not_applicable`, `unknown` per
   `snapshot_at` (and per `org` for `org`) with the percent floored in

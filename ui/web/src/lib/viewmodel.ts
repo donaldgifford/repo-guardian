@@ -63,6 +63,8 @@ export function complianceSeries(points: Schemas["HistoryPoint"][]): SeriesPoint
 export function seriesByOrg(points: Schemas["HistoryPoint"][]): Map<string, SeriesPoint[]> {
   const orgs = new Map<string, Schemas["HistoryPoint"][]>();
   for (const p of points) {
+    // A fleet-aggregated point names no org; it belongs to no org series.
+    if (p.org === undefined) continue;
     orgs.set(p.org, [...(orgs.get(p.org) ?? []), p]);
   }
   return new Map([...orgs.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([org, ps]) => [org, complianceSeries(ps)]));

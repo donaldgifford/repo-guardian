@@ -100,8 +100,20 @@ func TestCompliance_ParityAcrossReportAPIAndSnapshot(t *testing.T) {
 		}
 
 		for _, h := range getJSON[gen.HistoryPage](t, c, "/compliance/history?org="+s.org).Items {
-			fromSnapshot[h.Org+"/"+h.Rule] = pct(h.CompliantPercent)
+			fromSnapshot[deref(h.Org)+"/"+deref(h.Rule)] = pct(h.CompliantPercent)
 		}
+	}
+
+	// aggregate=fleet (IMPL-0031 7.1) agrees with the report's rows
+	// summed across the fleet, floored the same way.
+	var fleet store.StatusCounts
+	for i := range rep.Current {
+		fleet = fleet.Add(rep.Current[i].Counts())
+	}
+
+	agg := getJSON[gen.HistoryPage](t, c, "/compliance/history?aggregate=fleet").Items
+	if len(agg) != 1 || pct(agg[0].CompliantPercent) != pct(store.CompliantPercent(fleet)) {
+		t.Errorf("aggregate=fleet = %+v, want one point at %s", agg, pct(store.CompliantPercent(fleet)))
 	}
 
 	want := map[string]string{"par-a/codeowners": "66.6", "par-b/renovate": "14.2", "par-c/dependabot": "0"}

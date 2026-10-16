@@ -763,11 +763,13 @@ export interface components {
             items: components["schemas"]["Event"][];
             next_cursor?: components["schemas"]["Cursor"];
         };
-        /** @description One (org, rule) snapshot. */
+        /** @description One snapshot point. Unaggregated, it is one (org, rule) and carries `org`, `kind` and `rule`. With `aggregate=org` it carries `org` only; with `aggregate=fleet` it carries none of the three. */
         HistoryPoint: {
-            org: string;
-            kind: components["schemas"]["RuleKind"];
-            rule: string;
+            /** @description Absent when aggregated to the fleet. */
+            org?: string;
+            kind?: components["schemas"]["RuleKind"];
+            /** @description Absent when aggregated. */
+            rule?: string;
             /** Format: date-time */
             snapshot_at: string;
             counts: components["schemas"]["StatusCounts"];
@@ -1214,6 +1216,8 @@ export interface operations {
                 from?: string;
                 /** @description Only snapshots before this time. */
                 to?: string;
+                /** @description How to sum the selected snapshots. `none` (the default) returns one point per (snapshot, org, rule). `fleet` sums every org and rule per snapshot; `org` sums every rule per (snapshot, org). The other filters apply before summing, so `aggregate=fleet` with `kind` and `rule` is one rule's fleet series. Aggregated percentages are floored in SQL exactly as `/rules` floors them. */
+                aggregate?: "none" | "fleet" | "org";
                 /** @description The next_cursor of the previous page. */
                 cursor?: components["parameters"]["Cursor"];
                 /** @description Page size. */

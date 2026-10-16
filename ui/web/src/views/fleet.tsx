@@ -13,6 +13,7 @@ import {
   type DistSegment,
   formatValue,
   type Segment,
+  Sparkline,
   StackedBars,
   stackTable,
   TrendChart,
@@ -80,7 +81,7 @@ function WholeFleet({ range, series }: { range: Range; series: FleetSeriesKey })
   const summary = useSummary();
   const rules = useRules();
   const orgs = useOrgs();
-  const history = useHistory({ from: rangeFrom(range) });
+  const history = useHistory({ aggregate: "fleet", from: rangeFrom(range) });
   if (!summary.data) {
     return <Loading />;
   }
@@ -124,7 +125,7 @@ function WholeFleet({ range, series }: { range: Range; series: FleetSeriesKey })
         <FindingsByStatusCard counts={s.findings} />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <RulesTable rules={rules.data?.items} />
+        <RulesTable rules={rules.data?.items} range={range} />
         <OrgsTable orgs={orgs.data?.items} />
       </div>
     </>
@@ -134,7 +135,7 @@ function WholeFleet({ range, series }: { range: Range; series: FleetSeriesKey })
 function OrgFleet({ org, range, series }: { org: string; range: Range; series: FleetSeriesKey }) {
   const detail = useOrg(org);
   const orgs = useOrgs();
-  const history = useHistory({ org, from: rangeFrom(range) });
+  const history = useHistory({ org, aggregate: "org", from: rangeFrom(range) });
   if (!detail.data) {
     return <Loading />;
   }
@@ -178,7 +179,7 @@ function OrgFleet({ org, range, series }: { org: string; range: Range; series: F
         <ParkedCard parked={d.parked} />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <RulesTable rules={d.rules} />
+        <RulesTable rules={d.rules} range={range} org={org} />
         <NotApplicableCard reasons={d.not_applicable} />
       </div>
     </>
@@ -402,10 +403,18 @@ const th = "h-8 px-3 text-left text-[11px] font-semibold tracking-[0.04em] text-
 const td = "px-3 py-[9px] text-[13px] align-middle";
 const num = "text-right tabular-nums";
 
+// RuleTrend is one rule's compliance over the range, summed across the
+// orgs in scope by the server.
+function RuleTrend({ kind, rule, range, org }: { kind: string; rule: string; range: Range; org?: string }) {
+  const history = useHistory({ aggregate: "fleet", kind, rule, from: rangeFrom(range), ...(org ? { org } : {}) });
+  const values = (history.data?.items ?? []).map((p) => p.compliant_percent);
+  return <Sparkline values={values} />;
+}
+
 // RulesTable is Compliance by rule: every rule's counts and percent,
-// rows linking to the rule. The trend sparkline needs the fleet
-// aggregate (7.1) and stays behind flags.ruleTrend.
-function RulesTable({ rules }: { rules: Schemas["RuleCompliance"][] | undefined }) {
+// rows linking to the rule, and a sparkline of the rule's compliance
+// over the range (one aggregate=fleet query per rule, OQ6).
+function RulesTable({ rules, range, org }: { rules: Schemas["RuleCompliance"][] | undefined; range: Range; org?: string }) {
   return (
     <Card
       title="Compliance by rule"
@@ -429,7 +438,7 @@ function RulesTable({ rules }: { rules: Schemas["RuleCompliance"][] | undefined 
                 <th className={`${th} ${num}`}>Failing</th>
                 <th className={`${th} ${num}`}>N/A</th>
                 <th className={`${th} ${num}`}>%</th>
-                {flags.ruleTrend ? <th className={`${th} ${num}`}>Trend</th> : null}
+                <th className={`${th} ${num}`}>Trend</th>
               </tr>
             </thead>
             <tbody>
@@ -447,7 +456,9 @@ function RulesTable({ rules }: { rules: Schemas["RuleCompliance"][] | undefined 
                   <td className={`${td} ${num}`}>{r.counts.non_compliant.toLocaleString()}</td>
                   <td className={`${td} ${num}`}>{r.counts.not_applicable.toLocaleString()}</td>
                   <td className={`${td} ${num}`}>{formatPercent(r.compliant_percent)}</td>
-                  {flags.ruleTrend ? <td className={`${td} ${num}`}>—</td> : null}
+                  <td className={`${td} ${num}`}>
+                    <RuleTrend kind={r.kind} rule={r.name} range={range} {...(org ? { org } : {})} />
+                  </td>
                 </tr>
               ))}
             </tbody>

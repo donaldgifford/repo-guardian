@@ -237,7 +237,9 @@ test("the fleet views fetch compliance history once", async ({ page }) => {
   for (const path of ["/", "/?org=acme"]) {
     let fetches = 0;
     const count = (req: { url(): string }) => {
-      if (new URL(req.url()).pathname === "/api/v1/compliance/history") {
+      // The main series, not the per-rule sparklines (one each, OQ6).
+      const u = new URL(req.url());
+      if (u.pathname === "/api/v1/compliance/history" && !u.searchParams.has("rule")) {
         fetches++;
       }
     };
@@ -320,16 +322,21 @@ test("the fleet issues at most one request per endpoint plus history pages", asy
   const counts = new Map<string, number>();
   page.on("request", (req) => {
     const u = new URL(req.url());
-    if (u.pathname.startsWith("/api/v1/")) counts.set(u.pathname, (counts.get(u.pathname) ?? 0) + 1);
+    if (!u.pathname.startsWith("/api/v1/")) return;
+    // Per-rule sparkline queries (one per rule, OQ6) are counted apart.
+    const key = u.pathname === "/api/v1/compliance/history" && u.searchParams.has("rule") ? "rule-trend" : u.pathname;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
   });
   await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Fleet" }).click();
   await expect(page.getByRole("img", { name: "compliant % over 90d" })).toBeVisible();
   await page.waitForTimeout(1500);
   for (const [path, n] of counts) {
-    if (path === "/api/v1/compliance/history") continue;
+    if (path === "/api/v1/compliance/history" || path === "rule-trend") continue;
     expect(n, path).toBeLessThanOrEqual(1);
   }
   expect(counts.get("/api/v1/compliance/history") ?? 0).toBeLessThanOrEqual(2);
+  const rules = (await (await page.request.get("/api/v1/rules")).json()) as { items: unknown[] };
+  expect(counts.get("rule-trend") ?? 0).toBeLessThanOrEqual(rules.items.length);
 });
 
 test("a worst-rule link lands on the rule page, whose Findings button carries kind and rule", async ({ page }) => {

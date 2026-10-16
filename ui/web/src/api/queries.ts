@@ -113,11 +113,14 @@ export function useRepositoryChecks(id: number) {
   });
 }
 
+// HistoryFilters are /compliance/history's query. aggregate sums on the
+// server (IMPL-0031 7.1): fleet for one series, org for one per org.
 export interface HistoryFilters {
   org?: string;
   kind?: string;
   rule?: string;
   from?: string;
+  aggregate?: "none" | "fleet" | "org";
 }
 
 export function useHistory(filters: HistoryFilters) {

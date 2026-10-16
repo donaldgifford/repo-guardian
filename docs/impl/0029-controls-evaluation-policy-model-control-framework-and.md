@@ -1874,9 +1874,10 @@ half-switched binary.
   posture `max by` rule for `controls_status`, and the switch-over facts
   a later edit must not break.
   Done: CLAUDE.md's "Key design patterns" now describes the controls line (policy directory and resolution, `Validate` before `StatusOf`, `Owns` versus `Reads`, revision goldens and `Semantics`, the epoch fence and `results_discarded_total{reason="stale_epoch"}`, the park-reason result rule, posture `max by` on `controls_status`, two Apps by role) in place of the deleted v1 engine's bullets; "Engine and Loader Subtleties" is pruned to what still exists. The Phase 7 and Phase 8 sections hold the switch-over and API/UI facts.
-- [ ] 9.5 `Chart.yaml` `2.0.0-rc.N` and appVersion `2.0.0-rc.N` (the
+- [x] 9.5 `Chart.yaml` `2.0.0-rc.N` and appVersion `2.0.0-rc.N` (the
   next free rc), helm-unittest pins, both CHANGELOGs through git-cliff,
   `README.md.gotmpl` then `make helm-docs`.
+  Done: merged `origin/v2` first (rc.9/rc.10 bumps; the deleted repository view stays deleted), so the next free rc is **rc.11**: `Chart.yaml` version and appVersion `2.0.0-rc.11`. Both CHANGELOGs got an `[2.0.0-rc.11]` section prepended with `git-cliff --unreleased --tag v2.0.0-rc.11 --prepend` (a full regeneration would have dropped the hand-written 1.x entries). README regenerated via `make helm-docs`; no helm-unittest pins the appVersion (only `build_id_test`'s explicit `image.tag`); helm-test 243 passed.
 - [ ] 9.6 PR to `v2` with `dont-release` (Rule 6); after merge, tag
   `v2.0.0-rc.N`, dispatch `ghcr.yml`, and verify assets, cosign
   signatures, SLSA provenance, and that `latest` did not move.

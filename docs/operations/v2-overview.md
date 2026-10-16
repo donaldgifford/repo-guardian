@@ -495,7 +495,11 @@ v2 adds:
 - **A read-only REST API** (OpenAPI 3.1, OIDC, per-org authorization)
   over findings, repositories, rules, organisations and history.
 - **A web UI** for the business view: compliance by rule and org, drill
-  down to a repository's findings and their history.
+  down to a repository's findings and their history. A sidebar shell
+  with ⌘K search, an org scope and range tabs carried in the URL, a
+  findings table with filter chips and a deep-linkable detail drawer,
+  and a Local/UTC time toggle (DESIGN-0036). See
+  [the business UI](../usage/ui.md).
 - **A public status page**, privacy-checked by a test so it cannot leak
   a repository or org name.
 

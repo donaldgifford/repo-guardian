@@ -25,6 +25,40 @@ ui/
 For local development, run `bun run dev:server` and `bun run dev:web`.
 Vite proxies `/api`, `/auth` and `/ui` to the BFF on `:3000`.
 
+The Playwright suite is `make test-ui-e2e` (needs Docker and Go). The
+axe audit (`e2e/a11y.spec.ts`) runs in it. The screenshot spec
+(`e2e/visual.spec.ts`) only runs through `make test-ui-e2e-visual`,
+which renders in the pinned `mcr.microsoft.com/playwright` image;
+`make test-ui-e2e-update-snapshots` regenerates
+`e2e/__screenshots__/`.
+
+## Design
+
+- **The mockup is the reference.** `design/repo-guardian-mockup.html`
+  (DESIGN-0036) is the source of every panel, label and breakpoint.
+  Change it in the same PR as the UI, so it never drifts.
+- **Tokens.** One dark theme, declared once in `web/src/index.css`
+  `@theme`: surfaces, `foreground`/`muted-foreground`, `accent`, and the
+  status tones `ok`, `warn`, `bad`, `info`. Components read tokens and
+  carry no colour of their own. Badges tint their tone at 18% and pull
+  the text 65% toward white, which keeps every tone at WCAG AA.
+- **Primitives.** `web/src/components/ui/` holds shadcn-style
+  primitives on `radix-ui`. They know nothing of findings or rules;
+  domain components (`badges`, `timeline`, `filters`, `charts`) build
+  on them, and views compose those.
+- **Fonts** are bundled from `@fontsource` (IBM Plex Sans, JetBrains
+  Mono), never fetched from a CDN, because the CSP allows only
+  `'self'`. `check:dist` fails the build when Vite inlines a `data:`
+  URL or references Google Fonts; `vite.config.ts` sets
+  `assetsInlineLimit: 0` for that reason.
+- **`UI_DOCS_URL`** (chart `ui.docsUrl`) adds the sidebar Docs group.
+  The BFF serves it to the SPA as `docs_url` on `/ui/config`.
+- **Hidden panels.** `web/src/lib/flags.ts` gates panels whose data the
+  API does not serve yet (IMPL-0031 Phase 7). A hidden panel renders
+  nothing.
+- **Component tests** run under happy-dom: import `web/testing/dom.ts`
+  first, before anything that loads radix.
+
 TypeScript is pinned to 5.x: `openapi-typescript` needs the compiler
 API that TypeScript 7's native compiler does not ship.
 

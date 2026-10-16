@@ -556,7 +556,7 @@ Public, outside the shell, aggregate-only, on today's `Status` schema.
   Fleet and asserts the focus order of the header controls, pills,
   rows and sidebar). — *deferred (2026-10-16): e2e work resumes after
   the rc is cut and looked at.*
-- [ ] 6.4 `docs/usage/ui.md`: rewrite the walkthrough for the new pages
+- [x] 6.4 `docs/usage/ui.md`: rewrite the walkthrough for the new pages
   (shell, palette, time zone, drawer deep links, status page) with
   screenshots captured from the e2e stack and stored under
   `docs/usage/img/ui/`; `ui/README.md`: fonts, tokens, `check:dist`,

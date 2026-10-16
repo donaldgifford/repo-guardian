@@ -534,7 +534,7 @@ calls `Type.Build`.
   with reasons and block labels, `exclude_repos`, repos blocks, catalogue
   IDs/titles/types/revisions), with no template bodies, PR text or
   params. Phase 8's `/policies` filters it.
-- [ ] 2.10 Example policies: write `examples/policy/{minimal,full,multi-org,renovate,enterprise}/`
+- [x] 2.10 Example policies: write `examples/policy/{minimal,full,multi-org,renovate,enterprise}/`
   as directories covering what the five v1 examples covered, and rewrite
   `examples/examples_test.go` to load each and compare `Summarize()`
   against a committed golden. The v1 `guardian-*.hcl` files stay until
@@ -543,6 +543,18 @@ calls `Type.Build`.
   settings, rulesets, labels and custom properties, whose types land in
   Phase 3, and only `codeowners` exists until then. Done right after
   Phase 3's types, before 3.10.
+  Done (after 3.9): five roots under `examples/policy/` (`enterprise.hcl`,
+  `catalogue/`, `orgs/`, and a `templates/` in `enterprise` for a
+  policy-root template); `full` uses every built-in type once. The new
+  `examples_test.go` loads each through `policy.Load` with
+  `builtin.Registry()`, fails on any load warning, and compares
+  `Summarize()` with `examples/policy/testdata/<name>.summary.json`
+  (`-update` rewrites). The v1 tests moved to `examples_v1_test.go`
+  with the `guardian-*.hcl` files until Phase 7. New
+  `internal/controls/builtin` (`Types()`, `Registry()`) is the one
+  package importing every type, exempt from `controls-types`;
+  `controls-consumers` now admits `examples/*_test.go`. Probe: `apply =
+  "workflow"` on the labels example fails the load.
 - [x] 2.11 Non-vacuous check: reverse the specificity order and drop the
   `EvalSymlinks` containment check; confirm the goldens and the
   symlink-escape test fail; restore.

@@ -2,7 +2,24 @@
 
 Example configuration files for repo-guardian.
 
-## HCL Policy Files
+## Controls policy roots (v2)
+
+Each directory under [`policy/`](policy/) is a whole policy root in the
+controls model (DESIGN-0030): `enterprise.hcl`, a `catalogue/` of
+control definitions, optional `orgs/<org>.hcl` files and optional
+`templates/`. They cover what the five v1 files below covered, and
+`examples_test.go` loads each through the strict loader with every
+built-in control type and pins its summary in `policy/testdata/`.
+
+| Root | Covers |
+|------|--------|
+| [`policy/minimal/`](policy/minimal/) | CODEOWNERS and Dependabot on every repository of one org. |
+| [`policy/renovate/`](policy/renovate/) | Renovate extending the org preset, the exact Renovate workflow, no Dependabot left behind. |
+| [`policy/full/`](policy/full/) | Every built-in type once: catalog-info, custom properties (`direct`), labels, repository settings (`recommend`), a default-branch ruleset, with org-level repository exclusions and a `repos` carve-out. |
+| [`policy/multi-org/`](policy/multi-org/) | A shared baseline with per-org additions and an evaluate-only org. |
+| [`policy/enterprise/`](policy/enterprise/) | An enterprise list larger than the orgs with files, evaluate by default with org opt-in, `replace` and `exclude` with reasons, a policy-root template. |
+
+## HCL Policy Files (v1)
 
 repo-guardian uses an optional HCL policy file to define compliance rules.
 Point to it with the `GUARDIAN_CONFIG` environment variable, or inline it in

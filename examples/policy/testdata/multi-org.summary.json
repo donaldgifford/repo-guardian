@@ -1,0 +1,68 @@
+{
+  "version": "controls:97d7c91e35fe58897698259302d0338e8f8c2aa31939d2dafbdbeed79e546fd7",
+  "enterprise": {
+    "orgs": [
+      "myorg-prod",
+      "myorg-staging"
+    ],
+    "mode": "remediate",
+    "controls": [
+      "codeowners@1",
+      "dependabot@1"
+    ]
+  },
+  "orgs": [
+    {
+      "org": "myorg-prod",
+      "added": [
+        {
+          "control": "protect_main_strict@1"
+        },
+        {
+          "control": "catalog_info@1"
+        }
+      ]
+    },
+    {
+      "org": "myorg-staging",
+      "mode": "evaluate",
+      "added": [
+        {
+          "control": "protect_main@1"
+        }
+      ]
+    }
+  ],
+  "controls": [
+    {
+      "control": "catalog_info@1",
+      "title": "Backstage catalog entry",
+      "type": "catalog_info",
+      "revision": "7f28d2df52b4d0d9cd44598c1656eb7df39396b73acb66133e00e25ce0881e96"
+    },
+    {
+      "control": "codeowners@1",
+      "title": "CODEOWNERS",
+      "type": "codeowners",
+      "revision": "c4d287e7406f96b5ef440605bb83fbe92ebe28034582f0cf3bec2e9222c2fd3e"
+    },
+    {
+      "control": "dependabot@1",
+      "title": "Dependabot",
+      "type": "dependency_updates",
+      "revision": "658107a0aa31263cc5fda54bc81e6730dbeb1849f25bdcc188742bc2a20dad83"
+    },
+    {
+      "control": "protect_main@1",
+      "title": "Default branch ruleset",
+      "type": "branch_ruleset",
+      "revision": "58f5cdf9dd41689d5439cd2b4c075e9c183c98d73ec85ca64b382f77726bc659"
+    },
+    {
+      "control": "protect_main_strict@1",
+      "title": "Default branch ruleset (production)",
+      "type": "branch_ruleset",
+      "revision": "73c70850e1f4db5c2890b4a1ffbcca72a00c1e09ff1d3af897df931941fcff74"
+    }
+  ]
+}

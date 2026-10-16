@@ -133,6 +133,7 @@ linters:
           files:
             - "**/internal/controls/*.go"
             - "**/internal/controls/*/*.go"
+            - "!**/internal/controls/builtin/*.go"
           allow:
             - github.com/donaldgifford/repo-guardian/internal/control
             - github.com/donaldgifford/repo-guardian/internal/template
@@ -168,6 +169,7 @@ linters:
             - "!**/internal/controls/**"
             - "!**/internal/activities/*.go"
             - "!**/cmd/repo-guardian/*.go"
+            - "!**/examples/*_test.go"
           deny:
             - pkg: github.com/donaldgifford/repo-guardian/internal/controls
               desc: control types are registered by the binary and run by activities only

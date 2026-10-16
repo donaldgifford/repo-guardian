@@ -1886,6 +1886,7 @@ half-switched binary.
 - [ ] 9.6 PR to `v2` with `dont-release` (Rule 6); after merge, tag
   `v2.0.0-rc.N`, dispatch `ghcr.yml`, and verify assets, cosign
   signatures, SLSA provenance, and that `latest` did not move.
+  PR opened: #219 (`dont-release`). Tagging `v2.0.0-rc.11`, the `ghcr.yml` dispatch and the publish checks after merge: *deferred - human required*.
 - [ ] 9.7 Homelab (OQ4): install the rc fresh into the dev namespace
   against a new database, Evaluation App only, every org in
   `enterprise.orgs`, every assignment `evaluate`; confirm both worker

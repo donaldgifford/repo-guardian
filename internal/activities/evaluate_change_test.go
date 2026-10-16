@@ -115,22 +115,22 @@ func TestEvaluate_ChangeDetection(t *testing.T) {
 		{
 			name:        "status change",
 			edit:        func(r *changeRepo) { delete(r.files, ".github/CODEOWNERS") },
-			wantChanged: []string{"codeowners@1"}, wantStatus: true,
+			wantChanged: []string{"codeowners"}, wantStatus: true,
 		},
 		{
 			name:        "file blob change",
 			edit:        func(r *changeRepo) { r.files[".github/CODEOWNERS"] = "* @acme/other\n" },
-			wantChanged: []string{"codeowners@1"},
+			wantChanged: []string{"codeowners"},
 		},
 		{
 			name:        "API value change with unchanged statuses",
 			edit:        func(r *changeRepo) { r.labels[0].Color = "ffffff" },
-			wantChanged: []string{"labels@1"},
+			wantChanged: []string{"labels"},
 		},
 		{
 			name:        "revision change",
 			edit:        func(r *changeRepo) { r.revision = "2" },
-			wantChanged: []string{"codeowners@1", "labels@1"},
+			wantChanged: []string{"codeowners", "labels"},
 		},
 		{
 			name: "unrelated push",

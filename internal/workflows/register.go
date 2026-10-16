@@ -32,6 +32,16 @@ var (
 	remediatorSet = []registration{{InstallationWorkflow, InstallationWorkflowName}}
 )
 
+// unregisteredSet is the controls evaluation workflows no worker runs
+// yet (IMPL-0029 task 7.1 adds them to evaluatorSet). RegisterUnion
+// carries them so their captured histories replay meanwhile.
+var unregisteredSet = []registration{
+	{EvaluationWorkflow, EvaluationWorkflowName},
+	{ControlsDiscoveryWorkflow, ControlsDiscoveryWorkflowName},
+	{ControlsRolloutWorkflow, ControlsRolloutWorkflowName},
+	{ControlsSnapshotWorkflow, ControlsSnapshotWorkflowName},
+}
+
 // Register registers the rc worker's workflows.
 func Register(r worker.WorkflowRegistry) { register(r, rcSet) }
 
@@ -46,7 +56,7 @@ func RegisterRemediator(r worker.WorkflowRegistry) { register(r, remediatorSet) 
 func RegisterUnion(r worker.WorkflowRegistry) {
 	seen := make(map[string]bool)
 
-	for _, set := range [][]registration{rcSet, evaluatorSet, remediatorSet} {
+	for _, set := range [][]registration{rcSet, evaluatorSet, remediatorSet, unregisteredSet} {
 		for _, reg := range set {
 			if !seen[reg.name] {
 				seen[reg.name] = true

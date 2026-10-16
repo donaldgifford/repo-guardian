@@ -234,10 +234,11 @@ func (e *Evaluator) selectControls(log *slog.Logger, assigned []store.AssignedCo
 			continue
 		}
 
-		id, err := control.ParseID(a.ControlID)
+		// The store keeps the slug and the version in their own columns.
+		id := control.ID{Slug: a.ControlID, Version: a.ControlVersion}
 		c := e.policy.Control(id)
 
-		if err != nil || c == nil || e.policy.Revision(id) != a.Revision {
+		if c == nil || e.policy.Revision(id) != a.Revision {
 			log.Info("assignment awaits re-resolution; not evaluated", "control", a.ControlID, "revision", a.Revision)
 
 			continue

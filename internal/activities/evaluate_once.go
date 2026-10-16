@@ -37,7 +37,7 @@ func (e *Evaluator) EvaluateResolved(
 	for i := range res.Assignments {
 		a := &res.Assignments[i]
 		t.Assignments = append(t.Assignments, store.AssignedControl{
-			ControlID: a.Control.String(), ControlVersion: a.Control.Version, Revision: a.Revision, State: a.State,
+			ControlID: a.Control.Slug, ControlVersion: a.Control.Version, Revision: a.Revision, State: a.State,
 			RequestedMode: string(a.RequestedMode), EffectiveMode: string(a.EffectiveMode),
 		})
 	}

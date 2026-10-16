@@ -1171,12 +1171,29 @@ evaluator's store.
   - A repeated fingerprint bumps nothing.
   - A changed fingerprint bumps one.
   - The unselected `renovate` keeps its `evaluated_sha`.
-- [ ] 5.12 `TestIntegration_OneEvaluation` (`-tags integration`):
+- [x] 5.12 `TestIntegration_OneEvaluation` (`-tags integration`):
   `temporaltest`, the controls chain in `pgtest` and the GitHub fake run
   discovery → resolution → evaluation → recorded results for a fixture
   org, and capture an `EvaluationWorkflow` history into
   `internal/workflows/testdata/histories/evaluation_first_run.json`,
   replayed in CI with the existing fixtures.
+  Done: `internal/activities/controls_integration_test.go`. `pgtest.ControlsDB`
+  (store as `rg_evaluator`, policy activated by the owner), a loaded policy
+  root assigning `codeowners@1`, a fixture `Lister` and an httptest GitHub
+  serving the repository, its ref and no files. A versioned worker on the
+  `repo-guardian-eval` deployment runs discovery → `EvaluationWorkflow`;
+  a schedule re-check brings the first evaluation forward, which records
+  `non_compliant` at the pinned head. The repository then 404s and a second
+  re-check parks it and ends the workflow, so `evaluation_first_run.json`
+  holds acquire → evaluate → record and evaluate → park → complete.
+  `RegisterUnion` carries the not-yet-registered controls workflows
+  (`unregisteredSet`; 7.1 moves them to `evaluatorSet`, the dedupe absorbs
+  it) so the history replays now. Found a real bug: the store returns
+  `AssignedControl.ControlID` as the bare slug (version in its own column)
+  but `selectControls` parsed `slug@version`, so every stored assignment was
+  skipped; the unit fixtures had used `name@1`. The evaluator now builds the
+  id from slug + version, `EvaluateResolved` passes the slug, `evaluate`
+  prints `slug@version`, and the fixtures match the store.
 - [ ] 5.13 Non-vacuous check: make coalescing keep only the last signal
   and make the push filter ignore `Reads()`; confirm the coalescing test
   and the `catalog-info.yaml` selects `custom_properties` test fail;

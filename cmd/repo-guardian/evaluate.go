@@ -185,7 +185,8 @@ func newEvaluateOutput(org, name, version string, res *policy.Resolution, ev *ac
 
 	for i := range ev.Controls {
 		ce := &ev.Controls[i]
-		co := controlOutput{Control: ce.ControlID, Status: ce.Status, Rules: make([]ruleOutput, 0, len(ce.Rules))}
+		id := control.ID{Slug: ce.ControlID, Version: ce.ControlVersion}
+		co := controlOutput{Control: id.String(), Status: ce.Status, Rules: make([]ruleOutput, 0, len(ce.Rules))}
 
 		for _, r := range ce.Rules {
 			co.Rules = append(co.Rules, ruleOutput{Rule: r.RuleID, Status: r.Status, Evidence: r.Evidence})

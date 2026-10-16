@@ -125,7 +125,7 @@ func (r *fakeEvalRepo) Reader(string) control.Reader { return r.files }
 
 func assignment(name string, state policy.AssignmentState) store.AssignedControl {
 	return store.AssignedControl{
-		ControlID: name + "@1", ControlVersion: 1, Revision: "rev-" + name, Epoch: 9, State: state,
+		ControlID: name, ControlVersion: 1, Revision: "rev-" + name, Epoch: 9, State: state,
 		RequestedMode: "evaluate", EffectiveMode: "evaluate",
 	}
 }
@@ -154,7 +154,7 @@ func newEvalFixture(t *testing.T) *evalFixture {
 			assignment("renovate", policy.AssignmentActive),
 			assignment("labels", policy.AssignmentActive),
 			assignment("conflicted", policy.AssignmentConflict),
-			{ControlID: "renovate@1", Revision: "rev-old", State: policy.AssignmentActive},
+			{ControlID: "renovate", ControlVersion: 1, Revision: "rev-old", State: policy.AssignmentActive},
 		},
 	}}
 
@@ -200,7 +200,7 @@ func TestEvaluate_ScheduleStagesEveryActiveControl(t *testing.T) {
 		t.Fatalf("Evaluate() = %+v, want Checked with 3 controls", res)
 	}
 
-	if got := fmt.Sprint(stagedIDs(f.st.staged)); got != "[codeowners@1 renovate@1 labels@1]" {
+	if got := fmt.Sprint(stagedIDs(f.st.staged)); got != "[codeowners renovate labels]" {
 		t.Errorf("staged controls = %s, want the three active assignments at the loaded revision", got)
 	}
 
@@ -244,7 +244,7 @@ func TestEvaluate_PushSelectsByChangedPath(t *testing.T) {
 	f := newEvalFixture(t)
 	f.evaluate(t, &workflows.EvaluateInput{Trigger: workflows.TriggerPush, Paths: []string{"docs/readme.md", "renovate.json"}})
 
-	if got := fmt.Sprint(stagedIDs(f.st.staged)); got != "[renovate@1]" {
+	if got := fmt.Sprint(stagedIDs(f.st.staged)); got != "[renovate]" {
 		t.Errorf("staged = %s, want only the control owning the changed path", got)
 	}
 }
@@ -255,7 +255,7 @@ func TestEvaluate_UnknownChangeSkipsAPIOnlyControls(t *testing.T) {
 	f := newEvalFixture(t)
 	f.evaluate(t, &workflows.EvaluateInput{Trigger: workflows.TriggerPush, All: true})
 
-	if got := fmt.Sprint(stagedIDs(f.st.staged)); got != "[codeowners@1 renovate@1]" {
+	if got := fmt.Sprint(stagedIDs(f.st.staged)); got != "[codeowners renovate]" {
 		t.Errorf("staged = %s, want every file control and no API-only control off the schedule", got)
 	}
 }

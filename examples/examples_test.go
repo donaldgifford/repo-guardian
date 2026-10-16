@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/donaldgifford/repo-guardian/internal/controls/builtin"
@@ -14,6 +15,12 @@ import (
 )
 
 var update = flag.Bool("update", false, "rewrite the policy example goldens")
+
+func examplesDir() string {
+	_, file, _, _ := runtime.Caller(0)
+
+	return filepath.Dir(file)
+}
 
 // policyExamples are the controls-model example policy roots under
 // examples/policy/. A new example MUST be added here so it is loaded

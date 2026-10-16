@@ -119,8 +119,6 @@ Usage:
   repo-guardian monitoring generate  emit dashboards and alerts from the policy
   repo-guardian controls docs        render the control-type reference
   repo-guardian migrate [flags]      apply v2 schema migrations (Helm hook Job)
-  repo-guardian migrate verify-shadow --v1-dsn --v2-dsn
-                                     compare a v2 shadow run with v1
   repo-guardian help                 show this message
 
 Running with no subcommand runs every role; a controls half runs in all

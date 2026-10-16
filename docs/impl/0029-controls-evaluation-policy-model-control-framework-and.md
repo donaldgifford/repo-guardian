@@ -1555,10 +1555,27 @@ half-switched binary.
   | `checker` `TestParity_GoldensExist` | retired: v1 behaviour, no replacement — it guarded the golden set retired here |
   | `postgres` `TestCompliance_ParityAcrossReportAPIAndSnapshot` | `TestControlsStore_ComplianceSnapshot` + `TestCompliantPercent_SQLAgreesWithGo` + report `TestRender_Golden`; API parity returns with Phase 8 |
   | `checker`/`reconciler` `TestPRIdentity_IsFrozen` | retired: v1 behaviour, no replacement — retired deliberately: v1 and v2 adopting each other's PRs ends here; `tools/rgctl` (IMPL-0030) keeps its own literals |
-- [ ] 7.3 Delete `internal/checker`, `internal/reconciler`,
+- [x] 7.3 Delete `internal/checker`, `internal/reconciler`,
   `internal/rulepolicy`, `internal/findings`, `internal/shadow`,
   `cmd/repo-guardian/verify_shadow.go`, and `internal/rules` except
   whatever embedded fallback templates the template spike left there.
+  Done: deleted
+  - `internal/checker` (with the 101 parity goldens and `parity_test.go`);
+  - `internal/reconciler`, `internal/rulepolicy` and `internal/shadow`;
+  - `cmd/repo-guardian/verify_shadow.go` (the `migrate verify-shadow`
+    dispatch and usage line);
+  - `examples/examples_v1_test.go` (`examplesDir` moved into
+    `examples_test.go`).
+
+  `internal/rules` keeps `registry.go` and the embedded fallback templates
+  that the controls catalogue resolves (`policy/catalogue.go` reads them
+  through `rules.NewTemplateStore`): codeowners, catalog-info, dependabot,
+  renovate and renovate-workflow. `set-custom-properties.tmpl` and its
+  tests are gone, because the `custom_properties` control renders its own
+  `workflow.yml.tmpl`. depguard's `workflows` rule loses the
+  checker/reconciler entries. `internal/findings` goes in 7.4 with its
+  importers (the store, the store's postgres package and the API), so the
+  tree compiles at every commit.
 - [ ] 7.4 Re-cut the findings importers: `internal/store` (`findings.go`,
   `api_views.go`, `util.go`, `v2.go`), `internal/store/postgres`
   (`v2store*.go`, `apireader*.go`, `report.go`), `internal/activities`

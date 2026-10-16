@@ -82,23 +82,19 @@ linters:
 
   settings:
     # Workflow code must stay deterministic: everything that reads GitHub,
-    # Postgres or the engine lives behind an activity (DESIGN-0026).
+    # Postgres or a control lives behind an activity (DESIGN-0026).
     depguard:
       rules:
         workflows:
           files:
             - "**/internal/workflows/*.go"
           deny:
-            - pkg: github.com/donaldgifford/repo-guardian/internal/checker
-              desc: the engine runs only inside activities
             - pkg: github.com/donaldgifford/repo-guardian/internal/store
               desc: the store is reached only through activities
             - pkg: github.com/donaldgifford/repo-guardian/internal/github
               desc: GitHub is reached only through activities
             - pkg: github.com/donaldgifford/repo-guardian/internal/activities
               desc: workflows call activities by name, not by import
-            - pkg: github.com/donaldgifford/repo-guardian/internal/reconciler
-              desc: reconcilers run only inside activities
             - pkg: github.com/donaldgifford/repo-guardian/internal/control
               desc: controls run only inside activities (DESIGN-0031 D17)
             - pkg: github.com/donaldgifford/repo-guardian/internal/controls

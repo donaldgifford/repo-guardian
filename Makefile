@@ -226,11 +226,12 @@ lint-temporal-contrib: ## Render contrib/temporal against the pinned chart, ever
 ## The sqlc-generated query layer (IMPL-0025). Committed, then diffed
 ## by `make lint-sql` the same way lint-monitoring guards its tier.
 SQLC_OUT := internal/store/postgres/sqlcdb
+SQLC_CONTROLS_OUT := internal/store/postgres/controlsdb
 
 generate-sql: ## Regenerate the sqlc query layer
 	@ $(MAKE) --no-print-directory log-$@
 	@sqlc generate
-	@echo "✓ sqlc output regenerated under $(SQLC_OUT)"
+	@echo "✓ sqlc output regenerated under $(SQLC_OUT) and $(SQLC_CONTROLS_OUT)"
 
 # Generates into $(BUILD_DIR) from a copy of sqlc.yaml with the paths
 # rewritten, then diff -r's against the committed package: the same
@@ -241,9 +242,9 @@ lint-sql: ## Fail if sqlc vet fails or the committed sqlc output is stale
 	@sqlc vet
 	@rm -rf $(BUILD_DIR)/sqlc && mkdir -p $(BUILD_DIR)/sqlc
 	@# sqlc resolves every path relative to its config file, so the copy under $(BUILD_DIR)/sqlc reaches the repo with ../../.
-	@yq '.sql[0].schema = "../../" + .sql[0].schema | .sql[0].queries = "../../" + .sql[0].queries | .sql[0].gen.go.out = "out"' sqlc.yaml > $(BUILD_DIR)/sqlc/sqlc.yaml
+	@yq '.sql[] |= (.schema = "../../" + .schema | .queries = "../../" + .queries | .gen.go.out = "out/" + .gen.go.package)' sqlc.yaml > $(BUILD_DIR)/sqlc/sqlc.yaml
 	@cd $(BUILD_DIR)/sqlc && sqlc generate
-	@if ! diff -r -u $(BUILD_DIR)/sqlc/out $(SQLC_OUT); then \
+	@if ! diff -r -u $(BUILD_DIR)/sqlc/out/sqlcdb $(SQLC_OUT) || ! diff -r -u $(BUILD_DIR)/sqlc/out/controlsdb $(SQLC_CONTROLS_OUT); then \
 		echo "error: the committed sqlc output is stale" >&2; \
 		echo "       run 'make generate-sql' and commit the result" >&2; \
 		exit 1; \

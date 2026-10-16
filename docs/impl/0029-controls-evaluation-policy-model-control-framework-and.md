@@ -836,9 +836,15 @@ evaluator's store.
   (`NUMERIC(4,1)`, NULL on an empty denominator). The README and the
   `ControlsSchemaVersion` comment now say 00004 is IMPL-0029's (the IMPL
   moved it here from IMPL-0030). `ControlsSchemaVersion` is 4.
-- [ ] 4.4 sqlc: a second block in `sqlc.yaml` reading the controls chain
+- [x] 4.4 sqlc: a second block in `sqlc.yaml` reading the controls chain
   and `internal/store/postgres/queries_controls/` into package
   `controlsdb`; `make generate-sql` and `make lint-sql` cover both blocks.
+  Done: the second block writes `controlsdb` from `migrations_controls` +
+  `queries_controls/`, with the same overrides as the first. `make
+  lint-sql` rewrites every block's paths with `.sql[] |= ...` and diffs
+  both packages. `ControlsStore`'s two policy-activation statements moved
+  into `queries_controls/policy.sql`, so the block has real queries from
+  the start.
 - [ ] 4.5 `store.Controls` interface and its Postgres implementation:
   - `UpsertRepositories` writes the repository row and its `app = 'eval'`
     access row in one transaction, then applies the resolution (below);

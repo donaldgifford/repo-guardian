@@ -30,3 +30,27 @@ sql:
             go_type:
               type: time.Time
               pointer: true
+  # The controls chain (IMPL-0029 4.4), generated into its own package.
+  - engine: postgresql
+    schema: internal/store/postgres/migrations_controls
+    queries: internal/store/postgres/queries_controls
+    gen:
+      go:
+        package: controlsdb
+        out: internal/store/postgres/controlsdb
+        sql_package: pgx/v5
+        emit_json_tags: false
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: jsonb
+            go_type: encoding/json.RawMessage
+          - db_type: jsonb
+            nullable: true
+            go_type: encoding/json.RawMessage
+          - db_type: timestamptz
+            go_type: time.Time
+          - db_type: timestamptz
+            nullable: true
+            go_type:
+              type: time.Time
+              pointer: true

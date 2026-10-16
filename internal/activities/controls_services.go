@@ -24,6 +24,9 @@ type ControlsServiceStore interface {
 	UpsertRepositories(ctx context.Context, repos []store.DiscoveredRepository, r store.Resolver) ([]store.ResolvedRepository, error)
 	ParkMissing(ctx context.Context, installationID int64, seen []int64) (int, error)
 	RecordServiceRun(ctx context.Context, run *store.ServiceRun) error
+	Resolve(ctx context.Context, repoID int64, r store.Resolver) (store.ResolutionChange, error)
+	ActiveRepositories(ctx context.Context, afterID int64, limit int) ([]store.RepositoryRef, error)
+	CompletePolicyRollout(ctx context.Context, version string) error
 }
 
 // ControlsServicesConfig configures the evaluator's service activities.
@@ -63,6 +66,9 @@ func (s *ControlsServices) Register(r Registry) {
 		workflows.ControlsUpsertActivity:            s.UpsertRepositories,
 		workflows.ControlsParkMissingActivity:       s.ParkMissing,
 		workflows.ControlsRecordServiceRunActivity:  s.RecordServiceRun,
+		workflows.ControlsResolveAllActivity:        s.ResolveAll,
+		workflows.ControlsSignalAllActivity:         s.SignalAll,
+		workflows.ControlsCompleteRolloutActivity:   s.CompleteRollout,
 	} {
 		r.RegisterActivityWithOptions(fn, activity.RegisterOptions{Name: name})
 	}
@@ -151,7 +157,7 @@ func (s *ControlsServices) UpsertRepositories(ctx context.Context, in *workflows
 		}
 
 		due := time.Now().Add(jitter(s.cfg.Interval))
-		if err := s.startEvaluation(ctx, r.ID, in.InstallationID, due); err != nil {
+		if err := s.startEvaluation(ctx, r.ID, in.InstallationID, due, s.cfg.Policy.Version(), workflows.PrioritySchedule); err != nil {
 			return nil, err
 		}
 
@@ -162,15 +168,15 @@ func (s *ControlsServices) UpsertRepositories(ctx context.Context, in *workflows
 }
 
 // startEvaluation SignalWithStarts evaluation/<id> with policy_changed
-// by due, so a first evaluation is never forced immediately.
-func (s *ControlsServices) startEvaluation(ctx context.Context, repoID, installationID int64, due time.Time) error {
+// by due, so an evaluation is never forced immediately.
+func (s *ControlsServices) startEvaluation(
+	ctx context.Context, repoID, installationID int64, due time.Time, version string, p workflows.Priority,
+) error {
 	id := workflows.EvaluationWorkflowID(repoID)
 
 	_, err := s.cfg.Temporal.SignalWithStartWorkflow(ctx, id, workflows.PolicyChangedSignal,
-		workflows.PolicyChanged{Version: s.cfg.Policy.Version(), By: due},
-		client.StartWorkflowOptions{
-			ID: id, TaskQueue: s.cfg.TaskQueue, Priority: workflows.TaskPriority(workflows.PrioritySchedule, installationID),
-		},
+		workflows.PolicyChanged{Version: version, By: due},
+		client.StartWorkflowOptions{ID: id, TaskQueue: s.cfg.TaskQueue, Priority: workflows.TaskPriority(p, installationID)},
 		workflows.EvaluationWorkflowName,
 		&workflows.EvaluationWorkflowInput{RepositoryID: repoID, InstallationID: installationID, Interval: s.cfg.Interval, NextDue: due})
 	if err != nil {
@@ -197,6 +203,72 @@ func (s *ControlsServices) RecordServiceRun(ctx context.Context, run *workflows.
 		Kind: store.ServiceRunKind(run.Kind), Success: run.Success, StartedAt: run.StartedAt, FinishedAt: run.FinishedAt, Detail: run.Detail,
 	}); err != nil {
 		return fmt.Errorf("record service run: %w", err)
+	}
+
+	return nil
+}
+
+// ResolveAll re-resolves one page of active repositories under the
+// loaded policy. A worker whose policy is not the rollout's refuses, so
+// the retry lands on one that has it.
+func (s *ControlsServices) ResolveAll(ctx context.Context, in *workflows.ControlsPageInput) (*workflows.ControlsPageResult, error) {
+	if v := s.cfg.Policy.Version(); v != in.Version {
+		return nil, fmt.Errorf("rollout of %s cannot resolve under the loaded policy %s", in.Version, v)
+	}
+
+	return s.page(ctx, in, func(r *store.RepositoryRef) (bool, error) {
+		if _, err := s.cfg.Store.Resolve(ctx, r.ID, s.cfg.Policy); err != nil {
+			return false, fmt.Errorf("resolve repository %d: %w", r.ID, err)
+		}
+
+		return true, nil
+	})
+}
+
+// SignalAll SignalWithStarts policy_changed by in.By on one page of
+// managed repositories the Evaluation App can reach.
+func (s *ControlsServices) SignalAll(ctx context.Context, in *workflows.ControlsPageInput) (*workflows.ControlsPageResult, error) {
+	return s.page(ctx, in, func(r *store.RepositoryRef) (bool, error) {
+		if r.PolicyState != policy.StateManaged || r.InstallationID == 0 {
+			return false, nil
+		}
+
+		return true, s.startEvaluation(ctx, r.ID, r.InstallationID, in.By, in.Version, workflows.PriorityRollout)
+	})
+}
+
+// page applies fn to one page of active repositories and counts the
+// ones it reports.
+func (s *ControlsServices) page(
+	ctx context.Context, in *workflows.ControlsPageInput, fn func(*store.RepositoryRef) (bool, error),
+) (*workflows.ControlsPageResult, error) {
+	refs, err := s.cfg.Store.ActiveRepositories(ctx, in.AfterID, in.Limit)
+	if err != nil {
+		return nil, fmt.Errorf("page after %d: %w", in.AfterID, err)
+	}
+
+	res := &workflows.ControlsPageResult{NextAfterID: in.AfterID, Done: len(refs) < in.Limit}
+
+	for i := range refs {
+		counted, err := fn(&refs[i])
+		if err != nil {
+			return nil, err
+		}
+
+		if counted {
+			res.Count++
+		}
+
+		res.NextAfterID = refs[i].ID
+	}
+
+	return res, nil
+}
+
+// CompleteRollout stamps the version's rollout complete.
+func (s *ControlsServices) CompleteRollout(ctx context.Context, version string) error {
+	if err := s.cfg.Store.CompletePolicyRollout(ctx, version); err != nil {
+		return fmt.Errorf("complete rollout: %w", err)
 	}
 
 	return nil

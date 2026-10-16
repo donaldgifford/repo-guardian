@@ -409,3 +409,35 @@ func TestControlsStore_ParkMissingAndServiceRun(t *testing.T) {
 		t.Errorf("service_runs = %d, want 1", runs)
 	}
 }
+
+// TestControlsStore_RolloutReads is IMPL-0029 5.6's store side, run as
+// rg_evaluator: the rollout pages active repositories with their eval
+// installation and policy state, and may stamp rollout_completed_at.
+func TestControlsStore_RolloutReads(t *testing.T) {
+	s, dsns := evaluatorStore(t)
+	repo := discover(t, s, &fakeResolver{assignments: []policy.Assignment{codeowners("r1")}})
+
+	page, err := s.ActiveRepositories(t.Context(), 0, 10)
+	if err != nil || len(page) != 1 {
+		t.Fatalf("ActiveRepositories = %+v, %v; want one", page, err)
+	}
+
+	if r := page[0]; r.ID != repo.ID || r.InstallationID != 1 || r.PolicyState != policy.StateManaged {
+		t.Errorf("page[0] = %+v, want the discovered repository, installation 1, managed", r)
+	}
+
+	if after, err := s.ActiveRepositories(t.Context(), repo.ID, 10); err != nil || len(after) != 0 {
+		t.Errorf("ActiveRepositories(after last) = %+v, %v; want an empty page", after, err)
+	}
+
+	if err := s.CompletePolicyRollout(t.Context(), testPolicyVersion); err != nil {
+		t.Fatalf("CompletePolicyRollout: %v", err)
+	}
+
+	var done bool
+	queryArgs(t, dsns.Owner, `SELECT rollout_completed_at IS NOT NULL FROM policy_versions WHERE version = $1`, &done, testPolicyVersion)
+
+	if !done {
+		t.Error("rollout_completed_at is NULL, want stamped")
+	}
+}

@@ -90,3 +90,58 @@ func discoverEvalInstallation(ctx workflow.Context, installationID int64) (seen,
 
 	return len(ids), started, nil
 }
+
+// ControlsRolloutWorkflow rolls out one policy activation (DESIGN-0032 §
+// Evaluation): it re-resolves every active repository, signals each
+// managed one's EvaluationWorkflow with policy_changed spread across the
+// window, waits out the window and marks the rollout complete. Its id
+// carries the activation time, so a revert rolls out again.
+func ControlsRolloutWorkflow(ctx workflow.Context, in *ControlsRolloutInput) error {
+	started := workflow.Now(ctx)
+	by := started.Add(in.Window)
+
+	resolved, err := controlsPages(ctx, ControlsResolveAllActivity, ControlsPageInput{Version: in.Version})
+	if err != nil {
+		return err
+	}
+
+	signalled, err := controlsPages(ctx, ControlsSignalAllActivity, ControlsPageInput{Version: in.Version, By: by})
+	if err != nil {
+		return err
+	}
+
+	if err := workflow.Sleep(ctx, by.Sub(workflow.Now(ctx))); err != nil {
+		return err
+	}
+
+	if err := workflow.ExecuteActivity(serviceOptions(ctx, PriorityRollout), ControlsCompleteRolloutActivity, in.Version).
+		Get(ctx, nil); err != nil {
+		return err
+	}
+
+	return recordRunWith(ctx, ControlsRecordServiceRunActivity, ServicePolicyRollout, true, started,
+		map[string]any{"version": in.Version, "resolved": resolved, detailSignalled: signalled})
+}
+
+// controlsPages runs a paged activity to its last page and sums the
+// counts.
+func controlsPages(ctx workflow.Context, activity string, in ControlsPageInput) (int, error) {
+	actx := serviceOptions(ctx, PriorityRollout)
+	in.Limit = signalPage
+	total := 0
+
+	for {
+		var res ControlsPageResult
+		if err := workflow.ExecuteActivity(actx, activity, &in).Get(ctx, &res); err != nil {
+			return total, err
+		}
+
+		total += res.Count
+
+		if res.Done {
+			return total, nil
+		}
+
+		in.AfterID = res.NextAfterID
+	}
+}

@@ -35,6 +35,17 @@ func (q *Queries) ActivatePolicyVersion(ctx context.Context, arg ActivatePolicyV
 	return first_seen, err
 }
 
+const completePolicyRollout = `-- name: CompletePolicyRollout :exec
+UPDATE policy_versions SET rollout_completed_at = now() WHERE version = $1
+`
+
+// Set on every completion, so a re-activated version's rollout restamps
+// it.
+func (q *Queries) CompletePolicyRollout(ctx context.Context, version string) error {
+	_, err := q.db.Exec(ctx, completePolicyRollout, version)
+	return err
+}
+
 const currentActivation = `-- name: CurrentActivation :one
 SELECT version, activated_at FROM policy_versions
 ORDER BY activated_at DESC, version DESC

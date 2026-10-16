@@ -32,6 +32,8 @@ type fakeControlsStore struct {
 	installs []store.AppInstallation
 	batches  [][]store.DiscoveredRepository
 	resolved []store.ResolvedRepository
+	active   []store.RepositoryRef
+	resolves []int64
 }
 
 func (s *fakeControlsStore) UpsertInstallation(_ context.Context, in *store.AppInstallation) error {
@@ -51,6 +53,26 @@ func (s *fakeControlsStore) UpsertRepositories(
 func (*fakeControlsStore) ParkMissing(context.Context, int64, []int64) (int, error) { return 0, nil }
 
 func (*fakeControlsStore) RecordServiceRun(context.Context, *store.ServiceRun) error { return nil }
+
+func (s *fakeControlsStore) Resolve(_ context.Context, repoID int64, _ store.Resolver) (store.ResolutionChange, error) {
+	s.resolves = append(s.resolves, repoID)
+
+	return store.ResolutionChange{}, nil
+}
+
+func (s *fakeControlsStore) ActiveRepositories(_ context.Context, afterID int64, limit int) ([]store.RepositoryRef, error) {
+	var out []store.RepositoryRef
+
+	for _, r := range s.active {
+		if r.ID > afterID && len(out) < limit {
+			out = append(out, r)
+		}
+	}
+
+	return out, nil
+}
+
+func (*fakeControlsStore) CompletePolicyRollout(context.Context, string) error { return nil }
 
 // versionResolver is a store.Resolver that only names its version.
 type versionResolver struct{}
@@ -148,5 +170,37 @@ func TestControlsServices_UpsertStartsNewManagedRepositories(t *testing.T) {
 		if sig.workflowID != want || sig.name != workflows.PolicyChangedSignal || sig.queue != "repo-guardian-eval" || pc.Version != "controls:test" {
 			t.Errorf("signal %d = %+v, want policy_changed SignalWithStart of %s on the eval queue", i, sig, want)
 		}
+	}
+}
+
+func TestControlsServices_RolloutPasses(t *testing.T) {
+	t.Parallel()
+
+	st := &fakeControlsStore{active: []store.RepositoryRef{
+		{ID: 1, InstallationID: 7, PolicyState: policy.StateManaged},
+		{ID: 2, InstallationID: 7, PolicyState: policy.StateExcluded},
+		{ID: 3, PolicyState: policy.StateManaged},
+	}}
+	s, tc := newControlsServices(t, st, &fakeLister{})
+	by := time.Unix(1_790_000_000, 0)
+
+	if _, err := s.ResolveAll(t.Context(), &workflows.ControlsPageInput{Version: "controls:old", Limit: 10}); err == nil {
+		t.Error("ResolveAll under another policy version = nil error, want a refusal")
+	}
+
+	res, err := s.ResolveAll(t.Context(), &workflows.ControlsPageInput{Version: "controls:test", Limit: 2})
+	if err != nil || res.Count != 2 || res.Done || res.NextAfterID != 2 || len(st.resolves) != 2 {
+		t.Fatalf("ResolveAll(page 1) = %+v, %v; want 2 resolved, not done, next after 2", res, err)
+	}
+
+	res, err = s.SignalAll(t.Context(), &workflows.ControlsPageInput{Version: "controls:test", By: by, Limit: 10})
+	if err != nil || res.Count != 1 || !res.Done {
+		t.Fatalf("SignalAll() = %+v, %v; want 1 signalled on the last page", res, err)
+	}
+
+	pc, _ := tc.signals[0].arg.(workflows.PolicyChanged)
+	if len(tc.signals) != 1 || tc.signals[0].workflowID != "evaluation/1" || !pc.By.Equal(by) ||
+		tc.signals[0].priority != int(workflows.PriorityRollout) {
+		t.Errorf("signals = %+v, want only the managed, reachable repository at rollout priority by the deadline", tc.signals)
 	}
 }

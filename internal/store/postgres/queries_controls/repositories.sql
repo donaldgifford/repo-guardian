@@ -61,3 +61,14 @@ ORDER BY r.id;
 -- name: InsertServiceRun :exec
 INSERT INTO service_runs (kind, outcome, started_at, finished_at, detail)
 VALUES (@kind, @outcome, @started_at, @finished_at, @detail);
+
+-- name: ListActiveRepositoryPage :many
+-- One keyset page of active repositories with the Evaluation App's
+-- installation and the policy state, for the rollout's passes.
+SELECT r.id, a.installation_id, ps.state AS policy_state
+FROM repositories r
+LEFT JOIN app_repository_access a ON a.repository_id = r.id AND a.app = 'eval'
+LEFT JOIN repository_policy_state ps ON ps.repository_id = r.id
+WHERE r.active AND r.id > @after_id
+ORDER BY r.id
+LIMIT @page_size;

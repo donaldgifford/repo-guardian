@@ -3,6 +3,7 @@ package workflows
 import (
 	"context"
 	"testing"
+	"time"
 
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/temporal"
@@ -113,5 +114,81 @@ func TestControlsDiscoveryWorkflow_FailedListingParksNothing(t *testing.T) {
 
 	if len(f.runs) != 1 || f.runs[0].Success {
 		t.Errorf("runs = %+v, want one unsuccessful run", f.runs)
+	}
+}
+
+// rolloutFakes answers the rollout's paged activities with pages pages
+// of 10 and records every call.
+type rolloutFakes struct {
+	*serviceFakes
+
+	resolves, signalsIn []ControlsPageInput
+	completedAt         time.Time
+}
+
+func (f *rolloutFakes) pageOf(in *ControlsPageInput) *ControlsPageResult {
+	page := int(in.AfterID / 10)
+
+	return &ControlsPageResult{NextAfterID: in.AfterID + 10, Count: 10, Done: page+1 >= f.pages}
+}
+
+func (f *rolloutFakes) ResolveAll(_ context.Context, in *ControlsPageInput) (*ControlsPageResult, error) {
+	f.resolves = append(f.resolves, *in)
+
+	return f.pageOf(in), nil
+}
+
+func (f *rolloutFakes) SignalAll(_ context.Context, in *ControlsPageInput) (*ControlsPageResult, error) {
+	f.signalsIn = append(f.signalsIn, *in)
+
+	return f.pageOf(in), nil
+}
+
+func (f *rolloutFakes) Complete(_ context.Context, v string) error {
+	f.completed, f.completedAt = append(f.completed, v), f.now()
+
+	return nil
+}
+
+func TestControlsRolloutWorkflow_ResolvesSignalsThenCompletes(t *testing.T) {
+	t.Parallel()
+
+	f := &rolloutFakes{serviceFakes: &serviceFakes{pages: 2}}
+
+	var s testsuite.WorkflowTestSuite
+
+	env := s.NewTestWorkflowEnvironment()
+	f.now = env.Now
+	start := env.Now()
+
+	for name, fn := range map[string]any{
+		ControlsResolveAllActivity:       f.ResolveAll,
+		ControlsSignalAllActivity:        f.SignalAll,
+		ControlsCompleteRolloutActivity:  f.Complete,
+		ControlsRecordServiceRunActivity: f.RecordServiceRun,
+	} {
+		env.RegisterActivityWithOptions(fn, activity.RegisterOptions{Name: name})
+	}
+
+	env.ExecuteWorkflow(ControlsRolloutWorkflow, &ControlsRolloutInput{Version: "controls:abc", Window: 6 * time.Hour})
+
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(f.resolves) != 2 || len(f.signalsIn) != 2 || f.signalsIn[1].AfterID != 10 {
+		t.Errorf("resolve pages %d, signal pages %d; want two of each, paged by AfterID", len(f.resolves), len(f.signalsIn))
+	}
+
+	if by := f.signalsIn[0].By; !by.Equal(start.Add(6*time.Hour)) || f.signalsIn[0].Version != "controls:abc" {
+		t.Errorf("signal pass = %+v, want policy_changed for controls:abc by the end of the window", f.signalsIn[0])
+	}
+
+	if len(f.completed) != 1 || f.completedAt.Before(start.Add(6*time.Hour)) {
+		t.Errorf("completed %v at %v, want once after the window", f.completed, f.completedAt)
+	}
+
+	if len(f.runs) != 1 || f.runs[0].Kind != ServicePolicyRollout || f.runs[0].Detail["signalled"] != float64(20) {
+		t.Errorf("runs = %+v, want one policy_rollout run that signalled 20", f.runs)
 	}
 }

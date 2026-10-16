@@ -13,3 +13,8 @@ RETURNING (xmax = 0)::bool AS first_seen;
 SELECT version, activated_at FROM policy_versions
 ORDER BY activated_at DESC, version DESC
 LIMIT 1;
+
+-- name: CompletePolicyRollout :exec
+-- Set on every completion, so a re-activated version's rollout restamps
+-- it.
+UPDATE policy_versions SET rollout_completed_at = now() WHERE version = @version;

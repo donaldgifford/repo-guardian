@@ -17,7 +17,11 @@ const (
 	// activity signals.
 	signalPage = 500
 
-	serviceTimeout     = 5 * time.Minute
+	serviceTimeout = 5 * time.Minute
+
+	// detailSignalled is the service_runs detail key a rollout counts
+	// its signals under.
+	detailSignalled    = "signalled"
 	listingMaxAttempts = 3
 )
 
@@ -195,7 +199,7 @@ func PolicyRolloutWorkflow(ctx workflow.Context, in *PolicyRolloutInput) error {
 	}
 
 	return recordRun(ctx, ServicePolicyRollout, true, started,
-		map[string]any{"version": in.Version, "signalled": signalled, "stragglers": stragglers})
+		map[string]any{"version": in.Version, detailSignalled: signalled, "stragglers": stragglers})
 }
 
 // BootstrapWorkflow starts a RepoWorkflow for every active repository
@@ -214,7 +218,7 @@ func BootstrapWorkflow(ctx workflow.Context) error {
 		return err
 	}
 
-	return recordRun(ctx, ServiceBootstrap, true, started, map[string]any{"signalled": signalled})
+	return recordRun(ctx, ServiceBootstrap, true, started, map[string]any{detailSignalled: signalled})
 }
 
 // signalAll pages every active repository through SignalRepositories.

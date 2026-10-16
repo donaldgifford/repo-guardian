@@ -103,3 +103,26 @@ type ControlsUpsertInput struct {
 	InstallationID int64
 	Repos          []DiscoveredRepo
 }
+
+// ControlsRolloutInput is ControlsRolloutWorkflow's input.
+type ControlsRolloutInput struct {
+	Version string
+	Window  time.Duration
+}
+
+// ControlsPageInput pages the active repositories after AfterID. Version
+// is the activated policy version; By is the policy_changed deadline of
+// the signal pass.
+type ControlsPageInput struct {
+	AfterID int64
+	Limit   int
+	Version string
+	By      time.Time `json:",omitzero"`
+}
+
+// ControlsPageResult reports one page. Done is set on the last.
+type ControlsPageResult struct {
+	NextAfterID int64
+	Count       int
+	Done        bool
+}

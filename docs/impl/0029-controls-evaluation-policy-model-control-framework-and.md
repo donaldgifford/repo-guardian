@@ -1054,13 +1054,26 @@ evaluator's store.
   `TestControlsStore_ParkMissingAndServiceRun`: a nil `seen` slice is a
   NULL array and `id = ANY (NULL)` parks nothing, so the query coalesces
   it. Tests: `controls_service_test.go`, `controls_services_test.go`.
-- [ ] 5.6 Controls rollout: every worker reads `CurrentActivation` at
+- [x] 5.6 Controls rollout: every worker reads `CurrentActivation` at
   startup and starts `controls-rollout/<version>/<activated_at>` with
   `REJECT_DUPLICATE` (one rollout per activation, however many pods
   start), which re-resolves every repository, then
   signals `policy_changed` spread over `POLICY_ROLLOUT_WINDOW`, and marks
   the rollout complete. The evaluator's bootstrap ensures only the
   `controls-discovery` and `controls-snapshot` schedules.
+  Done: `ControlsRolloutWorkflow` (resolve pass, policy_changed signal pass
+  by `now + window`, sleep the window, `ControlsCompleteRollout`, a
+  `policy_rollout` service run); `ControlsServices.ResolveAll` /
+  `SignalAll` / `CompleteRollout` over the new store reads
+  `ActiveRepositories` and `CompletePolicyRollout`. `ResolveAll` refuses a
+  rollout whose version is not the worker's loaded policy, so a retry lands
+  on a pod that has it. `serviceStarter.startControlsRollout` reads
+  `CurrentActivation` and starts `controls-rollout/<v>/<unix>` with
+  `REJECT_DUPLICATE` only when the loaded policy is the activated one;
+  `schedules(RoleEvaluator)` ensures exactly `controls-discovery` and
+  `controls-snapshot` (snapshot takes `SnapshotInput`). The evaluator role
+  calls neither until 7.1, per the phase's "nothing registered" criterion.
+  The task names no straggler pass, so the rc's is not carried over.
 - [ ] 5.7 Webhook routing on `/webhooks/github/eval`: a default-branch
   push signals `recheck` at priority 2 with the changed paths filtered
   through `Snapshot.WatchedPaths()` (a push with no watched path signals

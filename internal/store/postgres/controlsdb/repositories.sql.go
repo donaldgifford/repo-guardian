@@ -162,6 +162,49 @@ func (q *Queries) InsertServiceRun(ctx context.Context, arg InsertServiceRunPara
 	return err
 }
 
+const listActiveRepositoryPage = `-- name: ListActiveRepositoryPage :many
+SELECT r.id, a.installation_id, ps.state AS policy_state
+FROM repositories r
+LEFT JOIN app_repository_access a ON a.repository_id = r.id AND a.app = 'eval'
+LEFT JOIN repository_policy_state ps ON ps.repository_id = r.id
+WHERE r.active AND r.id > $1
+ORDER BY r.id
+LIMIT $2
+`
+
+type ListActiveRepositoryPageParams struct {
+	AfterID  int64
+	PageSize int32
+}
+
+type ListActiveRepositoryPageRow struct {
+	ID             int64
+	InstallationID *int64
+	PolicyState    *string
+}
+
+// One keyset page of active repositories with the Evaluation App's
+// installation and the policy state, for the rollout's passes.
+func (q *Queries) ListActiveRepositoryPage(ctx context.Context, arg ListActiveRepositoryPageParams) ([]ListActiveRepositoryPageRow, error) {
+	rows, err := q.db.Query(ctx, listActiveRepositoryPage, arg.AfterID, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActiveRepositoryPageRow
+	for rows.Next() {
+		var i ListActiveRepositoryPageRow
+		if err := rows.Scan(&i.ID, &i.InstallationID, &i.PolicyState); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMissingEvalRepositories = `-- name: ListMissingEvalRepositories :many
 SELECT r.id FROM repositories r
 JOIN app_repository_access a ON a.repository_id = r.id AND a.app = 'eval'

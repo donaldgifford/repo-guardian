@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 
 	"github.com/jackc/pgx/v5"
@@ -494,4 +495,36 @@ func (s *ControlsStore) ParkMissing(ctx context.Context, installationID int64, s
 	}
 
 	return len(missing), nil
+}
+
+// ActiveRepositories reads one keyset page of active repositories.
+func (s *ControlsStore) ActiveRepositories(ctx context.Context, afterID int64, limit int) ([]store.RepositoryRef, error) {
+	rows, err := s.q.ListActiveRepositoryPage(ctx, controlsdb.ListActiveRepositoryPageParams{
+		AfterID: afterID, PageSize: int32(min(limit, math.MaxInt32)), //nolint:gosec // bounded by the min
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list active repositories after %d: %w", afterID, err)
+	}
+
+	out := make([]store.RepositoryRef, 0, len(rows))
+	for _, r := range rows {
+		ref := store.RepositoryRef{ID: r.ID, PolicyState: policy.State(textOf(r.PolicyState))}
+		if r.InstallationID != nil {
+			ref.InstallationID = *r.InstallationID
+		}
+
+		out = append(out, ref)
+	}
+
+	return out, nil
+}
+
+// CompletePolicyRollout stamps version's rollout_completed_at, the one
+// policy_versions column rg_evaluator may update.
+func (s *ControlsStore) CompletePolicyRollout(ctx context.Context, version string) error {
+	if err := s.q.CompletePolicyRollout(ctx, version); err != nil {
+		return fmt.Errorf("complete rollout of %s: %w", version, err)
+	}
+
+	return nil
 }

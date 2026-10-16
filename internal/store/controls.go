@@ -44,6 +44,11 @@ type Controls interface {
 	// gave the Evaluation App that a complete listing did not see, and
 	// reports how many.
 	ParkMissing(ctx context.Context, installationID int64, seen []int64) (int, error)
+	// ActiveRepositories is one keyset page of active repositories after
+	// afterID, for the rollout's passes.
+	ActiveRepositories(ctx context.Context, afterID int64, limit int) ([]RepositoryRef, error)
+	// CompletePolicyRollout stamps version's rollout_completed_at.
+	CompletePolicyRollout(ctx context.Context, version string) error
 	// RecordServiceRun writes a service_runs row.
 	RecordServiceRun(ctx context.Context, run *ServiceRun) error
 	// EvaluationTarget reads one repository as the evaluator sees it,
@@ -100,6 +105,15 @@ type ResolutionChange struct {
 	Changed []string
 	// Withdrawn holds every control whose result was cleared.
 	Withdrawn []string
+}
+
+// RepositoryRef is one active repository as the rollout pages it.
+// InstallationID is 0 when the Evaluation App has no access row;
+// PolicyState is empty before the first resolution.
+type RepositoryRef struct {
+	ID             int64
+	InstallationID int64
+	PolicyState    policy.State
 }
 
 // EvaluationTarget is what the Evaluate activity reads before touching

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
@@ -67,27 +68,36 @@ func (s *serviceStarter) ensureSchedules(ctx context.Context, role config.Role) 
 }
 
 // schedules returns the Schedules role owns: those to ensure and those
-// to remove. The rc worker owns discovery (removed when
-// DISCOVERY_ENABLED=false) and snapshot. The evaluator will own
-// controls discovery and snapshot (IMPL-0029) and the remediator sweep
-// and maintenance (IMPL-0030); neither has a workflow to schedule yet.
+// to remove. The rc worker owns discovery and snapshot, the evaluator
+// controls-discovery and controls-snapshot (each discovery removed when
+// DISCOVERY_ENABLED=false); the remediator's sweep and maintenance
+// arrive with IMPL-0030.
 func (s *serviceStarter) schedules(role config.Role) (ensure []*temporal.Schedule, remove []string) {
-	if role != config.RoleWorker {
+	var discovery, snapshot struct{ id, workflow string }
+
+	switch role {
+	case config.RoleWorker:
+		discovery.id, discovery.workflow = workflows.DiscoveryScheduleID, workflows.DiscoveryWorkflowName
+		snapshot.id, snapshot.workflow = workflows.SnapshotScheduleID, workflows.SnapshotWorkflowName
+	case config.RoleEvaluator:
+		discovery.id, discovery.workflow = workflows.ControlsDiscoveryScheduleID, workflows.ControlsDiscoveryWorkflowName
+		snapshot.id, snapshot.workflow = workflows.ControlsSnapshotScheduleID, workflows.ControlsSnapshotWorkflowName
+	default:
 		return nil, nil
 	}
 
 	if s.cfg.DiscoveryEnabled {
 		ensure = append(ensure, &temporal.Schedule{
-			ID: workflows.DiscoveryScheduleID, Every: s.cfg.DiscoveryInterval, Workflow: workflows.DiscoveryWorkflowName,
+			ID: discovery.id, Every: s.cfg.DiscoveryInterval, Workflow: discovery.workflow,
 			Args: []any{&workflows.DiscoveryInput{}}, TaskQueue: s.taskQueue,
 			Priority: workflows.TaskPriority(workflows.PrioritySchedule, 0),
 		})
 	} else {
-		remove = append(remove, workflows.DiscoveryScheduleID)
+		remove = append(remove, discovery.id)
 	}
 
 	ensure = append(ensure, &temporal.Schedule{
-		ID: workflows.SnapshotScheduleID, Every: s.cfg.ComplianceSnapshotInterval, Workflow: workflows.SnapshotWorkflowName,
+		ID: snapshot.id, Every: s.cfg.ComplianceSnapshotInterval, Workflow: snapshot.workflow,
 		Args: []any{&workflows.SnapshotInput{Retention: s.cfg.ChecksRetention}}, TaskQueue: s.taskQueue,
 		Priority: workflows.TaskPriority(workflows.PrioritySchedule, 0),
 	})
@@ -143,4 +153,35 @@ func (s *serviceStarter) startOnce(ctx context.Context, id string, reuse enumspb
 	}
 
 	return nil
+}
+
+// controlsActivation is what the evaluator's startup reads.
+type controlsActivation interface {
+	CurrentActivation(ctx context.Context) (version string, activatedAt time.Time, err error)
+}
+
+// startControlsRollout is the evaluator's bootstrap beside
+// ensureSchedules(RoleEvaluator) (IMPL-0029 5.6, wired in 7.1). It
+// starts controls-rollout/<version>/<activated_at> with
+// REJECT_DUPLICATE, so however many pods start there is one rollout per
+// activation, and a revert (a new activated_at) rolls out again. A
+// pod whose loaded policy is not the activated one starts nothing: its
+// resolution would be the wrong policy's, and a pod that has it will.
+func (s *serviceStarter) startControlsRollout(ctx context.Context, st controlsActivation, policyVersion string) error {
+	version, activatedAt, err := st.CurrentActivation(ctx)
+	if err != nil {
+		return fmt.Errorf("read current activation: %w", err)
+	}
+
+	if version != policyVersion {
+		s.logger.Warn("loaded policy is not the activated one; not starting its rollout",
+			"policy_version", policyVersion, "activated_version", version)
+
+		return nil
+	}
+
+	s.logger.Info("starting controls rollout", "policy_version", version, "activated_at", activatedAt, "window", s.cfg.PolicyRolloutWindow)
+
+	return s.startOnce(ctx, workflows.ControlsRolloutWorkflowID(version, activatedAt), enumspb.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE,
+		workflows.ControlsRolloutWorkflowName, &workflows.ControlsRolloutInput{Version: version, Window: s.cfg.PolicyRolloutWindow})
 }

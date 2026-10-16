@@ -1137,9 +1137,11 @@ checkbox from the failure.
   Evaluation App's deliveries are dropped and its webhook can stay
   inactive; CLAUDE.md's Phase 3 paragraph; IMPL-0029 5.7 deletes the
   drop and its test.
-- [ ] 9.3 `Chart.yaml` `version` and `appVersion` → `2.0.0-rc.7`;
+- [x] 9.3 `Chart.yaml` `version` and `appVersion` → `2.0.0-rc.7`;
   helm-docs regenerated; `make ci` and `make helm-test` green; PR to `v2`
   with `dont-release`.
+  Done 2026-10-15: chart and appVersion `2.0.0-rc.7`, README regenerated;
+  `make ci` green, `make helm-test` 250/250. PR #208.
 - [ ] 9.4 Release (human-run): merge, tag `v2.0.0-rc.7`, dispatch
   `ghcr.yml`, sync dev. With the Evaluation App's webhook still inactive
   nothing changes on dev; a redelivery from the App's Advanced tab, if

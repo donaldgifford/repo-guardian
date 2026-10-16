@@ -1,9 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
-// IMPL-0031 6.1: axe at wcag2aa over the pages that remain after
-// IMPL-0029 7.7: the public status page and the same view inside the
-// signed-in shell. The state badges carry their tones' contrast.
+// IMPL-0031 6.1: axe at wcag2aa over every page: the public status page
+// and each controls view inside the signed-in shell (IMPL-0029 8.8).
+// The badges carry their tones' contrast.
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 
 async function signIn(page: Page, path = "/") {
@@ -22,10 +22,28 @@ async function audit(page: Page) {
   expect(summary, JSON.stringify(summary, null, 2)).toEqual([]);
 }
 
-test("the signed-in overview has no axe violations", async ({ page }) => {
-  await signIn(page);
-  await expect(page.getByRole("heading", { name: "Repo Guardian status" })).toBeVisible();
-  await expect(page.locator("[data-component]").first()).toBeVisible();
+for (const [name, path, heading] of [
+  ["Fleet", "/", "Fleet"],
+  ["Controls", "/controls", "Controls"],
+  ["Control", "/controls/codeowners", "codeowners"],
+  ["Orgs", "/orgs", "Orgs"],
+  ["Org", "/orgs/acme", "acme"],
+  ["Repositories", "/repositories", "Repositories"],
+  ["History", "/history", "History"],
+  ["Policy", "/policy", "Policy"],
+] as const) {
+  test(`${name} has no axe violations`, async ({ page }) => {
+    await signIn(page, path);
+    await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await audit(page);
+  });
+}
+
+test("a repository has no axe violations", async ({ page }) => {
+  await signIn(page, "/repositories?org=acme");
+  await page.getByRole("table", { name: "Repositories" }).getByRole("link", { name: "acme/web" }).click();
+  await expect(page.locator('[data-control="renovate"]')).toBeVisible();
   await audit(page);
 });
 

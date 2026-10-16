@@ -1,7 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
 
-// The findings-era views went in IMPL-0029 7.7; until the controls
-// views land the suite covers sign-in, the session and the status page.
+// Sign-in, the session, the public status page and one spec per
+// controls view (IMPL-0029 8.8). The caller (ada) sees acme only; the
+// seed's globex must never appear.
 
 // signIn runs the real code flow: the BFF redirects to the mock
 // issuer, which approves at once and sends the browser back.
@@ -13,7 +14,7 @@ async function signIn(page: Page, path = "/") {
 test("an app path without a session goes through login and comes back", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Repo Guardian status" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Fleet" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
   // The API names the caller by preferred_username (OIDC_NAME_CLAIM);
@@ -77,7 +78,105 @@ test("signing out ends the session", async ({ page, context }) => {
 test("without UI_DOCS_URL the sidebar has no Docs group", async ({ page }) => {
   await signIn(page);
   const nav = page.getByRole("navigation", { name: "Primary" });
-  await expect(nav.getByRole("link", { name: /Overview/ })).toBeVisible();
+  await expect(nav.getByRole("link", { name: /Fleet/ })).toBeVisible();
   await expect(nav.getByText("Docs", { exact: true })).toHaveCount(0);
   await expect(nav.getByRole("link", { name: "Documentation" })).toHaveCount(0);
+});
+
+// expectNoGlobex fails if the out-of-scope org leaks into the page.
+async function expectNoGlobex(page: Page) {
+  await expect(page.locator("main")).not.toContainText(/globex/i);
+}
+
+test("Fleet totals the caller's orgs and links to controls and orgs", async ({ page }) => {
+  await signIn(page);
+  await expect(page.getByRole("heading", { level: 1, name: "Fleet" })).toBeVisible();
+  // acme: web codeowners + renovate, api codeowners measured; 2 of 3 compliant.
+  await expect(page.getByText("66.6%").first()).toBeVisible();
+  const controls = page.getByRole("table", { name: "Controls" });
+  await expect(controls.getByRole("link", { name: "codeowners" })).toBeVisible();
+  await expect(page.getByRole("table", { name: "Orgs" }).getByRole("link", { name: "acme" })).toBeVisible();
+  await expectNoGlobex(page);
+  await controls.getByRole("link", { name: "renovate" }).click();
+  await expect(page).toHaveURL(/\/controls\/renovate$/);
+});
+
+test("Controls lists each control and a control breaks down by org with versions", async ({ page }) => {
+  await signIn(page, "/controls");
+  await expect(page.getByRole("heading", { level: 1, name: "Controls" })).toBeVisible();
+  await page.getByRole("table", { name: "Controls" }).getByRole("link", { name: "codeowners" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: /codeowners/ })).toBeVisible();
+  const orgs = page.getByRole("table", { name: "Orgs" });
+  await expect(orgs.getByRole("link", { name: "acme" })).toBeVisible();
+  await expect(orgs.getByText(/v1 r-codeowners/)).toBeVisible();
+  await expectNoGlobex(page);
+});
+
+test("an org shows baseline against org-added, its worst controls and exclusions", async ({ page }) => {
+  await signIn(page, "/orgs");
+  await page.getByRole("table", { name: "Orgs" }).getByRole("link", { name: "acme" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "acme" })).toBeVisible();
+  await expect(page.getByText("Baseline compliance")).toBeVisible();
+  // Nothing org-added in acme: no data, never 0% or 100%.
+  await expect(page.getByText("Org-added compliance").locator("..")).toContainText("no data");
+  await expect(page.getByRole("table", { name: "Exclusions" })).toContainText("api pins its dependencies");
+  await expect(page.getByRole("table", { name: "Worst controls" }).getByRole("link", { name: "renovate" })).toBeVisible();
+  // An org outside the caller's scope reads as not found.
+  await page.goto("/orgs/globex");
+  await expect(page.getByRole("alert")).toBeVisible();
+});
+
+test("a repository shows its controls with evidence, the evaluation log and events", async ({ page }) => {
+  await signIn(page, "/repositories?org=acme");
+  await page.getByRole("table", { name: "Repositories" }).getByRole("link", { name: "acme/web" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "acme/web" })).toBeVisible();
+  const renovate = page.locator('[data-control="renovate"]');
+  await expect(renovate).toContainText("non compliant");
+  await expect(renovate).toContainText("dependency_updates.exists");
+  await expect(renovate).toContainText("path: renovate.json");
+
+  // No Temporal client on the e2e api: the POST answers 501 and the
+  // button goes away.
+  const button = page.getByRole("button", { name: "Re-evaluate" });
+  await button.click();
+  await expect(button).toHaveCount(0);
+
+  await page.getByRole("tab", { name: "Evaluation log" }).click();
+  const log = page.getByRole("table", { name: "Evaluation log" });
+  await expect(log).toContainText("error");
+  await expect(log).toContainText("502 Bad Gateway");
+
+  await page.getByRole("tab", { name: "Events" }).click();
+  await expect(page.getByRole("table", { name: "Events" })).toContainText("renovate");
+});
+
+test("History plots one control over the selected range", async ({ page }) => {
+  await signIn(page, "/history");
+  await expect(page.getByRole("heading", { level: 1, name: "History" })).toBeVisible();
+  await page.getByRole("combobox", { name: "Control" }).selectOption("codeowners");
+  await expect(page).toHaveURL(/control=codeowners/);
+  await expect(page.getByRole("img", { name: "Compliance over time" })).toBeVisible();
+  await page.getByRole("tab", { name: "7d" }).click();
+  await expect(page).toHaveURL(/days=7/);
+});
+
+// The enterprise layer is for all-org callers only, and the catalogue
+// carries just what the visible layers reference: acme's renovate
+// exclusion, not the baseline's codeowners.
+test("Policy shows the caller's orgs only, and no enterprise layer", async ({ page }) => {
+  await signIn(page, "/policy");
+  await expect(page.getByRole("heading", { level: 1, name: "Policy" })).toBeVisible();
+  await expect(page.locator('[data-org="acme"]')).toContainText("api pins its dependencies");
+  await expect(page.getByRole("table", { name: "Catalogue" })).toContainText("renovate@1");
+  await expect(page.getByText("Enterprise baseline")).toHaveCount(0);
+  await expectNoGlobex(page);
+});
+
+test("the status page shows topology, Apps and the evaluation strip", async ({ page }) => {
+  await page.goto("/status");
+  await expect(page.getByTestId("status-topology")).toHaveText("topology split");
+  await expect(page.locator('[data-app="eval"]')).toContainText("2 installations");
+  await expect(page.locator('[data-app="remediate"]')).toContainText("1 installations");
+  await expect(page.getByText("Overdue evaluations")).toBeVisible();
+  await expect(page.getByTestId("status-coverage")).toBeVisible();
 });

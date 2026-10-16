@@ -8,7 +8,7 @@ import { humanize } from "../lib/format";
 import { prLabel, prLink } from "../lib/pr";
 import type { SeriesPoint } from "../lib/viewmodel";
 import { Badge } from "./ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Kpi } from "./ui/kpi";
 
 // ExternalLink opens off-site without handing the opener or referrer
 // over. href must come from a builder in lib/pr.ts, never from evidence.
@@ -58,18 +58,9 @@ export function Remediation({ finding }: { finding: Schemas["Finding"] }) {
   );
 }
 
+// Tile is Kpi under its old name for views not yet converted (6.6).
 export function Tile({ title, value, hint }: { title: string; value: ReactNode; hint?: ReactNode }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-semibold tabular-nums">{value}</div>
-        {hint ? <div className="mt-1 text-xs text-muted-foreground">{hint}</div> : null}
-      </CardContent>
-    </Card>
-  );
+  return <Kpi label={title} value={value} {...(hint !== undefined ? { subline: hint } : {})} />;
 }
 
 export function Section({ title, children, actions }: { title: string; children: ReactNode; actions?: ReactNode }) {

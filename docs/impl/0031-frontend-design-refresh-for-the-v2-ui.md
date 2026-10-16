@@ -204,7 +204,7 @@ existing views keep rendering on the new tokens through the aliases in
   element that renders the chosen zone and puts the other in `title`.
   Tests for both zones, a `Z`-less input, and a missing
   `localStorage`.
-- [ ] 1.7 Layout primitives in `components/ui/`: `Card` (header title
+- [x] 1.7 Layout primitives in `components/ui/`: `Card` (header title
   13px/600 + 12px muted subtitle + right slot, optional `StatStrip`
   under the header, body), `StatStrip` (hairline-separated
   label/value/subline cells; values proportional, tables tabular),

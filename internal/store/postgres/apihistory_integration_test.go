@@ -3,6 +3,7 @@
 package postgres_test
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -178,4 +179,12 @@ func TestHistory_AggregatePagingAndCursorBinding(t *testing.T) {
 	if r := e.get(t, "/compliance/history?aggregate=rule", "platform"); r.Status != http.StatusBadRequest {
 		t.Errorf("aggregate=rule = %d, want 400", r.Status)
 	}
+}
+
+func pct(p *float64) string {
+	if p == nil {
+		return "unmeasured"
+	}
+
+	return fmt.Sprint(*p)
 }

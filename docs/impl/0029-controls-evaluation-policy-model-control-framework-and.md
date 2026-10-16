@@ -1434,7 +1434,7 @@ half-switched binary.
   `installation_dev_rc4.json` and `evaluation_first_run.json`, all
   replaying under `RegisterUnion`. `TestRegister_EachRoleRegistersOnlyItsSet`
   pins the exact sets, and `TestIntegration_OneEvaluation` passes.
-- [ ] 7.2 Retire the parity suite scenario by scenario: list every
+- [x] 7.2 Retire the parity suite scenario by scenario: list every
   scenario in `internal/checker/parity_test.go` and
   `internal/store/postgres/parity_integration_test.go` in a table in
   this task, each with the test that replaces it (a resolution golden, a
@@ -1442,6 +1442,119 @@ half-switched binary.
   no replacement" with the reason. Delete only after the table is
   complete. `TestPRIdentity_IsFrozen` (checker and reconciler) is retired
   deliberately; `tools/rgctl` keeps its own literals.
+  Done: every scenario has a fate (103 rows). Retired now:
+  - `internal/store/postgres/parity_integration_test.go`;
+  - both `TestPRIdentity_IsFrozen` files (`checker`, `reconciler`).
+
+  The 101 checker goldens and `parity_test.go` go with `internal/checker`
+  in 7.3, because every remaining engine test runs through
+  `parityCheckRepo` until then.
+
+  | Scenario | Replacement or reason |
+  |---|---|
+  | `checker` `TestBaseDrift_ExistingPR_BranchUpdatedBeforeSync` | retired: v1 behaviour, no replacement — the rc's shared `repo-guardian/add-missing-files` branch is gone; IMPL-0030 opens one PR per (repository, control); update-branch is pinned by `internal/github/write` `TestUpdateBranch` |
+  | `checker` `TestBaseDrift_NoExistingPR_BranchNotUpdated` | retired: v1 behaviour, no replacement — the rc's shared `repo-guardian/add-missing-files` branch is gone; IMPL-0030 opens one PR per (repository, control) |
+  | `checker` `TestBaseDrift_UpdateError_ReconcileContinues` | retired: v1 behaviour, no replacement — the rc's shared `repo-guardian/add-missing-files` branch is gone; IMPL-0030 opens one PR per (repository, control) |
+  | `checker` `TestBranchProtection_BranchDoesNotExist` | retired: v1 behaviour, no replacement — a ruleset targets refs by pattern, so a missing branch is not a state the `branch_ruleset` type models |
+  | `checker` `TestBranchProtection_DryRun` | retired: v1 behaviour, no replacement — there is no dry run: the evaluator holds a read-only App and never writes (DESIGN-0032) |
+  | `checker` `TestBranchProtection_Matches_NoAction` | `branch_ruleset` `TestConformance` (passing case) |
+  | `checker` `TestBranchProtection_Mismatch_NoRemediate` | `branch_ruleset` `TestConformance` (failing case) + resolution golden `mode-org-control` |
+  | `checker` `TestBranchProtection_Mismatch_Remediate_Update` | `branch_ruleset` `TestRemediate_UpsertsByID` + write `TestUpsertRuleset` |
+  | `checker` `TestBranchProtection_NoRuleset_Remediate_Create` | `branch_ruleset` `TestRemediate_UpsertsByID` + write `TestUpsertRuleset` |
+  | `checker` `TestCheckRepoPolicy_DriftCounter_DoesNotIncrement_WhenActionable` | retired: v1 behaviour, no replacement — `pr_open_with_empty_actionable_total` was deleted (IMPL-0028 1.3) |
+  | `checker` `TestCheckRepoPolicy_DriftCounter_DoesNotIncrement_WhenNoPROpen` | retired: v1 behaviour, no replacement — `pr_open_with_empty_actionable_total` was deleted (IMPL-0028 1.3) |
+  | `checker` `TestCheckRepoPolicy_DriftCounter_IncrementsWhenPROpenAndNoActionable` | retired: v1 behaviour, no replacement — `pr_open_with_empty_actionable_total` was deleted (IMPL-0028 1.3) |
+  | `checker` `TestCheckRepoPolicy_OpenPRsByRule_PopulatedWithActionableRules` | retired: v1 behaviour, no replacement — `open_prs_by_rule` was deleted (IMPL-0028 1.3); per-control PR posture returns with IMPL-0030 |
+  | `checker` `TestCheckRepo_AllFilesExist` | `file`/`codeowners` `TestConformance` (passing) + `TestEvaluate_ScheduleStagesEveryActiveControl` |
+  | `checker` `TestCheckRepo_DryRun` | retired: v1 behaviour, no replacement — there is no dry run: the evaluator holds a read-only App and never writes (DESIGN-0032) |
+  | `checker` `TestCheckRepo_MissingFiles_ExistingPR` | retired: v1 behaviour, no replacement — control status never depends on a PR (PRObserver is remediation-only); PR handling returns with IMPL-0030 |
+  | `checker` `TestCheckRepo_MissingFiles_NoPR` | `file` `TestConformance` + `TestFileControl_Absent_TemplateAtCanonical` |
+  | `checker` `TestCheckRepo_MissingFiles_ThirdPartyPR` | retired: v1 behaviour, no replacement — `foreign_pr` suppression; control status never depends on a PR (PRObserver is remediation-only); PR handling returns with IMPL-0030 |
+  | `checker` `TestCheckRepo_Skips__archived` | resolution golden `archived` + `TestControlsStore_DiscoveryParksArchivedAndForks` |
+  | `checker` `TestCheckRepo_Skips__empty_repo_is_skipped_but_not_durable` | `TestEvaluate_Skips` |
+  | `checker` `TestCheckRepo_Skips__fork` | resolution golden `fork` + `TestControlsStore_DiscoveryParksArchivedAndForks` |
+  | `checker` `TestCheckRepo_StaleBranchCleanup` | retired: v1 behaviour, no replacement — the controls Writer has no branch delete (IMPL-0028 Phase 2) |
+  | `checker` `TestConvergence_Bundle_AddAndRemove_RendersBothSections` | retired: v1 behaviour, no replacement — shared-branch convergence (orphans, auto-close, sticky log, restore) has no controls equivalent; IMPL-0030 owns per-control PRs |
+  | `checker` `TestConvergence_DeleteFileError_IncrementsCounter_Continues` | retired: v1 behaviour, no replacement — shared-branch convergence (orphans, auto-close, sticky log, restore) has no controls equivalent; IMPL-0030 owns per-control PRs |
+  | `checker` `TestConvergence_GenuineOrphanIsStillDeleted` | retired: v1 behaviour, no replacement — shared-branch convergence (orphans, auto-close, sticky log, restore) has no controls equivalent; IMPL-0030 owns per-control PRs |
+  | `checker` `TestConvergence_GetContentsOnBranchError_FailsSafe` | retired: v1 behaviour, no replacement — shared-branch convergence (orphans, auto-close, sticky log, restore) has no controls equivalent; IMPL-0030 owns per-control PRs |
+  | `checker` `TestConvergence_OrphanCleanupDisabled_NoDeletion` | retired: v1 behaviour, no replacement — shared-branch convergence (orphans, auto-close, sticky log, restore) has no controls equivalent; IMPL-0030 owns per-control PRs |
+  | `checker` `TestConvergence_RenovateFirst_BothVariantsDeleted` | retired: v1 behaviour, no replacement — shared-branch convergence (orphans, auto-close, sticky log, restore) has no controls equivalent; IMPL-0030 owns per-control PRs |
+  | `checker` `TestConvergence_RenovateFirst_GateClosesMidFlight_RestoresDependabot` | retired: v1 behaviour, no replacement — shared-branch convergence (orphans, auto-close, sticky log, restore) has no controls equivalent; IMPL-0030 owns per-control PRs |
+  | `checker` `TestConvergence_RenovateFirst_HandDeletedDependabot_AutoCloses` | retired: v1 behaviour, no replacement — shared-branch convergence (orphans, auto-close, sticky log, restore) has no controls equivalent; IMPL-0030 owns per-control PRs |
+  | `checker` `TestConvergence_RenovateFirst_IdempotentReSweep_ZeroMutations` | retired: v1 behaviour, no replacement — shared-branch convergence (orphans, auto-close, sticky log, restore) has no controls equivalent; IMPL-0030 owns per-control PRs |
+  | `checker` `TestConvergence_RenovateFirst_RemovesDependabot` | retired: v1 behaviour, no replacement — shared-branch convergence (orphans, auto-close, sticky log, restore) has no controls equivalent; IMPL-0030 owns per-control PRs |
+  | `checker` `TestConvergence_RenovateFirst_Sweep1_GateClosedSkipsDependabot` | `dependency_updates` `TestConformance`: one control owns the renovate-or-dependabot choice, so there is no gate |
+  | `checker` `TestConvergence_RepairDoesNotFightAnActionableAbsentRule` | retired: v1 behaviour, no replacement — shared-branch convergence (orphans, auto-close, sticky log, restore) has no controls equivalent; IMPL-0030 owns per-control PRs |
+  | `checker` `TestConvergence_RepairScopedToRuleTarget` | retired: v1 behaviour, no replacement — shared-branch convergence (orphans, auto-close, sticky log, restore) has no controls equivalent; IMPL-0030 owns per-control PRs |
+  | `checker` `TestConvergence_RepairsBranchThatDeletedADefaultBranchFile` | retired: v1 behaviour, no replacement — shared-branch convergence (orphans, auto-close, sticky log, restore) has no controls equivalent; IMPL-0030 owns per-control PRs |
+  | `checker` `TestConvergence_RestoreSkipsPathAnActionableRuleJustWrote` | retired: v1 behaviour, no replacement — shared-branch convergence (orphans, auto-close, sticky log, restore) has no controls equivalent; IMPL-0030 owns per-control PRs |
+  | `checker` `TestConvergence_SatisfiedRuleNeverDeletesDefaultBranchFile` | `codeowners` `TestExistingFileNeverEdited` + `TestFileControl_Passing_EmptyChangeSet` |
+  | `checker` `TestConvergence_Sweep1_OpensPR` | retired: v1 behaviour, no replacement — shared-branch convergence (orphans, auto-close, sticky log, restore) has no controls equivalent; IMPL-0030 owns per-control PRs |
+  | `checker` `TestConvergence_Sweep2_OrphanCleanupAndBodyRefresh` | retired: v1 behaviour, no replacement — shared-branch convergence (orphans, auto-close, sticky log, restore) has no controls equivalent; IMPL-0030 owns per-control PRs |
+  | `checker` `TestConvergence_Sweep3_AutoCloseDisabled_LeavesPROpen` | retired: v1 behaviour, no replacement — shared-branch convergence (orphans, auto-close, sticky log, restore) has no controls equivalent; IMPL-0030 owns per-control PRs |
+  | `checker` `TestConvergence_Sweep3_AutoClosesPR_Default` | retired: v1 behaviour, no replacement — shared-branch convergence (orphans, auto-close, sticky log, restore) has no controls equivalent; IMPL-0030 owns per-control PRs |
+  | `checker` `TestEmptyIgnoreList_NoReposSkipped` | resolution golden `baseline-only` |
+  | `checker` `TestForeignPRForRule_CustomTitleDoesNotSelfSuppress` | retired: v1 behaviour, no replacement — `foreign_pr` suppression; control status never depends on a PR (PRObserver is remediation-only); PR handling returns with IMPL-0030 |
+  | `checker` `TestGlobalIgnoreList_GlobPattern` | resolution golden `exclude-repos` |
+  | `checker` `TestGlobalIgnoreList_NoMatchStillProcesses` | resolution golden `exclude-repos` (the unmatched repository keeps its assignments) |
+  | `checker` `TestGlobalIgnoreList_SkipsAllRules` | resolution golden `exclude-with-reason` |
+  | `checker` `TestIntegration_HCLConfigWithCustomPropertiesReconciler` | `custom_properties` `TestConformance` + `TestSourceStates_ExactWrites` |
+  | `checker` `TestIntegration_IgnoreLists_SettingRules_BranchProtection` | resolution golden `exclude-repos` + `repo_settings`/`branch_ruleset` `TestConformance` |
+  | `checker` `TestIntegration_LabelSyncReconciler_EndToEnd` | `labels` `TestConformance` + `TestRemediate_CaseOnlyIsOneUpdate` |
+  | `checker` `TestIntegration_PolicyLoadAndEngineCreation` | policy `TestLoad_Layout` + `TestPolicyExamples_Summary` |
+  | `checker` `TestIntegration_RenovateFileRules_AllPresent` | `dependency_updates` `TestConformance` (passing) |
+  | `checker` `TestIntegration_RenovateFileRules_BothMissing` | `dependency_updates` `TestConformance` (absent) |
+  | `checker` `TestIntegration_RenovateFileRules_ConfigInvalidPreset` | `dependency_updates` `TestConformance` + `TestAddExtends` |
+  | `checker` `TestIntegration_RenovateFileRules_ConfigMissing` | `dependency_updates` `TestPartialRemediation` |
+  | `checker` `TestIntegration_RenovateFileRules_WorkflowDrifted` | `file` `TestConformance` (exact mode, YAML-semantic mismatch) |
+  | `checker` `TestIntegration_RenovateFileRules_WorkflowMissing` | `file` `TestConformance` (exact mode, file missing) |
+  | `checker` `TestPRRefresh_CRLFBodyFromWebUI_SkipsPatch` | retired: v1 behaviour, no replacement — v1 PR body refresh; per-control PR text returns with IMPL-0030 |
+  | `checker` `TestPRRefresh_UnchangedText_SkipsPatch` | retired: v1 behaviour, no replacement — v1 PR body refresh; per-control PR text returns with IMPL-0030 |
+  | `checker` `TestPerRuleIgnoreList_ReconcilerAlsoSkipped` | resolution golden `exclude-beats-add-in-layer` (an excluded assignment evaluates nothing) |
+  | `checker` `TestPerRuleIgnoreList_SkipsOnlyThatRule` | resolution golden `exclude-with-reason` |
+  | `checker` `TestPolicyCheckRepo_AbsentMode_Phase1__forbidden_file_absent___rule_satisfied` | retired: v1 behaviour, no replacement — the `file` type has no absent mode (DESIGN-0031 D6); renovate-versus-dependabot is `dependency_updates` |
+  | `checker` `TestPolicyCheckRepo_AbsentMode_Phase1__forbidden_file_present___dry-run_enumerates_only` | retired: v1 behaviour, no replacement — there is no dry run: the evaluator holds a read-only App and never writes (DESIGN-0032) |
+  | `checker` `TestPolicyCheckRepo_BackwardCompatibility` | retired: v1 behaviour, no replacement — built-in defaults and env-injected rules are gone; the policy root is required (DESIGN-0030) |
+  | `checker` `TestPolicyCheckRepo_ContainsMode_AssertionsFail` | retired: v1 behaviour, no replacement — the `file` type has no contains mode (DESIGN-0031 D6): anything that looks inside a file is a control type |
+  | `checker` `TestPolicyCheckRepo_ContainsMode_AssertionsPass` | retired: v1 behaviour, no replacement — the `file` type has no contains mode (DESIGN-0031 D6) |
+  | `checker` `TestPolicyCheckRepo_ContainsMode_FileMissing` | `file` `TestConformance` (exists, missing) |
+  | `checker` `TestPolicyCheckRepo_ContainsMode_RenovateConfigInvalidAssertion` | `dependency_updates` `TestConformance` (renovate config failing) |
+  | `checker` `TestPolicyCheckRepo_ContainsMode_RenovateConfigValidAssertion` | `dependency_updates` `TestConformance` (renovate config passing) |
+  | `checker` `TestPolicyCheckRepo_ExactMode_FileDiffersFromTemplate` | `file` `TestConformance` (exact mismatch) |
+  | `checker` `TestPolicyCheckRepo_ExactMode_FileMatchesTemplate` | `file` `TestConformance` (exact match) |
+  | `checker` `TestPolicyCheckRepo_ExactMode_FileMissing` | `file` `TestConformance` (exact, missing) |
+  | `checker` `TestPolicyCheckRepo_ExactMode_RenovateWorkflowDrifted` | `file` `TestConformance` (exact mismatch) |
+  | `checker` `TestPolicyCheckRepo_ExactMode_RenovateWorkflowMatchesTemplate` | `file` `TestConformance` (exact match) |
+  | `checker` `TestPolicyCheckRepo_ExactMode_YAMLSemanticComparison` | `file` `TestConformance` (YAML compared semantically) + `TestRevisionGolden` |
+  | `checker` `TestPolicyCheckRepo_ExistsMode_FileMissing` | `file` `TestConformance` (exists, missing) |
+  | `checker` `TestPolicyCheckRepo_ExistsMode_FilePresent` | `file` `TestConformance` (exists, present) |
+  | `checker` `TestPolicyEngine_LegacyMode_NoScopeFiltering` | resolution golden `baseline-only` |
+  | `checker` `TestPolicyEngine_StrictMode_InScopeButIgnored` | resolution golden `exclude-repos` |
+  | `checker` `TestPolicyEngine_StrictMode_OutOfScopeCounterByLevel` | retired: v1 behaviour, no replacement — `out_of_scope_total` was a rule-engine counter; an unmanaged org has no assignments to count |
+  | `checker` `TestPolicyEngine_StrictMode_OutOfScopeWinsOverIgnore` | resolution golden `unmanaged-org` |
+  | `checker` `TestPolicyEngine_StrictMode_PolicyScopeRejectsRepo` | resolution golden `unmanaged-org` |
+  | `checker` `TestPolicyEngine_StrictMode_RuleSubsetApplies` | resolution golden `org-addition` |
+  | `checker` `TestPolicyEngine_StrictMode_RuleUniversalApplies` | resolution golden `baseline-only` |
+  | `checker` `TestReconciler_DoesNotRunWhenAssertionsFail` | `custom_properties` `TestSourceStates_ExactWrites` (an unparseable catalog writes nothing) |
+  | `checker` `TestReconciler_DoesNotRunWhenFileMissing` | `custom_properties` `TestSourceStates_ExactWrites` |
+  | `checker` `TestReconciler_DryRunPropagated` | retired: v1 behaviour, no replacement — there is no dry run: the evaluator holds a read-only App and never writes (DESIGN-0032) |
+  | `checker` `TestReconciler_ErrorLoggedNotFatal` | `TestEvaluate_CountsOutcomesAndControlErrors` (one control's error does not fail the evaluation) |
+  | `checker` `TestReconciler_MultipleRunInOrder` | retired: v1 behaviour, no replacement — reconcilers are gone; each became a control type evaluated independently; controls have no order |
+  | `checker` `TestReconciler_RunsOnAbsence_OnlyForCapableReconcilers` | `custom_properties` `TestSourceStates_ExactWrites` (an absent catalog clears the managed set) |
+  | `checker` `TestReconciler_RunsWhenAssertionsPass_ContainsMode` | `custom_properties` `TestConformance` |
+  | `checker` `TestReconciler_RunsWhenFilePresent_ExistsMode` | `custom_properties` `TestConformance` |
+  | `checker` `TestSettingRule_DefaultBranch_Remediate` | `repo_settings` `TestConformance` + write `TestUpdateRepository_WritesOnlySetFields` |
+  | `checker` `TestSettingRule_Disabled` | retired: v1 behaviour, no replacement — a disabled rule is now an unassigned control (resolution golden `baseline-only`) |
+  | `checker` `TestSettingRule_MatchesExpected_NoAction` | `repo_settings` `TestConformance` (passing) |
+  | `checker` `TestSettingRule_Mismatch_NoRemediate` | `repo_settings` `TestConformance` (failing) + resolution golden `mode-org-control` |
+  | `checker` `TestSettingRule_Mismatch_Remediate` | `repo_settings` `TestConformance` + write `TestUpdateRepository_WritesOnlySetFields` |
+  | `checker` `TestSettingRule_Mismatch_Remediate_DryRun` | retired: v1 behaviour, no replacement — there is no dry run: the evaluator holds a read-only App and never writes (DESIGN-0032) |
+  | `checker` `TestSettingRule_PerRuleIgnore` | resolution golden `exclude-with-reason` |
+  | `checker` `TestSettingRule_VulnerabilityAlerts_Remediate` | `repo_settings` `TestConformance` + write `TestSetVulnerabilityAlerts` |
+  | `checker` `TestParity_GoldensExist` | retired: v1 behaviour, no replacement — it guarded the golden set retired here |
+  | `postgres` `TestCompliance_ParityAcrossReportAPIAndSnapshot` | `TestControlsStore_ComplianceSnapshot` + `TestCompliantPercent_SQLAgreesWithGo` + report `TestRender_Golden`; API parity returns with Phase 8 |
+  | `checker`/`reconciler` `TestPRIdentity_IsFrozen` | retired: v1 behaviour, no replacement — retired deliberately: v1 and v2 adopting each other's PRs ends here; `tools/rgctl` (IMPL-0030) keeps its own literals |
 - [ ] 7.3 Delete `internal/checker`, `internal/reconciler`,
   `internal/rulepolicy`, `internal/findings`, `internal/shadow`,
   `cmd/repo-guardian/verify_shadow.go`, and `internal/rules` except

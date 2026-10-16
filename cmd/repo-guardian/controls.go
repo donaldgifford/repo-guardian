@@ -12,6 +12,7 @@ import (
 
 	"github.com/donaldgifford/repo-guardian/internal/activities"
 	"github.com/donaldgifford/repo-guardian/internal/config"
+	"github.com/donaldgifford/repo-guardian/internal/observability"
 	pgstore "github.com/donaldgifford/repo-guardian/internal/store/postgres"
 	"github.com/donaldgifford/repo-guardian/internal/temporal"
 	"github.com/donaldgifford/repo-guardian/internal/workflows"
@@ -73,6 +74,8 @@ func startControlsWorker(
 	if half.sizing.DBPoolSize > 0 {
 		pcfg.MaxConns = half.sizing.DBPoolSize
 	}
+
+	observability.InstrumentPostgresConfig(pcfg, half.name)
 
 	pool, err := pgxpool.NewWithConfig(ctx, pcfg)
 	if err != nil {

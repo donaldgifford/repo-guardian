@@ -46,7 +46,11 @@ func (s *ControlsStore) StageEvaluation(ctx context.Context, st *store.Evaluatio
 // discarded, logged and counted. A recorded check key returns
 // AlreadyFinal and writes nothing.
 func (s *ControlsStore) RecordEvaluation(ctx context.Context, checkKey string) (store.RecordOutcome, error) {
-	var out store.RecordOutcome
+	var (
+		out  store.RecordOutcome
+		org  string
+		ages []time.Duration
+	)
 
 	err := s.inTx(ctx, func(q *controlsdb.Queries) error {
 		out = store.RecordOutcome{}
@@ -67,12 +71,18 @@ func (s *ControlsStore) RecordEvaluation(ctx context.Context, checkKey string) (
 			return fmt.Errorf("decode staged payload: %w", err)
 		}
 
+		ages = ages[:0]
+
 		for i := range staged {
 			c := &staged[i]
 
-			recorded, changed, err := s.recordControl(ctx, q, chk.RepositoryID, c)
+			recorded, changed, prevAt, err := s.recordControl(ctx, q, chk.RepositoryID, c)
 			if err != nil {
 				return fmt.Errorf("%s: %w", c.ControlID, err)
+			}
+
+			if recorded && !prevAt.IsZero() {
+				ages = append(ages, time.Since(prevAt))
 			}
 
 			switch {
@@ -89,6 +99,8 @@ func (s *ControlsStore) RecordEvaluation(ctx context.Context, checkKey string) (
 			return fmt.Errorf("finish check: %w", err)
 		}
 
+		org = chk.Org
+
 		// Counted once the transaction can no longer roll the discard
 		// back: a retry of a failed record would count it again.
 		for _, id := range out.Discarded {
@@ -102,6 +114,15 @@ func (s *ControlsStore) RecordEvaluation(ctx context.Context, checkKey string) (
 		return store.RecordOutcome{}, fmt.Errorf("record evaluation %s: %w", checkKey, err)
 	}
 
+	// Counted after commit: a retried record would count them again.
+	for _, id := range out.Changed {
+		metrics.EvaluationChangesTotal.WithLabelValues(org, id).Inc()
+	}
+
+	for _, age := range ages {
+		metrics.EvaluationFreshnessSeconds.WithLabelValues(org).Observe(age.Seconds())
+	}
+
 	return out, nil
 }
 
@@ -109,20 +130,21 @@ func (s *ControlsStore) RecordEvaluation(ctx context.Context, checkKey string) (
 // active at the staged epoch. The generation starts at 1 on the first
 // row of an epoch and is bumped on a fingerprint change, which also
 // writes result_events; evaluated_sha, evaluated_at and evidence refresh
-// on every record.
+// on every record. prevAt is the previous evaluated_at, zero for a
+// control never evaluated before.
 func (s *ControlsStore) recordControl(
 	ctx context.Context, q *controlsdb.Queries, repoID int64, c *store.ControlEvaluation,
-) (recorded, changed bool, err error) {
+) (recorded, changed bool, prevAt time.Time, err error) {
 	fence, current, err := fenced(ctx, q, repoID, c)
 	if err != nil || !current {
-		return false, false, err
+		return false, false, time.Time{}, err
 	}
 
 	prev, err := q.LockResult(ctx, controlsdb.LockResultParams{RepositoryID: repoID, ControlID: c.ControlID})
 	first := errors.Is(err, pgx.ErrNoRows) || (err == nil && prev.AssignmentEpoch != c.Epoch)
 
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return false, false, fmt.Errorf("read result: %w", err)
+		return false, false, time.Time{}, fmt.Errorf("read result: %w", err)
 	}
 
 	generation, lastChanged := prev.EvalGeneration, prev.LastChangedAt
@@ -149,14 +171,14 @@ func (s *ControlsStore) recordControl(
 		IntentRevision: intentRevision(c, generation, fence.EffectiveMode), EvalGeneration: generation,
 		EvaluatedSha: c.EvaluatedSHA, LastChangedAt: lastChanged,
 	}); err != nil {
-		return false, false, fmt.Errorf("upsert result: %w", err)
+		return false, false, time.Time{}, fmt.Errorf("upsert result: %w", err)
 	}
 
 	if err := s.recordRules(ctx, q, repoID, c, generation, changed, priorStatus); err != nil {
-		return false, false, err
+		return false, false, time.Time{}, err
 	}
 
-	return true, changed, nil
+	return true, changed, prev.EvaluatedAt, nil
 }
 
 // fenced reads and share-locks the control's assignment, reporting

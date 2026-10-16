@@ -10,10 +10,12 @@ import (
 	"time"
 
 	gh "github.com/google/go-github/v68/github"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 
 	"github.com/donaldgifford/repo-guardian/internal/control"
 	"github.com/donaldgifford/repo-guardian/internal/control/controltest"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/workflows"
@@ -403,5 +405,42 @@ func TestParkRepository_ParksWithTheReason(t *testing.T) {
 	if len(rec.records) != 1 || rec.records[0].Message != "parking repository until discovery sees it again" ||
 		rec.records[0].Level != slog.LevelError {
 		t.Errorf("log records = %+v, want CheckRepo's park line at error level", rec.records)
+	}
+}
+
+// TestEvaluate_CountsOutcomesAndControlErrors pins IMPL-0029 task 6.1's
+// producers: evaluations_total{org, outcome} per attempt, and
+// evaluation_errors_total{org, control} for a control ending in error.
+func TestEvaluate_CountsOutcomesAndControlErrors(t *testing.T) {
+	t.Parallel()
+
+	const org = "metrics-acme"
+
+	f := newEvalFixture(t)
+	f.st.target.Org = org
+	f.repo.files.Errors["file:.github/CODEOWNERS"] = errors.New("boom")
+
+	evaluated := metrics.EvaluationsTotal.WithLabelValues(org, evalOutcomeEvaluated)
+	errored := metrics.EvaluationErrorsTotal.WithLabelValues(org, "codeowners")
+	beforeEvaluated, beforeErrored := testutil.ToFloat64(evaluated), testutil.ToFloat64(errored)
+
+	f.evaluate(t, &workflows.EvaluateInput{All: true, Scheduled: true})
+
+	if got := testutil.ToFloat64(evaluated) - beforeEvaluated; got != 1 {
+		t.Errorf("evaluations_total{outcome=evaluated} moved by %v, want 1", got)
+	}
+
+	if got := testutil.ToFloat64(errored) - beforeErrored; got != 1 {
+		t.Errorf("evaluation_errors_total{control=codeowners} moved by %v, want 1", got)
+	}
+
+	skipped := metrics.EvaluationsTotal.WithLabelValues(org, evalOutcomeSkipped)
+	beforeSkipped := testutil.ToFloat64(skipped)
+	f.st.target.PolicyState = policy.StateExcluded
+
+	f.evaluate(t, &workflows.EvaluateInput{All: true, Scheduled: true})
+
+	if got := testutil.ToFloat64(skipped) - beforeSkipped; got != 1 {
+		t.Errorf("evaluations_total{outcome=skipped} moved by %v, want 1", got)
 	}
 }

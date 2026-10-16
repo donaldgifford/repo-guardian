@@ -14,6 +14,7 @@ import (
 
 	"github.com/donaldgifford/repo-guardian/internal/control"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/template"
@@ -83,6 +84,38 @@ func (e *Evaluator) Evaluate(ctx context.Context, in *workflows.EvaluateInput) (
 		return nil, fmt.Errorf("evaluate repository %d: %w", in.RepositoryID, err)
 	}
 
+	res, err := e.evaluate(ctx, in, t)
+	countEvaluation(t.Org, res, err)
+
+	return res, err
+}
+
+// countEvaluation counts one Evaluate attempt in evaluations_total. A
+// deferral is not an evaluation; a parked repository is a skip.
+func countEvaluation(org string, res *workflows.EvaluateResult, err error) {
+	outcome := evalOutcomeError
+
+	switch {
+	case err != nil:
+	case res.Kind == workflows.CheckChecked:
+		outcome = evalOutcomeEvaluated
+	case res.Kind == workflows.CheckDeferred:
+		return
+	default:
+		outcome = evalOutcomeSkipped
+	}
+
+	metrics.EvaluationsTotal.WithLabelValues(org, outcome).Inc()
+}
+
+// The evaluations_total outcomes (DESIGN-0032 § Metrics).
+const (
+	evalOutcomeEvaluated = "evaluated"
+	evalOutcomeError     = "error"
+	evalOutcomeSkipped   = "skipped"
+)
+
+func (e *Evaluator) evaluate(ctx context.Context, in *workflows.EvaluateInput, t *store.EvaluationTarget) (*workflows.EvaluateResult, error) {
 	// Already parked: the loop ends and discovery starts it again.
 	if !t.Active {
 		return &workflows.EvaluateResult{Kind: workflows.CheckParked}, nil
@@ -171,6 +204,8 @@ func (e *Evaluator) run(
 				return classifyEval(log, in, thr)
 			}
 
+			metrics.EvaluationErrorsTotal.WithLabelValues(t.Org, selected[i].assigned.ControlID).Inc()
+
 			return nil, err
 		}
 
@@ -186,7 +221,24 @@ func (e *Evaluator) run(
 
 	out.Controls = len(out.staged)
 
+	for i := range out.staged {
+		if hasErrorRule(&out.staged[i]) {
+			metrics.EvaluationErrorsTotal.WithLabelValues(t.Org, out.staged[i].ControlID).Inc()
+		}
+	}
+
 	return out, nil
+}
+
+// hasErrorRule reports whether any rule of ce ended in an error status.
+func hasErrorRule(ce *store.ControlEvaluation) bool {
+	for i := range ce.Rules {
+		if ce.Rules[i].Status == string(control.Error) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // classifyEval turns a GitHub error into Deferred or Parked, or returns

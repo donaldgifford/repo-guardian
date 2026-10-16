@@ -1232,7 +1232,7 @@ evaluator's store.
 
 #### Tasks
 
-- [ ] 6.1 Metrics in `internal/metrics/metrics.go`: `evaluations_total{org,
+- [x] 6.1 Metrics in `internal/metrics/metrics.go`: `evaluations_total{org,
   outcome}`, `evaluation_errors_total{org, control}`,
   `evaluation_changes_total{org, control}`, `results_discarded_total{org,
   reason}`, `evaluation_freshness_seconds{org}` (histogram of the
@@ -1240,6 +1240,20 @@ evaluator's store.
   the gauges `controls_status{org, control, bucket}` and
   `controls_coverage{org, control}`; producers wired in 5.3 and 5.4.
   `installation_info` gains `app`. No metric carries a repository label.
+  Done: the seven series in `metrics.go` (`TestMetricNames_ExactSet`
+  updated). `Evaluate` counts `evaluations_total` per attempt (deferred is
+  not counted, parked is `skipped`) and `evaluation_errors_total` for a
+  control returning an error or ending with an error rule
+  (`TestEvaluate_CountsOutcomesAndControlErrors`). `RecordEvaluation`
+  counts `evaluation_changes_total` per generation move and observes
+  `evaluation_freshness_seconds` from the previous `evaluated_at`
+  (`LockResult` reads it), both after commit
+  (`TestControlsStore_ChangeDetection`). `store_pool_wait_seconds{role}`
+  comes from `observability.InstrumentPostgresConfig(cfg, role)`, whose
+  tracer wraps otelpgx and is the pool's `AcquireTracer`, wired into the
+  controls workers' pools. `controls_status`/`controls_coverage` are
+  published by 6.3's exporter; `installation_info` already carries `app`
+  (IMPL-0028 3.6).
 - [ ] 6.2 `repo_guardian_deployment_info{topology, version}`, constant 1,
   set once at startup from the role configuration.
 - [ ] 6.3 Posture exporter (OQ8) over 4.7's query: read before reset; on

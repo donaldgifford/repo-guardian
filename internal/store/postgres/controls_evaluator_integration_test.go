@@ -10,8 +10,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
+	dto "github.com/prometheus/client_model/go"
 
 	"github.com/donaldgifford/repo-guardian/internal/control"
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres"
@@ -541,6 +545,18 @@ func TestControlsStore_RoutingReads(t *testing.T) {
 // as rg_evaluator: the first evaluation and each fingerprint change bump
 // the generation, a repeat does not, and a control an evaluation did not
 // select keeps its evaluated_sha.
+// freshnessSamples reads evaluation_freshness_seconds{org=acme}'s count.
+func freshnessSamples(t *testing.T) uint64 {
+	t.Helper()
+
+	var m dto.Metric
+	if err := metrics.EvaluationFreshnessSeconds.WithLabelValues("acme").(prometheus.Metric).Write(&m); err != nil {
+		t.Fatal(err)
+	}
+
+	return m.GetHistogram().GetSampleCount()
+}
+
 func TestControlsStore_ChangeDetection(t *testing.T) {
 	s, dsns := evaluatorStore(t)
 	ctx := t.Context()
@@ -571,6 +587,9 @@ func TestControlsStore_ChangeDetection(t *testing.T) {
 		{key: "k3", controls: []store.ControlEvaluation{evaluation("codeowners", epoch, "f2", "sha3")}, want: []string{"codeowners"}},
 	}
 
+	changes := metrics.EvaluationChangesTotal.WithLabelValues("acme", "codeowners")
+	beforeChanges, beforeFresh := testutil.ToFloat64(changes), freshnessSamples(t)
+
 	for _, st := range steps {
 		if err := s.StageEvaluation(ctx, &store.EvaluationStage{
 			CheckKey: st.key, RepositoryID: repo.ID, Trigger: "push", PolicyVersion: testPolicyVersion, StartedAt: time.Now(), Controls: st.controls,
@@ -582,6 +601,16 @@ func TestControlsStore_ChangeDetection(t *testing.T) {
 		if got := slices.Sorted(slices.Values(out.Changed)); err != nil || !slices.Equal(got, st.want) {
 			t.Errorf("record %s changed %v, %v; want %v", st.key, got, err, st.want)
 		}
+	}
+
+	// codeowners moved at k1 (first of its epoch) and k3; it was
+	// re-evaluated, with a previous evaluated_at, at k2 and k3.
+	if got := testutil.ToFloat64(changes) - beforeChanges; got != 2 {
+		t.Errorf("evaluation_changes_total{control=codeowners} moved by %v, want 2", got)
+	}
+
+	if got := freshnessSamples(t) - beforeFresh; got != 2 {
+		t.Errorf("evaluation_freshness_seconds samples moved by %d, want 2", got)
 	}
 
 	var codeownersSHA, renovateSHA string

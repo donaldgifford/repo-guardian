@@ -23,7 +23,7 @@ WHERE repository_id = @repository_id AND control_id = @control_id
 FOR SHARE;
 
 -- name: LockResult :one
-SELECT assignment_epoch, status, fingerprint, eval_generation, last_changed_at FROM control_results
+SELECT assignment_epoch, status, fingerprint, eval_generation, last_changed_at, evaluated_at FROM control_results
 WHERE repository_id = @repository_id AND control_id = @control_id
 FOR UPDATE;
 

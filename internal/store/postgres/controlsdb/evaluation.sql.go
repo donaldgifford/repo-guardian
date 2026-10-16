@@ -172,7 +172,7 @@ func (q *Queries) LockCheck(ctx context.Context, checkKey string) (LockCheckRow,
 }
 
 const lockResult = `-- name: LockResult :one
-SELECT assignment_epoch, status, fingerprint, eval_generation, last_changed_at FROM control_results
+SELECT assignment_epoch, status, fingerprint, eval_generation, last_changed_at, evaluated_at FROM control_results
 WHERE repository_id = $1 AND control_id = $2
 FOR UPDATE
 `
@@ -188,6 +188,7 @@ type LockResultRow struct {
 	Fingerprint     string
 	EvalGeneration  int64
 	LastChangedAt   time.Time
+	EvaluatedAt     time.Time
 }
 
 func (q *Queries) LockResult(ctx context.Context, arg LockResultParams) (LockResultRow, error) {
@@ -199,6 +200,7 @@ func (q *Queries) LockResult(ctx context.Context, arg LockResultParams) (LockRes
 		&i.Fingerprint,
 		&i.EvalGeneration,
 		&i.LastChangedAt,
+		&i.EvaluatedAt,
 	)
 	return i, err
 }

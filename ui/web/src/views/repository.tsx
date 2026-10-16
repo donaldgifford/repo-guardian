@@ -25,8 +25,12 @@ function Remediation({ finding }: { finding: Schemas["Finding"] }) {
   return (
     <div className="space-y-0.5">
       {finding.remediation !== "none" ? <div className="text-muted-foreground">{humanize(finding.remediation)}</div> : null}
-      {label ? href ? <ExternalLink href={href}>{label}</ExternalLink> : <span>{label}</span> : null}
-      {finding.pr_stale ? <Badge tone="warn">stale</Badge> : null}
+      {label || finding.pr_stale ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {label ? href ? <ExternalLink href={href}>{label}</ExternalLink> : <span>{label}</span> : null}
+          {finding.pr_stale ? <Badge tone="warn">stale</Badge> : null}
+        </div>
+      ) : null}
     </div>
   );
 }

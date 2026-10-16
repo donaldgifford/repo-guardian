@@ -666,14 +666,16 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
 
 #### Tasks
 
-- [ ] 8.1 Merge the PR into `v2`, cut `v2.0.0-rc.N` by hand and
+- [x] 8.1 Merge the PR into `v2`, cut `v2.0.0-rc.N` by hand and
   dispatch `ghcr.yml` with the tag so `repo-guardian-ui` is published
-  (CLAUDE.md §The v2 branch). — *deferred: human required*
-- [ ] 8.2 Deploy the rc to the homelab dev install with `ui.docsUrl`
+  (CLAUDE.md §The v2 branch). — *done 2026-10-16: #214 merged; `v2.0.0-rc.9` cut (#215)
+  and published, then `v2.0.0-rc.10` (#217) with the fix from 8.2.*
+- [x] 8.2 Deploy the rc to the homelab dev install with `ui.docsUrl`
   set; walk every nav entry, the palette, the drawer deep link, the
   time zone toggle and the status page against the mockup; file any
-  divergence as a follow-up task on this doc. — *deferred: human
-  required*
+  divergence as a follow-up task on this doc. — *done 2026-10-16: reviewed on rc.9; one divergence, the
+  Repository page's `stale` badge flush against its PR link, fixed in
+  #216 and confirmed on rc.10.*
 - [ ] 8.3 Confirm the Keycloak group split still shows different orgs
   in the org scope popover and the Orgs grid. — *deferred: human
   required*

@@ -185,7 +185,7 @@ func TestE2_DeclaredOrgsDeclareNoVariable(t *testing.T) {
 
 // TestE2_OmitsFleetScopedInfrastructure pins the E2/E3 split.
 //
-// Queue, store and scheduler series are fleet-scoped. Repeated under a
+// Store, Temporal and budget series are fleet-scoped. Repeated under a
 // per-org heading they would show the same number in every row and
 // invite someone to read it as that org's share.
 func TestE2_OmitsFleetScopedInfrastructure(t *testing.T) {
@@ -199,10 +199,10 @@ func TestE2_OmitsFleetScopedInfrastructure(t *testing.T) {
 	}
 
 	for _, series := range []string{
-		"repo_guardian_queue_depth",
-		"repo_guardian_queue_delayed_depth",
 		"repo_guardian_store_query_seconds",
-		"repo_guardian_scheduler_is_leader",
+		"repo_guardian_store_pool_wait_seconds",
+		"repo_guardian_budget_acquire_total",
+		"temporal_worker_task_slots_available",
 	} {
 		if strings.Contains(string(raw), series) {
 			t.Errorf("E2 charts %s, which is fleet-scoped and belongs on E3", series)

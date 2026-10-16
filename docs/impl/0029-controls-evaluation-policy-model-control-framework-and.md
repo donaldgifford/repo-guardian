@@ -1284,7 +1284,7 @@ evaluator's store.
   with the built-in registry); no config = `Derive(nil, …)`, the static
   tier. Tests: `internal/monitoring/derive_test.go` (depguard lets
   monitoring tests import `controls/builtin`). Regeneration lands in 6.8.
-- [ ] 6.5 Dashboards (IMPL-0025 17.1, adapted): E1 and E2 rebuilt over
+- [x] 6.5 Dashboards (IMPL-0025 17.1, adapted): E1 and E2 rebuilt over
   `controls_status` and `controls_coverage` with `max by` inside and
   `sum` outside, and the "no data when nothing is assigned" guard; E3
   rebuilt around otelhttp, otelpgx, the Temporal SDK series,
@@ -1293,6 +1293,22 @@ evaluator's store.
   `internal/activities` and `internal/workflows`, with
   `TestLogLines_AreStillEmittedByTheBinary` passing and
   `TestSuite_PostureQueriesDedupeAcrossReplicas` re-pointed.
+  Done: E1 over `controls_status`/`controls_coverage` (fleet compliance,
+  assignments, unmeasurable, compliance by control, failing per control,
+  assignments by status) with `max by (org, control[, bucket])` inside and
+  `sum` outside; `compliance()` filters the denominator `> 0` and guards
+  `and on (...) (coverage > 0)`, so nothing assigned reads "no data". E1
+  service health is evaluation error rate, freshness p95, budget remaining
+  and budget waits. E2 rows per declared org (compliance by control, buckets
+  table, evaluation errors/changes) with the org variable on
+  `controls_coverage`. E3 rows: HTTP, Temporal SDK, Evaluation (outcomes,
+  errors by control, changes + stale-epoch discards, freshness), Budget and
+  discovery, Store (query, pool wait by role, pgxpool), API, Runtime. E4
+  keeps Errors and matches five activities/workflows lines (park, deferred
+  and failed evaluations, awaiting re-resolution, partial discovery);
+  `TestLogLines_AreStillEmittedByTheBinary` now walks only those two trees,
+  and `TestSuite_PostureQueriesDedupeAcrossReplicas` requires every posture
+  gauge occurrence to sit directly inside a `max by`.
 - [ ] 6.6 Alert catalogue (IMPL-0025 17.2, adapted): apply IMPL-0025's
   audit lists, drop alerts on metrics the switch-over deletes, add
   evaluation alerts (errors by control, stale-epoch discards, freshness).

@@ -38,6 +38,8 @@ func e3Targets(t *testing.T) []panelTarget {
 //     `pool_name` with `db_system="redis"` (the protocol, not the
 //     server; repo-guardian runs Valkey).
 //   - otelhttp's histograms are `http_{server,client}_request_duration_seconds`.
+//   - the Temporal SDK series are the names the alert catalogue charts;
+//     IMPL-0029 task 6.6 checks them against a live scrape.
 //
 // A panel built from the spec instead renders empty, and an empty panel
 // on a system dashboard reads as a quiet, healthy service.
@@ -51,6 +53,10 @@ var verifiedForeignSeries = []string{
 	"pgxpool_empty_acquire_wait_time_nanoseconds_total",
 	"go_goroutines",
 	"process_resident_memory_bytes",
+	"temporal_activity_schedule_to_start_latency_seconds",
+	"temporal_workflow_task_schedule_to_start_latency_seconds",
+	"temporal_worker_task_slots_available",
+	"temporal_sticky_cache_total_forced_eviction",
 }
 
 // seriesPattern matches a metric name in an expression.
@@ -110,9 +116,8 @@ func TestE3_CarriesNoComplianceSeries(t *testing.T) {
 
 	for _, tgt := range e3Targets(t) {
 		for _, business := range []string{
-			"repo_guardian_repos_tracked",
-			"repo_guardian_repos_actionable",
-			"repo_guardian_files_missing_total",
+			"repo_guardian_controls_status",
+			"repo_guardian_controls_coverage",
 			"repo_guardian_prs_created_total",
 		} {
 			if strings.Contains(tgt.Expr, business) {

@@ -12,8 +12,8 @@ const orgVar = "$org"
 
 // e2Detail builds the per-org detail dashboard.
 //
-// Business and service signals sliced by org. Queue, store and
-// scheduler metrics are deliberately absent: they are fleet-scoped, so
+// Business and service signals sliced by org. Store, Temporal and
+// budget-wait metrics are deliberately absent: they are fleet-scoped, so
 // a per-org row of them would repeat the same number under every
 // heading and invite someone to read it as that org's share. They live
 // on E3.
@@ -72,21 +72,18 @@ func declarableOrgs(m *monitoring.Model) []string {
 func withFleetSection(b *Builder, ds Datasources) *Builder {
 	return b.
 		WithRow(Row("Fleet")).
-		WithPanel(TimeSeries(ds, "Repositories tracked by org",
-			"Active repositories per organisation. A line that drops to zero is an org that "+
-				"stopped reporting — which is the signal a declared row exists to preserve.",
-			unitShort, Query{
-				Expr:   `max by (org) (repo_guardian_repos_tracked)`,
-				Legend: "{{ org }}",
-			})).
-		WithPanel(TimeSeries(ds, "Repositories failing each rule",
-			"Fleet totals per rule, summed across orgs after the per-replica max.",
-			unitShort, Query{Expr: actionableByRule, Legend: legendRuleName})).
+		WithPanel(TimeSeries(ds, "Compliance by org",
+			"Each organisation's compliant share across its control assignments. An org drops "+
+				"out rather than reading 100% when it measures nothing.",
+			unitPercent, Query{Expr: compliance("org", ""), Legend: legendOrg})).
+		WithPanel(TimeSeries(ds, "Control assignments by org",
+			"Assignments per organisation. A line that drops to zero is an org that stopped "+
+				"being measured — which is the signal a declared row exists to preserve.",
+			unitShort, Query{Expr: `sum by (org) (` + coverage("") + `)`, Legend: legendOrg})).
 		WithPanel(TimeSeries(ds, "Repositories parked in the last 24h",
 			"Why repositories left the measurable fleet. This is the denominator context for "+
-				"every compliance number above: a fleet whose tracked count drops needs the "+
-				"archived and fork series beside it to tell 'repositories left the fleet' from "+
-				"'the exporter broke'. A rising access_denied share is the one to act on.",
+				"every compliance number above: archived and fork parks are routine, a rising "+
+				"access_denied share is the one to act on.",
 			unitShort, Query{
 				Expr:   `sum by (reason) (increase(repo_guardian_repos_parked_total[24h]))`,
 				Legend: "{{ reason }}",
@@ -101,9 +98,12 @@ func withFleetSection(b *Builder, ds Datasources) *Builder {
   repo_guardian_rate_limit_remaining
   * on (installation_id) group_left(org) repo_guardian_installation_info
 )`,
-				Legend: "{{ org }}",
+				Legend: legendOrg,
 			}))
 }
+
+// legendOrg labels a series by organisation.
+const legendOrg = "{{ org }}"
 
 // withOrgSection adds one organisation's row.
 //
@@ -115,47 +115,30 @@ func withOrgSection(b *Builder, ds Datasources, org, title string) *Builder {
 
 	return b.
 		WithRow(Row(title)).
-		WithPanel(Stat(ds, "Repositories tracked",
-			"Active repositories in this organisation. Reads 'no data' if the org has stopped "+
-				"reporting entirely, which is a different condition from zero repositories.",
-			unitShort, Query{Expr: `max by (org) (repo_guardian_repos_tracked` + sel + `)`})).
-		WithPanel(TimeSeries(ds, "Compliance by rule",
-			"Share of this organisation's tracked repositories satisfying each rule. Undefined, "+
-				"and therefore blank, when the org tracks nothing — an unmeasured rule is not a "+
+		WithPanel(Stat(ds, "Control assignments",
+			"Assignments in this organisation. Reads 'no data' if the org has stopped being "+
+				"measured entirely, which is a different condition from zero assignments.",
+			unitShort, Query{Expr: `sum(` + coverage(org) + `)`})).
+		WithPanel(TimeSeries(ds, "Compliance by control",
+			"Share of this organisation's measured repositories passing each control. Blank "+
+				"for a control that measures nothing here — an unmeasured control is not a "+
 				"compliant one.",
-			unitPercent, Query{Expr: orgCompliance(sel), Legend: legendRuleName})).
-		WithPanel(Table(ds, "Repositories failing each rule",
-			"Current non-compliant count per rule for this organisation. State read back from "+
-				"the store, not a rate over check events.",
-			Query{Expr: `max by (rule_name) (repo_guardian_repos_actionable` + sel + `)`})).
-		WithPanel(TimeSeries(ds, "Rules skipped for scope or ignore",
-			"Rules that never ran against this organisation's repositories. A rule skipped "+
-				"everywhere is a rule that is not protecting anything, and it looks identical "+
-				"to a rule that is passing.",
+			unitPercent, Query{Expr: compliance("control", org), Legend: legendControl})).
+		WithPanel(Table(ds, "Assignments by control and status",
+			"Current bucket counts per control for this organisation. State read back from "+
+				"the store, not a rate over evaluation events.",
+			Query{Expr: `max by (control, bucket) (` + seriesStatus + sel + `)`})).
+		WithPanel(TimeSeries(ds, "Evaluation errors and changes",
+			"Control evaluations that ended in an error, and recorded results whose evidence "+
+				"moved, over a day. Every control of the org erroring at once is a permission "+
+				"problem, not a repository problem.",
 			unitShort,
 			Query{
-				Expr:   `sum by (level) (increase(repo_guardian_out_of_scope_total` + sel + `[24h]))`,
-				Legend: "out of scope ({{ level }})",
+				Expr:   `sum by (control) (increase(repo_guardian_evaluation_errors_total` + sel + `[24h]))`,
+				Legend: "errors ({{ control }})",
 			},
 			Query{
-				Expr:   `sum by (scope) (increase(repo_guardian_ignored_total` + sel + `[24h]))`,
-				Legend: "ignored ({{ scope }})",
+				Expr:   `sum by (control) (increase(repo_guardian_evaluation_changes_total` + sel + `[24h]))`,
+				Legend: "changes ({{ control }})",
 			}))
-}
-
-// orgCompliance is complianceByRule narrowed to one org.
-//
-// The `and on() (... > 0)` guard is carried over deliberately: without
-// it an org with nothing tracked divides by zero and the panel reports
-// a confident number for a fleet it has not measured.
-func orgCompliance(sel string) string {
-	tracked := `max by (org) (repo_guardian_repos_tracked` + sel + `)`
-
-	return `(
-  1 - (
-    max by (rule_name) (repo_guardian_repos_actionable` + sel + `)
-    / scalar(` + tracked + `)
-  )
-)
-and on() (` + tracked + ` > 0)`
 }

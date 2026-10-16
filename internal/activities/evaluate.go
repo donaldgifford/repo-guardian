@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -144,6 +145,12 @@ func (e *Evaluator) evaluate(ctx context.Context, in *workflows.EvaluateInput, t
 
 	if out != nil {
 		out.Calls, out.Rate = usage.Calls(), toRate(usage.Rate())
+	}
+
+	// The evaluator is rate_limit_remaining's producer once the rc
+	// CheckRepo is gone; RateLimitNearExhaustion reads nothing else.
+	if out != nil && out.Rate != nil {
+		metrics.RateLimitRemaining.WithLabelValues(strconv.FormatInt(t.InstallationID, 10)).Set(float64(out.Rate.Remaining))
 	}
 
 	if err != nil {

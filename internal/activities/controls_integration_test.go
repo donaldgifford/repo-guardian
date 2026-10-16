@@ -10,17 +10,20 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
 
 	"github.com/donaldgifford/repo-guardian/internal/activities"
 	"github.com/donaldgifford/repo-guardian/internal/controls/builtin"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres"
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres/pgtest"
@@ -59,6 +62,10 @@ func controlsGitHub(t *testing.T, lost *atomic.Bool) http.Handler {
 			return
 		}
 
+		w.Header().Set("X-RateLimit-Limit", "5000")
+		w.Header().Set("X-RateLimit-Remaining", "4321")
+		w.Header().Set("X-RateLimit-Reset", strconv.FormatInt(time.Now().Add(time.Hour).Unix(), 10))
+		w.Header().Set("X-RateLimit-Resource", "core")
 		fmt.Fprintf(w, `{"id":%d,"name":"widgets","full_name":"acme/widgets","owner":{"login":"acme"},"default_branch":"main"}`, widgetsProviderID)
 	})
 	mux.HandleFunc("GET /api/v3/repos/acme/widgets/git/ref/heads/main", func(w http.ResponseWriter, _ *http.Request) {
@@ -229,6 +236,12 @@ func TestIntegration_OneEvaluation(t *testing.T) {
 
 	if status != "non_compliant" || sha != "0123456789abcdef0123456789abcdef01234567" {
 		t.Errorf("codeowners result = %s at %s, want non_compliant at the pinned head", status, sha)
+	}
+
+	// The evaluator feeds rate_limit_remaining, which
+	// RepoGuardianRateLimitNearExhaustion reads.
+	if got := testutil.ToFloat64(metrics.RateLimitRemaining.WithLabelValues(strconv.FormatInt(installationID, 10))); got != 4321 {
+		t.Errorf("rate_limit_remaining = %v, want the 4321 the fixture reported", got)
 	}
 
 	lost.Store(true)

@@ -13,39 +13,23 @@ func TestWorkerConfigFromEnv(t *testing.T) {
 	cfg := &Config{TaskQueue: DefaultTaskQueue}
 
 	t.Run("defaults", func(t *testing.T) {
-		wc, err := WorkerConfigFromEnv(cfg)
-		if err != nil {
-			t.Fatalf("WorkerConfigFromEnv: %v", err)
-		}
-
+		wc := WorkerConfigFromEnv(cfg)
 		if wc.ActivityConcurrency != DefaultActivityConcurrency || wc.TaskQueue != DefaultTaskQueue || wc.BuildID == "" {
 			t.Errorf("config = %+v", wc)
 		}
 	})
 
-	t.Run("overrides", func(t *testing.T) {
+	// WORKER_ACTIVITY_CONCURRENCY was the rc worker's knob; the controls
+	// roles are sized by EVALUATOR_/REMEDIATOR_CONCURRENCY (IMPL-0029 7.8).
+	t.Run("build id override, rc concurrency ignored", func(t *testing.T) {
 		t.Setenv("WORKER_ACTIVITY_CONCURRENCY", "25")
 		t.Setenv("TEMPORAL_BUILD_ID", "v2.0.0-rc.1")
 
-		wc, err := WorkerConfigFromEnv(cfg)
-		if err != nil {
-			t.Fatalf("WorkerConfigFromEnv: %v", err)
-		}
-
-		if wc.ActivityConcurrency != 25 || wc.BuildID != "v2.0.0-rc.1" {
+		wc := WorkerConfigFromEnv(cfg)
+		if wc.ActivityConcurrency != DefaultActivityConcurrency || wc.BuildID != "v2.0.0-rc.1" {
 			t.Errorf("config = %+v", wc)
 		}
 	})
-
-	for _, bad := range []string{"0", "-1", "ten"} {
-		t.Run("rejects "+bad, func(t *testing.T) {
-			t.Setenv("WORKER_ACTIVITY_CONCURRENCY", bad)
-
-			if _, err := WorkerConfigFromEnv(cfg); err == nil {
-				t.Error("want an error")
-			}
-		})
-	}
 }
 
 func TestBuildIDFrom(t *testing.T) {

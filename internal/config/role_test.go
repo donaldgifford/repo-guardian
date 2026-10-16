@@ -37,8 +37,7 @@ func TestLoadRole_Ingest(t *testing.T) {
 	})
 
 	for _, tt := range []struct{ env, want string }{
-		{"GITHUB_PRIVATE_KEY", "App key"},
-		{"GITHUB_PRIVATE_KEY_PATH", "App key"},
+		{"EVAL_GITHUB_PRIVATE_KEY_PATH", "App key"},
 		{"STORE_DSN", "database credentials"},
 	} {
 		t.Run("refuses "+tt.env, func(t *testing.T) {
@@ -80,8 +79,8 @@ func TestLoadV2Durations(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if cfg.CheckInterval != 24*time.Hour || cfg.PolicyRolloutWindow != 24*time.Hour || cfg.ChecksRetention != 2160*time.Hour {
-		t.Errorf("defaults = %v %v %v", cfg.CheckInterval, cfg.PolicyRolloutWindow, cfg.ChecksRetention)
+	if cfg.EvalInterval != 24*time.Hour || cfg.PolicyRolloutWindow != 24*time.Hour || cfg.ChecksRetention != 2160*time.Hour {
+		t.Errorf("defaults = %v %v %v", cfg.EvalInterval, cfg.PolicyRolloutWindow, cfg.ChecksRetention)
 	}
 
 	t.Setenv("CHECKS_RETENTION", "0s")
@@ -122,17 +121,6 @@ func TestLoadRole_API(t *testing.T) {
 
 			if _, err := LoadRole(RoleAPI); err == nil || !strings.Contains(err.Error(), env) {
 				t.Errorf("LoadRole(api) without %s = %v", env, err)
-			}
-		})
-	}
-
-	for _, stale := range []string{"30m", "8761h"} {
-		t.Run("rejects PR_STALE_AFTER="+stale, func(t *testing.T) {
-			setAPIEnv(t)
-			t.Setenv("PR_STALE_AFTER", stale)
-
-			if _, err := LoadRole(RoleAPI); err == nil || !strings.Contains(err.Error(), "PR_STALE_AFTER") {
-				t.Errorf("LoadRole(api) with PR_STALE_AFTER=%s = %v", stale, err)
 			}
 		})
 	}

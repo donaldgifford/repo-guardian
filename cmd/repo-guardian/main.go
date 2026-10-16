@@ -203,15 +203,18 @@ func handleHealthz(w http.ResponseWriter, _ *http.Request) {
 
 // Runbooks a removed env var's warning points at.
 const (
-	runbookIngress = "docs/operations/ingress.md"
-	runbookV2      = "docs/operations/v2-migration.md#environment-variables"
+	runbookIngress  = "docs/operations/ingress.md"
+	runbookV2       = "docs/operations/v2-migration.md#environment-variables"
+	runbookControls = "docs/operations/v2-migration.md#controls-environment-variables"
 )
 
 // removedEnvVars are configuration knobs the binary no longer reads,
 // each with the runbook that says what replaced it. The IMPL-0024 trio
 // went with the webhook IP-allowlist middleware (source-IP enforcement
-// moved to the operator's edge, DESIGN-0023); the rest went with the v1
-// runtime (IMPL-0028 Phase 1), which Temporal replaced. The binary
+// moved to the operator's edge, DESIGN-0023); the v1 runtime's went
+// with IMPL-0028 Phase 1, which Temporal replaced; the rule engine's and
+// the single-App worker's went with the controls switch-over (IMPL-0029
+// 7.8). The binary
 // ignores every one of them; the warning is a migration breadcrumb, not
 // behavior. Remove the check in a future major.
 var removedEnvVars = []struct{ name, runbook string }{
@@ -231,6 +234,22 @@ var removedEnvVars = []struct{ name, runbook string }{
 	{"WORKER_COUNT", runbookV2},
 	{"QUEUE_SIZE", runbookV2},
 	{"SCHEDULE_INTERVAL", runbookV2},
+	{"GITHUB_APP_ID", runbookControls},
+	{"GITHUB_PRIVATE_KEY_PATH", runbookControls},
+	{"GITHUB_PRIVATE_KEY", runbookControls},
+	{"GITHUB_WEBHOOK_SECRET", runbookControls},
+	{"CHECK_INTERVAL", runbookControls},
+	{"WORKER_ACTIVITY_CONCURRENCY", runbookControls},
+	{"STORE_POSTGRES_MAX_CONNS", runbookControls},
+	{"TEMPLATE_DIR", runbookControls},
+	{"SKIP_FORKS", runbookControls},
+	{"SKIP_ARCHIVED", runbookControls},
+	{"DRY_RUN", runbookControls},
+	{"AUTO_CLOSE_PR", runbookControls},
+	{"ORPHAN_CLEANUP", runbookControls},
+	{"STRICT_TEMPLATES", runbookControls},
+	{"RECONCILE_FRESHNESS", runbookControls},
+	{"PR_STALE_AFTER", runbookControls},
 }
 
 // warnRemovedEnvVars logs once per runbook at startup when removed knobs

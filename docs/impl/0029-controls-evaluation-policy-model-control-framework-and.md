@@ -1687,13 +1687,34 @@ half-switched binary.
   `status.png` was not re-rendered: the visual spec runs only in the
   pinned image (`make test-ui-e2e-update-snapshots`) and the seed changed,
   so it needs a refresh there.
-- [ ] 7.8 Configuration: `GUARDIAN_CONFIG` names the policy directory;
+- [x] 7.8 Configuration: `GUARDIAN_CONFIG` names the policy directory;
   `EVAL_INTERVAL` replaces `CHECK_INTERVAL`; audit every env var in
   `_helpers.tpl`'s list that only the rule engine read (at least
   `DRY_RUN`, `SKIP_FORKS`, `SKIP_ARCHIVED`, `AUTO_CLOSE_PR`,
   `ORPHAN_CLEANUP`, `TEMPLATE_DIR`, `RECONCILE_FRESHNESS`,
   `PR_STALE_AFTER`) and give each a fate in this task: kept, renamed, or
   removed with IMPL-0028's warn-and-ignore pattern.
+  Done. Fates:
+  - **Kept:** `GUARDIAN_CONFIG`, which now names the policy directory (doc
+    comment; the evaluator and ingest already `policy.Load` it).
+  - **Renamed:** `CHECK_INTERVAL` → `EVAL_INTERVAL` (`Config.EvalInterval`).
+  - **Removed** (field and parse dropped, added to `removedEnvVars` under a
+    new `runbookControls` anchor):
+    - `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY_PATH`, `GITHUB_PRIVATE_KEY` and
+      `GITHUB_WEBHOOK_SECRET`. Ingest's refusal of the rc key went with
+      them; it still refuses `EVAL_`/`REMEDIATE_` keys.
+    - `TEMPLATE_DIR`, `SKIP_FORKS`, `SKIP_ARCHIVED` and `DRY_RUN`.
+    - `AUTO_CLOSE_PR`, `ORPHAN_CLEANUP`, `STRICT_TEMPLATES`,
+      `RECONCILE_FRESHNESS` and `PR_STALE_AFTER` (with its 1h–8760h
+      validation).
+    - `STORE_POSTGRES_MAX_CONNS` (replaced by `*_DB_POOL_SIZE`).
+    - `WORKER_ACTIVITY_CONCURRENCY` (replaced by `*_CONCURRENCY`).
+      `temporal.WorkerConfigFromEnv` now reads only `TEMPORAL_BUILD_ID`
+      and returns no error.
+  The fates table is the new `docs/operations/v2-migration.md#controls-environment-variables`.
+  `TestLoadRole_IgnoresRemovedVars` sets each removed var to an
+  unparseable value. The chart still emits several of these until 7.9, so
+  they only warn.
 - [ ] 7.9 Chart (OQ11): `policy.files` renders the policy directory into
   one ConfigMap mounted at `GUARDIAN_CONFIG` on the ingest and evaluator
   roles (ingest needs `WatchedPaths()`); `policy.existingConfigMap` stays;

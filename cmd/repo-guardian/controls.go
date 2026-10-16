@@ -91,13 +91,7 @@ func startControlsWorker(
 		return nil, nil, fmt.Errorf("%s: %w", half.name, err)
 	}
 
-	wc, err := temporal.WorkerConfigFromEnv(tcfg)
-	if err != nil {
-		pool.Close()
-
-		return nil, nil, err
-	}
-
+	wc := temporal.WorkerConfigFromEnv(tcfg)
 	wc.TaskQueue = half.taskQueue
 	if half.sizing.Concurrency > 0 {
 		wc.ActivityConcurrency = half.sizing.Concurrency
@@ -185,11 +179,11 @@ func registerEvaluation(
 	queue := tcfg.EvalTaskQueue
 
 	activities.NewControlsServices(&activities.ControlsServicesConfig{
-		Store: st, GitHub: app, Policy: snap, Temporal: tc, TaskQueue: queue, Interval: cfg.CheckInterval, Logger: logger,
+		Store: st, GitHub: app, Policy: snap, Temporal: tc, TaskQueue: queue, Interval: cfg.EvalInterval, Logger: logger,
 	}).Register(w)
 	activities.NewEvaluator(st, snap, activities.NewGitHubEvalClients(app), logger).Register(w)
 
-	routing := activities.NewControlsRouter(st, snap, tc, queue, cfg.CheckInterval, logger)
+	routing := activities.NewControlsRouter(st, snap, tc, queue, cfg.EvalInterval, logger)
 	activities.NewRouter(logger).WithControls(routing).WithAccessRecorder(routing).Register(w)
 	activities.NewRemediationStarter(tc, tcfg.RemediateTaskQueue).Register(w)
 

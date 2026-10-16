@@ -38,7 +38,7 @@ func startAPI(
 
 	reader := pgstore.NewAPIReader(pool)
 	statusCfg := &api.StatusConfig{
-		Reader: reader, CheckInterval: cfg.CheckInterval, DiscoveryInterval: cfg.DiscoveryInterval,
+		Reader: reader, CheckInterval: cfg.EvalInterval, DiscoveryInterval: cfg.DiscoveryInterval,
 		SnapshotInterval: cfg.ComplianceSnapshotInterval, RateReserve: cfg.RateLimitThreshold, Logger: logger,
 	}
 

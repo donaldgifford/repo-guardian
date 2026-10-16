@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { Schemas } from "../api/client";
-import { complianceSeries, hasNoAccess, parkedTotal, seriesByOrg, visibleOrgs, worstRules } from "./viewmodel";
+import { complianceSeries, hasNoAccess, parkedTotal, seriesByOrg, trendFrom, visibleOrgs, worstRules } from "./viewmodel";
 
 const counts = (compliant: number, nonCompliant: number) => ({ compliant, non_compliant: nonCompliant, not_applicable: 0, unknown: 0 });
 
@@ -60,5 +60,17 @@ describe("access", () => {
     expect(hasNoAccess(me(false, []))).toBe(true);
     expect(hasNoAccess(me(false, ["acme"]))).toBe(false);
     expect(hasNoAccess(me(true, []))).toBe(false);
+  });
+});
+
+describe("trendFrom", () => {
+  test("starts the window at midnight UTC", () => {
+    expect(trendFrom(90, Date.parse("2026-10-16T13:45:12.345Z"))).toBe("2026-07-18T00:00:00.000Z");
+  });
+
+  test("is the same all day, so the history query key is stable (#207)", () => {
+    const morning = trendFrom(90, Date.parse("2026-10-16T00:00:00.001Z"));
+    const night = trendFrom(90, Date.parse("2026-10-16T23:59:59.999Z"));
+    expect(night).toBe(morning);
   });
 });

@@ -32,7 +32,6 @@ const ControlsVersionTable = "goose_controls_version"
 
 // built for, tracked apart from the rc's SchemaVersion: 00001_core
 // (IMPL-0028) and IMPL-0029's 00002 to 00004.
-// IMPL-0030 raise it as they add 00002 to 00004.
 const ControlsSchemaVersion = 4
 
 // NewControlsMigrator returns a goose provider over the controls chain,

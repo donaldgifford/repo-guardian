@@ -168,7 +168,7 @@ existing views keep rendering on the new tokens through the aliases in
   the 2px `accent` focus ring with 2px offset as a global
   `:focus-visible` rule; `prefers-reduced-motion` zeroes every
   transition.
-- [ ] 1.2 Fonts: add `@fontsource/ibm-plex-sans` and
+- [x] 1.2 Fonts: add `@fontsource/ibm-plex-sans` and
   `@fontsource/jetbrains-mono` to `ui/package.json`; import the latin
   400/500/600 and 400/500 subsets from `ui/web/src/main.tsx`; set
   `font-display: swap` through the fontsource CSS; add

@@ -35,6 +35,11 @@ type PullRequest struct {
 type Installation struct {
 	ID      int64
 	Account string
+	// Personal is an installation on a user account rather than an
+	// organization.
+	Personal bool
+	// RepositorySelection is "all" or "selected".
+	RepositorySelection string
 }
 
 // Repository represents a GitHub repository with metadata needed

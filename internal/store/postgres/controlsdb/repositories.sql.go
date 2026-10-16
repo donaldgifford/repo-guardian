@@ -138,6 +138,65 @@ func (q *Queries) InsertRepositoryEvent(ctx context.Context, arg InsertRepositor
 	return err
 }
 
+const insertServiceRun = `-- name: InsertServiceRun :exec
+INSERT INTO service_runs (kind, outcome, started_at, finished_at, detail)
+VALUES ($1, $2, $3, $4, $5)
+`
+
+type InsertServiceRunParams struct {
+	Kind       string
+	Outcome    string
+	StartedAt  time.Time
+	FinishedAt time.Time
+	Detail     json.RawMessage
+}
+
+func (q *Queries) InsertServiceRun(ctx context.Context, arg InsertServiceRunParams) error {
+	_, err := q.db.Exec(ctx, insertServiceRun,
+		arg.Kind,
+		arg.Outcome,
+		arg.StartedAt,
+		arg.FinishedAt,
+		arg.Detail,
+	)
+	return err
+}
+
+const listMissingEvalRepositories = `-- name: ListMissingEvalRepositories :many
+SELECT r.id FROM repositories r
+JOIN app_repository_access a ON a.repository_id = r.id AND a.app = 'eval'
+WHERE a.installation_id = $1 AND r.active
+  -- A nil slice arrives as NULL, and id = ANY (NULL) is NULL, not false.
+  AND NOT (r.id = ANY (coalesce($2::bigint[], ARRAY[]::bigint[])))
+ORDER BY r.id
+`
+
+type ListMissingEvalRepositoriesParams struct {
+	InstallationID int64
+	Seen           []int64
+}
+
+// The installation's active repositories a complete listing did not see.
+func (q *Queries) ListMissingEvalRepositories(ctx context.Context, arg ListMissingEvalRepositoriesParams) ([]int64, error) {
+	rows, err := q.db.Query(ctx, listMissingEvalRepositories, arg.InstallationID, arg.Seen)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const parkRepository = `-- name: ParkRepository :execrows
 UPDATE repositories SET active = false, park_reason = $1, parked_at = now()
 WHERE id = $2 AND (active OR park_reason IS DISTINCT FROM $1)

@@ -40,6 +40,12 @@ type Controls interface {
 	// and installation_removed clear its results; access_denied and
 	// unknown keep them, because access loss must never improve posture.
 	Park(ctx context.Context, repoID int64, reason string) error
+	// ParkMissing parks removed every active repository the installation
+	// gave the Evaluation App that a complete listing did not see, and
+	// reports how many.
+	ParkMissing(ctx context.Context, installationID int64, seen []int64) (int, error)
+	// RecordServiceRun writes a service_runs row.
+	RecordServiceRun(ctx context.Context, run *ServiceRun) error
 	// EvaluationTarget reads one repository as the evaluator sees it,
 	// with its assignments in policy order.
 	EvaluationTarget(ctx context.Context, repoID int64) (*EvaluationTarget, error)

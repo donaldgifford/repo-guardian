@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres/controlsdb"
 )
 
@@ -99,4 +100,30 @@ func (s *ControlsStore) CurrentActivation(ctx context.Context) (version string, 
 	}
 
 	return row.Version, row.ActivatedAt, nil
+}
+
+// RecordServiceRun writes one service_runs row.
+func (s *ControlsStore) RecordServiceRun(ctx context.Context, run *store.ServiceRun) error {
+	detail := run.Detail
+	if detail == nil {
+		detail = map[string]any{}
+	}
+
+	b, err := json.Marshal(detail)
+	if err != nil {
+		return fmt.Errorf("record %s run: %w", run.Kind, err)
+	}
+
+	outcome := outcomeError
+	if run.Success {
+		outcome = outcomeSuccess
+	}
+
+	if err := s.q.InsertServiceRun(ctx, controlsdb.InsertServiceRunParams{
+		Kind: string(run.Kind), Outcome: outcome, StartedAt: run.StartedAt, FinishedAt: run.FinishedAt, Detail: b,
+	}); err != nil {
+		return fmt.Errorf("record %s run: %w", run.Kind, err)
+	}
+
+	return nil
 }

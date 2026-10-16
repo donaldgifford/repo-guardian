@@ -240,7 +240,13 @@ func signalAll(ctx workflow.Context, in SignalRepositoriesInput) (int, error) {
 }
 
 func recordRun(ctx workflow.Context, kind string, success bool, started time.Time, detail map[string]any) error {
+	return recordRunWith(ctx, RecordServiceRunActivity, kind, success, started, detail)
+}
+
+// recordRunWith writes the service_runs row through activity, so the
+// controls workflows write to the controls database.
+func recordRunWith(ctx workflow.Context, activity, kind string, success bool, started time.Time, detail map[string]any) error {
 	run := &ServiceRun{Kind: kind, Success: success, StartedAt: started, FinishedAt: workflow.Now(ctx), Detail: detail}
 
-	return workflow.ExecuteActivity(serviceOptions(ctx, PrioritySchedule), RecordServiceRunActivity, run).Get(ctx, nil)
+	return workflow.ExecuteActivity(serviceOptions(ctx, PrioritySchedule), activity, run).Get(ctx, nil)
 }

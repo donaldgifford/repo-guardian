@@ -367,3 +367,45 @@ func TestControlsStore_StageAcceptsControlsTriggers(t *testing.T) {
 		}
 	}
 }
+
+// TestControlsStore_ParkMissingAndServiceRun is IMPL-0029 5.5's store
+// side, run as rg_evaluator: a repository the installation's complete
+// listing did not see is parked removed, one it saw is not, and the
+// discovery run is recorded.
+func TestControlsStore_ParkMissingAndServiceRun(t *testing.T) {
+	s, dsns := evaluatorStore(t)
+	repo := discover(t, s, &fakeResolver{assignments: []policy.Assignment{codeowners("r1")}})
+
+	if n, err := s.ParkMissing(t.Context(), 1, []int64{repo.ID}); err != nil || n != 0 {
+		t.Fatalf("ParkMissing(seen) = %d, %v; want 0 parked", n, err)
+	}
+
+	if n, err := s.ParkMissing(t.Context(), 2, nil); err != nil || n != 0 {
+		t.Fatalf("ParkMissing(other installation) = %d, %v; want 0 parked", n, err)
+	}
+
+	if n, err := s.ParkMissing(t.Context(), 1, nil); err != nil || n != 1 {
+		t.Fatalf("ParkMissing(unseen) = %d, %v; want 1 parked", n, err)
+	}
+
+	var reason string
+	queryArgs(t, dsns.Owner, `SELECT park_reason FROM repositories WHERE id = $1 AND NOT active`, &reason, repo.ID)
+
+	if reason != string(store.ParkRemoved) {
+		t.Errorf("park_reason = %q, want removed", reason)
+	}
+
+	if err := s.RecordServiceRun(t.Context(), &store.ServiceRun{
+		Kind: store.ServiceRunKind("discovery"), Success: true, StartedAt: time.Now(), FinishedAt: time.Now(),
+		Detail: map[string]any{"repositories": 1},
+	}); err != nil {
+		t.Fatalf("RecordServiceRun: %v", err)
+	}
+
+	var runs int
+	queryArgs(t, dsns.Owner, `SELECT count(*) FROM service_runs WHERE kind = 'discovery' AND outcome = 'success'`, &runs)
+
+	if runs != 1 {
+		t.Errorf("service_runs = %d, want 1", runs)
+	}
+}

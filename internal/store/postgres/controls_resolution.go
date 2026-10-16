@@ -475,3 +475,23 @@ func (s *ControlsStore) Park(ctx context.Context, repoID int64, reason string) e
 
 	return nil
 }
+
+// ParkMissing parks removed every active repository whose Evaluation App
+// access is through installationID and that seen does not name. Only a
+// complete listing may call it: a partial one would park what it missed.
+func (s *ControlsStore) ParkMissing(ctx context.Context, installationID int64, seen []int64) (int, error) {
+	missing, err := s.q.ListMissingEvalRepositories(ctx, controlsdb.ListMissingEvalRepositoriesParams{
+		InstallationID: installationID, Seen: seen,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("list missing repositories of installation %d: %w", installationID, err)
+	}
+
+	for _, id := range missing {
+		if err := s.Park(ctx, id, string(store.ParkRemoved)); err != nil {
+			return 0, err
+		}
+	}
+
+	return len(missing), nil
+}

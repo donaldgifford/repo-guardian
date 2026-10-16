@@ -1034,12 +1034,26 @@ evaluator's store.
   activities; nothing calls it yet. `pr_event`/`manual` were already in
   00001's trigger check: `TestControlsStore_StageAcceptsControlsTriggers`
   pins them.
-- [ ] 5.5 `ControlsDiscoveryWorkflow`: lists the Evaluation App's
+- [x] 5.5 `ControlsDiscoveryWorkflow`: lists the Evaluation App's
   installations and repositories, refreshes `app = 'eval'` rows of
   `app_installations` and `app_repository_access`, and calls
   `UpsertRepositories`, which resolves inline between the upsert and the
   SignalWithStart of `evaluation/<id>`; parks missing repositories;
   records a `service_runs` row; sets `installation_info{app="eval"}`.
+  Done: `ControlsDiscoveryWorkflow` (`internal/workflows/controls_service.go`,
+  `DiscoveryWorkflow`'s shape on the `Controls*` activities, writing its
+  run through the new `ControlsRecordServiceRun` activity) and
+  `activities.ControlsServices` (`controls_services.go`). Listings keep
+  archived and forked repositories (`workflows.DiscoveredRepo` carries the
+  flags); resolution parks them with results cleared, so there is no
+  discovery filter to keep in step. New or un-parked managed repositories
+  get a policy_changed SignalWithStart of `evaluation/<id>` due at a random
+  point in `EVAL_INTERVAL`. `ghclient.Installation` gained `Personal` and
+  `RepositorySelection` for the eval installation row; the store gained
+  `ParkMissing` and `RecordServiceRun`. Found by
+  `TestControlsStore_ParkMissingAndServiceRun`: a nil `seen` slice is a
+  NULL array and `id = ANY (NULL)` parks nothing, so the query coalesces
+  it. Tests: `controls_service_test.go`, `controls_services_test.go`.
 - [ ] 5.6 Controls rollout: every worker reads `CurrentActivation` at
   startup and starts `controls-rollout/<version>/<activated_at>` with
   `REJECT_DUPLICATE` (one rollout per activation, however many pods

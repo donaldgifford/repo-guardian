@@ -86,3 +86,20 @@ type ParkRepositoryInput struct {
 	Reason       string
 	Cause        string `json:",omitempty"`
 }
+
+// DiscoveredRepo is one repository the Evaluation App lists. Archived
+// and forked repositories are kept: resolution parks them and clears
+// their results, so discovery needs no filter of its own.
+type DiscoveredRepo struct {
+	ID       int64
+	Org      string
+	Name     string
+	Archived bool `json:",omitempty"`
+	Fork     bool `json:",omitempty"`
+}
+
+// ControlsUpsertInput is one batch of an installation's listing.
+type ControlsUpsertInput struct {
+	InstallationID int64
+	Repos          []DiscoveredRepo
+}

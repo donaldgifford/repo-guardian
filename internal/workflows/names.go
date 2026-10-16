@@ -74,6 +74,7 @@ const (
 	ControlsSignalAllActivity         = "ControlsSignalAll"
 	ControlsSnapshotActivity          = "ControlsSnapshot"
 	ControlsCompleteRolloutActivity   = "ControlsCompleteRollout"
+	ControlsRecordServiceRunActivity  = "ControlsRecordServiceRun"
 )
 
 // RemediateSignal asks a RemediationWorkflow to run, or to loop once

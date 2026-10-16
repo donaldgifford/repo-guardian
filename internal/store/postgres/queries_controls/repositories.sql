@@ -48,3 +48,16 @@ ON CONFLICT (repository_id, app) DO UPDATE SET installation_id = EXCLUDED.instal
 SELECT a.app, i.suspended_at FROM app_repository_access a
 JOIN app_installations i ON (i.app, i.installation_id) = (a.app, a.installation_id)
 WHERE a.repository_id = @repository_id;
+
+-- name: ListMissingEvalRepositories :many
+-- The installation's active repositories a complete listing did not see.
+SELECT r.id FROM repositories r
+JOIN app_repository_access a ON a.repository_id = r.id AND a.app = 'eval'
+WHERE a.installation_id = @installation_id AND r.active
+  -- A nil slice arrives as NULL, and id = ANY (NULL) is NULL, not false.
+  AND NOT (r.id = ANY (coalesce(@seen::bigint[], ARRAY[]::bigint[])))
+ORDER BY r.id;
+
+-- name: InsertServiceRun :exec
+INSERT INTO service_runs (kind, outcome, started_at, finished_at, detail)
+VALUES (@kind, @outcome, @started_at, @finished_at, @detail);

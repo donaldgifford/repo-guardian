@@ -367,8 +367,10 @@ func (c *GitHubClient) ListInstallations(ctx context.Context) ([]*Installation, 
 
 		for _, install := range installs {
 			allInstalls = append(allInstalls, &Installation{
-				ID:      install.GetID(),
-				Account: install.GetAccount().GetLogin(),
+				ID:                  install.GetID(),
+				Account:             install.GetAccount().GetLogin(),
+				Personal:            install.GetAccount().GetType() == "User",
+				RepositorySelection: install.GetRepositorySelection(),
 			})
 		}
 

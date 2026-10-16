@@ -883,11 +883,18 @@ evaluator's store.
   re-sync. `TestControlsStore_EvaluationLifecycle` and
   `TestControlsStore_DiscoveryUnparks` run as `rg_evaluator`. The rc's
   `RecordPolicyVersion` start path goes with the rc services in Phase 7.
-- [ ] 4.6 Park with the result rule: `archived`, `fork`, `removed` and
+- [x] 4.6 Park with the result rule: `archived`, `fork`, `removed` and
   `installation_removed` clear results (with `result_events`);
   `access_denied` and `unknown` keep them; Evaluation App suspension is
   read from `app_installations.suspended_at` and is never a park. A table
   test per reason asserts rows kept or cleared.
+  Done: `ControlsStore.Park` takes its reason from `parkClears`. A clearing
+  reason withdraws every result through the same `withdraw` path as
+  resolution (a `to_status = NULL` event), while assignments stay as
+  desired state. `suspended` is refused, because suspension is access
+  state, which `accessOf` reads from `app_installations.suspended_at`.
+  `TestControlsStore_ParkResultRule` has one row per reason, plus the
+  suspension refusal.
 - [ ] 4.7 Compliance queries in `queries_controls/compliance.sql`,
   starting from active assignments with a LEFT JOIN to results at the
   matching epoch and revision: buckets `compliant`, `non_compliant`,

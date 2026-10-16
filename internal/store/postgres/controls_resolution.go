@@ -419,3 +419,57 @@ func textOf(s *string) string {
 
 	return *s
 }
+
+// parkClears is DESIGN-0030 D6's park rule: the reasons that are
+// definitive non-applicability clear results; access_denied and unknown
+// (the fail-safe) keep them. Evaluation App suspension is access state
+// read from app_installations, never a park.
+var parkClears = map[string]bool{
+	"archived": true, "fork": true, "removed": true, "installation_removed": true,
+	"access_denied": false, "unknown": false,
+}
+
+// Park parks a repository with reason. A reason in parkClears clears
+// every result with a to_status = NULL event; the assignments stay,
+// because they are desired state.
+func (s *ControlsStore) Park(ctx context.Context, repoID int64, reason string) error {
+	clears, ok := parkClears[reason]
+	if !ok {
+		return fmt.Errorf("park repository %d: unknown reason %q", repoID, reason)
+	}
+
+	err := s.inTx(ctx, func(q *controlsdb.Queries) error {
+		n, err := q.ParkRepository(ctx, controlsdb.ParkRepositoryParams{ID: repoID, ParkReason: &reason})
+		if err != nil {
+			return fmt.Errorf("park: %w", err)
+		}
+
+		if n > 0 {
+			if err := event(ctx, q, repoID, "parked", map[string]any{"park_reason": reason}); err != nil {
+				return err
+			}
+		}
+
+		if !clears {
+			return nil
+		}
+
+		ids, err := q.ListResultControls(ctx, repoID)
+		if err != nil {
+			return fmt.Errorf("read results: %w", err)
+		}
+
+		for _, id := range ids {
+			if _, err := withdraw(ctx, q, repoID, id); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("park repository %d: %w", repoID, err)
+	}
+
+	return nil
+}

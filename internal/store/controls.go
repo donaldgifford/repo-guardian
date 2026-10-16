@@ -36,6 +36,10 @@ type Controls interface {
 	// RecordEvaluation commits a staged evaluation, fenced on each
 	// control's assignment epoch. It is idempotent on the check key.
 	RecordEvaluation(ctx context.Context, checkKey string) (RecordOutcome, error)
+	// Park parks a repository (IMPL-0029 4.6): archived, fork, removed
+	// and installation_removed clear its results; access_denied and
+	// unknown keep them, because access loss must never improve posture.
+	Park(ctx context.Context, repoID int64, reason string) error
 	// CurrentActivation is the most recently activated policy version.
 	CurrentActivation(ctx context.Context) (version string, activatedAt time.Time, err error)
 }

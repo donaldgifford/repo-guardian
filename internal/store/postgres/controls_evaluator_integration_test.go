@@ -251,3 +251,69 @@ func TestControlsStore_DiscoveryUnparks(t *testing.T) {
 		t.Errorf("repository = %q active=%v, want api-renamed active", name, active)
 	}
 }
+
+// TestControlsStore_ParkResultRule is IMPL-0029 4.6 (DESIGN-0030 D6):
+// archived, fork, removed and installation_removed clear results with a
+// withdrawal event; access_denied and unknown keep them; suspension is
+// not a park reason at all. Assignments are kept in every case.
+func TestControlsStore_ParkResultRule(t *testing.T) {
+	tests := []struct {
+		reason    string
+		wantClear bool
+	}{
+		{"archived", true},
+		{"fork", true},
+		{"removed", true},
+		{"installation_removed", true},
+		{"access_denied", false},
+		{"unknown", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.reason, func(t *testing.T) {
+			s, dsns := evaluatorStore(t)
+			repo := discover(t, s, &fakeResolver{assignments: []policy.Assignment{codeowners("r1")}})
+
+			stage(t, s, repo.ID, "k1", epochOf(t, dsns.Owner, repo.ID), "f1", "non_compliant")
+
+			if _, err := s.RecordEvaluation(t.Context(), "k1"); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := s.Park(t.Context(), repo.ID, tt.reason); err != nil {
+				t.Fatalf("Park(%s): %v", tt.reason, err)
+			}
+
+			var results, withdrawals, assignments int
+			queryRow(t, dsns.Owner, `SELECT count(*) FROM control_results`, &results)
+			queryRow(t, dsns.Owner, `SELECT count(*) FROM result_events WHERE to_status IS NULL`, &withdrawals)
+			queryRow(t, dsns.Owner, `SELECT count(*) FROM control_assignments`, &assignments)
+
+			wantResults, wantWithdrawals := 1, 0
+			if tt.wantClear {
+				wantResults, wantWithdrawals = 0, 1
+			}
+
+			if results != wantResults || withdrawals != wantWithdrawals || assignments != 1 {
+				t.Errorf("Park(%s): %d results, %d withdrawals, %d assignments; want %d, %d, 1",
+					tt.reason, results, withdrawals, assignments, wantResults, wantWithdrawals)
+			}
+
+			var active bool
+			queryArgs(t, dsns.Owner, `SELECT active FROM repositories WHERE id = $1`, &active, repo.ID)
+
+			if active {
+				t.Errorf("Park(%s) left the repository active", tt.reason)
+			}
+		})
+	}
+
+	t.Run("suspension is not a park", func(t *testing.T) {
+		s, _ := evaluatorStore(t)
+		repo := discover(t, s, &fakeResolver{})
+
+		if err := s.Park(t.Context(), repo.ID, "suspended"); err == nil {
+			t.Error("Park(suspended) = nil, want an error: suspension is access state")
+		}
+	})
+}

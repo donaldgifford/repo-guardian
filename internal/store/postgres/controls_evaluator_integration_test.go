@@ -441,3 +441,61 @@ func TestControlsStore_RolloutReads(t *testing.T) {
 		t.Error("rollout_completed_at is NULL, want stamped")
 	}
 }
+
+// TestControlsStore_DiscoveryParksArchivedAndForks: discovery parks a
+// repository it lists as archived or forked, clearing its results and
+// resolving it parked, and un-parks it once the listing no longer says
+// so. A push or a rollout never un-parks it.
+func TestControlsStore_DiscoveryParksArchivedAndForks(t *testing.T) {
+	s, dsns := evaluatorStore(t)
+	ctx := t.Context()
+	r := &fakeResolver{assignments: []policy.Assignment{codeowners("r1")}}
+
+	repo := discover(t, s, r)
+	stage(t, s, repo.ID, "k1", epochOf(t, dsns.Owner, repo.ID), "fp1", "non_compliant")
+
+	if _, err := s.RecordEvaluation(ctx, "k1"); err != nil {
+		t.Fatal(err)
+	}
+
+	listed := func(archived, fork bool) store.ResolvedRepository {
+		t.Helper()
+
+		got, err := s.UpsertRepositories(ctx, []store.DiscoveredRepository{{
+			Org: "acme", Name: "api", ProviderRepoID: 101, InstallationID: 1, Archived: archived, Fork: fork,
+		}}, r)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		return got[0]
+	}
+
+	if got := listed(true, false); got.State != policy.StateParked || got.Unparked {
+		t.Errorf("archived listing = %+v, want parked and not un-parked", got)
+	}
+
+	var reason string
+	queryArgs(t, dsns.Owner, `SELECT park_reason FROM repositories WHERE id = $1 AND NOT active`, &reason, repo.ID)
+
+	var results int
+	queryArgs(t, dsns.Owner, `SELECT count(*) FROM control_results WHERE repository_id = $1`, &results, repo.ID)
+
+	if reason != "archived" || results != 0 {
+		t.Errorf("park_reason %q, results %d; want archived with results cleared", reason, results)
+	}
+
+	if got := listed(false, true); got.State != policy.StateParked {
+		t.Errorf("forked listing = %+v, want parked", got)
+	}
+
+	queryArgs(t, dsns.Owner, `SELECT park_reason FROM repositories WHERE id = $1`, &reason, repo.ID)
+
+	if reason != "fork" {
+		t.Errorf("park_reason = %q, want fork", reason)
+	}
+
+	if got := listed(false, false); got.State != policy.StateManaged || !got.Unparked {
+		t.Errorf("plain listing = %+v, want un-parked and managed", got)
+	}
+}

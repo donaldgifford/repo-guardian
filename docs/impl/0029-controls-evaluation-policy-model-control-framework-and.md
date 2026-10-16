@@ -1054,6 +1054,10 @@ evaluator's store.
   `TestControlsStore_ParkMissingAndServiceRun`: a nil `seen` slice is a
   NULL array and `id = ANY (NULL)` parks nothing, so the query coalesces
   it. Tests: `controls_service_test.go`, `controls_services_test.go`.
+  Follow-up fix: `upsertOne` passed `Active: true` to resolution, so an
+  archived or forked listing was un-parked and resolved managed; it now
+  parks with that reason (results cleared) and never un-parks one
+  (`TestControlsStore_DiscoveryParksArchivedAndForks`).
 - [x] 5.6 Controls rollout: every worker reads `CurrentActivation` at
   startup and starts `controls-rollout/<version>/<activated_at>` with
   `REJECT_DUPLICATE` (one rollout per activation, however many pods

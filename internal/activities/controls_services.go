@@ -108,7 +108,8 @@ func (s *ControlsServices) ListInstallations(ctx context.Context) ([]workflows.I
 }
 
 // ListRepositories lists an installation's repositories, archived and
-// forked ones included: resolution parks those.
+// forked ones included: UpsertRepositories parks those, clearing their
+// results.
 func (s *ControlsServices) ListRepositories(ctx context.Context, installationID int64) ([]workflows.DiscoveredRepo, error) {
 	repos, err := s.cfg.GitHub.ListInstallationRepos(ctx, installationID)
 	metrics.DiscoveryAPICallsTotal.WithLabelValues(strconv.FormatInt(installationID, 10), "list_installation_repos").Inc()

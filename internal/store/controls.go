@@ -22,7 +22,8 @@ type Controls interface {
 	UpsertInstallation(ctx context.Context, in *AppInstallation) error
 	// UpsertRepositories writes each repository row and its
 	// app = 'eval' access row in one transaction, then resolves it with
-	// r. It is the only un-parker.
+	// r. It is the only un-parker, and it parks an archived or forked
+	// repository with that reason instead.
 	UpsertRepositories(ctx context.Context, repos []DiscoveredRepository, r Resolver) ([]ResolvedRepository, error)
 	// Resolve re-resolves one stored repository with r, reading its row
 	// and both Apps' access.

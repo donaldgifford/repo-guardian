@@ -88,8 +88,8 @@ type ParkRepositoryInput struct {
 }
 
 // DiscoveredRepo is one repository the Evaluation App lists. Archived
-// and forked repositories are kept: resolution parks them and clears
-// their results, so discovery needs no filter of its own.
+// and forked repositories are kept: the store's upsert parks them and
+// clears their results, so discovery needs no filter of its own.
 type DiscoveredRepo struct {
 	ID       int64
 	Org      string

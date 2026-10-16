@@ -70,11 +70,16 @@ func (s *ControlsStore) UpsertRepositories(
 	return out, nil
 }
 
+// upsertOne writes one discovered repository. An archived or forked one
+// is parked with that reason, clearing its results, and resolved as
+// parked; it is never un-parked, so discovery parks exactly what it
+// lists as archived or forked and un-parks it once it is not.
 func (s *ControlsStore) upsertOne(
 	ctx context.Context, q *controlsdb.Queries, d *store.DiscoveredRepository, r store.Resolver,
 ) (store.ResolvedRepository, error) {
 	out := store.ResolvedRepository{Org: d.Org, Name: d.Name}
 	providerID := &d.ProviderRepoID
+	durable := durableParkReason(d)
 
 	row, err := q.FindRepositoryByProviderID(ctx, controlsdb.FindRepositoryByProviderIDParams{Host: s.host, ProviderRepoID: providerID})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -107,7 +112,7 @@ func (s *ControlsStore) upsertOne(
 			return out, fmt.Errorf("update identity: %w", err)
 		}
 
-		if !row.Active {
+		if !row.Active && durable == "" {
 			out.Unparked = true
 
 			if err := q.UnparkRepository(ctx, row.ID); err != nil {
@@ -126,7 +131,13 @@ func (s *ControlsStore) upsertOne(
 		return out, fmt.Errorf("access: %w", err)
 	}
 
-	repo := policy.Repository{Org: d.Org, Name: d.Name, Active: true, Archived: d.Archived, Fork: d.Fork}
+	if durable != "" {
+		if err := park(ctx, q, out.ID, durable, true); err != nil {
+			return out, err
+		}
+	}
+
+	repo := policy.Repository{Org: d.Org, Name: d.Name, Active: durable == "", ParkReason: durable, Archived: d.Archived, Fork: d.Fork}
 
 	res, change, err := s.resolveWith(ctx, q, out.ID, repo, r)
 	if err != nil {
@@ -423,6 +434,19 @@ func textOf(s *string) string {
 	return *s
 }
 
+// durableParkReason is the park reason a listing alone proves: archived,
+// then fork.
+func durableParkReason(d *store.DiscoveredRepository) string {
+	switch {
+	case d.Archived:
+		return string(store.ParkArchived)
+	case d.Fork:
+		return string(store.ParkFork)
+	default:
+		return ""
+	}
+}
+
 // parkClears is DESIGN-0030 D6's park rule: the reasons that are
 // definitive non-applicability clear results; access_denied and unknown
 // (the fail-safe) keep them. Evaluation App suspension is access state
@@ -441,37 +465,39 @@ func (s *ControlsStore) Park(ctx context.Context, repoID int64, reason string) e
 		return fmt.Errorf("park repository %d: unknown reason %q", repoID, reason)
 	}
 
-	err := s.inTx(ctx, func(q *controlsdb.Queries) error {
-		n, err := q.ParkRepository(ctx, controlsdb.ParkRepositoryParams{ID: repoID, ParkReason: &reason})
-		if err != nil {
-			return fmt.Errorf("park: %w", err)
-		}
-
-		if n > 0 {
-			if err := event(ctx, q, repoID, "parked", map[string]any{"park_reason": reason}); err != nil {
-				return err
-			}
-		}
-
-		if !clears {
-			return nil
-		}
-
-		ids, err := q.ListResultControls(ctx, repoID)
-		if err != nil {
-			return fmt.Errorf("read results: %w", err)
-		}
-
-		for _, id := range ids {
-			if _, err := withdraw(ctx, q, repoID, id); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
+	if err := s.inTx(ctx, func(q *controlsdb.Queries) error { return park(ctx, q, repoID, reason, clears) }); err != nil {
 		return fmt.Errorf("park repository %d: %w", repoID, err)
+	}
+
+	return nil
+}
+
+// park is Park inside a caller's transaction.
+func park(ctx context.Context, q *controlsdb.Queries, repoID int64, reason string, clears bool) error {
+	n, err := q.ParkRepository(ctx, controlsdb.ParkRepositoryParams{ID: repoID, ParkReason: &reason})
+	if err != nil {
+		return fmt.Errorf("park: %w", err)
+	}
+
+	if n > 0 {
+		if err := event(ctx, q, repoID, "parked", map[string]any{"park_reason": reason}); err != nil {
+			return err
+		}
+	}
+
+	if !clears {
+		return nil
+	}
+
+	ids, err := q.ListResultControls(ctx, repoID)
+	if err != nil {
+		return fmt.Errorf("read results: %w", err)
+	}
+
+	for _, id := range ids {
+		if _, err := withdraw(ctx, q, repoID, id); err != nil {
+			return err
+		}
 	}
 
 	return nil

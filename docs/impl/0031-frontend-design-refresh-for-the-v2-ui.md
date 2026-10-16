@@ -631,10 +631,11 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
   four new typed fields (three `date-time`s and the closed
   `rollout_state` enum `none|in_progress|complete`) were added to its
   allowlist; no free-text field was added.*
-- [ ] 7.5 `OrgSummary.open_prs` (count of findings with `remediation =
+- [x] 7.5 `OrgSummary.open_prs` (count of findings with `remediation =
   pr_open` per org) in `api_rules.sql`/`api_orgs` queries behind
   `/orgs`; `apitest` parity with `/findings?org=&remediation=pr_open`
-  totals on the fixture. UI: the Orgs `PR activity` heat tab un-hides.
+  totals on the fixture. UI: the Orgs `PR activity` heat tab un-hides. The tab shades a new Open PRs column (`info` tone);
+  `web/src/lib/flags.ts` is deleted with its last flag.
 - [ ] 7.6 `ui/e2e/seed.sql`: rows that exercise each addition (a PR
   with an old `created_at`, findings across every age bucket, 30 days
   of snapshots for two orgs, a completed rollout); Playwright specs

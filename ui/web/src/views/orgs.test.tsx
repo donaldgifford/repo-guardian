@@ -16,11 +16,13 @@ const acme: Schemas["OrgSummary"] = {
   parked: 1,
   counts: { compliant: 7, non_compliant: 2, not_applicable: 1, unknown: 0 },
   compliant_percent: 77.7,
+  open_prs: 3,
 };
 
 test.each<[Record<string, unknown>, OrgsSearch]>([
   [{}, {}],
   [{ heat: "parked", parked: "hide", open: "acme,globex" }, { heat: "parked", parked: "hide", open: "acme,globex" }],
+  [{ heat: "prs" }, { heat: "prs" }],
   [{ heat: "bogus", parked: "yes", open: "" }, {}],
 ])("parseOrgsSearch(%j)", (input, want) => {
   expect(parseOrgsSearch(input)).toEqual(want);
@@ -35,13 +37,13 @@ test("openList and joinOpen round-trip and drop the key when nothing is open", (
 
 test("orgRow and ruleRow fill the shared columns", () => {
   const row = orgRow(acme);
-  expect(row.cells).toEqual({ tracked: 10, compliant: 7, failing: 2, parked: 1 });
+  expect(row.cells).toEqual({ tracked: 10, compliant: 7, failing: 2, parked: 1, prs: 3 });
   expect(row.total).toBe(10);
   expect(row.sub).toBe("77.7% compliant · 1 parked");
 
   const rule = ruleRow("acme", { kind: "file", name: "renovate", counts: { compliant: 3, non_compliant: 2, not_applicable: 4, unknown: 1 }, compliant_percent: 60 });
   expect(rule.key).toBe("acme/file/renovate");
-  expect(rule.cells).toEqual({ tracked: 10, compliant: 3, failing: 2, parked: 0 });
+  expect(rule.cells).toEqual({ tracked: 10, compliant: 3, failing: 2, parked: 0, prs: 0 });
 });
 
 test("gridCsv writes the visible columns, every org and a totals row", () => {

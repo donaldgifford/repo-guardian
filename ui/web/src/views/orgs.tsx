@@ -24,7 +24,7 @@ import { NotApplicableCard, ParkedCard, sumCounts } from "./fleet";
 const orgsApi = getRouteApi("/app/orgs");
 const orgApi = getRouteApi("/app/orgs/$org");
 
-const HEATS = ["compliance", "parked"] as const;
+const HEATS = ["compliance", "parked", "prs"] as const;
 export type Heat = (typeof HEATS)[number];
 
 export interface OrgsSearch {
@@ -59,12 +59,14 @@ const COLUMNS: readonly GridColumn[] = [
   { key: "compliant", header: "Compliant", tone: "ok", percent: true },
   { key: "failing", header: "Failing", tone: "bad", percent: true },
   { key: "parked", header: "Parked", tone: "warn" },
+  { key: "prs", header: "Open PRs", tone: "info" },
 ];
 
 // heatColumns names the columns a heat tab shades.
 const heatColumns: Record<Heat, readonly string[]> = {
   compliance: ["compliant", "failing"],
   parked: ["parked"],
+  prs: ["prs"],
 };
 
 // orgRow maps one /orgs item onto a grid row; the sub line and badge
@@ -79,13 +81,13 @@ export function orgRow(o: Schemas["OrgSummary"]): GridRow {
     ),
     sub: `${formatPercent(o.compliant_percent)} compliant · ${o.parked} parked`,
     badge: <Badge tone="outline">{o.tracked} repos</Badge>,
-    cells: { tracked: o.tracked, compliant: o.counts.compliant, failing: o.counts.non_compliant, parked: o.parked },
+    cells: { tracked: o.tracked, compliant: o.counts.compliant, failing: o.counts.non_compliant, parked: o.parked, prs: o.open_prs },
     total: o.tracked,
   };
 }
 
 // ruleRow maps one rule of /orgs/{org} onto a child row with the same
-// columns; a rule has no parked count, so that cell stays 0.
+// columns; a rule has no parked or open-PR count, so those cells stay 0.
 export function ruleRow(org: string, r: Schemas["RuleCompliance"]): GridRow {
   const total = r.counts.compliant + r.counts.non_compliant + r.counts.not_applicable + r.counts.unknown;
   return {
@@ -96,7 +98,7 @@ export function ruleRow(org: string, r: Schemas["RuleCompliance"]): GridRow {
       </Link>
     ),
     badge: <KindBadge kind={r.kind} />,
-    cells: { tracked: total, compliant: r.counts.compliant, failing: r.counts.non_compliant, parked: 0 },
+    cells: { tracked: total, compliant: r.counts.compliant, failing: r.counts.non_compliant, parked: 0, prs: 0 },
     total,
   };
 }
@@ -135,6 +137,7 @@ export function OrgsView() {
         <Badge tone="mute">Tracked {totals.cells.tracked}</Badge>
         <Badge tone="bad">Failing {totals.cells.failing}</Badge>
         <Badge tone="warn">Parked {totals.cells.parked}</Badge>
+        <Badge tone="info">Open PRs {totals.cells.prs}</Badge>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Tabs
@@ -142,6 +145,7 @@ export function OrgsView() {
           options={[
             { value: "compliance", label: "Compliance" },
             { value: "parked", label: "Parked" },
+            { value: "prs", label: "PR activity" },
           ]}
           value={heat}
           onChange={(next) => set({ heat: next === "compliance" ? undefined : next })}

@@ -919,7 +919,7 @@ components:
     OrgSummary:
       description: One org's repositories and compliance.
       type: object
-      required: [org, tracked, parked, counts, compliant_percent]
+      required: [org, tracked, parked, counts, compliant_percent, open_prs]
       properties:
         org:
           type: string
@@ -934,6 +934,10 @@ components:
         compliant_percent:
           type: [number, "null"]
           format: double
+        open_prs:
+          description: Findings with an open repo-guardian PR on the org's active repositories; equals the total of /findings?org=&remediation=pr_open.
+          type: integer
+          minimum: 0
     OrgList:
       description: Every visible org.
       type: object

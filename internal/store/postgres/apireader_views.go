@@ -171,6 +171,10 @@ func (r *APIReader) Orgs(ctx context.Context, scope store.APIScope) (view *store
 			return err
 		}
 
+		if view.OpenPRs, err = orgOpenPRs(ctx, q, scope); err != nil {
+			return err
+		}
+
 		view.Current, err = compliance(ctx, q, complianceScope(scope))
 
 		return err
@@ -231,6 +235,22 @@ func (r *APIReader) Org(ctx context.Context, scope store.APIScope, org string) (
 	}
 
 	return view, nil
+}
+
+// orgOpenPRs counts findings with an open PR per org, keyed by the
+// lower-cased org.
+func orgOpenPRs(ctx context.Context, q *sqlcdb.Queries, scope store.APIScope) (map[string]int, error) {
+	rows, err := q.APIOrgOpenPRs(ctx, sqlcdb.APIOrgOpenPRsParams{ScopeAll: scope.All(), ScopeOrgs: scope.Orgs()})
+	if err != nil {
+		return nil, fmt.Errorf("open prs: %w", err)
+	}
+
+	out := make(map[string]int, len(rows))
+	for _, r := range rows {
+		out[strings.ToLower(r.Org)] += int(r.Findings)
+	}
+
+	return out, nil
 }
 
 func orgRepositories(ctx context.Context, q *sqlcdb.Queries, scope store.APIScope, org *string) ([]store.OrgRepositoryCount, error) {

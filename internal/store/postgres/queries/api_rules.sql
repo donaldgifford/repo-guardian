@@ -23,6 +23,17 @@ WHERE (@scope_all::bool OR lower(r.org) = ANY (@scope_orgs::text[]))
 GROUP BY r.org, r.active, r.park_reason
 ORDER BY lower(r.org), r.active DESC, park_reason;
 
+-- name: APIOrgOpenPRs :many
+-- Findings with an open repo-guardian PR per org, over active
+-- repositories like /findings?remediation=pr_open (IMPL-0031 7.5).
+SELECT r.org::text AS org, count(*)::int AS findings
+FROM findings f
+JOIN repositories r ON r.id = f.repository_id
+WHERE r.active AND f.remediation = 'pr_open'
+  AND (@scope_all::bool OR lower(r.org) = ANY (@scope_orgs::text[]))
+GROUP BY r.org
+ORDER BY lower(r.org);
+
 -- name: APIOrgNotApplicable :many
 -- Not-applicable findings in one org by reason.
 SELECT coalesce(f.reason, '')::text AS reason, count(*)::int AS findings

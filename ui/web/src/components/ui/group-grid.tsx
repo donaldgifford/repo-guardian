@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { heatOpacity } from "../../lib/viewmodel";
 
-export type GridTone = "ok" | "bad" | "warn" | "mute";
+export type GridTone = "ok" | "bad" | "warn" | "mute" | "info";
 
 export interface GridColumn {
   key: string;
@@ -30,6 +30,7 @@ const tones: Record<GridTone, string> = {
   bad: "var(--color-bad)",
   warn: "var(--color-warn)",
   mute: "var(--color-muted-foreground)",
+  info: "var(--color-info)",
 };
 
 // gridTotals sums every column and every total across rows: the

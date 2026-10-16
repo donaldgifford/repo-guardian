@@ -511,6 +511,8 @@ export interface components {
             counts: components["schemas"]["StatusCounts"];
             /** Format: double */
             compliant_percent: number | null;
+            /** @description Findings with an open repo-guardian PR on the org's active repositories; equals the total of /findings?org=&remediation=pr_open. */
+            open_prs: number;
         };
         /** @description Every visible org. */
         OrgList: {

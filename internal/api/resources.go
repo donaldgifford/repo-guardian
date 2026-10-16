@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/donaldgifford/repo-guardian/internal/api/gen"
@@ -166,6 +167,7 @@ func (s *server) ListOrgs(ctx context.Context, _ gen.ListOrgsRequestObject) (gen
 
 		out.Items = append(out.Items, gen.OrgSummary{
 			Org: t.org, Tracked: t.tracked, Parked: parked, Counts: counts(t.counts), CompliantPercent: store.CompliantPercent(t.counts),
+			OpenPrs: view.OpenPRs[strings.ToLower(t.org)],
 		})
 	}
 

@@ -88,7 +88,7 @@ Every signed-in page shares one frame (DESIGN-0036):
 | --- | --- | --- |
 | Fleet | `/` | the compliance trend with tracked, compliant, failing, parked and snapshot counts and their change over the range; series pills to switch the plotted measure; open PRs by age; the worst rules; parked repositories by reason; findings by status; compliance by rule and by org |
 | Rules | `/rules`, `/rules/<kind>/<name>` | compliance per rule, filtered by kind tab; one rule by org with its top reasons and longest failures, and a button to its findings |
-| Orgs | `/orgs`, `/orgs/<org>` | an expandable grid of orgs (expand one to list its rules), heat shading by compliance or parked share, a hide-parked toggle, expand/collapse all and CSV export; one org's KPIs, trend, rule meters and why rules did not apply |
+| Orgs | `/orgs`, `/orgs/<org>` | an expandable grid of orgs (expand one to list its rules), heat shading by compliance, parked or open-PR share, a hide-parked toggle, expand/collapse all and CSV export; one org's KPIs, trend, rule meters and why rules did not apply |
 | Findings | `/findings` | every finding, filtered by chips, with CSV export of the loaded rows and a detail drawer |
 | Repository | `/repos/<id>` | each rule's status with its evidence, the recent checks, the repository's facts and its timeline |
 | History | `/history` | compliance over time, one chart per org, for all rules or one |
@@ -130,8 +130,11 @@ page with their name and subject, to quote to an administrator.
 `/status` is public: no sign-in, no cookie, and no org, repository or
 rule name. It shows a headline for the overall state, each component
 (checks, webhooks, discovery, snapshots, GitHub budget) with its
-state, and fleet compliance as one number. `webhooks` is informational
-and never moves the overall state. It refreshes every 30 seconds.
+state, fleet compliance as one number with its 30-day line, and an
+operations strip: repositories checked in the last 24 hours of those
+tracked, the newest policy's rollout and the last snapshot. `webhooks`
+is informational and never moves the overall state. It refreshes
+every 30 seconds.
 
 ![Status](img/ui/status.png)
 

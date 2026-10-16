@@ -53,9 +53,6 @@ which renders in the pinned `mcr.microsoft.com/playwright` image;
   `assetsInlineLimit: 0` for that reason.
 - **`UI_DOCS_URL`** (chart `ui.docsUrl`) adds the sidebar Docs group.
   The BFF serves it to the SPA as `docs_url` on `/ui/config`.
-- **Hidden panels.** `web/src/lib/flags.ts` gates panels whose data the
-  API does not serve yet (IMPL-0031 Phase 7). A hidden panel renders
-  nothing.
 - **Component tests** run under happy-dom: import `web/testing/dom.ts`
   first, before anything that loads radix.
 

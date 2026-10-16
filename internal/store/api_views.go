@@ -72,6 +72,9 @@ type RuleView struct {
 type OrgsView struct {
 	Current      []ComplianceCount
 	Repositories []OrgRepositoryCount
+	// OpenPRs counts findings with an open repo-guardian PR per org,
+	// keyed by the lower-cased org.
+	OpenPRs map[string]int
 }
 
 // OrgView is one org's repositories, rules and not-applicable reasons.

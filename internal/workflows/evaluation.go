@@ -127,12 +127,13 @@ func (e *evalLoop) drain() {
 // coalesce folds a re-check into the pending one: the union of the
 // changed paths, Unknown dominating (it selects every control, so the
 // paths no longer matter), at the highest priority (the lowest key),
-// whose trigger is kept.
+// whose trigger is kept. A union past MaxChangedPaths becomes unknown,
+// so the carried state stays bounded however many signals arrive.
 func coalesce(pending, s *Recheck) *Recheck {
 	if pending == nil {
 		out := *s
-		if out.Unknown {
-			out.Paths = nil
+		if out.Unknown || len(out.Paths) > MaxChangedPaths {
+			out.Unknown, out.Paths = true, nil
 		}
 
 		return &out
@@ -153,6 +154,12 @@ func coalesce(pending, s *Recheck) *Recheck {
 		if !slices.Contains(out.Paths, p) {
 			out.Paths = append(out.Paths, p)
 		}
+	}
+
+	if len(out.Paths) > MaxChangedPaths {
+		out.Unknown, out.Paths = true, nil
+
+		return &out
 	}
 
 	slices.Sort(out.Paths)

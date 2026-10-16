@@ -3,8 +3,10 @@ package workflows
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -172,7 +174,7 @@ func TestEvaluationWorkflow_SignalsDuringAnEvaluationCoalesce(t *testing.T) {
 		}
 
 		env.SignalWorkflow(RecheckSignal, &Recheck{Trigger: TriggerPush, Priority: PriorityWebhook, Paths: []string{"b"}})
-		env.SignalWorkflow(RecheckSignal, &Recheck{Trigger: TriggerPush, Priority: PriorityWebhook, Paths: []string{"a", "b"}})
+		env.SignalWorkflow(RecheckSignal, &Recheck{Trigger: TriggerPush, Priority: PriorityWebhook, Paths: []string{"a"}})
 	}
 
 	env.ExecuteWorkflow(EvaluationWorkflowName, evalInput())
@@ -182,7 +184,7 @@ func TestEvaluationWorkflow_SignalsDuringAnEvaluationCoalesce(t *testing.T) {
 	}
 
 	if in := f.evals[1]; in.All || !slices.Equal(in.Paths, []string{"a", "b"}) || in.Trigger != TriggerPush {
-		t.Errorf("follow-up evaluation = %+v, want one push evaluation of the union [a b]", in)
+		t.Errorf("follow-up evaluation = %+v, want one push evaluation of the disjoint pushes' union [a b]", in)
 	}
 }
 
@@ -206,6 +208,11 @@ func TestCoalesce(t *testing.T) {
 		{
 			name: "unknown dominates",
 			in:   []*Recheck{push(2, "a"), {Trigger: TriggerPush, Priority: 2, Unknown: true}, push(2, "c")},
+			want: Recheck{Trigger: TriggerPush, Priority: 2, Unknown: true},
+		},
+		{
+			name: "union past the cap is unknown",
+			in:   []*Recheck{push(2, maxPaths("a")...), push(2, "z")},
 			want: Recheck{Trigger: TriggerPush, Priority: 2, Unknown: true},
 		},
 		{
@@ -248,5 +255,120 @@ func TestEvaluationWorkflow_ContinuesAsNewAfterMaxIterations(t *testing.T) {
 
 	if len(f.evals) != maxIterationsPerRun {
 		t.Errorf("evaluations before ContinueAsNew = %d, want %d", len(f.evals), maxIterationsPerRun)
+	}
+}
+
+// maxPaths returns MaxChangedPaths distinct 60-byte paths under prefix,
+// the largest change set a re-check carries (INV-0022 spike 5(c)).
+func maxPaths(prefix string) []string {
+	out := make([]string, 0, MaxChangedPaths)
+	for i := range MaxChangedPaths {
+		out = append(out, fmt.Sprintf("%s/%0*d", prefix, 59-len(prefix), i))
+	}
+
+	return out
+}
+
+func TestEvaluationWorkflow_UnknownSignalSelectsEveryControl(t *testing.T) {
+	t.Parallel()
+
+	f := &evalFakes{script: parkEvalAfter(2)}
+	env := newEvalEnv(t, f)
+	f.during = func(n int) {
+		if n != 0 {
+			return
+		}
+
+		env.SignalWorkflow(RecheckSignal, &Recheck{Trigger: TriggerPush, Priority: PriorityWebhook, Paths: []string{"a"}})
+		env.SignalWorkflow(RecheckSignal, &Recheck{Trigger: TriggerPush, Priority: PriorityWebhook, Unknown: true})
+	}
+
+	env.ExecuteWorkflow(EvaluationWorkflowName, evalInput())
+
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
+
+	if in := f.evals[1]; !in.All || in.Paths != nil || in.Scheduled {
+		t.Errorf("follow-up evaluation = %+v, want every file control selected by the one unknown signal", in)
+	}
+}
+
+func TestEvaluationWorkflow_ParkedRepositoryIsNeverReadAgain(t *testing.T) {
+	t.Parallel()
+
+	f := &evalFakes{script: func(int, *EvaluateInput) *EvaluateResult { return &EvaluateResult{Kind: CheckParked} }}
+	env := newEvalEnv(t, f)
+	f.during = func(int) {
+		env.SignalWorkflow(RecheckSignal, &Recheck{Trigger: TriggerPush, Priority: PriorityWebhook, Paths: []string{"a"}})
+	}
+
+	env.ExecuteWorkflow(EvaluationWorkflowName, evalInput())
+
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(f.evals) != 1 || len(f.records) != 0 || len(f.parks) != 0 {
+		t.Errorf("evals %d, records %d, parks %d; want the loop ended after one evaluation found the repository parked",
+			len(f.evals), len(f.records), len(f.parks))
+	}
+}
+
+// TestEvaluationWorkflow_HistoryBoundedUnderMaxSignals sends the largest
+// re-check the router emits during every evaluation of a full run, and
+// two disjoint ones during the last: no evaluation carries more than
+// MaxChangedPaths, and the ContinueAsNew state stays one signal's size.
+// At about 16 KB of paths per iteration, 100 iterations stay near the
+// 1.4 MB INV-0022 projected, under Temporal's 10 MB warning.
+func TestEvaluationWorkflow_HistoryBoundedUnderMaxSignals(t *testing.T) {
+	t.Parallel()
+
+	f := &evalFakes{}
+	env := newEvalEnv(t, f)
+
+	var signalled int
+
+	f.during = func(n int) {
+		send := func(prefix string) {
+			paths := maxPaths(prefix + strconv.Itoa(n))
+			for _, p := range paths {
+				signalled += len(p)
+			}
+
+			env.SignalWorkflow(RecheckSignal, &Recheck{Trigger: TriggerPush, Priority: PriorityWebhook, Paths: paths})
+		}
+
+		send("a")
+
+		if n == maxIterationsPerRun-1 {
+			send("b")
+		}
+	}
+
+	env.ExecuteWorkflow(EvaluationWorkflowName, evalInput())
+
+	var can *workflow.ContinueAsNewError
+	if err := env.GetWorkflowError(); !errors.As(err, &can) {
+		t.Fatalf("workflow error = %v, want ContinueAsNew", err)
+	}
+
+	for i, in := range f.evals {
+		if len(in.Paths) > MaxChangedPaths {
+			t.Fatalf("evaluation %d carried %d paths, want at most %d", i, len(in.Paths), MaxChangedPaths)
+		}
+	}
+
+	carried := 0
+	for _, p := range can.Input.GetPayloads() {
+		carried += len(p.GetData())
+	}
+
+	if carried > 1024 {
+		t.Errorf("ContinueAsNew state = %d bytes, want the two disjoint maximum signals coalesced to unknown, not their union", carried)
+	}
+
+	if perIteration := signalled / maxIterationsPerRun; perIteration > MaxChangedPaths*64 {
+		t.Errorf("signal paths per iteration = %d bytes, want at most %d", perIteration, MaxChangedPaths*64)
 	}
 }

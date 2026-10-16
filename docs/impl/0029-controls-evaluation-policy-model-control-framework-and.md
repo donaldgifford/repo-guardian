@@ -1142,11 +1142,19 @@ evaluator's store.
   and a missing policy root), `TestEvaluate_GoldenJSON`
   (`testdata/evaluate.golden.json`, regenerate with `-update-evaluate`)
   and `TestEvaluate_Table`.
-- [ ] 5.10 Workflow tests (time-skipping environment): disjoint pushes
+- [x] 5.10 Workflow tests (time-skipping environment): disjoint pushes
   coalesce to the union; one unknown signal selects every control; a
   parked repository is never read; a deferral writes no posture;
   ContinueAsNew history stays bounded under maximum-size signals (the
   bound the IMPL-0028 spike measured).
+  Done: in `evaluation_test.go`.
+  - `TestEvaluationWorkflow_SignalsDuringAnEvaluationCoalesce`: now sends disjoint `{b}` and `{a}` while an evaluation is in flight; they coalesce to `[a b]`.
+  - `TestEvaluationWorkflow_UnknownSignalSelectsEveryControl`
+  - `TestEvaluationWorkflow_ParkedRepositoryIsNeverReadAgain`: an already-parked result ends the loop with no further reads, records or park.
+  - `TestEvaluationWorkflow_DeferralRecordsNothing` (from 5.2) covers the deferral case.
+  - `TestEvaluationWorkflow_HistoryBoundedUnderMaxSignals`: a 256-path, 60-byte-path signal during every one of the 100 evaluations, and two disjoint ones during the last, to measure the INV-0022 spike 5(c) bound.
+
+  Finding fixed: `coalesce` had no cap, so disjoint maximum signals grew the carried state without bound. A union past the new `workflows.MaxChangedPaths` (256, which ingest's filter now uses too) becomes unknown. The ContinueAsNew state stays under 1 KB; with the cap removed it read 32 KB and the test failed. A `TestCoalesce` row covers the cap.
 - [ ] 5.11 Change-detection tables (activity plus store): status change,
   file blob change, API value change with unchanged statuses, revision
   change and a first evaluation bump the generation; a cosmetic title

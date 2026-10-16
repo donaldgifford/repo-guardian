@@ -157,6 +157,13 @@ type Recheck struct {
 	Unknown  bool     `json:",omitempty"`
 }
 
+// MaxChangedPaths caps the changed paths a re-check carries, in a signal
+// or coalesced in the workflow's carried state; past it the change set
+// is unknown. It keeps an EvaluationWorkflow run's history under
+// Temporal's warning limit at maxIterationsPerRun (INV-0022 spike 5(c),
+// DESIGN-0032 § history growth).
+const MaxChangedPaths = 256
+
 // PolicyChanged is the policy_changed signal payload: re-check by By,
 // at a random point between now and then.
 type PolicyChanged struct {

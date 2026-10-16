@@ -266,7 +266,7 @@ func (h *Handler) routePush(e *gh.PushEvent) (*workflows.WebhookInput, bool) {
 // the workflow history past what one signal should carry.
 const (
 	maxPushCommits = 2048
-	maxPushPaths   = 256
+	maxPushPaths   = workflows.MaxChangedPaths
 )
 
 // changeSet returns the watched paths a push touched, sorted, or unknown.

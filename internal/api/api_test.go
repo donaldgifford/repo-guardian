@@ -41,6 +41,15 @@ type orgReader struct {
 	mu     sync.Mutex
 	repos  []store.Repository
 	scopes []store.APIScope
+	policy *store.ActivePolicy
+}
+
+func (r *orgReader) ActivePolicy(context.Context) (*store.ActivePolicy, error) {
+	if r.policy == nil {
+		return nil, store.ErrNotFound
+	}
+
+	return r.policy, nil
 }
 
 func (*orgReader) Ping(context.Context) error { return nil }

@@ -83,3 +83,26 @@ func eventOut(e *store.Event) (gen.Event, error) {
 
 	return out, nil
 }
+
+func repositoryControlOut(c *store.RepositoryControl) (gen.RepositoryControl, error) {
+	out := gen.RepositoryControl{
+		ControlId: c.ControlID, Version: c.Version, Revision: c.Revision, State: c.State, Decision: c.Decision,
+		BaselineControl: optStr(c.BaselineControl), Source: c.Source, SourceBlock: optStr(c.SourceBlock),
+		Replaced: optStr(c.Replaced), ExcludedBy: optStr(c.ExcludedBy), Reason: optStr(c.Reason), Error: optStr(c.Error),
+		RequestedMode: c.RequestedMode, EffectiveMode: c.EffectiveMode, ModeSource: c.ModeSource, ModeReason: optStr(c.ModeReason),
+		Epoch: c.Epoch, Bucket: c.Bucket, Status: optStr(c.Status), EvaluatedSha: optStr(c.EvaluatedSHA),
+		EvaluatedAt: c.EvaluatedAt, LastChangedAt: c.LastChangedAt, Hold: optStr(c.Hold), HoldSince: c.HoldSince,
+		Rules: make([]gen.RuleResult, 0, len(c.Rules)),
+	}
+
+	for _, r := range c.Rules {
+		var ev gen.Evidence
+		if err := ev.UnmarshalJSON(r.Evidence); err != nil {
+			return out, fmt.Errorf("%s/%s evidence: %w", c.ControlID, r.RuleID, err)
+		}
+
+		out.Rules = append(out.Rules, gen.RuleResult{RuleId: r.RuleID, Status: r.Status, Remediate: r.Remediate, Evidence: ev})
+	}
+
+	return out, nil
+}

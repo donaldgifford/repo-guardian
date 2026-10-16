@@ -103,6 +103,7 @@ type repositoryFilters struct {
 	Org        string `json:"org,omitempty"`
 	Active     *bool  `json:"active,omitempty"`
 	ParkReason string `json:"park_reason,omitempty"`
+	State      string `json:"policy_state,omitempty"`
 	Q          string `json:"q,omitempty"`
 }
 
@@ -124,9 +125,10 @@ func (s *server) ListRepositories(ctx context.Context, req gen.ListRepositoriesR
 		return nil, err
 	}
 
-	filters := repositoryFilters{Org: deref(q.Org), Active: q.Active, ParkReason: deref(q.ParkReason), Q: deref(q.Q)}
+	filters := repositoryFilters{Org: deref(q.Org), Active: q.Active, ParkReason: deref(q.ParkReason), State: deref(q.PolicyState), Q: deref(q.Q)}
 	f := store.RepositoryFilter{
-		Org: filters.Org, Active: q.Active, ParkReason: store.ParkReason(filters.ParkReason), NamePrefix: filters.Q, Limit: limit,
+		Org: filters.Org, Active: q.Active, ParkReason: store.ParkReason(filters.ParkReason), PolicyState: filters.State,
+		NamePrefix: filters.Q, Limit: limit,
 	}
 
 	var key idKey

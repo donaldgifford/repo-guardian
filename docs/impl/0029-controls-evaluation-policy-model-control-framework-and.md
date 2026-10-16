@@ -616,7 +616,7 @@ revision and a `Semantics()` constant of 1.
   parallel `placeholder_fields`/`placeholder_lines` arrays (evidence is
   scalars or arrays of scalars). `control` gained the `Param*` type
   constants.
-- [ ] 3.4 `internal/controls/dependency_updates`: `tool` and
+- [x] 3.4 `internal/controls/dependency_updates`: `tool` and
   `renovate.extends`; the Dependabot and Renovate locations owned and
   read; `package.json` read only; rule kinds `configured`, `extends` and
   `exclusive`; a node-preserving JSON span editor that adds the preset to
@@ -624,6 +624,18 @@ revision and a `Semantics()` constant of 1.
   config is in the same change set. Fixtures include `configured` plus
   `extends` failing together, and Dependabot plus a JSON5 Renovate config
   (partial: `exclusive` fixed, `extends` manual).
+  Done: implements `control.Control` directly (several files, two
+  tools). The preset is `renovate = { extends = "..." }` and is a
+  template, so one catalogue entry serves every org. Locations are in
+  Renovate's own read order. A `package.json` `renovate` key satisfies
+  `configured`/`extends` for Renovate, fails `exclusive` for Dependabot,
+  and is never edited (Manual). `extends` is evaluated on JSON5 too, via
+  a normaliser (comments, single quotes, bare keys, trailing commas); a
+  JSON5 failure is Manual (D5). The JSON span editor appends to the
+  top-level list, matching a multi-line list's indentation, or inserts
+  the key before the first one; `extends` that is not a list is Manual.
+  Unknown/error rules go to Blocked. `TestPartialRemediation` pins the
+  D14 example.
 - [ ] 3.5 `internal/controls/repo_settings`: `setting:<property>` owned
   per declared property; rule kind `equals`; fix is
   `APIChange{setting:<property>, set, value}`. A 403 on the

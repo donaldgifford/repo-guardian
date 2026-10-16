@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "repository": "acme/widgets",
+  "policy_version": "controls:abe328455831775c68097e9fc255ea7b13618db2e107d1b3181295c9208d0ac6",
+  "state": "managed",
+  "result": "checked",
+  "branch": "main",
+  "commit": "0123abcd",
+  "controls": [
+    {
+      "control": "codeowners@1",
+      "status": "non_compliant",
+      "rules": [
+        {
+          "rule": "exists",
+          "status": "fail",
+          "evidence": {
+            "evidence_kind": "framework",
+            "evidence_version": 1,
+            "locations": [
+              ".github/CODEOWNERS",
+              "CODEOWNERS",
+              "docs/CODEOWNERS"
+            ],
+            "reason": "file_missing"
+          }
+        }
+      ]
+    }
+  ]
+}

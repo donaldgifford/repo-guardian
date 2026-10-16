@@ -137,7 +137,8 @@ func (e *Evaluator) Evaluate(ctx context.Context, in *workflows.EvaluateInput) (
 type evaluation struct {
 	workflows.EvaluateResult
 
-	staged []store.ControlEvaluation
+	staged      []store.ControlEvaluation
+	branch, sha string
 }
 
 // run pins the head and evaluates every selected control through one
@@ -161,7 +162,7 @@ func (e *Evaluator) run(
 		Vars: template.Vars{Common: template.Common{Owner: t.Org, Repo: t.Name, DefaultBranch: branch}, Org: t.Org},
 	}
 
-	out := &evaluation{EvaluateResult: workflows.EvaluateResult{Kind: workflows.CheckChecked}}
+	out := &evaluation{EvaluateResult: workflows.EvaluateResult{Kind: workflows.CheckChecked}, branch: branch, sha: sha}
 
 	for i := range selected {
 		ce, err := evaluateControl(ctx, &selected[i], &rc, reader)

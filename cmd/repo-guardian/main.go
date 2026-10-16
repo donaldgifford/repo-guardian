@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -41,8 +42,18 @@ const (
 
 func main() {
 	if err := dispatch(os.Args); err != nil {
-		slog.Error("repo-guardian exited with error", "error", err)
-		os.Exit(1)
+		code := 1
+
+		var ee *exitError
+		if errors.As(err, &ee) {
+			code = ee.code
+		}
+
+		if ee == nil || ee.err != nil {
+			slog.Error("repo-guardian exited with error", "error", err)
+		}
+
+		os.Exit(code)
 	}
 }
 
@@ -80,6 +91,8 @@ func dispatch(argv []string) error {
 		return runControls(argv[2:])
 	case cmdMigrate:
 		return runMigrate(argv[2:])
+	case cmdEvaluate:
+		return runEvaluate(argv[2:])
 	case cmdHelp:
 		usage(os.Stdout)
 
@@ -113,6 +126,7 @@ Usage:
   repo-guardian remediator [flags]   controls remediation worker (Remediation App)
   repo-guardian api                  read-only HTTP API
   repo-guardian report [flags]       write per-org compliance reports
+  repo-guardian evaluate --repo O/N  evaluate one repository against the controls policy, no store
   repo-guardian monitoring generate  emit dashboards and alerts from the policy
   repo-guardian controls docs        render the control-type reference
   repo-guardian migrate [flags]      apply v2 schema migrations (Helm hook Job)

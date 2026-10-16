@@ -1119,13 +1119,29 @@ evaluator's store.
   NULL. Tests: `TestControlsSnapshotWorkflow_WritesAndRecords`,
   `TestControlsServices_SnapshotStampsTheRun`, and
   `TestControlsStore_ComplianceSnapshot` (as rg_evaluator).
-- [ ] 5.9 `repo-guardian evaluate --repo <org>/<name> [--format json]`:
+- [x] 5.9 `repo-guardian evaluate --repo <org>/<name> [--format json]`:
   loads the policy directory, authenticates as the Evaluation App,
   checks access, resolves, evaluates with no store, and prints a table
   or JSON carrying `schema_version` and the evaluated commit. Exit codes:
   0 compliant or nothing measured, 1 non-compliant, 2 usage or
   configuration error, 3 operational failure. Golden JSON for a fake
   repository; one test per exit code.
+  Done: `cmd/repo-guardian/evaluate.go`. Loads the policy root (`--policy`,
+  default `$GUARDIAN_CONFIG`) with the built-in registry, reads the
+  Evaluation App's id and key path through the new
+  `config.LoadAppCredentials`, finds the org's installation, checks access
+  with `GetRepository` (which also supplies the archived/fork flags for
+  resolution), then calls `activities.Evaluator.EvaluateResolved`. That
+  method is new and store-free: the same selection and run as the
+  scheduled evaluation, staging nothing, with epochs at zero. Output is a
+  table, or JSON with `schema_version`, `policy_version`, `branch` and
+  `commit`. Exit codes travel back through `exitError`, which `main`
+  honours: 0 compliant or nothing measured, 1 non-compliant (silent),
+  2 usage, policy or credentials error, 3 no access, throttled or failed.
+  Tests: `TestEvaluate_ExitCodes` (one case per code, plus nothing-measured
+  and a missing policy root), `TestEvaluate_GoldenJSON`
+  (`testdata/evaluate.golden.json`, regenerate with `-update-evaluate`)
+  and `TestEvaluate_Table`.
 - [ ] 5.10 Workflow tests (time-skipping environment): disjoint pushes
   coalesce to the union; one unknown signal selects every control; a
   parked repository is never read; a deferral writes no posture;

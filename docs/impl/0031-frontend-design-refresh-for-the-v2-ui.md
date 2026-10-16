@@ -650,7 +650,10 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
 - `make lint-api`, `make lint-sql`, `make generate-api` /
   `make generate-ui-api` produce no diff after commit, `make test`
   passes including the new `apitest` and store cases, and
-  `TestStatus_PrivacyGuard` is unchanged.
+  `TestStatus_PrivacyGuard` is unchanged. — *can't do as written (2026-10-16): the guard records
+  every string field, so 7.4's three `date-time` fields and the
+  `rollout_state` enum had to join its allowlist. No free-text field
+  was added. Awaiting a maintainer decision.*
 - No panel in the UI is hidden any more; `grep -rn "hiddenUntil" ui/web/src`
   returns nothing.
 - `TestCompliance_ParityAcrossReportAPIAndSnapshot` still passes and

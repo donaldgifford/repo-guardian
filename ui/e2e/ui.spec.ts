@@ -399,9 +399,9 @@ test("the orgs grid expands acme to its rules, hides the parked column and expor
   const file = await download;
   expect(file.suggestedFilename()).toBe("orgs.csv");
   const text = (await (await file.createReadStream()).toArray()).join("");
-  expect(text.split("\r\n")[0]).toBe("org,tracked,compliant,failing,parked");
-  expect(text).toMatch(/\r\nacme,\d+,\d+,\d+,\d+\r\n/);
-  expect(text).toMatch(/\r\ntotal,\d+,\d+,\d+,\d+\r\n$/);
+  expect(text.split("\r\n")[0]).toBe("org,tracked,compliant,failing,parked,prs");
+  expect(text).toMatch(/\r\nacme,\d+,\d+,\d+,\d+,\d+\r\n/);
+  expect(text).toMatch(/\r\ntotal,\d+,\d+,\d+,\d+,\d+\r\n$/);
 });
 
 test("the org detail shows KPIs, the trend and rule meters, and links to the org's findings", async ({ page }) => {

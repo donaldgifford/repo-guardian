@@ -162,7 +162,7 @@ export function FindingsView() {
             name="sort"
             value="pr_age"
             aria-pressed={search.sort === "pr_age"}
-            className={cn(search.sort !== "pr_age" && "opacity-60")}
+            className={cn(search.sort === "pr_age" && "border-accent text-foreground")}
             onClick={() => void navigate({ to: ".", search: (prev) => patchSearch(prev, { sort: search.sort === "pr_age" ? undefined : "pr_age" }) })}
           />
         </div>

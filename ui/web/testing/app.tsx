@@ -22,6 +22,7 @@ export const testSummary: Schemas["Summary"] = {
   open_prs: [],
   stale_prs: 0,
   stale_after: "720h",
+  finding_age: [],
 };
 
 export const testPolicy: Schemas["Policy"] = {

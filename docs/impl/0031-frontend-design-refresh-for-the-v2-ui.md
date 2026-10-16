@@ -612,7 +612,7 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
   hash so a cursor from one sort is rejected under another; `apitest`
   covers paging under `pr_age` across a page boundary. UI: the `sort =
   pr_age` chip (default off), persisted as `?sort=`.
-- [ ] 7.3 `Summary.finding_age[]` `{bucket, count}` over `non_compliant`
+- [x] 7.3 `Summary.finding_age[]` `{bucket, count}` over `non_compliant`
   findings' `status_since` in six buckets (`<1d`, `1-7d`, `7-30d`,
   `30-90d`, `90-180d`, `180d+`), computed in `api_summary.sql` with
   the scope predicate; `apitest` with a fixture spanning every bucket.

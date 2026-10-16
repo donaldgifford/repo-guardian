@@ -61,6 +61,10 @@ type ParkedCount struct {
 	Count  int
 }
 
+// FindingAgeBuckets are Summary.FindingAge's buckets in order: how long
+// a non-compliant finding has failed (IMPL-0031 7.3).
+var FindingAgeBuckets = []string{"<1d", "1-7d", "7-30d", "30-90d", "90-180d", "180d+"}
+
 // Summary is the fleet summary over an APIScope.
 type Summary struct {
 	// Tracked counts active repositories.
@@ -73,4 +77,7 @@ type Summary struct {
 	CompliantPercent *float64
 	// OpenPRs holds each open repo-guardian PR's created_at.
 	OpenPRs []time.Time
+	// FindingAge counts non-compliant findings per FindingAgeBuckets
+	// bucket, keyed by bucket name; absent buckets are zero.
+	FindingAge map[string]int
 }

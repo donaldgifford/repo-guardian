@@ -26,7 +26,6 @@ import { DeltaText } from "../components/ui/kpi";
 import { Meter } from "../components/ui/meter";
 import { Pill, PillGroup } from "../components/ui/pill";
 import { StatStrip } from "../components/ui/stat-strip";
-import { flags } from "../lib/flags";
 import { formatPercent, humanizeDuration, trend } from "../lib/format";
 import { parseRange, rangeDays, rangeFrom, type Range } from "../lib/range";
 import { patchSearch } from "../lib/search";
@@ -118,7 +117,7 @@ function WholeFleet({ range, series }: { range: Range; series: FleetSeriesKey })
         />
         <OpenPRsCard summary={s} />
       </div>
-      {flags.findingAge ? <FindingAgeCard buckets={[]} /> : null}
+      <FindingAgeCard buckets={s.finding_age} />
       <div className="grid gap-4 lg:grid-cols-3">
         <WorstRulesCard rules={rules.data?.items} />
         <ParkedCard parked={s.parked} />
@@ -326,18 +325,13 @@ function OpenPRsCard({ summary }: { summary: Schemas["Summary"] }) {
   );
 }
 
-// FindingAgeCard is the distribution of non-compliant finding ages. It
-// needs finding_age on /summary (IMPL-0031 7.3) and stays hidden
-// behind flags.findingAge until then.
-export interface AgeBucket {
-  label: string;
-  count: number;
-}
-
 const AGE_COLORS = ["var(--color-ok)", "var(--color-ok)", "var(--color-ok)", "var(--color-warn)", "var(--color-bad)", "var(--color-bad)"];
 
-function FindingAgeCard({ buckets }: { buckets: readonly AgeBucket[] }) {
-  const segments: DistSegment[] = buckets.map((b, i) => ({ label: b.label, value: b.count, color: AGE_COLORS[i] ?? "var(--color-bad)" }));
+// FindingAgeCard is the distribution of non-compliant finding ages from
+// /summary's finding_age (IMPL-0031 7.3); the first three buckets are
+// under 30 days.
+function FindingAgeCard({ buckets }: { buckets: readonly Schemas["FindingAgeBucket"][] }) {
+  const segments: DistSegment[] = buckets.map((b, i) => ({ label: b.bucket, value: b.count, color: AGE_COLORS[i] ?? "var(--color-bad)" }));
   const total = buckets.reduce((n, b) => n + b.count, 0);
   const under30 = buckets.slice(0, 3).reduce((n, b) => n + b.count, 0);
   const share = total === 0 ? null : Math.round((100 * under30) / total);
@@ -346,7 +340,7 @@ function FindingAgeCard({ buckets }: { buckets: readonly AgeBucket[] }) {
       title="Finding age distribution"
       subtitle="How long non-compliant findings have been open. Under 30 days is the healthy threshold."
       right={share === null ? null : <span className="rounded-lg border border-border px-2 py-0.5 text-xs">{share}% under 30d · healthy threshold</span>}
-      table={{ head: ["Age", "Findings"], numeric: [1], rows: buckets.map((b) => [b.label, b.count.toLocaleString()]) }}
+      table={{ head: ["Age", "Findings"], numeric: [1], rows: buckets.map((b) => [b.bucket, b.count.toLocaleString()]) }}
     >
       <DistBar segments={segments} aria-label="non-compliant findings by age" />
     </ChartCard>

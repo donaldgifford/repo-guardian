@@ -372,6 +372,15 @@ export interface components {
             bucket: string;
             count: number;
         };
+        /** @description Non-compliant findings that have failed for one age range. */
+        FindingAgeBucket: {
+            /**
+             * @description Open enum: <1d, 1-7d, 7-30d, 30-90d, 90-180d, 180d+.
+             * @example 7-30d
+             */
+            bucket: string;
+            count: number;
+        };
         /** @description The fleet summary over the visible orgs. */
         Summary: {
             /** @description Active repositories in the visible orgs. */
@@ -392,6 +401,8 @@ export interface components {
             stale_prs: number;
             /** @description The threshold applied, as a Go duration. */
             stale_after: string;
+            /** @description Non-compliant findings on active repositories by how long they have failed (status_since), every bucket in order, zeros included. */
+            finding_age: components["schemas"]["FindingAgeBucket"][];
         };
         /** @description One status-page component. */
         Component: {

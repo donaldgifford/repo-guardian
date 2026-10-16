@@ -45,7 +45,7 @@ type orgReader struct {
 
 func (*orgReader) Ping(context.Context) error { return nil }
 
-func (r *orgReader) Summary(_ context.Context, scope store.APIScope) (*store.Summary, error) {
+func (r *orgReader) Summary(_ context.Context, scope store.APIScope, _ time.Time) (*store.Summary, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

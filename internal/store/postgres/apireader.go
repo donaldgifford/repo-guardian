@@ -48,11 +48,12 @@ func (r *APIReader) readOnly(ctx context.Context, fn func(q *sqlcdb.Queries) err
 }
 
 // Summary returns the fleet summary over scope.
-func (r *APIReader) Summary(ctx context.Context, scope store.APIScope) (sum *store.Summary, err error) {
+// now ages the findings for FindingAge.
+func (r *APIReader) Summary(ctx context.Context, scope store.APIScope, now time.Time) (sum *store.Summary, err error) {
 	defer func(start time.Time) { observeQuery("api_summary", start, err) }(time.Now())
 
 	all, orgs := scope.All(), scope.Orgs()
-	sum = &store.Summary{Parked: []store.ParkedCount{}, OpenPRs: []time.Time{}}
+	sum = &store.Summary{Parked: []store.ParkedCount{}, OpenPRs: []time.Time{}, FindingAge: map[string]int{}}
 
 	err = r.readOnly(ctx, func(q *sqlcdb.Queries) error {
 		repos, err := q.APISummaryRepositories(ctx, sqlcdb.APISummaryRepositoriesParams{ScopeAll: all, ScopeOrgs: orgs})
@@ -90,6 +91,15 @@ func (r *APIReader) Summary(ctx context.Context, scope store.APIScope) (sum *sto
 
 		for _, pr := range prs {
 			sum.OpenPRs = append(sum.OpenPRs, pr.CreatedAt)
+		}
+
+		ages, err := q.APISummaryFindingAge(ctx, sqlcdb.APISummaryFindingAgeParams{Now: now, ScopeAll: all, ScopeOrgs: orgs})
+		if err != nil {
+			return fmt.Errorf("finding age: %w", err)
+		}
+
+		for _, a := range ages {
+			sum.FindingAge[a.Bucket] = int(a.Findings)
 		}
 
 		return nil

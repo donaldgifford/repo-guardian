@@ -41,3 +41,23 @@ WHERE r.active AND f.remediation = 'pr_open' AND f.evidence -> 'pr' ->> 'created
   AND (@scope_all::bool OR lower(r.org) = ANY (@scope_orgs::text[]))
 GROUP BY r.id
 ORDER BY r.id;
+
+-- name: APISummaryFindingAge :many
+-- Non-compliant findings on active repositories in scope by how long
+-- they have failed (IMPL-0031 7.3): status_since against now, in six
+-- buckets. Buckets with no findings are absent; the caller fills them.
+SELECT (CASE
+          WHEN a.age < interval '1 day' THEN '<1d'
+          WHEN a.age < interval '7 days' THEN '1-7d'
+          WHEN a.age < interval '30 days' THEN '7-30d'
+          WHEN a.age < interval '90 days' THEN '30-90d'
+          WHEN a.age < interval '180 days' THEN '90-180d'
+          ELSE '180d+'
+        END)::text AS bucket,
+       count(*)::int AS findings
+FROM findings f
+JOIN repositories r ON r.id = f.repository_id
+CROSS JOIN LATERAL (SELECT sqlc.arg(now)::timestamptz - f.status_since AS age) a
+WHERE r.active AND f.status = 'non_compliant'
+  AND (@scope_all::bool OR lower(r.org) = ANY (@scope_orgs::text[]))
+GROUP BY 1;

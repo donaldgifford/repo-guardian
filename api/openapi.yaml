@@ -696,10 +696,22 @@ components:
         count:
           type: integer
           minimum: 0
+    FindingAgeBucket:
+      description: Non-compliant findings that have failed for one age range.
+      type: object
+      required: [bucket, count]
+      properties:
+        bucket:
+          description: "Open enum: <1d, 1-7d, 7-30d, 30-90d, 90-180d, 180d+."
+          type: string
+          examples: ["7-30d"]
+        count:
+          type: integer
+          minimum: 0
     Summary:
       description: The fleet summary over the visible orgs.
       type: object
-      required: [tracked, parked, compliant_percent, findings, open_prs, stale_prs, stale_after]
+      required: [tracked, parked, compliant_percent, findings, open_prs, stale_prs, stale_after, finding_age]
       properties:
         tracked:
           type: integer
@@ -731,6 +743,14 @@ components:
         stale_after:
           type: string
           description: The threshold applied, as a Go duration.
+        finding_age:
+          type: array
+          description: >-
+            Non-compliant findings on active repositories by how long they
+            have failed (status_since), every bucket in order, zeros
+            included.
+          items:
+            $ref: "#/components/schemas/FindingAgeBucket"
     Component:
       description: One status-page component.
       type: object

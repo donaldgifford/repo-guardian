@@ -321,12 +321,13 @@ type ServiceRun struct {
 	Detail     map[string]any
 }
 
-// RateSnapshot is an installation's last observed X-RateLimit-* values.
-type RateSnapshot struct {
-	Limit      int
-	Remaining  int
-	ResetAt    time.Time
-	ObservedAt time.Time
+// AppInstallations is one GitHub App's installations, by count only.
+type AppInstallations struct {
+	App           string
+	Installations int
+	Suspended     int
+	// Repositories counts the repositories the App can reach.
+	Repositories int
 }
 
 // StatusInputs is everything the status page is computed from, read in
@@ -342,17 +343,19 @@ type StatusInputs struct {
 	ActiveRepositories int
 	// LastServiceSuccess holds each service's last successful run.
 	LastServiceSuccess map[ServiceRunKind]time.Time
-	// Rates holds live installations' rate snapshots. The controls
-	// schema stores none; IMPL-0029 8.5 rebuilds the budget component.
-	Rates []RateSnapshot
-	// Compliance is the fleet's result counts, from the compliance query.
-	Compliance StatusCounts
+	// Apps holds each App with an installation, ordered by App.
+	Apps []AppInstallations
+	// Compliance is the fleet's posture: every compliance row summed.
+	Compliance ControlPosture
 	// History is fleet compliance at each UTC day's last snapshot over
 	// the last 30 days, oldest first.
 	History []CompliancePoint
-	// CheckedLastDay counts repositories with a finished check in the
-	// last 24h.
-	CheckedLastDay int
+	// EvaluatedLastDay counts repositories with a finished evaluation in
+	// the last 24h.
+	EvaluatedLastDay int
+	// Overdue counts active managed repositories with no successful
+	// evaluation within the freshness window the caller passed.
+	Overdue int
 	// Rollout is the current policy version's rollout; nil before any
 	// version is activated.
 	Rollout *Rollout

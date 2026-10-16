@@ -755,7 +755,8 @@ Takes (dict "ctx" $ "app" "eval"|"remediate").
 
 {{/*
 One controls App's env: the webhook secret and App id for ingest, the
-App id and key path for the role that acts as it. Takes (dict "ctx" $
+App id and key path for the role that acts as it, and the App id alone
+for an api role with api.temporal, which probes that App's queue. Takes (dict "ctx" $
 "role" <role> "app" "eval"|"remediate").
 */}}
 {{- define "repo-guardian.appEnv" -}}
@@ -763,7 +764,8 @@ App id and key path for the role that acts as it. Takes (dict "ctx" $
 {{- $prefix := ternary "EVAL" "REMEDIATE" (eq .app "eval") -}}
 {{- $hasKey := ternary (include "repo-guardian.roleHasEvalKey" .) (include "repo-guardian.roleHasRemediateKey" .) (eq .app "eval") -}}
 {{- $hasHook := and $a.appId (include "repo-guardian.roleHasWebhookSecret" .) -}}
-{{- if or $hasKey $hasHook }}
+{{- $probes := and $a.appId (eq .role "api") .ctx.Values.api.temporal -}}
+{{- if or $hasKey $hasHook $probes }}
 - name: {{ $prefix }}_GITHUB_APP_ID
   value: {{ $a.appId | quote }}
 {{- end }}

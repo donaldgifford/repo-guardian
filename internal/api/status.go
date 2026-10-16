@@ -33,7 +33,7 @@ const (
 // StatusReader reads the status page's inputs. *postgres.APIReader
 // satisfies it.
 type StatusReader interface {
-	StatusInputs(ctx context.Context, now time.Time) (*store.StatusInputs, error)
+	StatusInputs(ctx context.Context, now time.Time, freshness time.Duration) (*store.StatusInputs, error)
 }
 
 // Backlog is the workflow task queue as Temporal describes it.
@@ -46,10 +46,9 @@ type Backlog struct {
 // BacklogProbe describes one task queue's backlog; it must be read-only.
 type BacklogProbe func(ctx context.Context) (Backlog, error)
 
-// The backlog component names, one per task queue: the rc's queue, and
-// the evaluation and remediation queues (IMPL-0028 task 4.8).
+// The backlog component names, one per task queue: the evaluation and
+// remediation queues (IMPL-0028 task 4.8).
 const (
-	ComponentBacklog            = "backlog"
 	ComponentBacklogEvaluation  = "backlog_evaluation"
 	ComponentBacklogRemediation = "backlog_remediation"
 )
@@ -66,13 +65,14 @@ type StatusConfig struct {
 	// Backlogs adds one component per probed task queue, in order;
 	// without any the backlog components are omitted.
 	Backlogs []QueueProbe
+	// Topology is the deployment's credential boundary: "split" or "all".
+	Topology string
 
+	// CheckInterval is the evaluation interval; a managed repository
+	// unevaluated for twice it is overdue.
 	CheckInterval     time.Duration
 	DiscoveryInterval time.Duration
 	SnapshotInterval  time.Duration
-	// RateReserve is the fraction of an installation's rate limit held
-	// in reserve (RATE_LIMIT_THRESHOLD).
-	RateReserve float64
 
 	Logger *slog.Logger
 	Now    func() time.Time
@@ -104,13 +104,16 @@ func (p *StatusPage) Current() gen.Status {
 		return *s
 	}
 
-	return unknownStatus(p.cfg.Now())
+	s := unknownStatus(p.cfg.Now())
+	s.Topology = topologyOut(p.cfg.Topology)
+
+	return s
 }
 
 // unknownStatus is the page before anything is measured.
 func unknownStatus(now time.Time) gen.Status {
 	return gen.Status{
-		State: stateUnknown, UpdatedAt: now.UTC(), Components: []gen.Component{},
+		State: stateUnknown, UpdatedAt: now.UTC(), Topology: gen.All, Components: []gen.Component{}, Apps: []gen.StatusApp{},
 		Compliance: gen.Compliance{History: []gen.CompliancePoint{}},
 		Operations: gen.StatusOperations{RolloutState: gen.None},
 	}
@@ -148,7 +151,7 @@ func (p *StatusPage) Refresh(ctx context.Context) (err error) {
 
 	now := p.cfg.Now()
 
-	in, err := p.cfg.Reader.StatusInputs(ctx, now)
+	in, err := p.cfg.Reader.StatusInputs(ctx, now, 2*p.cfg.CheckInterval)
 	if err != nil {
 		return err
 	}
@@ -174,13 +177,12 @@ type backlogResult struct {
 
 // evaluateStatus applies DESIGN-0027's component rules to in.
 func evaluateStatus(in *store.StatusInputs, backlogs []backlogResult, cfg *StatusConfig, now time.Time) gen.Status {
-	components := make([]gen.Component, 0, 5+len(backlogs))
+	components := make([]gen.Component, 0, 4+len(backlogs))
 	components = append(components,
 		checksComponent(in, cfg, now),
 		webhooksComponent(in, now),
 		serviceComponent("discovery", in.LastServiceSuccess[store.ServiceRunDiscovery], 2*cfg.DiscoveryInterval, discoveryDownAfter, now),
 		serviceComponent("snapshots", in.LastServiceSuccess[store.ServiceRunSnapshot], 2*cfg.SnapshotInterval, 0, now),
-		budgetComponent(in.Rates, cfg.RateReserve, now),
 	)
 
 	for i := range backlogs {
@@ -190,16 +192,49 @@ func evaluateStatus(in *store.StatusInputs, backlogs []backlogResult, cfg *Statu
 	return gen.Status{
 		State:      overallState(components),
 		UpdatedAt:  now.UTC(),
+		Topology:   topologyOut(cfg.Topology),
 		Components: components,
+		Apps:       appsOut(in.Apps),
 		Compliance: complianceOut(in),
 		Operations: operationsOut(in),
 	}
 }
 
-// complianceOut is the fleet percentage and its daily history.
+// topologyOut maps the configured topology onto the closed enum; an
+// unset one is all, the single-process default.
+func topologyOut(t string) gen.StatusTopology {
+	if t == string(gen.Split) {
+		return gen.Split
+	}
+
+	return gen.All
+}
+
+// appsOut is each App's installation counts; an App the enum does not
+// know is dropped rather than echoed, so the page carries no free text.
+func appsOut(apps []store.AppInstallations) []gen.StatusApp {
+	out := make([]gen.StatusApp, 0, len(apps))
+
+	for _, a := range apps {
+		app := gen.StatusAppApp(a.App)
+		if !app.Valid() {
+			continue
+		}
+
+		out = append(out, gen.StatusApp{App: app, Installations: a.Installations, Suspended: a.Suspended, Repositories: a.Repositories})
+	}
+
+	return out
+}
+
+// complianceOut is the fleet percentage and coverage and the daily
+// history.
 func complianceOut(in *store.StatusInputs) gen.Compliance {
-	pct := store.CompliantPercent(in.Compliance)
-	c := gen.Compliance{Percent: pct, Measured: pct != nil, History: make([]gen.CompliancePoint, 0, len(in.History))}
+	pct := in.Compliance.Percent
+	c := gen.Compliance{
+		Percent: pct, Coverage: in.Compliance.Coverage, Measured: pct != nil,
+		History: make([]gen.CompliancePoint, 0, len(in.History)),
+	}
 
 	for _, h := range in.History {
 		c.History = append(c.History, gen.CompliancePoint{At: h.At.UTC(), Percent: h.Percent})
@@ -211,7 +246,7 @@ func complianceOut(in *store.StatusInputs) gen.Compliance {
 // operationsOut is the operations strip: counts, times and a rollout
 // state from a closed enum, never text.
 func operationsOut(in *store.StatusInputs) gen.StatusOperations {
-	ops := gen.StatusOperations{Checked24h: in.CheckedLastDay, Tracked: in.ActiveRepositories, RolloutState: gen.None}
+	ops := gen.StatusOperations{Evaluated24h: in.EvaluatedLastDay, Overdue: in.Overdue, Tracked: in.ActiveRepositories, RolloutState: gen.None}
 
 	if in.LastSnapshot != nil {
 		t := in.LastSnapshot.UTC()
@@ -340,35 +375,6 @@ func serviceComponent(name string, last time.Time, degradedAfter, downAfter time
 		c.State = stateDegraded
 	default:
 		c.State = stateOperational
-	}
-
-	return c
-}
-
-func budgetComponent(rates []store.RateSnapshot, reserve float64, now time.Time) gen.Component {
-	c := gen.Component{Name: "github_budget"}
-
-	if len(rates) == 0 {
-		c.State, c.Detail = stateUnknown, "no rate-limit snapshot yet"
-
-		return c
-	}
-
-	throttled := 0
-
-	for _, r := range rates {
-		if float64(r.Remaining) < reserve*float64(r.Limit) && r.ResetAt.After(now) {
-			throttled++
-		}
-	}
-
-	switch {
-	case throttled == len(rates):
-		c.State, c.Detail = stateDown, "every installation is below its reserve"
-	case throttled > 0:
-		c.State, c.Detail = stateDegraded, "an installation is below its reserve"
-	default:
-		c.State, c.Detail = stateOperational, "every installation is within budget"
 	}
 
 	return c

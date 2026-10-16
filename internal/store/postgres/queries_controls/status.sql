@@ -41,3 +41,23 @@ SELECT (SELECT count(DISTINCT c.repository_id) FROM checks c
        (SELECT p.rollout_completed_at FROM policy_versions p
         ORDER BY p.activated_at DESC, p.version DESC LIMIT 1) AS rollout_completed_at,
        (SELECT max(cs.snapshot_at) FROM compliance_snapshots cs) AS last_snapshot;
+
+-- name: StatusApps :many
+-- Each App's installations, suspended installations and reachable
+-- repositories, by count only.
+SELECT i.app, count(*)::int AS installations,
+       count(*) FILTER (WHERE i.suspended_at IS NOT NULL)::int AS suspended,
+       (SELECT count(*) FROM app_repository_access a WHERE a.app = i.app)::int AS repositories
+FROM app_installations i
+GROUP BY i.app
+ORDER BY i.app;
+
+-- name: StatusOverdue :one
+-- Active managed repositories with no successful evaluation since
+-- @before (twice the evaluation interval ago): evaluation freshness.
+SELECT count(*)::int AS overdue
+FROM repositories r
+JOIN repository_policy_state ps ON ps.repository_id = r.id AND ps.state = 'managed'
+WHERE r.active
+  AND NOT EXISTS (SELECT 1 FROM checks c
+                  WHERE c.repository_id = r.id AND c.outcome = 'success' AND c.finished_at >= @before::timestamptz);

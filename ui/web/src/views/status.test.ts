@@ -19,7 +19,7 @@ test.each<[string, string, StatusTone]>([
 });
 
 test("rolloutLabel maps the closed enum onto fixed text", () => {
-  const ops = { checked_24h: 3, tracked: 4 };
+  const ops = { evaluated_24h: 3, overdue: 0, tracked: 4 };
   expect(rolloutLabel({ ...ops, rollout_state: "none" })).toEqual({ text: "—" });
   expect(rolloutLabel({ ...ops, rollout_state: "in_progress" })).toEqual({ text: "in progress" });
   expect(rolloutLabel({ ...ops, rollout_state: "complete", rollout_completed_at: "2026-09-01T12:00:00Z" })).toEqual({

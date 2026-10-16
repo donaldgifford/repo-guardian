@@ -150,7 +150,7 @@ func TestStatus_RefreshReadsPostgres(t *testing.T) {
 	_, reader := apiClient(t, f)
 	page := api.NewStatusPage(&api.StatusConfig{
 		Reader: reader, CheckInterval: 24 * time.Hour, DiscoveryInterval: time.Hour, SnapshotInterval: 24 * time.Hour,
-		RateReserve: 0.1, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Now: func() time.Time { return now.Add(5 * time.Minute) },
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Now: func() time.Time { return now.Add(5 * time.Minute) },
 	})
 
 	if err := page.Refresh(t.Context()); err != nil {

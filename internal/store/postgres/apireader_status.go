@@ -9,9 +9,10 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres/controlsdb"
 )
 
-// StatusInputs reads the status page's inputs as of now. It is global
-// and unscoped, and is called by the status refresher only.
-func (r *APIReader) StatusInputs(ctx context.Context, now time.Time) (in *store.StatusInputs, err error) {
+// StatusInputs reads the status page's inputs as of now; a managed
+// repository with no successful evaluation within freshness is overdue.
+// It is global and unscoped, and is called by the status refresher only.
+func (r *APIReader) StatusInputs(ctx context.Context, now time.Time, freshness time.Duration) (in *store.StatusInputs, err error) {
 	defer func(start time.Time) { observeQuery("api_status", start, err) }(time.Now())
 
 	in = &store.StatusInputs{LastServiceSuccess: map[store.ServiceRunKind]time.Time{}}
@@ -40,7 +41,11 @@ func (r *APIReader) StatusInputs(ctx context.Context, now time.Time) (in *store.
 		}
 
 		for i := range rows {
-			in.Compliance = in.Compliance.Add(rows[i].Counts())
+			in.Compliance = in.Compliance.Plus(&rows[i])
+		}
+
+		if err := statusApps(ctx, q, now.Add(-freshness), in); err != nil {
+			return err
 		}
 
 		return statusOperations(ctx, q, now, in)
@@ -61,6 +66,30 @@ func anyTime(v any) *time.Time {
 	}
 
 	return &t
+}
+
+// statusApps reads each App's installations and the overdue count into
+// in.
+func statusApps(ctx context.Context, q *controlsdb.Queries, freshAfter time.Time, in *store.StatusInputs) error {
+	apps, err := q.StatusApps(ctx)
+	if err != nil {
+		return fmt.Errorf("apps: %w", err)
+	}
+
+	for _, a := range apps {
+		in.Apps = append(in.Apps, store.AppInstallations{
+			App: a.App, Installations: int(a.Installations), Suspended: int(a.Suspended), Repositories: int(a.Repositories),
+		})
+	}
+
+	overdue, err := q.StatusOverdue(ctx, freshAfter)
+	if err != nil {
+		return fmt.Errorf("overdue: %w", err)
+	}
+
+	in.Overdue = int(overdue)
+
+	return nil
 }
 
 // statusHistoryDays is how far back the status page's compliance
@@ -93,7 +122,7 @@ func statusOperations(ctx context.Context, q *controlsdb.Queries, now time.Time,
 		return fmt.Errorf("operations: %w", err)
 	}
 
-	in.CheckedLastDay, in.LastSnapshot = int(ops.Checked), anyTime(ops.LastSnapshot)
+	in.EvaluatedLastDay, in.LastSnapshot = int(ops.Checked), anyTime(ops.LastSnapshot)
 	if ops.PolicyVersions > 0 {
 		in.Rollout = &store.Rollout{CompletedAt: ops.RolloutCompletedAt}
 	}

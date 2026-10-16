@@ -49,7 +49,7 @@ const dotClass: Record<StatusTone, string> = {
 export function StatusView() {
   const status = useStatus();
   const config = useUIConfig();
-  const s: Schemas["Status"] = status.data ?? { state: "unknown", updated_at: "", components: [], compliance: { percent: null, measured: false, history: [] }, operations: { checked_24h: 0, tracked: 0, rollout_state: "none" } };
+  const s: Schemas["Status"] = status.data ?? { state: "unknown", updated_at: "", topology: "all", components: [], apps: [], compliance: { percent: null, coverage: null, measured: false, history: [] }, operations: { evaluated_24h: 0, overdue: 0, tracked: 0, rollout_state: "none" } };
   const { headline, tone } = statusHeadline(s.state);
   return (
     <main className="mx-auto max-w-[760px] space-y-5 px-4 py-10">
@@ -167,15 +167,15 @@ export function rolloutLabel(ops: Schemas["StatusOperations"]): { text: string; 
   }
 }
 
-// OperationsStrip is three aggregate numbers: repositories checked in
+// OperationsStrip is three aggregate numbers: repositories evaluated in
 // the last 24h of those tracked, the newest policy's rollout and the
 // last compliance snapshot.
 function OperationsStrip({ ops }: { ops: Schemas["StatusOperations"] }) {
   const rollout = rolloutLabel(ops);
   return (
     <Card className="grid grid-cols-1 divide-y divide-border md:grid-cols-3 md:divide-x md:divide-y-0" aria-label="Operations">
-      <OperationsCell label="Repositories checked in the last 24h">
-        {ops.checked_24h.toLocaleString()}
+      <OperationsCell label="Repositories evaluated in the last 24h">
+        {ops.evaluated_24h.toLocaleString()}
         <span className="text-sm font-normal text-muted-foreground"> / {ops.tracked.toLocaleString()}</span>
       </OperationsCell>
       <OperationsCell label="Last policy rollout">{rollout.at ? <Time iso={rollout.at} style="relative" /> : rollout.text}</OperationsCell>

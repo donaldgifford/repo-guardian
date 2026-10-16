@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres"
 )
 
@@ -37,7 +38,7 @@ func TestStatusInputs_HistoryAndOperations(t *testing.T) {
 
 	r := postgres.NewAPIReader(pool)
 
-	in, err := r.StatusInputs(ctx, now)
+	in, err := r.StatusInputs(ctx, now, day)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,8 +50,19 @@ func TestStatusInputs_HistoryAndOperations(t *testing.T) {
 
 	// Three seeded checks are fresh; acme/old's is two days old. d is
 	// archived, so four repositories are active.
-	if in.CheckedLastDay != 3 || in.ActiveRepositories != 4 {
-		t.Errorf("checked_24h = %d, tracked = %d, want 3 and 4", in.CheckedLastDay, in.ActiveRepositories)
+	if in.EvaluatedLastDay != 3 || in.ActiveRepositories != 4 {
+		t.Errorf("evaluated_24h = %d, tracked = %d, want 3 and 4", in.EvaluatedLastDay, in.ActiveRepositories)
+	}
+
+	// acme/old's only success is older than the one-day window.
+	if in.Overdue != 1 {
+		t.Errorf("overdue = %d, want 1", in.Overdue)
+	}
+
+	// The fixture's one Evaluation App installation reaches every
+	// discovered repository, the archived one included.
+	if len(in.Apps) != 1 || in.Apps[0] != (store.AppInstallations{App: store.AppEval, Installations: 1, Repositories: 5}) {
+		t.Errorf("apps = %+v, want one eval installation reaching 5 repositories", in.Apps)
 	}
 
 	noon := now.UTC().Truncate(day).Add(-12 * time.Hour)
@@ -60,7 +72,7 @@ func TestStatusInputs_HistoryAndOperations(t *testing.T) {
 		}
 	}
 
-	in, err = r.StatusInputs(ctx, now)
+	in, err = r.StatusInputs(ctx, now, day)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +98,7 @@ func TestStatusInputs_HistoryAndOperations(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	in, err = r.StatusInputs(ctx, now)
+	in, err = r.StatusInputs(ctx, now, day)
 	if err != nil {
 		t.Fatal(err)
 	}

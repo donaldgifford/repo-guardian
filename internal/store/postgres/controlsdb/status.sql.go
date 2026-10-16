@@ -12,6 +12,49 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const statusApps = `-- name: StatusApps :many
+SELECT i.app, count(*)::int AS installations,
+       count(*) FILTER (WHERE i.suspended_at IS NOT NULL)::int AS suspended,
+       (SELECT count(*) FROM app_repository_access a WHERE a.app = i.app)::int AS repositories
+FROM app_installations i
+GROUP BY i.app
+ORDER BY i.app
+`
+
+type StatusAppsRow struct {
+	App           string
+	Installations int32
+	Suspended     int32
+	Repositories  int32
+}
+
+// Each App's installations, suspended installations and reachable
+// repositories, by count only.
+func (q *Queries) StatusApps(ctx context.Context) ([]StatusAppsRow, error) {
+	rows, err := q.db.Query(ctx, statusApps)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StatusAppsRow
+	for rows.Next() {
+		var i StatusAppsRow
+		if err := rows.Scan(
+			&i.App,
+			&i.Installations,
+			&i.Suspended,
+			&i.Repositories,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const statusChecks = `-- name: StatusChecks :one
 
 SELECT (SELECT max(c.finished_at) FROM checks c WHERE c.outcome = 'success') AS last_success,
@@ -115,6 +158,24 @@ func (q *Queries) StatusOperations(ctx context.Context, since time.Time) (Status
 		&i.LastSnapshot,
 	)
 	return i, err
+}
+
+const statusOverdue = `-- name: StatusOverdue :one
+SELECT count(*)::int AS overdue
+FROM repositories r
+JOIN repository_policy_state ps ON ps.repository_id = r.id AND ps.state = 'managed'
+WHERE r.active
+  AND NOT EXISTS (SELECT 1 FROM checks c
+                  WHERE c.repository_id = r.id AND c.outcome = 'success' AND c.finished_at >= $1::timestamptz)
+`
+
+// Active managed repositories with no successful evaluation since
+// @before (twice the evaluation interval ago): evaluation freshness.
+func (q *Queries) StatusOverdue(ctx context.Context, before time.Time) (int32, error) {
+	row := q.db.QueryRow(ctx, statusOverdue, before)
+	var overdue int32
+	err := row.Scan(&overdue)
+	return overdue, err
 }
 
 const statusServiceRuns = `-- name: StatusServiceRuns :many

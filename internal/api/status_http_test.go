@@ -21,21 +21,20 @@ import (
 // countingStatus counts the status page's reads.
 type countingStatus struct{ reads atomic.Int32 }
 
-func (c *countingStatus) StatusInputs(context.Context, time.Time) (*store.StatusInputs, error) {
+func (c *countingStatus) StatusInputs(context.Context, time.Time, time.Duration) (*store.StatusInputs, error) {
 	c.reads.Add(1)
 
 	return &store.StatusInputs{
 		LastCheckSuccess:   &now,
 		LastServiceSuccess: map[store.ServiceRunKind]time.Time{store.ServiceRunDiscovery: now, store.ServiceRunSnapshot: now},
-		Rates:              []store.RateSnapshot{{Limit: 5000, Remaining: 5000, ResetAt: now.Add(time.Hour)}},
-		Compliance:         store.StatusCounts{Compliant: 9, NonCompliant: 1},
+		Compliance:         store.ControlPosture{Compliant: 9, NonCompliant: 1, Percent: new(90.0)},
 	}, nil
 }
 
 func statusPage(reader api.StatusReader) *api.StatusPage {
 	return api.NewStatusPage(&api.StatusConfig{
 		Reader: reader, CheckInterval: 24 * time.Hour, DiscoveryInterval: time.Hour, SnapshotInterval: 24 * time.Hour,
-		RateReserve: 0.1, Logger: quiet, Now: func() time.Time { return now },
+		Logger: quiet, Now: func() time.Time { return now },
 	})
 }
 
@@ -113,6 +112,8 @@ var statusStrings = []string{
 	// IMPL-0031 7.4: typed fields only, a date-time or a closed enum.
 	"Status.compliance.history[].at(date-time)", "Status.operations.rollout_state",
 	"Status.operations.rollout_completed_at(date-time)", "Status.operations.last_snapshot_at(date-time)",
+	// IMPL-0029 8.5: closed enums; Apps are counted, never named by login.
+	"Status.topology", "Status.apps[].app",
 }
 
 // TestStatus_PrivacyGuard fails if the Status schema gains a field that

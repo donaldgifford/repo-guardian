@@ -431,7 +431,7 @@ paths:
       summary: Public service status.
       description: |
         Served from a cache refreshed every 30s. It never names an org,
-        repository, rule or installation, and carries no error text.
+        repository, control or installation, and carries no error text.
       tags: [meta]
       security: []
       responses:
@@ -603,7 +603,7 @@ components:
       required: [name, state, detail]
       properties:
         name:
-          description: "Open enum: checks, webhooks, discovery, snapshots, github_budget, backlog, backlog_evaluation, backlog_remediation."
+          description: "Open enum: checks, webhooks, discovery, snapshots, backlog_evaluation, backlog_remediation."
           type: string
         state:
           $ref: "#/components/schemas/ComponentState"
@@ -613,9 +613,13 @@ components:
     Compliance:
       description: Fleet-wide compliance for the status page.
       type: object
-      required: [percent, measured, history]
+      required: [percent, coverage, measured, history]
       properties:
         percent:
+          type: [number, "null"]
+          format: double
+        coverage:
+          description: Measured over assigned across the fleet, floored to one decimal; null when nothing is assigned.
           type: [number, "null"]
           format: double
         measured:
@@ -639,10 +643,13 @@ components:
     StatusOperations:
       description: The status page's operations strip. Counts and times only.
       type: object
-      required: [checked_24h, tracked, rollout_state]
+      required: [evaluated_24h, overdue, tracked, rollout_state]
       properties:
-        checked_24h:
-          description: Repositories with a finished check in the last 24 hours.
+        evaluated_24h:
+          description: Repositories with a finished evaluation in the last 24 hours.
+          type: integer
+        overdue:
+          description: Managed repositories with no successful evaluation within twice the evaluation interval.
           type: integer
         tracked:
           description: Active repositories.
@@ -657,11 +664,33 @@ components:
         last_snapshot_at:
           type: string
           format: date-time
+    StatusApp:
+      description: One GitHub App's installations, by count only.
+      type: object
+      required: [app, installations, suspended, repositories]
+      properties:
+        app:
+          type: string
+          enum: [eval, remediate]
+        installations:
+          type: integer
+          minimum: 0
+        suspended:
+          type: integer
+          minimum: 0
+        repositories:
+          description: Repositories the App can reach.
+          type: integer
+          minimum: 0
     Status:
       description: The public service status.
       type: object
-      required: [state, updated_at, components, compliance, operations]
+      required: [state, updated_at, topology, components, apps, compliance, operations]
       properties:
+        topology:
+          description: The credential boundary this deployment runs under.
+          type: string
+          enum: [split, all]
         state:
           $ref: "#/components/schemas/ComponentState"
         updated_at:
@@ -671,6 +700,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Component"
+        apps:
+          description: Each App with an installation; an App with none is absent.
+          type: array
+          items:
+            $ref: "#/components/schemas/StatusApp"
         compliance:
           $ref: "#/components/schemas/Compliance"
         operations:

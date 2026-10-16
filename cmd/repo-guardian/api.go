@@ -41,7 +41,7 @@ func startAPI(
 	reader := pgstore.NewAPIReader(pool)
 	statusCfg := &api.StatusConfig{
 		Reader: reader, CheckInterval: cfg.EvalInterval, DiscoveryInterval: cfg.DiscoveryInterval,
-		SnapshotInterval: cfg.ComplianceSnapshotInterval, RateReserve: cfg.RateLimitThreshold, Logger: logger,
+		SnapshotInterval: cfg.ComplianceSnapshotInterval, Topology: topologyOf(roles), Logger: logger,
 	}
 
 	if tc != nil {
@@ -99,7 +99,9 @@ func startAPI(
 
 // backlogProbes describes the queue of every controls half this process
 // runs: a half it does not run has no workers here by design, and
-// probing it would report the page down.
+// probing it would report the page down. The api role runs neither, so
+// it probes the queue of each configured App, whose workers run in the
+// evaluator and remediator Deployments.
 func backlogProbes(cfg *config.Config, roles config.Role, tc client.Client, tcfg *temporal.Config) []api.QueueProbe {
 	probe := func(queue string) api.BacklogProbe {
 		return func(ctx context.Context) (api.Backlog, error) {
@@ -111,11 +113,11 @@ func backlogProbes(cfg *config.Config, roles config.Role, tc client.Client, tcfg
 
 	var probes []api.QueueProbe
 
-	if cfg.RunsControls(roles, config.RoleEvaluator) {
+	if cfg.RunsControls(roles, config.RoleEvaluator) || roles == config.RoleAPI && cfg.AppConfigured(config.AppEval) {
 		probes = append(probes, api.QueueProbe{Component: api.ComponentBacklogEvaluation, Probe: probe(tcfg.EvalTaskQueue)})
 	}
 
-	if cfg.RunsControls(roles, config.RoleRemediator) {
+	if cfg.RunsControls(roles, config.RoleRemediator) || roles == config.RoleAPI && cfg.AppConfigured(config.AppRemediate) {
 		probes = append(probes, api.QueueProbe{Component: api.ComponentBacklogRemediation, Probe: probe(tcfg.RemediateTaskQueue)})
 	}
 

@@ -273,7 +273,7 @@ export interface paths {
         /**
          * Public service status.
          * @description Served from a cache refreshed every 30s. It never names an org,
-         *     repository, rule or installation, and carries no error text.
+         *     repository, control or installation, and carries no error text.
          */
         get: operations["getStatus"];
         put?: never;
@@ -353,7 +353,7 @@ export interface components {
         };
         /** @description One status-page component. */
         Component: {
-            /** @description Open enum: checks, webhooks, discovery, snapshots, github_budget, backlog, backlog_evaluation, backlog_remediation. */
+            /** @description Open enum: checks, webhooks, discovery, snapshots, backlog_evaluation, backlog_remediation. */
             name: string;
             state: components["schemas"]["ComponentState"];
             /** @description A fixed template with a relative time, such as "last success 3m ago". Never error text. */
@@ -363,6 +363,11 @@ export interface components {
         Compliance: {
             /** Format: double */
             percent: number | null;
+            /**
+             * Format: double
+             * @description Measured over assigned across the fleet, floored to one decimal; null when nothing is assigned.
+             */
+            coverage: number | null;
             measured: boolean;
             /** @description Fleet compliance at each UTC day's last snapshot over the last 30 days, oldest first. */
             history: components["schemas"]["CompliancePoint"][];
@@ -376,8 +381,10 @@ export interface components {
         };
         /** @description The status page's operations strip. Counts and times only. */
         StatusOperations: {
-            /** @description Repositories with a finished check in the last 24 hours. */
-            checked_24h: number;
+            /** @description Repositories with a finished evaluation in the last 24 hours. */
+            evaluated_24h: number;
+            /** @description Managed repositories with no successful evaluation within twice the evaluation interval. */
+            overdue: number;
             /** @description Active repositories. */
             tracked: number;
             /**
@@ -390,12 +397,28 @@ export interface components {
             /** Format: date-time */
             last_snapshot_at?: string;
         };
+        /** @description One GitHub App's installations, by count only. */
+        StatusApp: {
+            /** @enum {string} */
+            app: "eval" | "remediate";
+            installations: number;
+            suspended: number;
+            /** @description Repositories the App can reach. */
+            repositories: number;
+        };
         /** @description The public service status. */
         Status: {
+            /**
+             * @description The credential boundary this deployment runs under.
+             * @enum {string}
+             */
+            topology: "split" | "all";
             state: components["schemas"]["ComponentState"];
             /** Format: date-time */
             updated_at: string;
             components: components["schemas"]["Component"][];
+            /** @description Each App with an installation; an App with none is absent. */
+            apps: components["schemas"]["StatusApp"][];
             compliance: components["schemas"]["Compliance"];
             operations: components["schemas"]["StatusOperations"];
         };

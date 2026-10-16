@@ -134,6 +134,68 @@ export function failingRuleCount(rules: readonly Pick<RuleCompliance, "counts">[
   return rules.filter((r) => r.counts.non_compliant > 0).length;
 }
 
+// FleetSeriesKey names the four series a fleet point carries; the
+// compliance card draws exactly one at a time (DESIGN-0036 §Fleet).
+export type FleetSeriesKey = "compliant" | "failing" | "not_applicable" | "unknown";
+
+export interface FleetSeries {
+  key: FleetSeriesKey;
+  label: string;
+  unit: "%" | "count";
+  color: string;
+  // goodUp says whether a rise is good, for the delta's tone.
+  goodUp: boolean;
+}
+
+export const FLEET_SERIES: readonly FleetSeries[] = [
+  { key: "compliant", label: "compliant %", unit: "%", color: "var(--color-accent)", goodUp: true },
+  { key: "failing", label: "failing findings", unit: "count", color: "var(--color-bad)", goodUp: false },
+  { key: "not_applicable", label: "not applicable", unit: "count", color: "var(--color-muted-foreground)", goodUp: false },
+  { key: "unknown", label: "unknown", unit: "count", color: "var(--color-warn)", goodUp: false },
+];
+
+export function isFleetSeriesKey(v: unknown): v is FleetSeriesKey {
+  return FLEET_SERIES.some((s) => s.key === v);
+}
+
+// fleetSeriesFor projects fleet points onto one series: the percent, or
+// one of the summed counts, as SeriesPoints the chart can draw.
+export function fleetSeriesFor(points: readonly FleetPoint[], key: FleetSeriesKey): SeriesPoint[] {
+  return points.map((p) => {
+    switch (key) {
+      case "compliant":
+        return { at: p.at, percent: p.percent };
+      case "failing":
+        return { at: p.at, percent: p.counts.non_compliant };
+      case "not_applicable":
+        return { at: p.at, percent: p.counts.not_applicable };
+      case "unknown":
+        return { at: p.at, percent: p.counts.unknown };
+    }
+  });
+}
+
+// latestValue is the last measured value of a series, null when none.
+export function latestValue(series: readonly SeriesPoint[]): number | null {
+  for (let i = series.length - 1; i >= 0; i--) {
+    const v = series[i]?.percent;
+    if (v !== null && v !== undefined) return v;
+  }
+  return null;
+}
+
+// deltaOver is the last measured value minus the newest measured value
+// at least `days` before it: the "7d delta". Null without both.
+export function deltaOver(series: readonly SeriesPoint[], days: number): number | null {
+  const measured = series.filter((p): p is SeriesPoint & { percent: number } => p.percent !== null);
+  const last = measured[measured.length - 1];
+  if (!last) return null;
+  const cutoff = new Date(last.at).getTime() - days * 86_400_000;
+  const base = [...measured].reverse().find((p) => new Date(p.at).getTime() <= cutoff);
+  if (!base) return null;
+  return Math.round((last.percent - base.percent) * 10) / 10;
+}
+
 // parkedTotal sums parked repositories across reasons.
 export function parkedTotal(parked: Schemas["ParkedCount"][]): number {
   return parked.reduce((n, p) => n + p.count, 0);

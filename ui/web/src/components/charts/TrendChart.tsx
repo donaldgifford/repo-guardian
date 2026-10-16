@@ -20,11 +20,12 @@ export interface TrendChartProps {
   "aria-label": string;
 }
 
+// Recharts hands an Area dot its value as a [baseline, value] pair, so
+// the renderer reads the point from the series by index instead.
 interface EndDotProps {
   cx?: number;
   cy?: number;
   index?: number;
-  value?: number | null;
 }
 
 // TrendChart is the area chart (DESIGN-0036 §Charts): one series, a
@@ -43,7 +44,8 @@ export function TrendChart({ series, unit = "%", color = "var(--color-accent)", 
   const data = series.map((p) => ({ at: p.at, value: p.percent }));
 
   const endDot = (props: EndDotProps) => {
-    const { cx, cy, index, value } = props;
+    const { cx, cy, index } = props;
+    const value = index === undefined ? undefined : series[index]?.percent;
     if (index !== last || cx === undefined || cy === undefined || value === null || value === undefined) {
       return <g key="end-none" />;
     }

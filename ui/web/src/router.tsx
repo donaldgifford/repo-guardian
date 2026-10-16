@@ -3,7 +3,7 @@ import { createRootRoute, createRoute, createRouter, Outlet, retainSearchParams 
 import { ProblemView } from "./components/problem";
 import { Shell } from "./components/shell/Shell";
 import { FindingsView, parseFindingsSearch } from "./views/findings";
-import { FleetView } from "./views/fleet";
+import { FleetView, parseFleetSearch } from "./views/fleet";
 import { HistoryView, parseHistorySearch } from "./views/history";
 import { OrgView, OrgsView } from "./views/orgs";
 import { PolicyView } from "./views/policy";
@@ -44,7 +44,7 @@ const appRoute = createRoute({
   errorComponent: ProblemView,
 });
 
-const fleetRoute = createRoute({ getParentRoute: () => appRoute, path: "/", component: FleetView });
+const fleetRoute = createRoute({ getParentRoute: () => appRoute, path: "/", validateSearch: parseFleetSearch, component: FleetView });
 const rulesRoute = createRoute({ getParentRoute: () => appRoute, path: "/rules", component: RulesView });
 export const ruleRoute = createRoute({ getParentRoute: () => appRoute, path: "/rules/$kind/$name", component: RuleView });
 const orgsRoute = createRoute({ getParentRoute: () => appRoute, path: "/orgs", component: OrgsView });

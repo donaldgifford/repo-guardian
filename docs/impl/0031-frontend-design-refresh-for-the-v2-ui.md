@@ -341,7 +341,7 @@ flips; a hidden panel renders nothing, never a placeholder.
 
 #### Tasks
 
-- [ ] 3.1 `views/fleet.tsx` compliance card: `Card` with `StatStrip`
+- [x] 3.1 `views/fleet.tsx` compliance card: `Card` with `StatStrip`
   (Tracked, Compliant + `deltaFrom`, Failing + `failingRuleCount` +
   7d delta, Parked sum + reasons, Snapshots count + `cadenceWord`),
   four `Pill`s as a radio group (compliant %, failing, not applicable,

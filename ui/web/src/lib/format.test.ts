@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import golden from "../../../../api/testdata/compliant_percent.json";
-import { ageDays, compliantPercent, formatPercent, relativeTime, toneFor, trend } from "./format";
+import { ageDays, compliantPercent, formatPercent, humanizeDuration, relativeTime, toneFor, trend } from "./format";
 
 describe("compliantPercent", () => {
   // The same table drives internal/store's TestCompliantPercent_Golden,
@@ -80,4 +80,16 @@ describe("toneFor", () => {
   ] as const)("%s %s → %s", (field, value, want) => {
     expect(toneFor(field, value)).toBe(want);
   });
+});
+
+test.each([
+  ["720h", "30d"],
+  ["720h0m0s", "30d"],
+  ["24h", "1d"],
+  ["36h", "36h"],
+  ["0h", "0h"],
+  ["90m", "90m"],
+  ["", ""],
+])("humanizeDuration(%p) → %p", (input, want) => {
+  expect(humanizeDuration(input)).toBe(want);
 });

@@ -57,6 +57,16 @@ export function ageDays(iso: string, now: Date = new Date()): number {
 export function humanize(v: string): string {
   return v.replaceAll("_", " ");
 }
+
+// humanizeDuration shortens a Go duration from the API ("720h") to days
+// when it is whole days, else hours; anything it cannot read is returned
+// as-is.
+export function humanizeDuration(d: string): string {
+  const m = /^(\d+)h(?:0m)?(?:0s)?$/.exec(d.trim());
+  if (!m) return d;
+  const hours = Number(m[1]);
+  return hours % 24 === 0 && hours > 0 ? `${hours / 24}d` : `${hours}h`;
+}
 // Tone is a badge colour by meaning, never by rank (DESIGN-0036 §Badges).
 export type Tone = "ok" | "warn" | "bad" | "info" | "mute" | "outline";
 

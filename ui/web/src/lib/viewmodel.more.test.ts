@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { Schemas } from "../api/client";
-import { cadenceWord, complianceSeries, deltaFrom, failingRuleCount, fleetSeries, heatOpacity, initials, orgCountLabel, type SeriesPoint } from "./viewmodel";
+import { cadenceWord, complianceSeries, deltaFrom, deltaOver, failingRuleCount, type FleetPoint, fleetSeries, fleetSeriesFor, heatOpacity, initials, isFleetSeriesKey, latestValue, orgCountLabel, type SeriesPoint } from "./viewmodel";
 
 // The IMPL-0031 1.10 additions; the older helpers are in viewmodel.test.ts.
 
@@ -90,6 +90,47 @@ test("orgCountLabel counts the API's orgs for all_orgs, else /me's", () => {
   expect(orgCountLabel(me(true, []), all)).toBe("All orgs (3)");
   expect(orgCountLabel(me(true, []), undefined)).toBe("All orgs (0)");
   expect(orgCountLabel(me(false, ["a", "b"]), all)).toBe("All orgs (2)");
+});
+
+describe("fleet series selection", () => {
+  const fp = (at: string, c: Partial<Schemas["StatusCounts"]>): FleetPoint => ({ at, counts: counts(c), percent: null });
+
+  test("fleetSeriesFor projects the percent or one summed count", () => {
+    const points = [
+      { ...fp("2026-10-01T00:00:00Z", { non_compliant: 5, not_applicable: 2, unknown: 1 }), percent: 80 },
+      { ...fp("2026-10-02T00:00:00Z", { non_compliant: 3, not_applicable: 2, unknown: 0 }), percent: 85.5 },
+    ];
+    expect(fleetSeriesFor(points, "compliant").map((p) => p.percent)).toEqual([80, 85.5]);
+    expect(fleetSeriesFor(points, "failing").map((p) => p.percent)).toEqual([5, 3]);
+    expect(fleetSeriesFor(points, "not_applicable").map((p) => p.percent)).toEqual([2, 2]);
+    expect(fleetSeriesFor(points, "unknown").map((p) => p.percent)).toEqual([1, 0]);
+    expect(isFleetSeriesKey("failing")).toBe(true);
+    expect(isFleetSeriesKey("percent")).toBe(false);
+  });
+
+  test("latestValue skips trailing gaps", () => {
+    const s: SeriesPoint[] = [
+      { at: "a", percent: 10 },
+      { at: "b", percent: 20 },
+      { at: "c", percent: null },
+    ];
+    expect(latestValue(s)).toBe(20);
+    expect(latestValue([])).toBeNull();
+    expect(latestValue([{ at: "a", percent: null }])).toBeNull();
+  });
+
+  test("deltaOver compares against the newest point at least N days back", () => {
+    const day = (d: number, v: number | null): SeriesPoint => ({ at: new Date(Date.UTC(2026, 9, d)).toISOString(), percent: v });
+    const s = [day(1, 10), day(5, 12), day(9, 14), day(10, 20), day(11, 21)];
+    // 7d before the 11th is the 4th: the newest point at or before it is the 1st.
+    expect(deltaOver(s, 7)).toBe(11);
+    // 1d before the 11th is the 10th exactly.
+    expect(deltaOver(s, 1)).toBe(1);
+    expect(deltaOver(s, 30)).toBeNull();
+    expect(deltaOver([], 7)).toBeNull();
+    // Gaps are skipped on both ends.
+    expect(deltaOver([day(1, 10), day(2, null), day(9, null), day(10, 15), day(11, null)], 7)).toBe(5);
+  });
 });
 
 test("failingRuleCount counts rules with any failure", () => {

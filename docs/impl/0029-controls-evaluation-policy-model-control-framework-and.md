@@ -360,13 +360,23 @@ calls `Type.Build`.
   and rulesets. `control.OpSet`/`OpDelete` were added for `APIChange.Op`.
   Probe: a `Fix` that appends where it should prepend fails properties 2,
   3 and 4.
-- [ ] 1.11 `internal/controls/codeowners`: the type as DESIGN-0031's
+- [x] 1.11 `internal/controls/codeowners`: the type as DESIGN-0031's
   table (three locations, `exists` only, write the template to
   `.github/CODEOWNERS` when no location has a file, never edit an
   existing file), `Semantics() = 1`, the embedded fallback template
   sourced as the IMPL-0028 template spike decided, fixtures for no file,
   each location, a comment-only file and two files at once, the
   conformance suite, and a golden `Revision`.
+  Done: the type looks its template up by name through
+  `BuildEnv.Templates`, which Phase 2 builds as the policy root's
+  `templates/` over the embedded `rules.TemplateStore` (spike 7); the
+  catalogue definition names `codeowners.tmpl`. The test reads the shipped
+  `internal/rules/templates/codeowners.tmpl` from disk (depguard keeps
+  `rules` out of a control type), so the conformance suite and the golden
+  cover the real fallback: editing it moves the golden, as D20 intends.
+  Parser cap 3 MiB (GitHub ignores a larger CODEOWNERS). Fixtures: no
+  file, each location, comment-only, two files with the first
+  comment-only (fails: GitHub uses the first), two files both valid.
 - [ ] 1.12 Non-vacuous check: swap the `fail`/`unknown` order in
   `StatusOf`, drop the `Owns()` check from `ValidateChangeSet`, and make
   the reader skip its cache; confirm the matching tests fail; restore.

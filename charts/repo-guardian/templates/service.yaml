@@ -25,7 +25,8 @@ spec:
   selector:
     {{- include "repo-guardian.roleSelectorLabels" $f | nindent 4 }}
 {{- if eq .Values.topology "split" }}
-{{- range $role := splitList " " (printf "worker%s" (include "repo-guardian.controlsRoles" .)) }}
+{{- range $role := splitList " " (include "repo-guardian.controlsRoles" . | trim) }}
+{{- if $role }}
 {{- $w := dict "ctx" $ "role" $role }}
 ---
 # The workers serve no traffic; this Service exists for their /metrics.
@@ -45,6 +46,7 @@ spec:
       name: metrics
   selector:
     {{- include "repo-guardian.roleSelectorLabels" $w | nindent 4 }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- if .Values.api.enabled }}

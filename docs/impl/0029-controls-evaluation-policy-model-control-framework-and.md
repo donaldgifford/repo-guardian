@@ -1399,13 +1399,41 @@ half-switched binary.
 
 #### Tasks
 
-- [ ] 7.1 The evaluator role registers `EvaluationWorkflow`,
+- [x] 7.1 The evaluator role registers `EvaluationWorkflow`,
   `ControlsDiscoveryWorkflow`, the controls rollout and snapshot
   workflows and their activities on `repo-guardian-eval`;
   `RepoWorkflow`, the old discovery, snapshot, rollout and bootstrap
   workflows and `CheckRepo` are unregistered and deleted, with
   `check_then_park.json`. The replay suite still holds
   `installation_grant_report.json` and `evaluation_first_run.json`.
+  Done: `workflows.evaluatorSet` is Installation, Webhook, Evaluation,
+  ControlsDiscovery, ControlsRollout and ControlsSnapshot; `rcSet`,
+  `Register` and `unregisteredSet` are gone. `RepoWorkflow`, the old
+  Discovery/Snapshot/PolicyRollout/Bootstrap workflows, their names,
+  payload types and tests, `CheckRepo`/`RecordCheck`/`Park`, the rc
+  `Services` and `check_then_park.json` are deleted. The shared service
+  helpers moved to a slim `workflows/service.go`, and the deferral helpers
+  moved to `activities/deferral.go`. `Router` is now a dispatcher: an
+  Evaluation App delivery goes to `ControlsRouter`, and a Remediation App
+  access change goes to the same router as `AppAccessRecorder`.
+  `cmd/repo-guardian`:
+  - the eval half loads `policy.Load(GUARDIAN_CONFIG, builtin.Registry())`
+    and registers ControlsServices, Evaluator, Router and
+    RemediationStarter (`registerEvaluation`);
+  - after `w.Start()` it ensures the controls Schedules and starts the
+    activated policy's rollout;
+  - both controls workers require `ControlsSchemaVersion`.
+  The rc `worker` role is gone: `RoleWorker`, `startV2Worker`,
+  `--strict-templates`, the rule-engine loader, the single-App ingest
+  route and the rc backlog probe. Ingest routes both Apps to the
+  evaluation queue, with watched paths from `Snapshot.WatchedPaths()`, and
+  requires `EVAL_`/`REMEDIATE_WEBHOOK_SECRET`. The chart's split topology
+  renders ingest + controls roles + api (no worker Deployment or Service),
+  and helm-unittest is 241/241.
+  The replay suite holds `installation_grant_report.json`,
+  `installation_dev_rc4.json` and `evaluation_first_run.json`, all
+  replaying under `RegisterUnion`. `TestRegister_EachRoleRegistersOnlyItsSet`
+  pins the exact sets, and `TestIntegration_OneEvaluation` passes.
 - [ ] 7.2 Retire the parity suite scenario by scenario: list every
   scenario in `internal/checker/parity_test.go` and
   `internal/store/postgres/parity_integration_test.go` in a table in

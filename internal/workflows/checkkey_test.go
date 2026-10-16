@@ -4,42 +4,41 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
+)
+
+const (
+	testRepoID   int64 = 42
+	testInterval       = 24 * time.Hour
 )
 
 func TestCheckKey_WorkflowRunIteration(t *testing.T) {
 	t.Parallel()
 
-	fakes := &fakeActivities{script: parkAfter(2)}
-	env := newEnv(t, fakes)
-	env.ExecuteWorkflow(RepoWorkflowName, input())
+	f := &evalFakes{script: parkEvalAfter(1)}
+	env := newEvalEnv(t, f)
+	env.ExecuteWorkflow(EvaluationWorkflowName, evalInput())
 
 	if err := env.GetWorkflowError(); err != nil {
 		t.Fatalf("workflow: %v", err)
 	}
 
-	if len(fakes.checks) != 3 {
-		t.Fatalf("checks = %d, want 3", len(fakes.checks))
+	if len(f.evals) != 2 {
+		t.Fatalf("evaluations = %d, want 2", len(f.evals))
 	}
 
 	var runID string
 
-	for i, c := range fakes.checks {
-		parts := strings.Split(c.CheckKey, "/")
-		if len(parts) != 4 || parts[0] != "repo" || parts[1] != "42" || parts[2] == "" || parts[3] != strconv.Itoa(i) {
-			t.Fatalf("check %d key = %q, want repo/42/<run>/%d", i, c.CheckKey, i)
+	for i, e := range f.evals {
+		parts := strings.Split(e.CheckKey, "/")
+		if len(parts) != 4 || parts[0] != "evaluation" || parts[1] != "42" || parts[2] == "" || parts[3] != strconv.Itoa(i) {
+			t.Fatalf("evaluation %d key = %q, want evaluation/42/<run>/%d", i, e.CheckKey, i)
 		}
 
 		if runID == "" {
 			runID = parts[2]
 		} else if parts[2] != runID {
-			t.Errorf("check %d run id = %q, want %q", i, parts[2], runID)
-		}
-	}
-
-	// Record carries the key CheckRepo staged under.
-	for i, rec := range fakes.records {
-		if rec.Result.CheckKey != fakes.checks[i].CheckKey {
-			t.Errorf("record %d key = %q, want %q", i, rec.Result.CheckKey, fakes.checks[i].CheckKey)
+			t.Errorf("evaluation %d run id = %q, want %q", i, parts[2], runID)
 		}
 	}
 }

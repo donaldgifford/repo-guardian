@@ -260,6 +260,5 @@ func TestIntegration_OneEvaluation(t *testing.T) {
 		t.Errorf("repository active = %v (%v), want parked after the Evaluation App lost it", active, err)
 	}
 
-	h := &harness{temporal: ts}
-	h.captureHistory(t, evalID, "", "evaluation_first_run")
+	captureHistory(t, ts, evalID, "", "evaluation_first_run")
 }

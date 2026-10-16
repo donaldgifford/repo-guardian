@@ -54,7 +54,7 @@ tests:
   - it: default empty-string secrets do not trip the guard
     asserts:
       - hasDocuments:
-          count: 2
+          count: 1
       - equal:
           path: kind
           value: Deployment
@@ -64,7 +64,7 @@ tests:
       store.postgres.baked.existingSecret: pg-password
     asserts:
       - hasDocuments:
-          count: 2
+          count: 1
       - equal:
           path: kind
           value: Deployment
@@ -75,7 +75,7 @@ tests:
       store.postgres.existingSecret: store-dsn
     asserts:
       - hasDocuments:
-          count: 2
+          count: 1
       - equal:
           path: kind
           value: Deployment

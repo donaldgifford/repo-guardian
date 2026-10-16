@@ -50,11 +50,12 @@ tests:
             name: TEMPORAL_BUILD_ID
             value: 2.0.0-custom.1
 
-  - it: split gives it to the worker only
+  - it: split gives it to the controls workers only
     set:
       topology: split
       api.enabled: true
       api.auth.enabled: false
+      github.eval: {appId: "11", existingSecret: rg-eval}
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
@@ -63,7 +64,7 @@ tests:
             value: 9.9.9-test
         documentSelector:
           path: metadata.name
-          value: rg-repo-guardian-worker
+          value: rg-repo-guardian-evaluator
       - notContains:
           path: spec.template.spec.containers[0].env
           content:

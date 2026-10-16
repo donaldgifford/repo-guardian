@@ -74,7 +74,7 @@ func NewEvaluator(st EvalStore, pol EvalPolicy, gh EvalClients, logger *slog.Log
 
 // Evaluate evaluates the selected controls of one repository at its
 // pinned default-branch head and stages the payload under the check key
-// (DESIGN-0032 § Evaluation). It classifies like CheckRepo: a throttle
+// (DESIGN-0032 § Evaluation). It classifies like the rc's check did: a throttle
 // anywhere is Deferred and stages nothing; losing the repository at the
 // pin is Parked; a repository that is not managed, has nothing selected
 // or is empty is Skipped. A 403 on one endpoint is the control's own
@@ -147,8 +147,8 @@ func (e *Evaluator) evaluate(ctx context.Context, in *workflows.EvaluateInput, t
 		out.Calls, out.Rate = usage.Calls(), toRate(usage.Rate())
 	}
 
-	// The evaluator is rate_limit_remaining's producer once the rc
-	// CheckRepo is gone; RateLimitNearExhaustion reads nothing else.
+	// The evaluator is rate_limit_remaining's producer;
+	// RateLimitNearExhaustion reads nothing else.
 	if out != nil && out.Rate != nil {
 		metrics.RateLimitRemaining.WithLabelValues(strconv.FormatInt(t.InstallationID, 10)).Set(float64(out.Rate.Remaining))
 	}
@@ -547,8 +547,7 @@ func (e *Evaluator) RecordEvaluation(ctx context.Context, in *workflows.RecordEv
 
 // ParkRepository parks a repository the evaluator lost (DESIGN-0030):
 // access_denied keeps its results, because access loss must never
-// improve posture. It logs the line CheckRepo's Park does, so one Loki
-// matcher covers both lines.
+// improve posture. It logs the line the E4 evidence tier matches.
 func (e *Evaluator) ParkRepository(ctx context.Context, in *workflows.ParkRepositoryInput) error {
 	if err := e.store.Park(ctx, in.RepositoryID, in.Reason); err != nil {
 		return fmt.Errorf("park repository %d: %w", in.RepositoryID, err)

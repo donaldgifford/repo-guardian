@@ -29,8 +29,8 @@ func TaskPriority(p Priority, installationID int64) temporal.Priority {
 	return temporal.Priority{PriorityKey: int(p), FairnessKey: strconv.FormatInt(installationID, 10)}
 }
 
-// checkRepoOptions runs CheckRepo at priority p. A throttle is a
-// Deferred result, not an error, so it never spends one of the attempts.
+// checkRepoOptions runs Evaluate at priority p. A throttle is a Deferred
+// result, not an error, so it never spends one of the attempts.
 func checkRepoOptions(ctx workflow.Context, p temporal.Priority) workflow.Context {
 	return workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
 		StartToCloseTimeout: checkRepoTimeout,
@@ -44,8 +44,8 @@ func checkRepoOptions(ctx workflow.Context, p temporal.Priority) workflow.Contex
 	})
 }
 
-// storeOptions runs the store activities (RecordCheck, RecordCheckError,
-// Park) and AcquireBudget. They retry without limit: Postgres or the
+// storeOptions runs the store activities (RecordEvaluation,
+// ParkRepository) and AcquireBudget. They retry without limit: Postgres or the
 // Temporal frontend being down is a wait, never a reason to lose a
 // check's result.
 func storeOptions(ctx workflow.Context, p temporal.Priority) workflow.Context {

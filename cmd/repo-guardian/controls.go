@@ -12,7 +12,10 @@ import (
 
 	"github.com/donaldgifford/repo-guardian/internal/activities"
 	"github.com/donaldgifford/repo-guardian/internal/config"
+	"github.com/donaldgifford/repo-guardian/internal/controls/builtin"
+	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/observability"
+	"github.com/donaldgifford/repo-guardian/internal/policy"
 	pgstore "github.com/donaldgifford/repo-guardian/internal/store/postgres"
 	"github.com/donaldgifford/repo-guardian/internal/temporal"
 	"github.com/donaldgifford/repo-guardian/internal/workflows"
@@ -82,7 +85,7 @@ func startControlsWorker(
 		return nil, nil, fmt.Errorf("%s: open store: %w", half.name, err)
 	}
 
-	if err := pgstore.RequireSchema(ctx, pool, pgstore.SchemaVersion); err != nil {
+	if err := pgstore.RequireControlsSchema(ctx, pool, pgstore.ControlsSchemaVersion); err != nil {
 		pool.Close()
 
 		return nil, nil, fmt.Errorf("%s: %w", half.name, err)
@@ -105,14 +108,29 @@ func startControlsWorker(
 	half.register(w)
 	activities.NewBudget(tc, half.app, wc.TaskQueue, cfg.RateLimitThreshold).Register(w)
 
+	var eval *evaluation
 	if half.app == workflows.AppEval {
-		activities.NewRemediationStarter(tc, tcfg.RemediateTaskQueue).Register(w)
+		eval, err = registerEvaluation(cfg, tc, tcfg, w, pool, logger)
+		if err != nil {
+			pool.Close()
+
+			return nil, nil, fmt.Errorf("%s: %w", half.name, err)
+		}
 	}
 
 	if err := w.Start(); err != nil {
 		pool.Close()
 
 		return nil, nil, fmt.Errorf("%s: start temporal worker: %w", half.name, err)
+	}
+
+	if eval != nil {
+		if err := eval.start(ctx, cfg, tc, wc.TaskQueue, logger); err != nil {
+			w.Stop()
+			pool.Close()
+
+			return nil, nil, fmt.Errorf("%s: %w", half.name, err)
+		}
 	}
 
 	logger.Info("temporal worker started",
@@ -135,4 +153,59 @@ func startControlsWorker(
 	}
 
 	return stop, checks, nil
+}
+
+// evaluation is what the evaluator half loaded: the controls policy and
+// the store its service workflows start from.
+type evaluation struct {
+	policy *policy.Snapshot
+	store  *pgstore.ControlsStore
+}
+
+// registerEvaluation loads the controls policy and the Evaluation App's
+// client and registers the evaluator's activities on w (IMPL-0029 task
+// 7.1): evaluation, the discovery, rollout and snapshot services, the
+// webhook routing of both Apps' deliveries, and the remediation starter.
+func registerEvaluation(
+	cfg *config.Config, tc client.Client, tcfg *temporal.Config, w worker.Registry, pool *pgxpool.Pool, logger *slog.Logger,
+) (*evaluation, error) {
+	snap, err := policy.Load(cfg.GuardianConfigPath, builtin.Registry(), logger)
+	if err != nil {
+		return nil, fmt.Errorf("load policy: %w", err)
+	}
+
+	creds := cfg.Credentials(config.AppEval)
+
+	app, err := ghclient.NewClient(creds.AppID, creds.PrivateKeyPath, logger, cfg.RateLimitThreshold)
+	if err != nil {
+		return nil, fmt.Errorf("evaluation app client: %w", err)
+	}
+
+	st := pgstore.NewControlsStore(pool, pgstore.WithControlsHost(cfg.GitHubHost), pgstore.WithControlsLogger(logger))
+	queue := tcfg.EvalTaskQueue
+
+	activities.NewControlsServices(&activities.ControlsServicesConfig{
+		Store: st, GitHub: app, Policy: snap, Temporal: tc, TaskQueue: queue, Interval: cfg.CheckInterval, Logger: logger,
+	}).Register(w)
+	activities.NewEvaluator(st, snap, activities.NewGitHubEvalClients(app), logger).Register(w)
+
+	routing := activities.NewControlsRouter(st, snap, tc, queue, cfg.CheckInterval, logger)
+	activities.NewRouter(logger).WithControls(routing).WithAccessRecorder(routing).Register(w)
+	activities.NewRemediationStarter(tc, tcfg.RemediateTaskQueue).Register(w)
+
+	logger.Info("controls policy loaded", "path", cfg.GuardianConfigPath, "policy_version", snap.Version())
+
+	return &evaluation{policy: snap, store: st}, nil
+}
+
+// start reconciles the evaluator's Schedules and starts the rollout of
+// the activated policy. Every evaluator pod runs it: each step is
+// idempotent, and Temporal rejects the duplicate starts.
+func (e *evaluation) start(ctx context.Context, cfg *config.Config, tc client.Client, taskQueue string, logger *slog.Logger) error {
+	svc := &serviceStarter{cfg: cfg, client: tc, taskQueue: taskQueue, logger: logger}
+	if err := svc.ensureSchedules(ctx, config.RoleEvaluator); err != nil {
+		return err
+	}
+
+	return svc.startControlsRollout(ctx, e.store, e.policy.Version())
 }

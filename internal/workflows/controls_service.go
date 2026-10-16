@@ -11,8 +11,7 @@ import (
 // repositories, refreshes the app = 'eval' installation and access rows,
 // and upserts each repository, which resolves it inline and starts its
 // EvaluationWorkflow. Active repositories missing from a complete listing
-// are parked removed; a failed listing parks nothing. It has
-// DiscoveryWorkflow's shape on the controls activities.
+// are parked removed; a failed listing parks nothing.
 func ControlsDiscoveryWorkflow(ctx workflow.Context, in *DiscoveryInput) error {
 	started := workflow.Now(ctx)
 	detail := map[string]any{}
@@ -25,7 +24,7 @@ func ControlsDiscoveryWorkflow(ctx workflow.Context, in *DiscoveryInput) error {
 		if err := workflow.ExecuteActivity(listingOptions(ctx, 0), ControlsListInstallationsActivity).Get(ctx, &installations); err != nil {
 			detail["error"] = err.Error()
 
-			return errors.Join(err, recordRunWith(ctx, ControlsRecordServiceRunActivity, ServiceDiscovery, false, started, detail))
+			return errors.Join(err, recordRun(ctx, ServiceDiscovery, false, started, detail))
 		}
 	} else {
 		detail["installation_id"] = in.InstallationID
@@ -57,7 +56,7 @@ func ControlsDiscoveryWorkflow(ctx workflow.Context, in *DiscoveryInput) error {
 		detail["incomplete"] = incomplete
 	}
 
-	return recordRunWith(ctx, ControlsRecordServiceRunActivity, ServiceDiscovery, len(incomplete) == 0, started, detail)
+	return recordRun(ctx, ServiceDiscovery, len(incomplete) == 0, started, detail)
 }
 
 // discoverEvalInstallation lists, upserts in batches and parks the
@@ -119,7 +118,7 @@ func ControlsRolloutWorkflow(ctx workflow.Context, in *ControlsRolloutInput) err
 		return err
 	}
 
-	return recordRunWith(ctx, ControlsRecordServiceRunActivity, ServicePolicyRollout, true, started,
+	return recordRun(ctx, ServicePolicyRollout, true, started,
 		map[string]any{"version": in.Version, "resolved": resolved, detailSignalled: signalled})
 }
 
@@ -135,7 +134,7 @@ func ControlsSnapshotWorkflow(ctx workflow.Context, _ *SnapshotInput) error {
 		return err
 	}
 
-	return recordRunWith(ctx, ControlsRecordServiceRunActivity, ServiceSnapshot, true, started, map[string]any{"rows": rows})
+	return recordRun(ctx, ServiceSnapshot, true, started, map[string]any{"rows": rows})
 }
 
 // controlsPages runs a paged activity to its last page and sums the

@@ -11,39 +11,23 @@ type registration struct {
 	name string
 }
 
-// rcSet is the rc worker's workflows: every v2 workflow on the rc's one
-// task queue.
-var rcSet = []registration{
-	{RepoWorkflow, RepoWorkflowName},
-	{InstallationWorkflow, InstallationWorkflowName},
-	{WebhookWorkflow, WebhookWorkflowName},
-	{DiscoveryWorkflow, DiscoveryWorkflowName},
-	{SnapshotWorkflow, SnapshotWorkflowName},
-	{PolicyRolloutWorkflow, PolicyRolloutWorkflowName},
-	{BootstrapWorkflow, BootstrapWorkflowName},
-}
-
 // evaluatorSet and remediatorSet are the controls workers' workflows,
 // one set per task queue (IMPL-0028 task 4.2). Each App keeps its own
-// rate budget, so both run InstallationWorkflow; IMPL-0029 and
-// IMPL-0030 add the evaluation and remediation workflows.
+// rate budget, so both run InstallationWorkflow. The evaluator also
+// routes both Apps' webhook deliveries and runs the evaluation loop and
+// its service workflows (IMPL-0029 task 7.1); IMPL-0030 adds the
+// remediation workflows.
 var (
-	evaluatorSet  = []registration{{InstallationWorkflow, InstallationWorkflowName}}
+	evaluatorSet = []registration{
+		{InstallationWorkflow, InstallationWorkflowName},
+		{WebhookWorkflow, WebhookWorkflowName},
+		{EvaluationWorkflow, EvaluationWorkflowName},
+		{ControlsDiscoveryWorkflow, ControlsDiscoveryWorkflowName},
+		{ControlsRolloutWorkflow, ControlsRolloutWorkflowName},
+		{ControlsSnapshotWorkflow, ControlsSnapshotWorkflowName},
+	}
 	remediatorSet = []registration{{InstallationWorkflow, InstallationWorkflowName}}
 )
-
-// unregisteredSet is the controls evaluation workflows no worker runs
-// yet (IMPL-0029 task 7.1 adds them to evaluatorSet). RegisterUnion
-// carries them so their captured histories replay meanwhile.
-var unregisteredSet = []registration{
-	{EvaluationWorkflow, EvaluationWorkflowName},
-	{ControlsDiscoveryWorkflow, ControlsDiscoveryWorkflowName},
-	{ControlsRolloutWorkflow, ControlsRolloutWorkflowName},
-	{ControlsSnapshotWorkflow, ControlsSnapshotWorkflowName},
-}
-
-// Register registers the rc worker's workflows.
-func Register(r worker.WorkflowRegistry) { register(r, rcSet) }
 
 // RegisterEvaluator registers the evaluator role's workflows.
 func RegisterEvaluator(r worker.WorkflowRegistry) { register(r, evaluatorSet) }
@@ -56,7 +40,7 @@ func RegisterRemediator(r worker.WorkflowRegistry) { register(r, remediatorSet) 
 func RegisterUnion(r worker.WorkflowRegistry) {
 	seen := make(map[string]bool)
 
-	for _, set := range [][]registration{rcSet, evaluatorSet, remediatorSet, unregisteredSet} {
+	for _, set := range [][]registration{evaluatorSet, remediatorSet} {
 		for _, reg := range set {
 			if !seen[reg.name] {
 				seen[reg.name] = true

@@ -8,21 +8,28 @@ import (
 
 // Tests here use t.Setenv, so none is parallel.
 
+// setWorkerEnv sets what every controls worker role shares; a test
+// adds the App's credential set with setAppEnv.
 func setWorkerEnv(t *testing.T) {
 	t.Helper()
 
 	t.Setenv("TEMPORAL_ADDRESS", "temporal:7233")
-	t.Setenv("GITHUB_APP_ID", "1")
-	t.Setenv("GITHUB_PRIVATE_KEY", "key")
 	t.Setenv("STORE_DSN", "postgres://x")
-	t.Setenv("GUARDIAN_CONFIG", "/etc/repo-guardian/guardian.hcl")
-	t.Setenv("GITHUB_WEBHOOK_SECRET", "s")
+	t.Setenv("GUARDIAN_CONFIG", "/etc/repo-guardian/policy")
+}
+
+// setIngestRoute gives ingest the Evaluation App's route.
+func setIngestRoute(t *testing.T) {
+	t.Helper()
+
+	t.Setenv("TEMPORAL_ADDRESS", "temporal:7233")
+	t.Setenv("EVAL_GITHUB_APP_ID", "1")
+	t.Setenv("EVAL_WEBHOOK_SECRET", "e")
 }
 
 func TestLoadRole_Ingest(t *testing.T) {
-	t.Run("webhook secret and temporal suffice", func(t *testing.T) {
-		t.Setenv("TEMPORAL_ADDRESS", "temporal:7233")
-		t.Setenv("GITHUB_WEBHOOK_SECRET", "s")
+	t.Run("a route and temporal suffice", func(t *testing.T) {
+		setIngestRoute(t)
 
 		if _, err := LoadRole(RoleIngest); err != nil {
 			t.Fatalf("LoadRole(ingest) = %v, want no error without App key, database or Valkey", err)
@@ -35,8 +42,7 @@ func TestLoadRole_Ingest(t *testing.T) {
 		{"STORE_DSN", "database credentials"},
 	} {
 		t.Run("refuses "+tt.env, func(t *testing.T) {
-			t.Setenv("TEMPORAL_ADDRESS", "temporal:7233")
-			t.Setenv("GITHUB_WEBHOOK_SECRET", "s")
+			setIngestRoute(t)
 			t.Setenv(tt.env, "x")
 
 			if _, err := LoadRole(RoleIngest); err == nil || !strings.Contains(err.Error(), tt.want) {
@@ -45,41 +51,26 @@ func TestLoadRole_Ingest(t *testing.T) {
 		})
 	}
 
-	t.Run("requires the webhook secret", func(t *testing.T) {
+	// The single-App route is gone (IMPL-0029 7.1): its secret alone
+	// mounts nothing.
+	t.Run("requires a controls App route", func(t *testing.T) {
 		t.Setenv("TEMPORAL_ADDRESS", "temporal:7233")
+		t.Setenv("GITHUB_WEBHOOK_SECRET", "s")
 
-		if _, err := LoadRole(RoleIngest); err == nil || !strings.Contains(err.Error(), "GITHUB_WEBHOOK_SECRET") {
-			t.Errorf("LoadRole(ingest) = %v, want GITHUB_WEBHOOK_SECRET required", err)
+		if _, err := LoadRole(RoleIngest); err == nil || !strings.Contains(err.Error(), "EVAL_WEBHOOK_SECRET or REMEDIATE_WEBHOOK_SECRET") {
+			t.Errorf("LoadRole(ingest) = %v, want a controls App route required", err)
 		}
 	})
 }
 
-func TestLoadRole_Worker(t *testing.T) {
-	t.Run("complete", func(t *testing.T) {
-		setWorkerEnv(t)
-
-		if _, err := LoadRole(RoleWorker); err != nil {
-			t.Fatalf("LoadRole(worker) = %v", err)
-		}
-	})
-
-	for _, env := range []string{"TEMPORAL_ADDRESS", "GITHUB_APP_ID", "GITHUB_PRIVATE_KEY", "STORE_DSN", "GUARDIAN_CONFIG"} {
-		t.Run("requires "+env, func(t *testing.T) {
-			setWorkerEnv(t)
-			t.Setenv(env, "")
-
-			if _, err := LoadRole(RoleWorker); err == nil {
-				t.Errorf("LoadRole(worker) without %s = nil, want an error", env)
-			}
-		})
-	}
-}
-
-func TestLoadRole_AllRunsTheWorkerInProcess(t *testing.T) {
+// TestLoadRole_AllRunsTheWorkersInProcess: ingest's key refusal does
+// not apply when the evaluator runs in the same process.
+func TestLoadRole_AllRunsTheWorkersInProcess(t *testing.T) {
 	setWorkerEnv(t)
+	setAppEnv(t, envPrefixEval)
 
-	if _, err := LoadRole(RoleIngest | RoleWorker); err != nil {
-		t.Errorf("LoadRole(ingest|worker) = %v: ingest's key refusal must not apply to all", err)
+	if _, err := LoadRole(RoleIngest | RoleEvaluator); err != nil {
+		t.Errorf("LoadRole(ingest|evaluator) = %v: ingest's key refusal must not apply to all", err)
 	}
 }
 
@@ -158,6 +149,7 @@ func TestLoadRole_API(t *testing.T) {
 
 func TestLoadRole_AllRunsTheAPIOnItsOwnListener(t *testing.T) {
 	setWorkerEnv(t)
+	setAppEnv(t, envPrefixEval)
 	setAPIEnv(t)
 	t.Setenv("STORE_RO_DSN", "")
 
@@ -256,7 +248,6 @@ func TestParse_AppCredentials(t *testing.T) {
 func TestLoadRole_IngestAppRoutes(t *testing.T) {
 	t.Run("a route secret needs its App id", func(t *testing.T) {
 		t.Setenv("TEMPORAL_ADDRESS", "temporal:7233")
-		t.Setenv("GITHUB_WEBHOOK_SECRET", "s")
 		t.Setenv("EVAL_WEBHOOK_SECRET", "e")
 
 		if _, err := LoadRole(RoleIngest); err == nil || !strings.Contains(err.Error(), "EVAL_GITHUB_APP_ID") {
@@ -265,8 +256,7 @@ func TestLoadRole_IngestAppRoutes(t *testing.T) {
 	})
 
 	t.Run("refuses an App key", func(t *testing.T) {
-		t.Setenv("TEMPORAL_ADDRESS", "temporal:7233")
-		t.Setenv("GITHUB_WEBHOOK_SECRET", "s")
+		setIngestRoute(t)
 		t.Setenv("REMEDIATE_GITHUB_PRIVATE_KEY_PATH", "/keys/r.pem")
 
 		if _, err := LoadRole(RoleIngest); err == nil || !strings.Contains(err.Error(), "App key") {
@@ -276,7 +266,6 @@ func TestLoadRole_IngestAppRoutes(t *testing.T) {
 
 	t.Run("both routes", func(t *testing.T) {
 		t.Setenv("TEMPORAL_ADDRESS", "temporal:7233")
-		t.Setenv("GITHUB_WEBHOOK_SECRET", "s")
 		t.Setenv("EVAL_GITHUB_APP_ID", "1")
 		t.Setenv("EVAL_WEBHOOK_SECRET", "e")
 		t.Setenv("REMEDIATE_GITHUB_APP_ID", "2")
@@ -289,17 +278,11 @@ func TestLoadRole_IngestAppRoutes(t *testing.T) {
 }
 
 // TestLoadRole_AllRunsControlsHalvesOnlyWhenConfigured is IMPL-0028
-// task 4.1: all includes both controls roles, yet the rc's single-App
-// all still loads, and a configured App's half is then validated.
+// task 4.1: all includes both controls roles but runs a half only when
+// its App is configured, and a configured App's half is then validated.
 func TestLoadRole_AllRunsControlsHalvesOnlyWhenConfigured(t *testing.T) {
-	t.Run("rc single App", func(t *testing.T) {
-		setWorkerEnv(t)
-
-		cfg, err := LoadRole(RoleAll &^ RoleAPI)
-		if err != nil {
-			t.Fatalf("LoadRole(all without api) = %v, want the rc all to load", err)
-		}
-
+	t.Run("no App configured", func(t *testing.T) {
+		cfg := &Config{}
 		if cfg.RunsControls(RoleAll, RoleEvaluator) || cfg.RunsControls(RoleAll, RoleRemediator) {
 			t.Error("all runs a controls half with no App configured")
 		}

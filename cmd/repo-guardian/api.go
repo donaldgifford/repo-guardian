@@ -89,9 +89,9 @@ func startAPI(
 	return h, checks, nil
 }
 
-// backlogProbes describes the rc's task queue and the queue of every
-// controls half this process runs: a half it does not run has no
-// workers here by design, and probing it would report the page down.
+// backlogProbes describes the queue of every controls half this process
+// runs: a half it does not run has no workers here by design, and
+// probing it would report the page down.
 func backlogProbes(cfg *config.Config, roles config.Role, tc client.Client, tcfg *temporal.Config) []api.QueueProbe {
 	probe := func(queue string) api.BacklogProbe {
 		return func(ctx context.Context) (api.Backlog, error) {
@@ -101,7 +101,7 @@ func backlogProbes(cfg *config.Config, roles config.Role, tc client.Client, tcfg
 		}
 	}
 
-	probes := []api.QueueProbe{{Component: api.ComponentBacklog, Probe: probe(tcfg.TaskQueue)}}
+	var probes []api.QueueProbe
 
 	if cfg.RunsControls(roles, config.RoleEvaluator) {
 		probes = append(probes, api.QueueProbe{Component: api.ComponentBacklogEvaluation, Probe: probe(tcfg.EvalTaskQueue)})

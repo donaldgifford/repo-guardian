@@ -155,9 +155,9 @@ tests:
           content: {name: STORE_DSN_EVALUATOR}
           any: true
 
-  - it: keeps controls DSNs off ingest and the rc worker
+  - it: keeps controls DSNs off ingest
     template: templates/deployment.yaml
-    documentSelector: {path: metadata.name, value: rg-repo-guardian-worker}
+    documentSelector: {path: metadata.name, value: rg-repo-guardian-ingest}
     asserts:
       - notContains:
           path: spec.template.spec.containers[0].env

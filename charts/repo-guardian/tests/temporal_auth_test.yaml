@@ -42,6 +42,7 @@ tests:
       temporal.auth.oidc.audience: temporal
       temporal.tls.caSecret: lab-ca
       temporal.tls.serverName: temporal.lab
+      github.eval: {appId: "11", existingSecret: rg-eval}
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
@@ -50,7 +51,7 @@ tests:
             value: /etc/repo-guardian/temporal-oidc/client-secret
         documentSelector:
           path: metadata.name
-          value: rg-repo-guardian-worker
+          value: rg-repo-guardian-evaluator
       - contains:
           path: spec.template.spec.containers[0].env
           content:
@@ -66,7 +67,7 @@ tests:
             value: /etc/repo-guardian/temporal-ca/ca.crt
         documentSelector:
           path: metadata.name
-          value: rg-repo-guardian-worker
+          value: rg-repo-guardian-evaluator
       - contains:
           path: spec.template.spec.containers[0].env
           content:
@@ -74,7 +75,7 @@ tests:
             value: temporal.lab
         documentSelector:
           path: metadata.name
-          value: rg-repo-guardian-worker
+          value: rg-repo-guardian-evaluator
       - contains:
           path: spec.template.spec.volumes
           content:

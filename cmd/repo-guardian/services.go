@@ -12,38 +12,18 @@ import (
 	"go.temporal.io/sdk/client"
 
 	"github.com/donaldgifford/repo-guardian/internal/config"
-	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/temporal"
 	"github.com/donaldgifford/repo-guardian/internal/workflows"
 )
 
-// serviceStore is what worker startup reads and writes.
-type serviceStore interface {
-	RecordPolicyVersion(ctx context.Context, version string, summary store.PolicySummary) (bool, error)
-	BootstrapPending(ctx context.Context) (bool, error)
-}
-
-// serviceStarter brings up the worker's service workflows at startup
-// (IMPL-0025 Phase 13). Every worker pod runs it: each step is
-// idempotent, and Temporal rejects the duplicate starts.
+// serviceStarter brings up the evaluator's service workflows at startup
+// (IMPL-0025 Phase 13, IMPL-0029 task 7.1). Every evaluator pod runs it:
+// each step is idempotent, and Temporal rejects the duplicate starts.
 type serviceStarter struct {
 	cfg       *config.Config
 	client    client.Client
-	store     serviceStore
 	taskQueue string
 	logger    *slog.Logger
-}
-
-func (s *serviceStarter) start(ctx context.Context, policyVersion string, summary store.PolicySummary) error {
-	if err := s.ensureSchedules(ctx, config.RoleWorker); err != nil {
-		return err
-	}
-
-	if err := s.startRollout(ctx, policyVersion, summary); err != nil {
-		return err
-	}
-
-	return s.startBootstrap(ctx)
 }
 
 // ensureSchedules reconciles role's Schedules with the configuration
@@ -68,17 +48,13 @@ func (s *serviceStarter) ensureSchedules(ctx context.Context, role config.Role) 
 }
 
 // schedules returns the Schedules role owns: those to ensure and those
-// to remove. The rc worker owns discovery and snapshot, the evaluator
-// controls-discovery and controls-snapshot (each discovery removed when
-// DISCOVERY_ENABLED=false); the remediator's sweep and maintenance
-// arrive with IMPL-0030.
+// to remove. The evaluator owns controls-discovery (removed when
+// DISCOVERY_ENABLED=false) and controls-snapshot; the remediator's sweep
+// and maintenance arrive with IMPL-0030.
 func (s *serviceStarter) schedules(role config.Role) (ensure []*temporal.Schedule, remove []string) {
 	var discovery, snapshot struct{ id, workflow string }
 
 	switch role {
-	case config.RoleWorker:
-		discovery.id, discovery.workflow = workflows.DiscoveryScheduleID, workflows.DiscoveryWorkflowName
-		snapshot.id, snapshot.workflow = workflows.SnapshotScheduleID, workflows.SnapshotWorkflowName
 	case config.RoleEvaluator:
 		discovery.id, discovery.workflow = workflows.ControlsDiscoveryScheduleID, workflows.ControlsDiscoveryWorkflowName
 		snapshot.id, snapshot.workflow = workflows.ControlsSnapshotScheduleID, workflows.ControlsSnapshotWorkflowName
@@ -105,41 +81,6 @@ func (s *serviceStarter) schedules(role config.Role) (ensure []*temporal.Schedul
 	return ensure, remove
 }
 
-// worker sees it, starts policy-rollout/<version>.
-func (s *serviceStarter) startRollout(ctx context.Context, version string, summary store.PolicySummary) error {
-	first, err := s.store.RecordPolicyVersion(ctx, version, summary)
-	if err != nil {
-		return fmt.Errorf("record policy version: %w", err)
-	}
-
-	if !first {
-		return nil
-	}
-
-	s.logger.Info("new policy version: starting rollout", "policy_version", version, "window", s.cfg.PolicyRolloutWindow)
-
-	return s.startOnce(ctx, workflows.PolicyRolloutWorkflowID(version), enumspb.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE,
-		workflows.PolicyRolloutWorkflowName, &workflows.PolicyRolloutInput{Version: version, Window: s.cfg.PolicyRolloutWindow})
-}
-
-// startBootstrap starts bootstrap/v1 while migrate's flag is set
-// (IMPL-0025 OQ15). The workflow clears the flag when it completes.
-func (s *serviceStarter) startBootstrap(ctx context.Context) error {
-	pending, err := s.store.BootstrapPending(ctx)
-	if err != nil {
-		return fmt.Errorf("read bootstrap flag: %w", err)
-	}
-
-	if !pending {
-		return nil
-	}
-
-	s.logger.Info("v1 backfill found: starting bootstrap")
-
-	return s.startOnce(ctx, workflows.BootstrapWorkflowID, enumspb.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE,
-		workflows.BootstrapWorkflowName)
-}
-
 // startOnce starts a workflow; one already running is success.
 func (s *serviceStarter) startOnce(ctx context.Context, id string, reuse enumspb.WorkflowIdReusePolicy, name string, args ...any) error {
 	_, err := s.client.ExecuteWorkflow(ctx, client.StartWorkflowOptions{
@@ -161,7 +102,7 @@ type controlsActivation interface {
 }
 
 // startControlsRollout is the evaluator's bootstrap beside
-// ensureSchedules(RoleEvaluator) (IMPL-0029 5.6, wired in 7.1). It
+// ensureSchedules(RoleEvaluator) (IMPL-0029 5.6). It
 // starts controls-rollout/<version>/<activated_at> with
 // REJECT_DUPLICATE, so however many pods start there is one rollout per
 // activation, and a revert (a new activated_at) rolls out again. A

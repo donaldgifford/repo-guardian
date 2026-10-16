@@ -10,7 +10,7 @@ const (
 	ServiceBootstrap     = "bootstrap"
 )
 
-// DiscoveryInput is DiscoveryWorkflow's input. A zero InstallationID
+// DiscoveryInput is ControlsDiscoveryWorkflow's input. A zero InstallationID
 // discovers every installation; otherwise only that one.
 type DiscoveryInput struct {
 	InstallationID int64
@@ -29,7 +29,8 @@ type UpsertRepositoriesInput struct {
 }
 
 // UpsertRepositoriesResult reports a batch: the ids of every repository
-// in it and how many new or reactivated ones had a RepoWorkflow started.
+// in it and how many new or reactivated ones had an EvaluationWorkflow
+// started.
 type UpsertRepositoriesResult struct {
 	IDs     []int64
 	Started int
@@ -43,7 +44,7 @@ type ParkMissingInput struct {
 }
 
 // SignalRepositoriesInput pages the active repositories after AfterID
-// and SignalWithStarts each RepoWorkflow with policy_changed.
+// and SignalWithStarts each EvaluationWorkflow with policy_changed.
 type SignalRepositoriesInput struct {
 	AfterID int64
 	Limit   int
@@ -77,14 +78,8 @@ type ServiceRun struct {
 	Detail     map[string]any
 }
 
-// SnapshotInput is SnapshotWorkflow's input.
+// SnapshotInput is ControlsSnapshotWorkflow's input.
 type SnapshotInput struct {
 	// Retention prunes checks that finished longer ago than this.
 	Retention time.Duration
-}
-
-// PolicyRolloutInput is PolicyRolloutWorkflow's input.
-type PolicyRolloutInput struct {
-	Version string
-	Window  time.Duration
 }

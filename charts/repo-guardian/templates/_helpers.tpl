@@ -256,9 +256,10 @@ Deployment and the migrate Job so the two can never disagree on the DSN.
 ===========================================================================
 v2 roles (DESIGN-0026 § Chart 2.0.0, IMPL-0025 Phase 17).
 
-topology=split renders one Deployment per role (ingest, worker, and api
-when api.enabled); topology=all renders a single Deployment running every
-role. Each role helper takes a dict: {ctx: $, role: "<name>"}.
+topology=split renders one Deployment per role (ingest, the controls
+roles whose App is configured, and api when api.enabled); topology=all
+renders a single Deployment running every role. The rc's worker role is
+gone (IMPL-0029 task 7.1). Each role helper takes a dict: {ctx: $, role: "<name>"}.
 ===========================================================================
 */}}
 
@@ -269,7 +270,7 @@ The roles rendered for the current topology.
 {{- if eq .Values.topology "all" -}}
 all
 {{- else -}}
-ingest worker{{ include "repo-guardian.controlsRoles" . }}{{ if .Values.api.enabled }} api{{ end }}
+ingest{{ include "repo-guardian.controlsRoles" . }}{{ if .Values.api.enabled }} api{{ end }}
 {{- end -}}
 {{- end }}
 
@@ -340,19 +341,19 @@ app.kubernetes.io/component: {{ .role }}
 {{- end }}
 
 {{/*
-What each role holds. Secret scoping (DESIGN-0026): the App key only in
-worker and all, the webhook secret only in ingest and all, Temporal in
+What each role holds. Secret scoping (DESIGN-0026): the rc App key only
+in all, the webhook secret only in ingest and all, Temporal in
 every role that dials it, and nothing but the read-only DSN in api.
 */}}
-{{- define "repo-guardian.roleHasAppKey" -}}{{ if has .role (list "worker" "all") }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleHasAppKey" -}}{{ if has .role (list "all") }}true{{ end }}{{- end }}
 {{- /* Per-App keys (IMPL-0028 task 3.5): each App's key reaches only the roles that act as it, and only when its block is enabled. */ -}}
 {{- define "repo-guardian.roleHasEvalKey" -}}{{ if and .ctx.Values.github.eval.appId (has .role (list "evaluator" "all")) }}true{{ end }}{{- end }}
 {{- define "repo-guardian.roleHasRemediateKey" -}}{{ if and .ctx.Values.github.remediate.appId (has .role (list "remediator" "all")) }}true{{ end }}{{- end }}
 {{- define "repo-guardian.roleHasWebhookSecret" -}}{{ if has .role (list "ingest" "all") }}true{{ end }}{{- end }}
-{{- define "repo-guardian.roleDialsTemporal" -}}{{ if has .role (list "ingest" "worker" "evaluator" "remediator" "all") }}true{{ end }}{{- end }}
-{{- define "repo-guardian.roleHasStore" -}}{{ if has .role (list "worker" "evaluator" "remediator" "all") }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleDialsTemporal" -}}{{ if has .role (list "ingest" "evaluator" "remediator" "all") }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleHasStore" -}}{{ if has .role (list "evaluator" "remediator" "all") }}true{{ end }}{{- end }}
 {{- define "repo-guardian.roleServesAPI" -}}{{ if has .role (list "api" "all") }}true{{ end }}{{- end }}
-{{- define "repo-guardian.roleReadsPolicy" -}}{{ if has .role (list "ingest" "worker" "evaluator" "remediator" "all") }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleReadsPolicy" -}}{{ if has .role (list "ingest" "evaluator" "remediator" "all") }}true{{ end }}{{- end }}
 
 {{/*
 Whether a policy file is mounted.
@@ -548,10 +549,10 @@ success; failure aborts the render with the fix.
 */}}
 {{- define "repo-guardian.validateRoles" -}}
 {{- if not .Values.temporal.address -}}
-{{- fail "temporal.address is required: ingest and the worker dial Temporal. See docs/operations/v2-migration.md" -}}
+{{- fail "temporal.address is required: ingest and the controls workers dial Temporal. See docs/operations/v2-migration.md" -}}
 {{- end -}}
 {{- if not (include "repo-guardian.hasPolicy" .) -}}
-{{- fail "policy.config or policy.existingConfigMap is required: the worker will not start without GUARDIAN_CONFIG" -}}
+{{- fail "policy.config or policy.existingConfigMap is required: the evaluator will not start without GUARDIAN_CONFIG" -}}
 {{- end -}}
 {{- if and .Values.api.enabled .Values.api.auth.enabled (not .Values.api.auth.issuer) -}}
 {{- fail "api.auth.issuer is required when api.auth.enabled (or set api.auth.enabled=false for a pod-network-only API)" -}}

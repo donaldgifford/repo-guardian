@@ -11,10 +11,11 @@ import (
 
 func TestLoadRole_Defaults(t *testing.T) {
 	setWorkerEnv(t)
+	setAppEnv(t, envPrefixEval)
 
-	cfg, err := LoadRole(RoleWorker)
+	cfg, err := LoadRole(RoleEvaluator)
 	if err != nil {
-		t.Fatalf("LoadRole(worker) = _, %v, want nil", err)
+		t.Fatalf("LoadRole(evaluator) = _, %v, want nil", err)
 	}
 
 	if cfg.ListenAddr != ":8080" {
@@ -67,6 +68,7 @@ func TestLoadRole_Defaults(t *testing.T) {
 // the binary only warns about it (cmd/repo-guardian warnRemovedEnvVars).
 func TestLoadRole_IgnoresRemovedV1Vars(t *testing.T) {
 	setWorkerEnv(t)
+	setAppEnv(t, envPrefixEval)
 
 	for _, name := range []string{
 		"STORE_BACKEND", "QUEUE_BACKEND", "SCHEDULER_BACKEND", "QUEUE_VALKEY_DSN",
@@ -77,13 +79,14 @@ func TestLoadRole_IgnoresRemovedV1Vars(t *testing.T) {
 		t.Setenv(name, "not-a-valid-value")
 	}
 
-	if _, err := LoadRole(RoleWorker); err != nil {
-		t.Fatalf("LoadRole(worker) with removed v1 vars set = %v, want nil", err)
+	if _, err := LoadRole(RoleEvaluator); err != nil {
+		t.Fatalf("LoadRole(evaluator) with removed v1 vars set = %v, want nil", err)
 	}
 }
 
 func TestLoadRole_Overrides(t *testing.T) {
 	setWorkerEnv(t)
+	setAppEnv(t, envPrefixEval)
 	t.Setenv("GITHUB_APP_ID", "99999")
 	t.Setenv("LISTEN_ADDR", ":9999")
 	t.Setenv("METRICS_ADDR", ":7777")
@@ -94,9 +97,9 @@ func TestLoadRole_Overrides(t *testing.T) {
 	t.Setenv("LOG_LEVEL", "debug")
 	t.Setenv("RATE_LIMIT_THRESHOLD", "0.25")
 
-	cfg, err := LoadRole(RoleWorker)
+	cfg, err := LoadRole(RoleEvaluator)
 	if err != nil {
-		t.Fatalf("LoadRole(worker) = _, %v, want nil", err)
+		t.Fatalf("LoadRole(evaluator) = _, %v, want nil", err)
 	}
 
 	if cfg.GitHubAppID != 99999 {
@@ -142,42 +145,17 @@ func TestLoadRole_InvalidValues(t *testing.T) {
 	} {
 		t.Run(tt.env, func(t *testing.T) {
 			setWorkerEnv(t)
+			setAppEnv(t, envPrefixEval)
 			t.Setenv(tt.env, tt.value)
 
-			_, err := LoadRole(RoleWorker)
+			_, err := LoadRole(RoleEvaluator)
 			if err == nil {
-				t.Fatalf("LoadRole(worker) with %s=%q = _, nil, want an error", tt.env, tt.value)
+				t.Fatalf("LoadRole(evaluator) with %s=%q = _, nil, want an error", tt.env, tt.value)
 			}
 
 			if !strings.Contains(err.Error(), tt.env) {
-				t.Errorf("LoadRole(worker) error = %v, want it to name %s", err, tt.env)
+				t.Errorf("LoadRole(evaluator) error = %v, want it to name %s", err, tt.env)
 			}
 		})
-	}
-}
-
-func TestLoadRole_PrivateKeyFromEnvVar(t *testing.T) {
-	setWorkerEnv(t)
-	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "")
-	t.Setenv("GITHUB_PRIVATE_KEY", "-----BEGIN RSA PRIVATE KEY-----\ntest\n-----END RSA PRIVATE KEY-----")
-
-	cfg, err := LoadRole(RoleWorker)
-	if err != nil {
-		t.Fatalf("LoadRole(worker) = _, %v, want nil", err)
-	}
-
-	if cfg.GitHubPrivateKey == "" || cfg.GitHubPrivateKeyPath != "" {
-		t.Errorf("GitHubPrivateKey set = %v, GitHubPrivateKeyPath = %q; want the env key only",
-			cfg.GitHubPrivateKey != "", cfg.GitHubPrivateKeyPath)
-	}
-}
-
-func TestLoadRole_PrivateKeyBothSet(t *testing.T) {
-	setWorkerEnv(t)
-	t.Setenv("GITHUB_PRIVATE_KEY_PATH", "/key.pem")
-
-	_, err := LoadRole(RoleWorker)
-	if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
-		t.Errorf("LoadRole(worker) with both keys set = %v, want a mutually exclusive error", err)
 	}
 }

@@ -24,7 +24,7 @@ tests:
     template: templates/deployment.yaml
     asserts:
       - hasDocuments:
-          count: 4
+          count: 3
       - equal:
           path: spec.template.spec.containers[0].args
           value: [evaluator]
@@ -41,7 +41,7 @@ tests:
         remediate: {appId: ""}
     asserts:
       - hasDocuments:
-          count: 3
+          count: 2
       - notContains:
           path: spec.template.spec.containers[0].args
           content: remediator

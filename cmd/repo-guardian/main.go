@@ -10,19 +10,11 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	"github.com/donaldgifford/repo-guardian/internal/checker"
-	"github.com/donaldgifford/repo-guardian/internal/config"
-	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
-	"github.com/donaldgifford/repo-guardian/internal/reconciler"
-	policy "github.com/donaldgifford/repo-guardian/internal/rulepolicy"
-	"github.com/donaldgifford/repo-guardian/internal/rules"
 )
 
 const (
@@ -58,8 +50,8 @@ func main() {
 }
 
 // dispatch routes argv to a role or subcommand (DESIGN-0026 § Roles).
-// No arguments, or a leading flag, means all, so `repo-guardian` and
-// `repo-guardian --strict-templates` run every role in one process.
+// No arguments, or a leading flag, means all, so `repo-guardian` runs
+// every role in one process.
 //
 // Deliberately NOT flag.Parse()'d first. flag.CommandLine stops at the
 // first non-flag argument, so parsing here would swallow the subcommand
@@ -73,8 +65,6 @@ func dispatch(argv []string) error {
 	switch argv[1] {
 	case cmdIngest:
 		return runIngest(argv[2:])
-	case cmdWorker:
-		return runWorker(argv[2:])
 	case cmdEvaluator:
 		return runEvaluator(argv[2:])
 	case cmdRemediator:
@@ -121,7 +111,6 @@ func usage(w io.Writer) {
 Usage:
   repo-guardian [all] [flags]        run every role in one process (default)
   repo-guardian ingest [flags]       webhook ingest: HMAC, filter, start workflows
-  repo-guardian worker [flags]       Temporal worker: every rc workflow and activity
   repo-guardian evaluator [flags]    controls evaluation worker (Evaluation App)
   repo-guardian remediator [flags]   controls remediation worker (Remediation App)
   repo-guardian api                  read-only HTTP API
@@ -138,50 +127,6 @@ Running with no subcommand runs every role; a controls half runs in all
 only when its App is configured. The ingest role holds neither a GitHub
 App key nor database credentials.
 `)
-}
-
-// loadPolicyAndEngine loads the operator's HCL policy, runs strict
-// template validation when enabled, loads the template store, and
-// constructs the checker engine. Any failure exits the process.
-// Extracted from main() to keep the entrypoint under the funlen
-// statement budget.
-func loadPolicyAndEngine(
-	cfg *config.Config,
-	strictTemplates bool,
-	logger *slog.Logger,
-) (*policy.PolicyConfig, *checker.Engine, *rules.TemplateStore) {
-	policyCfg, err := policy.Load(cfg.GuardianConfigPath)
-	if err != nil {
-		logger.Error("failed to load policy config", "error", err)
-		os.Exit(1)
-	}
-
-	if cfg.GuardianConfigPath != "" {
-		logger.Info("loaded policy config", "path", cfg.GuardianConfigPath)
-	} else {
-		logger.Info("using built-in default policy")
-	}
-
-	runStrictTemplateValidation(strictTemplates, policyCfg, logger)
-
-	templates := rules.NewTemplateStore()
-	if err := templates.Load(cfg.TemplateDir); err != nil {
-		logger.Error("failed to load templates", "error", err)
-		os.Exit(1)
-	}
-
-	engine, err := checker.NewEngine(
-		policyCfg,
-		templates,
-		logger,
-		newReconcilerRegistry(templates),
-	)
-	if err != nil {
-		logger.Error("failed to create checker engine", "error", err)
-		os.Exit(1)
-	}
-
-	return policyCfg, engine, templates
 }
 
 func newMetricsServer(addr string) *http.Server {
@@ -218,29 +163,6 @@ func awaitShutdown(ctx context.Context, logger *slog.Logger) {
 	}
 }
 
-func newReconcilerRegistry(templates *rules.TemplateStore) *reconciler.Registry {
-	reg := reconciler.NewRegistry()
-	reg.Register("custom_properties", func(cfg policy.ReconcilerConfig) (reconciler.Reconciler, error) {
-		return reconciler.NewCustomPropertiesReconciler(cfg, templates)
-	})
-	reg.Register("label_sync", reconciler.NewLabelSyncReconciler)
-	reg.Register("branch_protection", reconciler.NewBranchProtectionReconciler)
-	reg.Register("workflow_sync", reconciler.NewWorkflowSyncReconciler)
-
-	return reg
-}
-
-func newGitHubClient(cfg *config.Config, logger *slog.Logger) (*ghclient.GitHubClient, error) {
-	if cfg.GitHubPrivateKey != "" {
-		logger.Info("using private key from environment variable")
-		return ghclient.NewClientFromKeyBytes(cfg.GitHubAppID, []byte(cfg.GitHubPrivateKey), logger, cfg.RateLimitThreshold)
-	}
-
-	logger.Info("using private key from file", "path", cfg.GitHubPrivateKeyPath)
-
-	return ghclient.NewClient(cfg.GitHubAppID, cfg.GitHubPrivateKeyPath, logger, cfg.RateLimitThreshold)
-}
-
 // initLogger builds the server's logger, on stdout.
 //
 // Stdout is deliberate for the server and load-bearing for whoever
@@ -271,39 +193,6 @@ func initLoggerTo(w io.Writer, level string) *slog.Logger {
 	})
 
 	return slog.New(handler)
-}
-
-// runStrictTemplateValidation invokes ValidatePRTemplates when enabled
-// is true and exits non-zero on failure. Extracted from main() to keep
-// the entrypoint under the funlen statement budget.
-func runStrictTemplateValidation(enabled bool, policyCfg *policy.PolicyConfig, logger *slog.Logger) {
-	if !enabled {
-		return
-	}
-
-	if err := policy.ValidatePRTemplates(policyCfg); err != nil {
-		logger.Error("strict template validation failed", "error", err)
-		os.Exit(1)
-	}
-
-	logger.Info("strict template validation passed")
-}
-
-// strictTemplatesFromEnv reads STRICT_TEMPLATES from the environment
-// and returns the parsed boolean. Invalid or unset values default to
-// false. The CLI flag overrides this default at parse time.
-func strictTemplatesFromEnv() bool {
-	v := os.Getenv("STRICT_TEMPLATES")
-	if v == "" {
-		return false
-	}
-
-	b, err := strconv.ParseBool(v)
-	if err != nil {
-		return false
-	}
-
-	return b
 }
 
 func handleHealthz(w http.ResponseWriter, _ *http.Request) {

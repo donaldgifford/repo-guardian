@@ -10,12 +10,15 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
+// maxIterationsPerRun bounds history: EvaluationWorkflow continues as
+// new after this many evaluations even if the SDK has not suggested it.
+const maxIterationsPerRun = 100
+
 // EvaluationWorkflow is the per-repository controls evaluation loop
 // (DESIGN-0032 § Evaluation), on the evaluation queue as the Evaluation
 // App: wait for the jittered timer or a signal, evaluate the selected
-// controls, record, schedule the next. It has repoLoop's shape and
-// leaves repoLoop alone, so RepoWorkflow's histories keep replaying. It
-// runs until the repository is parked.
+// controls, record, schedule the next. It runs until the repository is
+// parked.
 func EvaluationWorkflow(ctx workflow.Context, in *EvaluationWorkflowInput) error {
 	e := newEvalLoop(ctx, in)
 
@@ -301,7 +304,7 @@ func (e *evalLoop) acquire(key string) (string, error) {
 }
 
 // report returns a lease with what the evaluation spent; a deferral
-// reports remaining 0 until its reset. Best effort, like repoLoop's.
+// reports remaining 0 until its reset. Best effort.
 func (e *evalLoop) report(lease string, res *EvaluateResult) {
 	if lease == "" {
 		return

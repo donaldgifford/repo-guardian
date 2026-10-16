@@ -224,7 +224,7 @@ existing views keep rendering on the new tokens through the aliases in
   navigation). Component tests (OQ3) for: Drawer traps focus, Escape
   closes and focus returns to the opener; Pill toggles `aria-checked`;
   Tabs write the search param; Chip opens its popover.
-- [ ] 1.9 Charts in `components/charts/`, Recharts for the two SVG
+- [x] 1.9 Charts in `components/charts/`, Recharts for the two SVG
   charts and plain elements for the rest, every colour from a theme
   variable, axes in the mono face at 11px, hairline grid in `border`:
   - `TrendChart`: area, one series, 2px line, 10% fill, 4.5px end dot

@@ -710,17 +710,17 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
 
 ## Testing Plan
 
-- [ ] Unit (`bun test ./web`): tone table over every documented enum
+- [x] Unit (`bun test ./web`): tone table over every documented enum
   value plus one unknown; `formatTime` Local/UTC; `deltaFrom`,
   `cadenceWord`, `fleetSeries` (equal to `compliantPercent` flooring),
   `heatOpacity`, `initials`, `orgCountLabel`, `nice` bounds, tick
   fitting, `BarList` folding, timeline merge (ordering, still-open
   synthesis, cap, pre-`status_since` exclusion), `FilterChips`
   round-trip identity.
-- [ ] Component (`bun test`, OQ3): Drawer focus trap / Escape / return;
+- [x] Component (`bun test`, OQ3): Drawer focus trap / Escape / return;
   Pill `aria-checked`; Tabs → search param; `DataTable` Enter
   activation; `GroupGrid` expand/collapse and totals; `Kpi` delta tone.
-- [ ] Build guard: `check:dist` fails on a `data:` URL and on
+- [x] Build guard: `check:dist` fails on a `data:` URL and on
   `fonts.googleapis.com`; passes on the real build.
 - [ ] Playwright (`make test-ui-e2e`): the migrated selectors; org
   scope popover; `⌘K`; sidebar count; docs group gating; range tabs;
@@ -728,14 +728,16 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
   hiding at two viewports; HTML-in-evidence as text in the drawer;
   Orgs expand and totals; Hide parked; CSV export; status page name
   check; Fleet request-count ceiling; Phase 7 panels present with
-  seeded numbers; axe on five pages; screenshots on five pages.
-- [ ] Go: `apitest` for every addition (modes, scope, paging under
+  seeded numbers; axe on five pages; screenshots on five pages. — *partly deferred with 6.3 and 7.6: the Phase 7 panel
+  specs and CI screenshots resume after the rc.*
+- [x] Go: `apitest` for every addition (modes, scope, paging under
   `pr_age`, every age bucket, status fields), store parity tests
   (`aggregate=fleet` = client aggregation; `open_prs` = findings
   count), `TestAPIQueries_AreScoped`, `TestStatus_PrivacyGuard`
-  unchanged, `TestCompliance_ParityAcrossReportAPIAndSnapshot`.
-- [ ] Chart: helm-unittest `ui.docsUrl` present/absent.
-- [ ] Security regressions: `eslint-ban.test.ts` unchanged and green;
+  unchanged, `TestCompliance_ParityAcrossReportAPIAndSnapshot`. — *the privacy guard's allowlist gained the four typed
+  status fields (see 7.4); no free-text field.*
+- [x] Chart: helm-unittest `ui.docsUrl` present/absent.
+- [x] Security regressions: `eslint-ban.test.ts` unchanged and green;
   CSP string unchanged (`static.test.ts` asserts the literal).
 
 ## Dependencies

@@ -482,7 +482,7 @@ calls `Type.Build`.
   an onboarded org with no file is checked against the baseline. Each
   (org, pair, resource) warns once, naming the org, and only when the
   policy has no errors.
-- [ ] 2.7 `resolve.go`: `(*Snapshot).Resolve(repo Repository, access
+- [x] 2.7 `resolve.go`: `(*Snapshot).Resolve(repo Repository, access
   AppAccess) Resolution` implementing DESIGN-0030 steps 1–7, pure and
   with no API calls: policy state `managed`/`excluded`/`unmanaged`/
   `parked` with reason; baseline, then the org file in file order, then
@@ -494,6 +494,15 @@ calls `Type.Build`.
   `ordinal`, `decision`, `baseline_control` and `source_block` on each
   assignment; resolved `MaxOpenPRs` and `ReopenAfter`. Epochs are not
   assigned here; the store assigns them (4.5).
+  Done: `AppAccess{Evaluable, Remediable, RemediationSuspended}`: the
+  third field picks `remediation_app_suspended` over `_no_access`, which
+  two booleans cannot tell apart. The checks run in the diagram's order:
+  unmanaged, then `exclude_repos`, then layers; a parked repository keeps
+  its assignments, with `reason` the stored park reason (else `archived`
+  or `fork`). `mode_source` is the layer's source string, `default` when
+  nothing declares a mode. Excluded rows carry their would-be modes. A
+  conflict error names every claimant (`a and b`, `a, b and c`). Org
+  names and `match` globs compare case-insensitively.
 - [ ] 2.8 Resolution goldens: `internal/policy/testdata/resolution/<case>/`
   each holding a policy directory, a `repo.json` input and an
   `expected.json`, run by one table test with `-update`. Cases at least:

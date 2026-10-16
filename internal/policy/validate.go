@@ -445,8 +445,3 @@ func (s *Snapshot) UnmatchedReposBlocks(org string, names []string) []Warning {
 
 	return out
 }
-
-// matchesAny reports whether name matches one of the globs.
-func matchesAny(patterns []string, name string) bool {
-	return slices.ContainsFunc(patterns, func(p string) bool { return globMatch(p, name) })
-}

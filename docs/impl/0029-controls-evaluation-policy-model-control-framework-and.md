@@ -1272,9 +1272,18 @@ evaluator's store.
   nil reader (not configured) publishes nothing and `Run` returns. Tests
   for each. Wiring it into the api role over the controls read-only store
   lands with the switch-over (Phase 7), when the api role gets that DSN.
-- [ ] 6.4 `monitoring.Derive(snap *policy.Snapshot, opts Options)`,
+- [x] 6.4 `monitoring.Derive(snap *policy.Snapshot, opts Options)`,
   keyed on control id; mechanisms derived from the snapshot (for
   example `custom_properties` with `apply = "workflow"`).
+  Done: `Model{Orgs, Controls, Mechanisms, Source}` keyed on control id
+  (`Control{ID, Type, Apply, Remediates, Orgs}`); `Derive` takes enterprise
+  orgs ∪ org files ∪ `--org`, assigned orgs from baseline/added/replaced
+  minus org-level excludes, and turns a mechanism on only for an assigned
+  control (`custom_properties` + `apply = "workflow"` → the GHA mechanism).
+  `monitoring generate --config` now takes a policy root (`policy.Load`
+  with the built-in registry); no config = `Derive(nil, …)`, the static
+  tier. Tests: `internal/monitoring/derive_test.go` (depguard lets
+  monitoring tests import `controls/builtin`). Regeneration lands in 6.8.
 - [ ] 6.5 Dashboards (IMPL-0025 17.1, adapted): E1 and E2 rebuilt over
   `controls_status` and `controls_coverage` with `max by` inside and
   `sum` outside, and the "no data when nothing is assigned" guard; E3

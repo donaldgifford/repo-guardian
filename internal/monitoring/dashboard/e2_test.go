@@ -9,29 +9,28 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/monitoring/dashboard"
 )
 
-// legacyModel is a policy with no top-level scope block, so no org is
-// declarable and the rows have to be discovered.
+// legacyModel is the unconfigured static tier: no org is declarable and
+// the rows have to be discovered.
 func legacyModel() *monitoring.Model {
 	return &monitoring.Model{
-		Rules: []monitoring.Rule{{Name: "codeowners", Kind: monitoring.RuleKindFile}},
+		Controls: []monitoring.Control{{ID: "codeowners@1", Type: "codeowners"}},
 	}
 }
 
-// strictModel is a policy with a top-level scope, including one glob
-// pattern that cannot become a declared row.
+// strictModel is a policy naming its orgs, including one glob pattern
+// that cannot become a declared row.
 func strictModel() *monitoring.Model {
 	return &monitoring.Model{
-		Strict: true,
 		Orgs: []monitoring.Org{
 			{Name: "acme"},
 			{Name: "acme-labs-*", Pattern: true},
 			{Name: "widgets"},
 		},
-		Rules: []monitoring.Rule{
-			{Name: "codeowners", Kind: monitoring.RuleKindFile, Orgs: []string{"acme"}},
-			{Name: "dependabot", Kind: monitoring.RuleKindFile, Orgs: []string{"acme", "widgets"}},
+		Controls: []monitoring.Control{
+			{ID: "codeowners@1", Type: "codeowners", Orgs: []string{"acme"}},
+			{ID: "dependabot@1", Type: "dependency_updates", Orgs: []string{"acme", "widgets"}},
 		},
-		Mechanisms: monitoring.Mechanisms{monitoring.MechanismStrictScope: struct{}{}},
+		Mechanisms: monitoring.Mechanisms{monitoring.MechanismFileRules: struct{}{}},
 	}
 }
 

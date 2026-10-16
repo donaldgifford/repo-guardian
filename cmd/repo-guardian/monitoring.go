@@ -10,10 +10,11 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/donaldgifford/repo-guardian/internal/controls/builtin"
 	"github.com/donaldgifford/repo-guardian/internal/monitoring"
 	"github.com/donaldgifford/repo-guardian/internal/monitoring/dashboard"
 	"github.com/donaldgifford/repo-guardian/internal/monitoring/emit"
-	policy "github.com/donaldgifford/repo-guardian/internal/rulepolicy"
+	"github.com/donaldgifford/repo-guardian/internal/policy"
 )
 
 // Output formats, aliased from the emit package so the flag help and
@@ -144,11 +145,11 @@ func parseGenerateFlags(args []string) (*generateFlags, error) {
 	}
 
 	fs.StringVar(&f.config, "config", os.Getenv("GUARDIAN_CONFIG"),
-		"path to guardian.hcl (defaults to $GUARDIAN_CONFIG; built-in defaults when empty)")
+		"controls policy root (defaults to $GUARDIAN_CONFIG; the unconfigured static tier when empty)")
 	fs.StringVar(&f.out, "out", "./monitoring", "directory to write artifacts into")
 	fs.StringVar(&f.format, "format", formatJSON, "output format: json|k8s")
 	fs.Var(&f.orgs, "org",
-		"org to generate a row for, repeatable; the escape hatch for configs with no top-level scope block")
+		"org to generate a row for, repeatable; for the static tier, which names no orgs")
 
 	fs.StringVar(&f.prometheusUID, "prometheus-uid", dashboard.DefaultPrometheusUID,
 		"uid of the Prometheus datasource the panels query")
@@ -211,7 +212,7 @@ func runMonitoringGenerate(args []string) error {
 
 	logger := initLoggerTo(os.Stderr, os.Getenv("LOG_LEVEL"))
 
-	model, err := deriveModel(f)
+	model, err := deriveModel(f, logger)
 	if err != nil {
 		return err
 	}
@@ -248,11 +249,10 @@ func runMonitoringGenerate(args []string) error {
 
 	logger.Info("monitoring artifacts generated",
 		"config", describeConfig(f.config),
-		"strict_scope", model.Strict,
+		"policy_version", model.Source.PolicyVersion,
 		"orgs", len(model.Orgs),
-		"rules", len(model.Rules),
+		"controls", len(model.Controls),
 		"mechanisms", model.Mechanisms.Sorted(),
-		"env_influence", model.Source.EnvInfluence,
 		"format", f.format,
 		"out", f.out,
 		"files", len(paths),
@@ -269,43 +269,30 @@ func runMonitoringGenerate(args []string) error {
 	return nil
 }
 
-// deriveModel loads the policy and derives the monitoring model.
-func deriveModel(f *generateFlags) (*monitoring.Model, error) {
+// deriveModel loads the controls policy root and derives the monitoring
+// model. An empty --config is the unconfigured static tier.
+func deriveModel(f *generateFlags, logger *slog.Logger) (*monitoring.Model, error) {
+	opts := monitoring.Options{ConfigPath: f.config, ExtraOrgs: f.orgs}
+
+	if f.config == "" {
+		return monitoring.Derive(nil, opts), nil
+	}
+
 	if err := requireConfigExists(f.config); err != nil {
 		return nil, err
 	}
 
-	cfg, err := policy.Load(f.config)
+	snap, err := policy.Load(f.config, builtin.Registry(), logger)
 	if err != nil {
 		return nil, fmt.Errorf("monitoring generate: %w", err)
 	}
 
-	model, err := monitoring.Derive(cfg, monitoring.Options{
-		ConfigPath: f.config,
-		ExtraOrgs:  f.orgs,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return model, nil
+	return monitoring.Derive(snap, opts), nil
 }
 
-// requireConfigExists refuses an explicitly-given path that is not
-// there.
-//
-// policy.Load treats a missing file as "use built-in defaults" and
-// returns nil error, which is right for the server (an operator who
-// mounts no config wants the defaults) and wrong here in two ways. A
-// typo would emit the default artifacts with exit 0, so `monitoring
-// generate --config guardain.hcl` silently produces a dashboard for a
-// policy nobody runs. And it defeats the generator-as-validation
-// property task 5.6 documents: the validation only happens on the file
-// path, so the one invocation that skips the file also skips Validate,
-// validateStrictScope and compilePolicyTemplates.
-//
-// An EMPTY path stays legal and still means built-in defaults — that is
-// how the static tier is generated.
+// requireConfigExists refuses an explicitly-given policy root that is
+// not there, so a typo fails instead of reading as a different policy.
+// An EMPTY path stays legal: it is the unconfigured static tier.
 func requireConfigExists(path string) error {
 	if path == "" {
 		return nil
@@ -313,7 +300,7 @@ func requireConfigExists(path string) error {
 
 	// The path is a command-line flag from the operator running the
 	// binary, who can already read anything this process can, and
-	// policy.Load opens the very same path a few lines later. There is
+	// policy.Load reads the very same root a few lines later. There is
 	// no boundary here to traverse.
 	//
 	//nolint:gosec // G703: operator-supplied CLI path, not untrusted input
@@ -327,7 +314,7 @@ func requireConfigExists(path string) error {
 // describeConfig names the config source for the log line.
 func describeConfig(path string) string {
 	if path == "" {
-		return "(built-in defaults)"
+		return "(unconfigured static tier)"
 	}
 
 	return path
@@ -343,9 +330,9 @@ func describeConfig(path string) string {
 func warnUndeclarableOrgs(m *monitoring.Model, logger *slog.Logger) {
 	if len(m.Orgs) == 0 {
 		logger.Warn("no orgs declared; per-org rows will be discovered from series rather than configured",
-			"reason", "the policy has no top-level scope block and no --org was given",
+			"reason", "no policy root names an org and no --org was given",
 			"consequence", "an org that stops reporting disappears instead of rendering an empty row",
-			"fix", "add a scope { orgs = [...] } block, or pass --org")
+			"fix", "pass --config with the policy root, or --org")
 
 		return
 	}

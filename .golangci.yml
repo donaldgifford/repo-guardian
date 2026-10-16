@@ -170,6 +170,9 @@ linters:
             - "!**/internal/activities/*.go"
             - "!**/cmd/repo-guardian/*.go"
             - "!**/examples/*_test.go"
+            # monitoring derives mechanisms from built-in type names; its
+            # tests load real policies to pin those names.
+            - "!**/internal/monitoring/*_test.go"
           deny:
             - pkg: github.com/donaldgifford/repo-guardian/internal/controls
               desc: control types are registered by the binary and run by activities only
